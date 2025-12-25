@@ -700,10 +700,9 @@ const App: React.FC = () => {
       await db.init();
       
       supabase.auth.onAuthStateChange(async (event, session) => {
-      // 1. 优先处理重置密码状态
+      // 1. 如果是重置密码事件，必须先锁定模式，防止跳转
       if (event === 'PASSWORD_RECOVERY') {
         setAuthMode('updatePassword');
-        // 注意：这里不要 return，让它继续往下执行 setUser 的逻辑
       }
 
       if (session?.user) {
@@ -715,7 +714,11 @@ const App: React.FC = () => {
         };
         setUser(u);
         localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-        await performFullSync(u.id);
+        
+        // 2. 只有在非重置密码模式下，才去执行耗时的同步
+        if (event !== 'PASSWORD_RECOVERY') {
+           await performFullSync(u.id);
+        }
       }
     });
 
@@ -2138,7 +2141,7 @@ const App: React.FC = () => {
           )}
         </div>
       )}
-      {user && (
+      {(user && authMode !== 'updatePassword') && (
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-slate-950/90 backdrop-blur-3xl border border-white/10 p-2 flex justify-between items-center rounded-[2.5rem] z-50 shadow-2xl">
           
           {/* 1. 开始训练 (移到最左侧，保留蓝色圆圈风格，但缩小并对齐) */}
