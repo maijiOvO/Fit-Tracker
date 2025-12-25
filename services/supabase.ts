@@ -75,7 +75,36 @@ export const syncGoalsToCloud = async (goals: any[]) => {
 
   if (error) throw error;
 };
+// 在 supabase.ts 中添加：
 
+export const syncWeightToCloud = async (weights: any[]) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+
+  const dataToSync = weights.map(w => ({
+    id: w.id,
+    user_id: session.user.id,
+    weight: w.weight,
+    date: w.date,
+    unit: w.unit
+  }));
+
+  const { error } = await supabase
+    .from('weight_logs')
+    .upsert(dataToSync, { onConflict: 'id' });
+
+  if (error) throw error;
+};
+
+export const fetchWeightFromCloud = async () => {
+  const { data, error } = await supabase
+    .from('weight_logs')
+    .select('*')
+    .order('date', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
 /**
  * 从云端获取当前用户的所有目标
  */
