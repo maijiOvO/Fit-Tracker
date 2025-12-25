@@ -700,24 +700,24 @@ const App: React.FC = () => {
       await db.init();
       
       supabase.auth.onAuthStateChange(async (event, session) => {
-            // ✅ 关键：当用户通过邮件里的重置链接跳回来时，event 会变成 'PASSWORD_RECOVERY'
-            if (event === 'PASSWORD_RECOVERY') {
-              setAuthMode('updatePassword'); // 强制切换到“设置新密码”界面
-            }
+      // 1. 优先处理重置密码状态
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('updatePassword');
+        // 注意：这里不要 return，让它继续往下执行 setUser 的逻辑
+      }
 
-            if (session?.user) {
-              // 现有的登录处理逻辑...
-              const u = { 
-                id: session.user.id, 
-                username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
-                email: session.user.email!,
-                avatarUrl: session.user.user_metadata?.avatar_url 
-              };
-              setUser(u);
-              localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-              await performFullSync(u.id);
-            }
-          });
+      if (session?.user) {
+        const u = { 
+          id: session.user.id, 
+          username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
+          email: session.user.email!,
+          avatarUrl: session.user.user_metadata?.avatar_url 
+        };
+        setUser(u);
+        localStorage.setItem('fitlog_current_user', JSON.stringify(u));
+        await performFullSync(u.id);
+      }
+    });
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -869,17 +869,19 @@ const App: React.FC = () => {
       setIsLoading(true);
       setAuthError(null);
       try {
-        // ✅ 调用 supabase 更新当前用户的密码
         const { error } = await supabase.auth.updateUser({ 
-          password: password // 这里的 password 对应你输入框绑定的 state
+          password: password 
         });
         if (error) throw error;
         
-        alert(lang === Language.CN ? '密码修改成功，请使用新密码登录' : 'Password updated successfully, please login');
+        alert(lang === Language.CN ? '密码修改成功！' : 'Password updated successfully!');
         
-        // ✅ 修改成功后，清除密码并退回到登录界面
-        setPassword('');
+        // ✅ 关键：改回 'login' 模式。 
+        // 此时因为 user 已经是登录状态了，UI 会检测到 authMode 不再是 updatePassword，
+        // 从而自动带你进入主界面。
         setAuthMode('login');
+        setPassword('');
+
       } catch (err: any) {
         setAuthError(err.message);
       } finally {
@@ -1377,7 +1379,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {!user ? (
+      {(!user || authMode === 'updatePassword') ? (
         <div className="min-h-screen flex items-center justify-center p-6 bg-[#0f172a]">
           <div className="w-full max-w-md bg-slate-800/30 backdrop-blur-2xl rounded-[3rem] p-10 border border-slate-700/50 shadow-2xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
