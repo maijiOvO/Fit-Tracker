@@ -823,7 +823,7 @@ const App: React.FC = () => {
     e.preventDefault(); setIsLoading(true); setAuthError(null);
     try {
       const res = authMode === 'register' 
-        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: 'http://localhost', data: { display_name: username } } }) 
+        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: 'https://myronhub.com', data: { display_name: username } } }) 
         : await supabase.auth.signInWithPassword({ email, password });
       
       if (res.error) throw res.error;
@@ -842,7 +842,7 @@ const App: React.FC = () => {
     setAuthError(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'http://localhost', 
+        redirectTo: 'https://myronhub.com', 
       });
       if (error) throw error;
       
