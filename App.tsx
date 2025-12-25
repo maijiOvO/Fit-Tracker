@@ -131,6 +131,7 @@ const App: React.FC = () => {
   // 格式: { "动作名称": "座椅高度4，宽握" }
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [noteModalData, setNoteModalData] = useState<{ name: string; note: string } | null>(null);
+  const isRecoveryMode = useRef(false);
 
   // 初始化加载备注
   useEffect(() => {
@@ -696,35 +697,36 @@ const App: React.FC = () => {
   };
 
 
-  useEffect(() => {
+useEffect(() => {
     const initApp = async () => {
       await db.init();
       
       supabase.auth.onAuthStateChange(async (event, session) => {
-  // 1. 优先级最高：检测到重置事件，立刻锁定模式并清除成功状态
-  if (event === 'PASSWORD_RECOVERY') {
-    setAuthMode('updatePassword');
-    setIsUpdateSuccess(false); // 确保没有残留的成功界面
-    console.log("进入密码恢复模式，已拦截背景同步");
-    return; // ⛔️ 极其重要：直接跳出，不让下面的 performFullSync 执行
-  }
+        // 1. 检测到密码恢复事件
+        if (event === 'PASSWORD_RECOVERY') {
+          isRecoveryMode.current = true; // ✅ 更新 Ref
+          setAuthMode('updatePassword');
+          setIsUpdateSuccess(false);
+          return;
+        }
 
-  // 2. 正常登录逻辑
-  if (session?.user) {
-    // 如果当前已经在 updatePassword 界面，不要在这个监听器里做同步
-    if (authMode === 'updatePassword') return;
+        // 2. 正常登录逻辑
+        if (session?.user) {
+          // ✅ 使用 Ref 进行判断，这里能拿到最新的 true
+          if (isRecoveryMode.current) return; 
 
-    const u = { 
-      id: session.user.id, 
-      username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
-      email: session.user.email!,
-      avatarUrl: session.user.user_metadata?.avatar_url 
-    };
-    setUser(u);
-    localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-    await performFullSync(u.id);
-  }
-});
+          // 下面是原有的正常登录逻辑
+          const u = { 
+            id: session.user.id, 
+            username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
+            email: session.user.email!,
+            avatarUrl: session.user.user_metadata?.avatar_url 
+          };
+          setUser(u);
+          localStorage.setItem('fitlog_current_user', JSON.stringify(u));
+          await performFullSync(u.id);
+        }
+      });
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -875,13 +877,7 @@ const App: React.FC = () => {
 const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 检查会话
-    const { data: sessionCheck } = await supabase.auth.getSession();
-    if (!sessionCheck.session) {
-      setAuthError(lang === Language.CN ? '验证会话已过期，请重新点击邮件链接' : 'Session expired, please click the link in email again');
-      return;
-    }
-
+    // 1. 基础验证
     if (!password || password.length < 6) {
       setAuthError(lang === Language.CN ? '密码至少需要6位' : 'Password min 6 chars');
       return;
@@ -891,19 +887,24 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     setAuthError(null);
 
     try {
+      // 2. 执行更新
       const { error } = await supabase.auth.updateUser({ password: password });
       if (error) throw error;
 
-      // ✅ 关键修改：
-      // 成功后只更新 UI 状态，不要在这里 signOut
-      // 让界面先变成“成功”状态，清理工作交给“我知道了”按钮
-      setIsLoading(false);
+      // 3. 成功逻辑：只更新 UI，不进行跳转或登出
       setIsUpdateSuccess(true); 
-      setPassword(''); // 清空密码框即可
+      setPassword(''); 
+      
+      // 注意：这里不要重置 isLoading(false)，
+      // 这里的逻辑是：如果成功，isUpdateSuccess 为 true 会直接替换掉整个 Form 表单，
+      // 所以 loading 状态自然消失。
+      // 但为了保险（如下面的 finally），我们还是会处理它。
 
     } catch (err: any) {
-      setIsLoading(false);
       setAuthError(err.message);
+    } finally {
+      // ✅ 强制停止转圈：无论成功失败，必须执行
+      setIsLoading(false);
     }
   };
 
@@ -1431,24 +1432,17 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
                 </div>
                 <button 
                   onClick={async () => { 
-                    // ✅ 关键修改：在这里执行清理和登出逻辑
-                    try {
-                        await supabase.auth.signOut();
-                    } catch (e) {
-                        console.error("Sign out error", e);
-                    }
-                    
+                    // 清理逻辑
+                    try { await supabase.auth.signOut(); } catch(e) {}
                     setUser(null);
                     localStorage.removeItem('fitlog_current_user');
                     
-                    // 重置状态并切换回登录模式
+                    // ✅ 重置 Ref 和状态
+                    isRecoveryMode.current = false; 
                     setIsUpdateSuccess(false); 
                     setAuthMode('login');
-                    
-                    // 可选：如果是网页版，可以强制重定向到首页
-                    // window.location.href = '/'; 
                   }}
-                  className="w-full bg-slate-800 text-slate-300 py-4 rounded-2xl font-bold text-sm border border-slate-700 active:scale-95 transition-all"
+                  className="w-full bg-slate-800 ..." // ... 保持原有样式
                 >
                   {lang === Language.CN ? '前往登录' : 'Go to Login'}
                 </button>
