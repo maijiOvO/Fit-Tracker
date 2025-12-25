@@ -16,7 +16,13 @@ import { Haptics } from '@capacitor/haptics';
 import { Language, User, WorkoutSession, Exercise, ExerciseDefinition, Goal, GoalType, BodyweightMode, WeightEntry } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
-import { supabase, syncWorkoutsToCloud, fetchWorkoutsFromCloud, syncGoalsToCloud, fetchGoalsFromCloud } from './services/supabase';
+import { 
+  supabase, syncWorkoutsToCloud, fetchWorkoutsFromCloud, 
+  syncGoalsToCloud, fetchGoalsFromCloud, 
+  syncWeightToCloud, fetchWeightFromCloud, 
+  syncMeasurementsToCloud, fetchMeasurementsFromCloud,
+  syncUserConfigsToCloud, fetchUserConfigsFromCloud // ✅ 新增这两个
+} from './services/supabase';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Area, Bar } from 'recharts';
 // 简单的 "叮" 声 Base64
 const BEEP_SOUND = 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'; // (简略版，实际代码中我会给一个短促有效的提示音)
@@ -753,24 +759,59 @@ const App: React.FC = () => {
     if (currentUserId === 'u_guest') return;
     setSyncStatus('syncing');
     try {
-      const remoteWorkouts = await fetchWorkoutsFromCloud();
-      if (remoteWorkouts) {
-        for (const rw of remoteWorkouts) {
-          await db.save('workouts', { id: rw.id, userId: rw.user_id, date: rw.date, title: rw.title, exercises: rw.exercises, notes: rw.notes });
-        }
-      }
-      const localWorkouts = await db.getAll<WorkoutSession>('workouts');
-      await syncWorkoutsToCloud(localWorkouts.filter(w => w.userId === currentUserId));
+      // --- 1. 同步四大核心数据表 ---
+      // 同步训练记录 (Workouts)
+      const rw = await fetchWorkoutsFromCloud();
+      if (rw) for (const r of rw) await db.save('workouts', { id: r.id, userId: r.user_id, date: r.date, title: r.title, exercises: r.exercises, notes: r.notes });
+      const lw = await db.getAll<WorkoutSession>('workouts');
+      await syncWorkoutsToCloud(lw.filter(w => w.userId === currentUserId));
 
-      const remoteGoals = await fetchGoalsFromCloud();
-      if (remoteGoals) {
-        for (const rg of remoteGoals) {
-          await db.save('goals', { id: rg.id, userId: rg.user_id, type: rg.type, label: rg.label, target_value: rg.target_value, current_value: rg.current_value, unit: rg.unit });
-        }
+      // 同步体重记录 (Weight)
+      const rWeight = await fetchWeightFromCloud();
+      if (rWeight) for (const r of rWeight) await db.save('weightLogs', { id: r.id, userId: r.user_id, weight: r.weight, date: r.date, unit: r.unit });
+      const lWeight = await db.getAll<WeightEntry>('weightLogs');
+      await syncWeightToCloud(lWeight.filter(w => w.userId === currentUserId));
+
+      // 同步身体指标 (Measurements)
+      const rMeasures = await fetchMeasurementsFromCloud();
+      if (rMeasures) for (const r of rMeasures) await db.save('custom_metrics', { id: r.id, userId: r.user_id, name: r.name, value: r.value, unit: r.unit, date: r.date });
+      const lMeasures = await db.getAll<Measurement>('custom_metrics');
+      await syncMeasurementsToCloud(lMeasures.filter(m => m.userId === currentUserId));
+
+      // 同步目标记录 (Goals)
+      const rg = await fetchGoalsFromCloud();
+      if (rg) for (const r of rg) await db.save('goals', { id: r.id, userId: r.user_id, type: r.type, label: r.label, targetValue: r.target_value, currentValue: r.current_value, unit: r.unit });
+      const lg = await db.getAll<Goal>('goals');
+      await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
+
+      // --- ✅ 2. 新增：同步用户个性化配置 (备注、偏好、星标等) ---
+      const remoteConfig = await fetchUserConfigsFromCloud();
+      if (remoteConfig) {
+        // 更新内存状态
+        if (remoteConfig.exerciseNotes) setExerciseNotes(remoteConfig.exerciseNotes);
+        if (remoteConfig.restPrefs) setRestPreferences(remoteConfig.restPrefs);
+        if (remoteConfig.customTags) setCustomTags(remoteConfig.customTags);
+        if (remoteConfig.starred) setStarredExercises(remoteConfig.starred);
+        if (remoteConfig.customExercises) setCustomExercises(remoteConfig.customExercises);
+
+        // 写入 localStorage 同步
+        if (remoteConfig.exerciseNotes) localStorage.setItem('fitlog_exercise_notes', JSON.stringify(remoteConfig.exerciseNotes));
+        if (remoteConfig.restPrefs) localStorage.setItem('fitlog_rest_prefs', JSON.stringify(remoteConfig.restPrefs));
+        if (remoteConfig.customTags) localStorage.setItem('fitlog_custom_tags', JSON.stringify(remoteConfig.customTags));
+        if (remoteConfig.starred) localStorage.setItem('fitlog_starred_exercises', JSON.stringify(remoteConfig.starred));
+        if (remoteConfig.customExercises) localStorage.setItem('fitlog_custom_exercises', JSON.stringify(remoteConfig.customExercises));
       }
-      const localGoals = await db.getAll<Goal>('goals');
-      await syncGoalsToCloud(localGoals.filter(g => g.userId === currentUserId));
       
+      // 反向同步：把本地当前的配置推到云端备份
+      await syncUserConfigsToCloud({
+        exerciseNotes,
+        restPrefs: restPreferences,
+        customTags,
+        starred: starredExercises,
+        customExercises
+      });
+
+      // --- 3. 重新加载本地 UI ---
       await loadLocalData(currentUserId);
       setSyncStatus('idle');
     } catch (e: any) {
@@ -778,7 +819,6 @@ const App: React.FC = () => {
       setSyncStatus('error');
     }
   };
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault(); setIsLoading(true); setAuthError(null);
     try {
