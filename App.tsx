@@ -113,6 +113,7 @@ const App: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isUpdateSuccess, setIsUpdateSuccess] = useState(false); // ✅ 新增：控制显示成功画面
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
   
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
@@ -878,32 +879,21 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     setAuthError(null);
 
     try {
-      // 1. 提交新密码到 Supabase
       const { error } = await supabase.auth.updateUser({ password: password });
       if (error) throw error;
 
-      // 2. 弹出成功提示 (兼容 Web/Android/iOS)
-      alert(lang === Language.CN 
-        ? '密码修改成功！请使用新密码重新登录。' 
-        : 'Password updated! Please login with your new password.');
+      // --- 关键修改顺序 ---
+      setIsLoading(false);      // 1. 先停止转圈
+      setIsUpdateSuccess(true); // 2. 显示成功界面（看下一步的 UI 修改）
 
-      // 3. 【关键】彻底清理当前会话
-      // 重置密码时 Supabase 会产生一个临时 Session，必须注销它
+      // 3. 彻底注销，防止旧会话干扰
       await supabase.auth.signOut();
-      
-      // 4. 重置所有前端状态，强制回到“登录模式”
       setUser(null);
       localStorage.removeItem('fitlog_current_user');
-      setEmail('');
-      setPassword('');
-      setAuthMode('login'); // 这一步会将 UI 切换回登录界面
 
     } catch (err: any) {
-      console.error("Update error:", err);
+      setIsLoading(false); // 出错也要停止转圈
       setAuthError(err.message);
-    } finally {
-      // 5. 【防止转圈】无论成功失败，必须停止 Loading
-      setIsLoading(false);
     }
   };
 
@@ -1413,57 +1403,90 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
               </p>
             </div>
 
-            {authError && <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-black flex items-center gap-3 animate-in slide-in-from-top-2"><div className="p-1 bg-red-500 text-white rounded-full"><X size={12} strokeWidth={4} /></div>{authError}</div>}
-
-            <form onSubmit={
-              authMode === 'forgotPassword' ? handleResetPassword : 
-              authMode === 'updatePassword' ? handleUpdatePassword : 
-              handleAuth
-            } className="space-y-4">
-              
-              {authMode === 'register' && (
-                <div className="relative group animate-in fade-in slide-in-from-bottom-2">
-                  <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-                  <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder={translations.username[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
+            {/* --- 1404 行标题 div 闭合后的开始位置 --- */}
+            
+            {isUpdateSuccess ? (
+              /* ✅ 情况 A：修改成功 - 显示大对勾界面 */
+              <div className="flex flex-col items-center text-center py-4 space-y-6 animate-in fade-in zoom-in-95">
+                <div className="bg-green-500/20 p-6 rounded-full border-4 border-green-500/30 animate-bounce">
+                  <Check className="text-green-500 w-12 h-12" strokeWidth={4} />
                 </div>
-              )}
-              
-              {authMode !== 'updatePassword' && (
-                <div className="relative group animate-in fade-in slide-in-from-bottom-2">
-                  <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={translations.email[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
+                <div className="space-y-2">
+                  <h2 className="text-xl font-black text-white">
+                    {lang === Language.CN ? '密码修改成功！' : 'Success!'}
+                  </h2>
+                  <p className="text-sm text-slate-400 font-medium leading-relaxed px-2">
+                    {lang === Language.CN 
+                      ? '您的密码已更新。请关闭此页面，返回您的健身助手 App 或浏览器重新登录。' 
+                      : 'Password updated. Please close this page and go back to your App to login.'}
+                  </p>
                 </div>
-              )}
-
-              {authMode !== 'forgotPassword' && (
-                <div className="relative group animate-in fade-in slide-in-from-bottom-2">
-                  <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-                  <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder={authMode === 'updatePassword' ? (lang === Language.CN ? '输入新密码' : 'New Password') : translations.password[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-16 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-                </div>
-              )}
-
-              {authMode === 'login' && (
-                <div className="flex justify-end">
-                  <button 
-                    type="button" 
-                    onClick={() => setAuthMode('forgotPassword')} 
-                    className="text-xs text-slate-500 hover:text-blue-400 font-bold transition-colors"
-                  >
-                    {lang === Language.CN ? '忘记密码？' : 'Forgot Password?'}
-                  </button>
-                </div>
-              )}
-
-              <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
-                {isLoading ? <RefreshCw className="animate-spin" /> : (
-                  authMode === 'register' ? translations.createAccount[lang] : 
-                  authMode === 'login' ? translations.login[lang] :
-                  authMode === 'forgotPassword' ? (lang === Language.CN ? '发送重置链接' : 'Send Reset Link') :
-                  (lang === Language.CN ? '更新密码' : 'Update Password')
+                <button 
+                  onClick={() => { setIsUpdateSuccess(false); setAuthMode('login'); }}
+                  className="w-full bg-slate-800 text-slate-300 py-4 rounded-2xl font-bold text-sm border border-slate-700 active:scale-95 transition-all"
+                >
+                  {lang === Language.CN ? '我知道了' : 'Done'}
+                </button>
+              </div>
+            ) : (
+              /* ❌ 情况 B：正常表单 - 显示输入框和错误提示 */
+              <>
+                {authError && (
+                  <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-black flex items-center gap-3 animate-in slide-in-from-top-2">
+                    <div className="p-1 bg-red-500 text-white rounded-full"><X size={12} strokeWidth={4} /></div>
+                    {authError}
+                  </div>
                 )}
-              </button>
-            </form>
+
+                <form onSubmit={
+                  authMode === 'forgotPassword' ? handleResetPassword : 
+                  authMode === 'updatePassword' ? handleUpdatePassword : 
+                  handleAuth
+                } className="space-y-4">
+                  
+                  {authMode === 'register' && (
+                    <div className="relative group animate-in fade-in slide-in-from-bottom-2">
+                      <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                      <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder={translations.username[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
+                    </div>
+                  )}
+                  
+                  {authMode !== 'updatePassword' && (
+                    <div className="relative group animate-in fade-in slide-in-from-bottom-2">
+                      <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={translations.email[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
+                    </div>
+                  )}
+
+                  {authMode !== 'forgotPassword' && (
+                    <div className="relative group animate-in fade-in slide-in-from-bottom-2">
+                      <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                      <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder={authMode === 'updatePassword' ? (lang === Language.CN ? '输入新密码' : 'New Password') : translations.password[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-16 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
+                    </div>
+                  )}
+
+                  {authMode === 'login' && (
+                    <div className="flex justify-end">
+                      <button type="button" onClick={() => setAuthMode('forgotPassword')} className="text-xs text-slate-500 hover:text-blue-400 font-bold transition-colors">
+                        {lang === Language.CN ? '忘记密码？' : 'Forgot Password?'}
+                      </button>
+                    </div>
+                  )}
+
+                  <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
+                    {isLoading ? <RefreshCw className="animate-spin" /> : (
+                      authMode === 'register' ? translations.createAccount[lang] : 
+                      authMode === 'login' ? translations.login[lang] :
+                      authMode === 'forgotPassword' ? (lang === Language.CN ? '发送重置链接' : 'Send Reset Link') :
+                      (lang === Language.CN ? '更新密码' : 'Update Password')
+                    )}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {/* --- 替换结束，紧接着应该是 1456 行左右的底部切换链接 div --- */}
 
             <div className="flex flex-col gap-4 mt-8">
               {authMode === 'login' && (
