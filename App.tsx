@@ -871,10 +871,11 @@ const App: React.FC = () => {
     }
   };
 
+
 const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ 新增：在提交前手动检查一次会话
+    // 检查会话
     const { data: sessionCheck } = await supabase.auth.getSession();
     if (!sessionCheck.session) {
       setAuthError(lang === Language.CN ? '验证会话已过期，请重新点击邮件链接' : 'Session expired, please click the link in email again');
@@ -893,15 +894,12 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       const { error } = await supabase.auth.updateUser({ password: password });
       if (error) throw error;
 
-      // 成功顺序：先停转圈，再显成功
+      // ✅ 关键修改：
+      // 成功后只更新 UI 状态，不要在这里 signOut
+      // 让界面先变成“成功”状态，清理工作交给“我知道了”按钮
       setIsLoading(false);
       setIsUpdateSuccess(true); 
-
-      // 彻底注销，确保干净的环境
-      await supabase.auth.signOut();
-      setUser(null);
-      localStorage.removeItem('fitlog_current_user');
-      setPassword('');
+      setPassword(''); // 清空密码框即可
 
     } catch (err: any) {
       setIsLoading(false);
@@ -1415,8 +1413,6 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
               </p>
             </div>
 
-            {/* --- 1404 行标题 div 闭合后的开始位置 --- */}
-            
             {isUpdateSuccess ? (
               /* ✅ 情况 A：修改成功 - 显示大对勾界面 */
               <div className="flex flex-col items-center text-center py-4 space-y-6 animate-in fade-in zoom-in-95">
@@ -1434,10 +1430,27 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
                   </p>
                 </div>
                 <button 
-                  onClick={() => { setIsUpdateSuccess(false); setAuthMode('login');window.location.href = 'https://myronhub.com'; }}
+                  onClick={async () => { 
+                    // ✅ 关键修改：在这里执行清理和登出逻辑
+                    try {
+                        await supabase.auth.signOut();
+                    } catch (e) {
+                        console.error("Sign out error", e);
+                    }
+                    
+                    setUser(null);
+                    localStorage.removeItem('fitlog_current_user');
+                    
+                    // 重置状态并切换回登录模式
+                    setIsUpdateSuccess(false); 
+                    setAuthMode('login');
+                    
+                    // 可选：如果是网页版，可以强制重定向到首页
+                    // window.location.href = '/'; 
+                  }}
                   className="w-full bg-slate-800 text-slate-300 py-4 rounded-2xl font-bold text-sm border border-slate-700 active:scale-95 transition-all"
                 >
-                  {lang === Language.CN ? '我知道了' : 'Done'}
+                  {lang === Language.CN ? '前往登录' : 'Go to Login'}
                 </button>
               </div>
             ) : (
