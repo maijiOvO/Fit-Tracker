@@ -1,0 +1,45 @@
+/* heatmap.css */
+
+/* 基础文字颜色 */
+.react-calendar-heatmap text {
+  font-size: 10px;
+  fill: #64748b; /* text-slate-500 */
+}
+
+/* 隐藏月份标签 (手机屏幕窄，显示不下) */
+.react-calendar-heatmap .react-calendar-heatmap-month-labels {
+  display: none; 
+}
+
+/* 小方格圆角 */
+.react-calendar-heatmap rect {
+  rx: 2px; 
+}
+
+/* --- 颜色等级定义 (适配你的深蓝主题) --- */
+
+/* 等级 0: 没练 (深色背景) */
+.react-calendar-heatmap .color-empty {
+  fill: #1e293b; /* bg-slate-800 */
+  opacity: 0.4;
+}
+
+/* 等级 1: 练得少 (深蓝) */
+.react-calendar-heatmap .color-scale-1 {
+  fill: #1e3a8a; /* blue-900 */
+}
+
+/* 等级 2: 练得一般 (中蓝) */
+.react-calendar-heatmap .color-scale-2 {
+  fill: #1d4ed8; /* blue-700 */
+}
+
+/* 等级 3: 练得不错 (亮蓝) */
+.react-calendar-heatmap .color-scale-3 {
+  fill: #2563eb; /* blue-600 */
+}
+
+/* 等级 4: 练得超猛 (高亮蓝) */
+.react-calendar-heatmap .color-scale-4 {
+  fill: #60a5fa; /* blue-400 */
+}

@@ -1,0 +1,12 @@
+{
+  "name": "FitLog AI",
+  "short_name": "FitLog",
+  "description": "Professional Fitness Tracker with Gemini AI Analysis",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone",
+  "orientation": "portrait"
+}
