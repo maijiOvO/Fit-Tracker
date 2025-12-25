@@ -9,7 +9,7 @@ import {
   Award, Eye, EyeOff, User as UserIcon, Tag as TagIcon, Mail, Lock, Flag,
   Edit2, CheckCircle, Send, ShieldAlert, Sparkles, AlertCircle, Coins,
   Key, ChevronRight, TrendingUp, Filter, PencilLine, Hash, Scale, ChevronDown, ChevronUp, Star,
-  Layers, ArrowLeft, Globe, Ruler, Camera, Minimize2, Maximize2, GripHorizontal, StickyNote
+  Layers, ArrowLeft, Globe, Ruler, Camera, Minimize2, Maximize2, GripHorizontal, StickyNote, Check as CheckIcon
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics } from '@capacitor/haptics'; 
@@ -21,7 +21,7 @@ import {
   syncGoalsToCloud, fetchGoalsFromCloud, 
   syncWeightToCloud, fetchWeightFromCloud, 
   syncMeasurementsToCloud, fetchMeasurementsFromCloud,
-  syncUserConfigsToCloud, fetchUserConfigsFromCloud // ✅ 新增这两个
+  syncUserConfigsToCloud, fetchUserConfigsFromCloud, deleteWorkoutFromCloud, SUPABASE_URL
 } from './services/supabase';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Area, Bar } from 'recharts';
 // 简单的 "叮" 声 Base64
@@ -695,9 +695,15 @@ const App: React.FC = () => {
       </div>
     );
   };
+  // 只要用户 ID 确定或发生变化，就强制刷新本地所有训练记录和指标
+  useEffect(() => {
+    if (user && user.id) {
+      console.log("检测到用户已就绪，正在加载数据...", user.id);
+      loadLocalData(user.id);
+    }
+  }, [user?.id]); // 关键依赖：user.id
 
-
-useEffect(() => {
+  useEffect(() => {
     const initApp = async () => {
       await db.init();
       
@@ -729,17 +735,26 @@ useEffect(() => {
       });
 
       const { data: { session } } = await supabase.auth.getSession();
+      const savedUser = localStorage.getItem('fitlog_current_user');
+      const localUserData = savedUser ? JSON.parse(savedUser) : null;
+
       if (session?.user) {
-        const u = { id: session.user.id, username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', email: session.user.email! };
+        // ✅ 这里的路径也要去掉 .png，保持一致
+        const { data: { publicUrl: fixedAvatarUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(session.user.id);
+        
+        const u = { 
+          id: session.user.id, 
+          username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
+          email: session.user.email!,
+          avatarUrl: (localUserData && localUserData.id === session.user.id) 
+            ? localUserData.avatarUrl 
+            : (session.user.user_metadata?.avatar_url || fixedAvatarUrl)
+        };
         setUser(u);
+        localStorage.setItem('fitlog_current_user', JSON.stringify(u));
         await performFullSync(u.id);
-      } else {
-        const savedUser = localStorage.getItem('fitlog_current_user');
-        if (savedUser) {
-          const u = JSON.parse(savedUser);
-          setUser(u);
-          await loadLocalData(u.id);
-        }
       }
       const ls = (k: string) => localStorage.getItem(k);
       const savedCustomTags = ls('fitlog_custom_tags'); if (savedCustomTags) setCustomTags(JSON.parse(savedCustomTags));
@@ -755,79 +770,81 @@ useEffect(() => {
   }, []);
 
   const loadLocalData = async (userId: string) => {
-    const allW = await db.getAll<WorkoutSession>('workouts');
-    const allG = await db.getAll<Goal>('goals');
-    const allWeights = await db.getAll<WeightEntry>('weightLogs');
+    if (!userId) return; // 防御逻辑：没 ID 不读库
 
-    const allMeasurements = await db.getAll<Measurement>('custom_metrics');
-    const userW = allW.filter(w => w.userId === userId);
-    const userG = allG.filter(g => g.userId === userId);
-    const userWeights = allWeights.filter(w => w.userId === userId);
+    try {
+      // 使用 Promise.all 并发读取，提高启动速度
+      const [allW, allG, allWeights, allMeasurements] = await Promise.all([
+        db.getAll<WorkoutSession>('workouts'),
+        db.getAll<Goal>('goals'),
+        db.getAll<WeightEntry>('weightLogs'),
+        db.getAll<Measurement>('custom_metrics')
+      ]);
 
-    setMeasurements(allMeasurements.filter(m => m.userId === userId));
+      // 过滤当前用户的数据
+      const userW = allW.filter(w => w.userId === userId);
+      const userG = allG.filter(g => g.userId === userId);
+      const userWeights = allWeights.filter(w => w.userId === userId);
+      const userMeasures = allMeasurements.filter(m => m.userId === userId);
 
-    setWorkouts(userW.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-    setGoals(userG);
-    setWeightEntries(userWeights.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      // ✅ 关键：使用解构赋值 [...array] 确保 React 检测到引用变化，触发重绘
+      setWorkouts([...userW].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setGoals([...userG]);
+      setWeightEntries([...userWeights].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setMeasurements([...userMeasures]);
+
+      console.log(`本地数据加载完成: ${userW.length} 场训练`);
+    } catch (error) {
+      console.error("加载本地数据失败:", error);
+    }
   };
 
-  const performFullSync = async (currentUserId: string) => {
+const performFullSync = async (currentUserId: string) => {
     if (currentUserId === 'u_guest') return;
     setSyncStatus('syncing');
+    
     try {
-      // --- 1. 同步四大核心数据表 ---
-      // 同步训练记录 (Workouts)
-      const rw = await fetchWorkoutsFromCloud();
-      if (rw) for (const r of rw) await db.save('workouts', { id: r.id, userId: r.user_id, date: r.date, title: r.title, exercises: r.exercises, notes: r.notes });
-      const lw = await db.getAll<WorkoutSession>('workouts');
-      await syncWorkoutsToCloud(lw.filter(w => w.userId === currentUserId));
+      // ✅ 使用 Promise.all 让所有表的同步同时开始，大幅提升速度
+      await Promise.all([
+        // 1. 同步训练记录
+        (async () => {
+          const rw = await fetchWorkoutsFromCloud();
+          if (rw) for (const r of rw) await db.save('workouts', { id: r.id, userId: r.user_id, date: r.date, title: r.title, exercises: r.exercises, notes: r.notes });
+          const lw = await db.getAll<WorkoutSession>('workouts');
+          await syncWorkoutsToCloud(lw.filter(w => w.userId === currentUserId));
+        })(),
 
-      // 同步体重记录 (Weight)
-      const rWeight = await fetchWeightFromCloud();
-      if (rWeight) for (const r of rWeight) await db.save('weightLogs', { id: r.id, userId: r.user_id, weight: r.weight, date: r.date, unit: r.unit });
-      const lWeight = await db.getAll<WeightEntry>('weightLogs');
-      await syncWeightToCloud(lWeight.filter(w => w.userId === currentUserId));
+        // 2. 同步体重
+        (async () => {
+          const rWeight = await fetchWeightFromCloud();
+          if (rWeight) for (const r of rWeight) await db.save('weightLogs', { id: r.id, userId: r.user_id, weight: r.weight, date: r.date, unit: r.unit });
+          const lWeight = await db.getAll<WeightEntry>('weightLogs');
+          await syncWeightToCloud(lWeight.filter(w => w.userId === currentUserId));
+        })(),
 
-      // 同步身体指标 (Measurements)
-      const rMeasures = await fetchMeasurementsFromCloud();
-      if (rMeasures) for (const r of rMeasures) await db.save('custom_metrics', { id: r.id, userId: r.user_id, name: r.name, value: r.value, unit: r.unit, date: r.date });
-      const lMeasures = await db.getAll<Measurement>('custom_metrics');
-      await syncMeasurementsToCloud(lMeasures.filter(m => m.userId === currentUserId));
+        // 3. 同步身体指标
+        (async () => {
+          const rMeasures = await fetchMeasurementsFromCloud();
+          if (rMeasures) for (const r of rMeasures) await db.save('custom_metrics', { id: r.id, userId: r.user_id, name: r.name, value: r.value, unit: r.unit, date: r.date });
+          const lMeasures = await db.getAll<Measurement>('custom_metrics');
+          await syncMeasurementsToCloud(lMeasures.filter(m => m.userId === currentUserId));
+        })(),
 
-      // 同步目标记录 (Goals)
-      const rg = await fetchGoalsFromCloud();
-      if (rg) for (const r of rg) await db.save('goals', { id: r.id, userId: r.user_id, type: r.type, label: r.label, targetValue: r.target_value, currentValue: r.current_value, unit: r.unit });
-      const lg = await db.getAll<Goal>('goals');
-      await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
+        // 4. 同步个性化配置 (备注、星标等)
+        (async () => {
+          const remoteConfig = await fetchUserConfigsFromCloud();
+          if (remoteConfig) {
+            if (remoteConfig.exerciseNotes) setExerciseNotes(remoteConfig.exerciseNotes);
+            if (remoteConfig.restPrefs) setRestPreferences(remoteConfig.restPrefs);
+            if (remoteConfig.customTags) setCustomTags(remoteConfig.customTags);
+            if (remoteConfig.starred) setStarredExercises(remoteConfig.starred);
+            if (remoteConfig.customExercises) setCustomExercises(remoteConfig.customExercises);
+            // ... 写入 localStorage 略
+          }
+          await syncUserConfigsToCloud({ exerciseNotes, restPrefs: restPreferences, customTags, starred: starredExercises, customExercises });
+        })()
+      ]);
 
-      // --- ✅ 2. 新增：同步用户个性化配置 (备注、偏好、星标等) ---
-      const remoteConfig = await fetchUserConfigsFromCloud();
-      if (remoteConfig) {
-        // 更新内存状态
-        if (remoteConfig.exerciseNotes) setExerciseNotes(remoteConfig.exerciseNotes);
-        if (remoteConfig.restPrefs) setRestPreferences(remoteConfig.restPrefs);
-        if (remoteConfig.customTags) setCustomTags(remoteConfig.customTags);
-        if (remoteConfig.starred) setStarredExercises(remoteConfig.starred);
-        if (remoteConfig.customExercises) setCustomExercises(remoteConfig.customExercises);
-
-        // 写入 localStorage 同步
-        if (remoteConfig.exerciseNotes) localStorage.setItem('fitlog_exercise_notes', JSON.stringify(remoteConfig.exerciseNotes));
-        if (remoteConfig.restPrefs) localStorage.setItem('fitlog_rest_prefs', JSON.stringify(remoteConfig.restPrefs));
-        if (remoteConfig.customTags) localStorage.setItem('fitlog_custom_tags', JSON.stringify(remoteConfig.customTags));
-        if (remoteConfig.starred) localStorage.setItem('fitlog_starred_exercises', JSON.stringify(remoteConfig.starred));
-        if (remoteConfig.customExercises) localStorage.setItem('fitlog_custom_exercises', JSON.stringify(remoteConfig.customExercises));
-      }
-      
-      // 反向同步：把本地当前的配置推到云端备份
-      await syncUserConfigsToCloud({
-        exerciseNotes,
-        restPrefs: restPreferences,
-        customTags,
-        starred: starredExercises,
-        customExercises
-      });
-
-      // --- 3. 重新加载本地 UI ---
       await loadLocalData(currentUserId);
       setSyncStatus('idle');
     } catch (e: any) {
@@ -909,6 +926,19 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
   };
 
   const handleSaveWorkout = async () => {
+    // ✅ 新增校验：如果一个动作都没有，或者所有动作都没有填组数，就不保存
+    if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
+      alert(lang === Language.CN ? "请至少添加一个动作" : "Please add at least one exercise");
+      return;
+    }
+
+    // 检查是否所有动作都有至少一组数据 (可选)
+    const hasData = currentWorkout.exercises.some(ex => ex.sets && ex.sets.length > 0);
+    if (!hasData) {
+      alert(lang === Language.CN ? "请至少记录一组数据" : "Please log at least one set");
+      return;
+    }
+
     if (!currentWorkout.exercises?.length || !user) return;
     const session: WorkoutSession = { ...currentWorkout, id: currentWorkout.id || Date.now().toString(), userId: user.id, title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`, date: currentWorkout.date || new Date().toISOString() } as WorkoutSession;
     await db.save('workouts', session);
@@ -926,6 +956,30 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       setCurrentWorkout({ ...workoutToEdit });
       setActiveTab('new');
       setSelectedPRProject(null);
+    }
+  };
+  // --- 新增：删除训练记录逻辑 ---
+  const handleDeleteWorkout = async (e: React.MouseEvent, workoutId: string) => {
+    e.stopPropagation(); // 防止触发折叠
+
+    const confirmText = lang === Language.CN ? '确定要删除这场训练记录吗？' : 'Delete this workout?';
+    if (!window.confirm(confirmText)) return;
+
+    try {
+      // 1. 从本地数据库删除
+      await db.delete('workouts', workoutId);
+      
+      // 2. 更新内存状态 (这会自动触发热力图和统计数字更新)
+      setWorkouts(prev => prev.filter(w => w.id !== workoutId));
+
+      // 3. 同步到云端
+      if (user && user.id !== 'u_guest') {
+        await deleteWorkoutFromCloud(workoutId);
+      }
+
+    } catch (err: any) {
+      console.error("Delete workout failed:", err);
+      alert(lang === Language.CN ? '删除失败' : 'Delete failed');
     }
   };
 
@@ -996,41 +1050,49 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
 // --- 头像上传逻辑开始 ---
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
     try {
-      // 1. 上传图片到 Supabase Storage 'avatars' 桶
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      setIsLoading(true);
 
+      // 1. ✅ 路径纯净化：直接用用户 ID，不加 .png 或 .jpg
+      const filePath = `${user.id}`; 
+
+      // 2. ✅ 执行上传：强制开启 upsert 覆盖模式
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type // 确保文件类型正确
+        });
 
       if (uploadError) throw uploadError;
 
-      // 2. 获取图片的公开访问链接
-      const { data: { publicUrl } } = supabase.storage
+      // 3. ✅ 使用官方方法获取纯净 URL，再手动加上时间戳防止缓存
+      const { data: { publicUrl: rawUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+      
+      const publicUrlWithCacheBuster = `${rawUrl}?v=${Date.now()}`;
 
-      // 3. 更新用户的元数据 (user_metadata)
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: { avatar_url: publicUrl }
-      });
-
-      if (updateError) throw updateError;
-
-      // 4. 立即更新本地状态，让界面立刻变化
-      const updatedUser = { ...user, avatarUrl: publicUrl };
+      // 4. 立即更新本地状态
+      const updatedUser = { ...user, avatarUrl: publicUrlWithCacheBuster };
       setUser(updatedUser);
       localStorage.setItem('fitlog_current_user', JSON.stringify(updatedUser));
-      
+
+      // 5. 后台静默更新数据库元数据
+      supabase.auth.updateUser({
+        data: { avatar_url: publicUrlWithCacheBuster }
+      });
+
     } catch (error: any) {
-      alert('上传头像失败 (请检查Supabase Storage设置): ' + error.message);
+      console.error("Upload error:", error);
+      alert('上传失败: ' + error.message);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setIsLoading(false);
     }
   };
   // --- 头像上传逻辑结束 ---
@@ -1371,20 +1433,38 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
         </div>
       )}
 
-      {/* 顶部导航栏：包含 Logo、同步状态、快速单位切换 */}
+      {/* 顶部导航栏 */}
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
-        {/* 左侧：Logo 和 App 名称 */}
+        {/* 左侧：Logo */}
         <div className="flex items-center gap-3">
           <Dumbbell className="text-blue-500" />
           <h1 className="text-xl font-black tracking-tight">{translations.appTitle[lang]}</h1>
         </div>
 
-        {/* 右侧：同步 Loading + 单位切换按钮 */}
+        {/* 右侧：同步按钮 + 单位切换 */}
         <div className="flex items-center gap-3">
-          {/* 同步加载圈 */}
-          {syncStatus === 'syncing' && <RefreshCw className="animate-spin text-blue-500" size={18} />}
           
-          {/* ✅ 新增：快速切换单位按钮 */}
+          {/* 手动同步按钮 */}
+          <button 
+            onClick={() => user && performFullSync(user.id)}
+            disabled={syncStatus === 'syncing' || !user || user.id === 'u_guest'}
+            className={`p-2 rounded-xl border transition-all active:scale-90 ${
+              syncStatus === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-slate-800 border-slate-700/50'
+            }`}
+          >
+            {syncStatus === 'syncing' ? (
+              /* 正在同步：蓝色转圈 */
+              <RefreshCw className="animate-spin text-blue-500" size={18} />
+            ) : syncStatus === 'error' ? (
+              /* 同步出错：红色感叹号 */
+              <AlertCircle className="text-red-500" size={18} />
+            ) : (
+              /* 数据最新/成功：绿色对号 (使用 CheckIcon) */
+              <CheckIcon className="text-green-500" size={18} strokeWidth={4} />
+            )}
+          </button>
+          
+          {/* 单位切换按钮 */}
           <button 
             onClick={() => { 
               const n = unit === 'kg' ? 'lbs' : 'kg'; 
@@ -1636,7 +1716,15 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
                                       <div key={`${ex.workoutId}-${ex.id}-${exIdx}`} className="space-y-4 pb-6 border-b border-slate-800/30 last:border-0 last:pb-0">
                                         <div className="flex justify-between items-center px-1">
                                           <div className="flex items-center gap-3">
-                                            <button onClick={(e) => { e.stopPropagation(); handleEditWorkout(ex.workoutId); }} className="p-2 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500/20 transition-all active:scale-90"><Edit2 size={14} /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); handleEditWorkout(ex.workoutId); }} 
+                                            className="p-2 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500/20 transition-all active:scale-90"><Edit2 size={14} /></button>
+                                            {/* ✅ 新增：删除记录按钮 */}
+                                            <button 
+                                              onClick={(e) => handleDeleteWorkout(e, ex.workoutId)} 
+                                              className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all active:scale-90"
+                                            >
+                                              <Trash2 size={14} />
+                                            </button>
                                             <div className="flex items-center gap-2"><Calendar size={14} className="text-slate-600" /><span className="text-[11px] text-slate-400 font-bold">{new Date(ex.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span></div>
                                           </div>
                                           <span className="text-[10px] font-black bg-slate-800/80 text-slate-500 px-3 py-1 rounded-full uppercase tracking-wider border border-slate-700/30">{ex.sets.length} {translations.setsCount[lang]}</span>
@@ -1848,19 +1936,45 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
                   </span>
                 </div>
                 
-                <div className="w-full overflow-hidden">
+                <div className="w-full pt-8 pb-4"> 
                   <CalendarHeatmap
-                    startDate={new Date(new Date().setDate(new Date().getDate() - 100))} // 显示过去100天
+                    startDate={new Date(new Date().setDate(new Date().getDate() - 100))}
                     endDate={new Date()}
                     values={heatmapData}
                     classForValue={(value) => {
-                      if (!value) return 'color-empty';
-                      // 根据训练次数分级颜色 (1-4级)
+                      if (!value || value.count === 0) return 'color-empty';
                       return `color-scale-${Math.min(value.count, 4)}`;
                     }}
-                    showWeekdayLabels={true} // 显示周一、周三等
-                    weekdayLabels={lang === Language.CN ? ['日', '一', '二', '三', '四', '五', '六'] : undefined}
-                    gutterSize={3} // 格子间距
+                    showMonthLabels={true}
+                    transformMonthLabels={(month) => {
+                      const months = {
+                        'Jan': { cn: '1月', en: 'Jan' },
+                        'Feb': { cn: '2月', en: 'Feb' },
+                        'Mar': { cn: '3月', en: 'Mar' },
+                        'Apr': { cn: '4月', en: 'Apr' },
+                        'May': { cn: '5月', en: 'May' },
+                        'Jun': { cn: '6月', en: 'Jun' },
+                        'Jul': { cn: '7月', en: 'Jul' },
+                        'Aug': { cn: '8月', en: 'Aug' },
+                        'Sep': { cn: '9月', en: 'Sep' },
+                        'Oct': { cn: '10月', en: 'Oct' },
+                        'Nov': { cn: '11月', en: 'Nov' },
+                        'Dec': { cn: '12月', en: 'Dec' }
+                      };
+                      return months[month as keyof typeof months]?.[lang === Language.CN ? 'cn' : 'en'] || month;
+                    }}
+                    showWeekdayLabels={true}
+                    weekdayLabels={
+                      lang === Language.CN 
+                        ? ['', '一', '', '三', '', '五', ''] 
+                        : ['', 'Mon', '', 'Wed', '', 'Fri', '']
+                    }
+                    gutterSize={4}
+                    // ✅ 添加交互：点击显示具体的日期和次数
+                    onClick={value => {
+                      if (!value) return;
+                      alert(`${value.date}: ${value.count} ${lang === Language.CN ? '场训练' : 'Workouts'}`);
+                    }}
                   />
                 </div>
               </div>

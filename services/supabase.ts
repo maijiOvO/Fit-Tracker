@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://yepfzeubssitiqzqiddn.supabase.co';
+export const SUPABASE_URL = 'https://yepfzeubssitiqzqiddn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TkHbaHyzA628yheX4Xs9vg_tELu7hnj';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -190,4 +190,19 @@ export const fetchUserConfigsFromCloud = async () => {
 
   if (error && error.code !== 'PGRST116') throw error;
   return data?.data || null;
+};
+/**
+ * 从云端删除指定的训练记录
+ */
+export const deleteWorkoutFromCloud = async (workoutId: string) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) return;
+
+  const { error } = await supabase
+    .from('workouts')
+    .delete()
+    .eq('id', workoutId)
+    .eq('user_id', session.user.id); // 增加安全检查
+  
+  if (error) throw error;
 };
