@@ -700,11 +700,13 @@ const App: React.FC = () => {
       await db.init();
       
       supabase.auth.onAuthStateChange(async (event, session) => {
-      // 1. 如果是重置密码事件，必须先锁定模式，防止跳转
+      // 1. 如果是重置密码事件，锁定模式并拦截后续逻辑
       if (event === 'PASSWORD_RECOVERY') {
         setAuthMode('updatePassword');
+        return; // 这里已经跳出函数了
       }
 
+      // 2. 既然能走到这一步，说明 event 肯定不是 PASSWORD_RECOVERY
       if (session?.user) {
         const u = { 
           id: session.user.id, 
@@ -715,10 +717,8 @@ const App: React.FC = () => {
         setUser(u);
         localStorage.setItem('fitlog_current_user', JSON.stringify(u));
         
-        // 2. 只有在非重置密码模式下，才去执行耗时的同步
-        if (event !== 'PASSWORD_RECOVERY') {
-           await performFullSync(u.id);
-        }
+        // 直接执行同步，不再需要外面套 if 判断
+        await performFullSync(u.id);
       }
     });
 
@@ -868,29 +868,45 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
-      e.preventDefault();
-      setIsLoading(true);
-      setAuthError(null);
-      try {
-        const { error } = await supabase.auth.updateUser({ 
-          password: password 
-        });
-        if (error) throw error;
-        
-        alert(lang === Language.CN ? '密码修改成功！' : 'Password updated successfully!');
-        
-        // ✅ 关键：改回 'login' 模式。 
-        // 此时因为 user 已经是登录状态了，UI 会检测到 authMode 不再是 updatePassword，
-        // 从而自动带你进入主界面。
-        setAuthMode('login');
-        setPassword('');
+    e.preventDefault();
+    if (!password || password.length < 6) {
+      setAuthError(lang === Language.CN ? '密码至少需要6位' : 'Password must be at least 6 characters');
+      return;
+    }
 
-      } catch (err: any) {
-        setAuthError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setIsLoading(true);
+    setAuthError(null);
+    console.log("正在尝试更新密码...");
+
+    try {
+      // 1. 执行密码更新
+      const { data, error } = await supabase.auth.updateUser({ 
+        password: password 
+      });
+
+      if (error) throw error;
+
+      console.log("密码更新成功:", data);
+      alert(lang === Language.CN ? '密码修改成功！请重新登录' : 'Password updated! Please login again.');
+
+      // 2. ✅【关键】更新成功后强制退出当前“临时会话”
+      await supabase.auth.signOut();
+      
+      // 3. ✅【关键】清理所有本地状态，返回初始登录页
+      setUser(null);
+      localStorage.removeItem('fitlog_current_user');
+      setAuthMode('login');
+      setPassword('');
+      setEmail(''); // 清空邮箱，让用户重新输入
+
+    } catch (err: any) {
+      console.error("更新密码失败:", err);
+      setAuthError(err.message || "Update failed");
+    } finally {
+      // 4. ✅ 确保无论成功失败，都停止转圈
+      setIsLoading(false);
+    }
+  };
 
   const handleSaveWorkout = async () => {
     if (!currentWorkout.exercises?.length || !user) return;
