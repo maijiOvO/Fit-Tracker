@@ -1784,6 +1784,34 @@ const App: React.FC = () => {
                   />
                 </div>
               </div>
+              {/* --- 方案 A: 访客模式警告提示 --- */}
+              {user.id === 'u_guest' && (
+                <div className="mx-2 p-5 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex items-start gap-4 animate-in slide-in-from-top-2">
+                  <div className="p-3 bg-amber-500/20 text-amber-500 rounded-2xl flex-shrink-0">
+                    <ShieldAlert size={24} />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <h4 className="text-sm font-black text-amber-500 uppercase tracking-wide">
+                      {translations.guestWarningTitle[lang]}
+                    </h4>
+                    <p className="text-[11px] font-bold text-amber-200/70 leading-relaxed">
+                      {translations.guestWarningDesc[lang]}
+                    </p>
+                    <button 
+                      onClick={() => {
+                        // 强制退出并跳到注册页面
+                        supabase.auth.signOut();
+                        setUser(null);
+                        setAuthMode('register');
+                        localStorage.removeItem('fitlog_current_user');
+                      }}
+                      className="mt-2 text-[10px] font-black text-white bg-amber-600/40 hover:bg-amber-600/60 px-3 py-1.5 rounded-lg self-start transition-colors"
+                    >
+                      {translations.createAccount[lang]}
+                    </button>
+                  </div>
+                </div>
+              )}
               {/* Stats Overview */}
               <div className="w-full">
                 <div className="bg-slate-800/40 p-6 rounded-[2rem] border border-slate-700/50 flex flex-col items-center justify-center gap-2 w-full">

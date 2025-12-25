@@ -112,5 +112,12 @@ export const translations: TranslationStrings = {
   weightTrend: { en: 'Weight Trend', cn: '体重趋势' },
   currentWeight: { en: 'Current Weight', cn: '当前体重' },
   lastLogged: { en: 'Last logged', cn: '最近记录' },
-  trainingVolume: { en: 'Training Volume', cn: '训练容量' }
+  trainingVolume: { en: 'Training Volume', cn: '训练容量' },
+  // 在 translations.ts 中添加
+  guestWarningTitle: { cn: '访客模式 (仅本地存储)', en: 'Guest Mode (Local Only)' },
+  guestWarningDesc: { 
+  cn: '数据仅保存在当前设备。为了防止数据丢失并支持跨设备同步，请注册正式账号。', 
+  en: 'Data is only saved on this device. To prevent data loss and sync across devices, please register.' 
+},
+  
 };
