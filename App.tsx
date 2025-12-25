@@ -701,27 +701,30 @@ const App: React.FC = () => {
       await db.init();
       
       supabase.auth.onAuthStateChange(async (event, session) => {
-      // 1. 如果是重置密码事件，锁定模式并拦截后续逻辑
-      if (event === 'PASSWORD_RECOVERY') {
-        setAuthMode('updatePassword');
-        return; // 这里已经跳出函数了
-      }
+  // 1. 优先级最高：检测到重置事件，立刻锁定模式并清除成功状态
+  if (event === 'PASSWORD_RECOVERY') {
+    setAuthMode('updatePassword');
+    setIsUpdateSuccess(false); // 确保没有残留的成功界面
+    console.log("进入密码恢复模式，已拦截背景同步");
+    return; // ⛔️ 极其重要：直接跳出，不让下面的 performFullSync 执行
+  }
 
-      // 2. 既然能走到这一步，说明 event 肯定不是 PASSWORD_RECOVERY
-      if (session?.user) {
-        const u = { 
-          id: session.user.id, 
-          username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
-          email: session.user.email!,
-          avatarUrl: session.user.user_metadata?.avatar_url 
-        };
-        setUser(u);
-        localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-        
-        // 直接执行同步，不再需要外面套 if 判断
-        await performFullSync(u.id);
-      }
-    });
+  // 2. 正常登录逻辑
+  if (session?.user) {
+    // 如果当前已经在 updatePassword 界面，不要在这个监听器里做同步
+    if (authMode === 'updatePassword') return;
+
+    const u = { 
+      id: session.user.id, 
+      username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
+      email: session.user.email!,
+      avatarUrl: session.user.user_metadata?.avatar_url 
+    };
+    setUser(u);
+    localStorage.setItem('fitlog_current_user', JSON.stringify(u));
+    await performFullSync(u.id);
+  }
+});
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -870,6 +873,14 @@ const App: React.FC = () => {
 
 const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // ✅ 新增：在提交前手动检查一次会话
+    const { data: sessionCheck } = await supabase.auth.getSession();
+    if (!sessionCheck.session) {
+      setAuthError(lang === Language.CN ? '验证会话已过期，请重新点击邮件链接' : 'Session expired, please click the link in email again');
+      return;
+    }
+
     if (!password || password.length < 6) {
       setAuthError(lang === Language.CN ? '密码至少需要6位' : 'Password min 6 chars');
       return;
@@ -882,17 +893,18 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       const { error } = await supabase.auth.updateUser({ password: password });
       if (error) throw error;
 
-      // --- 关键修改顺序 ---
-      setIsLoading(false);      // 1. 先停止转圈
-      setIsUpdateSuccess(true); // 2. 显示成功界面（看下一步的 UI 修改）
+      // 成功顺序：先停转圈，再显成功
+      setIsLoading(false);
+      setIsUpdateSuccess(true); 
 
-      // 3. 彻底注销，防止旧会话干扰
+      // 彻底注销，确保干净的环境
       await supabase.auth.signOut();
       setUser(null);
       localStorage.removeItem('fitlog_current_user');
+      setPassword('');
 
     } catch (err: any) {
-      setIsLoading(false); // 出错也要停止转圈
+      setIsLoading(false);
       setAuthError(err.message);
     }
   };
@@ -1422,7 +1434,7 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
                   </p>
                 </div>
                 <button 
-                  onClick={() => { setIsUpdateSuccess(false); setAuthMode('login'); }}
+                  onClick={() => { setIsUpdateSuccess(false); setAuthMode('login');window.location.href = 'https://myronhub.com'; }}
                   className="w-full bg-slate-800 text-slate-300 py-4 rounded-2xl font-bold text-sm border border-slate-700 active:scale-95 transition-all"
                 >
                   {lang === Language.CN ? '我知道了' : 'Done'}
