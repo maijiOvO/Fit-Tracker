@@ -839,7 +839,7 @@ useEffect(() => {
     e.preventDefault(); setIsLoading(true); setAuthError(null);
     try {
       const res = authMode === 'register' 
-        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: 'https://myronhub.com', data: { display_name: username } } }) 
+        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: 'https://fit.myronhub.com', data: { display_name: username } } }) 
         : await supabase.auth.signInWithPassword({ email, password });
       
       if (res.error) throw res.error;
@@ -860,7 +860,7 @@ useEffect(() => {
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         // ✅ 必须改为你的正式域名，这样邮件里的链接才是对的
-        redirectTo: 'https://myronhub.com', 
+        redirectTo: 'https://fit.myronhub.com', 
       });
       if (error) throw error;
       
