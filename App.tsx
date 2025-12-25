@@ -2098,4 +2098,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;//new version
+export default App;
