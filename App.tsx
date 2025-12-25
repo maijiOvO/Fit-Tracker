@@ -700,17 +700,24 @@ const App: React.FC = () => {
       await db.init();
       
       supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          setAuthMode('updatePassword');
-        }
+            // ✅ 关键：当用户通过邮件里的重置链接跳回来时，event 会变成 'PASSWORD_RECOVERY'
+            if (event === 'PASSWORD_RECOVERY') {
+              setAuthMode('updatePassword'); // 强制切换到“设置新密码”界面
+            }
 
-        if (session?.user) {
-          const u = { id: session.user.id, username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', email: session.user.email!, avatarUrl: session.user.user_metadata?.avatar_url };
-          setUser(u);
-          localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-          await performFullSync(u.id);
-        }
-      });
+            if (session?.user) {
+              // 现有的登录处理逻辑...
+              const u = { 
+                id: session.user.id, 
+                username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
+                email: session.user.email!,
+                avatarUrl: session.user.user_metadata?.avatar_url 
+              };
+              setUser(u);
+              localStorage.setItem('fitlog_current_user', JSON.stringify(u));
+              await performFullSync(u.id);
+            }
+          });
 
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -836,12 +843,14 @@ const App: React.FC = () => {
     } catch (err: any) { setAuthError(err.message); } finally { setIsLoading(false); }
   };
 
+// 处理忘记密码（发送重置邮件）
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true); 
     setAuthError(null);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        // ✅ 必须改为你的正式域名，这样邮件里的链接才是对的
         redirectTo: 'https://myronhub.com', 
       });
       if (error) throw error;
@@ -856,22 +865,27 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: password });
-      if (error) throw error;
-      
-      alert(lang === Language.CN ? '密码修改成功，请重新登录' : 'Password updated successfully, please login');
-      setPassword('');
-      setAuthMode('login');
-    } catch (err: any) {
-      setAuthError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      e.preventDefault();
+      setIsLoading(true);
+      setAuthError(null);
+      try {
+        // ✅ 调用 supabase 更新当前用户的密码
+        const { error } = await supabase.auth.updateUser({ 
+          password: password // 这里的 password 对应你输入框绑定的 state
+        });
+        if (error) throw error;
+        
+        alert(lang === Language.CN ? '密码修改成功，请使用新密码登录' : 'Password updated successfully, please login');
+        
+        // ✅ 修改成功后，清除密码并退回到登录界面
+        setPassword('');
+        setAuthMode('login');
+      } catch (err: any) {
+        setAuthError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   const handleSaveWorkout = async () => {
     if (!currentWorkout.exercises?.length || !user) return;
@@ -1411,7 +1425,11 @@ const App: React.FC = () => {
 
               {authMode === 'login' && (
                 <div className="flex justify-end">
-                  <button type="button" onClick={() => setAuthMode('forgotPassword')} className="text-xs text-slate-500 hover:text-blue-400 font-bold transition-colors">
+                  <button 
+                    type="button" 
+                    onClick={() => setAuthMode('forgotPassword')} 
+                    className="text-xs text-slate-500 hover:text-blue-400 font-bold transition-colors"
+                  >
                     {lang === Language.CN ? '忘记密码？' : 'Forgot Password?'}
                   </button>
                 </div>
