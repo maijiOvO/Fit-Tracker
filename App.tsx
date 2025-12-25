@@ -867,43 +867,42 @@ const App: React.FC = () => {
     }
   };
 
-  const handleUpdatePassword = async (e: React.FormEvent) => {
+const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password || password.length < 6) {
-      setAuthError(lang === Language.CN ? '密码至少需要6位' : 'Password must be at least 6 characters');
+      setAuthError(lang === Language.CN ? '密码至少需要6位' : 'Password min 6 chars');
       return;
     }
 
     setIsLoading(true);
     setAuthError(null);
-    console.log("正在尝试更新密码...");
 
     try {
-      // 1. 执行密码更新
-      const { data, error } = await supabase.auth.updateUser({ 
-        password: password 
-      });
-
+      // 1. 提交新密码到 Supabase
+      const { error } = await supabase.auth.updateUser({ password: password });
       if (error) throw error;
 
-      console.log("密码更新成功:", data);
-      alert(lang === Language.CN ? '密码修改成功！请重新登录' : 'Password updated! Please login again.');
+      // 2. 弹出成功提示 (兼容 Web/Android/iOS)
+      alert(lang === Language.CN 
+        ? '密码修改成功！请使用新密码重新登录。' 
+        : 'Password updated! Please login with your new password.');
 
-      // 2. ✅【关键】更新成功后强制退出当前“临时会话”
+      // 3. 【关键】彻底清理当前会话
+      // 重置密码时 Supabase 会产生一个临时 Session，必须注销它
       await supabase.auth.signOut();
       
-      // 3. ✅【关键】清理所有本地状态，返回初始登录页
+      // 4. 重置所有前端状态，强制回到“登录模式”
       setUser(null);
       localStorage.removeItem('fitlog_current_user');
-      setAuthMode('login');
+      setEmail('');
       setPassword('');
-      setEmail(''); // 清空邮箱，让用户重新输入
+      setAuthMode('login'); // 这一步会将 UI 切换回登录界面
 
     } catch (err: any) {
-      console.error("更新密码失败:", err);
-      setAuthError(err.message || "Update failed");
+      console.error("Update error:", err);
+      setAuthError(err.message);
     } finally {
-      // 4. ✅ 确保无论成功失败，都停止转圈
+      // 5. 【防止转圈】无论成功失败，必须停止 Loading
       setIsLoading(false);
     }
   };
