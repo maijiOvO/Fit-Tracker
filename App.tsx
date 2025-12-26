@@ -490,7 +490,10 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [customTags, setCustomTags] = useState<{id: string, name: string, category: 'bodyPart' | 'equipment'}[]>([]);
+  const [customTags, setCustomTags] = useState<{id: string, name: string, category: 'bodyPart' | 'equipment'}[]>(() => {
+    const saved = localStorage.getItem('fitlog_custom_tags');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [showAddTagModal, setShowAddTagModal] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagCategory, setNewTagCategory] = useState<'bodyPart' | 'equipment'>('bodyPart');
@@ -504,7 +507,10 @@ const App: React.FC = () => {
   const [exerciseToRename, setExerciseToRename] = useState<{ id: string, name: string } | null>(null);
   const [newExerciseNameInput, setNewExerciseNameInput] = useState('');
 
-  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>([]);
+  const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() => {
+    const saved = localStorage.getItem('fitlog_custom_exercises');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, Partial<ExerciseDefinition>>>({});
   const [tagRenameOverrides, setTagRenameOverrides] = useState<Record<string, string>>({});
   const [starredExercises, setStarredExercises] = useState<Record<string, number>>({});
@@ -802,9 +808,7 @@ const App: React.FC = () => {
 const performFullSync = async (currentUserId: string) => {
     if (currentUserId === 'u_guest') return;
     setSyncStatus('syncing');
-    
     try {
-      // ✅ 使用 Promise.all 让所有表的同步同时开始，大幅提升速度
       await Promise.all([
         // 1. 同步训练记录
         (async () => {
@@ -822,7 +826,7 @@ const performFullSync = async (currentUserId: string) => {
           await syncWeightToCloud(lWeight.filter(w => w.userId === currentUserId));
         })(),
 
-        // 3. 同步身体指标
+        // 3. 同步身体指标 (尺寸等)
         (async () => {
           const rMeasures = await fetchMeasurementsFromCloud();
           if (rMeasures) for (const r of rMeasures) await db.save('custom_metrics', { id: r.id, userId: r.user_id, name: r.name, value: r.value, unit: r.unit, date: r.date });
@@ -830,18 +834,63 @@ const performFullSync = async (currentUserId: string) => {
           await syncMeasurementsToCloud(lMeasures.filter(m => m.userId === currentUserId));
         })(),
 
-        // 4. 同步个性化配置 (备注、星标等)
+        // 4. 同步训练目标 (Goals)
+        (async () => {
+          const rg = await fetchGoalsFromCloud();
+          if (rg) for (const r of rg) await db.save('goals', { id: r.id, userId: r.user_id, type: r.type, label: r.label, targetValue: r.target_value, currentValue: r.current_value, unit: r.unit });
+          const lg = await db.getAll<Goal>('goals');
+          await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
+        })(),
+
+        // 5. 同步个性化配置 (备注、偏好、自定义动作/标签)
         (async () => {
           const remoteConfig = await fetchUserConfigsFromCloud();
+          
+          // 获取当前本地数据作为兜底
+          const localExs = JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]');
+          const localTags = JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]');
+          const localNotes = JSON.parse(localStorage.getItem('fitlog_exercise_notes') || '{}');
+          const localRest = JSON.parse(localStorage.getItem('fitlog_rest_prefs') || '{}');
+          const localStarred = JSON.parse(localStorage.getItem('fitlog_starred_exercises') || '{}');
+
+          // 初始化最终要使用的数据（默认用本地的）
+          let finalExs = localExs;
+          let finalTags = localTags;
+          let finalNotes = localNotes;
+          let finalRest = localRest;
+          let finalStarred = localStarred;
+
           if (remoteConfig) {
-            if (remoteConfig.exerciseNotes) setExerciseNotes(remoteConfig.exerciseNotes);
-            if (remoteConfig.restPrefs) setRestPreferences(remoteConfig.restPrefs);
-            if (remoteConfig.customTags) setCustomTags(remoteConfig.customTags);
-            if (remoteConfig.starred) setStarredExercises(remoteConfig.starred);
-            if (remoteConfig.customExercises) setCustomExercises(remoteConfig.customExercises);
-            // ... 写入 localStorage 略
+            // 如果云端有数据，合并/覆盖本地
+            if (remoteConfig.customExercises?.length > 0) finalExs = remoteConfig.customExercises;
+            if (remoteConfig.customTags?.length > 0) finalTags = remoteConfig.customTags;
+            if (remoteConfig.exerciseNotes) finalNotes = remoteConfig.exerciseNotes;
+            if (remoteConfig.restPrefs) finalRest = remoteConfig.restPrefs;
+            if (remoteConfig.starred) finalStarred = remoteConfig.starred;
+
+            // 更新 React 状态
+            setCustomExercises(finalExs);
+            setCustomTags(finalTags);
+            setExerciseNotes(finalNotes);
+            setRestPreferences(finalRest);
+            setStarredExercises(finalStarred);
+
+            // 写入 localStorage 持久化
+            localStorage.setItem('fitlog_custom_exercises', JSON.stringify(finalExs));
+            localStorage.setItem('fitlog_custom_tags', JSON.stringify(finalTags));
+            localStorage.setItem('fitlog_exercise_notes', JSON.stringify(finalNotes));
+            localStorage.setItem('fitlog_rest_prefs', JSON.stringify(finalRest));
+            localStorage.setItem('fitlog_starred_exercises', JSON.stringify(finalStarred));
           }
-          await syncUserConfigsToCloud({ exerciseNotes, restPrefs: restPreferences, customTags, starred: starredExercises, customExercises });
+          
+          // 最后将合并后最完整的数据上传回云端，保证一致性
+          await syncUserConfigsToCloud({
+            exerciseNotes: finalNotes,
+            restPrefs: finalRest,
+            customTags: finalTags,
+            starred: finalStarred,
+            customExercises: finalExs
+          });
         })()
       ]);
 
@@ -1326,7 +1375,33 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                 ))}
               </div>
               <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagName} onChange={e => setNewTagName(e.target.value)} placeholder={translations.tagNamePlaceholder[lang]} />
-              <button onClick={() => { if (!newTagName) return; const t = { id: Date.now().toString(), name: newTagName, category: newTagCategory }; setCustomTags(p => { const u = [...p, t]; localStorage.setItem('fitlog_custom_tags', JSON.stringify(u)); return u; }); setShowAddTagModal(false); setNewTagName(''); }} className="w-full bg-blue-600 py-4 rounded-2xl font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
+              <button 
+                onClick={() => { // 删掉之前的 async
+                  if (!newTagName) return; 
+
+                  const t = { id: Date.now().toString(), name: newTagName, category: newTagCategory }; 
+                  const updatedTags = [...customTags, t];
+                  
+                  // 1. ✅ 立即更新本地 UI 状态
+                  setCustomTags(updatedTags); 
+                  
+                  // 2. ✅ 立即持久化到本地存储
+                  localStorage.setItem('fitlog_custom_tags', JSON.stringify(updatedTags)); 
+                  
+                  // 3. ✅ 核心修改：立即关闭弹窗并重置输入框（不再等待同步结果）
+                  setShowAddTagModal(false); 
+                  setNewTagName(''); 
+
+                  // 4. ✅ 在后台发起静默同步（不使用 await）
+                  if (user && user.id !== 'u_guest') {
+                    // 提示：这里直接调用同步，App 顶部的图标会自动变成转圈，不影响用户操作
+                    performFullSync(user.id);
+                  }
+                }} 
+                className="w-full bg-blue-600 py-4 rounded-2xl font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+              >
+                {translations.confirm[lang]}
+              </button>
            </div>
         </div>
       )}
@@ -1365,14 +1440,81 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                  <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500 transition-all" value={newExerciseName} onChange={e => setNewExerciseName(e.target.value)} placeholder={translations.exerciseNamePlaceholder[lang]} />
                  <div className="space-y-3">
                    <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2"><Activity size={14} className="text-blue-500" />{translations.bodyPartHeader[lang]}</h3>
-                   <div className="flex flex-wrap gap-2">{BODY_PARTS.map(id => (<button key={id} onClick={() => setNewExerciseBodyPart(id)} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseBodyPart === id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{getTagName(id)}</button>))}</div>
+
+                   <div className="flex flex-wrap gap-2">
+                    {/* 合并系统部位和自定义部位标签 */}
+                    {[...BODY_PARTS, ...customTags.filter(ct => ct.category === 'bodyPart').map(t => t.id)].map(id => (
+                      <button 
+                        key={id} 
+                        onClick={() => setNewExerciseBodyPart(id)} 
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseBodyPart === id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                      >
+                        {getTagName(id)}
+                      </button>
+                    ))}
+                  </div>
+
                  </div>
                  <div className="space-y-3">
                    <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2"><Dumbbell size={14} className="text-indigo-500" />{translations.equipmentHeader[lang]}</h3>
-                   <div className="flex flex-wrap gap-2">{EQUIPMENT_TAGS.map(id => (<button key={id} onClick={() => setNewExerciseTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseTags.includes(id) ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}>{getTagName(id)}</button>))}</div>
+
+                   <div className="flex flex-wrap gap-2">
+                    {/* 合并系统器材和自定义器材标签（如你新加的“篮球”） */}
+                    {[...EQUIPMENT_TAGS, ...customTags.filter(ct => ct.category === 'equipment').map(t => t.id)].map(id => (
+                      <button 
+                        key={id} 
+                        onClick={() => setNewExerciseTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} 
+                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseTags.includes(id) ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                      >
+                        {getTagName(id)}
+                      </button>
+                    ))}
+                  </div>
+
                  </div>
               </div>
-              <button onClick={() => { if (!newExerciseName) return; const ex: ExerciseDefinition = { id: Date.now().toString(), name: { en: newExerciseName, cn: newExerciseName }, bodyPart: newExerciseBodyPart, tags: newExerciseTags }; setCustomExercises(p => { const u = [...p, ex]; localStorage.setItem('fitlog_custom_exercises', JSON.stringify(u)); return u; }); setShowAddExerciseModal(false); setNewExerciseName(''); setNewExerciseTags([]); }} className="w-full bg-blue-600 py-5 rounded-3xl font-black text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
+              <button onClick={async () => { 
+                if (!newExerciseName) return; 
+
+                const ex: ExerciseDefinition = { 
+                  id: Date.now().toString(), 
+                  name: { en: newExerciseName, cn: newExerciseName }, 
+                  bodyPart: newExerciseBodyPart, 
+                  tags: newExerciseTags 
+                }; 
+
+                // 1. 更新动作库状态 (把新动作放前面)
+                const updatedCustomExs = [ex, ...customExercises];
+                setCustomExercises(updatedCustomExs); 
+
+                // 2. 立即持久化到本地，防止刷新丢失
+                localStorage.setItem('fitlog_custom_exercises', JSON.stringify(updatedCustomExs)); 
+
+                // 3. 自动将新动作加入当前训练课的最顶端
+                setCurrentWorkout(p => ({
+                  ...p,
+                  exercises: [
+                    { 
+                      id: Date.now().toString(), 
+                      name: ex.name[lang], 
+                      category: 'STRENGTH', 
+                      sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
+                    },
+                    ...(p.exercises || [])
+                  ]
+                }));
+
+                // 4. 如果是正式用户，触发一次后台同步，确保库上云
+                if (user && user.id !== 'u_guest') {
+                  performFullSync(user.id);
+                }
+
+                setShowAddExerciseModal(false); 
+                setNewExerciseName(''); 
+                setNewExerciseTags([]); 
+              }} className="...">
+                {translations.confirm[lang]}
+              </button>
            </div>
         </div>
       )}
@@ -1411,7 +1553,44 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
               </div>
               <div className="pt-8 border-t border-slate-800 space-y-3"><button onClick={() => setShowAddTagModal(true)} className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all border border-blue-400/20 flex items-center justify-center gap-2"><PlusCircle size={16} /> {translations.addCustomTag[lang]}</button><button onClick={() => setShowAddExerciseModal(true)} className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-400/10 transition-all border border-indigo-400/20 flex items-center justify-center gap-2"><Zap size={16} /> {translations.addCustomExercise[lang]}</button></div>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">{filteredExercises.length === 0 ? (<div className="h-full flex flex-col items-center justify-center opacity-20 gap-4"><Search size={64} /><p className="font-black text-xl">{translations.noRecords[lang]}</p></div>) : (filteredExercises.map(ex => (<div key={ex.id} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDropOnExercise(e, ex.id)} className="relative"><button onClick={() => { if (isEditingTags) { setExerciseToRename({ id: ex.id, name: ex.name[lang] }); setNewExerciseNameInput(ex.name[lang]); setShowRenameExerciseModal(true); return; } setCurrentWorkout(p => ({ ...p, exercises: [...(p.exercises || []), { id: Date.now().toString(), name: ex.name[lang], category: 'STRENGTH', sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] }] })); setShowLibrary(false); }} className="w-full p-6 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden"><div className="absolute right-0 top-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></div><div className="flex flex-col gap-3 relative z-10"><div className="flex justify-between items-center"><span className="font-black text-xl group-hover:text-blue-400 transition-colors">{ex.name[lang]}</span>{isEditingTags && <PencilLine size={18} className="text-slate-500" />}</div><div className="flex flex-wrap gap-2"><span draggable onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors">{getTagName(ex.bodyPart)}</span>{ex.tags.map(t => (<span draggable onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} key={t} className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors">{getTagName(t)}</span>))}</div></div></button></div>)))}</div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">{filteredExercises.length === 0 ? 
+            (<div className="h-full flex flex-col items-center justify-center opacity-20 gap-4"><Search size={64} />
+            <p className="font-black text-xl">{translations.noRecords[lang]}</p></div>) : 
+            (filteredExercises.map(ex => (<div key={ex.id} onDragOver={(e) => e.preventDefault()} 
+            onDrop={(e) => handleDropOnExercise(e, ex.id)} className="relative">
+              
+              <button onClick={() => { 
+              if (isEditingTags) { 
+                setExerciseToRename({ id: ex.id, name: ex.name[lang] }); 
+                setNewExerciseNameInput(ex.name[lang]); 
+                setShowRenameExerciseModal(true); 
+                return; 
+              } 
+              setCurrentWorkout(p => ({ 
+                ...p, 
+                exercises: [
+                  { 
+                    id: Date.now().toString(), 
+                    name: ex.name[lang], 
+                    category: 'STRENGTH', 
+                    sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
+                  },
+                  ...(p.exercises || []) // ✅ 修改后：新动作排在第一位，旧动作在后
+                ] 
+              })); 
+              setShowLibrary(false); 
+            }} 
+            className="w-full p-6 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              </div><div className="flex flex-col gap-3 relative z-10"><div className="flex justify-between items-center"><span className="font-black text-xl group-hover:text-blue-400 transition-colors">
+                {ex.name[lang]}</span>{isEditingTags && <PencilLine size={18} className="text-slate-500" />}</div><div className="flex flex-wrap gap-2">
+                  <span draggable onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} 
+                  className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors">
+                    {getTagName(ex.bodyPart)}</span>{ex.tags.map(t => (<span draggable onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} 
+                    key={t} className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors">
+                      {getTagName(t)}</span>))}</div></div></button></div>)))}</div>
+
           </div>
         </div>
       )}
