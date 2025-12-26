@@ -31,6 +31,8 @@ const beepAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/28
 const KG_TO_LBS = 2.20462;
 const KMH_TO_MPH = 0.621371;
 
+
+
 const formatValue = (val: number, type: string, currentUnitSystem: 'kg' | 'lbs') => {
   if (val === undefined || val === null) return '0.00';
   
@@ -94,63 +96,85 @@ const playTimerSound = () => {
 type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
 
 const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'subLegs', 'subCore'];
-const EQUIPMENT_TAGS = ['tagBarbell', 'tagDumbbell', 'tagMachine', 'tagCable', 'tagBodyweight', 'tagPyramid'];
+const EQUIPMENT_TAGS = [
+  'tagBarbell', 'tagDumbbell', 'tagMachine', 'tagCable', 
+  'tagBodyweight', 'tagPyramid', 'tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'
+];
 
 const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   // Chest
-  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'] },
-  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '杠铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'] },
-  { id: 'bp_dumbbell', name: { en: 'Dumbbell Bench Press', cn: '哑铃平板卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'] },
-  { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '哑铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'] },
-  { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'] },
-  { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', tags: ['tagMachine'] },
-  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'] },
-  { id: 'pushup', name: { en: 'Pushup', cn: '俯撑撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'] },
+  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '杠铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'bp_dumbbell', name: { en: 'Dumbbell Bench Press', cn: '哑铃平板卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '哑铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH'  },
+  { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH'  },
+  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'pushup', name: { en: 'Pushup', cn: '俯撑撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
   
   // Back
-  { id: 'dl_barbell', name: { en: 'Deadlift', cn: '硬拉' }, bodyPart: 'subBack', tags: ['tagBarbell'] },
-  { id: 'row_barbell', name: { en: 'Barbell Row', cn: '杠铃划船' }, bodyPart: 'subBack', tags: ['tagBarbell'] },
-  { id: 'lat_pulldown', name: { en: 'Lat Pulldown', cn: '高位下拉' }, bodyPart: 'subBack', tags: ['tagMachine', 'tagCable'] },
-  { id: 'row_seated_cable', name: { en: 'Seated Cable Row', cn: '坐姿划船' }, bodyPart: 'subBack', tags: ['tagCable'] },
-  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', tags: ['tagBodyweight'] },
-  { id: 'single_arm_db_row', name: { en: 'Single Arm Dumbbell Row', cn: '哑铃单臂划船' }, bodyPart: 'subBack', tags: ['tagDumbbell'] },
-  { id: 'tbar_row', name: { en: 'T-Bar Row', cn: 'T杠划船' }, bodyPart: 'subBack', tags: ['tagBarbell', 'tagMachine'] },
-  { id: 'hyperextension', name: { en: 'Hyperextension', cn: '山羊挺身' }, bodyPart: 'subBack', tags: ['tagBodyweight', 'tagMachine'] },
+  { id: 'dl_barbell', name: { en: 'Deadlift', cn: '硬拉' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'row_barbell', name: { en: 'Barbell Row', cn: '杠铃划船' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'lat_pulldown', name: { en: 'Lat Pulldown', cn: '高位下拉' }, bodyPart: 'subBack', tags: ['tagMachine', 'tagCable'], category: 'STRENGTH'  },
+  { id: 'row_seated_cable', name: { en: 'Seated Cable Row', cn: '坐姿划船' }, bodyPart: 'subBack', tags: ['tagCable'], category: 'STRENGTH'  },
+  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'single_arm_db_row', name: { en: 'Single Arm Dumbbell Row', cn: '哑铃单臂划船' }, bodyPart: 'subBack', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'tbar_row', name: { en: 'T-Bar Row', cn: 'T杠划船' }, bodyPart: 'subBack', tags: ['tagBarbell', 'tagMachine'], category: 'STRENGTH'  },
+  { id: 'hyperextension', name: { en: 'Hyperextension', cn: '山羊挺身' }, bodyPart: 'subBack', tags: ['tagBodyweight', 'tagMachine'], category: 'STRENGTH'  },
   
   // Shoulder
-  { id: 'ohp_barbell', name: { en: 'Overhead Press', cn: '杠铃推举' }, bodyPart: 'subShoulder', tags: ['tagBarbell'] },
-  { id: 'ohp_dumbbell', name: { en: 'Dumbbell Shoulder Press', cn: '哑铃推肩' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'] },
-  { id: 'lat_raise_dumbbell', name: { en: 'Dumbbell Lateral Raise', cn: '哑铃侧平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'] },
-  { id: 'face_pull_cable', name: { en: 'Cable Face Pull', cn: '绳索面拉' }, bodyPart: 'subShoulder', tags: ['tagCable'] },
-  { id: 'press_machine_shoulder', name: { en: 'Machine Shoulder Press', cn: '器械推肩' }, bodyPart: 'subShoulder', tags: ['tagMachine'] },
-  { id: 'arnold_press', name: { en: 'Arnold Press', cn: '阿诺德推举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'] },
-  { id: 'front_raise_db', name: { en: 'Dumbbell Front Raise', cn: '哑铃前平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'] },
+  { id: 'ohp_barbell', name: { en: 'Overhead Press', cn: '杠铃推举' }, bodyPart: 'subShoulder', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'ohp_dumbbell', name: { en: 'Dumbbell Shoulder Press', cn: '哑铃推肩' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'lat_raise_dumbbell', name: { en: 'Dumbbell Lateral Raise', cn: '哑铃侧平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'face_pull_cable', name: { en: 'Cable Face Pull', cn: '绳索面拉' }, bodyPart: 'subShoulder', tags: ['tagCable'], category: 'STRENGTH'  },
+  { id: 'press_machine_shoulder', name: { en: 'Machine Shoulder Press', cn: '器械推肩' }, bodyPart: 'subShoulder', tags: ['tagMachine'], category: 'STRENGTH'  },
+  { id: 'arnold_press', name: { en: 'Arnold Press', cn: '阿诺德推举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'front_raise_db', name: { en: 'Dumbbell Front Raise', cn: '哑铃前平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   
   // Legs
-  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', tags: ['tagBarbell'] },
-  { id: 'goblet_squat', name: { en: 'Goblet Squat', cn: '高杯深蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'] },
-  { id: 'leg_press', name: { en: 'Leg Press', cn: '倒蹬/腿举' }, bodyPart: 'subLegs', tags: ['tagMachine'] },
-  { id: 'leg_extension', name: { en: 'Leg Extension', cn: '腿屈伸' }, bodyPart: 'subLegs', tags: ['tagMachine'] },
-  { id: 'leg_curl', name: { en: 'Leg Curl', cn: '腿弯举' }, bodyPart: 'subLegs', tags: ['tagMachine'] },
-  { id: 'calf_raise', name: { en: 'Calf Raise', cn: '提踵' }, bodyPart: 'subLegs', tags: ['tagMachine', 'tagBodyweight'] },
-  { id: 'lunge_dumbbell', name: { en: 'Dumbbell Lunge', cn: '哑铃箭步蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'] },
-  { id: 'romanian_deadlift', name: { en: 'Romanian Deadlift', cn: '罗马尼亚硬拉' }, bodyPart: 'subLegs', tags: ['tagBarbell', 'tagDumbbell'] },
+  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'goblet_squat', name: { en: 'Goblet Squat', cn: '高杯深蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'leg_press', name: { en: 'Leg Press', cn: '倒蹬/腿举' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
+  { id: 'leg_extension', name: { en: 'Leg Extension', cn: '腿屈伸' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
+  { id: 'leg_curl', name: { en: 'Leg Curl', cn: '腿弯举' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
+  { id: 'calf_raise', name: { en: 'Calf Raise', cn: '提踵' }, bodyPart: 'subLegs', tags: ['tagMachine', 'tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'lunge_dumbbell', name: { en: 'Dumbbell Lunge', cn: '哑铃箭步蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'romanian_deadlift', name: { en: 'Romanian Deadlift', cn: '罗马尼亚硬拉' }, bodyPart: 'subLegs', tags: ['tagBarbell', 'tagDumbbell'], category: 'STRENGTH'  },
   
   // Arms
-  { id: 'cu_barbell', name: { en: 'Barbell Curl', cn: '杠铃弯举' }, bodyPart: 'subArms', tags: ['tagBarbell'] },
-  { id: 'cu_dumbbell', name: { en: 'Dumbbell Curl', cn: '哑铃弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'] },
-  { id: 'cu_ hammer', name: { en: 'Hammer Curl', cn: '锤式弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'] },
-  { id: 'tricep_pushdown', name: { en: 'Tricep Pushdown', cn: '肱三头肌下压' }, bodyPart: 'subArms', tags: ['tagCable'] },
-  { id: 'skull_crusher', name: { en: 'Skull Crusher', cn: '哑卧臂屈伸' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagDumbbell'] },
-  { id: 'preacher_curl', name: { en: 'Preacher Curl', cn: '牧师凳弯举' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagMachine'] },
-  { id: 'overhead_extension_db', name: { en: 'Overhead Tricep Extension', cn: '颈后臂屈伸' }, bodyPart: 'subArms', tags: ['tagDumbbell'] },
+  { id: 'cu_barbell', name: { en: 'Barbell Curl', cn: '杠铃弯举' }, bodyPart: 'subArms', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'cu_dumbbell', name: { en: 'Dumbbell Curl', cn: '哑铃弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'cu_ hammer', name: { en: 'Hammer Curl', cn: '锤式弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'tricep_pushdown', name: { en: 'Tricep Pushdown', cn: '肱三头肌下压' }, bodyPart: 'subArms', tags: ['tagCable'], category: 'STRENGTH'  },
+  { id: 'skull_crusher', name: { en: 'Skull Crusher', cn: '哑卧臂屈伸' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'preacher_curl', name: { en: 'Preacher Curl', cn: '牧师凳弯举' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagMachine'], category: 'STRENGTH'  },
+  { id: 'overhead_extension_db', name: { en: 'Overhead Tricep Extension', cn: '颈后臂屈伸' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   
   // Core
-  { id: 'plank', name: { en: 'Plank', cn: '平板支撑' }, bodyPart: 'subCore', tags: ['tagBodyweight'] },
-  { id: 'leg_raise', name: { en: 'Hanging Leg Raise', cn: '悬垂举腿' }, bodyPart: 'subCore', tags: ['tagBodyweight'] },
-  { id: 'cable_crunch', name: { en: 'Cable Crunch', cn: '绳索卷腹' }, bodyPart: 'subCore', tags: ['tagCable'] },
-  { id: 'russian_twist', name: { en: 'Russian Twist', cn: '俄罗斯转体' }, bodyPart: 'subCore', tags: ['tagBodyweight', 'tagDumbbell'] },
-  { id: 'ab_wheel', name: { en: 'Ab Wheel Rollout', cn: '健腹轮' }, bodyPart: 'subCore', tags: ['tagBodyweight'] },
+  { id: 'plank', name: { en: 'Plank', cn: '平板支撑' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'leg_raise', name: { en: 'Hanging Leg Raise', cn: '悬垂举腿' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'cable_crunch', name: { en: 'Cable Crunch', cn: '绳索卷腹' }, bodyPart: 'subCore', tags: ['tagCable'], category: 'STRENGTH'  },
+  { id: 'russian_twist', name: { en: 'Russian Twist', cn: '俄罗斯转体' }, bodyPart: 'subCore', tags: ['tagBodyweight', 'tagDumbbell'], category: 'STRENGTH'  },
+  { id: 'ab_wheel', name: { en: 'Ab Wheel Rollout', cn: '健腹轮' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+
+    // --- 有氧训练 (CARDIO) ---
+  { id: 'run_out', name: { en: 'Outdoor Running', cn: '室外跑步' }, bodyPart: 'subLegs', tags: ['tagOutdoor'], category: 'CARDIO' },
+  { id: 'run_tread', name: { en: 'Treadmill', cn: '跑步机' }, bodyPart: 'subLegs', tags: ['tagIndoor', 'tagGym'], category: 'CARDIO' },
+  { id: 'bike_out', name: { en: 'Outdoor Cycling', cn: '室外骑行' }, bodyPart: 'subLegs', tags: ['tagOutdoor'], category: 'CARDIO' },
+  { id: 'bike_stat', name: { en: 'Stationary Bike', cn: '动感单车' }, bodyPart: 'subLegs', tags: ['tagIndoor', 'tagGym'], category: 'CARDIO' },
+  { id: 'swim', name: { en: 'Swimming', cn: '游泳' }, bodyPart: 'subFullBody', tags: ['tagIndoor', 'tagOutdoor'], category: 'CARDIO' },
+  { id: 'rower', name: { en: 'Rowing Machine', cn: '划船机' }, bodyPart: 'subBack', tags: ['tagMachine', 'tagGym'], category: 'CARDIO' },
+  { id: 'stair', name: { en: 'Stair Climber', cn: '登山机' }, bodyPart: 'subLegs', tags: ['tagMachine', 'tagGym'], category: 'CARDIO' },
+  { id: 'rope', name: { en: 'Jump Rope', cn: '跳绳' }, bodyPart: 'subFullBody', tags: ['tagBodyweight'], category: 'CARDIO' },
+
+  // --- 自由训练 (FREE) ---
+  { id: 'ball_basket', name: { en: 'Basketball', cn: '篮球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
+  { id: 'ball_soccer', name: { en: 'Soccer', cn: '足球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
+  { id: 'ball_badm', name: { en: 'Badminton', cn: '羽毛球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagIndoor'], category: 'FREE' },
+  { id: 'ball_tennis', name: { en: 'Tennis', cn: '网球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
+  { id: 'yoga_flow', name: { en: 'Yoga', cn: '瑜伽' }, bodyPart: 'subFullBody', tags: ['tagBodyweight', 'tagIndoor'], category: 'FREE' },
+  { id: 'stretch_all', name: { en: 'Stretching', cn: '拉伸' }, bodyPart: 'subFullBody', tags: ['tagBodyweight'], category: 'FREE' },
+  { id: 'hiit_session', name: { en: 'HIIT', cn: '高强度间歇训练' }, bodyPart: 'subFullBody', tags: ['tagBodyweight', 'tagIndoor'], category: 'FREE' },
 ];
 
 const App: React.FC = () => {
@@ -178,6 +202,29 @@ const App: React.FC = () => {
   interface Measurement { id: string; userId: string; name: string; value: number; unit: string; date: string; }
   
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+
+  // --- ✅ 新增：时间选择器专用状态 ---
+  const [showTimePicker, setShowTimePicker] = useState<{ exIdx: number; setIdx: number } | null>(null);
+  // 临时存储正在编辑的时分秒，方便在 Modal 里调整
+  const [tempHMS, setTempHMS] = useState({ h: 0, m: 0, s: 0 });
+
+  // 打开选择器并初始化数据
+  const openTimePicker = (exIdx: number, setIdx: number, currentSeconds: number) => {
+    setTempHMS(secondsToHMS(currentSeconds || 0));
+    setShowTimePicker({ exIdx, setIdx });
+  };
+
+  // 在选择器中保存时间
+  const confirmTimePicker = () => {
+    if (!showTimePicker) return;
+    const { exIdx, setIdx } = showTimePicker;
+    const totalSeconds = tempHMS.h * 3600 + tempHMS.m * 60 + tempHMS.s;
+    
+    const exs = [...currentWorkout.exercises!];
+    exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], duration: totalSeconds };
+    setCurrentWorkout({ ...currentWorkout, exercises: exs });
+    setShowTimePicker(null);
+  };
 
   // --- 新增：休息时间偏好记忆 ---
   // 格式: { "动作名称": 90 }
@@ -244,6 +291,9 @@ const App: React.FC = () => {
     const updated = { ...exerciseMetricConfigs, [exerciseName]: next };
     setExerciseMetricConfigs(updated);
     localStorage.setItem('fitlog_metric_configs', JSON.stringify(updated));
+    if (user && user.id !== 'u_guest') {
+      performFullSync(user.id);
+    }
   };
 
   // 初始化加载备注
@@ -984,31 +1034,60 @@ const performFullSync = async (currentUserId: string) => {
           await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
         })(),
 
-        // 5. 同步个性化配置 (合并保护版)
+        // 5. 同步个性化配置 (备注、偏好、自定义动作/标签、维度设置)
         (async () => {
           const remoteConfig = await fetchUserConfigsFromCloud();
+          
+          // A. 先读取当前本地最真实的数据作为基准
           const localTags = JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]');
           const localExs = JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]');
+          const localNotes = JSON.parse(localStorage.getItem('fitlog_exercise_notes') || '{}');
+          const localRest = JSON.parse(localStorage.getItem('fitlog_rest_prefs') || '{}');
+          const localStarred = JSON.parse(localStorage.getItem('fitlog_starred_exercises') || '{}');
+          const localMetricConfigs = JSON.parse(localStorage.getItem('fitlog_metric_configs') || '{}');
 
+          // B. 初始化“最终版本”变量（默认先用本地的）
+          let finalTags = localTags;
+          let finalExs = localExs;
+          let finalNotes = localNotes;
+          let finalRest = localRest;
+          let finalStarred = localStarred;
+          let finalMetricConfigs = localMetricConfigs;
+
+          // C. 如果云端有数据，进行合并/覆盖
           if (remoteConfig) {
-            // ✅ 只有当云端有新数据时才合并，否则保留本地
-            const finalTags = (remoteConfig.customTags?.length > 0) ? remoteConfig.customTags : localTags;
-            const finalExs = (remoteConfig.customExercises?.length > 0) ? remoteConfig.customExercises : localExs;
-            
+            if (remoteConfig.customTags?.length > 0) finalTags = remoteConfig.customTags;
+            if (remoteConfig.customExercises?.length > 0) finalExs = remoteConfig.customExercises;
+            if (remoteConfig.exerciseNotes) finalNotes = remoteConfig.exerciseNotes;
+            if (remoteConfig.restPrefs) finalRest = remoteConfig.restPrefs;
+            if (remoteConfig.starred) finalStarred = remoteConfig.starred;
+            if (remoteConfig.metricConfigs) finalMetricConfigs = remoteConfig.metricConfigs;
+
+            // D. 同步更新 React 内存状态
             setCustomTags(finalTags);
             setCustomExercises(finalExs);
+            setExerciseNotes(finalNotes);
+            setRestPreferences(finalRest);
+            setStarredExercises(finalStarred);
+            setExerciseMetricConfigs(finalMetricConfigs);
+
+            // E. 同步写入本地持久化存储
             localStorage.setItem('fitlog_custom_tags', JSON.stringify(finalTags));
             localStorage.setItem('fitlog_custom_exercises', JSON.stringify(finalExs));
-            // ... 其他备注/星标同理
+            localStorage.setItem('fitlog_exercise_notes', JSON.stringify(finalNotes));
+            localStorage.setItem('fitlog_rest_prefs', JSON.stringify(finalRest));
+            localStorage.setItem('fitlog_starred_exercises', JSON.stringify(finalStarred));
+            localStorage.setItem('fitlog_metric_configs', JSON.stringify(finalMetricConfigs));
           }
           
-          // 反向同步本地最新数据到云端
+          // F. ✅ 最终一步：将这个“终极合并版”配置上传回云端，实现多端对齐
           await syncUserConfigsToCloud({
-            exerciseNotes,
-            restPrefs: restPreferences,
-            customTags: JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]'),
-            starred: starredExercises,
-            customExercises: JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]')
+            exerciseNotes: finalNotes,
+            restPrefs: finalRest,
+            customTags: finalTags,
+            starred: finalStarred,
+            customExercises: finalExs,
+            metricConfigs: finalMetricConfigs
           });
         })()
       ]);
@@ -1338,23 +1417,29 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
   };
 
 const getTagName = (tid: string) => {
-    if (!tid) return ''; // 如果 ID 为空，返回空字符串
-    if (tid === 'tagPyramid') return lang === Language.CN ? '递增/递减组' : 'Pyramid/Drop Set';
+    if (!tid) return '';
+    const lowerId = tid.toLowerCase();
     
-    // 优先从重命名覆盖中找
+    // 1. 特殊处理递减组
+    if (lowerId === 'tagpyramid') return lang === Language.CN ? '递增/递减组' : 'Pyramid/Drop Set';
+    
+    // 2. 检查重命名覆盖 (保持原始 ID 匹配)
     if (tagRenameOverrides[tid]) return tagRenameOverrides[tid];
     
-    // 从自定义标签库中找
-    const customTag = customTags.find(ct => ct.id === tid);
+    // 3. 检查自定义标签
+    const customTag = customTags.find(ct => ct.id === tid || ct.id.toLowerCase() === lowerId);
     if (customTag) return customTag.name;
     
-    // 从系统翻译中找
-    if (translations[tid]?.[lang]) return translations[tid][lang];
+    // 4. ✅ 核心修复：从 translations 字典中进行不区分大小写的查找
+    const systemKey = Object.keys(translations).find(k => k.toLowerCase() === lowerId);
+    if (systemKey) {
+      return (translations as any)[systemKey][lang];
+    }
 
-    // ✅ 核心修复：如果最后还没找到且 tid 是一串长数字（时间戳格式），说明是失效标签，返回空
+    // 5. 如果是存粹的数字 ID 且找不到定义，返回空（隐藏它）
     if (/^\d{10,13}$/.test(tid)) return ''; 
 
-    return tid; // 否则（如：'subChest'）返回原始 ID 供翻译
+    return tid; 
   };
 
   const isBodyweightExercise = (name: string): boolean => {
@@ -1373,25 +1458,30 @@ const getTagName = (tid: string) => {
     return tags.includes('tagPyramid');
   };
 
-  const filteredExercises = useMemo(() => {
-    // 基础库
+const filteredExercises = useMemo(() => {
     const allBase = [...DEFAULT_EXERCISES, ...customExercises];
-    
-    // 1. 过滤当前选中的大分类 (如果不选分类，默认显示 STRENGTH 以兼容旧数据)
     const categoryToFilter = activeLibraryCategory || 'STRENGTH';
     
-    // 假设自定义动作 ExerciseDefinition 增加了一个 category 字段
     const all = allBase
       .map(ex => exerciseOverrides[ex.id] ? { ...ex, ...exerciseOverrides[ex.id] } : ex)
+      // ✅ 新增：过滤掉被标记为隐藏的动作
+      .filter(ex => !exerciseOverrides[ex.id]?.hidden) 
       .filter(ex => (ex.category || 'STRENGTH') === categoryToFilter);
 
     return all.filter(ex => {
       const q = searchQuery.toLowerCase();
       const matchSearch = !searchQuery || ex.name[lang].toLowerCase().includes(q);
-      const selParts = selectedTags.filter(t => BODY_PARTS.includes(t) || customTags.some(ct => ct.id === t && ct.category === 'bodyPart'));
-      const selEquips = selectedTags.filter(t => EQUIPMENT_TAGS.includes(t) || customTags.some(ct => ct.id === t && ct.category === 'equipment'));
-      const matchPart = selParts.length === 0 || selParts.includes(ex.bodyPart);
-      const matchEquip = selEquips.length === 0 || ex.tags.some(t => selEquips.includes(t));
+      
+      const selParts = selectedTags.filter(t => BODY_PARTS.some(bp => bp.toLowerCase() === t.toLowerCase()) || customTags.some(ct => ct.id === t && ct.category === 'bodyPart'));
+      const selEquips = selectedTags.filter(t => EQUIPMENT_TAGS.some(et => et.toLowerCase() === t.toLowerCase()) || customTags.some(ct => ct.id === t && ct.category === 'equipment'));
+
+      // ✅ 核心修复：使用 .some() 和 .toLowerCase() 进行不区分大小写的匹配
+      const matchPart = selParts.length === 0 || selParts.some(sp => sp.toLowerCase() === ex.bodyPart?.toLowerCase());
+      
+      const matchEquip = selEquips.length === 0 || ex.tags.some(t => 
+        selEquips.some(se => se.toLowerCase() === t.toLowerCase())
+      );
+
       return matchSearch && matchPart && matchEquip;
     });
   }, [searchQuery, selectedTags, lang, customTags, customExercises, exerciseOverrides, activeLibraryCategory]);
@@ -1402,6 +1492,35 @@ const getTagName = (tid: string) => {
     setTagRenameOverrides(updatedOverrides);
     localStorage.setItem('fitlog_tag_rename_overrides', JSON.stringify(updatedOverrides));
     setShowRenameModal(false) ; setTagToRename(null); setNewTagNameInput('');
+  };
+
+  // ✅ 新增：从动作库中删除动作（支持系统默认和自定义）
+  const handleDeleteLibraryExercise = async (e: React.MouseEvent, exId: string) => {
+    e.stopPropagation(); // 防止触发点击添加动作
+    
+    const confirmText = lang === Language.CN ? '确定要从动作库中删除此动作吗？' : 'Delete this exercise from library?';
+    if (!window.confirm(confirmText)) return;
+
+    // 1. 如果是自定义动作，从自定义列表中删除
+    setCustomExercises(prev => {
+      const next = prev.filter(ex => ex.id !== exId);
+      localStorage.setItem('fitlog_custom_exercises', JSON.stringify(next));
+      return next;
+    });
+
+    // 2. 如果是系统动作（或为了保险起见），在覆盖设置中标记为隐藏
+    setExerciseOverrides(prev => {
+      const current = prev[exId] || {};
+      const next = { ...current, hidden: true };
+      const updated = { ...prev, [exId]: next };
+      localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 3. 触发同步上云
+    if (user && user.id !== 'u_guest') {
+      performFullSync(user.id);
+    }
   };
 
   const handleRenameExercise = async () => {
@@ -1887,11 +2006,19 @@ const getTagName = (tid: string) => {
                 {/* 1. 训练部位动态显示逻辑 */}
                   <div className="space-y-1.5">
                     {/* 仅在力量训练时显示系统默认部位 */}
-                    {activeLibraryCategory === 'STRENGTH' && BODY_PARTS.map(id => (
-                      <div key={id} className="relative group">
-                        <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => { const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')); return p.includes(id) ? withoutBodyParts : [...withoutBodyParts, id]; }); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
-                      </div>
-                    ))}
+                    {/* 逻辑：如果是力量训练显示全量；其他分类只显示该分类动作中用到的部位 */}
+                  {BODY_PARTS.filter(id => {
+                    // 1. 力量训练显示全量
+                    if (activeLibraryCategory === 'STRENGTH') return true;
+                    // 2. 其他分类：扫描该大类下所有的默认动作和自定义动作，只要有用过这个部位就显示
+                    const allExercisesInCategory = [...DEFAULT_EXERCISES, ...customExercises]
+                      .filter(ex => (ex.category || 'STRENGTH') === activeLibraryCategory);
+                    return allExercisesInCategory.some(ex => ex.bodyPart === id);
+                  }).map(id => (
+                    <div key={id} className="relative group">
+                      <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => { const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')); return p.includes(id) ? withoutBodyParts : [...withoutBodyParts, id]; }); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
+                    </div>
+                  ))}
                     
                     {/* 显示属于当前类别的自定义部位标签 */}
                     {customTags
@@ -1911,11 +2038,21 @@ const getTagName = (tid: string) => {
                   {/* 2. 使用器材动态显示逻辑 */}
                   <div className="space-y-1.5">
                     {/* 仅在力量训练时显示系统默认器材 */}
-                    {activeLibraryCategory === 'STRENGTH' && EQUIPMENT_TAGS.map(id => (
-                      <div key={id} className="relative group">
-                        <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
-                      </div>
-                    ))}
+                    {/* 逻辑：只显示当前分类动作包含的器材标签 */}
+                      {EQUIPMENT_TAGS.filter(id => {
+                        // 1. 力量训练：排除掉有氧和球类标签，保持纯净
+                        if (activeLibraryCategory === 'STRENGTH') {
+                          return !['tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'].includes(id);
+                        }
+                        // 2. 其他分类：扫描该大类下所有动作，有用过这个器材就显示
+                        const allExercisesInCategory = [...DEFAULT_EXERCISES, ...customExercises]
+                          .filter(ex => (ex.category || 'STRENGTH') === activeLibraryCategory);
+                        return allExercisesInCategory.some(ex => ex.tags.includes(id));
+                      }).map(id => (
+                        <div key={id} className="relative group">
+                          <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
+                        </div>
+                      ))}
                     
                     {/* 显示属于当前类别的自定义器材标签 */}
                     {customTags
@@ -1974,11 +2111,22 @@ const getTagName = (tid: string) => {
                       <span className={`font-black text-xl transition-colors ${isEditingTags ? 'text-amber-400' : 'group-hover:text-blue-400 text-white'}`}>
                         {ex.name[lang]}
                       </span>
-                      {isEditingTags && (
-                        <div className="p-2 bg-amber-500/20 rounded-lg">
-                          <PencilLine size={18} className="text-amber-500" />
-                        </div>
-                      )}
+                      {/* ✅ 修改：编辑模式下的操作按钮组 */}
+                        {isEditingTags && (
+                          <div className="flex gap-2">
+                            {/* 铅笔图标 - 重命名 */}
+                            <div className="p-2 bg-amber-500/20 rounded-lg">
+                              <PencilLine size={18} className="text-amber-500" />
+                            </div>
+                            {/* 垃圾桶图标 - 删除 */}
+                            <button 
+                              onClick={(e) => handleDeleteLibraryExercise(e, ex.id)}
+                              className="p-2 bg-red-500/20 rounded-lg text-red-500 hover:bg-red-500/40 transition-colors"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        )}
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
@@ -2490,12 +2638,56 @@ const getTagName = (tid: string) => {
                               const { h, m: mins, s } = secondsToHMS(set.duration || 0);
                               return (
                                 <div key={m} className="flex items-center justify-center gap-1">
-                                  {/* ✅ 修改：value={h} 而不是 h || ''，确保 0 能显示 */}
-                                  <input type="number" className="w-8 bg-slate-800/50 rounded-lg text-[9px] text-center font-bold py-1 text-blue-400 outline-none border border-slate-700/50" placeholder="0" value={h} onChange={e => updateDuration(exIdx, setIdx, 'h', Number(e.target.value))} />
-                                  <span className="text-slate-700 text-[8px]">:</span>
-                                  <input type="number" className="w-8 bg-slate-800/50 rounded-lg text-[9px] text-center font-bold py-1 text-blue-400 outline-none border border-slate-700/50" placeholder="0" value={mins} onChange={e => updateDuration(exIdx, setIdx, 'm', Number(e.target.value))} />
-                                  <span className="text-slate-700 text-[8px]">:</span>
-                                  <input type="number" className="w-8 bg-slate-800/50 rounded-lg text-[9px] text-center font-bold py-1 text-blue-400 outline-none border border-slate-700/50" placeholder="0" value={s} onChange={e => updateDuration(exIdx, setIdx, 's', Number(e.target.value))} />
+                                  {activeMetrics.map(m => {
+                                    // 情况 1：如果是“时长”维度，渲染大按钮触发 TimePicker
+                                    if (m === 'duration') {
+                                      const hms = secondsToHMS(set.duration || 0);
+                                      return (
+                                        <button 
+                                          key={m}
+                                          type="button"
+                                          onClick={() => openTimePicker(exIdx, setIdx, set.duration || 0)}
+                                          className="mx-auto bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all active:scale-95 group"
+                                        >
+                                          <div className="flex items-baseline gap-0.5">
+                                            <span className="text-sm font-black text-blue-400 tabular-nums">{hms.h.toString().padStart(2, '0')}</span>
+                                            <span className="text-[8px] font-bold text-slate-600">h</span>
+                                          </div>
+                                          <span className="text-slate-700 font-bold">:</span>
+                                          <div className="flex items-baseline gap-0.5">
+                                            <span className="text-sm font-black text-blue-400 tabular-nums">{hms.m.toString().padStart(2, '0')}</span>
+                                            <span className="text-[8px] font-bold text-slate-600">m</span>
+                                          </div>
+                                          <span className="text-slate-700 font-bold">:</span>
+                                          <div className="flex items-baseline gap-0.5">
+                                            <span className="text-sm font-black text-blue-400 tabular-nums">{hms.s.toString().padStart(2, '0')}</span>
+                                            <span className="text-[8px] font-bold text-slate-600">s</span>
+                                          </div>
+                                        </button>
+                                      );
+                                    }
+
+                                    // 情况 2：如果是其他维度（重量、次数等），渲染数字输入框
+                                    return (
+                                      <input 
+                                        key={m}
+                                        type="number"
+                                        className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400 w-full text-sm"
+                                        placeholder="0"
+                                        value={
+                                          set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined 
+                                            ? '' 
+                                            : Number(set[m as keyof typeof set]).toFixed(2).replace(/\.?0+$/, '')
+                                        }
+                                        onChange={e => {
+                                          const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                          const exs = [...currentWorkout.exercises!];
+                                          exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: val };
+                                          setCurrentWorkout({...currentWorkout, exercises: exs});
+                                        }}
+                                      />
+                                    );
+                                  })}
                                 </div>
                               );
                             }
@@ -2574,18 +2766,32 @@ const getTagName = (tid: string) => {
 
             {/* 操作栏：添加组 & 休息计时 */}
                   <div className="flex gap-3 mt-4">
-                    {/* 1. 添加组按钮 (逻辑保持不变，样式改为 flex-1) */}
+                    {/* 1. 添加组按钮 (逻辑升级：全维度自动继承) */}
                     <button 
                       onClick={() => { 
                         const exs = [...currentWorkout.exercises!]; 
                         const currentSets = exs[exIdx].sets; 
                         const lastSet = currentSets.length > 0 ? currentSets[currentSets.length - 1] : null; 
-                        exs[exIdx].sets.push({ 
-                          id: Date.now().toString(), 
-                          weight: lastSet ? lastSet.weight : 0, 
-                          reps: lastSet ? lastSet.reps : 0, 
-                          bodyweightMode: lastSet ? lastSet.bodyweightMode : (isBodyweight ? 'normal' : undefined) 
-                        }); 
+                        
+                        let newSet;
+                        if (lastSet) {
+                          // ✅ 核心修复：直接展开(Spread)上一组对象，继承包括重量、次数、距离、时长、分数等所有维度
+                          // 然后覆盖掉 id，确保唯一性
+                          newSet = { 
+                            ...lastSet, 
+                            id: Date.now().toString() 
+                          };
+                        } else {
+                          // 如果是第一组，则初始化默认值
+                          newSet = { 
+                            id: Date.now().toString(), 
+                            weight: 0, 
+                            reps: 0, 
+                            bodyweightMode: isBodyweight ? 'normal' : undefined 
+                          };
+                        }
+
+                        exs[exIdx].sets.push(newSet); 
                         setCurrentWorkout({...currentWorkout, exercises: exs}); 
                       }} 
                       className="flex-1 py-3 border border-dashed border-slate-700 rounded-xl text-slate-500 font-black flex items-center justify-center gap-2 hover:bg-slate-800/50 transition-colors"
@@ -2625,6 +2831,9 @@ const getTagName = (tid: string) => {
                   key={cat.id}
                   onClick={() => {
                     setActiveLibraryCategory(cat.id as ExerciseCategory);
+                    // ✅ 核心修复：切换分类时清空之前的搜索框和选中的标签，防止因标签不匹配导致黑屏
+                    setSearchQuery(''); 
+                    setSelectedTags([]); 
                     setShowLibrary(true);
                   }}
                   className="group relative bg-slate-800/30 border border-slate-700/50 p-5 rounded-[2rem] flex items-center gap-6 hover:bg-slate-800/60 transition-all active:scale-[0.98] overflow-hidden w-full"
@@ -3087,6 +3296,58 @@ const getTagName = (tid: string) => {
           </div>
         </div>
       )}
+
+      {/* --- ✅ 新增：移动端友好时间选择器 --- */}
+      {showTimePicker && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-end sm:items-center justify-center animate-in fade-in slide-in-from-bottom-10">
+          <div className="bg-slate-900 border-t sm:border border-slate-800 w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-xl font-black text-white">{lang === Language.CN ? '设置时长' : 'Set Duration'}</h2>
+              <button onClick={() => setShowTimePicker(null)} className="p-2 text-slate-500"><X size={24}/></button>
+            </div>
+
+            {/* 滚轮模拟选择区 */}
+            <div className="flex justify-around items-center gap-4 mb-10">
+              {[
+                { label: lang === Language.CN ? '时' : 'Hour', key: 'h', max: 23 },
+                { label: lang === Language.CN ? '分' : 'Min', key: 'm', max: 59 },
+                { label: lang === Language.CN ? '秒' : 'Sec', key: 's', max: 59 }
+              ].map((col) => (
+                <div key={col.key} className="flex flex-col items-center gap-4 flex-1">
+                  <button 
+                    onClick={() => setTempHMS(p => ({...p, [col.key]: (p[col.key as keyof typeof p] + 1) > col.max ? 0 : p[col.key as keyof typeof p] + 1}))}
+                    className="w-full py-4 bg-slate-800 rounded-2xl flex justify-center text-blue-500 active:bg-blue-500 active:text-white transition-all"
+                  >
+                    <ChevronUp size={28} strokeWidth={3} />
+                  </button>
+                  
+                  <div className="flex flex-col items-center">
+                    <span className="text-4xl font-black text-white tabular-nums">
+                      {tempHMS[col.key as keyof typeof tempHMS].toString().padStart(2, '0')}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1">{col.label}</span>
+                  </div>
+
+                  <button 
+                    onClick={() => setTempHMS(p => ({...p, [col.key]: (p[col.key as keyof typeof p] - 1) < 0 ? col.max : p[col.key as keyof typeof p] - 1}))}
+                    className="w-full py-4 bg-slate-800 rounded-2xl flex justify-center text-blue-500 active:bg-blue-500 active:text-white transition-all"
+                  >
+                    <ChevronDown size={28} strokeWidth={3} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => setShowTimePicker(null)} className="py-5 rounded-[2rem] bg-slate-800 text-slate-400 font-black">{lang === Language.CN ? '取消' : 'Cancel'}</button>
+              <button onClick={confirmTimePicker} className="py-5 rounded-[2rem] bg-blue-600 text-white font-black shadow-xl shadow-blue-600/30">
+                {translations.confirm[lang]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* --- 修改后：可拖拽悬浮休息计时器 (UI) --- */}
       {isResting && (
         <div 

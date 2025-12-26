@@ -140,4 +140,30 @@ export const translations: TranslationStrings = {
   exportDesc: { cn: '将您的训练记录、体重和设置导出为 JSON 文件备份', en: 'Export your workouts, weight, and settings as a JSON backup' },
   exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
   
+  running_outdoor: { en: 'Outdoor Running', cn: '室外跑步' },
+  running_treadmill: { en: 'Treadmill', cn: '跑步机' },
+  cycling_outdoor: { en: 'Outdoor Cycling', cn: '室外骑行' },
+  cycling_stationary: { en: 'Spinning/Stationary Bike', cn: '动感单车/健身车' },
+  swimming: { en: 'Swimming', cn: '游泳' },
+  rowing_machine: { en: 'Rowing Machine', cn: '划船机' },
+  elliptical: { en: 'Elliptical', cn: '椭圆机' },
+  stair_climber: { en: 'Stair Climber', cn: '登山机/楼梯机' },
+  jump_rope: { en: 'Jump Rope', cn: '跳绳' },
+  basketball: { en: 'Basketball', cn: '篮球' },
+  soccer: { en: 'Soccer', cn: '足球' },
+  badminton: { en: 'Badminton', cn: '羽毛球' },
+  tennis: { en: 'Tennis', cn: '网球' },
+  table_tennis: { en: 'Table Tennis', cn: '乒乓球' },
+  yoga: { en: 'Yoga', cn: '瑜伽' },
+  stretching: { en: 'Stretching', cn: '拉伸' },
+  hiit: { en: 'HIIT', cn: '高强度间歇训练' },
+
+  // --- 新增器材/环境标签 ---
+  tagOutdoor: { en: 'Outdoor', cn: '室外' },
+  tagIndoor: { en: 'Indoor', cn: '室内' },
+  tagBallGame: { en: 'Ball Game', cn: '球类' },
+  tagGym: { en: 'Gym Equipment', cn: '健身房器材' },
+  tagFullBody: { en: 'Full Body', cn: '全身' },
+  subFullBody: { cn: '全身', en: 'Full Body' },
+
 };
