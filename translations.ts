@@ -119,5 +119,25 @@ export const translations: TranslationStrings = {
   cn: '数据仅保存在当前设备。为了防止数据丢失并支持跨设备同步，请注册正式账号。', 
   en: 'Data is only saved on this device. To prevent data loss and sync across devices, please register.' 
 },
+  strengthTraining: { cn: '力量训练', en: 'Strength' },
+  cardioTraining: { cn: '有氧训练', en: 'Cardio' },
+  freeTraining: { cn: '自由训练', en: 'Free' },
+  categorySelection: { cn: '选择训练类型', en: 'Select Category' },
+
+  strengthSub: { cn: '力量与增肌', en: 'Weights & Gains' },
+  cardioSub: { cn: '耐力与心肺', en: 'Endurance & Heart' },
+  freeSub: { cn: '自重与瑜伽', en: 'Bodyweight & Yoga' },
+
+  distance: { cn: '距离', en: 'Distance' },
+  duration: { cn: '时长', en: 'Duration' },
+  speed: { cn: '速度', en: 'Speed' },
+  customMetric: { cn: '自定义', en: 'Custom' },
+  manageMetrics: { cn: '维度设置', en: 'Metrics' },
+  addDimension: { cn: '添加维度', en: 'Add Dimension' },
+  dimensionPlaceholder: { cn: '维度名称 (如: 分数)', en: 'Metric (e.g. Score)' },
+
+  exportData: { cn: '导出全部数据', en: 'Export All Data' },
+  exportDesc: { cn: '将您的训练记录、体重和设置导出为 JSON 文件备份', en: 'Export your workouts, weight, and settings as a JSON backup' },
+  exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
   
 };

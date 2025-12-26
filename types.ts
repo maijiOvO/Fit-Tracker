@@ -12,6 +12,7 @@ export interface User {
 }
 
 export type BodyweightMode = 'normal' | 'weighted' | 'assisted';
+export type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
 
 export interface SetLog {
   id: string;
@@ -35,9 +36,14 @@ export interface Exercise {
 
 export interface ExerciseDefinition {
   id: string;
-  name: { en: string; cn: string };
-  bodyPart: string; 
+  name: {
+    en: string;
+    cn: string;
+  };
+  bodyPart: string;
   tags: string[];
+  // ✅ 新增这一行，允许存储分类信息
+  category?: ExerciseCategory; 
 }
 
 export interface WorkoutSession {

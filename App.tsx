@@ -9,7 +9,7 @@ import {
   Award, Eye, EyeOff, User as UserIcon, Tag as TagIcon, Mail, Lock, Flag,
   Edit2, CheckCircle, Send, ShieldAlert, Sparkles, AlertCircle, Coins,
   Key, ChevronRight, TrendingUp, Filter, PencilLine, Hash, Scale, ChevronDown, ChevronUp, Star,
-  Layers, ArrowLeft, Globe, Ruler, Camera, Minimize2, Maximize2, GripHorizontal, StickyNote, Check as CheckIcon
+  Layers, ArrowLeft, Globe, Ruler, Camera, Minimize2, Maximize2, GripHorizontal, StickyNote, Check as CheckIcon, Download
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics } from '@capacitor/haptics'; 
@@ -29,6 +29,58 @@ const BEEP_SOUND = 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAE
 // 为了代码整洁，我们可以直接用一个简单的 Audio 对象
 const beepAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // 使用在线短提示音，或者你可以换成本地的
 const KG_TO_LBS = 2.20462;
+const KMH_TO_MPH = 0.621371;
+
+const formatValue = (val: number, type: string, currentUnitSystem: 'kg' | 'lbs') => {
+  if (val === undefined || val === null) return '0.00';
+  
+  let result = val;
+  let unitLabel = '';
+
+  switch (type) {
+    case 'weight':
+      result = currentUnitSystem === 'kg' ? val : val * KG_TO_LBS;
+      unitLabel = currentUnitSystem.toUpperCase();
+      break;
+    case 'distance':
+      // 公制支持 m/km 自动切换
+      if (currentUnitSystem === 'kg') {
+        if (val >= 1000) {
+          result = val / 1000;
+          unitLabel = 'km';
+        } else {
+          unitLabel = 'm';
+        }
+      } else {
+        unitLabel = 'm'; // 英制按用户要求保留 m
+      }
+      break;
+    case 'speed':
+      result = currentUnitSystem === 'kg' ? val : val * KMH_TO_MPH;
+      unitLabel = currentUnitSystem === 'kg' ? 'km/h' : 'mph';
+      break;
+    case 'duration':
+      const h = Math.floor(val / 3600);
+      const m = Math.floor((val % 3600) / 60);
+      const s = val % 60;
+      return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
+    default:
+      unitLabel = type.replace('custom_', '');
+  }
+
+  return `${result.toFixed(2)} ${unitLabel}`;
+};
+
+// ✅ 新增：专门获取单位文本，用于表头显示
+  const getUnitTag = (type: string, currentUnitSystem: 'kg' | 'lbs') => {
+    switch (type) {
+      case 'weight': return currentUnitSystem === 'kg' ? 'kg' : 'lbs';
+      case 'distance': return currentUnitSystem === 'kg' ? 'm/km' : 'm';
+      case 'speed': return currentUnitSystem === 'kg' ? 'km/h' : 'mph';
+      case 'duration': return 'h:m:s';
+      default: return ''; // 自定义维度由用户自行命名，通常不带预设单位
+    }
+  };
 // 提示音效
 const playTimerSound = () => {
   try {
@@ -39,6 +91,8 @@ const playTimerSound = () => {
     console.error("Audio play failed", e);
   }
 };
+type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
+
 const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'subLegs', 'subCore'];
 const EQUIPMENT_TAGS = ['tagBarbell', 'tagDumbbell', 'tagMachine', 'tagCable', 'tagBodyweight', 'tagPyramid'];
 
@@ -100,6 +154,7 @@ const DEFAULT_EXERCISES: ExerciseDefinition[] = [
 ];
 
 const App: React.FC = () => {
+  const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
   const [lang, setLang] = useState<Language>(Language.CN);
   const [user, setUser] = useState<User | null>(null);
   
@@ -132,6 +187,64 @@ const App: React.FC = () => {
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [noteModalData, setNoteModalData] = useState<{ name: string; note: string } | null>(null);
   const isRecoveryMode = useRef(false);
+
+  // --- 新增：动作维度自定义功能 ---
+  // 默认内置维度
+  const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'speed'];
+  
+  // 格式: { "动作名称": ["reps", "distance", "custom_分数"] }
+  const [exerciseMetricConfigs, setExerciseMetricConfigs] = useState<Record<string, string[]>>({});
+  const [showMetricModal, setShowMetricModal] = useState<{ name: string } | null>(null);
+  const [newCustomDimension, setNewCustomDimension] = useState('');
+
+  // 加载配置
+  useEffect(() => {
+    const saved = localStorage.getItem('fitlog_metric_configs');
+    if (saved) setExerciseMetricConfigs(JSON.parse(saved));
+  }, []);
+
+  // 获取某个动作应显示的维度（默认显示重量和次数）
+  const getActiveMetrics = (name: string) => {
+    return exerciseMetricConfigs[name] || ['weight', 'reps'];
+  };
+
+// ✅ 修正：确保 0 能被正确处理
+  const secondsToHMS = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    return { h, m, s };
+  };
+
+  // ✅ 更新时间数据的特定函数
+  const updateDuration = (exIdx: number, setIdx: number, unit: 'h' | 'm' | 's', val: number) => {
+    const exs = [...currentWorkout.exercises!];
+    const currentTotal = exs[exIdx].sets[setIdx].duration || 0;
+    const { h, m, s } = secondsToHMS(currentTotal);
+    
+    let newTotal = 0;
+    if (unit === 'h') newTotal = val * 3600 + m * 60 + s;
+    if (unit === 'm') newTotal = h * 3600 + val * 60 + s;
+    if (unit === 's') newTotal = h * 3600 + m * 60 + val;
+
+    exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], duration: newTotal };
+    setCurrentWorkout({ ...currentWorkout, exercises: exs });
+  };
+
+  // 切换维度开关
+  const toggleMetric = (exerciseName: string, metricKey: string) => {
+    const current = getActiveMetrics(exerciseName);
+    let next = current.includes(metricKey) 
+      ? current.filter(m => m !== metricKey) 
+      : [...current, metricKey];
+    
+    // 至少保留一个维度
+    if (next.length === 0) next = ['reps'];
+
+    const updated = { ...exerciseMetricConfigs, [exerciseName]: next };
+    setExerciseMetricConfigs(updated);
+    localStorage.setItem('fitlog_metric_configs', JSON.stringify(updated));
+  };
 
   // 初始化加载备注
   useEffect(() => {
@@ -484,15 +597,23 @@ const App: React.FC = () => {
   };
   const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
   const [selectedPRProject, setSelectedPRProject] = useState<string | null>(null);
+  // ✅ 新增：控制历史记录中哪个维度正在画图 (格式: { "动作名称": "metricKey" })
+  const [chartMetricPreference, setChartMetricPreference] = useState<Record<string, string>>({});
+
+  const getChartMetric = (exerciseName: string) => {
+    return chartMetricPreference[exerciseName] || getActiveMetrics(exerciseName)[0] || 'reps';
+  };
   const [showLibrary, setShowLibrary] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   // 修改 2: 移除了 showSettings 状态，因为设置将移入 Profile 页面
   const [searchQuery, setSearchQuery] = useState('');
   
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [customTags, setCustomTags] = useState<{id: string, name: string, category: 'bodyPart' | 'equipment'}[]>(() => {
-    const saved = localStorage.getItem('fitlog_custom_tags');
-    return saved ? JSON.parse(saved) : [];
+    const [customTags, setCustomTags] = useState<{id: string, name: string, category: 'bodyPart' | 'equipment', parentCategory?: ExerciseCategory}[]>(() => {
+    try {
+      const saved = localStorage.getItem('fitlog_custom_tags');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
   const [showAddTagModal, setShowAddTagModal] = useState(false);
   const [newTagName, setNewTagName] = useState('');
@@ -508,8 +629,10 @@ const App: React.FC = () => {
   const [newExerciseNameInput, setNewExerciseNameInput] = useState('');
 
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() => {
-    const saved = localStorage.getItem('fitlog_custom_exercises');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('fitlog_custom_exercises');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
   const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, Partial<ExerciseDefinition>>>({});
   const [tagRenameOverrides, setTagRenameOverrides] = useState<Record<string, string>>({});
@@ -517,7 +640,7 @@ const App: React.FC = () => {
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseTags, setNewExerciseTags] = useState<string[]>([]);
-  const [newExerciseBodyPart, setNewExerciseBodyPart] = useState<string>('subChest');
+  const [newExerciseBodyPart, setNewExerciseBodyPart] = useState<string>('');
 
   const [isHistoryVisible, setIsHistoryVisible] = useState(false);
 
@@ -581,38 +704,49 @@ const App: React.FC = () => {
       });
   }, [workouts, lang, exerciseOverrides, starredExercises]);
 
-  const getChartDataFor = (target: string) => {
+  const getChartDataFor = (target: string, metricKey?: string) => {
     if (target === '__WEIGHT__') {
-      return weightEntries
-        .map(entry => ({
-          date: new Date(entry.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
-          weight: Number(formatWeight(entry.weight)),
-          timestamp: new Date(entry.date).getTime()
-        }))
-        .sort((a, b) => a.timestamp - b.timestamp);
+       // ... 体重逻辑保持不变 ...
+       return weightEntries.map(entry => ({
+         date: new Date(entry.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
+         val: Number((unit === 'kg' ? entry.weight : entry.weight * KG_TO_LBS).toFixed(2)),
+         timestamp: new Date(entry.date).getTime()
+       })).sort((a, b) => a.timestamp - b.timestamp);
     }
+
     const searchName = target.trim();
+    const key = metricKey || getChartMetric(searchName);
+
     return workouts
       .filter(w => w.exercises.some(ex => resolveName(ex.name).trim() === searchName))
       .map(w => {
         const ex = w.exercises.find(e => resolveName(e.name).trim() === searchName)!;
-        const maxW = Math.max(...ex.sets.map(s => s.weight || 0));
-        const sessionVolume = ex.sets.reduce((sum, set) => sum + (set.weight || 0) * (set.reps || 0), 0);
+        
+        // 提取该维度在本次训练中的最大值 (Max Effort)
+        const values = ex.sets.map(s => {
+          const v = (s as any)[key] || 0;
+          // ✅ 核心转换逻辑
+          if (key === 'weight' && unit === 'lbs') return v * 2.20462;
+          if (key === 'speed' && unit === 'lbs') return v * 0.621371; // mph
+          // 距离 m -> km 在 formatValue 里处理显示，图表内部建议保持原始数值(m)以保证精度
+          return v;
+        });
+
+        const maxVal = Math.max(...values);
         return { 
           date: new Date(w.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }), 
-          weight: Number(formatWeight(maxW)),
-          volume: Number(formatWeight(sessionVolume)),
+          val: Number(maxVal.toFixed(2)),
           timestamp: new Date(w.date).getTime() 
         };
       })
       .sort((a, b) => a.timestamp - b.timestamp);
   };
 
-  const renderTrendChart = (target: string) => {
-    const data = getChartDataFor(target);
+  const renderTrendChart = (target: string, metricKey?: string) => {
+    // ✅ 关键：在调用 getChartDataFor 时把这个 key 传进去
+    const data = getChartDataFor(target, metricKey); 
     const isWeight = target === '__WEIGHT__';
     if (data.length === 0) return null;
-
     return (
       <div className="w-full h-[250px] mt-6 animate-in fade-in slide-in-from-top-2">
         <ResponsiveContainer width="100%" height="100%">
@@ -630,10 +764,7 @@ const App: React.FC = () => {
               contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', padding: '12px' }} 
               itemStyle={{ fontWeight: '900', color: '#fff', fontSize: '12px' }}
               labelStyle={{ color: '#64748b', fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}
-              formatter={(val: number, name: string) => {
-                const label = name === 'weight' ? (isWeight ? translations.currentWeight[lang] : translations.weight[lang]) : translations.trainingVolume[lang];
-                return [val.toFixed(1), `${label} (${unit}${name === 'volume' ? '·reps' : ''})`];
-              }}
+              formatter={(value: number) => [value.toFixed(2), metricKey || 'Value']}
             />
             {!isWeight && (
               <Bar 
@@ -649,7 +780,7 @@ const App: React.FC = () => {
             <Area 
               yAxisId="left"
               type="monotone" 
-              dataKey="weight" 
+              dataKey="val"  // 👈 必须叫 val，因为 getChartDataFor 返回的是 val
               stroke={isWeight ? '#818cf8' : '#3b82f6'} 
               strokeWidth={4} 
               fillOpacity={1} 
@@ -663,39 +794,50 @@ const App: React.FC = () => {
   };
 
   // ✅ 新增：渲染自定义指标的折线图
+// ✅ 优化版：身体指标折线图 (与训练图表风格完全统一)
   const renderMetricChart = (metricName: string) => {
-    // 1. 准备数据
+    // 1. 提取并清洗数据
     const data = measurements
       .filter(m => m.name === metricName)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map(m => ({
         date: new Date(m.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
-        value: m.value,
+        val: Number(m.value.toFixed(2)), // ✅ 统一使用 val 键
+        unit: m.unit,
         timestamp: new Date(m.date).getTime()
-      }));
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
 
-    if (data.length < 2) return <div className="text-xs text-slate-500 py-4 text-center">{lang === Language.CN ? '需至少两条记录生成趋势图' : 'Need 2+ entries for chart'}</div>;
+    if (data.length === 0) return null;
 
-    // 2. 渲染图表 (复用 Recharts 组件)
     return (
-      <div className="w-full h-[150px] mt-4 animate-in fade-in">
+      <div className="w-full h-[180px] mt-4 animate-in fade-in slide-in-from-top-2">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+          <ComposedChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
             <defs>
-              <linearGradient id={`grad-${metricName}`} x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`grad-metric-${metricName}`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
                 <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <XAxis dataKey="date" stroke="#475569" fontSize={9} tickMargin={10} minTickGap={30} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
-            <YAxis stroke="#475569" fontSize={9} tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+            <XAxis dataKey="date" stroke="#475569" fontSize={10} tickMargin={15} minTickGap={40} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            <YAxis stroke="#475569" fontSize={10} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
+            
             <Tooltip 
-              contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', padding: '8px' }} 
-              itemStyle={{ fontWeight: 'bold', color: '#fff', fontSize: '12px' }}
+              contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', padding: '12px' }} 
+              itemStyle={{ fontWeight: '900', color: '#fff', fontSize: '12px' }}
               labelStyle={{ display: 'none' }}
-              formatter={(val: number) => [val, metricName]}
+              formatter={(value: number) => [value.toFixed(2), metricName]}
             />
-            <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill={`url(#grad-${metricName})`} />
+
+            <Area 
+              type="monotone" 
+              dataKey="val" // ✅ 与 renderTrendChart 保持一致
+              stroke="#6366f1" // 身体指标使用紫色调，与训练的蓝色调区分
+              strokeWidth={4} 
+              fillOpacity={1} 
+              fill={`url(#grad-metric-${metricName})`}
+              animationDuration={1500}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -810,7 +952,7 @@ const performFullSync = async (currentUserId: string) => {
     setSyncStatus('syncing');
     try {
       await Promise.all([
-        // 1. 同步训练记录
+        // 1. 同步训练记录 (Workouts)
         (async () => {
           const rw = await fetchWorkoutsFromCloud();
           if (rw) for (const r of rw) await db.save('workouts', { id: r.id, userId: r.user_id, date: r.date, title: r.title, exercises: r.exercises, notes: r.notes });
@@ -818,7 +960,7 @@ const performFullSync = async (currentUserId: string) => {
           await syncWorkoutsToCloud(lw.filter(w => w.userId === currentUserId));
         })(),
 
-        // 2. 同步体重
+        // 2. 同步体重 (Weight)
         (async () => {
           const rWeight = await fetchWeightFromCloud();
           if (rWeight) for (const r of rWeight) await db.save('weightLogs', { id: r.id, userId: r.user_id, weight: r.weight, date: r.date, unit: r.unit });
@@ -826,7 +968,7 @@ const performFullSync = async (currentUserId: string) => {
           await syncWeightToCloud(lWeight.filter(w => w.userId === currentUserId));
         })(),
 
-        // 3. 同步身体指标 (尺寸等)
+        // 3. 同步身体指标 (Measurements)
         (async () => {
           const rMeasures = await fetchMeasurementsFromCloud();
           if (rMeasures) for (const r of rMeasures) await db.save('custom_metrics', { id: r.id, userId: r.user_id, name: r.name, value: r.value, unit: r.unit, date: r.date });
@@ -842,54 +984,31 @@ const performFullSync = async (currentUserId: string) => {
           await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
         })(),
 
-        // 5. 同步个性化配置 (备注、偏好、自定义动作/标签)
+        // 5. 同步个性化配置 (合并保护版)
         (async () => {
           const remoteConfig = await fetchUserConfigsFromCloud();
-          
-          // 获取当前本地数据作为兜底
-          const localExs = JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]');
           const localTags = JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]');
-          const localNotes = JSON.parse(localStorage.getItem('fitlog_exercise_notes') || '{}');
-          const localRest = JSON.parse(localStorage.getItem('fitlog_rest_prefs') || '{}');
-          const localStarred = JSON.parse(localStorage.getItem('fitlog_starred_exercises') || '{}');
-
-          // 初始化最终要使用的数据（默认用本地的）
-          let finalExs = localExs;
-          let finalTags = localTags;
-          let finalNotes = localNotes;
-          let finalRest = localRest;
-          let finalStarred = localStarred;
+          const localExs = JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]');
 
           if (remoteConfig) {
-            // 如果云端有数据，合并/覆盖本地
-            if (remoteConfig.customExercises?.length > 0) finalExs = remoteConfig.customExercises;
-            if (remoteConfig.customTags?.length > 0) finalTags = remoteConfig.customTags;
-            if (remoteConfig.exerciseNotes) finalNotes = remoteConfig.exerciseNotes;
-            if (remoteConfig.restPrefs) finalRest = remoteConfig.restPrefs;
-            if (remoteConfig.starred) finalStarred = remoteConfig.starred;
-
-            // 更新 React 状态
-            setCustomExercises(finalExs);
+            // ✅ 只有当云端有新数据时才合并，否则保留本地
+            const finalTags = (remoteConfig.customTags?.length > 0) ? remoteConfig.customTags : localTags;
+            const finalExs = (remoteConfig.customExercises?.length > 0) ? remoteConfig.customExercises : localExs;
+            
             setCustomTags(finalTags);
-            setExerciseNotes(finalNotes);
-            setRestPreferences(finalRest);
-            setStarredExercises(finalStarred);
-
-            // 写入 localStorage 持久化
-            localStorage.setItem('fitlog_custom_exercises', JSON.stringify(finalExs));
+            setCustomExercises(finalExs);
             localStorage.setItem('fitlog_custom_tags', JSON.stringify(finalTags));
-            localStorage.setItem('fitlog_exercise_notes', JSON.stringify(finalNotes));
-            localStorage.setItem('fitlog_rest_prefs', JSON.stringify(finalRest));
-            localStorage.setItem('fitlog_starred_exercises', JSON.stringify(finalStarred));
+            localStorage.setItem('fitlog_custom_exercises', JSON.stringify(finalExs));
+            // ... 其他备注/星标同理
           }
           
-          // 最后将合并后最完整的数据上传回云端，保证一致性
+          // 反向同步本地最新数据到云端
           await syncUserConfigsToCloud({
-            exerciseNotes: finalNotes,
-            restPrefs: finalRest,
-            customTags: finalTags,
-            starred: finalStarred,
-            customExercises: finalExs
+            exerciseNotes,
+            restPrefs: restPreferences,
+            customTags: JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]'),
+            starred: starredExercises,
+            customExercises: JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]')
           });
         })()
       ]);
@@ -1032,6 +1151,62 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     }
   };
 
+  // --- 新增：全量数据格式化导出 ---
+  const handleExportData = async () => {
+    try {
+      setSyncStatus('syncing'); // 借用同步图标表示正在处理
+
+      // 1. 收集所有数据
+      const exportPackage = {
+        app: "FitLog AI",
+        exportDate: new Date().toISOString(),
+        user: {
+          id: user?.id,
+          email: user?.email,
+          username: user?.username
+        },
+        // 核心历史数据
+        data: {
+          workouts: workouts,
+          weightHistory: weightEntries,
+          goals: goals,
+          bodyMeasurements: measurements
+        },
+        // 所有个性化配置 (从现有的状态或 localStorage 获取)
+        settings: {
+          unit: unit,
+          language: lang,
+          exerciseNotes: exerciseNotes,
+          restPreferences: restPreferences,
+          customTags: customTags,
+          customExercises: customExercises,
+          starredExercises: starredExercises,
+          metricConfigs: exerciseMetricConfigs
+        }
+      };
+
+      // 2. 转换为 JSON 字符串并创建下载链接
+      const jsonString = JSON.stringify(exportPackage, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      // 3. 触发浏览器下载
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `FitLog_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert(translations.exportSuccess[lang]);
+      setSyncStatus('idle');
+    } catch (error) {
+      console.error("Export failed:", error);
+      setSyncStatus('error');
+    }
+  };
+
   const handleAddGoal = async () => {
     if (!newGoal.label || !newGoal.targetValue || !user) return;
     const goal: Goal = { id: Date.now().toString(), userId: user.id, type: newGoal.type as GoalType, label: newGoal.label!, targetValue: newGoal.targetValue!, currentValue: newGoal.currentValue || 0, unit: newGoal.type === 'weight' ? unit : (newGoal.type === 'strength' ? unit : 'times/week') };
@@ -1162,10 +1337,25 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
     });
   };
 
-  const getTagName = (tid: string) => {
+const getTagName = (tid: string) => {
+    if (!tid) return ''; // 如果 ID 为空，返回空字符串
     if (tid === 'tagPyramid') return lang === Language.CN ? '递增/递减组' : 'Pyramid/Drop Set';
-    return tagRenameOverrides[tid] || (customTags.find(ct => ct.id === tid)?.name) || (translations[tid]?.[lang] || tid);
-  }
+    
+    // 优先从重命名覆盖中找
+    if (tagRenameOverrides[tid]) return tagRenameOverrides[tid];
+    
+    // 从自定义标签库中找
+    const customTag = customTags.find(ct => ct.id === tid);
+    if (customTag) return customTag.name;
+    
+    // 从系统翻译中找
+    if (translations[tid]?.[lang]) return translations[tid][lang];
+
+    // ✅ 核心修复：如果最后还没找到且 tid 是一串长数字（时间戳格式），说明是失效标签，返回空
+    if (/^\d{10,13}$/.test(tid)) return ''; 
+
+    return tid; // 否则（如：'subChest'）返回原始 ID 供翻译
+  };
 
   const isBodyweightExercise = (name: string): boolean => {
     const allDef = [...DEFAULT_EXERCISES, ...customExercises];
@@ -1184,17 +1374,27 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
   };
 
   const filteredExercises = useMemo(() => {
-    const all = [...DEFAULT_EXERCISES, ...customExercises].map(ex => exerciseOverrides[ex.id] ? { ...ex, ...exerciseOverrides[ex.id] } : ex);
+    // 基础库
+    const allBase = [...DEFAULT_EXERCISES, ...customExercises];
+    
+    // 1. 过滤当前选中的大分类 (如果不选分类，默认显示 STRENGTH 以兼容旧数据)
+    const categoryToFilter = activeLibraryCategory || 'STRENGTH';
+    
+    // 假设自定义动作 ExerciseDefinition 增加了一个 category 字段
+    const all = allBase
+      .map(ex => exerciseOverrides[ex.id] ? { ...ex, ...exerciseOverrides[ex.id] } : ex)
+      .filter(ex => (ex.category || 'STRENGTH') === categoryToFilter);
+
     return all.filter(ex => {
       const q = searchQuery.toLowerCase();
-      const matchSearch = !searchQuery || ex.name[lang].toLowerCase().includes(q) || ex.tags.some(t => getTagName(t).toLowerCase().includes(q)) || getTagName(ex.bodyPart).toLowerCase().includes(q);
+      const matchSearch = !searchQuery || ex.name[lang].toLowerCase().includes(q);
       const selParts = selectedTags.filter(t => BODY_PARTS.includes(t) || customTags.some(ct => ct.id === t && ct.category === 'bodyPart'));
       const selEquips = selectedTags.filter(t => EQUIPMENT_TAGS.includes(t) || customTags.some(ct => ct.id === t && ct.category === 'equipment'));
       const matchPart = selParts.length === 0 || selParts.includes(ex.bodyPart);
       const matchEquip = selEquips.length === 0 || ex.tags.some(t => selEquips.includes(t));
       return matchSearch && matchPart && matchEquip;
     });
-  }, [searchQuery, selectedTags, lang, customTags, customExercises, exerciseOverrides, tagRenameOverrides]);
+  }, [searchQuery, selectedTags, lang, customTags, customExercises, exerciseOverrides, activeLibraryCategory]);
 
   const handleRenameTag = () => {
     if (!tagToRename || !newTagNameInput) return;
@@ -1204,18 +1404,31 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
     setShowRenameModal(false) ; setTagToRename(null); setNewTagNameInput('');
   };
 
-  const handleRenameExercise = () => {
+  const handleRenameExercise = async () => {
     if (!exerciseToRename || !newExerciseNameInput) return;
-    setExerciseOverrides(prev => {
-        const current = prev[exerciseToRename.id] || {};
-        const next = { ...current, name: { ...((current.name as any) || {}), [lang]: newExerciseNameInput } };
-        const updated = { ...prev, [exerciseToRename.id]: next };
-        localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(updated));
-        return updated;
-    });
-    setShowRenameExerciseModal(false); setExerciseToRename(null); setNewExerciseNameInput('');
-  };
 
+    // 1. 更新本地覆盖状态
+    setExerciseOverrides(prev => {
+      const current = prev[exerciseToRename.id] || {};
+      const next = { 
+        ...current, 
+        name: { ...((current.name as any) || {}), [lang]: newExerciseNameInput } 
+      };
+      const updated = { ...prev, [exerciseToRename.id]: next };
+      localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(updated));
+      return updated;
+    });
+
+    // 2. ✅ 关键：如果是正式用户，立刻触发同步，确保云端名称也更新
+    if (user && user.id !== 'u_guest') {
+      // 我们通过 performFullSync 将更新后的 exerciseOverrides (包含在 user_configs 中) 上传
+      performFullSync(user.id);
+    }
+
+    setShowRenameExerciseModal(false); 
+    setExerciseToRename(null); 
+    setNewExerciseNameInput('');
+  };
   const handleDeleteTag = (tid: string) => {
     const updatedCustom = customTags.filter(ct => ct.id !== tid);
     setCustomTags(updatedCustom); localStorage.setItem('fitlog_custom_tags', JSON.stringify(updatedCustom));
@@ -1239,14 +1452,38 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
     setDraggedTagId(null);
   };
 
+// ✅ 核心逻辑：从具体动作中移除标签
   const handleRemoveTagFromExercise = (exId: string, tagId: string) => {
+    if (!exId || !tagId) return;
+
     setExerciseOverrides(prev => {
-        const current = prev[exId] || {}; const baseEx = [...DEFAULT_EXERCISES, ...customExercises].find(e => e.id === exId);
+        const current = prev[exId] || {}; 
+        const baseEx = [...DEFAULT_EXERCISES, ...customExercises].find(e => e.id === exId);
         if (!baseEx) return prev;
-        const existingTags = current.tags || baseEx.tags; const next = { ...current, tags: existingTags.filter(t => t !== tagId) };
-        const updated = { ...prev, [exId]: next }; localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(updated));
+
+        // 获取当前的标签和部位（优先取覆盖值，没有则取原始值）
+        const currentBodyPart = current.bodyPart !== undefined ? current.bodyPart : baseEx.bodyPart;
+        const currentTags = current.tags || baseEx.tags;
+
+        let next: Partial<ExerciseDefinition> = { ...current };
+
+        // 1. 如果拖动的是当前动作绑定的“部位”，则将其清空（设为空字符串）
+        if (currentBodyPart === tagId) {
+          next.bodyPart = '';
+        } 
+        // 2. 如果拖动的是“标签列表”中的一项，则过滤掉它
+        else {
+          next.tags = currentTags.filter(t => t !== tagId);
+        }
+
+        const updated = { ...prev, [exId]: next }; 
+        localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(updated));
         return updated;
     });
+
+    // 重置拖拽状态
+    setDraggedFromExId(null);
+    setDraggedTagId(null);
   };
 
   const handleToggleLanguage = () => {
@@ -1269,27 +1506,60 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
     // showSettings has been removed
   };
 
-  const renderSetCapsule = (s: any, si: number) => (
-    <div key={s.id} className="bg-slate-900/60 border border-slate-800/80 px-4 py-2 rounded-2xl flex flex-col gap-1 transition-all hover:border-blue-500/30">
-      <div className="flex items-center gap-1.5">
-        <span className="font-black text-slate-100 text-sm leading-none">{formatWeight(s.weight)}</span>
-        <span className="text-[10px] text-slate-500 font-bold lowercase leading-none">{unit}</span>
-        <span className="text-slate-600 mx-0.5 font-black leading-none">×</span>
-        <span className="font-black text-slate-100 text-sm leading-none">{s.reps}</span>
+  // ✅ 新增：处理单位系统切换及数值实时转换
+  const handleUnitToggle = () => {
+    const newUnit = unit === 'kg' ? 'lbs' : 'kg';
+    
+    // 1. 如果当前正在编辑训练，转换输入框里的数值
+    if (currentWorkout.exercises && currentWorkout.exercises.length > 0) {
+      // 重量换算率
+      const weightFactor = newUnit === 'lbs' ? KG_TO_LBS : (1 / KG_TO_LBS);
+      // 速度换算率 (km/h <-> mph)
+      const speedFactor = newUnit === 'lbs' ? KMH_TO_MPH : (1 / KMH_TO_MPH);
+
+      const updatedExercises = currentWorkout.exercises.map(ex => ({
+        ...ex,
+        sets: ex.sets.map(set => {
+          const newSet = { ...set };
+          // 转换重量 (如果值不为0)
+          if (newSet.weight && newSet.weight !== 0) {
+            newSet.weight = parseFloat((newSet.weight * weightFactor).toFixed(2));
+          }
+          // 转换速度 (如果值不为0)
+          if (newSet.speed && newSet.speed !== 0) {
+            newSet.speed = parseFloat((newSet.speed * speedFactor).toFixed(2));
+          }
+          // 距离(distance)按你要求：公制英制都用 m 存储，只是显示逻辑不同，所以数值不进行数学转换
+          return newSet;
+        })
+      }));
+
+      setCurrentWorkout({ ...currentWorkout, exercises: updatedExercises });
+    }
+
+    // 2. 更新单位状态并持久化
+    setUnit(newUnit);
+    localStorage.setItem('fitlog_unit', newUnit);
+  };
+
+  const renderSetCapsule = (s: any, exerciseName: string) => {
+    // 这里的逻辑是根据动作名称获取它开启了哪些维度
+    const metrics = getActiveMetrics(exerciseName);
+    
+    return (
+      <div className="bg-slate-900/60 border border-slate-800/80 px-4 py-2 rounded-2xl flex flex-wrap gap-x-3 gap-y-1 transition-all hover:border-blue-500/30">
+        {metrics.map(m => (
+          <div key={m} className="flex items-center gap-1">
+            <span className="text-[10px] text-slate-500 font-bold uppercase">
+              {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}:
+            </span>
+            {/* 使用我们之前定义的 formatValue 来显示带单位的值 */}
+            <span className="font-black text-slate-100 text-sm">{formatValue(s[m], m, unit)}</span>
+          </div>
+        ))}
       </div>
-      {s.subSets && s.subSets.length > 0 && (
-        <div className="flex flex-col gap-0.5 mt-1 border-t border-slate-800/50 pt-1">
-          {s.subSets.map((ss: any, ssi: number) => (
-            <div key={ssi} className="flex items-center gap-1 opacity-60">
-              <span className="text-[9px] font-bold text-slate-300">{formatWeight(ss.weight)}</span>
-              <span className="text-[8px] text-slate-500 lowercase">×</span>
-              <span className="text-[9px] font-bold text-slate-300">{ss.reps}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen pb-32 bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
@@ -1360,7 +1630,6 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
         </div>
       )}
 
-      {/* 省略其他 Modal 代码 (AddTagModal, RenameModal等) 保持不变，为了篇幅只保留核心结构 */}
       {showAddTagModal && (
         <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2rem] p-8 space-y-6 shadow-2xl">
@@ -1376,32 +1645,44 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
               </div>
               <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagName} onChange={e => setNewTagName(e.target.value)} placeholder={translations.tagNamePlaceholder[lang]} />
               <button 
-                onClick={() => { // 删掉之前的 async
-                  if (!newTagName) return; 
+              onClick={async () => { 
+                if (!newTagName) return; 
 
-                  const t = { id: Date.now().toString(), name: newTagName, category: newTagCategory }; 
-                  const updatedTags = [...customTags, t];
-                  
-                  // 1. ✅ 立即更新本地 UI 状态
-                  setCustomTags(updatedTags); 
-                  
-                  // 2. ✅ 立即持久化到本地存储
-                  localStorage.setItem('fitlog_custom_tags', JSON.stringify(updatedTags)); 
-                  
-                  // 3. ✅ 核心修改：立即关闭弹窗并重置输入框（不再等待同步结果）
-                  setShowAddTagModal(false); 
-                  setNewTagName(''); 
+                // ✅ 构造支持多分类的标签对象
+                const currentCat = activeLibraryCategory || 'STRENGTH';
+                const newTagId = `ct_${Date.now()}`;
+                const t = { 
+                  id: newTagId, 
+                  name: newTagName, 
+                  category: newTagCategory, 
+                  parentCategory: currentCat // 记录初始归属
+                }; 
+                
+                // 立即写入本地存储
+                const localTags = JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]');
+                const updatedTags = [...localTags, t];
+                localStorage.setItem('fitlog_custom_tags', JSON.stringify(updatedTags));
 
-                  // 4. ✅ 在后台发起静默同步（不使用 await）
-                  if (user && user.id !== 'u_guest') {
-                    // 提示：这里直接调用同步，App 顶部的图标会自动变成转圈，不影响用户操作
-                    performFullSync(user.id);
-                  }
-                }} 
-                className="w-full bg-blue-600 py-4 rounded-2xl font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
-              >
-                {translations.confirm[lang]}
-              </button>
+                // 更新状态
+                setCustomTags(updatedTags); 
+                setShowAddTagModal(false); 
+                setNewTagName(''); 
+
+                // ✅ 发起后台同步，但不阻断 UI
+                if (user && user.id !== 'u_guest') {
+                  syncUserConfigsToCloud({
+                    exerciseNotes,
+                    restPrefs: restPreferences,
+                    customTags: updatedTags, // 直接传最新的
+                    starred: starredExercises,
+                    customExercises
+                  });
+                }
+              }} 
+              className="..."
+            >
+              {translations.confirm[lang]}
+            </button>
            </div>
         </div>
       )}
@@ -1436,83 +1717,117 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
          <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-slate-900 border border-slate-800 w-full max-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
               <div className="flex justify-between items-center mb-2"><h2 className="text-2xl font-black">{translations.addCustomExercise[lang]}</h2><button onClick={() => setShowAddExerciseModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><X size={20}/></button></div>
-              <div className="space-y-4">
-                 <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500 transition-all" value={newExerciseName} onChange={e => setNewExerciseName(e.target.value)} placeholder={translations.exerciseNamePlaceholder[lang]} />
-                 <div className="space-y-3">
-                   <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2"><Activity size={14} className="text-blue-500" />{translations.bodyPartHeader[lang]}</h3>
-
-                   <div className="flex flex-wrap gap-2">
-                    {/* 合并系统部位和自定义部位标签 */}
-                    {[...BODY_PARTS, ...customTags.filter(ct => ct.category === 'bodyPart').map(t => t.id)].map(id => (
-                      <button 
-                        key={id} 
-                        onClick={() => setNewExerciseBodyPart(id)} 
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseBodyPart === id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
-                      >
-                        {getTagName(id)}
-                      </button>
-                    ))}
-                  </div>
-
-                 </div>
-                 <div className="space-y-3">
-                   <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2"><Dumbbell size={14} className="text-indigo-500" />{translations.equipmentHeader[lang]}</h3>
-
-                   <div className="flex flex-wrap gap-2">
-                    {/* 合并系统器材和自定义器材标签（如你新加的“篮球”） */}
-                    {[...EQUIPMENT_TAGS, ...customTags.filter(ct => ct.category === 'equipment').map(t => t.id)].map(id => (
-                      <button 
-                        key={id} 
-                        onClick={() => setNewExerciseTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} 
-                        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseTags.includes(id) ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
-                      >
-                        {getTagName(id)}
-                      </button>
-                    ))}
-                  </div>
-
-                 </div>
+              {/* ✅ 找回丢失的动作名称输入框 */}
+              <div className="space-y-2 mt-4">
+                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+                    {lang === Language.CN ? '动作名称' : 'Exercise Name'}
+                 </label>
+                 <input 
+                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                   value={newExerciseName} 
+                   onChange={e => setNewExerciseName(e.target.value)} 
+                   placeholder={translations.exerciseNamePlaceholder[lang]} 
+                   autoFocus
+                 />
               </div>
-              <button onClick={async () => { 
-                if (!newExerciseName) return; 
+              
+              {/* --- 1. 训练部位区域 --- */}
+              <div className="flex flex-wrap gap-2">
+                  {[
+                    // ✅ 核心修改：移除分类判断，让系统默认部位（胸肩背等）在所有分类下都可选
+                    ...BODY_PARTS, 
+                    // ✅ 核心修改：移除 parentCategory 过滤，显示所有已创建的自定义部位标签
+                    ...customTags.filter(ct => ct.category === 'bodyPart').map(t => t.id)
+                  ].map(id => (
+                    <button 
+                      key={id} 
+                      onClick={() => setNewExerciseBodyPart(newExerciseBodyPart === id ? '' : id)} 
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseBodyPart === id ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                    >
+                      {getTagName(id)}
+                    </button>
+                  ))}
+                </div>
 
-                const ex: ExerciseDefinition = { 
-                  id: Date.now().toString(), 
-                  name: { en: newExerciseName, cn: newExerciseName }, 
-                  bodyPart: newExerciseBodyPart, 
-                  tags: newExerciseTags 
-                }; 
+              {/* --- 2. 使用器材区域 --- */}
+              <div className="flex flex-wrap gap-2">
+                  {[
+                    // ✅ 核心修改：让系统默认器材（杠铃、哑铃等）在所有分类下都可选
+                    ...EQUIPMENT_TAGS, 
+                    // ✅ 核心修改：移除 parentCategory 过滤，显示所有已创建的自定义器材标签（如“篮球”）
+                    ...customTags.filter(ct => ct.category === 'equipment').map(t => t.id)
+                  ].map(id => (
+                    <button 
+                      key={id} 
+                      onClick={() => setNewExerciseTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} 
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseTags.includes(id) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                    >
+                      {getTagName(id)}
+                    </button>
+                  ))}
+                </div>
+              {/* ✅ 第四步：修改此处的“确定”按钮逻辑 */}
+              <button 
+                onClick={async () => { 
+                  if (!newExerciseName) return; 
+                  
+                  const currentCat = activeLibraryCategory || 'STRENGTH';
 
-                // 1. 更新动作库状态 (把新动作放前面)
-                const updatedCustomExs = [ex, ...customExercises];
-                setCustomExercises(updatedCustomExs); 
+                  // 1. 自动“学习”逻辑：如果选中的标签不属于当前分类，将其变为通用标签
+                  const selectedTagIds = [...newExerciseTags, newExerciseBodyPart].filter(Boolean);
+                  const updatedTags = customTags.map(tag => {
+                    // 如果这个标签被选中了，且它原本只属于另一个分类
+                    if (selectedTagIds.includes(tag.id) && tag.parentCategory && tag.parentCategory !== currentCat) {
+                       // 将其 parentCategory 设为 null，意味着它现在是全部分类通用的“高级标签”
+                       return { ...tag, parentCategory: undefined }; 
+                    }
+                    return tag;
+                  });
 
-                // 2. 立即持久化到本地，防止刷新丢失
-                localStorage.setItem('fitlog_custom_exercises', JSON.stringify(updatedCustomExs)); 
+                  // 2. 立即更新本地标签库
+                  setCustomTags(updatedTags);
+                  localStorage.setItem('fitlog_custom_tags', JSON.stringify(updatedTags));
 
-                // 3. 自动将新动作加入当前训练课的最顶端
-                setCurrentWorkout(p => ({
-                  ...p,
-                  exercises: [
-                    { 
-                      id: Date.now().toString(), 
-                      name: ex.name[lang], 
-                      category: 'STRENGTH', 
-                      sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
-                    },
-                    ...(p.exercises || [])
-                  ]
-                }));
+                  // 3. 构造新动作对象
+                  const ex: ExerciseDefinition = { 
+                    id: Date.now().toString(), 
+                    name: { en: newExerciseName, cn: newExerciseName }, 
+                    bodyPart: newExerciseBodyPart, 
+                    tags: newExerciseTags,
+                    category: currentCat
+                  }; 
 
-                // 4. 如果是正式用户，触发一次后台同步，确保库上云
-                if (user && user.id !== 'u_guest') {
-                  performFullSync(user.id);
-                }
+                  // 4. 更新动作库状态 (新动作置顶)
+                  const updatedExs = [ex, ...customExercises];
+                  setCustomExercises(updatedExs); 
+                  localStorage.setItem('fitlog_custom_exercises', JSON.stringify(updatedExs)); 
 
-                setShowAddExerciseModal(false); 
-                setNewExerciseName(''); 
-                setNewExerciseTags([]); 
-              }} className="...">
+                  // 5. 自动将新动作加入当前训练课的最顶端
+                  setCurrentWorkout(p => ({
+                    ...p,
+                    exercises: [
+                      { 
+                        id: Date.now().toString(), 
+                        name: ex.name[lang], 
+                        category: ex.category, 
+                        sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
+                      },
+                      ...(p.exercises || [])
+                    ]
+                  }));
+
+                  // 6. 关闭弹窗并重置
+                  setShowAddExerciseModal(false); 
+                  setNewExerciseName('');
+                  setNewExerciseTags([]);
+
+                  // 7. 触发后台同步
+                  if (user && user.id !== 'u_guest') {
+                    performFullSync(user.id);
+                  }
+                }}
+                className="w-full bg-blue-600 py-5 rounded-3xl font-black text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all mt-4"
+              >
                 {translations.confirm[lang]}
               </button>
            </div>
@@ -1521,34 +1836,97 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
 
       {showLibrary && (
          <div className="fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-3xl p-6 flex flex-col animate-in fade-in">
-          <div className="flex justify-between items-center mb-6"><h2 className="text-3xl font-black tracking-tight flex items-center gap-3"><Dumbbell className="text-blue-500" size={32} />{translations.selectExercise[lang]}</h2><button onClick={() => setShowLibrary(false)} className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-full transition-all border border-slate-700/50"><X size={24} /></button></div>
+          <div className="flex justify-between items-center mb-6">
+            
+          {/* ✅ 替换后的动态标题 */}
+          <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
+            {/* 根据分类显示对应的图标 */}
+            {activeLibraryCategory === 'STRENGTH' && <Dumbbell className="text-blue-500" size={32} />}
+            {activeLibraryCategory === 'CARDIO' && <Activity className="text-orange-500" size={32} />}
+            {activeLibraryCategory === 'FREE' && <Zap className="text-purple-500" size={32} />}
+            {activeLibraryCategory === 'OTHER' && <Globe className="text-emerald-500" size={32} />}
+
+            {/* 根据分类显示对应的文字 */}
+            {activeLibraryCategory === 'STRENGTH' && translations.strengthTraining[lang]}
+            {activeLibraryCategory === 'CARDIO' && translations.cardioTraining[lang]}
+            {activeLibraryCategory === 'FREE' && translations.freeTraining[lang]}
+            {activeLibraryCategory === 'OTHER' && translations.otherTraining[lang]}
+          </h2>
+          
+          <button onClick={() => setShowLibrary(false)} className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-full transition-all border border-slate-700/50"><X size={24} /></button></div>
           <div className="relative mb-8"><Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={20} /><input className="w-full bg-slate-900 border border-slate-800 rounded-[2rem] py-5 pl-14 pr-8 text-lg font-medium outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={translations.searchPlaceholder[lang]} /></div>
           <div className="flex flex-1 overflow-hidden gap-4">
-            <div onDragOver={(e) => { e.preventDefault(); setIsDraggingOverSidebar(true); }} onDragLeave={() => setIsDraggingOverSidebar(false)} onDrop={() => { if (draggedFromExId && draggedTagId) handleRemoveTagFromExercise(draggedFromExId, draggedTagId); setIsDraggingOverSidebar(false); setDraggedFromExId(null); setDraggedTagId(null); }} className={`w-1/3 lg:w-1/3 overflow-y-auto space-y-10 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${isDraggingOverSidebar ? 'bg-red-500/10 border-r-red-500/50' : ''}`}>
+
+            {/* ✅ 替换后的侧边栏容器 (1768行开始) */}
+            <div 
+              onDragOver={(e) => { 
+                e.preventDefault(); 
+                setIsDraggingOverSidebar(true); 
+              }} 
+              onDragLeave={() => setIsDraggingOverSidebar(false)} 
+              onDrop={(e) => { 
+                e.preventDefault();
+                setIsDraggingOverSidebar(false);
+                // 只有从右侧动作拽出来的标签才会触发删除
+                if (draggedFromExId && draggedTagId) {
+                  handleRemoveTagFromExercise(draggedFromExId, draggedTagId);
+                }
+                setDraggedFromExId(null); 
+                setDraggedTagId(null); 
+              }} 
+              className={`w-1/3 lg:w-1/3 overflow-y-auto space-y-10 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
+                isDraggingOverSidebar ? 'bg-red-500/10 border-r-red-500/50 shadow-[inset_-10px_0_20px_-10px_rgba(239,68,68,0.2)]' : ''
+              }`}
+            >
+              
               <button onClick={() => setSelectedTags([])} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedTags.length === 0 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-800'}`}>{translations.allTags[lang]}</button>
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-2"><h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2"><Activity size={12} /> {translations.bodyPartHeader[lang]}</h3><button onClick={() => setIsEditingTags(!isEditingTags)} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400">{isEditingTags ? translations.finishEdit[lang] : translations.editTags[lang]}</button></div>
-                <div className="space-y-1.5">{BODY_PARTS.map(id => (<div key={id} className="relative group"><button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { // 修改后：部位单选逻辑
-                  setSelectedTags(p => {
-                    // 先滤掉当前选中的所有部位标签（系统+自定义）
-                    const withoutBodyParts = p.filter(tag => 
-                      !BODY_PARTS.includes(tag) && 
-                      !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')
-                    );
-                    // 如果点的是已选中的，则取消选择；如果点的是新的，则替换
-                    return p.includes(id) ? withoutBodyParts : [...withoutBodyParts, id];}); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'} ${isEditingTags ? 'pr-10' : ''}`}>{getTagName(id)}</button>{isEditingTags && <PencilLine size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />}</div>))}
-                                      {customTags.filter(ct => ct.category === 'bodyPart').map(ct => (<div key={ct.id} className="relative group"><button draggable onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id: ct.id, name: getTagName(ct.id) }); setNewTagNameInput(getTagName(ct.id)); setShowRenameModal(true); } else { setSelectedTags(p => {
-                      const withoutBodyParts = p.filter(tag => 
-                        !BODY_PARTS.includes(tag) && 
-                        !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')
-                      );
-                      return p.includes(ct.id) ? withoutBodyParts : [...withoutBodyParts, ct.id];}); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(ct.id) ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'} ${isEditingTags ? 'pr-14' : ''}`}>{getTagName(ct.id)}</button>{isEditingTags && (<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"><PencilLine size={14} className="text-slate-500" /><button onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"><Trash2 size={12} /></button></div>)}</div>))}
+                <div className="space-y-1.5">
+
+                {/* 1. 训练部位动态显示逻辑 */}
+                  <div className="space-y-1.5">
+                    {/* 仅在力量训练时显示系统默认部位 */}
+                    {activeLibraryCategory === 'STRENGTH' && BODY_PARTS.map(id => (
+                      <div key={id} className="relative group">
+                        <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => { const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')); return p.includes(id) ? withoutBodyParts : [...withoutBodyParts, id]; }); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
+                      </div>
+                    ))}
+                    
+                    {/* 显示属于当前类别的自定义部位标签 */}
+                    {customTags
+                      .filter(ct => ct.category === 'bodyPart' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
+                      .map(ct => (
+                        <div key={ct.id} className="relative group">
+                          <button draggable onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id: ct.id, name: getTagName(ct.id) }); setNewTagNameInput(getTagName(ct.id)); setShowRenameModal(true); } else { setSelectedTags(p => { const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(xt => xt.id === tag && xt.category === 'bodyPart')); return p.includes(ct.id) ? withoutBodyParts : [...withoutBodyParts, ct.id]; }); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(ct.id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(ct.id)}</button>
+                          {isEditingTags && (<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"><button onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"><Trash2 size={12} /></button></div>)}
+                        </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="space-y-4">
                 <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center gap-2"><Filter size={12} /> {translations.equipmentHeader[lang]}</h3>
-                <div className="space-y-1.5">{EQUIPMENT_TAGS.map(id => (<div key={id} className="relative group"><button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'} ${isEditingTags ? 'pr-10' : ''}`}>{getTagName(id)}</button>{isEditingTags && <PencilLine size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />}</div>))}
-                  {customTags.filter(ct => ct.category === 'equipment').map(ct => (<div key={ct.id} className="relative group"><button draggable onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id: ct.id, name: getTagName(ct.id) }); setNewTagNameInput(getTagName(ct.id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(ct.id) ? p.filter(x => x !== ct.id) : [...p, ct.id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(ct.id) ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:bg-slate-800'} ${isEditingTags ? 'pr-14' : ''}`}>{getTagName(ct.id)}</button>{isEditingTags && (<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"><PencilLine size={14} className="text-slate-500" /><button onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"><Trash2 size={12} /></button></div>)}</div>))}
+                <div className="space-y-1.5">
+                  {/* 2. 使用器材动态显示逻辑 */}
+                  <div className="space-y-1.5">
+                    {/* 仅在力量训练时显示系统默认器材 */}
+                    {activeLibraryCategory === 'STRENGTH' && EQUIPMENT_TAGS.map(id => (
+                      <div key={id} className="relative group">
+                        <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
+                      </div>
+                    ))}
+                    
+                    {/* 显示属于当前类别的自定义器材标签 */}
+                    {customTags
+                      .filter(ct => ct.category === 'equipment' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
+                      .map(ct => (
+                        <div key={ct.id} className="relative group">
+                          <button draggable onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id: ct.id, name: getTagName(ct.id) }); setNewTagNameInput(getTagName(ct.id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(ct.id) ? p.filter(x => x !== ct.id) : [...p, ct.id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(ct.id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(ct.id)}</button>
+                          {isEditingTags && (<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"><button onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"><Trash2 size={12} /></button></div>)}
+                        </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="pt-8 border-t border-slate-800 space-y-3"><button onClick={() => setShowAddTagModal(true)} className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all border border-blue-400/20 flex items-center justify-center gap-2"><PlusCircle size={16} /> {translations.addCustomTag[lang]}</button><button onClick={() => setShowAddExerciseModal(true)} className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-400/10 transition-all border border-indigo-400/20 flex items-center justify-center gap-2"><Zap size={16} /> {translations.addCustomExercise[lang]}</button></div>
@@ -1557,40 +1935,86 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
             <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">{filteredExercises.length === 0 ? 
             (<div className="h-full flex flex-col items-center justify-center opacity-20 gap-4"><Search size={64} />
             <p className="font-black text-xl">{translations.noRecords[lang]}</p></div>) : 
-            (filteredExercises.map(ex => (<div key={ex.id} onDragOver={(e) => e.preventDefault()} 
-            onDrop={(e) => handleDropOnExercise(e, ex.id)} className="relative">
-              
-              <button onClick={() => { 
-              if (isEditingTags) { 
-                setExerciseToRename({ id: ex.id, name: ex.name[lang] }); 
-                setNewExerciseNameInput(ex.name[lang]); 
-                setShowRenameExerciseModal(true); 
-                return; 
-              } 
-              setCurrentWorkout(p => ({ 
-                ...p, 
-                exercises: [
-                  { 
-                    id: Date.now().toString(), 
-                    name: ex.name[lang], 
-                    category: 'STRENGTH', 
-                    sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
-                  },
-                  ...(p.exercises || []) // ✅ 修改后：新动作排在第一位，旧动作在后
-                ] 
-              })); 
-              setShowLibrary(false); 
-            }} 
-            className="w-full p-6 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-              </div><div className="flex flex-col gap-3 relative z-10"><div className="flex justify-between items-center"><span className="font-black text-xl group-hover:text-blue-400 transition-colors">
-                {ex.name[lang]}</span>{isEditingTags && <PencilLine size={18} className="text-slate-500" />}</div><div className="flex flex-wrap gap-2">
-                  <span draggable onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} 
-                  className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors">
-                    {getTagName(ex.bodyPart)}</span>{ex.tags.map(t => (<span draggable onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} 
-                    key={t} className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors">
-                      {getTagName(t)}</span>))}</div></div></button></div>)))}</div>
-
+            
+            (filteredExercises.map(ex => (
+              <div 
+                key={ex.id} 
+                onDragOver={(e) => e.preventDefault()} 
+                onDrop={(e) => handleDropOnExercise(e, ex.id)}
+                className="relative"
+              >
+                <button 
+                  onClick={() => { 
+                    if (isEditingTags) { 
+                      setExerciseToRename({ id: ex.id, name: ex.name[lang] }); 
+                      setNewExerciseNameInput(ex.name[lang]); 
+                      setShowRenameExerciseModal(true); 
+                      return; 
+                    } 
+                    setCurrentWorkout(p => ({ 
+                      ...p, 
+                      exercises: [
+                        { 
+                          id: Date.now().toString(), 
+                          name: ex.name[lang], 
+                          category: ex.category || activeLibraryCategory || 'STRENGTH', 
+                          sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
+                        },
+                        ...(p.exercises || [])
+                      ] 
+                    })); 
+                    setShowLibrary(false); 
+                  }} 
+                  className="w-full p-6 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden"
+                >
+                  <div className="absolute right-0 top-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  
+                  <div className="flex flex-col gap-3 relative z-10">
+                    <div className="flex justify-between items-center">
+                      <span className={`font-black text-xl transition-colors ${isEditingTags ? 'text-amber-400' : 'group-hover:text-blue-400 text-white'}`}>
+                        {ex.name[lang]}
+                      </span>
+                      {isEditingTags && (
+                        <div className="p-2 bg-amber-500/20 rounded-lg">
+                          <PencilLine size={18} className="text-amber-500" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      {/* ✅ 仅当 getTagName 确实返回了文字时才渲染部位标签 */}
+                      {ex.bodyPart && getTagName(ex.bodyPart) && (
+                        <span 
+                          draggable 
+                          onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} 
+                          className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors"
+                        >
+                          {getTagName(ex.bodyPart)}
+                        </span>
+                      )}
+                      
+                      {/* ✅ 仅当 getTagName 确实返回了文字时才渲染器材标签 */}
+                      {ex.tags && ex.tags.map(t => {
+                        const name = getTagName(t);
+                        if (!name) return null; // 如果找不到标签名，跳过不画
+                        
+                        return (
+                          <span 
+                            draggable 
+                            key={t} 
+                            onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} 
+                            className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors"
+                          >
+                            {name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )))}
+            </div>
           </div>
         </div>
       )}
@@ -1645,11 +2069,8 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
           
           {/* 单位切换按钮 */}
           <button 
-            onClick={() => { 
-              const n = unit === 'kg' ? 'lbs' : 'kg'; 
-              setUnit(n); 
-              localStorage.setItem('fitlog_unit', n); 
-            }} 
+            // ✅ 调用刚才写好的转换函数
+            onClick={handleUnitToggle} 
             className="bg-slate-800 border border-slate-700/50 px-3 py-1.5 rounded-xl text-xs font-black uppercase text-blue-500 hover:bg-slate-700 hover:text-white transition-all active:scale-95 shadow-sm"
           >
             {unit}
@@ -1885,7 +2306,29 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                         </div>
                         {isExpanded && (
                           <div className="border-t border-slate-700/30 mt-6 pt-6 overflow-hidden animate-in slide-in-from-top-4">
-                            <div className="mb-8">{renderTrendChart(lift.name)}</div>
+
+                          {/* ✅ 新增：图表维度切换按钮组 */}
+                        <div className="flex flex-wrap gap-2 mb-4 px-2">
+                          {getActiveMetrics(lift.name).map(m => (
+                            <button
+                              key={m}
+                              onClick={() => setChartMetricPreference({...chartMetricPreference, [lift.name]: m})}
+                              className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase transition-all ${
+                                getChartMetric(lift.name) === m 
+                                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                                  : 'bg-slate-900 text-slate-500 border border-slate-800'
+                              }`}
+                            >
+                              {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="mb-8">
+                          {/* 传递当前选中的维度给图表 */}
+                          {renderTrendChart(lift.name, getChartMetric(lift.name))}
+                        </div>
+
                             {historyExs.length > 0 && (
                               <div className="space-y-4 mt-4 border-t border-slate-800 pt-8">
                                 <button onClick={() => setIsHistoryVisible(!isHistoryVisible)} className="w-full flex items-center justify-between px-1 group"><h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest group-hover:text-blue-400 transition-colors">{translations.history[lang]} ({historyExs.length})</h4><div className={`p-2 rounded-xl bg-slate-900/50 text-slate-600 group-hover:text-blue-500 transition-all ${isHistoryVisible ? 'rotate-180 text-blue-500' : ''}`}><ChevronDown size={16} /></div></button>
@@ -1908,7 +2351,7 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                                           </div>
                                           <span className="text-[10px] font-black bg-slate-800/80 text-slate-500 px-3 py-1 rounded-full uppercase tracking-wider border border-slate-700/30">{ex.sets.length} {translations.setsCount[lang]}</span>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">{ex.sets.map((s: any, si: number) => renderSetCapsule(s, si))}</div>
+                                        <div className="flex flex-wrap gap-2">{ex.sets.map((s: any) => renderSetCapsule(s, ex.name))}</div>
                                       </div>
                                     ))}
                                   </div>
@@ -1920,13 +2363,42 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                       </div>
                     );
                   })}
+
+                  {/* --- ✅ 新增：底部导出区域 --- */}
+                <div className="mt-12 mb-12 px-2 pb-20">
+                  <div className="bg-slate-800/30 border border-slate-700/30 rounded-[2.5rem] p-8 text-center space-y-6">
+                    <div className="flex justify-center">
+                      <div className="p-4 bg-indigo-500/10 text-indigo-500 rounded-full">
+                        <Cloud size={32} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-lg font-black text-white">{translations.exportData[lang]}</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed max-w-[240px] mx-auto">
+                        {translations.exportDesc[lang]}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleExportData}
+                      className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-4 rounded-2xl font-black border border-slate-700 transition-all active:scale-95 flex items-center justify-center gap-3"
+                    >
+                      <Download size={20} className="text-blue-500" />
+                      {lang === Language.CN ? '立即导出备份' : 'Download JSON'}
+                    </button>
+                    <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+                      Your data is yours. Always.
+                    </p>
+                  </div>
+                </div>
                 </div>
               </div>
             )
           }</div>)}
 
           {/* 新增训练 保持不变 */}
-          {activeTab === 'new' && (<div className="space-y-8 animate-in slide-in-from-bottom-5"><div className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50"><input className="bg-transparent text-3xl font-black w-full outline-none" value={currentWorkout.title} onChange={e => setCurrentWorkout({...currentWorkout, title: e.target.value})} placeholder={translations.trainingTitlePlaceholder[lang]} /></div><div className="space-y-6">{currentWorkout.exercises?.map((ex, exIdx) => { 
+          {activeTab === 'new' && (<div className="space-y-8 animate-in slide-in-from-bottom-5"><div className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
+          <input className="bg-transparent text-3xl font-black w-full outline-none" value={currentWorkout.title} onChange={e => setCurrentWorkout({...currentWorkout, title: e.target.value})} 
+          placeholder={translations.trainingTitlePlaceholder[lang]} /></div><div className="space-y-6">{currentWorkout.exercises?.map((ex, exIdx) => { 
             const isBodyweight = isBodyweightExercise(ex.name); 
             const isPyramid = isPyramidExercise(ex.name);
 
@@ -1944,6 +2416,13 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                       <StickyNote size={18} />
                     </button>
                   </div>
+
+                    <button 
+                      onClick={() => setShowMetricModal({ name: resolveName(ex.name) })}
+                      className="p-2 rounded-xl text-slate-600 hover:text-blue-400 bg-slate-800/50 active:scale-90 transition-all"
+                    >
+                      <SettingsIcon size={18} />
+                    </button>
                   {/* 删除动作按钮 */}
                   <button onClick={() => setCurrentWorkout({...currentWorkout, exercises: currentWorkout.exercises!.filter((_, i) => i !== exIdx)})} className="text-slate-600 hover:text-red-500 transition-colors p-1">
                     <Trash2 size={20} />
@@ -1970,57 +2449,129 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                    setCurrentWorkout({...currentWorkout, exercises: exs}); }} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase transition-all 
                    ${ex.sets[0]?.bodyweightMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600'}`}>
                     {translations[`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}` as keyof typeof translations][lang]}</button>))}</div>)}
-                    <div className="grid grid-cols-4 gap-4 items-center px-4 mb-3 text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                      <span className="pl-2">{translations.sets[lang]}</span><span className="text-center">{translations.weight[lang]} ({unit})</span>
-                      <span className="text-center">{translations.reps[lang]}</span><span className="text-right"></span></div><div className="space-y-4">
-                        {ex.sets.map((set, setIdx) => (<div key={set.id} className="space-y-2">
 
-              <div className="grid grid-cols-4 gap-4 items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 transition-all focus-within:border-blue-500/50">
-                <span className="text-blue-500 font-black pl-2">{setIdx + 1}</span>
-                <input type="number" step="any" className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400 w-full" value={set.weight === 0 ? '' : (unit === 'kg' ? set.weight : parseFloat((set.weight * KG_TO_LBS).toFixed(2)))} placeholder="0" onChange={e => { const val = e.target.value === '' ? 0 : Number(e.target.value); const exs = [...currentWorkout.exercises!]; exs[exIdx].sets[setIdx].weight = parseWeight(val); setCurrentWorkout({...currentWorkout, exercises: exs}); }} />
-                <input type="number" className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400" value={set.reps || ''} placeholder="0" onChange={e => { const val = e.target.value === '' ? 0 : Number(e.target.value); const exs = [...currentWorkout.exercises!]; exs[exIdx].sets[setIdx].reps = val; setCurrentWorkout({...currentWorkout, exercises: exs}); }} />
-                <div className="flex justify-end gap-2 pr-2">
-                  {isPyramid && (
-                    <button onClick={() => {
-                      const exs = [...currentWorkout.exercises!];
-                      const s = exs[exIdx].sets[setIdx];
-                      s.subSets = [...(s.subSets || []), { weight: s.weight, reps: s.reps }];
-                      setCurrentWorkout({...currentWorkout, exercises: exs});
-                    }} className="text-indigo-400 hover:text-indigo-300 transition-colors" 
-                       title={lang === Language.CN ? "添加递减组" : "Add Drop Set"}>
-                      <Layers size={18} />
-                    </button>
-                  )}
-                  <button onClick={() => { const exs = [...currentWorkout.exercises!]; exs[exIdx].sets = exs[exIdx].sets.filter((_, i) => i !== setIdx); setCurrentWorkout({...currentWorkout, exercises: exs}); }} className="text-slate-600 hover:text-red-500"><Minus size={18} /></button>
+              {/* --- 动态表头 (增加单位显示) --- */}
+                <div 
+                  className="grid gap-2 items-center px-4 mb-3 text-[10px] font-black uppercase text-slate-500 tracking-widest mt-4"
+                  style={{ 
+                    gridTemplateColumns: `35px repeat(${getActiveMetrics(resolveName(ex.name)).length}, 1fr) 35px` 
+                  }}
+                >
+                  <span className="pl-1">#</span>
+                  {getActiveMetrics(resolveName(ex.name)).map(m => (
+                    <div key={m} className="flex flex-col items-center leading-tight">
+                      <span>{translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}</span>
+                      {/* ✅ 新增：单位小字显示 */}
+                      <span className="text-[7px] opacity-40 lowercase">{getUnitTag(m, unit)}</span>
+                    </div>
+                  ))}
+                  <span></span>
                 </div>
-              </div>
-              {isPyramid && set.subSets && set.subSets.map((sub, ssi) => (
-                <div key={ssi} className="grid grid-cols-4 gap-4 items-center bg-slate-900/40 ml-8 p-3 rounded-xl border border-dashed border-slate-800 animate-in slide-in-from-left-2">
-                  <span className="text-[10px] font-black text-slate-600 uppercase">
-                    {lang === Language.CN ? '递减' : 'Sub'}
-                  </span>
-                  <input type="number" step="any" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300 w-full" value={sub.weight === 0 ? '' : (unit === 'kg' ? sub.weight : parseFloat((sub.weight * KG_TO_LBS).toFixed(2)))} onChange={e => {
-                    const val = e.target.value === '' ? 0 : Number(e.target.value);
-                    const exs = [...currentWorkout.exercises!];
-                    exs[exIdx].sets[setIdx].subSets![ssi].weight = parseWeight(val);
-                    setCurrentWorkout({...currentWorkout, exercises: exs});
-                  }} />
-                  <input type="number" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300" value={sub.reps || ''} onChange={e => {
-                    const val = e.target.value === '' ? 0 : Number(e.target.value);
-                    const exs = [...currentWorkout.exercises!];
-                    exs[exIdx].sets[setIdx].subSets![ssi].reps = val;
-                    setCurrentWorkout({...currentWorkout, exercises: exs});
-                  }} />
-                  <button onClick={() => {
-                    const exs = [...currentWorkout.exercises!];
-                    exs[exIdx].sets[setIdx].subSets = exs[exIdx].sets[setIdx].subSets!.filter((_, i) => i !== ssi);
-                    setCurrentWorkout({...currentWorkout, exercises: exs});
-                  }} className="flex justify-end pr-2 text-slate-700 hover:text-red-500">
-                    <X size={14} />
-                  </button>
+
+                {/* --- 2. 动态输入行 (修正后的核心循环) --- */}
+                <div className="space-y-4">
+                  {ex.sets.map((set, setIdx) => {
+                    const activeMetrics = getActiveMetrics(resolveName(ex.name));
+                    return (
+                      <div key={set.id} className="space-y-2">
+                        {/* 主输入行 */}
+                        <div 
+                          className="grid gap-2 items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 transition-all focus-within:border-blue-500/50 relative"
+                          style={{ 
+                            gridTemplateColumns: `35px repeat(${activeMetrics.length}, 1fr) 35px` 
+                          }}
+                        >
+                          <span className="text-blue-500 font-black text-xs">{setIdx + 1}</span>
+
+                          {activeMetrics.map(m => {
+                            // 特殊处理：时长 (H:M:S)
+                            // 特殊处理：时长 (H:M:S) 
+                            if (m === 'duration') {
+                              const { h, m: mins, s } = secondsToHMS(set.duration || 0);
+                              return (
+                                <div key={m} className="flex items-center justify-center gap-1">
+                                  {/* ✅ 修改：value={h} 而不是 h || ''，确保 0 能显示 */}
+                                  <input type="number" className="w-8 bg-slate-800/50 rounded-lg text-[9px] text-center font-bold py-1 text-blue-400 outline-none border border-slate-700/50" placeholder="0" value={h} onChange={e => updateDuration(exIdx, setIdx, 'h', Number(e.target.value))} />
+                                  <span className="text-slate-700 text-[8px]">:</span>
+                                  <input type="number" className="w-8 bg-slate-800/50 rounded-lg text-[9px] text-center font-bold py-1 text-blue-400 outline-none border border-slate-700/50" placeholder="0" value={mins} onChange={e => updateDuration(exIdx, setIdx, 'm', Number(e.target.value))} />
+                                  <span className="text-slate-700 text-[8px]">:</span>
+                                  <input type="number" className="w-8 bg-slate-800/50 rounded-lg text-[9px] text-center font-bold py-1 text-blue-400 outline-none border border-slate-700/50" placeholder="0" value={s} onChange={e => updateDuration(exIdx, setIdx, 's', Number(e.target.value))} />
+                                </div>
+                              );
+                            }
+                            // 默认数字输入 (重量、次数、距离等)
+                            // 默认数字输入 (重量、次数、距离、得分等)
+                            return (
+                              <input 
+                                key={m}
+                                type="number"
+                                className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400 w-full text-sm"
+                                placeholder="0"
+                                // ✅ 核心修改点：
+                                value={
+                                  set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined 
+                                    ? '' 
+                                    : Number(set[m as keyof typeof set]).toFixed(2).replace(/\.?0+$/, '')
+                                }
+                                onChange={e => {
+                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                  const exs = [...currentWorkout.exercises!];
+                                  exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: val };
+                                  setCurrentWorkout({...currentWorkout, exercises: exs});
+                                }}
+                              />
+                            );
+                          })}
+
+                          <div className="flex justify-end gap-2 pr-1">
+                            {isPyramid && (
+                              <button onClick={() => {
+                                const exs = [...currentWorkout.exercises!];
+                                const s = exs[exIdx].sets[setIdx];
+                                s.subSets = [...(s.subSets || []), { weight: s.weight, reps: s.reps }];
+                                setCurrentWorkout({...currentWorkout, exercises: exs});
+                              }} className="text-indigo-400 hover:text-indigo-300">
+                                <Layers size={16} />
+                              </button>
+                            )}
+                            <button onClick={() => { const exs = [...currentWorkout.exercises!]; exs[exIdx].sets = exs[exIdx].sets.filter((_, i) => i !== setIdx); setCurrentWorkout({...currentWorkout, exercises: exs}); }} className="text-slate-700 hover:text-red-500">
+                              <Minus size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* ✅ 递减组子行 (现在正确嵌套在 ex.sets.map 内部了) */}
+                        {isPyramid && set.subSets && set.subSets.map((sub, ssi) => (
+                          <div key={ssi} className="grid grid-cols-4 gap-4 items-center bg-slate-900/40 ml-8 p-3 rounded-xl border border-dashed border-slate-800 animate-in slide-in-from-left-2">
+                            <span className="text-[10px] font-black text-slate-600 uppercase">
+                              {lang === Language.CN ? '递减' : 'Sub'}
+                            </span>
+                            <input type="number" step="any" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300 w-full" value={sub.weight === 0 ? '' : (unit === 'kg' ? sub.weight : parseFloat((sub.weight * KG_TO_LBS).toFixed(2)))} onChange={e => {
+                              const val = e.target.value === '' ? 0 : Number(e.target.value);
+                              const exs = [...currentWorkout.exercises!];
+                              exs[exIdx].sets[setIdx].subSets![ssi].weight = parseWeight(val);
+                              setCurrentWorkout({...currentWorkout, exercises: exs});
+                            }} />
+                            <input type="number" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300" value={sub.reps || ''} onChange={e => {
+                              const val = e.target.value === '' ? 0 : Number(e.target.value);
+                              const exs = [...currentWorkout.exercises!];
+                              exs[exIdx].sets[setIdx].subSets![ssi].reps = val;
+                              setCurrentWorkout({...currentWorkout, exercises: exs});
+                            }} />
+                            <button onClick={() => {
+                              const exs = [...currentWorkout.exercises!];
+                              exs[exIdx].sets[setIdx].subSets = exs[exIdx].sets[setIdx].subSets!.filter((_, i) => i !== ssi);
+                              setCurrentWorkout({...currentWorkout, exercises: exs});
+                            }} className="flex justify-end pr-2 text-slate-700 hover:text-red-500">
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>))}</div>
+
             {/* 操作栏：添加组 & 休息计时 */}
                   <div className="flex gap-3 mt-4">
                     {/* 1. 添加组按钮 (逻辑保持不变，样式改为 flex-1) */}
@@ -2052,11 +2603,68 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                       <span className="text-xs">{getRestPref(resolveName(ex.name))}s</span>
                     </button>
                   </div>
-                </div>); })}</div><div className="flex gap-4"><button onClick={() => setShowLibrary(true)} 
-                className="flex-1 bg-slate-800/80 p-5 rounded-3xl font-black flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors"><PlusCircle /> 
-                {translations.addExercise[lang]}</button><button onClick={handleSaveWorkout} 
-                className="flex-1 bg-blue-600 p-5 rounded-3xl font-black shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 hover:bg-blue-500 active:scale-95 transition-all">
-                  <Check /> {translations.saveWorkout[lang]}</button></div></div>)}
+                </div>); })}</div>
+
+                <div className="space-y-6 mt-10 pb-10">
+            <div className="flex items-center gap-3 px-2">
+              <div className="h-[1px] flex-1 bg-slate-800"></div>
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                {translations.categorySelection[lang]}
+              </h3>
+              <div className="h-[1px] flex-1 bg-slate-800"></div>
+            </div>
+
+            {/* ✅ 修改为纵向排列的三个分类按钮 */}
+            <div className="flex flex-col gap-4">
+              {[
+                { id: 'STRENGTH', label: translations.strengthTraining[lang], icon: <Dumbbell size={28} />, color: 'blue' },
+                { id: 'CARDIO', label: translations.cardioTraining[lang], icon: <Activity size={28} />, color: 'orange' },
+                { id: 'FREE', label: translations.freeTraining[lang], icon: <Zap size={28} />, color: 'purple' },
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    setActiveLibraryCategory(cat.id as ExerciseCategory);
+                    setShowLibrary(true);
+                  }}
+                  className="group relative bg-slate-800/30 border border-slate-700/50 p-5 rounded-[2rem] flex items-center gap-6 hover:bg-slate-800/60 transition-all active:scale-[0.98] overflow-hidden w-full"
+                >
+                  {/* 背景微光装饰 */}
+                  <div className={`absolute -right-8 -top-8 w-32 h-32 bg-${cat.color}-500/5 blur-3xl rounded-full group-hover:bg-${cat.color}-500/10 transition-all`}></div>
+                  
+                  {/* 左侧图标 */}
+                  <div className={`p-4 bg-slate-900 rounded-2xl text-${cat.color}-500 shadow-inner group-hover:scale-110 transition-transform relative z-10`}>
+                    {cat.icon}
+                  </div>
+
+                  {/* 右侧文字 */}
+                  <div className="flex flex-col items-start relative z-10">
+                    <span className="font-black text-lg tracking-tight text-white">{cat.label}</span>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    {/* 根据分类 ID 动态读取对应的翻译字段 */}
+                    {cat.id === 'STRENGTH' && translations.strengthSub[lang]}
+                    {cat.id === 'CARDIO' && translations.cardioSub[lang]}
+                    {cat.id === 'FREE' && translations.freeSub[lang]}
+                  </span>
+                  </div>
+
+                  {/* 右侧箭头装饰 */}
+                  <ChevronRight className="ml-auto text-slate-700 group-hover:text-slate-400 transition-colors" size={20} />
+                </button>
+              ))}
+            </div>
+            
+            {/* 最后的保存训练按钮 - 宽度占满 */}
+            <button 
+              onClick={handleSaveWorkout} 
+              className="w-full bg-blue-600 p-6 rounded-[2rem] font-black text-lg shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-3 hover:bg-blue-500 active:scale-95 transition-all mt-6"
+            >
+              <CheckIcon size={24} strokeWidth={3} /> 
+              {translations.saveWorkout[lang]}
+            </button>
+          </div>
+                    
+          </div>)}
 
           {/* 目标管理 保持不变 */}
           {activeTab === 'goals' && (<div className="space-y-6 animate-in slide-in-from-right"><div className="flex justify-between items-center"><div><h2 className="text-3xl font-black">{translations.goals[lang]}</h2><p className="text-slate-500">{translations.goalsSubtitle[lang]}</p></div><button onClick={() => setShowGoalModal(true)} className="p-4 bg-blue-600 rounded-2xl"><Plus size={24} /></button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{goals.map(g => (<div key={g.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50"><div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-xl">{g.label}</h4><span className="text-[10px] text-blue-500 uppercase">{g.type}</span></div><button onClick={async () => { await db.delete('goals', g.id); setGoals(p => p.filter(x => x.id !== g.id)); }}><Trash2 size={16} className="text-slate-700" /></button></div><div className="flex justify-between items-end mb-2"><span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span><span className="text-slate-500 text-xs">{g.unit}</span></div><div className="h-2 bg-slate-900 rounded-full overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}></div></div></div>))}</div></div>)}
@@ -2417,6 +3025,65 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
                 {lang === Language.CN ? '开始计时' : 'Start Timer'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ✅ 在这里插入新的“维度设置弹窗”代码 */}
+      {showMetricModal && (
+        <div className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+            <h2 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+              <SettingsIcon size={20} className="text-blue-500" />
+              {translations.manageMetrics[lang]} - {showMetricModal.name}
+            </h2>
+
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">
+              {lang === Language.CN ? '选择要记录的维度' : 'Select metrics to track'}
+            </p>
+
+            <div className="space-y-3 mb-8">
+              {/* 渲染内置和已有的自定义维度 */}
+              {Array.from(new Set([...STANDARD_METRICS, ...getActiveMetrics(showMetricModal.name)])).map(m => (
+                <button 
+                  key={m}
+                  onClick={() => toggleMetric(showMetricModal.name, m)}
+                  className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${getActiveMetrics(showMetricModal.name).includes(m) ? 'bg-blue-600/10 border-blue-500/50 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}
+                >
+                  <span className="font-bold uppercase text-xs">
+                    {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
+                  </span>
+                  {getActiveMetrics(showMetricModal.name).includes(m) ? <CheckIcon size={16} className="text-blue-500" /> : <Plus size={16} />}
+                </button>
+              ))}
+            </div>
+
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">
+              {translations.addDimension[lang]}
+            </p>
+
+            {/* 添加新的自定义维度输入 */}
+            <div className="flex gap-2 mb-8">
+              <input 
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                placeholder={translations.dimensionPlaceholder[lang]}
+                value={newCustomDimension}
+                onChange={e => setNewCustomDimension(e.target.value)}
+              />
+              <button 
+                onClick={() => {
+                  if(!newCustomDimension) return;
+                  toggleMetric(showMetricModal.name, `custom_${newCustomDimension}`);
+                  setNewCustomDimension('');
+                }}
+                className="bg-slate-800 border border-slate-700 p-2 px-4 rounded-xl text-blue-500 font-bold text-xs active:scale-95 transition-all"
+              >
+                {lang === Language.CN ? '添加' : 'Add'}
+              </button>
+            </div>
+
+            <button onClick={() => setShowMetricModal(null)} className="w-full py-5 rounded-3xl bg-blue-600 text-white font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
+              {translations.confirm[lang]}
+            </button>
           </div>
         </div>
       )}
