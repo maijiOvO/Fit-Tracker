@@ -206,3 +206,35 @@ export const deleteWorkoutFromCloud = async (workoutId: string) => {
   
   if (error) throw error;
 };
+
+/**
+ * 从云端删除指定的体重记录
+ */
+export const deleteWeightFromCloud = async (weightId: string) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) return;
+
+  const { error } = await supabase
+    .from('weight_logs')
+    .delete()
+    .eq('id', weightId)
+    .eq('user_id', session.user.id); // 增加安全检查
+  
+  if (error) throw error;
+};
+
+/**
+ * 从云端删除指定的身体指标记录
+ */
+export const deleteMeasurementFromCloud = async (measurementId: string) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user?.id) return;
+
+  const { error } = await supabase
+    .from('custom_metrics')
+    .delete()
+    .eq('id', measurementId)
+    .eq('user_id', session.user.id); // 增加安全检查
+  
+  if (error) throw error;
+};

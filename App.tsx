@@ -21,7 +21,8 @@ import {
   syncGoalsToCloud, fetchGoalsFromCloud, 
   syncWeightToCloud, fetchWeightFromCloud, 
   syncMeasurementsToCloud, fetchMeasurementsFromCloud,
-  syncUserConfigsToCloud, fetchUserConfigsFromCloud, deleteWorkoutFromCloud, SUPABASE_URL
+  syncUserConfigsToCloud, fetchUserConfigsFromCloud, deleteWorkoutFromCloud, 
+  deleteWeightFromCloud, deleteMeasurementFromCloud, SUPABASE_URL
 } from './services/supabase';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Area, Bar } from 'recharts';
 // 简单的 "叮" 声 Base64
@@ -680,8 +681,21 @@ const App: React.FC = () => {
     // if (!window.confirm("确定删除这条记录?")) return; // 可选确认
 
     try {
+      // 1. 从本地数据库删除
       await db.delete('custom_metrics', id);
-      // 更新本地状态
+      
+      // 2. 从云端删除（如果用户已登录且不是访客）
+      if (user && user.id !== 'u_guest') {
+        try {
+          await deleteMeasurementFromCloud(id);
+        } catch (cloudError) {
+          console.warn('云端删除失败，但本地删除成功:', cloudError);
+          // 本地删除成功，云端删除失败时不阻止操作
+          // 下次同步时会处理这种不一致情况
+        }
+      }
+      
+      // 3. 更新本地状态
       const all = await db.getAll<Measurement>('custom_metrics');
       if (user) setMeasurements(all.filter(m => m.userId === user.id));
     } catch (err) {
@@ -1401,20 +1415,59 @@ const performFullSync = async (currentUserId: string) => {
           await syncWorkoutsToCloud(lw.filter(w => w.userId === currentUserId));
         })(),
 
-        // 2. 同步体重 (Weight)
+        // 2. 同步体重 (Weight) - ✅ 改进：智能合并策略
         (async () => {
           const rWeight = await fetchWeightFromCloud();
-          if (rWeight) for (const r of rWeight) await db.save('weightLogs', { id: r.id, userId: r.user_id, weight: r.weight, date: r.date, unit: r.unit });
           const lWeight = await db.getAll<WeightEntry>('weightLogs');
-          await syncWeightToCloud(lWeight.filter(w => w.userId === currentUserId));
+          const localUserWeight = lWeight.filter(w => w.userId === currentUserId);
+          
+          // 智能合并：只添加本地不存在的云端数据
+          if (rWeight) {
+            for (const r of rWeight) {
+              const existsLocally = localUserWeight.find(l => l.id === r.id);
+              if (!existsLocally) {
+                // 只有本地不存在的记录才从云端添加
+                await db.save('weightLogs', { 
+                  id: r.id, 
+                  userId: r.user_id, 
+                  weight: r.weight, 
+                  date: r.date, 
+                  unit: r.unit 
+                });
+              }
+            }
+          }
+          
+          // 上传本地数据到云端（保持原有逻辑）
+          await syncWeightToCloud(localUserWeight);
         })(),
 
-        // 3. 同步身体指标 (Measurements)
+        // 3. 同步身体指标 (Measurements) - ✅ 改进：智能合并策略
         (async () => {
           const rMeasures = await fetchMeasurementsFromCloud();
-          if (rMeasures) for (const r of rMeasures) await db.save('custom_metrics', { id: r.id, userId: r.user_id, name: r.name, value: r.value, unit: r.unit, date: r.date });
           const lMeasures = await db.getAll<Measurement>('custom_metrics');
-          await syncMeasurementsToCloud(lMeasures.filter(m => m.userId === currentUserId));
+          const localUserMeasures = lMeasures.filter(m => m.userId === currentUserId);
+          
+          // 智能合并：只添加本地不存在的云端数据
+          if (rMeasures) {
+            for (const r of rMeasures) {
+              const existsLocally = localUserMeasures.find(l => l.id === r.id);
+              if (!existsLocally) {
+                // 只有本地不存在的记录才从云端添加
+                await db.save('custom_metrics', { 
+                  id: r.id, 
+                  userId: r.user_id, 
+                  name: r.name, 
+                  value: r.value, 
+                  unit: r.unit, 
+                  date: r.date 
+                });
+              }
+            }
+          }
+          
+          // 上传本地数据到云端（保持原有逻辑）
+          await syncMeasurementsToCloud(localUserMeasures);
         })(),
 
         // 4. 同步训练目标 (Goals)
@@ -2004,13 +2057,24 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     //if (!window.confirm(confirmText)) return;
 
     try {
-      // 1. 从数据库删除
+      // 1. 从本地数据库删除
       await db.delete('weightLogs', id);
       
-      // 2. 更新界面状态
+      // 2. 从云端删除（如果用户已登录且不是访客）
+      if (user && user.id !== 'u_guest') {
+        try {
+          await deleteWeightFromCloud(id);
+        } catch (cloudError) {
+          console.warn('云端删除失败，但本地删除成功:', cloudError);
+          // 本地删除成功，云端删除失败时不阻止操作
+          // 下次同步时会处理这种不一致情况
+        }
+      }
+      
+      // 3. 更新界面状态
       setWeightEntries(prev => prev.filter(entry => entry.id !== id));
       
-      // 3. 刷新本地数据以更新顶部大数字
+      // 4. 刷新本地数据以更新顶部大数字
       if (user) loadLocalData(user.id);
       
     } catch (error) {
