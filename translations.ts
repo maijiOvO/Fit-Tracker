@@ -166,4 +166,35 @@ export const translations: TranslationStrings = {
   tagFullBody: { en: 'Full Body', cn: '全身' },
   subFullBody: { cn: '全身', en: 'Full Body' },
 
+  // ✅ 问题4: 一键重置账户功能翻译
+  resetAccount: { en: 'Reset Account', cn: '重置账户' },
+  resetAccountWarning: { en: 'Reset Account Data', cn: '重置账户数据' },
+  resetAccountDesc: { 
+    en: 'This will permanently delete ALL your data including:\n\n• All workout records\n• Goals and progress\n• Custom exercises and tags\n• Body weight logs\n• Personal settings and notes\n• Profile picture\n\nThis action cannot be undone!', 
+    cn: '这将永久删除您的所有数据，包括：\n\n• 所有训练记录\n• 目标和进度\n• 自定义动作和标签\n• 体重记录\n• 个人设置和备注\n• 头像图片\n\n此操作无法撤销！' 
+  },
+  resetConfirmText: { en: 'Type "RESET" to confirm', cn: '输入"重置"确认' },
+  resetConfirmPlaceholder: { en: 'Type RESET here...', cn: '在此输入"重置"...' },
+  resetCancel: { en: 'Cancel', cn: '取消' },
+  resetConfirm: { en: 'Reset My Account', cn: '重置我的账户' },
+  resetInProgress: { en: 'Resetting account...', cn: '正在重置账户...' },
+  resetSuccess: { en: 'Account reset successfully!', cn: '账户重置成功！' },
+  resetError: { en: 'Reset failed. Please try again.', cn: '重置失败，请重试。' },
+
+  // ✅ 新增：自定义日期时间选择器翻译
+  selectDate: { en: 'Select Date', cn: '选择日期' },
+  selectTime: { en: 'Select Time', cn: '选择时间' },
+  today: { en: 'Today', cn: '今天' },
+  yesterday: { en: 'Yesterday', cn: '昨天' },
+  hour: { en: 'Hour', cn: '时' },
+  minute: { en: 'Minute', cn: '分' },
+  monthNames: {
+    en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    cn: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
+  },
+  weekdayNames: {
+    en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    cn: ['日', '一', '二', '三', '四', '五', '六']
+  },
+
 };

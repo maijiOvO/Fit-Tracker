@@ -32,6 +32,10 @@ export interface Exercise {
   bodyPart?: string; 
   sets: SetLog[];
   tags?: string[];
+  // ✅ 新增：动作的具体训练时间
+  exerciseTime?: string; // ISO 8601 格式
+  // ✅ 新增：动作持续时间（可选）
+  duration?: number; // 秒数
 }
 
 export interface ExerciseDefinition {
@@ -53,6 +57,9 @@ export interface WorkoutSession {
   title: string;
   exercises: Exercise[];
   notes?: string;
+  // ✅ 新增：训练开始和结束时间
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface WeightEntry {

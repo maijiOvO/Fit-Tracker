@@ -9,7 +9,7 @@ import {
   Award, Eye, EyeOff, User as UserIcon, Tag as TagIcon, Mail, Lock, Flag,
   Edit2, CheckCircle, Send, ShieldAlert, Sparkles, AlertCircle, Coins,
   Key, ChevronRight, TrendingUp, Filter, PencilLine, Hash, Scale, ChevronDown, ChevronUp, Star,
-  Layers, ArrowLeft, Globe, Ruler, Camera, Minimize2, Maximize2, GripHorizontal, StickyNote, Check as CheckIcon, Download
+  Layers, ArrowLeft, Globe, Ruler, Camera, Minimize2, Maximize2, GripHorizontal, StickyNote, Check as CheckIcon, Download, ChevronLeft
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics } from '@capacitor/haptics'; 
@@ -110,7 +110,7 @@ const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH'  },
   { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH'  },
   { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
-  { id: 'pushup', name: { en: 'Pushup', cn: '俯撑撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'pushup', name: { en: 'Push-ups', cn: '俯卧撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
   
   // Back
   { id: 'dl_barbell', name: { en: 'Deadlift', cn: '硬拉' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
@@ -217,11 +217,37 @@ const App: React.FC = () => {
   // 在选择器中保存时间
   const confirmTimePicker = () => {
     if (!showTimePicker) return;
+    
     const { exIdx, setIdx } = showTimePicker;
     const totalSeconds = tempHMS.h * 3600 + tempHMS.m * 60 + tempHMS.s;
     
-    const exs = [...currentWorkout.exercises!];
-    exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], duration: totalSeconds };
+    // ✅ 修复Bug #2: 安全检查 - 确保数据结构完整，防止数组越界
+    if (!currentWorkout.exercises || 
+        exIdx < 0 || 
+        exIdx >= currentWorkout.exercises.length) {
+      console.warn('Invalid exercise index:', exIdx, 'exercises length:', currentWorkout.exercises?.length);
+      setShowTimePicker(null);
+      return;
+    }
+    
+    const targetExercise = currentWorkout.exercises[exIdx];
+    if (!targetExercise.sets || 
+        setIdx < 0 || 
+        setIdx >= targetExercise.sets.length) {
+      console.warn('Invalid set index:', setIdx, 'sets length:', targetExercise.sets?.length);
+      setShowTimePicker(null);
+      return;
+    }
+    
+    // ✅ 修复Bug #2: 安全更新 - 使用不可变更新模式，避免直接修改数组
+    const exs = [...currentWorkout.exercises];
+    exs[exIdx] = {
+      ...exs[exIdx],
+      sets: exs[exIdx].sets.map((set, idx) => 
+        idx === setIdx ? { ...set, duration: totalSeconds } : set
+      )
+    };
+    
     setCurrentWorkout({ ...currentWorkout, exercises: exs });
     setShowTimePicker(null);
   };
@@ -247,7 +273,48 @@ const App: React.FC = () => {
   // 加载配置
   useEffect(() => {
     const saved = localStorage.getItem('fitlog_metric_configs');
-    if (saved) setExerciseMetricConfigs(JSON.parse(saved));
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        
+        // ✅ 修复Metrics Bug: 清理可能存在的数据污染
+        const cleaned: Record<string, string[]> = {};
+        let needsCleaning = false;
+        
+        Object.entries(parsed).forEach(([exerciseName, metrics]) => {
+          if (Array.isArray(metrics)) {
+            const cleanedMetrics = metrics
+              .map(m => typeof m === 'string' ? m.trim() : String(m).trim())
+              .filter(m => m.length > 0);
+            
+            // 检查是否有数据被清理
+            const originalStr = JSON.stringify(metrics);
+            const cleanedStr = JSON.stringify(cleanedMetrics);
+            if (originalStr !== cleanedStr) {
+              needsCleaning = true;
+              console.log(`清理动作 "${exerciseName}" 的metrics数据:`, {
+                原始: metrics,
+                清理后: cleanedMetrics
+              });
+            }
+            
+            cleaned[exerciseName] = cleanedMetrics;
+          }
+        });
+        
+        // 如果数据被清理，重新保存到localStorage
+        if (needsCleaning) {
+          localStorage.setItem('fitlog_metric_configs', JSON.stringify(cleaned));
+          console.log('Metrics配置数据已清理并重新保存');
+        }
+        
+        setExerciseMetricConfigs(cleaned);
+      } catch (e) {
+        console.error('解析metrics配置失败:', e);
+        // 如果解析失败，使用空配置
+        setExerciseMetricConfigs({});
+      }
+    }
   }, []);
 
   // 获取某个动作应显示的维度（默认显示重量和次数）
@@ -281,18 +348,69 @@ const App: React.FC = () => {
   // 切换维度开关
   const toggleMetric = (exerciseName: string, metricKey: string) => {
     const current = getActiveMetrics(exerciseName);
-    let next = current.includes(metricKey) 
-      ? current.filter(m => m !== metricKey) 
-      : [...current, metricKey];
+    
+    // ✅ 修复Metrics Bug: 使用更安全的字符串匹配，只处理空格问题，保留大小写
+    const normalizedCurrent = current.map(m => m.trim());
+    const normalizedKey = metricKey.trim();
+    
+    const isCurrentlySelected = normalizedCurrent.includes(normalizedKey);
+    
+    // 添加调试日志帮助定位问题
+    console.log('Toggle Metric Debug:', {
+      exerciseName,
+      metricKey,
+      current,
+      normalizedCurrent,
+      normalizedKey,
+      isCurrentlySelected,
+      willRemove: isCurrentlySelected
+    });
+    
+    let next;
+    if (isCurrentlySelected) {
+      // 移除：找到精确匹配的索引进行删除
+      const indexToRemove = normalizedCurrent.indexOf(normalizedKey);
+      next = current.filter((_, index) => index !== indexToRemove);
+    } else {
+      // 添加：使用原始metricKey
+      next = [...current, metricKey];
+    }
     
     // 至少保留一个维度
     if (next.length === 0) next = ['reps'];
 
-    const updated = { ...exerciseMetricConfigs, [exerciseName]: next };
+    // ✅ 额外修复：清理存储的数据，确保没有空格污染
+    const cleanNext = next.map(m => m.trim()).filter(m => m.length > 0);
+
+    console.log('Toggle Result:', { before: current, after: cleanNext });
+
+    const updated = { ...exerciseMetricConfigs, [exerciseName]: cleanNext };
     setExerciseMetricConfigs(updated);
     localStorage.setItem('fitlog_metric_configs', JSON.stringify(updated));
+    
+    // ✅ 修复Metrics重置Bug: 标记本地metrics配置为最新，避免被云端数据覆盖
+    const metricsTimestamp = Date.now();
+    localStorage.setItem('fitlog_metrics_last_update', metricsTimestamp.toString());
+    
+    // ✅ 修复Bug #5: 使用防抖同步，避免频繁操作触发过多同步请求
     if (user && user.id !== 'u_guest') {
-      performFullSync(user.id);
+      debouncedPerformSync(user.id);
+    }
+  };
+
+  // ✅ 新增：重置metrics配置到默认状态
+  const resetMetricsToDefault = (exerciseName: string) => {
+    const updated = { ...exerciseMetricConfigs };
+    delete updated[exerciseName]; // 删除自定义配置，回到默认的['weight', 'reps']
+    
+    setExerciseMetricConfigs(updated);
+    localStorage.setItem('fitlog_metric_configs', JSON.stringify(updated));
+    
+    console.log(`已重置 "${exerciseName}" 的metrics配置到默认状态`);
+    
+    // 同步到云端
+    if (user && user.id !== 'u_guest') {
+      debouncedPerformSync(user.id);
     }
   };
 
@@ -445,6 +563,7 @@ const App: React.FC = () => {
 // 计时器核心逻辑 (最终增强版：兼容 iOS/Android 原生震动)
   useEffect(() => {
     let interval: any = null;
+    let timeoutIds: NodeJS.Timeout[] = []; // ✅ 修复Bug #1: 存储所有setTimeout ID
     
     if (isResting && restSeconds > 0) {
       // 这里的逻辑保持不变
@@ -458,6 +577,9 @@ const App: React.FC = () => {
       // 定义一个 兼容性极强 的提示函数
       let playCount = 0;
       const playAlert = async () => {
+        // ✅ 修复Bug #1: 检查组件是否仍然处于休息状态，避免组件卸载后继续执行
+        if (playCount === 0 && !isResting) return;
+        
         // 1. 播放声音 (Web Audio API)
         playTimerSound();
         
@@ -473,7 +595,8 @@ const App: React.FC = () => {
         playCount++;
         // 循环播放 4 次，间隔 1.2 秒
         if (playCount < 4) {
-          setTimeout(playAlert, 1200);
+          const timeoutId = setTimeout(playAlert, 1200);
+          timeoutIds.push(timeoutId); // ✅ 修复Bug #1: 记录timeout ID用于清理
         }
       };
 
@@ -481,7 +604,11 @@ const App: React.FC = () => {
       playAlert();
     }
 
-    return () => clearInterval(interval);
+    // ✅ 修复Bug #1: 清理函数 - 清理所有定时器，防止内存泄漏
+    return () => {
+      if (interval) clearInterval(interval);
+      timeoutIds.forEach(id => clearTimeout(id)); // 清理所有setTimeout
+    };
   }, [isResting, restSeconds]);
 
   // 开始休息函数
@@ -579,28 +706,75 @@ const App: React.FC = () => {
     sorted.forEach(m => map.set(m.name, m));
     return Array.from(map.values());
   }, [measurements]);
-// --- 新增：热力图数据计算 (防崩溃版) ---
+// --- ✅ 修复Bug #6: 热力图数据计算 (完善异常处理版) ---
   const heatmapData = useMemo(() => {
     // 如果没有数据，直接返回空数组，防止报错
     if (!workouts || workouts.length === 0) return [];
 
     const map = new Map<string, number>();
     
-    workouts.forEach(w => {
+    workouts.forEach((w, index) => {
       try {
-        if (!w.date) return; // 如果没有日期，跳过
-        const d = new Date(w.date);
-        // 检查日期是否有效 (Invalid Date)
-        if (isNaN(d.getTime())) return;
+        // ✅ 修复Bug #6: 更完善的数据验证
+        if (!w || typeof w !== 'object') {
+          console.warn(`Skipping invalid workout at index ${index}:`, w);
+          return;
+        }
         
-        const day = d.toISOString().split('T')[0];
-        map.set(day, (map.get(day) || 0) + 1);
+        if (!w.date || typeof w.date !== 'string') {
+          console.warn(`Skipping workout with invalid date at index ${index}:`, w);
+          return;
+        }
+        
+        // ✅ 修复Bug #6: 更严格的日期验证
+        const d = new Date(w.date);
+        
+        // 检查日期是否有效 (Invalid Date)
+        if (isNaN(d.getTime())) {
+          console.warn(`Skipping workout with invalid date "${w.date}" at index ${index}`);
+          return;
+        }
+        
+        // ✅ 修复Bug #6: 检查日期是否在合理范围内（防止极端日期）
+        const currentYear = new Date().getFullYear();
+        const workoutYear = d.getFullYear();
+        if (workoutYear < 1900 || workoutYear > currentYear + 10) {
+          console.warn(`Skipping workout with unreasonable date "${w.date}" (year: ${workoutYear})`);
+          return;
+        }
+        
+        // ✅ 修复Bug #6: 安全的日期格式化
+        let dayString: string;
+        try {
+          dayString = d.toISOString().split('T')[0];
+        } catch (formatError) {
+          console.warn(`Failed to format date "${w.date}":`, formatError);
+          return;
+        }
+        
+        // ✅ 修复Bug #6: 验证格式化后的日期字符串
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dayString)) {
+          console.warn(`Invalid formatted date string "${dayString}" from "${w.date}"`);
+          return;
+        }
+        
+        map.set(dayString, (map.get(dayString) || 0) + 1);
       } catch (e) {
-        console.warn("Skipping invalid date:", w);
+        console.warn(`Error processing workout at index ${index}:`, e, w);
       }
     });
     
-    return Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+    // ✅ 修复Bug #6: 验证最终结果
+    const result = Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+    
+    // 过滤掉任何可能的无效条目
+    return result.filter(item => 
+      item && 
+      typeof item.date === 'string' && 
+      typeof item.count === 'number' && 
+      item.count > 0 &&
+      /^\d{4}-\d{2}-\d{2}$/.test(item.date)
+    );
   }, [workouts]);
 // 保存指标函数 (升级版：支持编辑)
   const handleSaveMeasurement = async () => {
@@ -645,7 +819,11 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   };
-  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  // ✅ 修复单位显示不一致Bug: 从localStorage同步读取初始值，避免异步加载导致的不一致
+  const [unit, setUnit] = useState<'kg' | 'lbs'>(() => {
+    const savedUnit = localStorage.getItem('fitlog_unit') as 'kg' | 'lbs';
+    return savedUnit || 'kg';
+  });
   const [selectedPRProject, setSelectedPRProject] = useState<string | null>(null);
   // ✅ 新增：控制历史记录中哪个维度正在画图 (格式: { "动作名称": "metricKey" })
   const [chartMetricPreference, setChartMetricPreference] = useState<Record<string, string>>({});
@@ -678,6 +856,11 @@ const App: React.FC = () => {
   const [exerciseToRename, setExerciseToRename] = useState<{ id: string, name: string } | null>(null);
   const [newExerciseNameInput, setNewExerciseNameInput] = useState('');
 
+  // ✅ 问题4: 一键重置账户功能状态管理
+  const [showResetAccountModal, setShowResetAccountModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() => {
     try {
       const saved = localStorage.getItem('fitlog_custom_exercises');
@@ -696,6 +879,33 @@ const App: React.FC = () => {
 
   const lastSelectionRef = useRef<string | null>(null);
 
+  // ✅ 修复Bug #5: 添加同步锁，防止并发同步导致的竞态条件
+  const syncLockRef = useRef<boolean>(false);
+
+  // ✅ 修复Bug #5: 添加防抖同步，避免频繁的配置更新触发过多同步
+  const debouncedSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const debouncedPerformSync = (userId: string, delay: number = 2000) => {
+    // 清除之前的防抖定时器
+    if (debouncedSyncTimeoutRef.current) {
+      clearTimeout(debouncedSyncTimeoutRef.current);
+    }
+    
+    // 设置新的防抖定时器
+    debouncedSyncTimeoutRef.current = setTimeout(() => {
+      performFullSync(userId);
+    }, delay);
+  };
+
+  // ✅ 修复Bug #5: 清理防抖定时器
+  useEffect(() => {
+    return () => {
+      if (debouncedSyncTimeoutRef.current) {
+        clearTimeout(debouncedSyncTimeoutRef.current);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (lastSelectionRef.current !== selectedPRProject) {
       setIsHistoryVisible(false);
@@ -706,6 +916,143 @@ const App: React.FC = () => {
   const [draggedTagId, setDraggedTagId] = useState<string | null>(null);
   const [draggedFromExId, setDraggedFromExId] = useState<string | null>(null);
   const [isDraggingOverSidebar, setIsDraggingOverSidebar] = useState(false);
+
+  // ✅ 修复Bug #4: 添加全局拖拽状态重置函数，确保状态一致性
+  const resetDragState = () => {
+    setDraggedTagId(null);
+    setDraggedFromExId(null);
+    setIsDraggingOverSidebar(false);
+  };
+
+  // ✅ 修复Bug #4: 添加全局拖拽事件监听器，处理异常情况
+  useEffect(() => {
+    const handleGlobalDragEnd = () => {
+      resetDragState();
+    };
+
+    const handleGlobalMouseUp = () => {
+      // 延迟重置，确保正常的drop事件先执行
+      setTimeout(resetDragState, 100);
+    };
+
+    // 监听全局拖拽结束事件
+    document.addEventListener('dragend', handleGlobalDragEnd);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    
+    // 监听页面失焦，防止用户拖拽到浏览器外部时状态不重置
+    window.addEventListener('blur', resetDragState);
+
+    return () => {
+      document.removeEventListener('dragend', handleGlobalDragEnd);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('blur', resetDragState);
+    };
+  }, []);
+
+  // ✅ 新增：自定义训练时间相关状态
+  const [showTimePickerModal, setShowTimePickerModal] = useState<{ exerciseId?: string, currentTime?: string } | null>(null);
+  const [customExerciseTime, setCustomExerciseTime] = useState('');
+  
+  // ✅ 新增：自定义日期时间选择器状态
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedHour, setSelectedHour] = useState(new Date().getHours());
+  const [selectedMinute, setSelectedMinute] = useState(new Date().getMinutes());
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  // ✅ 新增：日期选择器辅助函数
+  const getDaysInMonth = (month: number, year: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (month: number, year: number) => {
+    return new Date(year, month, 1).getDay();
+  };
+
+  const isToday = (date: Date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() && 
+           date.getMonth() === today.getMonth() && 
+           date.getFullYear() === today.getFullYear();
+  };
+
+  const isSameDay = (date1: Date, date2: Date) => {
+    return date1.getDate() === date2.getDate() && 
+           date1.getMonth() === date2.getMonth() && 
+           date1.getFullYear() === date2.getFullYear();
+  };
+
+  // 初始化时间选择器数据
+  const initializeTimePicker = (currentTime?: string) => {
+    const date = currentTime ? new Date(currentTime) : new Date();
+    setSelectedDate(date);
+    setSelectedHour(date.getHours());
+    setSelectedMinute(date.getMinutes());
+    setCurrentMonth(date.getMonth());
+    setCurrentYear(date.getFullYear());
+  };
+
+  // ✅ 新增：时间格式化函数
+  const formatExerciseTime = (time: string, lang: string) => {
+    if (!time) return { date: '', time: '' };
+    
+    const date = new Date(time);
+    
+    if (lang === 'cn') {
+      return {
+        date: date.toLocaleDateString('zh-CN'),
+        time: date.toLocaleTimeString('zh-CN', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      };
+    } else {
+      return {
+        date: date.toLocaleDateString('en-US'),
+        time: date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        })
+      };
+    }
+  };
+
+  // ✅ 新增：更新动作训练时间的函数
+  const updateExerciseTime = async (workoutId: string, exerciseId: string, newTime: string) => {
+    try {
+      const allWorkouts = await db.getAll<WorkoutSession>('workouts');
+      const workout = allWorkouts.find(w => w.id === workoutId);
+      if (!workout) return;
+      
+      const exerciseIndex = workout.exercises.findIndex(ex => ex.id === exerciseId);
+      if (exerciseIndex === -1) return;
+      
+      workout.exercises[exerciseIndex].exerciseTime = newTime;
+      await db.save('workouts', workout);
+      
+      // 重新加载数据
+      await loadLocalData(user?.id || 'u_guest');
+      
+      // 同步到云端
+      if (user && user.id !== 'u_guest') {
+        performFullSync(user.id);
+      }
+      
+      alert(
+        lang === 'cn' 
+          ? '训练时间已更新'
+          : 'Exercise time updated'
+      );
+      
+    } catch (error) {
+      console.error('Error updating exercise time:', error);
+      alert(
+        lang === 'cn' 
+          ? '更新失败，请重试'
+          : 'Update failed, please try again'
+      );
+    }
+  };
 
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [weightInputValue, setWeightInputValue] = useState('');
@@ -957,7 +1304,8 @@ const App: React.FC = () => {
       const ls = (k: string) => localStorage.getItem(k);
       const savedCustomTags = ls('fitlog_custom_tags'); if (savedCustomTags) setCustomTags(JSON.parse(savedCustomTags));
       const savedCustomExercises = ls('fitlog_custom_exercises'); if (savedCustomExercises) setCustomExercises(JSON.parse(savedCustomExercises));
-      const savedUnit = ls('fitlog_unit') as 'kg' | 'lbs'; if (savedUnit) setUnit(savedUnit);
+      const savedUnit = ls('fitlog_unit') as 'kg' | 'lbs'; 
+      if (savedUnit) setUnit(savedUnit);
       const savedLang = ls('fitlog_lang') as Language; if (savedLang) setLang(savedLang);
       const savedTagOverrides = ls('fitlog_tag_rename_overrides'); if (savedTagOverrides) setTagRenameOverrides(JSON.parse(savedTagOverrides));
       const savedExOverrides = ls('fitlog_exercise_overrides'); if (savedExOverrides) setExerciseOverrides(JSON.parse(savedExOverrides));
@@ -981,17 +1329,51 @@ const App: React.FC = () => {
 
       // 过滤当前用户的数据
       const userW = allW.filter(w => w.userId === userId);
+      
+      // ✅ 新增：数据迁移 - 为现有动作记录添加默认训练时间
+      let hasDataMigration = false;
+      const migratedWorkouts = userW.map(workout => {
+        let workoutChanged = false;
+        const updatedExercises = workout.exercises.map(exercise => {
+          if (!exercise.exerciseTime) {
+            // 为现有动作设置默认时间（使用训练日期）
+            workoutChanged = true;
+            hasDataMigration = true;
+            return {
+              ...exercise,
+              exerciseTime: new Date(workout.date).toISOString()
+            };
+          }
+          return exercise;
+        });
+        
+        if (workoutChanged) {
+          return { ...workout, exercises: updatedExercises };
+        }
+        return workout;
+      });
+      
+      // 如果有数据迁移，保存到数据库
+      if (hasDataMigration) {
+        console.log('执行数据迁移：为现有动作记录添加训练时间');
+        for (const workout of migratedWorkouts) {
+          if (workout !== userW.find(w => w.id === workout.id)) {
+            await db.save('workouts', workout);
+          }
+        }
+      }
+
       const userG = allG.filter(g => g.userId === userId);
       const userWeights = allWeights.filter(w => w.userId === userId);
       const userMeasures = allMeasurements.filter(m => m.userId === userId);
 
       // ✅ 关键：使用解构赋值 [...array] 确保 React 检测到引用变化，触发重绘
-      setWorkouts([...userW].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      setWorkouts([...migratedWorkouts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setGoals([...userG]);
       setWeightEntries([...userWeights].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setMeasurements([...userMeasures]);
 
-      console.log(`本地数据加载完成: ${userW.length} 场训练`);
+      console.log(`本地数据加载完成: ${migratedWorkouts.length} 场训练${hasDataMigration ? ' (已执行数据迁移)' : ''}`);
     } catch (error) {
       console.error("加载本地数据失败:", error);
     }
@@ -999,6 +1381,15 @@ const App: React.FC = () => {
 
 const performFullSync = async (currentUserId: string) => {
     if (currentUserId === 'u_guest') return;
+    
+    // ✅ 修复Bug #5: 检查同步锁，防止并发同步
+    if (syncLockRef.current) {
+      console.log('同步已在进行中，跳过此次请求');
+      return;
+    }
+    
+    // ✅ 修复Bug #5: 获取同步锁
+    syncLockRef.current = true;
     setSyncStatus('syncing');
     try {
       await Promise.all([
@@ -1061,7 +1452,21 @@ const performFullSync = async (currentUserId: string) => {
             if (remoteConfig.exerciseNotes) finalNotes = remoteConfig.exerciseNotes;
             if (remoteConfig.restPrefs) finalRest = remoteConfig.restPrefs;
             if (remoteConfig.starred) finalStarred = remoteConfig.starred;
-            if (remoteConfig.metricConfigs) finalMetricConfigs = remoteConfig.metricConfigs;
+            
+            // ✅ 修复Metrics重置Bug: 智能合并metrics配置，避免覆盖用户最新操作
+            if (remoteConfig.metricConfigs) {
+              const localMetricsTimestamp = parseInt(localStorage.getItem('fitlog_metrics_last_update') || '0');
+              const remoteMetricsTimestamp = remoteConfig.metricsTimestamp || 0;
+              
+              // 只有当云端数据更新时才覆盖本地配置
+              if (remoteMetricsTimestamp > localMetricsTimestamp) {
+                finalMetricConfigs = remoteConfig.metricConfigs;
+                console.log('使用云端metrics配置（更新）');
+              } else {
+                console.log('保留本地metrics配置（更新）');
+                // 保持本地配置不变
+              }
+            }
 
             // D. 同步更新 React 内存状态
             setCustomTags(finalTags);
@@ -1087,7 +1492,8 @@ const performFullSync = async (currentUserId: string) => {
             customTags: finalTags,
             starred: finalStarred,
             customExercises: finalExs,
-            metricConfigs: finalMetricConfigs
+            metricConfigs: finalMetricConfigs,
+            metricsTimestamp: parseInt(localStorage.getItem('fitlog_metrics_last_update') || Date.now().toString())
           });
         })()
       ]);
@@ -1097,6 +1503,9 @@ const performFullSync = async (currentUserId: string) => {
     } catch (e: any) {
       console.error("Sync Failure:", e.message);
       setSyncStatus('error');
+    } finally {
+      // ✅ 修复Bug #5: 无论成功失败，都要释放同步锁
+      syncLockRef.current = false;
     }
   };
   const handleAuth = async (e: React.FormEvent) => {
@@ -1172,30 +1581,98 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     }
   };
 
-  const handleSaveWorkout = async () => {
-    // ✅ 新增校验：如果一个动作都没有，或者所有动作都没有填组数，就不保存
-    if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
-      alert(lang === Language.CN ? "请至少添加一个动作" : "Please add at least one exercise");
-      return;
-    }
+  // ✅ 修复问题7&8: 添加保存状态管理和单位确认功能
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-    // 检查是否所有动作都有至少一组数据 (可选)
-    const hasData = currentWorkout.exercises.some(ex => ex.sets && ex.sets.length > 0);
-    if (!hasData) {
-      alert(lang === Language.CN ? "请至少记录一组数据" : "Please log at least one set");
-      return;
-    }
-
-    if (!currentWorkout.exercises?.length || !user) return;
-    const session: WorkoutSession = { ...currentWorkout, id: currentWorkout.id || Date.now().toString(), userId: user.id, title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`, date: currentWorkout.date || new Date().toISOString() } as WorkoutSession;
-    await db.save('workouts', session);
-    await loadLocalData(user.id); 
-    setActiveTab('dashboard'); 
-    setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
-    if (user.id !== 'u_guest') {
-      try { await syncWorkoutsToCloud([session]); } catch (err) { console.warn("Sync failed"); }
+  // ✅ 修复问题8: 带单位确认的保存函数
+  const handleSaveWithConfirmation = () => {
+    // 检查当前单位并显示确认对话框
+    const unitText = unit === 'kg' ? '公斤(kg)' : '磅(lbs)';
+    const confirmMessage = lang === Language.CN 
+      ? `确认保存训练记录吗？\n\n当前单位设置: ${unitText}\n\n请确认所有重量数据都是以${unitText}为单位记录的。`
+      : `Confirm saving workout?\n\nCurrent unit: ${unitText}\n\nPlease confirm all weight data is recorded in ${unitText}.`;
+    
+    if (confirm(confirmMessage)) {
+      handleSaveWorkout();
     }
   };
+
+  const handleSaveWorkout = async () => {
+    // ✅ 修复问题7: 添加保存状态反馈
+    setSaveStatus('saving');
+    setHasUnsavedChanges(false);
+    
+    try {
+      // ✅ 新增校验：如果一个动作都没有，或者所有动作都没有填组数，就不保存
+      if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
+        alert(lang === Language.CN ? "请至少添加一个动作" : "Please add at least one exercise");
+        setSaveStatus('error');
+        return;
+      }
+
+      // 检查是否所有动作都有至少一组数据 (可选)
+      const hasData = currentWorkout.exercises.some(ex => ex.sets && ex.sets.length > 0);
+      if (!hasData) {
+        alert(lang === Language.CN ? "请至少记录一组数据" : "Please log at least one set");
+        setSaveStatus('error');
+        return;
+      }
+
+      if (!currentWorkout.exercises?.length || !user) {
+        setSaveStatus('error');
+        return;
+      }
+      
+      const session: WorkoutSession = { 
+        ...currentWorkout, 
+        id: currentWorkout.id || Date.now().toString(), 
+        userId: user.id, 
+        title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`, 
+        date: currentWorkout.date || new Date().toISOString() 
+      } as WorkoutSession;
+      
+      await db.save('workouts', session);
+      await loadLocalData(user.id); 
+      
+      // ✅ 修复问题7: 显示保存成功状态
+      setSaveStatus('saved');
+      
+      // 2秒后自动跳转到dashboard
+      setTimeout(() => {
+        setActiveTab('dashboard'); 
+        setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
+        setSaveStatus('idle');
+      }, 2000);
+      
+      if (user.id !== 'u_guest') {
+        try { 
+          await syncWorkoutsToCloud([session]); 
+        } catch (err) { 
+          console.warn("Sync failed"); 
+        }
+      }
+    } catch (error) {
+      console.error('Save workout failed:', error);
+      setSaveStatus('error');
+      alert(lang === Language.CN ? "保存失败，请重试" : "Save failed, please try again");
+    }
+  };
+
+  // ✅ 修复问题7: 监听训练数据变化，标记未保存状态
+  useEffect(() => {
+    if (currentWorkout.exercises && currentWorkout.exercises.length > 0) {
+      const hasAnyData = currentWorkout.exercises.some(ex => 
+        ex.sets && ex.sets.length > 0 && ex.sets.some(set => 
+          set.weight || set.reps || set.distance || set.duration || set.score
+        )
+      );
+      setHasUnsavedChanges(hasAnyData);
+    } else {
+      setHasUnsavedChanges(false);
+    }
+  }, [currentWorkout]);
 
   const handleEditWorkout = (workoutId: string) => {
     const workoutToEdit = workouts.find(w => w.id === workoutId);
@@ -1205,6 +1682,74 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       setSelectedPRProject(null);
     }
   };
+  
+  // ✅ 修复历史记录删除Bug: 添加删除单个动作记录的函数
+  const handleDeleteExerciseRecord = async (
+    e: React.MouseEvent,
+    workoutId: string, 
+    exerciseId: string,
+    exerciseName: string,
+    date: string
+  ) => {
+    e.stopPropagation();
+    
+    // 确认对话框
+    const confirmed = window.confirm(
+      lang === 'cn' 
+        ? `确定要删除 ${exerciseName} 在 ${date} 的记录吗？\n\n注意：这只会删除这个动作的记录，不会影响同一训练中的其他动作。`
+        : `Are you sure you want to delete the ${exerciseName} record from ${date}?\n\nNote: This will only delete this exercise record, not affecting other exercises in the same workout.`
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      // 1. 获取训练记录
+      const allWorkouts = await db.getAll<WorkoutSession>('workouts');
+      const workout = allWorkouts.find(w => w.id === workoutId);
+      if (!workout) {
+        console.warn('Workout not found:', workoutId);
+        return;
+      }
+      
+      // 2. 移除指定动作
+      const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
+      
+      // 3. 如果训练为空，删除整个训练
+      if (updatedExercises.length === 0) {
+        await db.delete('workouts', workoutId);
+        console.log('Deleted entire workout (was empty after removing exercise)');
+      } else {
+        // 4. 否则更新训练记录
+        const updatedWorkout = { ...workout, exercises: updatedExercises };
+        await db.save('workouts', updatedWorkout);
+        console.log('Updated workout after removing exercise');
+      }
+      
+      // 5. 重新加载数据
+      await loadLocalData(user?.id || 'u_guest');
+      
+      // 6. 同步到云端
+      if (user && user.id !== 'u_guest') {
+        performFullSync(user.id);
+      }
+      
+      // 7. 用户反馈
+      alert(
+        lang === 'cn' 
+          ? `已删除 ${exerciseName} 的记录`
+          : `Deleted ${exerciseName} record`
+      );
+      
+    } catch (error) {
+      console.error('Error deleting exercise record:', error);
+      alert(
+        lang === 'cn' 
+          ? '删除失败，请重试'
+          : 'Delete failed, please try again'
+      );
+    }
+  };
+  
   // --- 新增：删除训练记录逻辑 ---
   const handleDeleteWorkout = async (e: React.MouseEvent, workoutId: string) => {
     e.stopPropagation(); // 防止触发折叠
@@ -1227,6 +1772,128 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     } catch (err: any) {
       console.error("Delete workout failed:", err);
       alert(lang === Language.CN ? '删除失败' : 'Delete failed');
+    }
+  };
+
+  // ✅ 问题4: 一键重置账户功能 - 核心重置函数
+  const handleResetAccount = async () => {
+    if (!user) return;
+    
+    setIsResetting(true);
+    
+    try {
+      console.log('开始重置账户数据...');
+      
+      // 1. 清除云端数据 (如果不是访客用户)
+      if (user.id !== 'u_guest') {
+        console.log('清除云端数据...');
+        
+        // 删除云端训练记录
+        const cloudWorkouts = workouts.filter(w => w.userId === user.id);
+        for (const workout of cloudWorkouts) {
+          try {
+            await deleteWorkoutFromCloud(workout.id);
+          } catch (e) {
+            console.warn('删除云端训练记录失败:', workout.id, e);
+          }
+        }
+        
+        // 清除云端其他数据 (通过同步空数据实现)
+        try {
+          await syncGoalsToCloud([]);
+          await syncWeightToCloud([]);
+          await syncMeasurementsToCloud([]);
+          await syncUserConfigsToCloud({
+            customTags: [],
+            customExercises: [],
+            exerciseNotes: {},
+            restPrefs: {},
+            starredExercises: {},
+            metricConfigs: {},
+            exerciseOverrides: {},
+            tagRenameOverrides: {}
+          });
+        } catch (e) {
+          console.warn('清除云端配置数据失败:', e);
+        }
+      }
+      
+      // 2. 清除本地数据库
+      console.log('清除本地数据库...');
+      const allWorkouts = await db.getAll<WorkoutSession>('workouts');
+      const userWorkouts = allWorkouts.filter(w => w.userId === user.id);
+      for (const workout of userWorkouts) {
+        await db.delete('workouts', workout.id);
+      }
+      
+      const allGoals = await db.getAll<Goal>('goals');
+      const userGoals = allGoals.filter(g => g.userId === user.id);
+      for (const goal of userGoals) {
+        await db.delete('goals', goal.id);
+      }
+      
+      const allWeights = await db.getAll<WeightEntry>('weightLogs');
+      const userWeights = allWeights.filter(w => w.userId === user.id);
+      for (const weight of userWeights) {
+        await db.delete('weightLogs', weight.id);
+      }
+      
+      const allMeasurements = await db.getAll<Measurement>('custom_metrics');
+      const userMeasurements = allMeasurements.filter(m => m.userId === user.id);
+      for (const measurement of userMeasurements) {
+        await db.delete('custom_metrics', measurement.id);
+      }
+      
+      // 3. 清除localStorage
+      console.log('清除本地存储...');
+      const localStorageKeys = [
+        'fitlog_metric_configs',
+        'fitlog_exercise_notes', 
+        'fitlog_rest_prefs',
+        'fitlog_starred_exercises',
+        'fitlog_exercise_overrides',
+        'fitlog_tag_rename_overrides',
+        'fitlog_custom_tags',
+        'fitlog_custom_exercises'
+      ];
+      
+      localStorageKeys.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // 4. 重置内存状态到初始值
+      console.log('重置内存状态...');
+      setWorkouts([]);
+      setGoals([]);
+      setWeightEntries([]);
+      setMeasurements([]);
+      setCustomTags([]);
+      setCustomExercises([]);
+      setExerciseNotes({});
+      setRestPreferences({});
+      setExerciseMetricConfigs({});
+      setStarredExercises({});
+      setExerciseOverrides({});
+      setTagRenameOverrides({});
+      setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
+      
+      // 5. 关闭重置对话框
+      setShowResetAccountModal(false);
+      setResetConfirmText('');
+      
+      // 6. 显示成功提示
+      alert(translations.resetSuccess[lang]);
+      
+      // 7. 跳转到dashboard
+      setActiveTab('dashboard');
+      
+      console.log('账户重置完成');
+      
+    } catch (error) {
+      console.error('重置账户失败:', error);
+      alert(translations.resetError[lang]);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -1470,17 +2137,29 @@ const filteredExercises = useMemo(() => {
 
     return all.filter(ex => {
       const q = searchQuery.toLowerCase();
+      
+      // ✅ 修复Bug #3: 安全检查 - 确保name对象存在，防止空指针异常
+      if (!ex.name || !ex.name[lang]) {
+        console.warn('Exercise missing name:', ex);
+        return false;
+      }
+      
       const matchSearch = !searchQuery || ex.name[lang].toLowerCase().includes(q);
       
       const selParts = selectedTags.filter(t => BODY_PARTS.some(bp => bp.toLowerCase() === t.toLowerCase()) || customTags.some(ct => ct.id === t && ct.category === 'bodyPart'));
       const selEquips = selectedTags.filter(t => EQUIPMENT_TAGS.some(et => et.toLowerCase() === t.toLowerCase()) || customTags.some(ct => ct.id === t && ct.category === 'equipment'));
 
-      // ✅ 核心修复：使用 .some() 和 .toLowerCase() 进行不区分大小写的匹配
-      const matchPart = selParts.length === 0 || selParts.some(sp => sp.toLowerCase() === ex.bodyPart?.toLowerCase());
+      // ✅ 修复Bug #3: 安全的部位匹配 - 处理bodyPart可能为空的情况
+      const matchPart = selParts.length === 0 || selParts.some(sp => {
+        const bodyPart = ex.bodyPart || '';
+        return sp.toLowerCase() === bodyPart.toLowerCase();
+      });
       
-      const matchEquip = selEquips.length === 0 || ex.tags.some(t => 
-        selEquips.some(se => se.toLowerCase() === t.toLowerCase())
-      );
+      // ✅ 修复Bug #3: 安全的器材匹配 - 关键修复点，防止tags为undefined时崩溃
+      const matchEquip = selEquips.length === 0 || 
+        (ex.tags && Array.isArray(ex.tags) && ex.tags.some(t => 
+          selEquips.some(se => se.toLowerCase() === (t || '').toLowerCase())
+        ));
 
       return matchSearch && matchPart && matchEquip;
     });
@@ -1517,7 +2196,7 @@ const filteredExercises = useMemo(() => {
       return updated;
     });
 
-    // 3. 触发同步上云
+    // ✅ 修复Bug #5: 删除动作是重要操作，使用立即同步
     if (user && user.id !== 'u_guest') {
       performFullSync(user.id);
     }
@@ -1539,6 +2218,7 @@ const filteredExercises = useMemo(() => {
     });
 
     // 2. ✅ 关键：如果是正式用户，立刻触发同步，确保云端名称也更新
+    // ✅ 修复Bug #5: 重命名动作是重要操作，使用立即同步
     if (user && user.id !== 'u_guest') {
       // 我们通过 performFullSync 将更新后的 exerciseOverrides (包含在 user_configs 中) 上传
       performFullSync(user.id);
@@ -1557,18 +2237,26 @@ const filteredExercises = useMemo(() => {
 
   const handleDropOnExercise = (e: React.DragEvent, exId: string) => {
     e.preventDefault();
-    const tagId = draggedTagId; if (!tagId || draggedFromExId) return;
+    const tagId = draggedTagId; 
+    if (!tagId || draggedFromExId) {
+      resetDragState(); // ✅ 修复Bug #4: 确保异常情况下也重置状态
+      return;
+    }
+    
     const isBodyPart = BODY_PARTS.includes(tagId) || customTags.some(ct => ct.id === tagId && ct.category === 'bodyPart');
     setExerciseOverrides(prev => {
         const current = prev[exId] || {}; const baseEx = [...DEFAULT_EXERCISES, ...customExercises].find(e => e.id === exId);
-        if (!baseEx) return prev;
+        if (!baseEx) {
+          resetDragState(); // ✅ 修复Bug #4: 找不到动作时重置状态
+          return prev;
+        }
         let next: Partial<ExerciseDefinition>;
         if (isBodyPart) next = { ...current, bodyPart: tagId };
-        else { const existingTags = current.tags || baseEx.tags; if (existingTags.includes(tagId)) return prev; next = { ...current, tags: [...existingTags, tagId] }; }
+        else { const existingTags = current.tags || baseEx.tags; if (existingTags.includes(tagId)) { resetDragState(); return prev; } next = { ...current, tags: [...existingTags, tagId] }; }
         const updated = { ...prev, [exId]: next }; localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(updated));
         return updated;
     });
-    setDraggedTagId(null);
+    resetDragState(); // ✅ 修复Bug #4: 成功完成拖拽后重置状态
   };
 
 // ✅ 核心逻辑：从具体动作中移除标签
@@ -1600,9 +2288,8 @@ const filteredExercises = useMemo(() => {
         return updated;
     });
 
-    // 重置拖拽状态
-    setDraggedFromExId(null);
-    setDraggedTagId(null);
+    // ✅ 修复Bug #4: 使用统一的重置函数，确保状态一致性
+    resetDragState();
   };
 
   const handleToggleLanguage = () => {
@@ -1629,34 +2316,10 @@ const filteredExercises = useMemo(() => {
   const handleUnitToggle = () => {
     const newUnit = unit === 'kg' ? 'lbs' : 'kg';
     
-    // 1. 如果当前正在编辑训练，转换输入框里的数值
-    if (currentWorkout.exercises && currentWorkout.exercises.length > 0) {
-      // 重量换算率
-      const weightFactor = newUnit === 'lbs' ? KG_TO_LBS : (1 / KG_TO_LBS);
-      // 速度换算率 (km/h <-> mph)
-      const speedFactor = newUnit === 'lbs' ? KMH_TO_MPH : (1 / KMH_TO_MPH);
-
-      const updatedExercises = currentWorkout.exercises.map(ex => ({
-        ...ex,
-        sets: ex.sets.map(set => {
-          const newSet = { ...set };
-          // 转换重量 (如果值不为0)
-          if (newSet.weight && newSet.weight !== 0) {
-            newSet.weight = parseFloat((newSet.weight * weightFactor).toFixed(2));
-          }
-          // 转换速度 (如果值不为0)
-          if (newSet.speed && newSet.speed !== 0) {
-            newSet.speed = parseFloat((newSet.speed * speedFactor).toFixed(2));
-          }
-          // 距离(distance)按你要求：公制英制都用 m 存储，只是显示逻辑不同，所以数值不进行数学转换
-          return newSet;
-        })
-      }));
-
-      setCurrentWorkout({ ...currentWorkout, exercises: updatedExercises });
-    }
-
-    // 2. 更新单位状态并持久化
+    // ✅ 修复双重转换Bug: 不修改currentWorkout中的存储数据，让formatWeight函数处理显示转换
+    // 存储的数据应该保持原始单位（通常是KG），只在显示时进行转换
+    
+    // 更新单位状态并持久化
     setUnit(newUnit);
     localStorage.setItem('fitlog_unit', newUnit);
   };
@@ -1745,6 +2408,282 @@ const filteredExercises = useMemo(() => {
                  </div>
               </div>
               <button onClick={handleSaveMeasurement} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
+           </div>
+        </div>
+      )}
+
+      {/* ✅ 新增：自定义日期时间选择器弹窗 */}
+      {showTimePickerModal && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-black">
+                  {lang === 'cn' ? '设置训练时间' : 'Set Exercise Time'}
+                </h2>
+                <button onClick={() => setShowTimePickerModal(null)}>
+                  <X size={20}/>
+                </button>
+              </div>
+              
+              {/* 日期选择器 */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    {translations.selectDate[lang]}
+                  </label>
+                  
+                  {/* 月份年份导航 */}
+                  <div className="flex justify-between items-center mb-4">
+                    <button 
+                      onClick={() => {
+                        if (currentMonth === 0) {
+                          setCurrentMonth(11);
+                          setCurrentYear(currentYear - 1);
+                        } else {
+                          setCurrentMonth(currentMonth - 1);
+                        }
+                      }}
+                      className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                      <ChevronLeft size={20} className="text-slate-400" />
+                    </button>
+                    
+                    <div className="text-lg font-bold text-white">
+                      {translations.monthNames[lang][currentMonth]} {currentYear}
+                    </div>
+                    
+                    <button 
+                      onClick={() => {
+                        if (currentMonth === 11) {
+                          setCurrentMonth(0);
+                          setCurrentYear(currentYear + 1);
+                        } else {
+                          setCurrentMonth(currentMonth + 1);
+                        }
+                      }}
+                      className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                    >
+                      <ChevronRight size={20} className="text-slate-400" />
+                    </button>
+                  </div>
+                  
+                  {/* 星期标题 */}
+                  <div className="grid grid-cols-7 gap-1 mb-2">
+                    {translations.weekdayNames[lang].map((day, idx) => (
+                      <div key={idx} className="text-center text-xs font-bold text-slate-500 py-2">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* 日期网格 */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {/* 空白填充 */}
+                    {Array.from({ length: getFirstDayOfMonth(currentMonth, currentYear) }).map((_, idx) => (
+                      <div key={`empty-${idx}`} className="h-10"></div>
+                    ))}
+                    
+                    {/* 日期按钮 */}
+                    {Array.from({ length: getDaysInMonth(currentMonth, currentYear) }).map((_, idx) => {
+                      const day = idx + 1;
+                      const date = new Date(currentYear, currentMonth, day);
+                      const isSelected = isSameDay(date, selectedDate);
+                      const isTodayDate = isToday(date);
+                      
+                      return (
+                        <button
+                          key={day}
+                          onClick={() => setSelectedDate(date)}
+                          className={`h-10 rounded-lg text-sm font-bold transition-all ${
+                            isSelected 
+                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                              : isTodayDate
+                                ? 'bg-slate-700 text-blue-400 border border-blue-500/30'
+                                : 'hover:bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* 快捷日期选项 */}
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const today = new Date();
+                      setSelectedDate(today);
+                      setCurrentMonth(today.getMonth());
+                      setCurrentYear(today.getFullYear());
+                    }}
+                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
+                  >
+                    {translations.today[lang]}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const yesterday = new Date();
+                      yesterday.setDate(yesterday.getDate() - 1);
+                      setSelectedDate(yesterday);
+                      setCurrentMonth(yesterday.getMonth());
+                      setCurrentYear(yesterday.getFullYear());
+                    }}
+                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
+                  >
+                    {translations.yesterday[lang]}
+                  </button>
+                </div>
+                
+                {/* 时间选择器 */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    {translations.selectTime[lang]}
+                  </label>
+                  
+                  <div className="flex gap-4 items-center justify-center">
+                    {/* 小时选择 */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <button 
+                        onClick={() => setSelectedHour((selectedHour + 1) % 24)}
+                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <ChevronUp size={20} className="text-slate-400" />
+                      </button>
+                      
+                      <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 min-w-[60px] text-center">
+                        <div className="text-2xl font-bold text-white">
+                          {selectedHour.toString().padStart(2, '0')}
+                        </div>
+                        <div className="text-xs text-slate-500 font-bold">
+                          {translations.hour[lang]}
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setSelectedHour(selectedHour === 0 ? 23 : selectedHour - 1)}
+                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <ChevronDown size={20} className="text-slate-400" />
+                      </button>
+                    </div>
+                    
+                    <div className="text-2xl font-bold text-slate-500">:</div>
+                    
+                    {/* 分钟选择 */}
+                    <div className="flex flex-col items-center space-y-2">
+                      <button 
+                        onClick={() => setSelectedMinute((selectedMinute + 5) % 60)}
+                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <ChevronUp size={20} className="text-slate-400" />
+                      </button>
+                      
+                      <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 min-w-[60px] text-center">
+                        <div className="text-2xl font-bold text-white">
+                          {selectedMinute.toString().padStart(2, '0')}
+                        </div>
+                        <div className="text-xs text-slate-500 font-bold">
+                          {translations.minute[lang]}
+                        </div>
+                      </div>
+                      
+                      <button 
+                        onClick={() => setSelectedMinute(selectedMinute === 0 ? 55 : selectedMinute - 5)}
+                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                      >
+                        <ChevronDown size={20} className="text-slate-400" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* 时间快捷选项 */}
+                  <div className="grid grid-cols-3 gap-2 mt-4">
+                    <button 
+                      onClick={() => {
+                        const now = new Date();
+                        setSelectedHour(now.getHours());
+                        setSelectedMinute(now.getMinutes());
+                      }}
+                      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                    >
+                      {lang === 'cn' ? '现在' : 'Now'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedHour(8);
+                        setSelectedMinute(0);
+                      }}
+                      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                    >
+                      {lang === 'cn' ? '早上8点' : '8:00 AM'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setSelectedHour(18);
+                        setSelectedMinute(0);
+                      }}
+                      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                    >
+                      {lang === 'cn' ? '晚上6点' : '6:00 PM'}
+                    </button>
+                  </div>
+                </div>
+                
+                {/* 当前选择预览 */}
+                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+                  <div className="text-xs font-bold text-slate-500 mb-1">
+                    {lang === 'cn' ? '选择的时间' : 'Selected Time'}
+                  </div>
+                  <div className="text-lg font-bold text-white">
+                    {selectedDate.getFullYear()}/{(selectedDate.getMonth() + 1).toString().padStart(2, '0')}/{selectedDate.getDate().toString().padStart(2, '0')} {selectedHour.toString().padStart(2, '0')}:{selectedMinute.toString().padStart(2, '0')}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowTimePickerModal(null)} 
+                  className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400"
+                >
+                  {lang === 'cn' ? '取消' : 'Cancel'}
+                </button>
+                <button 
+                  onClick={() => {
+                    // 构建完整的日期时间
+                    const finalDateTime = new Date(selectedDate);
+                    finalDateTime.setHours(selectedHour, selectedMinute, 0, 0);
+                    const timeISO = finalDateTime.toISOString();
+                    
+                    if (showTimePickerModal.exerciseId) {
+                      // 编辑现有动作的时间
+                      const exerciseId = showTimePickerModal.exerciseId;
+                      
+                      // 如果是当前训练中的动作
+                      if (currentWorkout.exercises) {
+                        const exerciseIndex = currentWorkout.exercises.findIndex(ex => ex.id === exerciseId);
+                        if (exerciseIndex !== -1) {
+                          const updatedExercises = [...currentWorkout.exercises];
+                          updatedExercises[exerciseIndex] = {
+                            ...updatedExercises[exerciseIndex],
+                            exerciseTime: timeISO
+                          };
+                          setCurrentWorkout({
+                            ...currentWorkout,
+                            exercises: updatedExercises
+                          });
+                        }
+                      }
+                    }
+                    
+                    setShowTimePickerModal(null);
+                  }} 
+                  className="flex-1 bg-blue-600 py-4 rounded-2xl font-black"
+                >
+                  {lang === 'cn' ? '确定' : 'Confirm'}
+                </button>
+              </div>
            </div>
         </div>
       )}
@@ -1922,14 +2861,17 @@ const filteredExercises = useMemo(() => {
                   localStorage.setItem('fitlog_custom_exercises', JSON.stringify(updatedExs)); 
 
                   // 5. 自动将新动作加入当前训练课的最顶端
+                  const exerciseTime = new Date().toISOString();
+                  
                   setCurrentWorkout(p => ({
                     ...p,
                     exercises: [
                       { 
-                        id: Date.now().toString(), 
+                        id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 确保唯一ID
                         name: ex.name[lang], 
                         category: ex.category, 
-                        sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
+                        sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }],
+                        exerciseTime: exerciseTime // ✅ 新增：设置动作的训练时间
                       },
                       ...(p.exercises || [])
                     ]
@@ -1940,7 +2882,7 @@ const filteredExercises = useMemo(() => {
                   setNewExerciseName('');
                   setNewExerciseTags([]);
 
-                  // 7. 触发后台同步
+                  // ✅ 修复Bug #5: 创建新动作是重要操作，使用立即同步
                   if (user && user.id !== 'u_guest') {
                     performFullSync(user.id);
                   }
@@ -1990,8 +2932,8 @@ const filteredExercises = useMemo(() => {
                 if (draggedFromExId && draggedTagId) {
                   handleRemoveTagFromExercise(draggedFromExId, draggedTagId);
                 }
-                setDraggedFromExId(null); 
-                setDraggedTagId(null); 
+                // ✅ 修复Bug #4: 使用统一的重置函数
+                resetDragState(); 
               }} 
               className={`w-1/3 lg:w-1/3 overflow-y-auto space-y-10 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
                 isDraggingOverSidebar ? 'bg-red-500/10 border-r-red-500/50 shadow-[inset_-10px_0_20px_-10px_rgba(239,68,68,0.2)]' : ''
@@ -2088,14 +3030,19 @@ const filteredExercises = useMemo(() => {
                       setShowRenameExerciseModal(true); 
                       return; 
                     } 
+                    
+                    // ✅ 修复自定义训练时间功能: 添加动作时设置默认时间
+                    const exerciseTime = new Date().toISOString();
+                    
                     setCurrentWorkout(p => ({ 
                       ...p, 
                       exercises: [
                         { 
-                          id: Date.now().toString(), 
+                          id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 确保唯一ID
                           name: ex.name[lang], 
                           category: ex.category || activeLibraryCategory || 'STRENGTH', 
-                          sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }] 
+                          sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }],
+                          exerciseTime: exerciseTime // ✅ 新增：设置动作的训练时间
                         },
                         ...(p.exercises || [])
                       ] 
@@ -2453,7 +3400,7 @@ const filteredExercises = useMemo(() => {
                           </div>
                         </div>
                         {isExpanded && (
-                          <div className="border-t border-slate-700/30 mt-6 pt-6 overflow-hidden animate-in slide-in-from-top-4">
+                          <div className="border-t border-slate-700/30 mt-6 pt-6 animate-in fade-in duration-200">
 
                           {/* ✅ 新增：图表维度切换按钮组 */}
                         <div className="flex flex-wrap gap-2 mb-4 px-2">
@@ -2488,14 +3435,49 @@ const filteredExercises = useMemo(() => {
                                           <div className="flex items-center gap-3">
                                             <button onClick={(e) => { e.stopPropagation(); handleEditWorkout(ex.workoutId); }} 
                                             className="p-2 bg-blue-500/10 text-blue-500 rounded-xl hover:bg-blue-500/20 transition-all active:scale-90"><Edit2 size={14} /></button>
-                                            {/* ✅ 新增：删除记录按钮 */}
+                                            
+                                            {/* ✅ 修复历史记录删除Bug: 修改删除按钮，删除单个动作记录而不是整个训练 */}
                                             <button 
-                                              onClick={(e) => handleDeleteWorkout(e, ex.workoutId)} 
-                                              className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500/20 transition-all active:scale-90"
+                                              onClick={(e) => handleDeleteExerciseRecord(
+                                                e, 
+                                                ex.workoutId, 
+                                                ex.id, 
+                                                resolveName(ex.name), 
+                                                ex.date
+                                              )}
+                                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                              title={lang === 'cn' ? '删除这个动作记录' : 'Delete this exercise record'}
                                             >
-                                              <Trash2 size={14} />
+                                              <Trash2 size={16} />
                                             </button>
-                                            <div className="flex items-center gap-2"><Calendar size={14} className="text-slate-600" /><span className="text-[11px] text-slate-400 font-bold">{new Date(ex.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}</span></div>
+                                            
+                                            <div className="flex items-center gap-2">
+                                              <Calendar size={14} className="text-slate-600" />
+                                              <span className="text-[11px] text-slate-400 font-bold">
+                                                {new Date(ex.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                              </span>
+                                            </div>
+                                            
+                                            {/* ✅ 新增：显示和编辑动作的具体训练时间 */}
+                                            {ex.exerciseTime && (
+                                              <button
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  const newTime = prompt(
+                                                    lang === 'cn' ? '请输入新的训练时间 (格式: YYYY-MM-DDTHH:MM)' : 'Enter new exercise time (format: YYYY-MM-DDTHH:MM)',
+                                                    new Date(ex.exerciseTime).toISOString().slice(0, 16)
+                                                  );
+                                                  if (newTime) {
+                                                    const timeISO = new Date(newTime).toISOString();
+                                                    await updateExerciseTime(ex.workoutId, ex.id, timeISO);
+                                                  }
+                                                }}
+                                                className="px-2 py-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs font-bold text-slate-300 hover:bg-slate-600/50 transition-colors"
+                                                title={lang === 'cn' ? '点击编辑训练时间' : 'Click to edit exercise time'}
+                                              >
+                                                {formatExerciseTime(ex.exerciseTime, lang === 'cn' ? 'cn' : 'en').time}
+                                              </button>
+                                            )}
                                           </div>
                                           <span className="text-[10px] font-black bg-slate-800/80 text-slate-500 px-3 py-1 rounded-full uppercase tracking-wider border border-slate-700/30">{ex.sets.length} {translations.setsCount[lang]}</span>
                                         </div>
@@ -2556,6 +3538,24 @@ const filteredExercises = useMemo(() => {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-black text-blue-400 leading-tight">{resolveName(ex.name)}</h3>
+                    
+                    {/* ✅ 新增：显示和编辑训练时间 */}
+                    {ex.exerciseTime && (
+                      <button
+                        onClick={() => {
+                          const timeForInput = new Date(ex.exerciseTime).toISOString().slice(0, 16);
+                          setCustomExerciseTime(timeForInput);
+                          initializeTimePicker(ex.exerciseTime);
+                          setShowTimePickerModal({ exerciseId: ex.id, currentTime: ex.exerciseTime });
+                        }}
+                        className="px-3 py-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs font-bold text-slate-300 hover:bg-slate-600/50 transition-colors flex items-center gap-1"
+                        title={lang === 'cn' ? '点击编辑训练时间' : 'Click to edit exercise time'}
+                      >
+                        <Calendar size={12} />
+                        {formatExerciseTime(ex.exerciseTime, lang === 'cn' ? 'cn' : 'en').time}
+                      </button>
+                    )}
+                    
                     {/* 备注按钮 */}
                     <button 
                       onClick={() => setNoteModalData({ name: resolveName(ex.name), note: exerciseNotes[resolveName(ex.name)] || '' })}
@@ -2677,12 +3677,32 @@ const filteredExercises = useMemo(() => {
                                         value={
                                           set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined 
                                             ? '' 
-                                            : Number(set[m as keyof typeof set]).toFixed(2).replace(/\.?0+$/, '')
+                                            : (() => {
+                                                const rawValue = Number(set[m as keyof typeof set]);
+                                                // ✅ 修复双重转换Bug: 重量使用formatWeight函数，其他维度直接显示
+                                                if (m === 'weight') {
+                                                  // 使用现有的formatWeight函数，它已经处理了单位转换
+                                                  return parseFloat(formatWeight(rawValue)).toFixed(2).replace(/\.?0+$/, '');
+                                                } else if (m === 'speed' && unit === 'lbs') {
+                                                  return (rawValue * KMH_TO_MPH).toFixed(2).replace(/\.?0+$/, '');
+                                                } else {
+                                                  return rawValue.toFixed(2).replace(/\.?0+$/, '');
+                                                }
+                                              })()
                                         }
                                         onChange={e => {
-                                          const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                          const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
+                                          // ✅ 修复双重转换Bug: 重量使用parseWeight函数，其他维度直接保存
+                                          let storageValue = inputValue;
+                                          if (m === 'weight') {
+                                            // 使用现有的parseWeight函数，它已经处理了单位转换
+                                            storageValue = parseWeight(inputValue);
+                                          } else if (m === 'speed' && unit === 'lbs') {
+                                            storageValue = inputValue / KMH_TO_MPH;
+                                          }
+                                          
                                           const exs = [...currentWorkout.exercises!];
-                                          exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: val };
+                                          exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: storageValue };
                                           setCurrentWorkout({...currentWorkout, exercises: exs});
                                         }}
                                       />
@@ -2699,16 +3719,34 @@ const filteredExercises = useMemo(() => {
                                 type="number"
                                 className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400 w-full text-sm"
                                 placeholder="0"
-                                // ✅ 核心修改点：
+                                // ✅ 修复双重转换Bug: 统一使用现有的转换函数
                                 value={
                                   set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined 
                                     ? '' 
-                                    : Number(set[m as keyof typeof set]).toFixed(2).replace(/\.?0+$/, '')
+                                    : (() => {
+                                        const rawValue = Number(set[m as keyof typeof set]);
+                                        // 重量使用formatWeight函数，其他维度根据需要转换
+                                        if (m === 'weight') {
+                                          return parseFloat(formatWeight(rawValue)).toFixed(2).replace(/\.?0+$/, '');
+                                        } else if (m === 'speed' && unit === 'lbs') {
+                                          return (rawValue * KMH_TO_MPH).toFixed(2).replace(/\.?0+$/, '');
+                                        } else {
+                                          return rawValue.toFixed(2).replace(/\.?0+$/, '');
+                                        }
+                                      })()
                                 }
                                 onChange={e => {
-                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                  const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
+                                  // 重量使用parseWeight函数，其他维度根据需要转换
+                                  let storageValue = inputValue;
+                                  if (m === 'weight') {
+                                    storageValue = parseWeight(inputValue);
+                                  } else if (m === 'speed' && unit === 'lbs') {
+                                    storageValue = inputValue / KMH_TO_MPH;
+                                  }
+                                  
                                   const exs = [...currentWorkout.exercises!];
-                                  exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: val };
+                                  exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: storageValue };
                                   setCurrentWorkout({...currentWorkout, exercises: exs});
                                 }}
                               />
@@ -2738,7 +3776,7 @@ const filteredExercises = useMemo(() => {
                             <span className="text-[10px] font-black text-slate-600 uppercase">
                               {lang === Language.CN ? '递减' : 'Sub'}
                             </span>
-                            <input type="number" step="any" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300 w-full" value={sub.weight === 0 ? '' : (unit === 'kg' ? sub.weight : parseFloat((sub.weight * KG_TO_LBS).toFixed(2)))} onChange={e => {
+                            <input type="number" step="any" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300 w-full" value={sub.weight === 0 ? '' : parseFloat(formatWeight(sub.weight)).toFixed(2).replace(/\.?0+$/, '')} onChange={e => {
                               const val = e.target.value === '' ? 0 : Number(e.target.value);
                               const exs = [...currentWorkout.exercises!];
                               exs[exIdx].sets[setIdx].subSets![ssi].weight = parseWeight(val);
@@ -2863,14 +3901,69 @@ const filteredExercises = useMemo(() => {
               ))}
             </div>
             
-            {/* 最后的保存训练按钮 - 宽度占满 */}
-            <button 
-              onClick={handleSaveWorkout} 
-              className="w-full bg-blue-600 p-6 rounded-[2rem] font-black text-lg shadow-2xl shadow-blue-600/30 flex items-center justify-center gap-3 hover:bg-blue-500 active:scale-95 transition-all mt-6"
-            >
-              <CheckIcon size={24} strokeWidth={3} /> 
-              {translations.saveWorkout[lang]}
-            </button>
+            {/* ✅ 修复问题7&8: 改进的保存训练按钮 - 显示状态、单位确认、未保存提示 */}
+            <div className="space-y-3 mt-6">
+              {/* 单位提醒条 */}
+              <div className="bg-slate-800/50 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Scale size={16} className="text-slate-400" />
+                  <span className="text-sm text-slate-400">
+                    {lang === Language.CN ? '当前单位' : 'Current Unit'}: 
+                  </span>
+                  <span className="text-sm font-bold text-white">
+                    {unit === 'kg' ? '公斤 (kg)' : '磅 (lbs)'}
+                  </span>
+                </div>
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-orange-400">
+                      {lang === Language.CN ? '有未保存更改' : 'Unsaved changes'}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              {/* 保存按钮 */}
+              <button 
+                onClick={handleSaveWithConfirmation}
+                disabled={saveStatus === 'saving'}
+                className={`w-full p-6 rounded-[2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all mt-6 ${
+                  saveStatus === 'saving' 
+                    ? 'bg-slate-600 cursor-not-allowed' 
+                    : saveStatus === 'saved'
+                    ? 'bg-green-600 shadow-green-600/30'
+                    : saveStatus === 'error'
+                    ? 'bg-red-600 shadow-red-600/30'
+                    : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-500 active:scale-95'
+                }`}
+              >
+                {saveStatus === 'saving' && (
+                  <>
+                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    {lang === Language.CN ? '保存中...' : 'Saving...'}
+                  </>
+                )}
+                {saveStatus === 'saved' && (
+                  <>
+                    <CheckIcon size={24} strokeWidth={3} />
+                    {lang === Language.CN ? '保存成功！' : 'Saved Successfully!'}
+                  </>
+                )}
+                {saveStatus === 'error' && (
+                  <>
+                    <X size={24} strokeWidth={3} />
+                    {lang === Language.CN ? '保存失败' : 'Save Failed'}
+                  </>
+                )}
+                {saveStatus === 'idle' && (
+                  <>
+                    <CheckIcon size={24} strokeWidth={3} />
+                    {translations.saveWorkout[lang]}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
                     
           </div>)}
@@ -3162,6 +4255,22 @@ const filteredExercises = useMemo(() => {
                   </div>
                   <ChevronRight size={18} className="text-slate-600" />
                 </button>
+
+                {/* ✅ 问题4: 重置账户按钮 */}
+                <button 
+                  onClick={() => setShowResetAccountModal(true)} 
+                  className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group border-t border-slate-700/50"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors">
+                      <Trash2 size={20} />
+                    </div>
+                    <span className="font-bold text-red-500 group-hover:text-red-400 transition-colors">
+                      {translations.resetAccount[lang]}
+                    </span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-600" />
+                </button>
               </div>
             </div>
           )}
@@ -3290,9 +4399,29 @@ const filteredExercises = useMemo(() => {
               </button>
             </div>
 
-            <button onClick={() => setShowMetricModal(null)} className="w-full py-5 rounded-3xl bg-blue-600 text-white font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
-              {translations.confirm[lang]}
-            </button>
+            {/* ✅ 新增：重置和确认按钮组 */}
+            <div className="flex gap-3">
+              <button 
+                onClick={() => {
+                  if (confirm(lang === Language.CN ? 
+                    `确定要重置"${showMetricModal?.name}"的配置到默认状态吗？\n默认只记录重量和次数。` : 
+                    `Reset "${showMetricModal?.name}" to default settings?\nDefault tracks weight and reps only.`
+                  )) {
+                    resetMetricsToDefault(showMetricModal!.name);
+                  }
+                }}
+                className="flex-1 py-4 rounded-2xl bg-slate-800 border border-slate-700 text-slate-400 font-bold text-sm active:scale-95 transition-all hover:bg-slate-700"
+              >
+                {lang === Language.CN ? '重置默认' : 'Reset Default'}
+              </button>
+              
+              <button 
+                onClick={() => setShowMetricModal(null)} 
+                className="flex-[2] py-4 rounded-2xl bg-blue-600 text-white font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+              >
+                {translations.confirm[lang]}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3348,6 +4477,75 @@ const filteredExercises = useMemo(() => {
         </div>
       )}
       
+      {/* ✅ 问题4: 重置账户确认对话框 */}
+      {showResetAccountModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Trash2 size={32} className="text-red-500" />
+              </div>
+              <h2 className="text-2xl font-black text-white mb-4">
+                {translations.resetAccountWarning[lang]}
+              </h2>
+              <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">
+                {translations.resetAccountDesc[lang]}
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                  {translations.resetConfirmText[lang]}
+                </label>
+                <input
+                  type="text"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder={translations.resetConfirmPlaceholder[lang]}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-4 text-white outline-none focus:border-red-500 transition-colors"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => {
+                    setShowResetAccountModal(false);
+                    setResetConfirmText('');
+                  }}
+                  className="flex-1 py-4 rounded-2xl bg-slate-800 text-slate-400 font-black hover:bg-slate-700 transition-colors"
+                  disabled={isResetting}
+                >
+                  {translations.resetCancel[lang]}
+                </button>
+                <button
+                  onClick={() => {
+                    const confirmWord = lang === Language.CN ? '重置' : 'RESET';
+                    if (resetConfirmText === confirmWord) {
+                      handleResetAccount();
+                    } else {
+                      alert(lang === Language.CN ? '请输入"重置"确认' : 'Please type "RESET" to confirm');
+                    }
+                  }}
+                  disabled={isResetting || resetConfirmText !== (lang === Language.CN ? '重置' : 'RESET')}
+                  className="flex-[2] py-4 rounded-2xl bg-red-600 text-white font-black hover:bg-red-500 transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isResetting ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      {translations.resetInProgress[lang]}
+                    </>
+                  ) : (
+                    translations.resetConfirm[lang]
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- 修改后：可拖拽悬浮休息计时器 (UI) --- */}
       {isResting && (
         <div 
