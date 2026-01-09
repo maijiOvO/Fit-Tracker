@@ -49,9 +49,50 @@ export const translations: TranslationStrings = {
   goalWeight: { en: 'Body Weight', cn: '体重目标' },
   goalStrength: { en: 'Strength PR', cn: '力量目标' },
   goalFrequency: { en: 'Workouts/Week', cn: '每周频率' },
+  goalBodyMetrics: { en: 'Body Metrics', cn: '身体指标' },
+  goalCustom: { en: 'Custom Goal', cn: '自定义目标' },
   target: { en: 'Target', cn: '目标值' },
   current: { en: 'Current', cn: '当前值' },
   noGoals: { en: 'No goals set yet. Let\'s get started!', cn: '还没设定目标，立刻开始吧！' },
+  
+  // 新增：智能目标推荐
+  smartRecommendations: { en: 'Smart Recommendations', cn: '智能推荐' },
+  recommendedGoals: { en: 'Recommended Goals', cn: '推荐目标' },
+  createFromRecommendation: { en: 'Create Goal', cn: '创建目标' },
+  noRecommendations: { en: 'No recommendations available. Keep training to unlock smart suggestions!', cn: '暂无推荐。继续训练以解锁智能建议！' },
+  
+  // 新增：目标类型和类别
+  goalTypeWeight: { en: 'Weight Management', cn: '体重管理' },
+  goalTypeStrength: { en: 'Strength Training', cn: '力量训练' },
+  goalTypeFrequency: { en: 'Training Frequency', cn: '训练频率' },
+  goalTypeBodyMetrics: { en: 'Body Metrics', cn: '身体指标' },
+  goalTypeCustom: { en: 'Custom Goal', cn: '自定义目标' },
+  
+  // 目标类别
+  weightLoss: { en: 'Weight Loss', cn: '减重目标' },
+  weightGain: { en: 'Weight Gain', cn: '增重目标' },
+  weightMaintenance: { en: 'Weight Maintenance', cn: '维持体重' },
+  exercisePR: { en: 'Exercise PR', cn: '动作PR' },
+  totalStrength: { en: 'Total Strength', cn: '总力量' },
+  weeklyWorkouts: { en: 'Weekly Workouts', cn: '每周训练' },
+  monthlyWorkouts: { en: 'Monthly Workouts', cn: '每月训练' },
+  
+  // 新增：目标设置
+  goalTitle: { en: 'Goal Title', cn: '目标标题' },
+  goalDescription: { en: 'Description (Optional)', cn: '描述（可选）' },
+  currentValue: { en: 'Current Value', cn: '当前值' },
+  targetValue: { en: 'Target Value', cn: '目标值' },
+  targetDate: { en: 'Target Date (Optional)', cn: '目标日期（可选）' },
+  autoUpdate: { en: 'Auto Update', cn: '自动更新' },
+  manualUpdate: { en: 'Manual Update', cn: '手动更新' },
+  
+  // 新增：进度显示
+  progress: { en: 'Progress', cn: '进度' },
+  inProgress: { en: 'In Progress', cn: '进行中' },
+  daysRemaining: { en: 'days remaining', cn: '天剩余' },
+  onTrack: { en: 'On Track', cn: '按计划进行' },
+  behindSchedule: { en: 'Behind Schedule', cn: '进度落后' },
+  aheadOfSchedule: { en: 'Ahead of Schedule', cn: '超前进度' },
   aiCoachTitle: { en: 'FitLog Coach AI', cn: '健身助手 AI 教练' },
   aiCoachDesc: { en: 'Get personalized insights based on your recent workout history.', cn: '基于你最近的训练记录获取个性化分析建议。' },
   coachAnalysisHeader: { en: "Coach's Analysis", cn: '教练深度分析' },

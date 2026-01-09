@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics } from '@capacitor/haptics'; 
-import { Language, User, WorkoutSession, Exercise, ExerciseDefinition, Goal, GoalType, BodyweightMode, WeightEntry } from './types';
+import { Language, User, WorkoutSession, Exercise, ExerciseDefinition, Goal, GoalType, BodyweightMode, WeightEntry, SubSetLog, PyramidCalculator, PyramidTemplate } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
 import { 
@@ -99,26 +99,26 @@ type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
 const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'subLegs', 'subCore'];
 const EQUIPMENT_TAGS = [
   'tagBarbell', 'tagDumbbell', 'tagMachine', 'tagCable', 
-  'tagBodyweight', 'tagPyramid', 'tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'
+  'tagBodyweight', 'tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'
 ];
 
 const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   // Chest
-  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH'  },
-  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '杠铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH'  },
+  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
+  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '杠铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing'] } },
   { id: 'bp_dumbbell', name: { en: 'Dumbbell Bench Press', cn: '哑铃平板卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '哑铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH'  },
   { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH'  },
-  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
-  { id: 'pushup', name: { en: 'Push-ups', cn: '俯卧撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'mixed'] } },
+  { id: 'pushup', name: { en: 'Push-ups', cn: '俯卧撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'increasing'] } },
   
   // Back
   { id: 'dl_barbell', name: { en: 'Deadlift', cn: '硬拉' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
   { id: 'row_barbell', name: { en: 'Barbell Row', cn: '杠铃划船' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
   { id: 'lat_pulldown', name: { en: 'Lat Pulldown', cn: '高位下拉' }, bodyPart: 'subBack', tags: ['tagMachine', 'tagCable'], category: 'STRENGTH'  },
   { id: 'row_seated_cable', name: { en: 'Seated Cable Row', cn: '坐姿划船' }, bodyPart: 'subBack', tags: ['tagCable'], category: 'STRENGTH'  },
-  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', tags: ['tagBodyweight'], category: 'STRENGTH'  },
+  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'weighted', pyramidModes: ['decreasing', 'mixed'] } },
   { id: 'single_arm_db_row', name: { en: 'Single Arm Dumbbell Row', cn: '哑铃单臂划船' }, bodyPart: 'subBack', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   { id: 'tbar_row', name: { en: 'T-Bar Row', cn: 'T杠划船' }, bodyPart: 'subBack', tags: ['tagBarbell', 'tagMachine'], category: 'STRENGTH'  },
   { id: 'hyperextension', name: { en: 'Hyperextension', cn: '山羊挺身' }, bodyPart: 'subBack', tags: ['tagBodyweight', 'tagMachine'], category: 'STRENGTH'  },
@@ -133,7 +133,7 @@ const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   { id: 'front_raise_db', name: { en: 'Dumbbell Front Raise', cn: '哑铃前平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   
   // Legs
-  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
   { id: 'goblet_squat', name: { en: 'Goblet Squat', cn: '高杯深蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'], category: 'STRENGTH'  },
   { id: 'leg_press', name: { en: 'Leg Press', cn: '倒蹬/腿举' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
   { id: 'leg_extension', name: { en: 'Leg Extension', cn: '腿屈伸' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
@@ -180,6 +180,8 @@ const DEFAULT_EXERCISES: ExerciseDefinition[] = [
 
 const App: React.FC = () => {
   const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
+  // ✅ 新增：记录用户之前选择的分类，用于"全部分类"按钮的切换功能
+  const [previousLibraryCategory, setPreviousLibraryCategory] = useState<ExerciseCategory | null>(null);
   const [lang, setLang] = useState<Language>(Language.CN);
   const [user, setUser] = useState<User | null>(null);
   
@@ -1344,19 +1346,35 @@ const App: React.FC = () => {
       // 过滤当前用户的数据
       const userW = allW.filter(w => w.userId === userId);
       
-      // ✅ 新增：数据迁移 - 为现有动作记录添加默认训练时间
+      // ✅ 新增：数据迁移 - 为现有动作记录添加默认训练时间和配置
       let hasDataMigration = false;
       const migratedWorkouts = userW.map(workout => {
         let workoutChanged = false;
         const updatedExercises = workout.exercises.map(exercise => {
+          let exerciseChanged = false;
+          let updatedExercise = { ...exercise };
+          
+          // 迁移1：添加默认训练时间
           if (!exercise.exerciseTime) {
-            // 为现有动作设置默认时间（使用训练日期）
+            updatedExercise.exerciseTime = new Date(workout.date).toISOString();
+            exerciseChanged = true;
+          }
+          
+          // 迁移2：添加默认instanceConfig
+          if (!exercise.instanceConfig) {
+            updatedExercise.instanceConfig = {
+              enablePyramid: false,
+              bodyweightMode: 'none',
+              pyramidMode: 'decreasing',
+              autoCalculateSubSets: false
+            };
+            exerciseChanged = true;
+          }
+          
+          if (exerciseChanged) {
             workoutChanged = true;
             hasDataMigration = true;
-            return {
-              ...exercise,
-              exerciseTime: new Date(workout.date).toISOString()
-            };
+            return updatedExercise;
           }
           return exercise;
         });
@@ -1378,16 +1396,70 @@ const App: React.FC = () => {
       }
 
       const userG = allG.filter(g => g.userId === userId);
+      
+      // ✅ 新增：Goal数据迁移 - 将旧格式的Goal升级到新格式
+      let hasGoalMigration = false;
+      const migratedGoals = userG.map(goal => {
+        // 检查是否是旧格式的Goal（缺少必需字段）
+        if (!goal.title || !goal.startDate || !goal.dataSource || !goal.progressHistory || goal.isActive === undefined) {
+          hasGoalMigration = true;
+          const now = new Date().toISOString();
+          
+          return {
+            ...goal,
+            // 基本信息
+            title: goal.title || goal.label || 'Untitled Goal',
+            description: goal.description || '',
+            
+            // 时间设置
+            startDate: goal.startDate || goal.createdAt || now,
+            targetDate: goal.targetDate || goal.deadline,
+            
+            // 数据源配置
+            dataSource: goal.dataSource || 'manual',
+            autoUpdateRule: goal.autoUpdateRule,
+            
+            // 进度追踪
+            progressHistory: goal.progressHistory || [],
+            
+            // 设置选项
+            isActive: goal.isActive !== undefined ? goal.isActive : true,
+            
+            // 元数据
+            createdAt: goal.createdAt || now,
+            updatedAt: goal.updatedAt || now,
+            completedAt: goal.completedAt,
+            
+            // 确保category存在
+            category: goal.category || goal.type,
+            
+            // 保持向后兼容字段
+            label: goal.label || goal.title,
+            deadline: goal.deadline || goal.targetDate
+          } as Goal;
+        }
+        return goal;
+      });
+      
+      // 如果有Goal迁移，保存到数据库
+      if (hasGoalMigration) {
+        console.log('执行Goal数据迁移：升级到新的Goal格式');
+        for (const goal of migratedGoals) {
+          if (goal !== userG.find(g => g.id === goal.id)) {
+            await db.save('goals', goal);
+          }
+        }
+      }
       const userWeights = allWeights.filter(w => w.userId === userId);
       const userMeasures = allMeasurements.filter(m => m.userId === userId);
 
       // ✅ 关键：使用解构赋值 [...array] 确保 React 检测到引用变化，触发重绘
       setWorkouts([...migratedWorkouts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setGoals([...userG]);
+      setGoals([...migratedGoals]);
       setWeightEntries([...userWeights].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setMeasurements([...userMeasures]);
 
-      console.log(`本地数据加载完成: ${migratedWorkouts.length} 场训练${hasDataMigration ? ' (已执行数据迁移)' : ''}`);
+      console.log(`本地数据加载完成: ${migratedWorkouts.length} 场训练${hasDataMigration ? ' (已执行数据迁移)' : ''}${hasGoalMigration ? ', Goal数据已迁移' : ''}`);
     } catch (error) {
       console.error("加载本地数据失败:", error);
     }
@@ -1473,7 +1545,51 @@ const performFullSync = async (currentUserId: string) => {
         // 4. 同步训练目标 (Goals)
         (async () => {
           const rg = await fetchGoalsFromCloud();
-          if (rg) for (const r of rg) await db.save('goals', { id: r.id, userId: r.user_id, type: r.type, label: r.label, targetValue: r.target_value, currentValue: r.current_value, unit: r.unit });
+          if (rg) {
+            for (const r of rg) {
+              const now = new Date().toISOString();
+              // ✅ 修复：创建完整的Goal对象以符合新接口
+              const goal: Goal = {
+                id: r.id,
+                userId: r.user_id,
+                type: r.type,
+                category: r.type, // 使用type作为默认category
+                
+                // 基本信息
+                title: r.label || r.title || 'Untitled Goal',
+                description: r.description || '',
+                
+                // 目标设置
+                targetValue: r.target_value,
+                currentValue: r.current_value,
+                unit: r.unit,
+                
+                // 时间设置
+                startDate: r.start_date || now,
+                targetDate: r.target_date,
+                
+                // 数据源配置
+                dataSource: r.data_source || 'manual',
+                autoUpdateRule: r.auto_update_rule,
+                
+                // 进度追踪
+                progressHistory: r.progress_history || [],
+                
+                // 设置选项
+                isActive: r.is_active !== undefined ? r.is_active : true,
+                
+                // 元数据
+                createdAt: r.created_at || now,
+                updatedAt: r.updated_at || now,
+                completedAt: r.completed_at,
+                
+                // 兼容旧版本
+                label: r.label, // 保持向后兼容
+                deadline: r.deadline
+              };
+              await db.save('goals', goal);
+            }
+          }
           const lg = await db.getAll<Goal>('goals');
           await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
         })(),
@@ -2008,7 +2124,47 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
 
   const handleAddGoal = async () => {
     if (!newGoal.label || !newGoal.targetValue || !user) return;
-    const goal: Goal = { id: Date.now().toString(), userId: user.id, type: newGoal.type as GoalType, label: newGoal.label!, targetValue: newGoal.targetValue!, currentValue: newGoal.currentValue || 0, unit: newGoal.type === 'weight' ? unit : (newGoal.type === 'strength' ? unit : 'times/week') };
+    
+    const now = new Date().toISOString();
+    const goal: Goal = { 
+      id: Date.now().toString(), 
+      userId: user.id, 
+      type: newGoal.type as GoalType, 
+      category: newGoal.type, // 使用type作为默认category
+      
+      // 基本信息
+      title: newGoal.label!,
+      description: '',
+      
+      // 目标设置
+      targetValue: newGoal.targetValue!, 
+      currentValue: newGoal.currentValue || 0, 
+      unit: newGoal.type === 'weight' ? unit : (newGoal.type === 'strength' ? unit : 'times/week'),
+      
+      // 时间设置
+      startDate: now,
+      targetDate: undefined,
+      
+      // 数据源配置
+      dataSource: 'manual',
+      autoUpdateRule: undefined,
+      
+      // 进度追踪
+      progressHistory: [],
+      
+      // 设置选项
+      isActive: true,
+      
+      // 元数据
+      createdAt: now,
+      updatedAt: now,
+      completedAt: undefined,
+      
+      // 兼容旧版本
+      label: newGoal.label!, // 兼容旧版本
+      deadline: undefined
+    };
+    
     await db.save('goals', goal); 
     await loadLocalData(user.id);
     setShowGoalModal(false);
@@ -2151,42 +2307,157 @@ const getTagName = (tid: string) => {
     if (!tid) return '';
     const lowerId = tid.toLowerCase();
     
-    // 1. 特殊处理递减组
-    if (lowerId === 'tagpyramid') return lang === Language.CN ? '递增/递减组' : 'Pyramid/Drop Set';
-    
-    // 2. 检查重命名覆盖 (保持原始 ID 匹配)
+    // 检查重命名覆盖 (保持原始 ID 匹配)
     if (tagRenameOverrides[tid]) return tagRenameOverrides[tid];
     
-    // 3. 检查自定义标签
+    // 检查自定义标签
     const customTag = customTags.find(ct => ct.id === tid || ct.id.toLowerCase() === lowerId);
     if (customTag) return customTag.name;
     
-    // 4. ✅ 核心修复：从 translations 字典中进行不区分大小写的查找
+    // ✅ 核心修复：从 translations 字典中进行不区分大小写的查找
     const systemKey = Object.keys(translations).find(k => k.toLowerCase() === lowerId);
     if (systemKey) {
       return (translations as any)[systemKey][lang];
     }
 
-    // 5. 如果是存粹的数字 ID 且找不到定义，返回空（隐藏它）
+    // 如果是存粹的数字 ID 且找不到定义，返回空（隐藏它）
     if (/^\d{10,13}$/.test(tid)) return ''; 
 
     return tid; 
   };
 
-  const isBodyweightExercise = (name: string): boolean => {
-    const allDef = [...DEFAULT_EXERCISES, ...customExercises];
-    const def = allDef.find(d => d.name.en === name || d.name.cn === name || exerciseOverrides[d.id]?.name?.en === name || exerciseOverrides[d.id]?.name?.cn === name);
-    if (!def) return false;
-    const tags = exerciseOverrides[def.id]?.tags || def.tags;
-    return tags.includes('tagBodyweight');
+  // ✅ 新增：基于配置的判断函数，替代基于标签的判断
+  const getExerciseConfig = (exercise: Exercise) => {
+    return exercise.instanceConfig || {
+      enablePyramid: false,
+      bodyweightMode: 'none',
+      pyramidMode: 'decreasing',
+      autoCalculateSubSets: false
+    };
   };
 
-  const isPyramidExercise = (name: string): boolean => {
-    const allDef = [...DEFAULT_EXERCISES, ...customExercises];
-    const def = allDef.find(d => d.name.en === name || d.name.cn === name || exerciseOverrides[d.id]?.name?.en === name || exerciseOverrides[d.id]?.name?.cn === name);
-    if (!def) return false;
-    const tags = exerciseOverrides[def.id]?.tags || def.tags;
-    return tags.includes('tagPyramid');
+  // ✅ 新增：确保Exercise有完整的instanceConfig
+  const ensureExerciseConfig = (exercise: Exercise): Exercise => {
+    if (!exercise.instanceConfig) {
+      return {
+        ...exercise,
+        instanceConfig: {
+          enablePyramid: false,
+          bodyweightMode: 'none',
+          pyramidMode: 'decreasing',
+          autoCalculateSubSets: false
+        }
+      };
+    }
+    return exercise;
+  };
+
+  const isBodyweightMode = (exercise: Exercise): boolean => {
+    const config = getExerciseConfig(exercise);
+    return config.bodyweightMode !== 'none';
+  };
+
+  const isPyramidEnabled = (exercise: Exercise): boolean => {
+    const config = getExerciseConfig(exercise);
+    return config.enablePyramid;
+  };
+
+  // ✅ 新增：递增递减组管理函数
+  const addSubSet = (exerciseIndex: number, setIndex: number, template?: Partial<SubSetLog>) => {
+    const exercises = [...currentWorkout.exercises!];
+    const set = exercises[exerciseIndex].sets[setIndex];
+    
+    if (!set.subSets) {
+      set.subSets = [];
+    }
+    
+    const newSubSet: SubSetLog = {
+      id: Date.now().toString(),
+      weight: template?.weight || set.weight * 0.9, // 默认减少10%
+      reps: template?.reps || set.reps,
+      restSeconds: template?.restSeconds || 15,
+      note: template?.note || ''
+    };
+    
+    set.subSets.push(newSubSet);
+    setCurrentWorkout({ ...currentWorkout, exercises });
+  };
+
+  const updateSubSet = (
+    exerciseIndex: number, 
+    setIndex: number, 
+    subSetIndex: number, 
+    updates: Partial<SubSetLog>
+  ) => {
+    const exercises = [...currentWorkout.exercises!];
+    const subSet = exercises[exerciseIndex].sets[setIndex].subSets![subSetIndex];
+    
+    exercises[exerciseIndex].sets[setIndex].subSets![subSetIndex] = {
+      ...subSet,
+      ...updates
+    };
+    
+    setCurrentWorkout({ ...currentWorkout, exercises });
+  };
+
+  const removeSubSet = (exerciseIndex: number, setIndex: number, subSetIndex: number) => {
+    const exercises = [...currentWorkout.exercises!];
+    exercises[exerciseIndex].sets[setIndex].subSets = 
+      exercises[exerciseIndex].sets[setIndex].subSets!.filter((_, i) => i !== subSetIndex);
+    
+    setCurrentWorkout({ ...currentWorkout, exercises });
+  };
+
+  // ✅ 新增：自动计算递增递减组
+  const calculatePyramidSubSets = (config: PyramidCalculator): SubSetLog[] => {
+    const subSets: SubSetLog[] = [];
+    
+    for (let i = 0; i < config.subSetCount; i++) {
+      let weight = config.baseWeight;
+      let reps = config.baseReps;
+      
+      switch (config.mode) {
+        case 'decreasing':
+          weight = config.baseWeight * (1 - (config.weightStep / 100) * (i + 1));
+          break;
+        case 'increasing':
+          weight = config.baseWeight * (1 + (config.weightStep / 100) * (i + 1));
+          break;
+        case 'mixed':
+          // 先增后减的金字塔模式
+          const midPoint = Math.floor(config.subSetCount / 2);
+          if (i < midPoint) {
+            weight = config.baseWeight * (1 + (config.weightStep / 100) * (i + 1));
+          } else {
+            weight = config.baseWeight * (1 - (config.weightStep / 100) * (i - midPoint));
+          }
+          break;
+      }
+      
+      // 次数策略
+      switch (config.repsStrategy) {
+        case 'increasing':
+          reps = config.baseReps + i;
+          break;
+        case 'decreasing':
+          reps = Math.max(1, config.baseReps - i);
+          break;
+        case 'failure':
+          reps = i === config.subSetCount - 1 ? -1 : config.baseReps; // -1 表示力竭
+          break;
+        // 'constant' 保持不变
+      }
+      
+      subSets.push({
+        id: `subset_${Date.now()}_${i}`,
+        weight: Math.round(weight * 2) / 2, // 四舍五入到0.5kg
+        reps: reps,
+        restSeconds: 15,
+        note: ''
+      });
+    }
+    
+    return subSets;
   };
 
 const filteredExercises = useMemo(() => {
@@ -2388,21 +2659,93 @@ const filteredExercises = useMemo(() => {
     localStorage.setItem('fitlog_unit', newUnit);
   };
 
-  const renderSetCapsule = (s: any, exerciseName: string) => {
+  const renderSetCapsule = (s: any, exerciseName: string, exercise?: Exercise) => {
     // 这里的逻辑是根据动作名称获取它开启了哪些维度
     const metrics = getActiveMetrics(exerciseName);
     
+    // ✅ 新增：获取动作配置信息用于显示特殊标识
+    const config = exercise ? getExerciseConfig(exercise) : null;
+    const isPyramid = config?.enablePyramid || false;
+    const bodyweightMode = config?.bodyweightMode || 'none';
+    
     return (
-      <div className="bg-slate-900/60 border border-slate-800/80 px-4 py-2 rounded-2xl flex flex-wrap gap-x-3 gap-y-1 transition-all hover:border-blue-500/30">
-        {metrics.map(m => (
-          <div key={m} className="flex items-center gap-1">
-            <span className="text-[10px] text-slate-500 font-bold uppercase">
-              {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}:
-            </span>
-            {/* 使用我们之前定义的 formatValue 来显示带单位的值 */}
-            <span className="font-black text-slate-100 text-sm">{formatValue(s[m], m, unit)}</span>
+      <div className="bg-slate-900/60 border border-slate-800/80 px-4 py-2 rounded-2xl transition-all hover:border-blue-500/30">
+        {/* ✅ 新增：显示配置标识 */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {/* 显示训练数据 */}
+          {metrics.map(m => (
+            <div key={m} className="flex items-center gap-1">
+              <span className="text-[10px] text-slate-500 font-bold uppercase">
+                {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}:
+              </span>
+              {/* 使用我们之前定义的 formatValue 来显示带单位的值 */}
+              <span className="font-black text-slate-100 text-sm">{formatValue(s[m], m, unit)}</span>
+            </div>
+          ))}
+          
+          {/* ✅ 新增：显示特殊配置标识 */}
+          <div className="flex items-center gap-1 ml-2">
+            {/* 递增递减组标识 */}
+            {isPyramid && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 rounded-lg border border-orange-500/30">
+                <Layers size={10} />
+                <span className="text-[8px] font-black uppercase">
+                  {lang === Language.CN ? '递增递减' : 'Pyramid'}
+                </span>
+              </div>
+            )}
+            
+            {/* 自重模式标识 */}
+            {bodyweightMode !== 'none' && (
+              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[8px] font-black uppercase ${
+                bodyweightMode === 'bodyweight' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                bodyweightMode === 'weighted' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                bodyweightMode === 'assisted' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
+                'bg-slate-500/20 text-slate-400 border-slate-500/30'
+              }`}>
+                {bodyweightMode === 'bodyweight' && <><UserIcon size={10} /><span>{lang === Language.CN ? '自重' : 'BW'}</span></>}
+                {bodyweightMode === 'weighted' && <><Plus size={10} /><span>{lang === Language.CN ? '负重' : '+W'}</span></>}
+                {bodyweightMode === 'assisted' && <><Minus size={10} /><span>{lang === Language.CN ? '辅助' : 'AST'}</span></>}
+              </div>
+            )}
+            
+            {/* 递增递减组子组显示 */}
+            {isPyramid && s.subSets && s.subSets.length > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+                <Hash size={10} />
+                <span className="text-[8px] font-black">
+                  {s.subSets.length} {lang === Language.CN ? '子组' : 'Sub'}
+                </span>
+              </div>
+            )}
           </div>
-        ))}
+        </div>
+        
+        {/* ✅ 新增：递增递减组子组详细信息展示 */}
+        {isPyramid && s.subSets && s.subSets.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-slate-700/50">
+            <div className="flex flex-wrap gap-1">
+              {s.subSets.map((subSet: SubSetLog, idx: number) => (
+                <div key={subSet.id || idx} className="flex items-center gap-1 px-2 py-1 bg-slate-800/60 rounded-lg border border-slate-700/50">
+                  <span className="text-[8px] text-slate-500 font-bold">{idx + 1}:</span>
+                  <span className="text-[8px] text-slate-300 font-bold">
+                    {subSet.weight > 0 && `${subSet.weight}${unit === 'kg' ? 'kg' : 'lbs'}`}
+                    {subSet.weight > 0 && subSet.reps > 0 && ' × '}
+                    {subSet.reps > 0 && `${subSet.reps}${lang === Language.CN ? '次' : 'r'}`}
+                  </span>
+                  {subSet.note && (
+                    <div className="flex items-center gap-1">
+                      <StickyNote size={8} className="text-slate-500" />
+                      <span className="text-[7px] text-slate-500 max-w-[60px] truncate" title={subSet.note}>
+                        {subSet.note}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -2812,6 +3155,12 @@ const filteredExercises = useMemo(() => {
       {showRenameModal && (
          <div className="fixed inset-0 z-[75] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2rem] p-8 space-y-6 shadow-2xl">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-black">{lang === Language.CN ? '重命名标签' : 'Rename Tag'}</h2>
+                <button onClick={() => setShowRenameModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
               <h2 className="text-xl font-black">{translations.editTags[lang]}</h2>
               <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagNameInput} onChange={e => setNewTagNameInput(e.target.value)} placeholder={tagToRename?.name} />
               <div className="flex gap-4">
@@ -2825,7 +3174,12 @@ const filteredExercises = useMemo(() => {
        {showRenameExerciseModal && (
         <div className="fixed inset-0 z-[75] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2rem] p-8 space-y-6 shadow-2xl">
-              <h2 className="text-xl font-black">{translations.editTags[lang]}</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-black">{lang === Language.CN ? '重命名动作' : 'Rename Exercise'}</h2>
+                <button onClick={() => setShowRenameExerciseModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
               <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newExerciseNameInput} onChange={e => setNewExerciseNameInput(e.target.value)} placeholder={exerciseToRename?.name} />
               <div className="flex gap-4">
                 <button onClick={() => setShowRenameExerciseModal(false)} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400">{lang === Language.CN ? '取消' : 'Cancel'}</button>
@@ -2838,7 +3192,26 @@ const filteredExercises = useMemo(() => {
       {showAddExerciseModal && (
          <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-slate-900 border border-slate-800 w-full max-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-              <div className="flex justify-between items-center mb-2"><h2 className="text-2xl font-black">{translations.addCustomExercise[lang]}</h2><button onClick={() => setShowAddExerciseModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors"><X size={20}/></button></div>
+              {/* 优化后的标题区域 */}
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-indigo-500/20 rounded-xl">
+                    <Zap size={24} className="text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black">{translations.addCustomExercise[lang]}</h2>
+                    <p className="text-xs text-slate-500 font-bold">
+                      {lang === Language.CN ? '创建专属动作' : 'Create Custom Exercise'}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowAddExerciseModal(false)} 
+                  className="p-2 hover:bg-slate-800 rounded-full transition-colors"
+                >
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
               {/* ✅ 找回丢失的动作名称输入框 */}
               <div className="space-y-2 mt-4">
                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
@@ -2934,8 +3307,15 @@ const filteredExercises = useMemo(() => {
                         id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 确保唯一ID
                         name: ex.name[lang], 
                         category: ex.category, 
-                        sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }],
-                        exerciseTime: exerciseTime // ✅ 新增：设置动作的训练时间
+                        sets: [{ id: Date.now().toString(), weight: 0, reps: 0 }],
+                        exerciseTime: exerciseTime, // ✅ 新增：设置动作的训练时间
+                        // ✅ 新增：默认实例配置，基于动作定义的建议
+                        instanceConfig: {
+                          enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
+                          pyramidMode: 'decreasing',
+                          bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
+                          autoCalculateSubSets: false
+                        }
                       },
                       ...(p.exercises || [])
                     ]
@@ -2963,26 +3343,100 @@ const filteredExercises = useMemo(() => {
          <div className="fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-3xl p-6 flex flex-col animate-in fade-in">
           <div className="flex justify-between items-center mb-6">
             
-          {/* ✅ 替换后的动态标题 */}
-          <h2 className="text-3xl font-black tracking-tight flex items-center gap-3">
-            {/* 根据分类显示对应的图标 */}
-            {activeLibraryCategory === 'STRENGTH' && <Dumbbell className="text-blue-500" size={32} />}
-            {activeLibraryCategory === 'CARDIO' && <Activity className="text-orange-500" size={32} />}
-            {activeLibraryCategory === 'FREE' && <Zap className="text-purple-500" size={32} />}
-            {activeLibraryCategory === 'OTHER' && <Globe className="text-emerald-500" size={32} />}
+          {/* ✅ 优化后的动态标题 - 显示搜索范围 */}
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">
+              {/* 根据分类显示对应的图标 */}
+              {activeLibraryCategory === 'STRENGTH' && <Dumbbell className="text-blue-500" size={28} />}
+              {activeLibraryCategory === 'CARDIO' && <Activity className="text-orange-500" size={28} />}
+              {activeLibraryCategory === 'FREE' && <Zap className="text-purple-500" size={28} />}
+              {!activeLibraryCategory && <Globe className="text-emerald-500" size={28} />}
 
-            {/* 根据分类显示对应的文字 */}
-            {activeLibraryCategory === 'STRENGTH' && translations.strengthTraining[lang]}
-            {activeLibraryCategory === 'CARDIO' && translations.cardioTraining[lang]}
-            {activeLibraryCategory === 'FREE' && translations.freeTraining[lang]}
-            {activeLibraryCategory === 'OTHER' && translations.otherTraining[lang]}
-          </h2>
+              {/* 根据分类显示对应的文字 */}
+              {activeLibraryCategory === 'STRENGTH' && translations.strengthTraining[lang]}
+              {activeLibraryCategory === 'CARDIO' && translations.cardioTraining[lang]}
+              {activeLibraryCategory === 'FREE' && translations.freeTraining[lang]}
+              {!activeLibraryCategory && (lang === Language.CN ? '全部动作' : 'All Exercises')}
+              
+              {lang === Language.CN ? '动作库' : ' Library'}
+            </h2>
+            <p className="text-xs text-slate-500 font-bold mt-1">
+              {activeLibraryCategory 
+                ? (lang === Language.CN ? `在${activeLibraryCategory === 'STRENGTH' ? '力量训练' : activeLibraryCategory === 'CARDIO' ? '有氧训练' : '自由训练'}中搜索` : `Search in ${activeLibraryCategory === 'STRENGTH' ? 'Strength' : activeLibraryCategory === 'CARDIO' ? 'Cardio' : 'Free'} Training`)
+                : (lang === Language.CN ? '搜索全部动作' : 'Search all exercises')
+              }
+            </p>
+          </div>
           
-          <button onClick={() => setShowLibrary(false)} className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-full transition-all border border-slate-700/50"><X size={24} /></button></div>
-          <div className="relative mb-8"><Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={20} /><input className="w-full bg-slate-900 border border-slate-800 rounded-[2rem] py-5 pl-14 pr-8 text-lg font-medium outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500/50 transition-all" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder={translations.searchPlaceholder[lang]} /></div>
-          <div className="flex flex-1 overflow-hidden gap-4">
+          <div className="flex items-center gap-3">
+            {/* 切换搜索范围按钮 - 优化后的切换逻辑 */}
+            <button 
+              onClick={() => {
+                if (activeLibraryCategory === null) {
+                  // 当前是全部分类，切换回之前的分类
+                  if (previousLibraryCategory) {
+                    setActiveLibraryCategory(previousLibraryCategory);
+                  }
+                } else {
+                  // 当前是特定分类，记录当前分类并切换到全部分类
+                  setPreviousLibraryCategory(activeLibraryCategory);
+                  setActiveLibraryCategory(null);
+                }
+                setSearchQuery('');
+                setSelectedTags([]);
+              }}
+              className="px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+            >
+              {activeLibraryCategory === null 
+                ? (previousLibraryCategory 
+                    ? (lang === Language.CN 
+                        ? `回到${previousLibraryCategory === 'STRENGTH' ? '力量训练' : previousLibraryCategory === 'CARDIO' ? '有氧训练' : '自由训练'}` 
+                        : `Back to ${previousLibraryCategory === 'STRENGTH' ? 'Strength' : previousLibraryCategory === 'CARDIO' ? 'Cardio' : 'Free'}`)
+                    : (lang === Language.CN ? '全部分类' : 'All Categories'))
+                : (lang === Language.CN ? '全部分类' : 'All Categories')
+              }
+            </button>
+            
+            {/* 管理模式按钮 */}
+            <button 
+              onClick={() => setIsEditingTags(!isEditingTags)}
+              className={`px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
+                isEditingTags 
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' 
+                  : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700'
+              }`}
+            >
+              {isEditingTags ? (lang === Language.CN ? '完成管理' : 'Done') : (lang === Language.CN ? '管理' : 'Manage')}
+            </button>
+            
+            <button onClick={() => setShowLibrary(false)} className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-full transition-all border border-slate-700/50"><X size={24} /></button>
+          </div>
+          </div>
+          
+          {/* 优化后的搜索框 */}
+          <div className="relative mb-6">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input 
+              className="w-full bg-slate-900 border border-slate-800 rounded-[1.5rem] py-4 pl-12 pr-8 text-base font-medium outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all" 
+              value={searchQuery} 
+              onChange={e => setSearchQuery(e.target.value)} 
+              placeholder={
+                activeLibraryCategory 
+                  ? (lang === Language.CN ? `在${activeLibraryCategory === 'STRENGTH' ? '力量训练' : activeLibraryCategory === 'CARDIO' ? '有氧训练' : '自由训练'}中搜索...` : `Search in ${activeLibraryCategory}...`)
+                  : translations.searchPlaceholder[lang]
+              }
+            />
+            {/* 搜索结果计数 */}
+            {searchQuery && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-lg">
+                {filteredExercises.length} {lang === Language.CN ? '个结果' : 'results'}
+              </div>
+            )}
+          </div>
+          
+          <div className="flex flex-1 overflow-hidden gap-6">
 
-            {/* ✅ 替换后的侧边栏容器 (1768行开始) */}
+            {/* ✅ 优化后的侧边栏 - 更清晰的视觉层次 */}
             <div 
               onDragOver={(e) => { 
                 e.preventDefault(); 
@@ -2992,187 +3446,336 @@ const filteredExercises = useMemo(() => {
               onDrop={(e) => { 
                 e.preventDefault();
                 setIsDraggingOverSidebar(false);
-                // 只有从右侧动作拽出来的标签才会触发删除
                 if (draggedFromExId && draggedTagId) {
                   handleRemoveTagFromExercise(draggedFromExId, draggedTagId);
                 }
-                // ✅ 修复Bug #4: 使用统一的重置函数
                 resetDragState(); 
               }} 
-              className={`w-1/3 lg:w-1/3 overflow-y-auto space-y-10 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
+              className={`w-80 overflow-y-auto space-y-6 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
                 isDraggingOverSidebar ? 'bg-red-500/10 border-r-red-500/50 shadow-[inset_-10px_0_20px_-10px_rgba(239,68,68,0.2)]' : ''
               }`}
             >
               
-              <button onClick={() => setSelectedTags([])} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedTags.length === 0 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-800'}`}>{translations.allTags[lang]}</button>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center px-2"><h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2"><Activity size={12} /> {translations.bodyPartHeader[lang]}</h3><button onClick={() => setIsEditingTags(!isEditingTags)} className="text-[10px] font-black uppercase text-blue-500 hover:text-blue-400">{isEditingTags ? translations.finishEdit[lang] : translations.editTags[lang]}</button></div>
+              {/* 全部标签按钮 */}
+              <button 
+                onClick={() => setSelectedTags([])} 
+                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                  selectedTags.length === 0 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-800'
+                }`}
+              >
+                {translations.allTags[lang]}
+              </button>
+              
+              {/* 训练部位区域 */}
+              <div className="space-y-3">
+                <div className="flex justify-between items-center px-2">
+                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                    <Activity size={12} /> {translations.bodyPartHeader[lang]}
+                  </h3>
+                  {isEditingTags && (
+                    <div className="text-[8px] font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded-lg">
+                      {lang === Language.CN ? '管理模式' : 'EDIT MODE'}
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-1.5">
-
-                {/* 1. 训练部位动态显示逻辑 */}
-                  <div className="space-y-1.5">
-                    {/* 仅在力量训练时显示系统默认部位 */}
-                    {/* 逻辑：如果是力量训练显示全量；其他分类只显示该分类动作中用到的部位 */}
                   {BODY_PARTS.filter(id => {
-                    // 1. 力量训练显示全量
                     if (activeLibraryCategory === 'STRENGTH') return true;
-                    // 2. 其他分类：扫描该大类下所有的默认动作和自定义动作，只要有用过这个部位就显示
                     const allExercisesInCategory = [...DEFAULT_EXERCISES, ...customExercises]
                       .filter(ex => (ex.category || 'STRENGTH') === activeLibraryCategory);
                     return allExercisesInCategory.some(ex => ex.bodyPart === id);
                   }).map(id => (
                     <div key={id} className="relative group">
-                      <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => { const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')); return p.includes(id) ? withoutBodyParts : [...withoutBodyParts, id]; }); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
+                      <button 
+                        draggable 
+                        onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} 
+                        onClick={() => { 
+                          if (isEditingTags) { 
+                            setTagToRename({ id, name: getTagName(id) }); 
+                            setNewTagNameInput(getTagName(id)); 
+                            setShowRenameModal(true); 
+                          } else { 
+                            setSelectedTags(p => { 
+                              const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(ct => ct.id === tag && ct.category === 'bodyPart')); 
+                              return p.includes(id) ? withoutBodyParts : [...withoutBodyParts, id]; 
+                            }); 
+                          } 
+                        }} 
+                        className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                          selectedTags.includes(id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                        } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
+                      >
+                        <span>{getTagName(id)}</span>
+                        {isEditingTags && <Edit2 size={12} className="text-amber-400" />}
+                      </button>
                     </div>
                   ))}
-                    
-                    {/* 显示属于当前类别的自定义部位标签 */}
-                    {customTags
-                      .filter(ct => ct.category === 'bodyPart' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
-                      .map(ct => (
-                        <div key={ct.id} className="relative group">
-                          <button draggable onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id: ct.id, name: getTagName(ct.id) }); setNewTagNameInput(getTagName(ct.id)); setShowRenameModal(true); } else { setSelectedTags(p => { const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(xt => xt.id === tag && xt.category === 'bodyPart')); return p.includes(ct.id) ? withoutBodyParts : [...withoutBodyParts, ct.id]; }); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(ct.id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(ct.id)}</button>
-                          {isEditingTags && (<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"><button onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"><Trash2 size={12} /></button></div>)}
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center gap-2"><Filter size={12} /> {translations.equipmentHeader[lang]}</h3>
-                <div className="space-y-1.5">
-                  {/* 2. 使用器材动态显示逻辑 */}
-                  <div className="space-y-1.5">
-                    {/* 仅在力量训练时显示系统默认器材 */}
-                    {/* 逻辑：只显示当前分类动作包含的器材标签 */}
-                      {EQUIPMENT_TAGS.filter(id => {
-                        // 1. 力量训练：排除掉有氧和球类标签，保持纯净
-                        if (activeLibraryCategory === 'STRENGTH') {
-                          return !['tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'].includes(id);
-                        }
-                        // 2. 其他分类：扫描该大类下所有动作，有用过这个器材就显示
-                        const allExercisesInCategory = [...DEFAULT_EXERCISES, ...customExercises]
-                          .filter(ex => (ex.category || 'STRENGTH') === activeLibraryCategory);
-                        return allExercisesInCategory.some(ex => ex.tags.includes(id));
-                      }).map(id => (
-                        <div key={id} className="relative group">
-                          <button draggable onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id, name: getTagName(id) }); setNewTagNameInput(getTagName(id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(id)}</button>
-                        </div>
-                      ))}
-                    
-                    {/* 显示属于当前类别的自定义器材标签 */}
-                    {customTags
-                      .filter(ct => ct.category === 'equipment' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
-                      .map(ct => (
-                        <div key={ct.id} className="relative group">
-                          <button draggable onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} onClick={() => { if (isEditingTags) { setTagToRename({ id: ct.id, name: getTagName(ct.id) }); setNewTagNameInput(getTagName(ct.id)); setShowRenameModal(true); } else { setSelectedTags(p => p.includes(ct.id) ? p.filter(x => x !== ct.id) : [...p, ct.id]); } }} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all ${selectedTags.includes(ct.id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{getTagName(ct.id)}</button>
-                          {isEditingTags && (<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"><button onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"><Trash2 size={12} /></button></div>)}
-                        </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <div className="pt-8 border-t border-slate-800 space-y-3"><button onClick={() => setShowAddTagModal(true)} className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all border border-blue-400/20 flex items-center justify-center gap-2"><PlusCircle size={16} /> {translations.addCustomTag[lang]}</button><button onClick={() => setShowAddExerciseModal(true)} className="w-full py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-400/10 transition-all border border-indigo-400/20 flex items-center justify-center gap-2"><Zap size={16} /> {translations.addCustomExercise[lang]}</button></div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">{filteredExercises.length === 0 ? 
-            (<div className="h-full flex flex-col items-center justify-center opacity-20 gap-4"><Search size={64} />
-            <p className="font-black text-xl">{translations.noRecords[lang]}</p></div>) : 
-            
-            (filteredExercises.map(ex => (
-              <div 
-                key={ex.id} 
-                onDragOver={(e) => e.preventDefault()} 
-                onDrop={(e) => handleDropOnExercise(e, ex.id)}
-                className="relative"
-              >
-                <button 
-                  onClick={() => { 
-                    if (isEditingTags) { 
-                      setExerciseToRename({ id: ex.id, name: ex.name[lang] }); 
-                      setNewExerciseNameInput(ex.name[lang]); 
-                      setShowRenameExerciseModal(true); 
-                      return; 
-                    } 
-                    
-                    // ✅ 修复自定义训练时间功能: 添加动作时设置默认时间
-                    const exerciseTime = new Date().toISOString();
-                    
-                    setCurrentWorkout(p => ({ 
-                      ...p, 
-                      exercises: [
-                        { 
-                          id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // 确保唯一ID
-                          name: ex.name[lang], 
-                          category: ex.category || activeLibraryCategory || 'STRENGTH', 
-                          sets: [{ id: Date.now().toString(), weight: 0, reps: 0, bodyweightMode: 'normal' }],
-                          exerciseTime: exerciseTime // ✅ 新增：设置动作的训练时间
-                        },
-                        ...(p.exercises || [])
-                      ] 
-                    })); 
-                    setShowLibrary(false); 
-                  }} 
-                  className="w-full p-6 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden"
-                >
-                  <div className="absolute right-0 top-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                   
-                  <div className="flex flex-col gap-3 relative z-10">
-                    <div className="flex justify-between items-center">
-                      <span className={`font-black text-xl transition-colors ${isEditingTags ? 'text-amber-400' : 'group-hover:text-blue-400 text-white'}`}>
-                        {ex.name[lang]}
-                      </span>
-                      {/* ✅ 修改：编辑模式下的操作按钮组 */}
-                        {isEditingTags && (
-                          <div className="flex gap-2">
-                            {/* 铅笔图标 - 重命名 */}
-                            <div className="p-2 bg-amber-500/20 rounded-lg">
-                              <PencilLine size={18} className="text-amber-500" />
-                            </div>
-                            {/* 垃圾桶图标 - 删除 */}
-                            <button 
-                              onClick={(e) => handleDeleteLibraryExercise(e, ex.id)}
-                              className="p-2 bg-red-500/20 rounded-lg text-red-500 hover:bg-red-500/40 transition-colors"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </div>
-                        )}
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {/* ✅ 仅当 getTagName 确实返回了文字时才渲染部位标签 */}
-                      {ex.bodyPart && getTagName(ex.bodyPart) && (
-                        <span 
+                  {/* 自定义部位标签 */}
+                  {customTags
+                    .filter(ct => ct.category === 'bodyPart' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
+                    .map(ct => (
+                      <div key={ct.id} className="relative group">
+                        <button 
                           draggable 
-                          onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} 
-                          className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors"
+                          onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} 
+                          onClick={() => { 
+                            if (isEditingTags) { 
+                              setTagToRename({ id: ct.id, name: getTagName(ct.id) }); 
+                              setNewTagNameInput(getTagName(ct.id)); 
+                              setShowRenameModal(true); 
+                            } else { 
+                              setSelectedTags(p => { 
+                                const withoutBodyParts = p.filter(tag => !BODY_PARTS.includes(tag) && !customTags.some(xt => xt.id === tag && xt.category === 'bodyPart')); 
+                                return p.includes(ct.id) ? withoutBodyParts : [...withoutBodyParts, ct.id]; 
+                              }); 
+                            } 
+                          }} 
+                          className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                            selectedTags.includes(ct.id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                          } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
                         >
-                          {getTagName(ex.bodyPart)}
-                        </span>
-                      )}
-                      
-                      {/* ✅ 仅当 getTagName 确实返回了文字时才渲染器材标签 */}
-                      {ex.tags && ex.tags.map(t => {
-                        const name = getTagName(t);
-                        if (!name) return null; // 如果找不到标签名，跳过不画
-                        
-                        return (
-                          <span 
-                            draggable 
-                            key={t} 
-                            onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} 
-                            className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors"
-                          >
-                            {name}
-                          </span>
-                        );
-                      })}
+                          <span>{getTagName(ct.id)}</span>
+                          {isEditingTags && (
+                            <div className="flex items-center gap-1">
+                              <Edit2 size={12} className="text-amber-400" />
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} 
+                                className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* 使用器材区域 */}
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
+                  <Filter size={12} /> {translations.equipmentHeader[lang]}
+                </h3>
+                <div className="space-y-1.5">
+                  {EQUIPMENT_TAGS.filter(id => {
+                    if (activeLibraryCategory === 'STRENGTH') {
+                      return !['tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'].includes(id);
+                    }
+                    const allExercisesInCategory = [...DEFAULT_EXERCISES, ...customExercises]
+                      .filter(ex => (ex.category || 'STRENGTH') === activeLibraryCategory);
+                    return allExercisesInCategory.some(ex => ex.tags.includes(id));
+                  }).map(id => (
+                    <div key={id} className="relative group">
+                      <button 
+                        draggable 
+                        onDragStart={() => { setDraggedTagId(id); setDraggedFromExId(null); }} 
+                        onClick={() => { 
+                          if (isEditingTags) { 
+                            setTagToRename({ id, name: getTagName(id) }); 
+                            setNewTagNameInput(getTagName(id)); 
+                            setShowRenameModal(true); 
+                          } else { 
+                            setSelectedTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); 
+                          } 
+                        }} 
+                        className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                          selectedTags.includes(id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                        } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
+                      >
+                        <span>{getTagName(id)}</span>
+                        {isEditingTags && <Edit2 size={12} className="text-amber-400" />}
+                      </button>
                     </div>
-                  </div>
+                  ))}
+                  
+                  {/* 自定义器材标签 */}
+                  {customTags
+                    .filter(ct => ct.category === 'equipment' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
+                    .map(ct => (
+                      <div key={ct.id} className="relative group">
+                        <button 
+                          draggable 
+                          onDragStart={() => { setDraggedTagId(ct.id); setDraggedFromExId(null); }} 
+                          onClick={() => { 
+                            if (isEditingTags) { 
+                              setTagToRename({ id: ct.id, name: getTagName(ct.id) }); 
+                              setNewTagNameInput(getTagName(ct.id)); 
+                              setShowRenameModal(true); 
+                            } else { 
+                              setSelectedTags(p => p.includes(ct.id) ? p.filter(x => x !== ct.id) : [...p, ct.id]); 
+                            } 
+                          }} 
+                          className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
+                            selectedTags.includes(ct.id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                          } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
+                        >
+                          <span>{getTagName(ct.id)}</span>
+                          {isEditingTags && (
+                            <div className="flex items-center gap-1">
+                              <Edit2 size={12} className="text-amber-400" />
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteTag(ct.id); }} 
+                                className="p-1 text-red-500 hover:bg-red-500/10 rounded-md"
+                              >
+                                <Trash2 size={10} />
+                              </button>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* 底部操作区域 */}
+              <div className="pt-6 border-t border-slate-800 space-y-3">
+                <button 
+                  onClick={() => setShowAddTagModal(true)} 
+                  className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all border border-blue-400/20 flex items-center justify-center gap-2"
+                >
+                  <PlusCircle size={14} /> {translations.addCustomTag[lang]}
+                </button>
+                <button 
+                  onClick={() => setShowAddExerciseModal(true)} 
+                  className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-400/10 transition-all border border-indigo-400/20 flex items-center justify-center gap-2"
+                >
+                  <Zap size={14} /> {translations.addCustomExercise[lang]}
                 </button>
               </div>
-            )))}
+            </div>
+
+            {/* ✅ 优化后的动作列表区域 */}
+            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">
+              {/* 动作列表标题和计数 */}
+              <div className="flex justify-between items-center px-2 pb-2 border-b border-slate-800/50">
+                <h3 className="text-sm font-black text-slate-300 flex items-center gap-2">
+                  <Hash size={16} className="text-blue-500" />
+                  {lang === Language.CN ? '动作列表' : 'Exercise List'}
+                </h3>
+                <span className="text-xs font-bold text-slate-500 bg-slate-800/50 px-3 py-1 rounded-lg">
+                  {filteredExercises.length} {lang === Language.CN ? '个动作' : 'exercises'}
+                </span>
+              </div>
+              
+              {filteredExercises.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center opacity-20 gap-4">
+                  <Search size={64} />
+                  <p className="font-black text-xl">{translations.noRecords[lang]}</p>
+                </div>
+              ) : (
+                filteredExercises.map(ex => (
+                  <div 
+                    key={ex.id} 
+                    onDragOver={(e) => e.preventDefault()} 
+                    onDrop={(e) => handleDropOnExercise(e, ex.id)}
+                    className="relative"
+                  >
+                    <button 
+                      onClick={() => { 
+                        if (isEditingTags) { 
+                          setExerciseToRename({ id: ex.id, name: ex.name[lang] }); 
+                          setNewExerciseNameInput(ex.name[lang]); 
+                          setShowRenameExerciseModal(true); 
+                          return; 
+                        } 
+                        
+                        const exerciseTime = new Date().toISOString();
+                        
+                        setCurrentWorkout(p => ({ 
+                          ...p, 
+                          exercises: [
+                            { 
+                              id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                              name: ex.name[lang], 
+                              category: ex.category || activeLibraryCategory || 'STRENGTH', 
+                              sets: [{ id: Date.now().toString(), weight: 0, reps: 0 }],
+                              exerciseTime: exerciseTime,
+                              // ✅ 新增：默认实例配置，基于动作定义的建议
+                              instanceConfig: {
+                                enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
+                                pyramidMode: 'decreasing',
+                                bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
+                                autoCalculateSubSets: false
+                              }
+                            },
+                            ...(p.exercises || [])
+                          ] 
+                        })); 
+                        setShowLibrary(false); 
+                      }} 
+                      className={`w-full p-5 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden ${
+                        isEditingTags ? 'hover:border-amber-500/50' : ''
+                      }`}
+                    >
+                      <div className="absolute right-0 top-0 w-24 h-24 bg-blue-600/5 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      
+                      <div className="flex flex-col gap-3 relative z-10">
+                        <div className="flex justify-between items-center">
+                          <span className={`font-black text-lg transition-colors ${
+                            isEditingTags ? 'text-amber-400' : 'group-hover:text-blue-400 text-white'
+                          }`}>
+                            {ex.name[lang]}
+                          </span>
+                          
+                          {/* 操作按钮区域 */}
+                          <div className="flex items-center gap-2">
+                            {!isEditingTags && (
+                              <div className="px-3 py-1 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                {lang === Language.CN ? '添加' : 'Add'}
+                              </div>
+                            )}
+                            
+                            {isEditingTags && (
+                              <div className="flex gap-2">
+                                <div className="p-2 bg-amber-500/20 rounded-lg">
+                                  <PencilLine size={16} className="text-amber-500" />
+                                </div>
+                                <button 
+                                  onClick={(e) => handleDeleteLibraryExercise(e, ex.id)}
+                                  className="p-2 bg-red-500/20 rounded-lg text-red-500 hover:bg-red-500/40 transition-colors"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* 标签区域 */}
+                        <div className="flex flex-wrap gap-2">
+                          {ex.bodyPart && getTagName(ex.bodyPart) && (
+                            <span 
+                              draggable 
+                              onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} 
+                              className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors"
+                            >
+                              {getTagName(ex.bodyPart)}
+                            </span>
+                          )}
+                          
+                          {ex.tags && ex.tags.map(t => {
+                            const name = getTagName(t);
+                            if (!name) return null;
+                            
+                            return (
+                              <span 
+                                draggable 
+                                key={t} 
+                                onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} 
+                                className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors"
+                              >
+                                {name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -3181,7 +3784,12 @@ const filteredExercises = useMemo(() => {
       {showGoalModal && (
         <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
-              <h2 className="text-2xl font-black">{translations.setGoal[lang]}</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-black">{translations.setGoal[lang]}</h2>
+                <button onClick={() => setShowGoalModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
               <div className="space-y-4">
                  <div className="flex gap-2">{['weight', 'strength', 'frequency'].map(type => <button key={type} onClick={() => setNewGoal({...newGoal, type: type as GoalType})} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${newGoal.type === type ? 'bg-blue-600' : 'bg-slate-800'}`}>{translations[`goal${type.charAt(0).toUpperCase() + type.slice(1)}`][lang]}</button>)}</div>
                  <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" value={newGoal.label} onChange={e => setNewGoal({...newGoal, label: e.target.value})} placeholder={translations.goalLabelPlaceholder[lang]} />
@@ -3190,7 +3798,14 @@ const filteredExercises = useMemo(() => {
                     <input type="number" className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" placeholder={translations.target[lang]} value={newGoal.targetValue || ''} onChange={e => setNewGoal({...newGoal, targetValue: Number(e.target.value)})} />
                  </div>
               </div>
-              <button onClick={handleAddGoal} className="w-full bg-blue-600 py-5 rounded-2xl font-black">{translations.confirm[lang]}</button>
+              <div className="flex gap-4">
+                <button onClick={() => setShowGoalModal(false)} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400 hover:bg-slate-700 transition-colors">
+                  {lang === Language.CN ? '取消' : 'Cancel'}
+                </button>
+                <button onClick={handleAddGoal} className="flex-[2] bg-blue-600 py-4 rounded-2xl font-black text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95">
+                  {translations.confirm[lang]}
+                </button>
+              </div>
            </div>
         </div>
       )}
@@ -3545,7 +4160,7 @@ const filteredExercises = useMemo(() => {
                                           </div>
                                           <span className="text-[10px] font-black bg-slate-800/80 text-slate-500 px-3 py-1 rounded-full uppercase tracking-wider border border-slate-700/30">{ex.sets.length} {translations.setsCount[lang]}</span>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">{ex.sets.map((s: any) => renderSetCapsule(s, ex.name))}</div>
+                                        <div className="flex flex-wrap gap-2">{ex.sets.map((s: any) => renderSetCapsule(s, ex.name, ex))}</div>
                                       </div>
                                     ))}
                                   </div>
@@ -3593,8 +4208,8 @@ const filteredExercises = useMemo(() => {
           {activeTab === 'new' && (<div className="space-y-8 animate-in slide-in-from-bottom-5"><div className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
           <input className="bg-transparent text-3xl font-black w-full outline-none" value={currentWorkout.title} onChange={e => setCurrentWorkout({...currentWorkout, title: e.target.value})} 
           placeholder={translations.trainingTitlePlaceholder[lang]} /></div><div className="space-y-6">{currentWorkout.exercises?.map((ex, exIdx) => { 
-            const isBodyweight = isBodyweightExercise(ex.name); 
-            const isPyramid = isPyramidExercise(ex.name);
+            const isBodyweight = isBodyweightMode(ex); 
+            const isPyramid = isPyramidEnabled(ex);
 
             return (<div key={ex.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
 
@@ -3655,6 +4270,60 @@ const filteredExercises = useMemo(() => {
                 )}
               </div>
               
+              {/* ✅ 新增：动作配置区域 */}
+              <div className="flex gap-2 mb-6">
+                {/* 自重模式配置 */}
+                <div className="flex gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800">
+                  {(['none', 'bodyweight', 'assisted', 'weighted'] as const).map(mode => (
+                    <button 
+                      key={mode} 
+                      onClick={() => {
+                        const exs = [...currentWorkout.exercises!];
+                        exs[exIdx].instanceConfig = {
+                          ...exs[exIdx].instanceConfig,
+                          bodyweightMode: mode
+                        };
+                        // 更新所有组的bodyweightMode
+                        if (mode === 'bodyweight' || mode === 'assisted' || mode === 'weighted') {
+                          exs[exIdx].sets = exs[exIdx].sets.map(s => ({ ...s, bodyweightMode: 'normal' }));
+                        } else {
+                          exs[exIdx].sets = exs[exIdx].sets.map(s => {
+                            const { bodyweightMode, ...rest } = s;
+                            return rest;
+                          });
+                        }
+                        setCurrentWorkout({...currentWorkout, exercises: exs});
+                      }} 
+                      className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all 
+                        ${getExerciseConfig(ex).bodyweightMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+                    >
+                      {mode === 'none' ? (lang === Language.CN ? '器械' : 'Weight') :
+                       mode === 'bodyweight' ? (lang === Language.CN ? '自重' : 'Bodyweight') :
+                       mode === 'assisted' ? (lang === Language.CN ? '辅助' : 'Assisted') :
+                       (lang === Language.CN ? '负重' : 'Weighted')}
+                    </button>
+                  ))}
+                </div>
+
+                {/* 递增递减组配置 */}
+                <button 
+                  onClick={() => {
+                    const exs = [...currentWorkout.exercises!];
+                    const currentConfig = getExerciseConfig(ex);
+                    exs[exIdx].instanceConfig = {
+                      ...exs[exIdx].instanceConfig,
+                      enablePyramid: !currentConfig.enablePyramid
+                    };
+                    setCurrentWorkout({...currentWorkout, exercises: exs});
+                  }}
+                  className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all border
+                    ${isPyramid ? 'bg-purple-600 text-white border-purple-500' : 'bg-slate-900 text-slate-600 border-slate-700 hover:text-slate-400'}`}
+                >
+                  {lang === Language.CN ? '递增递减组' : 'Pyramid Sets'}
+                </button>
+              </div>
+
+              {/* 自重模式细分选择（仅在自重相关模式下显示） */}
               {isBodyweight && (<div className="flex gap-2 mb-6 p-1 bg-slate-900 rounded-2xl border border-slate-800">
                 {(['normal', 'weighted', 'assisted'] as BodyweightMode[]).map(mode => (<button key={mode} onClick={() => 
                   { const exs = [...currentWorkout.exercises!]; exs[exIdx].sets = exs[exIdx].sets.map(s => ({ ...s, bodyweightMode: mode }));
@@ -3820,11 +4489,8 @@ const filteredExercises = useMemo(() => {
                           <div className="flex justify-end gap-2 pr-1">
                             {isPyramid && (
                               <button onClick={() => {
-                                const exs = [...currentWorkout.exercises!];
-                                const s = exs[exIdx].sets[setIdx];
-                                s.subSets = [...(s.subSets || []), { weight: s.weight, reps: s.reps }];
-                                setCurrentWorkout({...currentWorkout, exercises: exs});
-                              }} className="text-indigo-400 hover:text-indigo-300">
+                                addSubSet(exIdx, setIdx);
+                              }} className="text-indigo-400 hover:text-indigo-300" title={lang === Language.CN ? '添加子组' : 'Add Sub Set'}>
                                 <Layers size={16} />
                               </button>
                             )}
@@ -3842,21 +4508,15 @@ const filteredExercises = useMemo(() => {
                             </span>
                             <input type="number" step="any" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300 w-full" value={sub.weight === 0 ? '' : parseFloat(formatWeight(sub.weight)).toFixed(2).replace(/\.?0+$/, '')} onChange={e => {
                               const val = e.target.value === '' ? 0 : Number(e.target.value);
-                              const exs = [...currentWorkout.exercises!];
-                              exs[exIdx].sets[setIdx].subSets![ssi].weight = parseWeight(val);
-                              setCurrentWorkout({...currentWorkout, exercises: exs});
+                              updateSubSet(exIdx, setIdx, ssi, { weight: parseWeight(val) });
                             }} />
                             <input type="number" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300" value={sub.reps || ''} onChange={e => {
                               const val = e.target.value === '' ? 0 : Number(e.target.value);
-                              const exs = [...currentWorkout.exercises!];
-                              exs[exIdx].sets[setIdx].subSets![ssi].reps = val;
-                              setCurrentWorkout({...currentWorkout, exercises: exs});
+                              updateSubSet(exIdx, setIdx, ssi, { reps: val });
                             }} />
                             <button onClick={() => {
-                              const exs = [...currentWorkout.exercises!];
-                              exs[exIdx].sets[setIdx].subSets = exs[exIdx].sets[setIdx].subSets!.filter((_, i) => i !== ssi);
-                              setCurrentWorkout({...currentWorkout, exercises: exs});
-                            }} className="flex justify-end pr-2 text-slate-700 hover:text-red-500">
+                              removeSubSet(exIdx, setIdx, ssi);
+                            }} className="flex justify-end pr-2 text-slate-700 hover:text-red-500" title={lang === Language.CN ? '删除子组' : 'Remove Sub Set'}>
                               <X size={14} />
                             </button>
                           </div>
@@ -3888,8 +4548,7 @@ const filteredExercises = useMemo(() => {
                           newSet = { 
                             id: Date.now().toString(), 
                             weight: 0, 
-                            reps: 0, 
-                            bodyweightMode: isBodyweight ? 'normal' : undefined 
+                            reps: 0
                           };
                         }
 
@@ -3922,47 +4581,82 @@ const filteredExercises = useMemo(() => {
               <div className="h-[1px] flex-1 bg-slate-800"></div>
             </div>
 
-            {/* ✅ 修改为纵向排列的三个分类按钮 */}
-            <div className="flex flex-col gap-4">
-              {[
-                { id: 'STRENGTH', label: translations.strengthTraining[lang], icon: <Dumbbell size={28} />, color: 'blue' },
-                { id: 'CARDIO', label: translations.cardioTraining[lang], icon: <Activity size={28} />, color: 'orange' },
-                { id: 'FREE', label: translations.freeTraining[lang], icon: <Zap size={28} />, color: 'purple' },
-              ].map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setActiveLibraryCategory(cat.id as ExerciseCategory);
-                    // ✅ 核心修复：切换分类时清空之前的搜索框和选中的标签，防止因标签不匹配导致黑屏
-                    setSearchQuery(''); 
-                    setSelectedTags([]); 
-                    setShowLibrary(true);
-                  }}
-                  className="group relative bg-slate-800/30 border border-slate-700/50 p-5 rounded-[2rem] flex items-center gap-6 hover:bg-slate-800/60 transition-all active:scale-[0.98] overflow-hidden w-full"
-                >
-                  {/* 背景微光装饰 */}
-                  <div className={`absolute -right-8 -top-8 w-32 h-32 bg-${cat.color}-500/5 blur-3xl rounded-full group-hover:bg-${cat.color}-500/10 transition-all`}></div>
-                  
-                  {/* 左侧图标 */}
-                  <div className={`p-4 bg-slate-900 rounded-2xl text-${cat.color}-500 shadow-inner group-hover:scale-110 transition-transform relative z-10`}>
-                    {cat.icon}
-                  </div>
+            {/* ✅ 优化后的分类选择区域 - 分离关注点 */}
+            <div className="space-y-4">
+              {/* 快速搜索区域 */}
+              <div className="bg-slate-800/30 border border-slate-700/50 p-4 rounded-[2rem]">
+                <div className="flex items-center gap-3 mb-3">
+                  <Search className="text-slate-500" size={20} />
+                  <h4 className="text-sm font-black text-slate-300">
+                    {lang === Language.CN ? '快速添加动作' : 'Quick Add Exercise'}
+                  </h4>
+                </div>
+                <div className="relative">
+                  <input 
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    placeholder={lang === Language.CN ? '搜索动作或点击下方浏览动作库...' : 'Search exercises or browse library below...'}
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                  <button 
+                    onClick={() => {
+                      // ✅ 优化：记录当前分类，支持"全部分类"按钮的切换功能
+                      if (activeLibraryCategory !== null) {
+                        setPreviousLibraryCategory(activeLibraryCategory);
+                      }
+                      setActiveLibraryCategory(null);
+                      setSelectedTags([]);
+                      setShowLibrary(true);
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors"
+                  >
+                    {lang === Language.CN ? '浏览动作库' : 'Browse Library'}
+                  </button>
+                </div>
+              </div>
 
-                  {/* 右侧文字 */}
-                  <div className="flex flex-col items-start relative z-10">
-                    <span className="font-black text-lg tracking-tight text-white">{cat.label}</span>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                    {/* 根据分类 ID 动态读取对应的翻译字段 */}
-                    {cat.id === 'STRENGTH' && translations.strengthSub[lang]}
-                    {cat.id === 'CARDIO' && translations.cardioSub[lang]}
-                    {cat.id === 'FREE' && translations.freeSub[lang]}
-                  </span>
-                  </div>
+              {/* 分类选择区域 */}
+              <div className="flex flex-col gap-3">
+                {[
+                  { id: 'STRENGTH', label: translations.strengthTraining[lang], icon: <Dumbbell size={24} />, color: 'blue', desc: translations.strengthSub[lang] },
+                  { id: 'CARDIO', label: translations.cardioTraining[lang], icon: <Activity size={24} />, color: 'orange', desc: translations.cardioSub[lang] },
+                  { id: 'FREE', label: translations.freeTraining[lang], icon: <Zap size={24} />, color: 'purple', desc: translations.freeSub[lang] },
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      // ✅ 优化：记录之前的分类状态，支持"全部分类"按钮的切换功能
+                      if (activeLibraryCategory !== null && activeLibraryCategory !== cat.id) {
+                        setPreviousLibraryCategory(activeLibraryCategory);
+                      }
+                      setActiveLibraryCategory(cat.id as ExerciseCategory);
+                      setSearchQuery(''); 
+                      setSelectedTags([]); 
+                      setShowLibrary(true);
+                    }}
+                    className="group relative bg-slate-800/30 border border-slate-700/50 p-4 rounded-[1.5rem] flex items-center gap-4 hover:bg-slate-800/60 transition-all active:scale-[0.98] overflow-hidden w-full"
+                  >
+                    {/* 背景微光装饰 */}
+                    <div className={`absolute -right-6 -top-6 w-24 h-24 bg-${cat.color}-500/5 blur-2xl rounded-full group-hover:bg-${cat.color}-500/10 transition-all`}></div>
+                    
+                    {/* 左侧图标 */}
+                    <div className={`p-3 bg-slate-900 rounded-xl text-${cat.color}-500 shadow-inner group-hover:scale-105 transition-transform relative z-10`}>
+                      {cat.icon}
+                    </div>
 
-                  {/* 右侧箭头装饰 */}
-                  <ChevronRight className="ml-auto text-slate-700 group-hover:text-slate-400 transition-colors" size={20} />
-                </button>
-              ))}
+                    {/* 右侧文字 */}
+                    <div className="flex flex-col items-start relative z-10 flex-1">
+                      <span className="font-black text-base tracking-tight text-white">{cat.label}</span>
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                        {cat.desc}
+                      </span>
+                    </div>
+
+                    {/* 右侧箭头装饰 */}
+                    <ChevronRight className="text-slate-600 group-hover:text-slate-400 transition-colors relative z-10" size={18} />
+                  </button>
+                ))}
+              </div>
             </div>
             
             {/* ✅ 修复问题7&8: 改进的保存训练按钮 - 显示状态、单位确认、未保存提示 */}
@@ -4033,7 +4727,7 @@ const filteredExercises = useMemo(() => {
           </div>)}
 
           {/* 目标管理 保持不变 */}
-          {activeTab === 'goals' && (<div className="space-y-6 animate-in slide-in-from-right"><div className="flex justify-between items-center"><div><h2 className="text-3xl font-black">{translations.goals[lang]}</h2><p className="text-slate-500">{translations.goalsSubtitle[lang]}</p></div><button onClick={() => setShowGoalModal(true)} className="p-4 bg-blue-600 rounded-2xl"><Plus size={24} /></button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{goals.map(g => (<div key={g.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50"><div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-xl">{g.label}</h4><span className="text-[10px] text-blue-500 uppercase">{g.type}</span></div><button onClick={async () => { await db.delete('goals', g.id); setGoals(p => p.filter(x => x.id !== g.id)); }}><Trash2 size={16} className="text-slate-700" /></button></div><div className="flex justify-between items-end mb-2"><span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span><span className="text-slate-500 text-xs">{g.unit}</span></div><div className="h-2 bg-slate-900 rounded-full overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}></div></div></div>))}</div></div>)}
+          {activeTab === 'goals' && (<div className="space-y-6 animate-in slide-in-from-right"><div className="flex justify-between items-center"><div><h2 className="text-3xl font-black">{translations.goals[lang]}</h2><p className="text-slate-500">{translations.goalsSubtitle[lang]}</p></div><button onClick={() => setShowGoalModal(true)} className="p-4 bg-blue-600 rounded-2xl"><Plus size={24} /></button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{goals.map(g => (<div key={g.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50"><div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-xl">{g.title || g.label || 'Untitled Goal'}</h4><span className="text-[10px] text-blue-500 uppercase">{g.type}</span></div><button onClick={async () => { await db.delete('goals', g.id); setGoals(p => p.filter(x => x.id !== g.id)); }}><Trash2 size={16} className="text-slate-700" /></button></div><div className="flex justify-between items-end mb-2"><span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span><span className="text-slate-500 text-xs">{g.unit}</span></div><div className="h-2 bg-slate-900 rounded-full overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}></div></div></div>))}</div></div>)}
           
           {/* 修改 4: 新增个人中心页面 (Profile) */}
           {activeTab === 'profile' && (
