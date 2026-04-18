@@ -31,18 +31,13 @@ import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, forma
 import { RestTimer } from './src/components/RestTimer';
 import TabNavigation from './src/components/TabNavigation';
 import { SetCapsule } from './src/components/SetCapsule';
-
-// ✅ 新增：导入自定义 Hooks
 import { useAuth, useWorkout, useUserSettings } from './src/hooks';
 
 const App: React.FC = () => {
   const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
-  // ✅ 新增：记录用户之前选择的分类，用于"全部分类"按钮的切换功能
   const [previousLibraryCategory, setPreviousLibraryCategory] = useState<ExerciseCategory | null>(null);
   const [lang, setLang] = useState<Language>(Language.CN);
   const [user, setUser] = useState<User | null>(null);
-  
-  // 修改 1: 在 activeTab 中添加 'profile'
   const [activeTab, setActiveTab] = useState<'dashboard' | 'new' | 'goals' | 'profile'>('dashboard');
   
   const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgotPassword' | 'updatePassword'>('login');
