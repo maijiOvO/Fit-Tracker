@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-export const SUPABASE_URL = 'https://yepfzeubssitiqzqiddn.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_TkHbaHyzA628yheX4Xs9vg_tELu7hnj';
+// ✅ 修复：从环境变量读取敏感配置，不再硬编码
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('⚠️ Supabase 配置缺失！请确保 .env.local 文件存在并包含 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY');
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

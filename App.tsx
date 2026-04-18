@@ -25,158 +25,10 @@ import {
   deleteWeightFromCloud, deleteMeasurementFromCloud, SUPABASE_URL
 } from './services/supabase';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Area, Bar } from 'recharts';
-// 简单的 "叮" 声 Base64
-const BEEP_SOUND = 'data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU'; // (简略版，实际代码中我会给一个短促有效的提示音)
-// 为了代码整洁，我们可以直接用一个简单的 Audio 对象
-const beepAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'); // 使用在线短提示音，或者你可以换成本地的
-const KG_TO_LBS = 2.20462;
-const KMH_TO_MPH = 0.621371;
-
-
-
-const formatValue = (val: number, type: string, currentUnitSystem: 'kg' | 'lbs') => {
-  if (val === undefined || val === null) return '0.00';
-  
-  let result = val;
-  let unitLabel = '';
-
-  switch (type) {
-    case 'weight':
-      result = currentUnitSystem === 'kg' ? val : val * KG_TO_LBS;
-      unitLabel = currentUnitSystem.toUpperCase();
-      break;
-    case 'distance':
-      // 公制支持 m/km 自动切换
-      if (currentUnitSystem === 'kg') {
-        if (val >= 1000) {
-          result = val / 1000;
-          unitLabel = 'km';
-        } else {
-          unitLabel = 'm';
-        }
-      } else {
-        unitLabel = 'm'; // 英制按用户要求保留 m
-      }
-      break;
-    case 'speed':
-      result = currentUnitSystem === 'kg' ? val : val * KMH_TO_MPH;
-      unitLabel = currentUnitSystem === 'kg' ? 'km/h' : 'mph';
-      break;
-    case 'duration':
-      const h = Math.floor(val / 3600);
-      const m = Math.floor((val % 3600) / 60);
-      const s = val % 60;
-      return h > 0 ? `${h}h ${m}m ${s}s` : `${m}m ${s}s`;
-    default:
-      unitLabel = type.replace('custom_', '');
-  }
-
-  return `${result.toFixed(2)} ${unitLabel}`;
-};
-
-// ✅ 新增：专门获取单位文本，用于表头显示
-  const getUnitTag = (type: string, currentUnitSystem: 'kg' | 'lbs') => {
-    switch (type) {
-      case 'weight': return currentUnitSystem === 'kg' ? 'kg' : 'lbs';
-      case 'distance': return currentUnitSystem === 'kg' ? 'm/km' : 'm';
-      case 'speed': return currentUnitSystem === 'kg' ? 'km/h' : 'mph';
-      case 'duration': return 'h:m:s';
-      default: return ''; // 自定义维度由用户自行命名，通常不带预设单位
-    }
-  };
-// 提示音效
-const playTimerSound = () => {
-  try {
-    // 使用一个通用的短提示音链接，或者你可以换成你自己的
-    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-    audio.play();
-  } catch (e) {
-    console.error("Audio play failed", e);
-  }
-};
-type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
-
-const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'subLegs', 'subCore'];
-const EQUIPMENT_TAGS = [
-  'tagBarbell', 'tagDumbbell', 'tagMachine', 'tagCable', 
-  'tagBodyweight', 'tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'
-];
-
-const DEFAULT_EXERCISES: ExerciseDefinition[] = [
-  // Chest
-  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
-  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '杠铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing'] } },
-  { id: 'bp_dumbbell', name: { en: 'Dumbbell Bench Press', cn: '哑铃平板卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '哑铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH'  },
-  { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH'  },
-  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'mixed'] } },
-  { id: 'pushup', name: { en: 'Push-ups', cn: '俯卧撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'increasing'] } },
-  
-  // Back
-  { id: 'dl_barbell', name: { en: 'Deadlift', cn: '硬拉' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
-  { id: 'row_barbell', name: { en: 'Barbell Row', cn: '杠铃划船' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH'  },
-  { id: 'lat_pulldown', name: { en: 'Lat Pulldown', cn: '高位下拉' }, bodyPart: 'subBack', tags: ['tagMachine', 'tagCable'], category: 'STRENGTH'  },
-  { id: 'row_seated_cable', name: { en: 'Seated Cable Row', cn: '坐姿划船' }, bodyPart: 'subBack', tags: ['tagCable'], category: 'STRENGTH'  },
-  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'weighted', pyramidModes: ['decreasing', 'mixed'] } },
-  { id: 'single_arm_db_row', name: { en: 'Single Arm Dumbbell Row', cn: '哑铃单臂划船' }, bodyPart: 'subBack', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'tbar_row', name: { en: 'T-Bar Row', cn: 'T杠划船' }, bodyPart: 'subBack', tags: ['tagBarbell', 'tagMachine'], category: 'STRENGTH'  },
-  { id: 'hyperextension', name: { en: 'Hyperextension', cn: '山羊挺身' }, bodyPart: 'subBack', tags: ['tagBodyweight', 'tagMachine'], category: 'STRENGTH'  },
-  
-  // Shoulder
-  { id: 'ohp_barbell', name: { en: 'Overhead Press', cn: '杠铃推举' }, bodyPart: 'subShoulder', tags: ['tagBarbell'], category: 'STRENGTH'  },
-  { id: 'ohp_dumbbell', name: { en: 'Dumbbell Shoulder Press', cn: '哑铃推肩' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'lat_raise_dumbbell', name: { en: 'Dumbbell Lateral Raise', cn: '哑铃侧平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'face_pull_cable', name: { en: 'Cable Face Pull', cn: '绳索面拉' }, bodyPart: 'subShoulder', tags: ['tagCable'], category: 'STRENGTH'  },
-  { id: 'press_machine_shoulder', name: { en: 'Machine Shoulder Press', cn: '器械推肩' }, bodyPart: 'subShoulder', tags: ['tagMachine'], category: 'STRENGTH'  },
-  { id: 'arnold_press', name: { en: 'Arnold Press', cn: '阿诺德推举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'front_raise_db', name: { en: 'Dumbbell Front Raise', cn: '哑铃前平举' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  
-  // Legs
-  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
-  { id: 'goblet_squat', name: { en: 'Goblet Squat', cn: '高杯深蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'leg_press', name: { en: 'Leg Press', cn: '倒蹬/腿举' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
-  { id: 'leg_extension', name: { en: 'Leg Extension', cn: '腿屈伸' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
-  { id: 'leg_curl', name: { en: 'Leg Curl', cn: '腿弯举' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH'  },
-  { id: 'calf_raise', name: { en: 'Calf Raise', cn: '提踵' }, bodyPart: 'subLegs', tags: ['tagMachine', 'tagBodyweight'], category: 'STRENGTH'  },
-  { id: 'lunge_dumbbell', name: { en: 'Dumbbell Lunge', cn: '哑铃箭步蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'romanian_deadlift', name: { en: 'Romanian Deadlift', cn: '罗马尼亚硬拉' }, bodyPart: 'subLegs', tags: ['tagBarbell', 'tagDumbbell'], category: 'STRENGTH'  },
-  
-  // Arms
-  { id: 'cu_barbell', name: { en: 'Barbell Curl', cn: '杠铃弯举' }, bodyPart: 'subArms', tags: ['tagBarbell'], category: 'STRENGTH'  },
-  { id: 'cu_dumbbell', name: { en: 'Dumbbell Curl', cn: '哑铃弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'cu_ hammer', name: { en: 'Hammer Curl', cn: '锤式弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'tricep_pushdown', name: { en: 'Tricep Pushdown', cn: '肱三头肌下压' }, bodyPart: 'subArms', tags: ['tagCable'], category: 'STRENGTH'  },
-  { id: 'skull_crusher', name: { en: 'Skull Crusher', cn: '哑卧臂屈伸' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'preacher_curl', name: { en: 'Preacher Curl', cn: '牧师凳弯举' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagMachine'], category: 'STRENGTH'  },
-  { id: 'overhead_extension_db', name: { en: 'Overhead Tricep Extension', cn: '颈后臂屈伸' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH'  },
-  
-  // Core
-  { id: 'plank', name: { en: 'Plank', cn: '平板支撑' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH'  },
-  { id: 'leg_raise', name: { en: 'Hanging Leg Raise', cn: '悬垂举腿' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH'  },
-  { id: 'cable_crunch', name: { en: 'Cable Crunch', cn: '绳索卷腹' }, bodyPart: 'subCore', tags: ['tagCable'], category: 'STRENGTH'  },
-  { id: 'russian_twist', name: { en: 'Russian Twist', cn: '俄罗斯转体' }, bodyPart: 'subCore', tags: ['tagBodyweight', 'tagDumbbell'], category: 'STRENGTH'  },
-  { id: 'ab_wheel', name: { en: 'Ab Wheel Rollout', cn: '健腹轮' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH'  },
-
-    // --- 有氧训练 (CARDIO) ---
-  { id: 'run_out', name: { en: 'Outdoor Running', cn: '室外跑步' }, bodyPart: 'subLegs', tags: ['tagOutdoor'], category: 'CARDIO' },
-  { id: 'run_tread', name: { en: 'Treadmill', cn: '跑步机' }, bodyPart: 'subLegs', tags: ['tagIndoor', 'tagGym'], category: 'CARDIO' },
-  { id: 'bike_out', name: { en: 'Outdoor Cycling', cn: '室外骑行' }, bodyPart: 'subLegs', tags: ['tagOutdoor'], category: 'CARDIO' },
-  { id: 'bike_stat', name: { en: 'Stationary Bike', cn: '动感单车' }, bodyPart: 'subLegs', tags: ['tagIndoor', 'tagGym'], category: 'CARDIO' },
-  { id: 'swim', name: { en: 'Swimming', cn: '游泳' }, bodyPart: 'subFullBody', tags: ['tagIndoor', 'tagOutdoor'], category: 'CARDIO' },
-  { id: 'rower', name: { en: 'Rowing Machine', cn: '划船机' }, bodyPart: 'subBack', tags: ['tagMachine', 'tagGym'], category: 'CARDIO' },
-  { id: 'stair', name: { en: 'Stair Climber', cn: '登山机' }, bodyPart: 'subLegs', tags: ['tagMachine', 'tagGym'], category: 'CARDIO' },
-  { id: 'rope', name: { en: 'Jump Rope', cn: '跳绳' }, bodyPart: 'subFullBody', tags: ['tagBodyweight'], category: 'CARDIO' },
-
-  // --- 自由训练 (FREE) ---
-  { id: 'ball_basket', name: { en: 'Basketball', cn: '篮球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
-  { id: 'ball_soccer', name: { en: 'Soccer', cn: '足球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
-  { id: 'ball_badm', name: { en: 'Badminton', cn: '羽毛球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagIndoor'], category: 'FREE' },
-  { id: 'ball_tennis', name: { en: 'Tennis', cn: '网球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
-  { id: 'yoga_flow', name: { en: 'Yoga', cn: '瑜伽' }, bodyPart: 'subFullBody', tags: ['tagBodyweight', 'tagIndoor'], category: 'FREE' },
-  { id: 'stretch_all', name: { en: 'Stretching', cn: '拉伸' }, bodyPart: 'subFullBody', tags: ['tagBodyweight'], category: 'FREE' },
-  { id: 'hiit_session', name: { en: 'HIIT', cn: '高强度间歇训练' }, bodyPart: 'subFullBody', tags: ['tagBodyweight', 'tagIndoor'], category: 'FREE' },
-];
+import { KG_TO_LBS, KMH_TO_MPH, playTimerSound } from './src/constants';
+import { BODY_PARTS, EQUIPMENT_TAGS, DEFAULT_EXERCISES, STANDARD_METRICS, ExerciseCategory } from './src/constants/exercises';
+import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, formatTime } from './src/utils/format';
+import { RestTimer } from './src/components/RestTimer';
 
 const App: React.FC = () => {
   const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
@@ -265,9 +117,6 @@ const App: React.FC = () => {
   const isRecoveryMode = useRef(false);
 
   // --- 新增：动作维度自定义功能 ---
-  // 默认内置维度
-  const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'speed'];
-  
   // 格式: { "动作名称": ["reps", "distance", "custom_分数"] }
   const [exerciseMetricConfigs, setExerciseMetricConfigs] = useState<Record<string, string[]>>({});
   const [showMetricModal, setShowMetricModal] = useState<{ name: string } | null>(null);
@@ -477,150 +326,32 @@ const App: React.FC = () => {
     // 3. 关闭弹窗
     setRestModalData(null);
   };
-  // --- 新增：休息计时器逻辑 ---
+  
+  // --- 休息计时器状态 ---
   const [restSeconds, setRestSeconds] = useState(0);
   const [isResting, setIsResting] = useState(false);
-// --- 修改后：悬浮窗状态与拖拽逻辑 (使用 Pointer Events) ---
-  const [timerMinimized, setTimerMinimized] = useState(false);
-  const [timerPos, setTimerPos] = useState({ x: 20, y: 100 });
-  const [isDraggingState, setIsDraggingState] = useState(false);
-// --- 修改后：智能识别点击和拖拽，带吸附功能 ---
-  // 1. 增加 hasMoved 标记，用来区分点击和拖拽
-  const draggingRef = useRef({ isDragging: false, hasMoved: false, startX: 0, startY: 0, initialRight: 0, initialBottom: 0 });
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    setIsDraggingState(true); // 用于 CSS transition
-
-    draggingRef.current = {
-      isDragging: true,
-      hasMoved: false, // 重置移动标记
-      startX: e.clientX,
-      startY: e.clientY,
-      initialRight: timerPos.x,
-      initialBottom: timerPos.y
-    };
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!draggingRef.current.isDragging) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    const deltaX = draggingRef.current.startX - e.clientX;
-    const deltaY = draggingRef.current.startY - e.clientY;
-
-    // ⚡️ 核心防抖逻辑：只有移动超过 5px 才算真正的拖拽
-    if (Math.abs(deltaX) < 5 && Math.abs(deltaY) < 5) return;
-    
-    // 一旦超过阈值，标记为“已移动”
-    draggingRef.current.hasMoved = true;
-
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
-    const elWidth = timerMinimized ? 64 : 320; 
-    const elHeight = timerMinimized ? 64 : 200;
-    const safeMargin = 20;
-
-    let newX = draggingRef.current.initialRight + deltaX;
-    let newY = draggingRef.current.initialBottom + deltaY;
-
-    // 边界约束
-    newX = Math.max(safeMargin, Math.min(newX, screenW - elWidth - safeMargin));
-    newY = Math.max(30, Math.min(newY, screenH - elHeight - safeMargin));
-
-    setTimerPos({ x: newX, y: newY });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!draggingRef.current.isDragging) return;
-    
-    draggingRef.current.isDragging = false;
-    setIsDraggingState(false); // 恢复 CSS transition
-    e.preventDefault();
-    e.stopPropagation();
-    (e.currentTarget as Element).releasePointerCapture(e.pointerId);
-
-    // 👆 判断：如果没移动过（或者移动极小），说明是“点击”
-    if (!draggingRef.current.hasMoved && timerMinimized) {
-      setTimerMinimized(false); // 点击动作：展开
-      return; // 展开后不需要贴边逻辑，直接返回
-    }
-
-    // 🧲 否则是拖拽结束：执行收起状态下的自动贴边
-    if (timerMinimized) {
-      const screenW = window.innerWidth;
-      const elWidth = 64;
-      const safeMargin = 10;
-      const isLeft = timerPos.x > (screenW / 2);
-
-      if (isLeft) {
-        setTimerPos(prev => ({ ...prev, x: screenW - elWidth - safeMargin }));
-      } else {
-        setTimerPos(prev => ({ ...prev, x: safeMargin }));
-      }
-    }
-  };
-// 计时器核心逻辑 (最终增强版：兼容 iOS/Android 原生震动)
+  
+  // --- 休息计时器倒计时逻辑 (在 App 层管理，避免组件卸载导致计时丢失) ---
   useEffect(() => {
-    let interval: any = null;
-    let timeoutIds: NodeJS.Timeout[] = []; // ✅ 修复Bug #1: 存储所有setTimeout ID
+    let interval: NodeJS.Timeout | null = null;
     
     if (isResting && restSeconds > 0) {
-      // 这里的逻辑保持不变
       interval = setInterval(() => {
-        setRestSeconds((prev) => prev - 1);
+        setRestSeconds(prev => Math.max(0, prev - 1));
       }, 1000);
-    } else if (restSeconds === 0 && isResting) {
-      // --- 时间到 ---
-      setIsResting(false);
-
-      // 定义一个 兼容性极强 的提示函数
-      let playCount = 0;
-      const playAlert = async () => {
-        // ✅ 修复Bug #1: 检查组件是否仍然处于休息状态，避免组件卸载后继续执行
-        if (playCount === 0 && !isResting) return;
-        
-        // 1. 播放声音 (Web Audio API)
-        playTimerSound();
-        
-        // 2. 触发震动 (混合模式)
-        try {
-          // 尝试调用 Capacitor 原生震动 (iOS/Android App 均有效)
-          await Haptics.vibrate({ duration: 500 });
-        } catch (e) {
-          // 如果在普通浏览器中，或者插件调用失败，回退到 Web API
-          if (navigator.vibrate) navigator.vibrate(500);
-        }
-        
-        playCount++;
-        // 循环播放 4 次，间隔 1.2 秒
-        if (playCount < 4) {
-          const timeoutId = setTimeout(playAlert, 1200);
-          timeoutIds.push(timeoutId); // ✅ 修复Bug #1: 记录timeout ID用于清理
-        }
-      };
-
-      // 立即触发
-      playAlert();
     }
-
-    // ✅ 修复Bug #1: 清理函数 - 清理所有定时器，防止内存泄漏
+    
     return () => {
       if (interval) clearInterval(interval);
-      timeoutIds.forEach(id => clearTimeout(id)); // 清理所有setTimeout
     };
   }, [isResting, restSeconds]);
-
-  // 开始休息函数
+  
+  // --- 开始休息函数 ---
 // 开始休息函数 (增强版：后台通知)
 // 开始休息函数 (修改版：支持双语通知)
   const startRest = async (seconds: number = 90) => {
     setRestSeconds(seconds);
     setIsResting(true);
-    setTimerMinimized(false);
 
     // 根据当前语言准备文案
     const notifTitle = lang === Language.CN ? "休息结束！💪" : "Rest Finished! 💪";
@@ -1082,6 +813,9 @@ const App: React.FC = () => {
 
   const [currentWorkout, setCurrentWorkout] = useState<Partial<WorkoutSession>>({ title: '', exercises: [], date: new Date().toISOString() });
   const [newGoal, setNewGoal] = useState<Partial<Goal>>({ type: 'weight', targetValue: 0, currentValue: 0, label: '' });
+  // ✅ 新增：编辑目标相关状态
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [showEditGoalModal, setShowEditGoalModal] = useState(false);
 
   const resolveName = (storedName: string): string => {
     const allDef = [...DEFAULT_EXERCISES, ...customExercises];
@@ -1099,19 +833,23 @@ const App: React.FC = () => {
     return storedName;
   };
 
+  // ✅ 修复：bestLifts 使用原始名称 ex.name 作为稳定 key，解决切换语言后星标丢失问题
   const bestLifts = useMemo(() => {
-    const liftsMap: Record<string, number> = {};
-    workouts.forEach(session => session.exercises.forEach(ex => ex.sets.forEach(set => {
-      const w = set.weight || 0;
+    const liftsMap: Record<string, { weight: number; originalName: string }> = {};
+    workouts.forEach(session => session.exercises.forEach(ex => {
+      const w = Math.max(...(ex.sets.map(s => s.weight || 0)));
       const normalizedName = resolveName(ex.name);
-      if (!liftsMap[normalizedName] || w > liftsMap[normalizedName]) liftsMap[normalizedName] = w;
-    })));
+      const originalName = ex.name; // ✅ 使用原始存储名称作为稳定 key
+      if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
+        liftsMap[originalName] = { weight: w, originalName };
+      }
+    }));
 
     return Object.entries(liftsMap)
-      .map(([name, weight]) => ({ name, weight }))
+      .map(([key, { weight }]) => ({ name: resolveName(key), key, weight }))
       .sort((a, b) => {
-        const starA = starredExercises[a.name] || 0;
-        const starB = starredExercises[b.name] || 0;
+        const starA = starredExercises[a.key] || 0; // ✅ 使用稳定的 key
+        const starB = starredExercises[b.key] || 0;
         if (starA !== starB) return starB - starA;
         return a.name.localeCompare(b.name, lang === Language.CN ? 'zh-Hans-CN' : 'en');
       });
@@ -1160,6 +898,19 @@ const App: React.FC = () => {
     const data = getChartDataFor(target, metricKey); 
     const isWeight = target === '__WEIGHT__';
     if (data.length === 0) return null;
+    
+    // ✅ 修复时间轴问题：计算时间范围用于设置 domain
+    const timestamps = data.map(d => d.timestamp);
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    const timeRange = maxTime - minTime || 1; // 防止除以0
+    
+    // ✅ 创建时间戳到显示日期的映射
+    const timestampToDate = data.reduce((acc, d) => {
+      acc[d.timestamp] = d.date;
+      return acc;
+    }, {} as Record<number, string>);
+    
     return (
       <div className="w-full h-[250px] mt-6 animate-in fade-in slide-in-from-top-2">
         <ResponsiveContainer width="100%" height="100%">
@@ -1170,7 +921,21 @@ const App: React.FC = () => {
                 <stop offset="95%" stopColor={isWeight ? '#818cf8' : '#3b82f6'} stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <XAxis dataKey="date" stroke="#475569" fontSize={10} tickMargin={15} minTickGap={40} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            {/* ✅ 修复：使用时间比例尺，让日期按实际时间间隔分布 */}
+            <XAxis 
+              dataKey="timestamp" 
+              type="number" 
+              scale="time" 
+              domain={[minTime - timeRange * 0.05, maxTime + timeRange * 0.05]}
+              tickFormatter={(ts) => timestampToDate[ts] || ''}
+              stroke="#475569" 
+              fontSize={10} 
+              tickMargin={15} 
+              interval="preserveStartEnd"
+              tick={{ fill: '#94a3b8' }} 
+              axisLine={false} 
+              tickLine={false} 
+            />
             <YAxis yAxisId="left" stroke="#475569" fontSize={10} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
             {!isWeight && <YAxis yAxisId="right" orientation="right" hide domain={['auto', 'auto']} />}
             <Tooltip 
@@ -1178,6 +943,10 @@ const App: React.FC = () => {
               itemStyle={{ fontWeight: '900', color: '#fff', fontSize: '12px' }}
               labelStyle={{ color: '#64748b', fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}
               formatter={(value: number) => [value.toFixed(2), metricKey || 'Value']}
+              labelFormatter={(ts) => {
+                const d = new Date(ts as number);
+                return d.toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+              }}
             />
             {!isWeight && (
               <Bar 
@@ -1207,7 +976,7 @@ const App: React.FC = () => {
   };
 
   // ✅ 新增：渲染自定义指标的折线图
-// ✅ 优化版：身体指标折线图 (与训练图表风格完全统一)
+  // ✅ 优化版：身体指标折线图 (与训练图表风格完全统一)
   const renderMetricChart = (metricName: string) => {
     // 1. 提取并清洗数据
     const data = measurements
@@ -1222,6 +991,18 @@ const App: React.FC = () => {
 
     if (data.length === 0) return null;
 
+    // ✅ 修复时间轴问题：计算时间范围用于设置 domain
+    const timestamps = data.map(d => d.timestamp);
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    const timeRange = maxTime - minTime || 1;
+
+    // ✅ 创建时间戳到显示日期的映射
+    const timestampToDate = data.reduce((acc, d) => {
+      acc[d.timestamp] = d.date;
+      return acc;
+    }, {} as Record<number, string>);
+
     return (
       <div className="w-full h-[180px] mt-4 animate-in fade-in slide-in-from-top-2">
         <ResponsiveContainer width="100%" height="100%">
@@ -1232,7 +1013,21 @@ const App: React.FC = () => {
                 <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
               </linearGradient>
             </defs>
-            <XAxis dataKey="date" stroke="#475569" fontSize={10} tickMargin={15} minTickGap={40} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            {/* ✅ 修复：使用时间比例尺，让日期按实际时间间隔分布 */}
+            <XAxis 
+              dataKey="timestamp" 
+              type="number" 
+              scale="time" 
+              domain={[minTime - timeRange * 0.05, maxTime + timeRange * 0.05]}
+              tickFormatter={(ts) => timestampToDate[ts] || ''}
+              stroke="#475569" 
+              fontSize={10} 
+              tickMargin={15} 
+              interval="preserveStartEnd"
+              tick={{ fill: '#94a3b8' }} 
+              axisLine={false} 
+              tickLine={false} 
+            />
             <YAxis stroke="#475569" fontSize={10} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
             
             <Tooltip 
@@ -1606,7 +1401,7 @@ const performFullSync = async (currentUserId: string) => {
           const localStarred = JSON.parse(localStorage.getItem('fitlog_starred_exercises') || '{}');
           const localMetricConfigs = JSON.parse(localStorage.getItem('fitlog_metric_configs') || '{}');
 
-          // B. 初始化“最终版本”变量（默认先用本地的）
+          // B. 初始化"最终版本"变量（默认先用本地的）
           let finalTags = localTags;
           let finalExs = localExs;
           let finalNotes = localNotes;
@@ -1620,7 +1415,21 @@ const performFullSync = async (currentUserId: string) => {
             if (remoteConfig.customExercises?.length > 0) finalExs = remoteConfig.customExercises;
             if (remoteConfig.exerciseNotes) finalNotes = remoteConfig.exerciseNotes;
             if (remoteConfig.restPrefs) finalRest = remoteConfig.restPrefs;
-            if (remoteConfig.starred) finalStarred = remoteConfig.starred;
+            
+            // ✅ 修复星标数据同步Bug: 使用时间戳智能合并，避免覆盖用户最新操作
+            const localStarredTimestamp = parseInt(localStorage.getItem('fitlog_starred_last_update') || '0');
+            const remoteStarredTimestamp = remoteConfig.starredTimestamp || 0;
+            
+            if (remoteConfig.starred && Object.keys(remoteConfig.starred).length > 0) {
+              if (remoteStarredTimestamp > localStarredTimestamp) {
+                // 云端数据更新，使用云端数据
+                finalStarred = remoteConfig.starred;
+                console.log('使用云端星标数据（更新）');
+              } else {
+                console.log('保留本地星标数据（更新）');
+                // 保持本地配置不变
+              }
+            }
             
             // ✅ 修复Metrics重置Bug: 智能合并metrics配置，避免覆盖用户最新操作
             if (remoteConfig.metricConfigs) {
@@ -1654,12 +1463,13 @@ const performFullSync = async (currentUserId: string) => {
             localStorage.setItem('fitlog_metric_configs', JSON.stringify(finalMetricConfigs));
           }
           
-          // F. ✅ 最终一步：将这个“终极合并版”配置上传回云端，实现多端对齐
+          // F. ✅ 最终一步：将这个"终极合并版"配置上传回云端，实现多端对齐
           await syncUserConfigsToCloud({
             exerciseNotes: finalNotes,
             restPrefs: finalRest,
             customTags: finalTags,
             starred: finalStarred,
+            starredTimestamp: parseInt(localStorage.getItem('fitlog_starred_last_update') || Date.now().toString()),
             customExercises: finalExs,
             metricConfigs: finalMetricConfigs,
             metricsTimestamp: parseInt(localStorage.getItem('fitlog_metrics_last_update') || Date.now().toString())
@@ -1864,7 +1674,7 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     
     // 确认对话框
     const confirmed = window.confirm(
-      lang === 'cn' 
+      lang === Language.CN 
         ? `确定要删除 ${exerciseName} 在 ${date} 的记录吗？\n\n注意：这只会删除这个动作的记录，不会影响同一训练中的其他动作。`
         : `Are you sure you want to delete the ${exerciseName} record from ${date}?\n\nNote: This will only delete this exercise record, not affecting other exercises in the same workout.`
     );
@@ -1875,36 +1685,54 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       // 1. 获取训练记录
       const allWorkouts = await db.getAll<WorkoutSession>('workouts');
       const workout = allWorkouts.find(w => w.id === workoutId);
+      
       if (!workout) {
-        console.warn('Workout not found:', workoutId);
+        console.error('Workout not found:', workoutId);
+        alert(lang === Language.CN ? '训练记录不存在' : 'Workout not found');
         return;
       }
       
-      // 2. 移除指定动作
+      // 2. 移除指定动作（使用严格相等比较）
+      const exerciseToDelete = workout.exercises.find(ex => ex.id === exerciseId);
+      if (!exerciseToDelete) {
+        console.error('Exercise not found in workout:', exerciseId);
+        alert(lang === Language.CN ? '动作记录不存在' : 'Exercise not found');
+        return;
+      }
+      
       const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
       
       // 3. 如果训练为空，删除整个训练
       if (updatedExercises.length === 0) {
         await db.delete('workouts', workoutId);
         console.log('Deleted entire workout (was empty after removing exercise)');
+        
+        // 直接更新内存状态
+        setWorkouts(prev => prev.filter(w => w.id !== workoutId));
       } else {
         // 4. 否则更新训练记录
-        const updatedWorkout = { ...workout, exercises: updatedExercises };
+        const updatedWorkout = { 
+          ...workout, 
+          exercises: updatedExercises,
+          userId: workout.userId // 确保 userId 存在
+        };
         await db.save('workouts', updatedWorkout);
-        console.log('Updated workout after removing exercise');
+        console.log('Updated workout after removing exercise:', workoutId);
+        
+        // 直接更新内存状态
+        setWorkouts(prev => prev.map(w => 
+          w.id === workoutId ? updatedWorkout : w
+        ));
       }
       
-      // 5. 重新加载数据
-      await loadLocalData(user?.id || 'u_guest');
-      
-      // 6. 同步到云端
+      // 5. 同步到云端
       if (user && user.id !== 'u_guest') {
         performFullSync(user.id);
       }
       
-      // 7. 用户反馈
+      // 6. 用户反馈
       alert(
-        lang === 'cn' 
+        lang === Language.CN 
           ? `已删除 ${exerciseName} 的记录`
           : `Deleted ${exerciseName} record`
       );
@@ -1912,7 +1740,7 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     } catch (error) {
       console.error('Error deleting exercise record:', error);
       alert(
-        lang === 'cn' 
+        lang === Language.CN 
           ? '删除失败，请重试'
           : 'Delete failed, please try again'
       );
@@ -2173,6 +2001,35 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     }
   };
 
+  // ✅ 新增：编辑目标处理函数
+  const handleEditGoal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setShowEditGoalModal(true);
+  };
+
+  // ✅ 新增：保存编辑后的目标
+  const handleSaveEditedGoal = async () => {
+    if (!editingGoal || !user) return;
+    
+    const updatedGoal: Goal = {
+      ...editingGoal,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await db.save('goals', updatedGoal);
+    await loadLocalData(user.id);
+    setShowEditGoalModal(false);
+    if (user.id !== 'u_guest') {
+       try { await syncGoalsToCloud([updatedGoal]); } catch (err) { console.warn("Sync failed"); }
+    }
+  };
+
+  // ✅ 新增：取消编辑目标
+  const handleCancelEditGoal = () => {
+    setEditingGoal(null);
+    setShowEditGoalModal(false);
+  };
+
   const handleLogWeight = async () => {
     if (!weightInputValue || !user) return;
     const w = Number(weightInputValue);
@@ -2299,6 +2156,8 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
       if (next[name]) delete next[name];
       else next[name] = Date.now();
       localStorage.setItem('fitlog_starred_exercises', JSON.stringify(next));
+      // ✅ 修复：记录星标更新时间戳，用于智能合并
+      localStorage.setItem('fitlog_starred_last_update', Date.now().toString());
       return next;
     });
   };
@@ -2609,11 +2468,11 @@ const filteredExercises = useMemo(() => {
 
         let next: Partial<ExerciseDefinition> = { ...current };
 
-        // 1. 如果拖动的是当前动作绑定的“部位”，则将其清空（设为空字符串）
+        // 1. 如果拖动的是当前动作绑定的"部位"，则将其清空（设为空字符串）
         if (currentBodyPart === tagId) {
           next.bodyPart = '';
         } 
-        // 2. 如果拖动的是“标签列表”中的一项，则过滤掉它
+        // 2. 如果拖动的是"标签列表"中的一项，则过滤掉它
         else {
           next.tags = currentTags.filter(t => t !== tagId);
         }
@@ -3249,7 +3108,7 @@ const filteredExercises = useMemo(() => {
                   {[
                     // ✅ 核心修改：让系统默认器材（杠铃、哑铃等）在所有分类下都可选
                     ...EQUIPMENT_TAGS, 
-                    // ✅ 核心修改：移除 parentCategory 过滤，显示所有已创建的自定义器材标签（如“篮球”）
+                    // ✅ 核心修改：移除 parentCategory 过滤，显示所有已创建的自定义器材标签（如"篮球"）
                     ...customTags.filter(ct => ct.category === 'equipment').map(t => t.id)
                   ].map(id => (
                     <button 
@@ -3261,19 +3120,19 @@ const filteredExercises = useMemo(() => {
                     </button>
                   ))}
                 </div>
-              {/* ✅ 第四步：修改此处的“确定”按钮逻辑 */}
+              {/* ✅ 第四步：修改此处的"确定"按钮逻辑 */}
               <button 
                 onClick={async () => { 
                   if (!newExerciseName) return; 
                   
                   const currentCat = activeLibraryCategory || 'STRENGTH';
 
-                  // 1. 自动“学习”逻辑：如果选中的标签不属于当前分类，将其变为通用标签
+                  // 1. 自动"学习"逻辑：如果选中的标签不属于当前分类，将其变为通用标签
                   const selectedTagIds = [...newExerciseTags, newExerciseBodyPart].filter(Boolean);
                   const updatedTags = customTags.map(tag => {
                     // 如果这个标签被选中了，且它原本只属于另一个分类
                     if (selectedTagIds.includes(tag.id) && tag.parentCategory && tag.parentCategory !== currentCat) {
-                       // 将其 parentCategory 设为 null，意味着它现在是全部分类通用的“高级标签”
+                       // 将其 parentCategory 设为 null，意味着它现在是全部分类通用的"高级标签"
                        return { ...tag, parentCategory: undefined }; 
                     }
                     return tag;
@@ -3451,7 +3310,7 @@ const filteredExercises = useMemo(() => {
                 }
                 resetDragState(); 
               }} 
-              className={`w-80 overflow-y-auto space-y-6 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
+              className={`w-1/4 overflow-y-auto space-y-6 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
                 isDraggingOverSidebar ? 'bg-red-500/10 border-r-red-500/50 shadow-[inset_-10px_0_20px_-10px_rgba(239,68,68,0.2)]' : ''
               }`}
             >
@@ -3647,7 +3506,7 @@ const filteredExercises = useMemo(() => {
             </div>
 
             {/* ✅ 优化后的动作列表区域 */}
-            <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">
+            <div className="w-3/4 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">
               {/* 动作列表标题和计数 */}
               <div className="flex justify-between items-center px-2 pb-2 border-b border-slate-800/50">
                 <h3 className="text-sm font-black text-slate-300 flex items-center gap-2">
@@ -3683,26 +3542,27 @@ const filteredExercises = useMemo(() => {
                         
                         const exerciseTime = new Date().toISOString();
                         
-                        setCurrentWorkout(p => ({ 
-                          ...p, 
-                          exercises: [
-                            { 
-                              id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                              name: ex.name[lang], 
-                              category: ex.category || activeLibraryCategory || 'STRENGTH', 
-                              sets: [{ id: Date.now().toString(), weight: 0, reps: 0 }],
-                              exerciseTime: exerciseTime,
-                              // ✅ 新增：默认实例配置，基于动作定义的建议
-                              instanceConfig: {
-                                enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
-                                pyramidMode: 'decreasing',
-                                bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
-                                autoCalculateSubSets: false
-                              }
-                            },
-                            ...(p.exercises || [])
-                          ] 
-                        })); 
+                        console.log('Adding exercise:', ex.name[lang]);
+                        
+                        setCurrentWorkout(p => { 
+                          console.log('Previous exercises count:', p.exercises?.length || 0);
+                          const newExercise = { 
+                            id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                            name: ex.name[lang], 
+                            category: ex.category || activeLibraryCategory || 'STRENGTH', 
+                            sets: [{ id: Date.now().toString(), weight: 0, reps: 0 }],
+                            exerciseTime: exerciseTime,
+                            instanceConfig: {
+                              enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
+                              pyramidMode: 'decreasing',
+                              bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
+                              autoCalculateSubSets: false
+                            }
+                          };
+                          const newExercises = [newExercise, ...(p.exercises || [])];
+                          console.log('New exercises count:', newExercises.length);
+                          return { ...p, exercises: newExercises };
+                        }); 
                         setShowLibrary(false); 
                       }} 
                       className={`w-full p-5 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden ${
@@ -3804,6 +3664,101 @@ const filteredExercises = useMemo(() => {
                 </button>
                 <button onClick={handleAddGoal} className="flex-[2] bg-blue-600 py-4 rounded-2xl font-black text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95">
                   {translations.confirm[lang]}
+                </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* ✅ 新增：编辑目标模态框 */}
+      {showEditGoalModal && editingGoal && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-black">
+                  {lang === Language.CN ? '编辑目标' : 'Edit Goal'}
+                </h2>
+                <button onClick={handleCancelEditGoal} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+                  <X size={20} className="text-slate-400" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                 {/* 目标类型选择 */}
+                 <div className="flex gap-2">
+                   {['weight', 'strength', 'frequency'].map(type => (
+                     <button 
+                       key={type} 
+                       onClick={() => setEditingGoal({...editingGoal, type: type as GoalType})} 
+                       className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${
+                         editingGoal.type === type ? 'bg-blue-600' : 'bg-slate-800'
+                       }`}
+                     >
+                       {translations[`goal${type.charAt(0).toUpperCase() + type.slice(1)}`][lang]}
+                     </button>
+                   ))}
+                 </div>
+                 
+                 {/* 目标标题 */}
+                 <input 
+                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" 
+                   value={editingGoal.title || editingGoal.label || ''} 
+                   onChange={e => setEditingGoal({...editingGoal, title: e.target.value, label: e.target.value})} 
+                   placeholder={translations.goalLabelPlaceholder[lang]} 
+                 />
+                 
+                 {/* 当前值和目标值 */}
+                 <div className="grid grid-cols-2 gap-4">
+                    <input 
+                      type="number" 
+                      className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" 
+                      placeholder={translations.current[lang]} 
+                      value={editingGoal.currentValue || ''} 
+                      onChange={e => setEditingGoal({...editingGoal, currentValue: Number(e.target.value)})} 
+                    />
+                    <input 
+                      type="number" 
+                      className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" 
+                      placeholder={translations.target[lang]} 
+                      value={editingGoal.targetValue || ''} 
+                      onChange={e => setEditingGoal({...editingGoal, targetValue: Number(e.target.value)})} 
+                    />
+                 </div>
+                 
+                 {/* 目标描述（可选） */}
+                 <textarea 
+                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 resize-none" 
+                   rows={3}
+                   value={editingGoal.description || ''} 
+                   onChange={e => setEditingGoal({...editingGoal, description: e.target.value})} 
+                   placeholder={lang === Language.CN ? '目标描述（可选）' : 'Goal description (optional)'} 
+                 />
+                 
+                 {/* 目标状态 */}
+                 <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl">
+                   <span className="text-sm font-bold text-slate-300">
+                     {lang === Language.CN ? '目标状态' : 'Goal Status'}
+                   </span>
+                   <button
+                     onClick={() => setEditingGoal({...editingGoal, isActive: !editingGoal.isActive})}
+                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                       editingGoal.isActive 
+                         ? 'bg-green-600 text-white' 
+                         : 'bg-slate-700 text-slate-400'
+                     }`}
+                   >
+                     {editingGoal.isActive 
+                       ? (lang === Language.CN ? '活跃' : 'Active')
+                       : (lang === Language.CN ? '暂停' : 'Paused')
+                     }
+                   </button>
+                 </div>
+              </div>
+              <div className="flex gap-4">
+                <button onClick={handleCancelEditGoal} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400 hover:bg-slate-700 transition-colors">
+                  {lang === Language.CN ? '取消' : 'Cancel'}
+                </button>
+                <button onClick={handleSaveEditedGoal} className="flex-[2] bg-blue-600 py-4 rounded-2xl font-black text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95">
+                  {lang === Language.CN ? '保存更改' : 'Save Changes'}
                 </button>
               </div>
            </div>
@@ -4059,18 +4014,18 @@ const filteredExercises = useMemo(() => {
                 <div className="space-y-4">
                   <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 px-2"><Trophy className="text-amber-500" size={16} /> {translations.prManagement[lang]}</h3>
                   {bestLifts.map(lift => {
-                    const isExpanded = selectedPRProject === lift.name;
-                    const isStarred = !!starredExercises[lift.name];
+                    const isExpanded = selectedPRProject === lift.key;
+                    const isStarred = !!starredExercises[lift.key]; // ✅ 使用稳定 key
                     const historyExs = workouts
                       .flatMap(w => w.exercises.map(e => ({ ...e, date: w.date, workoutId: w.id })))
-                      .filter(e => resolveName(e.name) === lift.name)
+                      .filter(e => e.name === lift.key) // ✅ 使用原始名称匹配
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
                     return (
                       <div key={lift.name} className={`bg-slate-800/40 rounded-[2.5rem] border border-slate-700/50 p-6 transition-all duration-300 hover:border-slate-600 shadow-lg ${isExpanded ? 'ring-2 ring-blue-500/20' : ''}`}>
-                        <div className="flex justify-between items-center cursor-pointer" onClick={() => setSelectedPRProject(isExpanded ? null : lift.name)}>
+                        <div className="flex justify-between items-center cursor-pointer" onClick={() => setSelectedPRProject(isExpanded ? null : lift.key)}>
                           <div className="flex items-center gap-4">
-                            <button onClick={(e) => { e.stopPropagation(); toggleStarExercise(lift.name); }} className={`p-3 rounded-2xl transition-all ${isStarred ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-900 text-slate-600 hover:text-amber-500'}`}><Star size={20} fill={isStarred ? "currentColor" : "none"} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); toggleStarExercise(lift.key); }} className={`p-3 rounded-2xl transition-all ${isStarred ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-slate-900 text-slate-600 hover:text-amber-500'}`}><Star size={20} fill={isStarred ? "currentColor" : "none"} /></button>
                             <span className="font-black text-slate-200">{lift.name}</span>
                           </div>
                           <div className="flex items-center gap-6">
@@ -4372,7 +4327,7 @@ const filteredExercises = useMemo(() => {
                               return (
                                 <div key={m} className="flex items-center justify-center gap-1">
                                   {activeMetrics.map(m => {
-                                    // 情况 1：如果是“时长”维度，渲染大按钮触发 TimePicker
+                                    // 情况 1：如果是"时长"维度，渲染大按钮触发 TimePicker
                                     if (m === 'duration') {
                                       const hms = secondsToHMS(set.duration || 0);
                                       return (
@@ -4727,7 +4682,71 @@ const filteredExercises = useMemo(() => {
           </div>)}
 
           {/* 目标管理 保持不变 */}
-          {activeTab === 'goals' && (<div className="space-y-6 animate-in slide-in-from-right"><div className="flex justify-between items-center"><div><h2 className="text-3xl font-black">{translations.goals[lang]}</h2><p className="text-slate-500">{translations.goalsSubtitle[lang]}</p></div><button onClick={() => setShowGoalModal(true)} className="p-4 bg-blue-600 rounded-2xl"><Plus size={24} /></button></div><div className="grid grid-cols-1 md:grid-cols-2 gap-6">{goals.map(g => (<div key={g.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50"><div className="flex justify-between items-start mb-4"><div><h4 className="font-black text-xl">{g.title || g.label || 'Untitled Goal'}</h4><span className="text-[10px] text-blue-500 uppercase">{g.type}</span></div><button onClick={async () => { await db.delete('goals', g.id); setGoals(p => p.filter(x => x.id !== g.id)); }}><Trash2 size={16} className="text-slate-700" /></button></div><div className="flex justify-between items-end mb-2"><span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span><span className="text-slate-500 text-xs">{g.unit}</span></div><div className="h-2 bg-slate-900 rounded-full overflow-hidden"><div className="h-full bg-blue-600" style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}></div></div></div>))}</div></div>)}
+          {activeTab === 'goals' && (
+            <div className="space-y-6 animate-in slide-in-from-right">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-3xl font-black">{translations.goals[lang]}</h2>
+                  <p className="text-slate-500">{translations.goalsSubtitle[lang]}</p>
+                </div>
+                <button onClick={() => setShowGoalModal(true)} className="p-4 bg-blue-600 rounded-2xl">
+                  <Plus size={24} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {goals.map(g => (
+                  <div key={g.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h4 className="font-black text-xl">{g.title || g.label || 'Untitled Goal'}</h4>
+                        <span className="text-[10px] text-blue-500 uppercase">{g.type}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* ✅ 新增：编辑按钮 */}
+                        <button 
+                          onClick={() => handleEditGoal(g)}
+                          className="p-2 text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
+                          title={lang === Language.CN ? '编辑目标' : 'Edit Goal'}
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        {/* 原有的删除按钮 */}
+                        <button 
+                          onClick={async () => { 
+                            await db.delete('goals', g.id); 
+                            setGoals(p => p.filter(x => x.id !== g.id)); 
+                          }}
+                          className="p-2 text-slate-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                          title={lang === Language.CN ? '删除目标' : 'Delete Goal'}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-end mb-2">
+                      <span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span>
+                      <span className="text-slate-500 text-xs">{g.unit}</span>
+                    </div>
+                    <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-600" 
+                        style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}
+                      ></div>
+                    </div>
+                    {/* ✅ 新增：目标状态指示器 */}
+                    {!g.isActive && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+                        <span className="text-xs text-slate-500 font-bold">
+                          {lang === Language.CN ? '已暂停' : 'Paused'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* 修改 4: 新增个人中心页面 (Profile) */}
           {activeTab === 'profile' && (
@@ -4986,7 +5005,7 @@ const filteredExercises = useMemo(() => {
                     );
                   })}
 
-                  {/* 这是一个“添加”卡片，当没有任何数据时显示，或者一直显示在最后 */}
+                  {/* 这是一个"添加"卡片，当没有任何数据时显示，或者一直显示在最后 */}
                   <button onClick={() => setShowMeasureModal(true)} className="bg-slate-800/20 border-2 border-dashed border-slate-700/50 p-4 rounded-[1.5rem] flex flex-col items-center justify-center gap-2 hover:bg-slate-800/40 transition-all min-h-[100px]">
                      <div className="p-2 bg-slate-800 rounded-full text-slate-500">
                         <Plus size={16} />
@@ -5104,7 +5123,7 @@ const filteredExercises = useMemo(() => {
           </div>
         </div>
       )}
-      {/* ✅ 在这里插入新的“维度设置弹窗”代码 */}
+      {/* ✅ 在这里插入新的"维度设置弹窗"代码 */}
       {showMetricModal && (
         <div className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
@@ -5304,76 +5323,15 @@ const filteredExercises = useMemo(() => {
         </div>
       )}
 
-      {/* --- 修改后：可拖拽悬浮休息计时器 (UI) --- */}
-      {isResting && (
-        <div 
-          className={`fixed z-[100] touch-none cursor-move select-none ${isDraggingState ? 'transition-none' : 'transition-all duration-500 ease-out'}`}
-          style={{ 
-            right: `${timerPos.x}px`, 
-            bottom: `${timerPos.y}px` 
-          }}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          // 添加 onPointerCancel 以防意外中断
-          onPointerCancel={handlePointerUp}
-        >
-          {timerMinimized ? (
-            /* 1. 最小化状态：极简圆球 (只显示时间) */
-            <div className="bg-indigo-600 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center border-4 border-indigo-400/30 backdrop-blur-xl relative transition-transform active:scale-90">
-              <span className="text-sm font-black tabular-nums tracking-tighter">
-                {Math.floor(restSeconds / 60)}:{(restSeconds % 60).toString().padStart(2, '0')}
-              </span>
-              
-              {/* 删除了之前的 Rest 文字、遮罩按钮和关闭按钮 */}
-            </div>
-          ) : (
-            /* 2. 展开状态：完整面板 (保持不变) */
-            <div className="bg-indigo-600 text-white p-4 rounded-[2rem] shadow-2xl shadow-indigo-600/40 w-80 border border-indigo-400/20 backdrop-blur-xl animate-in zoom-in-95 duration-200">
-              
-              {/* 顶部拖拽条 & 最小化 */}
-              <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-                <div className="flex items-center gap-2 opacity-50">
-                  <GripHorizontal size={16} />
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onPointerDown={(e) => e.stopPropagation()} 
-                    onClick={() => setTimerMinimized(true)} 
-                    className="p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Minimize2 size={16} />
-                  </button>
-                  <button 
-                    onPointerDown={(e) => e.stopPropagation()} 
-                    onClick={() => setIsResting(false)} 
-                    className="p-1 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                {/* 时间显示 */}
-                <div className="flex items-center gap-3">
-                  <div className="bg-white/20 p-2 rounded-full animate-pulse">
-                    <History size={20} className="text-white" />
-                  </div>
-                  <span className="text-3xl font-black tabular-nums leading-none">
-                    {Math.floor(restSeconds / 60)}:{(restSeconds % 60).toString().padStart(2, '0')}
-                  </span>
-                </div>
-
-                {/* 控制按钮 */}
-                <div className="flex items-center gap-1">
-                  <button onPointerDown={(e) => e.stopPropagation()} onClick={() => adjustRestTime(-10)} className="w-8 h-8 flex items-center justify-center bg-black/20 hover:bg-black/30 rounded-full text-[10px] font-bold transition-colors cursor-pointer">-10</button>
-                  <button onPointerDown={(e) => e.stopPropagation()} onClick={() => adjustRestTime(30)} className="w-8 h-8 flex items-center justify-center bg-black/20 hover:bg-black/30 rounded-full text-[10px] font-bold transition-colors cursor-pointer">+30</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* --- 可拖拽悬浮休息计时器（仅在添加运动界面显示） --- */}
+      {activeTab === 'new' && (
+      <RestTimer
+        isResting={isResting}
+        restSeconds={restSeconds}
+        setRestSeconds={setRestSeconds}
+        setIsResting={setIsResting}
+        onAdjustTime={adjustRestTime}
+      />
       )}
       {(user && authMode !== 'updatePassword') && (
         <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-slate-950/90 backdrop-blur-3xl border border-white/10 p-2 flex justify-between items-center rounded-[2.5rem] z-50 shadow-2xl">

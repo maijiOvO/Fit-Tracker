@@ -9,7 +9,7 @@ const getSystemInstruction = (lang: Language) => {
 };
 
 export const analyzeWorkout = async (sessions: WorkoutSession[], lang: Language): Promise<string> => {
-  // Fix: Strictly use process.env.API_KEY and gemini-3-pro-preview for complex analysis
+  // ✅ 修复：使用正确的 Gemini 模型名 (gemini-2.0-flash 是稳定可用的模型)
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = lang === Language.CN 
@@ -18,7 +18,7 @@ export const analyzeWorkout = async (sessions: WorkoutSession[], lang: Language)
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.0-flash',
       contents: prompt,
       config: {
         systemInstruction: getSystemInstruction(lang),
@@ -38,7 +38,7 @@ export const chatWithCoach = async (message: string, history: { role: 'user' | '
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.0-flash',
       contents: [
         ...history,
         { role: 'user', parts: [{ text: message }] }
