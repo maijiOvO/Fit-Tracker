@@ -29,6 +29,11 @@ import { KG_TO_LBS, KMH_TO_MPH, playTimerSound } from './src/constants';
 import { BODY_PARTS, EQUIPMENT_TAGS, DEFAULT_EXERCISES, STANDARD_METRICS, ExerciseCategory } from './src/constants/exercises';
 import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, formatTime } from './src/utils/format';
 import { RestTimer } from './src/components/RestTimer';
+import TabNavigation from './src/components/TabNavigation';
+import { SetCapsule } from './src/components/SetCapsule';
+
+// ✅ 新增：导入自定义 Hooks
+import { useAuth, useWorkout, useUserSettings } from './src/hooks';
 
 const App: React.FC = () => {
   const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
@@ -2518,96 +2523,23 @@ const filteredExercises = useMemo(() => {
     localStorage.setItem('fitlog_unit', newUnit);
   };
 
+
+  // ✅ 重构：使用 SetCapsule 组件替代内联代码
   const renderSetCapsule = (s: any, exerciseName: string, exercise?: Exercise) => {
-    // 这里的逻辑是根据动作名称获取它开启了哪些维度
     const metrics = getActiveMetrics(exerciseName);
     
-    // ✅ 新增：获取动作配置信息用于显示特殊标识
-    const config = exercise ? getExerciseConfig(exercise) : null;
-    const isPyramid = config?.enablePyramid || false;
-    const bodyweightMode = config?.bodyweightMode || 'none';
-    
     return (
-      <div className="bg-slate-900/60 border border-slate-800/80 px-4 py-2 rounded-2xl transition-all hover:border-blue-500/30">
-        {/* ✅ 新增：显示配置标识 */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {/* 显示训练数据 */}
-          {metrics.map(m => (
-            <div key={m} className="flex items-center gap-1">
-              <span className="text-[10px] text-slate-500 font-bold uppercase">
-                {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}:
-              </span>
-              {/* 使用我们之前定义的 formatValue 来显示带单位的值 */}
-              <span className="font-black text-slate-100 text-sm">{formatValue(s[m], m, unit)}</span>
-            </div>
-          ))}
-          
-          {/* ✅ 新增：显示特殊配置标识 */}
-          <div className="flex items-center gap-1 ml-2">
-            {/* 递增递减组标识 */}
-            {isPyramid && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 rounded-lg border border-orange-500/30">
-                <Layers size={10} />
-                <span className="text-[8px] font-black uppercase">
-                  {lang === Language.CN ? '递增递减' : 'Pyramid'}
-                </span>
-              </div>
-            )}
-            
-            {/* 自重模式标识 */}
-            {bodyweightMode !== 'none' && (
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[8px] font-black uppercase ${
-                bodyweightMode === 'bodyweight' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                bodyweightMode === 'weighted' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                bodyweightMode === 'assisted' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' :
-                'bg-slate-500/20 text-slate-400 border-slate-500/30'
-              }`}>
-                {bodyweightMode === 'bodyweight' && <><UserIcon size={10} /><span>{lang === Language.CN ? '自重' : 'BW'}</span></>}
-                {bodyweightMode === 'weighted' && <><Plus size={10} /><span>{lang === Language.CN ? '负重' : '+W'}</span></>}
-                {bodyweightMode === 'assisted' && <><Minus size={10} /><span>{lang === Language.CN ? '辅助' : 'AST'}</span></>}
-              </div>
-            )}
-            
-            {/* 递增递减组子组显示 */}
-            {isPyramid && s.subSets && s.subSets.length > 0 && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/30">
-                <Hash size={10} />
-                <span className="text-[8px] font-black">
-                  {s.subSets.length} {lang === Language.CN ? '子组' : 'Sub'}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        {/* ✅ 新增：递增递减组子组详细信息展示 */}
-        {isPyramid && s.subSets && s.subSets.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-slate-700/50">
-            <div className="flex flex-wrap gap-1">
-              {s.subSets.map((subSet: SubSetLog, idx: number) => (
-                <div key={subSet.id || idx} className="flex items-center gap-1 px-2 py-1 bg-slate-800/60 rounded-lg border border-slate-700/50">
-                  <span className="text-[8px] text-slate-500 font-bold">{idx + 1}:</span>
-                  <span className="text-[8px] text-slate-300 font-bold">
-                    {subSet.weight > 0 && `${subSet.weight}${unit === 'kg' ? 'kg' : 'lbs'}`}
-                    {subSet.weight > 0 && subSet.reps > 0 && ' × '}
-                    {subSet.reps > 0 && `${subSet.reps}${lang === Language.CN ? '次' : 'r'}`}
-                  </span>
-                  {subSet.note && (
-                    <div className="flex items-center gap-1">
-                      <StickyNote size={8} className="text-slate-500" />
-                      <span className="text-[7px] text-slate-500 max-w-[60px] truncate" title={subSet.note}>
-                        {subSet.note}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <SetCapsule
+        set={s}
+        exerciseName={exerciseName}
+        exercise={exercise}
+        metrics={metrics}
+        unit={unit}
+        lang={lang}
+      />
     );
   };
+
 
   return (
     <div className="min-h-screen pb-32 bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
@@ -5334,48 +5266,15 @@ const filteredExercises = useMemo(() => {
       />
       )}
       {(user && authMode !== 'updatePassword') && (
-        <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-slate-950/90 backdrop-blur-3xl border border-white/10 p-2 flex justify-between items-center rounded-[2.5rem] z-50 shadow-2xl">
-          
-          {/* 1. 开始训练 (移到最左侧，保留蓝色圆圈风格，但缩小并对齐) */}
-          <button 
-            onClick={() => { setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() }); setActiveTab('new'); }} 
-            className="flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all hover:bg-white/5 active:scale-95"
-          >
-            {/* 蓝色圆圈背景，大小适中 (p-2.5) */}
-            <div className={`rounded-full p-2.5 shadow-lg shadow-blue-600/30 transition-all ${activeTab === 'new' ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
-              <Plus size={20} strokeWidth={3} />
-            </div>
-            {/* 文字标签，确保高度对齐 */}
-            <span className={`text-[9px] font-black uppercase tracking-wide ${activeTab === 'new' ? 'text-blue-500' : 'text-slate-500'}`}>
-              {lang === Language.CN ? '开始' : 'Start'}
-            </span>
-          </button>
-
-          {/* 2. 首页 Dashboard */}
-          <button onClick={() => setActiveTab('dashboard')} className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all ${activeTab === 'dashboard' ? 'text-blue-500' : 'text-slate-600 hover:text-slate-400'}`}>
-            <div className="p-2.5"> {/* 添加透明容器占位，确保图标视觉中心对齐 */}
-              <BarChart2 size={20} strokeWidth={2.5} />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-wide">{translations.dashboard[lang]}</span>
-          </button>
-          
-          {/* 3. 训练目标 Goals */}
-          <button onClick={() => setActiveTab('goals')} className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all ${activeTab === 'goals' ? 'text-blue-500' : 'text-slate-600 hover:text-slate-400'}`}>
-            <div className="p-2.5">
-              <Target size={20} strokeWidth={2.5} />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-wide">{translations.goals[lang]}</span>
-          </button>
-          
-          {/* 4. 我的 Profile */}
-          <button onClick={() => setActiveTab('profile')} className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all ${activeTab === 'profile' ? 'text-blue-500' : 'text-slate-600 hover:text-slate-400'}`}>
-            <div className="p-2.5">
-              <UserIcon size={20} strokeWidth={2.5} />
-            </div>
-            <span className="text-[9px] font-black uppercase tracking-wide">{lang === Language.CN ? '我的' : 'Profile'}</span>
-          </button>
-
-        </nav>
+        <TabNavigation
+          activeTab={activeTab as 'dashboard' | 'new' | 'goals' | 'profile'}
+          onTabChange={setActiveTab}
+          lang={lang}
+          onStartWorkout={() => {
+            setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
+            setActiveTab('new');
+          }}
+        />
       )}
     </div>
   );
