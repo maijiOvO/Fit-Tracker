@@ -35,31 +35,73 @@ import { GoalsTab } from './src/components/GoalsTab';
 import { ProfileTab } from './src/components/ProfileTab';
 import { ExerciseCard } from './src/components/ExerciseCard';
 import { useAuth, useWorkout, useUserSettings } from './src/hooks';
+import { useAuthContext, useWorkoutContext, useGoalsContext, useUserSettingsContext } from './src/contexts';
 
-const App: React.FC = () => {
+// AppWithAuth receives userId from wrapper and provides Context values to App
+interface AppWithAuthProps {
+  userId?: string;
+  onUserIdChange: (id: string | undefined) => void;
+}
+
+const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => {
+  // === Context Hooks ===
+  const authCtx = useAuthContext();
+  const workoutCtx = useWorkoutContext();
+  const goalsCtx = useGoalsContext();
+  const settingsCtx = useUserSettingsContext();
+  
+  // Sync userId with parent when auth changes
+  useEffect(() => {
+    if (authCtx.user && authCtx.user.id !== userId) {
+      onUserIdChange(authCtx.user.id);
+    }
+  }, [authCtx.user]);
+  
+  // === State from Context (with fallbacks for standalone mode) ===
+  const lang = settingsCtx?.lang || Language.CN;
+  const setLang = settingsCtx?.setLang || (() => {});
+  const unit = settingsCtx?.unit || 'kg';
+  const setUnit = settingsCtx?.setUnit || (() => {});
+  const weightEntries = settingsCtx?.weightEntries || [];
+  const measurements = settingsCtx?.measurements || [];
+  
+  // Auth state from Context
+  const user = authCtx?.user || null;
+  const authMode = authCtx?.authMode || 'login';
+  const setAuthMode = authCtx?.setAuthMode || (() => {});
+  const email = authCtx?.email || '';
+  const setEmail = authCtx?.setEmail || (() => {});
+  const password = authCtx?.password || '';
+  const setPassword = authCtx?.setPassword || (() => {});
+  const username = authCtx?.username || '';
+  const setUsername = authCtx?.setUsername || (() => {});
+  const showPassword = authCtx?.showPassword || false;
+  const setShowPassword = authCtx?.setShowPassword || (() => {});
+  const authError = authCtx?.authError || null;
+  const setAuthError = authCtx?.setAuthError || (() => {});
+  const isLoading = authCtx?.isLoading || false;
+  const setIsLoading = authCtx?.setIsLoading || (() => {});
+  const isUpdateSuccess = authCtx?.isUpdateSuccess || false;
+  
+  // === Local UI State ===
   const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
   const [previousLibraryCategory, setPreviousLibraryCategory] = useState<ExerciseCategory | null>(null);
-  const [lang, setLang] = useState<Language>(Language.CN);
-  const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'new' | 'goals' | 'profile'>('dashboard');
   
-  const [authMode, setAuthMode] = useState<'login' | 'register' | 'forgotPassword' | 'updatePassword'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isUpdateSuccess, setIsUpdateSuccess] = useState(false); // ✅ 新增：控制显示成功画面
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
   
-  const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
-  // 定义一个本地接口
+  // Workout state from Context
+  const workouts = workoutCtx?.workouts || [];
+  const currentWorkout = workoutCtx?.currentWorkout || null;
+  const setCurrentWorkout = workoutCtx?.setCurrentWorkout || (() => {});
+  
+  // Goals state from Context
+  const goals = goalsCtx?.goals || [];
+  // weightEntries and measurements now come from Context (see line 60-61)
+  // 定义一个本地接口 (用于本地状态类型)
   interface Measurement { id: string; userId: string; name: string; value: number; unit: string; date: string; }
   
-  const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  // measurements now comes from Context (see line 61)
 
   // --- ✅ 新增：时间选择器专用状态 ---
   const [showTimePicker, setShowTimePicker] = useState<{ exIdx: number; setIdx: number } | null>(null);
@@ -569,11 +611,7 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   };
-  // ✅ 修复单位显示不一致Bug: 从localStorage同步读取初始值，避免异步加载导致的不一致
-  const [unit, setUnit] = useState<'kg' | 'lbs'>(() => {
-    const savedUnit = localStorage.getItem('fitlog_unit') as 'kg' | 'lbs';
-    return savedUnit || 'kg';
-  });
+  // unit now comes from Context (see line 62)
   const [selectedPRProject, setSelectedPRProject] = useState<string | null>(null);
   // ✅ 新增：控制历史记录中哪个维度正在画图 (格式: { "动作名称": "metricKey" })
   const [chartMetricPreference, setChartMetricPreference] = useState<Record<string, string>>({});
@@ -814,7 +852,7 @@ const App: React.FC = () => {
   };
   const parseWeight = (val: number) => unit === 'kg' ? val : val / KG_TO_LBS;
 
-  const [currentWorkout, setCurrentWorkout] = useState<Partial<WorkoutSession>>({ title: '', exercises: [], date: new Date().toISOString() });
+  // currentWorkout and setCurrentWorkout now come from WorkoutContext (see line 86-87)
   const [newGoal, setNewGoal] = useState<Partial<Goal>>({ type: 'weight', targetValue: 0, currentValue: 0, label: '' });
   // ✅ 新增：编辑目标相关状态
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -4665,4 +4703,21 @@ const filteredExercises = useMemo(() => {
   );
 };
 
-export default App;
+// === Context Providers Wrapper ===
+const AppWithProviders: React.FC = () => {
+  const [userId, setUserId] = useState<string | undefined>(undefined);
+  
+  return (
+    <AuthProvider>
+      <UserSettingsProvider userId={userId}>
+        <WorkoutProvider userId={userId}>
+          <GoalsProvider userId={userId}>
+            <AppWithAuth userId={userId} onUserIdChange={setUserId} />
+          </GoalsProvider>
+        </WorkoutProvider>
+      </UserSettingsProvider>
+    </AuthProvider>
+  );
+};
+
+export default AppWithProviders;

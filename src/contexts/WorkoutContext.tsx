@@ -16,6 +16,7 @@ interface WorkoutContextType {
   
   // Current Workout Operations
   setCurrentWorkout: React.Dispatch<React.SetStateAction<WorkoutSession | null>>;
+  updateCurrentWorkout: (updates: Partial<WorkoutSession>) => void;
   createNewWorkout: () => WorkoutSession;
   
   // Sync
@@ -182,6 +183,11 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     };
   };
 
+  // Update current workout with partial updates
+  const updateCurrentWorkout = (updates: Partial<WorkoutSession>) => {
+    setCurrentWorkout(prev => prev ? { ...prev, ...updates } : null);
+  };
+
   const syncWorkouts = async () => {
     if (!userId || userId === 'u_guest') return;
     await loadWorkouts();
@@ -196,6 +202,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
       updateWorkout,
       deleteWorkout,
       setCurrentWorkout,
+      updateCurrentWorkout,
       createNewWorkout,
       syncWorkouts,
     }}>
