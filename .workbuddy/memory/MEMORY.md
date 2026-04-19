@@ -42,5 +42,11 @@
 
 ## 剩余工作
 - Tailwind CDN 问题修复（可选）
-- 代码分割优化（vendor-charts 365KB 可考虑延迟加载）
+- 主 chunk 进一步优化（考虑拆分 GoalsTab）
 - P3 Zustand（可选增强）
+
+## 代码分割完成（22:31）
+- ✅ Dashboard 懒加载 (10.33 KB gzip: 3.20 KB)
+- ✅ ProfileTab 懒加载 (22.71 KB gzip: 6.68 KB)
+- ✅ recharts/react-calendar-heatmap 自动按需加载
+- ✅ 首屏主 chunk 从 516KB 减少到 496KB
