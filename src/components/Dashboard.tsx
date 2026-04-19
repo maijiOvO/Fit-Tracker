@@ -11,6 +11,7 @@ import { WorkoutSession, WeightEntry, Exercise } from '../../types';
 
 interface DashboardProps {
   // 数据
+  lang: Language;
   workouts: WorkoutSession[];
   weightEntries: WeightEntry[];
   bestLifts: Array<{ name: string; key: string; weight: number }>;
@@ -35,6 +36,7 @@ interface DashboardProps {
   setEditingWeightId: (id: string | null) => void;
   setWeightInputValue: (value: string) => void;
   handleExportData: () => void;
+  onStartNewWorkout: () => void;
   
   // 图表
   renderTrendChart: (target: string, metricKey?: string) => React.ReactNode;
@@ -47,6 +49,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
+  lang,
   workouts,
   weightEntries,
   bestLifts,
@@ -67,6 +70,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   setEditingWeightId,
   setWeightInputValue,
   handleExportData,
+  onStartNewWorkout,
   renderTrendChart,
   getActiveMetrics,
   getChartMetric,
@@ -83,15 +87,15 @@ const Dashboard: React.FC<DashboardProps> = ({
           <Trophy size={80} className="text-blue-500" />
         </div>
         <h2 className="text-3xl font-black mb-4 bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-          {translations.dashboardEmptyTitle[Language.CN]}
+          {translations.dashboardEmptyTitle[lang]}
         </h2>
         <p className="text-slate-400 max-w-sm font-medium leading-relaxed text-lg mb-10">
-          {translations.dashboardEmptyDesc[Language.CN]}
+          {translations.dashboardEmptyDesc[lang]}
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
-          <button className="group bg-blue-600 px-10 py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-3">
+          <button onClick={onStartNewWorkout} className="group bg-blue-600 px-10 py-5 rounded-[2rem] font-black text-xl shadow-xl shadow-blue-600/30 active:scale-95 transition-all flex items-center gap-3">
             <PlusCircle size={24} className="group-hover:rotate-90 transition-transform" />
-            {translations.newWorkout[Language.CN]}
+            {translations.newWorkout[lang]}
           </button>
         </div>
       </div>
@@ -108,7 +112,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         >
           <div className="flex flex-col">
             <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2 mb-2">
-              <Scale size={16} /> {translations.currentWeight[Language.CN]}
+              <Scale size={16} /> {translations.currentWeight[lang]}
             </h3>
             <div className="flex items-end">
               <span className="text-4xl font-black text-white">
@@ -133,13 +137,13 @@ const Dashboard: React.FC<DashboardProps> = ({
         {selectedPRProject === '__WEIGHT__' && (
           <div className="border-t border-indigo-500/10 mt-6 pt-6">
             <p className="text-[10px] text-indigo-400/60 font-black uppercase tracking-widest mb-4 flex items-center gap-2">
-              <TrendingUp size={12} /> {translations.weightTrend[Language.CN]}
+              <TrendingUp size={12} /> {translations.weightTrend[lang]}
             </p>
             {renderTrendChart('__WEIGHT__')}
             
             <div className="mt-8 space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 pt-2 border-t border-indigo-500/5">
               <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-2 mb-4 px-1">
-                <History size={12} /> {Language.CN === 1 ? '历史体重记录' : 'Weight History'} ({weightEntries.length})
+                <History size={12} /> {lang === Language.CN ? '历史体重记录' : 'Weight History'} ({weightEntries.length})
               </h4>
               {weightEntries.map(entry => (
                 <div key={entry.id} className="bg-slate-900/40 p-4 rounded-2xl border border-slate-800/50 flex justify-between items-center group">
@@ -174,7 +178,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* PR 管理 */}
       <div className="space-y-4">
         <h3 className="text-xs font-black text-slate-500 uppercase flex items-center gap-2 px-2">
-          <Trophy className="text-amber-500" size={16} /> {translations.prManagement[Language.CN]}
+          <Trophy className="text-amber-500" size={16} /> {translations.prManagement[lang]}
         </h3>
         
         {bestLifts.map(lift => {
@@ -220,7 +224,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                             : 'bg-slate-900 text-slate-500 border border-slate-800'
                         }`}
                       >
-                        {translations[m as keyof typeof translations]?.[Language.CN] || m.replace('custom_', '')}
+                        {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
                       </button>
                     ))}
                   </div>
@@ -238,7 +242,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         className="w-full flex items-center justify-between px-1 group"
                       >
                         <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest group-hover:text-blue-400 transition-colors">
-                          {translations.history[Language.CN]} ({historyExs.length})
+                          {translations.history[lang]} ({historyExs.length})
                         </h4>
                         <div className={`p-2 rounded-xl bg-slate-900/50 text-slate-600 group-hover:text-blue-500 transition-all ${isHistoryVisible ? 'rotate-180 text-blue-500' : ''}`}>
                           <ChevronDown size={16} />
@@ -290,7 +294,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   )}
                                 </div>
                                 <span className="text-[10px] font-black bg-slate-800/80 text-slate-500 px-3 py-1 rounded-full uppercase tracking-wider border border-slate-700/30">
-                                  {ex.sets.length} {translations.setsCount[Language.CN]}
+                                  {ex.sets.length} {translations.setsCount[lang]}
                                 </span>
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -318,9 +322,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
           <div className="space-y-2">
-            <h4 className="text-lg font-black text-white">{translations.exportData[Language.CN]}</h4>
+            <h4 className="text-lg font-black text-white">{translations.exportData[lang]}</h4>
             <p className="text-xs text-slate-500 leading-relaxed max-w-[240px] mx-auto">
-              {translations.exportDesc[Language.CN]}
+              {translations.exportDesc[lang]}
             </p>
           </div>
           <button 
