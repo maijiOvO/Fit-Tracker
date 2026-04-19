@@ -4089,373 +4089,78 @@ const filteredExercises = useMemo(() => {
             )
           }</div>)}
 
-          {/* 新增训练 保持不变 */}
-          {activeTab === 'new' && (<div className="space-y-8 animate-in slide-in-from-bottom-5"><div className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
-          <input className="bg-transparent text-3xl font-black w-full outline-none" value={currentWorkout.title} onChange={e => setCurrentWorkout({...currentWorkout, title: e.target.value})} 
-          placeholder={translations.trainingTitlePlaceholder[lang]} /></div><div className="space-y-6">{currentWorkout.exercises?.map((ex, exIdx) => { 
-            const isBodyweight = isBodyweightMode(ex); 
-            const isPyramid = isPyramidEnabled(ex);
-
-            return (<div key={ex.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
-
-              <div className="flex flex-col gap-2 mb-6">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-black text-blue-400 leading-tight">{resolveName(ex.name)}</h3>
-                    
-                    {/* ✅ 新增：显示和编辑训练时间 */}
-                    {ex.exerciseTime && (
-                      <button
-                        onClick={() => {
-                          const timeForInput = new Date(ex.exerciseTime).toISOString().slice(0, 16);
-                          setCustomExerciseTime(timeForInput);
-                          initializeTimePicker(ex.exerciseTime);
-                          setShowTimePickerModal({ exerciseId: ex.id, currentTime: ex.exerciseTime });
-                        }}
-                        className="px-3 py-1 bg-slate-700/50 border border-slate-600/50 rounded-lg text-xs font-bold text-slate-300 hover:bg-slate-600/50 transition-colors flex items-center gap-1"
-                        title={lang === 'cn' ? '点击编辑训练时间' : 'Click to edit exercise time'}
-                      >
-                        <Calendar size={12} />
-                        {formatExerciseTime(ex.exerciseTime, lang === 'cn' ? 'cn' : 'en').time}
-                      </button>
-                    )}
-                    
-                    {/* 备注按钮 */}
-                    <button 
-                      onClick={() => setNoteModalData({ name: resolveName(ex.name), note: exerciseNotes[resolveName(ex.name)] || '' })}
-                      className={`p-2 rounded-xl transition-all active:scale-90 ${exerciseNotes[resolveName(ex.name)] ? 'text-amber-400 bg-amber-400/10' : 'text-slate-600 hover:text-slate-400'}`}
-                    >
-                      <StickyNote size={18} />
-                    </button>
-                  </div>
-
-                    <button 
-                      onClick={() => setShowMetricModal({ name: resolveName(ex.name) })}
-                      className="p-2 rounded-xl text-slate-600 hover:text-blue-400 bg-slate-800/50 active:scale-90 transition-all"
-                    >
-                      <SettingsIcon size={18} />
-                    </button>
-                  {/* 删除动作按钮 */}
-                  <button onClick={() => setCurrentWorkout({...currentWorkout, exercises: currentWorkout.exercises!.filter((_, i) => i !== exIdx)})} className="text-slate-600 hover:text-red-500 transition-colors p-1">
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-
-                {/* 如果有备注，显示在这里 */}
-                {exerciseNotes[resolveName(ex.name)] && (
-                  <div 
-                    onClick={() => setNoteModalData({ name: resolveName(ex.name), note: exerciseNotes[resolveName(ex.name)] || '' })}
-                    className="self-start bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 cursor-pointer hover:bg-amber-500/20 transition-colors"
-                  >
-                    <p className="text-xs text-amber-500/90 font-bold flex items-start gap-2">
-                      <StickyNote size={12} className="mt-0.5 flex-shrink-0" />
-                      {exerciseNotes[resolveName(ex.name)]}
-                    </p>
-                  </div>
-                )}
+          {/* 新增训练 */}
+          {activeTab === 'new' && (
+            <div className="space-y-8 animate-in slide-in-from-bottom-5">
+              <div className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
+                <input 
+                  className="bg-transparent text-3xl font-black w-full outline-none" 
+                  value={currentWorkout.title} 
+                  onChange={e => setCurrentWorkout({...currentWorkout, title: e.target.value})} 
+                  placeholder={translations.trainingTitlePlaceholder[lang]} 
+                />
               </div>
               
-              {/* ✅ 新增：动作配置区域 */}
-              <div className="flex gap-2 mb-6">
-                {/* 自重模式配置 */}
-                <div className="flex gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800">
-                  {(['none', 'bodyweight', 'assisted', 'weighted'] as const).map(mode => (
-                    <button 
-                      key={mode} 
-                      onClick={() => {
-                        const exs = [...currentWorkout.exercises!];
-                        exs[exIdx].instanceConfig = {
-                          ...exs[exIdx].instanceConfig,
-                          bodyweightMode: mode
-                        };
-                        // 更新所有组的bodyweightMode
-                        if (mode === 'bodyweight' || mode === 'assisted' || mode === 'weighted') {
-                          exs[exIdx].sets = exs[exIdx].sets.map(s => ({ ...s, bodyweightMode: 'normal' }));
-                        } else {
-                          exs[exIdx].sets = exs[exIdx].sets.map(s => {
-                            const { bodyweightMode, ...rest } = s;
-                            return rest;
-                          });
-                        }
-                        setCurrentWorkout({...currentWorkout, exercises: exs});
-                      }} 
-                      className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all 
-                        ${getExerciseConfig(ex).bodyweightMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
-                    >
-                      {mode === 'none' ? (lang === Language.CN ? '器械' : 'Weight') :
-                       mode === 'bodyweight' ? (lang === Language.CN ? '自重' : 'Bodyweight') :
-                       mode === 'assisted' ? (lang === Language.CN ? '辅助' : 'Assisted') :
-                       (lang === Language.CN ? '负重' : 'Weighted')}
-                    </button>
-                  ))}
-                </div>
+              <div className="space-y-6">
+            {currentWorkout.exercises?.map((ex, exIdx) => {
+              const isBodyweight = isBodyweightMode(ex); 
+              const isPyramid = isPyramidEnabled(ex);
 
-                {/* 递增递减组配置 */}
-                <button 
-                  onClick={() => {
+              return (
+                <ExerciseCard
+                  key={ex.id}
+                  exercise={ex}
+                  exIdx={exIdx}
+                  lang={lang}
+                  unit={unit}
+                  isBodyweight={isBodyweight}
+                  isPyramid={isPyramid}
+                  exerciseNotes={exerciseNotes}
+                  getActiveMetrics={getActiveMetrics}
+                  resolveName={resolveName}
+                  onUpdateExercise={(idx, updates) => {
                     const exs = [...currentWorkout.exercises!];
-                    const currentConfig = getExerciseConfig(ex);
-                    exs[exIdx].instanceConfig = {
-                      ...exs[exIdx].instanceConfig,
-                      enablePyramid: !currentConfig.enablePyramid
-                    };
+                    exs[idx] = { ...exs[idx], ...updates };
                     setCurrentWorkout({...currentWorkout, exercises: exs});
                   }}
-                  className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all border
-                    ${isPyramid ? 'bg-purple-600 text-white border-purple-500' : 'bg-slate-900 text-slate-600 border-slate-700 hover:text-slate-400'}`}
-                >
-                  {lang === Language.CN ? '递增递减组' : 'Pyramid Sets'}
-                </button>
-              </div>
-
-              {/* 自重模式细分选择（仅在自重相关模式下显示） */}
-              {isBodyweight && (<div className="flex gap-2 mb-6 p-1 bg-slate-900 rounded-2xl border border-slate-800">
-                {(['normal', 'weighted', 'assisted'] as BodyweightMode[]).map(mode => (<button key={mode} onClick={() => 
-                  { const exs = [...currentWorkout.exercises!]; exs[exIdx].sets = exs[exIdx].sets.map(s => ({ ...s, bodyweightMode: mode }));
-                   setCurrentWorkout({...currentWorkout, exercises: exs}); }} className={`flex-1 py-2 rounded-xl text-[9px] font-black uppercase transition-all 
-                   ${ex.sets[0]?.bodyweightMode === mode ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-600'}`}>
-                    {translations[`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}` as keyof typeof translations][lang]}</button>))}</div>)}
-
-              {/* --- 动态表头 (增加单位显示) --- */}
-                <div 
-                  className="grid gap-2 items-center px-4 mb-3 text-[10px] font-black uppercase text-slate-500 tracking-widest mt-4"
-                  style={{ 
-                    gridTemplateColumns: `35px repeat(${getActiveMetrics(resolveName(ex.name)).length}, 1fr) 35px` 
+                  onDeleteExercise={(idx) => {
+                    setCurrentWorkout({...currentWorkout, exercises: currentWorkout.exercises!.filter((_, i) => i !== idx)});
                   }}
-                >
-                  <span className="pl-1">#</span>
-                  {getActiveMetrics(resolveName(ex.name)).map(m => (
-                    <div key={m} className="flex flex-col items-center leading-tight">
-                      <span>{translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}</span>
-                      {/* ✅ 新增：单位小字显示 */}
-                      <span className="text-[7px] opacity-40 lowercase">{getUnitTag(m, unit)}</span>
-                    </div>
-                  ))}
-                  <span></span>
-                </div>
-
-                {/* --- 2. 动态输入行 (修正后的核心循环) --- */}
-                <div className="space-y-4">
-                  {ex.sets.map((set, setIdx) => {
-                    const activeMetrics = getActiveMetrics(resolveName(ex.name));
-                    return (
-                      <div key={set.id} className="space-y-2">
-                        {/* 主输入行 */}
-                        <div 
-                          className="grid gap-2 items-center bg-slate-900 p-4 rounded-2xl border border-slate-800 transition-all focus-within:border-blue-500/50 relative"
-                          style={{ 
-                            gridTemplateColumns: `35px repeat(${activeMetrics.length}, 1fr) 35px` 
-                          }}
-                        >
-                          <span className="text-blue-500 font-black text-xs">{setIdx + 1}</span>
-
-                          {activeMetrics.map(m => {
-                            // 特殊处理：时长 (H:M:S)
-                            // 特殊处理：时长 (H:M:S) 
-                            if (m === 'duration') {
-                              const { h, m: mins, s } = secondsToHMS(set.duration || 0);
-                              return (
-                                <div key={m} className="flex items-center justify-center gap-1">
-                                  {activeMetrics.map(m => {
-                                    // 情况 1：如果是"时长"维度，渲染大按钮触发 TimePicker
-                                    if (m === 'duration') {
-                                      const hms = secondsToHMS(set.duration || 0);
-                                      return (
-                                        <button 
-                                          key={m}
-                                          type="button"
-                                          onClick={() => openTimePicker(exIdx, setIdx, set.duration || 0)}
-                                          className="mx-auto bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all active:scale-95 group"
-                                        >
-                                          <div className="flex items-baseline gap-0.5">
-                                            <span className="text-sm font-black text-blue-400 tabular-nums">{hms.h.toString().padStart(2, '0')}</span>
-                                            <span className="text-[8px] font-bold text-slate-600">h</span>
-                                          </div>
-                                          <span className="text-slate-700 font-bold">:</span>
-                                          <div className="flex items-baseline gap-0.5">
-                                            <span className="text-sm font-black text-blue-400 tabular-nums">{hms.m.toString().padStart(2, '0')}</span>
-                                            <span className="text-[8px] font-bold text-slate-600">m</span>
-                                          </div>
-                                          <span className="text-slate-700 font-bold">:</span>
-                                          <div className="flex items-baseline gap-0.5">
-                                            <span className="text-sm font-black text-blue-400 tabular-nums">{hms.s.toString().padStart(2, '0')}</span>
-                                            <span className="text-[8px] font-bold text-slate-600">s</span>
-                                          </div>
-                                        </button>
-                                      );
-                                    }
-
-                                    // 情况 2：如果是其他维度（重量、次数等），渲染数字输入框
-                                    return (
-                                      <input 
-                                        key={m}
-                                        type="number"
-                                        className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400 w-full text-sm"
-                                        placeholder="0"
-                                        value={
-                                          set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined 
-                                            ? '' 
-                                            : (() => {
-                                                const rawValue = Number(set[m as keyof typeof set]);
-                                                // ✅ 修复双重转换Bug: 重量使用formatWeight函数，其他维度直接显示
-                                                if (m === 'weight') {
-                                                  // 使用现有的formatWeight函数，它已经处理了单位转换
-                                                  return parseFloat(formatWeight(rawValue)).toFixed(2).replace(/\.?0+$/, '');
-                                                } else if (m === 'speed' && unit === 'lbs') {
-                                                  return (rawValue * KMH_TO_MPH).toFixed(2).replace(/\.?0+$/, '');
-                                                } else {
-                                                  return rawValue.toFixed(2).replace(/\.?0+$/, '');
-                                                }
-                                              })()
-                                        }
-                                        onChange={e => {
-                                          const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
-                                          // ✅ 修复双重转换Bug: 重量使用parseWeight函数，其他维度直接保存
-                                          let storageValue = inputValue;
-                                          if (m === 'weight') {
-                                            // 使用现有的parseWeight函数，它已经处理了单位转换
-                                            storageValue = parseWeight(inputValue);
-                                          } else if (m === 'speed' && unit === 'lbs') {
-                                            storageValue = inputValue / KMH_TO_MPH;
-                                          }
-                                          
-                                          const exs = [...currentWorkout.exercises!];
-                                          exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: storageValue };
-                                          setCurrentWorkout({...currentWorkout, exercises: exs});
-                                        }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              );
-                            }
-                            // 默认数字输入 (重量、次数、距离等)
-                            // 默认数字输入 (重量、次数、距离、得分等)
-                            return (
-                              <input 
-                                key={m}
-                                type="number"
-                                className="bg-transparent font-bold text-center outline-none text-white focus:text-blue-400 w-full text-sm"
-                                placeholder="0"
-                                // ✅ 修复双重转换Bug: 统一使用现有的转换函数
-                                value={
-                                  set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined 
-                                    ? '' 
-                                    : (() => {
-                                        const rawValue = Number(set[m as keyof typeof set]);
-                                        // 重量使用formatWeight函数，其他维度根据需要转换
-                                        if (m === 'weight') {
-                                          return parseFloat(formatWeight(rawValue)).toFixed(2).replace(/\.?0+$/, '');
-                                        } else if (m === 'speed' && unit === 'lbs') {
-                                          return (rawValue * KMH_TO_MPH).toFixed(2).replace(/\.?0+$/, '');
-                                        } else {
-                                          return rawValue.toFixed(2).replace(/\.?0+$/, '');
-                                        }
-                                      })()
-                                }
-                                onChange={e => {
-                                  const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
-                                  // 重量使用parseWeight函数，其他维度根据需要转换
-                                  let storageValue = inputValue;
-                                  if (m === 'weight') {
-                                    storageValue = parseWeight(inputValue);
-                                  } else if (m === 'speed' && unit === 'lbs') {
-                                    storageValue = inputValue / KMH_TO_MPH;
-                                  }
-                                  
-                                  const exs = [...currentWorkout.exercises!];
-                                  exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], [m]: storageValue };
-                                  setCurrentWorkout({...currentWorkout, exercises: exs});
-                                }}
-                              />
-                            );
-                          })}
-
-                          <div className="flex justify-end gap-2 pr-1">
-                            {isPyramid && (
-                              <button onClick={() => {
-                                addSubSet(exIdx, setIdx);
-                              }} className="text-indigo-400 hover:text-indigo-300" title={lang === Language.CN ? '添加子组' : 'Add Sub Set'}>
-                                <Layers size={16} />
-                              </button>
-                            )}
-                            <button onClick={() => { const exs = [...currentWorkout.exercises!]; exs[exIdx].sets = exs[exIdx].sets.filter((_, i) => i !== setIdx); setCurrentWorkout({...currentWorkout, exercises: exs}); }} className="text-slate-700 hover:text-red-500">
-                              <Minus size={16} />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* ✅ 递减组子行 (现在正确嵌套在 ex.sets.map 内部了) */}
-                        {isPyramid && set.subSets && set.subSets.map((sub, ssi) => (
-                          <div key={ssi} className="grid grid-cols-4 gap-4 items-center bg-slate-900/40 ml-8 p-3 rounded-xl border border-dashed border-slate-800 animate-in slide-in-from-left-2">
-                            <span className="text-[10px] font-black text-slate-600 uppercase">
-                              {lang === Language.CN ? '递减' : 'Sub'}
-                            </span>
-                            <input type="number" step="any" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300 w-full" value={sub.weight === 0 ? '' : parseFloat(formatWeight(sub.weight)).toFixed(2).replace(/\.?0+$/, '')} onChange={e => {
-                              const val = e.target.value === '' ? 0 : Number(e.target.value);
-                              updateSubSet(exIdx, setIdx, ssi, { weight: parseWeight(val) });
-                            }} />
-                            <input type="number" className="bg-transparent text-sm font-bold text-center outline-none text-slate-300" value={sub.reps || ''} onChange={e => {
-                              const val = e.target.value === '' ? 0 : Number(e.target.value);
-                              updateSubSet(exIdx, setIdx, ssi, { reps: val });
-                            }} />
-                            <button onClick={() => {
-                              removeSubSet(exIdx, setIdx, ssi);
-                            }} className="flex justify-end pr-2 text-slate-700 hover:text-red-500" title={lang === Language.CN ? '删除子组' : 'Remove Sub Set'}>
-                              <X size={14} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-
-            {/* 操作栏：添加组 & 休息计时 */}
-                  <div className="flex gap-3 mt-4">
-                    {/* 1. 添加组按钮 (逻辑升级：全维度自动继承) */}
-                    <button 
-                      onClick={() => { 
-                        const exs = [...currentWorkout.exercises!]; 
-                        const currentSets = exs[exIdx].sets; 
-                        const lastSet = currentSets.length > 0 ? currentSets[currentSets.length - 1] : null; 
-                        
-                        let newSet;
-                        if (lastSet) {
-                          // ✅ 核心修复：直接展开(Spread)上一组对象，继承包括重量、次数、距离、时长、分数等所有维度
-                          // 然后覆盖掉 id，确保唯一性
-                          newSet = { 
-                            ...lastSet, 
-                            id: Date.now().toString() 
-                          };
-                        } else {
-                          // 如果是第一组，则初始化默认值
-                          newSet = { 
-                            id: Date.now().toString(), 
-                            weight: 0, 
-                            reps: 0
-                          };
-                        }
-
-                        exs[exIdx].sets.push(newSet); 
-                        setCurrentWorkout({...currentWorkout, exercises: exs}); 
-                      }} 
-                      className="flex-1 py-3 border border-dashed border-slate-700 rounded-xl text-slate-500 font-black flex items-center justify-center gap-2 hover:bg-slate-800/50 transition-colors"
-                    >
-                      <Plus size={16} /> {translations.addSet[lang]}
-                    </button>
-                    
-                    {/* 2. 休息按钮 (新版：智能记忆) */}
-                    <button 
-                      onClick={() => openRestSettings(resolveName(ex.name))} 
-                      className="px-5 py-3 bg-slate-800 border border-slate-700 rounded-xl text-indigo-400 font-black flex items-center justify-center gap-2 hover:bg-slate-700 active:scale-95 transition-all"
-                    >
-                      <History size={18} />
-                      {/* 显示该动作上次设定的时间，如果没有则显示90s */}
-                      <span className="text-xs">{getRestPref(resolveName(ex.name))}s</span>
-                    </button>
-                  </div>
-                </div>); })}</div>
+                  onOpenTimePicker={(idx, setIdx, currentSeconds) => {
+                    openTimePicker(idx, setIdx, currentSeconds);
+                  }}
+                  onToggleNote={(name) => {
+                    setNoteModalData({ name, note: exerciseNotes[name] || '' });
+                  }}
+                  onOpenMetricModal={(name) => {
+                    setShowMetricModal({ name });
+                  }}
+                  onSetUpdate={(exIdx, setIdx, updates) => {
+                    const exs = [...currentWorkout.exercises!];
+                    exs[exIdx].sets[setIdx] = { ...exs[exIdx].sets[setIdx], ...updates };
+                    setCurrentWorkout({...currentWorkout, exercises: exs});
+                  }}
+                  onAddSet={(idx) => {
+                    const exs = [...currentWorkout.exercises!];
+                    const currentSets = exs[idx].sets;
+                    const lastSet = currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
+                    let newSet = lastSet 
+                      ? { ...lastSet, id: Date.now().toString() }
+                      : { id: Date.now().toString(), weight: 0, reps: 0 };
+                    exs[idx].sets.push(newSet);
+                    setCurrentWorkout({...currentWorkout, exercises: exs});
+                  }}
+                  onRemoveSet={(exIdx, setIdx) => {
+                    const exs = [...currentWorkout.exercises!];
+                    exs[exIdx].sets = exs[exIdx].sets.filter((_, i) => i !== setIdx);
+                    setCurrentWorkout({...currentWorkout, exercises: exs});
+                  }}
+                  onOpenRestSettings={(name) => openRestSettings(name)}
+                  getRestPref={getRestPref}
+                />
+              );
+            })}
+          </div>
 
                 <div className="space-y-6 mt-10 pb-10">
             <div className="flex items-center gap-3 px-2">
