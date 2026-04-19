@@ -2,10 +2,11 @@ import React, { useRef } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity 
+  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, PlusCircle 
 } from 'lucide-react';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
+import { db } from '../../services/db';
 
 interface HeatmapValue {
   date: string;
@@ -20,7 +21,6 @@ interface ProfileTabProps {
   heatmapData: HeatmapValue[];
   latestMetrics: Array<{ name: string; value: string; unit: string; date: string }>;
   expandedMetric: string | null;
-  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onToggleLanguage: () => void;
   onLogout: () => void;
@@ -33,6 +33,7 @@ interface ProfileTabProps {
   renderMetricChart: (metricName: string) => React.ReactNode;
   setShowResetAccountModal: (show: boolean) => void;
   onCreateAccount: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
 export const ProfileTab: React.FC<ProfileTabProps> = ({
@@ -43,7 +44,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   heatmapData,
   latestMetrics,
   expandedMetric,
-  fileInputRef,
   onAvatarUpload,
   onToggleLanguage,
   onLogout,
@@ -56,6 +56,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   renderMetricChart,
   setShowResetAccountModal,
   onCreateAccount,
+  fileInputRef,
 }) => {
   const monthLabels: Record<string, { cn: string; en: string }> = {
     'Jan': { cn: '1月', en: 'Jan' },
