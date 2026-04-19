@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import './heatmap.css'
 import 'react-calendar-heatmap/dist/styles.css';
@@ -24,7 +24,6 @@ import {
   syncUserConfigsToCloud, fetchUserConfigsFromCloud, deleteWorkoutFromCloud, 
   deleteWeightFromCloud, deleteMeasurementFromCloud, SUPABASE_URL
 } from './services/supabase';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Area, Bar } from 'recharts';
 import { KG_TO_LBS, KMH_TO_MPH, playTimerSound } from './src/constants';
 import { BODY_PARTS, EQUIPMENT_TAGS, DEFAULT_EXERCISES, STANDARD_METRICS, ExerciseCategory } from './src/constants/exercises';
 import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, formatTime } from './src/utils/format';
@@ -32,9 +31,10 @@ import { RestTimer } from './src/components/RestTimer';
 import TabNavigation from './src/components/TabNavigation';
 import { SetCapsule } from './src/components/SetCapsule';
 import { GoalsTab } from './src/components/GoalsTab';
-import { ProfileTab } from './src/components/ProfileTab';
 import { ExerciseCard } from './src/components/ExerciseCard';
-import Dashboard from './src/components/Dashboard';
+// 懒加载 Dashboard 和 Charts，减少首屏包体积
+const Dashboard = lazy(() => import('./src/components/Dashboard').then(m => ({ default: m.default })));
+const ProfileTab = lazy(() => import('./src/components/ProfileTab').then(m => ({ default: m.default })));
 import { useAuth, useWorkout, useUserSettings } from './src/hooks';
 import { useAuthContext, useWorkoutContext, useGoalsContext, useUserSettingsContext } from './src/contexts';
 
@@ -3910,6 +3910,7 @@ const filteredExercises = useMemo(() => {
       ) : (
         <main className="max-w-2xl mx-auto p-4 md:p-8">
           {activeTab === 'dashboard' && (
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
             <Dashboard
               lang={lang}
               workouts={workouts}
@@ -3941,6 +3942,7 @@ const filteredExercises = useMemo(() => {
               updateExerciseTime={updateExerciseTime}
               renderSetCapsule={renderSetCapsule}
             />
+            </Suspense>
           )}
 
           {/* 新增训练 */}
@@ -4183,6 +4185,7 @@ const filteredExercises = useMemo(() => {
           
           {/* 个人中心页面 (Profile) */}
           {activeTab === 'profile' && (
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
             <ProfileTab
               user={user}
               workouts={workouts}
@@ -4221,6 +4224,7 @@ const filteredExercises = useMemo(() => {
                 localStorage.removeItem('fitlog_current_user');
               }}
             />
+            </Suspense>
           )}
         </main>
       )}

@@ -23,18 +23,18 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           output: {
             manualChunks: {
-              // React 核心
+              // React 核心 - 同步加载
               'vendor-react': ['react', 'react-dom'],
-              // 图表库
-              'vendor-charts': ['recharts', 'react-calendar-heatmap'],
-              // Lucide 图标
+              // Lucide 图标 - 同步加载（UI必需）
               'vendor-icons': ['lucide-react'],
-              // Capacitor 原生功能
+              // Capacitor 原生功能 - 同步加载
               'vendor-capacitor': ['@capacitor/core', '@capacitor/haptics', '@capacitor/local-notifications'],
             }
           }
         },
-        chunkSizeWarningLimit: 600,
+        // recharts 和 react-calendar-heatmap 不在 manualChunks 中
+        // 它们会被懒加载的 Dashboard 组件自动分离到异步 chunk
+        chunkSizeWarningLimit: 400,
       }
     };
 });
