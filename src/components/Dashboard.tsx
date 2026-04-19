@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy } from 'react';
 import { 
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
   Scale, TrendingUp, History, ChevronDown, ChevronUp, Cloud,
@@ -8,6 +8,9 @@ import { Language } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight } from '../../src/utils/format';
 import { WorkoutSession, WeightEntry, Exercise } from '../../types';
+
+// 懒加载 TrendChart（包含 recharts）
+const TrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.TrendChart })));
 
 interface DashboardProps {
   // 数据
@@ -38,8 +41,7 @@ interface DashboardProps {
   handleExportData: () => void;
   onStartNewWorkout: () => void;
   
-  // 图表
-  renderTrendChart: (target: string, metricKey?: string) => React.ReactNode;
+  // 图表工具函数
   getActiveMetrics: (name: string) => string[];
   getChartMetric: (name: string) => string;
   resolveName: (name: string) => string;
@@ -71,7 +73,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   setWeightInputValue,
   handleExportData,
   onStartNewWorkout,
-  renderTrendChart,
   getActiveMetrics,
   getChartMetric,
   resolveName,
@@ -139,7 +140,15 @@ const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-[10px] text-indigo-400/60 font-black uppercase tracking-widest mb-4 flex items-center gap-2">
               <TrendingUp size={12} /> {translations.weightTrend[lang]}
             </p>
-            {renderTrendChart('__WEIGHT__')}
+            <TrendChart
+              target="__WEIGHT__"
+              workouts={workouts}
+              weightEntries={weightEntries}
+              lang={lang}
+              unit={unit}
+              resolveName={resolveName}
+              getChartMetric={getChartMetric}
+            />
             
             <div className="mt-8 space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2 pt-2 border-t border-indigo-500/5">
               <h4 className="text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-2 mb-4 px-1">
@@ -231,7 +240,16 @@ const Dashboard: React.FC<DashboardProps> = ({
 
                   {/* 图表 */}
                   <div className="mb-8">
-                    {renderTrendChart(lift.name, getChartMetric(lift.name))}
+                    <TrendChart
+                      target={lift.name}
+                      metricKey={getChartMetric(lift.name)}
+                      workouts={workouts}
+                      weightEntries={weightEntries}
+                      lang={lang}
+                      unit={unit}
+                      resolveName={resolveName}
+                      getChartMetric={getChartMetric}
+                    />
                   </div>
 
                   {/* 历史记录 */}

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
@@ -7,6 +7,9 @@ import {
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
+
+// 懒加载 MetricChart（包含 recharts）
+const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
 
 interface HeatmapValue {
   date: string;
@@ -30,7 +33,6 @@ interface ProfileTabProps {
   onEditMeasurement: (measurement: Measurement) => void;
   onDeleteMeasurement: (e: React.MouseEvent, id: string) => void;
   onAddMeasurementEntry: (name: string) => void;
-  renderMetricChart: (metricName: string) => React.ReactNode;
   setShowResetAccountModal: (show: boolean) => void;
   onCreateAccount: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -53,7 +55,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onEditMeasurement,
   onDeleteMeasurement,
   onAddMeasurementEntry,
-  renderMetricChart,
   setShowResetAccountModal,
   onCreateAccount,
   fileInputRef,
@@ -260,7 +261,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                     <div className="mt-4 border-t border-slate-700/30 pt-4" onClick={(e) => e.stopPropagation()}>
                       {/* Chart */}
                       <div className="mb-6">
-                        {renderMetricChart(metric.name)}
+                        <MetricChart
+                          metricName={metric.name}
+                          measurements={measurements}
+                          lang={lang}
+                        />
                       </div>
 
                       {/* History List */}

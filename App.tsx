@@ -2,6 +2,12 @@ import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'rea
 import CalendarHeatmap from 'react-calendar-heatmap';
 import './heatmap.css'
 import 'react-calendar-heatmap/dist/styles.css';
+
+// 懒加载组件，减少首屏包体积
+const Dashboard = lazy(() => import('./src/components/Dashboard').then(m => ({ default: m.default })));
+const ProfileTab = lazy(() => import('./src/components/ProfileTab').then(m => ({ default: m.default })));
+const GoalsTab = lazy(() => import('./src/components/GoalsTab').then(m => ({ default: m.default })));
+const LazyCharts = lazy(() => import('./src/components/LazyCharts').then(m => ({ default: m.default })));
 import { 
   Plus, Minus, History, BarChart2, LogOut, Trash2, PlusCircle, 
   Dumbbell, Calendar, Trophy, X, Activity, Zap,
@@ -24,17 +30,13 @@ import {
   syncUserConfigsToCloud, fetchUserConfigsFromCloud, deleteWorkoutFromCloud, 
   deleteWeightFromCloud, deleteMeasurementFromCloud, SUPABASE_URL
 } from './services/supabase';
-import { KG_TO_LBS, KMH_TO_MPH, playTimerSound } from './src/constants';
+import { KMH_TO_MPH, playTimerSound } from './src/constants';
 import { BODY_PARTS, EQUIPMENT_TAGS, DEFAULT_EXERCISES, STANDARD_METRICS, ExerciseCategory } from './src/constants/exercises';
 import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, formatTime } from './src/utils/format';
 import { RestTimer } from './src/components/RestTimer';
 import TabNavigation from './src/components/TabNavigation';
 import { SetCapsule } from './src/components/SetCapsule';
-import { GoalsTab } from './src/components/GoalsTab';
 import { ExerciseCard } from './src/components/ExerciseCard';
-// 懒加载 Dashboard 和 Charts，减少首屏包体积
-const Dashboard = lazy(() => import('./src/components/Dashboard').then(m => ({ default: m.default })));
-const ProfileTab = lazy(() => import('./src/components/ProfileTab').then(m => ({ default: m.default })));
 import { useAuth, useWorkout, useUserSettings } from './src/hooks';
 import { useAuthContext, useWorkoutContext, useGoalsContext, useUserSettingsContext } from './src/contexts';
 
@@ -897,202 +899,7 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
       });
   }, [workouts, lang, exerciseOverrides, starredExercises]);
 
-  const getChartDataFor = (target: string, metricKey?: string) => {
-    if (target === '__WEIGHT__') {
-       // ... 体重逻辑保持不变 ...
-       return weightEntries.map(entry => ({
-         date: new Date(entry.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
-         val: Number((unit === 'kg' ? entry.weight : entry.weight * KG_TO_LBS).toFixed(2)),
-         timestamp: new Date(entry.date).getTime()
-       })).sort((a, b) => a.timestamp - b.timestamp);
-    }
-
-    const searchName = target.trim();
-    const key = metricKey || getChartMetric(searchName);
-
-    return workouts
-      .filter(w => w.exercises.some(ex => resolveName(ex.name).trim() === searchName))
-      .map(w => {
-        const ex = w.exercises.find(e => resolveName(e.name).trim() === searchName)!;
-        
-        // 提取该维度在本次训练中的最大值 (Max Effort)
-        const values = ex.sets.map(s => {
-          const v = (s as any)[key] || 0;
-          // ✅ 核心转换逻辑
-          if (key === 'weight' && unit === 'lbs') return v * 2.20462;
-          if (key === 'speed' && unit === 'lbs') return v * 0.621371; // mph
-          // 距离 m -> km 在 formatValue 里处理显示，图表内部建议保持原始数值(m)以保证精度
-          return v;
-        });
-
-        const maxVal = Math.max(...values);
-        return { 
-          date: new Date(w.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }), 
-          val: Number(maxVal.toFixed(2)),
-          timestamp: new Date(w.date).getTime() 
-        };
-      })
-      .sort((a, b) => a.timestamp - b.timestamp);
-  };
-
-  const renderTrendChart = (target: string, metricKey?: string) => {
-    // ✅ 关键：在调用 getChartDataFor 时把这个 key 传进去
-    const data = getChartDataFor(target, metricKey); 
-    const isWeight = target === '__WEIGHT__';
-    if (data.length === 0) return null;
-    
-    // ✅ 修复时间轴问题：计算时间范围用于设置 domain
-    const timestamps = data.map(d => d.timestamp);
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
-    const timeRange = maxTime - minTime || 1; // 防止除以0
-    
-    // ✅ 创建时间戳到显示日期的映射
-    const timestampToDate = data.reduce((acc, d) => {
-      acc[d.timestamp] = d.date;
-      return acc;
-    }, {} as Record<number, string>);
-    
-    return (
-      <div className="w-full h-[250px] mt-6 animate-in fade-in slide-in-from-top-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`grad-${target}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={isWeight ? '#818cf8' : '#3b82f6'} stopOpacity={0.3}/>
-                <stop offset="95%" stopColor={isWeight ? '#818cf8' : '#3b82f6'} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            {/* ✅ 修复：使用时间比例尺，让日期按实际时间间隔分布 */}
-            <XAxis 
-              dataKey="timestamp" 
-              type="number" 
-              scale="time" 
-              domain={[minTime - timeRange * 0.05, maxTime + timeRange * 0.05]}
-              tickFormatter={(ts) => timestampToDate[ts] || ''}
-              stroke="#475569" 
-              fontSize={10} 
-              tickMargin={15} 
-              interval="preserveStartEnd"
-              tick={{ fill: '#94a3b8' }} 
-              axisLine={false} 
-              tickLine={false} 
-            />
-            <YAxis yAxisId="left" stroke="#475569" fontSize={10} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-            {!isWeight && <YAxis yAxisId="right" orientation="right" hide domain={['auto', 'auto']} />}
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', padding: '12px' }} 
-              itemStyle={{ fontWeight: '900', color: '#fff', fontSize: '12px' }}
-              labelStyle={{ color: '#64748b', fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', fontWeight: 'bold' }}
-              formatter={(value: number) => [value.toFixed(2), metricKey || 'Value']}
-              labelFormatter={(ts) => {
-                const d = new Date(ts as number);
-                return d.toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-              }}
-            />
-            {!isWeight && (
-              <Bar 
-                yAxisId="right"
-                dataKey="volume" 
-                fill="#3b82f6" 
-                opacity={0.15}
-                radius={[4, 4, 0, 0]}
-                barSize={20}
-                animationDuration={1500}
-              />
-            )}
-            <Area 
-              yAxisId="left"
-              type="monotone" 
-              dataKey="val"  // 👈 必须叫 val，因为 getChartDataFor 返回的是 val
-              stroke={isWeight ? '#818cf8' : '#3b82f6'} 
-              strokeWidth={4} 
-              fillOpacity={1} 
-              fill={`url(#grad-${target})`}
-              animationDuration={1500}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  };
-
-  // ✅ 新增：渲染自定义指标的折线图
-  // ✅ 优化版：身体指标折线图 (与训练图表风格完全统一)
-  const renderMetricChart = (metricName: string) => {
-    // 1. 提取并清洗数据
-    const data = measurements
-      .filter(m => m.name === metricName)
-      .map(m => ({
-        date: new Date(m.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
-        val: Number(m.value.toFixed(2)), // ✅ 统一使用 val 键
-        unit: m.unit,
-        timestamp: new Date(m.date).getTime()
-      }))
-      .sort((a, b) => a.timestamp - b.timestamp);
-
-    if (data.length === 0) return null;
-
-    // ✅ 修复时间轴问题：计算时间范围用于设置 domain
-    const timestamps = data.map(d => d.timestamp);
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
-    const timeRange = maxTime - minTime || 1;
-
-    // ✅ 创建时间戳到显示日期的映射
-    const timestampToDate = data.reduce((acc, d) => {
-      acc[d.timestamp] = d.date;
-      return acc;
-    }, {} as Record<number, string>);
-
-    return (
-      <div className="w-full h-[180px] mt-4 animate-in fade-in slide-in-from-top-2">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`grad-metric-${metricName}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            {/* ✅ 修复：使用时间比例尺，让日期按实际时间间隔分布 */}
-            <XAxis 
-              dataKey="timestamp" 
-              type="number" 
-              scale="time" 
-              domain={[minTime - timeRange * 0.05, maxTime + timeRange * 0.05]}
-              tickFormatter={(ts) => timestampToDate[ts] || ''}
-              stroke="#475569" 
-              fontSize={10} 
-              tickMargin={15} 
-              interval="preserveStartEnd"
-              tick={{ fill: '#94a3b8' }} 
-              axisLine={false} 
-              tickLine={false} 
-            />
-            <YAxis stroke="#475569" fontSize={10} tick={{ fill: '#94a3b8' }} axisLine={false} tickLine={false} domain={['auto', 'auto']} />
-            
-            <Tooltip 
-              contentStyle={{ backgroundColor: '#0f172a', borderRadius: '16px', border: '1px solid #1e293b', padding: '12px' }} 
-              itemStyle={{ fontWeight: '900', color: '#fff', fontSize: '12px' }}
-              labelStyle={{ display: 'none' }}
-              formatter={(value: number) => [value.toFixed(2), metricName]}
-            />
-
-            <Area 
-              type="monotone" 
-              dataKey="val" // ✅ 与 renderTrendChart 保持一致
-              stroke="#6366f1" // 身体指标使用紫色调，与训练的蓝色调区分
-              strokeWidth={4} 
-              fillOpacity={1} 
-              fill={`url(#grad-metric-${metricName})`}
-              animationDuration={1500}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    );
-  };
+  // 图表数据处理已移到 LazyCharts 组件
   // 只要用户 ID 确定或发生变化，就强制刷新本地所有训练记录和指标
   useEffect(() => {
     if (user && user.id) {
@@ -3934,7 +3741,6 @@ const filteredExercises = useMemo(() => {
               setWeightInputValue={setWeightInputValue}
               handleExportData={handleExportData}
               onStartNewWorkout={() => setActiveTab('new')}
-              renderTrendChart={renderTrendChart}
               getActiveMetrics={getActiveMetrics}
               getChartMetric={getChartMetric}
               resolveName={resolveName}
@@ -4174,6 +3980,7 @@ const filteredExercises = useMemo(() => {
 
           {/* 目标管理 - 使用 GoalsTab 组件 */}
           {activeTab === 'goals' && (
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
             <GoalsTab
               goals={goals}
               setGoals={setGoals}
@@ -4181,6 +3988,7 @@ const filteredExercises = useMemo(() => {
               onAddGoal={() => setShowGoalModal(true)}
               onEditGoal={handleEditGoal}
             />
+            </Suspense>
           )}
           
           {/* 个人中心页面 (Profile) */}
@@ -4215,7 +4023,6 @@ const filteredExercises = useMemo(() => {
                 setMeasureForm({ name: name, value: '', unit: '' }); 
                 setShowMeasureModal(true); 
               }}
-              renderMetricChart={renderMetricChart}
               setShowResetAccountModal={setShowResetAccountModal}
               onCreateAccount={() => {
                 supabase.auth.signOut();
