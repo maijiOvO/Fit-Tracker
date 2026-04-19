@@ -45,8 +45,11 @@
 - 主 chunk 进一步优化（考虑拆分 GoalsTab）
 - P3 Zustand（可选增强）
 
-## 代码分割完成（22:31）
-- ✅ Dashboard 懒加载 (10.33 KB gzip: 3.20 KB)
-- ✅ ProfileTab 懒加载 (22.71 KB gzip: 6.68 KB)
-- ✅ recharts/react-calendar-heatmap 自动按需加载
-- ✅ 首屏主 chunk 从 516KB 减少到 496KB
+## 代码分割完成
+- ✅ Dashboard 懒加载 (10.55 KB gzip: 3.24 KB)
+- ✅ ProfileTab 懒加载 (22.79 KB gzip: 6.71 KB)
+- ✅ GoalsTab 懒加载 (2.50 KB gzip: 1.01 KB)
+- ✅ LazyCharts 懒加载 (357.78 KB gzip: 107.63 KB)
+  - 包含 recharts 图表库
+  - 只在访问 Dashboard/Profile 时加载
+- ✅ 首屏主 chunk 从 516KB 减少到 490KB
