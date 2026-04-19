@@ -31,6 +31,8 @@ import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, forma
 import { RestTimer } from './src/components/RestTimer';
 import TabNavigation from './src/components/TabNavigation';
 import { SetCapsule } from './src/components/SetCapsule';
+import { GoalsTab } from './src/components/GoalsTab';
+import { ProfileTab } from './src/components/ProfileTab';
 import { useAuth, useWorkout, useUserSettings } from './src/hooks';
 
 const App: React.FC = () => {
@@ -4608,71 +4610,15 @@ const filteredExercises = useMemo(() => {
                     
           </div>)}
 
-          {/* 目标管理 保持不变 */}
+          {/* 目标管理 - 使用 GoalsTab 组件 */}
           {activeTab === 'goals' && (
-            <div className="space-y-6 animate-in slide-in-from-right">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h2 className="text-3xl font-black">{translations.goals[lang]}</h2>
-                  <p className="text-slate-500">{translations.goalsSubtitle[lang]}</p>
-                </div>
-                <button onClick={() => setShowGoalModal(true)} className="p-4 bg-blue-600 rounded-2xl">
-                  <Plus size={24} />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {goals.map(g => (
-                  <div key={g.id} className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h4 className="font-black text-xl">{g.title || g.label || 'Untitled Goal'}</h4>
-                        <span className="text-[10px] text-blue-500 uppercase">{g.type}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {/* ✅ 新增：编辑按钮 */}
-                        <button 
-                          onClick={() => handleEditGoal(g)}
-                          className="p-2 text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
-                          title={lang === Language.CN ? '编辑目标' : 'Edit Goal'}
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        {/* 原有的删除按钮 */}
-                        <button 
-                          onClick={async () => { 
-                            await db.delete('goals', g.id); 
-                            setGoals(p => p.filter(x => x.id !== g.id)); 
-                          }}
-                          className="p-2 text-slate-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                          title={lang === Language.CN ? '删除目标' : 'Delete Goal'}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-end mb-2">
-                      <span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span>
-                      <span className="text-slate-500 text-xs">{g.unit}</span>
-                    </div>
-                    <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-blue-600" 
-                        style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}
-                      ></div>
-                    </div>
-                    {/* ✅ 新增：目标状态指示器 */}
-                    {!g.isActive && (
-                      <div className="mt-3 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
-                        <span className="text-xs text-slate-500 font-bold">
-                          {lang === Language.CN ? '已暂停' : 'Paused'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <GoalsTab
+              goals={goals}
+              setGoals={setGoals}
+              lang={lang}
+              onAddGoal={() => setShowGoalModal(true)}
+              onEditGoal={handleEditGoal}
+            />
           )}
           
           {/* 修改 4: 新增个人中心页面 (Profile) */}

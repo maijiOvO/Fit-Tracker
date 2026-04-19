@@ -18,6 +18,23 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // React 核心
+              'vendor-react': ['react', 'react-dom'],
+              // 图表库
+              'vendor-charts': ['recharts', 'react-calendar-heatmap'],
+              // Lucide 图标
+              'vendor-icons': ['lucide-react'],
+              // Capacitor 原生功能
+              'vendor-capacitor': ['@capacitor/core', '@capacitor/haptics', '@capacitor/local-notifications'],
+            }
+          }
+        },
+        chunkSizeWarningLimit: 600,
       }
     };
 });
