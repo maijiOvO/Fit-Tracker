@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, StickyNote, Settings as SettingsIcon, Calendar } from 'lucide-react';
+import { Trash2, StickyNote, Settings as SettingsIcon, Calendar, History, Plus } from 'lucide-react';
 import { Exercise, BodyweightMode, Language } from '../../types';
 import { translations } from '../../translations';
 import { SetCapsule } from './SetCapsule';
@@ -14,8 +14,6 @@ interface ExerciseCardProps {
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;
-  getUnitTag: (metric: string, unit: string) => string;
-  secondsToHMS: (seconds: number) => { h: number; m: number; s: number };
   onUpdateExercise: (exIdx: number, updates: Partial<Exercise>) => void;
   onDeleteExercise: (exIdx: number) => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, currentSeconds: number) => void;
@@ -24,6 +22,8 @@ interface ExerciseCardProps {
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
+  onOpenRestSettings?: (name: string) => void;
+  getRestPref?: (name: string) => number;
 }
 
 export const ExerciseCard: React.FC<ExerciseCardProps> = ({
@@ -36,8 +36,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exerciseNotes,
   getActiveMetrics,
   resolveName,
-  getUnitTag,
-  secondsToHMS,
   onUpdateExercise,
   onDeleteExercise,
   onOpenTimePicker,
@@ -46,6 +44,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onSetUpdate,
   onAddSet,
   onRemoveSet,
+  onOpenRestSettings,
+  getRestPref,
 }) => {
   const exerciseName = resolveName(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
@@ -205,7 +205,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         {activeMetrics.map(m => (
           <div key={m} className="flex flex-col items-center leading-tight">
             <span>{translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}</span>
-            <span className="text-[7px] opacity-40 lowercase">{getUnitTag(m, unit)}</span>
+            <span className="text-[7px] opacity-40 lowercase">{unit}</span>
           </div>
         ))}
         <span></span>
@@ -220,6 +220,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             setIdx={setIdx}
             activeMetrics={activeMetrics}
             unit={unit}
+            lang={lang}
+            isPyramid={isPyramid}
             onUpdate={(updates) => onSetUpdate(exIdx, setIdx, updates)}
             onRemove={() => onRemoveSet(exIdx, setIdx)}
             onDurationClick={() => handleDurationClick(setIdx)}
@@ -227,13 +229,27 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         ))}
       </div>
 
-      {/* Add Set Button */}
-      <button
-        onClick={() => onAddSet(exIdx)}
-        className="w-full mt-4 py-3 rounded-2xl border-2 border-dashed border-slate-700/50 text-slate-600 hover:text-blue-400 hover:border-blue-500/50 transition-all text-sm font-bold"
-      >
-        + {lang === Language.CN ? '添加组' : 'Add Set'}
-      </button>
+      {/* Action Bar: Add Set & Rest Timer */}
+      <div className="flex gap-3 mt-4">
+        {/* Add Set Button */}
+        <button
+          onClick={() => onAddSet(exIdx)}
+          className="flex-1 py-3 border border-dashed border-slate-700 rounded-xl text-slate-500 font-black flex items-center justify-center gap-2 hover:bg-slate-800/50 transition-colors"
+        >
+          <Plus size={16} /> {lang === Language.CN ? '添加组' : 'Add Set'}
+        </button>
+        
+        {/* Rest Timer Button */}
+        {onOpenRestSettings && getRestPref && (
+          <button 
+            onClick={() => onOpenRestSettings(exerciseName)} 
+            className="px-5 py-3 bg-slate-800 border border-slate-700 rounded-xl text-indigo-400 font-black flex items-center justify-center gap-2 hover:bg-slate-700 active:scale-95 transition-all"
+          >
+            <History size={18} />
+            <span className="text-xs">{getRestPref(exerciseName)}s</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 };

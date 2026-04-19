@@ -33,6 +33,7 @@ import TabNavigation from './src/components/TabNavigation';
 import { SetCapsule } from './src/components/SetCapsule';
 import { GoalsTab } from './src/components/GoalsTab';
 import { ProfileTab } from './src/components/ProfileTab';
+import { ExerciseCard } from './src/components/ExerciseCard';
 import { useAuth, useWorkout, useUserSettings } from './src/hooks';
 
 const App: React.FC = () => {
