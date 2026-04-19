@@ -28,13 +28,19 @@
 - ⏭️ Modal/TrendChart 组件已创建（内联差异大/耦合强，暂跳过）
 
 ## 当前状态
-- **App.tsx 行数**：约 5330 行（减少约 135 行）
+- **App.tsx 行数**：4299 行（减少约 1031 行，从 5330 行减少）
+- **主 Chunk**：516 KB
+- **vendor-charts**：365 KB
 - **构建状态**：✅ 成功
-- **开发服务器**：运行在 http://localhost:3000
+- **GitHub**：https://github.com/maijiOvO/Fit-Tracker
+
+## 完成进度
+- ✅ P0: RestTimer 组件替换
+- ✅ P1: 提取自定义 Hooks（useWorkout、useGoals、useAuth）
+- ✅ P2: 状态分组到 Context（4 个 Context：Auth/UserSettings/Workout/Goals）
+- ⏭️ P3: 引入状态管理库 (Zustand) - 可选
 
 ## 剩余工作
-- P1: 提取自定义 Hooks（useWorkout、useGoals、useAuth）
-- P2: 状态分组到 Context
-- P3: 引入状态管理库 (Zustand)
-- Tailwind CDN 问题修复
-- 代码分割优化（解决 chunk > 500KB 警告）
+- Tailwind CDN 问题修复（可选）
+- 代码分割优化（vendor-charts 365KB 可考虑延迟加载）
+- P3 Zustand（可选增强）
