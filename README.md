@@ -1,20 +1,27 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# FitLog AI
 
-# Run and deploy your AI Studio app
+Fitness log PWA built with React and Vite. Data lives in IndexedDB plus `fitlog_*` localStorage keys.
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/drive/1Abp5_BXhQTucEbTwPzgDS30yGEUJb8DN
+1. `npm install`
+2. Copy [`.env.example`](.env.example) to `.env` or `.env.local` and set `GEMINI_API_KEY` if you use AI features.
+3. `npm run dev`
 
-## Run Locally
+## Personal sync API (optional)
 
-**Prerequisites:**  Node.js
+If `VITE_API_URL` and `VITE_API_KEY` are both set, the app can push/pull a single JSON snapshot to your HTTP server:
 
+- **URL:** `{VITE_API_URL}{VITE_FITLOG_STATE_PATH}` (env path defaults to `/api/fitlog/state`)
+- **Auth:** header `Authorization: Bearer {VITE_API_KEY}`
+- **Methods:** `GET` returns `{ schemaVersion: 2, ... }` or **404** for empty remote; `PUT` sends the merged local snapshot (`schemaVersion` must be **2**).
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Without these vars, syncing is skipped and the app stays local-only.
+
+## Scripts
+
+| Command           | Purpose        |
+|-------------------|----------------|
+| `npm run dev`     | Vite dev server |
+| `npm run build`   | Production build |
+| `npm run typecheck` | `tsc --noEmit` |

@@ -1,9 +1,8 @@
 // UI Components
-export { AuthUI } from './AuthUI';
-export { Dashboard } from './Dashboard';
+export { default as Dashboard } from './Dashboard';
+export { default as TabNavigation } from './TabNavigation';
 export { GoalsTab } from './GoalsTab';
 export { ProfileTab } from './ProfileTab';
-export { TabNavigation } from './TabNavigation';
 export { SetCapsule } from './SetCapsule';
 export { RestTimer } from './RestTimer';
 export { DateTimePicker } from './DateTimePicker';

@@ -36,26 +36,23 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in"
+    <div
+      className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in"
       onClick={onClose}
     >
-      <div 
-        className={`bg-slate-900 border border-slate-800 w-full ${sizeStyles[size]} rounded-[2rem] p-8 space-y-6 shadow-2xl ${className}`}
-        onClick={(e) => e.stopPropagation()}
+      <div
+        className={`bg-card border border-divider w-full ${sizeStyles[size]} rounded-card p-6 space-y-5 shadow-elevated ${className}`}
+        onClick={e => e.stopPropagation()}
       >
         {(title || showCloseButton) && (
           <div className="flex justify-between items-start">
             <div>
-              {title && <h2 className="text-xl font-black">{title}</h2>}
-              {subtitle && <p className="text-xs text-slate-500 font-bold mt-1">{subtitle}</p>}
+              {title && <h2 className="font-display text-lg font-semibold text-primary">{title}</h2>}
+              {subtitle && <p className="text-xs text-secondary mt-1">{subtitle}</p>}
             </div>
             {showCloseButton && (
-              <button 
-                onClick={onClose}
-                className="p-2 hover:bg-slate-800 rounded-full transition-colors"
-              >
-                <X size={20} className="text-slate-400" />
+              <button onClick={onClose} className="p-2 hover:bg-inset rounded-full transition-colors">
+                <X size={20} className="text-tertiary" strokeWidth={1.75} />
               </button>
             )}
           </div>

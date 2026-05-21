@@ -2,7 +2,7 @@
  * 默认动作库
  * 包含力量训练、有氧训练、自由训练三大类
  */
-import { ExerciseDefinition } from '../types';
+import { ExerciseDefinition } from '../../types';
 
 export type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
 

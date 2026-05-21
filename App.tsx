@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback, Suspense, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import './heatmap.css'
 import 'react-calendar-heatmap/dist/styles.css';
@@ -6,8 +6,8 @@ import 'react-calendar-heatmap/dist/styles.css';
 // 懒加载组件，减少首屏包体积
 const Dashboard = lazy(() => import('./src/components/Dashboard').then(m => ({ default: m.default })));
 const ProfileTab = lazy(() => import('./src/components/ProfileTab').then(m => ({ default: m.default })));
-const GoalsTab = lazy(() => import('./src/components/GoalsTab').then(m => ({ default: m.default })));
-const LazyCharts = lazy(() => import('./src/components/LazyCharts').then(m => ({ default: m.default })));
+const PlanTab = lazy(() => import('./src/components/PlanTab').then(m => ({ default: m.default })));
+const AssistantTab = lazy(() => import('./src/components/AssistantTab').then(m => ({ default: m.default })));
 import { 
   Plus, Minus, History, BarChart2, LogOut, Trash2, PlusCircle, 
   Dumbbell, Calendar, Trophy, X, Activity, Zap,
@@ -19,94 +19,103 @@ import {
 } from 'lucide-react';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Haptics } from '@capacitor/haptics'; 
-import { Language, User, WorkoutSession, Exercise, ExerciseDefinition, Goal, GoalType, BodyweightMode, WeightEntry, SubSetLog, PyramidCalculator, PyramidTemplate } from './types';
+import { Language, User, WorkoutSession, Exercise, ExerciseDefinition, Goal, GoalType, BodyweightMode, WeightEntry, SubSetLog, PyramidCalculator, PyramidTemplate, Measurement, ScheduledWorkout, ScheduledExercise } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
-import { 
-  supabase, syncWorkoutsToCloud, fetchWorkoutsFromCloud, 
-  syncGoalsToCloud, fetchGoalsFromCloud, 
-  syncWeightToCloud, fetchWeightFromCloud, 
-  syncMeasurementsToCloud, fetchMeasurementsFromCloud,
-  syncUserConfigsToCloud, fetchUserConfigsFromCloud, deleteWorkoutFromCloud, 
-  deleteWeightFromCloud, deleteMeasurementFromCloud, SUPABASE_URL
-} from './services/supabase';
-import { KMH_TO_MPH, playTimerSound } from './src/constants';
+import { migrateRecordsToSoloUserId, readPrefsFromLocalStorage, markPrefsUpdated } from './services/fitlogRemote';
+import { clearTombstones, recordTombstone } from './services/fitlogTombstones';
+import { pullAndMergeFitlogRemote, pushFitlogRemoteSnapshot } from './services/fitlogRemoteSync';
+import { isRemoteConfigured } from './services/fitlogRemote';
+import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
+import type { FitlogSyncedPrefs } from './services/fitlogSnapshotTypes';
+import { KMH_TO_MPH, playTimerSound, KG_TO_LBS } from './src/constants';
 import { BODY_PARTS, EQUIPMENT_TAGS, DEFAULT_EXERCISES, STANDARD_METRICS, ExerciseCategory } from './src/constants/exercises';
 import { formatValue, getUnitTag, formatWeight, parseWeight, secondsToHMS, formatTime } from './src/utils/format';
 import { RestTimer } from './src/components/RestTimer';
 import TabNavigation from './src/components/TabNavigation';
 import { SetCapsule } from './src/components/SetCapsule';
 import { ExerciseCard } from './src/components/ExerciseCard';
-import { useAuth, useWorkout, useUserSettings } from './src/hooks';
-import { useAuthContext, useWorkoutContext, useGoalsContext, useUserSettingsContext } from './src/contexts';
+import {
+  AssistantProvider,
+  AuthProvider,
+  GoalsProvider,
+  ScheduleProvider,
+  UserSettingsProvider,
+  WorkoutProvider,
+  useAssistantContext,
+  useAuthContext,
+  useGoalsContext,
+  useScheduleContext,
+  useUserSettingsContext,
+  useWorkoutContext,
+} from './src/contexts';
+import { useTheme } from './src/hooks/useTheme';
+import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
-// AppWithAuth receives userId from wrapper and provides Context values to App
+// AppWithAuth：单机用户，远端同步可选
 interface AppWithAuthProps {
+  /** 单机版固定传入 FITLOG_SOLO_USER_ID（保留接口便于测试） */
   userId?: string;
-  onUserIdChange: (id: string | undefined) => void;
 }
 
-const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => {
-  // === Context Hooks ===
+const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId: propUserId }) => {
+  const resolvedUserId = propUserId || FITLOG_SOLO_USER_ID;
+
   const authCtx = useAuthContext();
   const workoutCtx = useWorkoutContext();
   const goalsCtx = useGoalsContext();
+  const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
-  
-  // Sync userId with parent when auth changes
-  useEffect(() => {
-    if (authCtx.user && authCtx.user.id !== userId) {
-      onUserIdChange(authCtx.user.id);
-    }
-  }, [authCtx.user]);
-  
-  // === State from Context (with fallbacks for standalone mode) ===
-  const lang = settingsCtx?.lang || Language.CN;
-  const setLang = settingsCtx?.setLang || (() => {});
-  const unit = settingsCtx?.unit || 'kg';
-  const setUnit = settingsCtx?.setUnit || (() => {});
-  const weightEntries = settingsCtx?.weightEntries || [];
-  const measurements = settingsCtx?.measurements || [];
-  
-  // Auth state from Context
-  const user = authCtx?.user || null;
-  const authMode = authCtx?.authMode || 'login';
-  const setAuthMode = authCtx?.setAuthMode || (() => {});
-  const email = authCtx?.email || '';
-  const setEmail = authCtx?.setEmail || (() => {});
-  const password = authCtx?.password || '';
-  const setPassword = authCtx?.setPassword || (() => {});
-  const username = authCtx?.username || '';
-  const setUsername = authCtx?.setUsername || (() => {});
-  const showPassword = authCtx?.showPassword || false;
-  const setShowPassword = authCtx?.setShowPassword || (() => {});
-  const authError = authCtx?.authError || null;
-  const setAuthError = authCtx?.setAuthError || (() => {});
-  const isLoading = authCtx?.isLoading || false;
-  const setIsLoading = authCtx?.setIsLoading || (() => {});
-  const isUpdateSuccess = authCtx?.isUpdateSuccess || false;
-  
+
+  const lang = settingsCtx.lang;
+  const setLang = settingsCtx.setLang;
+  const unit = settingsCtx.unit;
+  const setUnit = settingsCtx.setUnit;
+  const weightEntries = settingsCtx.weightEntries;
+  const measurements = settingsCtx.measurements;
+
+  const user = authCtx.user;
+  const setUser = authCtx.setUser;
+
   // === Local UI State ===
   const [activeLibraryCategory, setActiveLibraryCategory] = useState<ExerciseCategory | null>(null);
   const [previousLibraryCategory, setPreviousLibraryCategory] = useState<ExerciseCategory | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'new' | 'goals' | 'profile'>('dashboard');
-  
-  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
-  
-  // Workout state from Context
-  const workouts = workoutCtx?.workouts || [];
-  const currentWorkout = workoutCtx?.currentWorkout || null;
-  const setCurrentWorkout = workoutCtx?.setCurrentWorkout || (() => {});
-  
-  // Goals state from Context
-  const goals = goalsCtx?.goals || [];
-  // weightEntries and measurements now come from Context (see line 60-61)
-  // 定义一个本地接口 (用于本地状态类型)
-  interface Measurement { id: string; userId: string; name: string; value: number; unit: string; date: string; }
-  
-  // measurements now comes from Context (see line 61)
+  const [activeTab, _setActiveTab] = useState<'dashboard' | 'new' | 'plan' | 'assistant' | 'profile'>('dashboard');
+  const [previousTab, setPreviousTab] = useState<'dashboard' | 'new' | 'plan' | 'assistant' | 'profile'>('dashboard');
+  const setActiveTab = useCallback((tab: 'dashboard' | 'new' | 'plan' | 'assistant' | 'profile') => {
+    _setActiveTab(prev => {
+      // 进入训练流程时，记下来源 Tab，方便「返回」按钮回到原位
+      if (prev !== 'new' && tab === 'new') {
+        setPreviousTab(prev);
+      }
+      return tab;
+    });
+  }, []);
 
-  // --- ✅ 新增：时间选择器专用状态 ---
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
+
+  const [uiBusy, setUiBusy] = useState(false);
+
+  // === 训练计划：共享动作库选择回调 ===
+  // 默认 null —— library 点击会按原行为加入 currentWorkout；
+  // 一旦设置为函数，library 点击会改为调用该函数（用于从计划编辑器拉取动作）
+  const libraryPickCallbackRef = useRef<((ex: ExerciseDefinition) => void) | null>(null);
+  const openLibraryForPicker = useCallback((cb: (ex: ExerciseDefinition) => void) => {
+    libraryPickCallbackRef.current = cb;
+    setActiveLibraryCategory(null);
+    setSelectedTags([]);
+    setSearchQuery('');
+    setShowLibrary(true);
+  }, []);
+
+  // 训练计划：保存训练时弹出"按计划/有调整/取消"确认
+  const [planConfirmOpen, setPlanConfirmOpen] = useState(false);
+
+  const workouts = workoutCtx.workouts;
+  const currentWorkout = workoutCtx.currentWorkout;
+  const setCurrentWorkout = workoutCtx.setCurrentWorkout;
+
+  const goals = goalsCtx.goals;
   const [showTimePicker, setShowTimePicker] = useState<{ exIdx: number; setIdx: number } | null>(null);
   // 临时存储正在编辑的时分秒，方便在 Modal 里调整
   const [tempHMS, setTempHMS] = useState({ h: 0, m: 0, s: 0 });
@@ -162,8 +171,6 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
   // 格式: { "动作名称": "座椅高度4，宽握" }
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [noteModalData, setNoteModalData] = useState<{ name: string; note: string } | null>(null);
-  const isRecoveryMode = useRef(false);
-
   // --- 新增：动作维度自定义功能 ---
   // 格式: { "动作名称": ["reps", "distance", "custom_分数"] }
   const [exerciseMetricConfigs, setExerciseMetricConfigs] = useState<Record<string, string[]>>({});
@@ -254,18 +261,7 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     const normalizedKey = metricKey.trim();
     
     const isCurrentlySelected = normalizedCurrent.includes(normalizedKey);
-    
-    // 添加调试日志帮助定位问题
-    console.log('Toggle Metric Debug:', {
-      exerciseName,
-      metricKey,
-      current,
-      normalizedCurrent,
-      normalizedKey,
-      isCurrentlySelected,
-      willRemove: isCurrentlySelected
-    });
-    
+
     let next;
     if (isCurrentlySelected) {
       // 移除：找到精确匹配的索引进行删除
@@ -282,20 +278,11 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     // ✅ 额外修复：清理存储的数据，确保没有空格污染
     const cleanNext = next.map(m => m.trim()).filter(m => m.length > 0);
 
-    console.log('Toggle Result:', { before: current, after: cleanNext });
-
     const updated = { ...exerciseMetricConfigs, [exerciseName]: cleanNext };
     setExerciseMetricConfigs(updated);
     localStorage.setItem('fitlog_metric_configs', JSON.stringify(updated));
-    
-    // ✅ 修复Metrics重置Bug: 标记本地metrics配置为最新，避免被云端数据覆盖
-    const metricsTimestamp = Date.now();
-    localStorage.setItem('fitlog_metrics_last_update', metricsTimestamp.toString());
-    
-    // ✅ 修复Bug #5: 使用防抖同步，避免频繁操作触发过多同步请求
-    if (user && user.id !== 'u_guest') {
-      debouncedPerformSync(user.id);
-    }
+    localStorage.setItem('fitlog_metrics_last_update', String(Date.now()));
+    scheduleDebouncedFitlogPush();
   };
 
   // ✅ 新增：重置metrics配置到默认状态
@@ -306,12 +293,8 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     setExerciseMetricConfigs(updated);
     localStorage.setItem('fitlog_metric_configs', JSON.stringify(updated));
     
-    console.log(`已重置 "${exerciseName}" 的metrics配置到默认状态`);
-    
-    // 同步到云端
-    if (user && user.id !== 'u_guest') {
-      debouncedPerformSync(user.id);
-    }
+    localStorage.setItem('fitlog_metrics_last_update', String(Date.now()));
+    scheduleDebouncedFitlogPush();
   };
 
   // 初始化加载备注
@@ -334,6 +317,8 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
 
     setExerciseNotes(newNotes);
     localStorage.setItem('fitlog_exercise_notes', JSON.stringify(newNotes));
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
     setNoteModalData(null);
   };
   
@@ -367,6 +352,7 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     const newPrefs = { ...restPreferences, [restModalData.name]: restModalData.time };
     setRestPreferences(newPrefs);
     localStorage.setItem('fitlog_rest_prefs', JSON.stringify(newPrefs));
+    markPrefsUpdated();
 
     // 2. 启动计时器
     startRest(restModalData.time);
@@ -464,21 +450,9 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     try {
       // 1. 从本地数据库删除
       await db.delete('custom_metrics', id);
-      
-      // 2. 从云端删除（如果用户已登录且不是访客）
-      if (user && user.id !== 'u_guest') {
-        try {
-          await deleteMeasurementFromCloud(id);
-        } catch (cloudError) {
-          console.warn('云端删除失败，但本地删除成功:', cloudError);
-          // 本地删除成功，云端删除失败时不阻止操作
-          // 下次同步时会处理这种不一致情况
-        }
-      }
-      
-      // 3. 更新本地状态
-      const all = await db.getAll<Measurement>('custom_metrics');
-      if (user) setMeasurements(all.filter(m => m.userId === user.id));
+      recordTombstone('customMetrics', id);
+      await settingsCtx.reloadFromIndexedDb();
+      scheduleDebouncedFitlogPush();
     } catch (err) {
       console.error(err);
     }
@@ -496,10 +470,14 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
   // 计算每个指标的最新数据（用于在界面展示）
   const latestMetrics = useMemo(() => {
     const map = new Map<string, Measurement>();
-    // 按时间排序，确保最后存入的是最新的
     const sorted = [...measurements].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    sorted.forEach(m => map.set(m.name, m));
-    return Array.from(map.values());
+    sorted.forEach((m) => map.set(m.name, m));
+    return Array.from(map.values()).map((m) => ({
+      name: m.name,
+      value: String(m.value),
+      unit: m.unit,
+      date: m.date,
+    }));
   }, [measurements]);
 // --- ✅ 修复Bug #6: 热力图数据计算 (完善异常处理版) ---
   const heatmapData = useMemo(() => {
@@ -579,7 +557,7 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     }
     
     try {
-      setIsLoading(true);
+      setUiBusy(true);
 
       // 1. 确定日期：如果是编辑模式，保留原日期；如果是新增，用当前时间
       let dateToUse = new Date().toISOString();
@@ -599,10 +577,9 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
       };
 
       await db.save('custom_metrics', entry);
-      
-      const all = await db.getAll<Measurement>('custom_metrics');
-      setMeasurements(all.filter(m => m.userId === user.id));
-      
+      await settingsCtx.reloadFromIndexedDb();
+      scheduleDebouncedFitlogPush();
+
       setShowMeasureModal(false);
       // 重置表单和编辑ID
       setMeasureForm({ name: '', value: '', unit: measureForm.unit }); 
@@ -611,7 +588,7 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     } catch (error: any) {
       alert("保存失败: " + error.message);
     } finally {
-      setIsLoading(false);
+      setUiBusy(false);
     }
   };
   // unit now comes from Context (see line 62)
@@ -661,6 +638,33 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
   const [exerciseOverrides, setExerciseOverrides] = useState<Record<string, Partial<ExerciseDefinition>>>({});
   const [tagRenameOverrides, setTagRenameOverrides] = useState<Record<string, string>>({});
   const [starredExercises, setStarredExercises] = useState<Record<string, number>>({});
+
+  const applyPrefsFromSnapshot = (p: FitlogSyncedPrefs) => {
+    setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
+    setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
+    setExerciseNotes(p.exerciseNotes && typeof p.exerciseNotes === 'object' ? p.exerciseNotes : {});
+    setRestPreferences(p.restPrefs && typeof p.restPrefs === 'object' ? p.restPrefs : {});
+    setStarredExercises(
+      p.starredExercises && typeof p.starredExercises === 'object' ? p.starredExercises : {},
+    );
+    setExerciseMetricConfigs(
+      p.exerciseMetricConfigs && typeof p.exerciseMetricConfigs === 'object'
+        ? p.exerciseMetricConfigs
+        : {},
+    );
+    setTagRenameOverrides(
+      p.tagRenameOverrides && typeof p.tagRenameOverrides === 'object' ? p.tagRenameOverrides : {},
+    );
+    setExerciseOverrides(
+      p.exerciseOverrides && typeof p.exerciseOverrides === 'object' ? p.exerciseOverrides : {},
+    );
+    if (p.lang) setLang(p.lang as Language);
+    if (p.unit) setUnit(p.unit);
+    if (typeof p.avatarDataUrl === 'string' && p.avatarDataUrl) {
+      setUser((prev) => (prev ? { ...prev, avatarUrl: p.avatarDataUrl! } : prev));
+    }
+  };
+
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseTags, setNewExerciseTags] = useState<string[]>([]);
@@ -676,17 +680,6 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
   // ✅ 修复Bug #5: 添加防抖同步，避免频繁的配置更新触发过多同步
   const debouncedSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const debouncedPerformSync = (userId: string, delay: number = 2000) => {
-    // 清除之前的防抖定时器
-    if (debouncedSyncTimeoutRef.current) {
-      clearTimeout(debouncedSyncTimeoutRef.current);
-    }
-    
-    // 设置新的防抖定时器
-    debouncedSyncTimeoutRef.current = setTimeout(() => {
-      performFullSync(userId);
-    }, delay);
-  };
 
   // ✅ 修复Bug #5: 清理防抖定时器
   useEffect(() => {
@@ -822,12 +815,8 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
       await db.save('workouts', workout);
       
       // 重新加载数据
-      await loadLocalData(user?.id || 'u_guest');
-      
-      // 同步到云端
-      if (user && user.id !== 'u_guest') {
-        performFullSync(user.id);
-      }
+      await loadLocalData(resolvedUserId);
+      scheduleDebouncedFitlogPush();
       
       alert(
         lang === 'cn' 
@@ -880,8 +869,9 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
   // ✅ 修复：bestLifts 使用原始名称 ex.name 作为稳定 key，解决切换语言后星标丢失问题
   const bestLifts = useMemo(() => {
     const liftsMap: Record<string, { weight: number; originalName: string }> = {};
-    workouts.forEach(session => session.exercises.forEach(ex => {
-      const w = Math.max(...(ex.sets.map(s => s.weight || 0)));
+    workouts.forEach((session) => (session.exercises ?? []).forEach((ex) => {
+      const weights = (ex.sets ?? []).map((s) => s.weight || 0);
+      const w = weights.length ? Math.max(...weights) : 0;
       const normalizedName = resolveName(ex.name);
       const originalName = ex.name; // ✅ 使用原始存储名称作为稳定 key
       if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
@@ -899,80 +889,30 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
       });
   }, [workouts, lang, exerciseOverrides, starredExercises]);
 
-  // 图表数据处理已移到 LazyCharts 组件
-  // 只要用户 ID 确定或发生变化，就强制刷新本地所有训练记录和指标
-  useEffect(() => {
-    if (user && user.id) {
-      console.log("检测到用户已就绪，正在加载数据...", user.id);
-      loadLocalData(user.id);
-    }
-  }, [user?.id]); // 关键依赖：user.id
-
   useEffect(() => {
     const initApp = async () => {
-      await db.init();
-      
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        // 1. 检测到密码恢复事件
-        if (event === 'PASSWORD_RECOVERY') {
-          isRecoveryMode.current = true; // ✅ 更新 Ref
-          setAuthMode('updatePassword');
-          setIsUpdateSuccess(false);
-          return;
+      try {
+        await db.init();
+        await migrateRecordsToSoloUserId();
+        if (isRemoteConfigured()) {
+          try {
+            await pullAndMergeFitlogRemote();
+          } catch (e) {
+            console.warn('[fitlog] 启动时远端拉取失败，继续使用本地数据:', e);
+          }
         }
-
-        // 2. 正常登录逻辑
-        if (session?.user) {
-          // ✅ 使用 Ref 进行判断，这里能拿到最新的 true
-          if (isRecoveryMode.current) return; 
-
-          // 下面是原有的正常登录逻辑
-          const u = { 
-            id: session.user.id, 
-            username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
-            email: session.user.email!,
-            avatarUrl: session.user.user_metadata?.avatar_url 
-          };
-          setUser(u);
-          localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-          await performFullSync(u.id);
+        applyPrefsFromSnapshot(readPrefsFromLocalStorage());
+        await loadLocalData(resolvedUserId);
+        try {
+          await LocalNotifications.requestPermissions();
+        } catch {
+          /* 浏览器环境无 Capacitor 通知 */
         }
-      });
-
-      const { data: { session } } = await supabase.auth.getSession();
-      const savedUser = localStorage.getItem('fitlog_current_user');
-      const localUserData = savedUser ? JSON.parse(savedUser) : null;
-
-      if (session?.user) {
-        // ✅ 这里的路径也要去掉 .png，保持一致
-        const { data: { publicUrl: fixedAvatarUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(session.user.id);
-        
-        const u = { 
-          id: session.user.id, 
-          username: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User', 
-          email: session.user.email!,
-          avatarUrl: (localUserData && localUserData.id === session.user.id) 
-            ? localUserData.avatarUrl 
-            : (session.user.user_metadata?.avatar_url || fixedAvatarUrl)
-        };
-        setUser(u);
-        localStorage.setItem('fitlog_current_user', JSON.stringify(u));
-        await performFullSync(u.id);
+      } catch (e) {
+        console.error('[fitlog] 应用初始化失败:', e);
       }
-      const ls = (k: string) => localStorage.getItem(k);
-      const savedCustomTags = ls('fitlog_custom_tags'); if (savedCustomTags) setCustomTags(JSON.parse(savedCustomTags));
-      const savedCustomExercises = ls('fitlog_custom_exercises'); if (savedCustomExercises) setCustomExercises(JSON.parse(savedCustomExercises));
-      const savedUnit = ls('fitlog_unit') as 'kg' | 'lbs'; 
-      if (savedUnit) setUnit(savedUnit);
-      const savedLang = ls('fitlog_lang') as Language; if (savedLang) setLang(savedLang);
-      const savedTagOverrides = ls('fitlog_tag_rename_overrides'); if (savedTagOverrides) setTagRenameOverrides(JSON.parse(savedTagOverrides));
-      const savedExOverrides = ls('fitlog_exercise_overrides'); if (savedExOverrides) setExerciseOverrides(JSON.parse(savedExOverrides));
-      const savedStarred = ls('fitlog_starred_exercises'); if (savedStarred) setStarredExercises(JSON.parse(savedStarred));
-      await LocalNotifications.requestPermissions();
     };
-    initApp();
+    void initApp();
   }, []);
 
   const loadLocalData = async (userId: string) => {
@@ -1097,11 +1037,9 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
       const userWeights = allWeights.filter(w => w.userId === userId);
       const userMeasures = allMeasurements.filter(m => m.userId === userId);
 
-      // ✅ 关键：使用解构赋值 [...array] 确保 React 检测到引用变化，触发重绘
-      setWorkouts([...migratedWorkouts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setGoals([...migratedGoals]);
-      setWeightEntries([...userWeights].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
-      setMeasurements([...userMeasures]);
+      await workoutCtx.refreshFromDb();
+      await goalsCtx.refreshFromDb();
+      await settingsCtx.reloadFromIndexedDb();
 
       console.log(`本地数据加载完成: ${migratedWorkouts.length} 场训练${hasDataMigration ? ' (已执行数据迁移)' : ''}${hasGoalMigration ? ', Goal数据已迁移' : ''}`);
     } catch (error) {
@@ -1109,303 +1047,29 @@ const AppWithAuth: React.FC<AppWithAuthProps> = ({ userId, onUserIdChange }) => 
     }
   };
 
-const performFullSync = async (currentUserId: string) => {
-    if (currentUserId === 'u_guest') return;
-    
-    // ✅ 修复Bug #5: 检查同步锁，防止并发同步
-    if (syncLockRef.current) {
-      console.log('同步已在进行中，跳过此次请求');
+  const performFullSync = async () => {
+    if (!isRemoteConfigured()) {
+      alert(
+        lang === Language.CN
+          ? '未配置个人服务器：请在 .env.local 设置 VITE_API_URL 与 VITE_API_KEY'
+          : 'Set VITE_API_URL and VITE_API_KEY in .env.local.',
+      );
       return;
     }
-    
-    // ✅ 修复Bug #5: 获取同步锁
+    if (syncLockRef.current) return;
     syncLockRef.current = true;
     setSyncStatus('syncing');
     try {
-      await Promise.all([
-        // 1. 同步训练记录 (Workouts)
-        (async () => {
-          const rw = await fetchWorkoutsFromCloud();
-          if (rw) for (const r of rw) await db.save('workouts', { id: r.id, userId: r.user_id, date: r.date, title: r.title, exercises: r.exercises, notes: r.notes });
-          const lw = await db.getAll<WorkoutSession>('workouts');
-          await syncWorkoutsToCloud(lw.filter(w => w.userId === currentUserId));
-        })(),
-
-        // 2. 同步体重 (Weight) - ✅ 改进：智能合并策略
-        (async () => {
-          const rWeight = await fetchWeightFromCloud();
-          const lWeight = await db.getAll<WeightEntry>('weightLogs');
-          const localUserWeight = lWeight.filter(w => w.userId === currentUserId);
-          
-          // 智能合并：只添加本地不存在的云端数据
-          if (rWeight) {
-            for (const r of rWeight) {
-              const existsLocally = localUserWeight.find(l => l.id === r.id);
-              if (!existsLocally) {
-                // 只有本地不存在的记录才从云端添加
-                await db.save('weightLogs', { 
-                  id: r.id, 
-                  userId: r.user_id, 
-                  weight: r.weight, 
-                  date: r.date, 
-                  unit: r.unit 
-                });
-              }
-            }
-          }
-          
-          // 上传本地数据到云端（保持原有逻辑）
-          await syncWeightToCloud(localUserWeight);
-        })(),
-
-        // 3. 同步身体指标 (Measurements) - ✅ 改进：智能合并策略
-        (async () => {
-          const rMeasures = await fetchMeasurementsFromCloud();
-          const lMeasures = await db.getAll<Measurement>('custom_metrics');
-          const localUserMeasures = lMeasures.filter(m => m.userId === currentUserId);
-          
-          // 智能合并：只添加本地不存在的云端数据
-          if (rMeasures) {
-            for (const r of rMeasures) {
-              const existsLocally = localUserMeasures.find(l => l.id === r.id);
-              if (!existsLocally) {
-                // 只有本地不存在的记录才从云端添加
-                await db.save('custom_metrics', { 
-                  id: r.id, 
-                  userId: r.user_id, 
-                  name: r.name, 
-                  value: r.value, 
-                  unit: r.unit, 
-                  date: r.date 
-                });
-              }
-            }
-          }
-          
-          // 上传本地数据到云端（保持原有逻辑）
-          await syncMeasurementsToCloud(localUserMeasures);
-        })(),
-
-        // 4. 同步训练目标 (Goals)
-        (async () => {
-          const rg = await fetchGoalsFromCloud();
-          if (rg) {
-            for (const r of rg) {
-              const now = new Date().toISOString();
-              // ✅ 修复：创建完整的Goal对象以符合新接口
-              const goal: Goal = {
-                id: r.id,
-                userId: r.user_id,
-                type: r.type,
-                category: r.type, // 使用type作为默认category
-                
-                // 基本信息
-                title: r.label || r.title || 'Untitled Goal',
-                description: r.description || '',
-                
-                // 目标设置
-                targetValue: r.target_value,
-                currentValue: r.current_value,
-                unit: r.unit,
-                
-                // 时间设置
-                startDate: r.start_date || now,
-                targetDate: r.target_date,
-                
-                // 数据源配置
-                dataSource: r.data_source || 'manual',
-                autoUpdateRule: r.auto_update_rule,
-                
-                // 进度追踪
-                progressHistory: r.progress_history || [],
-                
-                // 设置选项
-                isActive: r.is_active !== undefined ? r.is_active : true,
-                
-                // 元数据
-                createdAt: r.created_at || now,
-                updatedAt: r.updated_at || now,
-                completedAt: r.completed_at,
-                
-                // 兼容旧版本
-                label: r.label, // 保持向后兼容
-                deadline: r.deadline
-              };
-              await db.save('goals', goal);
-            }
-          }
-          const lg = await db.getAll<Goal>('goals');
-          await syncGoalsToCloud(lg.filter(g => g.userId === currentUserId));
-        })(),
-
-        // 5. 同步个性化配置 (备注、偏好、自定义动作/标签、维度设置)
-        (async () => {
-          const remoteConfig = await fetchUserConfigsFromCloud();
-          
-          // A. 先读取当前本地最真实的数据作为基准
-          const localTags = JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]');
-          const localExs = JSON.parse(localStorage.getItem('fitlog_custom_exercises') || '[]');
-          const localNotes = JSON.parse(localStorage.getItem('fitlog_exercise_notes') || '{}');
-          const localRest = JSON.parse(localStorage.getItem('fitlog_rest_prefs') || '{}');
-          const localStarred = JSON.parse(localStorage.getItem('fitlog_starred_exercises') || '{}');
-          const localMetricConfigs = JSON.parse(localStorage.getItem('fitlog_metric_configs') || '{}');
-
-          // B. 初始化"最终版本"变量（默认先用本地的）
-          let finalTags = localTags;
-          let finalExs = localExs;
-          let finalNotes = localNotes;
-          let finalRest = localRest;
-          let finalStarred = localStarred;
-          let finalMetricConfigs = localMetricConfigs;
-
-          // C. 如果云端有数据，进行合并/覆盖
-          if (remoteConfig) {
-            if (remoteConfig.customTags?.length > 0) finalTags = remoteConfig.customTags;
-            if (remoteConfig.customExercises?.length > 0) finalExs = remoteConfig.customExercises;
-            if (remoteConfig.exerciseNotes) finalNotes = remoteConfig.exerciseNotes;
-            if (remoteConfig.restPrefs) finalRest = remoteConfig.restPrefs;
-            
-            // ✅ 修复星标数据同步Bug: 使用时间戳智能合并，避免覆盖用户最新操作
-            const localStarredTimestamp = parseInt(localStorage.getItem('fitlog_starred_last_update') || '0');
-            const remoteStarredTimestamp = remoteConfig.starredTimestamp || 0;
-            
-            if (remoteConfig.starred && Object.keys(remoteConfig.starred).length > 0) {
-              if (remoteStarredTimestamp > localStarredTimestamp) {
-                // 云端数据更新，使用云端数据
-                finalStarred = remoteConfig.starred;
-                console.log('使用云端星标数据（更新）');
-              } else {
-                console.log('保留本地星标数据（更新）');
-                // 保持本地配置不变
-              }
-            }
-            
-            // ✅ 修复Metrics重置Bug: 智能合并metrics配置，避免覆盖用户最新操作
-            if (remoteConfig.metricConfigs) {
-              const localMetricsTimestamp = parseInt(localStorage.getItem('fitlog_metrics_last_update') || '0');
-              const remoteMetricsTimestamp = remoteConfig.metricsTimestamp || 0;
-              
-              // 只有当云端数据更新时才覆盖本地配置
-              if (remoteMetricsTimestamp > localMetricsTimestamp) {
-                finalMetricConfigs = remoteConfig.metricConfigs;
-                console.log('使用云端metrics配置（更新）');
-              } else {
-                console.log('保留本地metrics配置（更新）');
-                // 保持本地配置不变
-              }
-            }
-
-            // D. 同步更新 React 内存状态
-            setCustomTags(finalTags);
-            setCustomExercises(finalExs);
-            setExerciseNotes(finalNotes);
-            setRestPreferences(finalRest);
-            setStarredExercises(finalStarred);
-            setExerciseMetricConfigs(finalMetricConfigs);
-
-            // E. 同步写入本地持久化存储
-            localStorage.setItem('fitlog_custom_tags', JSON.stringify(finalTags));
-            localStorage.setItem('fitlog_custom_exercises', JSON.stringify(finalExs));
-            localStorage.setItem('fitlog_exercise_notes', JSON.stringify(finalNotes));
-            localStorage.setItem('fitlog_rest_prefs', JSON.stringify(finalRest));
-            localStorage.setItem('fitlog_starred_exercises', JSON.stringify(finalStarred));
-            localStorage.setItem('fitlog_metric_configs', JSON.stringify(finalMetricConfigs));
-          }
-          
-          // F. ✅ 最终一步：将这个"终极合并版"配置上传回云端，实现多端对齐
-          await syncUserConfigsToCloud({
-            exerciseNotes: finalNotes,
-            restPrefs: finalRest,
-            customTags: finalTags,
-            starred: finalStarred,
-            starredTimestamp: parseInt(localStorage.getItem('fitlog_starred_last_update') || Date.now().toString()),
-            customExercises: finalExs,
-            metricConfigs: finalMetricConfigs,
-            metricsTimestamp: parseInt(localStorage.getItem('fitlog_metrics_last_update') || Date.now().toString())
-          });
-        })()
-      ]);
-
-      await loadLocalData(currentUserId);
+      const mergedPrefs = await pullAndMergeFitlogRemote();
+      applyPrefsFromSnapshot(mergedPrefs ?? readPrefsFromLocalStorage());
+      await loadLocalData(resolvedUserId);
+      await pushFitlogRemoteSnapshot();
       setSyncStatus('idle');
     } catch (e: any) {
-      console.error("Sync Failure:", e.message);
+      console.error('Sync Failure:', e?.message || e);
       setSyncStatus('error');
     } finally {
-      // ✅ 修复Bug #5: 无论成功失败，都要释放同步锁
       syncLockRef.current = false;
-    }
-  };
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault(); setIsLoading(true); setAuthError(null);
-    try {
-      const res = authMode === 'register' 
-        ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: 'https://fit.myronhub.com', data: { display_name: username } } }) 
-        : await supabase.auth.signInWithPassword({ email, password });
-      
-      if (res.error) throw res.error;
-      if (res.data.user) {
-        const u = { id: res.data.user.id, username: res.data.user.user_metadata?.display_name || email.split('@')[0], email, avatarUrl: res.data.user.user_metadata?.avatar_url };
-        setUser(u); 
-        localStorage.setItem('fitlog_current_user', JSON.stringify(u)); 
-        await performFullSync(u.id);
-      }
-    } catch (err: any) { setAuthError(err.message); } finally { setIsLoading(false); }
-  };
-
-// 处理忘记密码（发送重置邮件）
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true); 
-    setAuthError(null);
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        // ✅ 必须改为你的正式域名，这样邮件里的链接才是对的
-        redirectTo: 'https://fit.myronhub.com', 
-      });
-      if (error) throw error;
-      
-      alert(lang === Language.CN ? '重置邮件已发送，请检查邮箱！' : 'Reset email sent, please check your inbox!');
-      setAuthMode('login');
-    } catch (err: any) {
-      setAuthError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-
-const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // 1. 基础验证
-    if (!password || password.length < 6) {
-      setAuthError(lang === Language.CN ? '密码至少需要6位' : 'Password min 6 chars');
-      return;
-    }
-
-    setIsLoading(true);
-    setAuthError(null);
-
-    try {
-      // 2. 执行更新
-      const { error } = await supabase.auth.updateUser({ password: password });
-      if (error) throw error;
-
-      // 3. 成功逻辑：只更新 UI，不进行跳转或登出
-      setIsUpdateSuccess(true); 
-      setPassword(''); 
-      
-      // 注意：这里不要重置 isLoading(false)，
-      // 这里的逻辑是：如果成功，isUpdateSuccess 为 true 会直接替换掉整个 Form 表单，
-      // 所以 loading 状态自然消失。
-      // 但为了保险（如下面的 finally），我们还是会处理它。
-
-    } catch (err: any) {
-      setAuthError(err.message);
-    } finally {
-      // ✅ 强制停止转圈：无论成功失败，必须执行
-      setIsLoading(false);
     }
   };
 
@@ -1427,20 +1091,18 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     }
   };
 
-  const handleSaveWorkout = async () => {
-    // ✅ 修复问题7: 添加保存状态反馈
+  // 内部实际保存训练。faithful: 来自计划时的"是否完全按计划"标记；非计划训练保持 undefined
+  const performSaveWorkout = async (faithful?: boolean) => {
     setSaveStatus('saving');
     setHasUnsavedChanges(false);
-    
+
     try {
-      // ✅ 新增校验：如果一个动作都没有，或者所有动作都没有填组数，就不保存
       if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
         alert(lang === Language.CN ? "请至少添加一个动作" : "Please add at least one exercise");
         setSaveStatus('error');
         return;
       }
 
-      // 检查是否所有动作都有至少一组数据 (可选)
       const hasData = currentWorkout.exercises.some(ex => ex.sets && ex.sets.length > 0);
       if (!hasData) {
         alert(lang === Language.CN ? "请至少记录一组数据" : "Please log at least one set");
@@ -1452,35 +1114,35 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
         setSaveStatus('error');
         return;
       }
-      
-      const session: WorkoutSession = { 
-        ...currentWorkout, 
-        id: currentWorkout.id || Date.now().toString(), 
-        userId: user.id, 
-        title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`, 
-        date: currentWorkout.date || new Date().toISOString() 
+
+      const scheduleId = activeScheduleIdRef.current;
+      const session: WorkoutSession = {
+        ...currentWorkout,
+        id: currentWorkout.id || Date.now().toString(),
+        userId: user.id,
+        title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`,
+        date: currentWorkout.date || new Date().toISOString(),
+        ...(scheduleId && typeof faithful === 'boolean'
+          ? { fromSchedule: { scheduleId, faithful } }
+          : {}),
       } as WorkoutSession;
-      
+
       await db.save('workouts', session);
-      await loadLocalData(user.id); 
-      
-      // ✅ 修复问题7: 显示保存成功状态
+      await loadLocalData(resolvedUserId);
+
+      if (scheduleId) {
+        markActiveSchedulePending.current = true;
+      }
+
       setSaveStatus('saved');
-      
-      // 2秒后自动跳转到dashboard
+
       setTimeout(() => {
-        setActiveTab('dashboard'); 
-        setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
+        setActiveTab('dashboard');
+        setCurrentWorkout(workoutCtx.createNewWorkout());
         setSaveStatus('idle');
       }, 2000);
-      
-      if (user.id !== 'u_guest') {
-        try { 
-          await syncWorkoutsToCloud([session]); 
-        } catch (err) { 
-          console.warn("Sync failed"); 
-        }
-      }
+
+      scheduleDebouncedFitlogPush();
     } catch (error) {
       console.error('Save workout failed:', error);
       setSaveStatus('error');
@@ -1488,9 +1150,18 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     }
   };
 
+  const handleSaveWorkout = async () => {
+    // 来自训练计划的训练：先弹"按计划/有调整/取消"确认，再走真正的保存
+    if (activeScheduleIdRef.current) {
+      setPlanConfirmOpen(true);
+      return;
+    }
+    await performSaveWorkout();
+  };
+
   // ✅ 修复问题7: 监听训练数据变化，标记未保存状态
   useEffect(() => {
-    if (currentWorkout.exercises && currentWorkout.exercises.length > 0) {
+    if (currentWorkout?.exercises && currentWorkout.exercises.length > 0) {
       const hasAnyData = currentWorkout.exercises.some(ex => 
         ex.sets && ex.sets.length > 0 && ex.sets.some(set => 
           set.weight || set.reps || set.distance || set.duration || set.score
@@ -1554,31 +1225,23 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       // 3. 如果训练为空，删除整个训练
       if (updatedExercises.length === 0) {
         await db.delete('workouts', workoutId);
-        console.log('Deleted entire workout (was empty after removing exercise)');
-        
-        // 直接更新内存状态
-        setWorkouts(prev => prev.filter(w => w.id !== workoutId));
+        await workoutCtx.refreshFromDb();
       } else {
         // 4. 否则更新训练记录
-        const updatedWorkout = { 
-          ...workout, 
+        const updatedWorkout = {
+          ...workout,
           exercises: updatedExercises,
-          userId: workout.userId // 确保 userId 存在
+          userId: workout.userId, // 确保 userId 存在
         };
         await db.save('workouts', updatedWorkout);
         console.log('Updated workout after removing exercise:', workoutId);
-        
-        // 直接更新内存状态
-        setWorkouts(prev => prev.map(w => 
-          w.id === workoutId ? updatedWorkout : w
-        ));
+
+        await workoutCtx.refreshFromDb();
       }
-      
-      // 5. 同步到云端
-      if (user && user.id !== 'u_guest') {
-        performFullSync(user.id);
-      }
-      
+
+      // 5. 同步到服务器
+      scheduleDebouncedFitlogPush();
+
       // 6. 用户反馈
       alert(
         lang === Language.CN 
@@ -1604,16 +1267,8 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     if (!window.confirm(confirmText)) return;
 
     try {
-      // 1. 从本地数据库删除
-      await db.delete('workouts', workoutId);
-      
-      // 2. 更新内存状态 (这会自动触发热力图和统计数字更新)
-      setWorkouts(prev => prev.filter(w => w.id !== workoutId));
-
-      // 3. 同步到云端
-      if (user && user.id !== 'u_guest') {
-        await deleteWorkoutFromCloud(workoutId);
-      }
+      await workoutCtx.deleteWorkout(workoutId);
+      scheduleDebouncedFitlogPush();
 
     } catch (err: any) {
       console.error("Delete workout failed:", err);
@@ -1628,44 +1283,9 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     setIsResetting(true);
     
     try {
-      console.log('开始重置账户数据...');
-      
-      // 1. 清除云端数据 (如果不是访客用户)
-      if (user.id !== 'u_guest') {
-        console.log('清除云端数据...');
-        
-        // 删除云端训练记录
-        const cloudWorkouts = workouts.filter(w => w.userId === user.id);
-        for (const workout of cloudWorkouts) {
-          try {
-            await deleteWorkoutFromCloud(workout.id);
-          } catch (e) {
-            console.warn('删除云端训练记录失败:', workout.id, e);
-          }
-        }
-        
-        // 清除云端其他数据 (通过同步空数据实现)
-        try {
-          await syncGoalsToCloud([]);
-          await syncWeightToCloud([]);
-          await syncMeasurementsToCloud([]);
-          await syncUserConfigsToCloud({
-            customTags: [],
-            customExercises: [],
-            exerciseNotes: {},
-            restPrefs: {},
-            starredExercises: {},
-            metricConfigs: {},
-            exerciseOverrides: {},
-            tagRenameOverrides: {}
-          });
-        } catch (e) {
-          console.warn('清除云端配置数据失败:', e);
-        }
-      }
-      
-      // 2. 清除本地数据库
-      console.log('清除本地数据库...');
+      console.log('开始重置本地数据...');
+
+      // 1. 清除本地数据库
       const allWorkouts = await db.getAll<WorkoutSession>('workouts');
       const userWorkouts = allWorkouts.filter(w => w.userId === user.id);
       for (const workout of userWorkouts) {
@@ -1706,13 +1326,14 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       localStorageKeys.forEach(key => {
         localStorage.removeItem(key);
       });
-      
-      // 4. 重置内存状态到初始值
+      localStorage.removeItem('fitlog_avatar_data_url');
+      clearTombstones();
+
+      // 重置内存状态
       console.log('重置内存状态...');
-      setWorkouts([]);
-      setGoals([]);
-      setWeightEntries([]);
-      setMeasurements([]);
+      await workoutCtx.refreshFromDb();
+      await goalsCtx.refreshFromDb();
+      await settingsCtx.reloadFromIndexedDb();
       setCustomTags([]);
       setCustomExercises([]);
       setExerciseNotes({});
@@ -1721,8 +1342,16 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       setStarredExercises({});
       setExerciseOverrides({});
       setTagRenameOverrides({});
-      setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
-      
+      setCurrentWorkout(workoutCtx.createNewWorkout());
+
+      if (isRemoteConfigured()) {
+        try {
+          await pushFitlogRemoteSnapshot();
+        } catch (e) {
+          console.warn('远端清空快照上传失败:', e);
+        }
+      }
+
       // 5. 关闭重置对话框
       setShowResetAccountModal(false);
       setResetConfirmText('');
@@ -1842,12 +1471,10 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       deadline: undefined
     };
     
-    await db.save('goals', goal); 
-    await loadLocalData(user.id);
+    await db.save('goals', goal);
+    await loadLocalData(resolvedUserId);
     setShowGoalModal(false);
-    if (user.id !== 'u_guest') {
-       try { await syncGoalsToCloud([goal]); } catch (err) { console.warn("Sync failed"); }
-    }
+    scheduleDebouncedFitlogPush();
   };
 
   // ✅ 新增：编辑目标处理函数
@@ -1855,6 +1482,55 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     setEditingGoal(goal);
     setShowEditGoalModal(true);
   };
+
+  // 由「训练计划」启动一次具体的训练 —— 预填动作 + 跳到「新建训练」
+  const activeScheduleIdRef = useRef<string | null>(null);
+  const handleStartScheduledSession = useCallback((scheduleId: string) => {
+    const target = scheduleCtx.schedules.find(s => s.id === scheduleId);
+    if (!target) return;
+    activeScheduleIdRef.current = scheduleId;
+    const empty = workoutCtx.createNewWorkout();
+    const prefilled: WorkoutSession = {
+      ...empty,
+      title: target.title || (lang === Language.CN ? '计划训练' : 'Planned session'),
+      tags: target.bodyParts ?? [],
+      notes: target.notes || '',
+      exercises: (target.exercises || []).map((ex, i) => ({
+        id: `${Date.now()}_${i}`,
+        name: ex.name,
+        category: ex.category,
+        bodyPart: ex.bodyPart,
+        sets: Array.from({ length: Math.max(1, ex.targetSets ?? 1) }, (_, j) => ({
+          id: `${Date.now()}_${i}_${j}`,
+          weight: ex.targetWeight ?? 0,
+          reps: ex.targetReps ?? 0,
+        })),
+        tags: ex.tags ?? [],
+      })),
+    };
+    setCurrentWorkout(prefilled);
+    setActiveTab('new');
+  }, [scheduleCtx.schedules, workoutCtx, lang, setCurrentWorkout, setActiveTab]);
+
+  // 训练保存成功后，回写关联日程为 completed
+  const markActiveSchedulePending = useRef(false);
+  useEffect(() => {
+    if (!markActiveSchedulePending.current) return;
+    const id = activeScheduleIdRef.current;
+    if (!id) return;
+    const target = scheduleCtx.schedules.find(s => s.id === id);
+    if (!target) return;
+    const lastWorkout = workouts[0];
+    if (!lastWorkout) return;
+    void scheduleCtx.updateSchedule({
+      ...target,
+      status: 'completed',
+      linkedWorkoutId: lastWorkout.id,
+      updatedAt: new Date().toISOString(),
+    });
+    activeScheduleIdRef.current = null;
+    markActiveSchedulePending.current = false;
+  }, [workouts, scheduleCtx]);
 
   // ✅ 新增：保存编辑后的目标
   const handleSaveEditedGoal = async () => {
@@ -1866,11 +1542,9 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
     };
     
     await db.save('goals', updatedGoal);
-    await loadLocalData(user.id);
+    await loadLocalData(resolvedUserId);
     setShowEditGoalModal(false);
-    if (user.id !== 'u_guest') {
-       try { await syncGoalsToCloud([updatedGoal]); } catch (err) { console.warn("Sync failed"); }
-    }
+    scheduleDebouncedFitlogPush();
   };
 
   // ✅ 新增：取消编辑目标
@@ -1896,16 +1570,18 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
       unit: unit
     };
     await db.save('weightLogs', entry);
-    const isLatest = weightEntries.length === 0 || new Date(dateToUse).getTime() >= new Date(weightEntries[0].date).getTime();
+    const weightKg = entry.weight;
+    const isLatest =
+      weightEntries.length === 0 ||
+      new Date(dateToUse).getTime() >= new Date(weightEntries[0].date).getTime();
     if (isLatest) {
-      const weightGoals = goals.filter(g => g.type === 'weight');
+      const weightGoals = goals.filter((g) => g.type === 'weight');
       for (const g of weightGoals) {
-        const updatedGoal = { ...g, currentValue: w };
+        const updatedGoal = { ...g, currentValue: weightKg };
         await db.save('goals', updatedGoal);
       }
     }
-    await loadLocalData(user.id);
-    setWeightInputValue('');
+    await loadLocalData(resolvedUserId);
     setEditingWeightId(null);
     setShowWeightInput(false);
     setSelectedPRProject('__WEIGHT__');
@@ -1914,30 +1590,11 @@ const handleUpdatePassword = async (e: React.FormEvent) => {
   const handleDeleteWeightEntry = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation(); // 防止误触
     
-    // 确认弹窗
-    //const confirmText = lang === Language.CN ? '确定要删除这条记录吗？' : 'Delete this entry?';
-    //if (!window.confirm(confirmText)) return;
+    const confirmText = lang === Language.CN ? '确定要删除这条记录吗？' : 'Delete this entry?';
+    if (!window.confirm(confirmText)) return;
 
     try {
-      // 1. 从本地数据库删除
-      await db.delete('weightLogs', id);
-      
-      // 2. 从云端删除（如果用户已登录且不是访客）
-      if (user && user.id !== 'u_guest') {
-        try {
-          await deleteWeightFromCloud(id);
-        } catch (cloudError) {
-          console.warn('云端删除失败，但本地删除成功:', cloudError);
-          // 本地删除成功，云端删除失败时不阻止操作
-          // 下次同步时会处理这种不一致情况
-        }
-      }
-      
-      // 3. 更新界面状态
-      setWeightEntries(prev => prev.filter(entry => entry.id !== id));
-      
-      // 4. 刷新本地数据以更新顶部大数字
-      if (user) loadLocalData(user.id);
+      await settingsCtx.deleteWeightEntry(id);
       
     } catch (error) {
       console.error("Delete failed", error);
@@ -1951,44 +1608,24 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
     if (!file || !user) return;
 
     try {
-      setIsLoading(true);
-
-      // 1. ✅ 路径纯净化：直接用用户 ID，不加 .png 或 .jpg
-      const filePath = `${user.id}`; 
-
-      // 2. ✅ 执行上传：强制开启 upsert 覆盖模式
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, {
-          upsert: true,
-          contentType: file.type // 确保文件类型正确
-        });
-
-      if (uploadError) throw uploadError;
-
-      // 3. ✅ 使用官方方法获取纯净 URL，再手动加上时间戳防止缓存
-      const { data: { publicUrl: rawUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-      
-      const publicUrlWithCacheBuster = `${rawUrl}?v=${Date.now()}`;
-
-      // 4. 立即更新本地状态
-      const updatedUser = { ...user, avatarUrl: publicUrlWithCacheBuster };
+      setUiBusy(true);
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => reject(new Error('read failed'));
+        r.readAsDataURL(file);
+      });
+      localStorage.setItem('fitlog_avatar_data_url', dataUrl);
+      const updatedUser = { ...user, avatarUrl: dataUrl };
       setUser(updatedUser);
       localStorage.setItem('fitlog_current_user', JSON.stringify(updatedUser));
-
-      // 5. 后台静默更新数据库元数据
-      supabase.auth.updateUser({
-        data: { avatar_url: publicUrlWithCacheBuster }
-      });
-
+      scheduleDebouncedFitlogPush();
     } catch (error: any) {
       console.error("Upload error:", error);
       alert('上传失败: ' + error.message);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
-      setIsLoading(false);
+      setUiBusy(false);
     }
   };
   // --- 头像上传逻辑结束 ---
@@ -2005,8 +1642,9 @@ const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) =>
       if (next[name]) delete next[name];
       else next[name] = Date.now();
       localStorage.setItem('fitlog_starred_exercises', JSON.stringify(next));
-      // ✅ 修复：记录星标更新时间戳，用于智能合并
       localStorage.setItem('fitlog_starred_last_update', Date.now().toString());
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
       return next;
     });
   };
@@ -2170,13 +1808,18 @@ const getTagName = (tid: string) => {
 
 const filteredExercises = useMemo(() => {
     const allBase = [...DEFAULT_EXERCISES, ...customExercises];
-    const categoryToFilter = activeLibraryCategory || 'STRENGTH';
-    
+
     const all = allBase
       .map(ex => exerciseOverrides[ex.id] ? { ...ex, ...exerciseOverrides[ex.id] } : ex)
       // ✅ 新增：过滤掉被标记为隐藏的动作
-      .filter(ex => !exerciseOverrides[ex.id]?.hidden) 
-      .filter(ex => (ex.category || 'STRENGTH') === categoryToFilter);
+      .filter(ex => !exerciseOverrides[ex.id]?.hidden)
+      // "全部分类"模式（activeLibraryCategory === null）下不按分类过滤；
+      // 否则只显示当前分类下的动作。
+      .filter(ex =>
+        activeLibraryCategory === null
+          ? true
+          : (ex.category || 'STRENGTH') === activeLibraryCategory,
+      );
 
     return all.filter(ex => {
       const q = searchQuery.toLowerCase();
@@ -2239,10 +1882,7 @@ const filteredExercises = useMemo(() => {
       return updated;
     });
 
-    // ✅ 修复Bug #5: 删除动作是重要操作，使用立即同步
-    if (user && user.id !== 'u_guest') {
-      performFullSync(user.id);
-    }
+    scheduleDebouncedFitlogPush();
   };
 
   const handleRenameExercise = async () => {
@@ -2260,12 +1900,7 @@ const filteredExercises = useMemo(() => {
       return updated;
     });
 
-    // 2. ✅ 关键：如果是正式用户，立刻触发同步，确保云端名称也更新
-    // ✅ 修复Bug #5: 重命名动作是重要操作，使用立即同步
-    if (user && user.id !== 'u_guest') {
-      // 我们通过 performFullSync 将更新后的 exerciseOverrides (包含在 user_configs 中) 上传
-      performFullSync(user.id);
-    }
+    scheduleDebouncedFitlogPush();
 
     setShowRenameExerciseModal(false); 
     setExerciseToRename(null); 
@@ -2369,49 +2004,50 @@ const filteredExercises = useMemo(() => {
 
 
   // ✅ 重构：使用 SetCapsule 组件替代内联代码
-  const renderSetCapsule = (s: any, exerciseName: string, exercise?: Exercise) => {
+  const renderSetCapsule = (s: any, exerciseName: string, _exercise?: Exercise) => {
     const metrics = getActiveMetrics(exerciseName);
-    
     return (
       <SetCapsule
         set={s}
-        exerciseName={exerciseName}
-        exercise={exercise}
-        metrics={metrics}
+        setIdx={0}
+        activeMetrics={metrics}
         unit={unit}
         lang={lang}
+        readOnly
+        onUpdate={() => {}}
+        onRemove={() => {}}
       />
     );
   };
 
 
   return (
-    <div className="min-h-screen pb-32 bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
+    <div className="min-h-screen bg-base text-primary font-sans selection:bg-accent/20">
       
       {showWeightInput && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black">{editingWeightId ? (lang === Language.CN ? '编辑体重记录' : 'Edit Weight Entry') : translations.logWeight[lang]}</h2>
+                <h2 className="text-2xl font-semibold">{editingWeightId ? (lang === Language.CN ? '编辑体重记录' : 'Edit Weight Entry') : translations.logWeight[lang]}</h2>
                 <button onClick={() => { setShowWeightInput(false); setEditingWeightId(null); setWeightInputValue(''); }}><X size={20}/></button>
               </div>
               <div className="space-y-4">
                  <div className="relative group">
-                    <Scale className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500" size={24} />
-                    <input type="number" step="0.1" className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-6 pl-16 pr-20 text-2xl font-black outline-none focus:ring-2 focus:ring-blue-500" value={weightInputValue} onChange={e => setWeightInputValue(e.target.value)} placeholder="0.0" autoFocus />
-                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 font-black text-xl uppercase">{unit}</span>
+                    <Scale className="absolute left-6 top-1/2 -translate-y-1/2 text-secondary group-focus-within:text-accent" size={24} />
+                    <input type="number" step="0.1" className="w-full bg-card border border-divider rounded-2xl py-6 pl-16 pr-20 text-2xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" value={weightInputValue} onChange={e => setWeightInputValue(e.target.value)} placeholder="0.0" autoFocus />
+                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-secondary font-semibold text-xl uppercase">{unit}</span>
                  </div>
               </div>
-              <button onClick={handleLogWeight} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
+              <button onClick={handleLogWeight} className="w-full bg-accent py-5 rounded-2xl font-semibold text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
            </div>
         </div>
       )}
       {/* 新增：自定义指标录入弹窗 */}
       {showMeasureModal && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black">
+                <h2 className="text-2xl font-semibold">
                   {editingMeasurementId 
                     ? (lang === Language.CN ? '修改记录' : 'Edit Entry') 
                     : (lang === Language.CN ? '记录身体指标' : 'Track Metric')}
@@ -2421,8 +2057,8 @@ const filteredExercises = useMemo(() => {
               <div className="space-y-4">
                  {/* 名称输入 */}
                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{lang === Language.CN ? '指标名称 (如: 腰围)' : 'Metric Name (e.g. Waist)'}</label>
-                    <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" 
+                    <label className="text-xs font-bold text-secondary uppercase tracking-wider">{lang === Language.CN ? '指标名称 (如: 腰围)' : 'Metric Name (e.g. Waist)'}</label>
+                    <input className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" 
                       value={measureForm.name} 
                       onChange={e => setMeasureForm({...measureForm, name: e.target.value})} 
                       placeholder={lang === Language.CN ? '输入名称...' : 'Enter name...'} 
@@ -2432,16 +2068,16 @@ const filteredExercises = useMemo(() => {
                  {/* 数值与单位 */}
                  <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{lang === Language.CN ? '数值' : 'Value'}</label>
-                        <input type="number" className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" 
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">{lang === Language.CN ? '数值' : 'Value'}</label>
+                        <input type="number" className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" 
                           value={measureForm.value} 
                           onChange={e => setMeasureForm({...measureForm, value: e.target.value})} 
                           placeholder="0.0" 
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{lang === Language.CN ? '单位' : 'Unit'}</label>
-                        <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" 
+                        <label className="text-xs font-bold text-secondary uppercase tracking-wider">{lang === Language.CN ? '单位' : 'Unit'}</label>
+                        <input className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" 
                           value={measureForm.unit} 
                           onChange={e => setMeasureForm({...measureForm, unit: e.target.value})} 
                           placeholder="cm" 
@@ -2449,17 +2085,17 @@ const filteredExercises = useMemo(() => {
                     </div>
                  </div>
               </div>
-              <button onClick={handleSaveMeasurement} className="w-full bg-blue-600 py-5 rounded-2xl font-black text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
+              <button onClick={handleSaveMeasurement} className="w-full bg-accent py-5 rounded-2xl font-semibold text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all">{translations.confirm[lang]}</button>
            </div>
         </div>
       )}
 
       {/* ✅ 新增：自定义日期时间选择器弹窗 */}
       {showTimePickerModal && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-w-md rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black">
+                <h2 className="text-2xl font-semibold">
                   {lang === 'cn' ? '设置训练时间' : 'Set Exercise Time'}
                 </h2>
                 <button onClick={() => setShowTimePickerModal(null)}>
@@ -2470,7 +2106,7 @@ const filteredExercises = useMemo(() => {
               {/* 日期选择器 */}
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-secondary uppercase tracking-wider">
                     {translations.selectDate[lang]}
                   </label>
                   
@@ -2485,9 +2121,9 @@ const filteredExercises = useMemo(() => {
                           setCurrentMonth(currentMonth - 1);
                         }
                       }}
-                      className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                      className="p-2 hover:bg-card rounded-lg transition-colors"
                     >
-                      <ChevronLeft size={20} className="text-slate-400" />
+                      <ChevronLeft size={20} className="text-secondary" />
                     </button>
                     
                     <div className="text-lg font-bold text-white">
@@ -2503,16 +2139,16 @@ const filteredExercises = useMemo(() => {
                           setCurrentMonth(currentMonth + 1);
                         }
                       }}
-                      className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                      className="p-2 hover:bg-card rounded-lg transition-colors"
                     >
-                      <ChevronRight size={20} className="text-slate-400" />
+                      <ChevronRight size={20} className="text-secondary" />
                     </button>
                   </div>
                   
                   {/* 星期标题 */}
                   <div className="grid grid-cols-7 gap-1 mb-2">
-                    {translations.weekdayNames[lang].map((day, idx) => (
-                      <div key={idx} className="text-center text-xs font-bold text-slate-500 py-2">
+                    {(translations.weekdayNames[lang] as string[]).map((day, idx) => (
+                      <div key={idx} className="text-center text-xs font-bold text-secondary py-2">
                         {day}
                       </div>
                     ))}
@@ -2538,10 +2174,10 @@ const filteredExercises = useMemo(() => {
                           onClick={() => setSelectedDate(date)}
                           className={`h-10 rounded-lg text-sm font-bold transition-all ${
                             isSelected 
-                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                              ? 'bg-accent text-white shadow-elevated shadow-blue-600/30' 
                               : isTodayDate
-                                ? 'bg-slate-700 text-blue-400 border border-blue-500/30'
-                                : 'hover:bg-slate-800 text-slate-300'
+                                ? 'bg-inset text-accent border border-blue-500/30'
+                                : 'hover:bg-card text-primary'
                           }`}
                         >
                           {day}
@@ -2560,7 +2196,7 @@ const filteredExercises = useMemo(() => {
                       setCurrentMonth(today.getMonth());
                       setCurrentYear(today.getFullYear());
                     }}
-                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-card border border-divider rounded-xl text-sm font-bold hover:bg-card-hover transition-colors"
                   >
                     {translations.today[lang]}
                   </button>
@@ -2572,7 +2208,7 @@ const filteredExercises = useMemo(() => {
                       setCurrentMonth(yesterday.getMonth());
                       setCurrentYear(yesterday.getFullYear());
                     }}
-                    className="flex-1 px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-card border border-divider rounded-xl text-sm font-bold hover:bg-card-hover transition-colors"
                   >
                     {translations.yesterday[lang]}
                   </button>
@@ -2580,7 +2216,7 @@ const filteredExercises = useMemo(() => {
                 
                 {/* 时间选择器 */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <label className="text-xs font-bold text-secondary uppercase tracking-wider">
                     {translations.selectTime[lang]}
                   </label>
                   
@@ -2589,53 +2225,53 @@ const filteredExercises = useMemo(() => {
                     <div className="flex flex-col items-center space-y-2">
                       <button 
                         onClick={() => setSelectedHour((selectedHour + 1) % 24)}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                        className="p-2 hover:bg-card rounded-lg transition-colors"
                       >
-                        <ChevronUp size={20} className="text-slate-400" />
+                        <ChevronUp size={20} className="text-secondary" />
                       </button>
                       
-                      <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 min-w-[60px] text-center">
+                      <div className="bg-card border border-divider rounded-xl px-4 py-3 min-w-[60px] text-center">
                         <div className="text-2xl font-bold text-white">
                           {selectedHour.toString().padStart(2, '0')}
                         </div>
-                        <div className="text-xs text-slate-500 font-bold">
+                        <div className="text-xs text-secondary font-bold">
                           {translations.hour[lang]}
                         </div>
                       </div>
                       
                       <button 
                         onClick={() => setSelectedHour(selectedHour === 0 ? 23 : selectedHour - 1)}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                        className="p-2 hover:bg-card rounded-lg transition-colors"
                       >
-                        <ChevronDown size={20} className="text-slate-400" />
+                        <ChevronDown size={20} className="text-secondary" />
                       </button>
                     </div>
                     
-                    <div className="text-2xl font-bold text-slate-500">:</div>
+                    <div className="text-2xl font-bold text-secondary">:</div>
                     
                     {/* 分钟选择 */}
                     <div className="flex flex-col items-center space-y-2">
                       <button 
                         onClick={() => setSelectedMinute((selectedMinute + 5) % 60)}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                        className="p-2 hover:bg-card rounded-lg transition-colors"
                       >
-                        <ChevronUp size={20} className="text-slate-400" />
+                        <ChevronUp size={20} className="text-secondary" />
                       </button>
                       
-                      <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 min-w-[60px] text-center">
+                      <div className="bg-card border border-divider rounded-xl px-4 py-3 min-w-[60px] text-center">
                         <div className="text-2xl font-bold text-white">
                           {selectedMinute.toString().padStart(2, '0')}
                         </div>
-                        <div className="text-xs text-slate-500 font-bold">
+                        <div className="text-xs text-secondary font-bold">
                           {translations.minute[lang]}
                         </div>
                       </div>
                       
                       <button 
                         onClick={() => setSelectedMinute(selectedMinute === 0 ? 55 : selectedMinute - 5)}
-                        className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                        className="p-2 hover:bg-card rounded-lg transition-colors"
                       >
-                        <ChevronDown size={20} className="text-slate-400" />
+                        <ChevronDown size={20} className="text-secondary" />
                       </button>
                     </div>
                   </div>
@@ -2648,7 +2284,7 @@ const filteredExercises = useMemo(() => {
                         setSelectedHour(now.getHours());
                         setSelectedMinute(now.getMinutes());
                       }}
-                      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                      className="px-3 py-2 bg-card border border-divider rounded-lg text-xs font-bold hover:bg-card-hover transition-colors"
                     >
                       {lang === 'cn' ? '现在' : 'Now'}
                     </button>
@@ -2657,7 +2293,7 @@ const filteredExercises = useMemo(() => {
                         setSelectedHour(8);
                         setSelectedMinute(0);
                       }}
-                      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                      className="px-3 py-2 bg-card border border-divider rounded-lg text-xs font-bold hover:bg-card-hover transition-colors"
                     >
                       {lang === 'cn' ? '早上8点' : '8:00 AM'}
                     </button>
@@ -2666,7 +2302,7 @@ const filteredExercises = useMemo(() => {
                         setSelectedHour(18);
                         setSelectedMinute(0);
                       }}
-                      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold hover:bg-slate-700 transition-colors"
+                      className="px-3 py-2 bg-card border border-divider rounded-lg text-xs font-bold hover:bg-card-hover transition-colors"
                     >
                       {lang === 'cn' ? '晚上6点' : '6:00 PM'}
                     </button>
@@ -2674,8 +2310,8 @@ const filteredExercises = useMemo(() => {
                 </div>
                 
                 {/* 当前选择预览 */}
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
-                  <div className="text-xs font-bold text-slate-500 mb-1">
+                <div className="bg-card/50 border border-divider rounded-xl p-4">
+                  <div className="text-xs font-bold text-secondary mb-1">
                     {lang === 'cn' ? '选择的时间' : 'Selected Time'}
                   </div>
                   <div className="text-lg font-bold text-white">
@@ -2687,7 +2323,7 @@ const filteredExercises = useMemo(() => {
               <div className="flex gap-4">
                 <button 
                   onClick={() => setShowTimePickerModal(null)} 
-                  className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400"
+                  className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary"
                 >
                   {lang === 'cn' ? '取消' : 'Cancel'}
                 </button>
@@ -2721,7 +2357,7 @@ const filteredExercises = useMemo(() => {
                     
                     setShowTimePickerModal(null);
                   }} 
-                  className="flex-1 bg-blue-600 py-4 rounded-2xl font-black"
+                  className="flex-1 bg-accent py-4 rounded-2xl font-semibold"
                 >
                   {lang === 'cn' ? '确定' : 'Confirm'}
                 </button>
@@ -2731,19 +2367,19 @@ const filteredExercises = useMemo(() => {
       )}
 
       {showAddTagModal && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               {/* ... content ... */}
                <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-black">{translations.addCustomTag[lang]}</h2>
+                <h2 className="text-xl font-semibold">{translations.addCustomTag[lang]}</h2>
                 <button onClick={() => setShowAddTagModal(false)}><X size={20}/></button>
               </div>
-              <div className="flex gap-2 p-1 bg-slate-800 rounded-xl mb-4">
+              <div className="flex gap-2 p-1 bg-card rounded-xl mb-4">
                 {['bodyPart', 'equipment'].map(cat => (
-                  <button key={cat} onClick={() => setNewTagCategory(cat as 'bodyPart' | 'equipment')} className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${newTagCategory === cat ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500'}`}>{cat === 'bodyPart' ? translations.bodyPartHeader[lang] : translations.equipmentHeader[lang]}</button>
+                  <button key={cat} onClick={() => setNewTagCategory(cat as 'bodyPart' | 'equipment')} className={`flex-1 py-2 rounded-lg text-[10px] font-semibold uppercase transition-all ${newTagCategory === cat ? 'bg-accent text-white shadow-md' : 'text-secondary'}`}>{cat === 'bodyPart' ? translations.bodyPartHeader[lang] : translations.equipmentHeader[lang]}</button>
                 ))}
               </div>
-              <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagName} onChange={e => setNewTagName(e.target.value)} placeholder={translations.tagNamePlaceholder[lang]} />
+              <input className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagName} onChange={e => setNewTagName(e.target.value)} placeholder={translations.tagNamePlaceholder[lang]} />
               <button 
               onClick={async () => { 
                 if (!newTagName) return; 
@@ -2762,22 +2398,14 @@ const filteredExercises = useMemo(() => {
                 const localTags = JSON.parse(localStorage.getItem('fitlog_custom_tags') || '[]');
                 const updatedTags = [...localTags, t];
                 localStorage.setItem('fitlog_custom_tags', JSON.stringify(updatedTags));
+                markPrefsUpdated();
 
-                // 更新状态
                 setCustomTags(updatedTags); 
                 setShowAddTagModal(false); 
                 setNewTagName(''); 
 
-                // ✅ 发起后台同步，但不阻断 UI
-                if (user && user.id !== 'u_guest') {
-                  syncUserConfigsToCloud({
-                    exerciseNotes,
-                    restPrefs: restPreferences,
-                    customTags: updatedTags, // 直接传最新的
-                    starred: starredExercises,
-                    customExercises
-                  });
-                }
+                scheduleDebouncedFitlogPush();
+
               }} 
               className="..."
             >
@@ -2788,72 +2416,72 @@ const filteredExercises = useMemo(() => {
       )}
 
       {showRenameModal && (
-         <div className="fixed inset-0 z-[75] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2rem] p-8 space-y-6 shadow-2xl">
+         <div className="fixed inset-0 z-[75] bg-base/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-black">{lang === Language.CN ? '重命名标签' : 'Rename Tag'}</h2>
-                <button onClick={() => setShowRenameModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-                  <X size={20} className="text-slate-400" />
+                <h2 className="text-xl font-semibold">{lang === Language.CN ? '重命名标签' : 'Rename Tag'}</h2>
+                <button onClick={() => setShowRenameModal(false)} className="p-2 hover:bg-card rounded-full transition-colors">
+                  <X size={20} className="text-secondary" />
                 </button>
               </div>
-              <h2 className="text-xl font-black">{translations.editTags[lang]}</h2>
-              <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagNameInput} onChange={e => setNewTagNameInput(e.target.value)} placeholder={tagToRename?.name} />
+              <h2 className="text-xl font-semibold">{translations.editTags[lang]}</h2>
+              <input className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newTagNameInput} onChange={e => setNewTagNameInput(e.target.value)} placeholder={tagToRename?.name} />
               <div className="flex gap-4">
-                <button onClick={() => setShowRenameModal(false)} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400">{lang === Language.CN ? '取消' : 'Cancel'}</button>
-                <button onClick={handleRenameTag} className="flex-1 bg-blue-600 py-4 rounded-2xl font-black">{translations.confirm[lang]}</button>
+                <button onClick={() => setShowRenameModal(false)} className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary">{lang === Language.CN ? '取消' : 'Cancel'}</button>
+                <button onClick={handleRenameTag} className="flex-1 bg-accent py-4 rounded-2xl font-semibold">{translations.confirm[lang]}</button>
               </div>
            </div>
         </div>
       )}
 
        {showRenameExerciseModal && (
-        <div className="fixed inset-0 z-[75] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[75] bg-base/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-black">{lang === Language.CN ? '重命名动作' : 'Rename Exercise'}</h2>
-                <button onClick={() => setShowRenameExerciseModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-                  <X size={20} className="text-slate-400" />
+                <h2 className="text-xl font-semibold">{lang === Language.CN ? '重命名动作' : 'Rename Exercise'}</h2>
+                <button onClick={() => setShowRenameExerciseModal(false)} className="p-2 hover:bg-card rounded-full transition-colors">
+                  <X size={20} className="text-secondary" />
                 </button>
               </div>
-              <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newExerciseNameInput} onChange={e => setNewExerciseNameInput(e.target.value)} placeholder={exerciseToRename?.name} />
+              <input className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-blue-500" value={newExerciseNameInput} onChange={e => setNewExerciseNameInput(e.target.value)} placeholder={exerciseToRename?.name} />
               <div className="flex gap-4">
-                <button onClick={() => setShowRenameExerciseModal(false)} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400">{lang === Language.CN ? '取消' : 'Cancel'}</button>
-                <button onClick={handleRenameExercise} className="flex-1 bg-blue-600 py-4 rounded-2xl font-black">{translations.confirm[lang]}</button>
+                <button onClick={() => setShowRenameExerciseModal(false)} className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary">{lang === Language.CN ? '取消' : 'Cancel'}</button>
+                <button onClick={handleRenameExercise} className="flex-1 bg-accent py-4 rounded-2xl font-semibold">{translations.confirm[lang]}</button>
               </div>
            </div>
         </div>
       )}
 
       {showAddExerciseModal && (
-         <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-md rounded-[2.5rem] p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+         <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-md rounded-card p-8 space-y-6 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
               {/* 优化后的标题区域 */}
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-indigo-500/20 rounded-xl">
-                    <Zap size={24} className="text-indigo-400" />
+                  <div className="p-3 bg-accent-soft rounded-xl">
+                    <Zap size={24} className="text-accent" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-black">{translations.addCustomExercise[lang]}</h2>
-                    <p className="text-xs text-slate-500 font-bold">
+                    <h2 className="text-xl font-semibold">{translations.addCustomExercise[lang]}</h2>
+                    <p className="text-xs text-secondary font-bold">
                       {lang === Language.CN ? '创建专属动作' : 'Create Custom Exercise'}
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setShowAddExerciseModal(false)} 
-                  className="p-2 hover:bg-slate-800 rounded-full transition-colors"
+                  className="p-2 hover:bg-card rounded-full transition-colors"
                 >
-                  <X size={20} className="text-slate-400" />
+                  <X size={20} className="text-secondary" />
                 </button>
               </div>
               {/* ✅ 找回丢失的动作名称输入框 */}
               <div className="space-y-2 mt-4">
-                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">
+                 <label className="text-[10px] font-semibold text-secondary  px-1">
                     {lang === Language.CN ? '动作名称' : 'Exercise Name'}
                  </label>
                  <input 
-                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
+                   className="w-full bg-card border border-divider rounded-2xl py-4 px-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" 
                    value={newExerciseName} 
                    onChange={e => setNewExerciseName(e.target.value)} 
                    placeholder={translations.exerciseNamePlaceholder[lang]} 
@@ -2872,7 +2500,7 @@ const filteredExercises = useMemo(() => {
                     <button 
                       key={id} 
                       onClick={() => setNewExerciseBodyPart(newExerciseBodyPart === id ? '' : id)} 
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseBodyPart === id ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-semibold uppercase transition-all ${newExerciseBodyPart === id ? 'bg-accent text-white shadow-elevated' : 'bg-card text-secondary hover:bg-card-hover'}`}
                     >
                       {getTagName(id)}
                     </button>
@@ -2890,7 +2518,7 @@ const filteredExercises = useMemo(() => {
                     <button 
                       key={id} 
                       onClick={() => setNewExerciseTags(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])} 
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all ${newExerciseTags.includes(id) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-semibold uppercase transition-all ${newExerciseTags.includes(id) ? 'bg-accent text-white shadow-elevated' : 'bg-card text-secondary hover:bg-card-hover'}`}
                     >
                       {getTagName(id)}
                     </button>
@@ -2961,12 +2589,9 @@ const filteredExercises = useMemo(() => {
                   setNewExerciseName('');
                   setNewExerciseTags([]);
 
-                  // ✅ 修复Bug #5: 创建新动作是重要操作，使用立即同步
-                  if (user && user.id !== 'u_guest') {
-                    performFullSync(user.id);
-                  }
+                  scheduleDebouncedFitlogPush();
                 }}
-                className="w-full bg-blue-600 py-5 rounded-3xl font-black text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all mt-4"
+                className="w-full bg-accent py-5 rounded-3xl font-semibold text-lg shadow-xl shadow-blue-600/20 active:scale-95 transition-all mt-4"
               >
                 {translations.confirm[lang]}
               </button>
@@ -2975,17 +2600,17 @@ const filteredExercises = useMemo(() => {
       )}
 
       {showLibrary && (
-         <div className="fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-3xl p-6 flex flex-col animate-in fade-in">
+         <div className="fixed inset-0 z-[100] bg-base/95 backdrop-blur-xl p-6 flex flex-col animate-in fade-in">
           <div className="flex justify-between items-center mb-6">
             
           {/* ✅ 优化后的动态标题 - 显示搜索范围 */}
           <div className="flex flex-col">
-            <h2 className="text-2xl font-black tracking-tight flex items-center gap-3">
+            <h2 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
               {/* 根据分类显示对应的图标 */}
-              {activeLibraryCategory === 'STRENGTH' && <Dumbbell className="text-blue-500" size={28} />}
+              {activeLibraryCategory === 'STRENGTH' && <Dumbbell className="text-accent" size={28} />}
               {activeLibraryCategory === 'CARDIO' && <Activity className="text-orange-500" size={28} />}
-              {activeLibraryCategory === 'FREE' && <Zap className="text-purple-500" size={28} />}
-              {!activeLibraryCategory && <Globe className="text-emerald-500" size={28} />}
+              {activeLibraryCategory === 'FREE' && <Zap className="text-accent" size={28} />}
+              {!activeLibraryCategory && <Globe className="text-success" size={28} />}
 
               {/* 根据分类显示对应的文字 */}
               {activeLibraryCategory === 'STRENGTH' && translations.strengthTraining[lang]}
@@ -2995,7 +2620,7 @@ const filteredExercises = useMemo(() => {
               
               {lang === Language.CN ? '动作库' : ' Library'}
             </h2>
-            <p className="text-xs text-slate-500 font-bold mt-1">
+            <p className="text-xs text-secondary font-bold mt-1">
               {activeLibraryCategory 
                 ? (lang === Language.CN ? `在${activeLibraryCategory === 'STRENGTH' ? '力量训练' : activeLibraryCategory === 'CARDIO' ? '有氧训练' : '自由训练'}中搜索` : `Search in ${activeLibraryCategory === 'STRENGTH' ? 'Strength' : activeLibraryCategory === 'CARDIO' ? 'Cardio' : 'Free'} Training`)
                 : (lang === Language.CN ? '搜索全部动作' : 'Search all exercises')
@@ -3020,7 +2645,7 @@ const filteredExercises = useMemo(() => {
                 setSearchQuery('');
                 setSelectedTags([]);
               }}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-700/50 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-700 transition-all"
+              className="px-3 py-2 bg-card/50 border border-divider rounded-xl text-xs font-bold text-secondary hover:text-primary hover:bg-card-hover transition-all"
             >
               {activeLibraryCategory === null 
                 ? (previousLibraryCategory 
@@ -3038,21 +2663,27 @@ const filteredExercises = useMemo(() => {
               className={`px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
                 isEditingTags 
                   ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' 
-                  : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-white hover:bg-slate-700'
+                  : 'bg-card/50 border-divider text-secondary hover:text-primary hover:bg-card-hover'
               }`}
             >
               {isEditingTags ? (lang === Language.CN ? '完成管理' : 'Done') : (lang === Language.CN ? '管理' : 'Manage')}
             </button>
             
-            <button onClick={() => setShowLibrary(false)} className="p-3 bg-slate-800/50 hover:bg-slate-800 rounded-full transition-all border border-slate-700/50"><X size={24} /></button>
+            <button
+              onClick={() => {
+                libraryPickCallbackRef.current = null;
+                setShowLibrary(false);
+              }}
+              className="p-3 bg-card/50 hover:bg-card rounded-full transition-all border border-divider"
+            ><X size={24} /></button>
           </div>
           </div>
           
           {/* 优化后的搜索框 */}
           <div className="relative mb-6">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-secondary" size={18} />
             <input 
-              className="w-full bg-slate-900 border border-slate-800 rounded-[1.5rem] py-4 pl-12 pr-8 text-base font-medium outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all" 
+              className="w-full bg-inset border border-divider rounded-card py-4 pl-12 pr-8 text-base font-medium outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all" 
               value={searchQuery} 
               onChange={e => setSearchQuery(e.target.value)} 
               placeholder={
@@ -3063,7 +2694,7 @@ const filteredExercises = useMemo(() => {
             />
             {/* 搜索结果计数 */}
             {searchQuery && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-lg">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 px-2 py-1 bg-accent/20 text-accent text-xs font-bold rounded-lg">
                 {filteredExercises.length} {lang === Language.CN ? '个结果' : 'results'}
               </div>
             )}
@@ -3086,7 +2717,7 @@ const filteredExercises = useMemo(() => {
                 }
                 resetDragState(); 
               }} 
-              className={`w-1/4 overflow-y-auto space-y-6 pr-4 border-r border-slate-800/50 custom-scrollbar transition-all ${
+              className={`w-1/4 overflow-y-auto space-y-6 pr-4 border-r border-divider/50 custom-scrollbar transition-all ${
                 isDraggingOverSidebar ? 'bg-red-500/10 border-r-red-500/50 shadow-[inset_-10px_0_20px_-10px_rgba(239,68,68,0.2)]' : ''
               }`}
             >
@@ -3094,8 +2725,8 @@ const filteredExercises = useMemo(() => {
               {/* 全部标签按钮 */}
               <button 
                 onClick={() => setSelectedTags([])} 
-                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  selectedTags.length === 0 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:bg-slate-800'
+                className={`w-full text-left px-4 py-3 rounded-xl text-xs font-semibold  transition-all ${
+                  selectedTags.length === 0 ? 'bg-accent text-white shadow-elevated shadow-blue-600/20' : 'text-secondary hover:bg-card'
                 }`}
               >
                 {translations.allTags[lang]}
@@ -3104,7 +2735,7 @@ const filteredExercises = useMemo(() => {
               {/* 训练部位区域 */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-2">
-                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <h3 className="text-[10px] font-semibold text-secondary uppercase tracking-[0.2em] flex items-center gap-2">
                     <Activity size={12} /> {translations.bodyPartHeader[lang]}
                   </h3>
                   {isEditingTags && (
@@ -3115,6 +2746,8 @@ const filteredExercises = useMemo(() => {
                 </div>
                 <div className="space-y-1.5">
                   {BODY_PARTS.filter(id => {
+                    // "全部分类"模式：展示所有系统部位（避免侧栏全空）
+                    if (activeLibraryCategory === null) return true;
                     if (activeLibraryCategory === 'STRENGTH') return true;
                     const allExercisesInCategory = [...DEFAULT_EXERCISES, ...customExercises]
                       .filter(ex => (ex.category || 'STRENGTH') === activeLibraryCategory);
@@ -3137,7 +2770,7 @@ const filteredExercises = useMemo(() => {
                           } 
                         }} 
                         className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
-                          selectedTags.includes(id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                          selectedTags.includes(id) ? 'bg-accent text-white' : 'text-secondary hover:bg-card'
                         } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
                       >
                         <span>{getTagName(id)}</span>
@@ -3146,9 +2779,15 @@ const filteredExercises = useMemo(() => {
                     </div>
                   ))}
                   
-                  {/* 自定义部位标签 */}
+                  {/* 自定义部位标签：全部分类模式下展示全部，否则按 parentCategory 过滤 */}
                   {customTags
-                    .filter(ct => ct.category === 'bodyPart' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
+                    .filter(ct =>
+                      ct.category === 'bodyPart' && (
+                        activeLibraryCategory === null
+                          || ct.parentCategory === activeLibraryCategory
+                          || !ct.parentCategory
+                      )
+                    )
                     .map(ct => (
                       <div key={ct.id} className="relative group">
                         <button 
@@ -3167,7 +2806,7 @@ const filteredExercises = useMemo(() => {
                             } 
                           }} 
                           className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
-                            selectedTags.includes(ct.id) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                            selectedTags.includes(ct.id) ? 'bg-accent text-white' : 'text-secondary hover:bg-card'
                           } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
                         >
                           <span>{getTagName(ct.id)}</span>
@@ -3190,11 +2829,13 @@ const filteredExercises = useMemo(() => {
               
               {/* 使用器材区域 */}
               <div className="space-y-3">
-                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] px-2 flex items-center gap-2">
+                <h3 className="text-[10px] font-semibold text-secondary uppercase tracking-[0.2em] px-2 flex items-center gap-2">
                   <Filter size={12} /> {translations.equipmentHeader[lang]}
                 </h3>
                 <div className="space-y-1.5">
                   {EQUIPMENT_TAGS.filter(id => {
+                    // "全部分类"模式：展示所有器材标签
+                    if (activeLibraryCategory === null) return true;
                     if (activeLibraryCategory === 'STRENGTH') {
                       return !['tagOutdoor', 'tagIndoor', 'tagBallGame', 'tagGym'].includes(id);
                     }
@@ -3216,7 +2857,7 @@ const filteredExercises = useMemo(() => {
                           } 
                         }} 
                         className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
-                          selectedTags.includes(id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                          selectedTags.includes(id) ? 'bg-accent text-white' : 'text-secondary hover:bg-card'
                         } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
                       >
                         <span>{getTagName(id)}</span>
@@ -3225,9 +2866,15 @@ const filteredExercises = useMemo(() => {
                     </div>
                   ))}
                   
-                  {/* 自定义器材标签 */}
+                  {/* 自定义器材标签：全部分类模式下展示全部，否则按 parentCategory 过滤 */}
                   {customTags
-                    .filter(ct => ct.category === 'equipment' && (ct.parentCategory === activeLibraryCategory || !ct.parentCategory))
+                    .filter(ct =>
+                      ct.category === 'equipment' && (
+                        activeLibraryCategory === null
+                          || ct.parentCategory === activeLibraryCategory
+                          || !ct.parentCategory
+                      )
+                    )
                     .map(ct => (
                       <div key={ct.id} className="relative group">
                         <button 
@@ -3243,7 +2890,7 @@ const filteredExercises = useMemo(() => {
                             } 
                           }} 
                           className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all flex items-center justify-between ${
-                            selectedTags.includes(ct.id) ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'
+                            selectedTags.includes(ct.id) ? 'bg-accent text-white' : 'text-secondary hover:bg-card'
                           } ${isEditingTags ? 'hover:bg-amber-500/20' : ''}`}
                         >
                           <span>{getTagName(ct.id)}</span>
@@ -3265,16 +2912,16 @@ const filteredExercises = useMemo(() => {
               </div>
               
               {/* 底部操作区域 */}
-              <div className="pt-6 border-t border-slate-800 space-y-3">
+              <div className="pt-6 border-t border-divider space-y-3">
                 <button 
                   onClick={() => setShowAddTagModal(true)} 
-                  className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-400/10 transition-all border border-blue-400/20 flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl text-[10px] font-semibold  text-accent hover:bg-blue-400/10 transition-all border border-blue-400/20 flex items-center justify-center gap-2"
                 >
                   <PlusCircle size={14} /> {translations.addCustomTag[lang]}
                 </button>
                 <button 
                   onClick={() => setShowAddExerciseModal(true)} 
-                  className="w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-400/10 transition-all border border-indigo-400/20 flex items-center justify-center gap-2"
+                  className="w-full py-3 rounded-xl text-[10px] font-semibold  text-accent hover:bg-accent-soft transition-all border border-divider flex items-center justify-center gap-2"
                 >
                   <Zap size={14} /> {translations.addCustomExercise[lang]}
                 </button>
@@ -3284,12 +2931,12 @@ const filteredExercises = useMemo(() => {
             {/* ✅ 优化后的动作列表区域 */}
             <div className="w-3/4 overflow-y-auto space-y-4 custom-scrollbar pr-2 pb-20">
               {/* 动作列表标题和计数 */}
-              <div className="flex justify-between items-center px-2 pb-2 border-b border-slate-800/50">
-                <h3 className="text-sm font-black text-slate-300 flex items-center gap-2">
-                  <Hash size={16} className="text-blue-500" />
+              <div className="flex justify-between items-center px-2 pb-2 border-b border-divider/50">
+                <h3 className="text-sm font-semibold text-primary flex items-center gap-2">
+                  <Hash size={16} className="text-accent" />
                   {lang === Language.CN ? '动作列表' : 'Exercise List'}
                 </h3>
-                <span className="text-xs font-bold text-slate-500 bg-slate-800/50 px-3 py-1 rounded-lg">
+                <span className="text-xs font-bold text-secondary bg-card/50 px-3 py-1 rounded-lg">
                   {filteredExercises.length} {lang === Language.CN ? '个动作' : 'exercises'}
                 </span>
               </div>
@@ -3297,7 +2944,7 @@ const filteredExercises = useMemo(() => {
               {filteredExercises.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center opacity-20 gap-4">
                   <Search size={64} />
-                  <p className="font-black text-xl">{translations.noRecords[lang]}</p>
+                  <p className="font-semibold text-xl">{translations.noRecords[lang]}</p>
                 </div>
               ) : (
                 filteredExercises.map(ex => (
@@ -3315,6 +2962,14 @@ const filteredExercises = useMemo(() => {
                           setShowRenameExerciseModal(true); 
                           return; 
                         } 
+
+                        // 当外部注册了选择回调（例如训练计划编辑器），优先走回调路径
+                        if (libraryPickCallbackRef.current) {
+                          libraryPickCallbackRef.current(ex);
+                          libraryPickCallbackRef.current = null;
+                          setShowLibrary(false);
+                          return;
+                        }
                         
                         const exerciseTime = new Date().toISOString();
                         
@@ -3341,16 +2996,17 @@ const filteredExercises = useMemo(() => {
                         }); 
                         setShowLibrary(false); 
                       }} 
-                      className={`w-full p-5 bg-slate-800/30 border border-slate-700/50 rounded-[1.5rem] text-left hover:bg-slate-800 hover:border-blue-500/50 transition-all group relative overflow-hidden ${
+                      data-testid="library-exercise-card"
+                      className={`w-full p-5 bg-card border border-divider rounded-card text-left hover:bg-card hover:border-blue-500/50 transition-all group relative overflow-hidden ${
                         isEditingTags ? 'hover:border-amber-500/50' : ''
                       }`}
                     >
-                      <div className="absolute right-0 top-0 w-24 h-24 bg-blue-600/5 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <div className="absolute right-0 top-0 w-24 h-24 bg-accent/5 rounded-full blur-2xl translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       
                       <div className="flex flex-col gap-3 relative z-10">
                         <div className="flex justify-between items-center">
-                          <span className={`font-black text-lg transition-colors ${
-                            isEditingTags ? 'text-amber-400' : 'group-hover:text-blue-400 text-white'
+                          <span className={`font-semibold text-lg transition-colors ${
+                            isEditingTags ? 'text-amber-400' : 'group-hover:text-accent text-white'
                           }`}>
                             {ex.name[lang]}
                           </span>
@@ -3358,7 +3014,7 @@ const filteredExercises = useMemo(() => {
                           {/* 操作按钮区域 */}
                           <div className="flex items-center gap-2">
                             {!isEditingTags && (
-                              <div className="px-3 py-1 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="px-3 py-1 bg-accent/20 text-accent text-xs font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                                 {lang === Language.CN ? '添加' : 'Add'}
                               </div>
                             )}
@@ -3385,7 +3041,7 @@ const filteredExercises = useMemo(() => {
                             <span 
                               draggable 
                               onDragStart={() => { setDraggedTagId(ex.bodyPart); setDraggedFromExId(ex.id); }} 
-                              className="text-[10px] font-black uppercase bg-slate-800/80 px-3 py-1.5 rounded-xl text-slate-400 border border-slate-700/50 hover:bg-red-500/20 cursor-move transition-colors"
+                              className="text-[10px] font-semibold uppercase bg-card/80 px-3 py-1.5 rounded-xl text-secondary border border-divider hover:bg-red-500/20 cursor-move transition-colors"
                             >
                               {getTagName(ex.bodyPart)}
                             </span>
@@ -3400,7 +3056,7 @@ const filteredExercises = useMemo(() => {
                                 draggable 
                                 key={t} 
                                 onDragStart={() => { setDraggedTagId(t); setDraggedFromExId(ex.id); }} 
-                                className="text-[10px] font-black uppercase bg-indigo-600/10 px-3 py-1.5 rounded-xl text-indigo-400 border border-indigo-500/20 hover:bg-red-500/20 cursor-move transition-colors"
+                                className="text-[10px] font-semibold uppercase bg-accent/10 px-3 py-1.5 rounded-xl text-accent border border-divider hover:bg-red-500/20 cursor-move transition-colors"
                               >
                                 {name}
                               </span>
@@ -3418,27 +3074,27 @@ const filteredExercises = useMemo(() => {
       )}
 
       {showGoalModal && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black">{translations.setGoal[lang]}</h2>
-                <button onClick={() => setShowGoalModal(false)} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-                  <X size={20} className="text-slate-400" />
+                <h2 className="text-2xl font-semibold">{translations.setGoal[lang]}</h2>
+                <button onClick={() => setShowGoalModal(false)} className="p-2 hover:bg-card rounded-full transition-colors">
+                  <X size={20} className="text-secondary" />
                 </button>
               </div>
               <div className="space-y-4">
-                 <div className="flex gap-2">{['weight', 'strength', 'frequency'].map(type => <button key={type} onClick={() => setNewGoal({...newGoal, type: type as GoalType})} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${newGoal.type === type ? 'bg-blue-600' : 'bg-slate-800'}`}>{translations[`goal${type.charAt(0).toUpperCase() + type.slice(1)}`][lang]}</button>)}</div>
-                 <input className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" value={newGoal.label} onChange={e => setNewGoal({...newGoal, label: e.target.value})} placeholder={translations.goalLabelPlaceholder[lang]} />
+                 <div className="flex gap-2">{['weight', 'strength', 'frequency'].map(type => <button key={type} onClick={() => setNewGoal({...newGoal, type: type as GoalType})} className={`flex-1 py-3 rounded-2xl text-[10px] font-semibold uppercase transition-all ${newGoal.type === type ? 'bg-accent' : 'bg-card'}`}>{translations[`goal${type.charAt(0).toUpperCase() + type.slice(1)}`][lang]}</button>)}</div>
+                 <input className="w-full bg-card border border-divider rounded-2xl py-4 px-6" value={newGoal.label} onChange={e => setNewGoal({...newGoal, label: e.target.value})} placeholder={translations.goalLabelPlaceholder[lang]} />
                  <div className="grid grid-cols-2 gap-4">
-                    <input type="number" className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" placeholder={translations.current[lang]} value={newGoal.currentValue || ''} onChange={e => setNewGoal({...newGoal, currentValue: Number(e.target.value)})} />
-                    <input type="number" className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" placeholder={translations.target[lang]} value={newGoal.targetValue || ''} onChange={e => setNewGoal({...newGoal, targetValue: Number(e.target.value)})} />
+                    <input type="number" className="bg-card border border-divider rounded-2xl py-4 px-6" placeholder={translations.current[lang]} value={newGoal.currentValue || ''} onChange={e => setNewGoal({...newGoal, currentValue: Number(e.target.value)})} />
+                    <input type="number" className="bg-card border border-divider rounded-2xl py-4 px-6" placeholder={translations.target[lang]} value={newGoal.targetValue || ''} onChange={e => setNewGoal({...newGoal, targetValue: Number(e.target.value)})} />
                  </div>
               </div>
               <div className="flex gap-4">
-                <button onClick={() => setShowGoalModal(false)} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400 hover:bg-slate-700 transition-colors">
+                <button onClick={() => setShowGoalModal(false)} className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary hover:bg-card-hover transition-colors">
                   {lang === Language.CN ? '取消' : 'Cancel'}
                 </button>
-                <button onClick={handleAddGoal} className="flex-[2] bg-blue-600 py-4 rounded-2xl font-black text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95">
+                <button onClick={handleAddGoal} className="flex-[2] bg-accent py-4 rounded-2xl font-semibold text-white hover:opacity-90 transition-all shadow-elevated shadow-blue-600/30 active:scale-95">
                   {translations.confirm[lang]}
                 </button>
               </div>
@@ -3448,14 +3104,14 @@ const filteredExercises = useMemo(() => {
 
       {/* ✅ 新增：编辑目标模态框 */}
       {showEditGoalModal && editingGoal && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-           <div className="bg-slate-900 border border-slate-800 w-full max-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+           <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-black">
+                <h2 className="text-2xl font-semibold">
                   {lang === Language.CN ? '编辑目标' : 'Edit Goal'}
                 </h2>
-                <button onClick={handleCancelEditGoal} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
-                  <X size={20} className="text-slate-400" />
+                <button onClick={handleCancelEditGoal} className="p-2 hover:bg-card rounded-full transition-colors">
+                  <X size={20} className="text-secondary" />
                 </button>
               </div>
               <div className="space-y-4">
@@ -3465,8 +3121,8 @@ const filteredExercises = useMemo(() => {
                      <button 
                        key={type} 
                        onClick={() => setEditingGoal({...editingGoal, type: type as GoalType})} 
-                       className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase transition-all ${
-                         editingGoal.type === type ? 'bg-blue-600' : 'bg-slate-800'
+                       className={`flex-1 py-3 rounded-2xl text-[10px] font-semibold uppercase transition-all ${
+                         editingGoal.type === type ? 'bg-accent' : 'bg-card'
                        }`}
                      >
                        {translations[`goal${type.charAt(0).toUpperCase() + type.slice(1)}`][lang]}
@@ -3476,7 +3132,7 @@ const filteredExercises = useMemo(() => {
                  
                  {/* 目标标题 */}
                  <input 
-                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" 
+                   className="w-full bg-card border border-divider rounded-2xl py-4 px-6" 
                    value={editingGoal.title || editingGoal.label || ''} 
                    onChange={e => setEditingGoal({...editingGoal, title: e.target.value, label: e.target.value})} 
                    placeholder={translations.goalLabelPlaceholder[lang]} 
@@ -3486,14 +3142,14 @@ const filteredExercises = useMemo(() => {
                  <div className="grid grid-cols-2 gap-4">
                     <input 
                       type="number" 
-                      className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" 
+                      className="bg-card border border-divider rounded-2xl py-4 px-6" 
                       placeholder={translations.current[lang]} 
                       value={editingGoal.currentValue || ''} 
                       onChange={e => setEditingGoal({...editingGoal, currentValue: Number(e.target.value)})} 
                     />
                     <input 
                       type="number" 
-                      className="bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6" 
+                      className="bg-card border border-divider rounded-2xl py-4 px-6" 
                       placeholder={translations.target[lang]} 
                       value={editingGoal.targetValue || ''} 
                       onChange={e => setEditingGoal({...editingGoal, targetValue: Number(e.target.value)})} 
@@ -3502,7 +3158,7 @@ const filteredExercises = useMemo(() => {
                  
                  {/* 目标描述（可选） */}
                  <textarea 
-                   className="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 px-6 resize-none" 
+                   className="w-full bg-card border border-divider rounded-2xl py-4 px-6 resize-none" 
                    rows={3}
                    value={editingGoal.description || ''} 
                    onChange={e => setEditingGoal({...editingGoal, description: e.target.value})} 
@@ -3510,8 +3166,8 @@ const filteredExercises = useMemo(() => {
                  />
                  
                  {/* 目标状态 */}
-                 <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-2xl">
-                   <span className="text-sm font-bold text-slate-300">
+                 <div className="flex items-center justify-between p-4 bg-card/50 rounded-2xl">
+                   <span className="text-sm font-bold text-primary">
                      {lang === Language.CN ? '目标状态' : 'Goal Status'}
                    </span>
                    <button
@@ -3519,7 +3175,7 @@ const filteredExercises = useMemo(() => {
                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                        editingGoal.isActive 
                          ? 'bg-green-600 text-white' 
-                         : 'bg-slate-700 text-slate-400'
+                         : 'bg-inset text-secondary'
                      }`}
                    >
                      {editingGoal.isActive 
@@ -3530,10 +3186,10 @@ const filteredExercises = useMemo(() => {
                  </div>
               </div>
               <div className="flex gap-4">
-                <button onClick={handleCancelEditGoal} className="flex-1 bg-slate-800 py-4 rounded-2xl font-black text-slate-400 hover:bg-slate-700 transition-colors">
+                <button onClick={handleCancelEditGoal} className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary hover:bg-card-hover transition-colors">
                   {lang === Language.CN ? '取消' : 'Cancel'}
                 </button>
-                <button onClick={handleSaveEditedGoal} className="flex-[2] bg-blue-600 py-4 rounded-2xl font-black text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95">
+                <button onClick={handleSaveEditedGoal} className="flex-[2] bg-accent py-4 rounded-2xl font-semibold text-white hover:opacity-90 transition-all shadow-elevated shadow-blue-600/30 active:scale-95">
                   {lang === Language.CN ? '保存更改' : 'Save Changes'}
                 </button>
               </div>
@@ -3542,11 +3198,11 @@ const filteredExercises = useMemo(() => {
       )}
 
       {/* 顶部导航栏 */}
-      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
+      <header className="sticky top-0 z-40 bg-base/90 backdrop-blur-xl border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
         {/* 左侧：Logo */}
         <div className="flex items-center gap-3">
-          <Dumbbell className="text-blue-500" />
-          <h1 className="text-xl font-black tracking-tight">{translations.appTitle[lang]}</h1>
+          <Dumbbell className="text-accent" />
+          <h1 className="font-display text-lg font-semibold tracking-tight text-primary">{translations.appTitle[lang]}</h1>
         </div>
 
         {/* 右侧：同步按钮 + 单位切换 */}
@@ -3554,21 +3210,21 @@ const filteredExercises = useMemo(() => {
           
           {/* 手动同步按钮 */}
           <button 
-            onClick={() => user && performFullSync(user.id)}
-            disabled={syncStatus === 'syncing' || !user || user.id === 'u_guest'}
+            onClick={() => user && performFullSync()}
+            disabled={syncStatus === 'syncing' || !user || !isRemoteConfigured()}
             className={`p-2 rounded-xl border transition-all active:scale-90 ${
-              syncStatus === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-slate-800 border-slate-700/50'
+              syncStatus === 'error' ? 'bg-red-500/10 border-red-500/20' : 'bg-card border-divider'
             }`}
           >
             {syncStatus === 'syncing' ? (
               /* 正在同步：蓝色转圈 */
-              <RefreshCw className="animate-spin text-blue-500" size={18} />
+              <RefreshCw className="animate-spin text-accent" size={18} />
             ) : syncStatus === 'error' ? (
               /* 同步出错：红色感叹号 */
-              <AlertCircle className="text-red-500" size={18} />
+              <AlertCircle className="text-danger" size={18} />
             ) : (
               /* 数据最新/成功：绿色对号 (使用 CheckIcon) */
-              <CheckIcon className="text-green-500" size={18} strokeWidth={4} />
+              <CheckIcon className="text-success" size={18} strokeWidth={2.5} />
             )}
           </button>
           
@@ -3576,146 +3232,21 @@ const filteredExercises = useMemo(() => {
           <button 
             // ✅ 调用刚才写好的转换函数
             onClick={handleUnitToggle} 
-            className="bg-slate-800 border border-slate-700/50 px-3 py-1.5 rounded-xl text-xs font-black uppercase text-blue-500 hover:bg-slate-700 hover:text-white transition-all active:scale-95 shadow-sm"
+            className="bg-card border border-divider px-3 py-1.5 rounded-xl text-xs font-semibold uppercase text-accent hover:bg-card-hover hover:text-primary transition-all active:scale-95 shadow-sm"
           >
             {unit}
           </button>
         </div>
       </header>
 
-      {(!user || authMode === 'updatePassword') ? (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-[#0f172a]">
-          <div className="w-full max-w-md bg-slate-800/30 backdrop-blur-2xl rounded-[3rem] p-10 border border-slate-700/50 shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
-            
-            <div className="flex flex-col items-center mb-8">
-              <div className="bg-blue-600/20 p-5 rounded-3xl mb-6 shadow-inner"><Dumbbell className="w-12 h-12 text-blue-500" /></div>
-              <h1 className="text-4xl font-black text-white tracking-tight">{translations.appTitle[lang]}</h1>
-              <p className="text-slate-400 mt-2 font-medium">
-                {authMode === 'login' && translations.loginWelcome[lang]}
-                {authMode === 'register' && translations.registerWelcome[lang]}
-                {authMode === 'forgotPassword' && (lang === Language.CN ? '找回密码' : 'Reset Password')}
-                {authMode === 'updatePassword' && (lang === Language.CN ? '设置新密码' : 'Set New Password')}
-              </p>
-            </div>
-
-            {isUpdateSuccess ? (
-              /* ✅ 情况 A：修改成功 - 显示大对勾界面 */
-              <div className="flex flex-col items-center text-center py-4 space-y-6 animate-in fade-in zoom-in-95">
-                <div className="bg-green-500/20 p-6 rounded-full border-4 border-green-500/30 animate-bounce">
-                  <Check className="text-green-500 w-12 h-12" strokeWidth={4} />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-xl font-black text-white">
-                    {lang === Language.CN ? '密码修改成功！' : 'Success!'}
-                  </h2>
-                  <p className="text-sm text-slate-400 font-medium leading-relaxed px-2">
-                    {lang === Language.CN 
-                      ? '您的密码已更新。请关闭此页面，返回您的健身助手 App 或浏览器重新登录。' 
-                      : 'Password updated. Please close this page and go back to your App to login.'}
-                  </p>
-                </div>
-                <button 
-                  onClick={async () => { 
-                    // 清理逻辑
-                    try { await supabase.auth.signOut(); } catch(e) {}
-                    setUser(null);
-                    localStorage.removeItem('fitlog_current_user');
-                    
-                    // ✅ 重置 Ref 和状态
-                    isRecoveryMode.current = false; 
-                    setIsUpdateSuccess(false); 
-                    setAuthMode('login');
-                  }}
-                  className="w-full bg-slate-800 ..." // ... 保持原有样式
-                >
-                  {lang === Language.CN ? '前往登录' : 'Go to Login'}
-                </button>
-              </div>
-            ) : (
-              /* ❌ 情况 B：正常表单 - 显示输入框和错误提示 */
-              <>
-                {authError && (
-                  <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl text-red-500 text-xs font-black flex items-center gap-3 animate-in slide-in-from-top-2">
-                    <div className="p-1 bg-red-500 text-white rounded-full"><X size={12} strokeWidth={4} /></div>
-                    {authError}
-                  </div>
-                )}
-
-                <form onSubmit={
-                  authMode === 'forgotPassword' ? handleResetPassword : 
-                  authMode === 'updatePassword' ? handleUpdatePassword : 
-                  handleAuth
-                } className="space-y-4">
-                  
-                  {authMode === 'register' && (
-                    <div className="relative group animate-in fade-in slide-in-from-bottom-2">
-                      <UserIcon className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-                      <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder={translations.username[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
-                    </div>
-                  )}
-                  
-                  {authMode !== 'updatePassword' && (
-                    <div className="relative group animate-in fade-in slide-in-from-bottom-2">
-                      <Mail className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={translations.email[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-6 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
-                    </div>
-                  )}
-
-                  {authMode !== 'forgotPassword' && (
-                    <div className="relative group animate-in fade-in slide-in-from-bottom-2">
-                      <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
-                      <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder={authMode === 'updatePassword' ? (lang === Language.CN ? '输入新密码' : 'New Password') : translations.password[lang]} className="w-full bg-slate-900 border border-slate-700 rounded-2xl py-4 pl-14 pr-16 text-white outline-none focus:ring-2 focus:ring-blue-500 transition-all" required />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button>
-                    </div>
-                  )}
-
-                  {authMode === 'login' && (
-                    <div className="flex justify-end">
-                      <button type="button" onClick={() => setAuthMode('forgotPassword')} className="text-xs text-slate-500 hover:text-blue-400 font-bold transition-colors">
-                        {lang === Language.CN ? '忘记密码？' : 'Forgot Password?'}
-                      </button>
-                    </div>
-                  )}
-
-                  <button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-3xl font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-blue-600/20 active:scale-95 transition-all">
-                    {isLoading ? <RefreshCw className="animate-spin" /> : (
-                      authMode === 'register' ? translations.createAccount[lang] : 
-                      authMode === 'login' ? translations.login[lang] :
-                      authMode === 'forgotPassword' ? (lang === Language.CN ? '发送重置链接' : 'Send Reset Link') :
-                      (lang === Language.CN ? '更新密码' : 'Update Password')
-                    )}
-                  </button>
-                </form>
-              </>
-            )}
-
-            {/* --- 替换结束，紧接着应该是 1456 行左右的底部切换链接 div --- */}
-
-            <div className="flex flex-col gap-4 mt-8">
-              {authMode === 'login' && (
-                <button onClick={() => setAuthMode('register')} className="text-slate-500 text-xs font-bold hover:text-blue-400 transition-colors text-center">{translations.noAccount[lang]} <span className="text-blue-500">{translations.createAccount[lang]}</span></button>
-              )}
-              {authMode === 'register' && (
-                <button onClick={() => setAuthMode('login')} className="text-slate-500 text-xs font-bold hover:text-blue-400 transition-colors text-center">{translations.hasAccount[lang]} <span className="text-blue-500">{translations.login[lang]}</span></button>
-              )}
-              {authMode === 'forgotPassword' && (
-                <button onClick={() => setAuthMode('login')} className="text-slate-500 text-xs font-bold hover:text-white transition-colors text-center flex items-center justify-center gap-2">
-                  <ArrowLeft size={14} /> {lang === Language.CN ? '返回登录' : 'Back to Login'}
-                </button>
-              )}
-            </div>
-
-            {authMode !== 'updatePassword' && (
-              <>
-                <div className="flex items-center my-6"><div className="flex-1 h-[1px] bg-slate-800"></div><span className="px-4 text-[10px] font-black uppercase text-slate-700 tracking-widest">{translations.orSeparator[lang]}</span><div className="flex-1 h-[1px] bg-slate-800"></div></div>
-                <button onClick={async () => { const u = {id: 'u_guest', username: 'Guest', email: 'guest@fitlog.ai'}; setUser(u); localStorage.setItem('fitlog_current_user', JSON.stringify(u)); await loadLocalData('u_guest'); }} className="w-full bg-slate-800/50 text-slate-300 py-4 rounded-3xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 transition-all active:scale-90"><Zap size={18} className="text-amber-400" /> {translations.quickLogin[lang]}</button>
-              </>
-            )}
-          </div>
-        </div>
-      ) : (
-        <main className="max-w-2xl mx-auto p-4 md:p-8">
+      <main
+        className={`max-w-2xl mx-auto p-4 md:p-8 ${activeTab === 'new' ? 'pb-10' : ''}`}
+        style={
+          activeTab === 'new'
+            ? undefined
+            : { paddingBottom: 'calc(7rem + env(safe-area-inset-bottom))' }
+        }
+      >
           {activeTab === 'dashboard' && (
             <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
             <Dashboard
@@ -3754,9 +3285,36 @@ const filteredExercises = useMemo(() => {
           {/* 新增训练 */}
           {activeTab === 'new' && (
             <div className="space-y-8 animate-in slide-in-from-bottom-5">
-              <div className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50">
+              {/* 训练流程顶部「← 返回」 */}
+              <div className="flex items-center justify-between -mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const hasContent = (currentWorkout?.exercises?.length ?? 0) > 0;
+                    if (hasContent) {
+                      const msg = lang === Language.CN
+                        ? '当前训练尚未保存，确定要返回吗？'
+                        : 'Unsaved workout will be lost. Continue?';
+                      if (!window.confirm(msg)) return;
+                      setCurrentWorkout(workoutCtx.createNewWorkout());
+                    }
+                    setActiveTab(previousTab === 'new' ? 'dashboard' : previousTab);
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-card/60 border border-divider rounded-2xl text-sm font-bold text-primary hover:bg-card hover:text-primary active:scale-95 transition-all"
+                  aria-label={lang === Language.CN ? '返回' : 'Back'}
+                >
+                  <ArrowLeft size={16} />
+                  <span>{lang === Language.CN ? '返回' : 'Back'}</span>
+                </button>
+                <span className="text-xs font-bold text-secondary tracking-wider uppercase">
+                  {lang === Language.CN ? '新建训练' : 'New Workout'}
+                </span>
+                <span className="w-16" aria-hidden />
+              </div>
+
+              <div className="bg-card p-8 rounded-card border border-divider">
                 <input 
-                  className="bg-transparent text-3xl font-black w-full outline-none" 
+                  className="bg-transparent text-3xl font-semibold w-full outline-none" 
                   value={currentWorkout.title} 
                   onChange={e => setCurrentWorkout({...currentWorkout, title: e.target.value})} 
                   placeholder={translations.trainingTitlePlaceholder[lang]} 
@@ -3826,26 +3384,26 @@ const filteredExercises = useMemo(() => {
 
                 <div className="space-y-6 mt-10 pb-10">
             <div className="flex items-center gap-3 px-2">
-              <div className="h-[1px] flex-1 bg-slate-800"></div>
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">
+              <div className="h-[1px] flex-1 bg-card"></div>
+              <h3 className="text-[10px] font-semibold text-secondary uppercase tracking-[0.2em]">
                 {translations.categorySelection[lang]}
               </h3>
-              <div className="h-[1px] flex-1 bg-slate-800"></div>
+              <div className="h-[1px] flex-1 bg-card"></div>
             </div>
 
             {/* ✅ 优化后的分类选择区域 - 分离关注点 */}
             <div className="space-y-4">
               {/* 快速搜索区域 */}
-              <div className="bg-slate-800/30 border border-slate-700/50 p-4 rounded-[2rem]">
+              <div className="bg-card border border-divider p-4 rounded-card">
                 <div className="flex items-center gap-3 mb-3">
-                  <Search className="text-slate-500" size={20} />
-                  <h4 className="text-sm font-black text-slate-300">
+                  <Search className="text-secondary" size={20} />
+                  <h4 className="text-sm font-semibold text-primary">
                     {lang === Language.CN ? '快速添加动作' : 'Quick Add Exercise'}
                   </h4>
                 </div>
                 <div className="relative">
                   <input 
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
+                    className="w-full bg-inset border border-divider rounded-xl py-3 px-4 text-sm text-white outline-none focus:border-blue-500 transition-all"
                     placeholder={lang === Language.CN ? '搜索动作或点击下方浏览动作库...' : 'Search exercises or browse library below...'}
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
@@ -3860,7 +3418,7 @@ const filteredExercises = useMemo(() => {
                       setSelectedTags([]);
                       setShowLibrary(true);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-500 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1 bg-accent text-white text-xs font-bold rounded-lg hover:opacity-90 transition-colors"
                   >
                     {lang === Language.CN ? '浏览动作库' : 'Browse Library'}
                   </button>
@@ -3886,26 +3444,26 @@ const filteredExercises = useMemo(() => {
                       setSelectedTags([]); 
                       setShowLibrary(true);
                     }}
-                    className="group relative bg-slate-800/30 border border-slate-700/50 p-4 rounded-[1.5rem] flex items-center gap-4 hover:bg-slate-800/60 transition-all active:scale-[0.98] overflow-hidden w-full"
+                    className="group relative bg-card border border-divider p-4 rounded-card flex items-center gap-4 hover:bg-card/60 transition-all active:scale-[0.98] overflow-hidden w-full"
                   >
                     {/* 背景微光装饰 */}
                     <div className={`absolute -right-6 -top-6 w-24 h-24 bg-${cat.color}-500/5 blur-2xl rounded-full group-hover:bg-${cat.color}-500/10 transition-all`}></div>
                     
                     {/* 左侧图标 */}
-                    <div className={`p-3 bg-slate-900 rounded-xl text-${cat.color}-500 shadow-inner group-hover:scale-105 transition-transform relative z-10`}>
+                    <div className={`p-3 bg-inset rounded-xl text-${cat.color}-500 shadow-inner group-hover:scale-105 transition-transform relative z-10`}>
                       {cat.icon}
                     </div>
 
                     {/* 右侧文字 */}
                     <div className="flex flex-col items-start relative z-10 flex-1">
-                      <span className="font-black text-base tracking-tight text-white">{cat.label}</span>
-                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                      <span className="font-semibold text-base tracking-tight text-white">{cat.label}</span>
+                      <span className="text-[9px] font-bold text-secondary uppercase tracking-wider">
                         {cat.desc}
                       </span>
                     </div>
 
                     {/* 右侧箭头装饰 */}
-                    <ChevronRight className="text-slate-600 group-hover:text-slate-400 transition-colors relative z-10" size={18} />
+                    <ChevronRight className="text-tertiary group-hover:text-secondary transition-colors relative z-10" size={18} />
                   </button>
                 ))}
               </div>
@@ -3914,10 +3472,10 @@ const filteredExercises = useMemo(() => {
             {/* ✅ 修复问题7&8: 改进的保存训练按钮 - 显示状态、单位确认、未保存提示 */}
             <div className="space-y-3 mt-6">
               {/* 单位提醒条 */}
-              <div className="bg-slate-800/50 border border-slate-700/50 p-3 rounded-xl flex items-center justify-between">
+              <div className="bg-card/50 border border-divider p-3 rounded-xl flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Scale size={16} className="text-slate-400" />
-                  <span className="text-sm text-slate-400">
+                  <Scale size={16} className="text-secondary" />
+                  <span className="text-sm text-secondary">
                     {lang === Language.CN ? '当前单位' : 'Current Unit'}: 
                   </span>
                   <span className="text-sm font-bold text-white">
@@ -3938,14 +3496,14 @@ const filteredExercises = useMemo(() => {
               <button 
                 onClick={handleSaveWithConfirmation}
                 disabled={saveStatus === 'saving'}
-                className={`w-full p-6 rounded-[2rem] font-black text-lg shadow-2xl flex items-center justify-center gap-3 transition-all mt-6 ${
+                className={`w-full p-6 rounded-card font-semibold text-lg shadow-2xl flex items-center justify-center gap-3 transition-all mt-6 ${
                   saveStatus === 'saving' 
-                    ? 'bg-slate-600 cursor-not-allowed' 
+                    ? 'bg-tertiary/30 text-tertiary cursor-not-allowed' 
                     : saveStatus === 'saved'
                     ? 'bg-green-600 shadow-green-600/30'
                     : saveStatus === 'error'
                     ? 'bg-red-600 shadow-red-600/30'
-                    : 'bg-blue-600 shadow-blue-600/30 hover:bg-blue-500 active:scale-95'
+                    : 'bg-accent shadow-blue-600/30 hover:opacity-90 active:scale-95'
                 }`}
               >
                 {saveStatus === 'saving' && (
@@ -3978,19 +3536,28 @@ const filteredExercises = useMemo(() => {
                     
           </div>)}
 
-          {/* 目标管理 - 使用 GoalsTab 组件 */}
-          {activeTab === 'goals' && (
+          {/* 训练计划：日程 + 目标 */}
+          {activeTab === 'plan' && (
             <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
-            <GoalsTab
-              goals={goals}
-              setGoals={setGoals}
+            <PlanTab
               lang={lang}
+              unit={unit}
               onAddGoal={() => setShowGoalModal(true)}
               onEditGoal={handleEditGoal}
+              customTags={customTags}
+              onStartScheduledSession={handleStartScheduledSession}
+              onOpenLibraryForPicker={openLibraryForPicker}
             />
             </Suspense>
           )}
           
+          {/* 智能助手 */}
+          {activeTab === 'assistant' && (
+            <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
+              <AssistantTabContainer lang={lang} />
+            </Suspense>
+          )}
+
           {/* 个人中心页面 (Profile) */}
           {activeTab === 'profile' && (
             <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>}>
@@ -4005,14 +3572,6 @@ const filteredExercises = useMemo(() => {
               fileInputRef={fileInputRef}
               onAvatarUpload={handleAvatarUpload}
               onToggleLanguage={handleToggleLanguage}
-              onLogout={() => { 
-                supabase.auth.signOut(); 
-                setUser(null); 
-                localStorage.removeItem('fitlog_current_user'); 
-                setWorkouts([]); 
-                setGoals([]); 
-                setWeightEntries([]); 
-              }}
               onShowWeightInput={() => setShowWeightInput(true)}
               onShowMeasureModal={() => setShowMeasureModal(true)}
               onToggleMetric={(name) => setExpandedMetric(name)}
@@ -4024,29 +3583,22 @@ const filteredExercises = useMemo(() => {
                 setShowMeasureModal(true); 
               }}
               setShowResetAccountModal={setShowResetAccountModal}
-              onCreateAccount={() => {
-                supabase.auth.signOut();
-                setUser(null);
-                setAuthMode('register');
-                localStorage.removeItem('fitlog_current_user');
-              }}
             />
             </Suspense>
           )}
         </main>
-      )}
 
       {/* --- 新增：备注输入弹窗 --- */}
       {noteModalData && (
-        <div className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl">
-            <h3 className="text-center text-slate-400 font-bold mb-2 text-sm">{noteModalData.name}</h3>
-            <h2 className="text-center text-2xl font-black text-white mb-6">
+        <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 shadow-2xl">
+            <h3 className="text-center text-secondary font-bold mb-2 text-sm">{noteModalData.name}</h3>
+            <h2 className="text-center text-2xl font-semibold text-white mb-6">
               {lang === Language.CN ? '动作备注' : 'Exercise Note'}
             </h2>
             
             <textarea
-              className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-4 text-slate-200 outline-none focus:border-blue-500 transition-colors min-h-[120px] resize-none mb-6"
+              className="w-full bg-base border border-divider rounded-2xl p-4 text-primary outline-none focus:border-blue-500 transition-colors min-h-[120px] resize-none mb-6"
               placeholder={lang === Language.CN ? '例如：座椅高度 4，宽握...' : 'E.g. Seat height 4, wide grip...'}
               value={noteModalData.note}
               onChange={e => setNoteModalData({...noteModalData, note: e.target.value})}
@@ -4054,8 +3606,8 @@ const filteredExercises = useMemo(() => {
             />
 
             <div className="flex gap-4">
-              <button onClick={() => setNoteModalData(null)} className="flex-1 py-4 rounded-2xl bg-slate-800 text-slate-400 font-black hover:bg-slate-700 transition-colors">{lang === Language.CN ? '取消' : 'Cancel'}</button>
-              <button onClick={handleSaveNote} className="flex-[2] py-4 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95">
+              <button onClick={() => setNoteModalData(null)} className="flex-1 py-4 rounded-2xl bg-card text-secondary font-semibold hover:bg-card-hover transition-colors">{lang === Language.CN ? '取消' : 'Cancel'}</button>
+              <button onClick={handleSaveNote} className="flex-[2] py-4 rounded-2xl bg-accent text-white font-semibold hover:opacity-90 transition-all shadow-elevated shadow-blue-600/30 active:scale-95">
                 {translations.confirm[lang]}
               </button>
             </div>
@@ -4064,21 +3616,21 @@ const filteredExercises = useMemo(() => {
       )}
       {/* --- 新增：休息时间设置弹窗 --- */}
       {restModalData && (
-        <div className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl">
-            <h3 className="text-center text-slate-400 font-bold mb-2 text-sm">{restModalData.name}</h3>
-            <h2 className="text-center text-3xl font-black text-white mb-8">
+        <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 shadow-2xl">
+            <h3 className="text-center text-secondary font-bold mb-2 text-sm">{restModalData.name}</h3>
+            <h2 className="text-center text-3xl font-semibold text-white mb-8">
               {lang === Language.CN ? '休息时长' : 'Rest Duration'}
             </h2>
 
             {/* 时间显示与微调 */}
-            <div className="flex items-center justify-between mb-8 bg-slate-950 rounded-3xl p-2 border border-slate-800">
-              <button onClick={() => setRestModalData(p => p ? ({...p, time: Math.max(10, p.time - 10)}) : null)} className="w-14 h-14 bg-slate-800 rounded-full flex items-center justify-center text-slate-300 font-black hover:bg-slate-700 transition-colors active:scale-95"><Minus size={24} /></button>
+            <div className="flex items-center justify-between mb-8 bg-base rounded-3xl p-2 border border-divider">
+              <button onClick={() => setRestModalData(p => p ? ({...p, time: Math.max(10, p.time - 10)}) : null)} className="w-14 h-14 bg-card rounded-full flex items-center justify-center text-primary font-semibold hover:bg-card-hover transition-colors active:scale-95"><Minus size={24} /></button>
               <div className="flex flex-col items-center">
-                <span className="text-4xl font-black text-blue-500 tabular-nums">{restModalData.time}</span>
-                <span className="text-[10px] font-bold text-slate-600 uppercase">SEC</span>
+                <span className="text-4xl font-semibold text-accent tabular-nums">{restModalData.time}</span>
+                <span className="text-[10px] font-bold text-tertiary uppercase">SEC</span>
               </div>
-              <button onClick={() => setRestModalData(p => p ? ({...p, time: p.time + 10}) : null)} className="w-14 h-14 bg-slate-800 rounded-full flex items-center justify-center text-slate-300 font-black hover:bg-slate-700 transition-colors active:scale-95"><Plus size={24} /></button>
+              <button onClick={() => setRestModalData(p => p ? ({...p, time: p.time + 10}) : null)} className="w-14 h-14 bg-card rounded-full flex items-center justify-center text-primary font-semibold hover:bg-card-hover transition-colors active:scale-95"><Plus size={24} /></button>
             </div>
 
             {/* 快捷选项 */}
@@ -4087,7 +3639,7 @@ const filteredExercises = useMemo(() => {
                 <button 
                   key={t} 
                   onClick={() => setRestModalData(p => p ? ({...p, time: t}) : null)}
-                  className={`py-2 rounded-xl text-xs font-black transition-all ${restModalData.time === t ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}`}
+                  className={`py-2 rounded-xl text-xs font-semibold transition-all ${restModalData.time === t ? 'bg-accent text-white' : 'bg-card text-secondary hover:bg-card-hover'}`}
                 >
                   {t}s
                 </button>
@@ -4096,8 +3648,8 @@ const filteredExercises = useMemo(() => {
 
             {/* 底部按钮 */}
             <div className="flex gap-4">
-              <button onClick={() => setRestModalData(null)} className="flex-1 py-4 rounded-2xl bg-slate-800 text-slate-400 font-black hover:bg-slate-700 transition-colors">{lang === Language.CN ? '取消' : 'Cancel'}</button>
-              <button onClick={confirmStartRest} className="flex-[2] py-4 rounded-2xl bg-blue-600 text-white font-black hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/30 active:scale-95 flex items-center justify-center gap-2">
+              <button onClick={() => setRestModalData(null)} className="flex-1 py-4 rounded-2xl bg-card text-secondary font-semibold hover:bg-card-hover transition-colors">{lang === Language.CN ? '取消' : 'Cancel'}</button>
+              <button onClick={confirmStartRest} className="flex-[2] py-4 rounded-2xl bg-accent text-white font-semibold hover:opacity-90 transition-all shadow-elevated shadow-blue-600/30 active:scale-95 flex items-center justify-center gap-2">
                 <History size={18} />
                 {lang === Language.CN ? '开始计时' : 'Start Timer'}
               </button>
@@ -4107,14 +3659,14 @@ const filteredExercises = useMemo(() => {
       )}
       {/* ✅ 在这里插入新的"维度设置弹窗"代码 */}
       {showMetricModal && (
-        <div className="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-            <h2 className="text-xl font-black text-white mb-6 flex items-center gap-2">
-              <SettingsIcon size={20} className="text-blue-500" />
+        <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+              <SettingsIcon size={20} className="text-accent" />
               {translations.manageMetrics[lang]} - {showMetricModal.name}
             </h2>
 
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">
+            <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
               {lang === Language.CN ? '选择要记录的维度' : 'Select metrics to track'}
             </p>
 
@@ -4124,24 +3676,24 @@ const filteredExercises = useMemo(() => {
                 <button 
                   key={m}
                   onClick={() => toggleMetric(showMetricModal.name, m)}
-                  className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${getActiveMetrics(showMetricModal.name).includes(m) ? 'bg-blue-600/10 border-blue-500/50 text-white' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}
+                  className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${getActiveMetrics(showMetricModal.name).includes(m) ? 'bg-accent/10 border-blue-500/50 text-white' : 'bg-card/50 border-divider text-secondary'}`}
                 >
                   <span className="font-bold uppercase text-xs">
                     {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
                   </span>
-                  {getActiveMetrics(showMetricModal.name).includes(m) ? <CheckIcon size={16} className="text-blue-500" /> : <Plus size={16} />}
+                  {getActiveMetrics(showMetricModal.name).includes(m) ? <CheckIcon size={16} className="text-accent" /> : <Plus size={16} />}
                 </button>
               ))}
             </div>
 
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-1">
+            <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
               {translations.addDimension[lang]}
             </p>
 
             {/* 添加新的自定义维度输入 */}
             <div className="flex gap-2 mb-8">
               <input 
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+                className="flex-1 bg-base border border-divider rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
                 placeholder={translations.dimensionPlaceholder[lang]}
                 value={newCustomDimension}
                 onChange={e => setNewCustomDimension(e.target.value)}
@@ -4152,7 +3704,7 @@ const filteredExercises = useMemo(() => {
                   toggleMetric(showMetricModal.name, `custom_${newCustomDimension}`);
                   setNewCustomDimension('');
                 }}
-                className="bg-slate-800 border border-slate-700 p-2 px-4 rounded-xl text-blue-500 font-bold text-xs active:scale-95 transition-all"
+                className="bg-card border border-divider p-2 px-4 rounded-xl text-accent font-bold text-xs active:scale-95 transition-all"
               >
                 {lang === Language.CN ? '添加' : 'Add'}
               </button>
@@ -4169,14 +3721,14 @@ const filteredExercises = useMemo(() => {
                     resetMetricsToDefault(showMetricModal!.name);
                   }
                 }}
-                className="flex-1 py-4 rounded-2xl bg-slate-800 border border-slate-700 text-slate-400 font-bold text-sm active:scale-95 transition-all hover:bg-slate-700"
+                className="flex-1 py-4 rounded-2xl bg-card border border-divider text-secondary font-bold text-sm active:scale-95 transition-all hover:bg-card-hover"
               >
                 {lang === Language.CN ? '重置默认' : 'Reset Default'}
               </button>
               
               <button 
                 onClick={() => setShowMetricModal(null)} 
-                className="flex-[2] py-4 rounded-2xl bg-blue-600 text-white font-black shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+                className="flex-[2] py-4 rounded-2xl bg-accent text-white font-semibold shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
               >
                 {translations.confirm[lang]}
               </button>
@@ -4187,11 +3739,11 @@ const filteredExercises = useMemo(() => {
 
       {/* --- ✅ 新增：移动端友好时间选择器 --- */}
       {showTimePicker && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-end sm:items-center justify-center animate-in fade-in slide-in-from-bottom-10">
-          <div className="bg-slate-900 border-t sm:border border-slate-800 w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl">
+        <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-end sm:items-center justify-center animate-in fade-in slide-in-from-bottom-10">
+          <div className="bg-inset border-t sm:border border-divider w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl">
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-black text-white">{lang === Language.CN ? '设置时长' : 'Set Duration'}</h2>
-              <button onClick={() => setShowTimePicker(null)} className="p-2 text-slate-500"><X size={24}/></button>
+              <h2 className="text-xl font-semibold text-white">{lang === Language.CN ? '设置时长' : 'Set Duration'}</h2>
+              <button onClick={() => setShowTimePicker(null)} className="p-2 text-secondary"><X size={24}/></button>
             </div>
 
             {/* 滚轮模拟选择区 */}
@@ -4204,21 +3756,21 @@ const filteredExercises = useMemo(() => {
                 <div key={col.key} className="flex flex-col items-center gap-4 flex-1">
                   <button 
                     onClick={() => setTempHMS(p => ({...p, [col.key]: (p[col.key as keyof typeof p] + 1) > col.max ? 0 : p[col.key as keyof typeof p] + 1}))}
-                    className="w-full py-4 bg-slate-800 rounded-2xl flex justify-center text-blue-500 active:bg-blue-500 active:text-white transition-all"
+                    className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-blue-500 active:text-white transition-all"
                   >
                     <ChevronUp size={28} strokeWidth={3} />
                   </button>
                   
                   <div className="flex flex-col items-center">
-                    <span className="text-4xl font-black text-white tabular-nums">
+                    <span className="text-4xl font-semibold text-white tabular-nums">
                       {tempHMS[col.key as keyof typeof tempHMS].toString().padStart(2, '0')}
                     </span>
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1">{col.label}</span>
+                    <span className="text-[10px] font-bold text-tertiary  mt-1">{col.label}</span>
                   </div>
 
                   <button 
                     onClick={() => setTempHMS(p => ({...p, [col.key]: (p[col.key as keyof typeof p] - 1) < 0 ? col.max : p[col.key as keyof typeof p] - 1}))}
-                    className="w-full py-4 bg-slate-800 rounded-2xl flex justify-center text-blue-500 active:bg-blue-500 active:text-white transition-all"
+                    className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-blue-500 active:text-white transition-all"
                   >
                     <ChevronDown size={28} strokeWidth={3} />
                   </button>
@@ -4227,8 +3779,8 @@ const filteredExercises = useMemo(() => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setShowTimePicker(null)} className="py-5 rounded-[2rem] bg-slate-800 text-slate-400 font-black">{lang === Language.CN ? '取消' : 'Cancel'}</button>
-              <button onClick={confirmTimePicker} className="py-5 rounded-[2rem] bg-blue-600 text-white font-black shadow-xl shadow-blue-600/30">
+              <button onClick={() => setShowTimePicker(null)} className="py-5 rounded-card bg-card text-secondary font-semibold">{lang === Language.CN ? '取消' : 'Cancel'}</button>
+              <button onClick={confirmTimePicker} className="py-5 rounded-card bg-accent text-white font-semibold shadow-xl shadow-blue-600/30">
                 {translations.confirm[lang]}
               </button>
             </div>
@@ -4238,23 +3790,23 @@ const filteredExercises = useMemo(() => {
       
       {/* ✅ 问题4: 重置账户确认对话框 */}
       {showResetAccountModal && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+        <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-inset border border-divider w-full max-w-md rounded-card p-8 shadow-2xl">
             <div className="text-center mb-8">
               <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Trash2 size={32} className="text-red-500" />
               </div>
-              <h2 className="text-2xl font-black text-white mb-4">
+              <h2 className="text-2xl font-semibold text-white mb-4">
                 {translations.resetAccountWarning[lang]}
               </h2>
-              <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">
+              <p className="text-sm text-secondary leading-relaxed whitespace-pre-line">
                 {translations.resetAccountDesc[lang]}
               </p>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">
+                <label className="block text-xs font-bold text-secondary  mb-3">
                   {translations.resetConfirmText[lang]}
                 </label>
                 <input
@@ -4262,7 +3814,7 @@ const filteredExercises = useMemo(() => {
                   value={resetConfirmText}
                   onChange={(e) => setResetConfirmText(e.target.value)}
                   placeholder={translations.resetConfirmPlaceholder[lang]}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-4 text-white outline-none focus:border-red-500 transition-colors"
+                  className="w-full bg-base border border-divider rounded-2xl px-4 py-4 text-white outline-none focus:border-red-500 transition-colors"
                   autoFocus
                 />
               </div>
@@ -4273,7 +3825,7 @@ const filteredExercises = useMemo(() => {
                     setShowResetAccountModal(false);
                     setResetConfirmText('');
                   }}
-                  className="flex-1 py-4 rounded-2xl bg-slate-800 text-slate-400 font-black hover:bg-slate-700 transition-colors"
+                  className="flex-1 py-4 rounded-2xl bg-card text-secondary font-semibold hover:bg-card-hover transition-colors"
                   disabled={isResetting}
                 >
                   {translations.resetCancel[lang]}
@@ -4288,7 +3840,7 @@ const filteredExercises = useMemo(() => {
                     }
                   }}
                   disabled={isResetting || resetConfirmText !== (lang === Language.CN ? '重置' : 'RESET')}
-                  className="flex-[2] py-4 rounded-2xl bg-red-600 text-white font-black hover:bg-red-500 transition-all shadow-lg shadow-red-600/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-[2] py-4 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-all shadow-elevated shadow-red-600/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isResetting ? (
                     <>
@@ -4305,8 +3857,56 @@ const filteredExercises = useMemo(() => {
         </div>
       )}
 
-      {/* --- 可拖拽悬浮休息计时器（仅在添加运动界面显示） --- */}
-      {activeTab === 'new' && (
+      {/* --- 训练计划：保存训练时的"按计划/有调整/取消"确认 --- */}
+      {planConfirmOpen && (
+        <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-card border border-divider w-full max-w-sm rounded-card p-6 space-y-4 shadow-elevated">
+            <div>
+              <h2 className="font-display text-lg font-semibold text-primary">
+                {translations.planConfirmTitle[lang]}
+              </h2>
+              <p className="text-xs text-secondary mt-1">
+                {translations.planConfirmSubtitle[lang]}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                data-testid="plan-confirm-faithful"
+                onClick={async () => {
+                  setPlanConfirmOpen(false);
+                  await performSaveWorkout(true);
+                }}
+                className="w-full py-3 rounded-control bg-accent text-white text-sm font-medium hover:opacity-90 active:scale-95 transition"
+              >
+                {translations.planFaithful[lang]}
+              </button>
+              <button
+                data-testid="plan-confirm-modified"
+                onClick={async () => {
+                  setPlanConfirmOpen(false);
+                  await performSaveWorkout(false);
+                }}
+                className="w-full py-3 rounded-control border border-divider text-primary text-sm font-medium hover:bg-card-hover active:scale-95 transition"
+              >
+                {translations.planModified[lang]}
+              </button>
+              <button
+                data-testid="plan-confirm-cancel"
+                onClick={() => {
+                  setPlanConfirmOpen(false);
+                  setSaveStatus('idle');
+                }}
+                className="w-full py-3 rounded-control text-tertiary text-sm hover:text-primary transition"
+              >
+                {translations.planNotDone[lang]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 可拖拽悬浮休息计时器：仅当训练流程已经有动作（图1）时显示 --- */}
+      {activeTab === 'new' && (currentWorkout?.exercises?.length ?? 0) > 0 && (
       <RestTimer
         isResting={isResting}
         restSeconds={restSeconds}
@@ -4315,13 +3915,14 @@ const filteredExercises = useMemo(() => {
         onAdjustTime={adjustRestTime}
       />
       )}
-      {(user && authMode !== 'updatePassword') && (
+      {/* 底部导航栏：仅在一级页面显示，训练流程隐藏 */}
+      {user && activeTab !== 'new' && (
         <TabNavigation
-          activeTab={activeTab as 'dashboard' | 'new' | 'goals' | 'profile'}
+          activeTab={activeTab as 'dashboard' | 'new' | 'plan' | 'profile'}
           onTabChange={setActiveTab}
           lang={lang}
           onStartWorkout={() => {
-            setCurrentWorkout({ title: '', exercises: [], date: new Date().toISOString() });
+            setCurrentWorkout(workoutCtx.createNewWorkout());
             setActiveTab('new');
           }}
         />
@@ -4331,20 +3932,44 @@ const filteredExercises = useMemo(() => {
 };
 
 // === Context Providers Wrapper ===
-const AppWithProviders: React.FC = () => {
-  const [userId, setUserId] = useState<string | undefined>(undefined);
-  
-  return (
+// Mount the theme hook at the root so the system colorScheme listener is
+// always alive — otherwise it only existed inside ProfileTab and never fired
+// while the user was on other tabs.
+// --- Assistant container (owns LLM round-trip + tool execution) ---
+const AssistantTabContainer: React.FC<{ lang: Language }> = ({ lang }) => {
+  const assistantCtx = useAssistantContext();
+  // Lazy import inside file to avoid circular deps at module init
+  const [AssistantRuntime, setAssistantRuntime] = React.useState<null | typeof import('./src/components/AssistantRuntime')>(null);
+  React.useEffect(() => {
+    void import('./src/components/AssistantRuntime').then(m => setAssistantRuntime(m));
+  }, []);
+  if (!AssistantRuntime) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" /></div>;
+  }
+  return <AssistantRuntime.default lang={lang} assistantCtx={assistantCtx} />;
+};
+
+const ThemeRoot: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  useTheme();
+  return <>{children}</>;
+};
+
+const AppWithProviders: React.FC = () => (
+  <ThemeRoot>
     <AuthProvider>
-      <UserSettingsProvider userId={userId}>
-        <WorkoutProvider userId={userId}>
-          <GoalsProvider userId={userId}>
-            <AppWithAuth userId={userId} onUserIdChange={setUserId} />
+      <UserSettingsProvider userId={FITLOG_SOLO_USER_ID}>
+        <WorkoutProvider userId={FITLOG_SOLO_USER_ID}>
+          <GoalsProvider userId={FITLOG_SOLO_USER_ID}>
+            <ScheduleProvider userId={FITLOG_SOLO_USER_ID}>
+              <AssistantProvider userId={FITLOG_SOLO_USER_ID}>
+                <AppWithAuth />
+              </AssistantProvider>
+            </ScheduleProvider>
           </GoalsProvider>
         </WorkoutProvider>
       </UserSettingsProvider>
     </AuthProvider>
-  );
-};
+  </ThemeRoot>
+);
 
 export default AppWithProviders;

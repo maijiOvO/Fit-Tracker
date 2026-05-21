@@ -7,7 +7,7 @@
  * - 动作管理
  */
 import { useState, useCallback } from 'react';
-import { WorkoutSession, Exercise } from '../types';
+import { WorkoutSession, Exercise } from '../../types';
 
 interface UseWorkoutReturn {
   // 状态

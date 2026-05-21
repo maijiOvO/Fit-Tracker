@@ -14,16 +14,16 @@ interface TagBadgeProps {
 }
 
 const variantStyles = {
-  default: 'bg-slate-800 text-slate-400 hover:bg-slate-700',
-  primary: 'bg-blue-600 text-white shadow-lg',
-  success: 'bg-emerald-600 text-white',
-  warning: 'bg-amber-500/20 border-amber-500/50 text-amber-400',
-  danger: 'bg-red-500/20 border-red-500/50 text-red-400',
+  default: 'bg-inset text-secondary hover:bg-card-hover border border-divider',
+  primary: 'bg-accent text-white',
+  success: 'bg-success/15 text-success border border-success/30',
+  warning: 'bg-warning/10 border-warning/30 text-warning',
+  danger: 'bg-danger/10 border-danger/30 text-danger',
 };
 
 const sizeStyles = {
   sm: 'px-2 py-1 text-[10px]',
-  md: 'px-4 py-2 text-xs',
+  md: 'px-3 py-1.5 text-xs',
 };
 
 export const TagBadge: React.FC<TagBadgeProps> = ({
@@ -35,22 +35,19 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   size = 'md',
   className = '',
 }) => {
+  const activeVariant = isSelected ? 'primary' : variant;
   const baseStyles = `
-    rounded-xl font-black uppercase tracking-wider transition-all
+    rounded-chip font-medium transition-colors
     ${sizeStyles[size]}
-    ${variantStyles[variant]}
+    ${variantStyles[activeVariant]}
     ${onClick ? 'cursor-pointer' : ''}
-    ${isSelected ? variantStyles.primary : ''}
     ${className}
-  `.trim().replace(/\s+/g, ' ');
+  `
+    .trim()
+    .replace(/\s+/g, ' ');
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={baseStyles}
-      data-tag-id={tagId}
-    >
+    <button type="button" onClick={onClick} className={baseStyles} data-tag-id={tagId}>
       {tagName}
     </button>
   );

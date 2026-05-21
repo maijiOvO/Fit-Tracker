@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🚧 触发 Harness 拦截器：正在执行全局验证流..."
+npm run validate

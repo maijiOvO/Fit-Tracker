@@ -29,7 +29,7 @@ export {
 } from './dateUtils';
 
 // 金字塔训练计算
-export { calculatePyramid, generatePyramidSets } from './pyramidCalculator';
+export { calculatePyramidSubSets } from './pyramidCalculator';
 
 // 数据验证工具
 export {

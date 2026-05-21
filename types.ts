@@ -18,6 +18,10 @@ export interface SetLog {
   id: string;
   weight: number; 
   reps: number;
+  /** Duration in seconds (e.g. cardio / timed sets) */
+  duration?: number;
+  /** Optional score / output used for completeness checks */
+  score?: number;
   time?: number; 
   timeUnit?: 's' | 'm' | 'h';
   distance?: number;
@@ -89,6 +93,24 @@ export interface WorkoutSession {
   // ✅ 新增：训练开始和结束时间
   startTime?: string;
   endTime?: string;
+  /** IndexedDB / 远端同步可选字段 */
+  duration?: number;
+  tags?: string[];
+  /** 来自训练计划标记 */
+  fromSchedule?: WorkoutFromSchedule;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** 体脂、围度等记录在 IndexedDB `custom_metrics` */
+export interface Measurement {
+  id: string;
+  userId: string;
+  name: string;
+  value: number;
+  unit: string;
+  date: string;
+  createdAt?: string;
 }
 
 export interface WeightEntry {
@@ -97,6 +119,7 @@ export interface WeightEntry {
   weight: number;
   date: string;
   unit: 'kg' | 'lbs';
+  createdAt?: string;
 }
 
 export type GoalType = 'weight' | 'strength' | 'frequency' | 'bodyMetrics' | 'custom';
@@ -159,6 +182,100 @@ export interface GoalRecommendation {
   unit: string;
   reasoning: string;
   confidence: number; // 0-1, 推荐置信度
+}
+
+// === 智能助手 ===
+export type AssistantToolName =
+  // 只读
+  | 'list_schedules'
+  | 'list_workouts'
+  | 'list_prs'
+  | 'read_body_metrics'
+  | 'read_goals'
+  | 'search_exercise_lib'
+  | 'read_user_settings'
+  // 写：仅限日程
+  | 'create_schedule'
+  | 'update_schedule'
+  | 'delete_schedule';
+
+export type AssistantToolCallStatus =
+  | 'pending'        // 等待执行
+  | 'awaiting_user'  // 写操作等待用户确认
+  | 'executed'       // 已成功执行
+  | 'rejected'       // 用户拒绝
+  | 'failed';        // 执行报错
+
+export interface AssistantToolCall {
+  id: string;
+  name: AssistantToolName;
+  arguments: Record<string, unknown>;
+  status: AssistantToolCallStatus;
+  result?: unknown;          // 执行结果摘要（落盘前可裁剪）
+  error?: string;
+}
+
+export type AssistantMessageRole = 'user' | 'assistant' | 'tool' | 'system';
+
+export interface ChatMessage {
+  id: string;
+  role: AssistantMessageRole;
+  /** 纯文本 / Markdown；tool 消息这里放 JSON.stringify(result) */
+  content: string;
+  /** assistant 消息附带的工具调用 */
+  toolCalls?: AssistantToolCall[];
+  /** tool 角色消息：对应的 toolCallId */
+  toolCallId?: string;
+  createdAt: string;
+}
+
+export interface AssistantConversation {
+  id: string;
+  userId: string;
+  title: string;
+  messages: ChatMessage[];
+  /** 助手用的模型（如有） */
+  modelHint?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// 工作集合的训练「来源」：来自训练计划时记录是否照计划完成
+export interface WorkoutFromSchedule {
+  scheduleId: string;
+  /** true: 完全按计划完成；false: 有调整 */
+  faithful: boolean;
+}
+
+// 训练计划：用户为未来某一天安排的训练
+export interface ScheduledExercise {
+  id: string;
+  name: string;                  // 与 ExerciseDefinition.name (en/cn) 或 customExercises 一致
+  category: ExerciseCategory;
+  /** 训练部位标签 id（取自 BODY_PARTS 或自定义 bodyPart 标签） */
+  bodyPart?: string;
+  /** 器材 / 通用 标签集合（取自 EQUIPMENT_TAGS 或自定义 equipment 标签） */
+  tags?: string[];
+  targetSets?: number;
+  targetReps?: number;
+  targetWeight?: number;         // kg，使用时按 unit 显示
+  notes?: string;
+}
+
+export type ScheduleStatus = 'planned' | 'completed' | 'skipped';
+
+export interface ScheduledWorkout {
+  id: string;
+  userId: string;
+  date: string;                  // 'YYYY-MM-DD' 本地日期
+  title?: string;
+  bodyParts: string[];           // tag id（沿用 customTags.bodyPart）
+  exercises: ScheduledExercise[];
+  notes?: string;
+  status: ScheduleStatus;
+  linkedWorkoutId?: string;      // 完成后关联到 WorkoutSession.id
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PRRecord {

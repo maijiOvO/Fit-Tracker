@@ -2,8 +2,11 @@ import React, { useRef, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, PlusCircle 
+  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone, Sparkles
 } from 'lucide-react';
+import { markPrefsUpdated } from '../../services/fitlogRemote';
+import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
+import { useTheme, ThemePreference } from '../hooks/useTheme';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
@@ -26,7 +29,7 @@ interface ProfileTabProps {
   expandedMetric: string | null;
   onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onToggleLanguage: () => void;
-  onLogout: () => void;
+  onLogout?: () => void;
   onShowWeightInput: () => void;
   onShowMeasureModal: () => void;
   onToggleMetric: (metricName: string | null) => void;
@@ -34,7 +37,7 @@ interface ProfileTabProps {
   onDeleteMeasurement: (e: React.MouseEvent, id: string) => void;
   onAddMeasurementEntry: (name: string) => void;
   setShowResetAccountModal: (show: boolean) => void;
-  onCreateAccount: () => void;
+  onCreateAccount?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
 }
 
@@ -78,11 +81,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     ? ['', '一', '', '三', '', '五', ''] 
     : ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
+  const { preference, setPreference } = useTheme();
+  const [assistantSyncEnabled, setAssistantSyncEnabled] = React.useState(
+    () => localStorage.getItem('fitlog_assistant_sync_enabled') !== '0',
+  );
+  const toggleAssistantSync = () => {
+    const next = !assistantSyncEnabled;
+    setAssistantSyncEnabled(next);
+    localStorage.setItem('fitlog_assistant_sync_enabled', next ? '1' : '0');
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
+  };
+  const themeOptions: { id: ThemePreference; icon: React.ReactNode; label: string }[] = [
+    { id: 'auto', icon: <Smartphone size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '跟随系统' : 'System' },
+    { id: 'light', icon: <Sun size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '浅色' : 'Light' },
+    { id: 'dark', icon: <Moon size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '深色' : 'Dark' },
+  ];
+
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-5">
+    <div className="space-y-6 animate-fade-in">
       {/* Profile Header */}
       <div className="flex flex-col items-center justify-center py-10 relative overflow-hidden">
-        <div className="absolute inset-0 bg-blue-600/5 rounded-full blur-3xl scale-150" />
+        <div className="absolute inset-0 bg-accent/5 rounded-full blur-3xl scale-150" />
 
         {/* Avatar Container */}
         <div 
@@ -97,39 +117,37 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             accept="image/*"
           />
           
-          <div className="w-28 h-28 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-6 border-4 border-slate-900 overflow-hidden relative">
+          <div className="w-28 h-28 bg-accent rounded-full flex items-center justify-center shadow-elevated mb-6 ring-4 ring-base overflow-hidden relative">
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-4xl font-black text-white">
+              <span className="text-4xl font-display font-semibold text-white">
                 {user.username?.charAt(0)?.toUpperCase() || 'U'}
               </span>
             )}
             
-            {/* Hover Overlay */}
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="text-white opacity-80" size={32} />
+            <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="text-white" size={28} strokeWidth={1.75} />
             </div>
           </div>
 
-          {/* Camera Badge */}
-          <div className="absolute bottom-6 right-0 bg-blue-500 text-white p-2 rounded-full border-4 border-slate-900 shadow-lg">
+          <div className="absolute bottom-6 right-0 bg-accent text-white p-2 rounded-full ring-4 ring-base shadow-elevated">
             <Camera size={16} />
           </div>
         </div>
 
-        <h2 className="text-3xl font-black tracking-tight">{user.username}</h2>
-        <p className="text-slate-500 font-medium mt-1">{user.email}</p>
+        <h2 className="font-display text-display-sm text-primary">{user.username}</h2>
+        <p className="text-secondary font-medium mt-1">{user.email}</p>
       </div>
 
       {/* Training Heatmap */}
-      <div className="w-full bg-slate-800/20 border border-slate-700/30 rounded-[2rem] p-5">
+      <div className="w-full bg-card border border-divider rounded-card p-5">
         <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-            <Activity size={12} className="text-blue-500" />
+          <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest flex items-center gap-2">
+            <Activity size={12} className="text-accent" />
             {lang === Language.CN ? '训练活跃度' : 'Activity'}
           </h3>
-          <span className="text-[10px] font-bold text-slate-600 bg-slate-800 px-2 py-1 rounded-lg">
+          <span className="text-[10px] font-bold text-tertiary bg-card px-2 py-1 rounded-lg">
             {lang === Language.CN ? '近3个月' : 'Last 90 Days'}
           </span>
         </div>
@@ -160,32 +178,34 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* Guest Mode Warning */}
       {user.id === 'u_guest' && (
-        <div className="mx-2 p-5 bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex items-start gap-4 animate-in slide-in-from-top-2">
+        <div className="mx-2 p-5 bg-amber-500/10 border border-amber-500/20 rounded-card flex items-start gap-4 animate-in slide-in-from-top-2">
           <div className="p-3 bg-amber-500/20 text-amber-500 rounded-2xl flex-shrink-0">
             <ShieldAlert size={24} />
           </div>
           <div className="flex flex-col gap-1">
-            <h4 className="text-sm font-black text-amber-500 uppercase tracking-wide">
+            <h4 className="text-sm font-semibold text-amber-500 uppercase tracking-wide">
               {translations.guestWarningTitle[lang]}
             </h4>
             <p className="text-[11px] font-bold text-amber-200/70 leading-relaxed">
               {translations.guestWarningDesc[lang]}
             </p>
-            <button 
-              onClick={onCreateAccount}
-              className="mt-2 text-[10px] font-black text-white bg-amber-600/40 hover:bg-amber-600/60 px-3 py-1.5 rounded-lg self-start transition-colors"
-            >
-              {translations.createAccount[lang]}
-            </button>
+            {onCreateAccount && (
+              <button
+                onClick={onCreateAccount}
+                className="mt-2 text-[10px] font-semibold text-primary bg-amber-600/40 hover:bg-amber-600/60 px-3 py-1.5 rounded-lg self-start transition-colors"
+              >
+                {translations.createAccount[lang]}
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* Stats Overview */}
       <div className="w-full">
-        <div className="bg-slate-800/40 p-6 rounded-[2rem] border border-slate-700/50 flex flex-col items-center justify-center gap-2 w-full">
-          <span className="text-3xl font-black text-white">{workouts.length}</span>
-          <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+        <div className="bg-card p-6 rounded-card border border-divider flex flex-col items-center justify-center gap-2 w-full">
+          <span className="text-3xl font-semibold text-primary">{workouts.length}</span>
+          <span className="text-[10px] font-semibold uppercase text-secondary tracking-widest">
             {lang === Language.CN ? '累计训练' : 'Workouts'}
           </span>
         </div>
@@ -194,20 +214,20 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       {/* Log Weight Button */}
       <button 
         onClick={onShowWeightInput} 
-        className="w-full bg-slate-800 border border-slate-700/50 p-5 rounded-[2rem] flex items-center justify-between group active:scale-95 transition-all shadow-lg"
+        className="w-full bg-card border border-divider p-5 rounded-card flex items-center justify-between group active:scale-95 transition-all shadow-lg"
       >
         <div className="flex items-center gap-4">
-          <div className="p-4 bg-indigo-500/20 text-indigo-400 rounded-2xl group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+          <div className="p-4 bg-accent/20 text-accent rounded-2xl group-hover:bg-accent group-hover:text-primary transition-colors">
             <Scale size={24} />
           </div>
           <div className="text-left">
-            <h3 className="font-black text-xl text-white">{translations.logWeight[lang]}</h3>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+            <h3 className="font-semibold text-xl text-primary">{translations.logWeight[lang]}</h3>
+            <p className="text-xs text-secondary font-bold uppercase tracking-wider">
               {lang === Language.CN ? '记录当前数据' : 'Track Progress'}
             </p>
           </div>
         </div>
-        <div className="bg-slate-900 p-3 rounded-full text-slate-500 group-hover:text-indigo-400 transition-colors">
+        <div className="bg-inset p-3 rounded-full text-secondary group-hover:text-accent transition-colors">
           <Plus size={20} />
         </div>
       </button>
@@ -215,12 +235,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       {/* Body Metrics Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center px-2">
-          <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest">
+          <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest">
             {lang === Language.CN ? '身体数据 & 指标' : 'Body Metrics'}
           </h3>
           <button 
             onClick={onShowMeasureModal} 
-            className="text-blue-500 text-xs font-black flex items-center gap-1 hover:text-blue-400"
+            className="text-accent text-xs font-semibold flex items-center gap-1 hover:text-blue-400"
           >
             <Plus size={14} /> {lang === Language.CN ? '添加' : 'Add'}
           </button>
@@ -233,32 +253,32 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             return (
               <div 
                 key={metric.name} 
-                className={`bg-slate-800/40 border border-slate-700/50 rounded-[1.5rem] transition-all duration-300 overflow-hidden cursor-pointer
-                  ${isExpanded ? 'col-span-2 ring-1 ring-indigo-500/30 bg-slate-800/60' : 'col-span-1 active:scale-95 hover:bg-slate-800/60'}`}
+                className={`bg-card border border-divider rounded-card transition-all duration-300 overflow-hidden cursor-pointer
+                  ${isExpanded ? 'col-span-2 ring-1 ring-accent/25 bg-card-hover' : 'col-span-1 active:scale-95 hover:bg-card-hover'}`}
                 onClick={() => onToggleMetric(isExpanded ? null : metric.name)}
               >
                 <div className="p-4">
                   {/* Header */}
                   <div className="flex justify-between items-start mb-1">
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <Ruler size={14} className="text-indigo-500 flex-shrink-0" />
-                      <span className="text-xs font-bold text-slate-400 truncate">{metric.name}</span>
+                      <Ruler size={14} className="text-accent flex-shrink-0" />
+                      <span className="text-xs font-bold text-secondary truncate">{metric.name}</span>
                     </div>
-                    {isExpanded && <ChevronUp size={16} className="text-slate-500" />}
+                    {isExpanded && <ChevronUp size={16} className="text-secondary" />}
                   </div>
                   
                   {/* Value */}
                   <div className="flex items-baseline gap-1 mt-1">
-                    <span className="text-2xl font-black text-white">{metric.value}</span>
-                    <span className="text-[10px] font-bold text-slate-600 uppercase">{metric.unit}</span>
+                    <span className="text-2xl font-semibold text-primary">{metric.value}</span>
+                    <span className="text-[10px] font-bold text-tertiary uppercase">{metric.unit}</span>
                   </div>
-                  <p className="text-[9px] text-slate-600 mt-1">
+                  <p className="text-[9px] text-tertiary mt-1">
                     {new Date(metric.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
                   </p>
 
                   {/* Expanded Content */}
                   {isExpanded && (
-                    <div className="mt-4 border-t border-slate-700/30 pt-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="mt-4 border-t border-divider pt-4" onClick={(e) => e.stopPropagation()}>
                       {/* Chart */}
                       <div className="mb-6">
                         <MetricChart
@@ -270,20 +290,20 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
                       {/* History List */}
                       <div className="mb-6 space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <h4 className="text-[10px] font-semibold text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
                           <History size={10} /> {lang === Language.CN ? '历史记录' : 'History'}
                         </h4>
                         {measurements
                           .filter(m => m.name === metric.name)
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                           .map((historyItem) => (
-                            <div key={historyItem.id} className="flex justify-between items-center bg-slate-900/30 p-3 rounded-xl border border-slate-700/30 group">
+                            <div key={historyItem.id} className="flex justify-between items-center bg-inset/30 p-3 rounded-xl border border-divider group">
                               <div className="flex items-center gap-3">
                                 <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-slate-200">
-                                    {historyItem.value} <span className="text-[10px] text-slate-500 uppercase">{historyItem.unit}</span>
+                                  <span className="text-sm font-bold text-primary">
+                                    {historyItem.value} <span className="text-[10px] text-secondary uppercase">{historyItem.unit}</span>
                                   </span>
-                                  <span className="text-[9px] text-slate-600">
+                                  <span className="text-[9px] text-tertiary">
                                     {new Date(historyItem.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
@@ -293,7 +313,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                               <div className="flex gap-2">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); onEditMeasurement(historyItem); }} 
-                                  className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg hover:bg-indigo-500/20 active:scale-90 transition-all"
+                                  className="p-2 bg-accent/10 text-accent rounded-lg hover:bg-accent/20 active:scale-90 transition-all"
                                 >
                                   <Edit2 size={12} />
                                 </button>
@@ -309,10 +329,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                       </div>
                       
                       {/* Add Entry Button */}
-                      <div className="flex justify-end pt-2 border-t border-slate-700/30">
+                      <div className="flex justify-end pt-2 border-t border-divider">
                         <button 
                           onClick={() => onAddMeasurementEntry(metric.name)} 
-                          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 rounded-2xl text-xs font-bold text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+                          className="ui-btn-primary flex items-center gap-2 text-xs active:scale-95"
                         >
                           <Plus size={14} />
                           {lang === Language.CN ? '记录新数据' : 'Add Entry'}
@@ -328,12 +348,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           {/* Add New Metric Button */}
           <button 
             onClick={onShowMeasureModal} 
-            className="bg-slate-800/20 border-2 border-dashed border-slate-700/50 p-4 rounded-[1.5rem] flex flex-col items-center justify-center gap-2 hover:bg-slate-800/40 transition-all min-h-[100px]"
+            className="bg-card border-2 border-dashed border-divider p-4 rounded-card flex flex-col items-center justify-center gap-2 hover:bg-card transition-all min-h-[100px]"
           >
-            <div className="p-2 bg-slate-800 rounded-full text-slate-500">
+            <div className="p-2 bg-card rounded-full text-secondary">
               <Plus size={16} />
             </div>
-            <span className="text-[10px] font-bold text-slate-500">
+            <span className="text-[10px] font-bold text-secondary">
               {lang === Language.CN ? '新指标' : 'New Metric'}
             </span>
           </button>
@@ -341,53 +361,105 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       </div>
 
       {/* Settings List */}
-      <div className="bg-slate-800/30 border border-slate-700/30 rounded-[2.5rem] p-6 space-y-2">
+      <div className="ui-card p-5 space-y-4">
+        {/* Theme */}
+        <div className="space-y-2">
+          <p className="ui-section-label px-1">
+            {lang === Language.CN ? '外观' : 'Appearance'}
+          </p>
+          <div className="grid grid-cols-3 gap-2 p-1 bg-inset rounded-control border border-divider">
+            {themeOptions.map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => setPreference(opt.id)}
+                className={`flex flex-col items-center gap-1 py-2.5 rounded-chip text-xs font-medium transition-colors ${
+                  preference === opt.id
+                    ? 'bg-accent text-white'
+                    : 'text-secondary hover:text-primary hover:bg-card-hover'
+                }`}
+              >
+                {opt.icon}
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Assistant conversation sync */}
+        <button
+          type="button"
+          onClick={toggleAssistantSync}
+          data-testid="assistant-sync-toggle"
+          className="w-full p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors"
+        >
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="p-3 bg-accent/10 text-accent rounded-xl shrink-0">
+              <Sparkles size={20} strokeWidth={1.75} />
+            </div>
+            <span className="font-bold text-primary text-left text-sm">
+              {translations.assistantSyncToggle[lang]}
+            </span>
+          </div>
+          <span
+            className={`text-xs font-semibold px-3 py-1 rounded-lg shrink-0 ${
+              assistantSyncEnabled ? 'bg-success/15 text-success' : 'bg-card text-secondary'
+            }`}
+          >
+            {assistantSyncEnabled
+              ? (lang === Language.CN ? '开' : 'On')
+              : (lang === Language.CN ? '关' : 'Off')}
+          </span>
+        </button>
+
         {/* Language Toggle */}
         <button 
           onClick={onToggleLanguage} 
-          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-slate-700/50 transition-colors"
+          className="w-full p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors"
         >
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
+            <div className="p-3 bg-accent/10 text-accent rounded-xl">
               <Globe size={20} />
             </div>
-            <span className="font-bold text-slate-200">{translations.languageLabel[lang]}</span>
+            <span className="font-bold text-primary">{translations.languageLabel[lang]}</span>
           </div>
-          <span className="font-black text-slate-500 text-sm px-3 py-1 bg-slate-800 rounded-lg">
+          <span className="font-semibold text-secondary text-sm px-3 py-1 bg-card rounded-lg">
             {lang === Language.CN ? '中文' : 'EN'}
           </span>
         </button>
 
-        {/* Logout */}
-        <button 
-          onClick={onLogout} 
-          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group mt-4 border-t border-slate-700/50"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors">
-              <LogOut size={20} />
+        {/* Logout（单机版可省略） */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group mt-4 border-t border-divider"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-primary transition-colors">
+                <LogOut size={20} />
+              </div>
+              <span className="font-bold text-red-500 group-hover:text-red-400 transition-colors">
+                {translations.logout[lang]}
+              </span>
             </div>
-            <span className="font-bold text-red-500 group-hover:text-red-400 transition-colors">
-              {translations.logout[lang]}
-            </span>
-          </div>
-          <ChevronRight size={18} className="text-slate-600" />
-        </button>
+            <ChevronRight size={18} className="text-tertiary" />
+          </button>
+        )}
 
         {/* Reset Account */}
         <button 
           onClick={() => setShowResetAccountModal(true)} 
-          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group border-t border-slate-700/50"
+          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group border-t border-divider"
         >
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-white transition-colors">
+            <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-primary transition-colors">
               <Trash2 size={20} />
             </div>
             <span className="font-bold text-red-500 group-hover:text-red-400 transition-colors">
               {translations.resetAccount[lang]}
             </span>
           </div>
-          <ChevronRight size={18} className="text-slate-600" />
+          <ChevronRight size={18} className="text-tertiary" />
         </button>
       </div>
     </div>

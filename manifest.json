@@ -1,11 +1,10 @@
-
 {
   "name": "FitLog AI",
   "short_name": "FitLog",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#3b82f6",
+  "background_color": "#FAFAF7",
+  "theme_color": "#1F4FFF",
   "icons": [
     {
       "src": "https://img.icons8.com/fluency/512/dumbbell.png",

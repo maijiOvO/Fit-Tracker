@@ -2,98 +2,77 @@ import React from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { Goal, Language } from '../../types';
 import { translations } from '../../translations';
-import { db } from '../../services/db';
+import { useGoalsContext } from '../contexts';
 
 interface GoalsTabProps {
-  goals: Goal[];
-  setGoals: React.Dispatch<React.SetStateAction<Goal[]>>;
   lang: Language;
   onAddGoal: () => void;
   onEditGoal: (goal: Goal) => void;
 }
 
-export const GoalsTab: React.FC<GoalsTabProps> = ({
-  goals,
-  setGoals,
-  lang,
-  onAddGoal,
-  onEditGoal,
-}) => {
+export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal }) => {
+  const { goals, deleteGoal } = useGoalsContext();
+
   const handleDeleteGoal = async (goalId: string) => {
-    await db.delete('goals', goalId);
-    setGoals(prev => prev.filter(g => g.id !== goalId));
+    await deleteGoal(goalId);
   };
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-right">
-      {/* Header */}
+    <div className="space-y-5 animate-fade-in">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-black">{translations.goals[lang]}</h2>
-          <p className="text-slate-500">{translations.goalsSubtitle[lang]}</p>
+          <h2 className="font-display text-display-sm text-primary">{translations.goals[lang]}</h2>
+          <p className="text-secondary text-sm mt-1">{translations.goalsSubtitle[lang]}</p>
         </div>
-        <button 
-          onClick={onAddGoal} 
-          className="p-4 bg-blue-600 rounded-2xl hover:bg-blue-500 transition-colors"
+        <button
+          onClick={onAddGoal}
+          className="p-3 bg-accent text-white rounded-control hover:opacity-90 transition-opacity active:scale-95"
         >
-          <Plus size={24} />
+          <Plus size={22} strokeWidth={1.75} />
         </button>
       </div>
 
-      {/* Goals Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {goals.map(g => (
-          <div 
-            key={g.id} 
-            className="bg-slate-800/40 p-8 rounded-[2.5rem] border border-slate-700/50 hover:bg-slate-800/60 transition-colors"
-          >
-            {/* Header */}
+          <div key={g.id} className="ui-card-interactive p-6">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h4 className="font-black text-xl">{g.title || g.label || 'Untitled Goal'}</h4>
-                <span className="text-[10px] text-blue-500 uppercase">{g.type}</span>
+                <h4 className="font-semibold text-lg text-primary">
+                  {g.title || g.label || 'Untitled Goal'}
+                </h4>
+                <span className="text-xs text-accent font-medium">{g.type}</span>
               </div>
-              <div className="flex items-center gap-2">
-                {/* Edit Button */}
-                <button 
+              <div className="flex items-center gap-1">
+                <button
                   onClick={() => onEditGoal(g)}
-                  className="p-2 text-slate-600 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
-                  title={lang === Language.CN ? '编辑目标' : 'Edit Goal'}
+                  className="p-2 text-tertiary hover:text-accent hover:bg-accent-soft rounded-chip transition-colors"
                 >
-                  <Edit2 size={16} />
+                  <Edit2 size={16} strokeWidth={1.75} />
                 </button>
-                {/* Delete Button */}
-                <button 
+                <button
                   onClick={() => handleDeleteGoal(g.id)}
-                  className="p-2 text-slate-700 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
-                  title={lang === Language.CN ? '删除目标' : 'Delete Goal'}
+                  className="p-2 text-tertiary hover:text-danger hover:bg-danger/10 rounded-chip transition-colors"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={16} strokeWidth={1.75} />
                 </button>
               </div>
             </div>
 
-            {/* Progress */}
             <div className="flex justify-between items-end mb-2">
-              <span className="text-2xl font-black">{g.currentValue} / {g.targetValue}</span>
-              <span className="text-slate-500 text-xs">{g.unit}</span>
+              <span className="font-mono font-medium text-2xl text-primary tabular-nums">
+                {g.currentValue} / {g.targetValue}
+              </span>
+              <span className="text-tertiary text-xs">{g.unit}</span>
             </div>
-            <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-blue-600 transition-all duration-500" 
-                style={{ width: `${Math.min(100, (g.currentValue / g.targetValue) * 100)}%` }}
+
+            <div className="mt-4 h-1.5 bg-inset rounded-full overflow-hidden">
+              <div
+                className="h-full bg-accent transition-all duration-500 rounded-full"
+                style={{
+                  width: `${Math.min(100, (g.currentValue / (g.targetValue || 1)) * 100)}%`,
+                }}
               />
             </div>
-
-            {/* Status Indicator */}
-            {!g.isActive && (
-              <div className="mt-3 flex items-center gap-2">
-                <div className="w-2 h-2 bg-slate-600 rounded-full" />
-                <span className="text-xs text-slate-500 font-bold">
-                  {lang === Language.CN ? '已暂停' : 'Paused'}
-                </span>
-              </div>
-            )}
           </div>
         ))}
       </div>

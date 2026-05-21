@@ -31,3 +31,6 @@ dist-ssr
 app.zip
 android/*.apk
 android/app/build/
+
+# e2e artifacts
+test-artifacts/

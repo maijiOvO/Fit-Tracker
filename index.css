@@ -1,0 +1,199 @@
+@import './heatmap.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Nordic Minimal design tokens ── */
+:root {
+  --bg-base: #fafaf7;
+  --bg-card: #f2f1ed;
+  --bg-card-hover: #e8e7e2;
+  --bg-inset: #edece7;
+  --divider: #d8d6cf;
+  --text-primary: #0e0e10;
+  --text-secondary: #5a5a5e;
+  --text-tertiary: #8a8a8e;
+  --accent: #1f4fff;
+  --accent-soft: #e8eeff;
+  --success: #2e7d32;
+  --danger: #c62828;
+  --warning: #b58900;
+  --shadow-elevated: 0 1px 3px rgba(14, 14, 16, 0.04), 0 4px 12px rgba(14, 14, 16, 0.06);
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-chip: 6px;
+}
+
+.dark {
+  --bg-base: #0f0f11;
+  --bg-card: #1a1a1d;
+  --bg-card-hover: #232327;
+  --bg-inset: #141417;
+  --divider: #2a2a2e;
+  --text-primary: #f2f1ed;
+  --text-secondary: #a8a8ad;
+  --text-tertiary: #6e6e73;
+  --accent: #5b7cff;
+  --accent-soft: #1b2240;
+  --success: #5dba63;
+  --danger: #ff6b6b;
+  --warning: #d4af37;
+  --shadow-elevated: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+html {
+  background-color: var(--bg-base);
+  height: 100%;
+  color: var(--text-primary);
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-base);
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  background-color: var(--bg-base);
+  min-height: 100vh;
+}
+
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+}
+
+/* Plain-CSS component helpers (avoid @apply with token classes) */
+.ui-card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--divider);
+}
+
+.ui-card-interactive {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--divider);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.ui-card-interactive:hover {
+  background-color: var(--bg-card-hover);
+}
+.ui-card-interactive:active {
+  transform: scale(0.99);
+}
+
+.ui-btn-primary {
+  background-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--radius-control);
+  padding: 0.625rem 1rem;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+.ui-btn-primary:hover {
+  opacity: 0.9;
+}
+.ui-btn-primary:active {
+  transform: scale(0.98);
+}
+
+.ui-btn-secondary {
+  background-color: var(--bg-inset);
+  color: var(--text-primary);
+  font-weight: 500;
+  border-radius: var(--radius-control);
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--divider);
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.ui-btn-secondary:hover {
+  background-color: var(--bg-card-hover);
+}
+.ui-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.ui-btn-ghost {
+  color: var(--text-secondary);
+  font-weight: 500;
+  border-radius: var(--radius-control);
+  padding: 0.5rem 0.75rem;
+  transition: color 150ms ease, background-color 150ms ease;
+}
+.ui-btn-ghost:hover {
+  background-color: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.ui-input {
+  width: 100%;
+  background-color: var(--bg-inset);
+  color: var(--text-primary);
+  border-radius: var(--radius-control);
+  padding: 0.75rem 1rem;
+  font-size: 15px;
+  border: 1px solid var(--divider);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.ui-input::placeholder {
+  color: var(--text-tertiary);
+}
+.ui-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.ui-section-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.ui-data-xl {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 2rem;
+  line-height: 1.15;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-data-lg {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 500;
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--divider);
+  border-radius: 10px;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}

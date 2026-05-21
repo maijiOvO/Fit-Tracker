@@ -1,7 +1,7 @@
 /**
  * 金字塔训练计算器
  */
-import { SubSetLog, PyramidCalculator } from '../types';
+import { SubSetLog, PyramidCalculator } from '../../types';
 
 /**
  * 计算金字塔子组

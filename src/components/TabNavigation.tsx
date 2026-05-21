@@ -1,19 +1,18 @@
 /**
- * 底部导航栏组件
- * 替换 App.tsx 中的内联导航代码
+ * 底部导航栏 — 贴底通栏 + 左侧凸起 FAB
  */
 import React from 'react';
-import { BarChart2, Target, User as UserIcon, Plus } from 'lucide-react';
+import { BarChart2, CalendarDays, Sparkles, User as UserIcon, Plus } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
 
-type TabType = 'dashboard' | 'new' | 'goals' | 'profile';
+type TabType = 'dashboard' | 'new' | 'plan' | 'assistant' | 'profile';
 
 interface TabNavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   lang: Language;
-  onStartWorkout?: () => void; // 开始训练按钮的回调
+  onStartWorkout?: () => void;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -23,64 +22,61 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   onStartWorkout,
 }) => {
   const handleStartClick = () => {
-    if (onStartWorkout) {
-      onStartWorkout();
-    } else {
-      onTabChange('new');
-    }
+    if (onStartWorkout) onStartWorkout();
+    else onTabChange('new');
   };
 
+  const tabBtn = (active: boolean) =>
+    `flex flex-col items-center justify-center gap-1 transition-colors ${
+      active ? 'text-accent' : 'text-tertiary hover:text-secondary'
+    }`;
+
   return (
-    <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md bg-slate-950/90 backdrop-blur-3xl border border-white/10 p-2 flex justify-between items-center rounded-[2.5rem] z-50 shadow-2xl">
-      
-      {/* 1. 开始训练 - 带蓝色圆圈 */}
-      <button 
-        onClick={handleStartClick}
-        className="flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all hover:bg-white/5 active:scale-95"
-      >
-        <div className={`rounded-full p-2.5 shadow-lg shadow-blue-600/30 transition-all ${activeTab === 'new' ? 'bg-blue-500 text-white' : 'bg-blue-600 text-white'}`}>
-          <Plus size={20} strokeWidth={3} />
-        </div>
-        <span className={`text-[9px] font-black uppercase tracking-wide ${activeTab === 'new' ? 'text-blue-500' : 'text-slate-500'}`}>
-          {lang === Language.CN ? '开始' : 'Start'}
-        </span>
-      </button>
+    <nav
+      className="fixed bottom-0 inset-x-0 z-50 bg-base/95 backdrop-blur-xl border-t border-divider"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <div className="relative h-16 max-w-2xl mx-auto grid grid-cols-5">
+        <div aria-hidden />
 
-      {/* 2. Dashboard */}
-      <button 
-        onClick={() => onTabChange('dashboard')} 
-        className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all ${activeTab === 'dashboard' ? 'text-blue-500' : 'text-slate-600 hover:text-slate-400'}`}
-      >
-        <div className="p-2.5">
-          <BarChart2 size={20} strokeWidth={2.5} />
-        </div>
-        <span className="text-[9px] font-black uppercase tracking-wide">{translations.dashboard[lang]}</span>
-      </button>
+        <button onClick={() => onTabChange('dashboard')} className={tabBtn(activeTab === 'dashboard')}>
+          <BarChart2 size={20} strokeWidth={1.75} />
+          <span className="text-[10px] font-medium">{translations.dashboard[lang]}</span>
+        </button>
 
-      {/* 3. Goals */}
-      <button 
-        onClick={() => onTabChange('goals')} 
-        className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all ${activeTab === 'goals' ? 'text-blue-500' : 'text-slate-600 hover:text-slate-400'}`}
-      >
-        <div className="p-2.5">
-          <Target size={20} strokeWidth={2.5} />
-        </div>
-        <span className="text-[9px] font-black uppercase tracking-wide">{translations.goals[lang]}</span>
-      </button>
+        <button
+          onClick={() => onTabChange('plan')}
+          className={tabBtn(activeTab === 'plan')}
+          data-testid="tab-plan"
+        >
+          <CalendarDays size={20} strokeWidth={1.75} />
+          <span className="text-[10px] font-medium">{translations.trainingPlan[lang]}</span>
+        </button>
 
-      {/* 4. Profile */}
-      <button 
-        onClick={() => onTabChange('profile')} 
-        className={`flex-1 flex flex-col items-center gap-1.5 py-2 rounded-3xl transition-all ${activeTab === 'profile' ? 'text-blue-500' : 'text-slate-600 hover:text-slate-400'}`}
-      >
-        <div className="p-2.5">
-          <UserIcon size={20} strokeWidth={2.5} />
-        </div>
-        <span className="text-[9px] font-black uppercase tracking-wide">
-          {lang === Language.CN ? '我的' : 'Profile'}
-        </span>
-      </button>
+        <button
+          onClick={() => onTabChange('assistant')}
+          className={tabBtn(activeTab === 'assistant')}
+          data-testid="tab-assistant"
+        >
+          <Sparkles size={20} strokeWidth={1.75} />
+          <span className="text-[10px] font-medium">{translations.assistantTab[lang]}</span>
+        </button>
 
+        <button onClick={() => onTabChange('profile')} className={tabBtn(activeTab === 'profile')}>
+          <UserIcon size={20} strokeWidth={1.75} />
+          <span className="text-[10px] font-medium">{lang === Language.CN ? '我的' : 'Profile'}</span>
+        </button>
+
+        <button
+          onClick={handleStartClick}
+          aria-label={lang === Language.CN ? '开始训练' : 'Start Workout'}
+          className={`absolute left-[10%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-white bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-95 transition-transform ${
+            activeTab === 'new' ? 'opacity-90' : ''
+          }`}
+        >
+          <Plus size={24} strokeWidth={2.5} />
+        </button>
+      </div>
     </nav>
   );
 };

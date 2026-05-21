@@ -7,7 +7,7 @@
  * - 其他用户偏好
  */
 import { useState, useCallback, useEffect } from 'react';
-import { Language } from '../types';
+import { Language } from '../../types';
 
 type Unit = 'kg' | 'lbs';
 
