@@ -25,7 +25,7 @@
 ## What it does
 
 - **PR Hub** — personal-record tracking across exercises, body parts and equipment.
-- **Workout logger** — sets, reps, sub-sets, pyramid templates, rest timer with sound + haptics.
+- **Workout logger** — sets, reps, sub-sets, pyramid templates.
 - **Body data** — bodyweight log, measurements, calendar heatmap over time.
 - **Goals** — set training goals; an auto-updater watches your sessions and updates progress.
 - **Schedule** — week / month view, plan future sessions, mark as done / skipped.
@@ -40,7 +40,7 @@
 |---|---|
 | UI | React 19 · TypeScript · Tailwind CSS |
 | Build | Vite 6 · `tsc --noEmit` typecheck |
-| Mobile | Capacitor 8 (Android) · `@capacitor/haptics` · `@capacitor/local-notifications` |
+| Mobile | Capacitor 8 (Android) |
 | AI | `@google/genai` (Gemini) · optional OpenAI-compatible chat completions endpoint |
 | Storage | IndexedDB (via `services/db.ts`) · localStorage prefs · tombstones for sync-aware deletes |
 | Data viz | `recharts` (lazy-loaded) · `react-calendar-heatmap` |

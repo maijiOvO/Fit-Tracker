@@ -1,9 +1,35 @@
 import React from 'react';
-import { Trash2, StickyNote, Settings as SettingsIcon, Calendar, History, Plus } from 'lucide-react';
+import { Trash2, StickyNote, Settings as SettingsIcon, Calendar, Plus } from 'lucide-react';
 import { Exercise, BodyweightMode, Language } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
 import { SetCapsule } from './SetCapsule';
+import { useUiOverlay } from '../contexts/UiOverlayContext';
+
+/**
+ * 指标列对应的单位标签（按 metric 类型 + 当前单位制 + 语言返回）。
+ * - reps / 自定义 → 不显示单位（避免出现"次数下面写 kg"的笑话）
+ * - weight → kg / lbs
+ * - distance / speed → 取决于单位制
+ * - duration → h:m:s
+ */
+function metricUnitLabel(metric: string, unit: string, lang: Language): string {
+  const isCN = lang === Language.CN;
+  switch (metric) {
+    case 'weight':
+      return unit === 'kg' ? 'kg' : 'lbs';
+    case 'reps':
+      return isCN ? '次' : 'reps';
+    case 'distance':
+      return unit === 'kg' ? 'km' : 'mi';
+    case 'speed':
+      return unit === 'kg' ? 'km/h' : 'mph';
+    case 'duration':
+      return 'h:m:s';
+    default:
+      return '';
+  }
+}
 
 interface ExerciseCardProps {
   exercise: Exercise;
@@ -23,8 +49,6 @@ interface ExerciseCardProps {
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
-  onOpenRestSettings?: (name: string) => void;
-  getRestPref?: (name: string) => number;
 }
 
 const chipActive = 'bg-accent text-white';
@@ -48,9 +72,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onSetUpdate,
   onAddSet,
   onRemoveSet,
-  onOpenRestSettings,
-  getRestPref,
 }) => {
+  const { confirm } = useUiOverlay();
   const exerciseName = resolveName(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
   const hasNote = !!exerciseNotes[exerciseName];
@@ -130,9 +153,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             </button>
             <button
               onClick={() => onDeleteExercise(exIdx)}
-              className="p-2 text-tertiary hover:text-danger transition-colors"
+              className="w-11 h-11 flex items-center justify-center text-danger bg-danger/10 hover:bg-danger/20 rounded-control transition-colors active:scale-95"
+              title={lang === Language.CN ? '删除此动作' : 'Delete exercise'}
+              aria-label={lang === Language.CN ? '删除此动作' : 'Delete exercise'}
             >
-              <Trash2 size={20} strokeWidth={1.75} />
+              <Trash2 size={18} strokeWidth={1.75} />
             </button>
           </div>
         </div>
@@ -210,12 +235,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         style={{ gridTemplateColumns: `35px repeat(${activeMetrics.length}, 1fr) 35px` }}
       >
         <span className="pl-1">#</span>
-        {activeMetrics.map(m => (
-          <div key={m} className="flex flex-col items-center leading-tight">
-            <span>{translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}</span>
-            <span className="text-[10px] opacity-60">{unit}</span>
-          </div>
-        ))}
+        {activeMetrics.map(m => {
+          const unitLabel = metricUnitLabel(m, unit, lang);
+          return (
+            <div key={m} className="flex flex-col items-center leading-tight">
+              <span>{translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}</span>
+              {unitLabel && (
+                <span className="text-[10px] opacity-60">{unitLabel}</span>
+              )}
+            </div>
+          );
+        })}
         <span />
       </div>
 
@@ -236,23 +266,31 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         ))}
       </div>
 
-      <div className="flex gap-2 mt-4">
+      <div className="mt-4 flex items-center gap-2">
         <button
           onClick={() => onAddSet(exIdx)}
-          className="flex-1 py-3 border border-dashed border-divider rounded-control text-secondary font-medium flex items-center justify-center gap-2 hover:bg-card-hover transition-colors"
+          className="flex-1 min-h-[44px] py-3 border border-dashed border-divider rounded-control text-secondary font-medium flex items-center justify-center gap-2 hover:bg-card-hover transition-colors active:scale-[0.98]"
         >
           <Plus size={16} strokeWidth={1.75} /> {lang === Language.CN ? '添加组' : 'Add Set'}
         </button>
-
-        {onOpenRestSettings && getRestPref && (
-          <button
-            onClick={() => onOpenRestSettings(exerciseName)}
-            className="px-4 py-3 bg-inset border border-divider rounded-control text-accent font-mono font-medium flex items-center gap-2 hover:bg-card-hover active:scale-95 transition-all"
-          >
-            <History size={18} strokeWidth={1.75} />
-            <span className="text-xs tabular-nums">{getRestPref(exerciseName)}s</span>
-          </button>
-        )}
+        <button
+          onClick={async () => {
+            const ok = await confirm({
+              message:
+                lang === Language.CN
+                  ? `确定要从这次训练中删除「${exerciseName}」吗？`
+                  : `Remove "${exerciseName}" from this workout?`,
+              danger: true,
+              confirmLabel: lang === Language.CN ? '删除' : 'Delete',
+            });
+            if (ok) onDeleteExercise(exIdx);
+          }}
+          className="min-h-[44px] px-4 rounded-control text-danger bg-danger/10 hover:bg-danger/20 font-bold flex items-center justify-center gap-2 transition-colors active:scale-95"
+          title={lang === Language.CN ? '删除此动作' : 'Delete this exercise'}
+        >
+          <Trash2 size={16} strokeWidth={2} />
+          <span className="text-sm">{lang === Language.CN ? '删除动作' : 'Delete'}</span>
+        </button>
       </div>
     </div>
   );

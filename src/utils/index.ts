@@ -31,6 +31,14 @@ export {
 // 金字塔训练计算
 export { calculatePyramidSubSets } from './pyramidCalculator';
 
+// 动作实例配置
+export {
+  DEFAULT_INSTANCE_CONFIG,
+  getExerciseConfig,
+  isBodyweightMode,
+  isPyramidEnabled,
+} from './exerciseConfig';
+
 // 数据验证工具
 export {
   isValidDateString,

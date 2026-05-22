@@ -29,7 +29,8 @@ export interface FitlogSyncedPrefs {
   customTags: { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string }[];
   customExercises: ExerciseDefinition[];
   exerciseNotes: Record<string, string>;
-  restPrefs: Record<string, number>;
+  /** @deprecated 休息计时器功能已移除，仅为兼容旧 snapshot 解析保留字段 */
+  restPrefs?: Record<string, number>;
   starredExercises: Record<string, number>;
   exerciseMetricConfigs: Record<string, string[]>;
   tagRenameOverrides: Record<string, string>;

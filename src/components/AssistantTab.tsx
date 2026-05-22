@@ -18,6 +18,7 @@ import {
 import { AssistantConversation, AssistantToolCall, ChatMessage, Language } from '../../types';
 import { translations } from '../../translations';
 import { useAssistantContext } from '../contexts';
+import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { isAssistantConfigured } from '../../services/assistant/assistantClient';
 import { isWriteTool, requiresConfirmation } from '../../services/assistant/assistantTools';
 
@@ -340,6 +341,7 @@ const ConversationRow: React.FC<ConversationRowProps> = ({
   onDelete,
   onClear,
 }) => {
+  const { confirm } = useUiOverlay();
   const [hovered, setHovered] = useState(false);
   return (
     <div
@@ -398,11 +400,16 @@ const ConversationRow: React.FC<ConversationRowProps> = ({
                 <Edit2 size={12} strokeWidth={1.75} />
               </button>
               <button
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
-                  if (window.confirm(lang === Language.CN ? '清空当前对话的所有消息？' : 'Clear all messages?')) {
-                    onClear();
-                  }
+                  const ok = await confirm({
+                    message:
+                      lang === Language.CN
+                        ? '清空当前对话的所有消息？'
+                        : 'Clear all messages?',
+                    danger: true,
+                  });
+                  if (ok) onClear();
                 }}
                 title={translations.assistantClear[lang]}
                 className="p-1 text-tertiary hover:text-warning hover:bg-card-hover rounded"
@@ -410,11 +417,15 @@ const ConversationRow: React.FC<ConversationRowProps> = ({
                 <span className="text-[10px] font-mono">∅</span>
               </button>
               <button
-                onClick={(e) => {
+                onClick={async (e) => {
                   e.stopPropagation();
-                  if (window.confirm(lang === Language.CN ? '删除该对话？' : 'Delete this conversation?')) {
-                    onDelete();
-                  }
+                  const ok = await confirm({
+                    message:
+                      lang === Language.CN ? '删除该对话？' : 'Delete this conversation?',
+                    danger: true,
+                    confirmLabel: lang === Language.CN ? '删除' : 'Delete',
+                  });
+                  if (ok) onDelete();
                 }}
                 title={translations.assistantDelete[lang]}
                 data-testid="assistant-delete-btn"

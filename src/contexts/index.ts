@@ -9,3 +9,6 @@ export { GoalsProvider, useGoalsContext } from './GoalsContext';
 export { ScheduleProvider, useScheduleContext } from './ScheduleContext';
 export { AssistantProvider, useAssistantContext } from './AssistantContext';
 export { UserSettingsProvider, useUserSettingsContext } from './UserSettingsContext';
+export { UiOverlayProvider, useUiOverlay } from './UiOverlayContext';
+export { ExercisePrefsProvider, useExercisePrefs } from './ExercisePrefsContext';
+export type { CustomTag } from './ExercisePrefsContext';

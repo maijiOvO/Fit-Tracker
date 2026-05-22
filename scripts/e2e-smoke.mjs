@@ -39,6 +39,18 @@ async function shoot(page, name) {
   return file;
 }
 
+/** UiOverlayProvider 自定义确认框（非 window.confirm） */
+async function acceptAppConfirm(page) {
+  const dlg = page.locator('[role="dialog"]');
+  await dlg.waitFor({ state: 'visible', timeout: 5_000 });
+  await dlg
+    .locator('button')
+    .filter({ hasText: /^(确定|OK|保存|Save|Delete|删除)$/ })
+    .last()
+    .click();
+  await dlg.waitFor({ state: 'detached', timeout: 5_000 });
+}
+
 async function step(page, name, fn) {
   process.stdout.write(`▶ ${name}\n`);
   try {
@@ -299,7 +311,8 @@ const main = async () => {
 
     // === Sub-check: the sidebar tags should be functional ===
     // In "all categories" mode (default from plan picker), sidebar should show body parts header.
-    await lib.locator('h3', { hasText: /训练部位|Body Parts/ }).first().waitFor({ state: 'visible', timeout: 5_000 });
+    // ExercisePicker 使用 h4 作为部位/器材分区标题（非 h3）
+    await lib.locator('h3, h4', { hasText: /训练部位|Body Parts/ }).first().waitFor({ state: 'visible', timeout: 5_000 });
     const initialCount = await page.locator('[data-testid="library-exercise-card"]').count();
     if (initialCount === 0) throw new Error('library showed 0 exercises in "all categories" mode');
     // Click the first body-part tag in the sidebar and ensure list narrows
@@ -395,10 +408,10 @@ const main = async () => {
     // The prefilled exercise name should be visible somewhere in the workout view
     const has = await page.locator('text=E2E Bench Press').first().isVisible().catch(() => false);
     if (!has) throw new Error('prefilled exercise not visible in new-workout view');
-    // Go back without saving (will prompt because we have unsaved planned data)
-    page.once('dialog', d => d.accept());
+    // Go back without saving (UiOverlay confirm, not window.confirm)
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    await page.waitForTimeout(300);
+    await acceptAppConfirm(page);
+    await page.locator('[data-testid="tab-plan"]').waitFor({ state: 'visible', timeout: 5_000 });
     return 'prefill + back ok';
   });
 
@@ -406,16 +419,16 @@ const main = async () => {
   // record receives fromSchedule.faithful=false and remote PUT carries it.
   await step(page, 'plan-confirm-modified', async () => {
     // Re-enter Plan tab and start the session again
-    await page.locator('nav button', { hasText: /训练计划|Plan/ }).click();
+    await page.locator('[data-testid="tab-plan"]').click();
     await page.waitForTimeout(300);
     await page.locator('[data-testid="plan-subview-schedule"]').click();
     await page.waitForTimeout(200);
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
-    // Click "Save Workout" — first confirm dialog (unit), then plan-confirm modal
-    page.once('dialog', d => d.accept());
-    await page.getByRole('button', { name: /保存训练|Save Workout/ }).first().click();
+    // Click "Save Workout" — unit confirm (UiOverlay), then plan-confirm modal
+    await page.getByRole('button', { name: /^保存$|^Save$/ }).first().click();
+    await acceptAppConfirm(page);
     // Plan confirm modal should appear
     await page.locator('[data-testid="plan-confirm-modified"]').waitFor({ state: 'visible', timeout: 5_000 });
     await page.locator('[data-testid="plan-confirm-modified"]').click();
@@ -437,7 +450,7 @@ const main = async () => {
 
   await step(page, 'plan-switch-to-goals', async () => {
     // After plan-confirm-modified we landed back on dashboard — return to Plan first
-    await page.locator('nav button', { hasText: /训练计划|Plan/ }).click();
+    await page.locator('[data-testid="tab-plan"]').click();
     await page.waitForTimeout(300);
     await page.locator('[data-testid="plan-subview-goals"]').click();
     await page.waitForTimeout(200);
@@ -504,8 +517,8 @@ const main = async () => {
       await page.locator('[aria-label="open-sidebar"]').click();
       await page.locator('[data-testid="assistant-sidebar"]').waitFor({ state: 'visible' });
     }
-    page.once('dialog', d => d.accept());
     await page.locator('[data-testid="assistant-delete-btn"]').first().click({ force: true });
+    await acceptAppConfirm(page);
     await page.waitForTimeout(500);
     await page.evaluate(async () => { await window.__fitlog.flush(); });
     const snap = await page.evaluate(async () => window.__fitlog.fetchRemote());
@@ -550,21 +563,20 @@ const main = async () => {
   });
 
   await step(page, 'browse-library', async () => {
+    // NewWorkoutTab 内嵌 ExercisePicker：点分类 chip 后应出现动作卡片
     await page.getByRole('button', { name: /力量训练|Strength/ }).first().click();
-    await page.waitForSelector('text=/动作库|Library/', { timeout: 5_000 });
-    return 'library opened';
+    await page.locator('[data-testid="library-exercise-card"]').first().waitFor({
+      state: 'visible',
+      timeout: 5_000,
+    });
+    return 'embedded exercise picker visible';
   });
 
   await step(page, 'close-library', async () => {
-    const modal = page.locator('div.fixed.inset-0.z-\\[100\\]');
-    const close = modal.locator('button').filter({ has: page.locator('svg.lucide-x') }).last();
-    if (await close.count() === 0) {
-      await page.keyboard.press('Escape').catch(() => {});
-    } else {
-      await close.click({ force: true });
-    }
-    await page.waitForSelector('div.fixed.inset-0.z-\\[100\\]', { state: 'detached', timeout: 5_000 });
-    return 'library closed';
+    // 内嵌选择器无需关闭全屏 library；切回「全部」分类即可
+    await page.getByRole('button', { name: /全部|All/ }).first().click();
+    await page.waitForTimeout(200);
+    return 'picker category reset';
   });
 
   await step(page, 'back-to-tab-from-empty-workout', async () => {

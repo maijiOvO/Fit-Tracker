@@ -10,6 +10,7 @@ import { useTheme, ThemePreference } from '../hooks/useTheme';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
+import { useUiOverlay } from '../contexts/UiOverlayContext';
 
 // 懒加载 MetricChart（包含 recharts）
 const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
@@ -62,6 +63,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onCreateAccount,
   fileInputRef,
 }) => {
+  const { toast } = useUiOverlay();
   const monthLabels: Record<string, { cn: string; en: string }> = {
     'Jan': { cn: '1月', en: 'Jan' },
     'Feb': { cn: '2月', en: 'Feb' },
@@ -170,7 +172,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             gutterSize={4}
             onClick={value => {
               if (!value) return;
-              alert(`${value.date}: ${value.count} ${lang === Language.CN ? '场训练' : 'Workouts'}`);
+              toast(
+                `${value.date}: ${value.count} ${lang === Language.CN ? '场训练' : 'Workouts'}`,
+                'info',
+              );
             }}
           />
         </div>

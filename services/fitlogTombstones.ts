@@ -29,6 +29,21 @@ export function recordTombstone(
   writeTombstones({ ...t, [store]: [...list] });
 }
 
+/** 撤销删除时从 tombstone 列表移除 id */
+export function removeTombstone(
+  store: keyof FitlogTombstones,
+  id: string,
+): void {
+  const t = readTombstones();
+  const list = t[store];
+  if (!list?.length) return;
+  const next = list.filter(x => x !== id);
+  const out: FitlogTombstones = { ...t };
+  if (next.length) out[store] = next;
+  else delete out[store];
+  writeTombstones(out);
+}
+
 export function mergeTombstoneSets(
   local: FitlogTombstones,
   remote: FitlogTombstones,

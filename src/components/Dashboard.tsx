@@ -1,15 +1,21 @@
-import React, { lazy } from 'react';
+import React, { lazy, useState, useEffect, useMemo } from 'react';
+import { DateTimePicker } from './DateTimePicker';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
   Scale, TrendingUp, History, ChevronDown, ChevronUp, Cloud,
-  Download
+  Download, Clock
 } from 'lucide-react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight } from '../utils/format';
 import { WorkoutSession, WeightEntry, Exercise } from '../../types';
+import { TimelineView, type TimelineGranularity } from './TimelineView';
 
 const TrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.TrendChart })));
+
+type DashboardView = 'timeline' | 'pr';
+const VIEW_STORAGE_KEY = 'fitlog_dashboard_view';
+const GRANULARITY_STORAGE_KEY = 'fitlog_timeline_granularity';
 
 interface DashboardProps {
   lang: Language;
@@ -25,7 +31,9 @@ interface DashboardProps {
   setChartMetricPreference: (pref: Record<string, string>) => void;
   setIsHistoryVisible: (visible: boolean) => void;
   toggleStarExercise: (key: string) => void;
-  handleEditWorkout: (workoutId: string) => void;
+  handleEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
+  handleAddExerciseToPastWorkout: (workoutId: string) => void;
+  handleDeleteWorkout: (workoutId: string) => Promise<void> | void;
   handleDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string, exerciseName: string, date: string) => void;
   handleDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
   triggerEditWeight: (entry: WeightEntry) => void;
@@ -57,6 +65,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   setIsHistoryVisible,
   toggleStarExercise,
   handleEditWorkout,
+  handleAddExerciseToPastWorkout,
+  handleDeleteWorkout,
   handleDeleteExerciseRecord,
   handleDeleteWeightEntry,
   triggerEditWeight,
@@ -72,6 +82,57 @@ const Dashboard: React.FC<DashboardProps> = ({
   updateExerciseTime,
   renderSetCapsule,
 }) => {
+  // 视图模式：默认按时间线
+  const [view, setView] = useState<DashboardView>(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+      return saved === 'pr' ? 'pr' : 'timeline';
+    } catch {
+      return 'timeline';
+    }
+  });
+  const [granularity, setGranularity] = useState<TimelineGranularity>(() => {
+    try {
+      const saved = localStorage.getItem(GRANULARITY_STORAGE_KEY);
+      if (saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year') {
+        return saved;
+      }
+      return 'day';
+    } catch {
+      return 'day';
+    }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(VIEW_STORAGE_KEY, view); } catch {}
+  }, [view]);
+  useEffect(() => {
+    try { localStorage.setItem(GRANULARITY_STORAGE_KEY, granularity); } catch {}
+  }, [granularity]);
+
+  const [exerciseTimeEdit, setExerciseTimeEdit] = useState<{
+    workoutId: string;
+    exerciseId: string;
+    initial: Date;
+  } | null>(null);
+
+  const weightSummary = useMemo(() => {
+    if (weightEntries.length === 0) return null;
+    const sorted = [...weightEntries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+    const latest = sorted[0];
+    const cutoff = Date.now() - 30 * 86400000;
+    const baseline =
+      [...sorted].reverse().find(e => new Date(e.date).getTime() <= cutoff)
+      ?? sorted[sorted.length - 1];
+    const delta = latest.weight - baseline.weight;
+    const sign = delta > 0 ? '+' : '';
+    return {
+      value: formatWeight(latest.weight, unit),
+      delta: sorted.length >= 2 ? `${sign}${formatWeight(delta, unit)}` : null,
+    };
+  }, [weightEntries, unit]);
+
   if (workouts.length === 0 && weightEntries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-fade-in">
@@ -94,40 +155,47 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* 体重卡片 */}
-      <div className="ui-card p-6">
+      {/* 体重：单行摘要，点击展开趋势 */}
+      <div className="ui-card px-4 py-3">
         <div
-          className="flex justify-between items-center cursor-pointer"
+          className="flex items-center gap-3 cursor-pointer min-h-[44px]"
           onClick={() => setSelectedPRProject(selectedPRProject === '__WEIGHT__' ? null : '__WEIGHT__')}
         >
-          <div className="flex flex-col gap-1">
-            <h3 className="ui-section-label flex items-center gap-2">
-              <Scale size={14} strokeWidth={1.75} className="text-accent" />
-              {translations.currentWeight[lang]}
-            </h3>
-            <div className="flex items-baseline gap-2">
-              <span className="ui-data-xl">
-                {weightEntries.length > 0 ? formatWeight(weightEntries[0].weight, unit) : '--'}
-              </span>
-              <span className="text-sm font-medium text-tertiary uppercase">{unit}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingWeightId(null);
-                setWeightInputValue('');
-                setShowWeightInput(true);
-              }}
-              className="p-2.5 bg-accent text-white rounded-control hover:opacity-90 transition-opacity active:scale-95"
-            >
-              <Plus size={18} strokeWidth={2} />
-            </button>
-            <span className="text-tertiary">
-              {selectedPRProject === '__WEIGHT__' ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          <Scale size={16} strokeWidth={2} className="text-accent flex-shrink-0" />
+          <div className="flex-1 min-w-0 flex items-baseline gap-2 flex-wrap">
+            <span className="font-mono font-bold text-lg text-primary tabular-nums">
+              {weightSummary?.value ?? '--'}
             </span>
+            <span className="text-xs text-tertiary uppercase">{unit}</span>
+            {weightSummary?.delta && (
+              <span
+                className={`text-xs font-semibold tabular-nums ${
+                  weightSummary.delta.startsWith('+') ? 'text-warning' : 'text-accent'
+                }`}
+              >
+                {weightSummary.delta} {unit}
+                <span className="text-tertiary font-normal ml-0.5">
+                  {lang === Language.CN ? '· 30天' : '· 30d'}
+                </span>
+              </span>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingWeightId(null);
+              setWeightInputValue('');
+              setShowWeightInput(true);
+            }}
+            className="w-10 h-10 flex items-center justify-center bg-accent text-white rounded-xl active:scale-95"
+            aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
+          >
+            <Plus size={18} strokeWidth={2} />
+          </button>
+          <span className="text-tertiary flex-shrink-0">
+            {selectedPRProject === '__WEIGHT__' ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </span>
         </div>
 
         {selectedPRProject === '__WEIGHT__' && (
@@ -192,7 +260,50 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
+      {/* 视图切换：按时间 / 按动作 PR */}
+      <div className="ui-card p-1.5 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => setView('timeline')}
+          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all ${
+            view === 'timeline'
+              ? 'bg-accent text-white shadow-md shadow-blue-600/20'
+              : 'bg-transparent text-secondary hover:text-primary'
+          }`}
+        >
+          <Clock size={14} strokeWidth={2} />
+          <span>{lang === Language.CN ? '按时间' : 'Timeline'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('pr')}
+          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all ${
+            view === 'pr'
+              ? 'bg-accent text-white shadow-md shadow-blue-600/20'
+              : 'bg-transparent text-secondary hover:text-primary'
+          }`}
+        >
+          <Trophy size={14} strokeWidth={2} />
+          <span>{lang === Language.CN ? '按动作 PR' : 'By PR'}</span>
+        </button>
+      </div>
+
+      {view === 'timeline' && (
+        <TimelineView
+          lang={lang}
+          workouts={workouts}
+          granularity={granularity}
+          onGranularityChange={setGranularity}
+          resolveName={resolveName}
+          renderSetCapsule={renderSetCapsule}
+          onEditWorkout={(id) => handleEditWorkout(id)}
+          onAddExerciseToWorkout={handleAddExerciseToPastWorkout}
+          onDeleteWorkout={handleDeleteWorkout}
+        />
+      )}
+
       {/* PR 管理 */}
+      {view === 'pr' && (
       <div className="space-y-3">
         <h3 className="ui-section-label flex items-center gap-2 px-1">
           <Trophy className="text-warning" size={14} strokeWidth={1.75} />
@@ -361,23 +472,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   )}
                                   {ex.exerciseTime && (
                                     <button
-                                      onClick={async (e) => {
+                                      type="button"
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        const newTime = prompt(
-                                          '请输入新的训练时间 (格式: YYYY-MM-DDTHH:MM)',
-                                          new Date(ex.exerciseTime).toISOString().slice(0, 16)
-                                        );
-                                        if (newTime) {
-                                          await updateExerciseTime(
-                                            ex.workoutId,
-                                            ex.id,
-                                            new Date(newTime).toISOString()
-                                          );
-                                        }
+                                        setExerciseTimeEdit({
+                                          workoutId: ex.workoutId,
+                                          exerciseId: ex.id,
+                                          initial: new Date(ex.exerciseTime),
+                                        });
                                       }}
-                                      className="px-2 py-1 bg-inset border border-divider rounded-chip text-xs font-mono text-secondary"
+                                      className="px-2 py-1 bg-inset border border-divider rounded-chip text-xs font-mono text-secondary hover:text-accent transition-colors"
                                     >
-                                      {formatExerciseTime(ex.exerciseTime, 'cn').time}
+                                      {formatExerciseTime(ex.exerciseTime, lang === Language.CN ? 'cn' : 'en').time}
                                     </button>
                                   )}
                                 </div>
@@ -400,6 +506,23 @@ const Dashboard: React.FC<DashboardProps> = ({
           );
         })}
       </div>
+      )}
+
+      <DateTimePicker
+        isOpen={!!exerciseTimeEdit}
+        lang={lang}
+        initialDate={exerciseTimeEdit?.initial}
+        onClose={() => setExerciseTimeEdit(null)}
+        onConfirm={async (date) => {
+          if (!exerciseTimeEdit) return;
+          await updateExerciseTime(
+            exerciseTimeEdit.workoutId,
+            exerciseTimeEdit.exerciseId,
+            date.toISOString(),
+          );
+          setExerciseTimeEdit(null);
+        }}
+      />
 
       {/* 导出 */}
       <div className="mt-8 mb-8 px-1 pb-16">

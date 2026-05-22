@@ -9,7 +9,7 @@ export type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
 /**
  * 身体部位列表
  */
-export const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'subLegs', 'subCore'];
+export const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'subLegs', 'subCore', 'subFullBody'];
 
 /**
  * 器材标签列表

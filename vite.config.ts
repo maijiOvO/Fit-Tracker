@@ -27,8 +27,6 @@ export default defineConfig(({ mode }) => {
               'vendor-react': ['react', 'react-dom'],
               // Lucide 图标 - 同步加载（UI必需）
               'vendor-icons': ['lucide-react'],
-              // Capacitor 原生功能 - 同步加载
-              'vendor-capacitor': ['@capacitor/core', '@capacitor/haptics', '@capacitor/local-notifications'],
             }
           }
         },

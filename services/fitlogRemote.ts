@@ -173,11 +173,6 @@ export function mergeFitlogPrefs(
       (remote.exerciseNotes ?? {}) as Record<string, string>,
       localWins,
     ),
-    restPrefs: pickObject(
-      (localLs.restPrefs ?? {}) as Record<string, number>,
-      (remote.restPrefs ?? {}) as Record<string, number>,
-      localWins,
-    ),
     starredExercises: finalStarred,
     exerciseMetricConfigs: finalMetricConfigs,
     tagRenameOverrides: pickObject(
@@ -218,7 +213,6 @@ export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
     customTags: readParsed(localStorage.getItem('fitlog_custom_tags'), []),
     customExercises: readParsed(localStorage.getItem('fitlog_custom_exercises'), []),
     exerciseNotes: readParsed(localStorage.getItem('fitlog_exercise_notes'), {}),
-    restPrefs: readParsed(localStorage.getItem('fitlog_rest_prefs'), {}),
     starredExercises: readParsed(localStorage.getItem('fitlog_starred_exercises'), {}),
     exerciseMetricConfigs: readParsed(localStorage.getItem('fitlog_metric_configs'), {}),
     tagRenameOverrides: readParsed(localStorage.getItem('fitlog_tag_rename_overrides'), {}),
@@ -237,8 +231,8 @@ export function writePrefsToLocalStorage(p: FitlogSyncedPrefs): void {
   localStorage.setItem('fitlog_custom_tags', JSON.stringify(p.customTags ?? []));
   localStorage.setItem('fitlog_custom_exercises', JSON.stringify(p.customExercises ?? []));
   localStorage.setItem('fitlog_exercise_notes', JSON.stringify(p.exerciseNotes ?? {}));
-  localStorage.setItem('fitlog_rest_prefs', JSON.stringify(p.restPrefs ?? {}));
   localStorage.setItem('fitlog_starred_exercises', JSON.stringify(p.starredExercises ?? {}));
+  localStorage.removeItem('fitlog_rest_prefs');
   localStorage.setItem('fitlog_metric_configs', JSON.stringify(p.exerciseMetricConfigs ?? {}));
   localStorage.setItem('fitlog_tag_rename_overrides', JSON.stringify(p.tagRenameOverrides ?? {}));
   localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(p.exerciseOverrides ?? {}));

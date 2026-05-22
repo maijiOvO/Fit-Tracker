@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Plus, Play, Trash2, Edit2, CalendarClock, Ba
 import { ExerciseDefinition, Language, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
 import { useScheduleContext } from '../contexts';
+import { useUiOverlay } from '../contexts/UiOverlayContext';
 import ScheduleEditorModal from './ScheduleEditorModal';
 
 type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string };
@@ -58,6 +59,7 @@ function statusBadge(status: ScheduledWorkout['status'], lang: Language) {
 }
 
 const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onStartScheduledSession, onOpenLibraryForPicker }) => {
+  const { confirm } = useUiOverlay();
   const { schedules, schedulesByDate, updateSchedule, deleteSchedule } = useScheduleContext();
 
   const today = useMemo(() => new Date(), []);
@@ -85,9 +87,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     await updateSchedule({ ...s, status: 'skipped', updatedAt: new Date().toISOString() });
   };
   const onDelete = async (s: ScheduledWorkout) => {
-    const ok = window.confirm(
-      lang === Language.CN ? '确定删除这条计划吗？' : 'Delete this plan?',
-    );
+    const ok = await confirm({
+      message: lang === Language.CN ? '确定删除这条计划吗？' : 'Delete this plan?',
+      danger: true,
+      confirmLabel: lang === Language.CN ? '删除' : 'Delete',
+    });
     if (!ok) return;
     await deleteSchedule(s.id);
   };
