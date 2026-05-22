@@ -1,15 +1,20 @@
-import React, { lazy, useState, useEffect, useMemo } from 'react';
+import React, { lazy, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DateTimePicker } from './DateTimePicker';
+import { SetCapsule } from './SetCapsule';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
   Scale, TrendingUp, History, ChevronDown, ChevronUp, Cloud,
   Download, Clock
 } from 'lucide-react';
-import { Language } from '../../types';
+import { Language, WeightEntry, Exercise } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight } from '../utils/format';
-import { WorkoutSession, WeightEntry, Exercise } from '../../types';
 import { TimelineView, type TimelineGranularity } from './TimelineView';
+import { useUserSettingsContext } from '../contexts/UserSettingsContext';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useExerciseStats } from '../hooks/useFilteredExercises';
+import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 
 const TrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.TrendChart })));
 
@@ -17,71 +22,78 @@ type DashboardView = 'timeline' | 'pr';
 const VIEW_STORAGE_KEY = 'fitlog_dashboard_view';
 const GRANULARITY_STORAGE_KEY = 'fitlog_timeline_granularity';
 
-interface DashboardProps {
-  lang: Language;
-  workouts: WorkoutSession[];
-  weightEntries: WeightEntry[];
-  bestLifts: Array<{ name: string; key: string; weight: number }>;
-  starredExercises: Record<string, number>;
-  selectedPRProject: string | null;
-  chartMetricPreference: Record<string, string>;
-  unit: 'kg' | 'lbs';
-  isHistoryVisible: boolean;
-  setSelectedPRProject: (key: string | null) => void;
-  setChartMetricPreference: (pref: Record<string, string>) => void;
-  setIsHistoryVisible: (visible: boolean) => void;
-  toggleStarExercise: (key: string) => void;
-  handleEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
-  handleAddExerciseToPastWorkout: (workoutId: string) => void;
-  handleDeleteWorkout: (workoutId: string) => Promise<void> | void;
-  handleDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string, exerciseName: string, date: string) => void;
-  handleDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
-  triggerEditWeight: (entry: WeightEntry) => void;
-  setShowWeightInput: (show: boolean) => void;
-  setEditingWeightId: (id: string | null) => void;
-  setWeightInputValue: (value: string) => void;
-  handleExportData: () => void;
+/** 必须由 App 注入的交互（依赖 Tab 切换、Modal、Workout 变更等） */
+export interface DashboardActions {
   onStartNewWorkout: () => void;
-  getActiveMetrics: (name: string) => string[];
-  getChartMetric: (name: string) => string;
-  resolveName: (name: string) => string;
-  formatExerciseTime: (time: string, lang: string) => { date: string; time: string };
-  updateExerciseTime: (workoutId: string, exerciseId: string, newTime: string) => Promise<void>;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise) => React.ReactNode;
+  onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
+  onAddExerciseToPastWorkout: (workoutId: string) => void;
+  onDeleteWorkout: (workoutId: string) => void | Promise<void>;
+  onDeleteExerciseRecord: (
+    e: React.MouseEvent,
+    workoutId: string,
+    exerciseId: string,
+    exerciseName: string,
+    date: string,
+  ) => void;
+  onDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
+  onLogWeight: () => void;
+  onEditWeight: (entry: WeightEntry) => void;
+  onExportData: () => void;
+}
+
+interface DashboardProps {
+  selectedPRProject: string | null;
+  setSelectedPRProject: (key: string | null) => void;
+  chartMetricPreference: Record<string, string>;
+  setChartMetricPreference: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  actions: DashboardActions;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({
-  lang,
-  workouts,
-  weightEntries,
-  bestLifts,
-  starredExercises,
   selectedPRProject,
-  chartMetricPreference,
-  unit,
-  isHistoryVisible,
   setSelectedPRProject,
+  chartMetricPreference,
   setChartMetricPreference,
-  setIsHistoryVisible,
-  toggleStarExercise,
-  handleEditWorkout,
-  handleAddExerciseToPastWorkout,
-  handleDeleteWorkout,
-  handleDeleteExerciseRecord,
-  handleDeleteWeightEntry,
-  triggerEditWeight,
-  setShowWeightInput,
-  setEditingWeightId,
-  setWeightInputValue,
-  handleExportData,
-  onStartNewWorkout,
-  getActiveMetrics,
-  getChartMetric,
-  resolveName,
-  formatExerciseTime,
-  updateExerciseTime,
-  renderSetCapsule,
+  actions,
 }) => {
+  const { lang, unit, weightEntries } = useUserSettingsContext();
+  const { workouts } = useWorkoutContext();
+  const prefs = useExercisePrefs();
+  const { bestLifts } = useExerciseStats();
+  const { formatExerciseTime, updateExerciseTime } = useExerciseTimeEditor();
+
+  const getChartMetric = useCallback(
+    (exerciseName: string) =>
+      chartMetricPreference[exerciseName] ||
+      prefs.getActiveMetrics(exerciseName)[0] ||
+      'reps',
+    [chartMetricPreference, prefs],
+  );
+
+  const renderSetCapsule = useCallback(
+    (s: any, exerciseName: string) => (
+      <SetCapsule
+        set={s}
+        setIdx={0}
+        activeMetrics={prefs.getActiveMetrics(exerciseName)}
+        unit={unit}
+        lang={lang}
+        readOnly
+        onUpdate={() => {}}
+        onRemove={() => {}}
+      />
+    ),
+    [prefs, unit, lang],
+  );
+
+  const [isHistoryVisible, setIsHistoryVisible] = useState(false);
+  const lastSelectionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (lastSelectionRef.current !== selectedPRProject) {
+      setIsHistoryVisible(false);
+      lastSelectionRef.current = selectedPRProject;
+    }
+  }, [selectedPRProject]);
   // 视图模式：默认按时间线
   const [view, setView] = useState<DashboardView>(() => {
     try {
@@ -145,7 +157,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <p className="text-secondary max-w-sm leading-relaxed text-[15px] mb-10">
           {translations.dashboardEmptyDesc[lang]}
         </p>
-        <button onClick={onStartNewWorkout} className="ui-btn-primary flex items-center gap-2 px-8 py-4 text-base">
+        <button onClick={actions.onStartNewWorkout} className="ui-btn-primary flex items-center gap-2 px-8 py-4 text-base">
           <PlusCircle size={22} strokeWidth={1.75} />
           {translations.newWorkout[lang]}
         </button>
@@ -184,9 +196,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setEditingWeightId(null);
-              setWeightInputValue('');
-              setShowWeightInput(true);
+              actions.onLogWeight();
             }}
             className="w-10 h-10 flex items-center justify-center bg-accent text-white rounded-xl active:scale-95"
             aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
@@ -210,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               weightEntries={weightEntries}
               lang={lang}
               unit={unit}
-              resolveName={resolveName}
+              resolveName={prefs.resolveName}
               getChartMetric={getChartMetric}
             />
 
@@ -228,14 +238,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        triggerEditWeight(entry);
+                        actions.onEditWeight(entry);
                       }}
                       className="p-2 text-accent bg-accent-soft rounded-chip hover:opacity-80 transition-opacity"
                     >
                       <Edit2 size={12} strokeWidth={1.75} />
                     </button>
                     <button
-                      onClick={(e) => handleDeleteWeightEntry(e, entry.id)}
+                      onClick={(e) => actions.onDeleteWeightEntry(e, entry.id)}
                       className="p-2 text-danger bg-danger/10 rounded-chip hover:opacity-80 transition-opacity"
                     >
                       <Trash2 size={12} strokeWidth={1.75} />
@@ -294,11 +304,11 @@ const Dashboard: React.FC<DashboardProps> = ({
           workouts={workouts}
           granularity={granularity}
           onGranularityChange={setGranularity}
-          resolveName={resolveName}
+          resolveName={prefs.resolveName}
           renderSetCapsule={renderSetCapsule}
-          onEditWorkout={(id) => handleEditWorkout(id)}
-          onAddExerciseToWorkout={handleAddExerciseToPastWorkout}
-          onDeleteWorkout={handleDeleteWorkout}
+          onEditWorkout={(id) => actions.onEditWorkout(id)}
+          onAddExerciseToWorkout={actions.onAddExerciseToPastWorkout}
+          onDeleteWorkout={actions.onDeleteWorkout}
         />
       )}
 
@@ -312,7 +322,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {bestLifts.map(lift => {
           const isExpanded = selectedPRProject === lift.key;
-          const isStarred = !!starredExercises[lift.key];
+          const isStarred = !!prefs.starredExercises[lift.key];
           const historyExs = workouts
             .flatMap(w => w.exercises.map(e => ({
               ...e,
@@ -336,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleStarExercise(lift.key);
+                      prefs.toggleStarExercise(lift.key);
                     }}
                     className={`p-2.5 rounded-control transition-colors ${
                       isStarred
@@ -364,7 +374,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               {isExpanded && (
                 <div className="border-t border-divider mt-5 pt-5 animate-fade-in">
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {getActiveMetrics(lift.name).map(m => (
+                    {prefs.getActiveMetrics(lift.name).map(m => (
                       <button
                         key={m}
                         onClick={() =>
@@ -389,7 +399,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       weightEntries={weightEntries}
                       lang={lang}
                       unit={unit}
-                      resolveName={resolveName}
+                      resolveName={prefs.resolveName}
                       getChartMetric={getChartMetric}
                     />
                   </div>
@@ -424,7 +434,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleEditWorkout(ex.workoutId);
+                                      actions.onEditWorkout(ex.workoutId);
                                     }}
                                     className="p-2 text-accent bg-accent-soft rounded-chip"
                                   >
@@ -432,11 +442,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   </button>
                                   <button
                                     onClick={(e) =>
-                                      handleDeleteExerciseRecord(
+                                      actions.onDeleteExerciseRecord(
                                         e,
                                         ex.workoutId,
                                         ex.id,
-                                        resolveName(ex.name),
+                                        prefs.resolveName(ex.name),
                                         ex.date
                                       )
                                     }
@@ -492,7 +502,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 </span>
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {ex.sets.map((s: any) => renderSetCapsule(s, ex.name, ex))}
+                                {ex.sets.map((s: any) => renderSetCapsule(s, ex.name))}
                               </div>
                             </div>
                           ))}
@@ -538,7 +548,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <p className="text-xs text-secondary leading-relaxed max-w-[240px] mx-auto">
             {translations.exportDesc[lang]}
           </p>
-          <button onClick={handleExportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
+          <button onClick={actions.onExportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
             <Download size={18} strokeWidth={1.75} className="text-accent" />
             {lang === Language.CN ? '立即导出备份' : 'Export backup'}
           </button>

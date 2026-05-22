@@ -11,8 +11,7 @@
  *   - src/hooks/useAvatarUpload               头像上传
  *   - src/hooks/useExportData                 数据导出
  *   - src/hooks/useResetAccount               一键重置账户
- *   - src/hooks/useExerciseTimeEditor         单组动作时间编辑
- *   - src/hooks/useFilteredExercises          动作库过滤 + bestLifts + 热力图
+ *   - src/hooks/useFilteredExercises          动作库过滤 + 热力图
  *   - src/components/modals/*                 全部 Modal UI（14 个）
  *   - src/components/AppHeader                顶部导航
  *   - src/components/AssistantTabContainer    助手 Tab 容器
@@ -24,6 +23,7 @@ import React, {
   lazy,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -47,7 +47,6 @@ import {
 import { isBodyweightMode, isPyramidEnabled } from './src/utils/exerciseConfig';
 
 import TabNavigation from './src/components/TabNavigation';
-import { SetCapsule } from './src/components/SetCapsule';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
 import { EditExerciseTagsModal } from './src/components/EditExerciseTagsModal';
 import { AppHeader } from './src/components/AppHeader';
@@ -96,7 +95,6 @@ import { useMeasurementLog } from './src/hooks/useMeasurementLog';
 import { useAvatarUpload } from './src/hooks/useAvatarUpload';
 import { useExportData } from './src/hooks/useExportData';
 import { useResetAccount } from './src/hooks/useResetAccount';
-import { useExerciseTimeEditor } from './src/hooks/useExerciseTimeEditor';
 
 // 懒加载 Tab 组件
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -217,15 +215,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [chartMetricPreference, setChartMetricPreference] = useState<
     Record<string, string>
   >({});
-  const [isHistoryVisible, setIsHistoryVisible] = useState(false);
-  const lastSelectionRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (lastSelectionRef.current !== selectedPRProject) {
-      setIsHistoryVisible(false);
-      lastSelectionRef.current = selectedPRProject;
-    }
-  }, [selectedPRProject]);
-
   // ============== 动作维度 / 备注 弹窗 ==============
   const [showMetricModal, setShowMetricModal] = useState<{ name: string } | null>(null);
   const [noteModalData, setNoteModalData] = useState<{
@@ -330,14 +319,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleResetAccount,
   } = useResetAccount({ setActiveTab, setEditingWorkoutId });
 
-  const { updateExerciseTime, formatExerciseTime } = useExerciseTimeEditor();
-
   const filteredExercises = useFilteredExercises({
     searchQuery,
     selectedTags,
     activeLibraryCategory,
   });
-  const { recentExerciseNames, bestLifts, heatmapData } = useExerciseStats();
+  const { recentExerciseNames, heatmapData } = useExerciseStats();
 
   // ============== 自动滚动到 ExercisePicker（用于"补加动作"） ==============
   useEffect(() => {
@@ -387,32 +374,39 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     }
   }, [currentWorkout, setHasUnsavedChanges]);
 
-  // ============== Helpers ==============
-  const getChartMetric = useCallback(
-    (exerciseName: string) =>
-      chartMetricPreference[exerciseName] ||
-      prefs.getActiveMetrics(exerciseName)[0] ||
-      'reps',
-    [chartMetricPreference, prefs],
-  );
-
-  const renderSetCapsule = useCallback(
-    (s: any, exerciseName: string) => {
-      const metrics = prefs.getActiveMetrics(exerciseName);
-      return (
-        <SetCapsule
-          set={s}
-          setIdx={0}
-          activeMetrics={metrics}
-          unit={unit}
-          lang={lang}
-          readOnly
-          onUpdate={() => {}}
-          onRemove={() => {}}
-        />
-      );
-    },
-    [prefs, unit, lang],
+  const dashboardActions = useMemo(
+    () => ({
+      onStartNewWorkout: () => {
+        setEditingWorkoutId(null);
+        setActiveTab('new');
+      },
+      onEditWorkout: handleEditWorkout,
+      onAddExerciseToPastWorkout: handleAddExerciseToPastWorkout,
+      onDeleteWorkout: handleDeleteWorkout,
+      onDeleteExerciseRecord: handleDeleteExerciseRecord,
+      onDeleteWeightEntry: handleDeleteWeightEntry,
+      onLogWeight: () => {
+        setEditingWeightId(null);
+        setWeightInputValue('');
+        setShowWeightInput(true);
+      },
+      onEditWeight: triggerEditWeight,
+      onExportData: handleExportData,
+    }),
+    [
+      handleEditWorkout,
+      handleAddExerciseToPastWorkout,
+      handleDeleteWorkout,
+      handleDeleteExerciseRecord,
+      handleDeleteWeightEntry,
+      triggerEditWeight,
+      handleExportData,
+      setEditingWorkoutId,
+      setActiveTab,
+      setEditingWeightId,
+      setWeightInputValue,
+      setShowWeightInput,
+    ],
   );
 
   const handleToggleLanguage = useCallback(() => {
@@ -428,7 +422,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       if (def) {
         const nameInNextLang =
           prefs.exerciseOverrides[def.id]?.name?.[nextLang] || def.name[nextLang];
-        lastSelectionRef.current = nameInNextLang;
         setSelectedPRProject(nameInNextLang);
       }
     }
@@ -846,39 +839,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         {activeTab === 'dashboard' && (
           <Suspense fallback={<TabSuspenseFallback />}>
             <Dashboard
-              lang={lang}
-              workouts={workouts}
-              weightEntries={weightEntries}
-              bestLifts={bestLifts}
-              starredExercises={prefs.starredExercises}
               selectedPRProject={selectedPRProject}
-              chartMetricPreference={chartMetricPreference}
-              unit={unit}
-              isHistoryVisible={isHistoryVisible}
               setSelectedPRProject={setSelectedPRProject}
+              chartMetricPreference={chartMetricPreference}
               setChartMetricPreference={setChartMetricPreference}
-              setIsHistoryVisible={setIsHistoryVisible}
-              toggleStarExercise={prefs.toggleStarExercise}
-              handleEditWorkout={handleEditWorkout}
-              handleDeleteExerciseRecord={handleDeleteExerciseRecord}
-              handleDeleteWeightEntry={handleDeleteWeightEntry}
-              triggerEditWeight={triggerEditWeight}
-              setShowWeightInput={setShowWeightInput}
-              setEditingWeightId={setEditingWeightId}
-              setWeightInputValue={setWeightInputValue}
-              handleExportData={handleExportData}
-              onStartNewWorkout={() => {
-                setEditingWorkoutId(null);
-                setActiveTab('new');
-              }}
-              handleAddExerciseToPastWorkout={handleAddExerciseToPastWorkout}
-              handleDeleteWorkout={handleDeleteWorkout}
-              getActiveMetrics={prefs.getActiveMetrics}
-              getChartMetric={getChartMetric}
-              resolveName={prefs.resolveName}
-              formatExerciseTime={formatExerciseTime}
-              updateExerciseTime={updateExerciseTime}
-              renderSetCapsule={renderSetCapsule}
+              actions={dashboardActions}
             />
           </Suspense>
         )}
