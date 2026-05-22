@@ -12,6 +12,7 @@ dist
 dist-ssr
 
 # ✅ 环境变量 - 敏感信息不应该被 git 追踪
+.env
 .env.local
 .env.*.local
 
