@@ -224,6 +224,8 @@ export function useWorkoutMutations({
     setEditingWorkoutId(null);
     const prev = getPreviousTab();
     setActiveTab(prev === 'new' ? 'dashboard' : prev);
+    // 返回后刷新 hasDraft，确保 Resume 横幅/按钮立即出现
+    void workoutCtx.refreshFromDb();
   }, [
     confirm,
     currentWorkout,

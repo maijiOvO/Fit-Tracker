@@ -112,14 +112,16 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
    * 对外暴露的 debounce 版持久化。
    * 在每次修改 sets / exercises 后调用。
    */
+  /**
+   * 立即持久化 currentWorkout 到 IndexedDB。
+   * 去掉 debounce，避免用户切后台前数据还没落盘。
+   */
   const persistCurrentWorkout = useCallback(() => {
     const w = currentWorkoutRef.current;
-    // 还没有 id 或没有数据的不落盘（避免大量空 draft）
     if (!w.id || !w.exercises || w.exercises.length === 0) return;
     if (persistTimer.current) clearTimeout(persistTimer.current);
-    persistTimer.current = setTimeout(() => {
-      void _doPersist(currentWorkoutRef.current);
-    }, 300);
+    // 立即落盘，IndexedDB 本地操作足够快且异步
+    void _doPersist(w);
   }, [_doPersist]);
 
   const tryResumeDraft = useCallback(async (): Promise<WorkoutSession | null> => {
