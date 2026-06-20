@@ -4,7 +4,7 @@ import { SetCapsule } from './SetCapsule';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
   Scale, TrendingUp, History, ChevronDown, ChevronUp, Cloud,
-  Download, Clock
+  Download, Clock, Play
 } from 'lucide-react';
 import { Language, WeightEntry, Exercise } from '../../types';
 import { translations } from '../../translations';
@@ -25,6 +25,7 @@ const GRANULARITY_STORAGE_KEY = 'fitlog_timeline_granularity';
 /** 必须由 App 注入的交互（依赖 Tab 切换、Modal、Workout 变更等） */
 export interface DashboardActions {
   onStartNewWorkout: () => void;
+  onResumeDraft: () => void;
   onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
   onDeleteWorkout: (workoutId: string) => void | Promise<void>;
@@ -57,7 +58,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   actions,
 }) => {
   const { lang, unit, weightEntries } = useUserSettingsContext();
-  const { workouts } = useWorkoutContext();
+  const { workouts, hasDraft } = useWorkoutContext();
   const prefs = useExercisePrefs();
   const { bestLifts } = useExerciseStats();
   const { formatExerciseTime, updateExerciseTime } = useExerciseTimeEditor();
@@ -167,6 +168,31 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-5 animate-fade-in">
+      {/* Draft 横幅：未完成的训练 */}
+      {hasDraft && (
+        <button
+          onClick={actions.onResumeDraft}
+          className="ui-card p-5 bg-accent/5 border border-accent/20 hover:bg-accent/10 transition-colors w-full text-left cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-full bg-accent/10 text-accent">
+              <Play size={20} strokeWidth={2} fill="currentColor" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-primary text-sm">
+                {lang === Language.CN ? '你有一场未完成的训练' : 'You have an unfinished workout'}
+              </p>
+              <p className="text-xs text-secondary mt-0.5">
+                {lang === Language.CN ? '点击继续训练 →' : 'Tap to resume →'}
+              </p>
+            </div>
+            <div className="text-accent font-bold text-sm flex-shrink-0">
+              {lang === Language.CN ? '继续训练' : 'Resume'}
+            </div>
+          </div>
+        </button>
+      )}
+
       {/* 体重：单行摘要，点击展开趋势 */}
       <div className="ui-card px-4 py-3">
         <div

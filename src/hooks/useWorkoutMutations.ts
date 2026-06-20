@@ -1,5 +1,6 @@
 /**
  * 训练记录的增改删 + 计划训练联动 + 单组动作删除
+ * v2: "结束训练"语义 + 自动持久化支持
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { Exercise, Language, WorkoutSession } from '../../types';
@@ -24,6 +25,8 @@ export interface UseWorkoutMutationsParams {
   getPreviousTab: () => ActiveTab;
   /** 进入「编辑历史训练」时的副作用钩子（用于清理 Dashboard 上的 PR 高亮等） */
   onEnterEditWorkout?: () => void;
+  /** 触发 persist（由 App.tsx 注入，避免循环依赖） */
+  onPersist?: () => void;
 }
 
 export interface UseWorkoutMutationsResult {
@@ -39,12 +42,10 @@ export interface UseWorkoutMutationsResult {
   planConfirmOpen: boolean;
   setPlanConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
-  /** 直接保存训练（不弹「按计划/有调整」确认） */
-  performSaveWorkout: (faithful?: boolean) => Promise<void>;
-  /** 处理保存请求，必要时弹出 planConfirm 弹窗 */
-  handleSaveWorkout: () => Promise<void>;
-  /** 带单位提示的保存确认 */
-  handleSaveWithConfirmation: () => Promise<void>;
+  /** 结束训练（标记 completed + 清空 + 跳转） */
+  finishWorkout: () => Promise<void>;
+  /** 带单位提示的结束确认 */
+  handleFinishWithConfirmation: () => Promise<void>;
 
   handleEditWorkout: (
     workoutId: string,
@@ -82,6 +83,7 @@ export function useWorkoutMutations({
   reloadAfterSave,
   getPreviousTab,
   onEnterEditWorkout,
+  onPersist,
 }: UseWorkoutMutationsParams): UseWorkoutMutationsResult {
   const workoutCtx = useWorkoutContext();
   const scheduleCtx = useScheduleContext();
@@ -95,7 +97,7 @@ export function useWorkoutMutations({
   const isCn = lang === Language.CN;
   const user = authCtx.user;
 
-  const { workouts, currentWorkout, setCurrentWorkout, deleteWorkout, refreshFromDb } =
+  const { workouts, currentWorkout, setCurrentWorkout, deleteWorkout, refreshFromDb, finishWorkout: ctxFinishWorkout } =
     workoutCtx;
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -107,96 +109,74 @@ export function useWorkoutMutations({
   const activeScheduleIdRef = useRef<string | null>(null);
   const markActiveSchedulePending = useRef(false);
 
-  /** 保存逻辑 */
-  const performSaveWorkout = useCallback(
-    async (faithful?: boolean) => {
-      setSaveStatus('saving');
-      setHasUnsavedChanges(false);
+  /**
+   * 结束训练：校验 → 标记 completed → 写 DB → 清空 workbench → 跳转
+   */
+  const finishWorkout = useCallback(async () => {
+    setSaveStatus('saving');
+    setHasUnsavedChanges(false);
 
-      try {
-        if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
-          toast(isCn ? '请至少添加一个动作' : 'Please add at least one exercise', 'error');
-          setSaveStatus('error');
-          return;
-        }
-
-        const hasData = currentWorkout.exercises.some(ex => ex.sets && ex.sets.length > 0);
-        if (!hasData) {
-          toast(isCn ? '请至少记录一组数据' : 'Please log at least one set', 'error');
-          setSaveStatus('error');
-          return;
-        }
-
-        if (!currentWorkout.exercises?.length || !user) {
-          setSaveStatus('error');
-          return;
-        }
-
-        const scheduleId = activeScheduleIdRef.current;
-        const session: WorkoutSession = {
-          ...currentWorkout,
-          id: currentWorkout.id || Date.now().toString(),
-          userId: user.id,
-          title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`,
-          date: currentWorkout.date || new Date().toISOString(),
-          ...(scheduleId && typeof faithful === 'boolean'
-            ? { fromSchedule: { scheduleId, faithful } }
-            : {}),
-        } as WorkoutSession;
-
-        await db.save('workouts', session);
-        await reloadAfterSave();
-
-        if (scheduleId) {
-          markActiveSchedulePending.current = true;
-        }
-
-        setSaveStatus('saved');
-
-        setTimeout(() => {
-          setActiveTab('dashboard');
-          setCurrentWorkout(workoutCtx.createNewWorkout());
-          setEditingWorkoutId(null);
-          setSaveStatus('idle');
-        }, 2000);
-
-        scheduleDebouncedFitlogPush();
-      } catch (error) {
-        console.error('Save workout failed:', error);
+    try {
+      if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
+        toast(isCn ? '请至少添加一个动作' : 'Please add at least one exercise', 'error');
         setSaveStatus('error');
-        toast(isCn ? '保存失败，请重试' : 'Save failed, please try again', 'error');
+        return;
       }
-    },
-    [
-      currentWorkout,
-      isCn,
-      reloadAfterSave,
-      setActiveTab,
-      setCurrentWorkout,
-      toast,
-      user,
-      workoutCtx,
-    ],
-  );
 
-  const handleSaveWorkout = useCallback(async () => {
-    if (activeScheduleIdRef.current) {
-      setPlanConfirmOpen(true);
-      return;
+      const hasData = currentWorkout.exercises.some(ex => ex.sets && ex.sets.length > 0);
+      if (!hasData) {
+        toast(isCn ? '请至少记录一组数据' : 'Please log at least one set', 'error');
+        setSaveStatus('error');
+        return;
+      }
+
+      if (!user) {
+        setSaveStatus('error');
+        return;
+      }
+
+      const scheduleId = activeScheduleIdRef.current;
+      // 构建最终 session，追加 schedule 信息
+      const finalWorkout: WorkoutSession = {
+        ...currentWorkout,
+        userId: user.id,
+        title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`,
+        date: currentWorkout.date || new Date().toISOString(),
+        ...(scheduleId ? { fromSchedule: { scheduleId, faithful: true } } : {}),
+      };
+
+      await ctxFinishWorkout(finalWorkout);
+      await reloadAfterSave();
+
+      if (scheduleId) {
+        markActiveSchedulePending.current = true;
+      }
+
+      setSaveStatus('saved');
+
+      setTimeout(() => {
+        setActiveTab('dashboard');
+        setCurrentWorkout(workoutCtx.createNewWorkout());
+        setEditingWorkoutId(null);
+        setSaveStatus('idle');
+      }, 1500);
+    } catch (error) {
+      console.error('[useWorkoutMutations] 结束训练失败:', error);
+      setSaveStatus('error');
+      toast(isCn ? '结束训练失败，请重试' : 'Failed to end workout, please try again', 'error');
     }
-    await performSaveWorkout();
-  }, [performSaveWorkout]);
+  }, [currentWorkout, isCn, reloadAfterSave, setActiveTab, setCurrentWorkout, toast, user, workoutCtx, ctxFinishWorkout]);
 
-  const handleSaveWithConfirmation = useCallback(async () => {
+  const handleFinishWithConfirmation = useCallback(async () => {
     const unitText = unit === 'kg' ? '公斤(kg)' : '磅(lbs)';
     const ok = await confirm({
       message: isCn
-        ? `确认保存训练记录吗？\n\n当前单位设置: ${unitText}\n\n请确认所有重量数据都是以${unitText}为单位记录的。`
-        : `Confirm saving workout?\n\nCurrent unit: ${unitText}\n\nPlease confirm all weight data is recorded in ${unitText}.`,
-      confirmLabel: isCn ? '保存' : 'Save',
+        ? `确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被标记为已完成并保存到历史记录。`
+        : `Confirm ending this workout?\n\nCurrent unit: ${unitText}\n\nThe workout will be marked as completed and saved to history.`,
+      confirmLabel: isCn ? '结束训练' : 'End Workout',
     });
-    if (ok) await handleSaveWorkout();
-  }, [confirm, handleSaveWorkout, isCn, unit]);
+    if (ok) await finishWorkout();
+  }, [confirm, finishWorkout, isCn, unit]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean }) => {
@@ -223,11 +203,12 @@ export function useWorkoutMutations({
 
   const handleNewWorkoutBack = useCallback(async () => {
     const hasContent = (currentWorkout?.exercises?.length ?? 0) > 0;
+    // 新训练 + 有内容：提示（但数据已在 DB 中安全）
     if (hasContent && !editingWorkoutId) {
       const ok = await confirm({
         message: isCn
-          ? '当前训练尚未保存，确定要返回吗？'
-          : 'Unsaved workout will be lost. Continue?',
+          ? '训练数据已自动保存。确定要返回吗？'
+          : 'Workout data is auto-saved. Continue?',
       });
       if (!ok) return;
       setCurrentWorkout(workoutCtx.createNewWorkout());
@@ -378,8 +359,10 @@ export function useWorkoutMutations({
       setCurrentWorkout(prefilled);
       setEditingWorkoutId(null);
       setActiveTab('new');
+      // 计划训练预填后立即落盘
+      setTimeout(() => onPersist?.(), 50);
     },
-    [isCn, scheduleCtx.schedules, setActiveTab, setCurrentWorkout, workoutCtx],
+    [isCn, onPersist, scheduleCtx.schedules, setActiveTab, setCurrentWorkout, workoutCtx],
   );
 
   const addExerciseToWorkout = useCallback(
@@ -396,30 +379,69 @@ export function useWorkoutMutations({
         editingWorkoutId && currentWorkout.date
           ? currentWorkout.date
           : new Date().toISOString();
-      setCurrentWorkout(p => ({
-        ...p,
-        exercises: [
-          {
-            id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name: ex.name[lang],
-            category: ex.category || 'STRENGTH',
-            sets: [{ id: Date.now().toString(), weight: 0, reps: 0 }],
-            exerciseTime,
-            instanceConfig: {
-              enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
-              pyramidMode: 'decreasing',
-              bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
-              autoCalculateSubSets: false,
-            },
-          } as Exercise,
-          ...(p.exercises || []),
-        ],
-      }));
-    },
-    [currentWorkout.date, editingWorkoutId, lang, setCurrentWorkout],
-  );
 
-  void resolveName;
+      const exerciseName = ex.name[lang];
+      // 在历史训练中查找该动作最近一次出现，继承上次使用的配置和重量
+      const resolvedTarget = resolveName(exerciseName);
+      let lastExercise: Exercise | null = null;
+      if (resolvedTarget) {
+        for (const w of workouts) {
+          for (const we of w.exercises) {
+            if (resolveName(we.name) === resolvedTarget) {
+              lastExercise = we;
+              break;
+            }
+          }
+          if (lastExercise) break;
+        }
+      }
+
+      const lastSet =
+        lastExercise?.sets && lastExercise.sets.length > 0
+          ? lastExercise.sets[lastExercise.sets.length - 1]
+          : null;
+
+      setCurrentWorkout(p => {
+        // 首次添加动作：如果没有 id，说明是全新的训练，先分配 id
+        const needsId = !p.id;
+        const workoutId = needsId ? Date.now().toString() : p.id;
+        const base = needsId
+          ? { ...p, id: workoutId, startTime: p.startTime || new Date().toISOString(), status: 'draft' as const }
+          : p;
+        return {
+          ...base,
+          exercises: [
+            {
+              id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: exerciseName,
+              category: ex.category || 'STRENGTH',
+              sets: [
+                {
+                  id: Date.now().toString(),
+                  weight: lastSet?.weight ?? 0,
+                  reps: lastSet?.reps ?? 0,
+                },
+              ],
+              exerciseTime,
+              instanceConfig: lastExercise?.instanceConfig
+                ? { ...lastExercise.instanceConfig }
+                : {
+                    enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
+                    pyramidMode: 'decreasing',
+                    bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
+                    autoCalculateSubSets: false,
+                  },
+            } as Exercise,
+            ...(base.exercises || []),
+          ],
+        };
+      });
+
+      // 添加动作后触发 persist
+      setTimeout(() => onPersist?.(), 50);
+    },
+    [currentWorkout.date, editingWorkoutId, lang, onPersist, resolveName, setCurrentWorkout, workouts],
+  );
 
   return {
     saveStatus,
@@ -430,9 +452,8 @@ export function useWorkoutMutations({
     setHasUnsavedChanges,
     planConfirmOpen,
     setPlanConfirmOpen,
-    performSaveWorkout,
-    handleSaveWorkout,
-    handleSaveWithConfirmation,
+    finishWorkout,
+    handleFinishWithConfirmation,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,

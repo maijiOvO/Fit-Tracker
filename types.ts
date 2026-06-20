@@ -90,7 +90,7 @@ export interface WorkoutSession {
   title: string;
   exercises: Exercise[];
   notes?: string;
-  // ✅ 新增：训练开始和结束时间
+  // ✅ 训练开始和结束时间
   startTime?: string;
   endTime?: string;
   /** IndexedDB / 远端同步可选字段 */
@@ -100,6 +100,8 @@ export interface WorkoutSession {
   fromSchedule?: WorkoutFromSchedule;
   createdAt?: string;
   updatedAt?: string;
+  /** 训练状态：draft = 未完成的训练（可 resume），completed = 已结束 */
+  status?: 'draft' | 'completed';
 }
 
 /** 体脂、围度等记录在 IndexedDB `custom_metrics` */

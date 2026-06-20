@@ -260,8 +260,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     setHasUnsavedChanges,
     planConfirmOpen,
     setPlanConfirmOpen,
-    performSaveWorkout,
-    handleSaveWithConfirmation,
+    finishWorkout,
+    handleFinishWithConfirmation,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,
@@ -278,6 +278,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     reloadAfterSave: () => loadLocalData(resolvedUserId),
     getPreviousTab: () => previousTab,
     onEnterEditWorkout: () => setSelectedPRProject(null),
+    onPersist: () => workoutCtx.persistCurrentWorkout(),
   });
 
   const {
@@ -359,7 +360,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     markActiveSchedulePending.current = false;
   }, [workouts, scheduleCtx, activeScheduleIdRef, markActiveSchedulePending]);
 
-  // ============== 监听训练编辑：标记未保存 ==============
+  // ============== 监听训练编辑：标记未保存 + 自动持久化 ==============
   useEffect(() => {
     if (currentWorkout?.exercises && currentWorkout.exercises.length > 0) {
       const hasAnyData = currentWorkout.exercises.some(
@@ -369,10 +370,36 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           ex.sets.some(set => set.weight || set.reps || set.distance || set.duration || set.score),
       );
       setHasUnsavedChanges(hasAnyData);
+      // 任何 exercises 变化都触发 debounce persist
+      workoutCtx.persistCurrentWorkout();
     } else {
       setHasUnsavedChanges(false);
     }
-  }, [currentWorkout, setHasUnsavedChanges]);
+  }, [currentWorkout, setHasUnsavedChanges, workoutCtx]);
+
+  // ============== 监听远端推送失败：通知用户 ==============
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail || '';
+      toast(
+        isCn
+          ? `云端同步失败：${detail}。数据仅保存在本地。`
+          : `Sync failed: ${detail}. Data saved locally only.`,
+        'error',
+      );
+    };
+    window.addEventListener('fitlog:push-failed', handler);
+    return () => window.removeEventListener('fitlog:push-failed', handler);
+  }, [isCn, toast]);
+
+  // ============== Draft resume handler ==============
+  const handleResumeDraft = useCallback(async () => {
+    const draft = await workoutCtx.tryResumeDraft();
+    if (draft) {
+      setEditingWorkoutId(null);
+      setActiveTab('new');
+    }
+  }, [workoutCtx, setActiveTab, setEditingWorkoutId]);
 
   const dashboardActions = useMemo(
     () => ({
@@ -380,6 +407,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setEditingWorkoutId(null);
         setActiveTab('new');
       },
+      onResumeDraft: handleResumeDraft,
       onEditWorkout: handleEditWorkout,
       onAddExerciseToPastWorkout: handleAddExerciseToPastWorkout,
       onDeleteWorkout: handleDeleteWorkout,
@@ -394,6 +422,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       onExportData: handleExportData,
     }),
     [
+      handleResumeDraft,
       handleEditWorkout,
       handleAddExerciseToPastWorkout,
       handleDeleteWorkout,
@@ -878,7 +907,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             isBodyweightMode={isBodyweightMode}
             isPyramidEnabled={isPyramidEnabled}
             onBack={handleNewWorkoutBack}
-            onSave={handleSaveWithConfirmation}
+            onSave={handleFinishWithConfirmation}
             onPickExercise={handlePickFromExercisePicker}
             onCreateCustomExercise={openCreateCustomExerciseModal}
             onCreateCustomTag={category => {
@@ -1027,11 +1056,15 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         lang={lang}
         onFaithful={async () => {
           setPlanConfirmOpen(false);
-          await performSaveWorkout(true);
+          activeScheduleIdRef.current = activeScheduleIdRef.current;
+          await finishWorkout();
         }}
         onModified={async () => {
           setPlanConfirmOpen(false);
-          await performSaveWorkout(false);
+          if (activeScheduleIdRef.current) {
+            // modified: 非 faithful
+            await finishWorkout();
+          }
         }}
         onCancel={() => {
           setPlanConfirmOpen(false);
@@ -1044,6 +1077,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           activeTab={activeTab as 'dashboard' | 'new' | 'plan' | 'profile'}
           onTabChange={setActiveTab}
           lang={lang}
+          hasDraft={workoutCtx.hasDraft}
+          onResumeDraft={handleResumeDraft}
           onStartWorkout={() => {
             setCurrentWorkout(workoutCtx.createNewWorkout());
             setEditingWorkoutId(null);

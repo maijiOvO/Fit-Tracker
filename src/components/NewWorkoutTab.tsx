@@ -4,7 +4,7 @@
 import React, { RefObject } from 'react';
 import {
   ArrowLeft,
-  Check as CheckIcon,
+  Flag,
   X,
   Scale,
 } from 'lucide-react';
@@ -183,12 +183,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             {saveStatus === 'saving' ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>{isCn ? '保存中' : 'Saving'}</span>
+                <span>{isCn ? '结束中' : 'Ending'}</span>
               </>
             ) : saveStatus === 'saved' ? (
               <>
-                <CheckIcon size={16} strokeWidth={3} />
-                <span>{isCn ? '已保存' : 'Saved'}</span>
+                <Flag size={16} strokeWidth={3} />
+                <span>{isCn ? '已结束' : 'Ended'}</span>
               </>
             ) : saveStatus === 'error' ? (
               <>
@@ -197,8 +197,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               </>
             ) : (
               <>
-                <CheckIcon size={16} strokeWidth={3} />
-                <span>{isCn ? '保存' : 'Save'}</span>
+                <Flag size={16} strokeWidth={3} />
+                <span>{isCn ? '结束训练' : 'End Workout'}</span>
               </>
             )}
           </button>
