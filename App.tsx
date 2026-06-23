@@ -33,7 +33,7 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { ExerciseDefinition, Goal, Language } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
-import { isRemoteConfigured } from './services/fitlogRemote';
+import { isDevMode, isRemoteConfigured, setDevMode } from './services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
 import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
@@ -314,6 +314,21 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const { fileInputRef, handleAvatarUpload } = useAvatarUpload();
   const handleExportData = useExportData(setSyncStatus);
+
+  // ============== 开发模式切换（运行时，无需重启）==============
+  const [devMode, setDevModeState] = useState(() => isDevMode());
+  const handleToggleDevMode = useCallback(() => {
+    const next = !devMode;
+    setDevModeState(next);
+    setDevMode(next);
+    toast(
+      isCn
+        ? (next ? '已切换到开发模式（state-dev）' : '已切换到生产模式（state）')
+        : (next ? 'Switched to dev mode (state-dev)' : 'Switched to production (state)'),
+      'info',
+    );
+  }, [devMode, isCn, toast]);
+
   const {
     showResetAccountModal,
     setShowResetAccountModal,
@@ -985,6 +1000,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               onDeleteMeasurement={(e, id) => handleDeleteMeasurement(e, id)}
               onAddMeasurementEntry={name => openAddMeasurementEntry(name)}
               setShowResetAccountModal={setShowResetAccountModal}
+              devMode={devMode}
+              onToggleDevMode={handleToggleDevMode}
             />
           </Suspense>
         )}

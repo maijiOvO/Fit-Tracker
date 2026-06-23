@@ -21,7 +21,44 @@ import type {
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || '';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
-const STATE_PATH = import.meta.env.VITE_FITLOG_STATE_PATH || '/api/fitlog/state';
+
+const DEV_MODE_LS_KEY = 'fitlog_dev_mode';
+
+/**
+ * 运行时开发模式开关：通过 localStorage 控制，无需重启 dev server。
+ * - 手机 APK 永远不设此开关，自然走生产路径
+ * - 开发机默认开启，数据写入 /api/fitlog/state-dev，与手机完全隔离
+ */
+export function isDevMode(): boolean {
+  try {
+    const stored = localStorage.getItem(DEV_MODE_LS_KEY);
+    if (stored !== null) return stored === 'true';
+    // localStorage 未设置时，回退到环境变量默认值（开发机 .env.local 设置 VITE_FITLOG_DEV_MODE=true）
+    return import.meta.env.VITE_FITLOG_DEV_MODE === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setDevMode(on: boolean): void {
+  if (on) {
+    localStorage.setItem(DEV_MODE_LS_KEY, 'true');
+  } else {
+    localStorage.removeItem(DEV_MODE_LS_KEY);
+  }
+}
+
+/**
+ * 状态端点路径解析：
+ * 1. 若显式设置 VITE_FITLOG_STATE_PATH 环境变量，始终使用该值（最高优先级）
+ * 2. 若 localStorage fitlog_dev_mode === 'true'，使用 /api/fitlog/state-dev（开发模式）
+ * 3. 默认使用 /api/fitlog/state（生产模式）
+ */
+export function resolveStatePath(): string {
+  const envPath = import.meta.env.VITE_FITLOG_STATE_PATH as string | undefined;
+  if (envPath) return envPath;
+  return isDevMode() ? '/api/fitlog/state-dev' : '/api/fitlog/state';
+}
 
 /** 允许 .env 里写裸 IP/域名，自动补 https:// */
 export function normalizeApiBaseUrl(raw: string): string {
@@ -52,12 +89,13 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
   if (!isRemoteConfigured()) return null;
 
   try {
-    const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${STATE_PATH}`, {
+    const statePath = resolveStatePath();
+    const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${statePath}`, {
       method: 'GET',
       headers: headers(),
     });
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`GET ${STATE_PATH} ${response.status}`);
+    if (!response.ok) throw new Error(`GET ${statePath} ${response.status}`);
     const data = (await response.json()) as FitlogRemoteSnapshot;
     if (!data || data.schemaVersion !== 2) return null;
     return data;
@@ -69,16 +107,27 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
 
 export async function putRemoteSnapshot(snapshot: FitlogRemoteSnapshot): Promise<void> {
   if (!isRemoteConfigured()) return;
+  const statePath = resolveStatePath();
   const payload: FitlogRemoteSnapshot = {
     ...snapshot,
     clientExportedAt: new Date().toISOString(),
   };
-  const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${STATE_PATH}`, {
-    method: 'PUT',
-    headers: headers(),
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) throw new Error(`PUT ${STATE_PATH} ${response.status}`);
+  try {
+    const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${statePath}`, {
+      method: 'PUT',
+      headers: headers(),
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      throw new Error(`PUT ${statePath} ${response.status}: ${body.substring(0, 200)}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[fitlog] 远端推送快照失败:', msg);
+    throw err;
+  }
 }
 
 function entityUpdatedMs(w: WorkoutSession): number {

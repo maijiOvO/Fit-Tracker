@@ -2,7 +2,8 @@ import React, { useRef, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone, Sparkles
+  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone, Sparkles,
+  Beaker,
 } from 'lucide-react';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
@@ -40,6 +41,9 @@ interface ProfileTabProps {
   setShowResetAccountModal: (show: boolean) => void;
   onCreateAccount?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  /** 开发模式隔离开关，仅开发机可见 */
+  devMode?: boolean;
+  onToggleDevMode?: () => void;
 }
 
 export const ProfileTab: React.FC<ProfileTabProps> = ({
@@ -62,6 +66,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   setShowResetAccountModal,
   onCreateAccount,
   fileInputRef,
+  devMode,
+  onToggleDevMode,
 }) => {
   const { toast } = useUiOverlay();
   const monthLabels: Record<string, { cn: string; en: string }> = {
@@ -466,6 +472,37 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </div>
           <ChevronRight size={18} className="text-tertiary" />
         </button>
+
+        {/* 开发模式隔离开关（仅开发机可见） */}
+        {onToggleDevMode && (
+          <button
+            onClick={onToggleDevMode}
+            className="w-full p-4 flex justify-between items-center rounded-2xl transition-colors group border-t border-divider"
+          >
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-xl transition-colors ${
+                devMode ? 'bg-amber-500/10 text-amber-500' : 'bg-card text-secondary'
+              }`}>
+                <Beaker size={20} strokeWidth={1.75} />
+              </div>
+              <div className="text-left">
+                <span className="font-bold text-primary text-sm">
+                  {lang === Language.CN ? '开发模式隔离' : 'Dev Mode Isolation'}
+                </span>
+                <p className="text-[10px] text-tertiary mt-0.5">
+                  {devMode
+                    ? (lang === Language.CN ? 'state-dev · 实验数据隔离' : 'state-dev · Isolated')
+                    : (lang === Language.CN ? 'state · 生产数据' : 'state · Production')}
+                </p>
+              </div>
+            </div>
+            <span className={`text-xs font-semibold px-3 py-1 rounded-lg shrink-0 ${
+              devMode ? 'bg-amber-500/15 text-amber-600' : 'bg-card text-secondary'
+            }`}>
+              {devMode ? (lang === Language.CN ? '开发' : 'Dev') : (lang === Language.CN ? '生产' : 'Prod')}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );

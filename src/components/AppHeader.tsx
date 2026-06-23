@@ -38,7 +38,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </h1>
     </div>
 
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2">
       <button
         onClick={onSync}
         disabled={syncDisabled}
