@@ -211,6 +211,10 @@ export function useWorkoutMutations({
           : 'Workout data is auto-saved. Continue?',
       });
       if (!ok) return;
+      // 用户放弃：删除当前 draft 避免孤儿记录
+      if (currentWorkout.id) {
+        void workoutCtx.deleteWorkout(currentWorkout.id);
+      }
       setCurrentWorkout(workoutCtx.createNewWorkout());
     } else if (editingWorkoutId && hasUnsavedChanges) {
       const ok = await confirm({

@@ -87,9 +87,21 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     setWorkouts(
       filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     );
-    // 检查是否有 draft
-    const draft = filtered.find(w => w.status === 'draft');
-    setHasDraft(!!draft);
+    // 检查是否有 draft；清理孤儿（只保留最新一条 draft）
+    const drafts = filtered.filter(w => w.status === 'draft');
+    if (drafts.length > 1) {
+      // 有多条 draft：删掉旧的，只保留最新的
+      const sorted = [...drafts].sort(
+        (a, b) => new Date(b.updatedAt || b.date).getTime() - new Date(a.updatedAt || a.date).getTime()
+      );
+      for (let i = 1; i < sorted.length; i++) {
+        void db.delete('workouts', sorted[i].id);
+      }
+      // 更新本地列表去掉已删除的
+      const validIds = new Set([sorted[0].id]);
+      setWorkouts(prev => prev.filter(w => w.status !== 'draft' || validIds.has(w.id)));
+    }
+    setHasDraft(drafts.length > 0);
     setIsLoading(false);
   }, [uid]);
 
