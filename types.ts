@@ -100,7 +100,9 @@ export interface WorkoutSession {
   fromSchedule?: WorkoutFromSchedule;
   createdAt?: string;
   updatedAt?: string;
-  /** 训练状态：draft = 未完成的训练（可 resume），completed = 已结束 */
+  /** 训练实际结束时间（ISO 8601）。为空表示用户尚未手动结束 */
+  finishedAt?: string;
+  /** @deprecated 保留向后兼容，不再用于分流 UI */
   status?: 'draft' | 'completed';
 }
 

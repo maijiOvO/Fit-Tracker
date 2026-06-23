@@ -48,6 +48,7 @@ import { isBodyweightMode, isPyramidEnabled } from './src/utils/exerciseConfig';
 
 import TabNavigation from './src/components/TabNavigation';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
+import { DateTimePicker } from './src/components/DateTimePicker';
 import { EditExerciseTagsModal } from './src/components/EditExerciseTagsModal';
 import { AppHeader } from './src/components/AppHeader';
 import { AssistantTabContainer } from './src/components/AssistantTabContainer';
@@ -233,6 +234,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     exerciseId?: string;
     currentTime?: string;
   } | null>(null);
+  // ============== 编辑模式下训练日期选择 ==============
+  const [showWorkoutDatePicker, setShowWorkoutDatePicker] = useState(false);
 
   // ============== 目标弹窗 ==============
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -392,22 +395,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     return () => window.removeEventListener('fitlog:push-failed', handler);
   }, [isCn, toast]);
 
-  // ============== Draft resume handler ==============
-  const handleResumeDraft = useCallback(async () => {
-    const draft = await workoutCtx.tryResumeDraft();
-    if (draft) {
-      setEditingWorkoutId(null);
-      setActiveTab('new');
-    }
-  }, [workoutCtx, setActiveTab, setEditingWorkoutId]);
-
   const dashboardActions = useMemo(
     () => ({
       onStartNewWorkout: () => {
         setEditingWorkoutId(null);
         setActiveTab('new');
       },
-      onResumeDraft: handleResumeDraft,
       onEditWorkout: handleEditWorkout,
       onAddExerciseToPastWorkout: handleAddExerciseToPastWorkout,
       onDeleteWorkout: handleDeleteWorkout,
@@ -422,7 +415,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       onExportData: handleExportData,
     }),
     [
-      handleResumeDraft,
       handleEditWorkout,
       handleAddExerciseToPastWorkout,
       handleDeleteWorkout,
@@ -934,6 +926,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })
             }
             onOpenMetricModal={name => setShowMetricModal({ name })}
+            onChangeDate={() => setShowWorkoutDatePicker(true)}
             onDeleteExerciseFromSession={exIdx => {
               const snapshot = [...(currentWorkout.exercises ?? [])];
               const removed = snapshot[exIdx];
@@ -1072,13 +1065,24 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         }}
       />
 
+      {/* ============== 训练日期选择器 ============== */}
+      <DateTimePicker
+        isOpen={showWorkoutDatePicker}
+        lang={lang}
+        initialDate={currentWorkout?.date ? new Date(currentWorkout.date) : new Date()}
+        onClose={() => setShowWorkoutDatePicker(false)}
+        onConfirm={(date) => {
+          setCurrentWorkout({ ...currentWorkout, date: date.toISOString() });
+          workoutCtx.persistCurrentWorkout();
+          setShowWorkoutDatePicker(false);
+        }}
+      />
+
       {user && activeTab !== 'new' && (
         <TabNavigation
           activeTab={activeTab as 'dashboard' | 'new' | 'plan' | 'profile'}
           onTabChange={setActiveTab}
           lang={lang}
-          hasDraft={workoutCtx.hasDraft}
-          onResumeDraft={handleResumeDraft}
           onStartWorkout={() => {
             setCurrentWorkout(workoutCtx.createNewWorkout());
             setEditingWorkoutId(null);

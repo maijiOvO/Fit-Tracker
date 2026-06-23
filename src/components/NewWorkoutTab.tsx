@@ -67,6 +67,8 @@ export interface NewWorkoutTabProps {
   onToggleNote: (name: string) => void;
   onOpenMetricModal: (name: string) => void;
   onDeleteExerciseFromSession: (exIdx: number) => void;
+  /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
+  onChangeDate?: () => void;
 }
 
 export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
@@ -111,6 +113,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onToggleNote,
   onOpenMetricModal,
   onDeleteExerciseFromSession,
+  onChangeDate,
 }) => {
   const isCn = lang === Language.CN;
 
@@ -135,13 +138,18 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   : (isCn ? '新建训练' : 'New Workout')}
               </span>
               {editingWorkoutId && currentWorkout.date && (
-                <span className="normal-case tracking-normal text-tertiary/80">
+                <button
+                  type="button"
+                  onClick={onChangeDate}
+                  className="normal-case tracking-normal text-tertiary/80 hover:text-accent transition-colors inline-flex items-center gap-1"
+                  title={isCn ? '修改训练日期' : 'Change workout date'}
+                >
                   ·{' '}
                   {new Date(currentWorkout.date).toLocaleDateString(
                     isCn ? 'zh-CN' : 'en-US',
                     { month: 'numeric', day: 'numeric', weekday: 'short' },
                   )}
-                </span>
+                </button>
               )}
               <span className="ml-auto normal-case tracking-normal text-tertiary flex items-center gap-1">
                 <Scale size={10} />
@@ -166,7 +174,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
           <button
             type="button"
-            onClick={onSave}
+            onClick={() => {
+              console.log('[DEBUG] NewWorkoutTab 按钮 onClick 触发, saveStatus=', saveStatus, 'exercises.length=', currentWorkout.exercises?.length);
+              onSave();
+            }}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length)}
             className={`min-h-[44px] px-4 rounded-2xl font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-all active:scale-95 ${
               saveStatus === 'saving'

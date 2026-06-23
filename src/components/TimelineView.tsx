@@ -273,6 +273,11 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                           <span className="font-medium">
                             {dateStr} · {timeStr}
                           </span>
+                          {w.status === 'draft' && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-orange-500/10 text-orange-500">
+                              {isCN ? '未完成' : 'Draft'}
+                            </span>
+                          )}
                           {w.fromSchedule && (
                             <span
                               className={`text-[9px] px-1.5 py-0.5 rounded-chip font-bold ${
@@ -310,44 +315,44 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                       </div>
                     </div>
 
-                    {/* 操作按钮区 */}
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-divider">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddExerciseToWorkout(w.id);
-                        }}
-                        className="flex-1 min-h-[40px] flex items-center justify-center gap-1.5 bg-accent-soft text-accent rounded-xl text-xs font-bold hover:opacity-80 active:scale-95 transition-all"
-                        title={isCN ? '为这天补加动作' : 'Add missed exercise'}
-                      >
-                        <Plus size={14} strokeWidth={2.5} />
-                        <span>{isCN ? '补加动作' : 'Add exercise'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditWorkout(w.id);
-                        }}
-                        className="min-h-[40px] px-3 flex items-center justify-center gap-1.5 bg-inset text-secondary rounded-xl text-xs font-bold hover:text-primary active:scale-95 transition-all"
-                        title={translations.edit?.[lang] ?? (isCN ? '编辑' : 'Edit')}
-                      >
-                        <Edit2 size={13} strokeWidth={2} />
-                        <span>{isCN ? '编辑' : 'Edit'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteWorkout(w.id);
-                        }}
-                        className="min-h-[40px] w-11 flex items-center justify-center text-danger bg-danger/10 rounded-xl hover:opacity-80 active:scale-95 transition-all"
-                        title={isCN ? '删除整场' : 'Delete workout'}
-                      >
-                        <Trash2 size={14} strokeWidth={2} />
-                      </button>
-                    </div>
+                     {/* 操作按钮区 */}
+                     <div className="flex items-center gap-2 mt-3 pt-3 border-t border-divider">
+                       <button
+                         type="button"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onEditWorkout(w.id);
+                         }}
+                         className="flex-1 min-h-[40px] flex items-center justify-center gap-1.5 bg-accent text-white rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all shadow-sm shadow-blue-600/20"
+                         title={isCN ? '编辑训练' : 'Edit'}
+                       >
+                         <Edit2 size={13} strokeWidth={2} />
+                         <span>{isCN ? '编辑' : 'Edit'}</span>
+                       </button>
+                       <button
+                         type="button"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onAddExerciseToWorkout(w.id);
+                         }}
+                         className="min-h-[40px] px-3 flex items-center justify-center gap-1.5 bg-inset text-secondary rounded-xl text-xs font-bold hover:text-primary active:scale-95 transition-all"
+                         title={isCN ? '为此训练补加动作' : 'Add exercise'}
+                       >
+                         <Plus size={14} strokeWidth={2} />
+                         <span>{isCN ? '补加' : 'Add'}</span>
+                       </button>
+                       <button
+                         type="button"
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           onDeleteWorkout(w.id);
+                         }}
+                         className="min-h-[40px] w-11 flex items-center justify-center text-danger bg-danger/10 rounded-xl hover:opacity-80 active:scale-95 transition-all"
+                         title={isCN ? '删除整场' : 'Delete workout'}
+                       >
+                         <Trash2 size={14} strokeWidth={2} />
+                       </button>
+                     </div>
 
                     {/* 展开详情 */}
                     {isExpanded && (

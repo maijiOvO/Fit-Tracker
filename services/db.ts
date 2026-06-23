@@ -1,4 +1,3 @@
-
 import { WorkoutSession, PRRecord, ExerciseDefinition, Goal, WeightEntry } from '../types';
 
 const DB_NAME = 'FitLogDB';
@@ -78,12 +77,21 @@ export class FitLogDB {
     });
   }
 
+  /**
+   * 写入记录并等待事务完成。
+   * 使用 request.onsuccess + setTimeout(0) 而非 transaction.oncomplete，
+   * 因为某些浏览器中 oncomplete 的触发时机不可靠（可能在后续 readonly 事务之后）。
+   * setTimeout(0) 将 resolve 推迟到下一个 macrotask，
+   * 确保 IndexedDB 写事务已完全提交后再返回。
+   */
   async save(storeName: string, item: any): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
+    const transaction = store.transaction;
     return new Promise((resolve, reject) => {
       const request = store.put(item);
-      request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
+      // 使用 transaction.oncomplete 确保事务已物理提交
+      transaction.oncomplete = () => resolve();
     });
   }
 
@@ -94,10 +102,11 @@ export class FitLogDB {
 
   async delete(storeName: string, id: string): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
+    const transaction = store.transaction;
     return new Promise((resolve, reject) => {
       const request = store.delete(id);
-      request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve();
     });
   }
 
@@ -105,7 +114,9 @@ export class FitLogDB {
     const store = await this.getStore(storeName, 'readwrite');
     return new Promise((resolve, reject) => {
       const request = store.clear();
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        setTimeout(() => resolve(), 0);
+      };
       request.onerror = () => reject(request.error);
     });
   }
