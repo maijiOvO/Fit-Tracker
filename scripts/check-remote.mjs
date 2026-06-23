@@ -32,7 +32,7 @@ const stateUrl = `${base}${statePath}`;
 
 console.log(`🔗 目标服务器: ${base}`);
 console.log(`🔑 API Key 长度: ${key.length} 字符`);
-console.log(`🔬 模式: ${statePath.includes('dev') ? '开发 (state-dev)' : '生产 (state)'}`);
+console.log(`🔬 模式: ${statePath.includes('dev') ? '开发 (state-dev)' : '用户 (state)'}`);
 console.log(`📡 请求: GET ${stateUrl}`);
 
 try {

@@ -33,7 +33,8 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { ExerciseDefinition, Goal, Language } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
-import { isDevMode, isRemoteConfigured, setDevMode } from './services/fitlogRemote';
+import { isDevMode, isRemoteConfigured, setDevMode, readPrefsFromLocalStorage } from './services/fitlogRemote';
+import { reloadLocalFromRemote } from './services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
 import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
@@ -317,17 +318,40 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 开发模式切换（运行时，无需重启）==============
   const [devMode, setDevModeState] = useState(() => isDevMode());
-  const handleToggleDevMode = useCallback(() => {
+  const handleToggleDevMode = useCallback(async () => {
     const next = !devMode;
     setDevModeState(next);
     setDevMode(next);
-    toast(
-      isCn
-        ? (next ? '已切换到开发模式（state-dev）' : '已切换到生产模式（state）')
-        : (next ? 'Switched to dev mode (state-dev)' : 'Switched to production (state)'),
-      'info',
-    );
-  }, [devMode, isCn, toast]);
+    setSyncStatus('syncing');
+    try {
+      await reloadLocalFromRemote();
+      const refreshedPrefs = readPrefsFromLocalStorage();
+      prefs.applyPrefsFromSnapshot(refreshedPrefs);
+      if (refreshedPrefs.lang) settingsCtx.setLang(refreshedPrefs.lang as Language);
+      if (refreshedPrefs.unit) settingsCtx.setUnit(refreshedPrefs.unit);
+      if (typeof refreshedPrefs.avatarDataUrl === 'string' && refreshedPrefs.avatarDataUrl) {
+        authCtx.setUser(
+          authCtx.user
+            ? { ...authCtx.user, avatarUrl: refreshedPrefs.avatarDataUrl }
+            : authCtx.user,
+        );
+      }
+      await loadLocalData(resolvedUserId);
+      toast(
+        isCn
+          ? (next ? '已切换到开发模式（state-dev）' : '已切换到用户模式（state）')
+          : (next ? 'Switched to dev mode (state-dev)' : 'Switched to user mode (state)'),
+        'info',
+      );
+    } catch (e) {
+      toast(
+        isCn ? '切换模式时数据加载失败，请手动同步' : 'Failed to load data on mode switch, please sync manually',
+        'error',
+      );
+    } finally {
+      setSyncStatus('idle');
+    }
+  }, [devMode, isCn, toast, loadLocalData, resolvedUserId]);
 
   const {
     showResetAccountModal,

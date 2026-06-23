@@ -31,9 +31,12 @@ const DEV_MODE_LS_KEY = 'fitlog_dev_mode';
  */
 export function isDevMode(): boolean {
   try {
+    // 🔒 生产构建（APK）强制走用户模式，防止 localStorage 残留导致误走 state-dev
+    if (!import.meta.env.DEV) return false;
+
     const stored = localStorage.getItem(DEV_MODE_LS_KEY);
     if (stored !== null) return stored === 'true';
-    // localStorage 未设置时，回退到环境变量默认值（开发机 .env.local 设置 VITE_FITLOG_DEV_MODE=true）
+    // 开发机回退到环境变量默认值（.env.development 设置 VITE_FITLOG_DEV_MODE=true）
     return import.meta.env.VITE_FITLOG_DEV_MODE === 'true';
   } catch {
     return false;
@@ -41,11 +44,7 @@ export function isDevMode(): boolean {
 }
 
 export function setDevMode(on: boolean): void {
-  if (on) {
-    localStorage.setItem(DEV_MODE_LS_KEY, 'true');
-  } else {
-    localStorage.removeItem(DEV_MODE_LS_KEY);
-  }
+  localStorage.setItem(DEV_MODE_LS_KEY, String(on));
 }
 
 /**

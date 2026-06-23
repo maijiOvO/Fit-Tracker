@@ -5,10 +5,11 @@ import {
   putRemoteSnapshot,
   applySnapshotToLocalIndexedDb,
   writePrefsToLocalStorage,
+  readPrefsFromLocalStorage,
   migrateRecordsToSoloUserId,
   isRemoteConfigured,
 } from './fitlogRemote';
-import type { FitlogSyncedPrefs } from './fitlogSnapshotTypes';
+import type { FitlogSyncedPrefs, FitlogRemoteSnapshot } from './fitlogSnapshotTypes';
 
 let pullLock = false;
 
@@ -37,4 +38,39 @@ export async function pushFitlogRemoteSnapshot(): Promise<void> {
   await migrateRecordsToSoloUserId();
   const snap = await collectLocalSnapshot();
   await putRemoteSnapshot(snap);
+}
+
+/**
+ * 模式切换专用：从当前端点拉取快照并完全覆盖本地 IndexedDB。
+ * 若远端无数据（404），则清空本地实体数据（保留 prefs：语言/单位/自定义动作等）。
+ */
+export async function reloadLocalFromRemote(): Promise<void> {
+  if (!isRemoteConfigured()) return;
+
+  await migrateRecordsToSoloUserId();
+  const remote = await fetchRemoteSnapshot();
+
+  if (remote) {
+    writePrefsToLocalStorage(remote.prefs);
+    await applySnapshotToLocalIndexedDb(remote);
+  } else {
+    // 新端点无数据 → 仅清空实体数据，保留 prefs（语言、单位、自定义动作等）
+    const prefs = readPrefsFromLocalStorage();
+    const emptySnapshot: FitlogRemoteSnapshot = {
+      schemaVersion: 2,
+      clientExportedAt: new Date().toISOString(),
+      workouts: [],
+      goals: [],
+      weightLogs: [],
+      customMetrics: [],
+      prs: [],
+      customExerciseDefsFromDb: [],
+      scheduledWorkouts: [],
+      assistantConversations: [],
+      prefs,
+      tombstones: {},
+    };
+    writePrefsToLocalStorage(prefs);
+    await applySnapshotToLocalIndexedDb(emptySnapshot);
+  }
 }

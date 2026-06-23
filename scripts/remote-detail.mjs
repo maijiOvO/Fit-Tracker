@@ -19,7 +19,7 @@ if (envPathOverride) {
   statePath = '/api/fitlog/state-dev';
 }
 
-console.log(`🔬 模式: ${statePath.includes('dev') ? '开发 (state-dev)' : '生产 (state)'}\n`);
+console.log(`🔬 模式: ${statePath.includes('dev') ? '开发 (state-dev)' : '用户 (state)'}\n`);
 
 const resp = await fetch(`${base}${statePath}`, {
   headers: { Authorization: `Bearer ${key}` },

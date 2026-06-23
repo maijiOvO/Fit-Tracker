@@ -492,14 +492,14 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 <p className="text-[10px] text-tertiary mt-0.5">
                   {devMode
                     ? (lang === Language.CN ? 'state-dev · 实验数据隔离' : 'state-dev · Isolated')
-                    : (lang === Language.CN ? 'state · 生产数据' : 'state · Production')}
+                    : (lang === Language.CN ? 'state · 用户数据' : 'state · User')}
                 </p>
               </div>
             </div>
             <span className={`text-xs font-semibold px-3 py-1 rounded-lg shrink-0 ${
               devMode ? 'bg-amber-500/15 text-amber-600' : 'bg-card text-secondary'
             }`}>
-              {devMode ? (lang === Language.CN ? '开发' : 'Dev') : (lang === Language.CN ? '生产' : 'Prod')}
+              {devMode ? (lang === Language.CN ? '开发' : 'Dev') : (lang === Language.CN ? '用户' : 'User')}
             </span>
           </button>
         )}
