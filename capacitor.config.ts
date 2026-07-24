@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'fitlog.myronhub.com',
-  appName: 'fitlog-ai-personal',
+  appId: 'com.myron.fittracker',
+  appName: 'Fit Tracker',
   webDir: 'dist'
 };
 
