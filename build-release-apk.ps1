@@ -23,6 +23,24 @@ if (!(Test-Path "android/app/fitlog-release-key.keystore")) {
     exit 1
 }
 
+# ============================================================
+# 数据环境闸门：确认 dist 是 release 构建（VITE_FITLOG_ENV=prod）
+# ============================================================
+# 用 `npm run build` 打出来的包默认是 dev 环境，装到手机上会去读写
+# state-dev —— 真实数据不会被破坏，但手机上会看不到自己的记录。
+$envStamp = "dist/fitlog-build-env.json"
+if (!(Test-Path $envStamp)) {
+    Write-Host "[X] 未找到 $envStamp —— 请先运行: npm run build:release" -ForegroundColor Red
+    exit 1
+}
+$builtEnv = (Get-Content $envStamp -Raw | ConvertFrom-Json).env
+if ($builtEnv -ne "prod") {
+    Write-Host "[X] dist 是 '$builtEnv' 环境构建，不能用于发布" -ForegroundColor Red
+    Write-Host "    请运行: npm run build:release  然后 npx cap sync android" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "[OK] dist 环境戳: prod" -ForegroundColor Green
+
 # 清理之前的构建
 Write-Host "🧹 清理之前的构建..." -ForegroundColor Yellow
 try {

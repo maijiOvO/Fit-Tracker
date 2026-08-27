@@ -9,7 +9,10 @@ import {
   migrateRecordsToSoloUserId,
   isRemoteConfigured,
 } from './fitlogRemote';
-import type { FitlogSyncedPrefs, FitlogRemoteSnapshot } from './fitlogSnapshotTypes';
+import type { FitlogSyncedPrefs } from './fitlogSnapshotTypes';
+import { db } from './db';
+import { getDataEnv, setDataEnv, type DataEnv } from './appEnv';
+import { cancelPendingFitlogPush } from './fitlogSyncScheduler';
 
 let pullLock = false;
 
@@ -41,36 +44,37 @@ export async function pushFitlogRemoteSnapshot(): Promise<void> {
 }
 
 /**
- * 模式切换专用：从当前端点拉取快照并完全覆盖本地 IndexedDB。
- * 若远端无数据（404），则清空本地实体数据（保留 prefs：语言/单位/自定义动作等）。
+ * 切换数据环境（dev ⇄ prod）。
+ *
+ * 顺序是安全性的关键：
+ *   1. 取消待发的防抖推送 —— 否则它会带着旧环境的数据打到新端点
+ *   2. 翻转环境标记 —— 此后 storage / db / 网络三者的命名空间同时改变
+ *   3. 重开 IndexedDB —— 换到新环境的独立库
+ *   4. 从新端点拉取合并
+ *
+ * 因为本地存储本身已按环境分区，这里**不需要**清空任何数据：
+ * 两个环境的数据各自躺在自己的库里，切换只是换一个视图。
+ *
+ * 任一步失败都回滚到原环境，绝不停在「标记已翻转但数据没跟上」的错配状态。
  */
-export async function reloadLocalFromRemote(): Promise<void> {
-  if (!isRemoteConfigured()) return;
+export async function switchDataEnv(next: DataEnv): Promise<void> {
+  const previous = getDataEnv();
+  if (previous === next) return;
 
-  await migrateRecordsToSoloUserId();
-  const remote = await fetchRemoteSnapshot();
+  cancelPendingFitlogPush();
+  setDataEnv(next);
 
-  if (remote) {
-    writePrefsToLocalStorage(remote.prefs);
-    await applySnapshotToLocalIndexedDb(remote);
-  } else {
-    // 新端点无数据 → 仅清空实体数据，保留 prefs（语言、单位、自定义动作等）
-    const prefs = readPrefsFromLocalStorage();
-    const emptySnapshot: FitlogRemoteSnapshot = {
-      schemaVersion: 2,
-      clientExportedAt: new Date().toISOString(),
-      workouts: [],
-      goals: [],
-      weightLogs: [],
-      customMetrics: [],
-      prs: [],
-      customExerciseDefsFromDb: [],
-      scheduledWorkouts: [],
-      assistantConversations: [],
-      prefs,
-      tombstones: {},
-    };
-    writePrefsToLocalStorage(prefs);
-    await applySnapshotToLocalIndexedDb(emptySnapshot);
+  try {
+    await db.reopen();
+    if (isRemoteConfigured()) await pullAndMergeFitlogRemote();
+  } catch (e) {
+    // 回滚：环境标记与本地库必须重新对齐到切换前的状态
+    setDataEnv(previous);
+    try {
+      await db.reopen();
+    } catch (reopenErr) {
+      console.error('[fitlog] 回滚重开数据库失败:', reopenErr);
+    }
+    throw e;
   }
 }

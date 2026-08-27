@@ -16,6 +16,7 @@ import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { storage } from '../../services/appStorage';
 
 export interface UseResetAccountResult {
   showResetAccountModal: boolean;
@@ -74,7 +75,7 @@ export function useResetAccount({
       }
 
       console.log('清除本地存储...');
-      localStorage.removeItem('fitlog_avatar_data_url');
+      storage.removeItem('fitlog_avatar_data_url');
       clearTombstones();
 
       console.log('重置内存状态...');

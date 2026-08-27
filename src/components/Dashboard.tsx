@@ -15,6 +15,7 @@ import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
+import { storage } from '../../services/appStorage';
 
 const TrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.TrendChart })));
 
@@ -97,7 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // 视图模式：默认按时间线
   const [view, setView] = useState<DashboardView>(() => {
     try {
-      const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+      const saved = storage.getItem(VIEW_STORAGE_KEY);
       return saved === 'pr' ? 'pr' : 'timeline';
     } catch {
       return 'timeline';
@@ -105,7 +106,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   });
   const [granularity, setGranularity] = useState<TimelineGranularity>(() => {
     try {
-      const saved = localStorage.getItem(GRANULARITY_STORAGE_KEY);
+      const saved = storage.getItem(GRANULARITY_STORAGE_KEY);
       if (saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year') {
         return saved;
       }
@@ -115,10 +116,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   });
   useEffect(() => {
-    try { localStorage.setItem(VIEW_STORAGE_KEY, view); } catch {}
+    try { storage.setItem(VIEW_STORAGE_KEY, view); } catch {}
   }, [view]);
   useEffect(() => {
-    try { localStorage.setItem(GRANULARITY_STORAGE_KEY, granularity); } catch {}
+    try { storage.setItem(GRANULARITY_STORAGE_KEY, granularity); } catch {}
   }, [granularity]);
 
   const [exerciseTimeEdit, setExerciseTimeEdit] = useState<{

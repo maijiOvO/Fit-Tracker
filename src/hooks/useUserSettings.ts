@@ -8,6 +8,7 @@
  */
 import { useState, useCallback, useEffect } from 'react';
 import { Language } from '../../types';
+import { storage } from '../../services/appStorage';
 
 type Unit = 'kg' | 'lbs';
 
@@ -25,19 +26,19 @@ interface UseUserSettingsReturn {
 
 export const useUserSettings = () => {
   const [lang, setLangState] = useState<Language>(() => {
-    const saved = localStorage.getItem('fitlog_lang') as Language;
+    const saved = storage.getItem('fitlog_lang') as Language;
     return saved || Language.CN;
   });
   
   const [unit, setUnitState] = useState<Unit>(() => {
-    const saved = localStorage.getItem('fitlog_unit') as Unit;
+    const saved = storage.getItem('fitlog_unit') as Unit;
     return saved || 'kg';
   });
 
   // 设置语言并持久化
   const setLang = useCallback((newLang: Language) => {
     setLangState(newLang);
-    localStorage.setItem('fitlog_lang', newLang);
+    storage.setItem('fitlog_lang', newLang);
   }, []);
 
   // 切换语言
@@ -49,7 +50,7 @@ export const useUserSettings = () => {
   // 设置单位并持久化
   const setUnit = useCallback((newUnit: Unit) => {
     setUnitState(newUnit);
-    localStorage.setItem('fitlog_unit', newUnit);
+    storage.setItem('fitlog_unit', newUnit);
   }, []);
 
   // 切换单位

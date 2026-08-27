@@ -4,6 +4,7 @@ import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
+import { storage } from '../../services/appStorage';
 
 interface UserSettingsContextType {
   lang: Language;
@@ -33,12 +34,12 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
   userId,
 }) => {
   const [lang, setLangState] = useState<Language>(() => {
-    const saved = localStorage.getItem('fitlog_lang');
+    const saved = storage.getItem('fitlog_lang');
     return saved === Language.EN ? Language.EN : Language.CN;
   });
 
   const [unit, setUnitState] = useState<'kg' | 'lbs'>(() => {
-    const saved = localStorage.getItem('fitlog_unit');
+    const saved = storage.getItem('fitlog_unit');
     return (saved as 'kg' | 'lbs') || 'kg';
   });
 
@@ -70,7 +71,7 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
 
   const setLang = (newLang: Language) => {
     setLangState(newLang);
-    localStorage.setItem('fitlog_lang', newLang);
+    storage.setItem('fitlog_lang', newLang);
   };
 
   const toggleLanguage = () => {
@@ -80,7 +81,7 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
 
   const setUnit = (newUnit: 'kg' | 'lbs') => {
     setUnitState(newUnit);
-    localStorage.setItem('fitlog_unit', newUnit);
+    storage.setItem('fitlog_unit', newUnit);
   };
 
   const addWeightEntry = async (entry: WeightEntry) => {

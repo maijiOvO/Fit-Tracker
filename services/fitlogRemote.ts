@@ -18,6 +18,8 @@ import type {
   Measurement,
   ScheduledWorkout,
 } from '../types';
+import { storage } from './appStorage';
+import { getDataEnv, statePath } from './appEnv';
 
 /**
  * 个人服务器默认地址：家庭 NAS，经 Tailscale Serve 对外暴露。
@@ -29,48 +31,37 @@ import type {
  * 证书为 Let's Encrypt 正式签发，Android 无需 cleartext / 自签白名单。
  *
  * 覆盖方式：在 .env.local 设置 VITE_API_URL（环境变量优先级最高）。
+ * 端点路径（state / state-dev）不可用环境变量覆盖 —— 见 services/appEnv.ts。
  * 回滚旧 VPS：VITE_API_URL=https://fitlog.myronhub.com
  */
 export const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
-const API_KEY = import.meta.env.VITE_API_KEY || '';
-
-const DEV_MODE_LS_KEY = 'fitlog_dev_mode';
 
 /**
- * 运行时开发模式开关：通过 localStorage 控制，无需重启 dev server。
- * - 手机 APK 永远不设此开关，自然走生产路径
- * - 开发机默认开启，数据写入 /api/fitlog/state-dev，与手机完全隔离
+ * 两套凭据：dev 与 prod 各一把。
+ * 服务端把 key 绑定到端点（dev key 只能碰 state-dev，prod key 只能碰 state），
+ * 于是即便客户端把路径算错，服务器也会 403 —— 隔离不再依赖客户端算对。
+ * 未配置 VITE_API_KEY_DEV 时回落到 VITE_API_KEY，保证升级过程中不中断。
  */
-export function isDevMode(): boolean {
-  try {
-    // 🔒 生产构建（APK）强制走用户模式，防止 localStorage 残留导致误走 state-dev
-    if (!import.meta.env.DEV) return false;
-
-    const stored = localStorage.getItem(DEV_MODE_LS_KEY);
-    if (stored !== null) return stored === 'true';
-    // 开发机回退到环境变量默认值（.env.development 设置 VITE_FITLOG_DEV_MODE=true）
-    return import.meta.env.VITE_FITLOG_DEV_MODE === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setDevMode(on: boolean): void {
-  localStorage.setItem(DEV_MODE_LS_KEY, String(on));
-}
+const PROD_API_KEY = import.meta.env.VITE_API_KEY || '';
+const DEV_API_KEY = import.meta.env.VITE_API_KEY_DEV || PROD_API_KEY;
 
 /**
- * 状态端点路径解析：
- * 1. 若显式设置 VITE_FITLOG_STATE_PATH 环境变量，始终使用该值（最高优先级）
- * 2. 若 localStorage fitlog_dev_mode === 'true'，使用 /api/fitlog/state-dev（开发模式）
- * 3. 默认使用 /api/fitlog/state（生产模式）
+ * 当前数据环境对应的凭据。
+ * 助手客户端（/api/chat，两把 key 都放行）也复用它，
+ * 免得开发机只配了 dev key 时助手用不了。
  */
+export function apiKey(): string {
+  return getDataEnv() === 'dev' ? DEV_API_KEY : PROD_API_KEY;
+}
+
+/** 兼容旧调用点（App.tsx / ProfileTab）—— 判定逻辑已统一到 services/appEnv.ts */
+export { isDevMode, setDevMode, isEnvLocked, getDataEnv } from './appEnv';
+
+/** 状态端点路径：完全由数据环境决定，不再接受任意的环境变量覆盖。 */
 export function resolveStatePath(): string {
-  const envPath = import.meta.env.VITE_FITLOG_STATE_PATH as string | undefined;
-  if (envPath) return envPath;
-  return isDevMode() ? '/api/fitlog/state-dev' : '/api/fitlog/state';
+  return statePath();
 }
 
 /** 允许 .env 里写裸 IP/域名，自动补 https:// */
@@ -84,35 +75,122 @@ export function normalizeApiBaseUrl(raw: string): string {
 export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
 
 export function isRemoteConfigured(): boolean {
-  return Boolean(API_BASE_URL && API_KEY.trim());
+  return Boolean(API_BASE_URL && apiKey().trim());
 }
 
 export function markPrefsUpdated(): void {
-  localStorage.setItem('fitlog_prefs_last_update', String(Date.now()));
+  storage.setItem('fitlog_prefs_last_update', String(Date.now()));
 }
 
-function headers(): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${API_KEY}`,
-  };
+/**
+ * 远端调用失败的分类结果。
+ *
+ * 服务端把 key 绑定到端点、并校验环境标记之后，多了两个语义明确的错误码，
+ * 它们和"网络不通"是完全不同的问题，必须分开提示 —— 否则一律显示
+ * "请检查 Tailscale"会把配置错误引到完全错误的排查方向上。
+ */
+export type RemoteFailureKind =
+  | 'forbidden-endpoint'  // 403：这把 key 无权访问该端点
+  | 'env-mismatch'        // 409：环境标记与端点不符，服务端拒绝写入
+  | 'http'                // 其它非 2xx
+  | 'unreachable';        // 根本没连上（Tailscale 未连 / NAS 离线）
+
+export class RemoteError extends Error {
+  constructor(
+    message: string,
+    readonly kind: RemoteFailureKind,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = 'RemoteError';
+  }
+}
+
+/** 把一个非 2xx 响应翻译成带分类的错误 */
+async function toRemoteError(resp: Response, method: string, path: string): Promise<RemoteError> {
+  const body = await resp.text().catch(() => '');
+  const tail = body ? `: ${body.substring(0, 200)}` : '';
+  if (resp.status === 403) {
+    return new RemoteError(
+      `${method} ${path} 403 —— 这把 key 无权访问该端点${tail}`,
+      'forbidden-endpoint',
+      403,
+    );
+  }
+  if (resp.status === 409) {
+    return new RemoteError(
+      `${method} ${path} 409 —— 环境标记与端点不符，服务端已拒绝写入${tail}`,
+      'env-mismatch',
+      409,
+    );
+  }
+  return new RemoteError(`${method} ${path} ${resp.status}${tail}`, 'http', resp.status);
+}
+
+/**
+ * 所有远端读写的唯一出口。
+ *
+ * 收口的意义：路径与环境的一致性只需要在这一个地方断言。
+ * 任何新增的 fetch 都必须经过这里，否则绕过守卫 —— 这是刻意的。
+ */
+async function remoteFetch(
+  method: 'GET' | 'PUT',
+  path: string,
+  body?: unknown,
+  timeoutMs?: number,
+): Promise<Response> {
+  const env = getDataEnv();
+  const pathIsDev = path.endsWith('-dev');
+
+  // 🔒 硬守卫：环境与端点必须匹配。宁可让开发时的请求直接抛错，
+  //    也不能让一次写入落到另一个环境的数据上。
+  if (env === 'dev' && !pathIsDev) {
+    throw new Error(`[fitlog] 已阻止：开发环境试图访问生产端点 ${method} ${path}`);
+  }
+  if (env === 'prod' && pathIsDev) {
+    throw new Error(`[fitlog] 已阻止：生产环境试图访问开发端点 ${method} ${path}`);
+  }
+
+  return fetch(`${API_BASE_URL.replace(/\/$/, '')}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey()}`,
+      // 服务端据此二次校验；与 key 绑定的端点不符则拒绝写入
+      'X-Fitlog-Env': env,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
+  });
 }
 
 export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null> {
   if (!isRemoteConfigured()) return null;
 
+  const path = resolveStatePath();
   try {
-    const statePath = resolveStatePath();
-    const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${statePath}`, {
-      method: 'GET',
-      headers: headers(),
-    });
+    const response = await remoteFetch('GET', path);
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`GET ${statePath} ${response.status}`);
+    if (!response.ok) throw await toRemoteError(response, 'GET', path);
     const data = (await response.json()) as FitlogRemoteSnapshot;
     if (!data || data.schemaVersion !== 2) return null;
+
+    // 快照自带环境烙印时必须与当前环境一致。
+    // 旧快照没有 env 字段 → 放行（向后兼容），一旦服务端开始回写就自动生效。
+    if (data.env && data.env !== getDataEnv()) {
+      console.error(
+        `[fitlog] 已拒绝应用快照：快照标记为 ${data.env}，当前环境为 ${getDataEnv()}`,
+      );
+      return null;
+    }
     return data;
   } catch (e) {
+    // 配置类错误（key 用错端点 / 环境标记写反）必须冒泡出去让用户看见，
+    // 静默返回 null 会让 App 表现得像"远端没有数据"，掩盖真正的问题。
+    if (e instanceof RemoteError && (e.kind === 'forbidden-endpoint' || e.kind === 'env-mismatch')) {
+      console.error('[fitlog]', e.message);
+      throw e;
+    }
     console.warn('[fitlog] fetch remote snapshot failed:', e);
     return null;
   }
@@ -120,22 +198,15 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
 
 export async function putRemoteSnapshot(snapshot: FitlogRemoteSnapshot): Promise<void> {
   if (!isRemoteConfigured()) return;
-  const statePath = resolveStatePath();
+  const path = resolveStatePath();
   const payload: FitlogRemoteSnapshot = {
     ...snapshot,
+    env: getDataEnv(),
     clientExportedAt: new Date().toISOString(),
   };
   try {
-    const response = await fetch(`${API_BASE_URL.replace(/\/$/, '')}${statePath}`, {
-      method: 'PUT',
-      headers: headers(),
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) {
-      const body = await response.text().catch(() => '');
-      throw new Error(`PUT ${statePath} ${response.status}: ${body.substring(0, 200)}`);
-    }
+    const response = await remoteFetch('PUT', path, payload, 15000);
+    if (!response.ok) throw await toRemoteError(response, 'PUT', path);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn('[fitlog] 远端推送快照失败:', msg);
@@ -272,39 +343,39 @@ function readParsed<T>(raw: string | null, fallback: T): T {
 
 export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
   return {
-    customTags: readParsed(localStorage.getItem('fitlog_custom_tags'), []),
-    customExercises: readParsed(localStorage.getItem('fitlog_custom_exercises'), []),
-    exerciseNotes: readParsed(localStorage.getItem('fitlog_exercise_notes'), {}),
-    starredExercises: readParsed(localStorage.getItem('fitlog_starred_exercises'), {}),
-    exerciseMetricConfigs: readParsed(localStorage.getItem('fitlog_metric_configs'), {}),
-    tagRenameOverrides: readParsed(localStorage.getItem('fitlog_tag_rename_overrides'), {}),
-    exerciseOverrides: readParsed(localStorage.getItem('fitlog_exercise_overrides'), {}),
-    starredLastUpdateMs: Number.parseInt(localStorage.getItem('fitlog_starred_last_update') || '0', 10) || 0,
-    metricsLastUpdateMs: Number.parseInt(localStorage.getItem('fitlog_metrics_last_update') || '0', 10) || 0,
-    prefsLastUpdateMs: Number.parseInt(localStorage.getItem('fitlog_prefs_last_update') || '0', 10) || 0,
-    lang: (localStorage.getItem('fitlog_lang') as FitlogSyncedPrefs['lang']) || undefined,
-    unit: (localStorage.getItem('fitlog_unit') as 'kg' | 'lbs') || undefined,
-    avatarDataUrl: localStorage.getItem('fitlog_avatar_data_url'),
-    assistantSyncEnabled: localStorage.getItem('fitlog_assistant_sync_enabled') !== '0',
+    customTags: readParsed(storage.getItem('fitlog_custom_tags'), []),
+    customExercises: readParsed(storage.getItem('fitlog_custom_exercises'), []),
+    exerciseNotes: readParsed(storage.getItem('fitlog_exercise_notes'), {}),
+    starredExercises: readParsed(storage.getItem('fitlog_starred_exercises'), {}),
+    exerciseMetricConfigs: readParsed(storage.getItem('fitlog_metric_configs'), {}),
+    tagRenameOverrides: readParsed(storage.getItem('fitlog_tag_rename_overrides'), {}),
+    exerciseOverrides: readParsed(storage.getItem('fitlog_exercise_overrides'), {}),
+    starredLastUpdateMs: Number.parseInt(storage.getItem('fitlog_starred_last_update') || '0', 10) || 0,
+    metricsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_metrics_last_update') || '0', 10) || 0,
+    prefsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_prefs_last_update') || '0', 10) || 0,
+    lang: (storage.getItem('fitlog_lang') as FitlogSyncedPrefs['lang']) || undefined,
+    unit: (storage.getItem('fitlog_unit') as 'kg' | 'lbs') || undefined,
+    avatarDataUrl: storage.getItem('fitlog_avatar_data_url'),
+    assistantSyncEnabled: storage.getItem('fitlog_assistant_sync_enabled') !== '0',
   };
 }
 
 export function writePrefsToLocalStorage(p: FitlogSyncedPrefs): void {
-  localStorage.setItem('fitlog_custom_tags', JSON.stringify(p.customTags ?? []));
-  localStorage.setItem('fitlog_custom_exercises', JSON.stringify(p.customExercises ?? []));
-  localStorage.setItem('fitlog_exercise_notes', JSON.stringify(p.exerciseNotes ?? {}));
-  localStorage.setItem('fitlog_starred_exercises', JSON.stringify(p.starredExercises ?? {}));
-  localStorage.removeItem('fitlog_rest_prefs');
-  localStorage.setItem('fitlog_metric_configs', JSON.stringify(p.exerciseMetricConfigs ?? {}));
-  localStorage.setItem('fitlog_tag_rename_overrides', JSON.stringify(p.tagRenameOverrides ?? {}));
-  localStorage.setItem('fitlog_exercise_overrides', JSON.stringify(p.exerciseOverrides ?? {}));
-  localStorage.setItem('fitlog_starred_last_update', String(p.starredLastUpdateMs || 0));
-  localStorage.setItem('fitlog_metrics_last_update', String(p.metricsLastUpdateMs || 0));
-  if (p.lang) localStorage.setItem('fitlog_lang', String(p.lang));
-  if (p.unit) localStorage.setItem('fitlog_unit', p.unit);
-  if (p.avatarDataUrl) localStorage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);
-  else localStorage.removeItem('fitlog_avatar_data_url');
-  localStorage.setItem('fitlog_assistant_sync_enabled', p.assistantSyncEnabled === false ? '0' : '1');
+  storage.setItem('fitlog_custom_tags', JSON.stringify(p.customTags ?? []));
+  storage.setItem('fitlog_custom_exercises', JSON.stringify(p.customExercises ?? []));
+  storage.setItem('fitlog_exercise_notes', JSON.stringify(p.exerciseNotes ?? {}));
+  storage.setItem('fitlog_starred_exercises', JSON.stringify(p.starredExercises ?? {}));
+  storage.removeItem('fitlog_rest_prefs');
+  storage.setItem('fitlog_metric_configs', JSON.stringify(p.exerciseMetricConfigs ?? {}));
+  storage.setItem('fitlog_tag_rename_overrides', JSON.stringify(p.tagRenameOverrides ?? {}));
+  storage.setItem('fitlog_exercise_overrides', JSON.stringify(p.exerciseOverrides ?? {}));
+  storage.setItem('fitlog_starred_last_update', String(p.starredLastUpdateMs || 0));
+  storage.setItem('fitlog_metrics_last_update', String(p.metricsLastUpdateMs || 0));
+  if (p.lang) storage.setItem('fitlog_lang', String(p.lang));
+  if (p.unit) storage.setItem('fitlog_unit', p.unit);
+  if (p.avatarDataUrl) storage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);
+  else storage.removeItem('fitlog_avatar_data_url');
+  storage.setItem('fitlog_assistant_sync_enabled', p.assistantSyncEnabled === false ? '0' : '1');
 }
 
 export async function migrateRecordsToSoloUserId(): Promise<void> {

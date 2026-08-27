@@ -52,6 +52,12 @@ export interface FitlogSyncedPrefs {
  */
 export interface FitlogRemoteSnapshot {
   schemaVersion: 2;
+  /**
+   * 数据环境烙印。写入时由客户端盖章，读取时双向校验：
+   * 客户端拒绝应用 env 不符的快照，服务端拒绝 env 与端点不符的写入。
+   * 旧快照没有这个字段 → 视为兼容放行。
+   */
+  env?: 'dev' | 'prod';
   /** 客户端生成以便做简单合并参考 */
   clientExportedAt?: string;
   workouts: WorkoutSession[];

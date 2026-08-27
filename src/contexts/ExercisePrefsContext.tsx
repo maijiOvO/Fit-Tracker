@@ -24,6 +24,7 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
 import { useUiOverlay } from './UiOverlayContext';
 import { useUserSettingsContext } from './UserSettingsContext';
+import { storage } from '../../services/appStorage';
 
 export interface CustomTag {
   id: string;
@@ -99,7 +100,7 @@ const LS_KEYS = {
 
 function readJSON<T>(key: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = storage.getItem(key);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -108,7 +109,7 @@ function readJSON<T>(key: string, fallback: T): T {
 
 function writeJSON(key: string, value: unknown): void {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    storage.setItem(key, JSON.stringify(value));
   } catch {
     /* localStorage 可能配额满，忽略 */
   }
@@ -240,7 +241,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         const cleanNext = next.map(m => m.trim()).filter(m => m.length > 0);
         const updated = { ...prev, [exerciseName]: cleanNext };
         writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
-        localStorage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
+        storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
         scheduleDebouncedFitlogPush();
         return updated;
       });
@@ -253,7 +254,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       const updated = { ...prev };
       delete updated[exerciseName];
       writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
-      localStorage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
+      storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
       scheduleDebouncedFitlogPush();
       return updated;
     });
@@ -265,7 +266,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       if (next[exerciseName]) delete next[exerciseName];
       else next[exerciseName] = Date.now();
       writeJSON(LS_KEYS.starredExercises, next);
-      localStorage.setItem(LS_KEYS.starredLastUpdate, Date.now().toString());
+      storage.setItem(LS_KEYS.starredLastUpdate, Date.now().toString());
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
       return next;
@@ -504,7 +505,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     setStarredExercises({});
     setExerciseOverrides({});
     setTagRenameOverrides({});
-    Object.values(LS_KEYS).forEach(k => localStorage.removeItem(k));
+    Object.values(LS_KEYS).forEach(k => storage.removeItem(k));
   }, []);
 
   const value: ExercisePrefsContextValue = useMemo(

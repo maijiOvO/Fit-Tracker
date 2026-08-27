@@ -7,6 +7,7 @@ import { ExerciseDefinition, Goal, Language } from '../../types';
 import { translations } from '../../translations';
 import GoalsTab from './GoalsTab';
 import ScheduleView from './ScheduleView';
+import { storage } from '../../services/appStorage';
 
 type PlanSubView = 'schedule' | 'goals';
 
@@ -34,12 +35,12 @@ const PlanTab: React.FC<PlanTabProps> = ({
 }) => {
   const [subView, setSubView] = useState<PlanSubView>(() => {
     if (typeof window === 'undefined') return 'schedule';
-    const v = localStorage.getItem(STORAGE_KEY);
+    const v = storage.getItem(STORAGE_KEY);
     return v === 'goals' ? 'goals' : 'schedule';
   });
 
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, subView); } catch {}
+    try { storage.setItem(STORAGE_KEY, subView); } catch {}
   }, [subView]);
 
   return (

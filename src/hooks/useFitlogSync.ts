@@ -10,6 +10,7 @@ import {
   markPrefsUpdated,
   migrateRecordsToSoloUserId,
   readPrefsFromLocalStorage,
+  RemoteError,
 } from '../../services/fitlogRemote';
 import {
   pullAndMergeFitlogRemote,
@@ -231,8 +232,17 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     } catch (e: any) {
       console.error('Sync Failure:', e?.message || e);
       setSyncStatus('error');
-      // 个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 明确提示，避免误判成"服务器挂了"
-      toast(String(translations.remoteUnreachable[settingsCtx.lang]), 'error');
+      // 403 / 409 是配置问题，不是网络问题。一律提示"检查 Tailscale"
+      // 会把排查方向引到完全错误的地方，所以分开报。
+      const lang = settingsCtx.lang;
+      const message =
+        e instanceof RemoteError && e.kind === 'forbidden-endpoint'
+          ? translations.remoteForbiddenEndpoint[lang]
+          : e instanceof RemoteError && e.kind === 'env-mismatch'
+            ? translations.remoteEnvMismatch[lang]
+            // 个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 明确提示，避免误判成"服务器挂了"
+            : translations.remoteUnreachable[lang];
+      toast(String(message), 'error');
     } finally {
       syncLockRef.current = false;
     }

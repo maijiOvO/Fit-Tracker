@@ -57,6 +57,16 @@ export const translations: TranslationStrings = {
     en: 'Cannot reach the personal server. Please check that Tailscale is connected.',
     cn: '无法连接个人服务器，请检查 Tailscale 是否已连接。',
   },
+  // 服务端把 API key 绑定到端点后新增的两个错误码。它们是配置问题，
+  // 不是网络问题 —— 提示必须和 remoteUnreachable 区分开。
+  remoteForbiddenEndpoint: {
+    en: 'Rejected by the server (403): this API key is not allowed on the current endpoint. Check VITE_API_KEY / VITE_API_KEY_DEV.',
+    cn: '服务器拒绝（403）：当前 API key 无权访问该端点。请检查 .env.local 里的 VITE_API_KEY / VITE_API_KEY_DEV。',
+  },
+  remoteEnvMismatch: {
+    en: 'Rejected by the server (409): data environment does not match the endpoint. The write was refused to protect your data.',
+    cn: '服务器拒绝（409）：数据环境与端点不符，写入已被拒绝以保护数据。',
+  },
   assistantSyncToggle: { en: 'Sync assistant conversations', cn: '同步智能助手对话' },
   assistantSuggestPlan: { en: 'Plan next week (3 push-pull-legs sessions)', cn: '帮我安排下周 3 次推拉腿' },
   assistantSuggestReview: { en: 'How have I trained these two weeks?', cn: '这两周我练得怎么样？' },

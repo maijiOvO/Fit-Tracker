@@ -1,10 +1,11 @@
 import type { FitlogTombstones } from './fitlogSnapshotTypes';
+import { storage } from './appStorage';
 
 const LS_KEY = 'fitlog_tombstones';
 
 export function readTombstones(): FitlogTombstones {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = storage.getItem(LS_KEY);
     return raw ? (JSON.parse(raw) as FitlogTombstones) : {};
   } catch {
     return {};
@@ -12,11 +13,11 @@ export function readTombstones(): FitlogTombstones {
 }
 
 export function writeTombstones(t: FitlogTombstones): void {
-  localStorage.setItem(LS_KEY, JSON.stringify(t));
+  storage.setItem(LS_KEY, JSON.stringify(t));
 }
 
 export function clearTombstones(): void {
-  localStorage.removeItem(LS_KEY);
+  storage.removeItem(LS_KEY);
 }
 
 export function recordTombstone(

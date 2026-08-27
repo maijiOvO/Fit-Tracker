@@ -17,6 +17,25 @@ if not exist "android\app\build.gradle" (
     exit /b 1
 )
 
+REM ============================================================
+REM 数据环境闸门：确认 dist 是 release 构建（VITE_FITLOG_ENV=prod）
+REM ============================================================
+REM `npm run build` 打出来的包默认是 dev 环境，装到手机上会读写 state-dev。
+if not exist "dist\fitlog-build-env.json" (
+    echo [X] 未找到 dist\fitlog-build-env.json
+    echo     请先运行: npm run build:release ^&^& npx cap sync android
+    pause
+    exit /b 1
+)
+findstr /C:"prod" "dist\fitlog-build-env.json" >nul
+if %errorlevel% neq 0 (
+    echo [X] dist 不是 release 构建，不能用于发布
+    echo     请运行: npm run build:release ^&^& npx cap sync android
+    pause
+    exit /b 1
+)
+echo [OK] dist 环境戳: prod
+
 REM 进入android目录
 cd android
 

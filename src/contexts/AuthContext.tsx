@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '../../types';
 import { FITLOG_SOLO_USER, FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
+import { storage } from '../../services/appStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -12,7 +13,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const raw = localStorage.getItem('fitlog_current_user');
+      const raw = storage.getItem('fitlog_current_user');
       if (!raw) return { ...FITLOG_SOLO_USER };
       const parsed = JSON.parse(raw) as User;
       if (!parsed?.id || parsed.id === 'u_guest') return { ...FITLOG_SOLO_USER };
@@ -26,7 +27,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     const u =
       user && user.id !== 'u_guest' ? user : ({ ...FITLOG_SOLO_USER, avatarUrl: user?.avatarUrl } as User);
-    localStorage.setItem('fitlog_current_user', JSON.stringify(u));
+    storage.setItem('fitlog_current_user', JSON.stringify(u));
   }, [user]);
 
   const value: AuthContextType = { user, setUser };

@@ -1,19 +1,18 @@
 /**
  * OpenAI 兼容的 chat completions 客户端，挂在 fitlog server 上
  * 路径：POST /api/chat（默认，可用 VITE_ASSISTANT_PATH 覆盖）
- * 认证：Bearer VITE_API_KEY
+ * 认证：Bearer <当前环境的 key>
+ *   /api/chat 服务端对 prod / dev 两把 key 都放行，
+ *   但这里仍按环境选用 —— 否则开发机只配了 dev key 时助手会不可用。
  * 支持流式（SSE）与非流式两种调用方式
  */
-import { API_BASE_URL } from '../fitlogRemote';
+import { API_BASE_URL, apiKey } from '../fitlogRemote';
 import { ALL_TOOL_SPECS, ToolSpec } from './assistantTools';
-
-// 复用 fitlogRemote 的地址解析（VITE_API_URL 覆盖，否则用 DEFAULT_API_BASE_URL）
-const API_KEY = import.meta.env.VITE_API_KEY || '';
 const ASSISTANT_PATH = import.meta.env.VITE_ASSISTANT_PATH || '/api/chat';
 const DEFAULT_MODEL = import.meta.env.VITE_ASSISTANT_MODEL || 'deepseek-chat';
 
 export function isAssistantConfigured(): boolean {
-  return Boolean(API_BASE_URL && API_KEY.trim());
+  return Boolean(API_BASE_URL && apiKey().trim());
 }
 
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
@@ -80,7 +79,7 @@ export interface StreamHandlers {
 function headers(): HeadersInit {
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${API_KEY}`,
+    Authorization: `Bearer ${apiKey()}`,
   };
 }
 

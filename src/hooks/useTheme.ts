@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { storage } from '../../services/appStorage';
 
 export type ThemePreference = 'auto' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
@@ -12,7 +13,7 @@ function getSystemDark(): boolean {
 
 function readPreference(): ThemePreference {
   if (typeof window === 'undefined') return 'auto';
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = storage.getItem(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark' || stored === 'auto') return stored;
   return 'auto';
 }
@@ -62,7 +63,7 @@ export function useTheme() {
   }, []);
 
   const setPreference = useCallback((pref: ThemePreference) => {
-    localStorage.setItem(STORAGE_KEY, pref);
+    storage.setItem(STORAGE_KEY, pref);
     setPreferenceState(pref);
   }, []);
 

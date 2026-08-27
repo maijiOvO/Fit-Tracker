@@ -7,6 +7,7 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { useAuthContext } from '../contexts/AuthContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
+import { storage } from '../../services/appStorage';
 
 export interface UseAvatarUploadResult {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -36,10 +37,10 @@ export function useAvatarUpload(): UseAvatarUploadResult {
           r.onerror = () => reject(new Error('read failed'));
           r.readAsDataURL(file);
         });
-        localStorage.setItem('fitlog_avatar_data_url', dataUrl);
+        storage.setItem('fitlog_avatar_data_url', dataUrl);
         const updatedUser = { ...user, avatarUrl: dataUrl };
         authCtx.setUser(updatedUser);
-        localStorage.setItem('fitlog_current_user', JSON.stringify(updatedUser));
+        storage.setItem('fitlog_current_user', JSON.stringify(updatedUser));
         scheduleDebouncedFitlogPush();
       } catch (error: any) {
         console.error('Upload error:', error);

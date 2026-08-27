@@ -1,45 +1,32 @@
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+/**
+ * 打印云端快照明细（只读）。
+ *
+ * 默认打 **开发端点**（state-dev）。要看真实用户数据请显式加 --prod。
+ */
+import { resolveTarget } from './fitlogEnvArgs.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '..', '.env.local');
-const raw = readFileSync(envPath, 'utf-8');
-/** 读 .env 变量：dotenv 允许值被引号包裹，这里要和 Vite 行为一致地剥掉。 */
-function stripQuotes(v) {
-  const t = v.trim();
-  if (t.length >= 2 && ((t[0] === "'" && t.at(-1) === "'") ||
-                        (t[0] === '"' && t.at(-1) === '"'))) {
-    return t.slice(1, -1);
-  }
-  return t;
-}
+const target = resolveTarget();
+const banner =
+  target.env === 'prod'
+    ? '🔴 环境: prod (state) —— 真实用户数据'
+    : '🧪 环境: dev (state-dev) —— 默认；加 --prod 才会读生产数据';
+console.log(banner);
+console.log('');
 
-// 与 services/fitlogRemote.ts 的 DEFAULT_API_BASE_URL 保持一致（Tailscale 主机名，勿用 IP）
-const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
-
-const url = stripQuotes(raw.match(/VITE_API_URL\s*=\s*(.+)/)?.[1] || '') || DEFAULT_API_BASE_URL;
-const key = stripQuotes(raw.match(/VITE_API_KEY\s*=\s*(.+)/)?.[1] || '');
-const envPathOverride = stripQuotes(raw.match(/VITE_FITLOG_STATE_PATH\s*=\s*(.+)/)?.[1] || '');
-
-const base = url.replace(/\/$/, '');
-
-const devModeArg = process.argv.includes('--dev') || process.argv.includes('-d');
-let statePath = '/api/fitlog/state';
-if (envPathOverride) {
-  statePath = envPathOverride;
-} else if (devModeArg) {
-  statePath = '/api/fitlog/state-dev';
-}
-
-console.log(`🔬 模式: ${statePath.includes('dev') ? '开发 (state-dev)' : '用户 (state)'}\n`);
-
-const resp = await fetch(`${base}${statePath}`, {
-  headers: { Authorization: `Bearer ${key}` },
+const resp = await fetch(target.url, {
+  headers: {
+    Authorization: `Bearer ${target.key}`,
+    'X-Fitlog-Env': target.env,
+  },
 });
+if (!resp.ok) {
+  console.error(`❌ HTTP ${resp.status} —— ${resp.status === 403 ? '这把 key 无权访问该端点（端点绑定生效）' : await resp.text().catch(() => '')}`);
+  process.exit(1);
+}
 const data = await resp.json();
 
 console.log('========== 云端数据详情 ==========');
+console.log(`环境标记: ${data.env ?? '(旧快照，无标记)'}`);
 console.log(`快照时间: ${data.clientExportedAt}`);
 
 // 训练记录

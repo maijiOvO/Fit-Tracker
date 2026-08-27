@@ -12,6 +12,7 @@ import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { storage } from '../../services/appStorage';
 
 // 懒加载 MetricChart（包含 recharts）
 const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
@@ -91,12 +92,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   const { preference, setPreference } = useTheme();
   const [assistantSyncEnabled, setAssistantSyncEnabled] = React.useState(
-    () => localStorage.getItem('fitlog_assistant_sync_enabled') !== '0',
+    () => storage.getItem('fitlog_assistant_sync_enabled') !== '0',
   );
   const toggleAssistantSync = () => {
     const next = !assistantSyncEnabled;
     setAssistantSyncEnabled(next);
-    localStorage.setItem('fitlog_assistant_sync_enabled', next ? '1' : '0');
+    storage.setItem('fitlog_assistant_sync_enabled', next ? '1' : '0');
     markPrefsUpdated();
     scheduleDebouncedFitlogPush();
   };
@@ -473,7 +474,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <ChevronRight size={18} className="text-tertiary" />
         </button>
 
-        {/* 开发模式隔离开关（仅开发机可见） */}
+        {/* 数据环境切换（仅未锁定的构建可见：手机 APK / release 包永远不渲染） */}
         {onToggleDevMode && (
           <button
             onClick={onToggleDevMode}
@@ -487,12 +488,16 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               </div>
               <div className="text-left">
                 <span className="font-bold text-primary text-sm">
-                  {lang === Language.CN ? '开发模式隔离' : 'Dev Mode Isolation'}
+                  {lang === Language.CN ? '数据环境' : 'Data Environment'}
                 </span>
                 <p className="text-[10px] text-tertiary mt-0.5">
                   {devMode
-                    ? (lang === Language.CN ? 'state-dev · 实验数据隔离' : 'state-dev · Isolated')
-                    : (lang === Language.CN ? 'state · 用户数据' : 'state · User')}
+                    ? (lang === Language.CN
+                        ? 'state-dev · FitLogDB-dev · 与真实数据完全隔离'
+                        : 'state-dev · FitLogDB-dev · fully isolated')
+                    : (lang === Language.CN
+                        ? 'state · FitLogDB · 真实用户数据'
+                        : 'state · FitLogDB · real user data')}
                 </p>
               </div>
             </div>

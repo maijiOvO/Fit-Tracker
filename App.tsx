@@ -33,8 +33,8 @@ import 'react-calendar-heatmap/dist/styles.css';
 import { ExerciseDefinition, Goal, Language } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
-import { isDevMode, isRemoteConfigured, setDevMode, readPrefsFromLocalStorage } from './services/fitlogRemote';
-import { reloadLocalFromRemote } from './services/fitlogRemoteSync';
+import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
+import { switchDataEnv } from './services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
 import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
@@ -97,6 +97,7 @@ import { useMeasurementLog } from './src/hooks/useMeasurementLog';
 import { useAvatarUpload } from './src/hooks/useAvatarUpload';
 import { useExportData } from './src/hooks/useExportData';
 import { useResetAccount } from './src/hooks/useResetAccount';
+import { storage } from './services/appStorage';
 
 // 懒加载 Tab 组件
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -320,42 +321,51 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const { fileInputRef, handleAvatarUpload } = useAvatarUpload();
   const handleExportData = useExportData(setSyncStatus);
 
-  // ============== 开发模式切换（运行时，无需重启）==============
+  // ============== 数据环境切换（dev ⇄ prod，运行时，无需重启）==============
+  // 本地存储已按环境分区（IndexedDB 分库 + localStorage 前缀），
+  // 切换只是换一个命名空间；switchDataEnv 内部保证失败时回滚。
   const [devMode, setDevModeState] = useState(() => isDevMode());
+  const envLocked = isEnvLocked();
+
   const handleToggleDevMode = useCallback(async () => {
+    if (envLocked) return;
     const next = !devMode;
-    setDevModeState(next);
-    setDevMode(next);
     setSyncStatus('syncing');
     try {
-      await reloadLocalFromRemote();
+      await switchDataEnv(next ? 'dev' : 'prod');
+      setDevModeState(next);
+
       const refreshedPrefs = readPrefsFromLocalStorage();
       prefs.applyPrefsFromSnapshot(refreshedPrefs);
       if (refreshedPrefs.lang) settingsCtx.setLang(refreshedPrefs.lang as Language);
       if (refreshedPrefs.unit) settingsCtx.setUnit(refreshedPrefs.unit);
-      if (typeof refreshedPrefs.avatarDataUrl === 'string' && refreshedPrefs.avatarDataUrl) {
-        authCtx.setUser(
-          authCtx.user
-            ? { ...authCtx.user, avatarUrl: refreshedPrefs.avatarDataUrl }
-            : authCtx.user,
-        );
-      }
+      authCtx.setUser(
+        authCtx.user
+          ? { ...authCtx.user, avatarUrl: refreshedPrefs.avatarDataUrl ?? undefined }
+          : authCtx.user,
+      );
       await loadLocalData(resolvedUserId);
       toast(
         isCn
-          ? (next ? '已切换到开发模式（state-dev）' : '已切换到用户模式（state）')
-          : (next ? 'Switched to dev mode (state-dev)' : 'Switched to user mode (state)'),
+          ? (next ? '已切换到开发环境（state-dev）' : '已切换到用户环境（state）')
+          : (next ? 'Switched to dev env (state-dev)' : 'Switched to user env (state)'),
         'info',
       );
     } catch (e) {
+      // switchDataEnv 已回滚到原环境，UI 状态保持不变即可
+      console.error('[fitlog] 切换数据环境失败:', e);
+      setDevModeState(isDevMode());
+      await loadLocalData(resolvedUserId);
       toast(
-        isCn ? '切换模式时数据加载失败，请手动同步' : 'Failed to load data on mode switch, please sync manually',
+        isCn
+          ? '切换失败，已回到原环境'
+          : 'Switch failed, rolled back to the previous environment',
         'error',
       );
     } finally {
       setSyncStatus('idle');
     }
-  }, [devMode, isCn, toast, loadLocalData, resolvedUserId]);
+  }, [devMode, envLocked, isCn, toast, loadLocalData, resolvedUserId, prefs, settingsCtx, authCtx, setSyncStatus]);
 
   const {
     showResetAccountModal,
@@ -425,17 +435,30 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   // ============== 监听远端推送失败：通知用户 ==============
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail || '';
+      const detail = (e as CustomEvent).detail;
+      const message = typeof detail === 'string' ? detail : (detail?.message ?? '');
+      const kind = typeof detail === 'string' ? 'unreachable' : detail?.kind;
+
+      // 403 / 409 是配置问题（key 用错端点 / 环境标记写反），不是网络抖动，
+      // 提示要直接指向该改的地方，而不是笼统的"同步失败"。
+      if (kind === 'forbidden-endpoint') {
+        toast(String(translations.remoteForbiddenEndpoint[lang]), 'error');
+        return;
+      }
+      if (kind === 'env-mismatch') {
+        toast(String(translations.remoteEnvMismatch[lang]), 'error');
+        return;
+      }
       toast(
         isCn
-          ? `云端同步失败：${detail}。数据仅保存在本地。`
-          : `Sync failed: ${detail}. Data saved locally only.`,
+          ? `云端同步失败：${message}。数据仅保存在本地。`
+          : `Sync failed: ${message}. Data saved locally only.`,
         'error',
       );
     };
     window.addEventListener('fitlog:push-failed', handler);
     return () => window.removeEventListener('fitlog:push-failed', handler);
-  }, [isCn, toast]);
+  }, [isCn, lang, toast]);
 
   const dashboardActions = useMemo(
     () => ({
@@ -489,13 +512,13 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       }
     }
     setLang(nextLang);
-    localStorage.setItem('fitlog_lang', nextLang);
+    storage.setItem('fitlog_lang', nextLang);
   }, [lang, prefs.customExercises, prefs.exerciseOverrides, selectedPRProject, setLang]);
 
   const handleUnitToggle = useCallback(() => {
     const newUnit = unit === 'kg' ? 'lbs' : 'kg';
     setUnit(newUnit);
-    localStorage.setItem('fitlog_unit', newUnit);
+    storage.setItem('fitlog_unit', newUnit);
   }, [setUnit, unit]);
 
   // ============== 目标的增 / 改 ==============
@@ -811,7 +834,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               }
               return tag;
             });
-            localStorage.setItem('fitlog_custom_tags', JSON.stringify(next));
+            storage.setItem('fitlog_custom_tags', JSON.stringify(next));
             return next;
           });
 
@@ -1063,7 +1086,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               onAddMeasurementEntry={name => openAddMeasurementEntry(name)}
               setShowResetAccountModal={setShowResetAccountModal}
               devMode={devMode}
-              onToggleDevMode={handleToggleDevMode}
+              onToggleDevMode={envLocked ? undefined : handleToggleDevMode}
             />
           </Suspense>
         )}

@@ -1,6 +1,8 @@
 import { WorkoutSession, PRRecord, ExerciseDefinition, Goal, WeightEntry } from '../types';
+import { dbName } from './appEnv';
 
-const DB_NAME = 'FitLogDB';
+// 库名按数据环境派生：prod = FitLogDB，dev = FitLogDB-dev（见 services/appEnv.ts）。
+// 两个库物理独立，开发模式产生的记录不可能出现在真实库里。
 const DB_VERSION = 7; // bump: 强制创建 assistantConversations store
 
 const REQUIRED_STORES = [
@@ -16,6 +18,8 @@ const REQUIRED_STORES = [
 
 export class FitLogDB {
   private db: IDBDatabase | null = null;
+  /** 当前连接对应的库名；与 dbName() 不一致时说明环境切换了，需要重开 */
+  private openedAs: string | null = null;
 
   private applySchema(db: IDBDatabase): void {
     for (const name of REQUIRED_STORES) {
@@ -29,15 +33,17 @@ export class FitLogDB {
   private async forceUpgrade(): Promise<void> {
     if (!this.db) return;
     const nextVersion = this.db.version + 1;
+    const name = this.openedAs ?? dbName();
     this.db.close();
     this.db = null;
     await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, nextVersion);
+      const req = indexedDB.open(name, nextVersion);
       req.onupgradeneeded = (ev) => {
         this.applySchema((ev.target as IDBOpenDBRequest).result);
       };
       req.onsuccess = (ev) => {
         this.db = (ev.target as IDBOpenDBRequest).result;
+        this.openedAs = name;
         resolve();
       };
       req.onerror = () => reject(req.error);
@@ -45,20 +51,34 @@ export class FitLogDB {
   }
 
   async init(): Promise<void> {
+    const name = dbName();
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = indexedDB.open(name, DB_VERSION);
       request.onupgradeneeded = (event) => {
         this.applySchema((event.target as IDBOpenDBRequest).result);
       };
       request.onsuccess = (event) => {
         this.db = (event.target as IDBOpenDBRequest).result;
+        this.openedAs = name;
         resolve();
       };
       request.onerror = () => reject(request.error);
     });
   }
 
+  /** 数据环境切换后调用：关掉旧库连接，改开新环境对应的库 */
+  async reopen(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.openedAs = null;
+    }
+    await this.init();
+  }
+
   private async getStore(name: string, mode: IDBTransactionMode): Promise<IDBObjectStore> {
+    // 环境切换后若有代码路径漏掉 reopen()，这里兜底，绝不让读写落到另一个环境的库
+    if (this.db && this.openedAs !== dbName()) await this.reopen();
     if (!this.db) await this.init();
     if (!this.db!.objectStoreNames.contains(name)) {
       // 旧版本数据库缺少这个 store —— 自我修复

@@ -110,9 +110,21 @@ const main = async () => {
   // the PUT payload includes our newly-created scheduledWorkout without
   // depending on the actual server being reachable.
   const remoteState = { snapshot: null, lastPutBody: null, getCount: 0, putCount: 0 };
+  /** 逃逸到真实后端的请求（应当恒为空） */
+  const escapedRemoteCalls = [];
   // 后端地址由 E2E_API_BASE / .env.local 的 VITE_API_URL 决定，默认同 DEFAULT_API_BASE_URL。
   // 这里只拦截请求，不真正连服务器，所以跑 e2e 不需要连 Tailscale。
   const apiHostPattern = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/api/fitlog/state.*`);
+  // 兜底：任何**没被下面显式 mock 掉**的、指向真实后端的请求一律 abort 并记为失败。
+  // 少了这条，将来新增一个未 mock 的端点，e2e 就会安静地打到家里的 NAS 上。
+  // ⚠️ Playwright 按注册顺序的**倒序**匹配路由，所以兜底必须最先注册。
+  const escapedApiHost = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/.*`);
+  await context.route(escapedApiHost, async (route) => {
+    const url = route.request().url();
+    escapedRemoteCalls.push(`${route.request().method()} ${url}`);
+    return route.abort();
+  });
+
   // Mock assistant chat (OpenAI-compatible SSE)
   let assistantChatCalls = 0;
   let assistantCreatedScheduleId = null;
@@ -214,6 +226,15 @@ const main = async () => {
       localStorage.clear();
       indexedDB.databases?.().then(dbs => dbs.forEach(d => d.name && indexedDB.deleteDatabase(d.name)));
     } catch {}
+
+    /**
+     * localStorage 现在按数据环境分区（services/appStorage.ts）。
+     * 断言必须走同一套命名空间，否则 dev 环境下读到的永远是 null。
+     */
+    window.lsKey = (key) => {
+      const env = window.__fitlog?.env?.().env;
+      return env === 'dev' ? `dev:${key}` : key;
+    };
   });
 
   await step(page, 'cold-load', async () => {
@@ -249,7 +270,7 @@ const main = async () => {
       const diag = await page.evaluate(() => ({
         mq: window.matchMedia('(prefers-color-scheme: dark)').matches,
         cls: document.documentElement.className,
-        pref: localStorage.getItem('theme-pref'),
+        pref: localStorage.getItem(lsKey('theme-pref')),
       }));
       throw new Error(`.dark not added (diag=${JSON.stringify(diag)})`);
     }
@@ -264,7 +285,7 @@ const main = async () => {
       const diag = await page.evaluate(() => ({
         mq: window.matchMedia('(prefers-color-scheme: dark)').matches,
         cls: document.documentElement.className,
-        pref: localStorage.getItem('theme-pref'),
+        pref: localStorage.getItem(lsKey('theme-pref')),
       }));
       throw new Error(`.dark still present (diag=${JSON.stringify(diag)})`);
     }
@@ -296,7 +317,7 @@ const main = async () => {
   await step(page, 'theme-back-to-auto', async () => {
     await page.getByRole('button', { name: /跟随系统|System/ }).click();
     await page.waitForTimeout(150);
-    const pref = await page.evaluate(() => localStorage.getItem('theme-pref'));
+    const pref = await page.evaluate(() => localStorage.getItem(lsKey('theme-pref')));
     if (pref !== 'auto') throw new Error('theme-pref not persisted as auto');
     return 'auto persisted';
   });
@@ -637,6 +658,15 @@ const main = async () => {
 
   await step(page, 'final-screenshot', async () => 'done');
 
+  // 数据隔离断言：e2e 全程不得有任何请求真的打到后端
+  await step(page, 'no-real-backend-calls', async () => {
+    if (escapedRemoteCalls.length) {
+      throw new Error(`有 ${escapedRemoteCalls.length} 个请求逃逸到真实后端: ${escapedRemoteCalls.slice(0, 5).join(', ')}`);
+    }
+    return 'all backend traffic mocked';
+  });
+
+  report.escapedRemoteCalls = escapedRemoteCalls;
   report.finishedAt = new Date().toISOString();
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 

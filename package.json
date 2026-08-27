@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:release": "vite build --mode release",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "e2e": "node scripts/e2e-smoke.mjs",
-    "validate": "npm run typecheck && npm run build"
+    "validate": "npm run typecheck && npm run build",
+    "check-remote": "node scripts/check-remote.mjs",
+    "remote-detail": "node scripts/remote-detail.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
