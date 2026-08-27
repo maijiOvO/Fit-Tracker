@@ -72,7 +72,7 @@ async function acceptAppConfirm(page) {
   await dlg.waitFor({ state: 'visible', timeout: 5_000 });
   await dlg
     .locator('button')
-    .filter({ hasText: /^(确定|OK|保存|Save|Delete|删除)$/ })
+    .filter({ hasText: /^(确定|OK|保存|Save|Delete|删除|结束训练|End Workout)$/ })
     .last()
     .click();
   await dlg.waitFor({ state: 'detached', timeout: 5_000 });
@@ -455,8 +455,9 @@ const main = async () => {
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
-    // Click "Save Workout" — unit confirm (UiOverlay), then plan-confirm modal
-    await page.getByRole('button', { name: /^保存$|^Save$/ }).first().click();
+    // 结束训练（6c612c4 起由「保存」改名）— 先确认框（UiOverlay），再 plan-confirm modal。
+    // 按钮文案是动态的（结束训练/结束中/已结束/失败），所以不能用 ^...$ 精确匹配。
+    await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
     await acceptAppConfirm(page);
     // Plan confirm modal should appear
     await page.locator('[data-testid="plan-confirm-modified"]').waitFor({ state: 'visible', timeout: 5_000 });
