@@ -35,6 +35,8 @@ export interface NewWorkoutTabProps {
   resolveName: (name: string) => string;
   onBack: () => void;
   onSave: () => void;
+  /** kg ⇄ lbs 显示切换（训练页隐藏了全局 AppHeader，入口在本页头部） */
+  onToggleUnit: () => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
   onToggleNote: (name: string) => void;
   /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记 */
@@ -76,6 +78,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   resolveName,
   onBack,
   onSave,
+  onToggleUnit,
   onOpenTimePicker,
   onToggleNote,
   onOpenMetricModal,
@@ -157,10 +160,17 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   )}
                 </button>
               )}
-              <span className="ml-auto normal-case tracking-normal text-tertiary flex items-center gap-1">
+              <button
+                type="button"
+                onClick={onToggleUnit}
+                className="ml-auto normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-lg bg-inset text-tertiary active:scale-95 hover:text-secondary transition-all"
+                title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
+                aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
+                data-testid="unit-toggle"
+              >
                 <Scale size={10} />
                 {unit}
-              </span>
+              </button>
               {hasUnsavedChanges && (
                 <span className="inline-flex items-center gap-1 text-orange-400 normal-case">
                   <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />

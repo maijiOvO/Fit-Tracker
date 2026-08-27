@@ -1002,6 +1002,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             getActiveMetrics={prefs.getActiveMetrics}
             onBack={handleNewWorkoutBack}
             onSave={handleFinishWithConfirmation}
+            onToggleUnit={handleUnitToggle}
             pickerOpen={pickerSheetOpen}
             onPickerOpenChange={handlePickerSheetOpenChange}
             addedCounts={sheetAddedCounts}
@@ -1185,6 +1186,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             setCurrentWorkout(workoutCtx.createNewWorkout());
             setEditingWorkoutId(null);
             setActiveTab('new');
+            // 点加号的意图就是马上记动作：进页后直接弹出添加动作弹层
+            // （稍等一拍让训练页先挂载，弹层保有上滑动画）
+            window.setTimeout(() => handlePickerSheetOpenChange(true), 120);
           }}
         />
       )}

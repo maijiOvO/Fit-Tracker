@@ -480,10 +480,13 @@ const main = async () => {
   });
 
   await step(page, 'browse-library', async () => {
-    // 训练页底栏「添加动作」→ 底部弹层：点部位 chip 后应出现动作行
-    await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400); // 弹层滑入动画
+    // FAB 进入训练页时弹层已自动打开；若（其他入口）未开则手动点「添加动作」
     const sheet = page.locator('[data-testid="picker-sheet"]');
+    const alreadyOpen = await sheet
+      .evaluate(el => el.className.includes('translate-y-0'))
+      .catch(() => false);
+    if (!alreadyOpen) await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400); // 弹层滑入动画
     await sheet.getByRole('button', { name: /^(胸部|Chest)$/ }).first().click();
     await page.locator('[data-testid="picker-sheet-exercise"]').first().waitFor({
       state: 'visible',

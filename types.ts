@@ -175,19 +175,6 @@ export interface Goal {
   deadline?: string; // 兼容旧版本
 }
 
-// 目标推荐接口
-export interface GoalRecommendation {
-  type: GoalType;
-  category: string;
-  title: string;
-  description: string;
-  currentValue: number;
-  recommendedTarget: number;
-  unit: string;
-  reasoning: string;
-  confidence: number; // 0-1, 推荐置信度
-}
-
 // 工作集合的训练「来源」：来自训练计划时记录是否照计划完成
 export interface WorkoutFromSchedule {
   scheduleId: string;
