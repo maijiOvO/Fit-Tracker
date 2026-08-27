@@ -197,3 +197,51 @@ button {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ── 添加动作弹层 / 训练卡反馈动画 ── */
+@keyframes add-flash {
+  0% {
+    background-color: var(--accent-soft);
+    border-color: var(--accent);
+    transform: scale(0.985);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.anim-add-flash {
+  animation: add-flash 0.55s ease;
+}
+
+@keyframes ring-flash {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  }
+  60% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+.anim-ring {
+  animation: ring-flash 1.6s ease;
+  border-radius: var(--radius-card);
+}
+
+@keyframes chip-pop {
+  40% {
+    transform: scale(1.18);
+  }
+}
+.anim-chip-pop {
+  animation: chip-pop 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-add-flash,
+  .anim-ring,
+  .anim-chip-pop {
+    animation: none;
+  }
+}

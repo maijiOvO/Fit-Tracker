@@ -183,6 +183,20 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     },
     [],
   );
+  /** 从训练页弹层进入动作库管理（非选择模式） */
+  const openLibraryForManage = useCallback(() => {
+    libraryPickCallbackRef.current = null;
+    setActiveLibraryCategory(null);
+    setSelectedTags([]);
+    setSearchQuery('');
+    setShowLibrary(true);
+  }, []);
+
+  // ============== 训练页「添加动作」弹层 ==============
+  const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
+  const [sheetSessionAdded, setSheetSessionAdded] = useState(0);
+  const [flashExerciseId, setFlashExerciseId] = useState<string | null>(null);
+  const lastAddedExerciseIdRef = useRef<string | null>(null);
 
   // ============== Library Modal —— 增加自定义动作 / 自定义标签 ==============
   const [showAddTagModal, setShowAddTagModal] = useState(false);
@@ -249,8 +263,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
   // ============== 业务 hooks ==============
-  const exercisePickerRef = useRef<HTMLDivElement | null>(null);
-
   const { syncStatus, setSyncStatus, performFullSync, loadLocalData } =
     useFitlogSync(resolvedUserId);
 
@@ -366,14 +378,13 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   });
   const { recentExerciseNames, heatmapData } = useExerciseStats();
 
-  // ============== 自动滚动到 ExercisePicker（用于"补加动作"） ==============
+  // ============== 「补加动作」：进入训练页后直接弹出添加动作弹层 ==============
   useEffect(() => {
     if (activeTab === 'new' && pendingScrollToPicker) {
       const timer = setTimeout(() => {
-        exercisePickerRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        });
+        setSheetSessionAdded(0);
+        lastAddedExerciseIdRef.current = null;
+        setPickerSheetOpen(true);
         setPendingScrollToPicker(false);
       }, 120);
       return () => clearTimeout(timer);
@@ -612,6 +623,39 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     [addExerciseToWorkout],
   );
 
+  // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
+  const handlePickFromSheet = useCallback(
+    (ex: ExerciseDefinition) => {
+      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false);
+      setSheetSessionAdded(n => n + 1);
+    },
+    [addExerciseToWorkout],
+  );
+
+  const handlePickerSheetOpenChange = useCallback((open: boolean) => {
+    if (open) {
+      setSheetSessionAdded(0);
+      lastAddedExerciseIdRef.current = null;
+    } else if (lastAddedExerciseIdRef.current) {
+      // 关闭后滚动定位到最新添加的动作卡
+      setFlashExerciseId(lastAddedExerciseIdRef.current);
+      lastAddedExerciseIdRef.current = null;
+    }
+    setPickerSheetOpen(open);
+  }, []);
+
+  const handleFlashDone = useCallback(() => setFlashExerciseId(null), []);
+
+  /** 小写显示名 -> 当前训练中出现次数（弹层「已添加 ×N」徽标） */
+  const sheetAddedCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ex of currentWorkout.exercises ?? []) {
+      const key = prefs.resolveName(ex.name).toLowerCase();
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [currentWorkout.exercises, prefs.resolveName]);
+
   const openCreateCustomExerciseModal = useCallback(
     (prefilledName?: string) => {
       setNewExerciseName(prefilledName?.trim() || '');
@@ -786,7 +830,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           prefs.addCustomExercise(ex);
 
           if (!libraryPickCallbackRef.current) {
-            addExerciseToWorkout(ex, false);
+            const newId = addExerciseToWorkout(ex, false);
+            if (pickerSheetOpen) {
+              lastAddedExerciseIdRef.current = newId;
+              setSheetSessionAdded(n => n + 1);
+            }
           } else {
             libraryPickCallbackRef.current(ex);
             libraryPickCallbackRef.current = null;
@@ -876,14 +924,16 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onSave={handleSaveEditedGoal}
       />
 
-      <AppHeader
-        lang={lang}
-        unit={unit}
-        syncStatus={syncStatus}
-        syncDisabled={syncStatus === 'syncing' || !user || !isRemoteConfigured()}
-        onSync={() => user && performFullSync()}
-        onToggleUnit={handleUnitToggle}
-      />
+      {activeTab !== 'new' && (
+        <AppHeader
+          lang={lang}
+          unit={unit}
+          syncStatus={syncStatus}
+          syncDisabled={syncStatus === 'syncing' || !user || !isRemoteConfigured()}
+          onSync={() => user && performFullSync()}
+          onToggleUnit={handleUnitToggle}
+        />
+      )}
 
       <main
         className={`max-w-2xl mx-auto p-4 md:p-8 ${activeTab === 'new' ? 'pb-10' : ''}`}
@@ -916,47 +966,21 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             saveStatus={saveStatus}
             previousTab={previousTab}
             exerciseNotes={prefs.exerciseNotes}
-            exercisePickerRef={exercisePickerRef}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            activeLibraryCategory={activeLibraryCategory}
-            setActiveLibraryCategory={setActiveLibraryCategory}
-            selectedTags={selectedTags}
-            setSelectedTags={setSelectedTags}
-            filteredExercises={filteredExercises}
-            customTags={prefs.customTags}
-            starredExercises={prefs.starredExercises}
-            recentExerciseNames={recentExerciseNames}
-            isEditingTags={isEditingTags}
-            setIsEditingTags={setIsEditingTags}
-            getTagName={prefs.getTagName}
             resolveName={prefs.resolveName}
             getActiveMetrics={prefs.getActiveMetrics}
             isBodyweightMode={isBodyweightMode}
             isPyramidEnabled={isPyramidEnabled}
             onBack={handleNewWorkoutBack}
             onSave={handleFinishWithConfirmation}
-            onPickExercise={handlePickFromExercisePicker}
+            pickerOpen={pickerSheetOpen}
+            onPickerOpenChange={handlePickerSheetOpenChange}
+            addedCounts={sheetAddedCounts}
+            sessionAdded={sheetSessionAdded}
+            onPickExercise={handlePickFromSheet}
             onCreateCustomExercise={openCreateCustomExerciseModal}
-            onCreateCustomTag={category => {
-              setNewTagCategory(category);
-              setNewTagName('');
-              setShowAddTagModal(true);
-            }}
-            onEditExerciseTags={ex => setEditExerciseTagsTarget(ex)}
-            onRenameTag={(id, name) => {
-              setTagToRename({ id, name });
-              setNewTagNameInput(name);
-              setShowRenameModal(true);
-            }}
-            onDeleteTag={prefs.deleteTag}
-            onRenameExercise={(id, name) => {
-              setExerciseToRename({ id, name });
-              setNewExerciseNameInput(name);
-              setShowRenameExerciseModal(true);
-            }}
-            onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
-            onToggleStar={prefs.toggleStarExercise}
+            onOpenManage={openLibraryForManage}
+            flashExerciseId={flashExerciseId}
+            onFlashDone={handleFlashDone}
             onOpenTimePicker={openTimePicker}
             onToggleNote={name =>
               setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })

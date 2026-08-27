@@ -14,6 +14,7 @@ import {
   ExerciseCategory,
 } from '../constants/exercises';
 import { Language } from '../../types';
+import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 
 export interface FilteredExercisesParams {
   searchQuery: string;
@@ -29,7 +30,7 @@ export function useFilteredExercises({
   selectedTags,
   activeLibraryCategory,
 }: FilteredExercisesParams) {
-  const { customExercises, exerciseOverrides, customTags } = useExercisePrefs();
+  const { customExercises, exerciseOverrides, customTags, getTagName } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
   return useMemo(() => {
@@ -44,46 +45,71 @@ export function useFilteredExercises({
           : (ex.category || 'STRENGTH') === activeLibraryCategory,
       );
 
-    return all.filter(ex => {
-      const q = searchQuery.toLowerCase();
-      if (!ex.name || !ex.name[lang]) {
-        console.warn('Exercise missing name:', ex);
-        return false;
-      }
-      const matchSearch = !searchQuery || ex.name[lang].toLowerCase().includes(q);
+    // 搜索：分词 + 中英双名 + 拼音全拼/首字母 + 中文子序列 + 标签名（见 utils/exerciseSearch）
+    const tokens = tokenize(searchQuery);
 
-      const selParts = selectedTags.filter(
-        t =>
-          BODY_PARTS.some(bp => bp.toLowerCase() === t.toLowerCase()) ||
-          customTags.some(ct => ct.id === t && ct.category === 'bodyPart'),
-      );
-      const selEquips = selectedTags.filter(
-        t =>
-          EQUIPMENT_TAGS.some(et => et.toLowerCase() === t.toLowerCase()) ||
-          customTags.some(ct => ct.id === t && ct.category === 'equipment'),
-      );
+    const scored = all
+      .map(ex => {
+        if (!ex.name || !ex.name[lang]) {
+          console.warn('Exercise missing name:', ex);
+          return null;
+        }
+        let score = 1;
+        if (tokens.length > 0) {
+          const tagNames: string[] = [];
+          if (ex.bodyPart) {
+            const n = getTagName(ex.bodyPart);
+            if (n) tagNames.push(n);
+          }
+          for (const t of ex.tags ?? []) {
+            const n = getTagName(t);
+            if (n) tagNames.push(n);
+          }
+          score = scoreEntry(
+            buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames),
+            tokens,
+          );
+          if (score === 0) return null;
+        }
 
-      const matchPart =
-        selParts.length === 0 ||
-        selParts.some(sp => {
-          const bodyPart = ex.bodyPart || '';
-          return sp.toLowerCase() === bodyPart.toLowerCase();
-        });
+        const selParts = selectedTags.filter(
+          t =>
+            BODY_PARTS.some(bp => bp.toLowerCase() === t.toLowerCase()) ||
+            customTags.some(ct => ct.id === t && ct.category === 'bodyPart'),
+        );
+        const selEquips = selectedTags.filter(
+          t =>
+            EQUIPMENT_TAGS.some(et => et.toLowerCase() === t.toLowerCase()) ||
+            customTags.some(ct => ct.id === t && ct.category === 'equipment'),
+        );
 
-      const matchEquip =
-        selEquips.length === 0 ||
-        (ex.tags &&
-          Array.isArray(ex.tags) &&
-          ex.tags.some(t =>
-            selEquips.some(se => se.toLowerCase() === (t || '').toLowerCase()),
-          ));
+        const matchPart =
+          selParts.length === 0 ||
+          selParts.some(sp => {
+            const bodyPart = ex.bodyPart || '';
+            return sp.toLowerCase() === bodyPart.toLowerCase();
+          });
 
-      return matchSearch && matchPart && matchEquip;
-    });
+        const matchEquip =
+          selEquips.length === 0 ||
+          (ex.tags &&
+            Array.isArray(ex.tags) &&
+            ex.tags.some(t =>
+              selEquips.some(se => se.toLowerCase() === (t || '').toLowerCase()),
+            ));
+
+        return matchPart && matchEquip ? { ex, score } : null;
+      })
+      .filter((r): r is { ex: (typeof all)[number]; score: number } => r !== null);
+
+    // 有搜索词时按匹配质量排序；否则保持库内顺序
+    if (tokens.length > 0) scored.sort((a, b) => b.score - a.score);
+    return scored.map(r => r.ex);
   }, [
     customExercises,
     exerciseOverrides,
     customTags,
+    getTagName,
     activeLibraryCategory,
     searchQuery,
     selectedTags,

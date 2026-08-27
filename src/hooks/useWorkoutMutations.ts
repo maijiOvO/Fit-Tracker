@@ -72,7 +72,7 @@ export interface UseWorkoutMutationsResult {
   addExerciseToWorkout: (
     ex: { id: string; name: { en: string; cn: string }; category?: ExerciseCategory; exerciseConfig?: any },
     closeLibrary?: boolean,
-  ) => void;
+  ) => string;
 }
 
 export function useWorkoutMutations({
@@ -380,6 +380,8 @@ export function useWorkoutMutations({
           ? lastExercise.sets[lastExercise.sets.length - 1]
           : null;
 
+      const newExerciseId = `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       setCurrentWorkout((p: WorkoutSession) => {
         // 首次添加动作：如果没有 id，说明是全新的训练，先分配 id
         const needsId = !p.id;
@@ -389,9 +391,11 @@ export function useWorkoutMutations({
           : p;
         return {
           ...base,
+          // 追加到末尾（训练内按添加顺序排列；配合弹层关闭后的定位高亮）
           exercises: [
+            ...(base.exercises || []),
             {
-              id: `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              id: newExerciseId,
               name: exerciseName,
               category: ex.category || 'STRENGTH',
               sets: [
@@ -411,13 +415,13 @@ export function useWorkoutMutations({
                     autoCalculateSubSets: false,
                   },
             } as Exercise,
-            ...(base.exercises || []),
           ],
         };
       });
 
       // 添加动作后立即触发 persist
       onPersist?.();
+      return newExerciseId;
     },
     [currentWorkout.date, editingWorkoutId, lang, onPersist, resolveName, setCurrentWorkout, workouts],
   );

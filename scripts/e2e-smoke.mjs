@@ -589,20 +589,30 @@ const main = async () => {
   });
 
   await step(page, 'browse-library', async () => {
-    // NewWorkoutTab 内嵌 ExercisePicker：点分类 chip 后应出现动作卡片
-    await page.getByRole('button', { name: /力量训练|Strength/ }).first().click();
-    await page.locator('[data-testid="library-exercise-card"]').first().waitFor({
+    // 训练页底栏「添加动作」→ 底部弹层：点部位 chip 后应出现动作行
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400); // 弹层滑入动画
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.getByRole('button', { name: /^(胸部|Chest)$/ }).first().click();
+    await page.locator('[data-testid="picker-sheet-exercise"]').first().waitFor({
       state: 'visible',
       timeout: 5_000,
     });
-    return 'embedded exercise picker visible';
+    const count = await page.locator('[data-testid="picker-sheet-exercise"]').count();
+    if (count === 0) throw new Error('picker sheet showed 0 exercises under 胸部');
+    return `picker sheet visible, ${count} exercises under 胸部`;
   });
 
   await step(page, 'close-library', async () => {
-    // 内嵌选择器无需关闭全屏 library；切回「全部」分类即可
-    await page.getByRole('button', { name: /全部|All/ }).first().click();
-    await page.waitForTimeout(200);
-    return 'picker category reset';
+    // 清空筛选（不给后续步骤留状态）并关闭弹层
+    const clearBtn = page
+      .locator('[data-testid="picker-sheet"]')
+      .getByRole('button', { name: /清空筛选|Clear/ })
+      .first();
+    if (await clearBtn.isVisible().catch(() => false)) await clearBtn.click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    return 'picker sheet closed';
   });
 
   await step(page, 'back-to-tab-from-empty-workout', async () => {

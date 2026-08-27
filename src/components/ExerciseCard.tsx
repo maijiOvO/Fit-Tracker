@@ -4,7 +4,6 @@ import { Exercise, BodyweightMode, Language } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
 import { SetCapsule } from './SetCapsule';
-import { useUiOverlay } from '../contexts/UiOverlayContext';
 
 /**
  * 指标列对应的单位标签（按 metric 类型 + 当前单位制 + 语言返回）。
@@ -73,7 +72,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onAddSet,
   onRemoveSet,
 }) => {
-  const { confirm } = useUiOverlay();
+
   const exerciseName = resolveName(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
   const hasNote = !!exerciseNotes[exerciseName];
@@ -274,17 +273,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           <Plus size={16} strokeWidth={1.75} /> {lang === Language.CN ? '添加组' : 'Add Set'}
         </button>
         <button
-          onClick={async () => {
-            const ok = await confirm({
-              message:
-                lang === Language.CN
-                  ? `确定要从这次训练中删除「${exerciseName}」吗？`
-                  : `Remove "${exerciseName}" from this workout?`,
-              danger: true,
-              confirmLabel: lang === Language.CN ? '删除' : 'Delete',
-            });
-            if (ok) onDeleteExercise(exIdx);
-          }}
+          onClick={() => onDeleteExercise(exIdx)}
           className="min-h-[44px] px-4 rounded-control text-danger bg-danger/10 hover:bg-danger/20 font-bold flex items-center justify-center gap-2 transition-colors active:scale-95"
           title={lang === Language.CN ? '删除此动作' : 'Delete this exercise'}
         >

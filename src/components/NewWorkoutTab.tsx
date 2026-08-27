@@ -1,10 +1,14 @@
 /**
  * 新建 / 编辑训练页（从 App.tsx 抽出，减轻主文件体积）
+ *
+ * 添加动作走底部常驻栏唤起的 ExercisePickerSheet（弹层），页面本体只保留动作卡列表。
+ * 本页隐藏全局 AppHeader，自己的 sticky 头部是唯一顶栏（含状态栏留白）。
  */
-import React, { RefObject } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ArrowLeft,
   Flag,
+  Plus,
   X,
   Scale,
 } from 'lucide-react';
@@ -16,8 +20,7 @@ import {
 } from '../../types';
 import { translations } from '../../translations';
 import { ExerciseCard } from './ExerciseCard';
-import { ExercisePicker } from './ExercisePicker';
-import { ExerciseCategory } from '../constants/exercises';
+import { ExercisePickerSheet } from './ExercisePickerSheet';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -29,46 +32,33 @@ export interface NewWorkoutTabProps {
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
   previousTab: string;
   exerciseNotes: Record<string, string>;
-  exercisePickerRef: RefObject<HTMLDivElement | null>;
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  activeLibraryCategory: ExerciseCategory | null;
-  setActiveLibraryCategory: (c: ExerciseCategory | null) => void;
-  selectedTags: string[];
-  setSelectedTags: (tags: string[]) => void;
-  filteredExercises: ExerciseDefinition[];
-  customTags: {
-    id: string;
-    name: string;
-    category: 'bodyPart' | 'equipment';
-    parentCategory?: ExerciseCategory;
-  }[];
-  starredExercises: Record<string, number>;
-  recentExerciseNames: string[];
-  isEditingTags: boolean;
-  setIsEditingTags: React.Dispatch<React.SetStateAction<boolean>>;
-  getTagName: (tid: string) => string;
-  resolveName: (name: string) => string;
   getActiveMetrics: (name: string) => string[];
+  resolveName: (name: string) => string;
   isBodyweightMode: (ex: Exercise) => boolean;
   isPyramidEnabled: (ex: Exercise) => boolean;
   onBack: () => void;
   onSave: () => void;
-  onPickExercise: (ex: ExerciseDefinition) => void;
-  onCreateCustomExercise: (prefilled?: string) => void;
-  onCreateCustomTag: (category: 'bodyPart' | 'equipment') => void;
-  onEditExerciseTags: (ex: ExerciseDefinition) => void;
-  onRenameTag: (id: string, name: string) => void;
-  onDeleteTag: (id: string) => void;
-  onRenameExercise: (id: string, name: string) => void;
-  onDeleteLibraryExercise: (id: string) => void;
-  onToggleStar: (name: string) => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
   onToggleNote: (name: string) => void;
   onOpenMetricModal: (name: string) => void;
   onDeleteExerciseFromSession: (exIdx: number) => void;
   /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
   onChangeDate?: () => void;
+
+  // ===== 添加动作弹层 =====
+  pickerOpen: boolean;
+  onPickerOpenChange: (open: boolean) => void;
+  /** 小写显示名 -> 当前训练中出现次数（弹层「已添加」徽标） */
+  addedCounts: Record<string, number>;
+  /** 本次弹层会话累计添加数 */
+  sessionAdded: number;
+  onPickExercise: (ex: ExerciseDefinition) => void;
+  onCreateCustomExercise: (prefilled?: string) => void;
+  /** 打开动作库管理（全屏 LibraryModal） */
+  onOpenManage: () => void;
+  /** 弹层关闭后需要滚动定位并高亮的动作卡 id */
+  flashExerciseId: string | null;
+  onFlashDone: () => void;
 }
 
 export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
@@ -80,46 +70,59 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   hasUnsavedChanges,
   saveStatus,
   exerciseNotes,
-  exercisePickerRef,
-  searchQuery,
-  setSearchQuery,
-  activeLibraryCategory,
-  setActiveLibraryCategory,
-  selectedTags,
-  setSelectedTags,
-  filteredExercises,
-  customTags,
-  starredExercises,
-  recentExerciseNames,
-  isEditingTags,
-  setIsEditingTags,
-  getTagName,
-  resolveName,
   getActiveMetrics,
+  resolveName,
   isBodyweightMode,
   isPyramidEnabled,
   onBack,
   onSave,
-  onPickExercise,
-  onCreateCustomExercise,
-  onCreateCustomTag,
-  onEditExerciseTags,
-  onRenameTag,
-  onDeleteTag,
-  onRenameExercise,
-  onDeleteLibraryExercise,
-  onToggleStar,
   onOpenTimePicker,
   onToggleNote,
   onOpenMetricModal,
   onDeleteExerciseFromSession,
   onChangeDate,
+  pickerOpen,
+  onPickerOpenChange,
+  addedCounts,
+  sessionAdded,
+  onPickExercise,
+  onCreateCustomExercise,
+  onOpenManage,
+  flashExerciseId,
+  onFlashDone,
 }) => {
   const isCn = lang === Language.CN;
+  const flashTimerRef = useRef<number | null>(null);
+
+  const exerciseCount = currentWorkout.exercises?.length ?? 0;
+  const setCount = (currentWorkout.exercises ?? []).reduce(
+    (s, ex) => s + (ex.sets?.length || 0),
+    0,
+  );
+
+  // 弹层关闭后：滚到最新添加的动作卡并高亮
+  useEffect(() => {
+    if (!flashExerciseId) return;
+    const el = document.querySelector<HTMLElement>(`[data-ex-card="${flashExerciseId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('anim-ring');
+      flashTimerRef.current = window.setTimeout(() => {
+        el.classList.remove('anim-ring');
+        onFlashDone();
+      }, 1700);
+    } else {
+      onFlashDone();
+    }
+    return () => {
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    };
+  }, [flashExerciseId, onFlashDone]);
 
   return (
     <div className="animate-in slide-in-from-bottom-5">
-      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 py-3 bg-base/95 backdrop-blur-md z-30 border-b border-divider mb-4">
+      {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}
+      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base/95 backdrop-blur-md z-30 border-b border-divider mb-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -174,10 +177,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
           <button
             type="button"
-            onClick={() => {
-              console.log('[DEBUG] NewWorkoutTab 按钮 onClick 触发, saveStatus=', saveStatus, 'exercises.length=', currentWorkout.exercises?.length);
-              onSave();
-            }}
+            onClick={onSave}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length)}
             className={`min-h-[44px] px-4 rounded-2xl font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-all active:scale-95 ${
               saveStatus === 'saving'
@@ -216,110 +216,97 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         </div>
       </div>
 
-      <div className="space-y-6">
+      {/* 动作卡列表；底部为常驻添加栏预留空间 */}
+      <div className="space-y-6 pb-32">
         {currentWorkout.exercises?.map((ex, exIdx) => (
-          <ExerciseCard
-            key={ex.id}
-            exercise={ex}
-            exIdx={exIdx}
-            lang={lang}
-            unit={unit}
-            isBodyweight={isBodyweightMode(ex)}
-            isPyramid={isPyramidEnabled(ex)}
-            exerciseNotes={exerciseNotes}
-            getActiveMetrics={getActiveMetrics}
-            resolveName={resolveName}
-            onUpdateExercise={(idx, updates) => {
-              const exs = [...currentWorkout.exercises!];
-              exs[idx] = { ...exs[idx], ...updates };
-              setCurrentWorkout({ ...currentWorkout, exercises: exs });
-            }}
-            onDeleteExercise={onDeleteExerciseFromSession}
-            onOpenTimePicker={onOpenTimePicker}
-            onToggleNote={onToggleNote}
-            onOpenMetricModal={onOpenMetricModal}
-            onSetUpdate={(eIdx, setIdx, updates) => {
-              const exs = [...currentWorkout.exercises!];
-              exs[eIdx].sets[setIdx] = { ...exs[eIdx].sets[setIdx], ...updates };
-              setCurrentWorkout({ ...currentWorkout, exercises: exs });
-            }}
-            onAddSet={idx => {
-              const exs = [...currentWorkout.exercises!];
-              const currentSets = exs[idx].sets;
-              const lastSet =
-                currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
-              const newSet = lastSet
-                ? { ...lastSet, id: Date.now().toString() }
-                : { id: Date.now().toString(), weight: 0, reps: 0 };
-              exs[idx].sets.push(newSet);
-              setCurrentWorkout({ ...currentWorkout, exercises: exs });
-            }}
-            onRemoveSet={(eIdx, setIdx) => {
-              const exs = [...currentWorkout.exercises!];
-              exs[eIdx].sets = exs[eIdx].sets.filter((_, i) => i !== setIdx);
-              setCurrentWorkout({ ...currentWorkout, exercises: exs });
-            }}
-          />
-        ))}
-
-        <div className="space-y-6 mt-6 pb-10">
-          <div className="flex items-center gap-3 px-2">
-            <div className="h-[1px] flex-1 bg-card" />
-            <h3 className="text-[10px] font-semibold text-secondary uppercase tracking-[0.2em]">
-              {isCn ? '添加动作' : 'Add Exercises'}
-            </h3>
-            <div className="h-[1px] flex-1 bg-card" />
-          </div>
-
-          <div
-            ref={exercisePickerRef}
-            className="bg-card border border-divider p-4 rounded-card scroll-mt-24"
-          >
-            <ExercisePicker
-              variant="embedded"
+          <div key={ex.id} data-ex-card={ex.id} className="rounded-card">
+            <ExerciseCard
+              exercise={ex}
+              exIdx={exIdx}
               lang={lang}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              activeCategory={activeLibraryCategory}
-              onCategoryChange={cat => {
-                setActiveLibraryCategory(cat);
-                setSelectedTags([]);
-              }}
-              selectedTags={selectedTags}
-              onSelectedTagsChange={setSelectedTags}
-              filteredExercises={filteredExercises}
-              customTags={customTags}
-              starredExercises={starredExercises}
-              recentExerciseNames={recentExerciseNames}
-              getTagName={getTagName}
+              unit={unit}
+              isBodyweight={isBodyweightMode(ex)}
+              isPyramid={isPyramidEnabled(ex)}
+              exerciseNotes={exerciseNotes}
+              getActiveMetrics={getActiveMetrics}
               resolveName={resolveName}
-              isEditingTags={isEditingTags}
-              onToggleEditingTags={() => setIsEditingTags(v => !v)}
-              onPickExercise={onPickExercise}
-              onCreateCustomExercise={onCreateCustomExercise}
-              onCreateCustomTag={onCreateCustomTag}
-              onEditExerciseTags={onEditExerciseTags}
-              onRenameTag={onRenameTag}
-              onDeleteTag={onDeleteTag}
-              onRenameExercise={onRenameExercise}
-              onDeleteExercise={onDeleteLibraryExercise}
-              onToggleStar={onToggleStar}
+              onUpdateExercise={(idx, updates) => {
+                const exs = [...currentWorkout.exercises!];
+                exs[idx] = { ...exs[idx], ...updates };
+                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+              }}
+              onDeleteExercise={onDeleteExerciseFromSession}
+              onOpenTimePicker={onOpenTimePicker}
+              onToggleNote={onToggleNote}
+              onOpenMetricModal={onOpenMetricModal}
+              onSetUpdate={(eIdx, setIdx, updates) => {
+                const exs = [...currentWorkout.exercises!];
+                exs[eIdx].sets[setIdx] = { ...exs[eIdx].sets[setIdx], ...updates };
+                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+              }}
+              onAddSet={idx => {
+                const exs = [...currentWorkout.exercises!];
+                const currentSets = exs[idx].sets;
+                const lastSet =
+                  currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
+                const newSet = lastSet
+                  ? { ...lastSet, id: Date.now().toString() }
+                  : { id: Date.now().toString(), weight: 0, reps: 0 };
+                exs[idx].sets.push(newSet);
+                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+              }}
+              onRemoveSet={(eIdx, setIdx) => {
+                const exs = [...currentWorkout.exercises!];
+                exs[eIdx].sets = exs[eIdx].sets.filter((_, i) => i !== setIdx);
+                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+              }}
             />
           </div>
+        ))}
 
-          {(currentWorkout.exercises?.length ?? 0) > 0 && (
-            <div className="text-center text-xs text-tertiary pt-2">
-              {currentWorkout.exercises!.length}{' '}
-              {isCn ? '个动作' : 'exercises'} ·{' '}
-              {currentWorkout.exercises!.reduce(
-                (s, ex) => s + (ex.sets?.length || 0),
-                0,
-              )}{' '}
-              {isCn ? '组' : 'sets'}
-            </div>
-          )}
+        {exerciseCount === 0 && (
+          <div className="bg-inset border border-dashed border-divider rounded-card p-10 text-center space-y-2">
+            <p className="text-sm text-secondary font-semibold">
+              {isCn ? '还没有动作' : 'No exercises yet'}
+            </p>
+            <p className="text-xs text-tertiary">
+              {isCn ? '点击下方「添加动作」开始记录' : 'Tap "Add Exercise" below to start'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* 底部常驻添加栏 */}
+      <div
+        className="fixed bottom-0 inset-x-0 z-40 bg-base/95 backdrop-blur-xl border-t border-divider"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
+          <span className="text-xs font-semibold text-secondary whitespace-nowrap tabular-nums">
+            {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount} {isCn ? '组' : 'sets'}
+          </span>
+          <button
+            type="button"
+            onClick={() => onPickerOpenChange(true)}
+            className="flex-1 min-h-[52px] rounded-2xl bg-accent text-white text-[15px] font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-600/30 active:scale-[0.97] transition-transform"
+            data-testid="open-picker-sheet"
+          >
+            <Plus size={19} strokeWidth={2.5} />
+            {isCn ? '添加动作' : 'Add Exercise'}
+          </button>
         </div>
       </div>
+
+      {/* 添加动作弹层（常驻挂载，open 控制显隐 → 筛选记忆） */}
+      <ExercisePickerSheet
+        open={pickerOpen}
+        onClose={() => onPickerOpenChange(false)}
+        addedCounts={addedCounts}
+        sessionAdded={sessionAdded}
+        onPickExercise={onPickExercise}
+        onCreateCustomExercise={onCreateCustomExercise}
+        onOpenManage={onOpenManage}
+      />
     </div>
   );
 };
