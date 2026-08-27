@@ -14,7 +14,6 @@
  *   - src/hooks/useFilteredExercises          动作库过滤 + 热力图
  *   - src/components/modals/*                 全部 Modal UI（14 个）
  *   - src/components/AppHeader                顶部导航
- *   - src/components/AssistantTabContainer    助手 Tab 容器
  *
  * 本文件只保留：Provider 装配、Tab 路由、跨 Tab 共享的 UI 胶水。
  */
@@ -52,7 +51,6 @@ import { NewWorkoutTab } from './src/components/NewWorkoutTab';
 import { DateTimePicker } from './src/components/DateTimePicker';
 import { EditExerciseTagsModal } from './src/components/EditExerciseTagsModal';
 import { AppHeader } from './src/components/AppHeader';
-import { AssistantTabContainer } from './src/components/AssistantTabContainer';
 import {
   AddCustomExerciseModal,
   AddGoalModal,
@@ -71,7 +69,6 @@ import {
 } from './src/components/modals';
 
 import {
-  AssistantProvider,
   AuthProvider,
   ExercisePrefsProvider,
   GoalsProvider,
@@ -1059,12 +1056,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           </Suspense>
         )}
 
-        {activeTab === 'assistant' && (
-          <Suspense fallback={<TabSuspenseFallback />}>
-            <AssistantTabContainer lang={lang} />
-          </Suspense>
-        )}
-
         {activeTab === 'profile' && (
           <Suspense fallback={<TabSuspenseFallback />}>
             <ProfileTab
@@ -1214,9 +1205,7 @@ const AppWithProviders: React.FC = () => (
         <WorkoutProvider userId={FITLOG_SOLO_USER_ID}>
           <GoalsProvider userId={FITLOG_SOLO_USER_ID}>
             <ScheduleProvider userId={FITLOG_SOLO_USER_ID}>
-              <AssistantProvider userId={FITLOG_SOLO_USER_ID}>
-                <AppWithAuth />
-              </AssistantProvider>
+              <AppWithAuth />
             </ScheduleProvider>
           </GoalsProvider>
         </WorkoutProvider>

@@ -2,7 +2,7 @@ import React, { useRef, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone, Sparkles,
+  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone,
   Beaker,
 } from 'lucide-react';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
@@ -91,16 +91,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     : ['', 'Mon', '', 'Wed', '', 'Fri', ''];
 
   const { preference, setPreference } = useTheme();
-  const [assistantSyncEnabled, setAssistantSyncEnabled] = React.useState(
-    () => storage.getItem('fitlog_assistant_sync_enabled') !== '0',
-  );
-  const toggleAssistantSync = () => {
-    const next = !assistantSyncEnabled;
-    setAssistantSyncEnabled(next);
-    storage.setItem('fitlog_assistant_sync_enabled', next ? '1' : '0');
-    markPrefsUpdated();
-    scheduleDebouncedFitlogPush();
-  };
   const themeOptions: { id: ThemePreference; icon: React.ReactNode; label: string }[] = [
     { id: 'auto', icon: <Smartphone size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '跟随系统' : 'System' },
     { id: 'light', icon: <Sun size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '浅色' : 'Light' },
@@ -397,32 +387,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             ))}
           </div>
         </div>
-
-        {/* Assistant conversation sync */}
-        <button
-          type="button"
-          onClick={toggleAssistantSync}
-          data-testid="assistant-sync-toggle"
-          className="w-full p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors"
-        >
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="p-3 bg-accent/10 text-accent rounded-xl shrink-0">
-              <Sparkles size={20} strokeWidth={1.75} />
-            </div>
-            <span className="font-bold text-primary text-left text-sm">
-              {translations.assistantSyncToggle[lang]}
-            </span>
-          </div>
-          <span
-            className={`text-xs font-semibold px-3 py-1 rounded-lg shrink-0 ${
-              assistantSyncEnabled ? 'bg-success/15 text-success' : 'bg-card text-secondary'
-            }`}
-          >
-            {assistantSyncEnabled
-              ? (lang === Language.CN ? '开' : 'On')
-              : (lang === Language.CN ? '关' : 'Off')}
-          </span>
-        </button>
 
         {/* Language Toggle */}
         <button 

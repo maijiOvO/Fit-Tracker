@@ -1,5 +1,4 @@
 import type {
-  AssistantConversation,
   ExerciseDefinition,
   Goal,
   Language,
@@ -19,7 +18,6 @@ export interface FitlogTombstones {
   prs?: string[];
   customExerciseDefs?: string[];
   scheduledWorkouts?: string[];
-  assistantConversations?: string[];
 }
 
 /**
@@ -44,7 +42,6 @@ export interface FitlogSyncedPrefs {
   unit?: 'kg' | 'lbs';
   avatarDataUrl?: string | null;
   /** 是否将智能助手对话同步到远端；默认 true（未设置视为开启） */
-  assistantSyncEnabled?: boolean;
 }
 
 /**
@@ -70,7 +67,6 @@ export interface FitlogRemoteSnapshot {
   /** 训练计划（日程） */
   scheduledWorkouts?: ScheduledWorkout[];
   /** 智能助手对话历史 */
-  assistantConversations?: AssistantConversation[];
   prefs: FitlogSyncedPrefs;
   tombstones?: FitlogTombstones;
 }

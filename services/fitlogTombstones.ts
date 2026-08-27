@@ -57,7 +57,6 @@ export function mergeTombstoneSets(
     'prs',
     'customExerciseDefs',
     'scheduledWorkouts',
-    'assistantConversations',
   ];
   const out: FitlogTombstones = {};
   for (const k of keys) {

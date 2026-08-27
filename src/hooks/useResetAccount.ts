@@ -28,7 +28,7 @@ export interface UseResetAccountResult {
 }
 
 export interface UseResetAccountParams {
-  setActiveTab: (tab: 'dashboard' | 'new' | 'plan' | 'assistant' | 'profile') => void;
+  setActiveTab: (tab: 'dashboard' | 'new' | 'plan' | 'profile') => void;
   setEditingWorkoutId: (id: string | null) => void;
 }
 

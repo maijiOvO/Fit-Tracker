@@ -14,8 +14,6 @@ interface ImportMetaEnv {
   readonly VITE_FITLOG_ENV?: 'dev' | 'prod';
   /** 浏览器未做过显式选择时的默认环境；只有显式 'false' 才默认 prod */
   readonly VITE_FITLOG_DEV_MODE?: string;
-  readonly VITE_ASSISTANT_PATH?: string;
-  readonly VITE_ASSISTANT_MODEL?: string;
 }
 
 interface ImportMeta {

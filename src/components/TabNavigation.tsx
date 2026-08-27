@@ -2,11 +2,11 @@
  * 底部导航栏 — 贴底通栏 + 左侧凸起 FAB
  */
 import React from 'react';
-import { BarChart2, CalendarDays, Sparkles, User as UserIcon, Plus } from 'lucide-react';
+import { BarChart2, CalendarDays, User as UserIcon, Plus } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
 
-type TabType = 'dashboard' | 'new' | 'plan' | 'assistant' | 'profile';
+type TabType = 'dashboard' | 'new' | 'plan' | 'profile';
 
 interface TabNavigationProps {
   activeTab: TabType;
@@ -51,15 +51,6 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         >
           <CalendarDays size={20} strokeWidth={1.75} />
           <span className="text-[10px] font-medium">{translations.trainingPlan[lang]}</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange('assistant')}
-          className={tabBtn(activeTab === 'assistant')}
-          data-testid="tab-assistant"
-        >
-          <Sparkles size={20} strokeWidth={1.75} />
-          <span className="text-[10px] font-medium">{translations.assistantTab[lang]}</span>
         </button>
 
         <button onClick={() => onTabChange('profile')} className={tabBtn(activeTab === 'profile')}>

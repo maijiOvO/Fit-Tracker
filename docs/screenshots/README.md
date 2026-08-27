@@ -9,7 +9,6 @@ Drop application screenshots in this folder. The main `README.md` already refere
 | `01-pr-hub.png` | The **PR Hub** (Dashboard) with a few real personal records visible. The strongest single image for the README — show that this is data-rich and well-organised. | 390 × 844 (iPhone 14 Pro) **or** 1280 × 800 desktop |
 | `02-workout.png` | An **active workout session** — the exercise card with set logging, rest timer, sub-sets / pyramid. Showcase the day-to-day usage. | Same as above |
 | `03-schedule.png` | The **Schedule view** with a few planned and completed sessions (week or month view). | Same as above |
-| `04-assistant.png` | The **AI Assistant** mid-conversation, ideally with a tool-call card showing it reading data or proposing a schedule entry. | Same as above |
 
 ## Optional extras
 

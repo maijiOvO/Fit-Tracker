@@ -188,62 +188,6 @@ export interface GoalRecommendation {
   confidence: number; // 0-1, 推荐置信度
 }
 
-// === 智能助手 ===
-export type AssistantToolName =
-  // 只读
-  | 'list_schedules'
-  | 'list_workouts'
-  | 'list_prs'
-  | 'read_body_metrics'
-  | 'read_goals'
-  | 'search_exercise_lib'
-  | 'read_user_settings'
-  // 写：仅限日程
-  | 'create_schedule'
-  | 'update_schedule'
-  | 'delete_schedule';
-
-export type AssistantToolCallStatus =
-  | 'pending'        // 等待执行
-  | 'awaiting_user'  // 写操作等待用户确认
-  | 'executed'       // 已成功执行
-  | 'rejected'       // 用户拒绝
-  | 'failed';        // 执行报错
-
-export interface AssistantToolCall {
-  id: string;
-  name: AssistantToolName;
-  arguments: Record<string, unknown>;
-  status: AssistantToolCallStatus;
-  result?: unknown;          // 执行结果摘要（落盘前可裁剪）
-  error?: string;
-}
-
-export type AssistantMessageRole = 'user' | 'assistant' | 'tool' | 'system';
-
-export interface ChatMessage {
-  id: string;
-  role: AssistantMessageRole;
-  /** 纯文本 / Markdown；tool 消息这里放 JSON.stringify(result) */
-  content: string;
-  /** assistant 消息附带的工具调用 */
-  toolCalls?: AssistantToolCall[];
-  /** tool 角色消息：对应的 toolCallId */
-  toolCallId?: string;
-  createdAt: string;
-}
-
-export interface AssistantConversation {
-  id: string;
-  userId: string;
-  title: string;
-  messages: ChatMessage[];
-  /** 助手用的模型（如有） */
-  modelHint?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // 工作集合的训练「来源」：来自训练计划时记录是否照计划完成
 export interface WorkoutFromSchedule {
   scheduleId: string;

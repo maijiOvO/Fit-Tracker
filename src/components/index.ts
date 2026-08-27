@@ -14,4 +14,3 @@ export { Modal } from './Modal';
 export { TrendChart } from './charts/TrendChart';
 export { HeatmapChart } from './charts/HeatmapChart';
 export { AppHeader } from './AppHeader';
-export { AssistantTabContainer } from './AssistantTabContainer';

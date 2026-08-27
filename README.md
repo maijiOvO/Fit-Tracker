@@ -1,7 +1,7 @@
 # FitLog AI
 
 > A fitness logbook designed for people who actually train.
-> Workouts, PRs, body metrics, schedule and an AI training assistant — all yours, all local-first.
+> Workouts, PRs, body metrics and schedule — all yours, all local-first.
 
 🌐 **Live demo:** [fit.myronhub.com](https://fit.myronhub.com)
 📱 **Android:** Capacitor build — APK available from [Releases](../../releases)
@@ -16,9 +16,9 @@
 |:---:|:---:|
 | ![PR Hub](docs/screenshots/01-pr-hub.png) | ![Workout](docs/screenshots/02-workout.png) |
 
-| Schedule | AI Assistant |
+| Schedule |  |
 |:---:|:---:|
-| ![Schedule](docs/screenshots/03-schedule.png) | ![Assistant](docs/screenshots/04-assistant.png) |
+| ![Schedule](docs/screenshots/03-schedule.png) |  |
 
 ---
 
@@ -29,7 +29,6 @@
 - **Body data** — bodyweight log, measurements, calendar heatmap over time.
 - **Goals** — set training goals; an auto-updater watches your sessions and updates progress.
 - **Schedule** — week / month view, plan future sessions, mark as done / skipped.
-- **AI Assistant** — read-only access to your workouts, PRs, body data and goals; can write schedule entries with your approval.
 - **Bilingual** — English / 中文 throughout (`translations.ts`).
 - **Local-first** — IndexedDB + `fitlog_*` localStorage keys. Works fully offline.
 - **Optional sync** — push/pull a single JSON snapshot to any HTTP server you control.
@@ -51,7 +50,7 @@
 
 ```
 App.tsx                    # entry — lazy-loaded tabs, context providers
-src/components/            # UI: Dashboard, PlanTab, AssistantTab, charts, …
+src/components/            # UI: Dashboard, PlanTab, charts, …
 src/contexts/              # AuthProvider, GoalsProvider, ScheduleProvider, …
 src/hooks/                 # useTheme, etc.
 services/
@@ -66,7 +65,7 @@ services/
 └─ goalRecommendationEngine.ts
 ```
 
-Charts are lazy-loaded behind `LazyCharts.tsx` so the first-paint bundle stays small. AI tool calls (read training data / write schedule) live behind explicit user approval gates in `AssistantTab.tsx`.
+Charts are lazy-loaded behind `LazyCharts.tsx` so the first-paint bundle stays small.
 
 ## Run locally
 

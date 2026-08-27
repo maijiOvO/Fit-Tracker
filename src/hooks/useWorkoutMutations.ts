@@ -15,7 +15,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { ExerciseCategory } from '../constants/exercises';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'assistant' | 'profile';
+export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
 
 export interface UseWorkoutMutationsParams {
   setActiveTab: (tab: ActiveTab) => void;

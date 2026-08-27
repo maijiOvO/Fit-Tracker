@@ -9,7 +9,6 @@ import {
   writeTombstones,
 } from './fitlogTombstones';
 import type {
-  AssistantConversation,
   Goal,
   WeightEntry,
   WorkoutSession,
@@ -239,10 +238,6 @@ function scheduleUpdatedMs(s: ScheduledWorkout): number {
   return new Date(s.updatedAt || s.createdAt || s.date).getTime();
 }
 
-function assistantConvUpdatedMs(c: AssistantConversation): number {
-  return new Date(c.updatedAt || c.createdAt || 0).getTime();
-}
-
 export function mergeByIdPreferNewer<T extends { id: string }>(
   local: T[],
   remote: T[],
@@ -326,9 +321,6 @@ export function mergeFitlogPrefs(
     avatarDataUrl: localWins
       ? (localLs.avatarDataUrl ?? remote.avatarDataUrl)
       : (remote.avatarDataUrl ?? localLs.avatarDataUrl),
-    assistantSyncEnabled: localWins
-      ? localLs.assistantSyncEnabled !== false
-      : remote.assistantSyncEnabled !== false,
   };
 }
 
@@ -356,7 +348,6 @@ export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
     lang: (storage.getItem('fitlog_lang') as FitlogSyncedPrefs['lang']) || undefined,
     unit: (storage.getItem('fitlog_unit') as 'kg' | 'lbs') || undefined,
     avatarDataUrl: storage.getItem('fitlog_avatar_data_url'),
-    assistantSyncEnabled: storage.getItem('fitlog_assistant_sync_enabled') !== '0',
   };
 }
 
@@ -375,7 +366,6 @@ export function writePrefsToLocalStorage(p: FitlogSyncedPrefs): void {
   if (p.unit) storage.setItem('fitlog_unit', p.unit);
   if (p.avatarDataUrl) storage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);
   else storage.removeItem('fitlog_avatar_data_url');
-  storage.setItem('fitlog_assistant_sync_enabled', p.assistantSyncEnabled === false ? '0' : '1');
 }
 
 export async function migrateRecordsToSoloUserId(): Promise<void> {
@@ -403,8 +393,6 @@ export async function collectLocalSnapshot(): Promise<FitlogRemoteSnapshot> {
   const prs = await db.getAll<PRRecord>('prs');
   const customExerciseDefsFromDb = await db.getAll<ExerciseDefinition>('customExercises');
   const scheduledWorkouts = await db.getAll<ScheduledWorkout>('scheduledWorkouts');
-  const assistantConversationsRaw = await db.getAll<AssistantConversation>('assistantConversations');
-  const syncAssistant = prefs.assistantSyncEnabled !== false;
 
   return {
     schemaVersion: 2,
@@ -416,7 +404,6 @@ export async function collectLocalSnapshot(): Promise<FitlogRemoteSnapshot> {
     prs,
     customExerciseDefsFromDb,
     scheduledWorkouts,
-    assistantConversations: syncAssistant ? assistantConversationsRaw : [],
     prefs,
     tombstones,
   };
@@ -439,7 +426,6 @@ export function mergeLocalWithRemote(
   writeTombstones(tombstones);
 
   const mergedPrefs = mergeFitlogPrefs(local.prefs, remote.prefs);
-  const syncAssistant = mergedPrefs.assistantSyncEnabled !== false;
   return {
     schemaVersion: 2,
     clientExportedAt: new Date().toISOString(),
@@ -473,14 +459,6 @@ export function mergeLocalWithRemote(
       scheduleUpdatedMs,
       tombstoneIdSet(tombstones, 'scheduledWorkouts'),
     ),
-    assistantConversations: syncAssistant
-      ? mergeEntityList(
-          local.assistantConversations || [],
-          remote.assistantConversations || [],
-          assistantConvUpdatedMs,
-          tombstoneIdSet(tombstones, 'assistantConversations'),
-        )
-      : local.assistantConversations || [],
     prefs: mergedPrefs,
     tombstones,
   };
@@ -509,8 +487,5 @@ export async function applySnapshotToLocalIndexedDb(snapshot: FitlogRemoteSnapsh
   await replaceStore('prs', snapshot.prs);
   await replaceStore('customExercises', snapshot.customExerciseDefsFromDb || []);
   await replaceStore('scheduledWorkouts', snapshot.scheduledWorkouts || []);
-  if (snapshot.prefs.assistantSyncEnabled !== false) {
-    await replaceStore('assistantConversations', snapshot.assistantConversations || []);
-  }
   if (snapshot.tombstones) writeTombstones(snapshot.tombstones);
 }

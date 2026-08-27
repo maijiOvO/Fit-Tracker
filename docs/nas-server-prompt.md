@@ -32,7 +32,7 @@ Body 是一整份 JSON 快照，形如：
   "clientExportedAt": "2026-08-27T10:00:00.000Z",
   "workouts": [...], "goals": [...], "weightLogs": [...],
   "customMetrics": [...], "prs": [...], "customExerciseDefsFromDb": [...],
-  "scheduledWorkouts": [...], "assistantConversations": [...],
+  "scheduledWorkouts": [...],
   "prefs": {...}, "tombstones": {...}
 }
 ```

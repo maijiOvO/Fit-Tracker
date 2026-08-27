@@ -3,7 +3,7 @@ import { dbName } from './appEnv';
 
 // 库名按数据环境派生：prod = FitLogDB，dev = FitLogDB-dev（见 services/appEnv.ts）。
 // 两个库物理独立，开发模式产生的记录不可能出现在真实库里。
-const DB_VERSION = 7; // bump: 强制创建 assistantConversations store
+const DB_VERSION = 7; // 7: 曾为助手会话建库（功能已移除，旧库中该 store 闲置无害）
 
 const REQUIRED_STORES = [
   'workouts',
@@ -13,7 +13,6 @@ const REQUIRED_STORES = [
   'weightLogs',
   'custom_metrics',
   'scheduledWorkouts',
-  'assistantConversations',
 ] as const;
 
 export class FitLogDB {
