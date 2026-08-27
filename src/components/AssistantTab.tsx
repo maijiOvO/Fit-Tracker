@@ -111,7 +111,14 @@ const AssistantTab: React.FC<AssistantTabProps> = ({
       await onSend(text);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
-      setLocalError(msg);
+      // fetch 层面的失败（DNS / 连不上）说明个人服务器不可达 —— 附上 Tailscale 提示，
+      // HTTP 错误（4xx/5xx）说明服务器已经连上了，就不要误导用户去查 Tailscale。
+      const isNetworkFailure = !/^assistant API \d{3}:/.test(msg);
+      setLocalError(
+        isNetworkFailure
+          ? `${msg}\n${translations.remoteUnreachable[lang]}`
+          : msg,
+      );
       setDraft(text);
     }
   };
@@ -241,7 +248,7 @@ const AssistantTab: React.FC<AssistantTabProps> = ({
             </div>
           )}
           {(lastError || localError) && (
-            <div className="text-danger text-xs px-2" data-testid="assistant-error">
+            <div className="text-danger text-xs px-2 whitespace-pre-wrap" data-testid="assistant-error">
               <AlertCircle size={12} className="inline mr-1" />
               {lastError || localError}
             </div>

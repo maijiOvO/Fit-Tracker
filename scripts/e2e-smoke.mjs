@@ -20,7 +20,34 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 
+/** 从 .env.local 读一个变量；文件不存在就返回空串（CI 上没有这个文件）。 */
+function readEnvLocal(name) {
+  try {
+    const raw = fs.readFileSync(path.resolve('.env.local'), 'utf-8');
+    const v = (raw.match(new RegExp(`${name}\\s*=\\s*(.+)`))?.[1] || '').trim();
+    // dotenv 允许值被引号包裹，剥掉以和 Vite 行为一致
+    const q = v.length >= 2 && ((v[0] === "'" && v.at(-1) === "'") || (v[0] === '"' && v.at(-1) === '"'));
+    return q ? v.slice(1, -1) : v;
+  } catch {
+    return '';
+  }
+}
+
+/** 把 URL 转义成可安全嵌进 RegExp 的字面量。 */
+function escapeRe(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const BASE = process.env.E2E_BASE || 'http://localhost:3000';
+
+// 个人服务器地址：与 services/fitlogRemote.ts 的 DEFAULT_API_BASE_URL 保持一致。
+// 必须用 Tailscale 主机名，不能用 IP —— Tailscale Serve 按 Host 头路由，打 IP 会 404。
+const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
+const API_BASE = (
+  process.env.E2E_API_BASE ||
+  readEnvLocal('VITE_API_URL') ||
+  DEFAULT_API_BASE_URL
+).replace(/\/$/, '');
 const OUT = path.resolve('test-artifacts');
 fs.mkdirSync(OUT, { recursive: true });
 
@@ -83,11 +110,13 @@ const main = async () => {
   // the PUT payload includes our newly-created scheduledWorkout without
   // depending on the actual server being reachable.
   const remoteState = { snapshot: null, lastPutBody: null, getCount: 0, putCount: 0 };
-  const apiHostPattern = /https:\/\/149\.28\.138\.105(:\d+)?\/api\/fitlog\/state.*/;
+  // 后端地址由 E2E_API_BASE / .env.local 的 VITE_API_URL 决定，默认同 DEFAULT_API_BASE_URL。
+  // 这里只拦截请求，不真正连服务器，所以跑 e2e 不需要连 Tailscale。
+  const apiHostPattern = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/api/fitlog/state.*`);
   // Mock assistant chat (OpenAI-compatible SSE)
   let assistantChatCalls = 0;
   let assistantCreatedScheduleId = null;
-  const assistantChatPattern = /https:\/\/149\.28\.138\.105(:\d+)?\/api\/chat.*/;
+  const assistantChatPattern = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/api/chat.*`);
   await context.route(assistantChatPattern, async (route) => {
     if (route.request().method() !== 'POST') return route.continue();
     assistantChatCalls++;

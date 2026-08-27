@@ -5,9 +5,22 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '..', '.env.local');
 const raw = readFileSync(envPath, 'utf-8');
-const url = (raw.match(/VITE_API_URL\s*=\s*(.+)/)?.[1] || '').trim();
-const key = (raw.match(/VITE_API_KEY\s*=\s*(.+)/)?.[1] || '').trim();
-const envPathOverride = (raw.match(/VITE_FITLOG_STATE_PATH\s*=\s*(.+)/)?.[1] || '').trim();
+/** 读 .env 变量：dotenv 允许值被引号包裹，这里要和 Vite 行为一致地剥掉。 */
+function stripQuotes(v) {
+  const t = v.trim();
+  if (t.length >= 2 && ((t[0] === "'" && t.at(-1) === "'") ||
+                        (t[0] === '"' && t.at(-1) === '"'))) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
+
+// 与 services/fitlogRemote.ts 的 DEFAULT_API_BASE_URL 保持一致（Tailscale 主机名，勿用 IP）
+const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
+
+const url = stripQuotes(raw.match(/VITE_API_URL\s*=\s*(.+)/)?.[1] || '') || DEFAULT_API_BASE_URL;
+const key = stripQuotes(raw.match(/VITE_API_KEY\s*=\s*(.+)/)?.[1] || '');
+const envPathOverride = stripQuotes(raw.match(/VITE_FITLOG_STATE_PATH\s*=\s*(.+)/)?.[1] || '');
 
 const base = url.replace(/\/$/, '');
 

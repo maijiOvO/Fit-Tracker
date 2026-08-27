@@ -3,6 +3,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Goal, Language, WorkoutSession } from '../../types';
+import { translations } from '../../translations';
 import { db } from '../../services/db';
 import {
   isRemoteConfigured,
@@ -230,6 +231,8 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     } catch (e: any) {
       console.error('Sync Failure:', e?.message || e);
       setSyncStatus('error');
+      // 个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 明确提示，避免误判成"服务器挂了"
+      toast(String(translations.remoteUnreachable[settingsCtx.lang]), 'error');
     } finally {
       syncLockRef.current = false;
     }

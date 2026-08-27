@@ -6,12 +6,26 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, '..', '.env.local');
 const raw = readFileSync(envPath, 'utf-8');
 
-const url = (raw.match(/VITE_API_URL\s*=\s*(.+)/)?.[1] || '').trim();
-const key = (raw.match(/VITE_API_KEY\s*=\s*(.+)/)?.[1] || '').trim();
-const envPathOverride = (raw.match(/VITE_FITLOG_STATE_PATH\s*=\s*(.+)/)?.[1] || '').trim();
+/** 读 .env 变量：dotenv 允许值被引号包裹，这里要和 Vite 行为一致地剥掉。 */
+function stripQuotes(v) {
+  const t = v.trim();
+  if (t.length >= 2 && ((t[0] === "'" && t.at(-1) === "'") ||
+                        (t[0] === '"' && t.at(-1) === '"'))) {
+    return t.slice(1, -1);
+  }
+  return t;
+}
 
-if (!url || !key) {
-  console.log('❌ .env.local 中缺少 VITE_API_URL 或 VITE_API_KEY');
+// 与 services/fitlogRemote.ts 的 DEFAULT_API_BASE_URL 保持一致：
+// 家庭 NAS，经 Tailscale Serve 暴露，必须用主机名（打 IP 会 404）。
+const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
+
+const url = stripQuotes(raw.match(/VITE_API_URL\s*=\s*(.+)/)?.[1] || '') || DEFAULT_API_BASE_URL;
+const key = stripQuotes(raw.match(/VITE_API_KEY\s*=\s*(.+)/)?.[1] || '');
+const envPathOverride = stripQuotes(raw.match(/VITE_FITLOG_STATE_PATH\s*=\s*(.+)/)?.[1] || '');
+
+if (!key) {
+  console.log('❌ .env.local 中缺少 VITE_API_KEY');
   process.exit(1);
 }
 
@@ -62,6 +76,7 @@ try {
   }
 } catch (err) {
   console.log(`\n❌ 连接失败: ${err.message}`);
-  console.log('可能原因: 服务器离线 / DNS 解析失败 / API Key 无效 / 网络不通');
+  console.log('⚠️  个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 请先检查 Tailscale 是否已连接。');
+  console.log('其他可能原因: NAS 离线 / Tailscale Serve 未启动 / API Key 无效');
   process.exit(1);
 }

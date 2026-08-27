@@ -6,6 +6,28 @@
 
 ---
 
+## [unreleased] – 2026-08-27
+
+### 变更
+
+- **后端迁移：Vultr VPS → 家庭 NAS（Tailscale Serve）**
+  - 新地址：`https://hometj.taild995c6.ts.net`
+  - 旧地址：`https://fitlog.myronhub.com`（VPS 仍在运行，可随时回滚）
+  - 接口路径、鉴权方式（`Authorization: Bearer <SERVER_AUTH_KEY>`）、
+    请求/响应格式、CORS 行为**均未改变**。
+  - 地址改为可配置：`services/fitlogRemote.ts` 导出 `DEFAULT_API_BASE_URL`，
+    `.env.local` 的 `VITE_API_URL` 优先级更高，可用于回滚。
+  - ⚠️ 必须使用主机名，不可用 Tailscale IP `100.106.208.88` ——
+    Tailscale Serve 按 Host 头路由，直接打 IP 返回 404。
+  - ⚠️ 新地址仅在设备连接 Tailscale 时可达，公网无法访问。
+  - 证书为 Let's Encrypt 正式签发，Android **无需** `usesCleartextTraffic`
+    或 `networkSecurityConfig`（项目本来也没有配置，本次未改动）。
+- 同步失败与助手网络错误新增提示「请检查 Tailscale 是否已连接」。
+- `scripts/e2e-smoke.mjs` 移除写死的旧 VPS IP `149.28.138.105`，
+  改为按 `E2E_API_BASE` / `VITE_API_URL` / 默认值解析。
+
+---
+
 ## [unreleased] – 2026-05-22
 
 阶段性大版本：移除 Supabase 单人化、新增训练计划、智能助手、UI 改版与 HTTPS 部署。

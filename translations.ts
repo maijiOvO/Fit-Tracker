@@ -52,6 +52,11 @@ export const translations: TranslationStrings = {
     en: 'Assistant API is not configured. Set VITE_API_URL and VITE_API_KEY.',
     cn: '智能助手 API 尚未配置，请在 .env 中设置 VITE_API_URL 和 VITE_API_KEY。',
   },
+  // 个人服务器现在挂在家庭 NAS 上，只有连着 Tailscale 才可达
+  remoteUnreachable: {
+    en: 'Cannot reach the personal server. Please check that Tailscale is connected.',
+    cn: '无法连接个人服务器，请检查 Tailscale 是否已连接。',
+  },
   assistantSyncToggle: { en: 'Sync assistant conversations', cn: '同步智能助手对话' },
   assistantSuggestPlan: { en: 'Plan next week (3 push-pull-legs sessions)', cn: '帮我安排下周 3 次推拉腿' },
   assistantSuggestReview: { en: 'How have I trained these two weeks?', cn: '这两周我练得怎么样？' },

@@ -93,13 +93,29 @@ See [`RELEASE-GUIDE.md`](RELEASE-GUIDE.md) and [`android-release-build-guide.md`
 
 ## Personal sync API (optional)
 
-If `VITE_API_URL` and `VITE_API_KEY` are both set, the app can push/pull a single JSON snapshot to an HTTP server you control:
+If `VITE_API_KEY` is set, the app can push/pull a single JSON snapshot to an HTTP server you control:
 
-- **Endpoint:** `{VITE_API_URL}{VITE_FITLOG_STATE_PATH}` (default path `/api/fitlog/state`)
+- **Base URL:** `VITE_API_URL`, falling back to `DEFAULT_API_BASE_URL` in [`services/fitlogRemote.ts`](services/fitlogRemote.ts)
+- **Endpoint:** `{base}{VITE_FITLOG_STATE_PATH}` (default path `/api/fitlog/state`)
 - **Auth:** `Authorization: Bearer {VITE_API_KEY}`
 - **Methods:** `GET` returns `{ schemaVersion: 2, ... }` or `404` for empty remote; `PUT` sends the merged local snapshot.
 
-Without these vars, syncing is skipped and the app stays local-only.
+Without `VITE_API_KEY`, syncing is skipped and the app stays local-only — the default base URL alone does **not** enable remote sync.
+
+### Backend host
+
+The backend runs on a home NAS exposed via **Tailscale Serve**:
+
+| | |
+|---|---|
+| Default | `https://hometj.taild995c6.ts.net` |
+| Previous (still running, usable for rollback) | `https://fitlog.myronhub.com` |
+
+- Use the **hostname**, never the Tailscale IP `100.106.208.88` — Tailscale Serve routes by `Host` header, so requests straight to the IP return `404`.
+- Reachable **only while the device is connected to Tailscale**; it is not exposed to the public internet.
+- The certificate is issued by Let's Encrypt, so Android needs no `usesCleartextTraffic` or `networkSecurityConfig` entry.
+
+To roll back, set `VITE_API_URL=https://fitlog.myronhub.com` in `.env.local` and rebuild.
 
 > **Note on `VITE_*` variables:** Vite inlines them into the client bundle at build time, so any value with the `VITE_` prefix is visible to anyone who opens the deployed site in DevTools. Keep server-side authoritative logic — `VITE_API_KEY` should only authorize the *intended* endpoints, not be trusted for sensitive operations.
 

@@ -19,7 +19,21 @@ import type {
   ScheduledWorkout,
 } from '../types';
 
-const RAW_API_URL = import.meta.env.VITE_API_URL || '';
+/**
+ * 个人服务器默认地址：家庭 NAS，经 Tailscale Serve 对外暴露。
+ *
+ * ⚠️ 必须使用主机名，不能换成 Tailscale IP：
+ *    Tailscale Serve 按 Host 头路由，直接请求 IP 会返回 404。
+ * ⚠️ 仅在设备已连接 Tailscale 时可达，公网无法访问。
+ *
+ * 证书为 Let's Encrypt 正式签发，Android 无需 cleartext / 自签白名单。
+ *
+ * 覆盖方式：在 .env.local 设置 VITE_API_URL（环境变量优先级最高）。
+ * 回滚旧 VPS：VITE_API_URL=https://fitlog.myronhub.com
+ */
+export const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
+
+const RAW_API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 
 const DEV_MODE_LS_KEY = 'fitlog_dev_mode';
@@ -67,7 +81,7 @@ export function normalizeApiBaseUrl(raw: string): string {
   return `https://${t.replace(/\/$/, '')}`;
 }
 
-const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
+export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
 
 export function isRemoteConfigured(): boolean {
   return Boolean(API_BASE_URL && API_KEY.trim());
