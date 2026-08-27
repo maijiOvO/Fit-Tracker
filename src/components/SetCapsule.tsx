@@ -88,10 +88,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   };
 
   const handleAddSubSet = () => {
+    // 递减组的定义就是降重量再来一轮，所以默认降一档（-20%，取整到 0.5kg）。
+    // 旧默认是「重量不变、次数 -5」——重量不变的话它就不是递减组了。
+    // 次数保持与母组一致：递减组多半做到力竭，具体数只能现填。
+    const base = set.weight || 0;
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
-      weight: set.weight || 0,
-      reps: (set.reps || 0) - 5 > 0 ? set.reps - 5 : 0,
+      weight: base > 0 ? Math.round(base * 0.8 * 2) / 2 : 0,
+      reps: set.reps || 0,
     };
     const newSubSets = [...expandedSubSets, newSubSet];
     setExpandedSubSets(newSubSets);
