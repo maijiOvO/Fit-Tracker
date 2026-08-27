@@ -1,10 +1,10 @@
 /**
  * 训练组输入胶囊组件
  */
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Layers, Minus } from 'lucide-react';
 import { translations } from '../../translations';
-import { Language, BodyweightMode, SubSetLog, SetLog } from '../../types';
+import { Language, SubSetLog, SetLog } from '../../types';
 
 interface SetCapsuleProps {
   set: any;
@@ -12,7 +12,6 @@ interface SetCapsuleProps {
   activeMetrics: string[];
   unit: string;
   lang: Language;
-  isPyramid?: boolean;
   readOnly?: boolean;
   onUpdate: (updates: Partial<SetLog>) => void;
   onRemove: () => void;
@@ -46,13 +45,40 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   activeMetrics,
   unit,
   lang,
-  isPyramid = false,
   readOnly = false,
   onUpdate,
   onRemove,
   onDurationClick,
 }) => {
   const [expandedSubSets, setExpandedSubSets] = useState<SubSetLog[]>(set.subSets || []);
+  const hasSubSets = expandedSubSets.length > 0;
+
+  // 递增递减组已从卡片常驻 UI 降级：长按组号添加第一个子组（滚动/滑走会触发 pointercancel/move 而取消）
+  const pressTimerRef = useRef<number | null>(null);
+  const pressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const startPress = (e: React.PointerEvent) => {
+    if (readOnly) return;
+    cancelPress();
+    pressOriginRef.current = { x: e.clientX, y: e.clientY };
+    pressTimerRef.current = window.setTimeout(() => {
+      pressTimerRef.current = null;
+      try { navigator.vibrate?.(10); } catch { /* noop */ }
+      handleAddSubSet();
+    }, 500);
+  };
+  const cancelPress = () => {
+    if (pressTimerRef.current !== null) {
+      window.clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+    pressOriginRef.current = null;
+  };
+  // 手指抖动不取消，移出 10px（开始滚动）才取消
+  const movePress = (e: React.PointerEvent) => {
+    const o = pressOriginRef.current;
+    if (!o) return;
+    if (Math.hypot(e.clientX - o.x, e.clientY - o.y) > 10) cancelPress();
+  };
 
   const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>) => {
     const newSubSets = [...expandedSubSets];
@@ -84,7 +110,17 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         className="grid gap-2 items-center bg-inset p-3 rounded-control border border-divider transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15"
         style={{ gridTemplateColumns: `35px repeat(${activeMetrics.length}, 1fr) 35px` }}
       >
-        <span className="text-accent font-mono font-medium text-xs tabular-nums">{setIdx + 1}</span>
+        <span
+          className="text-accent font-mono font-medium text-xs tabular-nums select-none self-stretch flex items-center"
+          onPointerDown={startPress}
+          onPointerUp={cancelPress}
+          onPointerLeave={cancelPress}
+          onPointerCancel={cancelPress}
+          onPointerMove={movePress}
+          onContextMenu={e => e.preventDefault()}
+        >
+          {setIdx + 1}
+        </span>
 
         {activeMetrics.map(m => {
           if (m === 'duration') {
@@ -144,7 +180,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         })}
 
         <div className="flex justify-end gap-1 pr-1">
-          {!readOnly && isPyramid && (
+          {!readOnly && hasSubSets && (
             <button onClick={handleAddSubSet} className="text-accent hover:opacity-80" title={lang === Language.CN ? '添加子组' : 'Add Sub Set'}>
               <Layers size={16} strokeWidth={1.75} />
             </button>
@@ -157,7 +193,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         </div>
       </div>
 
-      {isPyramid && expandedSubSets.length > 0 && (
+      {hasSubSets && (
         <div className="space-y-2 ml-6">
           {expandedSubSets.map((sub, ssi) => (
             <div
@@ -167,31 +203,45 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               <span className="text-[10px] font-medium text-tertiary">
                 {lang === Language.CN ? '递减' : 'Sub'}
               </span>
-              <input
-                type="number"
-                step="any"
-                className="bg-transparent text-sm font-mono font-medium text-center outline-none text-primary tabular-nums w-full"
-                value={sub.weight === 0 ? '' : formatWeight(sub.weight, unit)}
-                onChange={e => {
-                  const val = e.target.value === '' ? 0 : Number(e.target.value);
-                  handleSubSetUpdate(ssi, { weight: parseWeight(val, unit) });
-                }}
-              />
-              <input
-                type="number"
-                className="bg-transparent text-sm font-mono font-medium text-center outline-none text-primary tabular-nums"
-                value={sub.reps || ''}
-                onChange={e => {
-                  const val = e.target.value === '' ? 0 : Number(e.target.value);
-                  handleSubSetUpdate(ssi, { reps: val });
-                }}
-              />
-              <button
-                onClick={() => handleRemoveSubSet(ssi)}
-                className="flex justify-end text-tertiary hover:text-danger text-xs"
-              >
-                {lang === Language.CN ? '删' : '×'}
-              </button>
+              {readOnly ? (
+                <>
+                  <span className="text-sm font-mono font-medium text-center text-primary tabular-nums">
+                    {formatWeight(sub.weight || 0, unit)}
+                  </span>
+                  <span className="text-sm font-mono font-medium text-center text-primary tabular-nums">
+                    {sub.reps || '—'}
+                  </span>
+                  <span />
+                </>
+              ) : (
+                <>
+                  <input
+                    type="number"
+                    step="any"
+                    className="bg-transparent text-sm font-mono font-medium text-center outline-none text-primary tabular-nums w-full"
+                    value={sub.weight === 0 ? '' : formatWeight(sub.weight, unit)}
+                    onChange={e => {
+                      const val = e.target.value === '' ? 0 : Number(e.target.value);
+                      handleSubSetUpdate(ssi, { weight: parseWeight(val, unit) });
+                    }}
+                  />
+                  <input
+                    type="number"
+                    className="bg-transparent text-sm font-mono font-medium text-center outline-none text-primary tabular-nums"
+                    value={sub.reps || ''}
+                    onChange={e => {
+                      const val = e.target.value === '' ? 0 : Number(e.target.value);
+                      handleSubSetUpdate(ssi, { reps: val });
+                    }}
+                  />
+                  <button
+                    onClick={() => handleRemoveSubSet(ssi)}
+                    className="flex justify-end text-tertiary hover:text-danger text-xs"
+                  >
+                    {lang === Language.CN ? '删' : '×'}
+                  </button>
+                </>
+              )}
             </div>
           ))}
         </div>

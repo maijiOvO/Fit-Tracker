@@ -11,3 +11,4 @@ export { NoteModal } from './NoteModal';
 export { MetricSettingsModal } from './MetricSettingsModal';
 export { DurationPickerModal } from './DurationPickerModal';
 export { ResetAccountModal } from './ResetAccountModal';
+export { TagManageModal } from './TagManageModal';

@@ -6,10 +6,10 @@
  *   - 部位行（单选，含自定义部位 + 有氧/自由两个伪部位）+ 器材行（多选，联动计数，0 隐藏）
  *   - 点行即添加，弹层不关：行闪烁 + ✓已添加徽标 + 头部「本次已加 N」+ 震动；450ms 双击防误触
  *   - 软键盘弹起时 visualViewport 计算 inset，弹层压缩到键盘上沿
- *   - 管理入口（⚙）在器材行末尾，打开动作库全屏页
+ *   - 标签管理入口在头部（Tags 图标）直达 TagManageModal；长按动作行弹出该动作的管理菜单
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { History, Pencil, Plus, Search, Star, X, Zap } from 'lucide-react';
+import { ChevronDown, Filter, History, PencilLine, Plus, Search, Star, Tags, Trash2, X, Zap } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
@@ -27,7 +27,12 @@ interface ExercisePickerSheetProps {
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition) => void;
   onCreateCustomExercise: (prefilledName?: string) => void;
-  onOpenManage: () => void;
+  /** 打开标签管理页（头部 Tags 图标） */
+  onOpenTagManage: () => void;
+  // ===== 长按动作行的管理菜单（复用 App 层的弹窗/删除流程） =====
+  onEditExerciseTags: (ex: ExerciseDefinition) => void;
+  onRenameExercise: (id: string, currentName: string) => void;
+  onDeleteExercise: (id: string) => void;
 }
 
 export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
@@ -37,7 +42,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   sessionAdded,
   onPickExercise,
   onCreateCustomExercise,
-  onOpenManage,
+  onOpenTagManage,
+  onEditExerciseTags,
+  onRenameExercise,
+  onDeleteExercise,
 }) => {
   const { starredExercises, resolveName, getTagName, toggleStarExercise } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
@@ -57,6 +65,68 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const lastPickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 });
+  // 长按动作行 → 该动作的管理菜单（编辑标签 / 重命名 / 删除）
+  const [menuFor, setMenuFor] = useState<ExerciseDefinition | null>(null);
+  // 键盘弹起时筛选区收起为摘要行（点摘要可临时展开，键盘收起后自动复原）
+  const [kbExpandFilters, setKbExpandFilters] = useState(false);
+  const rowPressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const suppressClickRef = useRef(false);
+  const cancelRowPress = () => {
+    if (rowPressRef.current !== null) {
+      window.clearTimeout(rowPressRef.current.timer);
+      rowPressRef.current = null;
+    }
+  };
+  const startRowPress = (ex: ExerciseDefinition, e: React.PointerEvent) => {
+    cancelRowPress();
+    const { clientX: x, clientY: y } = e;
+    rowPressRef.current = {
+      x,
+      y,
+      timer: window.setTimeout(() => {
+        rowPressRef.current = null;
+        suppressClickRef.current = true; // 松手后的 click 不再当作「添加」
+        try { navigator.vibrate?.(10); } catch { /* noop */ }
+        setMenuFor(ex);
+      }, 500),
+    };
+  };
+  const moveRowPress = (e: React.PointerEvent) => {
+    const d = rowPressRef.current;
+    if (!d) return;
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) cancelRowPress();
+  };
+  const sheetRef = useRef<HTMLElement | null>(null);
+  const dragRef = useRef<{ startY: number; y: number } | null>(null);
+
+  // ===== 抓手拖动关闭（grabber 区域向下拖 > 110px 松手即关闭，否则弹回） =====
+  const handleDragStart = (e: React.PointerEvent) => {
+    if (!open) return;
+    dragRef.current = { startY: e.clientY, y: 0 };
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
+    if (sheetRef.current) sheetRef.current.style.transition = 'none';
+  };
+  const handleDragMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    d.y = Math.max(0, e.clientY - d.startY);
+    if (sheetRef.current) sheetRef.current.style.transform = `translateY(${d.y}px)`;
+  };
+  const handleDragEnd = () => {
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    const el = sheetRef.current;
+    if (el) el.style.transition = '';
+    const shouldClose = d.y > 110;
+    if (shouldClose) onClose();
+    // 等 class 状态先生效，再清掉内联 transform，让过渡从当前拖动位置开始
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (el) el.style.transform = '';
+      });
+    });
+  };
 
   // 打开：清搜索词、结果滚回顶部；关闭：收键盘
   useEffect(() => {
@@ -65,8 +135,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       if (resultsRef.current) resultsRef.current.scrollTop = 0;
     } else {
       searchInputRef.current?.blur();
+      setMenuFor(null);
     }
   }, [open]);
+
+  const kbOpen = inset > 0;
+  useEffect(() => {
+    if (!kbOpen) setKbExpandFilters(false);
+  }, [kbOpen]);
+  const filtersCollapsed = kbOpen && !kbExpandFilters;
 
   // 弹层打开时锁定背景滚动
   useEffect(() => {
@@ -161,6 +238,19 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     return getTagName(chip.v);
   };
 
+  // 收起态摘要：已选部位 + 已选器材名
+  const filterSummary = (() => {
+    const parts: string[] = [];
+    if (axis) parts.push(axisLabel(axis));
+    for (const id of equipIds) {
+      if (equips.has(id.toLowerCase())) {
+        const n = getTagName(id);
+        if (n) parts.push(n);
+      }
+    }
+    return parts.join(' · ');
+  })();
+
   // ===== 添加 =====
   const handlePick = (ex: ExerciseDefinition) => {
     const now = Date.now();
@@ -198,8 +288,20 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       >
         <button
           type="button"
-          onClick={() => handlePick(ex)}
-          className="flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors"
+          onClick={() => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              return;
+            }
+            handlePick(ex);
+          }}
+          onPointerDown={e => startRowPress(ex, e)}
+          onPointerMove={moveRowPress}
+          onPointerUp={cancelRowPress}
+          onPointerLeave={cancelRowPress}
+          onPointerCancel={cancelRowPress}
+          onContextMenu={e => e.preventDefault()}
+          className="flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors select-none"
           data-testid="picker-sheet-exercise"
         >
           <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
@@ -277,6 +379,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
       {/* 弹层 */}
       <section
+        ref={sheetRef}
         className={`absolute inset-x-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-[22px] shadow-elevated flex flex-col transition-transform duration-300 ease-out ${
           open ? 'translate-y-0' : 'translate-y-[103%]'
         }`}
@@ -288,10 +391,29 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         aria-label={isCn ? '添加动作' : 'Add exercise'}
         data-testid="picker-sheet"
       >
-        <div className="w-10 h-1 rounded-full bg-divider mx-auto mt-2 flex-shrink-0" />
+        <div
+          className="flex-shrink-0 pt-2.5 pb-1.5 cursor-grab active:cursor-grabbing select-none"
+          style={{ touchAction: 'none' }}
+          onPointerDown={handleDragStart}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+        >
+          <div className="w-12 h-1.5 rounded-full bg-divider mx-auto" />
+        </div>
 
-        {/* 头部：标题 + 本次已加 + 关闭 */}
-        <div className="flex items-center gap-2.5 px-4 pt-1.5 pb-0.5 flex-shrink-0">
+        {/* 头部：标题 + 本次已加 + 关闭；整行（按钮除外）也是拖拽关闭的热区 */}
+        <div
+          className="flex items-center gap-2.5 px-4 pt-1.5 pb-0.5 flex-shrink-0 select-none cursor-grab active:cursor-grabbing"
+          style={{ touchAction: 'none' }}
+          onPointerDown={e => {
+            if ((e.target as HTMLElement).closest('button')) return;
+            handleDragStart(e);
+          }}
+          onPointerMove={handleDragMove}
+          onPointerUp={handleDragEnd}
+          onPointerCancel={handleDragEnd}
+        >
           <h2 className="font-display text-lg font-semibold text-primary">
             {isCn ? '添加动作' : 'Add Exercise'}
           </h2>
@@ -305,8 +427,17 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           )}
           <button
             type="button"
-            onClick={onClose}
+            onClick={onOpenTagManage}
             className="ml-auto w-11 h-11 flex items-center justify-center rounded-xl text-secondary hover:bg-card-hover active:scale-90 transition-all"
+            aria-label={isCn ? '管理标签' : 'Manage tags'}
+            data-testid="open-tag-manage"
+          >
+            <Tags size={20} />
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-11 h-11 flex items-center justify-center rounded-xl text-secondary hover:bg-card-hover active:scale-90 transition-all"
             aria-label={isCn ? '完成并关闭' : 'Done'}
             data-testid="picker-sheet-close"
           >
@@ -359,8 +490,43 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           </button>
         </div>
 
-        {/* 部位行（单选） */}
-        <div className="flex gap-2 overflow-x-auto px-4 pb-2.5 flex-shrink-0 custom-scrollbar">
+        {/* 筛选区收起态：一行摘要（键盘弹起时） */}
+        {filtersCollapsed && (
+          <div className="flex items-center gap-2 px-4 pb-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setKbExpandFilters(true)}
+              className="flex-1 min-w-0 min-h-[36px] px-3 rounded-xl bg-inset text-[11px] font-bold text-secondary flex items-center gap-1.5 active:bg-card-hover transition-colors"
+              data-testid="filters-summary"
+            >
+              <Filter size={12} className="flex-shrink-0" />
+              <span className="truncate">
+                {nFilters > 0 ? filterSummary : isCn ? '筛选已收起' : 'Filters hidden'}
+              </span>
+              <ChevronDown size={13} className="ml-auto flex-shrink-0" />
+            </button>
+            {nFilters > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAxis(null);
+                  setEquips(new Set());
+                }}
+                className="w-9 min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-xl bg-inset text-tertiary active:scale-90 transition-transform"
+                aria-label={isCn ? '清空筛选' : 'Clear filters'}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* 部位行（单选，铺开多行，0 结果隐藏） */}
+        {!filtersCollapsed && (
+        <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0 items-center">
+          <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
+            {isCn ? '部位' : 'PART'}
+          </span>
           <button
             type="button"
             onClick={() => setAxis(null)}
@@ -374,7 +540,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             const on = axis !== null && axis.kind === chip.kind && axis.v === chip.v;
             const availKey =
               chip.kind === 'part' ? 'part:' + chip.v.toLowerCase() : 'cat:' + chip.v;
-            const dim = !on && !axisAvailable.has(availKey);
+            // 当前筛选下 0 结果的部位直接隐藏（与器材行同规则），已选中的除外
+            if (!on && !axisAvailable.has(availKey)) return null;
             const label = axisLabel(chip);
             if (!label) return null;
             return (
@@ -388,16 +555,21 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                     : chip.custom
                       ? 'bg-accent/5 text-accent border border-dashed border-accent/40'
                       : 'bg-inset text-secondary'
-                } ${dim ? 'opacity-35' : ''}`}
+                }`}
               >
                 {label}
               </button>
             );
           })}
         </div>
+        )}
 
-        {/* 器材行（多选，联动计数，0 隐藏；末尾管理入口） */}
-        <div className="flex gap-2 overflow-x-auto px-4 pb-2.5 flex-shrink-0 custom-scrollbar">
+        {/* 器材行（多选，联动计数，0 隐藏，铺开多行）—— 与部位行用分隔线隔开 */}
+        {!filtersCollapsed && (
+        <div className="mx-4 pt-2.5 pb-2.5 flex-shrink-0 border-t border-divider flex flex-wrap gap-2 items-center">
+          <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
+            {isCn ? '器材' : 'GEAR'}
+          </span>
           {equipIds.map(id => {
             const n = equipCounts.get(id) ?? 0;
             const on = equips.has(id.toLowerCase());
@@ -430,16 +602,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               </button>
             );
           })}
-          <button
-            type="button"
-            onClick={onOpenManage}
-            className="flex-shrink-0 min-h-[34px] px-3 rounded-xl text-[11px] font-bold flex items-center gap-1 bg-card border border-divider text-tertiary active:scale-95 transition-transform"
-            aria-label={isCn ? '管理标签与动作' : 'Manage library'}
-          >
-            <Pencil size={12} />
-            {isCn ? '管理' : 'Manage'}
-          </button>
         </div>
+        )}
 
         {/* 计数 / 清空 */}
         {(q || nFilters > 0) && (
@@ -517,6 +681,68 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           )}
         </div>
       </section>
+
+      {/* 长按动作行 → 管理菜单 */}
+      {menuFor && (
+        <div
+          className="absolute inset-0 z-10 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in"
+          onClick={() => setMenuFor(null)}
+          data-testid="row-action-menu"
+        >
+          <div
+            className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-3xl sm:rounded-card p-4 space-y-2 shadow-2xl"
+            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="px-2 pb-1 text-sm font-semibold text-primary">
+              {resolveName(menuFor.name[lang])}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const ex = menuFor;
+                setMenuFor(null);
+                onEditExerciseTags(ex);
+              }}
+              className="w-full min-h-[48px] px-4 rounded-2xl bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
+            >
+              <Tags size={16} className="text-accent" />
+              {isCn ? '编辑标签' : 'Edit tags'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const ex = menuFor;
+                setMenuFor(null);
+                onRenameExercise(ex.id, resolveName(ex.name[lang]));
+              }}
+              className="w-full min-h-[48px] px-4 rounded-2xl bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
+            >
+              <PencilLine size={16} className="text-accent" />
+              {isCn ? '重命名' : 'Rename'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const ex = menuFor;
+                setMenuFor(null);
+                onDeleteExercise(ex.id);
+              }}
+              className="w-full min-h-[48px] px-4 rounded-2xl bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
+            >
+              <Trash2 size={16} />
+              {isCn ? '从动作库删除' : 'Delete from library'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMenuFor(null)}
+              className="w-full min-h-[48px] px-4 rounded-2xl text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+            >
+              {isCn ? '取消' : 'Cancel'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

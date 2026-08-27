@@ -294,35 +294,3 @@ export interface TranslationStrings {
   };
 }
 
-// ✅ 新增：递增递减组相关类型定义
-export interface PyramidCalculator {
-  mode: 'increasing' | 'decreasing' | 'mixed';
-  baseWeight: number;
-  baseReps: number;
-  subSetCount: number;
-  weightStep: number; // 重量变化幅度（百分比）
-  repsStrategy: 'constant' | 'increasing' | 'decreasing' | 'failure';
-}
-
-export interface PyramidTemplate {
-  id: string;
-  name: {
-    en: string;
-    cn: string;
-  };
-  description: {
-    en: string;
-    cn: string;
-  };
-  config: PyramidCalculator;
-  category: 'strength' | 'endurance' | 'power' | 'mixed';
-}
-
-export interface PyramidSetStats {
-  totalVolume: number; // 总训练量
-  peakWeight: number; // 峰值重量
-  totalReps: number; // 总次数
-  averageRest: number; // 平均休息时间
-  difficultyScore: number; // 难度评分
-  completionRate: number; // 完成率
-}

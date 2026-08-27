@@ -13,7 +13,6 @@ import {
   Scale,
 } from 'lucide-react';
 import {
-  Exercise,
   ExerciseDefinition,
   Language,
   WorkoutSession,
@@ -34,13 +33,12 @@ export interface NewWorkoutTabProps {
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;
-  isBodyweightMode: (ex: Exercise) => boolean;
-  isPyramidEnabled: (ex: Exercise) => boolean;
   onBack: () => void;
   onSave: () => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
   onToggleNote: (name: string) => void;
-  onOpenMetricModal: (name: string) => void;
+  /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记 */
+  onOpenMetricModal: (name: string, exIdx: number) => void;
   onDeleteExerciseFromSession: (exIdx: number) => void;
   /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
   onChangeDate?: () => void;
@@ -54,8 +52,12 @@ export interface NewWorkoutTabProps {
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition) => void;
   onCreateCustomExercise: (prefilled?: string) => void;
-  /** 打开动作库管理（全屏 LibraryModal） */
-  onOpenManage: () => void;
+  /** 打开标签管理弹窗 */
+  onOpenTagManage: () => void;
+  /** 长按动作行的管理菜单（转发到 App 层的弹窗/删除流程） */
+  onEditExerciseTags: (ex: ExerciseDefinition) => void;
+  onRenameExercise: (id: string, currentName: string) => void;
+  onDeleteLibraryExercise: (id: string) => void;
   /** 弹层关闭后需要滚动定位并高亮的动作卡 id */
   flashExerciseId: string | null;
   onFlashDone: () => void;
@@ -72,8 +74,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   exerciseNotes,
   getActiveMetrics,
   resolveName,
-  isBodyweightMode,
-  isPyramidEnabled,
   onBack,
   onSave,
   onOpenTimePicker,
@@ -87,7 +87,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   sessionAdded,
   onPickExercise,
   onCreateCustomExercise,
-  onOpenManage,
+  onOpenTagManage,
+  onEditExerciseTags,
+  onRenameExercise,
+  onDeleteLibraryExercise,
   flashExerciseId,
   onFlashDone,
 }) => {
@@ -225,8 +228,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               exIdx={exIdx}
               lang={lang}
               unit={unit}
-              isBodyweight={isBodyweightMode(ex)}
-              isPyramid={isPyramidEnabled(ex)}
               exerciseNotes={exerciseNotes}
               getActiveMetrics={getActiveMetrics}
               resolveName={resolveName}
@@ -238,7 +239,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onDeleteExercise={onDeleteExerciseFromSession}
               onOpenTimePicker={onOpenTimePicker}
               onToggleNote={onToggleNote}
-              onOpenMetricModal={onOpenMetricModal}
+              onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
               onSetUpdate={(eIdx, setIdx, updates) => {
                 const exs = [...currentWorkout.exercises!];
                 exs[eIdx].sets[setIdx] = { ...exs[eIdx].sets[setIdx], ...updates };
@@ -305,7 +306,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
         onCreateCustomExercise={onCreateCustomExercise}
-        onOpenManage={onOpenManage}
+        onOpenTagManage={onOpenTagManage}
+        onEditExerciseTags={onEditExerciseTags}
+        onRenameExercise={onRenameExercise}
+        onDeleteExercise={onDeleteLibraryExercise}
       />
     </div>
   );

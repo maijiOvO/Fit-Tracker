@@ -45,7 +45,7 @@ import {
   EQUIPMENT_TAGS,
   ExerciseCategory,
 } from './src/constants/exercises';
-import { isBodyweightMode, isPyramidEnabled } from './src/utils/exerciseConfig';
+import { getLoadMode, LoadMode } from './src/utils/exerciseConfig';
 
 import TabNavigation from './src/components/TabNavigation';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
@@ -66,6 +66,7 @@ import {
   NoteModal,
   RenameModal,
   ResetAccountModal,
+  TagManageModal,
   WeightInputModal,
 } from './src/components/modals';
 
@@ -183,14 +184,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     },
     [],
   );
-  /** 从训练页弹层进入动作库管理（非选择模式） */
-  const openLibraryForManage = useCallback(() => {
-    libraryPickCallbackRef.current = null;
-    setActiveLibraryCategory(null);
-    setSelectedTags([]);
-    setSearchQuery('');
-    setShowLibrary(true);
-  }, []);
+  /** 训练页弹层头部入口：标签管理（只管标签词表，不再进全屏动作库） */
+  const [showTagManage, setShowTagManage] = useState(false);
 
   // ============== 训练页「添加动作」弹层 ==============
   const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
@@ -231,7 +226,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     Record<string, string>
   >({});
   // ============== 动作维度 / 备注 弹窗 ==============
-  const [showMetricModal, setShowMetricModal] = useState<{ name: string } | null>(null);
+  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number } | null>(null);
   const [noteModalData, setNoteModalData] = useState<{
     name: string;
     note: string;
@@ -906,6 +901,23 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onToggleStar={prefs.toggleStarExercise}
       />
 
+      <TagManageModal
+        open={showTagManage}
+        lang={lang}
+        onClose={() => setShowTagManage(false)}
+        onRenameTag={(id, name) => {
+          setTagToRename({ id, name });
+          setNewTagNameInput(name);
+          setShowRenameModal(true);
+        }}
+        onDeleteTag={prefs.deleteTag}
+        onCreateCustomTag={category => {
+          setNewTagCategory(category);
+          setNewTagName('');
+          setShowAddTagModal(true);
+        }}
+      />
+
       <AddGoalModal
         open={showGoalModal}
         lang={lang}
@@ -968,8 +980,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             exerciseNotes={prefs.exerciseNotes}
             resolveName={prefs.resolveName}
             getActiveMetrics={prefs.getActiveMetrics}
-            isBodyweightMode={isBodyweightMode}
-            isPyramidEnabled={isPyramidEnabled}
             onBack={handleNewWorkoutBack}
             onSave={handleFinishWithConfirmation}
             pickerOpen={pickerSheetOpen}
@@ -978,14 +988,21 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
             onCreateCustomExercise={openCreateCustomExerciseModal}
-            onOpenManage={openLibraryForManage}
+            onOpenTagManage={() => setShowTagManage(true)}
+            onEditExerciseTags={ex => setEditExerciseTagsTarget(ex)}
+            onRenameExercise={(id, name) => {
+              setExerciseToRename({ id, name });
+              setNewExerciseNameInput(name);
+              setShowRenameExerciseModal(true);
+            }}
+            onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
             flashExerciseId={flashExerciseId}
             onFlashDone={handleFlashDone}
             onOpenTimePicker={openTimePicker}
             onToggleNote={name =>
               setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })
             }
-            onOpenMetricModal={name => setShowMetricModal({ name })}
+            onOpenMetricModal={(name, exIdx) => setShowMetricModal({ name, exIdx })}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
             onDeleteExerciseFromSession={exIdx => {
               const snapshot = [...(currentWorkout.exercises ?? [])];
@@ -1073,6 +1090,32 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         toggleMetric={prefs.toggleMetric}
         onResetDefault={handleResetMetricsToDefault}
         onClose={() => setShowMetricModal(null)}
+        loadMode={
+          showMetricModal?.exIdx !== undefined && currentWorkout.exercises?.[showMetricModal.exIdx]
+            ? getLoadMode(currentWorkout.exercises[showMetricModal.exIdx])
+            : undefined
+        }
+        onChangeLoadMode={
+          showMetricModal?.exIdx !== undefined
+            ? (mode: LoadMode) => {
+                const exIdx = showMetricModal.exIdx!;
+                const exs = [...(currentWorkout.exercises ?? [])];
+                const ex = exs[exIdx];
+                if (!ex) return;
+                exs[exIdx] = {
+                  ...ex,
+                  instanceConfig: {
+                    enablePyramid: false,
+                    pyramidMode: 'decreasing',
+                    autoCalculateSubSets: false,
+                    ...ex.instanceConfig,
+                    bodyweightMode: mode,
+                  },
+                };
+                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+              }
+            : undefined
+        }
       />
 
       <DurationPickerModal

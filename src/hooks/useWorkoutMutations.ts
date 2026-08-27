@@ -409,9 +409,15 @@ export function useWorkoutMutations({
               instanceConfig: lastExercise?.instanceConfig
                 ? { ...lastExercise.instanceConfig }
                 : {
-                    enablePyramid: ex.exerciseConfig?.supportsPyramid || false,
+                    // 递增递减组不再默认开启（旧逻辑把库里 supportsPyramid 当成了默认启用）
+                    enablePyramid: false,
                     pyramidMode: 'decreasing',
-                    bodyweightMode: ex.exerciseConfig?.bodyweightType || 'none',
+                    // 只保留负重/辅助两个有语义的标记；'bodyweight' 折叠为标准
+                    bodyweightMode:
+                      ex.exerciseConfig?.bodyweightType === 'weighted' ||
+                      ex.exerciseConfig?.bodyweightType === 'assisted'
+                        ? ex.exerciseConfig.bodyweightType
+                        : 'none',
                     autoCalculateSubSets: false,
                   },
             } as Exercise,

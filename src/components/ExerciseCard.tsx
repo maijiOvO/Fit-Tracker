@@ -1,9 +1,10 @@
 import React from 'react';
 import { Trash2, StickyNote, Settings as SettingsIcon, Calendar, Plus } from 'lucide-react';
-import { Exercise, BodyweightMode, Language } from '../../types';
+import { Exercise, Language } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
 import { SetCapsule } from './SetCapsule';
+import { getLoadMode, LoadMode } from '../utils/exerciseConfig';
 
 /**
  * 指标列对应的单位标签（按 metric 类型 + 当前单位制 + 语言返回）。
@@ -12,11 +13,14 @@ import { SetCapsule } from './SetCapsule';
  * - distance / speed → 取决于单位制
  * - duration → h:m:s
  */
-function metricUnitLabel(metric: string, unit: string, lang: Language): string {
+function metricUnitLabel(metric: string, unit: string, lang: Language, loadMode: LoadMode): string {
   const isCN = lang === Language.CN;
   switch (metric) {
-    case 'weight':
-      return unit === 'kg' ? 'kg' : 'lbs';
+    case 'weight': {
+      const u = unit === 'kg' ? 'kg' : 'lbs';
+      // 负重/辅助标记体现在表头符号上（备忘用途，不参与统计）
+      return loadMode === 'weighted' ? `+${u}` : loadMode === 'assisted' ? `−${u}` : u;
+    }
     case 'reps':
       return isCN ? '次' : 'reps';
     case 'distance':
@@ -35,8 +39,6 @@ interface ExerciseCardProps {
   exIdx: number;
   lang: Language;
   unit: string;
-  isBodyweight: boolean;
-  isPyramid: boolean;
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;
@@ -50,16 +52,11 @@ interface ExerciseCardProps {
   onRemoveSet: (exIdx: number, setIdx: number) => void;
 }
 
-const chipActive = 'bg-accent text-white';
-const chipIdle = 'bg-inset text-secondary hover:text-primary';
-
 export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exercise,
   exIdx,
   lang,
   unit,
-  isBodyweight,
-  isPyramid,
   exerciseNotes,
   getActiveMetrics,
   resolveName,
@@ -76,41 +73,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const exerciseName = resolveName(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
   const hasNote = !!exerciseNotes[exerciseName];
-
-  const handleBodyweightModeChange = (mode: 'none' | 'bodyweight' | 'assisted' | 'weighted') => {
-    const updates: Partial<Exercise> = {
-      instanceConfig: {
-        ...exercise.instanceConfig,
-        bodyweightMode: mode,
-      },
-    };
-
-    if (mode === 'bodyweight' || mode === 'assisted' || mode === 'weighted') {
-      updates.sets = exercise.sets.map(s => ({ ...s, bodyweightMode: 'normal' }));
-    } else {
-      updates.sets = exercise.sets.map(s => {
-        const { bodyweightMode, ...rest } = s;
-        return rest;
-      });
-    }
-
-    onUpdateExercise(exIdx, updates);
-  };
-
-  const handleTogglePyramid = () => {
-    onUpdateExercise(exIdx, {
-      instanceConfig: {
-        ...exercise.instanceConfig,
-        enablePyramid: !exercise.instanceConfig?.enablePyramid,
-      },
-    });
-  };
-
-  const handleSubModeChange = (mode: BodyweightMode) => {
-    onUpdateExercise(exIdx, {
-      sets: exercise.sets.map(s => ({ ...s, bodyweightMode: mode })),
-    });
-  };
+  const loadMode = getLoadMode(exercise);
 
   const handleDurationClick = (setIdx: number) => {
     onOpenTimePicker(exIdx, setIdx, exercise.sets[setIdx].duration || 0);
@@ -122,6 +85,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="font-display text-lg font-semibold text-primary leading-tight">{exerciseName}</h3>
+
+            {loadMode !== 'none' && (
+              <button
+                onClick={() => onOpenMetricModal(exerciseName)}
+                className="px-2 py-0.5 rounded-chip text-[10px] font-semibold bg-accent/10 text-accent border border-accent/25"
+                title={lang === Language.CN ? '修改负重/辅助标记' : 'Change load mode'}
+              >
+                {loadMode === 'weighted'
+                  ? lang === Language.CN ? '负重 +' : 'Weighted +'
+                  : lang === Language.CN ? '辅助 −' : 'Assisted −'}
+              </button>
+            )}
 
             {exercise.exerciseTime && (
               <button
@@ -174,68 +149,13 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-5">
-        <div className="flex flex-wrap gap-1 p-1 bg-inset rounded-control border border-divider">
-          {(['none', 'bodyweight', 'assisted', 'weighted'] as const).map(mode => (
-            <button
-              key={mode}
-              onClick={() => handleBodyweightModeChange(mode)}
-              className={`px-2.5 py-1.5 rounded-chip text-[10px] font-medium transition-colors ${
-                exercise.instanceConfig?.bodyweightMode === mode ? chipActive : chipIdle
-              }`}
-            >
-              {mode === 'none'
-                ? lang === Language.CN
-                  ? '器械'
-                  : 'Weight'
-                : mode === 'bodyweight'
-                  ? lang === Language.CN
-                    ? '自重'
-                    : 'Bodyweight'
-                  : mode === 'assisted'
-                    ? lang === Language.CN
-                      ? '辅助'
-                      : 'Assisted'
-                    : lang === Language.CN
-                      ? '负重'
-                      : 'Weighted'}
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={handleTogglePyramid}
-          className={`px-2.5 py-1.5 rounded-chip text-[10px] font-medium border transition-colors ${
-            isPyramid ? chipActive + ' border-accent' : chipIdle + ' border-divider'
-          }`}
-        >
-          {lang === Language.CN ? '递增递减组' : 'Pyramid Sets'}
-        </button>
-      </div>
-
-      {isBodyweight && (
-        <div className="flex gap-1 mb-5 p-1 bg-inset rounded-control border border-divider">
-          {(['normal', 'weighted', 'assisted'] as BodyweightMode[]).map(mode => (
-            <button
-              key={mode}
-              onClick={() => handleSubModeChange(mode)}
-              className={`flex-1 py-1.5 rounded-chip text-[10px] font-medium transition-colors ${
-                exercise.sets[0]?.bodyweightMode === mode ? chipActive : chipIdle
-              }`}
-            >
-              {translations[`mode${mode.charAt(0).toUpperCase() + mode.slice(1)}` as keyof typeof translations][lang]}
-            </button>
-          ))}
-        </div>
-      )}
-
       <div
         className="grid gap-2 items-center px-2 mb-2 text-xs font-medium text-tertiary"
         style={{ gridTemplateColumns: `35px repeat(${activeMetrics.length}, 1fr) 35px` }}
       >
         <span className="pl-1">#</span>
         {activeMetrics.map(m => {
-          const unitLabel = metricUnitLabel(m, unit, lang);
+          const unitLabel = metricUnitLabel(m, unit, lang, loadMode);
           return (
             <div key={m} className="flex flex-col items-center leading-tight">
               <span>{translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}</span>
@@ -257,7 +177,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             activeMetrics={activeMetrics}
             unit={unit}
             lang={lang}
-            isPyramid={isPyramid}
             onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}
             onRemove={() => onRemoveSet(exIdx, setIdx)}
             onDurationClick={() => handleDurationClick(setIdx)}
