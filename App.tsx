@@ -64,7 +64,6 @@ import {
   MeasurementModal,
   MetricSettingsModal,
   NoteModal,
-  PlanConfirmModal,
   RenameModal,
   ResetAccountModal,
   WeightInputModal,
@@ -262,8 +261,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     setEditingWorkoutId,
     hasUnsavedChanges,
     setHasUnsavedChanges,
-    planConfirmOpen,
-    setPlanConfirmOpen,
     finishWorkout,
     handleFinishWithConfirmation,
     handleEditWorkout,
@@ -1082,27 +1079,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               'error',
             );
           }
-        }}
-      />
-
-      <PlanConfirmModal
-        open={planConfirmOpen}
-        lang={lang}
-        onFaithful={async () => {
-          setPlanConfirmOpen(false);
-          activeScheduleIdRef.current = activeScheduleIdRef.current;
-          await finishWorkout();
-        }}
-        onModified={async () => {
-          setPlanConfirmOpen(false);
-          if (activeScheduleIdRef.current) {
-            // modified: 非 faithful
-            await finishWorkout();
-          }
-        }}
-        onCancel={() => {
-          setPlanConfirmOpen(false);
-          setSaveStatus('idle');
         }}
       />
 

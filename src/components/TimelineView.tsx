@@ -273,26 +273,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                           <span className="font-medium">
                             {dateStr} · {timeStr}
                           </span>
-                          {w.status === 'draft' && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-orange-500/10 text-orange-500">
-                              {isCN ? '未完成' : 'Draft'}
-                            </span>
-                          )}
                           {w.fromSchedule && (
-                            <span
-                              className={`text-[9px] px-1.5 py-0.5 rounded-chip font-bold ${
-                                w.fromSchedule.faithful
-                                  ? 'bg-accent-soft text-accent'
-                                  : 'bg-warning/15 text-warning'
-                              }`}
-                            >
-                              {w.fromSchedule.faithful
-                                ? isCN
-                                  ? '按计划'
-                                  : 'Planned'
-                                : isCN
-                                ? '计划·调整'
-                                : 'Plan·Mod'}
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
+                              {isCN ? '按计划' : 'Planned'}
                             </span>
                           )}
                         </div>

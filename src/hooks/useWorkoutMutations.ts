@@ -38,8 +38,6 @@ export interface UseWorkoutMutationsResult {
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
 
-  planConfirmOpen: boolean;
-  setPlanConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
 
   /** 结束训练（标记 finishedAt + 清空 + 跳转） */
   finishWorkout: () => Promise<void>;
@@ -100,7 +98,6 @@ export function useWorkoutMutations({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [planConfirmOpen, setPlanConfirmOpen] = useState(false);
   const [pendingScrollToPicker, setPendingScrollToPicker] = useState(false);
 
   const activeScheduleIdRef = useRef<string | null>(null);
@@ -124,7 +121,7 @@ export function useWorkoutMutations({
         ...currentWorkout,
         title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`,
         date: currentWorkout.date || new Date().toISOString(),
-        ...(scheduleId ? { fromSchedule: { scheduleId, faithful: true } } : {}),
+        ...(scheduleId ? { fromSchedule: { scheduleId } } : {}),
       };
 
       await ctxFinishWorkout(finalWorkout);
@@ -432,8 +429,6 @@ export function useWorkoutMutations({
     setEditingWorkoutId,
     hasUnsavedChanges,
     setHasUnsavedChanges,
-    planConfirmOpen,
-    setPlanConfirmOpen,
     finishWorkout,
     handleFinishWithConfirmation,
     handleEditWorkout,

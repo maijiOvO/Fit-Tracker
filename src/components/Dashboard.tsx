@@ -466,18 +466,10 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   </div>
                                   {ex.fromSchedule && (
                                     <span
-                                      className={`text-[10px] px-2 py-0.5 rounded-chip font-medium ${
-                                        ex.fromSchedule.faithful
-                                          ? 'bg-accent-soft text-accent'
-                                          : 'bg-warning/15 text-warning'
-                                      }`}
-                                      title={ex.fromSchedule.faithful
-                                        ? (translations.planBadgeFaithful?.[lang] ?? '来自计划')
-                                        : (translations.planBadgeModified?.[lang] ?? '计划 · 有调整')}
+                                      className="text-[10px] px-2 py-0.5 rounded-chip font-medium bg-accent-soft text-accent"
+                                      title={translations.planBadgeFaithful?.[lang] ?? '来自计划'}
                                     >
-                                      {ex.fromSchedule.faithful
-                                        ? (translations.planBadgeFaithful?.[lang] ?? '来自计划')
-                                        : (translations.planBadgeModified?.[lang] ?? '计划 · 有调整')}
+                                      {translations.planBadgeFaithful?.[lang] ?? '来自计划'}
                                     </span>
                                   )}
                                   {ex.exerciseTime && (

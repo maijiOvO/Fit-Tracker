@@ -444,9 +444,9 @@ const main = async () => {
     return 'prefill + back ok';
   });
 
-  // Plan completion confirmation: start session → save → choose "有调整" → workout
-  // record receives fromSchedule.faithful=false and remote PUT carries it.
-  await step(page, 'plan-confirm-modified', async () => {
+  // 从计划开始训练 → 结束 → 训练记录带上 fromSchedule.scheduleId 并推到远端。
+  // 「按计划 / 有调整」确认弹窗已随 6c612c4 移除，这里只校验计划与训练的关联。
+  await step(page, 'plan-finish-from-schedule', async () => {
     // Re-enter Plan tab and start the session again
     await page.locator('[data-testid="tab-plan"]').click();
     await page.waitForTimeout(300);
@@ -455,31 +455,27 @@ const main = async () => {
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
-    // 结束训练（6c612c4 起由「保存」改名）— 先确认框（UiOverlay），再 plan-confirm modal。
     // 按钮文案是动态的（结束训练/结束中/已结束/失败），所以不能用 ^...$ 精确匹配。
     await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
     await acceptAppConfirm(page);
-    // Plan confirm modal should appear
-    await page.locator('[data-testid="plan-confirm-modified"]').waitFor({ state: 'visible', timeout: 5_000 });
-    await page.locator('[data-testid="plan-confirm-modified"]').click();
-    // After save it goes back to dashboard within 2s
+    // After finishing it goes back to dashboard within 2s
     await page.waitForTimeout(2500);
 
-    // Force a remote push then GET, verify fromSchedule.faithful=false in the saved workout
+    // Force a remote push then GET, verify the schedule linkage survived the round-trip
     const verify = await page.evaluate(async (id) => {
       await window.__fitlog.flush();
       const snap = await window.__fitlog.fetchRemote();
       if (!snap) return { ok: false, reason: 'snap null' };
       const w = (snap.workouts || []).find(w => w.fromSchedule?.scheduleId === id);
       if (!w) return { ok: false, reason: 'no workout linked to schedule' };
-      return { ok: w.fromSchedule.faithful === false, faithful: w.fromSchedule.faithful };
+      return { ok: true, workoutId: w.id };
     }, createdScheduleId);
     if (!verify.ok) throw new Error(`fromSchedule check failed: ${JSON.stringify(verify)}`);
-    return `fromSchedule.faithful=${verify.faithful} persisted to remote`;
+    return `workout ${verify.workoutId} linked to schedule, persisted to remote`;
   });
 
   await step(page, 'plan-switch-to-goals', async () => {
-    // After plan-confirm-modified we landed back on dashboard — return to Plan first
+    // After plan-finish-from-schedule we landed back on dashboard — return to Plan first
     await page.locator('[data-testid="tab-plan"]').click();
     await page.waitForTimeout(300);
     await page.locator('[data-testid="plan-subview-goals"]').click();

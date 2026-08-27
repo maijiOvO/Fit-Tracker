@@ -247,8 +247,6 @@ export interface AssistantConversation {
 // 工作集合的训练「来源」：来自训练计划时记录是否照计划完成
 export interface WorkoutFromSchedule {
   scheduleId: string;
-  /** true: 完全按计划完成；false: 有调整 */
-  faithful: boolean;
 }
 
 // 训练计划：用户为未来某一天安排的训练
