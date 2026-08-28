@@ -48,6 +48,8 @@ interface ExerciseCardProps {
   exIdx: number;
   lang: Language;
   unit: string;
+  /** 本场训练的场地（§12.11）。只用来判断底稿是不是从别的馆抄来的。 */
+  workoutGym?: string;
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;
@@ -73,6 +75,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exIdx,
   lang,
   unit,
+  workoutGym,
   exerciseNotes,
   getActiveMetrics,
   resolveName,
@@ -93,6 +96,13 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   // 底稿行不计入「M组」——它还不是数据（§12.6）
   const realSetCount = exercise.sets.filter((s: any) => !s.ghost).length;
   const ghostSetCount = exercise.sets.length - realSetCount;
+  /**
+   * §12.11：底稿来自别的馆时，眉批要把这件事摊开 —— 照抄的重量是按另一套
+   * 刻度记的。在渲染时判而不是在预填时判：加完动作再回头改本场场地是常见操作。
+   * 两边都标了场地才谈得上「不同」；有一边没标就是不知道，不知道就不说。
+   */
+  const draftFromOtherGym =
+    !!exercise.prefillGym && !!workoutGym && exercise.prefillGym !== workoutGym;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -242,14 +252,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <>
                 底稿 · 上次
                 {exercise.prefillFrom ? ` ${formatPrefillDate(exercise.prefillFrom, true)}` : ''}
+                {draftFromOtherGym ? ` · ${exercise.prefillGym}` : ''}
                 {' —— '}
+                {draftFromOtherGym && <span className="text-secondary">刻度可能不同；</span>}
                 <span className="text-accent font-medium">点组号照抄</span>
                 ；改哪格，记哪格；没描的不入册
               </>
             ) : (
               <>
                 Draft{exercise.prefillFrom ? ` · last ${formatPrefillDate(exercise.prefillFrom, false)}` : ''}
+                {draftFromOtherGym ? ` · ${exercise.prefillGym}` : ''}
                 {' — '}
+                {draftFromOtherGym && <span className="text-secondary">different gym; </span>}
                 <span className="text-accent font-medium">tap # to copy</span>
                 ; edits confirm; untouched drafts are dropped
               </>

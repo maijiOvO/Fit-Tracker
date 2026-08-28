@@ -41,19 +41,32 @@ function passesThreshold(prev: number, next: number): boolean {
   return true;
 }
 
+/**
+ * 底稿行不是事实（§12.6），不能参与任何纪录判定。
+ *
+ * session 侧进来时已经被 finishWorkout 剥干净了，但 history 侧是原始
+ * workouts —— 里面可能躺着没结束就被放弃的草稿，那些草稿是带 ghost 行
+ * 落盘的。不滤的话，一场从没发生过的训练会把 prevV 抬高，反过来把之后
+ * 一次真实的容量 PR 压掉。bestLifts / ExerciseCard / TimelineView 早就
+ * 在滤了，这里补齐口径。
+ */
+function realSets(ex: Exercise): any[] {
+  return (ex.sets ?? []).filter((s: any) => !s.ghost);
+}
+
 function maxSetWeight(ex: Exercise): number {
-  const ws = (ex.sets ?? []).map((s: any) => s.weight || 0);
+  const ws = realSets(ex).map((s: any) => s.weight || 0);
   return ws.length ? Math.max(...ws) : 0;
 }
 
 function maxSetReps(ex: Exercise): number {
-  const rs = (ex.sets ?? []).map((s: any) => s.reps || 0);
+  const rs = realSets(ex).map((s: any) => s.reps || 0);
   return rs.length ? Math.max(...rs) : 0;
 }
 
 /** 单次训练里这个动作的总容量 Σ(weight × reps)，含递减子组 */
 function exerciseVolume(ex: Exercise): number {
-  return (ex.sets ?? []).reduce((sum: number, s: any) => {
+  return realSets(ex).reduce((sum: number, s: any) => {
     let v = (s.weight || 0) * (s.reps || 0);
     for (const sub of s.subSets || []) v += (sub.weight || 0) * (sub.reps || 0);
     return sum + v;
@@ -92,7 +105,9 @@ export function detectPRs({
 
     // 该动作的历史记录
     const past = history.flatMap(w =>
-      (w.exercises ?? []).filter(e => resolveName(e.name).trim() === name),
+      (w.exercises ?? []).filter(
+        e => resolveName(e.name).trim() === name && realSets(e).length > 0,
+      ),
     );
     // 历史为空不算 PR
     if (past.length === 0) continue;
@@ -137,7 +152,7 @@ export function detectPRs({
 /** 一场训练的总容量与总组数，刊末页要用 */
 export function sessionSummary(session: WorkoutSession) {
   const exercises = session.exercises ?? [];
-  const sets = exercises.reduce((n, ex) => n + (ex.sets?.length || 0), 0);
+  const sets = exercises.reduce((n, ex) => n + realSets(ex).length, 0);
   const volume = exercises.reduce((n, ex) => n + exerciseVolume(ex), 0);
   return { exerciseCount: exercises.length, setCount: sets, volumeKg: volume };
 }

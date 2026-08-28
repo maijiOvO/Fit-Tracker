@@ -12,3 +12,4 @@ export { MetricSettingsModal } from './MetricSettingsModal';
 export { DurationPickerModal } from './DurationPickerModal';
 export { ResetAccountModal } from './ResetAccountModal';
 export { TagManageModal } from './TagManageModal';
+export { GymPickerModal } from './GymPickerModal';

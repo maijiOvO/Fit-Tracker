@@ -12,6 +12,7 @@ import {
   CalendarRange,
   CalendarClock,
   CalendarSearch,
+  MapPin,
 } from 'lucide-react';
 import { Language, WorkoutSession, Exercise } from '../../types';
 import { translations } from '../../translations';
@@ -294,6 +295,16 @@ const SessionCard: React.FC<SessionCardProps> = ({
             {w.fromSchedule && (
               <span className="text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
                 {isCN ? '按计划' : 'Planned'}
+              </span>
+            )}
+            {/* §12.11 场地。没标过的（新增字段之前的历史）什么都不显示 —— 不编。 */}
+            {w.gym && (
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
+                data-testid="timeline-gym"
+              >
+                <MapPin size={8} strokeWidth={2.25} />
+                {w.gym}
               </span>
             )}
           </div>

@@ -44,6 +44,62 @@ function HatchDefs({ id, color }: { id: string; color: string }) {
   );
 }
 
+/**
+ * 趋势图 tooltip。自定义而非用 formatter，两个原因：
+ *   1. 分段绘制拆出了 solidN / crossN 派生序列，默认 payload 会把同一个数值列四遍；
+ *   2. 末行要放场地（§12.11）—— 图面上默认只有一段虚线，具体在哪个馆练的
+ *      靠点这一下问出来。
+ */
+function ChartTooltip({
+  active,
+  payload,
+  label,
+  palette,
+  lang,
+  metricKey,
+  isCn,
+}: any) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0]?.payload;
+  if (!point) return null;
+
+  const dateStr = new Date(label ?? point.timestamp).toLocaleDateString(
+    isCn ? 'zh-CN' : 'en-US',
+    { year: 'numeric', month: 'short', day: 'numeric' },
+  );
+
+  return (
+    <div
+      style={{
+        backgroundColor: palette.tooltipBg,
+        borderRadius: '4px',
+        border: `1px solid ${palette.tooltipBorder}`,
+        padding: '10px 12px',
+      }}
+    >
+      <div style={{ color: palette.tooltipLabel, fontSize: 12, fontWeight: 500, marginBottom: 4 }}>
+        {dateStr}
+      </div>
+      <div style={{ color: palette.tooltipText, fontSize: 13, fontWeight: 600 }}>
+        {metricLabel(metricKey, lang)} {trimNum(point.val)}
+      </div>
+      {point.gym && (
+        <div
+          style={{
+            color: palette.tooltipLabel,
+            fontSize: 11,
+            marginTop: 5,
+            paddingTop: 5,
+            borderTop: `1px solid ${palette.tooltipBorder}`,
+          }}
+        >
+          {point.gym}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function makeEndLabel(lastIndex: number, color: string, textColor: string, suffix = '') {
   return function EndLabel(props: any) {
     const { cx, cy, index, value } = props;
@@ -98,6 +154,64 @@ interface ChartDataPoint {
   val: number;
   timestamp: number;
   volume?: number;
+  /** §12.11 这一场在哪个馆练的；没标过就是 undefined */
+  gym?: string;
+  /**
+   * 分段绘制用的派生键（splitByGym 填）。Recharts 的 Line 只能整条线一个
+   * strokeDasharray，做不到「只把跨场地那一段画虚」，所以把序列拆成几条
+   * 互补的线：solid0/solid1 交替承载同场地的连续块，cross0/cross1 交替
+   * 承载跨场地的那一段。交替是必须的 —— 同一个键里两个相邻的非空值会被
+   * connectNulls={false} 连起来，块与块之间必须隔着一个 null。
+   */
+  solid0?: number | null;
+  solid1?: number | null;
+  cross0?: number | null;
+  cross1?: number | null;
+}
+
+/**
+ * 把序列按场地切成「实线块」与「跨场地段」（§12.11）。
+ *
+ * 判定只在两端都标了场地且不同时成立 —— 有一端没标就是不知道，不知道就不画。
+ * 于是这个功能对补标场地之前的历史数据零视觉影响。
+ */
+function splitByGym(data: ChartDataPoint[]): { data: ChartDataPoint[]; hasCrossing: boolean } {
+  if (data.length < 2) return { data, hasCrossing: false };
+
+  const isCrossing = (i: number) => {
+    const a = data[i].gym;
+    const b = data[i + 1].gym;
+    return !!a && !!b && a !== b;
+  };
+
+  const out = data.map(d => ({ ...d, solid0: null, solid1: null, cross0: null, cross1: null } as ChartDataPoint));
+  let hasCrossing = false;
+
+  // 实线：连续同场地的点归一块，块号奇偶决定落在 solid0 还是 solid1
+  let block = 0;
+  (out[0] as any)['solid0'] = out[0].val;
+  for (let i = 0; i < data.length - 1; i++) {
+    if (isCrossing(i)) {
+      block++;
+      hasCrossing = true;
+    } else {
+      // 同块：两端都要有值，线才连得起来
+      (out[i] as any)[`solid${block % 2}`] = out[i].val;
+    }
+    (out[i + 1] as any)[`solid${block % 2}`] = out[i + 1].val;
+  }
+
+  // 虚线：第 k 段跨场地落在 cross{k%2}，相邻两段必然异键，不会串成一条
+  let k = 0;
+  for (let i = 0; i < data.length - 1; i++) {
+    if (!isCrossing(i)) continue;
+    const key = `cross${k % 2}`;
+    (out[i] as any)[key] = out[i].val;
+    (out[i + 1] as any)[key] = out[i + 1].val;
+    k++;
+  }
+
+  return { data: out, hasCrossing };
 }
 
 interface LazyChartsProps {
@@ -143,25 +257,34 @@ export function getChartDataFor(
   const searchName = target.trim();
   const key = metricKey || metricGetter(searchName);
 
+  // 底稿行（§12.6）不入图 —— 未结束的草稿是带 ghost 行落盘的，
+  // 画进去就是给一场没发生过的训练画了个点。整动作只剩底稿的直接跳过，
+  // 否则 Math.max(...[]) 会得到 -Infinity。
   return workouts
     .filter(w => w.exercises.some((ex: any) => resolver(ex.name).trim() === searchName))
     .map(w => {
       const ex = w.exercises.find((e: any) => resolver(e.name).trim() === searchName)!;
-      
-      const values = ex.sets.map((s: any) => {
-        const v = s[key] || 0;
-        if (key === 'weight' && u === 'lbs') return v * 2.20462;
-        if (key === 'speed' && u === 'lbs') return v * 0.621371;
-        return v;
-      });
+
+      const values = (ex.sets ?? [])
+        .filter((s: any) => !s.ghost)
+        .map((s: any) => {
+          const v = s[key] || 0;
+          if (key === 'weight' && u === 'lbs') return v * 2.20462;
+          if (key === 'speed' && u === 'lbs') return v * 0.621371;
+          return v;
+        });
+      if (values.length === 0) return null;
 
       const maxVal = Math.max(...values);
-      return { 
+      const point: ChartDataPoint = {
         date: new Date(w.date).toLocaleDateString(l === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }), 
         val: Number(maxVal.toFixed(2)),
-        timestamp: new Date(w.date).getTime() 
+        timestamp: new Date(w.date).getTime(),
+        gym: w.gym,
       };
+      return point;
     })
+    .filter((d): d is ChartDataPoint => d !== null)
     .sort((a, b) => a.timestamp - b.timestamp);
 }
 
@@ -189,7 +312,7 @@ export function TrendChart({
 }: TrendChartProps) {
   const { resolved } = useTheme();
   const p = chartPalette(resolved === 'dark');
-  const data = getChartDataFor(
+  const raw = getChartDataFor(
     workouts, 
     weightEntries, 
     target, 
@@ -199,6 +322,9 @@ export function TrendChart({
     resolveName,
     getChartMetric
   );
+  // §12.11：跨场地那一段改虚线。没标过场地时 hasCrossing 为 false，
+  // 一条实线，跟改动前完全一样。
+  const { data, hasCrossing } = splitByGym(raw);
   
   const isWeight = target === '__WEIGHT__';
   if (data.length === 0) return null;
@@ -247,24 +373,20 @@ export function TrendChart({
             domain={['auto', 'auto']}
           />
           {!isWeight && <YAxis yAxisId="right" orientation="right" hide domain={['auto', 'auto']} />}
+          {/* 自定义内容：默认的 formatter 会把拆出来的 solid/cross 派生序列
+              一并列出来（同一个数值重复四遍）。顺带把场地放进末行 —— §12.11
+              说的「不那么明显的交互」就是这里：图上安静，点了才告诉你。 */}
           <Tooltip
-            contentStyle={{
-              backgroundColor: p.tooltipBg,
-              borderRadius: '4px',
-              border: `1px solid ${p.tooltipBorder}`,
-              padding: '10px 12px',
-            }}
-            itemStyle={{ fontWeight: '600', color: p.tooltipText, fontSize: '13px' }}
-            labelStyle={{ color: p.tooltipLabel, fontSize: '12px', marginBottom: '4px', fontWeight: '500' }}
-            formatter={(value: number) => [trimNum(value), metricLabel(metricKey, lang)]}
-            labelFormatter={ts => {
-              const d = new Date(ts as number);
-              return d.toLocaleDateString(isCn ? 'zh-CN' : 'en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-              });
-            }}
+            cursor={{ stroke: p.axis, strokeWidth: 1 }}
+            content={(props: any) => (
+              <ChartTooltip
+                {...props}
+                palette={p}
+                lang={lang}
+                metricKey={metricKey}
+                isCn={isCn}
+              />
+            )}
           />
           {!isWeight && (
             <Bar
@@ -305,16 +427,66 @@ export function TrendChart({
             fillOpacity={1}
             isAnimationActive={false}
           />
-          <Line
-            yAxisId="left"
-            type="monotone"
-            dataKey="val"
-            stroke={p.accent}
-            strokeWidth={1.75}
-            dot={makeEndLabel(lastIndex, p.accent, p.tooltipText)}
-            activeDot={{ r: 3, fill: p.accent, stroke: 'none' }}
-            isAnimationActive={false}
-          />
+          {/* 墨线。没有跨场地时就是原来那一条；有跨场地时拆成
+              solid0/solid1（实）+ cross0/cross1（虚），见 splitByGym。
+              点、末点读数、activeDot 始终挂在完整的 val 序列上 ——
+              所有数据点一视同仁，不给客场的点做任何记号：
+              断崖发生在「边」上，不在「点」上。 */}
+          {!hasCrossing && (
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="val"
+              stroke={p.accent}
+              strokeWidth={1.75}
+              dot={makeEndLabel(lastIndex, p.accent, p.tooltipText)}
+              activeDot={{ r: 3, fill: p.accent, stroke: 'none' }}
+              isAnimationActive={false}
+            />
+          )}
+          {hasCrossing && (
+            <>
+              {(['solid0', 'solid1'] as const).map(k => (
+                <Line
+                  key={k}
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey={k}
+                  stroke={p.accent}
+                  strokeWidth={1.75}
+                  dot={false}
+                  activeDot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              ))}
+              {(['cross0', 'cross1'] as const).map(k => (
+                <Line
+                  key={k}
+                  yAxisId="left"
+                  type="linear"
+                  dataKey={k}
+                  stroke={p.accent}
+                  strokeWidth={1.75}
+                  strokeDasharray="3 4"
+                  strokeOpacity={0.42}
+                  dot={false}
+                  activeDot={false}
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+              ))}
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="val"
+                stroke="none"
+                dot={makeEndLabel(lastIndex, p.accent, p.tooltipText)}
+                activeDot={{ r: 3, fill: p.accent, stroke: 'none' }}
+                isAnimationActive={false}
+              />
+            </>
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     </div>

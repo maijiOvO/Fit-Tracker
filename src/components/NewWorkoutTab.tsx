@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Flag,
+  MapPin,
   Plus,
   X,
   Scale,
@@ -46,6 +47,8 @@ export interface NewWorkoutTabProps {
   onDeleteExerciseFromSession: (exIdx: number) => void;
   /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
   onChangeDate?: () => void;
+  /** 打开场地选择器（§12.11）。编辑旧训练时同样可用 —— 那是补标历史的唯一入口。 */
+  onChangeGym?: () => void;
 
   // ===== 添加动作弹层 =====
   pickerOpen: boolean;
@@ -91,6 +94,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onOpenMetricModal,
   onDeleteExerciseFromSession,
   onChangeDate,
+  onChangeGym,
   pickerOpen,
   onPickerOpenChange,
   addedCounts,
@@ -227,6 +231,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   )}
                 </button>
               )}
+              {/* §12.11 场地：日期右边一格。没标过时只是个淡图标，
+                  标过之后显示场地名 —— 常驻但极轻，语义不会漂。 */}
+              {onChangeGym && (
+                <button
+                  type="button"
+                  onClick={onChangeGym}
+                  className={`normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent ${
+                    currentWorkout.gym ? 'text-tertiary/80' : 'text-tertiary/45'
+                  }`}
+                  title={translations.gymPickTitle[lang] as string}
+                  aria-label={translations.gymPickTitle[lang] as string}
+                  data-testid="gym-button"
+                >
+                  <MapPin size={10} strokeWidth={2} />
+                  {currentWorkout.gym || ''}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onToggleUnit}
@@ -313,6 +334,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               exIdx={exIdx}
               lang={lang}
               unit={unit}
+              workoutGym={currentWorkout.gym}
               exerciseNotes={exerciseNotes}
               getActiveMetrics={getActiveMetrics}
               resolveName={resolveName}

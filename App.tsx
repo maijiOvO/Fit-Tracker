@@ -43,6 +43,7 @@ import {
   ExerciseCategory,
 } from './src/constants/exercises';
 import { getLoadMode, LoadMode } from './src/utils/exerciseConfig';
+import { listGyms } from './src/utils/gyms';
 
 import TabNavigation from './src/components/TabNavigation';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
@@ -56,6 +57,7 @@ import {
   DurationPickerModal,
   EditGoalModal,
   ExerciseDateTimePickerModal,
+  GymPickerModal,
   LibraryModal,
   MeasurementModal,
   MetricSettingsModal,
@@ -244,6 +246,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   } | null>(null);
   // ============== 编辑模式下训练日期选择 ==============
   const [showWorkoutDatePicker, setShowWorkoutDatePicker] = useState(false);
+  /** §12.11 场地选择器。候选从历史训练现算（最近用过的排最前），不落 prefs。 */
+  const [showGymPicker, setShowGymPicker] = useState(false);
+  const gymOptions = useMemo(() => listGyms(workouts), [workouts]);
 
   // ============== 目标弹窗 ==============
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -1045,6 +1050,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             }
             onOpenMetricModal={(name, exIdx) => setShowMetricModal({ name, exIdx })}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
+            onChangeGym={() => setShowGymPicker(true)}
             onDeleteExerciseFromSession={exIdx => {
               const snapshot = [...(currentWorkout.exercises ?? [])];
               const removed = snapshot[exIdx];
@@ -1194,6 +1200,22 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           setCurrentWorkout({ ...currentWorkout, date: date.toISOString() });
           workoutCtx.persistCurrentWorkout();
           setShowWorkoutDatePicker(false);
+        }}
+      />
+
+      {/* ============== 场地选择器（§12.11）============== */}
+      <GymPickerModal
+        open={showGymPicker}
+        lang={lang}
+        options={gymOptions}
+        current={currentWorkout?.gym}
+        onClose={() => setShowGymPicker(false)}
+        onPick={gym => {
+          const next = { ...currentWorkout };
+          if (gym) next.gym = gym;
+          else delete next.gym;
+          setCurrentWorkout(next);
+          workoutCtx.persistCurrentWorkout();
         }}
       />
 

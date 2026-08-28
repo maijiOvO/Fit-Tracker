@@ -3,6 +3,7 @@ import { WorkoutSession } from '../../types';
 import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
+import { lastUsedGym } from '../utils/gyms';
 
 function createEmptyWorkout(userId: string): WorkoutSession {
   const now = new Date().toISOString();
@@ -167,12 +168,16 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
 
   const createNewWorkout = (): WorkoutSession => {
     const now = new Date().toISOString();
+    // §12.11 场地默认沿用上一场：连着去同一个馆就永远不用碰那个控件。
+    // workouts 已按 date 倒序，lastUsedGym 取第一条标过的；全空则不编。
+    const gym = lastUsedGym(workouts);
     return {
       ...createEmptyWorkout(uid),
       id: Date.now().toString(),
       startTime: now,
       createdAt: now,
       updatedAt: now,
+      ...(gym ? { gym } : {}),
     };
   };
 

@@ -105,6 +105,13 @@ export const translations: TranslationStrings = {
   bodyPartHeader: { en: 'Body Parts', cn: '训练部位' },
   equipmentHeader: { en: 'Equipment', cn: '使用器材' },
   addCustomTag: { en: 'Add Custom Tag', cn: '添加自定义标签' },
+  // ── 场地（§12.11）──
+  gymLabel: { en: 'Gym', cn: '场地' },
+  gymPickTitle: { en: 'Where are you training?', cn: '在哪个馆练的' },
+  gymNone: { en: 'Not set', cn: '未标场地' },
+  gymClear: { en: 'Clear', cn: '不标场地' },
+  gymNewPlaceholder: { en: 'New gym name…', cn: '新场地名称…' },
+  gymLastUsed: { en: 'last', cn: '上次' },
   tagNamePlaceholder: { en: 'Tag Name...', cn: '标签名称...' },
   tagCategory: { en: 'Category', cn: '所属大类' },
   confirm: { en: 'Confirm', cn: '确定' },

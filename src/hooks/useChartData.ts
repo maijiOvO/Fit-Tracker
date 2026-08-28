@@ -50,15 +50,19 @@ export const useChartData = (
       .filter(w => w.exercises.some(ex => resolveName(ex.name).trim() === searchName))
       .map(w => {
         const ex = w.exercises.find(e => resolveName(e.name).trim() === searchName)!;
-        
-        // 提取该维度在本次训练中的最大值 (Max Effort)
-        const values = ex.sets.map(s => {
-          const v = (s as any)[metricKey || 'weight'] || 0;
-          // 单位转换
-          if (metricKey === 'weight' && unit === 'lbs') return v * 2.20462;
-          if (metricKey === 'speed' && unit === 'lbs') return v * 0.621371;
-          return v;
-        });
+
+        // 提取该维度在本次训练中的最大值 (Max Effort)。
+        // 底稿行（§12.6）不是事实，不入图；整动作只剩底稿的返回 null 后被滤掉。
+        const values = (ex.sets ?? [])
+          .filter(s => !(s as any).ghost)
+          .map(s => {
+            const v = (s as any)[metricKey || 'weight'] || 0;
+            // 单位转换
+            if (metricKey === 'weight' && unit === 'lbs') return v * 2.20462;
+            if (metricKey === 'speed' && unit === 'lbs') return v * 0.621371;
+            return v;
+          });
+        if (values.length === 0) return null;
 
         const maxVal = Math.max(...values);
         return {
@@ -70,6 +74,7 @@ export const useChartData = (
           timestamp: new Date(w.date).getTime()
         };
       })
+      .filter((d): d is ChartDataPoint => d !== null)
       .sort((a, b) => a.timestamp - b.timestamp);
   }, [workouts, weightEntries, target, metricKey, unit, lang, resolveName]);
 };

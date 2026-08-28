@@ -79,6 +79,13 @@ export interface Exercise {
    */
   prefillFrom?: string;
 
+  /**
+   * 底稿来源那一场的场地（§12.11），**仅在与本场不同时**才写。
+   * 换馆那天预填照抄的重量是按另一套刻度记的，眉批要把这件事摊开。
+   * 同 prefillFrom：只服务工作台眉批，结束训练时剥掉。
+   */
+  prefillGym?: string;
+
   // ✅ 增强：动作实例的特殊配置（用户可自定义）
   instanceConfig?: {
     enablePyramid: boolean;       // 本次训练是否启用递增递减组
@@ -124,6 +131,18 @@ export interface WorkoutSession {
   tags?: string[];
   /** 来自训练计划标记 */
   fromSchedule?: WorkoutFromSchedule;
+  /**
+   * 这一场在哪个馆练的（§12.11）。存**字面量**（'F4L' / '国内'），不存 id ——
+   * 场地表如果放进 prefs，就得同时改 FitlogSyncedPrefs / read / write /
+   * mergeFitlogPrefs 四处枚举，漏一处每次同步都会静默吞掉它。候选列表改成
+   * 从历史 workouts 现算（src/utils/gyms.ts），零同步面。
+   *
+   * 只做标注，不参与任何计算：PR / bestLifts / e1RM 一律不按场地分组 ——
+   * 杠铃跨馆一致，会变的是龙门架/绳索的配重刻度，而那些动作本来就不看纪录。
+   *
+   * 可选字段：新增前的历史记录没有它，合并时天然兼容，不做回填。
+   */
+  gym?: string;
   createdAt?: string;
   updatedAt?: string;
   /** 训练实际结束时间（ISO 8601）。为空表示用户尚未手动结束 */

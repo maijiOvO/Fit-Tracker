@@ -195,7 +195,7 @@ export function useWorkoutMutations({
        */
       const cleanedExercises = currentWorkout.exercises
         .map(ex => {
-          const { prefillFrom: _pf, ...rest } = ex;
+          const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
           return { ...rest, sets: ex.sets.filter(s => !s.ghost) };
         })
         .filter(ex => ex.sets.length > 0);
@@ -689,12 +689,14 @@ export function useWorkoutMutations({
       const resolvedTarget = resolveName(exerciseName);
       let lastExercise: Exercise | null = null;
       let lastExerciseDate: string | null = null;
+      let lastExerciseGym: string | undefined;
       if (resolvedTarget) {
         for (const w of workouts) {
           for (const we of w.exercises) {
             if (resolveName(we.name) === resolvedTarget) {
               lastExercise = we;
               lastExerciseDate = w.date || null;
+              lastExerciseGym = w.gym;
               break;
             }
           }
@@ -739,6 +741,12 @@ export function useWorkoutMutations({
                   : [{ id: Date.now().toString(), weight: 0, reps: 0 }],
               ...(ghostSets && ghostSets.length > 0 && lastExerciseDate
                 ? { prefillFrom: lastExerciseDate }
+                : {}),
+              // §12.11：记下底稿来源那一场的场地，**无条件记**。
+              // 「跟本场是不是同一个馆」留到渲染时再判 —— 加完动作再回头改本场
+              // 场地是常见操作，在这里定死会留下一条自相矛盾的眉批。
+              ...(ghostSets && ghostSets.length > 0 && lastExerciseGym
+                ? { prefillGym: lastExerciseGym }
                 : {}),
               exerciseTime,
               instanceConfig: lastExercise?.instanceConfig
