@@ -32,8 +32,15 @@ export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'ot
 
 /**
  * 印文。取的是各自标签里【区别性的那个字】：
- * 练胸→胸、练肩→肩、练背→背、练腿→腿、练手臂→臂、其他→他。
- * 规则一致，所以不用逐个解释。
+ * 练胸→胸、练肩→肩、练背→背、练腿→腿、练手臂→臂。
+ *
+ * 「其他」取【制】（自制／自定）。原本用「他」，但那是代词，刻进印里很怪。
+ * 想用的其实是「擬」（自拟其题，草案意味正好呼应虚线印框），但用不了 ——
+ * ⚠️ Ma Shan Zheng 只有 7015 字，是【纯简体字库】：
+ *    擬 設 別 創 約 號 題 一概没有，只有对应的简化字。
+ *    强行用会掉回系统黑体，正是本文件下面警告的那个坑。
+ * 制 的好处是繁简同形，和 胸肩背腿臂 一样没有简化字的时代感，
+ * 整版印谱在字形上是一致的。
  *
  * ⚠️ 这几个字必须在 scripts/build-fonts.mjs 的 SEAL_CHARS 里，
  *    否则 Ma Shan Zheng 的子集里没有它们，会静默掉回系统字体。
@@ -116,7 +123,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           style={{ animationDelay: `${5 * 32}ms` }}
           className={`${TILE} text-secondary hover:border-accent hover:text-accent`}
         >
-          <Seal char="他" dashed />
+          <Seal char="制" dashed />
           <span className="text-[13px] font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>

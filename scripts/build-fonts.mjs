@@ -43,12 +43,12 @@ const BASE =
  *
  * 两组：
  *   PR 与刊末页的落章 —— 记破新纪录今天多住了一点
- *   训练部位的朱文印   —— 胸肩背腿臂他（BodyPartPicker）
+ *   训练部位的朱文印   —— 胸肩背腿臂制（BodyPartPicker）
  *
  * ⚠️ 加中文字到印章里必须同时改这里并重跑 npm run build:fonts。
  *    dev server 不会自动重建子集，漏了这步字会静默掉回系统字体。
  */
-const SEAL_CHARS = '记破新纪录今天多住了一点' + '胸肩背腿臂他';
+const SEAL_CHARS = '记破新纪录今天多住了一点' + '胸肩背腿臂制';
 
 const SCAN_EXT = new Set(['.ts', '.tsx', '.html']);
 const SCAN_DIRS = ['src', 'services'];
