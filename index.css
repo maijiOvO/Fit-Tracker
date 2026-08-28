@@ -1089,6 +1089,37 @@ button {
     transform: translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(1.04);
   }
 }
+/* 英文补签：常驻在每枚印的径向外侧（§12.4）。
+   比悬停小签轻一档 —— 无边框、无投影、字更小、色更淡。六张都端着小签的架子
+   会糊成一片，印谱就不是印谱了；它们只需要够读，不需要抢。
+   悬停那张转朱砂色顶上去，同时接管「哪一枚在指头底下」的反馈，
+   所以英文下不再另外浮一张悬停小签。 */
+.seal-fan-label {
+  position: fixed;
+  z-index: 57;
+  transform: translate(-50%, -50%);
+  padding: 2px 7px;
+  border-radius: var(--radius-chip);
+  background: var(--bg-card);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity var(--dur-base) var(--ease-paper),
+    color var(--dur-tap) var(--ease-ink);
+}
+/* 跟着印一起 stagger 进场，用的是同一个 inCount */
+.seal-fan-label.is-in {
+  opacity: 1;
+}
+.seal-fan-label.is-hover {
+  color: var(--accent);
+}
+
 /* 悬停印上方浮出的部位名（纸片小签） */
 .seal-fan-tip {
   position: fixed;

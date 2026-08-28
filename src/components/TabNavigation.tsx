@@ -31,6 +31,18 @@ const FAN_R = 175; // 半径。160 时印与印只剩 1px 缝
 const FAN_START_DEG = 95; // 从近垂直……
 const FAN_SPAN_DEG = 85; // ……扫到近水平
 const SEAL_PX = 46; // 印面（页内印谱是 52，扇里略小）
+/**
+ * 英文补签所在的半径。+52 是量出来的，两头都卡着：
+ *
+ * 下界 —— 印是 46×46 的方块，沿射线方向的半径是 23/max(|cosθ|,|sinθ|)，
+ *   在 44° 上是 32.0（不是 23，方印的角比边远）。再加小签半高 9.4 与 6px 空隙 = 47.4。
+ *   +42 时实测 Legs / Arms / Other 三张签压在自己那枚印的角上。
+ * 上界 —— 最外那张 Other 的右边缘要留在屏内；390 宽下 +52 时到 293，还够。
+ *
+ * 相邻印夹角 17°，在 R+52=227 的弧上间距 67.3px，最长的 Shoulders 连内边距 68px
+ * 也排得开（它俩是唯一并排的一对，再往下就错成上下排了）。
+ */
+const LABEL_R = FAN_R + 52;
 const HIT_R = 48; // 命中=最近印中心距指尖 ≤48px，滑选目标要虚胖
 const COMMIT_MS = 260; // 落章过冲播完再切页
 
@@ -48,6 +60,9 @@ interface FanSeal {
   dy: number;
   hx: number;
   hy: number;
+  /** 英文补签的位置（径向外侧，见 LABEL_R） */
+  lx: number;
+  ly: number;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({
@@ -121,6 +136,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         dy: cy - y,
         hx: 6 * Math.cos(rad), // 悬停沿径向外浮 6px，别压在指头底下
         hy: -6 * Math.sin(rad),
+        lx: cx + LABEL_R * Math.cos(rad),
+        ly: cy - LABEL_R * Math.sin(rad),
       };
     });
     setSeals(next);
@@ -283,17 +300,42 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
             {s.seal}
           </button>
         ))}
-      {hoveredSeal && (
+
+      {/* 英文补签（§12.4）。
+
+          汉字印面本身就是那个词，扇开即可读；英文是首字母，扇开的一刻六枚印
+          等于六个谜面 —— 页内印谱每枚下面有名字，扇里没有，这个差别只在英文下
+          才变成问题。所以补签只给英文：中文那版印谱保持干净，不为英文的毛病返工。
+
+          位置在印的径向外侧而不是正下方：相邻印中心只隔 52px，标签挂在下面会压到
+          隔壁那枚印；挂到 R+42 的弧上，弧距撑到 63.8px，且靠上那两枚自然错成上下排。 */}
+      {!isCn &&
+        fanVisible &&
+        seals.map((s, i) => (
+          <span
+            key={`${s.key}-label`}
+            className={`seal-fan-label${i < inCount ? ' is-in' : ''}${
+              hovered === i && committing === null ? ' is-hover' : ''
+            }`}
+            style={{ left: s.lx, top: s.ly }}
+            aria-hidden
+          >
+            {/* 文案固定不变。试过悬停时换成「Other · name it」：签是居中定位的，
+                一变长就朝两边撑，右下角那枚正好被自己的签压住 —— 而上面那套不打架的
+                间距全建立在「每张签宽度恒定」上。自定名这件事页内印谱底下已经写了，
+                扇里是熟手路径，不必再教一遍。 */}
+            {s.label}
+          </span>
+        ))}
+
+      {/* 悬停小签只在中文下出现：英文那六张补签一直在，再浮一张就是同一个词印两遍。 */}
+      {hoveredSeal && isCn && (
         <span
           className="seal-fan-tip"
           style={{ left: hoveredSeal.x, top: hoveredSeal.y - SEAL_PX / 2 - 8 }}
           aria-hidden
         >
-          {hoveredSeal.key === 'other'
-            ? isCn
-              ? '其他 · 自己命名'
-              : 'Other · name it'
-            : hoveredSeal.label}
+          {hoveredSeal.key === 'other' ? '其他 · 自己命名' : hoveredSeal.label}
         </span>
       )}
 
