@@ -4,7 +4,7 @@
  * 添加动作走底部常驻栏唤起的 ExercisePickerSheet（弹层），页面本体只保留动作卡列表。
  * 本页隐藏全局 AppHeader，自己的 sticky 头部是唯一顶栏（含状态栏留白）。
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Flag,
@@ -20,6 +20,7 @@ import {
 import { translations } from '../../translations';
 import { ExerciseCard } from './ExerciseCard';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
+import { BodyPartPicker } from './BodyPartPicker';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -99,12 +100,34 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const flashTimerRef = useRef<number | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+
+  /**
+   * 已经选过部位的那次训练 id。
+   *
+   * 存 id 而不是布尔值：换一次训练（新 id）自然重新需要选，
+   * 而本次训练中途把动作全删光时，不会把已经选过的界面又弹回来。
+   */
+  const [partChosenFor, setPartChosenFor] = useState<string | null>(null);
 
   const exerciseCount = currentWorkout.exercises?.length ?? 0;
   const setCount = (currentWorkout.exercises ?? []).reduce(
     (s, ex) => s + (ex.sets?.length || 0),
     0,
   );
+
+  /**
+   * 是否先问「今天练哪里」。四个条件缺一不可：
+   *  - 还没有动作：一旦开始记就不该再打断
+   *  - 不是在编辑旧训练：那是在改历史，问部位没有意义
+   *  - 标题为空：从计划开始的训练已经带着名字（useWorkoutMutations.ts:381）
+   *  - 本次训练还没选过：含选了「其他」的情况（那时标题仍为空）
+   */
+  const needsBodyPart =
+    exerciseCount === 0 &&
+    !editingWorkoutId &&
+    !currentWorkout.title &&
+    partChosenFor !== currentWorkout.id;
 
   // 弹层关闭后：滚到最新添加的动作卡并高亮
   useEffect(() => {
@@ -187,6 +210,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               )}
             </div>
             <input
+              ref={titleInputRef}
               className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary/60 min-h-[36px]"
               value={currentWorkout.title}
               onChange={e =>
@@ -283,16 +307,31 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           </div>
         ))}
 
-        {exerciseCount === 0 && (
-          <div className="bg-inset border border-dashed border-divider rounded-card p-10 text-center space-y-2">
-            <p className="text-sm text-secondary font-semibold">
-              {isCn ? '还没有动作' : 'No exercises yet'}
-            </p>
-            <p className="text-xs text-tertiary">
-              {isCn ? '点击下方「添加动作」开始记录' : 'Tap "Add Exercise" below to start'}
-            </p>
-          </div>
-        )}
+        {exerciseCount === 0 &&
+          (needsBodyPart ? (
+            <BodyPartPicker
+              lang={lang}
+              onPick={title => {
+                setCurrentWorkout({ ...currentWorkout, title });
+                setPartChosenFor(currentWorkout.id);
+              }}
+              onPickOther={() => {
+                setPartChosenFor(currentWorkout.id);
+                // 「其他」的全部含义就是「我自己写」——把焦点交给顶部标题输入框。
+                // 延后一拍：本次 setState 引发的重排结束后再 focus，否则移动端键盘弹不出来。
+                window.setTimeout(() => titleInputRef.current?.focus(), 0);
+              }}
+            />
+          ) : (
+            <div className="bg-inset border border-dashed border-divider rounded-card p-10 text-center space-y-2">
+              <p className="text-sm text-secondary font-semibold">
+                {isCn ? '还没有动作' : 'No exercises yet'}
+              </p>
+              <p className="text-xs text-tertiary">
+                {isCn ? '点击下方「添加动作」开始记录' : 'Tap "Add Exercise" below to start'}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 

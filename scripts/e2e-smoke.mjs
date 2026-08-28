@@ -500,7 +500,8 @@ const main = async () => {
   });
 
   await step(page, 'browse-library', async () => {
-    // FAB 进入训练页时弹层已自动打开；若（其他入口）未开则手动点「添加动作」
+    // 进训练页不再自动弹层（空白页先问「今天练哪里」），一律点「添加动作」。
+    // alreadyOpen 分支保留：其他入口（如从计划开始）未来若恢复自动打开，这里不用再改。
     const sheet = page.locator('[data-testid="picker-sheet"]');
     const alreadyOpen = await sheet
       .evaluate(el => el.className.includes('translate-y-0'))

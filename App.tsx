@@ -1187,9 +1187,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             setCurrentWorkout(workoutCtx.createNewWorkout());
             setEditingWorkoutId(null);
             setActiveTab('new');
-            // 点加号的意图就是马上记动作：进页后直接弹出添加动作弹层
-            // （稍等一拍让训练页先挂载，弹层保有上滑动画）
-            window.setTimeout(() => handlePickerSheetOpenChange(true), 120);
+            // 进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
+            // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
           }}
         />
       )}

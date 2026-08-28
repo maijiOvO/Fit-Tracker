@@ -9,6 +9,7 @@ export { ExercisePicker } from './ExercisePicker';
 export { EditExerciseTagsModal } from './EditExerciseTagsModal';
 export { TimelineView } from './TimelineView';
 export { NewWorkoutTab } from './NewWorkoutTab';
+export { BodyPartPicker } from './BodyPartPicker';
 export { TagBadge } from './TagBadge';
 export { Modal } from './Modal';
 export { AppHeader } from './AppHeader';
