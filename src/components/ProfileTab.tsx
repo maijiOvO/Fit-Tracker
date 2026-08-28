@@ -1,13 +1,15 @@
-import React, { useRef, lazy } from 'react';
+import React, { useRef, useState, lazy } from 'react';
 import CalendarHeatmap from 'react-calendar-heatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
   ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone,
-  Beaker,
+  Beaker, Vibrate,
 } from 'lucide-react';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { useTheme, ThemePreference } from '../hooks/useTheme';
+import { useMotionPreference, MotionPreference } from '../hooks/useMotionPreference';
+import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
@@ -96,6 +98,21 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     { id: 'light', icon: <Sun size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '浅色' : 'Light' },
     { id: 'dark', icon: <Moon size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '深色' : 'Dark' },
   ];
+
+  // §5.6：必须给应用内三态开关。Android 的 prefers-reduced-motion 还映射自
+  // 开发者选项的「动画程序时长缩放 = 关闭」，很多人为了让手机更快关掉了它，
+  // 那会静默关掉全站动效——所以「关」这一档必须能反向覆盖系统。
+  const motion = useMotionPreference();
+  // 标签刻意不叫「跟随系统」——上面的主题开关已经占了那个词，
+  // 同一张卡里两个一模一样的三档开关会让人分不清在调哪个。
+  const motionOptions: { id: MotionPreference; label: string }[] = [
+    { id: 'auto', label: lang === Language.CN ? '自动' : 'Auto' },
+    { id: 'off', label: lang === Language.CN ? '保留' : 'Keep' },
+    { id: 'on', label: lang === Language.CN ? '减弱' : 'Reduce' },
+  ];
+
+  // §5.7 第 5 条：安静的健身房里会自己嗡嗡的 App 很讨人嫌
+  const [haptics, setHaptics] = useState(hapticsEnabled);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -387,6 +404,62 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             ))}
           </div>
         </div>
+
+        {/* 动效 §5.6 */}
+        <div className="space-y-2">
+          <p className="ui-section-label px-1">
+            {lang === Language.CN ? '动效' : 'Motion'}
+          </p>
+          <div className="grid grid-cols-3 gap-2 p-1 bg-inset rounded-control border border-divider">
+            {motionOptions.map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => motion.setPreference(opt.id)}
+                className={`min-h-[44px] rounded-chip text-label font-medium transition-colors duration-tap ease-paper ${
+                  motion.preference === opt.id
+                    ? 'bg-accent text-on-accent'
+                    : 'text-secondary hover:text-primary hover:bg-card-hover'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="px-1 text-micro text-tertiary leading-relaxed">
+            {lang === Language.CN
+              ? '「减弱」只去掉位移与缩放，颜色与淡入保留。长按进度线任何时候都会画——它是功能指示不是装饰。'
+              : 'Reduce removes movement only; color and fade stay. The long-press progress line always draws.'}
+          </p>
+        </div>
+
+        {/* 触觉 §5.7 */}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !haptics;
+            setHapticsEnabled(next);
+            setHaptics(next);
+            if (next) haptic(H.tap);
+          }}
+          className="w-full min-h-[44px] p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors duration-tap ease-paper"
+          role="switch"
+          aria-checked={haptics}
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-accent/10 text-accent rounded-xl">
+              <Vibrate size={20} strokeWidth={1.75} />
+            </div>
+            <span className="font-bold text-primary">
+              {lang === Language.CN ? '振动反馈' : 'Haptics'}
+            </span>
+          </div>
+          <span className={`text-label font-semibold ${haptics ? 'text-accent' : 'text-tertiary'}`}>
+            {haptics
+              ? lang === Language.CN ? '开' : 'On'
+              : lang === Language.CN ? '关' : 'Off'}
+          </span>
+        </button>
 
         {/* Language Toggle */}
         <button 

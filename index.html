@@ -18,6 +18,12 @@
         if (dark) document.documentElement.classList.add('dark');
         var meta = document.querySelector('meta[name="theme-color"][data-dynamic]');
         if (meta) meta.setAttribute('content', dark ? '#14120F' : '#EFE9DC');
+
+        // 动效三态（§5.6）。和主题一样在首帧之前贴上，避免第一帧用错档位。
+        var motion = localStorage.getItem('fitlog_reduced_motion');
+        if (motion === 'on' || motion === 'off') {
+          document.documentElement.setAttribute('data-reduced-motion', motion === 'on' ? '1' : '0');
+        }
       })();
     </script>
 

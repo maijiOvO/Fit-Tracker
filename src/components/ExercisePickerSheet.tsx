@@ -17,6 +17,103 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExercisePickerData, PickerAxis } from '../hooks/useExercisePickerData';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
+import { useLongPress } from '../hooks/useLongPress';
+import { haptic, H } from '../utils/haptics';
+import { LongPressAffordance } from './LongPressAffordance';
+
+interface PickerRowProps {
+  ex: ExerciseDefinition;
+  displayName: string;
+  added: number;
+  isStarred: boolean;
+  partName: string;
+  tagNames: { tag: string; name: string; hit: boolean }[];
+  isCn: boolean;
+  bindRef: (el: HTMLDivElement | null) => void;
+  onPick: () => void;
+  onLongPress: () => void;
+  onToggleStar: () => void;
+}
+
+/**
+ * 弹层里的一行动作。
+ *
+ * 长按＝该动作的管理菜单（编辑标签/重命名/删除），极低频动作（§6.4）。
+ * 必须带自解释标签：不加的话连设计者本人都不记得这手势是干嘛的。
+ */
+const PickerRow: React.FC<PickerRowProps> = ({
+  displayName,
+  added,
+  isStarred,
+  partName,
+  tagNames,
+  isCn,
+  bindRef,
+  onPick,
+  onLongPress,
+  onToggleStar,
+}) => {
+  const press = useLongPress({ onLongPress });
+  return (
+    <div
+      ref={bindRef}
+      className="flex items-stretch bg-card border border-divider rounded-2xl overflow-hidden"
+    >
+      <button
+        type="button"
+        onClick={onPick}
+        {...press.handlers}
+        className="relative flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors duration-tap ease-paper select-none touch-none"
+        data-testid="picker-sheet-exercise"
+      >
+        <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
+          {displayName}
+          {added > 0 && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-success/15 text-success text-[10px] font-bold whitespace-nowrap">
+              ✓ {isCn ? '已添加' : 'Added'}{added > 1 ? ` ×${added}` : ''}
+            </span>
+          )}
+        </span>
+        <span className="flex flex-wrap gap-1">
+          {partName && (
+            <span className="text-[9px] font-bold uppercase tracking-wide bg-inset px-1.5 py-0.5 rounded-md text-tertiary">
+              {partName}
+            </span>
+          )}
+          {tagNames.map(({ tag, name, hit }) =>
+            name ? (
+              <span
+                key={tag}
+                className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md ${
+                  hit ? 'bg-accent text-on-accent' : 'bg-accent/10 text-accent'
+                }`}
+              >
+                {name}
+              </span>
+            ) : null,
+          )}
+        </span>
+        <LongPressAffordance
+          active={press.pressing}
+          label={isCn ? '管理这个动作' : 'Manage'}
+          drawMs={press.drawMs}
+          placement="down"
+        />
+      </button>
+      <button
+        type="button"
+        onClick={e => {
+          e.stopPropagation();
+          onToggleStar();
+        }}
+        className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-90 transition-transform duration-tap ease-paper"
+        aria-label={isCn ? '收藏' : 'Star'}
+      >
+        <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
+      </button>
+    </div>
+  );
+};
 
 interface ExercisePickerSheetProps {
   open: boolean;
@@ -69,33 +166,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const [menuFor, setMenuFor] = useState<ExerciseDefinition | null>(null);
   // 键盘弹起时筛选区收起为摘要行（点摘要可临时展开，键盘收起后自动复原）
   const [kbExpandFilters, setKbExpandFilters] = useState(false);
-  const rowPressRef = useRef<{ timer: number; x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
-  const cancelRowPress = () => {
-    if (rowPressRef.current !== null) {
-      window.clearTimeout(rowPressRef.current.timer);
-      rowPressRef.current = null;
-    }
-  };
-  const startRowPress = (ex: ExerciseDefinition, e: React.PointerEvent) => {
-    cancelRowPress();
-    const { clientX: x, clientY: y } = e;
-    rowPressRef.current = {
-      x,
-      y,
-      timer: window.setTimeout(() => {
-        rowPressRef.current = null;
-        suppressClickRef.current = true; // 松手后的 click 不再当作「添加」
-        try { navigator.vibrate?.(10); } catch { /* noop */ }
-        setMenuFor(ex);
-      }, 500),
-    };
-  };
-  const moveRowPress = (e: React.PointerEvent) => {
-    const d = rowPressRef.current;
-    if (!d) return;
-    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) cancelRowPress();
-  };
   const sheetRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<{ startY: number; y: number } | null>(null);
 
@@ -257,7 +328,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     if (lastPickRef.current.id === ex.id && now - lastPickRef.current.t < 450) return;
     lastPickRef.current = { id: ex.id, t: now };
     try {
-      navigator.vibrate?.(12);
+      haptic(H.pick);
     } catch {
       /* noop */
     }
@@ -271,82 +342,38 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
 
   // ===== 行渲染 =====
+  // 提成真组件而不是 renderRow 函数：长按要用 useLongPress，
+  // 而 hook 不能写在 .map() 的回调里。
   const renderRow = (ex: ExerciseDefinition) => {
     const displayName = resolveName(ex.name[lang]);
     const key = displayName.toLowerCase();
-    const added = addedCounts[key] || 0;
-    const isStarred = Object.keys(starredExercises).some(k => k.toLowerCase() === key);
-    const partName = ex.bodyPart ? getTagName(ex.bodyPart) : '';
     return (
-      <div
+      <PickerRow
         key={ex.id}
-        ref={el => {
+        ex={ex}
+        displayName={displayName}
+        added={addedCounts[key] || 0}
+        isStarred={Object.keys(starredExercises).some(k => k.toLowerCase() === key)}
+        partName={ex.bodyPart ? getTagName(ex.bodyPart) : ''}
+        tagNames={(ex.tags ?? []).slice(0, 3).map(t => ({ tag: t, name: getTagName(t), hit: equips.has((t || '').toLowerCase()) }))}
+        isCn={isCn}
+        bindRef={el => {
           if (el) rowRefs.current.set(ex.id, el);
           else rowRefs.current.delete(ex.id);
         }}
-        className="flex items-stretch bg-card border border-divider rounded-2xl overflow-hidden"
-      >
-        <button
-          type="button"
-          onClick={() => {
-            if (suppressClickRef.current) {
-              suppressClickRef.current = false;
-              return;
-            }
-            handlePick(ex);
-          }}
-          onPointerDown={e => startRowPress(ex, e)}
-          onPointerMove={moveRowPress}
-          onPointerUp={cancelRowPress}
-          onPointerLeave={cancelRowPress}
-          onPointerCancel={cancelRowPress}
-          onContextMenu={e => e.preventDefault()}
-          className="flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors select-none"
-          data-testid="picker-sheet-exercise"
-        >
-          <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
-            {displayName}
-            {added > 0 && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-success/15 text-success text-[10px] font-bold whitespace-nowrap">
-                ✓ {isCn ? '已添加' : 'Added'}{added > 1 ? ` ×${added}` : ''}
-              </span>
-            )}
-          </span>
-          <span className="flex flex-wrap gap-1">
-            {partName && (
-              <span className="text-[9px] font-bold uppercase tracking-wide bg-inset px-1.5 py-0.5 rounded-md text-tertiary">
-                {partName}
-              </span>
-            )}
-            {(ex.tags ?? []).slice(0, 3).map(t => {
-              const tn = getTagName(t);
-              if (!tn) return null;
-              const hit = equips.has((t || '').toLowerCase());
-              return (
-                <span
-                  key={t}
-                  className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md ${
-                    hit ? 'bg-accent text-on-accent' : 'bg-accent/10 text-accent'
-                  }`}
-                >
-                  {tn}
-                </span>
-              );
-            })}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={e => {
-            e.stopPropagation();
-            toggleStarExercise(displayName);
-          }}
-          className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-90 transition-transform"
-          aria-label={isCn ? '收藏' : 'Star'}
-        >
-          <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
-        </button>
-      </div>
+        onPick={() => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
+          handlePick(ex);
+        }}
+        onLongPress={() => {
+          suppressClickRef.current = true; // 松手后的 click 不再当作「添加」
+          setMenuFor(ex);
+        }}
+        onToggleStar={() => toggleStarExercise(displayName)}
+      />
     );
   };
 
