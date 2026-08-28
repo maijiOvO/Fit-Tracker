@@ -82,6 +82,29 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const [expandedSubSets, setExpandedSubSets] = useState<SubSetLog[]>(set.subSets || []);
   const hasSubSets = expandedSubSets.length > 0;
 
+  /**
+   * 底稿行（§12.6）：ghost=true 的行是上次训练抄来的淡墨底稿，还不是数据。
+   * 统一的转正规则走这个包装器 —— 任何一次编辑（打字 / scrub / 点竭 / 加子组）
+   * 都让整行以当前值入册；点组号 = 不改值照抄（update({})）。
+   * 转正瞬间播一次文字版墨色过冲（is-inkin）。
+   */
+  const isGhost = !!set.ghost && !readOnly;
+  const [inkin, setInkin] = useState(false);
+  const inkinTimerRef = React.useRef<number | null>(null);
+  const update = (updates: Partial<SetLog>) => {
+    if (isGhost) {
+      setInkin(true);
+      if (inkinTimerRef.current !== null) window.clearTimeout(inkinTimerRef.current);
+      // 1500ms 盖过 useLongPress 的 hint 窗口：照抄那一击本身就是有效操作，
+      // 不该再被「按住加子组」的教学提示叠一层（动画本体 520ms 播完即止）。
+      inkinTimerRef.current = window.setTimeout(() => setInkin(false), 1500);
+      haptic(H.tap);
+      onUpdate({ ...updates, ghost: false });
+    } else {
+      onUpdate(updates);
+    }
+  };
+
   // 重量格横向拖动改值。hook 不能在下面的 map 里调，所以在这里调一次，
   // 再把 handlers 单独摊到 weight 那一格上。
   // 步长按【显示单位】走：kg 里的 1 就是 1kg，lbs 里的 1 就是 1lb，不做换算——
@@ -89,7 +112,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const weightDisplay = Number(formatWeight(Number(set.weight) || 0, unit));
   const scrub = useValueScrub({
     value: weightDisplay,
-    onChange: next => onUpdate({ weight: parseWeight(next, unit) }),
+    // 走 update：在底稿行上横拖改值，第一档落下的同时整行描实入册
+    onChange: next => update({ weight: parseWeight(next, unit) }),
     disabled: readOnly,
   });
 
@@ -97,7 +121,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     const newSubSets = [...expandedSubSets];
     newSubSets[subIdx] = { ...newSubSets[subIdx], ...updates };
     setExpandedSubSets(newSubSets);
-    onUpdate({ subSets: newSubSets });
+    update({ subSets: newSubSets });
   };
 
   const handleAddSubSet = () => {
@@ -112,13 +136,13 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     };
     const newSubSets = [...expandedSubSets, newSubSet];
     setExpandedSubSets(newSubSets);
-    onUpdate({ subSets: newSubSets });
+    update({ subSets: newSubSets });
   };
 
   const handleRemoveSubSet = (subIdx: number) => {
     const newSubSets = expandedSubSets.filter((_, i) => i !== subIdx);
     setExpandedSubSets(newSubSets);
-    onUpdate({ subSets: newSubSets });
+    update({ subSets: newSubSets });
   };
 
   // 长按组号＝加一条递减子组（§6.4，极低频动作）
@@ -131,21 +155,31 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   return (
     <>
       <div
-        className={`ledger-row${entering ? ' is-entering' : ''}`}
+        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${
+          inkin ? ' is-inkin' : ''
+        }`}
         style={colStyle}
         onAnimationEnd={e => {
           if (e.animationName === 'row-in') setEntering(false);
         }}
       >
-        {/* 组号：36×36 可长按胶囊 */}
+        {/* 组号：36×36 可长按胶囊。
+            底稿行上多一个语义：点一下 = 照抄描实（§12.6 的「一组一击」）。
+            与长按加子组不冲突 —— 长按达成后 update 会先把行转正，
+            松手带出的 click 落在已转正的行上是空操作。 */}
         <span
-          className="relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y"
+          className="set-num relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y"
+          onClick={() => {
+            if (isGhost) update({});
+          }}
+          role={isGhost ? 'button' : undefined}
+          aria-label={isGhost ? (isCn ? '照抄上次这一组' : 'Copy last time') : undefined}
           {...addSub.handlers}
         >
           {setIdx + 1}
           <LongPressAffordance
             active={addSub.pressing}
-            hint={addSub.hinting}
+            hint={addSub.hinting && !isGhost && !inkin}
             label={isCn ? '加子组' : 'Drop set'}
             hintLabel={isCn ? '按住加子组' : 'Hold for drop set'}
             drawMs={addSub.drawMs}
@@ -225,7 +259,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                   const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
                   let storageValue = inputValue;
                   if (m === 'weight') storageValue = parseWeight(inputValue, unit);
-                  onUpdate({ [m]: storageValue });
+                  update({ [m]: storageValue });
                 }}
               />
               {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
@@ -251,7 +285,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             onClick={() => {
               const next = !set.toFailure;
               haptic(next ? H.longpress : H.tap);
-              onUpdate({ toFailure: next });
+              update({ toFailure: next });
             }}
             aria-pressed={!!set.toFailure}
             aria-label={
@@ -279,8 +313,21 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
         {/* 删组：热区补到 44×44（原先是 35px 列里的 16px 图标，
             与页面其他处精心维护的 min-h-[44px] 自相矛盾）。
-            §6.6：不靠颜色区分危险，靠「必须长按」这个形态。 */}
-        {!readOnly ? (
+            §6.6：不靠颜色区分危险，靠「必须长按」这个形态。
+            例外（§12.6）：底稿行一点即抹 —— 它还不是事实，抹掉不算破坏。 */}
+        {!readOnly && isGhost ? (
+          <button
+            type="button"
+            className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
+            aria-label={isCn ? '抹掉这行底稿' : 'Discard this draft set'}
+            onClick={() => {
+              haptic(H.tap);
+              onRemove();
+            }}
+          >
+            <Minus size={18} strokeWidth={1.75} />
+          </button>
+        ) : !readOnly ? (
           <button
             type="button"
             className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary touch-pan-y"

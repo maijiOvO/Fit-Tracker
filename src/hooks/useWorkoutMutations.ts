@@ -68,7 +68,10 @@ export interface UseWorkoutMutationsResult {
   ) => void;
   handleAddExerciseToPastWorkout: (workoutId: string) => void;
   handleNewWorkoutBack: () => Promise<void>;
-  handleDeleteWorkout: (workoutId: string) => Promise<void>;
+  handleDeleteWorkout: (
+    workoutId: string,
+    options?: { skipConfirm?: boolean },
+  ) => Promise<void>;
   handleDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,
@@ -137,9 +140,33 @@ export function useWorkoutMutations({
         return;
       }
 
+      /**
+       * §12.6 红线：底稿永远不会静默变成数据。
+       * 结束训练时剥掉所有仍是 ghost 的行；整动作只剩底稿的，连动作一起丢；
+       * prefillFrom 只服务工作台眉批，也一并剥掉。
+       */
+      const cleanedExercises = currentWorkout.exercises
+        .map(ex => {
+          const { prefillFrom: _pf, ...rest } = ex;
+          return { ...rest, sets: ex.sets.filter(s => !s.ghost) };
+        })
+        .filter(ex => ex.sets.length > 0);
+
+      if (cleanedExercises.length === 0) {
+        setSaveStatus('idle');
+        toast(
+          isCn
+            ? '还没有描实任何一组——底稿不入册'
+            : 'No sets confirmed yet — drafts are not saved',
+          'info',
+        );
+        return;
+      }
+
       const scheduleId = activeScheduleIdRef.current;
       const finalWorkout: WorkoutSession = {
         ...currentWorkout,
+        exercises: cleanedExercises,
         title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`,
         date: currentWorkout.date || new Date().toISOString(),
         ...(scheduleId ? { fromSchedule: { scheduleId } } : {}),
@@ -275,18 +302,24 @@ export function useWorkoutMutations({
   ]);
 
   const handleDeleteWorkout = useCallback(
-    async (workoutId: string) => {
+    async (workoutId: string, options?: { skipConfirm?: boolean }) => {
       const w = workouts.find(x => x.id === workoutId);
       if (!w) return;
       const dateLabel = new Date(w.date).toLocaleDateString(isCn ? 'zh-CN' : 'en-US');
-      const ok = await confirm({
-        message: isCn
-          ? `确定要删除 ${dateLabel} 的整场训练吗？`
-          : `Delete the entire workout from ${dateLabel}?`,
-        danger: true,
-        confirmLabel: isCn ? '删除' : 'Delete',
-      });
-      if (!ok) return;
+      /**
+       * skipConfirm：时间线长按菜单走「先执行 + 撤销条」（§12.8），
+       * 撤销就是那道保险，再弹确认框等于上两道锁。旧入口保持确认框不变。
+       */
+      if (!options?.skipConfirm) {
+        const ok = await confirm({
+          message: isCn
+            ? `确定要删除 ${dateLabel} 的整场训练吗？`
+            : `Delete the entire workout from ${dateLabel}?`,
+          danger: true,
+          confirmLabel: isCn ? '删除' : 'Delete',
+        });
+        if (!ok) return;
+      }
       const snapshot = structuredClone(w);
       try {
         await deleteWorkout(workoutId);
@@ -419,14 +452,17 @@ export function useWorkoutMutations({
           : new Date().toISOString();
 
       const exerciseName = ex.name[lang];
-      // 在历史训练中查找该动作最近一次出现，继承上次使用的配置和重量
+      // 在历史训练中查找该动作最近一次出现，继承上次使用的配置，
+      // 并把上次的【每一组】铺成底稿（§12.6）。
       const resolvedTarget = resolveName(exerciseName);
       let lastExercise: Exercise | null = null;
+      let lastExerciseDate: string | null = null;
       if (resolvedTarget) {
         for (const w of workouts) {
           for (const we of w.exercises) {
             if (resolveName(we.name) === resolvedTarget) {
               lastExercise = we;
+              lastExerciseDate = w.date || null;
               break;
             }
           }
@@ -434,9 +470,28 @@ export function useWorkoutMutations({
         }
       }
 
-      const lastSet =
+      /**
+       * 底稿预填（§12.6）：上次的每一组以 ghost 行躺进来 ——
+       * 点组号照抄、改哪格记哪格，没描实的结束时整行丢弃。
+       * 旧行为是把上次末组的值直接写成【真实数据】，
+       * 那等于替用户上报了他没做过的事，方向就是错的。
+       *
+       * 只抄数值字段：力竭是当日事实、递减子组是结构性的，都不继承。
+       */
+      const stamp = Date.now();
+      const ghostSets =
         lastExercise?.sets && lastExercise.sets.length > 0
-          ? lastExercise.sets[lastExercise.sets.length - 1]
+          ? lastExercise.sets
+              .filter(s => !(s as any).ghost) // 上次若是未收尾的草稿，别把底稿再抄成底稿
+              .map((s, j) => ({
+                id: `${stamp}_${j}`,
+                weight: s.weight ?? 0,
+                reps: s.reps ?? 0,
+                ...(s.duration ? { duration: s.duration } : {}),
+                ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
+                ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),
+                ghost: true,
+              }))
           : null;
 
       const newExerciseId = `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -457,13 +512,13 @@ export function useWorkoutMutations({
               id: newExerciseId,
               name: exerciseName,
               category: ex.category || 'STRENGTH',
-              sets: [
-                {
-                  id: Date.now().toString(),
-                  weight: lastSet?.weight ?? 0,
-                  reps: lastSet?.reps ?? 0,
-                },
-              ],
+              sets:
+                ghostSets && ghostSets.length > 0
+                  ? ghostSets
+                  : [{ id: Date.now().toString(), weight: 0, reps: 0 }],
+              ...(ghostSets && ghostSets.length > 0 && lastExerciseDate
+                ? { prefillFrom: lastExerciseDate }
+                : {}),
               exerciseTime,
               instanceConfig: lastExercise?.instanceConfig
                 ? { ...lastExercise.instanceConfig }

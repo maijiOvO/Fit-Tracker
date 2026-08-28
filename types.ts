@@ -39,6 +39,15 @@ export interface SetLog {
    */
   toFailure?: boolean;
 
+  /**
+   * 底稿行（§12.6 预填）：添加练过的动作时，上次同动作的每一组
+   * 以「淡墨底稿」预填进来。底稿不是事实 ——
+   *   点组号照抄 / 改任何一格 都会把它转正（ghost 清掉）；
+   *   结束训练时仍是 ghost 的行整组丢弃，绝不静默入册。
+   * 可选字段，远端旧快照天然兼容。
+   */
+  ghost?: boolean;
+
   // ✅ 增强：递增递减组子组数据
   subSets?: SubSetLog[];
 }
@@ -64,6 +73,12 @@ export interface Exercise {
   // ✅ 新增：动作持续时间（可选）
   duration?: number; // 秒数
   
+  /**
+   * 底稿的出处（§12.6）：预填自哪一场训练的 date（ISO）。
+   * 只在工作台里给眉批「底稿 · 上次 X月X日」用，结束训练时剥掉。
+   */
+  prefillFrom?: string;
+
   // ✅ 增强：动作实例的特殊配置（用户可自定义）
   instanceConfig?: {
     enablePyramid: boolean;       // 本次训练是否启用递增递减组

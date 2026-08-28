@@ -28,7 +28,10 @@ export interface DashboardActions {
   onStartNewWorkout: () => void;
   onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
-  onDeleteWorkout: (workoutId: string) => void | Promise<void>;
+  onDeleteWorkout: (
+    workoutId: string,
+    options?: { skipConfirm?: boolean },
+  ) => void | Promise<void>;
   onDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,

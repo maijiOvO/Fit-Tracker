@@ -1,13 +1,22 @@
 /**
  * 训练计划 -> 日程：月历 + 当日详情
  */
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Play, Trash2, Edit2, CalendarClock, Ban } from 'lucide-react';
 import { ExerciseDefinition, Language, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
 import { useScheduleContext } from '../contexts';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import ScheduleEditorModal from './ScheduleEditorModal';
+import { haptic, H } from '../utils/haptics';
+
+/* ── 翻月横滑 §12.9：松手判定与弹层同一套速度投影数学（§5.3） ── */
+/** 横向位移 ≥12px 且横>竖才认定是翻月（同 §12.3 scrub 的 12px 规则） */
+const SWIPE_ENGAGE_PX = 12;
+/** 位移阈值：占月历宽度的比例 */
+const SWIPE_COMMIT_FRAC = 0.28;
+/** 速度阈值 px/ms */
+const SWIPE_COMMIT_VEL = 0.6;
 
 type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string };
 
@@ -69,8 +78,135 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorTarget, setEditorTarget] = useState<ScheduledWorkout | null>(null);
 
-  const cells = useMemo(() => buildMonthGrid(viewMonth), [viewMonth]);
   const daySchedules = schedulesByDate(selectedDate);
+
+  /* ── 翻月横滑：1:1 跟手 + 速度投影松手；‹ › 按钮走同一段落定动画 ── */
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const swipeRef = useRef<{
+    pid: number;
+    x0: number;
+    y0: number;
+    engaged: boolean;
+    dx: number;
+    lastX: number;
+    lastT: number;
+    v: number;
+  } | null>(null);
+  const animatingRef = useRef(false);
+  /** 拖完吞掉那次 click（时间戳，不用布尔——§12.3 粘滞布尔的教训） */
+  const swallowUntilRef = useRef(0);
+
+  const shiftMonth = (base: Date, k: number) =>
+    new Date(base.getFullYear(), base.getMonth() + k, 1);
+
+  /** 翻到相邻月。settleMs 由甩速决定：clamp(剩余距离/速度, 120, 260)（§5.3 弹层公式） */
+  const flip = useCallback((dir: 1 | -1, settleMs = 220) => {
+    const track = trackRef.current;
+    if (!track || animatingRef.current) return;
+    animatingRef.current = true;
+    let fired = false; // transitionend 和兜底 timer 只许进一个（demo 里双触发翻过两个月）
+    const done = () => {
+      if (fired) return;
+      fired = true;
+      track.removeEventListener('transitionend', done);
+      animatingRef.current = false;
+      setViewMonth(v => shiftMonth(v, dir));
+      // 重新居中要在同一帧内不带过渡地完成，React 换月重渲染前先归位
+      track.style.transition = 'none';
+      track.style.transform = 'translateX(-33.3333%)';
+      requestAnimationFrame(() => {
+        track.style.transition = '';
+      });
+      haptic(H.tap);
+    };
+    track.addEventListener('transitionend', done);
+    track.style.transition = `transform ${settleMs}ms var(--ease-paper)`;
+    track.style.transform = `translateX(${dir > 0 ? -66.6667 : 0}%)`;
+    window.setTimeout(done, settleMs + 80);
+  }, []);
+
+  const snapBack = useCallback((settleMs: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    animatingRef.current = true;
+    let fired = false;
+    const done = () => {
+      if (fired) return;
+      fired = true;
+      track.removeEventListener('transitionend', done);
+      animatingRef.current = false;
+    };
+    track.addEventListener('transitionend', done);
+    track.style.transition = `transform ${settleMs}ms var(--ease-paper)`;
+    track.style.transform = 'translateX(-33.3333%)';
+    window.setTimeout(done, settleMs + 80);
+  }, []);
+
+  const onSwipeDown = (e: React.PointerEvent) => {
+    if (!e.isPrimary || animatingRef.current) return;
+    swipeRef.current = {
+      pid: e.pointerId,
+      x0: e.clientX,
+      y0: e.clientY,
+      engaged: false,
+      dx: 0,
+      lastX: e.clientX,
+      lastT: e.timeStamp,
+      v: 0,
+    };
+  };
+  const onSwipeMove = (e: React.PointerEvent) => {
+    const d = swipeRef.current;
+    if (!d || e.pointerId !== d.pid) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (!d.engaged) {
+      if (Math.abs(dx) < SWIPE_ENGAGE_PX || Math.abs(dx) <= Math.abs(dy)) {
+        if (Math.abs(dy) > 24) swipeRef.current = null; // 明显在竖滑：撒手
+        return;
+      }
+      d.engaged = true;
+      try {
+        viewportRef.current?.setPointerCapture(d.pid);
+      } catch {
+        /* 合成事件没有真指针 */
+      }
+    }
+    // 速度 EMA；⚠️ dt 钳到 ≥1：高刷屏同毫秒两次 move 会把最快读成 0（§12.3）
+    const dt = Math.max(1, e.timeStamp - d.lastT);
+    d.v = d.v * 0.8 + ((e.clientX - d.lastX) / dt) * 0.2;
+    d.lastX = e.clientX;
+    d.lastT = e.timeStamp;
+    d.dx = dx;
+    const track = trackRef.current;
+    if (track) {
+      track.style.transition = 'none';
+      track.style.transform = `translateX(calc(-33.3333% + ${dx}px))`;
+    }
+  };
+  const onSwipeEnd = (e: React.PointerEvent) => {
+    const d = swipeRef.current;
+    if (!d || e.pointerId !== d.pid) return;
+    swipeRef.current = null;
+    if (!d.engaged) return;
+    swallowUntilRef.current = performance.now() + 300;
+    const W = viewportRef.current?.clientWidth || 1;
+    const commitByV = Math.abs(d.v) > SWIPE_COMMIT_VEL;
+    const commit = commitByV || Math.abs(d.dx) > W * SWIPE_COMMIT_FRAC;
+    // 方向：速度够快听速度的，否则听位移的
+    const dir = (commitByV ? -Math.sign(d.v) : -Math.sign(d.dx)) as 1 | -1;
+    const remain = commit ? W - Math.abs(d.dx) : Math.abs(d.dx);
+    const ms = Math.min(260, Math.max(120, remain / Math.max(Math.abs(d.v), 0.8)));
+    if (!commit || !dir) snapBack(ms);
+    else flip(dir, ms);
+  };
+  const onSwipeClickCapture = (e: React.MouseEvent) => {
+    if (performance.now() < swallowUntilRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
 
   const weekDays = lang === Language.CN ? ['日', '一', '二', '三', '四', '五', '六'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -102,7 +238,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
       <div className="flex items-center justify-between">
         <button
           aria-label="prev-month"
-          onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}
+          onClick={() => flip(-1)}
           className="p-2 rounded-chip text-secondary hover:text-primary hover:bg-card-hover transition-colors"
         >
           <ChevronLeft size={18} strokeWidth={1.75} />
@@ -123,7 +259,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
           </button>
           <button
             aria-label="next-month"
-            onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}
+            onClick={() => flip(1)}
             className="p-2 rounded-chip text-secondary hover:text-primary hover:bg-card-hover transition-colors"
           >
             <ChevronRight size={18} strokeWidth={1.75} />
@@ -131,44 +267,69 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
         </div>
       </div>
 
-      {/* 月历 */}
+      {/* 月历 §12.9：日期区左右拖 1:1 跟手翻月。‹ › 按钮保留——手势是加速器不是唯一入口。
+          热区 touch-pan-y：竖滑照旧交给页面，横向 ≥12px 且横>竖才接管。 */}
       <div className="ui-card p-3" data-testid="month-calendar">
         <div className="grid grid-cols-7 gap-1 mb-1">
           {weekDays.map(w => (
             <div key={w} className="text-center text-[11px] text-tertiary font-medium py-1">{w}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
-          {cells.map(({ date, inMonth }) => {
-            const iso = toLocalISODate(date);
-            const list = schedulesByDate(iso);
-            const isSelected = iso === selectedDate;
-            const isToday = iso === toLocalISODate(today);
-            const hasPlanned = list.some(x => x.status === 'planned');
-            const hasDone = list.some(x => x.status === 'completed');
-            return (
-              <button
-                key={iso}
-                onClick={() => setSelectedDate(iso)}
-                data-testid={`day-${iso}`}
-                className={`relative aspect-square rounded-chip text-xs font-mono transition-colors flex flex-col items-center justify-center
-                  ${isSelected ? 'bg-accent text-on-accent' : inMonth ? 'text-primary hover:bg-card-hover' : 'text-tertiary'}
-                  ${isToday && !isSelected ? 'ring-1 ring-accent/60' : ''}
-                `}
-              >
-                <span>{date.getDate()}</span>
-                {list.length > 0 && (
-                  <span
-                    className={`mt-0.5 inline-flex gap-0.5 ${isSelected ? 'opacity-90' : ''}`}
-                    aria-hidden
-                  >
-                    {hasPlanned && <span className="w-1 h-1 rounded-full bg-accent" />}
-                    {hasDone && <span className="w-1 h-1 rounded-full bg-success" />}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        <div
+          ref={viewportRef}
+          className="overflow-hidden touch-pan-y"
+          onPointerDown={onSwipeDown}
+          onPointerMove={onSwipeMove}
+          onPointerUp={onSwipeEnd}
+          onPointerCancel={onSwipeEnd}
+          onClickCapture={onSwipeClickCapture}
+        >
+          <div
+            ref={trackRef}
+            className="flex w-[300%]"
+            style={{ transform: 'translateX(-33.3333%)' }}
+          >
+            {[-1, 0, 1].map(k => {
+              const month = shiftMonth(viewMonth, k);
+              return (
+                <div
+                  key={`${month.getFullYear()}-${month.getMonth()}`}
+                  className="w-1/3 flex-none grid grid-cols-7 gap-1"
+                >
+                  {buildMonthGrid(month).map(({ date, inMonth }) => {
+                    const iso = toLocalISODate(date);
+                    const list = schedulesByDate(iso);
+                    const isSelected = iso === selectedDate;
+                    const isToday = iso === toLocalISODate(today);
+                    const hasPlanned = list.some(x => x.status === 'planned');
+                    const hasDone = list.some(x => x.status === 'completed');
+                    return (
+                      <button
+                        key={iso}
+                        onClick={() => setSelectedDate(iso)}
+                        data-testid={k === 0 ? `day-${iso}` : undefined}
+                        className={`relative aspect-square rounded-chip text-xs font-mono transition-colors flex flex-col items-center justify-center
+                          ${isSelected ? 'bg-accent text-on-accent' : inMonth ? 'text-primary hover:bg-card-hover' : 'text-tertiary'}
+                          ${isToday && !isSelected ? 'ring-1 ring-accent/60' : ''}
+                        `}
+                      >
+                        <span>{date.getDate()}</span>
+                        {list.length > 0 && (
+                          <span
+                            className={`mt-0.5 inline-flex gap-0.5 ${isSelected ? 'opacity-90' : ''}`}
+                            aria-hidden
+                          >
+                            {hasPlanned && <span className="w-1 h-1 rounded-full bg-accent" />}
+                            {hasDone && <span className="w-1 h-1 rounded-full bg-success" />}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -186,6 +186,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 训练页「添加动作」弹层 ==============
   const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
+  /** §12.4：经由 FAB 印谱选了「制」的训练 id —— 进页不再问部位、聚焦标题 */
+  const [partPrechosenId, setPartPrechosenId] = useState<string | null>(null);
   const [sheetSessionAdded, setSheetSessionAdded] = useState(0);
   const [flashExerciseId, setFlashExerciseId] = useState<string | null>(null);
   const lastAddedExerciseIdRef = useRef<string | null>(null);
@@ -420,7 +422,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         ex =>
           ex.sets &&
           ex.sets.length > 0 &&
-          ex.sets.some(set => set.weight || set.reps || set.distance || set.duration || set.score),
+          // 底稿行（ghost）不算数据：一组都没描实的训练不该亮「未保存」（§12.6）
+          ex.sets.some(
+            set =>
+              !set.ghost &&
+              (set.weight || set.reps || set.distance || set.duration || set.score),
+          ),
       );
       setHasUnsavedChanges(hasAnyData);
       // 任何 exercises 变化都触发 debounce persist
@@ -611,7 +618,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     exs[exIdx] = {
       ...exs[exIdx],
       sets: exs[exIdx].sets.map((set, idx) =>
-        idx === setIdx ? { ...set, duration: totalSeconds } : set,
+        // 在底稿行上确认时长也算一次编辑：整行描实（§12.6「改哪格记哪格」）
+        idx === setIdx ? { ...set, duration: totalSeconds, ghost: undefined } : set,
       ),
     };
     setCurrentWorkout({ ...currentWorkout, exercises: exs });
@@ -1020,6 +1028,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
             flashExerciseId={flashExerciseId}
             onFlashDone={handleFlashDone}
+            partPrechosenId={partPrechosenId}
             onOpenTimePicker={openTimePicker}
             onToggleNote={name =>
               setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })
@@ -1189,6 +1198,17 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             setActiveTab('new');
             // 进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
             // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
+          }}
+          onStartWorkoutWithPart={(partKey, title) => {
+            // §12.4 印谱扇开：一笔完成「开练 + 选部位」。
+            // 部位印 → 标题已定，进页后 120ms 自动弹动作弹层（复用补加动作的机制）；
+            // 「制」 → 不填名，进页聚焦标题（partPrechosenId 抑制页内印谱再问一遍）。
+            const w = { ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}) };
+            setCurrentWorkout(w);
+            setEditingWorkoutId(null);
+            if (partKey === 'other') setPartPrechosenId(w.id);
+            setActiveTab('new');
+            if (partKey !== 'other') setPendingScrollToPicker(true);
           }}
         />
       )}

@@ -12,16 +12,28 @@ import { Exercise, Language } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
 import { SetCapsule } from './SetCapsule';
+import { LongPressAffordance } from './LongPressAffordance';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { haptic, H } from '../utils/haptics';
 
-/** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。 */
+/** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。
+ *  底稿行（ghost）不算 —— 它还不是数据（§12.6）。 */
 function totalVolumeKg(exercise: Exercise): number {
   return exercise.sets.reduce((sum, s: any) => {
+    if (s.ghost) return sum;
     let v = (s.weight || 0) * (s.reps || 0);
     for (const sub of s.subSets || []) v += (sub.weight || 0) * (sub.reps || 0);
     return sum + v;
   }, 0);
+}
+
+/** 眉批用：底稿出处的短日期 */
+function formatPrefillDate(iso: string, isCn: boolean): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return isCn
+    ? `${d.getMonth() + 1}月${d.getDate()}日`
+    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 function formatVolume(kg: number, unit: string): string {
@@ -47,6 +59,13 @@ interface ExerciseCardProps {
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
+  /** §12.7 长按刊头拖动排序：由 NewWorkoutTab 的 useCardReorder 下发，摊到刊头行上 */
+  dragHandle?: {
+    handlers: React.DOMAttributes<HTMLElement>;
+    pressing: boolean;
+    hinting: boolean;
+    drawMs: number;
+  };
 }
 
 export const ExerciseCard: React.FC<ExerciseCardProps> = ({
@@ -64,12 +83,16 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onSetUpdate,
   onAddSet,
   onRemoveSet,
+  dragHandle,
 }) => {
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
   const hasNote = !!exerciseNotes[exerciseName];
   const loadMode = getLoadMode(exercise);
+  // 底稿行不计入「M组」——它还不是数据（§12.6）
+  const realSetCount = exercise.sets.filter((s: any) => !s.ghost).length;
+  const ghostSetCount = exercise.sets.length - realSetCount;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -121,15 +144,30 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   return (
     <div className="ui-card p-0 overflow-visible" style={{ ['--cols' as string]: cols }}>
-      {/* ── 刊头行 ── */}
-      <div className="masthead-rule px-3 pt-4 pb-2.5">
+      {/* ── 刊头行 ──
+          §12.7：整个刊头是拖动排序的长按热区（touch-pan-y，长按满前动手指=让位给滚动）。
+          热区里有按钮（⋯ 菜单），排序 hook 的 pointerdown 会自行跳过 button 目标。 */}
+      <div
+        className="masthead-rule relative px-3 pt-4 pb-2.5 touch-pan-y"
+        {...(dragHandle?.handlers ?? {})}
+      >
+        {dragHandle && (
+          <LongPressAffordance
+            active={dragHandle.pressing}
+            hint={dragHandle.hinting}
+            label={isCn ? '拖动排序' : 'Drag to reorder'}
+            hintLabel={isCn ? '按住拖动排序' : 'Hold to reorder'}
+            drawMs={dragHandle.drawMs}
+            placement="down"
+          />
+        )}
         <div className="flex items-baseline gap-3">
           <h3 className="font-display text-h2 text-primary leading-snug flex-1 min-w-0 break-words">
             {exerciseName}
           </h3>
 
           <span className="font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
-            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} · {exercise.sets.length}
+            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} · {realSetCount}
             {isCn ? '组' : ' sets'} · {formatVolume(totalVolumeKg(exercise), unit)}
           </span>
 
@@ -195,6 +233,29 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             )}
           </div>
         </div>
+
+        {/* 眉批 §12.6：底稿的出处与用法。只在还有未描实的底稿行时出现，
+            全部描实（或抹掉）后自然消失。 */}
+        {ghostSetCount > 0 && (
+          <div className="mt-1.5 text-label text-tertiary">
+            {isCn ? (
+              <>
+                底稿 · 上次
+                {exercise.prefillFrom ? ` ${formatPrefillDate(exercise.prefillFrom, true)}` : ''}
+                {' —— '}
+                <span className="text-accent font-medium">点组号照抄</span>
+                ；改哪格，记哪格；没描的不入册
+              </>
+            ) : (
+              <>
+                Draft{exercise.prefillFrom ? ` · last ${formatPrefillDate(exercise.prefillFrom, false)}` : ''}
+                {' — '}
+                <span className="text-accent font-medium">tap # to copy</span>
+                ; edits confirm; untouched drafts are dropped
+              </>
+            )}
+          </div>
+        )}
 
         {/* 眉批：负重/辅助与动作时间。虚线下划线＝可点的批注，
             ::before 补 44px 热区而不撑大视觉尺寸。 */}

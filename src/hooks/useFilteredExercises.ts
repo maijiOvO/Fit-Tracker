@@ -149,7 +149,8 @@ export function useExerciseStats() {
     const liftsMap: Record<string, { weight: number; originalName: string }> = {};
     workouts.forEach(session =>
       (session.exercises ?? []).forEach(ex => {
-        const weights = (ex.sets ?? []).map(s => s.weight || 0);
+        // 底稿行不算数据（§12.6）：未收尾的草稿里可能带着 ghost 行，别让它顶进 PR
+        const weights = (ex.sets ?? []).filter(s => !s.ghost).map(s => s.weight || 0);
         const w = weights.length ? Math.max(...weights) : 0;
         const originalName = ex.name;
         if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
@@ -198,7 +199,8 @@ export function useExerciseStats() {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dayString)) return;
 
         const sets = (w.exercises || []).reduce(
-          (n: number, ex: any) => n + (ex?.sets?.length || 0),
+          (n: number, ex: any) =>
+            n + (ex?.sets?.filter((s: any) => !s.ghost).length || 0),
           0,
         );
         const prev = map.get(dayString) || { sets: 0, sessions: 0 };

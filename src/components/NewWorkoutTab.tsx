@@ -21,6 +21,7 @@ import { translations } from '../../translations';
 import { ExerciseCard } from './ExerciseCard';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { BodyPartPicker } from './BodyPartPicker';
+import { useCardReorder } from '../hooks/useCardReorder';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -64,6 +65,11 @@ export interface NewWorkoutTabProps {
   /** 弹层关闭后需要滚动定位并高亮的动作卡 id */
   flashExerciseId: string | null;
   onFlashDone: () => void;
+  /**
+   * §12.4：经由 FAB 印谱手势选了「制」（自己命名）的那次训练 id。
+   * 命中时不再问「今天练哪里」，并把焦点交给标题输入框。
+   */
+  partPrechosenId?: string | null;
 }
 
 export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
@@ -97,6 +103,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onDeleteLibraryExercise,
   flashExerciseId,
   onFlashDone,
+  partPrechosenId = null,
 }) => {
   const isCn = lang === Language.CN;
   const flashTimerRef = useRef<number | null>(null);
@@ -127,7 +134,36 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     exerciseCount === 0 &&
     !editingWorkoutId &&
     !currentWorkout.title &&
-    partChosenFor !== currentWorkout.id;
+    partChosenFor !== currentWorkout.id &&
+    partPrechosenId !== currentWorkout.id;
+
+  /**
+   * FAB 印谱选了「制」进来：部位已在手势里选过，这里只剩把名字写出来。
+   * 延后一拍聚焦（同 onPickOther 的理由：等重排结束，否则移动端键盘弹不出来）。
+   */
+  const focusedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      partPrechosenId === currentWorkout.id &&
+      !currentWorkout.title &&
+      exerciseCount === 0 &&
+      focusedForRef.current !== currentWorkout.id
+    ) {
+      focusedForRef.current = currentWorkout.id;
+      window.setTimeout(() => titleInputRef.current?.focus(), 0);
+    }
+  }, [partPrechosenId, currentWorkout.id, currentWorkout.title, exerciseCount]);
+
+  /** §12.7 长按刊头拖动排序 */
+  const reorder = useCardReorder({
+    count: exerciseCount,
+    onReorder: (from, to) => {
+      const exs = [...(currentWorkout.exercises ?? [])];
+      const [moved] = exs.splice(from, 1);
+      exs.splice(to, 0, moved);
+      setCurrentWorkout({ ...currentWorkout, exercises: exs });
+    },
+  });
 
   // 弹层关闭后：滚到最新添加的动作卡并高亮
   useEffect(() => {
@@ -264,7 +300,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       {/* 动作卡列表；底部为常驻添加栏预留空间 */}
       <div className="space-y-6 pb-32">
         {currentWorkout.exercises?.map((ex, exIdx) => (
-          <div key={ex.id} data-ex-card={ex.id} className="rounded-card">
+          <div
+            key={ex.id}
+            data-ex-card={ex.id}
+            ref={reorder.itemRef(exIdx)}
+            className={`relative rounded-card bg-base${
+              reorder.draggingIdx === exIdx ? ' reorder-lifted' : ''
+            }`}
+          >
             <ExerciseCard
               exercise={ex}
               exIdx={exIdx}
@@ -279,6 +322,16 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });
               }}
               onDeleteExercise={onDeleteExerciseFromSession}
+              dragHandle={
+                exerciseCount > 1
+                  ? {
+                      handlers: reorder.handleProps(exIdx),
+                      pressing: reorder.pressingIdx === exIdx,
+                      hinting: reorder.hintingIdx === exIdx,
+                      drawMs: reorder.drawMs,
+                    }
+                  : undefined
+              }
               onOpenTimePicker={onOpenTimePicker}
               onToggleNote={onToggleNote}
               onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
@@ -292,8 +345,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 const currentSets = exs[idx].sets;
                 const lastSet =
                   currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
+                // 克隆上一行的值，但剥掉 ghost：「加一组」是用户的主动动作，
+                // 长出来的行是真实数据（§12.6）
                 const newSet = lastSet
-                  ? { ...lastSet, id: Date.now().toString() }
+                  ? { ...lastSet, id: Date.now().toString(), ghost: undefined }
                   : { id: Date.now().toString(), weight: 0, reps: 0 };
                 exs[idx].sets.push(newSet);
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });

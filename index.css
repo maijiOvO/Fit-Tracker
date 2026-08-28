@@ -909,3 +909,133 @@ button {
 
 /* 旧的 anim-add-flash / anim-ring / anim-chip-pop 已按 §5.5 处置：
    前者改造成上面的 .anim-ink-mark，后两者废弃。 */
+
+/* ── 底稿预填 §12.6：淡墨 + 朱砂虚线 = 「这是抄的，等你确认」（§5.3 语言） ── */
+.ledger-row.is-ghost .ledger-input {
+  color: var(--text-tertiary);
+  border-bottom: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  padding-bottom: 1px;
+}
+.ledger-row.is-ghost .ledger-unit {
+  opacity: 0.7;
+}
+/* 组号在底稿行里是「未刻的印」：虚线框 + 淡墨（与「制」那枚虚线印同语义） */
+.ledger-row.is-ghost .set-num {
+  color: var(--text-tertiary);
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: var(--radius-card);
+}
+
+/* 描实 = 墨色过冲（文字版）：从朱砂墨沉回实墨，零位移 */
+@keyframes ink-text {
+  from {
+    color: var(--accent-ink);
+  }
+}
+.ledger-row.is-inkin .ledger-input,
+.ledger-row.is-inkin .set-num {
+  animation: ink-text var(--dur-stamp) var(--ease-ink);
+}
+
+/* ── FAB 印谱扇开 §12.4 ──────────────────────────────────────────
+   长按底栏加号，六枚朱文印从拇指下扇形摊开。
+   收拢态 = 缩在 FAB 圆心（--dx/--dy 指回圆心的向量）；
+   悬停态 = 沿径向再外浮 6px（--hx/--hy），别压在指头底下。
+   位移全部乘 var(--move)：reduced-motion 下原地淡入。 */
+.seal-fan-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 55; /* nav(50) 之上、sheet(80) 之下 */
+  background: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-exit) var(--ease-ink);
+}
+.seal-fan-scrim.is-on {
+  opacity: 1;
+}
+.seal-fan-scrim.is-tappable {
+  pointer-events: auto;
+}
+.seal-fan-item {
+  position: fixed;
+  z-index: 56;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Ma Shan Zheng 字面偏上，同 BodyPartPicker 的量法 */
+  padding-top: 1px;
+  background: var(--bg-card);
+  border: 2.5px solid var(--accent);
+  border-radius: var(--radius-stamp);
+  color: var(--accent);
+  font-size: 27px;
+  line-height: 1;
+  box-shadow: var(--shadow-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(calc(var(--dx) * var(--move)), calc(var(--dy) * var(--move))) scale(0.35);
+  transition:
+    transform var(--dur-base) var(--ease-paper),
+    opacity var(--dur-exit) var(--ease-ink),
+    background-color var(--dur-tap) var(--ease-ink),
+    border-color var(--dur-tap) var(--ease-ink),
+    color var(--dur-tap) var(--ease-ink);
+}
+.seal-fan-item.is-dashed {
+  border-style: dashed;
+}
+.seal-fan-item.is-in {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+.seal-fan-item.is-hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-color: var(--accent-ink);
+  transform: translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(1.16);
+  transition-duration: var(--dur-tap);
+  z-index: 57;
+}
+.seal-fan-item.is-tappable {
+  pointer-events: auto;
+}
+/* 提交那一下：盖章语义，全站唯一允许过冲的缓动 */
+.seal-fan-item.is-commit {
+  animation: seal-fan-commit 260ms var(--ease-stamp) both;
+}
+@keyframes seal-fan-commit {
+  0% {
+    transform: translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(1.16);
+  }
+  55% {
+    transform: translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(0.93);
+  }
+  100% {
+    transform: translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(1.04);
+  }
+}
+/* 悬停印上方浮出的部位名（纸片小签） */
+.seal-fan-tip {
+  position: fixed;
+  z-index: 58;
+  transform: translate(-50%, -100%);
+  padding: 3px 9px;
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-overlay);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── 动作卡拖动排序 §12.7 ── */
+.reorder-lifted {
+  z-index: 30;
+  box-shadow: var(--shadow-overlay);
+}

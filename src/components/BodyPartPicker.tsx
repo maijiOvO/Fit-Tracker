@@ -45,12 +45,18 @@ export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'ot
  * ⚠️ 这几个字必须在 scripts/build-fonts.mjs 的 SEAL_CHARS 里，
  *    否则 Ma Shan Zheng 的子集里没有它们，会静默掉回系统字体。
  */
-const PARTS: { key: BodyPartKey; seal: string; tk: keyof typeof translations }[] = [
+export const PARTS: { key: BodyPartKey; seal: string; tk: keyof typeof translations }[] = [
   { key: 'chest', seal: '胸', tk: 'partChest' },
   { key: 'shoulders', seal: '肩', tk: 'partShoulders' },
   { key: 'back', seal: '背', tk: 'partBack' },
   { key: 'legs', seal: '腿', tk: 'partLegs' },
   { key: 'arms', seal: '臂', tk: 'partArms' },
+];
+
+/** FAB 印谱扇开（§12.4）用的完整六枚：五部位 + 「制」。顺序=印谱阅读序，位置固定不按频率排。 */
+export const FAN_PARTS: { key: BodyPartKey; seal: string; tk: keyof typeof translations; dashed?: boolean }[] = [
+  ...PARTS,
+  { key: 'other', seal: '制', tk: 'partOther', dashed: true },
 ];
 
 /**
@@ -133,6 +139,21 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
       <p className="mt-4 text-center text-[11px] text-tertiary">
         {isCn ? '「其他」——' : '"Other" — '}
         {translations.partOtherHint[lang]}
+      </p>
+
+      {/* §12.4 的自教学：手势是加速器，可见路径永远在——但得有人告诉你手势存在 */}
+      <p className="mt-1.5 text-center text-[11px] text-tertiary">
+        {isCn ? (
+          <>
+            小技巧：在任何页面<span className="text-secondary font-semibold">按住底栏加号</span>
+            ，印谱会直接在拇指下摊开
+          </>
+        ) : (
+          <>
+            Tip: <span className="text-secondary font-semibold">hold the + button</span> on any
+            tab to fan these out under your thumb
+          </>
+        )}
       </p>
     </section>
   );
