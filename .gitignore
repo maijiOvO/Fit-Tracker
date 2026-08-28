@@ -49,3 +49,6 @@ assets/icon.png
 # 开头的 / 是关键：裸 `fonts/` 会连 public/fonts/ 一起忽略掉，
 # 而那里的子集 woff2 产物必须提交（新克隆没有源文件，构建脚本会跳过子集化）。
 /fonts/
+
+# 场地回填前的云端快照备份（含个人训练数据，不入库）
+scripts/.gym-backup.json
