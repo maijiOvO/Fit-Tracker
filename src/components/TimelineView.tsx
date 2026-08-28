@@ -141,6 +141,10 @@ interface SessionCardProps {
  * 低频操作永久占着版面 —— 收进长按后，卡面只剩内容本身。
  * 删除不再弹确认框：先执行 + 撤销条（撤销就是那道保险，两道锁是冗余）。
  * 菜单形态与 ExerciseCard 的 ⋯ 菜单同一idiom：卡内 absolute、点外关闭。
+ *
+ * ⚠️ 菜单开着时整张卡必须抬 z（不是只给菜单加 z-20）：菜单比矮卡片高，
+ * 会探出卡片下缘，而下一张卡是【后面的兄弟节点】—— 卡片自己不抬层级的话，
+ * 后来的兄弟直接盖在探出来那截上，最下面那项（删除）永远点不到。
  */
 const SessionCard: React.FC<SessionCardProps> = ({
   w,
@@ -198,9 +202,10 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
   return (
     <div
+      data-testid={`timeline-session-${w.id}`}
       className={`ui-card-interactive relative p-4 transition-ui touch-pan-y ${
         isExpanded ? 'ring-2 ring-accent/25' : ''
-      }${menuOpen ? ' shadow-overlay' : ''}`}
+      }${menuOpen ? ' z-30 shadow-overlay' : ''}`}
       {...press.handlers}
     >
       <LongPressAffordance
@@ -258,6 +263,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
         <div
           ref={menuRef}
           role="menu"
+          data-testid="timeline-session-menu"
           className="anim-reveal absolute right-3 top-3 z-20 w-48 py-1 bg-card border border-divider rounded-card shadow-overlay"
         >
           <button

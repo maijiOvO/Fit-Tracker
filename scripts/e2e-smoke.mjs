@@ -284,6 +284,8 @@ const main = async () => {
   });
 
   let createdScheduleId = null;
+  /** plan-finish-from-schedule 落下的那场训练，后面时间线的用例都拿它当靶子 */
+  let finishedWorkoutId = null;
   const scheduleTitleTag = 'E2E_PLAN_' + Date.now();
   const todayIso = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
 
@@ -462,6 +464,7 @@ const main = async () => {
       return { ok: true, workoutId: w.id };
     }, createdScheduleId);
     if (!verify.ok) throw new Error(`fromSchedule check failed: ${JSON.stringify(verify)}`);
+    finishedWorkoutId = verify.workoutId;
     return `workout ${verify.workoutId} linked to schedule, persisted to remote`;
   });
 
@@ -480,6 +483,76 @@ const main = async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     await page.waitForTimeout(400);
     return 'dashboard tab open';
+  });
+
+  // ── 时间线操作层（§12.8）──────────────────────────────────────
+  // 行内「编辑·补加·删除」三个常驻按钮已被长按菜单取代，删除也从确认弹窗
+  // 改成了「先执行 + 撤销条」。这两件事此前一个用例都没覆盖到 ——
+  // 按钮被删掉时 e2e 依然全绿，正说明这块是盲区。
+  await step(page, 'timeline-no-inline-buttons', async () => {
+    if (!finishedWorkoutId) throw new Error('no finished workout to inspect');
+    const card = page.locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`);
+    await card.waitFor({ state: 'visible', timeout: 5_000 });
+    // 卡面上不该再有任何按钮：低频操作全部收进长按菜单
+    const buttons = await card.locator('button').count();
+    if (buttons !== 0) {
+      throw new Error(`session card still renders ${buttons} inline button(s) — §12.8 要求卡面只剩内容`);
+    }
+    return 'card is content-only';
+  });
+
+  await step(page, 'timeline-longpress-menu', async () => {
+    const card = page.locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`);
+    const box = await card.boundingBox();
+    if (!box) throw new Error('session card has no box');
+    // 长按 500ms 达成（120ms 静默 + 380ms 进度线），这里按满 750ms 留余量
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+
+    const menu = page.locator('[data-testid="timeline-session-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    const items = await menu.getByRole('menuitem').count();
+    if (items < 3) throw new Error(`menu has only ${items} items, expected >= 3`);
+
+    // §12.8：长按松手带出的那次 click 必须被吞掉，不能顺手把卡片展开
+    const expanded = await card.evaluate(el => el.className.includes('ring-accent'));
+    if (expanded) throw new Error('long-press release leaked a click and expanded the card');
+    return `${items} menu items, click suppressed`;
+  });
+
+  await step(page, 'timeline-delete-is-undoable', async () => {
+    const menu = page.locator('[data-testid="timeline-session-menu"]');
+    // 回归守卫：菜单最下面那项必须真的可点 —— 它会探出矮卡片的下缘，
+    // 卡片不抬 z 的话会被下一张卡盖住（曾经就是这样，且肉眼完全看不出来）。
+    const deleteItem = menu.getByRole('menuitem').filter({ hasText: /删除|Delete/ });
+    const covered = await deleteItem.evaluate(el => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementsFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+      return !el.contains(top[0]) && top[0] !== el;
+    });
+    if (covered) throw new Error('menu delete item is covered by a sibling card — 菜单被盖住了，点不到');
+    await deleteItem.click();
+
+    // 通则 3：破坏性操作用「先执行 + 撤销」，不再弹确认框
+    await page.waitForTimeout(400);
+    const dialogs = await page.locator('[role="dialog"]').count();
+    if (dialogs !== 0) throw new Error('delete still opens a confirm dialog — §12.5 通则 3 要求先执行 + 撤销');
+
+    // 卡片当场消失
+    await page
+      .locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`)
+      .waitFor({ state: 'detached', timeout: 3_000 });
+
+    // 撤销条把它拿回来
+    const undo = page.locator('[data-testid="toast-undo"]').first();
+    await undo.waitFor({ state: 'visible', timeout: 3_000 });
+    await undo.click();
+    await page
+      .locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`)
+      .waitFor({ state: 'visible', timeout: 5_000 });
+    return 'deleted without confirm, restored by undo';
   });
 
   await step(page, 'open-workout-via-fab', async () => {

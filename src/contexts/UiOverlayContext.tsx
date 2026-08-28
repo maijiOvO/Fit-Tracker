@@ -183,6 +183,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
         {toasts.map(item => (
           <div
             key={item.id}
+            data-testid="toast"
             className={`pointer-events-auto w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
           >
             {item.variant === 'success' && (
@@ -195,6 +196,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
             {item.onUndo && item.undoLabel && (
               <button
                 type="button"
+                data-testid="toast-undo"
                 onClick={() => handleUndo(item)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-control bg-accent text-on-accent text-xs font-bold active:scale-press-sm"
               >
