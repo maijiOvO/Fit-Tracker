@@ -36,7 +36,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       className="fixed bottom-0 inset-x-0 z-nav bg-base/95 border-t border-divider"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="relative h-16 max-w-2xl mx-auto grid grid-cols-5">
+      <div className="relative h-16 max-w-2xl mx-auto grid grid-cols-4">
         <div aria-hidden />
 
         <button onClick={() => onTabChange('dashboard')} className={tabBtn(activeTab === 'dashboard')}>
@@ -61,7 +61,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         <button
           onClick={handleStartClick}
           aria-label={lang === Language.CN ? '开始训练' : 'Start Workout'}
-          className={`absolute left-[10%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-on-accent bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-press-sm transition-transform ${
+          className={`absolute left-[12.5%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-on-accent bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-press-sm transition-transform ${
             activeTab === 'new' ? 'opacity-90' : ''
           }`}
         >
