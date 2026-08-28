@@ -5,6 +5,12 @@
 #   .\scripts\deploy-android.ps1 -SkipBuild # 只重装现有 APK，不重新编译
 #
 # 不用连 USB 也能出 APK —— 只是最后那步装不上，脚本会把文件路径告诉你。
+#
+# ⚠️ 正在用 live 模式开发时，别为了「看新图标」跑这个脚本 —— 它打的是静态包，
+#    一装就把 live 顶掉了。live 包也是从同一份 res/ 编出来的，
+#    图标、启动图、原生配置这些照样在里面，所以那种情况直接跑：
+#      npm run android:live
+#    本脚本只在你要一个【离开数据线也能用】的包时才需要。
 
 param(
     [switch]$Dev,
@@ -107,3 +113,14 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "`n[OK] 装好了。" -ForegroundColor Green
 & $adb shell monkey -p com.myron.fittracker -c android.intent.category.LAUNCHER 1 | Out-Null
 Write-Host "[i] 已在手机上拉起 App" -ForegroundColor DarkGray
+
+# 这个包是静态的：代码固化在 APK 里，不再走 dev server。
+# 之前如果在 live 模式下开发（比如为了换图标临时跑一次本脚本），
+# 这一装就把 live 模式顶掉了 —— 而隧道还在、dev server 也还活着，
+# 于是「一切看起来都正常，手机上就是不更新」，非常难往这上面想。踩过一次。
+$rev = & $adb reverse --list 2>$null
+if ($rev -match 'tcp:3000') {
+    Write-Host "`n[!] 检测到 adb reverse 隧道还在 —— 你之前可能在用 live 模式。" -ForegroundColor Yellow
+    Write-Host "    刚装的是【静态包】，代码固化在 APK 里，改代码手机上不会再更新。" -ForegroundColor Yellow
+    Write-Host "    要回 live：npm run android:live" -ForegroundColor Cyan
+}
