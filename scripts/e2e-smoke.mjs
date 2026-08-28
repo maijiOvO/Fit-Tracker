@@ -671,9 +671,44 @@ const main = async () => {
     return 'picker sheet closed';
   });
 
-  await step(page, 'back-to-tab-from-empty-workout', async () => {
+  // §12.3 的横拖改值现在也铺到了次数格（档位 1/2/5）。
+  // 这里用真实指针事件拖一把 —— 合成 dispatchEvent 进不了 pointer capture 那条路径。
+  await step(page, 'scrub-reps-cell', async () => {
+    // 先真的加一个动作进来，账本行才存在
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-testid="picker-sheet-exercise"]').first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+
+    const reps = page.locator('[data-testid="ledger-field-reps"]').first();
+    await reps.waitFor({ state: 'visible', timeout: 5_000 });
+    const input = reps.locator('input');
+    const before = Number((await input.inputValue()) || 0);
+
+    const box = await reps.boundingBox();
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + 8, y);
+    await page.mouse.down();
+    // 先越过 12px 的接管阈值，再连落几档
+    for (let dx = 14; dx <= 74; dx += 10) await page.mouse.move(box.x + 8 + dx, y);
+    const badgeVisible = await reps
+      .locator('.scrub-step')
+      .isVisible()
+      .catch(() => false);
+    await page.mouse.up();
+
+    const after = Number((await input.inputValue()) || 0);
+    if (!(after > before)) throw new Error(`reps did not change on scrub (${before} -> ${after})`);
+    if (!Number.isInteger(after)) throw new Error(`reps scrubbed to a non-integer: ${after}`);
+    if (!badgeVisible) throw new Error('档位角标 (.scrub-step) never appeared during the drag');
+    return `reps ${before} → ${after}, tier badge shown`;
+  });
+
+  await step(page, 'back-to-tab-from-workout', async () => {
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    // No confirm because the workout is empty.
+    // 现在工作台里有一个刚加的动作，返回会先确认
+    await acceptAppConfirm(page);
     await page.waitForTimeout(300);
     const navVisible = await page.locator('nav').first().isVisible();
     if (!navVisible) throw new Error('bottom nav should reappear after back');

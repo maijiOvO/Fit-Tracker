@@ -12,7 +12,7 @@ import { Minus } from 'lucide-react';
 import { Language, SubSetLog, SetLog } from '../../types';
 import { ledgerCols, metricUnitLabel, LoadMode } from '../utils/exerciseConfig';
 import { useLongPress } from '../hooks/useLongPress';
-import { useValueScrub } from '../hooks/useValueScrub';
+import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 
@@ -110,12 +110,23 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 步长按【显示单位】走：kg 里的 1 就是 1kg，lbs 里的 1 就是 1lb，不做换算——
   // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
   const weightDisplay = Number(formatWeight(Number(set.weight) || 0, unit));
-  const scrub = useValueScrub({
+  const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：在底稿行上横拖改值，第一档落下的同时整行描实入册
     onChange: next => update({ weight: parseWeight(next, unit) }),
+    steps: SCRUB_STEPS_WEIGHT,
     disabled: readOnly,
   });
+  // 次数格同一套手势（§12.6 提到的一致性补全）：档位 1/2/5，没有 ×10 ——
+  // 一次训练里 reps 的动态范围比重量小得多，最高档给到 5 就够跨一整个区间。
+  const repsScrub = useValueScrub({
+    value: Number(set.reps) || 0,
+    onChange: next => update({ reps: next }),
+    steps: SCRUB_STEPS_REPS,
+    disabled: readOnly,
+  });
+  const scrubFor = (m: string) =>
+    m === 'weight' ? weightScrub : m === 'reps' ? repsScrub : null;
 
   const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>) => {
     const newSubSets = [...expandedSubSets];
@@ -224,17 +235,18 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             );
           }
 
-          const scrubbable = m === 'weight';
+          const scrub = scrubFor(m);
           return (
             <label
               key={m}
-              className={`ledger-field${scrubbable ? ' is-scrubbable' : ''}${
-                scrubbable && scrub.scrubbing ? ' is-scrubbing' : ''
+              data-testid={`ledger-field-${m}`}
+              className={`ledger-field${scrub ? ' is-scrubbable' : ''}${
+                scrub?.scrubbing ? ' is-scrubbing' : ''
               }`}
-              {...(scrubbable ? scrub.handlers : {})}
+              {...(scrub ? scrub.handlers : {})}
             >
               {/* 档位角标只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
-              {scrubbable && scrub.scrubbing && (
+              {scrub?.scrubbing && (
                 <span className="scrub-step" aria-hidden>
                   ×{scrub.step}
                 </span>

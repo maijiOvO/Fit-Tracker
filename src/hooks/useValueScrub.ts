@@ -1,7 +1,7 @@
 /**
  * 横向拖动改数值 —— 速度自适应步长。
  *
- * 用在账本行的重量格上：整个格子就是 scrub 区，
+ * 用在账本行的重量格与次数格上：整个格子就是 scrub 区，
  *   - 点一下 → 照旧聚焦输入框、弹键盘（键盘路径一点没变）
  *   - 横向拖 → 按速度分档改值，慢拖 ×1、甩起来最大 ×10
  *
@@ -22,15 +22,19 @@ import { haptic, H } from '../utils/haptics';
 const PX_PER_DETENT = 10;
 
 /**
- * 速度（px/ms）→ 步长。阈值是按台式机手感定的初值，
+ * 速度（px/ms）阈值梯。阈值是按台式机手感定的初值，
  * ⚠️ 真机手速与屏幕密度不同，值得在手机上再调一轮。
+ *
+ * 档位表可以按格子给（重量 1/2/5/10、次数 1/2/5），但阈值梯全站共用一条：
+ * 「甩这么快＝跳第二档」这件事在哪一格都该是同一个手感，
+ * 只是次数没有 ×10 这一档，早一档到顶而已。
  */
-const TIERS: { min: number; step: number }[] = [
-  { min: 0, step: 1 },
-  { min: 0.55, step: 2 },
-  { min: 1.3, step: 5 },
-  { min: 2.5, step: 10 },
-];
+const VELOCITY_LADDER = [0, 0.55, 1.3, 2.5];
+
+/** 重量格的档位表（§12.3） */
+export const SCRUB_STEPS_WEIGHT = [1, 2, 5, 10];
+/** 次数格的档位表：一次训练里 reps 的动态范围比重量小得多，×10 没有用武之地 */
+export const SCRUB_STEPS_REPS = [1, 2, 5];
 
 /**
  * 横向位移超过这个距离才认定「这是一次拖动」。
@@ -44,9 +48,11 @@ const ENGAGE_PX = 12;
 /** 速度平滑系数。不平滑的话档位会在阈值边界反复横跳。 */
 const EMA = 0.7;
 
-function tierFor(v: number): number {
-  let step = 1;
-  for (const t of TIERS) if (v >= t.min) step = t.step;
+function tierFor(v: number, steps: number[]): number {
+  let step = steps[0] ?? 1;
+  for (let i = 0; i < steps.length && i < VELOCITY_LADDER.length; i++) {
+    if (v >= VELOCITY_LADDER[i]) step = steps[i];
+  }
   return step;
 }
 
@@ -57,6 +63,8 @@ interface Options {
   onChange: (next: number) => void;
   /** 下限，默认 0 */
   min?: number;
+  /** 档位表，默认重量的 1/2/5/10。次数传 SCRUB_STEPS_REPS。 */
+  steps?: number[];
   disabled?: boolean;
 }
 
@@ -74,9 +82,17 @@ interface Result {
   step: number;
 }
 
-export function useValueScrub({ value, onChange, min = 0, disabled = false }: Options): Result {
+export function useValueScrub({
+  value,
+  onChange,
+  min = 0,
+  steps = SCRUB_STEPS_WEIGHT,
+  disabled = false,
+}: Options): Result {
   const [scrubbing, setScrubbing] = useState(false);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(steps[0] ?? 1);
+  /** 档位表按值比较，别让调用方每次渲染新建的数组把 onPointerMove 的身份打翻 */
+  const stepsKey = steps.join(',');
 
   const drag = useRef<{
     x0: number;
@@ -157,7 +173,7 @@ export function useValueScrub({ value, onChange, min = 0, disabled = false }: Op
       if (d.samples.length > 8) d.samples.shift();
 
       d.vs = d.vs * EMA + vel() * (1 - EMA);
-      const nextStep = tierFor(d.vs);
+      const nextStep = tierFor(d.vs, stepsKey.split(',').map(Number));
       if (nextStep !== step) {
         setStep(nextStep);
         haptic(H.longpress); // §5.7 两档：换档＝确认感
@@ -178,15 +194,15 @@ export function useValueScrub({ value, onChange, min = 0, disabled = false }: Op
         haptic(H.tap); // 每档＝点击感
       }
     },
-    [min, onChange, step, vel],
+    [min, onChange, step, stepsKey, vel],
   );
 
   const end = useCallback(() => {
     if (drag.current?.engaged) scrubEndedAt.current = performance.now();
     drag.current = null;
     setScrubbing(false);
-    setStep(1);
-  }, []);
+    setStep(Number(stepsKey.split(',')[0]) || 1);
+  }, [stepsKey]);
 
   return {
     handlers: {
