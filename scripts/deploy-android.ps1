@@ -55,6 +55,17 @@ if (-not $SkipBuild) {
     npx cap sync android
     if ($LASTEXITCODE -ne 0) { Write-Host "[X] cap sync 失败" -ForegroundColor Red; exit 1 }
 
+    # live reload 闸门：CAP_LIVE_RELOAD 要是还留在会话里，这里会打出一个
+    # 带 server.url 的包 —— 那种包离开数据线就是纯白屏，不报错、不回落本地资源，
+    # 从界面上根本看不出原因。跟环境戳一样，宁可现在停。
+    $baked = Get-Content "android\app\src\main\assets\capacitor.config.json" -Raw | ConvertFrom-Json
+    if ($baked.PSObject.Properties.Name -contains 'server') {
+        Write-Host "[X] 包里带着 live reload 的 server.url，这个包离线会白屏 —— 停。" -ForegroundColor Red
+        Write-Host "    清掉变量再跑：`$env:CAP_LIVE_RELOAD = `$null" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "[OK] 无 live reload 残留" -ForegroundColor Green
+
     # ── 3. 打 APK ─────────────────────────────────────────
     Write-Host "`n[3/4] gradlew assembleDebug..." -ForegroundColor Cyan
     Push-Location android

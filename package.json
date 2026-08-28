@@ -15,6 +15,7 @@
     "android": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1",
     "android:dev": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1 -Dev",
     "android:reinstall": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1 -SkipBuild",
+    "android:live": "powershell -ExecutionPolicy Bypass -File scripts/live-android.ps1",
     "check-remote": "node scripts/check-remote.mjs",
     "remote-detail": "node scripts/remote-detail.mjs"
   },
