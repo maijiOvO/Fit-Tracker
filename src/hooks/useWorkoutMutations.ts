@@ -19,6 +19,20 @@ import { KG_TO_LBS } from '../constants';
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
 
+/**
+ * 结束训练后多久之内，再开新训练要先问一句「是不是刚才那场」。
+ *
+ * 起因是真事：8/26 有一场训练在误点结束 15 秒后重开，被拆成了两场，
+ * 最后靠手工改库合回去。10 分钟是「组间休息 + 走到下一台器械」的上限，
+ * 超过这个时间再开练，当作新的一场是合理默认。
+ *
+ * ⚠️ 这一条不违反 §12.5 通则 3（破坏性操作用先执行 + 撤销）——
+ * 通则管的是【已经产生的东西被毁掉】，这里管的是【错误的数据被产生出来】：
+ * 拆场之后两场各自都是「正常记录」，事后没有任何信号能自动认出它们本是一场。
+ * 挡在产生之前，比事后给撤销便宜得多。
+ */
+const RESUME_WINDOW_MS = 10 * 60 * 1000;
+
 export interface UseWorkoutMutationsParams {
   setActiveTab: (tab: ActiveTab) => void;
   reloadAfterSave: () => Promise<void>;
@@ -72,6 +86,8 @@ export interface UseWorkoutMutationsResult {
     workoutId: string,
     options?: { skipConfirm?: boolean },
   ) => Promise<void>;
+  /** §12.8 菜单项「并入上一场」：把这场的动作追加到紧邻的前一场，本场删除，可撤销 */
+  handleMergeIntoPrevious: (workoutId: string) => Promise<void>;
   handleDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,
@@ -81,6 +97,13 @@ export interface UseWorkoutMutationsResult {
   ) => Promise<void>;
 
   handleStartScheduledSession: (scheduleId: string) => void;
+
+  /**
+   * 开新训练前的防误结束拆场闸门（FAB / 案头两个入口共用）。
+   * 10 分钟内刚结束过一场就先问「继续刚才的『XX』？」，
+   * 选继续＝恢复那一场回工作台，选否＝执行 proceed() 走正常新建。
+   */
+  startWorkoutGuarded: (proceed: () => void) => Promise<void>;
   /** 进入 new tab 后是否滚到 ExercisePicker（用于"补加动作"快捷入口） */
   pendingScrollToPicker: boolean;
   setPendingScrollToPicker: React.Dispatch<React.SetStateAction<boolean>>;
@@ -337,6 +360,76 @@ export function useWorkoutMutations({
     [confirm, deleteWorkout, isCn, refreshFromDb, toast, toastUndo, workouts],
   );
 
+  /**
+   * 并入上一场（§12.8 菜单项）—— 误结束拆场的事后补救。
+   *
+   * 把这场的动作整体追加到时间上紧邻的前一场，本场删除。
+   * 合并后的那场从更早的 date 开始、到更晚的 finishedAt 结束，
+   * 也就是「本来就该是的那一场」。
+   *
+   * ⚠️ 这里【立刻】写 tombstone，和 §12.5 通则 3「撤销窗口期内不写」相反，
+   * 是因为两者的失败模式正好反过来：删除若没同步出去，最坏是「没删成」；
+   * 合并若没同步出去，远端会把被并掉的那场原样推回来 —— 拆场复活，
+   * 而且动作已经在前一场里了，变成整场重复。撤销时再把 tombstone 摘掉。
+   */
+  const handleMergeIntoPrevious = useCallback(
+    async (workoutId: string) => {
+      const w = workouts.find(x => x.id === workoutId);
+      if (!w) return;
+      const prev = workouts
+        .filter(x => x.id !== workoutId && new Date(x.date).getTime() < new Date(w.date).getTime())
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      if (!prev) {
+        toast(isCn ? '前面没有训练可并入' : 'No earlier workout to merge into', 'info');
+        return;
+      }
+
+      const prevSnapshot = structuredClone(prev);
+      const selfSnapshot = structuredClone(w);
+      /** 两场的收尾时间取更晚的那个：合并后的一场是到那一刻才结束的 */
+      const laterOf = (a?: string, b?: string) => {
+        if (!a) return b;
+        if (!b) return a;
+        return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
+      };
+
+      try {
+        const merged: WorkoutSession = {
+          ...prev,
+          exercises: [...(prev.exercises || []), ...(w.exercises || [])],
+          ...(laterOf(prev.finishedAt, w.finishedAt)
+            ? { finishedAt: laterOf(prev.finishedAt, w.finishedAt) }
+            : {}),
+          ...(laterOf(prev.endTime, w.endTime)
+            ? { endTime: laterOf(prev.endTime, w.endTime) }
+            : {}),
+          updatedAt: new Date().toISOString(),
+        };
+        await db.save('workouts', merged);
+        await db.delete('workouts', workoutId);
+        recordTombstone('workouts', workoutId);
+        await refreshFromDb();
+        scheduleDebouncedFitlogPush();
+
+        const intoName = prev.title || (isCn ? '未命名训练' : 'Untitled');
+        toastUndo(
+          isCn ? `已并入「${intoName}」` : `Merged into "${intoName}"`,
+          async () => {
+            await db.save('workouts', prevSnapshot);
+            await db.save('workouts', selfSnapshot);
+            removeTombstone('workouts', workoutId);
+            await refreshFromDb();
+            scheduleDebouncedFitlogPush();
+          },
+        );
+      } catch (err) {
+        console.error('Merge workout failed:', err);
+        toast(isCn ? '并入失败' : 'Merge failed', 'error');
+      }
+    },
+    [isCn, refreshFromDb, toast, toastUndo, workouts],
+  );
+
   const handleDeleteExerciseRecord = useCallback(
     async (
       e: React.MouseEvent,
@@ -434,6 +527,58 @@ export function useWorkoutMutations({
       onPersist?.();
     },
     [isCn, onPersist, scheduleCtx.schedules, setActiveTab, setCurrentWorkout, workoutCtx],
+  );
+
+  /**
+   * 恢复一场已结束的训练回到工作台：清掉 finishedAt / status，
+   * 它就重新变成「正在进行中的那一场」—— 再结束一次会写回同一个 id，
+   * 不会多出一条记录。
+   */
+  const resumeWorkout = useCallback(
+    async (w: WorkoutSession) => {
+      const { finishedAt: _fa, status: _st, ...rest } = w;
+      const resumed: WorkoutSession = { ...rest, updatedAt: new Date().toISOString() };
+      await db.save('workouts', resumed);
+      await refreshFromDb();
+      setCurrentWorkout(resumed);
+      setEditingWorkoutId(null);
+      // 计划关联跟着一起回来，否则续练完这场就丢了 fromSchedule
+      activeScheduleIdRef.current = w.fromSchedule?.scheduleId ?? null;
+      setActiveTab('new');
+      scheduleDebouncedFitlogPush();
+    },
+    [refreshFromDb, setActiveTab, setCurrentWorkout],
+  );
+
+  const startWorkoutGuarded = useCallback(
+    async (proceed: () => void) => {
+      const cutoff = Date.now() - RESUME_WINDOW_MS;
+      const recent = workouts
+        .filter(w => w.finishedAt && new Date(w.finishedAt).getTime() >= cutoff)
+        .sort(
+          (a, b) => new Date(b.finishedAt!).getTime() - new Date(a.finishedAt!).getTime(),
+        )[0];
+      if (!recent) {
+        proceed();
+        return;
+      }
+      const minsAgo = Math.max(
+        1,
+        Math.round((Date.now() - new Date(recent.finishedAt!).getTime()) / 60000),
+      );
+      const name = recent.title || (isCn ? '未命名训练' : 'Untitled');
+      const ok = await confirm({
+        title: isCn ? '继续刚才那场？' : 'Resume last workout?',
+        message: isCn
+          ? `「${name}」在 ${minsAgo} 分钟前刚结束。\n\n如果刚才是误点了结束，选「继续这场」把它接回来——新加的动作会记在同一场里。`
+          : `"${name}" ended ${minsAgo} min ago.\n\nIf you ended it by mistake, resume it — new exercises will go into the same session.`,
+        confirmLabel: isCn ? '继续这场' : 'Resume',
+        cancelLabel: isCn ? '新开一场' : 'Start new',
+      });
+      if (ok) await resumeWorkout(recent);
+      else proceed();
+    },
+    [confirm, isCn, resumeWorkout, workouts],
   );
 
   const addExerciseToWorkout = useCallback(
@@ -561,8 +706,10 @@ export function useWorkoutMutations({
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,
     handleDeleteWorkout,
+    handleMergeIntoPrevious,
     handleDeleteExerciseRecord,
     handleStartScheduledSession,
+    startWorkoutGuarded,
     pendingScrollToPicker,
     setPendingScrollToPicker,
     activeScheduleIdRef,

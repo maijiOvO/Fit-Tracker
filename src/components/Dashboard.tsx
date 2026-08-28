@@ -32,6 +32,7 @@ export interface DashboardActions {
     workoutId: string,
     options?: { skipConfirm?: boolean },
   ) => void | Promise<void>;
+  onMergeIntoPrevious: (workoutId: string) => void | Promise<void>;
   onDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,
@@ -313,6 +314,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onEditWorkout={(id) => actions.onEditWorkout(id)}
           onAddExerciseToWorkout={actions.onAddExerciseToPastWorkout}
           onDeleteWorkout={actions.onDeleteWorkout}
+          onMergeIntoPrevious={actions.onMergeIntoPrevious}
         />
       )}
 

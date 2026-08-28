@@ -275,8 +275,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,
     handleDeleteWorkout,
+    handleMergeIntoPrevious,
     handleDeleteExerciseRecord,
     handleStartScheduledSession,
+    startWorkoutGuarded,
     pendingScrollToPicker,
     setPendingScrollToPicker,
     activeScheduleIdRef,
@@ -468,12 +470,15 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const dashboardActions = useMemo(
     () => ({
       onStartNewWorkout: () => {
-        setEditingWorkoutId(null);
-        setActiveTab('new');
+        void startWorkoutGuarded(() => {
+          setEditingWorkoutId(null);
+          setActiveTab('new');
+        });
       },
       onEditWorkout: handleEditWorkout,
       onAddExerciseToPastWorkout: handleAddExerciseToPastWorkout,
       onDeleteWorkout: handleDeleteWorkout,
+      onMergeIntoPrevious: handleMergeIntoPrevious,
       onDeleteExerciseRecord: handleDeleteExerciseRecord,
       onDeleteWeightEntry: handleDeleteWeightEntry,
       onLogWeight: () => {
@@ -488,10 +493,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       handleEditWorkout,
       handleAddExerciseToPastWorkout,
       handleDeleteWorkout,
+      handleMergeIntoPrevious,
       handleDeleteExerciseRecord,
       handleDeleteWeightEntry,
       triggerEditWeight,
       handleExportData,
+      startWorkoutGuarded,
       setEditingWorkoutId,
       setActiveTab,
       setEditingWeightId,
@@ -1193,22 +1200,27 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           onTabChange={setActiveTab}
           lang={lang}
           onStartWorkout={() => {
-            setCurrentWorkout(workoutCtx.createNewWorkout());
-            setEditingWorkoutId(null);
-            setActiveTab('new');
-            // 进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
-            // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
+            // 10 分钟内刚结束过一场就先问「是不是刚才那场」（防误结束拆场）
+            void startWorkoutGuarded(() => {
+              setCurrentWorkout(workoutCtx.createNewWorkout());
+              setEditingWorkoutId(null);
+              setActiveTab('new');
+              // 进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
+              // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
+            });
           }}
           onStartWorkoutWithPart={(partKey, title) => {
             // §12.4 印谱扇开：一笔完成「开练 + 选部位」。
             // 部位印 → 标题已定，进页后 120ms 自动弹动作弹层（复用补加动作的机制）；
             // 「制」 → 不填名，进页聚焦标题（partPrechosenId 抑制页内印谱再问一遍）。
-            const w = { ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}) };
-            setCurrentWorkout(w);
-            setEditingWorkoutId(null);
-            if (partKey === 'other') setPartPrechosenId(w.id);
-            setActiveTab('new');
-            if (partKey !== 'other') setPendingScrollToPicker(true);
+            void startWorkoutGuarded(() => {
+              const w = { ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}) };
+              setCurrentWorkout(w);
+              setEditingWorkoutId(null);
+              if (partKey === 'other') setPartPrechosenId(w.id);
+              setActiveTab('new');
+              if (partKey !== 'other') setPendingScrollToPicker(true);
+            });
           }}
         />
       )}

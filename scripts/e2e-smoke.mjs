@@ -78,6 +78,14 @@ async function acceptAppConfirm(page) {
   await dlg.waitFor({ state: 'detached', timeout: 5_000 });
 }
 
+/** 点确认框里指定文案的那个按钮（确认 / 取消都走这里） */
+async function clickAppConfirm(page, labelRe) {
+  const dlg = page.locator('[role="dialog"]');
+  await dlg.waitFor({ state: 'visible', timeout: 5_000 });
+  await dlg.locator('button').filter({ hasText: labelRe }).last().click();
+  await dlg.waitFor({ state: 'detached', timeout: 5_000 });
+}
+
 async function step(page, name, fn) {
   process.stdout.write(`▶ ${name}\n`);
   try {
@@ -555,10 +563,43 @@ const main = async () => {
     return 'deleted without confirm, restored by undo';
   });
 
+  // 并入上一场：误结束拆场的事后补救。同样是「先执行 + 撤销」。
+  await step(page, 'timeline-merge-into-previous', async () => {
+    const cards = page.locator('[data-testid^="timeline-session-"]');
+    const before = await cards.count();
+    if (before < 2) throw new Error(`need >= 2 sessions to test merge, got ${before}`);
+    const first = cards.first();
+    const mergedId = await first.getAttribute('data-testid');
+    const box = await first.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+
+    const menu = page.locator('[data-testid="timeline-session-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.getByRole('menuitem').filter({ hasText: /并入上一场|Merge into previous/ }).click();
+
+    await page.locator(`[data-testid="${mergedId}"]`).waitFor({ state: 'detached', timeout: 3_000 });
+    const after = await cards.count();
+    if (after !== before - 1) throw new Error(`expected ${before - 1} cards after merge, got ${after}`);
+
+    // 撤销把拆开的两场原样放回去
+    const undo = page.locator('[data-testid="toast-undo"]').first();
+    await undo.waitFor({ state: 'visible', timeout: 3_000 });
+    await undo.click();
+    await page.locator(`[data-testid="${mergedId}"]`).waitFor({ state: 'visible', timeout: 5_000 });
+    const restored = await cards.count();
+    if (restored !== before) throw new Error(`undo did not restore card count (${restored} vs ${before})`);
+    return `${before} → ${after} → ${restored}`;
+  });
+
   await step(page, 'open-workout-via-fab', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    // 刚才结束过训练，防误结束拆场的闸门会先问一句 —— 这里选「新开一场」
+    await clickAppConfirm(page, /^新开一场$|^Start new$/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
-    return 'new-workout view shown';
+    return 'resume prompt dismissed, new-workout view shown';
   });
 
   await step(page, 'rest-timer-hidden-on-empty', async () => {
@@ -621,6 +662,36 @@ const main = async () => {
     const after = (await btn.textContent())?.trim();
     if (before === after) throw new Error(`unit did not toggle (${before} -> ${after})`);
     return `${before} -> ${after}`;
+  });
+
+  // 防误结束拆场的另一半：选「继续这场」要把刚结束的那场接回工作台。
+  // 放在最后，因为它会把一条记录的 finishedAt 清掉，改变后续用例看到的数据。
+  await step(page, 'resume-recent-workout', async () => {
+    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await clickAppConfirm(page, /^继续这场$|^Resume$/);
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+
+    // 接回来的是那一场【本身】：动作还在
+    const hasExercise = await page
+      .locator('text=E2E Bench Press')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (!hasExercise) throw new Error('resumed workout lost its exercises');
+
+    // 而且它是同一条记录 —— finishedAt 被清掉，不是新开了一场
+    const check = await page.evaluate(async (id) => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      const list = (snap && snap.workouts) || [];
+      const w = list.find(x => x.id === id);
+      return { total: list.length, found: !!w, finishedAt: w?.finishedAt ?? null };
+    }, finishedWorkoutId);
+    if (!check.found) throw new Error(`resumed workout ${finishedWorkoutId} vanished from the snapshot`);
+    if (check.finishedAt) throw new Error(`finishedAt not cleared on resume: ${check.finishedAt}`);
+    return `resumed same record (${check.total} workouts), finishedAt cleared`;
   });
 
   await step(page, 'final-screenshot', async () => 'done');

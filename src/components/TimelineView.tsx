@@ -5,6 +5,7 @@ import {
   ChevronUp,
   Edit2,
   Plus,
+  Merge,
   Trash2,
   CalendarDays,
   CalendarRange,
@@ -29,6 +30,8 @@ interface TimelineViewProps {
   onAddExerciseToWorkout: (workoutId: string) => void;
   /** §12.8：长按菜单里的删除走「先执行 + 撤销条」，skipConfirm 跳过确认弹窗 */
   onDeleteWorkout: (workoutId: string, options?: { skipConfirm?: boolean }) => void;
+  /** 把这场并入时间上紧邻的前一场（误结束拆场的事后补救），带撤销 */
+  onMergeIntoPrevious: (workoutId: string) => void;
 }
 
 /** 底稿行不算数据（§12.6）：未收尾的草稿场次里可能带着 ghost 行 */
@@ -131,6 +134,9 @@ interface SessionCardProps {
   onEdit: () => void;
   onAppend: () => void;
   onDelete: () => void;
+  onMerge: () => void;
+  /** 前面还有训练可并入时才给这一项 —— 最早的一场没有「上一场」 */
+  canMerge: boolean;
 }
 
 /**
@@ -156,6 +162,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onEdit,
   onAppend,
   onDelete,
+  onMerge,
+  canMerge,
 }) => {
   const isCN = lang === Language.CN;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -290,6 +298,23 @@ const SessionCard: React.FC<SessionCardProps> = ({
             <Plus size={16} strokeWidth={1.75} className="text-tertiary" />
             {isCN ? '补记动作' : 'Add exercise'}
           </button>
+          {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。
+              和删除一样走「先执行 + 撤销」——手滑点到它，撤销条就在下面。 */}
+          {canMerge && (
+            <button
+              type="button"
+              role="menuitem"
+              className={menuItem}
+              onClick={() => {
+                setMenuOpen(false);
+                onMerge();
+              }}
+            >
+              <Merge size={16} strokeWidth={1.75} className="text-tertiary" />
+              <span className="flex-1">{isCN ? '并入上一场' : 'Merge into previous'}</span>
+              <span className="text-[10px] text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+            </button>
+          )}
           {/* §6.6：删除入口是墨色文字项，不靠颜色喊危险；
               保险由撤销条提供（先执行 + 5 秒撤销），不再弹确认框。 */}
           <button
@@ -352,8 +377,20 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onEditWorkout,
   onAddExerciseToWorkout,
   onDeleteWorkout,
+  onMergeIntoPrevious,
 }) => {
   const isCN = lang === Language.CN;
+  /** 全局最早那一场的 id —— 只有它没有「上一场」可并 */
+  const earliestId = useMemo(() => {
+    let earliest: WorkoutSession | null = null;
+    for (const w of workouts) {
+      if (!w.date) continue;
+      if (!earliest || new Date(w.date).getTime() < new Date(earliest.date).getTime()) {
+        earliest = w;
+      }
+    }
+    return earliest?.id ?? null;
+  }, [workouts]);
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -484,6 +521,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
                   onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
+                  onMerge={() => onMergeIntoPrevious(w.id)}
+                  canMerge={w.id !== earliestId}
                 />
               ))}
           </div>
