@@ -410,17 +410,35 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               </button>
             ))}
           </div>
-          <div className="px-1 space-y-2 text-micro text-tertiary leading-relaxed">
-            <p>
-              {lang === Language.CN
-                ? '「减弱」只去掉位移、缩放与旋转，颜色和淡入照旧——它们不引起眩晕。长按进度线任何档位都会画，那是功能指示不是装饰。'
-                : 'Reduce drops movement, scaling and rotation only — color and fade stay. The long-press progress line always draws; it is a functional indicator, not decoration.'}
-            </p>
-            <p>
-              {lang === Language.CN
-                ? '「保留」是用来盖过系统的：安卓开发者选项里的「动画程序时长缩放 = 关闭」也会被算成「系统要求减少动效」，而很多人为了让手机更快关掉了它。'
-                : 'Keep exists to override the system: Android counts "Animator duration scale = off" in developer options as a reduce-motion request, and many people turn that off to make their phone feel faster.'}
-            </p>
+        </div>
+
+        {/* 动效 §5.6 */}
+        <div className="space-y-2">
+          <p className="ui-section-label px-1">
+            {lang === Language.CN ? '动效' : 'Motion'}
+          </p>
+          <div className="grid grid-cols-3 gap-2 p-1 bg-inset rounded-control border border-divider">
+            {motionOptions.map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => motion.setPreference(opt.id)}
+                className={`min-h-[48px] py-1.5 rounded-chip transition-colors duration-tap ease-paper ${
+                  motion.preference === opt.id
+                    ? 'bg-accent text-on-accent'
+                    : 'text-secondary hover:text-primary hover:bg-card-hover'
+                }`}
+              >
+                <span className="block text-label font-medium leading-tight">{opt.label}</span>
+                <span
+                  className={`block text-micro leading-tight ${
+                    motion.preference === opt.id ? 'opacity-75' : 'text-tertiary'
+                  }`}
+                >
+                  {opt.hint}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
 

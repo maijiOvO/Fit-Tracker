@@ -1,6 +1,10 @@
 ext {
     minSdkVersion = 24
-    compileSdkVersion = 35
+    // 编译用 36：本机只装了 platforms/android-36，而 Gradle 的 SDK 自动下载走
+    // dl.google.com、不吃项目里配的阿里云镜像，国内基本拉不动 android-35。
+    // targetSdkVersion 保持 35 —— 它只是 manifest 里的一个值、不需要下载，
+    // 运行时行为因此完全不变（改 target 才会改行为，改 compile 只改可用 API）。
+    compileSdkVersion = 36
     targetSdkVersion = 35
     androidxActivityVersion = '1.9.3'
     androidxAppCompatVersion = '1.7.0'

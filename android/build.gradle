@@ -36,6 +36,24 @@ allprojects {
     }
 }
 
+/**
+ * 统一钉住 build-tools 版本。
+ *
+ * 本机只装了 build-tools 35.0.0 / 36.1.0，而 AGP 8.7.3 默认要 34.0.0；
+ * Gradle 的 SDK 自动下载走 dl.google.com，不吃上面配的阿里云 maven 镜像，
+ * 国内基本拉不动 —— 所以直接指向已装的版本，一个字节都不用下。
+ *
+ * 必须写在 subprojects 里：capacitor-android 这些模块在 node_modules 下，
+ * 只在 app/build.gradle 里钉是管不到它们的。
+ */
+subprojects {
+    afterEvaluate { proj ->
+        if (proj.hasProperty('android')) {
+            proj.android.buildToolsVersion = '35.0.0'
+        }
+    }
+}
+
 tasks.register('clean', Delete) {
     delete rootProject.layout.buildDirectory
 }

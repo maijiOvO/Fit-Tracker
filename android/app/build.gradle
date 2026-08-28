@@ -3,6 +3,8 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.myron.fittracker"
     compileSdk = rootProject.ext.compileSdkVersion
+    // 钉住已装的 35.0.0，否则 AGP 会去下它默认的 34.0.0（同样拉不动）
+    buildToolsVersion = "35.0.0"
     defaultConfig {
         applicationId "com.myron.fittracker"
         minSdkVersion rootProject.ext.minSdkVersion
