@@ -199,7 +199,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               e.stopPropagation();
               actions.onLogWeight();
             }}
-            className="w-10 h-10 flex items-center justify-center bg-accent text-on-accent rounded-control active:scale-95"
+            className="w-10 h-10 flex items-center justify-center bg-accent text-on-accent rounded-control active:scale-press-sm"
             aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
           >
             <Plus size={18} strokeWidth={2} />
@@ -276,7 +276,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <button
           type="button"
           onClick={() => setView('timeline')}
-          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-all ${
+          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-ui ${
             view === 'timeline'
               ? 'bg-accent text-on-accent'
               : 'bg-transparent text-secondary hover:text-primary'
@@ -288,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <button
           type="button"
           onClick={() => setView('pr')}
-          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-all ${
+          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-ui ${
             view === 'pr'
               ? 'bg-accent text-on-accent'
               : 'bg-transparent text-secondary hover:text-primary'

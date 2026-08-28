@@ -100,7 +100,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setBodyPart('')}
-              className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui ${
                 bodyPart === ''
                   ? 'bg-accent text-on-accent'
                   : 'bg-card text-tertiary hover:bg-card-hover'
@@ -115,7 +115,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                 <button
                   key={id}
                   onClick={() => setBodyPart(id)}
-                  className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui ${
                     bodyPart === id
                       ? 'bg-accent text-on-accent shadow-elevated'
                       : 'bg-card text-secondary hover:bg-card-hover'
@@ -145,7 +145,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                 <button
                   key={id}
                   onClick={() => toggleEquipment(id)}
-                  className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui ${
                     active
                       ? 'bg-accent text-on-accent shadow-elevated'
                       : 'bg-card text-secondary hover:bg-card-hover'

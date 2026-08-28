@@ -119,7 +119,22 @@ export default {
       },
       // 六时长 / 四缓动上真类，§8 的验收口径（搜到的每个时长都是六个令牌之一）
       // 才有东西可搜。
+      // 显式属性列表，取代 transition-all（§5.1）。
+      // transition-all 会连带过渡 clip-path 与 grid-template-rows，
+      // 和揭示动画直接打架，必须清干净。
+      transitionProperty: {
+        ui: 'color, background-color, border-color, fill, stroke, opacity, transform, box-shadow',
+      },
+      // 按压只有两档（§5.1）：大面 0.985，≤44px 的图标按钮 0.94。
+      // 收敛掉原先 .90/.95/.97/.98/.99 五种随手值。
+      scale: {
+        press: 'var(--press)',
+        'press-sm': 'var(--press-sm)',
+      },
       transitionDuration: {
+        // 默认值也走令牌：这样连没写 duration 的 transition-* 也落在六个令牌里，
+        // 不用为此扫一遍 className（§8 验收口径）。
+        DEFAULT: 'var(--dur-tap)',
         tap: 'var(--dur-tap)',
         base: 'var(--dur-base)',
         exit: 'var(--dur-exit)',
@@ -142,6 +157,7 @@ export default {
         confirm: '200', // 确认框永远在最上
       },
       transitionTimingFunction: {
+        DEFAULT: 'var(--ease-paper)',
         paper: 'var(--ease-paper)',
         stamp: 'var(--ease-stamp)',
         ink: 'var(--ease-ink)',

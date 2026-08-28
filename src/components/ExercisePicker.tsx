@@ -239,7 +239,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary" size={18} />
           <input
-            className="w-full bg-inset border border-divider rounded-card pl-11 pr-4 py-3 text-sm text-primary outline-none focus:border-accent transition-all min-h-[44px]"
+            className="w-full bg-inset border border-divider rounded-card pl-11 pr-4 py-3 text-sm text-primary outline-none focus:border-accent transition-ui min-h-[44px]"
             placeholder={isCn ? '搜索动作名称…' : 'Search exercise name…'}
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
@@ -248,7 +248,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         </div>
         <button
           onClick={() => onCreateCustomExercise(searchQuery.trim() || undefined)}
-          className="px-4 min-h-[44px] bg-accent text-on-accent rounded-card text-xs font-bold flex items-center gap-1.5 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
+          className="px-4 min-h-[44px] bg-accent text-on-accent rounded-card text-xs font-bold flex items-center gap-1.5 hover:opacity-90 active:scale-press-sm transition-ui whitespace-nowrap"
           aria-label={t.addCustomExercise[lang]}
         >
           <Plus size={16} strokeWidth={2.5} />
@@ -268,7 +268,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
                 onCategoryChange(opt.id);
                 onSelectedTagsChange([]);
               }}
-              className={`px-4 min-h-[40px] rounded-control text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+              className={`px-4 min-h-[40px] rounded-control text-xs font-bold uppercase tracking-wider transition-ui whitespace-nowrap ${
                 active
                   ? 'bg-accent text-on-accent shadow-elevated'
                   : 'bg-inset text-secondary hover:bg-card-hover'
@@ -291,7 +291,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           </h4>
           <button
             onClick={onToggleEditingTags}
-            className={`px-3 min-h-[36px] rounded-chip text-[10px] font-bold transition-all ${
+            className={`px-3 min-h-[36px] rounded-chip text-[10px] font-bold transition-ui ${
               isEditingTags
                 ? 'bg-warning/20 text-warning'
                 : 'text-tertiary hover:text-secondary'
@@ -319,7 +319,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           })}
           <button
             onClick={() => onCreateCustomTag('bodyPart')}
-            className="min-h-[40px] px-3 rounded-control text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-all flex items-center gap-1"
+            className="min-h-[40px] px-3 rounded-control text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-ui flex items-center gap-1"
           >
             <PlusCircle size={12} /> {isCn ? '部位' : 'part'}
           </button>
@@ -353,7 +353,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           })}
           <button
             onClick={() => onCreateCustomTag('equipment')}
-            className="min-h-[40px] px-3 rounded-control text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-all flex items-center gap-1"
+            className="min-h-[40px] px-3 rounded-control text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-ui flex items-center gap-1"
           >
             <PlusCircle size={12} /> {isCn ? '器材' : 'gear'}
           </button>
@@ -459,7 +459,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
             {searchHasNoExactMatch && (
               <button
                 onClick={() => onCreateCustomExercise(searchQuery.trim())}
-                className="inline-flex items-center gap-2 px-5 min-h-[44px] bg-accent text-on-accent rounded-card font-bold text-sm active:scale-95 transition-all"
+                className="inline-flex items-center gap-2 px-5 min-h-[44px] bg-accent text-on-accent rounded-card font-bold text-sm active:scale-press-sm transition-ui"
               >
                 <Plus size={18} strokeWidth={2.5} />
                 {isCn ? `创建「${searchQuery.trim()}」` : `Create "${searchQuery.trim()}"`}
@@ -472,7 +472,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         {totalCount > 0 && searchHasNoExactMatch && (
           <button
             onClick={() => onCreateCustomExercise(searchQuery.trim())}
-            className="w-full min-h-[44px] py-3 border border-dashed border-divider rounded-card text-sm text-accent font-bold hover:bg-card-hover transition-all flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] py-3 border border-dashed border-divider rounded-card text-sm text-accent font-bold hover:bg-card-hover transition-ui flex items-center justify-center gap-2"
           >
             <Plus size={16} strokeWidth={2.5} />
             {isCn ? `没找到？创建「${searchQuery.trim()}」` : `Create "${searchQuery.trim()}"`}
@@ -512,7 +512,7 @@ const TagChip: React.FC<TagChipProps> = ({ label, active, isCustom, isEditing, o
             e.stopPropagation();
             onDelete();
           }}
-          className="w-11 min-h-[44px] flex items-center justify-center text-danger border-l border-warning/30 active:bg-danger/20 active:scale-95 transition-all"
+          className="w-11 min-h-[44px] flex items-center justify-center text-danger border-l border-warning/30 active:bg-danger/20 active:scale-press-sm transition-ui"
           aria-label={`delete ${label}`}
         >
           <Trash2 size={16} strokeWidth={2} />
@@ -526,7 +526,7 @@ const TagChip: React.FC<TagChipProps> = ({ label, active, isCustom, isEditing, o
     return (
       <button
         onClick={onClick}
-        className="min-h-[44px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-warning/15 text-warning border border-warning/30 active:scale-95"
+        className="min-h-[44px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui flex items-center gap-1.5 bg-warning/15 text-warning border border-warning/30 active:scale-press-sm"
         aria-label={`rename ${label}`}
       >
         {label}
@@ -539,7 +539,7 @@ const TagChip: React.FC<TagChipProps> = ({ label, active, isCustom, isEditing, o
   return (
     <button
       onClick={onClick}
-      className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all flex items-center ${
+      className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui flex items-center ${
         active
           ? 'bg-accent text-on-accent shadow-elevated'
           : isCustom
@@ -658,11 +658,11 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
   const partName = ex.bodyPart ? getTagName(ex.bodyPart) : '';
 
   return (
-    <div className="bg-card border border-divider rounded-card flex items-stretch overflow-hidden hover:border-accent/40 transition-all">
+    <div className="bg-card border border-divider rounded-card flex items-stretch overflow-hidden hover:border-accent/40 transition-ui">
       {/* 主区：点击添加 / 选中 */}
       <button
         onClick={() => (isEditing ? onRename(ex.id, displayName) : onPick(ex))}
-        className="flex-1 p-3 text-left flex flex-col gap-1.5 min-h-[64px] hover:bg-card-hover active:scale-[0.99] transition-all"
+        className="flex-1 p-3 text-left flex flex-col gap-1.5 min-h-[64px] hover:bg-card-hover active:scale-press transition-ui"
         data-testid="library-exercise-card"
       >
         <span className={`font-semibold text-sm ${isEditing ? 'text-warning' : 'text-primary'}`}>
@@ -703,7 +703,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
                 e.stopPropagation();
                 onToggleStar(displayName);
               }}
-              className="w-11 min-h-[64px] flex items-center justify-center text-warning hover:bg-warning/10 active:scale-90 transition-all"
+              className="w-11 min-h-[64px] flex items-center justify-center text-warning hover:bg-warning/10 active:scale-press-sm transition-ui"
               aria-label={lang === Language.CN ? '收藏' : 'favorite'}
             >
               <Star
@@ -717,7 +717,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
                 e.stopPropagation();
                 onEditTags(ex);
               }}
-              className="w-11 min-h-[64px] flex items-center justify-center text-tertiary hover:bg-card-hover active:scale-90 transition-all border-l border-divider"
+              className="w-11 min-h-[64px] flex items-center justify-center text-tertiary hover:bg-card-hover active:scale-press-sm transition-ui border-l border-divider"
               aria-label={lang === Language.CN ? '编辑标签' : 'edit tags'}
             >
               <PencilLine size={18} strokeWidth={2} />
@@ -731,7 +731,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
                 e.stopPropagation();
                 onEditTags(ex);
               }}
-              className="w-11 min-h-[64px] flex items-center justify-center text-accent hover:bg-card-hover active:scale-90 transition-all"
+              className="w-11 min-h-[64px] flex items-center justify-center text-accent hover:bg-card-hover active:scale-press-sm transition-ui"
               aria-label="tags"
             >
               <Edit2 size={18} strokeWidth={2} />
@@ -749,7 +749,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
                 });
                 if (ok) onDelete(ex.id);
               }}
-              className="w-11 min-h-[64px] flex items-center justify-center text-danger hover:bg-danger/10 active:scale-90 transition-all border-l border-divider"
+              className="w-11 min-h-[64px] flex items-center justify-center text-danger hover:bg-danger/10 active:scale-press-sm transition-ui border-l border-divider"
               aria-label="delete"
             >
               <Trash2 size={18} strokeWidth={2} />

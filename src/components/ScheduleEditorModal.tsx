@@ -189,7 +189,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
               <button
                 onClick={pickFromLibrary}
                 data-testid="schedule-pick-library"
-                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-accent text-on-accent hover:opacity-90 active:scale-95 transition"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-accent text-on-accent hover:opacity-90 active:scale-press-sm transition"
               >
                 <Library size={14} strokeWidth={1.75} />
                 {translations.scheduleFromLibrary[lang]}
@@ -304,7 +304,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
             onClick={handleSave}
             disabled={saving || !date}
             data-testid="schedule-save-btn"
-            className="px-4 py-2 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-95 transition disabled:opacity-50"
+            className="px-4 py-2 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition disabled:opacity-50"
           >
             {saving ? '...' : (lang === Language.CN ? '保存' : 'Save')}
           </button>

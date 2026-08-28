@@ -93,6 +93,7 @@ import { useAvatarUpload } from './src/hooks/useAvatarUpload';
 import { useExportData } from './src/hooks/useExportData';
 import { useResetAccount } from './src/hooks/useResetAccount';
 import { storage } from './services/appStorage';
+import { WorkoutColophon } from './src/components/WorkoutColophon';
 
 // 懒加载 Tab 组件
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -265,6 +266,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     hasUnsavedChanges,
     setHasUnsavedChanges,
     finishWorkout,
+    colophon,
+    dismissColophon,
     handleFinishWithConfirmation,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,
@@ -1190,6 +1193,23 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           }}
         />
       )}
+
+      {/* 刊末页 —— §9：非 PR 日也必须有收尾。90% 的训练不刷 PR，
+          只为 PR 设计仪式是原方案最大的功能性空白。 */}
+      <WorkoutColophon
+        open={!!colophon}
+        lang={lang}
+        issueNo={colophon?.issueNo ?? 1}
+        title={colophon?.title ?? ''}
+        dateISO={colophon?.dateISO ?? new Date().toISOString()}
+        exerciseCount={colophon?.exerciseCount ?? 0}
+        setCount={colophon?.setCount ?? 0}
+        volume={colophon?.volume ?? 0}
+        unitLabel={colophon?.unitLabel ?? 'kg'}
+        stamps={colophon?.stamps ?? []}
+        extraCount={colophon?.extraCount ?? 0}
+        onDone={dismissColophon}
+      />
     </div>
   );
 };

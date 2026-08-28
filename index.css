@@ -741,50 +741,75 @@ button {
   inset: -10px;
 }
 
-/* ── 添加动作弹层 / 训练卡反馈动画 ── */
-@keyframes add-flash {
+/* ── 签名时刻 P5 §5.3 ────────────────────────────────────────── */
+
+/* PR 落章（方案 A · 已选定，方案 B「硬切 + 印泥渗开」已排除）：
+   朱砂印从上方落下，--ease-stamp 是全站唯一允许过冲的缓动。
+   落定后 rotate 微收束到 -4deg，像盖歪了一点点的真印。 */
+@keyframes stamp-drop {
   0% {
-    background-color: var(--accent-soft);
+    opacity: 0;
+    transform: translateY(calc(-14px * var(--move))) scale(calc(1 + 0.9 * var(--move))) rotate(calc(-8deg * var(--move)));
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(calc(-4deg * var(--move)));
+  }
+}
+.anim-stamp-drop {
+  animation: stamp-drop var(--dur-stamp) var(--ease-stamp) both;
+}
+
+/* 付印：底部朱砂线从中心向两端展开 */
+@keyframes press-line {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.anim-press-line {
+  transform-origin: center;
+  animation: press-line var(--dur-reveal) var(--ease-paper) 400ms both;
+}
+
+/* ── §5.5 三个旧动画的去留 ────────────────────────────────────
+   三个都是同一个毛病：用「尺寸/光晕的变化」表达「状态的变化」。
+   墨与纸里，状态变化只能用墨的深浅和线的有无表达。
+
+   · anim-add-flash → 改造成 anim-ink-mark（职责是对的：点行即添加需要非模态确认）
+   · anim-ring      → 废弃。它是 Material 的 ripple/pulse——「辐射」，纸上没有辐射源；
+                      1.6s 用在中高频操作上（研究预算 ≤120ms）；逐帧 box-shadow ≈ 96 帧重绘。
+                      它的职责（定位新卡）由卡片自己的入场承担。
+   · anim-chip-pop  → 废弃。scale(1→1.18→1) 的 18% 过冲是典型玩具感
+                      （Apple 系统默认过冲只有约 1%）。能力迁移到墨色过冲。 */
+
+/* 墨色过冲：元素落位时墨色瞬间加深、220ms 内回到目标浓度，位置零位移。
+   笔尖压下时墨更浓，物理成立——这是替代 scale 弹跳的技法。 */
+@keyframes ink-mark {
+  0% {
+    background-color: color-mix(in srgb, var(--accent) 9%, transparent);
     border-color: var(--accent);
-    transform: scale(0.985);
   }
   100% {
-    transform: scale(1);
+    background-color: transparent;
   }
 }
-.anim-add-flash {
-  animation: add-flash 0.55s ease;
-}
-
-@keyframes ring-flash {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-  }
-  60% {
-    box-shadow: 0 0 0 6px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-.anim-ring {
-  animation: ring-flash 1.6s ease;
-  border-radius: var(--radius-card);
-}
-
-@keyframes chip-pop {
-  40% {
-    transform: scale(1.18);
-  }
-}
-.anim-chip-pop {
-  animation: chip-pop 0.35s ease;
+/* 选择器权重要显式压过入场规则，否则渗墨会被入场动画盖住看不见（§11 坑 1）。 */
+.anim-ink-mark.anim-ink-mark {
+  animation: ink-mark var(--dur-stamp) var(--ease-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .anim-add-flash,
-  .anim-ring,
-  .anim-chip-pop {
-    animation: none;
+  .anim-ink-mark.anim-ink-mark {
+    /* 颜色变化不引发前庭反应，保留 */
+    animation-duration: var(--dur-base);
   }
 }
+
+/* 旧的 anim-add-flash / anim-ring / anim-chip-pop 已按 §5.5 处置：
+   前者改造成上面的 .anim-ink-mark，后两者废弃。 */

@@ -198,7 +198,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       {/* Log Weight Button */}
       <button 
         onClick={onShowWeightInput} 
-        className="w-full bg-card border border-divider p-5 rounded-card flex items-center justify-between group active:scale-95 transition-all shadow-lg"
+        className="w-full bg-card border border-divider p-5 rounded-card flex items-center justify-between group active:scale-press-sm transition-ui shadow-lg"
       >
         <div className="flex items-center gap-4">
           <div className="p-4 bg-accent/20 text-accent rounded-card group-hover:bg-accent group-hover:text-primary transition-colors">
@@ -237,8 +237,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             return (
               <div 
                 key={metric.name} 
-                className={`bg-card border border-divider rounded-card transition-all duration-300 overflow-hidden cursor-pointer
-                  ${isExpanded ? 'col-span-2 ring-1 ring-accent/25 bg-card-hover' : 'col-span-1 active:scale-95 hover:bg-card-hover'}`}
+                className={`bg-card border border-divider rounded-card transition-ui duration-300 overflow-hidden cursor-pointer
+                  ${isExpanded ? 'col-span-2 ring-1 ring-accent/25 bg-card-hover' : 'col-span-1 active:scale-press-sm hover:bg-card-hover'}`}
                 onClick={() => onToggleMetric(isExpanded ? null : metric.name)}
               >
                 <div className="p-4">
@@ -297,13 +297,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                               <div className="flex gap-2">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); onEditMeasurement(historyItem); }} 
-                                  className="p-2 bg-accent/10 text-accent rounded-chip hover:bg-accent/20 active:scale-90 transition-all"
+                                  className="p-2 bg-accent/10 text-accent rounded-chip hover:bg-accent/20 active:scale-press-sm transition-ui"
                                 >
                                   <Edit2 size={12} />
                                 </button>
                                 <button 
                                   onClick={(e) => onDeleteMeasurement(e, historyItem.id)} 
-                                  className="p-2 bg-danger/10 text-danger rounded-chip hover:bg-danger/20 active:scale-90 transition-all"
+                                  className="p-2 bg-danger/10 text-danger rounded-chip hover:bg-danger/20 active:scale-press-sm transition-ui"
                                 >
                                   <Trash2 size={12} />
                                 </button>
@@ -316,7 +316,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                       <div className="flex justify-end pt-2 border-t border-divider">
                         <button 
                           onClick={() => onAddMeasurementEntry(metric.name)} 
-                          className="ui-btn-primary flex items-center gap-2 text-xs active:scale-95"
+                          className="ui-btn-primary flex items-center gap-2 text-xs active:scale-press-sm"
                         >
                           <Plus size={14} />
                           {lang === Language.CN ? '记录新数据' : 'Add Entry'}
@@ -332,7 +332,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           {/* Add New Metric Button */}
           <button 
             onClick={onShowMeasureModal} 
-            className="bg-card border-2 border-dashed border-divider p-4 rounded-card flex flex-col items-center justify-center gap-2 hover:bg-card transition-all min-h-[100px]"
+            className="bg-card border-2 border-dashed border-divider p-4 rounded-card flex flex-col items-center justify-center gap-2 hover:bg-card transition-ui min-h-[100px]"
           >
             <div className="p-2 bg-card rounded-control text-secondary">
               <Plus size={16} />

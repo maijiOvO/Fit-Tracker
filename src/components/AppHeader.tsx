@@ -42,7 +42,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <button
         onClick={onSync}
         disabled={syncDisabled}
-        className={`p-2 rounded-control border transition-all active:scale-90 ${
+        className={`p-2 rounded-control border transition-ui active:scale-press-sm ${
           syncStatus === 'error'
             ? 'bg-danger/10 border-danger/20'
             : 'bg-card border-divider'
@@ -59,7 +59,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
       <button
         onClick={onToggleUnit}
-        className="bg-card border border-divider px-3 py-1.5 rounded-control text-xs font-semibold uppercase text-accent hover:bg-card-hover hover:text-primary transition-all active:scale-95 shadow-sm"
+        className="bg-card border border-divider px-3 py-1.5 rounded-control text-xs font-semibold uppercase text-accent hover:bg-card-hover hover:text-primary transition-ui active:scale-press-sm shadow-sm"
       >
         {unit}
       </button>

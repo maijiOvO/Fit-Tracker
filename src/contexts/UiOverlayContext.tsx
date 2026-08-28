@@ -196,7 +196,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
               <button
                 type="button"
                 onClick={() => handleUndo(item)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-control bg-accent text-on-accent text-xs font-bold active:scale-95"
+                className="flex-shrink-0 px-3 py-1.5 rounded-control bg-accent text-on-accent text-xs font-bold active:scale-press-sm"
               >
                 {item.undoLabel}
               </button>

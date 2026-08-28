@@ -106,7 +106,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
           e.stopPropagation();
           onToggleStar();
         }}
-        className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-90 transition-transform duration-tap ease-paper"
+        className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-press-sm transition-transform duration-tap ease-paper"
         aria-label={isCn ? '收藏' : 'Star'}
       >
         <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
@@ -334,9 +334,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     }
     const row = rowRefs.current.get(ex.id);
     if (row) {
-      row.classList.remove('anim-add-flash');
+      // remove → offsetWidth → add 的强制重排触发法保留（写得对，能重放同一条动画）
+      row.classList.remove('anim-ink-mark');
       void row.offsetWidth;
-      row.classList.add('anim-add-flash');
+      row.classList.add('anim-ink-mark');
     }
     onPickExercise(ex);
   };
@@ -447,7 +448,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           {sessionAdded > 0 && (
             <span
               key={sessionAdded}
-              className="anim-chip-pop inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold"
+              className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold"
             >
               ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
             </span>
@@ -455,7 +456,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={onOpenTagManage}
-            className="ml-auto w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-90 transition-all"
+            className="ml-auto w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
             aria-label={isCn ? '管理标签' : 'Manage tags'}
             data-testid="open-tag-manage"
           >
@@ -464,7 +465,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-90 transition-all"
+            className="w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
             aria-label={isCn ? '完成并关闭' : 'Done'}
             data-testid="picker-sheet-close"
           >
@@ -510,7 +511,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={() => onCreateCustomExercise(q || undefined)}
-            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
+            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform"
           >
             <Plus size={14} strokeWidth={2.5} />
             {isCn ? '新动作' : 'New'}
@@ -539,7 +540,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   setAxis(null);
                   setEquips(new Set());
                 }}
-                className="w-9 min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-control bg-inset text-tertiary active:scale-90 transition-transform"
+                className="w-9 min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-control bg-inset text-tertiary active:scale-press-sm transition-transform"
                 aria-label={isCn ? '清空筛选' : 'Clear filters'}
               >
                 <X size={14} />

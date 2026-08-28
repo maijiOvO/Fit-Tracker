@@ -74,7 +74,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
             <button
               key={m}
               onClick={() => toggleMetric(exerciseName, m)}
-              className={`w-full p-4 rounded-card border flex justify-between items-center transition-all ${
+              className={`w-full p-4 rounded-card border flex justify-between items-center transition-ui ${
                 activeMetrics.includes(m)
                   ? 'bg-accent-soft border-accent text-accent'
                   : 'bg-inset border-divider text-secondary'
@@ -142,7 +142,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
               toggleMetric(exerciseName, `custom_${newCustomDimension}`);
               setNewCustomDimension('');
             }}
-            className="bg-card border border-divider p-2 px-4 rounded-control text-accent font-bold text-xs active:scale-95 transition-all"
+            className="bg-card border border-divider p-2 px-4 rounded-control text-accent font-bold text-xs active:scale-press-sm transition-ui"
           >
             {isCn ? '添加' : 'Add'}
           </button>

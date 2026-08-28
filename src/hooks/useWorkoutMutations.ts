@@ -13,6 +13,8 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { ExerciseCategory } from '../constants/exercises';
+import { detectPRs, sessionSummary, PRHit } from '../utils/prDetect';
+import { KG_TO_LBS } from '../constants';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
@@ -28,6 +30,19 @@ export interface UseWorkoutMutationsParams {
   onPersist?: () => void;
 }
 
+/** 刊末页要显示的东西。结束训练时一次算好，避免组件里再摸一遍数据。 */
+export interface ColophonState {
+  issueNo: number;
+  title: string;
+  dateISO: string;
+  exerciseCount: number;
+  setCount: number;
+  volume: number;
+  unitLabel: string;
+  stamps: PRHit[];
+  extraCount: number;
+}
+
 export interface UseWorkoutMutationsResult {
   saveStatus: SaveStatus;
   setSaveStatus: React.Dispatch<React.SetStateAction<SaveStatus>>;
@@ -41,6 +56,9 @@ export interface UseWorkoutMutationsResult {
 
   /** 结束训练（标记 finishedAt + 清空 + 跳转） */
   finishWorkout: () => Promise<void>;
+  /** 刊末页数据。§9：非 PR 日也必须有收尾，所以每次结束训练都会有值。 */
+  colophon: ColophonState | null;
+  dismissColophon: () => void;
   /** 带单位提示的结束确认 */
   handleFinishWithConfirmation: () => Promise<void>;
 
@@ -86,7 +104,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast, toastUndo } = useUiOverlay();
-  const { resolveName } = useExercisePrefs();
+  const { resolveName, getActiveMetrics } = useExercisePrefs();
 
   const lang = settingsCtx.lang;
   const unit = settingsCtx.unit;
@@ -94,6 +112,9 @@ export function useWorkoutMutations({
 
   const { workouts, currentWorkout, setCurrentWorkout, deleteWorkout, refreshFromDb, finishWorkout: ctxFinishWorkout } =
     workoutCtx;
+
+  const [colophon, setColophon] = useState<ColophonState | null>(null);
+  const dismissColophon = useCallback(() => setColophon(null), []);
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
@@ -124,7 +145,32 @@ export function useWorkoutMutations({
         ...(scheduleId ? { fromSchedule: { scheduleId } } : {}),
       };
 
+      // PR 判定必须在写库【之前】算：写完之后 workouts 里就含本场了，
+      // 拿它当「历史」会把自己和自己比，永远不可能破纪录。
+      const pr = detectPRs({
+        session: finalWorkout,
+        history: workouts.filter(w => w.id !== finalWorkout.id),
+        editingWorkoutId,
+        resolveName,
+        getActiveMetrics,
+        unitLabel: unit,
+      });
+      const summary = sessionSummary(finalWorkout);
+      const volume = unit === 'lbs' ? summary.volumeKg * KG_TO_LBS : summary.volumeKg;
+
       await ctxFinishWorkout(finalWorkout);
+
+      setColophon({
+        issueNo: workouts.length + 1,
+        title: finalWorkout.title,
+        dateISO: finalWorkout.date,
+        exerciseCount: summary.exerciseCount,
+        setCount: summary.setCount,
+        volume,
+        unitLabel: unit,
+        stamps: pr.stamps,
+        extraCount: pr.extraCount,
+      });
 
       if (scheduleId) {
         markActiveSchedulePending.current = true;
@@ -143,7 +189,20 @@ export function useWorkoutMutations({
       setSaveStatus('error');
       toast(isCn ? '结束训练失败，请重试' : 'Failed to end workout, please try again', 'error');
     }
-  }, [currentWorkout, isCn, setActiveTab, setCurrentWorkout, toast, workoutCtx, ctxFinishWorkout]);
+  }, [
+    currentWorkout,
+    isCn,
+    setActiveTab,
+    setCurrentWorkout,
+    toast,
+    workoutCtx,
+    ctxFinishWorkout,
+    workouts,
+    editingWorkoutId,
+    resolveName,
+    getActiveMetrics,
+    unit,
+  ]);
 
   const handleFinishWithConfirmation = useCallback(async () => {
     console.log('[DEBUG] handleFinishWithConfirmation 被调用');
@@ -440,6 +499,8 @@ export function useWorkoutMutations({
     hasUnsavedChanges,
     setHasUnsavedChanges,
     finishWorkout,
+    colophon,
+    dismissColophon,
     handleFinishWithConfirmation,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,

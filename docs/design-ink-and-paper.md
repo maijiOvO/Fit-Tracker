@@ -1,6 +1,6 @@
 # 「墨与纸」视觉与动效规格
 
-> 状态：**已定稿，待实现**。2026-08-27 定。
+> 状态：**已定稿，P0–P5 已全部落地**。2026-08-27 定稿并实现。
 > 这是 FitLog 视觉重设计的唯一事实来源。实现时照此文档写，与本文冲突的旧代码以本文为准。
 >
 > 配套可交互样机（真实渲染，含慢放对比）：
@@ -508,17 +508,22 @@ export const H = { tap: 8, pick: 12, longpress: 14, threshold: 6,
 
 ## 8. 落地顺序
 
-| 阶段 | 内容 | 备注 |
+| 阶段 | 内容 | 状态 |
 |---|---|---|
-| **P0** | 令牌层：颜色/圆角/阴影/动效时长全部收进 CSS 变量，`tailwind.config.js` 改引用 `var()`；补齐语义色第二层；tertiary 提到 AA | 之后任何范围的重构只动 index.css 一处 |
-| **P1** | 修三类死 bug（20 个文件的死动画类、4 处 `max-sm`、72 处 `text-white`）+ **换中文字体栈（自托管子集）** | **这一步单独就能消掉大半「死板感」，且几乎不碰组件结构** |
-| **P2** | 录入核心：SetCapsule 账本行（14px→26px）、ExerciseCard 刊头版式、长按进度 + 标签 | 每次训练都盯着的那块屏幕 |
-| **P3** | 弹窗收拢：`<Dialog>` / `<Sheet>` 原语 + 14 个 modal 迁移 + toast 入退场 | 全 App 不再有硬切 |
-| **P4** | 图表与热力图：调色板收敛、末点常驻读数、PR 参考线、热力图自绘 | |
-| **P5** | 动效与签名时刻：`prDetect.ts` + 刊末页 + PR 盖章 + 数字滚动 + 退场动画 | 纯增量，可随时停 |
+| **P0** | 令牌层：颜色/圆角/阴影/动效时长全部收进 CSS 变量，`tailwind.config.js` 改引用 `var()`；补齐语义色第二层；tertiary 提到 AA | ✅ 已完成 |
+| **P1** | 修三类死 bug（20 个文件的死动画类、4 处 `max-sm`、72 处 `text-white`）+ **换中文字体栈（自托管子集）** | ✅ 已完成 |
+| **P2** | 录入核心：SetCapsule 账本行（14px→26px）、ExerciseCard 刊头版式、长按进度 + 标签 | ✅ 已完成 |
+| **P3** | 弹窗收拢：`Modal` 原语（center/sheet/full）+ 15 个 modal 迁移 + z 轴收敛 + 圆角迁移第二步 | ✅ 已完成 |
+| **P4** | 图表与热力图：调色板收敛、末点常驻读数、PR 参考线、热力图自绘 | ✅ 已完成 |
+| **P5** | 动效与签名时刻：`prDetect.ts` + 刊末页 + PR 盖章 + 数字滚动 + 退场动画 | ✅ 已完成 |
 
 **验收标准**：随手打开任意组件文件，搜不到 `transition-all`、`active:scale-9`、
 `duration-[0-9]`、`animate-in`；搜到的每个时长都是六个令牌之一，每条缓动都是四个令牌之一。
+
+**实测（P5 完成时）**：`transition-all` 0 / `active:scale-9*` 0 / `duration-[数字]` 0 /
+`animate-in` 0 / `text-white` 0 / `z-[数字]` 0 / 裸 `rounded-2xl|xl|lg|md|sm` 0。
+`transitionDuration.DEFAULT` 与 `transitionTimingFunction.DEFAULT` 也指向令牌，
+所以连没写 duration 的 `transition-*` 都落在六个令牌里，不必为此再扫一遍 className。
 
 ---
 
@@ -545,6 +550,24 @@ export const H = { tap: 8, pick: 12, longpress: 14, threshold: 6,
 ---
 
 ## 10. 已定的决策 / 待验证项
+
+### 实现期新增的几条硬约束（都是踩过才写下来的）
+
+- **Modal 必须 portal 到 body。** z-index 只在同一层叠上下文里比较，
+  而页面里到处是会建层叠上下文的东西（opacity 动画、transform、backdrop-filter）。
+  就地渲染时 PlanTab 根节点的 `animate-fade-in` 把 z-100 的弹窗关进了局部上下文，
+  底部导航（z-50，全局层）直接盖住保存按钮。
+- **任何动 transform 的包装层里都不能塞 `position: fixed` 子元素。**
+  带 transform 的元素会成为 fixed 后代的包含块，`inset-0` 会改为对着它解析。
+  NewWorkoutTab 踩过：弹层被顶出视口。
+- **带透明度的令牌类曾全是死类。** Tailwind 3 遇到纯字符串颜色会静默丢弃
+  `/透明度` 修饰符，全库 82 处一条 CSS 都没生成过。已用 `color-mix` 颜色函数修复。
+  这也是 §7.1「删 backdrop-blur」的前置条件——修之前那两个栏实测 0% 不透明。
+- **rAF 可能一帧都不跑**（页面没在合成帧 / WebView 被切后台），数字滚动必须有超时兜底，
+  否则读数会永远停在起始值，看起来就是「算错了」。
+- **dev server 不会重载 `tailwind.config.js`。** 改完 config 必须重启，
+  否则新工具类全部静默失效，而 e2e 跑的正是 dev server——绿是虚的。
+  另：连续多次写同一文件时 Vite watcher 会漏掉最后一次转译，需 touch 触发失效。
 
 ### 已定
 

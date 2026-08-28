@@ -61,7 +61,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
         <button
           onClick={handleStartClick}
           aria-label={lang === Language.CN ? '开始训练' : 'Start Workout'}
-          className={`absolute left-[10%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-on-accent bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-95 transition-transform ${
+          className={`absolute left-[10%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-on-accent bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-press-sm transition-transform ${
             activeTab === 'new' ? 'opacity-90' : ''
           }`}
         >

@@ -65,7 +65,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     [col.key]: p[col.key] + 1 > col.max ? 0 : p[col.key] + 1,
                   }))
                 }
-                className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
+                className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-ui"
               >
                 <ChevronUp size={28} strokeWidth={3} />
               </button>
@@ -86,7 +86,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     [col.key]: p[col.key] - 1 < 0 ? col.max : p[col.key] - 1,
                   }))
                 }
-                className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
+                className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-ui"
               >
                 <ChevronDown size={28} strokeWidth={3} />
               </button>

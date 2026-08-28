@@ -69,7 +69,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
             {isCn ? '动作名称' : 'Exercise Name'}
           </label>
           <input
-            className="w-full bg-card border border-divider rounded-card py-4 px-6 text-primary outline-none focus:ring-2 focus:ring-accent transition-all min-h-[48px]"
+            className="w-full bg-card border border-divider rounded-card py-4 px-6 text-primary outline-none focus:ring-2 focus:ring-accent transition-ui min-h-[48px]"
             value={newExerciseName}
             onChange={e => setNewExerciseName(e.target.value)}
             placeholder={translations.exerciseNamePlaceholder[lang]}
@@ -87,7 +87,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 key={cat}
                 type="button"
                 onClick={() => setNewExerciseCategory(cat)}
-                className={`flex-1 min-h-[40px] rounded-control text-xs font-bold transition-all ${
+                className={`flex-1 min-h-[40px] rounded-control text-xs font-bold transition-ui ${
                   newExerciseCategory === cat
                     ? 'bg-accent text-on-accent'
                     : 'bg-card text-secondary hover:bg-card-hover'
@@ -116,7 +116,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 onClick={() =>
                   setNewExerciseBodyPart(newExerciseBodyPart === id ? '' : id)
                 }
-                className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-all ${
+                className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
                   newExerciseBodyPart === id
                     ? 'bg-accent text-on-accent shadow-elevated'
                     : 'bg-card text-secondary hover:bg-card-hover'
@@ -145,7 +145,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                     p.includes(id) ? p.filter(x => x !== id) : [...p, id],
                   )
                 }
-                className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-all ${
+                className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
                   newExerciseTags.includes(id)
                     ? 'bg-accent text-on-accent shadow-elevated'
                     : 'bg-card text-secondary hover:bg-card-hover'

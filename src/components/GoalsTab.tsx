@@ -26,7 +26,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
         </div>
         <button
           onClick={onAddGoal}
-          className="p-3 bg-accent text-on-accent rounded-control hover:opacity-90 transition-opacity active:scale-95"
+          className="p-3 bg-accent text-on-accent rounded-control hover:opacity-90 transition-opacity active:scale-press-sm"
         >
           <Plus size={22} strokeWidth={1.75} />
         </button>
@@ -67,7 +67,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
 
             <div className="mt-4 h-1.5 bg-inset rounded-full overflow-hidden">
               <div
-                className="h-full bg-accent transition-all duration-500 rounded-full"
+                className="h-full bg-accent transition-ui duration-500 rounded-full"
                 style={{
                   width: `${Math.min(100, (g.currentValue / (g.targetValue || 1)) * 100)}%`,
                 }}

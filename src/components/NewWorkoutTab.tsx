@@ -112,11 +112,15 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     const el = document.querySelector<HTMLElement>(`[data-ex-card="${flashExerciseId}"]`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('anim-ring');
+      // §5.5：anim-ring（1.6s 的 box-shadow 光晕）已废弃——那是 Material 的辐射语汇，
+      // 纸上没有辐射源，而且逐帧重绘 96 帧。改成一次墨色过冲。
+      el.classList.remove('anim-ink-mark');
+      void el.offsetWidth;
+      el.classList.add('anim-ink-mark');
       flashTimerRef.current = window.setTimeout(() => {
-        el.classList.remove('anim-ring');
+        el.classList.remove('anim-ink-mark');
         onFlashDone();
-      }, 1700);
+      }, 600);
     } else {
       onFlashDone();
     }
@@ -137,7 +141,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={onBack}
-            className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center bg-card/60 border border-divider rounded-card text-primary hover:bg-card active:scale-90 transition-all"
+            className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center bg-card/60 border border-divider rounded-card text-primary hover:bg-card active:scale-press-sm transition-ui"
             aria-label={isCn ? '返回' : 'Back'}
           >
             <ArrowLeft size={18} />
@@ -167,7 +171,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               <button
                 type="button"
                 onClick={onToggleUnit}
-                className="ml-auto normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-chip bg-inset text-tertiary active:scale-95 hover:text-secondary transition-all"
+                className="ml-auto normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-chip bg-inset text-tertiary active:scale-press-sm hover:text-secondary transition-ui"
                 title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
                 aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
                 data-testid="unit-toggle"
@@ -196,7 +200,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             type="button"
             onClick={onSave}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length)}
-            className={`min-h-[44px] px-4 rounded-card font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-all active:scale-95 ${
+            className={`min-h-[44px] px-4 rounded-card font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
@@ -304,7 +308,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={() => onPickerOpenChange(true)}
-            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
             data-testid="open-picker-sheet"
           >
             <Plus size={19} strokeWidth={2.5} />

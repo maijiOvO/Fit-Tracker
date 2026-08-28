@@ -168,7 +168,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                     <button
                       key={day}
                       onClick={() => setSelectedDate(date)}
-                      className={`h-10 rounded-chip text-sm font-bold transition-all ${
+                      className={`h-10 rounded-chip text-sm font-bold transition-ui ${
                         isSelected
                           ? 'bg-accent text-on-accent shadow-elevated'
                           : isTodayDate
