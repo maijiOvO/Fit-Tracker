@@ -1,5 +1,5 @@
 import React, { useRef, useState, lazy } from 'react';
-import CalendarHeatmap from 'react-calendar-heatmap';
+import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
   ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone,
@@ -19,10 +19,7 @@ import { storage } from '../../services/appStorage';
 // 懒加载 MetricChart（包含 recharts）
 const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
 
-interface HeatmapValue {
-  date: string;
-  count: number;
-}
+type HeatmapValue = HeatmapDay;
 
 interface ProfileTabProps {
   user: User;
@@ -73,25 +70,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onToggleDevMode,
 }) => {
   const { toast } = useUiOverlay();
-  const monthLabels: Record<string, { cn: string; en: string }> = {
-    'Jan': { cn: '1月', en: 'Jan' },
-    'Feb': { cn: '2月', en: 'Feb' },
-    'Mar': { cn: '3月', en: 'Mar' },
-    'Apr': { cn: '4月', en: 'Apr' },
-    'May': { cn: '5月', en: 'May' },
-    'Jun': { cn: '6月', en: 'Jun' },
-    'Jul': { cn: '7月', en: 'Jul' },
-    'Aug': { cn: '8月', en: 'Aug' },
-    'Sep': { cn: '9月', en: 'Sep' },
-    'Oct': { cn: '10月', en: 'Oct' },
-    'Nov': { cn: '11月', en: 'Nov' },
-    'Dec': { cn: '12月', en: 'Dec' },
-  };
-
-  const weekdayLabels = lang === Language.CN 
-    ? ['', '一', '', '三', '', '五', ''] 
-    : ['', 'Mon', '', 'Wed', '', 'Fri', ''];
-
   const { preference, setPreference } = useTheme();
   const themeOptions: { id: ThemePreference; icon: React.ReactNode; label: string }[] = [
     { id: 'auto', icon: <Smartphone size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '跟随系统' : 'System' },
@@ -168,31 +146,18 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </span>
         </div>
         
-        <div className="w-full pt-8 pb-4"> 
-          <CalendarHeatmap
-            startDate={new Date(new Date().setDate(new Date().getDate() - 100))}
-            endDate={new Date()}
-            values={heatmapData}
-            classForValue={(value) => {
-              if (!value || value.count === 0) return 'color-empty';
-              return `color-scale-${Math.min(value.count, 4)}`;
-            }}
-            showMonthLabels={true}
-            transformMonthLabels={(month) => {
-              return monthLabels[month as keyof typeof monthLabels]?.[lang === Language.CN ? 'cn' : 'en'] || month;
-            }}
-            showWeekdayLabels={true}
-            weekdayLabels={weekdayLabels}
-            gutterSize={4}
-            onClick={value => {
-              if (!value) return;
-              toast(
-                `${value.date}: ${value.count} ${lang === Language.CN ? '场训练' : 'Workouts'}`,
-                'info',
-              );
-            }}
-          />
-        </div>
+        <ActivityHeatmap
+          days={heatmapData}
+          lang={lang}
+          onPickDay={day =>
+            toast(
+              lang === Language.CN
+                ? `${day.date}：${day.sets} 组 · ${day.sessions} 场`
+                : `${day.date}: ${day.sets} sets · ${day.sessions} sessions`,
+              'info',
+            )
+          }
+        />
       </div>
 
       {/* Guest Mode Warning */}

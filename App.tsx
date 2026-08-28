@@ -26,8 +26,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import './heatmap.css';
-import 'react-calendar-heatmap/dist/styles.css';
 
 import { ExerciseDefinition, Goal, Language } from './types';
 import { translations } from './translations';

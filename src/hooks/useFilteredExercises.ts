@@ -168,11 +168,17 @@ export function useExerciseStats() {
       });
   }, [workouts, lang, exerciseOverrides, starredExercises, resolveName]);
 
-  /** 训练日历热力图数据 */
+  /**
+   * 训练日历热力图数据。
+   *
+   * ⚠️ 强度按【当日总组数】统计而不是场数（§6.5）：
+   * 单人自用一天几乎只有 1 场，按场数分档会退化成一张二值图。
+   * 场数仍然记着，只用于提示文案。
+   */
   const heatmapData = useMemo(() => {
     if (!workouts || workouts.length === 0) return [];
 
-    const map = new Map<string, number>();
+    const map = new Map<string, { sets: number; sessions: number }>();
     workouts.forEach((w, index) => {
       try {
         if (!w || typeof w !== 'object') return;
@@ -191,22 +197,20 @@ export function useExerciseStats() {
         }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dayString)) return;
 
-        map.set(dayString, (map.get(dayString) || 0) + 1);
+        const sets = (w.exercises || []).reduce(
+          (n: number, ex: any) => n + (ex?.sets?.length || 0),
+          0,
+        );
+        const prev = map.get(dayString) || { sets: 0, sessions: 0 };
+        map.set(dayString, { sets: prev.sets + sets, sessions: prev.sessions + 1 });
       } catch (e) {
         console.warn(`Error processing workout at index ${index}:`, e, w);
       }
     });
 
     return Array.from(map.entries())
-      .map(([date, count]) => ({ date, count }))
-      .filter(
-        item =>
-          item &&
-          typeof item.date === 'string' &&
-          typeof item.count === 'number' &&
-          item.count > 0 &&
-          /^\d{4}-\d{2}-\d{2}$/.test(item.date),
-      );
+      .map(([date, v]) => ({ date, sets: v.sets, sessions: v.sessions }))
+      .filter(item => item.sessions > 0 && /^\d{4}-\d{2}-\d{2}$/.test(item.date));
   }, [workouts]);
 
   return { recentExerciseNames, bestLifts, heatmapData };
