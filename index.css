@@ -1045,6 +1045,17 @@ button {
     border-color var(--dur-tap) var(--ease-ink),
     color var(--dur-tap) var(--ease-ink);
 }
+/* 英文印面：衬线首字母，与 BodyPartPicker 的 Seal 同一套刻法（§12.1）。
+   Ma Shan Zheng 的拉丁笔画细、字面窄 —— 46px 方框里 C 只占三成宽，显空，
+   所以英文不共用那支笔。字号 32、上留 2px 都是照 52px 那版等比量下来的。 */
+.seal-fan-item.is-latin {
+  font-family: 'Noto Serif SC', 'Songti SC', SimSun, serif;
+  font-weight: 700;
+  font-size: 32px;
+  /* 基础类那 1px 上边距是给 Ma Shan Zheng 压字面用的；大写字母全在基线以上，
+     本来就偏低，再加就更歪。清零后上下留白 8.1 / 7.2，与 52px 那版同档。 */
+  padding-top: 0;
+}
 .seal-fan-item.is-dashed {
   border-style: dashed;
 }

@@ -20,19 +20,38 @@
 const FLAG = 'fitlog_font_retry';
 const DEADLINE_MS = 6000;
 
-/** DOM 层探测：Noto Sans SC 的拉丁与数字字宽和系统回退不同 */
+/**
+ * DOM 层探测：自托管字体的拉丁字宽和系统回退不同。
+ *
+ * 探两张而不是一张：
+ *  · Noto Sans SC —— 正文，掉了满屏都不对；
+ *  · Noto Serif SC —— 刊头，**并且是英文印章的印面**（§12.1 的 C S B L A O / PR）。
+ *    中文印面有硬保证（Ma Shan Zheng 是 font-display: block + 预加载），
+ *    英文印面却搭在正文那张 optional 的衬线上 —— 错过窗口就落成系统衬线，
+ *    而「印章的全部意义就是那个字形」。实测三张正文字体是一起赢一起输的，
+ *    但那是观察不是保证，多探一张的成本只有一个隐藏 span。
+ *
+ * ⚠️ 衬线的字重轴只切了 600–700，探针必须用 700：给 400 会落到默认实例上，
+ *    量出来的宽度不代表真实使用的那一档。
+ */
 function bodyFontApplied(): boolean {
-  const mk = (family: string) => {
+  const mk = (family: string, text: string, weight = 400) => {
     const s = document.createElement('span');
     s.style.cssText =
-      'position:absolute;visibility:hidden;white-space:pre;font-size:32px;font-family:' + family;
-    s.textContent = 'FitLog 0123456789 Wijk';
+      'position:absolute;visibility:hidden;white-space:pre;font-size:32px;font-weight:' +
+      weight +
+      ';font-family:' +
+      family;
+    s.textContent = text;
     document.body.appendChild(s);
     const w = s.getBoundingClientRect().width;
     s.remove();
     return w;
   };
-  return Math.abs(mk("'Noto Sans SC'") - mk('system-ui')) > 0.5;
+  const probe = 'FitLog 0123456789 Wijk';
+  const sansOk = Math.abs(mk("'Noto Sans SC'", probe) - mk('system-ui', probe)) > 0.5;
+  const serifOk = Math.abs(mk("'Noto Serif SC'", probe, 700) - mk('serif', probe, 700)) > 0.5;
+  return sansOk && serifOk;
 }
 
 export function installFontGuard(): void {
@@ -61,7 +80,7 @@ export function installFontGuard(): void {
     } catch {
       return;
     }
-    console.warn('[fitlog] 正文字体错过 optional 窗口（多半是更新后首启），重载一次挽回');
+    console.warn('[fitlog] 正文/刊头字体错过 optional 窗口（多半是更新后首启），重载一次挽回');
     location.reload();
   });
 }

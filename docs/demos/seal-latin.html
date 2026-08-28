@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 英文印章</title>
+<!--
+  交互 demo：印章的英文版该刻什么。
+
+  背景：全 App 只有两处允许出现印章语汇（design-ink-and-paper.md §12.1 / §5.3）——
+    · 部位印（朱文：纸底、朱砂框、朱砂字，52×52，正置静止，每次开练都有）
+    · PR 落章（白文：实心朱砂底、字挖成纸色，64×64，-4°，落章过冲，极罕见）
+  两者靠阴刻／阳刻之别区分，这条不动。英文版只换"刻什么字"，不换形制。
+
+  已定（2026-08-28 拍板，已落地，见 design 文档 §12.1「英文版：印面换字，形制不换」）：
+    · 形制、尺寸、姿态、频率全部沿用中文版，不为英文另开一套
+    · Q1 部位印 = 乙（衬线单字母 C S B L A O，Noto Serif SC 700 / 36px）
+    · Q2 PR 落章 = PR（Noto Serif SC 700 / 30px）
+  本页保留为落选方案的存档：甲（手写体单字母）与丙（等宽三字母）长什么样、
+  当初为什么没选，一眼能翻回来。
+
+  ⚠️ 必须用 dev server 打开，不能双击文件：
+     http://localhost:3000/docs/demos/seal-latin.html
+     字体走的是 /fonts/ 下的子集产物，file:// 下取不到，全掉回系统字。
+
+  ⚠️ Ma Shan Zheng 的子集已经含全部可打印 ASCII（build-fonts.mjs 里 sealOnly
+     切的是 BASE.slice(0,95) + SEAL_CHARS），所以甲方案不需要重跑 build:fonts。
+     乙／丙用的是正文衬线与等宽，本来就是全 ASCII，同样不需要。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px; --radius-stamp:4px;
+    --dur-tap:120ms; --dur-stamp:520ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --ease-stamp:cubic-bezier(.2,1.6,.35,1);
+    --move:1;
+  }
+  html[data-theme="dark"]{
+    --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+    --divider:#332E25; --rule-strong:#4A4232;
+    --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+    --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+    --shadow-page:0 1px 1px rgba(0,0,0,.35);
+    --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+  }
+
+  /* 与 index.css §3 同源；路径是 dev server 下的绝对路径 */
+  @font-face{ font-family:'Noto Sans SC'; src:url('/fonts/noto-sans-sc.woff2') format('woff2-variations');
+    font-weight:400 700; font-display:block; }
+  @font-face{ font-family:'Noto Serif SC'; src:url('/fonts/noto-serif-sc.woff2') format('woff2-variations');
+    font-weight:600 700; font-display:block; }
+  @font-face{ font-family:'IBM Plex Mono'; src:url('/fonts/plex-mono-600.woff2') format('woff2');
+    font-weight:600; font-display:block; }
+  @font-face{ font-family:'Ma Shan Zheng'; src:url('/fonts/ma-shan-zheng.woff2') format('woff2');
+    font-weight:400; font-display:block; }
+
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    background:var(--bg-base); color:var(--text-primary); min-height:100%;
+    font:14px/1.5 'Noto Sans SC',-apple-system,'PingFang SC',sans-serif;
+    -webkit-user-select:none; user-select:none; padding-bottom:64px;
+  }
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:10px 0 2px;
+    letter-spacing:.08em; }
+  .page{ padding:8px 14px 0; max-width:520px; margin:0 auto; }
+  h1{ font-family:'Noto Serif SC',serif; font-weight:700; font-size:19px; text-align:center;
+    margin:2px 0 4px; }
+  .sub{ text-align:center; font-size:11px; color:var(--text-tertiary); margin-bottom:14px; }
+  .seclabel{ font-size:10px; letter-spacing:.14em; color:var(--text-tertiary);
+    margin:24px 0 8px; text-transform:uppercase; }
+  .card{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); padding:14px; }
+  .note{ font-size:11px; color:var(--text-tertiary); padding:8px 2px 0; line-height:1.7; }
+  .note b{ color:var(--accent); font-weight:600; }
+  .toolbar{ display:flex; gap:8px; justify-content:center; margin:10px 0 2px; flex-wrap:wrap; }
+  .tbtn{ font:inherit; font-size:11px; padding:6px 12px; border:1px solid var(--divider);
+    background:var(--bg-card); color:var(--text-secondary); border-radius:2px; cursor:pointer;
+    transition:background var(--dur-tap) var(--ease-paper); }
+  .tbtn:hover{ background:var(--bg-card-hover); }
+  .tbtn[aria-pressed="true"]{ background:var(--accent); border-color:var(--accent);
+    color:var(--text-on-accent); }
+
+  /* ── 方案标题条 ── */
+  .opt{ margin-top:14px; }
+  .opthead{ display:flex; align-items:baseline; gap:8px; margin-bottom:9px; }
+  .optkey{ font-family:'Noto Serif SC',serif; font-weight:700; font-size:15px; color:var(--accent); }
+  .optname{ font-size:12.5px; font-weight:600; }
+  .optmeta{ font-size:10.5px; color:var(--text-tertiary); margin-left:auto; }
+
+  /* ── 朱文部位印（形制照抄 BodyPartPicker 的 Seal） ── */
+  .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .tile{ min-height:106px; border:1px solid var(--divider); background:var(--bg-base);
+    border-radius:var(--radius-card); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:9px; }
+  .zhu{ width:52px; height:52px; border:2.5px solid var(--accent); border-radius:var(--radius-stamp);
+    color:var(--accent); display:flex; align-items:center; justify-content:center;
+    padding-top:1px; line-height:1; }
+  .zhu.dashed{ border-style:dashed; }
+  .tlabel{ font-size:13px; font-weight:600; }
+
+  /* 三种刻法 */
+  .cut-han  { font-family:'Ma Shan Zheng',cursive; font-size:30px; }
+  .cut-brush{ font-family:'Ma Shan Zheng',cursive; font-size:36px; }
+  .cut-serif{ font-family:'Noto Serif SC',serif; font-weight:700; font-size:36px;
+              letter-spacing:.02em; }
+  .cut-mono { font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:18px;
+              letter-spacing:.04em; }
+
+  /* ── FAB 印谱扇开尺寸（46px，无标签，只靠印面认） ── */
+  .fanrow{ display:flex; gap:9px; justify-content:center; padding:12px 0 2px; flex-wrap:wrap; }
+  .fan{ width:46px; height:46px; border:2.5px solid var(--accent); border-radius:var(--radius-stamp);
+    color:var(--accent); background:var(--bg-card); box-shadow:var(--shadow-overlay);
+    display:flex; align-items:center; justify-content:center; padding-top:1px; line-height:1; }
+  .fan.dashed{ border-style:dashed; }
+  .fan .cut-han{ font-size:27px; } .fan .cut-brush{ font-size:32px; }
+  .fan .cut-serif{ font-size:32px; } .fan .cut-mono{ font-size:16px; }
+  .fancap{ text-align:center; font-size:10px; color:var(--text-tertiary); padding-top:6px; }
+
+  /* ── 白文 PR 落章 ── */
+  .stamprow{ display:flex; gap:22px; justify-content:center; align-items:flex-start;
+    padding:20px 0 6px; flex-wrap:wrap; }
+  .stampcell{ display:flex; flex-direction:column; align-items:center; gap:10px; width:96px; }
+  .bai{ width:64px; height:64px; border-radius:var(--radius-stamp); background:var(--accent);
+    color:var(--text-on-accent); display:flex; align-items:center; justify-content:center;
+    line-height:1; cursor:pointer; }
+  .bai.cut-han{ font-size:26px; padding-top:2px; }
+  .bai.cut-brush{ font-size:30px; }
+  .bai.cut-serif{ font-family:'Noto Serif SC',serif; font-weight:700; font-size:30px;
+    letter-spacing:.04em; }
+  .stampcap{ font-size:11px; color:var(--text-secondary); text-align:center; }
+  .stampsub{ font-size:10px; color:var(--text-tertiary); text-align:center; margin-top:-6px; }
+  @keyframes stamp-drop{
+    0%   { opacity:0; transform:translateY(-14px) scale(1.9) rotate(-8deg); }
+    70%  { opacity:1; }
+    100% { opacity:1; transform:translateY(0) scale(1) rotate(-4deg); }
+  }
+  .bai{ transform:rotate(-4deg); }
+  .bai.play{ animation:stamp-drop var(--dur-stamp) var(--ease-stamp) both; }
+
+  /* ── 刊末页缩略（落章的真实上下文） ── */
+  .colophon{ background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    padding:22px 18px; text-align:center; }
+  .colo-kicker{ font-size:10px; letter-spacing:.15em; color:var(--text-tertiary);
+    text-transform:uppercase; }
+  .colo-title{ font-family:'Noto Serif SC',serif; font-weight:700; font-size:20px; margin-top:6px; }
+  .colo-stats{ display:flex; gap:20px; justify-content:center; margin-top:16px; }
+  .colo-stats b{ display:block; font-family:'IBM Plex Mono',monospace; font-weight:600;
+    font-size:19px; font-variant-numeric:tabular-nums; }
+  .colo-stats span{ font-size:10px; color:var(--text-tertiary); }
+  .colo-seal{ display:flex; flex-direction:column; align-items:center; gap:8px; margin-top:22px; }
+  .colo-note{ font-size:10.5px; color:var(--text-secondary); max-width:9rem; line-height:1.5; }
+  .colo-note b{ font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--text-primary); }
+</style>
+</head>
+<body>
+  <div class="demotag">DEMO · 不是线上界面</div>
+  <div class="page">
+    <h1>印章的英文版刻什么</h1>
+    <p class="sub">形制不动（朱文／白文、尺寸、姿态都照旧），只换印面</p>
+
+    <div class="toolbar">
+      <button class="tbtn" id="theme" aria-pressed="false">深色</button>
+      <button class="tbtn" id="lang" aria-pressed="true">看英文</button>
+    </div>
+
+    <!-- ══ Q1 部位印 ══ -->
+    <p class="seclabel">Q1 · 部位印（朱文 · 每次开练都有）</p>
+
+    <div class="card">
+      <div class="opt" data-cut="han">
+        <div class="opthead">
+          <span class="optkey">参照</span>
+          <span class="optname">汉字（现状）</span>
+          <span class="optmeta">Ma Shan Zheng · 30px</span>
+        </div>
+        <div class="grid" data-grid="han"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="opt" data-cut="brush">
+        <div class="opthead">
+          <span class="optkey">甲</span>
+          <span class="optname">单字母 · 同一支笔</span>
+          <span class="optmeta">Ma Shan Zheng · 36px</span>
+        </div>
+        <div class="grid" data-grid="brush"></div>
+        <div class="fanrow" data-fan="brush"></div>
+        <p class="fancap">↑ FAB 扇开时的 46px：没有标签，只能靠印面认</p>
+        <p class="note">
+          中英共用一支笔，两种语言的印看起来是同一个人刻的。
+          代价是 Ma Shan Zheng 的拉丁并不是它的主场 ——
+          <b>笔画细、字面窄</b>，方框里容易显空。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="opt" data-cut="serif">
+        <div class="opthead">
+          <span class="optkey">乙</span>
+          <span class="optname">单字母 · 衬线花体首字</span>
+          <span class="optmeta">Noto Serif SC 700 · 36px</span>
+        </div>
+        <div class="grid" data-grid="serif"></div>
+        <div class="fanrow" data-fan="serif"></div>
+        <p class="fancap">↑ FAB 扇开时的 46px</p>
+        <p class="note">
+          拉丁世界里方框＋首字母本来就是<b>藏书票／活字首字</b>的语汇，
+          不需要借道汉字就成立，和刊头用的是同一族衬线。
+          代价是 C S B L A O 六个字母比汉字抽象，扇开时认得慢一点。
+        </p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="opt" data-cut="mono">
+        <div class="opthead">
+          <span class="optkey">丙</span>
+          <span class="optname">三字母 · 等宽戳记</span>
+          <span class="optmeta">IBM Plex Mono 600 · 18px</span>
+        </div>
+        <div class="grid" data-grid="mono"></div>
+        <div class="fanrow" data-fan="mono"></div>
+        <p class="fancap">↑ FAB 扇开时的 46px</p>
+        <p class="note">
+          图书馆日期戳的语汇，<b>不用记就能读</b>，扇开时最快。
+          代价是它读起来像"标签"而不像"印"——
+          方框里塞三个小字母，签名时刻那点分量会被稀释。
+        </p>
+      </div>
+    </div>
+
+    <!-- ══ Q2 PR 落章 ══ -->
+    <p class="seclabel">Q2 · PR 落章（白文 · 极罕见）</p>
+
+    <div class="card">
+      <div class="stamprow" id="stamps"></div>
+      <p class="note">点任意一枚重播落章。白文是<b>实心朱砂底、字挖成纸色</b>，
+        和上面的朱文部位印刻法相反 —— 这条区分不能丢。</p>
+    </div>
+
+    <p class="seclabel">落章在刊末页里的样子</p>
+    <div class="colophon">
+      <div class="colo-kicker">Issue No. 128</div>
+      <div class="colo-title">Chest</div>
+      <div class="colo-stats">
+        <span><b>5</b><span>exercises</span></span>
+        <span><b>18</b><span>sets</span></span>
+        <span><b>7,240</b><span>volume kg</span></span>
+      </div>
+      <div class="colo-seal">
+        <div class="bai cut-serif" id="coloseal">PR</div>
+        <p class="colo-note">Barbell Bench Press<br><b>97.5 → 100</b> Weight kg</p>
+      </div>
+    </div>
+
+    <p class="note" style="padding-top:18px">
+      未决的两问：<br>
+      <b>Q1</b> 部位印取甲／乙／丙？<br>
+      <b>Q2</b> 落章取 PR／NEW／BEST，还是英文下也保留「破」？<br>
+      —— 保留「破」也是一个成立的答案：它是图形不是文案，
+      就像日本设计里的落款不会因为读者不懂而翻译掉。
+    </p>
+  </div>
+
+<script>
+  // 六枚印的印面。han=现状；brush/serif 用首字母；mono 用三字母戳记。
+  const PARTS = [
+    { key:'chest',     label:'Chest',     han:'胸', letter:'C', abbr:'CHS' },
+    { key:'shoulders', label:'Shoulders', han:'肩', letter:'S', abbr:'SHL' },
+    { key:'back',      label:'Back',      han:'背', letter:'B', abbr:'BCK' },
+    { key:'legs',      label:'Legs',      han:'腿', letter:'L', abbr:'LEG' },
+    { key:'arms',      label:'Arms',      han:'臂', letter:'A', abbr:'ARM' },
+    { key:'other',     label:'Other',     han:'制', letter:'O', abbr:'OTH', dashed:true },
+  ];
+  const HAN_LABEL = { chest:'胸部', shoulders:'肩部', back:'背部', legs:'腿部', arms:'手臂', other:'其他' };
+
+  let showEn = true;
+
+  function faceOf(p, cut){
+    if (cut === 'han')   return p.han;
+    if (cut === 'mono')  return showEn ? p.abbr : p.han;
+    if (cut === 'brush' || cut === 'serif') return showEn ? p.letter : p.han;
+    return p.han;
+  }
+
+  function render(){
+    for (const grid of document.querySelectorAll('[data-grid]')) {
+      const cut = grid.dataset.grid;
+      grid.innerHTML = PARTS.map(p => `
+        <div class="tile">
+          <span class="zhu cut-${cut}${p.dashed ? ' dashed' : ''}">${faceOf(p, cut)}</span>
+          <span class="tlabel">${showEn ? p.label : HAN_LABEL[p.key]}</span>
+        </div>`).join('');
+    }
+    for (const row of document.querySelectorAll('[data-fan]')) {
+      const cut = row.dataset.fan;
+      row.innerHTML = PARTS.map(p => `
+        <span class="fan${p.dashed ? ' dashed' : ''}"><span class="cut-${cut}">${faceOf(p, cut)}</span></span>`).join('');
+    }
+  }
+
+  // Q2：四枚候选落章
+  const STAMPS = [
+    { face:'破', cut:'han',   cap:'保留「破」',  sub:'现状 · 破纪录' },
+    { face:'PR', cut:'serif', cap:'PR',        sub:'与 PR Hub 同词' },
+    { face:'NEW',cut:'serif', cap:'NEW',       sub:'不带术语' },
+    { face:'BEST',cut:'serif',cap:'BEST',      sub:'四字母，最挤' },
+  ];
+  document.getElementById('stamps').innerHTML = STAMPS.map((s,i) => `
+    <div class="stampcell">
+      <div class="bai cut-${s.cut}" data-i="${i}" style="${s.face.length>=4?'font-size:19px':s.face.length===3?'font-size:24px':''}">${s.face}</div>
+      <div class="stampcap">${s.cap}</div>
+      <div class="stampsub">${s.sub}</div>
+    </div>`).join('');
+
+  function replay(el){
+    el.classList.remove('play');
+    void el.offsetWidth;          // 强制回流，否则同一个动画不会重播
+    el.classList.add('play');
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.bai');
+    if (b) replay(b);
+  });
+
+  document.getElementById('theme').addEventListener('click', e => {
+    const on = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', on ? 'light' : 'dark');
+    e.currentTarget.setAttribute('aria-pressed', String(!on));
+    e.currentTarget.textContent = on ? '深色' : '浅色';
+  });
+  document.getElementById('lang').addEventListener('click', e => {
+    showEn = !showEn;
+    e.currentTarget.setAttribute('aria-pressed', String(showEn));
+    e.currentTarget.textContent = showEn ? '看英文' : '看中文';
+    render();
+  });
+
+  render();
+  // 进页把刊末页那枚落章盖一次，看清它在真实上下文里的分量
+  setTimeout(() => replay(document.getElementById('coloseal')), 500);
+</script>
+</body>
+</html>

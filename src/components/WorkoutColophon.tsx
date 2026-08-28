@@ -152,12 +152,18 @@ export const WorkoutColophon: React.FC<Props> = ({
         <div className="flex items-start gap-4 mt-10">
           {stamps.map((s, i) => (
             <div key={`${s.kind}-${s.exercise}`} className="flex flex-col items-center">
+              {/* 白文落章。英文刻 PR —— 和 App 里已有的「PR Hub」「By PR」同词，
+                  健身语境下不用解释；两个字母在 64px 方框里也最饱满（NEW 顶边、BEST 更挤）。
+                  中文仍是「破」（破纪录）。刻法（实心朱砂底、字挖成纸色）两种语言都不变，
+                  它和部位印的朱文之别是 §12.1 用来防止稀释签名时刻的那条线。 */}
               <span
-                className="anim-stamp-drop flex items-center justify-center w-16 h-16 rounded-stamp bg-accent text-on-accent font-seal text-[26px] leading-none"
+                className={`anim-stamp-drop flex items-center justify-center w-16 h-16 rounded-stamp bg-accent text-on-accent leading-none ${
+                  isCn ? 'font-seal text-[26px] pt-[2px]' : 'font-display font-bold text-[30px]'
+                }`}
                 style={{ animationDelay: `${i * 140}ms` }}
                 aria-hidden
               >
-                破
+                {isCn ? '破' : 'PR'}
               </span>
               <span
                 className="anim-reveal mt-2 text-micro text-secondary text-center max-w-[8rem]"

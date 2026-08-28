@@ -45,36 +45,66 @@ export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'ot
  * ⚠️ 这几个字必须在 scripts/build-fonts.mjs 的 SEAL_CHARS 里，
  *    否则 Ma Shan Zheng 的子集里没有它们，会静默掉回系统字体。
  */
-export const PARTS: { key: BodyPartKey; seal: string; tk: keyof typeof translations }[] = [
-  { key: 'chest', seal: '胸', tk: 'partChest' },
-  { key: 'shoulders', seal: '肩', tk: 'partShoulders' },
-  { key: 'back', seal: '背', tk: 'partBack' },
-  { key: 'legs', seal: '腿', tk: 'partLegs' },
-  { key: 'arms', seal: '臂', tk: 'partArms' },
+export const PARTS: {
+  key: BodyPartKey;
+  seal: string;
+  /** 英文印面。取标签首字母，六枚 C S B L A O 互不相同。 */
+  latin: string;
+  tk: keyof typeof translations;
+}[] = [
+  { key: 'chest', seal: '胸', latin: 'C', tk: 'partChest' },
+  { key: 'shoulders', seal: '肩', latin: 'S', tk: 'partShoulders' },
+  { key: 'back', seal: '背', latin: 'B', tk: 'partBack' },
+  { key: 'legs', seal: '腿', latin: 'L', tk: 'partLegs' },
+  { key: 'arms', seal: '臂', latin: 'A', tk: 'partArms' },
 ];
 
 /** FAB 印谱扇开（§12.4）用的完整六枚：五部位 + 「制」。顺序=印谱阅读序，位置固定不按频率排。 */
-export const FAN_PARTS: { key: BodyPartKey; seal: string; tk: keyof typeof translations; dashed?: boolean }[] = [
+export const FAN_PARTS: {
+  key: BodyPartKey;
+  seal: string;
+  latin: string;
+  tk: keyof typeof translations;
+  dashed?: boolean;
+}[] = [
   ...PARTS,
-  { key: 'other', seal: '制', tk: 'partOther', dashed: true },
+  { key: 'other', seal: '制', latin: 'O', tk: 'partOther', dashed: true },
 ];
 
 /**
  * 朱文印。虚线框＝这一枚还没刻，等你自己题名（「其他」用）。
  *
- * leading-none + 2px padding-top：Ma Shan Zheng 的字面在 em 框里偏上，
- * 纯 flex 居中会看着往上飘。2 是量出来的 —— 真机实测框内上下留白
- * 3px 上 / 3.2px 下，基本对称；3px 时是 4.9 / 2.3，方印上这点偏斜看得出来。
+ * ── 两种刻法 ──────────────────────────────────────────
+ *
+ * 中文：汉字 + Ma Shan Zheng 30px。
+ * 英文：标签首字母 + 衬线 700 36px（刊头同族）。
+ *
+ * 英文没有沿用 Ma Shan Zheng —— 它有全套拉丁字形（cmap 查过），但那不是它的主场：
+ * 52px 方框内宽 47px，实测「胸」占 30.0×29，同尺下的手写体 C 只有 13.1 宽，
+ * 不到方框的三成，印面明显显空，46px 扇开时更弱。
+ * 换成衬线 700 后 C 占 26 宽，密度回到汉字量级；而且方框＋首字母在拉丁世界里
+ * 本来就是藏书票／活字首字的语汇，不必借道汉字才成立。
+ * 可玩的对比 demo：docs/demos/seal-latin.html。
+ *
+ * leading-none + padding-top：Ma Shan Zheng 的字面在 em 框里偏上，纯 flex 居中会往上飘，
+ * 补 1px 压回来。衬线首字母反过来 —— 大写字母全在基线以上，本来就偏低，
+ * 一点内边距都不能加：内高 48、墨高 29，pt-0 时上 10 / 下 9，加 2px 就变成上 12 / 下 7。
  */
-const Seal: React.FC<{ char: string; dashed?: boolean }> = ({ char, dashed }) => (
+const Seal: React.FC<{ char: string; latin: string; isCn: boolean; dashed?: boolean }> = ({
+  char,
+  latin,
+  isCn,
+  dashed,
+}) => (
   <span
     aria-hidden
     className={`w-[52px] h-[52px] rounded-stamp border-[2.5px] ${
       dashed ? 'border-dashed' : ''
-    } border-accent text-accent font-seal text-[30px] leading-none
-       flex items-center justify-center pt-[1px] select-none`}
+    } border-accent text-accent leading-none flex items-center justify-center select-none ${
+      isCn ? 'font-seal text-[30px] pt-[1px]' : 'font-display font-bold text-[36px]'
+    }`}
   >
-    {char}
+    {isCn ? char : latin}
   </span>
 );
 
@@ -104,7 +134,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
 
       {/* 三列两行＝一页印谱。印比人形矮得多，六枚正好铺成一版。 */}
       <div className="grid grid-cols-3 gap-2.5">
-        {PARTS.map(({ key, seal, tk }, i) => {
+        {PARTS.map(({ key, seal, latin, tk }, i) => {
           const label = translations[tk][lang] as string;
           return (
             <button
@@ -116,7 +146,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
               style={{ animationDelay: `${Math.min(i, 6) * 32}ms` }}
               className={`${TILE} text-primary hover:border-accent`}
             >
-              <Seal char={seal} />
+              <Seal char={seal} latin={latin} isCn={isCn} />
               <span className="text-[13px] font-semibold">{label}</span>
             </button>
           );
@@ -129,7 +159,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           style={{ animationDelay: `${5 * 32}ms` }}
           className={`${TILE} text-secondary hover:border-accent hover:text-accent`}
         >
-          <Seal char="制" dashed />
+          <Seal char="制" latin="O" isCn={isCn} dashed />
           <span className="text-[13px] font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>

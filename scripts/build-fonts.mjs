@@ -47,6 +47,10 @@ const BASE =
  *
  * ⚠️ 加中文字到印章里必须同时改这里并重跑 npm run build:fonts。
  *    dev server 不会自动重建子集，漏了这步字会静默掉回系统字体。
+ *
+ * ⚠️ 英文版的印面（部位印 C S B L A O、落章 PR）走的是 Noto Serif SC，不是这支笔 ——
+ *    Ma Shan Zheng 的拉丁笔画细、字面窄，在方印里显空（见 design 文档 §12.1）。
+ *    所以【不要】把字母加进 SEAL_CHARS：加了也没人用，只是白占体积。
  */
 const SEAL_CHARS = '记破新纪录今天多住了一点' + '胸肩背腿臂制';
 

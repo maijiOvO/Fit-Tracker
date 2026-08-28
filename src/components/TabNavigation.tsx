@@ -36,7 +36,10 @@ const COMMIT_MS = 260; // 落章过冲播完再切页
 
 interface FanSeal {
   key: BodyPartKey;
+  /** 已按语言选好的印面：中文是汉字，英文是首字母（§12.1） */
   seal: string;
+  /** 英文印面走衬线，字号与内边距都和汉字不同，靠这个开 .is-latin */
+  latin: boolean;
   label: string;
   dashed?: boolean;
   x: number;
@@ -108,7 +111,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
       const y = cy - FAN_R * Math.sin(rad);
       return {
         key: p.key,
-        seal: p.seal,
+        seal: isCn ? p.seal : p.latin,
+        latin: !isCn,
         label: translations[p.tk][lang] as string,
         dashed: p.dashed,
         x,
@@ -254,7 +258,9 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           <button
             key={s.key}
             type="button"
-            className={`seal-fan-item font-seal${s.dashed ? ' is-dashed' : ''}${
+            className={`seal-fan-item ${s.latin ? 'is-latin' : 'font-seal'}${
+              s.dashed ? ' is-dashed' : ''
+            }${
               i < inCount ? ' is-in' : ''
             }${hovered === i && committing === null ? ' is-hover' : ''}${
               committing === i ? ' is-commit' : ''
