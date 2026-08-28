@@ -1,11 +1,13 @@
 /**
- * App 顶部导航：Logo + 同步按钮 + 单位切换
+ * App 顶部导航：刊名 + 同步按钮 + 单位切换
+ *
+ * 刊名前面不挂图标。这套视觉是「墨与纸」——一份刊物的报头只有刊名本身，
+ * 加一枚通用哑铃图标既没有信息量，又把整页的调子拉回到通用 App 模板。
  */
 import React from 'react';
 import {
   AlertCircle,
   Check as CheckIcon,
-  Dumbbell,
   RefreshCw,
 } from 'lucide-react';
 import { Language } from '../../types';
@@ -31,12 +33,9 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onToggleUnit,
 }) => (
   <header className="sticky top-0 z-bar bg-base/90 border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
-    <div className="flex items-center gap-3">
-      <Dumbbell className="text-accent" />
-      <h1 className="font-display text-lg font-semibold tracking-tight text-primary">
-        {translations.appTitle[lang]}
-      </h1>
-    </div>
+    <h1 className="font-display text-lg font-semibold tracking-tight text-primary">
+      {translations.appTitle[lang]}
+    </h1>
 
     <div className="flex items-center gap-2">
       <button
