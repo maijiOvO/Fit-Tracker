@@ -173,16 +173,64 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const isCN = lang === Language.CN;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  /** 长按达成后松手带出的 click 不再当作「展开」 */
-  const suppressClickRef = useRef(false);
+  /**
+   * 长按松手会带出一次 click，它有两个去处，两个都得挡：
+   *
+   * 1. 落在卡片上 → 会把卡片展开（原本就挡着的）；
+   * 2. **落在菜单项上** —— 菜单是在【手指底下】长出来的。真机实测：
+   *    长按卡片右上角，一松手当场就进了「编辑这次训练」。按卡片正中间测不出来，
+   *    所以这个 bug 一直藏着。
+   *
+   * 两处共用一个时间戳，而不是各自一个布尔（§12.5 三件套）：布尔是粘滞的 ——
+   * 手势若以 pointercancel 结束就没有 click 来清它，它会一直挂着，
+   * 把用户下一次正常点击吃掉。时间戳会自己过期。
+   *
+   * ⚠️ 静默期从【松手】那一刻起算，不是从菜单出现那一刻：菜单在按满 500ms 时
+   * 就长出来了，而手指可以再压半秒才抬 —— 按菜单出现起算的话，
+   * 按得久一点就直接绕过了这道闸门。
+   */
+  const armedAt = useRef(0);
+  const MENU_ARM_MS = 350;
+  const swallowingClick = () => performance.now() - armedAt.current < MENU_ARM_MS;
+
+  /** 这一次手势按满了长按 —— 只有它的那次松手才需要武装静默期 */
+  const becameLongPress = useRef(false);
 
   const press = useLongPress({
     onLongPress: () => {
-      suppressClickRef.current = true;
+      becameLongPress.current = true;
       setMenuOpen(true);
     },
     disabled: menuOpen,
   });
+
+  /**
+   * 注意 becameLongPress 必须在这里清掉。不清的话，之后每一次点菜单项的松手
+   * 都会冒泡到卡片上、把静默期重新武装一遍，于是那次点击自己被自己吞掉 ——
+   * 菜单从此一项都点不动。
+   *
+   * 而「点菜单项」这个新手势不会把它重新置位：菜单开着时 useLongPress 是
+   * disabled 的，长按根本不会达成。
+   */
+  const pressHandlers = {
+    ...press.handlers,
+    onPointerUp: () => {
+      press.handlers.onPointerUp();
+      if (becameLongPress.current) armedAt.current = performance.now();
+      becameLongPress.current = false;
+    },
+    onPointerCancel: () => {
+      press.handlers.onPointerCancel();
+      becameLongPress.current = false;
+    },
+  };
+
+  /** 菜单项统一走这里：静默期内的点击是长按松手带出来的，丢掉。 */
+  const runMenuAction = (fn: () => void) => {
+    if (swallowingClick()) return;
+    setMenuOpen(false);
+    fn();
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -219,7 +267,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
       className={`ui-card-interactive relative p-4 transition-ui touch-pan-y ${
         isExpanded ? 'ring-2 ring-accent/25' : ''
       }${menuOpen ? ' z-30 shadow-overlay' : ''}`}
-      {...press.handlers}
+      {...pressHandlers}
     >
       <LongPressAffordance
         active={press.pressing}
@@ -233,10 +281,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
       <div
         className="flex items-start justify-between gap-3 cursor-pointer"
         onClick={() => {
-          if (suppressClickRef.current) {
-            suppressClickRef.current = false;
-            return;
-          }
+          if (swallowingClick()) return;
           onToggleExpand();
         }}
       >
@@ -283,10 +328,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             type="button"
             role="menuitem"
             className={menuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              onEdit();
-            }}
+            onClick={() => runMenuAction(onEdit)}
           >
             <Edit2 size={16} strokeWidth={1.75} className="text-tertiary" />
             {isCN ? '编辑这次训练' : 'Edit workout'}
@@ -295,10 +337,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             type="button"
             role="menuitem"
             className={menuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              onAppend();
-            }}
+            onClick={() => runMenuAction(onAppend)}
           >
             <Plus size={16} strokeWidth={1.75} className="text-tertiary" />
             {isCN ? '补记动作' : 'Add exercise'}
@@ -309,10 +348,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             type="button"
             role="menuitem"
             className={menuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              onCopy();
-            }}
+            onClick={() => runMenuAction(onCopy)}
           >
             <CopyPlus size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
@@ -325,10 +361,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               type="button"
               role="menuitem"
               className={menuItem}
-              onClick={() => {
-                setMenuOpen(false);
-                onMerge();
-              }}
+              onClick={() => runMenuAction(onMerge)}
             >
               <Merge size={16} strokeWidth={1.75} className="text-tertiary" />
               <span className="flex-1">{isCN ? '并入上一场' : 'Merge into previous'}</span>
@@ -341,10 +374,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             type="button"
             role="menuitem"
             className={`${menuItem} border-t border-divider mt-1 pt-1`}
-            onClick={() => {
-              setMenuOpen(false);
-              onDelete();
-            }}
+            onClick={() => runMenuAction(onDelete)}
           >
             <Trash2 size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '删除' : 'Delete'}</span>

@@ -513,8 +513,11 @@ const main = async () => {
     const card = page.locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`);
     const box = await card.boundingBox();
     if (!box) throw new Error('session card has no box');
-    // 长按 500ms 达成（120ms 静默 + 380ms 进度线），这里按满 750ms 留余量
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // 刻意按在【菜单将要出现的那一片】（右上角）——菜单是在手指底下长出来的，
+    // 松手那一下的 click 正好落在第一个菜单项上。真机上就是这样一松手
+    // 直接进了「编辑这次训练」。按卡片正中间是测不出这个的。
+    // 长按 500ms 达成（120ms 静默 + 380ms 进度线），这里按满 750ms 留余量。
+    await page.mouse.move(box.x + box.width - 60, box.y + 32);
     await page.mouse.down();
     await page.waitForTimeout(750);
     await page.mouse.up();
@@ -527,11 +530,22 @@ const main = async () => {
     // §12.8：长按松手带出的那次 click 必须被吞掉，不能顺手把卡片展开
     const expanded = await card.evaluate(el => el.className.includes('ring-accent'));
     if (expanded) throw new Error('long-press release leaked a click and expanded the card');
-    return `${items} menu items, click suppressed`;
+
+    // 松手带出的那次 click 已经落在菜单上了（就在上面那一下松手里）。
+    // 它必须被静默期挡掉：没进编辑页、菜单还开着。
+    const leaked = await page
+      .locator('text=/新建训练|New Workout/')
+      .first()
+      .isVisible()
+      .catch(() => false);
+    if (leaked) throw new Error('长按松手误触了菜单第一项 —— 直接进了编辑页');
+    if (!(await menu.isVisible())) throw new Error('menu closed on the release click');
+    return `${items} menu items, release click swallowed at both levels`;
   });
 
   await step(page, 'timeline-delete-is-undoable', async () => {
     const menu = page.locator('[data-testid="timeline-session-menu"]');
+    await page.waitForTimeout(400); // 过菜单项的 350ms 静默期（防长按松手误触）
     // 回归守卫：菜单最下面那项必须真的可点 —— 它会探出矮卡片的下缘，
     // 卡片不抬 z 的话会被下一张卡盖住（曾经就是这样，且肉眼完全看不出来）。
     const deleteItem = menu.getByRole('menuitem').filter({ hasText: /删除|Delete/ });
@@ -600,6 +614,7 @@ const main = async () => {
 
     const menu = page.locator('[data-testid="timeline-session-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.waitForTimeout(400); // 过菜单项的 350ms 静默期（防长按松手误触）
     await menu.getByRole('menuitem').filter({ hasText: /并入上一场|Merge into previous/ }).click();
 
     await page.locator(`[data-testid="${mergedId}"]`).waitFor({ state: 'detached', timeout: 3_000 });
@@ -627,6 +642,7 @@ const main = async () => {
 
     const menu = page.locator('[data-testid="timeline-session-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.waitForTimeout(400); // 同上：静默期
     await menu.getByRole('menuitem').filter({ hasText: /复制为今天的训练|Copy to today/ }).click();
 
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
