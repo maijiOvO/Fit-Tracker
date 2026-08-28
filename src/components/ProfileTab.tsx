@@ -120,17 +120,17 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-4xl font-display font-semibold text-white">
+              <span className="text-4xl font-display font-semibold text-on-accent">
                 {user.username?.charAt(0)?.toUpperCase() || 'U'}
               </span>
             )}
             
             <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="text-white" size={28} strokeWidth={1.75} />
+              <Camera className="text-on-accent" size={28} strokeWidth={1.75} />
             </div>
           </div>
 
-          <div className="absolute bottom-6 right-0 bg-accent text-white p-2 rounded-full ring-4 ring-base shadow-elevated">
+          <div className="absolute bottom-6 right-0 bg-accent text-on-accent p-2 rounded-full ring-4 ring-base shadow-elevated">
             <Camera size={16} />
           </div>
         </div>
@@ -180,21 +180,21 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* Guest Mode Warning */}
       {user.id === 'u_guest' && (
-        <div className="mx-2 p-5 bg-amber-500/10 border border-amber-500/20 rounded-card flex items-start gap-4 animate-in slide-in-from-top-2">
-          <div className="p-3 bg-amber-500/20 text-amber-500 rounded-2xl flex-shrink-0">
+        <div className="mx-2 p-5 bg-warning/10 border border-warning/20 rounded-card flex items-start gap-4 anim-reveal">
+          <div className="p-3 bg-warning/20 text-warning rounded-2xl flex-shrink-0">
             <ShieldAlert size={24} />
           </div>
           <div className="flex flex-col gap-1">
-            <h4 className="text-sm font-semibold text-amber-500 uppercase tracking-wide">
+            <h4 className="text-sm font-semibold text-warning uppercase tracking-wide">
               {translations.guestWarningTitle[lang]}
             </h4>
-            <p className="text-[11px] font-bold text-amber-200/70 leading-relaxed">
+            <p className="text-[11px] font-bold text-warning leading-relaxed">
               {translations.guestWarningDesc[lang]}
             </p>
             {onCreateAccount && (
               <button
                 onClick={onCreateAccount}
-                className="mt-2 text-[10px] font-semibold text-primary bg-amber-600/40 hover:bg-amber-600/60 px-3 py-1.5 rounded-lg self-start transition-colors"
+                className="mt-2 text-[10px] font-semibold text-primary bg-warning/40 hover:bg-warning/60 px-3 py-1.5 rounded-lg self-start transition-colors"
               >
                 {translations.createAccount[lang]}
               </button>
@@ -242,7 +242,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </h3>
           <button 
             onClick={onShowMeasureModal} 
-            className="text-accent text-xs font-semibold flex items-center gap-1 hover:text-blue-400"
+            className="text-accent text-xs font-semibold flex items-center gap-1 hover:text-accent"
           >
             <Plus size={14} /> {lang === Language.CN ? '添加' : 'Add'}
           </button>
@@ -321,7 +321,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                                 </button>
                                 <button 
                                   onClick={(e) => onDeleteMeasurement(e, historyItem.id)} 
-                                  className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 active:scale-90 transition-all"
+                                  className="p-2 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 active:scale-90 transition-all"
                                 >
                                   <Trash2 size={12} />
                                 </button>
@@ -377,7 +377,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 onClick={() => setPreference(opt.id)}
                 className={`flex flex-col items-center gap-1 py-2.5 rounded-chip text-xs font-medium transition-colors ${
                   preference === opt.id
-                    ? 'bg-accent text-white'
+                    ? 'bg-accent text-on-accent'
                     : 'text-secondary hover:text-primary hover:bg-card-hover'
                 }`}
               >
@@ -408,13 +408,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         {onLogout && (
           <button
             onClick={onLogout}
-            className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group mt-4 border-t border-divider"
+            className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-danger/10 transition-colors group mt-4 border-t border-divider"
           >
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-primary transition-colors">
+              <div className="p-3 bg-danger/10 text-danger rounded-xl group-hover:opacity-90 group-hover:text-primary transition-colors">
                 <LogOut size={20} />
               </div>
-              <span className="font-bold text-red-500 group-hover:text-red-400 transition-colors">
+              <span className="font-bold text-danger group-hover:text-danger transition-colors">
                 {translations.logout[lang]}
               </span>
             </div>
@@ -425,13 +425,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         {/* Reset Account */}
         <button 
           onClick={() => setShowResetAccountModal(true)} 
-          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-red-500/10 transition-colors group border-t border-divider"
+          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-danger/10 transition-colors group border-t border-divider"
         >
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-red-500/10 text-red-500 rounded-xl group-hover:bg-red-500 group-hover:text-primary transition-colors">
+            <div className="p-3 bg-danger/10 text-danger rounded-xl group-hover:opacity-90 group-hover:text-primary transition-colors">
               <Trash2 size={20} />
             </div>
-            <span className="font-bold text-red-500 group-hover:text-red-400 transition-colors">
+            <span className="font-bold text-danger group-hover:text-danger transition-colors">
               {translations.resetAccount[lang]}
             </span>
           </div>
@@ -446,7 +446,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           >
             <div className="flex items-center gap-4">
               <div className={`p-3 rounded-xl transition-colors ${
-                devMode ? 'bg-amber-500/10 text-amber-500' : 'bg-card text-secondary'
+                devMode ? 'bg-warning/10 text-warning' : 'bg-card text-secondary'
               }`}>
                 <Beaker size={20} strokeWidth={1.75} />
               </div>
@@ -466,7 +466,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               </div>
             </div>
             <span className={`text-xs font-semibold px-3 py-1 rounded-lg shrink-0 ${
-              devMode ? 'bg-amber-500/15 text-amber-600' : 'bg-card text-secondary'
+              devMode ? 'bg-warning/15 text-warning' : 'bg-card text-secondary'
             }`}>
               {devMode ? (lang === Language.CN ? '开发' : 'Dev') : (lang === Language.CN ? '用户' : 'User')}
             </span>

@@ -63,7 +63,7 @@ const PlanTab: React.FC<PlanTabProps> = ({
           data-testid="plan-subview-schedule"
           className={`flex items-center justify-center gap-2 py-2.5 rounded-chip text-sm font-medium transition-colors ${
             subView === 'schedule'
-              ? 'bg-accent text-white'
+              ? 'bg-accent text-on-accent'
               : 'text-secondary hover:text-primary hover:bg-card-hover'
           }`}
         >
@@ -77,7 +77,7 @@ const PlanTab: React.FC<PlanTabProps> = ({
           data-testid="plan-subview-goals"
           className={`flex items-center justify-center gap-2 py-2.5 rounded-chip text-sm font-medium transition-colors ${
             subView === 'goals'
-              ? 'bg-accent text-white'
+              ? 'bg-accent text-on-accent'
               : 'text-secondary hover:text-primary hover:bg-card-hover'
           }`}
         >

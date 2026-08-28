@@ -26,7 +26,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
         </div>
         <button
           onClick={onAddGoal}
-          className="p-3 bg-accent text-white rounded-control hover:opacity-90 transition-opacity active:scale-95"
+          className="p-3 bg-accent text-on-accent rounded-control hover:opacity-90 transition-opacity active:scale-95"
         >
           <Plus size={22} strokeWidth={1.75} />
         </button>

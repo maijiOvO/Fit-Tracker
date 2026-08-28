@@ -35,3 +35,9 @@ android/app/build/
 
 # e2e artifacts
 test-artifacts/
+
+# 字体源文件（252MB 第三方 TTF，构建输入而非产物）
+# 来源：fonts.google.com —— Noto Sans SC / Noto Serif SC（可变）、IBM Plex Mono、Ma Shan Zheng
+# 开头的 / 是关键：裸 `fonts/` 会连 public/fonts/ 一起忽略掉，
+# 而那里的子集 woff2 产物必须提交（新克隆没有源文件，构建脚本会跳过子集化）。
+/fonts/

@@ -38,10 +38,10 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-end sm:items-center justify-center animate-in fade-in slide-in-from-bottom-10">
-      <div className="bg-inset border-t sm:border border-divider w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl">
+    <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-end sm:items-center justify-center anim-fade">
+      <div className="bg-inset border-t sm:border border-divider w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl anim-paper-drop">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-xl font-semibold text-primary">
             {isCn ? '设置时长' : 'Set Duration'}
           </h2>
           <button onClick={onClose} className="p-2 text-secondary">
@@ -59,13 +59,13 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     [col.key]: p[col.key] + 1 > col.max ? 0 : p[col.key] + 1,
                   }))
                 }
-                className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-blue-500 active:text-white transition-all"
+                className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
               >
                 <ChevronUp size={28} strokeWidth={3} />
               </button>
 
               <div className="flex flex-col items-center">
-                <span className="text-4xl font-semibold text-white tabular-nums">
+                <span className="text-4xl font-semibold text-primary tabular-nums">
                   {tempHMS[col.key].toString().padStart(2, '0')}
                 </span>
                 <span className="text-[10px] font-bold text-tertiary  mt-1">
@@ -80,7 +80,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     [col.key]: p[col.key] - 1 < 0 ? col.max : p[col.key] - 1,
                   }))
                 }
-                className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-blue-500 active:text-white transition-all"
+                className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
               >
                 <ChevronDown size={28} strokeWidth={3} />
               </button>
@@ -97,7 +97,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
           </button>
           <button
             onClick={() => onConfirm(tempHMS.h * 3600 + tempHMS.m * 60 + tempHMS.s)}
-            className="py-5 rounded-card bg-accent text-white font-semibold shadow-xl shadow-blue-600/30"
+            className="py-5 rounded-card bg-accent text-on-accent font-semibold"
           >
             {translations.confirm[lang]}
           </button>

@@ -137,9 +137,11 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
     }
   };
 
+  // 旧值是 text-green-100 / text-red-100（浅色主题下几乎看不见的浅字）。
+  // 语义色的 soft 底 + 同色实字，深浅两主题都过 AA（success 5.05/6.22，danger 6.43/5.76）。
   const variantStyles: Record<ToastVariant, string> = {
-    success: 'border-green-500/40 bg-green-500/10 text-green-100',
-    error: 'border-red-500/40 bg-red-500/10 text-red-100',
+    success: 'border-success/40 bg-success-soft text-success',
+    error: 'border-danger/40 bg-danger-soft text-danger',
     info: 'border-divider bg-card text-primary',
   };
 
@@ -150,7 +152,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
       {/* 确认对话框 */}
       {confirmState && (
         <div
-          className="fixed inset-0 z-[200] bg-base/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 sm:p-6 animate-in fade-in"
+          className="fixed inset-0 z-[200] bg-base/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 sm:p-6 anim-fade"
           role="dialog"
           aria-modal="true"
         >
@@ -174,10 +176,10 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
               <button
                 type="button"
                 onClick={() => closeConfirm(true)}
-                className={`flex-1 min-h-[48px] rounded-2xl font-bold text-white transition-all active:scale-95 ${
+                className={`flex-1 min-h-[48px] rounded-2xl font-bold text-on-accent transition-all active:scale-95 ${
                   confirmState.options.danger
                     ? 'bg-danger hover:opacity-90'
-                    : 'bg-accent hover:opacity-90 shadow-md shadow-blue-600/20'
+                    : 'bg-accent hover:opacity-90'
                 }`}
               >
                 {confirmState.options.confirmLabel ?? (isCn ? '确定' : 'OK')}
@@ -195,20 +197,20 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
         {toasts.map(item => (
           <div
             key={item.id}
-            className={`pointer-events-auto w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg text-sm font-medium animate-in slide-in-from-bottom-2 ${variantStyles[item.variant]}`}
+            className={`pointer-events-auto w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
           >
             {item.variant === 'success' && (
-              <Check size={18} className="text-green-400 flex-shrink-0" strokeWidth={2.5} />
+              <Check size={18} className="text-success flex-shrink-0" strokeWidth={2.5} />
             )}
             {item.variant === 'error' && (
-              <AlertCircle size={18} className="text-red-400 flex-shrink-0" strokeWidth={2} />
+              <AlertCircle size={18} className="text-danger flex-shrink-0" strokeWidth={2} />
             )}
             <span className="flex-1">{item.message}</span>
             {item.onUndo && item.undoLabel && (
               <button
                 type="button"
                 onClick={() => handleUndo(item)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-accent text-white text-xs font-bold active:scale-95"
+                className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-accent text-on-accent text-xs font-bold active:scale-95"
               >
                 {item.undoLabel}
               </button>

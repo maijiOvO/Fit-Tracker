@@ -7,9 +7,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#FAFAF7" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#0F0F11" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#FAFAF7" data-dynamic="true">
+    <meta name="theme-color" content="#EFE9DC" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#14120F" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#EFE9DC" data-dynamic="true">
 
     <script>
       (function () {
@@ -17,13 +17,15 @@
         var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
         var meta = document.querySelector('meta[name="theme-color"][data-dynamic]');
-        if (meta) meta.setAttribute('content', dark ? '#0F0F11' : '#FAFAF7');
+        if (meta) meta.setAttribute('content', dark ? '#14120F' : '#EFE9DC');
       })();
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    <!-- 字体全部自托管（见 index.css §3 注释）。crossorigin 即使同源也必须写，
+         否则预加载的字体不会被字体加载器复用，会重下一遍。 -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/noto-sans-sc.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/noto-serif-sc.woff2">
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/plex-mono-500.woff2">
     <link rel="manifest" href="/manifest.json" />
 </head>
 <body>

@@ -199,7 +199,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               e.stopPropagation();
               actions.onLogWeight();
             }}
-            className="w-10 h-10 flex items-center justify-center bg-accent text-white rounded-xl active:scale-95"
+            className="w-10 h-10 flex items-center justify-center bg-accent text-on-accent rounded-xl active:scale-95"
             aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
           >
             <Plus size={18} strokeWidth={2} />
@@ -278,7 +278,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClick={() => setView('timeline')}
           className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all ${
             view === 'timeline'
-              ? 'bg-accent text-white shadow-md shadow-blue-600/20'
+              ? 'bg-accent text-on-accent'
               : 'bg-transparent text-secondary hover:text-primary'
           }`}
         >
@@ -290,7 +290,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClick={() => setView('pr')}
           className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all ${
             view === 'pr'
-              ? 'bg-accent text-white shadow-md shadow-blue-600/20'
+              ? 'bg-accent text-on-accent'
               : 'bg-transparent text-secondary hover:text-primary'
           }`}
         >
@@ -383,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         }
                         className={`px-3 py-1.5 rounded-chip text-xs font-medium transition-colors ${
                           getChartMetric(lift.name) === m
-                            ? 'bg-accent text-white'
+                            ? 'bg-accent text-on-accent'
                             : 'bg-inset text-secondary border border-divider'
                         }`}
                       >

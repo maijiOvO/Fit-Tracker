@@ -104,7 +104,7 @@ const GranularityChip: React.FC<GranularityChipProps> = ({ active, icon, label, 
     onClick={onClick}
     className={`flex-1 min-h-[40px] flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all ${
       active
-        ? 'bg-accent text-white shadow-md shadow-blue-600/20'
+        ? 'bg-accent text-on-accent'
         : 'bg-transparent text-secondary hover:text-primary'
     }`}
   >
@@ -306,7 +306,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                            e.stopPropagation();
                            onEditWorkout(w.id);
                          }}
-                         className="flex-1 min-h-[40px] flex items-center justify-center gap-1.5 bg-accent text-white rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all shadow-sm shadow-blue-600/20"
+                         className="flex-1 min-h-[40px] flex items-center justify-center gap-1.5 bg-accent text-on-accent rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all"
                          title={isCN ? '编辑训练' : 'Edit'}
                        >
                          <Edit2 size={13} strokeWidth={2} />

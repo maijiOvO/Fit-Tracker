@@ -130,7 +130,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
                     onClick={() => setSelectedDate(new Date(currentYear, currentMonth, day))}
                     className={`p-2 text-sm font-mono font-medium rounded-control transition-colors tabular-nums ${
                       isSelected(day)
-                        ? 'bg-accent text-white'
+                        ? 'bg-accent text-on-accent'
                         : isToday(day)
                           ? 'bg-accent-soft text-accent'
                           : 'hover:bg-inset text-primary'

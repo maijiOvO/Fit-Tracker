@@ -30,7 +30,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSync,
   onToggleUnit,
 }) => (
-  <header className="sticky top-0 z-40 bg-base/90 backdrop-blur-xl border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
+  <header className="sticky top-0 z-40 bg-base/90 border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
     <div className="flex items-center gap-3">
       <Dumbbell className="text-accent" />
       <h1 className="font-display text-lg font-semibold tracking-tight text-primary">
@@ -44,7 +44,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         disabled={syncDisabled}
         className={`p-2 rounded-xl border transition-all active:scale-90 ${
           syncStatus === 'error'
-            ? 'bg-red-500/10 border-red-500/20'
+            ? 'bg-danger/10 border-danger/20'
             : 'bg-card border-divider'
         }`}
       >

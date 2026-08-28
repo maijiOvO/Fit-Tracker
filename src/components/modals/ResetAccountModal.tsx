@@ -28,13 +28,13 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
   const confirmWord = isCn ? '重置' : 'RESET';
 
   return (
-    <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+    <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-center justify-center p-6 anim-fade">
       <div className="bg-inset border border-divider w-full max-w-md rounded-card p-8 shadow-2xl">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Trash2 size={32} className="text-red-500" />
+          <div className="w-20 h-20 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Trash2 size={32} className="text-danger" />
           </div>
-          <h2 className="text-2xl font-semibold text-white mb-4">
+          <h2 className="text-2xl font-semibold text-primary mb-4">
             {translations.resetAccountWarning[lang]}
           </h2>
           <p className="text-sm text-secondary leading-relaxed whitespace-pre-line">
@@ -52,7 +52,7 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
               value={resetConfirmText}
               onChange={e => setResetConfirmText(e.target.value)}
               placeholder={translations.resetConfirmPlaceholder[lang]}
-              className="w-full bg-base border border-divider rounded-2xl px-4 py-4 text-white outline-none focus:border-red-500 transition-colors"
+              className="w-full bg-base border border-divider rounded-2xl px-4 py-4 text-primary outline-none focus:border-danger transition-colors"
               autoFocus
             />
           </div>
@@ -68,7 +68,7 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
             <button
               onClick={onConfirmRequested}
               disabled={isResetting || resetConfirmText !== confirmWord}
-              className="flex-[2] py-4 rounded-2xl bg-red-600 text-white font-semibold hover:bg-red-500 transition-all shadow-elevated shadow-red-600/30 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-[2] py-4 rounded-2xl bg-danger text-on-accent font-semibold hover:opacity-90 transition-all shadow-elevated active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isResetting ? (
                 <>

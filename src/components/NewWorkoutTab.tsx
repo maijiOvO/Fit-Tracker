@@ -126,9 +126,13 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   }, [flashExerciseId, onFlashDone]);
 
   return (
-    <div className="animate-in slide-in-from-bottom-5">
-      {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}
-      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base/95 backdrop-blur-md z-30 border-b border-divider mb-4">
+    // ⚠️ anim-tab-enter 动的是 transform，而带 transform 的元素会成为
+    // position: fixed 子元素的包含块 —— 底部常驻栏与添加动作弹层的 inset-0
+    // 会改为对着这个盒子解析，被顶出视口。所以它们必须留在这个包装层之外。
+    <>
+      <div className="anim-tab-enter">
+        {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}
+      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base/95 z-30 border-b border-divider mb-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -172,8 +176,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 {unit}
               </button>
               {hasUnsavedChanges && (
-                <span className="inline-flex items-center gap-1 text-orange-400 normal-case">
-                  <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+                <span className="inline-flex items-center gap-1 text-warning normal-case">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
                   {isCn ? '未保存' : 'Unsaved'}
                 </span>
               )}
@@ -196,12 +200,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
-                  ? 'bg-green-600 text-white shadow-md shadow-green-600/30'
+                  ? 'bg-success text-on-accent'
                   : saveStatus === 'error'
-                    ? 'bg-red-600 text-white'
+                    ? 'bg-danger text-on-accent'
                     : !(currentWorkout.exercises?.length)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
-                      : 'bg-accent text-white shadow-md shadow-blue-600/30 hover:opacity-90'
+                      : 'bg-accent text-on-accent hover:opacity-90'
             }`}
           >
             {saveStatus === 'saving' ? (
@@ -285,11 +289,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             </p>
           </div>
         )}
+        </div>
       </div>
 
-      {/* 底部常驻添加栏 */}
+      {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外 */}
       <div
-        className="fixed bottom-0 inset-x-0 z-40 bg-base/95 backdrop-blur-xl border-t border-divider"
+        className="fixed bottom-0 inset-x-0 z-40 bg-base/95 border-t border-divider"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
@@ -299,7 +304,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={() => onPickerOpenChange(true)}
-            className="flex-1 min-h-[52px] rounded-2xl bg-accent text-white text-[15px] font-bold flex items-center justify-center gap-2 shadow-md shadow-blue-600/30 active:scale-[0.97] transition-transform"
+            className="flex-1 min-h-[52px] rounded-2xl bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
             data-testid="open-picker-sheet"
           >
             <Plus size={19} strokeWidth={2.5} />
@@ -321,7 +326,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         onRenameExercise={onRenameExercise}
         onDeleteExercise={onDeleteLibraryExercise}
       />
-    </div>
+    </>
   );
 };
 

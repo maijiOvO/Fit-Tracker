@@ -1,6 +1,17 @@
 /* FitLog Service Worker — same-origin-only cache, no CDN dependency. */
-const CACHE_NAME = 'fitlog-v3';
-const APP_SHELL = ['/', '/index.html', '/manifest.json'];
+const CACHE_NAME = 'fitlog-v4';
+const APP_SHELL = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  // 自托管字体：地下室没信号时这几个必须已经在本地，
+  // 否则整站中文掉回系统黑体，「墨与纸」当场归零。
+  '/fonts/noto-sans-sc.woff2',
+  '/fonts/noto-serif-sc.woff2',
+  '/fonts/plex-mono-500.woff2',
+  '/fonts/plex-mono-600.woff2',
+  '/fonts/ma-shan-zheng.woff2',
+];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

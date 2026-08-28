@@ -12,16 +12,26 @@ import { Language } from '../../types';
 import { KG_TO_LBS } from '../constants';
 import { useTheme } from '../hooks/useTheme';
 
-function chartPalette(dark: boolean) {
+/**
+ * recharts 把颜色当 SVG 属性写下去，SVG 属性不认 CSS 变量，
+ * 所以这里必须在运行时把令牌读成实际值（规格 §6.5）。
+ *
+ * `dark` 参数不再用于选值，只作为主题切换时的重算依据：
+ * 调用方传的是 useTheme().resolved，主题一变就重渲染、重读一次。
+ */
+function chartPalette(_dark: boolean) {
+  const cs = getComputedStyle(document.documentElement);
+  const v = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
+  const accent = v('--accent', '#B23A28');
   return {
-    accent: dark ? '#5b7cff' : '#1f4fff',
-    accentSoft: dark ? 'rgba(91, 124, 255, 0.25)' : 'rgba(31, 79, 255, 0.15)',
-    tick: dark ? '#6e6e73' : '#8a8a8e',
-    axis: dark ? '#2a2a2e' : '#d8d6cf',
-    tooltipBg: dark ? '#1a1a1d' : '#f2f1ed',
-    tooltipBorder: dark ? '#2a2a2e' : '#d8d6cf',
-    tooltipText: dark ? '#f2f1ed' : '#0e0e10',
-    tooltipLabel: dark ? '#a8a8ad' : '#8a8a8e',
+    accent,
+    accentSoft: `color-mix(in srgb, ${accent} 18%, transparent)`,
+    tick: v('--text-tertiary', '#665E53'),
+    axis: v('--divider', '#D9D0BC'),
+    tooltipBg: v('--bg-card', '#FBF8F1'),
+    tooltipBorder: v('--divider', '#D9D0BC'),
+    tooltipText: v('--text-primary', '#1A1714'),
+    tooltipLabel: v('--text-tertiary', '#665E53'),
   };
 }
 
@@ -147,7 +157,7 @@ export function TrendChart({
   }, {} as Record<number, string>);
   
   return (
-    <div className="w-full h-[250px] mt-6 animate-in fade-in slide-in-from-top-2">
+    <div className="w-full h-[250px] mt-6 anim-reveal">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
           <defs>
@@ -242,7 +252,7 @@ export function MetricChart({ metricName, measurements, lang }: MetricChartProps
   }, {} as Record<number, string>);
 
   return (
-    <div className="w-full h-[180px] mt-4 animate-in fade-in slide-in-from-top-2">
+    <div className="w-full h-[180px] mt-4 anim-reveal">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
           <defs>

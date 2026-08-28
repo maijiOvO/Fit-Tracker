@@ -112,7 +112,7 @@ interface AppWithAuthProps {
 
 const TabSuspenseFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
-    <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+    <div className="animate-spin w-8 h-8 border-4 border-accent border-t-transparent rounded-full" />
   </div>
 );
 

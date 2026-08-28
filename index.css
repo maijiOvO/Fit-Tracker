@@ -4,42 +4,251 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Nordic Minimal design tokens ── */
-:root {
-  --bg-base: #fafaf7;
-  --bg-card: #f2f1ed;
-  --bg-card-hover: #e8e7e2;
-  --bg-inset: #edece7;
-  --divider: #d8d6cf;
-  --text-primary: #0e0e10;
-  --text-secondary: #5a5a5e;
-  --text-tertiary: #8a8a8e;
-  --accent: #1f4fff;
-  --accent-soft: #e8eeff;
-  --success: #2e7d32;
-  --danger: #c62828;
-  --warning: #b58900;
-  --shadow-elevated: 0 1px 3px rgba(14, 14, 16, 0.04), 0 4px 12px rgba(14, 14, 16, 0.06);
-  --radius-card: 12px;
-  --radius-control: 8px;
-  --radius-chip: 6px;
+/* ── 字体 §3 ────────────────────────────────────────────────────
+   中文与拉丁共用同一族——这是修「中英混排两种气质割裂」的关键，
+   不是加一个中文字体，而是让 latin 也走 SC 族。
+
+   全部自托管：走 fonts.googleapis.com = 国内被墙 + 健身房地下室没信号，
+   而那正是本 App 的核心场景（sw.js 明确跳过跨域请求，SW 帮不上忙）。
+   子集由 scripts/build-fonts.mjs 从源码扫字符生成，见该文件注释。
+
+   font-display: optional 而非 swap —— 中文兜底字体与目标字体度量差异大，
+   一次晚到的 swap 会让整个滚动列表重排。optional 给约 100ms 阻塞期、
+   超时就用兜底且本次永不再换，布局抖动为零；本地打包的字体几乎必赢这 100ms。
+   ──────────────────────────────────────────────────────────── */
+
+/* 正文 / UI。可变字重 400–700 一个文件盖全（4 个定重实例要 595KB，这个只要 262KB） */
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: url('/fonts/noto-sans-sc.woff2') format('woff2-variations');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: optional;
 }
 
+/* 刊头 / 标题。§3 铁律：衬线只用于 ≥17px 且字重 ≥600，所以轴只切 600–700 */
+@font-face {
+  font-family: 'Noto Serif SC';
+  src: url('/fonts/noto-serif-sc.woff2') format('woff2-variations');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: optional;
+}
+
+/* 数据。IBM Plex 是 serif+mono 同族设计，与衬线刊头同源；
+   JetBrains Mono 是 IDE 气质，与纸感冲突，已换掉 */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/plex-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: optional;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('/fonts/plex-mono-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: optional;
+}
+
+/* 印记 / 批注。只切了印章与批注要用的那十几个字，别拿它排正文 */
+@font-face {
+  font-family: 'Ma Shan Zheng';
+  src: url('/fonts/ma-shan-zheng.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+}
+
+/* 兜底字体的度量覆写：数值取自 Noto Sans SC 的 hhea 表
+   （ascent 116% / descent 28.8% / lineGap 0，由 build-fonts.mjs 打印）。
+   用户自定义动作名可能含子集外的字，那些字会掉到这里；
+   覆写让它们的行盒高度与 Noto 一致，不至于把一行撑高。 */
+@font-face {
+  font-family: 'CJK Fallback';
+  src: local('PingFang SC'), local('Noto Sans CJK SC'), local('Microsoft YaHei'),
+    local('Heiti SC'), local('sans-serif');
+  ascent-override: 116%;
+  descent-override: 28.8%;
+  line-gap-override: 0%;
+  size-adjust: 100%;
+}
+
+/* ── 「墨与纸」令牌层 ──────────────────────────────────────────────
+   唯一事实来源：docs/design-ink-and-paper.md §2 / §4 / §5.1
+
+   层级规则（永不违反）：card 比 base 亮（纸浮在桌面上），
+   inset 比 base 暗（压痕 / 凹槽）。
+   验收条款：任何 accent 底上的文字必须过 4.5:1。
+   ───────────────────────────────────────────────────────────── */
+
+/* ── 浅色 · 纸 ── */
+:root {
+  /* 纸 */
+  --bg-base: #EFE9DC;        /* 装订底 / 桌面 */
+  --bg-card: #FBF8F1;        /* 纸，比 base 亮 */
+  --bg-card-hover: #F5F1E7;
+  --bg-inset: #E7E0D0;       /* 压痕，比 base 暗 */
+  --divider: #D9D0BC;
+  --rule-strong: #B9AE97;    /* 刊头粗线 */
+
+  /* 墨 */
+  --text-primary: #1A1714;
+  --text-secondary: #554E45;
+  /* §2 原值 #6F675C 只校过 card（5.25:1），对 --bg-inset 仅 4.24:1 不过 AA。
+     本值：card 6.02 / base 5.27 / inset 4.85 —— 三种底全过。 */
+  --text-tertiary: #665E53;
+
+  /* 朱砂 / 红笔 */
+  --accent: #B23A28;
+  --accent-soft: #F4E3DD;
+  --accent-ink: #8E2C1D;     /* 按压态 */
+  --text-on-accent: #FDFBF6; /* 5.75:1 on accent —— 用它替代硬编码 text-white */
+
+  /* 荧光笔黄，第二情绪色。
+     ⚠ 只作底色：作文字对 card 仅 2.00:1。 */
+  --highlight: #E3A81F;
+  --highlight-soft: #F7EBCB;
+  /* 荧光底在深浅两个主题里都是「亮底」，所以它压不住 --text-primary
+     （深色下 #EDE6D8 压 #D9A648 只有 1.78:1）。与 accent 同构，单开一个 on 色。 */
+  --text-on-highlight: #1A1714;
+
+  /* 语义 */
+  --success: #3F6B45;
+  --success-soft: #E2EBDF;
+  /* §2 原值 #A8791B 作正文对 card 仅 3.66:1，而 text-warning 现有 7 处。
+     本值：card 6.00 / base 5.26 / inset 4.84 / soft 5.29。
+     芥黄本身保留在 --chart-3（非文本用途，3:1 即可）。 */
+  --warning: #815709;
+  --warning-soft: #F6E9CC;
+  --danger: #8E2C1D;
+  --danger-soft: #F3DED8;
+
+  /* 图表序列色 —— 同时供动作卡左缘条、历史列表锚点、图表分类三处使用 */
+  --chart-1: #8C4A3C;  /* 棕红 */
+  --chart-2: #3C5A62;  /* 墨青 */
+  --chart-3: #A8791B;  /* 芥黄 */
+  --chart-4: #5A6B4A;  /* 苔绿 */
+  --chart-5: #7A7268;  /* 灰白 */
+
+  /* 遮罩与聚焦 */
+  --scrim: rgba(26, 23, 20, 0.45);
+  /* 聚焦是「描边」不是「光晕」——纸上没有光晕（§5.3）。
+     用法：outline: 2px solid var(--focus-ring); outline-offset: 2px; */
+  --focus-ring: var(--accent);
+
+  /* 圆角 —— 近直角。全 App 唯一的圆是那枚印章。 */
+  --radius-card: 4px;
+  --radius-control: 3px;
+  --radius-chip: 2px;
+  --radius-sheet: 4px;   /* 弹层顶部 */
+  --radius-stamp: 4px;   /* 印章方印 */
+
+  /* 阴影 = 接触阴影：极短偏移、几乎不模糊、面积小。
+     ⚠ 阴影只表达海拔，不再兼做选中态。 */
+  --shadow-page: 0 1px 1px rgba(26, 23, 20, .07);
+  --shadow-overlay: 0 2px 6px rgba(26, 23, 20, .10), 0 18px 40px -24px rgba(26, 23, 20, .30);
+  /* 兼容别名：25 处存量 shadow-elevated 在用，先让它们跟随接触阴影，
+     「阴影兼做选中态」的语义解耦留给 P2/P3 扫 className 时做。 */
+  --shadow-elevated: var(--shadow-page);
+}
+
+/* ── 深色 · 夜读牛皮（不做米色反转，独立叙事，暖色不掉） ──
+   §2 只给了 12 个值，以下 14 个为本次推导并逐对验过对比度。 */
 .dark {
-  --bg-base: #0f0f11;
-  --bg-card: #1a1a1d;
-  --bg-card-hover: #232327;
-  --bg-inset: #141417;
-  --divider: #2a2a2e;
-  --text-primary: #f2f1ed;
-  --text-secondary: #a8a8ad;
-  --text-tertiary: #6e6e73;
-  --accent: #5b7cff;
-  --accent-soft: #1b2240;
-  --success: #5dba63;
-  --danger: #ff6b6b;
-  --warning: #d4af37;
-  --shadow-elevated: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --bg-base: #14120F;
+  --bg-card: #1E1B16;
+  --bg-card-hover: #26221B;
+  --bg-inset: #0E0C0A;
+  --divider: #332E25;
+  --rule-strong: #4A4232;
+
+  --text-primary: #EDE6D8;
+  --text-secondary: #B3A992;
+  /* §2 原值 #8A806E 对 card 4.41:1 差一点。本值：card 5.04 / base 5.49 / hover 4.65。 */
+  --text-tertiary: #948A78;
+
+  --accent: #E0674B;
+  --accent-soft: #351712;
+  /* 深底上「按下 = 更浓的墨」读不出来，按下态改往亮走。on-accent 6.64:1。 */
+  --accent-ink: #ED7A5E;
+  --text-on-accent: #17130F; /* 朱砂底上必须深字，5.47:1 */
+
+  --highlight: #D9A648;
+  --highlight-soft: #33280F;
+  --text-on-highlight: #17130F;  /* 8.36:1 on highlight */
+
+  --success: #86B27C;        /* 7.09:1 on card */
+  --success-soft: #1B2A1C;
+  --warning: #CE9B3C;        /* 6.85:1 on card */
+  --warning-soft: #2C2314;
+  --danger: #E8776A;         /* 5.95:1 on card */
+  --danger-soft: #331611;
+
+  /* 纸色系那五个在深底上最低只有 2.31:1，深色需要自己一套（全部 ≥4.71:1） */
+  --chart-1: #C2705B;
+  --chart-2: #7FA6B0;
+  --chart-3: #C79A3E;
+  --chart-4: #94A97F;
+  --chart-5: #A79C8E;
+
+  --scrim: rgba(0, 0, 0, .60);
+
+  --shadow-page: 0 1px 1px rgba(0, 0, 0, .35);
+  --shadow-overlay: 0 2px 6px rgba(0, 0, 0, .45), 0 18px 40px -24px rgba(0, 0, 0, .80);
+}
+
+/* ── 动效令牌 §5.1（与主题无关） ── */
+:root {
+  --dur-tap: 120ms;     /* 按压、无位移的颜色变化 */
+  --dur-base: 220ms;    /* 95% 的元件级过渡 */
+  --dur-exit: 180ms;    /* 退场＝「划掉」那一笔的时长 */
+  --dur-page: 320ms;    /* 整屏 / 弹层 / 主题 */
+  --dur-stamp: 520ms;   /* 印章。全站只出现在结束训练与 PR */
+  --dur-reveal: 700ms;  /* 手写批注渗出这类可以慢的收尾 */
+
+  --ease-paper: cubic-bezier(.2, .8, .2, 1);    /* 纸张落定，零过冲，95% 场合 */
+  --ease-stamp: cubic-bezier(.2, 1.6, .35, 1);  /* 盖章回弹，唯一允许过冲 */
+  --ease-ink: cubic-bezier(.4, 0, .2, 1);       /* 墨迹渗开，给颜色与不透明度 */
+  --ease-leave: cubic-bezier(.5, 0, .9, .7);    /* 加速离场 */
+
+  --press: 0.985;  /* 大面：卡片 / 主按钮 / 弹层行 */
+  --press-sm: 0.94; /* 图标按钮 ≤44px */
+  --move: 1;       /* 所有 transform 写成 translateY(calc(12px * var(--move)))，
+                      一个变量关掉全站位移 */
+}
+
+/* §5.6 reduced-motion ≠ 无动画，而是无位移 / 无缩放 / 无旋转。
+   颜色与不透明度过渡保留，它们不引发前庭反应。
+
+   ⚠ 唯一例外：长按进度线在 reduced-motion 下仍然要画。
+     它是功能性进度指示不是装饰，去掉等于让用户回到「盲等 500ms」。 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --move: 0;
+    --dur-page: 120ms;
+    --dur-stamp: 150ms;
+    --dur-reveal: 200ms;
+  }
+}
+
+/* 应用内三态开关（跟随系统 / 开 / 关）落点。
+   Android 的 prefers-reduced-motion 还映射自开发者选项的「动画程序时长缩放 = 关闭」，
+   很多人为了「让手机更快」关掉了它，那会静默关掉全站动效 —— 所以必须能反向覆盖系统。
+   :root[data-reduced-motion] 权重 (0,2,0) 压得过媒体查询里的 :root (0,1,0)，
+   ="0" 这一档才做得出来。 */
+:root[data-reduced-motion="1"] {
+  --move: 0;
+  --dur-page: 120ms;
+  --dur-stamp: 150ms;
+  --dur-reveal: 200ms;
+}
+:root[data-reduced-motion="0"] {
+  --move: 1;
+  --dur-page: 320ms;
+  --dur-stamp: 520ms;
+  --dur-reveal: 700ms;
 }
 
 html {
@@ -49,8 +258,14 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Noto Sans SC', 'CJK Fallback', system-ui, sans-serif;
   font-weight: 400;
+  font-size: 15px;
+  line-height: 1.7;
+  /* §3 排印铁律：中文永远 letter-spacing: 0，永不 uppercase */
+  letter-spacing: 0;
+  /* tabular-nums 铺开到所有数字 */
+  font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   margin: 0;
   padding: 0;
@@ -95,7 +310,9 @@ button {
 
 .ui-btn-primary {
   background-color: var(--accent);
-  color: #fff;
+  /* 曾是硬编码 #fff：在新的深色朱砂 #E0674B 上只有 2.8:1，不过 AA。
+     --text-on-accent 深浅两色分别是 5.75:1 / 5.47:1。 */
+  color: var(--text-on-accent);
   font-weight: 600;
   border-radius: var(--radius-control);
   padding: 0.625rem 1rem;
@@ -162,18 +379,19 @@ button {
 }
 
 .ui-data-xl {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-weight: 500;
-  font-size: 2rem;
-  line-height: 1.15;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .ui-data-lg {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-weight: 500;
-  font-size: 1.5rem;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -196,6 +414,104 @@ button {
 
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── 入场原语 §5.2 ────────────────────────────────────────────
+   节奏总纲：落笔 → 渗墨 → 盖章。每条动效必须能归到这三个动词之一；
+   归不进去的说明它是从别的设计语言里抄来的，删掉。
+
+   这一组全是「落笔」＝内容出现。主手法是 clip 揭示而不是 translateY：
+   纸上的字是印出来的，不是飞进来的。
+
+   位移一律写成 calc(x * var(--move))，reduced-motion 下一个变量关掉全站位移
+   （§5.6：reduced-motion ≠ 无动画，而是无位移/无缩放/无旋转，
+   颜色与不透明度过渡保留，它们不引发前庭反应）。
+
+   ⚠️ §11 坑 1：同一元素上两个动画会打架。反馈类动画（.anim-ink-mark 等）
+   的选择器权重必须显式压过这里的入场规则，否则渗墨看不见。
+   ──────────────────────────────────────────────────────────── */
+
+@keyframes paper-reveal {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0.35;
+  }
+  to {
+    clip-path: inset(0);
+    opacity: 1;
+  }
+}
+
+/* 一张纸轻轻落下并摆正。center 弹窗入场用它。 */
+@keyframes paper-drop {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-10px * var(--move))) scale(calc(1 - 0.015 * var(--move)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ink-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Tab 切换：不做横向滑动（dashboard/plan/profile 之间不存在空间方向关系，
+   slide-in-from-left/right 是编造的空间隐喻）。只上移淡入。
+
+   ⚠️ 带 transform 的元素会成为 position: fixed 后代的包含块——
+   fixed inset-0 会改为对着这个盒子解析而不是视口。
+   所以任何动 transform 的包装层里都不能塞 fixed 子元素
+   （NewWorkoutTab 踩过：弹层被顶出视口，e2e 直接挂）。 */
+@keyframes tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(calc(6px * var(--move)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Toast：从左往右印出来 */
+@keyframes toast-print {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+.anim-reveal {
+  animation: paper-reveal var(--dur-base) var(--ease-paper) both;
+}
+.anim-paper-drop {
+  animation: paper-drop var(--dur-page) var(--ease-paper) both;
+}
+.anim-fade {
+  animation: ink-fade var(--dur-base) var(--ease-ink) both;
+}
+.anim-tab-enter {
+  animation: tab-enter var(--dur-base) var(--ease-paper) both;
+}
+.anim-toast {
+  animation: toast-print var(--dur-base) var(--ease-paper) both;
+}
+
+/* 列表 stagger：delay(i) = min(i,6) × 32ms，封顶第 7 项——
+   否则快速滚动时内容会「追着你长出来」。用法：style={{'--i': i}} */
+.anim-stagger {
+  animation: paper-reveal var(--dur-base) var(--ease-paper) both;
+  animation-delay: calc(min(var(--i, 0), 6) * 32ms);
 }
 
 /* ── 添加动作弹层 / 训练卡反馈动画 ── */

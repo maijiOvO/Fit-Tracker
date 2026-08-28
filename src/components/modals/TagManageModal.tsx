@@ -127,7 +127,7 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] bg-base/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in"
+      className="fixed inset-0 z-[100] bg-base/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade"
       data-testid="tag-manage-modal"
     >
       <div className="bg-inset border-t sm:border border-divider w-full sm:max-w-md rounded-t-3xl sm:rounded-card shadow-2xl flex flex-col max-h-[85vh]">

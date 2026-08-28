@@ -64,7 +64,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-base/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in">
+    <div className="fixed inset-0 z-[120] bg-base/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade">
       <div className="bg-inset border-t sm:border border-divider w-full sm:max-w-md rounded-t-3xl sm:rounded-card p-6 space-y-5 shadow-2xl overflow-y-auto max-h-[85vh] custom-scrollbar">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
@@ -97,7 +97,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
               onClick={() => setBodyPart('')}
               className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                 bodyPart === ''
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent text-on-accent'
                   : 'bg-card text-tertiary hover:bg-card-hover'
               }`}
             >
@@ -112,7 +112,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                   onClick={() => setBodyPart(id)}
                   className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                     bodyPart === id
-                      ? 'bg-accent text-white shadow-elevated'
+                      ? 'bg-accent text-on-accent shadow-elevated'
                       : 'bg-card text-secondary hover:bg-card-hover'
                   }`}
                 >
@@ -142,7 +142,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                   onClick={() => toggleEquipment(id)}
                   className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                     active
-                      ? 'bg-accent text-white shadow-elevated'
+                      ? 'bg-accent text-on-accent shadow-elevated'
                       : 'bg-card text-secondary hover:bg-card-hover'
                   }`}
                 >
@@ -166,7 +166,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
               onSave(exercise.id, bodyPart, tags);
               onClose();
             }}
-            className="flex-[2] min-h-[48px] py-3 rounded-2xl bg-accent text-white font-bold flex items-center justify-center gap-2 shadow-elevated active:scale-95 transition-all"
+            className="flex-[2] min-h-[48px] py-3 rounded-2xl bg-accent text-on-accent font-bold flex items-center justify-center gap-2 shadow-elevated active:scale-95 transition-all"
           >
             <Check size={18} strokeWidth={2.5} />
             {isCn ? '保存' : 'Save'}

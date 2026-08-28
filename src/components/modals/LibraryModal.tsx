@@ -71,7 +71,7 @@ export const LibraryModal: React.FC<LibraryModalProps> = ({
   if (!open) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[100] bg-base flex flex-col animate-in fade-in">
+    <div className="fixed inset-0 z-[100] bg-base flex flex-col anim-fade">
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-divider">
         <h2 className="text-lg font-semibold text-primary">
           {pickMode

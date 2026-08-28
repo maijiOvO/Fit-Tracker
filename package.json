@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:release": "vite build --mode release",
+    "build": "npm run build:fonts && vite build",
+    "build:release": "npm run build:fonts && vite build --mode release",
+    "build:fonts": "node scripts/build-fonts.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "e2e": "node scripts/e2e-smoke.mjs",
@@ -31,6 +32,7 @@
     "autoprefixer": "^10.5.0",
     "playwright": "^1.60.0",
     "postcss": "^8.5.15",
+    "subset-font": "^2.5.0",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

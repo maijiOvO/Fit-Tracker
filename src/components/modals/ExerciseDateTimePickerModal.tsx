@@ -80,7 +80,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 anim-fade">
       <div className="bg-inset border border-divider w-full max-w-md rounded-card p-8 space-y-6 shadow-2xl">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">
@@ -112,7 +112,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 <ChevronLeft size={20} className="text-secondary" />
               </button>
 
-              <div className="text-lg font-bold text-white">
+              <div className="text-lg font-bold text-primary">
                 {(translations.monthNames[lang] as unknown as string[])[currentMonth]}{' '}
                 {currentYear}
               </div>
@@ -163,9 +163,9 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                       onClick={() => setSelectedDate(date)}
                       className={`h-10 rounded-lg text-sm font-bold transition-all ${
                         isSelected
-                          ? 'bg-accent text-white shadow-elevated shadow-blue-600/30'
+                          ? 'bg-accent text-on-accent shadow-elevated'
                           : isTodayDate
-                            ? 'bg-inset text-accent border border-blue-500/30'
+                            ? 'bg-inset text-accent border border-accent/30'
                             : 'hover:bg-card text-primary'
                       }`}
                     >
@@ -218,7 +218,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 </button>
 
                 <div className="bg-card border border-divider rounded-xl px-4 py-3 min-w-[60px] text-center">
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-primary">
                     {selectedHour.toString().padStart(2, '0')}
                   </div>
                   <div className="text-xs text-secondary font-bold">
@@ -247,7 +247,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 </button>
 
                 <div className="bg-card border border-divider rounded-xl px-4 py-3 min-w-[60px] text-center">
-                  <div className="text-2xl font-bold text-white">
+                  <div className="text-2xl font-bold text-primary">
                     {selectedMinute.toString().padStart(2, '0')}
                   </div>
                   <div className="text-xs text-secondary font-bold">
@@ -302,7 +302,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
             <div className="text-xs font-bold text-secondary mb-1">
               {isCn ? '选择的时间' : 'Selected Time'}
             </div>
-            <div className="text-lg font-bold text-white">
+            <div className="text-lg font-bold text-primary">
               {selectedDate.getFullYear()}/
               {(selectedDate.getMonth() + 1).toString().padStart(2, '0')}/
               {selectedDate.getDate().toString().padStart(2, '0')}{' '}

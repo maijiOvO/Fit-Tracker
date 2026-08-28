@@ -36,9 +36,9 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const activeMetrics = getActiveMetrics(exerciseName);
 
   return (
-    <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
+    <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-sm flex items-center justify-center p-6 anim-fade">
       <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-        <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-primary mb-6 flex items-center gap-2">
           <SettingsIcon size={20} className="text-accent" />
           {translations.manageMetrics[lang]} - {exerciseName}
         </h2>
@@ -54,7 +54,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
               onClick={() => toggleMetric(exerciseName, m)}
               className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${
                 activeMetrics.includes(m)
-                  ? 'bg-accent/10 border-blue-500/50 text-white'
+                  ? 'bg-accent/10 border-accent/50 text-on-accent'
                   : 'bg-card/50 border-divider text-secondary'
               }`}
             >
@@ -83,8 +83,8 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
                   onClick={() => onChangeLoadMode(m)}
                   className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-colors ${
                     (loadMode ?? 'none') === m
-                      ? 'bg-accent text-white'
-                      : 'text-secondary hover:text-white'
+                      ? 'bg-accent text-on-accent'
+                      : 'text-secondary hover:text-primary'
                   }`}
                 >
                   {m === 'none'
@@ -109,7 +109,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
 
         <div className="flex gap-2 mb-8">
           <input
-            className="flex-1 bg-base border border-divider rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-blue-500"
+            className="flex-1 bg-base border border-divider rounded-xl px-4 py-3 text-sm text-primary outline-none focus:border-accent"
             placeholder={translations.dimensionPlaceholder[lang]}
             value={newCustomDimension}
             onChange={e => setNewCustomDimension(e.target.value)}
@@ -135,7 +135,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
           </button>
           <button
             onClick={onClose}
-            className="flex-[2] py-4 rounded-2xl bg-accent text-white font-semibold shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+            className="flex-[2] py-4 rounded-2xl bg-accent text-on-accent font-semibold active:scale-95 transition-all"
           >
             {translations.confirm[lang]}
           </button>

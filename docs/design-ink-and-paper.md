@@ -42,6 +42,7 @@ C「呼吸体」柔和生命体——落地最容易但正是「健康类 App �
 | 1 | **`tailwindcss-animate` 从未安装**，`animate-in` / `slide-in-from-*` 全是死类 | 20 个文件；`package.json` 无此依赖，`tailwind.config.js` `plugins:[]`，index.css 也无等价定义 | 13 个弹窗 + 确认框 + toast + 训练页切换**全是硬切**，零动画 |
 | 2 | **中文字体一个都没加载** | `index.html:26` 只有 Bricolage Grotesque / Inter / JetBrains Mono，均无 CJK 字形 | 纯中文 App 的所有中文都在用系统默认字体 |
 | 3 | **`max-w-sm` 写成 `max-sm`**（无效类） | AddGoalModal:27 / EditGoalModal:27 / MeasurementModal:30 / WeightInputModal:31 | 这四个弹窗宽屏下全宽铺开 |
+| 4 | **带透明度的令牌类全是死类**（P0 实测发现，已修） | 全库 82 处：`bg-base/80`×13、`bg-danger/10`×11、`bg-accent/10`×10、`ring-accent/25`… | Tailwind 3 遇到纯字符串颜色（`'var(--accent)'`）会静默丢弃 `/透明度` 修饰符，产物里一条 CSS 都没有。**顶栏与底栏实测 0% 不透明**，可读性全靠 backdrop-blur 撑着 |
 
 其他系统性问题：
 
@@ -74,17 +75,24 @@ C「呼吸体」柔和生命体——落地最容易但正是「健康类 App �
 --rule-strong:    #B9AE97;  /* 刊头粗线（新增） */
 --text-primary:   #1A1714;  /* 墨 */
 --text-secondary: #554E45;
---text-tertiary:  #6F675C;  /* 对 card 5.6:1，修掉旧 #8a8a8e 的 3.2:1 */
+--text-tertiary:  #665E53;  /* card 6.02 / base 5.27 / inset 4.85 —— 三种底全过 AA。
+                               初稿 #6F675C 只校过 card，对 --bg-inset 仅 4.24:1 */
 --accent:         #B23A28;  /* 朱砂 / 红笔 */
 --accent-soft:    #F4E3DD;
 --accent-ink:     #8E2C1D;  /* 按压态 */
 --text-on-accent: #FDFBF6;  /* 新增，杀掉 72 处硬编码 text-white */
---highlight:      #E3A81F;  /* 荧光笔黄，第二情绪色 */
+--highlight:      #E3A81F;  /* 荧光笔黄，第二情绪色。⚠️ 只作底色：作文字对 card 仅 2.00:1 */
+--text-on-highlight: #1A1714;  /* 新增。荧光底在深浅两主题里都是「亮底」，压不住 --text-primary
+                                  （深色下 #EDE6D8 压 #D9A648 只有 1.78:1）。与 accent 同构 */
 --highlight-soft: #F7EBCB;
 --success:        #3F6B45;  --success-soft: #E2EBDF;
---warning:        #A8791B;  --warning-soft: #F6E9CC;
+--warning:        #815709;  --warning-soft: #F6E9CC;
+/* ↑ card 6.00 / base 5.26 / inset 4.84 / soft 5.29。初稿 #A8791B 作正文对 card 仅 3.66:1，
+   而 text-warning 现有 7 处。芥黄本体保留在 --chart-3（非文本用途，3:1 即可）。 */
 --danger:         #8E2C1D;  --danger-soft:  #F3DED8;
 --scrim:          rgba(26,23,20,0.45);   /* 新增，统一 black/45 与 black/50 */
+--focus-ring:     var(--accent);         /* 新增。聚焦是描边不是光晕（§5.3）：
+                                            outline: 2px solid var(--focus-ring); outline-offset: 2px */
 ```
 
 ### 深色 · 夜读牛皮（不做米色反转，独立叙事，暖色不掉）
@@ -98,11 +106,23 @@ C「呼吸体」柔和生命体——落地最容易但正是「健康类 App �
 --rule-strong:    #4A4232;
 --text-primary:   #EDE6D8;
 --text-secondary: #B3A992;
---text-tertiary:  #8A806E;
+--text-tertiary:  #948A78;   /* card 5.04 / base 5.49 / hover 4.65。初稿 #8A806E 对 card 4.41:1 */
 --accent:         #E0674B;
 --accent-soft:    #351712;
---text-on-accent: #17130F;   /* 朱砂底上必须深字 */
---highlight:      #D9A648;
+--accent-ink:     #ED7A5E;   /* 深底上「按下＝更浓的墨」读不出来，按压态改往亮走。on-accent 6.64:1 */
+--text-on-accent: #17130F;   /* 朱砂底上必须深字，5.47:1 */
+--highlight:      #D9A648;   --highlight-soft: #33280F;
+--text-on-highlight: #17130F;   /* 8.36:1 on highlight */
+--success:        #86B27C;   --success-soft: #1B2A1C;   /* 7.09:1 on card */
+--warning:        #CE9B3C;   --warning-soft: #2C2314;   /* 6.85:1 on card */
+--danger:         #E8776A;   --danger-soft:  #331611;   /* 5.95:1 on card */
+--scrim:          rgba(0,0,0,.60);
+--shadow-page:    0 1px 1px rgba(0,0,0,.35);
+--shadow-overlay: 0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+
+/* 纸色系那五个图表色在深底上最低只有 2.31:1，深色需要自己一套（全部 ≥4.71:1） */
+--chart-1: #C2705B;  --chart-2: #7FA6B0;  --chart-3: #C79A3E;
+--chart-4: #94A97F;  --chart-5: #A79C8E;
 ```
 
 ### 图表序列色（新增，解决「全 App 只有一个色在做所有可视化」）
@@ -432,6 +452,10 @@ export const H = { tap: 8, pick: 12, longpress: 14, threshold: 6,
    训练主界面同屏常驻 2–3 层 backdrop-filter，下面是滚动列表——每个滚动帧都要重新光栅化 +
    24px 高斯模糊，**滚动走不了 GPU 快速路径**（那种「滚起来有点黏」的来源）。
    而这些栏已经 90–95% 不透明，24px 模糊只贡献约 5% 可见像素。**视觉几乎无差别，性能质变。**
+
+   ⚠️ **前置条件（P0 实测补充）**：上面这句「已经 90–95% 不透明」在修复 §1 第 4 类死 bug 之前**是错的**——
+   `bg-base/90` 与 `bg-base/95` 当时生成零条 CSS，两个栏实测 `background-color: rgba(0,0,0,0)`，
+   全靠那层模糊撑可读性。**必须先让透明度类真正生效，再删 backdrop-blur**，顺序反了会得到全透明的常驻栏。
    （弹窗遮罩上的可以留——背景静止，只付一次成本。但**模糊层与淡入层要分离**，
    否则淡入期间每帧都在重新模糊。）
 2. `capacitor.config.ts` 加 `android: { minWebViewVersion: 115 }`（本文所有技术的最高门槛）

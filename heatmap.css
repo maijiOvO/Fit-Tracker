@@ -31,38 +31,20 @@
   ry: 2.5px;
 }
 
-/* Light */
+/* 强度色由 --accent 派生，深浅两个主题共用同一套规则 —— 令牌变，它跟着变。
+   （P4 会把 react-calendar-heatmap 换成自绘 grid，届时分档改为按当日总组数。） */
 .react-calendar-heatmap .color-empty {
-  fill: #e8e7e2;
-  opacity: 0.8;
+  fill: var(--bg-inset);
 }
 .react-calendar-heatmap .color-scale-1 {
-  fill: #c5d4ff;
+  fill: color-mix(in srgb, var(--accent) 22%, var(--bg-inset));
 }
 .react-calendar-heatmap .color-scale-2 {
-  fill: #8aa8ff;
+  fill: color-mix(in srgb, var(--accent) 44%, var(--bg-inset));
 }
 .react-calendar-heatmap .color-scale-3 {
-  fill: #5b7cff;
+  fill: color-mix(in srgb, var(--accent) 68%, var(--bg-inset));
 }
 .react-calendar-heatmap .color-scale-4 {
-  fill: #1f4fff;
-}
-
-/* Dark */
-.dark .react-calendar-heatmap .color-empty {
-  fill: #232327;
-  opacity: 0.9;
-}
-.dark .react-calendar-heatmap .color-scale-1 {
-  fill: #1b2240;
-}
-.dark .react-calendar-heatmap .color-scale-2 {
-  fill: #2a3d8f;
-}
-.dark .react-calendar-heatmap .color-scale-3 {
-  fill: #3d5bcc;
-}
-.dark .react-calendar-heatmap .color-scale-4 {
-  fill: #5b7cff;
+  fill: var(--accent);
 }

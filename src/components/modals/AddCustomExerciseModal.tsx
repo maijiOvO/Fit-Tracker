@@ -45,7 +45,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   if (!open) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[110] bg-base/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in">
+    <div className="fixed inset-0 z-[110] bg-base/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade">
       <div className="bg-inset border-t sm:border border-divider w-full sm:max-w-md rounded-t-3xl sm:rounded-card p-6 space-y-5 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
         <div className="flex justify-between items-start gap-4">
           <div className="flex items-center gap-3">
@@ -76,7 +76,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
             {isCn ? '动作名称' : 'Exercise Name'}
           </label>
           <input
-            className="w-full bg-card border border-divider rounded-2xl py-4 px-6 text-primary outline-none focus:ring-2 focus:ring-blue-500 transition-all min-h-[48px]"
+            className="w-full bg-card border border-divider rounded-2xl py-4 px-6 text-primary outline-none focus:ring-2 focus:ring-accent transition-all min-h-[48px]"
             value={newExerciseName}
             onChange={e => setNewExerciseName(e.target.value)}
             placeholder={translations.exerciseNamePlaceholder[lang]}
@@ -96,7 +96,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 onClick={() => setNewExerciseCategory(cat)}
                 className={`flex-1 min-h-[40px] rounded-xl text-xs font-bold transition-all ${
                   newExerciseCategory === cat
-                    ? 'bg-accent text-white'
+                    ? 'bg-accent text-on-accent'
                     : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >
@@ -125,7 +125,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 }
                 className={`min-h-[40px] px-4 rounded-xl text-xs font-bold transition-all ${
                   newExerciseBodyPart === id
-                    ? 'bg-accent text-white shadow-elevated'
+                    ? 'bg-accent text-on-accent shadow-elevated'
                     : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >
@@ -154,7 +154,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 }
                 className={`min-h-[40px] px-4 rounded-xl text-xs font-bold transition-all ${
                   newExerciseTags.includes(id)
-                    ? 'bg-accent text-white shadow-elevated'
+                    ? 'bg-accent text-on-accent shadow-elevated'
                     : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >
@@ -175,7 +175,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
           <button
             type="button"
             onClick={onConfirm}
-            className="flex-[2] min-h-[48px] py-3 rounded-2xl bg-accent text-white font-bold shadow-elevated active:scale-95 transition-all"
+            className="flex-[2] min-h-[48px] py-3 rounded-2xl bg-accent text-on-accent font-bold shadow-elevated active:scale-95 transition-all"
           >
             {translations.confirm[lang]}
           </button>

@@ -23,8 +23,8 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   if (!open) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-      <div className="bg-inset border border-divider w-full max-sm rounded-card p-8 space-y-6 shadow-2xl">
+    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 anim-fade">
+      <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 space-y-6 shadow-2xl">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-semibold">{translations.setGoal[lang]}</h2>
           <button
@@ -88,7 +88,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
           </button>
           <button
             onClick={onConfirm}
-            className="flex-[2] bg-accent py-4 rounded-2xl font-semibold text-white hover:opacity-90 transition-all shadow-elevated shadow-blue-600/30 active:scale-95"
+            className="flex-[2] bg-accent py-4 rounded-2xl font-semibold text-on-accent hover:opacity-90 transition-all shadow-elevated active:scale-95"
           >
             {translations.confirm[lang]}
           </button>

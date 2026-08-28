@@ -15,7 +15,7 @@ interface TagBadgeProps {
 
 const variantStyles = {
   default: 'bg-inset text-secondary hover:bg-card-hover border border-divider',
-  primary: 'bg-accent text-white',
+  primary: 'bg-accent text-on-accent',
   success: 'bg-success/15 text-success border border-success/30',
   warning: 'bg-warning/10 border-warning/30 text-warning',
   danger: 'bg-danger/10 border-danger/30 text-danger',

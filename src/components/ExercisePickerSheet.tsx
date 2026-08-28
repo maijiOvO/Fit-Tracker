@@ -326,7 +326,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 <span
                   key={t}
                   className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md ${
-                    hit ? 'bg-accent text-white' : 'bg-accent/10 text-accent'
+                    hit ? 'bg-accent text-on-accent' : 'bg-accent/10 text-accent'
                   }`}
                 >
                   {tn}
@@ -341,10 +341,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             e.stopPropagation();
             toggleStarExercise(displayName);
           }}
-          className="w-11 flex items-center justify-center border-l border-divider text-amber-400 active:scale-90 transition-transform"
+          className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-90 transition-transform"
           aria-label={isCn ? '收藏' : 'Star'}
         >
-          <Star size={18} strokeWidth={2} className={isStarred ? 'fill-amber-400' : ''} />
+          <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
         </button>
       </div>
     );
@@ -483,7 +483,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={() => onCreateCustomExercise(q || undefined)}
-            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-2xl bg-accent text-white text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
+            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-2xl bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
           >
             <Plus size={14} strokeWidth={2.5} />
             {isCn ? '新动作' : 'New'}
@@ -531,7 +531,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             type="button"
             onClick={() => setAxis(null)}
             className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-xl text-xs font-bold transition-colors ${
-              axis === null ? 'bg-accent text-white shadow-elevated' : 'bg-inset text-secondary'
+              axis === null ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
             }`}
           >
             {isCn ? '全部' : 'All'}
@@ -551,7 +551,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 onClick={() => setAxis(on ? null : { kind: chip.kind, v: chip.v })}
                 className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-xl text-xs font-bold transition-colors ${
                   on
-                    ? 'bg-accent text-white shadow-elevated'
+                    ? 'bg-accent text-on-accent shadow-elevated'
                     : chip.custom
                       ? 'bg-accent/5 text-accent border border-dashed border-accent/40'
                       : 'bg-inset text-secondary'
@@ -588,13 +588,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   setEquips(next);
                 }}
                 className={`flex-shrink-0 min-h-[34px] px-3 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
-                  on ? 'bg-accent text-white shadow-elevated' : 'bg-inset text-secondary'
+                  on ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
                 }`}
               >
                 {label}
                 <span
                   className={`text-[10px] font-bold tabular-nums ${
-                    on ? 'text-white/75' : 'text-tertiary'
+                    on ? 'text-on-accent/75' : 'text-tertiary'
                   }`}
                 >
                   {n}
@@ -641,7 +641,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           ) : (
             <>
               {renderGroup(
-                <Star size={13} className="text-amber-400 fill-amber-400" />,
+                <Star size={13} className="text-warning fill-warning" />,
                 isCn ? '我的常用' : 'Favorites',
                 starredGroup,
               )}
@@ -685,7 +685,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       {/* 长按动作行 → 管理菜单 */}
       {menuFor && (
         <div
-          className="absolute inset-0 z-10 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in"
+          className="absolute inset-0 z-10 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade"
           onClick={() => setMenuFor(null)}
           data-testid="row-action-menu"
         >

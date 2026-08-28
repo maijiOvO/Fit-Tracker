@@ -152,7 +152,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                 onClick={() => setSelectedDate(iso)}
                 data-testid={`day-${iso}`}
                 className={`relative aspect-square rounded-chip text-xs font-mono transition-colors flex flex-col items-center justify-center
-                  ${isSelected ? 'bg-accent text-white' : inMonth ? 'text-primary hover:bg-card-hover' : 'text-tertiary'}
+                  ${isSelected ? 'bg-accent text-on-accent' : inMonth ? 'text-primary hover:bg-card-hover' : 'text-tertiary'}
                   ${isToday && !isSelected ? 'ring-1 ring-accent/60' : ''}
                 `}
               >
@@ -182,7 +182,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
           <button
             onClick={openNew}
             data-testid="schedule-add-btn"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-white text-sm font-medium hover:opacity-90 active:scale-95 transition"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-95 transition"
           >
             <Plus size={16} strokeWidth={2} />
             {translations.scheduleAdd[lang]}
@@ -268,7 +268,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                     <button
                       onClick={() => onStartScheduledSession(s.id)}
                       data-testid={`schedule-start-${s.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-white text-sm font-medium hover:opacity-90 active:scale-95 transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-95 transition"
                     >
                       <Play size={14} strokeWidth={2} />
                       {translations.scheduleStartSession[lang]}

@@ -11,6 +11,4 @@ export { TimelineView } from './TimelineView';
 export { NewWorkoutTab } from './NewWorkoutTab';
 export { TagBadge } from './TagBadge';
 export { Modal } from './Modal';
-export { TrendChart } from './charts/TrendChart';
-export { HeatmapChart } from './charts/HeatmapChart';
 export { AppHeader } from './AppHeader';
