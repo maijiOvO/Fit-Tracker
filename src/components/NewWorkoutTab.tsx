@@ -314,6 +314,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onPick={title => {
                 setCurrentWorkout({ ...currentWorkout, title });
                 setPartChosenFor(currentWorkout.id);
+                // 选完部位的下一步必然是挑动作，别让用户再点一次「添加动作」。
+                // （「其他」不走这条：那条路的下一步是把名字打出来，
+                //   弹层盖上去反而挡住标题输入框。）
+                onPickerOpenChange(true);
               }}
               onPickOther={() => {
                 setPartChosenFor(currentWorkout.id);

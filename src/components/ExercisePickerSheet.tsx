@@ -63,7 +63,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
         type="button"
         onClick={onPick}
         {...press.handlers}
-        className="relative flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors duration-tap ease-paper select-none touch-none"
+        className="relative flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors duration-tap ease-paper select-none touch-pan-y"
         data-testid="picker-sheet-exercise"
       >
         <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">

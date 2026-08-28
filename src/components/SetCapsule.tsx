@@ -139,7 +139,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       >
         {/* 组号：36×36 可长按胶囊 */}
         <span
-          className="relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-none"
+          className="relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y"
           {...addSub.handlers}
         >
           {setIdx + 1}
@@ -283,7 +283,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         {!readOnly ? (
           <button
             type="button"
-            className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary touch-none"
+            className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary touch-pan-y"
             aria-label={isCn ? '长按删除这一组' : 'Hold to delete set'}
             {...removeSet.handlers}
           >
