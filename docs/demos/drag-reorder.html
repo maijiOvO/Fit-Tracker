@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 长按拖动排序</title>
+<!--
+  交互 demo：长按动作卡标题行 → 这页稿纸「离桌」→ 拖到新位置插入 → 松手落定。
+  · 长按沿用全站语言：120ms 静默 + 380ms 进度线 + 自解释标签（LongPressAffordance）
+  · 热区 = 整个标题行，touch-action:pan-y —— 长按满之前动手指 = 取消、让位给滚动
+    （commit 3df41f6 的教训：热区 touch-none 会吃掉纵向滚动）
+  · 抬起后：兄弟卡实时 FLIP 让位，靠近上下边缘自动滚页
+  · 松手：全体 FLIP 落定（§5.3 删除动作用的同一技法）
+  调参：长按总时长 / 位移容差 / 边缘滚动区。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D;
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-exit:180ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --ease-ink:cubic-bezier(.4,0,.2,1);
+    --chart-1:#8C4A3C; --chart-2:#3C5A62; --chart-3:#A8791B; --chart-4:#5A6B4A; --chart-5:#7A7268;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-inset:#0E0C0A;
+      --divider:#332E25;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E;
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+      --chart-1:#C2705B; --chart-2:#7FA6B0; --chart-3:#C79A3E; --chart-4:#94A97F; --chart-5:#A79C8E;
+    }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg-base); color:var(--text-primary);
+    font:14px/1.5 -apple-system, 'PingFang SC', 'MiSans', 'Noto Sans SC', sans-serif;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    overflow:hidden;
+  }
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:6px 0; }
+  .topbar{ display:flex; align-items:center; gap:10px; padding:4px 14px 10px;
+    border-bottom:1px solid var(--divider); }
+  .topbar h1{ flex:1; font-size:17px; font-weight:600; }
+  .topbar .sub{ font-size:11px; color:var(--text-tertiary); }
+
+  /* 滚动容器：内容比屏高，专门试边缘自动滚 */
+  #scroller{ position:absolute; top:78px; bottom:0; left:0; right:0;
+    overflow-y:auto; overscroll-behavior:contain; padding:14px 14px 120px; }
+
+  .excard{ position:relative; background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); margin-bottom:12px;
+    will-change:transform; }
+  .excard .bar{ position:absolute; left:0; top:0; bottom:0; width:3px;
+    border-radius:var(--radius-card) 0 0 var(--radius-card); }
+  .excard.lifted{ z-index:10; box-shadow:var(--shadow-overlay);
+    transform-origin:center; }
+  .excard.settling, .excard.shifting{ transition:transform var(--dur-base) var(--ease-paper); }
+
+  .exhead{ position:relative; display:flex; align-items:baseline; gap:8px;
+    padding:13px 14px 8px; touch-action:pan-y; cursor:grab; }
+  .exhead .name{ font-size:15px; font-weight:600; }
+  .exhead .tag{ font-size:11px; color:var(--text-tertiary); flex:1; }
+  .exhead .n{ font-size:11px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+
+  /* 长按的可见部分：底边朱砂进度线 + 自解释标签（抄 LongPressAffordance 的规格） */
+  .lp-line{ position:absolute; left:14px; right:14px; bottom:0; height:1.5px;
+    background:var(--accent); transform:scaleX(0); transform-origin:left center; }
+  .exhead.pressing .lp-line{ animation:lpDraw var(--lp-draw,380ms) linear var(--lp-delay,120ms) forwards; }
+  @keyframes lpDraw{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+  .lp-label{ position:absolute; left:14px; top:-8px; transform:translateY(-100%);
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); font-size:11px; color:var(--text-secondary);
+    padding:3px 8px; opacity:0; pointer-events:none; white-space:nowrap; z-index:11; }
+  .exhead.pressing .lp-label{ animation:lpLabelIn var(--dur-tap) var(--ease-ink) var(--lp-delay,120ms) forwards; }
+  .exhead.hint .lp-label{ animation:lpHint 1400ms var(--ease-ink); }
+  @keyframes lpLabelIn{ to{ opacity:1; } }
+  @keyframes lpHint{ 0%{opacity:0} 12%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
+
+  .rows{ padding:0 14px 12px; }
+  .rows .r{ display:flex; justify-content:space-between; font-size:13px;
+    color:var(--text-secondary); font-variant-numeric:tabular-nums;
+    padding:6px 2px; border-top:1px solid var(--divider); }
+  .rows .r:first-child{ border-top:0; }
+  .rows .r .i{ color:var(--text-tertiary); }
+
+  /* ── 调参 ── */
+  #gear{ position:fixed; bottom:20px; right:12px; z-index:20; appearance:none; font-family:inherit;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    color:var(--text-secondary); font-size:12px; padding:6px 10px; box-shadow:var(--shadow-page);
+    cursor:pointer; }
+  #panel{ position:fixed; bottom:56px; right:12px; z-index:20; width:230px; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:12px 14px; }
+  #panel.on{ display:block; }
+  #panel .row{ margin-bottom:10px; }
+  #panel label{ display:flex; justify-content:space-between; font-size:11px;
+    color:var(--text-secondary); margin-bottom:3px; }
+  #panel label output{ color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  #panel input[type=range]{ width:100%; accent-color:var(--accent); }
+  #panel .foot{ display:flex; justify-content:space-between; align-items:center; }
+  #panel .foot button{ appearance:none; font-family:inherit; border:1px solid var(--divider);
+    background:none; color:var(--text-secondary); border-radius:var(--radius-card);
+    font-size:11px; padding:4px 8px; cursor:pointer; }
+  #panel .state{ font-size:10px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="demotag">Demo · 长按拖动排序动作卡</div>
+<div class="topbar">
+  <h1>练胸</h1>
+  <span class="sub">长按卡片标题行拖动 · 短按会教你</span>
+</div>
+
+<div id="scroller"></div>
+
+<button id="gear">调参</button>
+<div id="panel">
+  <div class="row"><label>长按总时长 <output id="o-hold">500ms</output></label>
+    <input type="range" id="p-hold" min="300" max="700" step="20" value="500"></div>
+  <div class="row"><label>位移容差（取消阈值） <output id="o-tol">10px</output></label>
+    <input type="range" id="p-tol" min="6" max="18" step="1" value="10"></div>
+  <div class="row"><label>边缘滚动区 <output id="o-edge">80px</output></label>
+    <input type="range" id="p-edge" min="40" max="140" step="10" value="80"></div>
+  <div class="foot">
+    <button id="reset">重置顺序</button>
+    <span class="state" id="pstate">idle</span>
+  </div>
+</div>
+
+<script>
+const P = { hold:500, delay:120, tol:10, edge:80, speed:9 };
+
+const EXERCISES = [
+  { name:'平板卧推',     tag:'杠铃', bar:'--chart-1', sets:[['80 kg × 8','1'],['80 kg × 8','2'],['82.5 kg × 6','3']] },
+  { name:'上斜哑铃卧推', tag:'哑铃', bar:'--chart-2', sets:[['26 kg × 10','1'],['26 kg × 9','2']] },
+  { name:'绳索夹胸',     tag:'绳索', bar:'--chart-3', sets:[['23 kg × 12','1'],['23 kg × 12','2'],['25 kg × 10','3']] },
+  { name:'双杠臂屈伸',   tag:'自重', bar:'--chart-4', sets:[['自重 × 12','1'],['+10 kg × 8','2']] },
+  { name:'龙门架下斜飞鸟', tag:'绳索', bar:'--chart-5', sets:[['18 kg × 14','1'],['18 kg × 12','2']] },
+];
+
+let lastVib = 0;
+function vib(v){
+  const now = performance.now();
+  if (now - lastVib < 55) return;
+  lastVib = now;
+  try{ navigator.vibrate && navigator.vibrate(v); }catch(e){}
+}
+
+const scroller = document.getElementById('scroller');
+
+function build(){
+  scroller.innerHTML = '';
+  EXERCISES.forEach(ex => {
+    const card = document.createElement('div');
+    card.className = 'excard';
+    card.dataset.name = ex.name;
+    card.innerHTML =
+      '<span class="bar" style="background:var(' + ex.bar + ')"></span>' +
+      '<div class="exhead">' +
+        '<span class="name">' + ex.name + '</span><span class="tag">' + ex.tag + '</span>' +
+        '<span class="n">' + ex.sets.length + ' 组</span>' +
+        '<span class="lp-line"></span><span class="lp-label">拖动排序</span>' +
+      '</div>' +
+      '<div class="rows">' +
+        ex.sets.map(s => '<div class="r"><span class="i">' + s[1] + '</span><span>' + s[0] + '</span></div>').join('') +
+      '</div>';
+    scroller.appendChild(card);
+    attach(card);
+  });
+  sync('idle');
+}
+
+function cards(){ return [...scroller.querySelectorAll('.excard')]; }
+
+function sync(state){
+  window.__demo = { state, order: cards().map(c => c.dataset.name) };
+  document.getElementById('pstate').textContent = state;
+}
+
+/* ── 长按 → 拖动 ── */
+let drag = null;   // { card, head, pid, startY, startScroll, origTop, origH, gap, lifted, timer, raf, lastClientY }
+
+function attach(card){
+  const head = card.querySelector('.exhead');
+  head.style.setProperty('--lp-delay', P.delay + 'ms');
+
+  head.addEventListener('pointerdown', e => {
+    if (!e.isPrimary || drag) return;
+    head.style.setProperty('--lp-delay', P.delay + 'ms');
+    head.style.setProperty('--lp-draw', (P.hold - P.delay) + 'ms');
+    drag = { card, head, pid: e.pointerId, startY: e.clientY, lastClientY: e.clientY,
+             startScroll: scroller.scrollTop, lifted: false, raf: 0 };
+    head.classList.remove('hint');
+    head.classList.add('pressing');
+    drag.timer = setTimeout(lift, P.hold);
+    sync('pressing');
+  });
+  head.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    drag.lastClientY = e.clientY;
+    if (!drag.lifted){
+      /* 长按满之前动了手指：取消，让位给滚动（pan-y 还在，浏览器自己接管） */
+      if (Math.abs(e.clientY - drag.startY) > P.tol) cancelPress(true);
+      return;
+    }
+    onDragMove();
+  });
+  head.addEventListener('pointerup', e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    if (drag.lifted) settle();
+    else { cancelPress(false); flashHint(head); }   // 短按：闪标签自教学
+  });
+  head.addEventListener('pointercancel', e => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    drag.lifted ? settle() : cancelPress(true);
+  });
+}
+
+/* 抬起成功之后才拦页面滚动（passive:false）——长按满之前绝不碰滚动 */
+scroller.addEventListener('touchmove', e => { if (drag && drag.lifted) e.preventDefault(); }, { passive:false });
+
+function cancelPress(silent){
+  clearTimeout(drag.timer);
+  drag.head.classList.remove('pressing');
+  drag = null;
+  sync('idle');
+}
+
+function flashHint(head){
+  head.classList.remove('hint'); void head.offsetWidth; head.classList.add('hint');
+}
+
+function lift(){
+  const { card, head } = drag;
+  head.classList.remove('pressing');
+  try{ head.setPointerCapture(drag.pid); }catch(_){}
+  const r = card.getBoundingClientRect();
+  const sRect = scroller.getBoundingClientRect();
+  drag.origTop = r.top - sRect.top + scroller.scrollTop;   // 内容坐标
+  drag.origH = r.height;
+  drag.gap = 12;
+  drag.others = cards().filter(c => c !== card).map(c => {
+    const cr = c.getBoundingClientRect();
+    return { el: c, center: cr.top - sRect.top + scroller.scrollTop + cr.height/2, shift: 0 };
+  });
+  card.classList.add('lifted');
+  card.style.transform = 'scale(1.015)';
+  drag.lifted = true;
+  vib(14);
+  sync('dragging');
+  tick();
+}
+
+function onDragMove(){ /* 位置计算统一放进 rAF，滚动与拖动共用一帧 */ }
+
+function tick(){
+  if (!drag || !drag.lifted) return;
+  const { card } = drag;
+  const sRect = scroller.getBoundingClientRect();
+
+  /* 边缘自动滚：越贴边越快 */
+  const y = drag.lastClientY;
+  if (y < sRect.top + P.edge) scroller.scrollTop -= P.speed * (1 - (y - sRect.top) / P.edge);
+  else if (y > sRect.bottom - P.edge) scroller.scrollTop += P.speed * (1 - (sRect.bottom - y) / P.edge);
+
+  /* 卡片跟手：手指位移 + 滚动位移 */
+  const dy = (y - drag.startY) + (scroller.scrollTop - drag.startScroll);
+  card.style.transform = 'translateY(' + dy + 'px) scale(1.015)';
+
+  /* 兄弟卡让位：被拖卡中心越过谁的原始中心，谁就移一格 */
+  const center = drag.origTop + dy + drag.origH / 2;
+  const step = drag.origH + drag.gap;
+  let crossed = 0;
+  drag.others.forEach(o => {
+    let shift = 0;
+    if (o.center > drag.origTop + drag.origH/2 && center > o.center) { shift = -step; crossed++; }
+    if (o.center < drag.origTop + drag.origH/2 && center < o.center) { shift = step; crossed++; }
+    if (shift !== o.shift){
+      o.shift = shift;
+      o.el.classList.add('shifting');
+      o.el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+      vib(8);
+    }
+  });
+  drag.raf = requestAnimationFrame(tick);
+}
+
+function settle(){
+  cancelAnimationFrame(drag.raf);
+  const { card, head } = drag;
+  const all = cards();
+  const origIdx = all.indexOf(card);
+  const origCenter = drag.origTop + drag.origH / 2;
+  /* 新下标 = 原下标 + 越过的下方卡数 − 越过的上方卡数 */
+  const down = drag.others.filter(o => o.center > origCenter && o.shift < 0).length;
+  const up   = drag.others.filter(o => o.center < origCenter && o.shift > 0).length;
+  const newIdx = origIdx + down - up;
+
+  /* FLIP：记视觉位（含位移）→ 清位移、重排 DOM → 量新布局位 → 反向位移 → 过渡归零
+     （§5.3「删除动作」兄弟补位用的同一技法） */
+  const first = new Map(all.map(c => [c, c.getBoundingClientRect().top]));
+  all.forEach(c => { c.classList.remove('shifting','settling');
+    c.style.transition = 'none'; c.style.transform = ''; });
+  card.remove();
+  const rest = cards();
+  if (newIdx >= rest.length) scroller.appendChild(card);
+  else rest[newIdx].before(card);
+  card.classList.remove('lifted');
+
+  cards().forEach(c => {
+    const delta = first.get(c) - c.getBoundingClientRect().top;
+    if (Math.abs(delta) > 0.5){
+      c.style.transform = 'translateY(' + delta + 'px)';
+      void c.offsetWidth;
+      c.style.transition = '';
+      c.classList.add('settling');
+      c.style.transform = '';
+    } else {
+      c.style.transition = '';
+    }
+  });
+  setTimeout(() => cards().forEach(c => c.classList.remove('settling')), 260);
+
+  vib(12);
+  head.classList.remove('pressing');
+  drag = null;
+  sync('idle');
+}
+
+/* ── 调参 ── */
+document.getElementById('gear').addEventListener('click', () =>
+  document.getElementById('panel').classList.toggle('on'));
+function bind(id, key, unit){
+  const inp = document.getElementById('p-' + id), out = document.getElementById('o-' + id);
+  inp.addEventListener('input', () => { P[key] = +inp.value; out.textContent = inp.value + unit; });
+}
+bind('hold','hold','ms'); bind('tol','tol','px'); bind('edge','edge','px');
+document.getElementById('reset').addEventListener('click', build);
+
+build();
+</script>
+</body>
+</html>

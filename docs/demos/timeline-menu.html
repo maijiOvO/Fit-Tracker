@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 时间线长按菜单</title>
+<!--
+  交互 demo：历史时间线的训练卡。
+  · 点按 = 展开 / 收起详情（现有语义保留）
+  · 长按 500ms = 卡片离纸 + 背景退墨 + 浮出操作菜单（编辑 / 补记动作 / 删除）
+  · 删除 = 先执行 + 撤销条（§5.3 Toast 规格：底边剩余时间线 scaleX 1→0）
+    —— 用撤销替代确认弹窗，手势时代破坏性操作的标准解法
+  · 右下角「方案」可切回「现状」：每张卡常驻一排行内按钮，对比噪音
+  长按沿用全站语言：120ms 静默 + 进度线 + 自解释标签。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D;
+    --danger:#8E2C1D; --danger-soft:#F3DED8;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-exit:180ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --ease-ink:cubic-bezier(.4,0,.2,1);
+    --chart-1:#8C4A3C; --chart-2:#3C5A62; --chart-3:#A8791B;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-inset:#0E0C0A;
+      --divider:#332E25;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E;
+      --danger:#E8776A; --danger-soft:#331611;
+      --scrim:rgba(0,0,0,.60);
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+      --chart-1:#C2705B; --chart-2:#7FA6B0; --chart-3:#C79A3E;
+    }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    background:var(--bg-base); color:var(--text-primary);
+    font:14px/1.5 -apple-system, 'PingFang SC', 'MiSans', 'Noto Sans SC', sans-serif;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    overflow:hidden;
+  }
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:6px 0; }
+  .topbar{ display:flex; align-items:center; gap:8px; padding:4px 14px 10px;
+    border-bottom:1px solid var(--divider); }
+  .topbar h1{ flex:1; font-size:17px; font-weight:600; }
+  .gran{ display:flex; gap:4px; }
+  .gran span{ font-size:11px; padding:3px 8px; border-radius:var(--radius-card);
+    color:var(--text-tertiary); border:1px solid transparent; }
+  .gran span.on{ color:var(--accent); border-color:var(--accent); }
+
+  #list{ position:absolute; top:78px; bottom:0; left:0; right:0;
+    overflow-y:auto; padding:14px 14px 120px; }
+  .daylabel{ font-size:11px; color:var(--text-tertiary); margin:4px 2px 6px; }
+
+  .swrap{ overflow:hidden; margin-bottom:10px;
+    transition:height var(--dur-base) var(--ease-paper), opacity var(--dur-exit) var(--ease-ink); }
+  .session{ position:relative; background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); padding:12px 14px;
+    touch-action:pan-y; cursor:pointer;
+    transition:transform var(--dur-tap) var(--ease-paper), box-shadow var(--dur-tap); }
+  .session .bar{ position:absolute; left:0; top:0; bottom:0; width:3px;
+    border-radius:var(--radius-card) 0 0 var(--radius-card); }
+  .session.lifted{ z-index:31; box-shadow:var(--shadow-overlay); transform:scale(1.015); }
+  .session .head{ display:flex; align-items:baseline; gap:8px; }
+  .session .head .t{ font-size:15px; font-weight:600; }
+  .session .head .m{ flex:1; text-align:right; font-size:11px; color:var(--text-tertiary);
+    font-variant-numeric:tabular-nums; }
+  .session .strikeline{ position:absolute; left:10px; right:10px; top:50%; height:1.5px;
+    background:var(--text-primary); transform:scaleX(0); transform-origin:left center; z-index:2; }
+  .session.strike .strikeline{ transition:transform 180ms linear; transform:scaleX(1); }
+
+  /* 展开的详情（点按语义） */
+  .detail{ display:none; margin-top:8px; border-top:1px solid var(--divider); padding-top:6px; }
+  .session.open .detail{ display:block; animation:reveal var(--dur-base) var(--ease-paper); }
+  @keyframes reveal{ from{ clip-path:inset(0 0 100% 0);} to{ clip-path:inset(0);} }
+  .detail .r{ display:flex; justify-content:space-between; font-size:12px;
+    color:var(--text-secondary); padding:4px 2px; font-variant-numeric:tabular-nums; }
+  .detail .r .i{ color:var(--text-tertiary); }
+
+  /* 现状：行内按钮排 */
+  .inline-actions{ display:none; gap:6px; margin-top:9px; }
+  body.mode-old .inline-actions{ display:flex; }
+  .inline-actions button{ appearance:none; font-family:inherit; font-size:11px;
+    color:var(--text-secondary); background:none; border:1px solid var(--divider);
+    border-radius:var(--radius-card); padding:4px 9px; cursor:pointer; }
+  .inline-actions button.danger{ color:var(--danger); border-color:var(--danger-soft); }
+
+  /* 长按可见件 */
+  .lp-line{ position:absolute; left:14px; right:14px; bottom:0; height:1.5px;
+    background:var(--accent); transform:scaleX(0); transform-origin:left center; }
+  .session.pressing .lp-line{ animation:lpDraw 380ms linear 120ms forwards; }
+  @keyframes lpDraw{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+  .lp-label{ position:absolute; left:12px; top:-6px; transform:translateY(-100%);
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); font-size:11px; color:var(--text-secondary);
+    padding:3px 8px; opacity:0; pointer-events:none; white-space:nowrap; z-index:32; }
+  .session.pressing .lp-label{ animation:lpIn var(--dur-tap) var(--ease-ink) 120ms forwards; }
+  @keyframes lpIn{ to{ opacity:1; } }
+
+  /* 退墨 + 菜单 */
+  #scrim{ position:fixed; inset:0; z-index:30; background:var(--scrim);
+    opacity:0; pointer-events:none; transition:opacity var(--dur-exit) var(--ease-ink); }
+  #scrim.on{ opacity:1; pointer-events:auto; }
+  #menu{ position:fixed; z-index:33; width:190px; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); overflow:hidden; }
+  #menu.on{ display:block; animation:menuIn var(--dur-base) var(--ease-paper); }
+  @keyframes menuIn{ from{ clip-path:inset(0 0 100% 0);} to{ clip-path:inset(0);} }
+  #menu button{ appearance:none; font-family:inherit; display:flex; width:100%;
+    align-items:center; gap:8px; background:none; border:0; text-align:left;
+    font-size:13px; color:var(--text-primary); padding:11px 14px; cursor:pointer;
+    border-top:1px solid var(--divider); }
+  #menu button:first-child{ border-top:0; }
+  #menu button:active{ background:var(--bg-inset); }
+  #menu button.danger{ color:var(--danger); }
+  #menu button .hintt{ flex:1; text-align:right; font-size:10px; color:var(--text-tertiary); }
+
+  /* 撤销条：§5.3 Toast —— 从左印出 + 底边剩余时间线 */
+  #toast{ position:fixed; left:14px; right:14px; bottom:22px; z-index:40; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); overflow:hidden; }
+  #toast.on{ display:flex; align-items:center; animation:printIn 260ms var(--ease-paper); }
+  @keyframes printIn{ from{ clip-path:inset(0 100% 0 0);} to{ clip-path:inset(0);} }
+  #toast .msg{ flex:1; font-size:13px; padding:12px 14px; }
+  #toast .msg small{ color:var(--text-tertiary); }
+  #toast button{ appearance:none; font-family:inherit; background:none; border:0;
+    font-size:13px; font-weight:600; color:var(--accent); padding:12px 16px; cursor:pointer; }
+  #toast .timeleft{ position:absolute; left:0; bottom:0; height:2px; width:100%;
+    background:var(--accent); transform-origin:left center; }
+  #toast.on .timeleft{ animation:tickDown linear forwards; }
+  @keyframes tickDown{ from{ transform:scaleX(1);} to{ transform:scaleX(0);} }
+
+  #hintchip{ position:fixed; z-index:41; pointer-events:none; font-size:11px;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); color:var(--text-secondary); padding:4px 8px;
+    opacity:0; transform:translate(-50%,-100%); }
+  #hintchip.flash{ animation:chipFlash 1200ms var(--ease-ink); }
+  @keyframes chipFlash{ 0%{opacity:0} 15%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
+
+  /* ── 方案面板 ── */
+  #gear{ position:fixed; bottom:20px; right:12px; z-index:42; appearance:none; font-family:inherit;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    color:var(--text-secondary); font-size:12px; padding:6px 10px; box-shadow:var(--shadow-page);
+    cursor:pointer; }
+  #panel{ position:fixed; bottom:56px; right:12px; z-index:42; width:225px; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:12px 14px; }
+  #panel.on{ display:block; }
+  #panel label.radio{ display:flex; gap:8px; align-items:flex-start; font-size:12px;
+    padding:5px 0; cursor:pointer; }
+  #panel label.radio small{ display:block; font-size:10px; color:var(--text-tertiary); }
+  #panel input[type=radio]{ accent-color:var(--accent); margin-top:3px; }
+  #panel .row{ margin:8px 0 10px; }
+  #panel .row label{ display:flex; justify-content:space-between; font-size:11px;
+    color:var(--text-secondary); margin-bottom:3px; }
+  #panel .row output{ color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  #panel input[type=range]{ width:100%; accent-color:var(--accent); }
+  #panel .foot{ display:flex; justify-content:space-between; align-items:center; }
+  #panel .foot button{ appearance:none; font-family:inherit; border:1px solid var(--divider);
+    background:none; color:var(--text-secondary); border-radius:var(--radius-card);
+    font-size:11px; padding:4px 8px; cursor:pointer; }
+  #panel .state{ font-size:10px; color:var(--text-tertiary); }
+</style>
+</head>
+<body>
+
+<div class="demotag">Demo · 时间线长按菜单（点按＝展开 · 长按＝操作）</div>
+<div class="topbar">
+  <h1>时间线</h1>
+  <div class="gran"><span class="on">日</span><span>周</span><span>月</span><span>年</span></div>
+</div>
+
+<div id="list"></div>
+
+<div id="scrim"></div>
+<div id="menu">
+  <button data-k="edit">编辑这次训练</button>
+  <button data-k="append">补记动作</button>
+  <button data-k="del" class="danger">删除 <span class="hintt">可撤销</span></button>
+</div>
+<div id="toast">
+  <span class="msg" id="toast-msg"></span>
+  <button id="undo">撤销</button>
+  <span class="timeleft" id="timeleft"></span>
+</div>
+<span id="hintchip"></span>
+
+<button id="gear">方案</button>
+<div id="panel">
+  <label class="radio"><input type="radio" name="mode" value="new" checked>
+    <span>提案 · 长按菜单<small>卡面只剩内容；编辑/补记/删除收进长按</small></span></label>
+  <label class="radio"><input type="radio" name="mode" value="old">
+    <span>现状 · 行内按钮<small>每张卡常驻一排操作按钮</small></span></label>
+  <div class="row"><label>撤销条停留 <output id="o-stay">5s</output></label>
+    <input type="range" id="p-stay" min="3" max="8" step="1" value="5"></div>
+  <div class="foot">
+    <button id="reset">重置数据</button>
+    <span class="state" id="pstate">idle</span>
+  </div>
+</div>
+
+<script>
+const P = { hold:500, delay:120, tol:10, stay:5 };
+
+const DATA = [
+  { day:'8月26日 · 周三', title:'练背', meta:'5 动作 · 18 组 · 6,840 kg', bar:'--chart-2',
+    rows:[['引体向上','自重 × 8 / 8 / 6'],['杠铃划船','60 kg × 10 / 10 / 8'],['高位下拉','55 kg × 12 / 12']] },
+  { day:'8月24日 · 周一', title:'练腿', meta:'4 动作 · 16 组 · 9,120 kg', bar:'--chart-1',
+    rows:[['杠铃深蹲','100 kg × 8 / 8 / 6 / 6'],['腿举','180 kg × 12 / 12 / 10'],['腿弯举','40 kg × 12 / 12']] },
+  { day:'8月22日 · 周六', title:'练胸', meta:'5 动作 · 20 组 · 7,480 kg', bar:'--chart-3',
+    rows:[['平板卧推','80 kg × 8 / 8 / 6'],['上斜哑铃卧推','26 kg × 10 / 9'],['绳索夹胸','23 kg × 12 / 12']] },
+];
+
+let lastVib = 0;
+function vib(v){
+  const now = performance.now();
+  if (now - lastVib < 55) return;
+  lastVib = now;
+  try{ navigator.vibrate && navigator.vibrate(v); }catch(e){}
+}
+
+const list = document.getElementById('list');
+const scrim = document.getElementById('scrim');
+const menu = document.getElementById('menu');
+const hintchip = document.getElementById('hintchip');
+
+function sync(state){
+  window.__demo = { state,
+    sessions: [...list.querySelectorAll('.session')].map(s => s.dataset.title),
+    menuOn: menu.classList.contains('on'),
+    toastOn: document.getElementById('toast').classList.contains('on') };
+  document.getElementById('pstate').textContent = state;
+}
+
+function build(){
+  list.innerHTML = '';
+  DATA.forEach(d => {
+    const wrap = document.createElement('div');
+    wrap.className = 'swrap';
+    wrap.innerHTML =
+      '<div class="daylabel">' + d.day + '</div>' +
+      '<div class="session" data-title="' + d.title + '">' +
+        '<span class="bar" style="background:var(' + d.bar + ')"></span>' +
+        '<div class="head"><span class="t">' + d.title + '</span><span class="m">' + d.meta + '</span></div>' +
+        '<div class="detail">' +
+          d.rows.map(r => '<div class="r"><span class="i">' + r[0] + '</span><span>' + r[1] + '</span></div>').join('') +
+        '</div>' +
+        '<div class="inline-actions">' +
+          '<button data-k="edit">编辑</button><button data-k="append">补记</button>' +
+          '<button data-k="del" class="danger">删除</button>' +
+        '</div>' +
+        '<span class="strikeline"></span><span class="lp-line"></span><span class="lp-label">更多操作</span>' +
+      '</div>';
+    list.appendChild(wrap);
+    attach(wrap.querySelector('.session'));
+  });
+  sync('idle');
+}
+
+/* ── 点按展开 / 长按菜单 ── */
+let press = null;   // { card, pid, x0, y0, timer, done }
+let menuFor = null;
+
+function attach(card){
+  card.addEventListener('pointerdown', e => {
+    if (!e.isPrimary || press || menuFor) return;
+    if (e.target.closest('.inline-actions')) return;      // 现状模式的按钮自己响应
+    press = { card, pid: e.pointerId, x0: e.clientX, y0: e.clientY, done:false };
+    card.classList.add('pressing');
+    press.timer = setTimeout(() => { press.done = true; openMenu(card); }, P.hold);
+    sync('pressing');
+  });
+  card.addEventListener('pointermove', e => {
+    if (!press || e.pointerId !== press.pid || press.done) return;
+    if (Math.hypot(e.clientX - press.x0, e.clientY - press.y0) > P.tol) endPress(false);
+  });
+  card.addEventListener('pointerup', e => {
+    if (!press || e.pointerId !== press.pid) return;
+    const wasDone = press.done;
+    endPress(true);
+    if (!wasDone){                       // 短按 = 展开 / 收起（现有语义）
+      card.classList.toggle('open');
+      vib(8);
+      sync('idle');
+    }
+  });
+  card.addEventListener('pointercancel', e => {
+    if (press && e.pointerId === press.pid) endPress(false);
+  });
+
+  card.querySelectorAll('.inline-actions button').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); act(b.dataset.k, card); }));
+}
+function endPress(keepDone){
+  clearTimeout(press.timer);
+  press.card.classList.remove('pressing');
+  press = null;
+  if (!menuFor) sync('idle');
+}
+
+function openMenu(card){
+  menuFor = card;
+  card.classList.add('lifted');
+  scrim.classList.add('on');
+  const r = card.getBoundingClientRect();
+  menu.classList.add('on');
+  /* 菜单贴卡：默认在卡下方右对齐，放不下改上方 */
+  const mh = 3 * 44;
+  const below = r.bottom + 8 + mh < innerHeight - 16;
+  menu.style.left = (r.right - 190) + 'px';
+  menu.style.top = below ? (r.bottom + 8) + 'px' : (r.top - mh - 8) + 'px';
+  vib(14);
+  sync('menu');
+}
+function closeMenu(){
+  if (!menuFor) return;
+  menuFor.classList.remove('lifted');
+  scrim.classList.remove('on');
+  menu.classList.remove('on');
+  menuFor = null;
+  sync('idle');
+}
+scrim.addEventListener('pointerdown', closeMenu);
+menu.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const card = menuFor;
+  closeMenu();
+  act(b.dataset.k, card);
+});
+
+/* ── 三个操作 ── */
+let pendingDel = null;   // { wrap, height, timer }
+function act(k, card){
+  vib(8);
+  if (k === 'edit' || k === 'append'){
+    const r = card.getBoundingClientRect();
+    hintchip.textContent = k === 'edit' ? '→ 打开编辑页（demo 到此为止）' : '→ 打开动作弹层补记（demo 到此为止）';
+    hintchip.style.left = (r.left + r.width/2) + 'px';
+    hintchip.style.top = (r.top - 6) + 'px';
+    hintchip.classList.remove('flash'); void hintchip.offsetWidth; hintchip.classList.add('flash');
+    return;
+  }
+  /* 删除：划掉 → 收起 → 撤销条。先执行，不弹确认 */
+  finalizeDel();                          // 前一个还没定案就先定案
+  const wrap = card.closest('.swrap');
+  const h = wrap.getBoundingClientRect().height;
+  wrap.style.height = h + 'px';
+  card.classList.add('strike');
+  setTimeout(() => {                      // 墨线横穿 → 停 20ms → 收行（§5.3）
+    wrap.style.height = '0px'; wrap.style.opacity = '0';
+  }, 200);
+  const toast = document.getElementById('toast');
+  document.getElementById('toast-msg').innerHTML =
+    '已删除「' + card.dataset.title + '」 <small>' + wrap.querySelector('.daylabel').textContent + '</small>';
+  const tl = document.getElementById('timeleft');
+  tl.style.animationDuration = P.stay + 's';
+  toast.classList.remove('on'); void toast.offsetWidth; toast.classList.add('on');
+  pendingDel = { wrap, height: h, card,
+    timer: setTimeout(finalizeDel, P.stay * 1000) };
+  sync('deleted-pending');
+}
+function finalizeDel(){
+  if (!pendingDel) return;
+  clearTimeout(pendingDel.timer);
+  pendingDel.wrap.remove();
+  pendingDel = null;
+  document.getElementById('toast').classList.remove('on');
+  sync('idle');
+}
+document.getElementById('undo').addEventListener('click', () => {
+  if (!pendingDel) return;
+  clearTimeout(pendingDel.timer);
+  const { wrap, height, card } = pendingDel;
+  pendingDel = null;
+  document.getElementById('toast').classList.remove('on');
+  card.classList.remove('strike');
+  wrap.style.opacity = '';
+  wrap.style.height = height + 'px';
+  setTimeout(() => { wrap.style.height = ''; }, 240);   // 归还 auto，免得以后展开被卡住
+  vib(12);
+  sync('idle');
+});
+
+/* ── 面板 ── */
+document.getElementById('gear').addEventListener('click', () =>
+  document.getElementById('panel').classList.toggle('on'));
+document.querySelectorAll('input[name=mode]').forEach(r =>
+  r.addEventListener('change', () => {
+    document.body.classList.toggle('mode-old', r.value === 'old');
+  }));
+const stayIn = document.getElementById('p-stay');
+stayIn.addEventListener('input', () => {
+  P.stay = +stayIn.value;
+  document.getElementById('o-stay').textContent = stayIn.value + 's';
+});
+document.getElementById('reset').addEventListener('click', () => { finalizeDel(); build(); });
+
+build();
+</script>
+</body>
+</html>

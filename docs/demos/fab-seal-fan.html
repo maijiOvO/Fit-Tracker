@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · FAB 印谱扇开</title>
+<!--
+  交互 demo：长按底栏加号 → 六枚朱文印扇形展开 → 滑到某枚松手 → 直接开练。
+  · 点按加号 = 原路径不变（进新训练页，页内印谱六选一）
+  · 长按 120ms 后印谱从拇指下摊开（前 120ms 什么都不出，同 §5.3 长按进度）
+  · 松手在印上 = 选中；快速松手 = 点按；按住后原地松手 = 留在点选模式
+  · 右上角「调参」可实时改半径 / 跨度 / 印面 / 延迟
+  色彩与动效令牌抄自 docs/design-ink-and-paper.md §2 / §5.1。
+  字体用 Google Fonts 全量 Ma Shan Zheng（正式实现要走 build:fonts 子集 + SEAL_CHARS）。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=block" rel="stylesheet" />
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px; --radius-stamp:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-exit:180ms; --dur-page:320ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --ease-stamp:cubic-bezier(.2,1.6,.35,1);
+    --ease-ink:cubic-bezier(.4,0,.2,1);
+    --ease-leave:cubic-bezier(.5,0,.9,.7);
+    --move:1;
+    --font-seal:'Ma Shan Zheng', cursive;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --scrim:rgba(0,0,0,.60);
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+    }
+  }
+  @media (prefers-reduced-motion: reduce){ :root{ --move:0; --dur-page:120ms; } }
+
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
+  body{
+    background:var(--bg-base); color:var(--text-primary);
+    font:14px/1.5 -apple-system, 'PingFang SC', 'MiSans', 'Noto Sans SC', sans-serif;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    touch-action:manipulation;
+  }
+  .screen{ position:fixed; inset:0; display:flex; flex-direction:column;
+    transition:opacity var(--dur-base) var(--ease-paper), transform var(--dur-base) var(--ease-paper); }
+  .screen.gone{ opacity:0; transform:translateY(calc(-4px * var(--move))); pointer-events:none; }
+  .screen.enter{ opacity:0; transform:translateY(calc(6px * var(--move))); }
+
+  /* ── 案头（背景用的静态假页面） ─────────────────── */
+  header.app{ padding:14px 16px 10px; }
+  header.app h1{ font-size:19px; font-weight:600; letter-spacing:.02em; }
+  header.app p{ font-size:12px; color:var(--text-tertiary); margin-top:2px; }
+  .page{ flex:1; padding:0 16px; overflow:hidden; }
+  .card{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); padding:14px; margin-bottom:10px; }
+  .card .k{ font-size:12px; color:var(--text-tertiary); }
+  .card .v{ font-size:24px; font-weight:600; font-variant-numeric:tabular-nums; margin-top:2px; }
+  .card .v small{ font-size:12px; color:var(--text-secondary); font-weight:400; margin-left:2px; }
+  .rowline{ display:flex; justify-content:space-between; align-items:baseline;
+    padding:11px 2px; border-bottom:1px solid var(--divider); }
+  .rowline .t{ font-size:14px; font-weight:500; }
+  .rowline .m{ font-size:12px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+  .sect{ font-size:12px; color:var(--text-tertiary); margin:14px 2px 2px; }
+
+  /* ── 底栏 + FAB（几何抄 TabNavigation.tsx） ─────── */
+  nav.tabs{ position:fixed; bottom:0; left:0; right:0; z-index:50;
+    background:color-mix(in srgb, var(--bg-base) 95%, transparent);
+    border-top:1px solid var(--divider); padding-bottom:env(safe-area-inset-bottom); }
+  nav.tabs .grid{ position:relative; height:64px; display:grid; grid-template-columns:repeat(4,1fr); }
+  nav.tabs button.tab{ appearance:none; border:0; background:none; color:var(--text-tertiary);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    font-size:10px; font-weight:500; font-family:inherit; }
+  nav.tabs button.tab.active{ color:var(--accent); }
+  nav.tabs svg{ width:20px; height:20px; stroke:currentColor; stroke-width:1.75;
+    fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  #fab{ appearance:none; border:0; font-family:inherit;
+    position:absolute; left:12.5%; top:-20px; transform:translateX(-50%);
+    width:56px; height:56px; border-radius:50%;
+    background:var(--accent); color:var(--text-on-accent);
+    box-shadow:0 0 0 4px var(--bg-base), var(--shadow-overlay);
+    display:flex; align-items:center; justify-content:center;
+    touch-action:none; cursor:pointer;
+    transition:transform var(--dur-tap) var(--ease-paper); }
+  #fab svg{ width:24px; height:24px; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; }
+  #fab.held{ transform:translateX(-50%) scale(.94); }
+
+  /* ── 扇开的印谱层 ───────────────────────────────── */
+  #scrim{ position:fixed; inset:0; z-index:60; background:var(--scrim);
+    opacity:0; pointer-events:none; transition:opacity var(--dur-exit) var(--ease-ink); }
+  #scrim.on{ opacity:1; }
+  #scrim.tappable{ pointer-events:auto; }
+  #fanlayer{ position:fixed; inset:0; z-index:61; pointer-events:none; }
+  .fan-seal{
+    position:absolute; display:flex; align-items:center; justify-content:center;
+    background:var(--bg-card); border:2.5px solid var(--accent); border-radius:var(--radius-stamp);
+    color:var(--accent); font-family:var(--font-seal); line-height:1;
+    box-shadow:var(--shadow-overlay);
+    padding-top:1px;              /* Ma Shan Zheng 字面偏上，同 BodyPartPicker 的量法 */
+    opacity:0;
+    transform:translate(calc(var(--dx) * var(--move)), calc(var(--dy) * var(--move))) scale(.35);
+    transition:transform var(--dur-base) var(--ease-paper),
+               opacity   var(--dur-exit) var(--ease-ink),
+               background-color var(--dur-tap) var(--ease-ink),
+               border-color     var(--dur-tap) var(--ease-ink),
+               color            var(--dur-tap) var(--ease-ink);
+  }
+  .fan-seal.dashed{ border-style:dashed; }
+  .fan-seal.in{ opacity:1; transform:translate(0,0) scale(1); }
+  .fan-seal.hover{ background:var(--accent-soft); color:var(--accent-ink);
+    border-color:var(--accent-ink);
+    transform:translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(1.16);
+    transition-duration:var(--dur-tap); z-index:2; }
+  .fan-seal.out{ opacity:0;
+    transform:translate(calc(var(--dx) * var(--move)), calc(var(--dy) * var(--move))) scale(.5);
+    transition:transform 160ms var(--ease-leave), opacity 140ms var(--ease-leave); }
+  .fan-seal.commit{ animation:sealCommit 300ms var(--ease-stamp) forwards; }
+  @keyframes sealCommit{
+    0%{ transform:translate(var(--hx),var(--hy)) scale(1.16); }
+    55%{ transform:translate(var(--hx),var(--hy)) scale(.93); }
+    100%{ transform:translate(var(--hx),var(--hy)) scale(1.02); }
+  }
+  #fanlabel{ position:absolute; z-index:3; pointer-events:none;
+    background:var(--bg-card); color:var(--text-primary); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-overlay);
+    font-size:12px; font-weight:600; padding:4px 10px; white-space:nowrap;
+    opacity:0; transform:translate(-50%,-100%);
+    transition:opacity var(--dur-tap) var(--ease-ink); }
+  #fanlabel.on{ opacity:1; }
+  #fanhint{ position:absolute; z-index:3; pointer-events:none;
+    background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-overlay);
+    font-size:12px; padding:4px 10px; white-space:nowrap;
+    opacity:0; transform:translate(-50%,-100%); }
+  #fanhint.flash{ animation:hintFlash 1400ms var(--ease-ink); }
+  @keyframes hintFlash{ 0%{opacity:0} 12%{opacity:1} 75%{opacity:1} 100%{opacity:0} }
+
+  /* ── 新训练页（假） ─────────────────────────────── */
+  .topbar{ display:flex; align-items:center; gap:10px; padding:12px 14px;
+    border-bottom:1px solid var(--divider); background:var(--bg-base); }
+  .topbar .back{ appearance:none; border:0; background:none; color:var(--text-secondary);
+    width:36px; height:36px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .topbar .back svg{ width:20px; height:20px; stroke:currentColor; stroke-width:2;
+    fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .title-wrap{ flex:1; position:relative; }
+  #wk-title{ width:100%; appearance:none; border:0; background:none; font-family:inherit;
+    font-size:17px; font-weight:600; color:var(--text-primary); outline:none; }
+  #wk-title::placeholder{ color:var(--text-tertiary); font-weight:400; }
+  #wk-title.inkin{ animation:inkOvershoot 520ms var(--ease-ink); }
+  @keyframes inkOvershoot{ 0%{ color:var(--accent-ink); } 100%{ color:var(--text-primary); } }
+  .title-wrap .underline{ position:absolute; left:0; right:0; bottom:-4px; height:2px;
+    background:var(--accent); transform:scaleX(0); }
+  .title-wrap .underline.draw{ animation:drawCenter 160ms var(--ease-paper) forwards; }
+  @keyframes drawCenter{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+  .endbtn{ font-size:12px; color:var(--text-tertiary); border:1px solid var(--divider);
+    background:none; border-radius:var(--radius-card); padding:6px 10px; font-family:inherit; }
+
+  /* 页内印谱（原路径的六选一，抄 BodyPartPicker） */
+  .picker{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); padding:20px; margin:16px; }
+  .picker h2{ font-size:17px; font-weight:600; text-align:center; }
+  .picker .sub{ font-size:12px; color:var(--text-tertiary); text-align:center; margin:4px 0 20px; }
+  .picker .grid6{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  .tile{ appearance:none; font-family:inherit; min-height:112px;
+    border-radius:var(--radius-card); border:1px solid var(--divider); background:var(--bg-base);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    color:var(--text-primary); font-size:13px; font-weight:600; cursor:pointer;
+    transition:transform var(--dur-tap) var(--ease-paper), border-color var(--dur-tap); }
+  .tile:active{ transform:scale(.985); }
+  .tile .seal{ width:52px; height:52px; border-radius:var(--radius-stamp);
+    border:2.5px solid var(--accent); color:var(--accent);
+    font-family:var(--font-seal); font-size:30px; line-height:1;
+    display:flex; align-items:center; justify-content:center; padding-top:1px; }
+  .tile .seal.dashed{ border-style:dashed; }
+  .picker .tip{ margin-top:16px; font-size:11px; color:var(--text-tertiary); text-align:center; }
+  .picker .tip b{ color:var(--text-secondary); font-weight:600; }
+
+  /* 选完的结果态 */
+  .result{ margin:16px; }
+  .result .card p{ font-size:13px; color:var(--text-secondary); line-height:1.7; }
+  .result .card p+p{ margin-top:6px; }
+  .result .stampline{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .result .stampline .seal{ width:44px; height:44px; border-radius:var(--radius-stamp);
+    border:2.5px solid var(--accent); color:var(--accent); font-family:var(--font-seal);
+    font-size:25px; line-height:1; display:flex; align-items:center; justify-content:center;
+    padding-top:1px; background:var(--bg-card); }
+  .retry{ margin:4px 16px; appearance:none; font-family:inherit; width:calc(100% - 32px);
+    border:1px dashed var(--divider); background:none; color:var(--text-secondary);
+    border-radius:var(--radius-card); padding:12px; font-size:13px; cursor:pointer; }
+
+  /* ── 调参面板 ───────────────────────────────────── */
+  #gear{ position:fixed; bottom:84px; right:12px; z-index:70; appearance:none; font-family:inherit;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    color:var(--text-secondary); font-size:12px; padding:6px 10px; box-shadow:var(--shadow-page);
+    cursor:pointer; }
+  #panel{ position:fixed; bottom:120px; right:12px; z-index:70; width:240px;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:14px; display:none; }
+  #panel.on{ display:block; }
+  #panel .row{ margin-bottom:10px; }
+  #panel label{ display:flex; justify-content:space-between; font-size:11px;
+    color:var(--text-secondary); margin-bottom:3px; }
+  #panel label output{ color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  #panel input[type=range]{ width:100%; accent-color:var(--accent); }
+  #panel .foot{ display:flex; justify-content:space-between; align-items:center; margin-top:4px; }
+  #panel .foot button{ appearance:none; font-family:inherit; border:1px solid var(--divider);
+    background:none; color:var(--text-secondary); border-radius:var(--radius-card);
+    font-size:11px; padding:4px 8px; cursor:pointer; }
+  #panel .state{ font-size:10px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<!-- ══ 案头（假的背景页） ══ -->
+<div class="screen" id="screen-home">
+  <header class="app">
+    <h1>案头</h1>
+    <p>8月28日 · 周五</p>
+  </header>
+  <div class="page">
+    <div class="card">
+      <div class="k">体重</div>
+      <div class="v">72.5<small>kg</small></div>
+    </div>
+    <div class="sect">时间线</div>
+    <div class="rowline"><span class="t">练背</span><span class="m">8月26日 · 5 动作 · 18 组</span></div>
+    <div class="rowline"><span class="t">练腿</span><span class="m">8月24日 · 4 动作 · 16 组</span></div>
+    <div class="rowline"><span class="t">练胸</span><span class="m">8月22日 · 5 动作 · 20 组</span></div>
+  </div>
+  <nav class="tabs">
+    <div class="grid">
+      <div aria-hidden></div>
+      <button class="tab active">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        案头
+      </button>
+      <button class="tab">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        计划
+      </button>
+      <button class="tab">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        我的
+      </button>
+      <button id="fab" aria-label="开始训练">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- ══ 新训练页（假） ══ -->
+<div class="screen gone" id="screen-new">
+  <div class="topbar">
+    <button class="back" id="btn-back" aria-label="返回">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="title-wrap">
+      <input id="wk-title" placeholder="写下这次的名称…" readonly />
+      <span class="underline" id="title-underline"></span>
+    </div>
+    <button class="endbtn">结束训练</button>
+  </div>
+
+  <!-- 原路径：页内印谱 -->
+  <div class="picker" id="pk">
+    <h2>今天练哪里</h2>
+    <p class="sub">选完自动作为训练名称，之后仍可改</p>
+    <div class="grid6" id="pk-grid"></div>
+    <p class="tip">小技巧：在任何页面<b>按住底栏加号</b>，印谱会直接在拇指下摊开</p>
+  </div>
+
+  <!-- 快速路径选完后的结果态 -->
+  <div class="result" id="rs" style="display:none">
+    <div class="card">
+      <div class="stampline"><span class="seal" id="rs-seal">胸</span>
+        <div><div style="font-weight:600" id="rs-t">已开始「练胸」</div>
+        <div style="font-size:11px;color:var(--text-tertiary)" id="rs-via">经由：长按印谱</div></div>
+      </div>
+      <p id="rs-note">真实流程走到这里：训练名称已填好，<b>动作选择弹层自动弹出</b>。本 demo 到此为止。</p>
+      <p style="color:var(--text-tertiary);font-size:12px">「制」的分支：不填名称、聚焦标题输入框，弹层不弹（下一步是打字，别挡着）。</p>
+    </div>
+    <button class="retry" id="btn-retry">回到案头，再试一次</button>
+  </div>
+</div>
+
+<!-- ══ 印谱扇开层 ══ -->
+<div id="scrim"></div>
+<div id="fanlayer">
+  <span id="fanlabel"></span>
+  <span id="fanhint">按住可展开印谱</span>
+</div>
+
+<!-- ══ 调参 ══ -->
+<button id="gear">调参</button>
+<div id="panel">
+  <div class="row"><label>展开延迟 <output id="o-delay">120ms</output></label>
+    <input type="range" id="p-delay" min="80" max="300" step="10" value="120"></div>
+  <div class="row"><label>扇形半径 <output id="o-r">175px</output></label>
+    <input type="range" id="p-r" min="120" max="210" step="5" value="175"></div>
+  <div class="row"><label>扇形跨度 <output id="o-span">85°</output></label>
+    <input type="range" id="p-span" min="60" max="110" step="5" value="85"></div>
+  <div class="row"><label>印面尺寸 <output id="o-seal">46px</output></label>
+    <input type="range" id="p-seal" min="40" max="56" step="2" value="46"></div>
+  <div class="row"><label>命中半径 <output id="o-hit">48px</output></label>
+    <input type="range" id="p-hit" min="36" max="64" step="4" value="48"></div>
+  <div class="foot">
+    <button id="p-reset">重置</button>
+    <span class="state" id="p-state">idle</span>
+  </div>
+</div>
+
+<script>
+/* ── 参数（默认值即建议值；「待真机调」） ── */
+const DEF = { delay:120, R:175, span:85, seal:46, hit:48 };  /* R=160 时印距仅 1px，175 下约 6px */
+const P = { ...DEF, startDeg:95, tapMax:250 };
+
+const PARTS = [
+  { k:'chest',     ch:'胸', label:'练胸' },
+  { k:'shoulders', ch:'肩', label:'练肩' },
+  { k:'back',      ch:'背', label:'练背' },
+  { k:'legs',      ch:'腿', label:'练腿' },
+  { k:'arms',      ch:'臂', label:'练手臂' },
+  { k:'other',     ch:'制', label:'其他', dashed:true },
+];
+
+const fab = document.getElementById('fab');
+const scrim = document.getElementById('scrim');
+const layer = document.getElementById('fanlayer');
+const fanlabel = document.getElementById('fanlabel');
+const fanhint = document.getElementById('fanhint');
+
+/* 震动：两档 + 印章模式（§5.7），55ms 去抖 */
+let lastVib = 0;
+function vib(v){
+  const now = performance.now();
+  if (now - lastVib < 55) return;
+  lastVib = now;
+  try{ navigator.vibrate && navigator.vibrate(v); }catch(e){}
+}
+
+/* ── 印谱层的构建与布局 ── */
+let seals = [];   // {el, part, x, y}
+function buildSeals(){
+  seals.forEach(s => s.el.remove());
+  seals = PARTS.map(part => {
+    const el = document.createElement('button');
+    el.className = 'fan-seal' + (part.dashed ? ' dashed' : '');
+    el.textContent = part.ch;
+    el.dataset.k = part.k;
+    layer.appendChild(el);
+    return { el, part, x:0, y:0 };
+  });
+}
+buildSeals();
+
+function layoutSeals(){
+  const r = fab.getBoundingClientRect();
+  const cx = r.left + r.width/2, cy = r.top + r.height/2;
+  const step = P.span / (PARTS.length - 1);
+  seals.forEach((s, i) => {
+    const deg = P.startDeg - step * i;            // 从近垂直扫到近水平
+    const rad = deg * Math.PI / 180;
+    const x = cx + P.R * Math.cos(rad);
+    const y = cy - P.R * Math.sin(rad);
+    s.x = x; s.y = y;
+    const el = s.el, half = P.seal/2;
+    el.style.width = el.style.height = P.seal + 'px';
+    el.style.fontSize = Math.round(P.seal * 0.58) + 'px';
+    el.style.left = (x - half) + 'px';
+    el.style.top  = (y - half) + 'px';
+    /* 收拢态＝缩在 FAB 中心；hover 态＝沿径向再外浮 6px，别压在指头底下 */
+    el.style.setProperty('--dx', (cx - x) + 'px');
+    el.style.setProperty('--dy', (cy - y) + 'px');
+    el.style.setProperty('--hx', (6 * Math.cos(rad)) + 'px');
+    el.style.setProperty('--hy', (-6 * Math.sin(rad)) + 'px');
+  });
+}
+
+/* ── 手势状态机 ── */
+let state = 'idle';        // idle | pressing | open | tapmode
+let downT = 0, openTimer = 0, hovered = null, pid = null;
+
+function setState(s){
+  state = s;
+  document.getElementById('p-state').textContent = s + (hovered ? ' · ' + hovered.part.k : '');
+  window.__fan = { state, hovered: hovered ? hovered.part.k : null, params: { ...P } };
+}
+setState('idle');
+
+function openFan(){
+  layoutSeals();
+  scrim.classList.add('on');
+  fab.classList.add('held');
+  seals.forEach((s, i) => {
+    s.el.classList.remove('out','commit','hover');
+    /* stagger 用 setTimeout 而不是 transition-delay：后者会赖在行内样式上，
+       把之后 hover 态的 120ms 过渡也拖慢 160ms */
+    setTimeout(() => s.el.classList.add('in'), i * 32);     // §5.3 stagger
+  });
+  vib(14);                                                   // H.longpress
+  setState('open');
+}
+function closeFan(immediate){
+  clearTimeout(openTimer);
+  scrim.classList.remove('on','tappable');
+  fab.classList.remove('held');
+  fanlabel.classList.remove('on');
+  seals.forEach(s => {
+    s.el.style.pointerEvents = '';        // 收回点选模式给的 auto，否则隐形印会挡住底下的页面
+    s.el.classList.remove('in','hover','commit');
+    if (!immediate) s.el.classList.add('out');
+  });
+  hovered = null;
+  setState('idle');
+}
+
+function pickHover(x, y){
+  let best = null, bestD = Infinity;
+  for (const s of seals){
+    const d = Math.hypot(x - s.x, y - s.y);
+    if (d < bestD){ bestD = d; best = s; }
+  }
+  return bestD <= P.hit ? best : null;
+}
+function setHover(h){
+  if (h === hovered) return;
+  if (hovered) hovered.el.classList.remove('hover');
+  hovered = h;
+  if (h){
+    h.el.classList.add('hover');
+    fanlabel.textContent = h.part.k === 'other' ? '其他 · 自己命名' : h.part.label;
+    fanlabel.style.left = h.x + 'px';
+    fanlabel.style.top = (h.y - P.seal/2 - 10) + 'px';
+    fanlabel.classList.add('on');
+    vib(12);                                                 // H.pick
+  } else {
+    fanlabel.classList.remove('on');
+  }
+  setState(state);
+}
+
+function commit(s){
+  vib([0,18,40,12]);                                         // H.seal
+  fanlabel.classList.remove('on');
+  s.el.classList.remove('hover');
+  s.el.classList.add('commit');
+  seals.forEach(o => { if (o !== s) o.el.classList.add('out'); });
+  setState('idle');
+  setTimeout(() => { closeFan(true); gotoNew(s.part, '长按印谱'); }, 300);
+}
+
+/* ── FAB 的指针协议 ── */
+fab.addEventListener('pointerdown', e => {
+  if (!e.isPrimary || state === 'tapmode') return;
+  pid = e.pointerId;
+  try{ fab.setPointerCapture(pid); }catch(_){ /* 合成事件没有真指针，捕获失败无妨 */ }
+  downT = performance.now();
+  setState('pressing');
+  /* 前 P.delay 毫秒什么都不出：普通点按不许闪印谱 */
+  openTimer = setTimeout(openFan, P.delay);
+});
+fab.addEventListener('pointermove', e => {
+  if (e.pointerId !== pid || state !== 'open') return;
+  setHover(pickHover(e.clientX, e.clientY));
+});
+fab.addEventListener('pointerup', e => {
+  if (e.pointerId !== pid) return;
+  pid = null;
+  const t = performance.now() - downT;
+  if (state === 'pressing'){                 // 印谱还没出 → 纯点按，走原路径
+    clearTimeout(openTimer);
+    setState('idle');
+    hintThenGo();
+    return;
+  }
+  if (hovered){ commit(hovered); return; }   // 松手在印上 → 选中
+  if (t < P.tapMax){                         // 手快，印谱才刚冒头 → 仍按点按算
+    closeFan();
+    hintThenGo();
+    return;
+  }
+  /* 按住又原地松手 → 宽容：留在点选模式，点印可选、点空白收回 */
+  scrim.classList.add('tappable');
+  seals.forEach(s => { s.el.style.pointerEvents = 'auto'; });
+  setState('tapmode');
+});
+fab.addEventListener('pointercancel', () => {  // 来电/系统手势打断：干净复位，不留粘滞态
+  pid = null; clearTimeout(openTimer); closeFan();
+});
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+/* 点选模式的两条出路 */
+scrim.addEventListener('pointerdown', () => { if (state === 'tapmode') closeFan(); });
+layer.addEventListener('click', e => {
+  if (state !== 'tapmode') return;
+  const el = e.target.closest('.fan-seal');
+  if (!el) return;
+  const s = seals.find(x => x.el === el);
+  setHover(s);
+  commit(s);
+});
+
+/* 快速点按：闪一下自教学提示，再走原路径（提示不挡路，不等它播完） */
+function hintThenGo(){
+  const r = fab.getBoundingClientRect();
+  fanhint.style.left = (r.left + r.width/2) + 'px';
+  fanhint.style.top = (r.top - 8) + 'px';
+  fanhint.classList.remove('flash');
+  void fanhint.offsetWidth;
+  fanhint.classList.add('flash');
+  setTimeout(() => gotoNew(null, '点按'), 220);
+}
+
+/* ── 假页面切换 ── */
+const scrHome = document.getElementById('screen-home');
+const scrNew = document.getElementById('screen-new');
+const titleEl = document.getElementById('wk-title');
+const underline = document.getElementById('title-underline');
+
+function switchScreen(from, to){
+  from.classList.add('gone');
+  to.classList.remove('gone'); to.classList.add('enter');
+  requestAnimationFrame(() => requestAnimationFrame(() => to.classList.remove('enter')));
+}
+function gotoNew(part, via){
+  const pk = document.getElementById('pk'), rs = document.getElementById('rs');
+  underline.classList.remove('draw');
+  if (part && part.k !== 'other'){
+    titleEl.value = part.label;
+    titleEl.classList.remove('inkin'); void titleEl.offsetWidth; titleEl.classList.add('inkin');
+    pk.style.display = 'none'; rs.style.display = 'block';
+    document.getElementById('rs-seal').textContent = part.ch;
+    document.getElementById('rs-t').textContent = '已开始「' + part.label + '」';
+    document.getElementById('rs-via').textContent = '经由：' + via;
+    document.getElementById('rs-note').innerHTML =
+      '真实流程走到这里：训练名称已填好，<b>动作选择弹层自动弹出</b>。本 demo 到此为止。';
+  } else if (part){                       // 「制」：不填名，聚焦标题
+    titleEl.value = '';
+    pk.style.display = 'none'; rs.style.display = 'block';
+    underline.classList.add('draw');      // 落笔聚焦：中心向两端
+    document.getElementById('rs-seal').textContent = '制';
+    document.getElementById('rs-t').textContent = '自己命名';
+    document.getElementById('rs-via').textContent = '经由：' + via;
+    document.getElementById('rs-note').innerHTML =
+      '「制」不填名称：真实流程里此刻<b>标题输入框已聚焦、键盘弹出</b>，弹层不弹。';
+  } else {                                // 点按：原路径，页内印谱
+    titleEl.value = '';
+    pk.style.display = ''; rs.style.display = 'none';
+  }
+  switchScreen(scrHome, scrNew);
+}
+document.getElementById('btn-back').addEventListener('click', back);
+document.getElementById('btn-retry').addEventListener('click', back);
+function back(){ switchScreen(scrNew, scrHome); }
+
+/* 页内印谱（原路径）也能点，殊途同归 */
+const grid = document.getElementById('pk-grid');
+PARTS.forEach(part => {
+  const b = document.createElement('button');
+  b.className = 'tile';
+  b.innerHTML = '<span class="seal' + (part.dashed?' dashed':'') + '">' + part.ch + '</span>' +
+    '<span>' + part.label + '</span>';
+  b.addEventListener('click', () => {
+    document.getElementById('pk').style.display = 'none';
+    gotoNew(part, '页内印谱');
+    scrNew.classList.remove('gone');
+  });
+  grid.appendChild(b);
+});
+
+/* ── 调参面板 ── */
+const panel = document.getElementById('panel');
+document.getElementById('gear').addEventListener('click', () => panel.classList.toggle('on'));
+function bindParam(id, key, unit){
+  const input = document.getElementById('p-' + id), out = document.getElementById('o-' + id);
+  input.addEventListener('input', () => {
+    P[key] = +input.value;
+    out.textContent = input.value + unit;
+    if (state === 'open' || state === 'tapmode') layoutSeals();
+  });
+  return () => { input.value = DEF[key]; out.textContent = DEF[key] + unit; P[key] = DEF[key]; };
+}
+const resets = [
+  bindParam('delay','delay','ms'), bindParam('r','R','px'), bindParam('span','span','°'),
+  bindParam('seal','seal','px'), bindParam('hit','hit','px'),
+];
+document.getElementById('p-reset').addEventListener('click', () => {
+  resets.forEach(f => f());
+  if (state === 'open' || state === 'tapmode') layoutSeals();
+});
+window.addEventListener('resize', () => { if (state !== 'idle') layoutSeals(); });
+</script>
+</body>
+</html>

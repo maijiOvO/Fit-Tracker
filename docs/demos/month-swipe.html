@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 翻月横滑</title>
+<!--
+  交互 demo：计划页月历的横滑翻月。
+  · 拖动 1:1 跟手；松手用速度投影判定（§5.3 弹层同一套数学）：
+      |dx| > W*0.28 或 |v| > 0.6 px/ms 即翻页，否则弹回
+      收尾时长 clamp((W-|dx|)/max(|v|,.8), 120, 260) —— 甩得越快收得越短
+  · 竖滑让位：横向位移 ≥12px 且 |dx|>|dy| 才接管（§12.3 的 12px 规则）
+  · ⚠️ dt<1 钳到 1（§12.3：高刷屏同毫秒两次 move 会把最快读成 0）
+  · ‹ › 按钮保留 —— 手势是加速器，不是唯一入口
+  实心朱砂点 = 已练；空心 = 计划（未来）。今天 = 2026-08-28。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D;
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px;
+    --dur-tap:120ms; --dur-base:220ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --ease-ink:cubic-bezier(.4,0,.2,1);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-inset:#0E0C0A;
+      --divider:#332E25;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E;
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+    }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; overflow:hidden; }
+  body{
+    background:var(--bg-base); color:var(--text-primary);
+    font:14px/1.5 -apple-system, 'PingFang SC', 'MiSans', 'Noto Sans SC', sans-serif;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+  }
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:6px 0; }
+  .topbar{ display:flex; align-items:center; gap:8px; padding:4px 14px 10px;
+    border-bottom:1px solid var(--divider); }
+  .topbar h1{ flex:1; font-size:17px; font-weight:600; }
+  .topbar .sub{ font-size:11px; color:var(--text-tertiary); }
+
+  .calcard{ margin:14px; background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); overflow:hidden; }
+  .calhead{ display:flex; align-items:center; padding:10px 8px 6px; }
+  .calhead .ym{ flex:1; text-align:center; font-size:15px; font-weight:600;
+    font-variant-numeric:tabular-nums; }
+  .calhead button{ appearance:none; font-family:inherit; background:none; border:0;
+    width:36px; height:32px; font-size:17px; color:var(--text-secondary); cursor:pointer;
+    border-radius:var(--radius-card); }
+  .calhead button:active{ background:var(--bg-inset); }
+
+  #viewport{ overflow:hidden; touch-action:pan-y; }
+  #track{ display:flex; width:300%; transform:translateX(-33.3333%); will-change:transform; }
+  #track.settling{ transition:transform var(--settle,220ms) var(--ease-paper); }
+  .panel{ width:33.3333%; flex:0 0 33.3333%; padding:2px 10px 12px; }
+
+  .wk{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:2px; }
+  .wk span{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:4px 0; }
+  .days{ display:grid; grid-template-columns:repeat(7,1fr); row-gap:2px; }
+  .day{ position:relative; height:44px; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:3px;
+    font-size:13px; font-variant-numeric:tabular-nums; color:var(--text-primary);
+    border-radius:var(--radius-card); }
+  .day.blank{ visibility:hidden; }
+  .day.today{ box-shadow:inset 0 0 0 1.5px var(--accent); font-weight:600; }
+  .day .dot{ width:5px; height:5px; border-radius:50%; }
+  .day .dot.done{ background:var(--accent); }
+  .day .dot.plan{ border:1.5px solid var(--accent); }
+  .day .dot.none{ visibility:hidden; }
+
+  .calfoot{ padding:8px 14px 12px; border-top:1px solid var(--divider);
+    font-size:11px; color:var(--text-tertiary); display:flex; gap:14px; }
+  .calfoot i{ display:inline-block; width:5px; height:5px; border-radius:50%;
+    vertical-align:1px; margin-right:4px; }
+  .calfoot .d i{ background:var(--accent); }
+  .calfoot .p i{ border:1.5px solid var(--accent); }
+
+  /* ── 调参 ── */
+  #gear{ position:fixed; bottom:20px; right:12px; z-index:9; appearance:none; font-family:inherit;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    color:var(--text-secondary); font-size:12px; padding:6px 10px; box-shadow:var(--shadow-page);
+    cursor:pointer; }
+  #panel{ position:fixed; bottom:56px; right:12px; z-index:9; width:235px; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:12px 14px; }
+  #panel.on{ display:block; }
+  #panel .row{ margin-bottom:10px; }
+  #panel label{ display:flex; justify-content:space-between; font-size:11px;
+    color:var(--text-secondary); margin-bottom:3px; }
+  #panel label output{ color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  #panel input[type=range]{ width:100%; accent-color:var(--accent); }
+  #panel .foot{ display:flex; justify-content:space-between; align-items:center; }
+  #panel .foot button{ appearance:none; font-family:inherit; border:1px solid var(--divider);
+    background:none; color:var(--text-secondary); border-radius:var(--radius-card);
+    font-size:11px; padding:4px 8px; cursor:pointer; }
+  #panel .state{ font-size:10px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="demotag">Demo · 月历横滑翻页（‹ › 按钮仍在）</div>
+<div class="topbar">
+  <h1>计划 · 日程</h1>
+  <span class="sub">在月历上左右拖</span>
+</div>
+
+<div class="calcard">
+  <div class="calhead">
+    <button id="prev" aria-label="上一月">‹</button>
+    <span class="ym" id="ym"></span>
+    <button id="next" aria-label="下一月">›</button>
+  </div>
+  <div id="viewport"><div id="track"></div></div>
+  <div class="calfoot"><span class="d"><i></i>已练</span><span class="p"><i></i>计划</span></div>
+</div>
+
+<button id="gear">调参</button>
+<div id="panel">
+  <div class="row"><label>位移阈值（占宽度） <output id="o-frac">28%</output></label>
+    <input type="range" id="p-frac" min="15" max="45" step="1" value="28"></div>
+  <div class="row"><label>速度阈值 <output id="o-vel">0.60 px/ms</output></label>
+    <input type="range" id="p-vel" min="30" max="120" step="5" value="60"></div>
+  <div class="row"><label>横向接管位移 <output id="o-eng">12px</output></label>
+    <input type="range" id="p-eng" min="6" max="20" step="1" value="12"></div>
+  <div class="foot">
+    <button id="today">回到本月</button>
+    <span class="state" id="pstate">2026-08</span>
+  </div>
+</div>
+
+<script>
+const P = { frac:.28, vel:.6, engage:12 };
+const TODAY = { y:2026, m:8, d:28 };          // demo 固定「今天」，数据可复现
+let cur = { y:TODAY.y, m:TODAY.m };           // 当前显示的月
+
+let lastVib = 0;
+function vib(v){
+  const now = performance.now();
+  if (now - lastVib < 55) return;
+  lastVib = now;
+  try{ navigator.vibrate && navigator.vibrate(v); }catch(e){}
+}
+
+/* 训练日：确定性假数据 —— (d*7 + m*3) % 11 < 3 视为有训练 */
+function hasWorkout(y, m, d){ return (d * 7 + (m + y) * 3) % 11 < 3; }
+function isPast(y, m, d){
+  return y < TODAY.y || (y === TODAY.y && (m < TODAY.m || (m === TODAY.m && d <= TODAY.d)));
+}
+function shift(ym, k){
+  let m = ym.m + k, y = ym.y;
+  while (m < 1){ m += 12; y--; }
+  while (m > 12){ m -= 12; y++; }
+  return { y, m };
+}
+
+function panelHTML(ym){
+  const { y, m } = ym;
+  const daysIn = new Date(y, m, 0).getDate();
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;    // 周一开头
+  let cells = '';
+  for (let i = 0; i < lead; i++) cells += '<span class="day blank"></span>';
+  for (let d = 1; d <= daysIn; d++){
+    const today = y === TODAY.y && m === TODAY.m && d === TODAY.d;
+    const w = hasWorkout(y, m, d);
+    const dot = !w ? 'none' : (isPast(y, m, d) ? 'done' : 'plan');
+    cells += '<span class="day' + (today ? ' today' : '') + '">' + d +
+             '<span class="dot ' + dot + '"></span></span>';
+  }
+  return '<div class="panel">' +
+    '<div class="wk"><span>一</span><span>二</span><span>三</span><span>四</span>' +
+    '<span>五</span><span>六</span><span>日</span></div>' +
+    '<div class="days">' + cells + '</div></div>';
+}
+
+const track = document.getElementById('track');
+const viewport = document.getElementById('viewport');
+
+function render(){
+  track.innerHTML = panelHTML(shift(cur, -1)) + panelHTML(cur) + panelHTML(shift(cur, 1));
+  track.classList.remove('settling');
+  track.style.transform = 'translateX(-33.3333%)';
+  document.getElementById('ym').textContent = cur.y + '年' + cur.m + '月';
+  document.getElementById('pstate').textContent =
+    cur.y + '-' + String(cur.m).padStart(2, '0');
+  window.__demo = { ym: cur.y + '-' + String(cur.m).padStart(2, '0'),
+    state: drag ? 'dragging' : 'idle' };
+}
+
+/* ── 横滑：1:1 跟手 + 速度投影松手 ── */
+let drag = null;        // { pid, x0, y0, engaged, dx, lastX, lastT, v }
+let animating = false;
+
+viewport.addEventListener('pointerdown', e => {
+  if (!e.isPrimary || animating) return;
+  drag = { pid: e.pointerId, x0: e.clientX, y0: e.clientY,
+           engaged: false, dx: 0, lastX: e.clientX, lastT: e.timeStamp, v: 0 };
+});
+viewport.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.pid) return;
+  const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+  if (!drag.engaged){
+    if (Math.abs(dx) < P.engage || Math.abs(dx) <= Math.abs(dy)){
+      if (Math.abs(dy) > 24) drag = null;      // 明显在竖滑：撒手
+      return;
+    }
+    drag.engaged = true;
+    try{ viewport.setPointerCapture(drag.pid); }catch(_){}
+  }
+  /* 速度：EMA 平滑；⚠️ dt 钳到 ≥1，同毫秒两次 move 不能把速度读成 0 */
+  const dt = Math.max(1, e.timeStamp - drag.lastT);
+  const inst = (e.clientX - drag.lastX) / dt;
+  drag.v = drag.v * .8 + inst * .2;
+  drag.lastX = e.clientX; drag.lastT = e.timeStamp;
+  drag.dx = dx;
+  track.style.transform = 'translateX(calc(-33.3333% + ' + dx + 'px))';
+  window.__demo.state = 'dragging';
+});
+function release(e){
+  if (!drag || e.pointerId !== drag.pid) return;
+  const d = drag; drag = null;
+  if (!d.engaged) return;
+  const W = viewport.clientWidth;
+  const commit = Math.abs(d.v) > P.vel || Math.abs(d.dx) > W * P.frac;
+  /* 方向：速度够快听速度的，否则听位移的 */
+  const dir = Math.abs(d.v) > P.vel ? -Math.sign(d.v) : -Math.sign(d.dx);
+  if (!commit || dir === 0){ settleTo(-33.3333, d, W); return; }
+  settleTo(dir > 0 ? -66.6667 : 0, d, W, () => {
+    cur = shift(cur, dir);
+    render();
+    vib(8);
+  });
+}
+viewport.addEventListener('pointerup', release);
+viewport.addEventListener('pointercancel', release);
+
+function settleTo(pct, d, W, after){
+  animating = true;
+  /* 收尾时长：clamp((剩余距离)/max(|v|,.8), 120, 260) —— §5.3 弹层的公式 */
+  const target = pct / 100 * 3 * W / 3;
+  const remain = Math.abs(target - d.dx);
+  const ms = Math.min(260, Math.max(120, remain / Math.max(Math.abs(d.v), .8)));
+  track.style.setProperty('--settle', ms + 'ms');
+  track.classList.add('settling');
+  track.style.transform = 'translateX(' + pct + '%)';
+  let fired = false;                            // transitionend 和兜底 timer 只许进一个
+  const done = () => {
+    if (fired) return;
+    fired = true;
+    track.removeEventListener('transitionend', done);
+    track.classList.remove('settling');
+    animating = false;
+    if (after) after();
+    else { track.style.transform = 'translateX(-33.3333%)'; window.__demo.state = 'idle'; }
+  };
+  track.addEventListener('transitionend', done);
+  setTimeout(done, ms + 80);                    // transitionend 偶发丢失的兜底
+}
+
+/* 按钮翻页：同一段落定动画 */
+function flip(dir){
+  if (animating) return;
+  animating = true;
+  track.style.setProperty('--settle', '220ms');
+  track.classList.add('settling');
+  track.style.transform = 'translateX(' + (dir > 0 ? -66.6667 : 0) + '%)';
+  let fired = false;
+  const done = () => {
+    if (fired) return;
+    fired = true;
+    track.removeEventListener('transitionend', done);
+    track.classList.remove('settling');
+    animating = false;
+    cur = shift(cur, dir);
+    render();
+    vib(8);
+  };
+  track.addEventListener('transitionend', done);
+  setTimeout(done, 300);
+}
+document.getElementById('prev').addEventListener('click', () => flip(-1));
+document.getElementById('next').addEventListener('click', () => flip(1));
+document.getElementById('today').addEventListener('click', () => { cur = {y:TODAY.y, m:TODAY.m}; render(); });
+
+/* ── 调参 ── */
+document.getElementById('gear').addEventListener('click', () =>
+  document.getElementById('panel').classList.toggle('on'));
+function bind(id, key, scale, fmt){
+  const inp = document.getElementById('p-' + id), out = document.getElementById('o-' + id);
+  inp.addEventListener('input', () => { P[key] = +inp.value * scale; out.textContent = fmt(+inp.value); });
+}
+bind('frac', 'frac', .01, v => v + '%');
+bind('vel', 'vel', .01, v => (v/100).toFixed(2) + ' px/ms');
+bind('eng', 'engage', 1, v => v + 'px');
+
+render();
+</script>
+</body>
+</html>
