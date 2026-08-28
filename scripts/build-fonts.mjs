@@ -38,8 +38,17 @@ const BASE =
   // 全角数字与字母偶尔会从旧数据里漏进来
   '０１２３４５６７８９';
 
-/** 印章 / 手写批注专用。Ma Shan Zheng 只切这几个字，别把全站文案喂给它。 */
-const SEAL_CHARS = '记破新纪录今天多住了一点';
+/**
+ * 印章 / 手写批注专用。Ma Shan Zheng 只切这几个字，别把全站文案喂给它。
+ *
+ * 两组：
+ *   PR 与刊末页的落章 —— 记破新纪录今天多住了一点
+ *   训练部位的朱文印   —— 胸肩背腿臂他（BodyPartPicker）
+ *
+ * ⚠️ 加中文字到印章里必须同时改这里并重跑 npm run build:fonts。
+ *    dev server 不会自动重建子集，漏了这步字会静默掉回系统字体。
+ */
+const SEAL_CHARS = '记破新纪录今天多住了一点' + '胸肩背腿臂他';
 
 const SCAN_EXT = new Set(['.ts', '.tsx', '.html']);
 const SCAN_DIRS = ['src', 'services'];

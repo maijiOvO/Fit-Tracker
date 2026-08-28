@@ -6,73 +6,64 @@
  * 「其他」不填名、也不开弹层：那条路的下一步是把名字打出来，
  * 弹层盖上去反而挡住标题输入框。
  *
- * 图标＝【人体轮廓 + 目标肌群高亮】，解剖路径取自 react-native-body-highlighter
- * （MIT，见 utils/bodyPaths.ts 的来源注释）。
+ * ── 为什么是印，不是图标 ──────────────────────────────
  *
- * 为什么不自己画：手绘的五个部位在小尺寸下靠「几根示意线」区分，
- * 胸和背几乎只能靠一条脊柱线分辨，实测就是「能认出来」而不是「设计过」。
- * 真实解剖轮廓把这件事一次解决 —— 而且肌群位置本身就是最强的区分信号，
- * 不需要额外的隐喻。
+ * 先做过解剖人形（真实肌群高亮，react-native-body-highlighter 的路径）。
+ * 那版专业、准确，但在 60px 下人形只是一层灰底噪，朱砂块浮在上面，
+ * 读起来是「一张医学示意图」而不是这个 App 自己的东西。
+ * 印章是这套语言里已经存在的符号，用它说话不需要翻译。
+ * （人形那版在 git 里，commit 00da68a。）
+ *
+ * ── 和 PR 那枚印章怎么区分 ────────────────────────────
+ *
+ * 印章原本是「签名时刻」的专属符号，让它出现第二处就有稀释的风险。
+ * 靠刻法分开 —— 这是刻印里真实存在的阴刻／阳刻之别：
+ *
+ *   PR 落章：白文（实心朱砂底、字挖成纸色）、64×64、旋转 -4°、带落章过冲、极罕见
+ *   部位印：朱文（纸底、朱砂框、朱砂字）、52×52、正置、静止、每次开练都有
+ *
+ * 形制不同、姿态不同、频率不同，两者不会互相顶。
  */
 import React from 'react';
-import { Pencil } from 'lucide-react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
-import { BODY_VIEWBOX, BODY_OUTLINE, BODY_GROUPS, type BodyGroupKey } from '../utils/bodyPaths';
 
-export type BodyPartKey = BodyGroupKey | 'other';
+export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'other';
 
 /**
- * 人体图标。视框 724×1448，而实际渲染只有 60px 宽 —— 缩了 12 倍。
+ * 印文。取的是各自标签里【区别性的那个字】：
+ * 练胸→胸、练肩→肩、练背→背、练腿→腿、练手臂→臂、其他→他。
+ * 规则一致，所以不用逐个解释。
  *
- * 尺寸取 60 是量出来的：40px 时肌群只剩几像素的红点，轮廓反客为主
- * （高 DPR 只解决清晰度，不解决尺寸）；68px 最清楚但三行会顶到 638px，
- * 在 812px 的机器上要滚动。60 是「读得清」和「一屏放得下」的交点。
- *
- * ⚠️ 所以描边必须用 vectorEffect="non-scaling-stroke"：
- * 普通 stroke-width 会跟着一起缩，2 会变成 0.11px，屏幕上什么都看不见。
- * 用它之后 strokeWidth 直接就是 CSS 像素，1.75 正是 §6.5 的墨线宽度。
+ * ⚠️ 这几个字必须在 scripts/build-fonts.mjs 的 SEAL_CHARS 里，
+ *    否则 Ma Shan Zheng 的子集里没有它们，会静默掉回系统字体。
  */
-const BodyGlyph: React.FC<{ part: BodyGroupKey }> = ({ part }) => {
-  const { side, d } = BODY_GROUPS[part];
-  return (
-    <svg
-      viewBox={BODY_VIEWBOX[side]}
-      width="60"
-      height="120"
-      aria-hidden
-      focusable="false"
-      className="text-primary"
-    >
-      <path
-        d={BODY_OUTLINE[side]}
-        fill="none"
-        stroke="currentColor"
-        strokeOpacity={0.22}
-        strokeWidth={1.75}
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-      {/* 肌群用朱砂实填而不是描边：这个尺寸下细线会糊成一团，
-          实填的色块反而读得出「就是这块」，且像纸上盖下的一记印。
-
-          ⚠️ 每条路径必须【各自成 path】，不能拼成一条复合路径 ——
-          nonzero 填充规则下互相重叠的子路径会彼此抵消，
-          实测「练背」只剩一道细边、「练胸」的色块跑到锁骨上去了。 */}
-      {d.map((seg, i) => (
-        <path key={i} d={seg} style={{ fill: 'var(--accent)' }} />
-      ))}
-    </svg>
-  );
-};
-
-const PARTS: { key: BodyGroupKey; tk: keyof typeof translations }[] = [
-  { key: 'chest', tk: 'partChest' },
-  { key: 'shoulders', tk: 'partShoulders' },
-  { key: 'back', tk: 'partBack' },
-  { key: 'legs', tk: 'partLegs' },
-  { key: 'arms', tk: 'partArms' },
+const PARTS: { key: BodyPartKey; seal: string; tk: keyof typeof translations }[] = [
+  { key: 'chest', seal: '胸', tk: 'partChest' },
+  { key: 'shoulders', seal: '肩', tk: 'partShoulders' },
+  { key: 'back', seal: '背', tk: 'partBack' },
+  { key: 'legs', seal: '腿', tk: 'partLegs' },
+  { key: 'arms', seal: '臂', tk: 'partArms' },
 ];
+
+/**
+ * 朱文印。虚线框＝这一枚还没刻，等你自己题名（「其他」用）。
+ *
+ * leading-none + 2px padding-top：Ma Shan Zheng 的字面在 em 框里偏上，
+ * 纯 flex 居中会看着往上飘。2 是量出来的 —— 真机实测框内上下留白
+ * 3px 上 / 3.2px 下，基本对称；3px 时是 4.9 / 2.3，方印上这点偏斜看得出来。
+ */
+const Seal: React.FC<{ char: string; dashed?: boolean }> = ({ char, dashed }) => (
+  <span
+    aria-hidden
+    className={`w-[52px] h-[52px] rounded-stamp border-[2.5px] ${
+      dashed ? 'border-dashed' : ''
+    } border-accent text-accent font-seal text-[30px] leading-none
+       flex items-center justify-center pt-[1px] select-none`}
+  >
+    {char}
+  </span>
+);
 
 export interface BodyPartPickerProps {
   lang: Language;
@@ -81,6 +72,10 @@ export interface BodyPartPickerProps {
   /** 选「其他」：不填名，交给顶部标题输入框 */
   onPickOther: () => void;
 }
+
+const TILE =
+  'anim-reveal min-h-[112px] rounded-card border border-divider bg-base ' +
+  'flex flex-col items-center justify-center gap-2.5 active:scale-press transition-ui';
 
 export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, onPickOther }) => {
   const isCn = lang === Language.CN;
@@ -94,8 +89,9 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
         {isCn ? '选完自动作为训练名称，之后仍可改' : 'Becomes the session title; editable later'}
       </p>
 
-      <div className="grid grid-cols-2 gap-3">
-        {PARTS.map(({ key, tk }, i) => {
+      {/* 三列两行＝一页印谱。印比人形矮得多，六枚正好铺成一版。 */}
+      <div className="grid grid-cols-3 gap-2.5">
+        {PARTS.map(({ key, seal, tk }, i) => {
           const label = translations[tk][lang] as string;
           return (
             <button
@@ -105,12 +101,10 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
               data-testid={`body-part-${key}`}
               /* §5.3 列表 stagger：delay = min(i,6) × 32ms，封顶第 7 项 */
               style={{ animationDelay: `${Math.min(i, 6) * 32}ms` }}
-              className="anim-reveal min-h-[168px] rounded-card border border-divider bg-base
-                         flex flex-col items-center justify-center gap-2 text-primary
-                         hover:border-accent active:scale-press transition-ui"
+              className={`${TILE} text-primary hover:border-accent`}
             >
-              <BodyGlyph part={key} />
-              <span className="text-sm font-semibold">{label}</span>
+              <Seal char={seal} />
+              <span className="text-[13px] font-semibold">{label}</span>
             </button>
           );
         })}
@@ -120,15 +114,19 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           onClick={onPickOther}
           data-testid="body-part-other"
           style={{ animationDelay: `${5 * 32}ms` }}
-          className="anim-reveal min-h-[168px] rounded-card border border-dashed border-rule
-                     bg-base flex flex-col items-center justify-center gap-2 text-secondary
-                     hover:border-accent hover:text-accent active:scale-press transition-ui"
+          className={`${TILE} text-secondary hover:border-accent hover:text-accent`}
         >
-          <Pencil size={24} strokeWidth={1.75} />
-          <span className="text-sm font-semibold">{translations.partOther[lang]}</span>
-          <span className="text-[11px] text-tertiary">{translations.partOtherHint[lang]}</span>
+          <Seal char="他" dashed />
+          <span className="text-[13px] font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>
+
+      {/* 三列下的格子太窄，塞不下两行文案，所以「其他」的说明挪到版心底下。
+          写明是给哪一枚的，否则会被读成整页的通用说明。 */}
+      <p className="mt-4 text-center text-[11px] text-tertiary">
+        {isCn ? '「其他」——' : '"Other" — '}
+        {translations.partOtherHint[lang]}
+      </p>
     </section>
   );
 };

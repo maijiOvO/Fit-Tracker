@@ -32,6 +32,9 @@
     <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/noto-sans-sc.woff2">
     <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/noto-serif-sc.woff2">
     <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/plex-mono-500.woff2">
+    <!-- 印章字体也要预加载：它配的是 font-display: block（见 index.css），
+         不预加载的话首屏会先空着等它下完。19KB，而且开练第一屏就要用。 -->
+    <link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/ma-shan-zheng.woff2">
     <link rel="manifest" href="/manifest.json" />
 </head>
 <body>

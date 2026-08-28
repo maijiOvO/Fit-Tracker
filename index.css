@@ -50,13 +50,25 @@
   font-display: optional;
 }
 
-/* 印记 / 批注。只切了印章与批注要用的那十几个字，别拿它排正文 */
+/* 印记 / 批注。只切了印章与批注要用的那十几个字，别拿它排正文。
+ *
+ * ⚠️ 这一张【不能】用 optional，必须 block —— 和上面几张正文字体相反。
+ *
+ * optional 的语义是：给字体一个极短的阻塞窗口，没赶上就整页用回退字体
+ * 且【永不替换】。正文该这样（宁可字形不对也不能让人读不到），
+ * 但印章的全部意义就是那个字形 —— 落成黑体等于这个设计没了。
+ * 实测踩过：重建字体子集后手机首次加载，六枚部位印全是黑体；
+ * 同样的道理，PR 那枚落章在冷启动时多半也一直是黑体，只是太罕见没被发现。
+ *
+ * block = 字体到位前不显示，到位后一次画对。配合 index.html 里的 preload，
+ * 这个"不显示"的窗口在自托管同源下基本为零。
+ */
 @font-face {
   font-family: 'Ma Shan Zheng';
   src: url('/fonts/ma-shan-zheng.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
-  font-display: optional;
+  font-display: block;
 }
 
 /* 兜底字体的度量覆写：数值取自 Noto Sans SC 的 hhea 表
