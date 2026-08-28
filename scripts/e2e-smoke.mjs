@@ -11,6 +11,7 @@
 //  6. Add a goal from the goals tab
 //  7. Toggle unit (kg <-> lbs)
 //  8. Verify back-button confirm dialog when unsaved workout exists
+//  9. English mode: switch language and assert no Chinese leaks into the DOM
 //
 // Output:
 //  - test-artifacts/*.png screenshots at each milestone
@@ -762,6 +763,97 @@ const main = async () => {
     const after = (await btn.textContent())?.trim();
     if (before === after) throw new Error(`unit did not toggle (${before} -> ${after})`);
     return `${before} -> ${after}`;
+  });
+
+  // 英文模式扫雷。整个 e2e 从来没切过语言，于是「英文分支忘了写」这类漏
+  // 一路漏到了线上：结束训练确认框里的单位、弹窗关闭按钮的 aria-label、
+  // PR 历史的日期 —— 全是同一类。这一步把主要界面在英文下走一遍，
+  // 断言 DOM 里不该再出现汉字。
+  //
+  // .font-seal 的豁免留着当保险丝：英文下印面已经换成衬线首字母（C S B L A O / PR，
+  // 见 design 文档 §12.1），font-seal 那支笔根本不上场，正常情况下这条豁免一个都不会命中。
+  await step(page, 'english-mode-no-chinese', async () => {
+    const sweep = () =>
+      page.evaluate(() => {
+        const CJK = /[一-鿿]/;
+        const hits = [];
+        const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = walk.nextNode())) {
+          const t = (n.nodeValue || '').trim();
+          if (!t || !CJK.test(t)) continue;
+          if (n.parentElement && n.parentElement.closest('.font-seal')) continue;
+          hits.push('text:' + t.slice(0, 40));
+        }
+        for (const el of document.querySelectorAll('[aria-label],[title],[placeholder]')) {
+          for (const a of ['aria-label', 'title', 'placeholder']) {
+            const v = el.getAttribute(a);
+            if (v && CJK.test(v)) hits.push(a + ':' + v.slice(0, 40));
+          }
+        }
+        return hits;
+      });
+
+    const nav = (re) => page.locator('nav button', { hasText: re }).click();
+
+    await nav(/我的|Profile/);
+    await page.locator('[data-testid="language-toggle"]').click();
+    await page.waitForTimeout(300);
+
+    // 切完先自证确实在英文下：<html lang> 是跟着语言走的（UserSettingsContext）
+    const htmlLang = await page.evaluate(() => document.documentElement.lang);
+    if (htmlLang !== 'en') throw new Error(`language toggle did not take effect (html lang=${htmlLang})`);
+
+    const found = [];
+    const screens = [
+      ['profile', null],
+      ['dashboard', /个人记录|PR Hub|Dashboard/],
+      ['plan', /训练计划|Plan/],
+    ];
+    for (const [name, re] of screens) {
+      if (re) {
+        await nav(re);
+        await page.waitForTimeout(300);
+      }
+      for (const hit of await sweep()) found.push(`${name} → ${hit}`);
+    }
+
+    // 新建训练页（部位印那一屏）也扫一遍：印章之外不该有汉字。
+    // 前面的用例刚结束过一场，10 分钟内点开始会先问「继续刚才那场？」——
+    // 这里要的是干净的新建页，所以选「新开一场」。
+    await page.getByRole('button', { name: /开始训练|Start workout/i }).click();
+    await page.waitForTimeout(400);
+    const resumeDlg = page.locator('[role="dialog"]');
+    if (await resumeDlg.isVisible().catch(() => false)) {
+      await clickAppConfirm(page, /^新开一场$|^Start new$/);
+      await page.waitForTimeout(400);
+    }
+    for (const hit of await sweep()) found.push(`new-workout → ${hit}`);
+
+    // 遮罩退场有动画，DOM 还在的那几帧里点谁都会被 scrim 吞掉（点击会一直重试到超时）。
+    // 等它真的从 DOM 上消失再点，比 waitForTimeout 猜一个数可靠。
+    await page.waitForFunction(() => !document.querySelector('[role="presentation"]'), null, {
+      timeout: 5_000,
+    });
+    // 用 aria-label 定位而不是可及名：部位印那一格的可及名也是 Back（背），
+    // getByRole 会同时命中两个而报 strict mode violation。那一格没有 aria-label。
+    await page.getByLabel(/^返回$|^Back$/).first().click();
+    await page.waitForTimeout(400);
+    // 空训练直接返回不会弹确认；真弹了（有内容）就确认离开，别把后面的用例卡住
+    if (await resumeDlg.isVisible().catch(() => false)) {
+      await acceptAppConfirm(page);
+      await page.waitForTimeout(300);
+    }
+
+    // 复原成中文，后续用例看到的还是原来的界面
+    await nav(/我的|Profile/);
+    await page.locator('[data-testid="language-toggle"]').click();
+    await page.waitForTimeout(300);
+
+    if (found.length) {
+      throw new Error(`${found.length} Chinese string(s) leaked in English mode: ${found.slice(0, 8).join(' | ')}`);
+    }
+    return 'no Chinese outside decorative seals';
   });
 
   // 防误结束拆场的另一半：选「继续这场」要把刚结束的那场接回工作台。

@@ -446,7 +446,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
         {/* Language Toggle */}
         <button 
-          onClick={onToggleLanguage} 
+          onClick={onToggleLanguage}
+          data-testid="language-toggle"
           className="w-full p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors"
         >
           <div className="flex items-center gap-4">
