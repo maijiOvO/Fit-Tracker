@@ -74,6 +74,27 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * 哪些组行是「刚添加出来的」——只有它们播「写下一组」入场（§5.3）。
+   *
+   * 靠比对上一次渲染的 id 集合判断，而不是靠组件挂载：
+   * 挂载会在切 tab、展开卡片时都发生，那时整卡一起动就成噪音了。
+   * 首次渲染整卡的行都不算新（seenRef 为空 → 全部跳过）。
+   */
+  const seenSetIdsRef = useRef<Set<string> | null>(null);
+  const currentIds = exercise.sets.map((s: any) => String(s.id));
+  const newSetIds = new Set<string>();
+  if (seenSetIdsRef.current) {
+    for (const id of currentIds) if (!seenSetIdsRef.current.has(id)) newSetIds.add(id);
+  }
+  // ⚠️ 必须在 commit 之后才登记，不能在渲染期改 ref：
+  // StrictMode 会把渲染跑两遍，第一遍就登记的话第二遍算出来的「新行」是空的，
+  // 提交到 DOM 的就永远是 isNew=false，动画一次都不会播。
+  useEffect(() => {
+    seenSetIdsRef.current = new Set(currentIds);
+    // currentIds 每次渲染都是新数组，用它的内容当依赖
+  }, [currentIds.join('|')]);
+
   useEffect(() => {
     if (!menuOpen) return;
     const onDown = (e: PointerEvent) => {
@@ -237,6 +258,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             setIdx={setIdx}
             activeMetrics={activeMetrics}
             loadMode={loadMode}
+            isNew={newSetIds.has(String(set.id))}
             unit={unit}
             lang={lang}
             onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}

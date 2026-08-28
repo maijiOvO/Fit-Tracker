@@ -11,7 +11,8 @@
  * 格子色由 --accent 派生：color-mix 一个公式盖住深浅两个主题，
  * 令牌一变它跟着变，不需要第二份调色板。
  */
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { Language } from '../../types';
 
 export interface HeatmapDay {
@@ -28,6 +29,8 @@ interface Props {
   lang: Language;
   /** 往回看多少天 */
   span?: number;
+  /** 收起时显示几周。「我的」页面里整张图太占纵向高度，默认只留 5 行。 */
+  collapsedWeeks?: number;
   onPickDay?: (day: HeatmapDay) => void;
 }
 
@@ -44,10 +47,17 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export const ActivityHeatmap: React.FC<Props> = ({ days, lang, span = 91, onPickDay }) => {
+export const ActivityHeatmap: React.FC<Props> = ({
+  days,
+  lang,
+  span = 91,
+  collapsedWeeks = 5,
+  onPickDay,
+}) => {
   const isCn = lang === Language.CN;
+  const [expanded, setExpanded] = useState(false);
 
-  const { cells, streak, activeDays, totalSets } = useMemo(() => {
+  const { cells, streak } = useMemo(() => {
     const byDate = new Map<string, HeatmapDay>(days.map(d => [d.date, d]));
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -83,16 +93,20 @@ export const ActivityHeatmap: React.FC<Props> = ({ days, lang, span = 91, onPick
       cursor.setDate(cursor.getDate() - 1);
     }
 
-    const inRange = out.filter(c => !c.future && c.sets > 0);
-    return {
-      cells: out,
-      streak: s,
-      activeDays: inRange.length,
-      totalSets: inRange.reduce((a, c) => a + c.sets, 0),
-    };
+    return { cells: out, streak: s };
   }, [days, span]);
 
   const weekdays = isCn ? ['一', '二', '三', '四', '五', '六', '日'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  // 收起时只留最近 collapsedWeeks 行（贴着今天那一端）
+  const totalWeeks = Math.ceil(cells.length / 7);
+  const canCollapse = totalWeeks > collapsedWeeks;
+  const shown = !canCollapse || expanded ? cells : cells.slice((totalWeeks - collapsedWeeks) * 7);
+  const shownWeeks = Math.ceil(shown.length / 7);
+  // 统计只覆盖画出来的那几周——展开时数字跟着变，说的和看到的才是同一件事
+  const inRange = shown.filter(c => !c.future && c.sets > 0);
+  const activeDays = inRange.length;
+  const totalSets = inRange.reduce((a, c) => a + c.sets, 0);
 
   return (
     <div>
@@ -106,7 +120,8 @@ export const ActivityHeatmap: React.FC<Props> = ({ days, lang, span = 91, onPick
           {isCn ? '天' : 'd'}
         </span>
         <span className="text-tertiary">
-          {activeDays} {isCn ? '天有训练' : 'active'} · {totalSets} {isCn ? '组' : 'sets'}
+          {isCn ? `近 ${shownWeeks} 周` : `Last ${shownWeeks}w`} · {activeDays}{' '}
+          {isCn ? '天有训练' : 'active'} · {totalSets} {isCn ? '组' : 'sets'}
         </span>
       </div>
 
@@ -119,7 +134,7 @@ export const ActivityHeatmap: React.FC<Props> = ({ days, lang, span = 91, onPick
       </div>
 
       <div className="grid grid-cols-7 gap-1">
-        {cells.map(c => {
+        {shown.map(c => {
           if (c.future) return <span key={c.date} />;
           const title = `${c.date} · ${c.sets} ${isCn ? '组' : 'sets'}${
             c.sessions > 1 ? ` · ${c.sessions} ${isCn ? '场' : 'sessions'}` : ''
@@ -146,7 +161,24 @@ export const ActivityHeatmap: React.FC<Props> = ({ days, lang, span = 91, onPick
         })}
       </div>
 
-      <div className="flex items-center justify-end gap-1.5 mt-3 text-micro text-tertiary">
+      <div className="flex items-center gap-1.5 mt-3 text-micro text-tertiary">
+        {canCollapse && (
+          <button
+            type="button"
+            onClick={() => setExpanded(v => !v)}
+            className="mr-auto inline-flex items-center gap-1 min-h-[32px] text-micro font-medium text-secondary"
+            aria-expanded={expanded}
+          >
+            <ChevronDown
+              size={13}
+              strokeWidth={2}
+              className={`transition-transform duration-base ease-paper ${expanded ? 'rotate-180' : ''}`}
+            />
+            {expanded
+              ? isCn ? '收起' : 'Collapse'
+              : isCn ? `展开全部 ${totalWeeks} 周` : `Show all ${totalWeeks} weeks`}
+          </button>
+        )}
         <span>{isCn ? '少' : 'Less'}</span>
         {[0, 1, 2, 3, 4].map(l => (
           <span

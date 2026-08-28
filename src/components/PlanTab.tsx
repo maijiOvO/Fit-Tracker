@@ -44,7 +44,7 @@ const PlanTab: React.FC<PlanTabProps> = ({
   }, [subView]);
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 anim-tab-enter">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-display-sm text-primary">
           {translations.trainingPlan[lang]}

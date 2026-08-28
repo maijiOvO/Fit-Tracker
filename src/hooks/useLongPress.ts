@@ -9,6 +9,11 @@
  *   - 长按必须自我解释：进度线开始画的同时，旁边浮出标签说明会发生什么。
  *     手势保持零常驻 UI 成本，但按住即自解释；半路松手那一闪，
  *     正好把手势教给用户。（实测：不加标签时连设计者本人都不记得这手势干嘛的。）
+ *
+ * ⚠️ 「按住即自解释」有个缺口：**轻点**（<120ms 静默期就松手）时什么都不会出现，
+ * 用户只看到按了没反应，判定为「按钮坏了」——真实反馈过。
+ * 所以松手过早时补一次 hint：把标签单独闪出来，把手势教给用户。
+ * 只在 pointerup（有意的松手）时补，滑走 / 离开不补，否则滚动列表时会到处闪。
  */
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -31,6 +36,9 @@ interface Options {
   disabled?: boolean;
 }
 
+/** 松手过早后，把「要按住」这件事闪给用户看多久 */
+const HINT_MS = 1400;
+
 interface Result {
   /** 摊到目标元素上的事件处理器 */
   handlers: {
@@ -43,14 +51,19 @@ interface Result {
   };
   /** 是否正在按住 —— 用来渲染进度线与自解释标签 */
   pressing: boolean;
+  /** 松手太早：只闪标签不画线，告诉用户这里需要按住 */
+  hinting: boolean;
   /** 进度线该画多久（ms），直接喂给 animation-duration */
   drawMs: number;
 }
 
 export function useLongPress({ onLongPress, durationMs = TOTAL_MS, disabled = false }: Options): Result {
   const [pressing, setPressing] = useState(false);
+  const [hinting, setHinting] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const hintTimerRef = useRef<number | null>(null);
   const originRef = useRef<{ x: number; y: number } | null>(null);
+  const startedAtRef = useRef<number>(0);
   const cbRef = useRef(onLongPress);
   cbRef.current = onLongPress;
 
@@ -63,14 +76,32 @@ export function useLongPress({ onLongPress, durationMs = TOTAL_MS, disabled = fa
     setPressing(false);
   }, []);
 
+  /** 有意的松手：没按满就闪一次提示 */
+  const release = useCallback(() => {
+    const wasPressing = timerRef.current !== null;
+    cancel();
+    if (!wasPressing) return;
+    setHinting(true);
+    if (hintTimerRef.current !== null) window.clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = window.setTimeout(() => setHinting(false), HINT_MS);
+  }, [cancel]);
+
   // 组件卸载时别把定时器留在后面
-  useEffect(() => cancel, [cancel]);
+  useEffect(
+    () => () => {
+      cancel();
+      if (hintTimerRef.current !== null) window.clearTimeout(hintTimerRef.current);
+    },
+    [cancel],
+  );
 
   const start = useCallback(
     (e: React.PointerEvent) => {
       if (disabled) return;
       cancel();
       originRef.current = { x: e.clientX, y: e.clientY };
+      startedAtRef.current = performance.now();
+      setHinting(false);
       setPressing(true);
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
@@ -97,13 +128,15 @@ export function useLongPress({ onLongPress, durationMs = TOTAL_MS, disabled = fa
   return {
     handlers: {
       onPointerDown: start,
-      onPointerUp: cancel,
+      // 有意松手才补提示；滑走 / 离开只是取消，不闪
+      onPointerUp: release,
       onPointerLeave: cancel,
       onPointerCancel: cancel,
       onPointerMove: move,
       onContextMenu: (e) => e.preventDefault(),
     },
     pressing,
+    hinting,
     drawMs: durationMs - LONGPRESS_DELAY_MS,
   };
 }

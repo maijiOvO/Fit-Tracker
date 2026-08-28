@@ -183,14 +183,14 @@ export default {
           '0%, 100%': { opacity: '1', transform: 'scale(1)' },
           '50%': { opacity: '0.5', transform: 'scale(0.9)' },
         },
-        'fade-in': {
-          from: { opacity: '0' },
-          to: { opacity: '1' },
-        },
       },
       animation: {
+        // 同步指示器的呼吸。它是「持续进行中」的状态指示，不属于三个动词，
+        // 但也不是装饰——留着。
         sync: 'sync-pulse 2s infinite ease-in-out',
-        'fade-in': 'fade-in 150ms ease-out',
+        // 旧的 fade-in（150ms ease-out）已删：时长与缓动都不是令牌，
+        // 且它在 tab 根节点上建的层叠上下文正是当初困住弹窗的原因。
+        // 入场统一走 index.css 里的 anim-tab-enter / anim-reveal。
       },
     },
   },

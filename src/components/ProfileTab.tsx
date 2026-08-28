@@ -83,17 +83,30 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const motion = useMotionPreference();
   // 标签刻意不叫「跟随系统」——上面的主题开关已经占了那个词，
   // 同一张卡里两个一模一样的三档开关会让人分不清在调哪个。
-  const motionOptions: { id: MotionPreference; label: string }[] = [
-    { id: 'auto', label: lang === Language.CN ? '自动' : 'Auto' },
-    { id: 'off', label: lang === Language.CN ? '保留' : 'Keep' },
-    { id: 'on', label: lang === Language.CN ? '减弱' : 'Reduce' },
+  // 每档都带一行说明：光看「自动 / 保留 / 减弱」三个词猜不出差别（实测反馈）。
+  const motionOptions: { id: MotionPreference; label: string; hint: string }[] = [
+    {
+      id: 'auto',
+      label: lang === Language.CN ? '自动' : 'Auto',
+      hint: lang === Language.CN ? '听系统的' : 'Follow system',
+    },
+    {
+      id: 'off',
+      label: lang === Language.CN ? '保留' : 'Keep',
+      hint: lang === Language.CN ? '始终有动效' : 'Always animate',
+    },
+    {
+      id: 'on',
+      label: lang === Language.CN ? '减弱' : 'Reduce',
+      hint: lang === Language.CN ? '始终减弱' : 'Always reduce',
+    },
   ];
 
   // §5.7 第 5 条：安静的健身房里会自己嗡嗡的 App 很讨人嫌
   const [haptics, setHaptics] = useState(hapticsEnabled);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 anim-tab-enter">
       {/* Profile Header */}
       <div className="flex flex-col items-center justify-center py-10 relative overflow-hidden">
         <div className="absolute inset-0 bg-accent/5 rounded-control blur-3xl scale-150" />
@@ -136,14 +149,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
       {/* Training Heatmap */}
       <div className="w-full bg-card border border-divider rounded-card p-5">
-        <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest flex items-center gap-2">
-            <Activity size={12} className="text-accent" />
+        {/* 「近3个月」那个角标去掉了：范围随展开/收起变化，写死会说谎；
+            实际范围由热力图自己的摘要行报（§3：中文不 uppercase、不加字距）。 */}
+        <div className="flex items-center gap-2 mb-3 px-1">
+          <Activity size={13} className="text-accent" strokeWidth={1.75} />
+          <h3 className="text-label font-medium text-secondary">
             {lang === Language.CN ? '训练活跃度' : 'Activity'}
           </h3>
-          <span className="text-[10px] font-bold text-tertiary bg-card px-2 py-1 rounded-chip">
-            {lang === Language.CN ? '近3个月' : 'Last 90 Days'}
-          </span>
         </div>
         
         <ActivityHeatmap
@@ -381,21 +393,35 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 key={opt.id}
                 type="button"
                 onClick={() => motion.setPreference(opt.id)}
-                className={`min-h-[44px] rounded-chip text-label font-medium transition-colors duration-tap ease-paper ${
+                className={`min-h-[48px] py-1.5 rounded-chip transition-colors duration-tap ease-paper ${
                   motion.preference === opt.id
                     ? 'bg-accent text-on-accent'
                     : 'text-secondary hover:text-primary hover:bg-card-hover'
                 }`}
               >
-                {opt.label}
+                <span className="block text-label font-medium leading-tight">{opt.label}</span>
+                <span
+                  className={`block text-micro leading-tight ${
+                    motion.preference === opt.id ? 'opacity-75' : 'text-tertiary'
+                  }`}
+                >
+                  {opt.hint}
+                </span>
               </button>
             ))}
           </div>
-          <p className="px-1 text-micro text-tertiary leading-relaxed">
-            {lang === Language.CN
-              ? '「减弱」只去掉位移与缩放，颜色与淡入保留。长按进度线任何时候都会画——它是功能指示不是装饰。'
-              : 'Reduce removes movement only; color and fade stay. The long-press progress line always draws.'}
-          </p>
+          <div className="px-1 space-y-2 text-micro text-tertiary leading-relaxed">
+            <p>
+              {lang === Language.CN
+                ? '「减弱」只去掉位移、缩放与旋转，颜色和淡入照旧——它们不引起眩晕。长按进度线任何档位都会画，那是功能指示不是装饰。'
+                : 'Reduce drops movement, scaling and rotation only — color and fade stay. The long-press progress line always draws; it is a functional indicator, not decoration.'}
+            </p>
+            <p>
+              {lang === Language.CN
+                ? '「保留」是用来盖过系统的：安卓开发者选项里的「动画程序时长缩放 = 关闭」也会被算成「系统要求减少动效」，而很多人为了让手机更快关掉了它。'
+                : 'Keep exists to override the system: Android counts "Animator duration scale = off" in developer options as a reduce-motion request, and many people turn that off to make their phone feel faster.'}
+            </p>
+          </div>
         </div>
 
         {/* 触觉 §5.7 */}

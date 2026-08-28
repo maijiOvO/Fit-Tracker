@@ -339,7 +339,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
                     {/* 展开详情 */}
                     {isExpanded && (
-                      <div className="mt-4 pt-4 border-t border-divider space-y-3 animate-fade-in">
+                      <div className="mt-4 pt-4 border-t border-divider space-y-3 anim-reveal">
                         {(w.exercises || []).map((ex, idx) => (
                           <div
                             key={`${ex.id}-${idx}`}

@@ -18,7 +18,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 anim-tab-enter">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="font-display text-display-sm text-primary">{translations.goals[lang]}</h2>

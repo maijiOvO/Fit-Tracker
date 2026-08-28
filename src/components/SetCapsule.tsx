@@ -21,6 +21,8 @@ interface SetCapsuleProps {
   activeMetrics: string[];
   /** 负重/辅助标记，影响 weight 列的单位符号（+kg / −kg）。只读历史视图可不传。 */
   loadMode?: LoadMode;
+  /** 这一行是刚添加出来的 → 播「写下一组」入场（§5.3） */
+  isNew?: boolean;
   unit: string;
   lang: Language;
   readOnly?: boolean;
@@ -55,6 +57,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   setIdx,
   activeMetrics,
   loadMode,
+  isNew = false,
   unit,
   lang,
   readOnly = false,
@@ -63,6 +66,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   onDurationClick,
 }) => {
   const isCn = lang === Language.CN;
+  // §11 坑 1：动画跑完必须摘掉入场类，否则它会盖住后续的反馈动画，
+  // 且 fill:both 会把 height 钉死在 52px。
+  const [entering, setEntering] = useState(isNew);
   // 显式标注：解构默认值会被本项目的宽松 tsconfig 拓宽成 string
   const mode: LoadMode = loadMode ?? 'none';
   // 自带一份列宽：ExerciseCard 会在卡片上设同样的值（表头要用），
@@ -112,7 +118,13 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
   return (
     <>
-      <div className="ledger-row" style={colStyle}>
+      <div
+        className={`ledger-row${entering ? ' is-entering' : ''}`}
+        style={colStyle}
+        onAnimationEnd={e => {
+          if (e.animationName === 'row-in') setEntering(false);
+        }}
+      >
         {/* 组号：36×36 可长按胶囊 */}
         <span
           className="relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-none"
@@ -121,7 +133,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           {setIdx + 1}
           <LongPressAffordance
             active={addSub.pressing}
+            hint={addSub.hinting}
             label={isCn ? '加子组' : 'Drop set'}
+            hintLabel={isCn ? '按住加子组' : 'Hold for drop set'}
             drawMs={addSub.drawMs}
           />
         </span>
@@ -207,7 +221,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             <Minus size={18} strokeWidth={1.75} />
             <LongPressAffordance
               active={removeSet.pressing}
+              hint={removeSet.hinting}
               label={isCn ? '删除' : 'Delete'}
+              hintLabel={isCn ? '按住删除' : 'Hold to delete'}
               drawMs={removeSet.drawMs}
             />
           </button>

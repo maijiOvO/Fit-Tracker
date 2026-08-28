@@ -148,7 +148,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   if (workouts.length === 0 && weightEntries.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-fade-in">
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 anim-tab-enter">
         <div className="bg-accent-soft p-8 rounded-control mb-8">
           <Trophy size={64} className="text-accent" strokeWidth={1.75} />
         </div>
@@ -167,7 +167,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   }
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 anim-tab-enter">
       {/* 体重：单行摘要，点击展开趋势 */}
       <div className="ui-card px-4 py-3">
         <div
@@ -373,7 +373,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {isExpanded && (
-                <div className="border-t border-divider mt-5 pt-5 animate-fade-in">
+                <div className="border-t border-divider mt-5 pt-5 anim-reveal">
                   <div className="flex flex-wrap gap-2 mb-4">
                     {prefs.getActiveMetrics(lift.name).map(m => (
                       <button
@@ -424,7 +424,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                       </button>
 
                       {isHistoryVisible && (
-                        <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-1 animate-fade-in">
+                        <div className="space-y-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-1 anim-reveal">
                           {historyExs.map((ex, exIdx) => (
                             <div
                               key={`${ex.workoutId}-${ex.id}-${exIdx}`}

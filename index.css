@@ -618,6 +618,29 @@ button {
   top: calc(100% + 4px);
 }
 
+/* 提示态：轻点松手时闪一下「按住删除」。
+   没有它的话轻点＝零反馈，用户会判定按钮坏了。
+   用墨色底而不是朱砂，和「正在按住」区分开：这只是说明，不是进行中。 */
+@keyframes longpress-hint {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.longpress-label.is-hint {
+  background: var(--text-primary);
+  color: var(--bg-card);
+  animation: longpress-hint 1400ms var(--ease-ink) both;
+}
+
 /* 账本行 §6.1：行不再是填充盒。去掉背景与边框，只留一条底线，
    从「一堆灰色胶囊」变回账本横线——同屏噪音直接减半。 */
 .ledger-row {
@@ -628,6 +651,30 @@ button {
   min-height: 52px;
   padding: 0 12px;
   border-bottom: 1px solid var(--divider);
+}
+
+/* §5.3「写下一组」：新行 clip-path 自上而下揭示，同时把高度从 0 撑到 52px 占位
+   —— 不撑开的话下方的「添加组」按钮会先跳一格再等内容出现。
+
+   ⚠️ 入场期间必须去掉 min-height，否则高度动画被它顶死、行直接硬切出现。
+   动画跑完立刻摘掉 .is-entering（§11 坑 1：入场类留着会盖住后续的反馈动画，
+   而且 fill:both 会把 height 钉死在 52px，内容一换行就裁掉）。 */
+@keyframes row-in {
+  from {
+    height: 0;
+    opacity: 0.35;
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    height: 52px;
+    opacity: 1;
+    clip-path: inset(0);
+  }
+}
+.ledger-row.is-entering {
+  min-height: 0;
+  overflow: hidden;
+  animation: row-in var(--dur-base) var(--ease-paper) both;
 }
 
 /* 稿纸横纹：52px 一行，与 .ledger-row 的 min-height 对齐。
