@@ -594,6 +594,33 @@ const main = async () => {
     return `${before} → ${after} → ${restored}`;
   });
 
+  // 复制为今天的训练：结构照抄，但每一组都是底稿（§12.6），出处指向来源那一场。
+  await step(page, 'timeline-copy-to-today', async () => {
+    const card = page.locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`);
+    const box = await card.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+
+    const menu = page.locator('[data-testid="timeline-session-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.getByRole('menuitem').filter({ hasText: /复制为今天的训练|Copy to today/ }).click();
+
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    const hasExercise = await page.locator('text=E2E Bench Press').first().isVisible().catch(() => false);
+    if (!hasExercise) throw new Error('copied workout has no exercises');
+    // 红线（§12.6）：复制来的组必须是底稿，不能静默变成数据 —— 眉批就是它的凭据
+    const draftNote = page.locator('text=/底稿 · 上次|Draft · last/').first();
+    await draftNote.waitFor({ state: 'visible', timeout: 3_000 });
+
+    // 别给后续用例留状态：底稿从没落过盘，返回即丢
+    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
+    await acceptAppConfirm(page);
+    await page.waitForTimeout(300);
+    return 'copied as drafts with prefill note';
+  });
+
   await step(page, 'open-workout-via-fab', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     // 刚才结束过训练，防误结束拆场的闸门会先问一句 —— 这里选「新开一场」

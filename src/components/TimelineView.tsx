@@ -5,6 +5,7 @@ import {
   ChevronUp,
   Edit2,
   Plus,
+  CopyPlus,
   Merge,
   Trash2,
   CalendarDays,
@@ -32,6 +33,8 @@ interface TimelineViewProps {
   onDeleteWorkout: (workoutId: string, options?: { skipConfirm?: boolean }) => void;
   /** 把这场并入时间上紧邻的前一场（误结束拆场的事后补救），带撤销 */
   onMergeIntoPrevious: (workoutId: string) => void;
+  /** 把这场的结构铺成今天的一次新训练（全部为底稿），进工作台 */
+  onCopyToToday: (workoutId: string) => void;
 }
 
 /** 底稿行不算数据（§12.6）：未收尾的草稿场次里可能带着 ghost 行 */
@@ -135,6 +138,7 @@ interface SessionCardProps {
   onAppend: () => void;
   onDelete: () => void;
   onMerge: () => void;
+  onCopy: () => void;
   /** 前面还有训练可并入时才给这一项 —— 最早的一场没有「上一场」 */
   canMerge: boolean;
 }
@@ -163,6 +167,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onAppend,
   onDelete,
   onMerge,
+  onCopy,
   canMerge,
 }) => {
   const isCN = lang === Language.CN;
@@ -298,6 +303,21 @@ const SessionCard: React.FC<SessionCardProps> = ({
             <Plus size={16} strokeWidth={1.75} className="text-tertiary" />
             {isCN ? '补记动作' : 'Add exercise'}
           </button>
+          {/* 「上次那套，再来一遍」：结构照抄，但每一组都以底稿铺下去（§12.6），
+              点组号才描实 —— 复制不替用户上报他没做的事。 */}
+          <button
+            type="button"
+            role="menuitem"
+            className={menuItem}
+            onClick={() => {
+              setMenuOpen(false);
+              onCopy();
+            }}
+          >
+            <CopyPlus size={16} strokeWidth={1.75} className="text-tertiary" />
+            <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
+            <span className="text-[10px] text-tertiary">{isCN ? '底稿' : 'Draft'}</span>
+          </button>
           {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。
               和删除一样走「先执行 + 撤销」——手滑点到它，撤销条就在下面。 */}
           {canMerge && (
@@ -378,6 +398,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onAddExerciseToWorkout,
   onDeleteWorkout,
   onMergeIntoPrevious,
+  onCopyToToday,
 }) => {
   const isCN = lang === Language.CN;
   /** 全局最早那一场的 id —— 只有它没有「上一场」可并 */
@@ -522,6 +543,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onAppend={() => onAddExerciseToWorkout(w.id)}
                   onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
                   onMerge={() => onMergeIntoPrevious(w.id)}
+                  onCopy={() => onCopyToToday(w.id)}
                   canMerge={w.id !== earliestId}
                 />
               ))}

@@ -3,7 +3,7 @@
  * v3: 移除 draft/completed 分流，简化结束训练逻辑
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { Exercise, Language, WorkoutSession } from '../../types';
+import { Exercise, Language, SetLog, WorkoutSession } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone, removeTombstone } from '../../services/fitlogTombstones';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
@@ -32,6 +32,29 @@ export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
  * 挡在产生之前，比事后给撤销便宜得多。
  */
 const RESUME_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * 把一串既有的组铺成底稿行（§12.6）。
+ *
+ * 只抄数值字段：力竭是当日事实、递减子组是结构性的（长按重建），都不继承。
+ * 上次若本身是未收尾的草稿，先滤掉它的 ghost —— 别把底稿再抄成底稿。
+ *
+ * 添加单个动作（底稿预填）和整场复制共用这一份，两处的语义必须是同一套：
+ * §12.6 说的就是「不发明新机制」。
+ */
+function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
+  return (sets ?? [])
+    .filter(s => !s.ghost)
+    .map((s, j) => ({
+      id: `${idPrefix}_${j}`,
+      weight: s.weight ?? 0,
+      reps: s.reps ?? 0,
+      ...(s.duration ? { duration: s.duration } : {}),
+      ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
+      ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),
+      ghost: true,
+    }));
+}
 
 export interface UseWorkoutMutationsParams {
   setActiveTab: (tab: ActiveTab) => void;
@@ -88,6 +111,8 @@ export interface UseWorkoutMutationsResult {
   ) => Promise<void>;
   /** §12.8 菜单项「并入上一场」：把这场的动作追加到紧邻的前一场，本场删除，可撤销 */
   handleMergeIntoPrevious: (workoutId: string) => Promise<void>;
+  /** §12.8 菜单项「复制为今天的训练」：整场结构铺成底稿进工作台（§12.6 语义） */
+  handleCopyWorkoutToToday: (workoutId: string) => Promise<void>;
   handleDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,
@@ -430,6 +455,68 @@ export function useWorkoutMutations({
     [isCn, refreshFromDb, toast, toastUndo, workouts],
   );
 
+  /**
+   * 复制为今天的训练（§12.8 菜单项）—— 「上次那套，再来一遍」。
+   *
+   * 不发明新机制：动作与组数结构照抄，但每一组都以底稿铺下去
+   * （§12.6 的 ghost + prefillFrom 全套语义），出处指向来源那一场。
+   * 于是照抄仍是一组一击（点组号描实），而没描实的组结束训练时整行丢弃 ——
+   * 复制永远不会替用户上报他没做的事。
+   */
+  const handleCopyWorkoutToToday = useCallback(
+    async (workoutId: string) => {
+      const src = workouts.find(x => x.id === workoutId);
+      if (!src) return;
+
+      const stamp = Date.now();
+      const exercises: Exercise[] = (src.exercises || [])
+        .map((ex, i) => ({
+          id: `exercise_${stamp}_${i}`,
+          name: ex.name,
+          category: ex.category,
+          ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
+          tags: ex.tags ?? [],
+          sets: toGhostSets(ex.sets, `${stamp}_${i}`),
+          exerciseTime: new Date().toISOString(),
+          ...(src.date ? { prefillFrom: src.date } : {}),
+          ...(ex.instanceConfig ? { instanceConfig: { ...ex.instanceConfig } } : {}),
+        }))
+        // 来源里只剩底稿的动作（未收尾的草稿）没有可抄的事实，整个动作丢掉
+        .filter(ex => ex.sets.length > 0);
+
+      if (exercises.length === 0) {
+        toast(isCn ? '这场没有可复制的组' : 'Nothing to copy from this workout', 'info');
+        return;
+      }
+
+      // 工作台里还有没结束的一场时，复制会把它从工作台上顶掉 —— 这个没有撤销，先问一句。
+      if ((currentWorkout.exercises?.length ?? 0) > 0) {
+        const ok = await confirm({
+          message: isCn
+            ? '工作台里还有一场没结束的训练，复制会把它替换掉。\n\n（它已经存过，之后可以从时间线里接着编辑。）'
+            : 'There is an unfinished workout on the bench; copying replaces it.\n\n(It is already saved — you can keep editing it from the timeline.)',
+          confirmLabel: isCn ? '继续复制' : 'Copy anyway',
+        });
+        if (!ok) return;
+      }
+
+      activeScheduleIdRef.current = null;
+      setCurrentWorkout({
+        ...workoutCtx.createNewWorkout(),
+        title: src.title || '',
+        tags: src.tags ?? [],
+        exercises,
+      });
+      setEditingWorkoutId(null);
+      setActiveTab('new');
+      toast(
+        isCn ? '已铺成底稿——点组号照抄' : 'Copied as drafts — tap a set number to confirm',
+        'info',
+      );
+    },
+    [confirm, currentWorkout.exercises, isCn, setActiveTab, setCurrentWorkout, toast, workoutCtx, workouts],
+  );
+
   const handleDeleteExerciseRecord = useCallback(
     async (
       e: React.MouseEvent,
@@ -624,20 +711,9 @@ export function useWorkoutMutations({
        * 只抄数值字段：力竭是当日事实、递减子组是结构性的，都不继承。
        */
       const stamp = Date.now();
-      const ghostSets =
-        lastExercise?.sets && lastExercise.sets.length > 0
-          ? lastExercise.sets
-              .filter(s => !(s as any).ghost) // 上次若是未收尾的草稿，别把底稿再抄成底稿
-              .map((s, j) => ({
-                id: `${stamp}_${j}`,
-                weight: s.weight ?? 0,
-                reps: s.reps ?? 0,
-                ...(s.duration ? { duration: s.duration } : {}),
-                ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
-                ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),
-                ghost: true,
-              }))
-          : null;
+      const ghostSets = lastExercise?.sets?.length
+        ? toGhostSets(lastExercise.sets, `${stamp}`)
+        : null;
 
       const newExerciseId = `exercise_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -707,6 +783,7 @@ export function useWorkoutMutations({
     handleNewWorkoutBack,
     handleDeleteWorkout,
     handleMergeIntoPrevious,
+    handleCopyWorkoutToToday,
     handleDeleteExerciseRecord,
     handleStartScheduledSession,
     startWorkoutGuarded,

@@ -276,6 +276,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleNewWorkoutBack,
     handleDeleteWorkout,
     handleMergeIntoPrevious,
+    handleCopyWorkoutToToday,
     handleDeleteExerciseRecord,
     handleStartScheduledSession,
     startWorkoutGuarded,
@@ -479,6 +480,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       onAddExerciseToPastWorkout: handleAddExerciseToPastWorkout,
       onDeleteWorkout: handleDeleteWorkout,
       onMergeIntoPrevious: handleMergeIntoPrevious,
+      onCopyWorkoutToToday: handleCopyWorkoutToToday,
       onDeleteExerciseRecord: handleDeleteExerciseRecord,
       onDeleteWeightEntry: handleDeleteWeightEntry,
       onLogWeight: () => {
@@ -494,6 +496,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       handleAddExerciseToPastWorkout,
       handleDeleteWorkout,
       handleMergeIntoPrevious,
+      handleCopyWorkoutToToday,
       handleDeleteExerciseRecord,
       handleDeleteWeightEntry,
       triggerEditWeight,
