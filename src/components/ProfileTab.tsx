@@ -416,36 +416,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </div>
         </div>
 
-        {/* 动效 §5.6 */}
-        <div className="space-y-2">
-          <p className="ui-section-label px-1">
-            {lang === Language.CN ? '动效' : 'Motion'}
-          </p>
-          <div className="grid grid-cols-3 gap-2 p-1 bg-inset rounded-control border border-divider">
-            {motionOptions.map(opt => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => motion.setPreference(opt.id)}
-                className={`min-h-[48px] py-1.5 rounded-chip transition-colors duration-tap ease-paper ${
-                  motion.preference === opt.id
-                    ? 'bg-accent text-on-accent'
-                    : 'text-secondary hover:text-primary hover:bg-card-hover'
-                }`}
-              >
-                <span className="block text-label font-medium leading-tight">{opt.label}</span>
-                <span
-                  className={`block text-micro leading-tight ${
-                    motion.preference === opt.id ? 'opacity-75' : 'text-tertiary'
-                  }`}
-                >
-                  {opt.hint}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* 触觉 §5.7 */}
         <button
           type="button"
