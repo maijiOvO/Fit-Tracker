@@ -520,6 +520,33 @@ button {
   animation: toast-print var(--dur-base) var(--ease-paper) both;
 }
 
+/* Toast 剩余时间线（§5.3）：底边一条朱砂线 scaleX 1→0，
+   时长＝这条 toast 的停留时长，由行内 animation-duration 下发。
+   在这之前「撤销还剩多久」完全不可见 —— 用户只能赌它还没过期。
+
+   linear 而不是 --ease-*：它表示的是时间本身，任何缓动都会让它撒谎。
+   与长按进度线同一支笔（1.5px 朱砂、底边、scaleX），
+   同理也【不】乘 var(--move)：它是功能性倒计时，不是装饰（§5.6 的同一条例外）。 */
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.toast-countdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: var(--accent);
+  transform-origin: left center;
+  animation: toast-countdown linear both;
+  pointer-events: none;
+}
+
 /* 底部弹层入场：从下缘推上来。这是 sheet 唯一合法的空间隐喻——
    它真的是从屏幕下方来的（tab 之间没有这种关系，所以 tab 不做横滑）。 */
 @keyframes sheet-in {

@@ -556,6 +556,28 @@ const main = async () => {
     // 撤销条把它拿回来
     const undo = page.locator('[data-testid="toast-undo"]').first();
     await undo.waitFor({ state: 'visible', timeout: 3_000 });
+
+    // §5.3：底边剩余时间线必须真的在走 —— 光有元素不算，
+    // 要么动画没被浏览器接受，要么 duration 没接上，都会静默变成一条不动的线。
+    const line = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="toast-countdown"]');
+      if (!el) return { ok: false, reason: 'no countdown element' };
+      const anims = el.getAnimations();
+      if (!anims.length) return { ok: false, reason: 'element has no running animation' };
+      const t = anims[0].effect.getTiming();
+      return { ok: true, duration: t.duration, easing: getComputedStyle(el).animationTimingFunction };
+    });
+    if (!line.ok) throw new Error(`toast countdown line: ${line.reason}`);
+    if (line.duration !== 5000) throw new Error(`countdown duration ${line.duration}ms != toast 停留时长 5000ms`);
+    if (line.easing !== 'linear') throw new Error(`countdown easing is ${line.easing}, must be linear`);
+    await page.waitForTimeout(700);
+    const shrunk = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="toast-countdown"]');
+      const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+      return m.a; // scaleX
+    });
+    if (!(shrunk < 1)) throw new Error(`countdown line is not shrinking (scaleX=${shrunk})`);
+
     await undo.click();
     await page
       .locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`)

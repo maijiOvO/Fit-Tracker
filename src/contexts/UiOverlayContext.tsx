@@ -30,6 +30,8 @@ interface ToastItem {
   undoLabel?: string;
   onUndo?: () => void | Promise<void>;
   expiresAt: number;
+  /** 停留时长，喂给底边剩余时间线的 animation-duration（§5.3） */
+  durationMs: number;
 }
 
 interface UiOverlayContextValue {
@@ -82,9 +84,10 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
 
   const toast = useCallback((message: string, variant: ToastVariant = 'info') => {
     const id = `toast-${++toastIdRef.current}`;
-    const expiresAt = Date.now() + 3500;
-    setToasts(prev => [...prev.slice(-4), { id, message, variant, expiresAt }]);
-    window.setTimeout(() => dismissToast(id), 3500);
+    const durationMs = 3500;
+    const expiresAt = Date.now() + durationMs;
+    setToasts(prev => [...prev.slice(-4), { id, message, variant, expiresAt, durationMs }]);
+    window.setTimeout(() => dismissToast(id), durationMs);
   }, [dismissToast]);
 
   const toastUndo = useCallback(
@@ -105,6 +108,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
           undoLabel: options?.undoLabel ?? (isCn ? '撤销' : 'Undo'),
           onUndo,
           expiresAt,
+          durationMs,
         },
       ]);
       window.setTimeout(() => dismissToast(id), durationMs);
@@ -184,7 +188,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
           <div
             key={item.id}
             data-testid="toast"
-            className={`pointer-events-auto w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
+            className={`pointer-events-auto relative overflow-hidden w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
           >
             {item.variant === 'success' && (
               <Check size={18} className="text-success flex-shrink-0" strokeWidth={2.5} />
@@ -211,6 +215,15 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
             >
               <X size={16} />
             </button>
+
+            {/* §5.3：底边剩余时间线。撤销条尤其需要它 ——
+                「还剩多久」此前完全不可见，用户只能赌它还没过期。 */}
+            <span
+              aria-hidden
+              data-testid="toast-countdown"
+              className="toast-countdown"
+              style={{ animationDuration: `${item.durationMs}ms` }}
+            />
           </div>
         ))}
       </div>
