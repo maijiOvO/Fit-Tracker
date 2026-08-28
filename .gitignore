@@ -39,6 +39,11 @@ android/app/build/
 # e2e artifacts
 test-artifacts/
 
+# 图标源图 assets/icon-source.jpg 要提交（build-icons.mjs 的唯一输入），
+# 但 assets/icon.png 是它的产物，且与 android/icon.png 字节相同 ——
+# 同一张 965KB 的图没必要在仓库里躺两份。
+assets/icon.png
+
 # 字体源文件（252MB 第三方 TTF，构建输入而非产物）
 # 来源：fonts.google.com —— Noto Sans SC / Noto Serif SC（可变）、IBM Plex Mono、Ma Shan Zheng
 # 开头的 / 是关键：裸 `fonts/` 会连 public/fonts/ 一起忽略掉，
