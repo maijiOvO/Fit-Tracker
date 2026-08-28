@@ -125,7 +125,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   }, []);
 
   const finishWorkout = useCallback(async (workout: WorkoutSession) => {
-    console.log('[DEBUG] WorkoutCtx.finishWorkout 被调用, id=', workout.id);
     const completed: WorkoutSession = {
       ...workout,
       status: 'completed',
@@ -134,7 +133,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     };
     try {
       await db.save('workouts', completed);
-      console.log('[DEBUG] db.save(completed) 完成, id=', completed.id);
       // 刷新列表，确保 Timeline 立即反映
       await refreshFromDb();
       scheduleDebouncedFitlogPush();

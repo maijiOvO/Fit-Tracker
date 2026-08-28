@@ -298,7 +298,6 @@ export function useWorkoutMutations({
   ]);
 
   const handleFinishWithConfirmation = useCallback(async () => {
-    console.log('[DEBUG] handleFinishWithConfirmation 被调用');
     const unitText = isCn ? (unit === 'kg' ? '公斤(kg)' : '磅(lbs)') : unit === 'kg' ? 'kg' : 'lbs';
     const ok = await confirm({
       message: isCn
