@@ -40,7 +40,6 @@
 | UI | React 19 · TypeScript · Tailwind CSS |
 | Build | Vite 6 · `tsc --noEmit` typecheck |
 | Mobile | Capacitor 8 (Android) |
-| AI | `@google/genai` (Gemini) · optional OpenAI-compatible chat completions endpoint |
 | Storage | IndexedDB (via `services/db.ts`) · localStorage prefs · tombstones for sync-aware deletes |
 | Data viz | `recharts` (lazy-loaded) · `react-calendar-heatmap` |
 | Offline | Service Worker (`sw.js`) + Web App Manifest |
@@ -60,9 +59,8 @@ services/
 ├─ fitlogSyncScheduler.ts  # debounced push
 ├─ fitlogTombstones.ts     # delete propagation across devices
 ├─ fitlogSolo.ts           # single-user identity helpers
-├─ gemini.ts               # AI provider integration
-├─ goalAutoUpdater.ts      # watches sessions, updates goal progress
-└─ goalRecommendationEngine.ts
+├─ appEnv.ts               # dev / prod data-environment resolution
+└─ appStorage.ts           # namespaced localStorage
 ```
 
 Charts are lazy-loaded behind `LazyCharts.tsx` so the first-paint bundle stays small.
