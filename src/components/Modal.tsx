@@ -22,10 +22,12 @@
  * 底部导航（z-50，但在全局层）直接盖在保存按钮上——e2e 点不到，实测过。
  * portal 之后弹窗与导航在同一层比较，100 > 50 才真的成立。
  */
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useDismissAnimation } from '../hooks/useDismissAnimation';
+import { UserSettingsContext } from '../contexts/UserSettingsContext';
+import { Language } from '../../types';
 
 export type ModalVariant = 'center' | 'sheet' | 'full';
 /** z 轴层级。语义常量见 tailwind.config.js 的 zIndex。 */
@@ -85,6 +87,9 @@ export const Modal: React.FC<ModalProps> = ({
   testId,
 }) => {
   const { mounted, leaving } = useDismissAnimation(isOpen);
+  // 关闭按钮的 aria-label 得跟着语言走。Modal 是原语，脱离 Provider 也应当能渲染，
+  // 所以这里用裸 useContext 兜中文，而不是会抛错的 useUserSettingsContext。
+  const isCn = useContext(UserSettingsContext)?.lang !== Language.EN;
 
   // Esc 关闭。移动端用不上，但桌面调试时省事，且是无障碍基本盘。
   useEffect(() => {
@@ -170,7 +175,7 @@ export const Modal: React.FC<ModalProps> = ({
                 type="button"
                 onClick={onClose}
                 className="-mr-2 -mt-1 w-11 h-11 flex-shrink-0 flex items-center justify-center text-tertiary"
-                aria-label="关闭"
+                aria-label={isCn ? '关闭' : 'Close'}
               >
                 <X size={20} strokeWidth={1.75} />
               </button>

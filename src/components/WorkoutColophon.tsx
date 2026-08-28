@@ -16,6 +16,7 @@ import { Language } from '../../types';
 import { PRHit } from '../utils/prDetect';
 import { useCountUp } from '../hooks/useCountUp';
 import { haptic, H } from '../utils/haptics';
+import { plural } from '../utils/format';
 
 interface Props {
   open: boolean;
@@ -130,11 +131,13 @@ export const WorkoutColophon: React.FC<Props> = ({
           <span className="block font-mono font-semibold text-data-md text-primary tabular-nums">
             {exerciseCount}
           </span>
-          <span className="text-micro text-tertiary">{isCn ? '动作' : 'exercises'}</span>
+          <span className="text-micro text-tertiary">
+            {isCn ? '动作' : plural(exerciseCount, 'exercise')}
+          </span>
         </span>
         <span className="text-center">
           <span className="block font-mono font-semibold text-data-md text-primary tabular-nums">{setCount}</span>
-          <span className="text-micro text-tertiary">{isCn ? '组' : 'sets'}</span>
+          <span className="text-micro text-tertiary">{isCn ? '组' : plural(setCount, 'set')}</span>
         </span>
         <span className="text-center">
           <span className="block font-mono font-semibold text-data-xl text-primary tabular-nums">{volumeText}</span>

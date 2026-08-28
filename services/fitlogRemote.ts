@@ -92,7 +92,8 @@ export type RemoteFailureKind =
   | 'forbidden-endpoint'  // 403：这把 key 无权访问该端点
   | 'env-mismatch'        // 409：环境标记与端点不符，服务端拒绝写入
   | 'http'                // 其它非 2xx
-  | 'unreachable';        // 根本没连上（Tailscale 未连 / NAS 离线）
+  | 'unreachable'         // 根本没连上（Tailscale 未连 / NAS 离线）
+  | 'env-guard';          // 客户端硬守卫拦下：本机环境与目标端点不符
 
 export class RemoteError extends Error {
   constructor(
@@ -105,20 +106,28 @@ export class RemoteError extends Error {
   }
 }
 
-/** 把一个非 2xx 响应翻译成带分类的错误 */
+/**
+ * 把一个非 2xx 响应翻译成带分类的错误。
+ *
+ * ⚠️ 不变量：services/ 里【抛出去】的 Error.message 一律用英文。
+ * 用户看到的那句话由 UI 按 kind 从 translations 里取（App.tsx 的 push-failed 监听），
+ * message 只是给控制台看的诊断。中文写在这里的话，英文模式下会被原样拼进
+ * 「Sync failed: …」——这正是 2026-08-28 那次全局英文体检查出来的一处。
+ * console.* 不受这条约束：那是纯开发信息，不进 UI。
+ */
 async function toRemoteError(resp: Response, method: string, path: string): Promise<RemoteError> {
   const body = await resp.text().catch(() => '');
   const tail = body ? `: ${body.substring(0, 200)}` : '';
   if (resp.status === 403) {
     return new RemoteError(
-      `${method} ${path} 403 —— 这把 key 无权访问该端点${tail}`,
+      `${method} ${path} 403 — this API key is not allowed on that endpoint${tail}`,
       'forbidden-endpoint',
       403,
     );
   }
   if (resp.status === 409) {
     return new RemoteError(
-      `${method} ${path} 409 —— 环境标记与端点不符，服务端已拒绝写入${tail}`,
+      `${method} ${path} 409 — env marker does not match the endpoint; the server refused the write${tail}`,
       'env-mismatch',
       409,
     );
@@ -144,10 +153,16 @@ async function remoteFetch(
   // 🔒 硬守卫：环境与端点必须匹配。宁可让开发时的请求直接抛错，
   //    也不能让一次写入落到另一个环境的数据上。
   if (env === 'dev' && !pathIsDev) {
-    throw new Error(`[fitlog] 已阻止：开发环境试图访问生产端点 ${method} ${path}`);
+    throw new RemoteError(
+      `[fitlog] blocked: dev env tried to reach the prod endpoint ${method} ${path}`,
+      'env-guard',
+    );
   }
   if (env === 'prod' && pathIsDev) {
-    throw new Error(`[fitlog] 已阻止：生产环境试图访问开发端点 ${method} ${path}`);
+    throw new RemoteError(
+      `[fitlog] blocked: prod env tried to reach the dev endpoint ${method} ${path}`,
+      'env-guard',
+    );
   }
 
   return fetch(`${API_BASE_URL.replace(/\/$/, '')}${path}`, {

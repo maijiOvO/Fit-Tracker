@@ -462,10 +462,16 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         toast(String(translations.remoteEnvMismatch[lang]), 'error');
         return;
       }
+      if (kind === 'env-guard') {
+        toast(String(translations.remoteEnvGuard[lang]), 'error');
+        return;
+      }
+      // message 是服务端／网络的原始诊断（英文或 HTTP 文本）。空的时候别留个孤零零的冒号。
+      const tail = message ? (isCn ? `：${message}` : `: ${message}`) : '';
       toast(
         isCn
-          ? `云端同步失败：${message}。数据仅保存在本地。`
-          : `Sync failed: ${message}. Data saved locally only.`,
+          ? `云端同步失败${tail}。数据仅保存在本地。`
+          : `Sync failed${tail}. Data saved locally only.`,
         'error',
       );
     };

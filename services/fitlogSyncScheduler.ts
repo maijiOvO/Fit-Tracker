@@ -5,7 +5,7 @@ let t: ReturnType<typeof setTimeout> | undefined;
 
 /** 远端推送失败时通过 DOM 事件通知 UI，比改所有 call site 更干净 */
 function notifyPushFailed(err: unknown): void {
-  const detail = err instanceof Error ? err.message : String(err ?? '未知错误');
+  const detail = err instanceof Error ? err.message : String(err ?? '');
   const kind = err instanceof RemoteError ? err.kind : 'unreachable';
   console.warn('[fitlog] background push failed:', err);
   if (typeof window !== 'undefined') {

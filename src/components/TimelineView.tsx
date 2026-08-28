@@ -18,6 +18,7 @@ import { Language, WorkoutSession, Exercise } from '../../types';
 import { translations } from '../../translations';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
+import { plural } from '../utils/format';
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
 
@@ -362,7 +363,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
                 {setCount}
               </span>{' '}
-              {isCN ? '组' : 'sets'}
+              {isCN ? '组' : plural(setCount, 'set')}
             </div>
           </div>
           <div className="text-tertiary">
@@ -450,7 +451,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                     {resolveName(ex.name)}
                   </span>
                   <span className="text-[10px] text-tertiary bg-card px-2 py-0.5 rounded-chip">
-                    {sets.length} {isCN ? '组' : 'sets'}
+                    {sets.length} {isCN ? '组' : plural(sets.length, 'set')}
                   </span>
                 </div>
                 {sets.length > 0 && (
@@ -654,7 +655,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 </span>
                 <span className="text-divider">·</span>
                 <span>
-                  {totalSets} {isCN ? '组' : 'sets'}
+                  {totalSets} {isCN ? '组' : plural(totalSets, 'set')}
                 </span>
                 {isCollapsed ? (
                   <ChevronDown size={14} className="text-secondary" />

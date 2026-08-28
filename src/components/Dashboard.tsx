@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Language, WeightEntry, Exercise } from '../../types';
 import { translations } from '../../translations';
-import { formatWeight } from '../utils/format';
+import { formatWeight, plural } from '../utils/format';
 import { TimelineView, type TimelineGranularity } from './TimelineView';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
@@ -63,6 +63,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   actions,
 }) => {
   const { lang, unit, weightEntries } = useUserSettingsContext();
+  const isCn = lang === Language.CN;
+  const dateLocale = isCn ? 'zh-CN' : 'en-US';
   const { workouts } = useWorkoutContext();
   const prefs = useExercisePrefs();
   const { bestLifts } = useExerciseStats();
@@ -262,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     </span>
                   </div>
                   <span className="text-xs text-tertiary">
-                    {new Date(entry.date).toLocaleDateString('zh-CN', {
+                    {new Date(entry.date).toLocaleDateString(dateLocale, {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
@@ -465,7 +467,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   <div className="flex items-center gap-2 text-tertiary">
                                     <Calendar size={14} strokeWidth={1.75} />
                                     <span className="text-xs font-medium">
-                                      {new Date(ex.date).toLocaleDateString('zh-CN', {
+                                      {new Date(ex.date).toLocaleDateString(dateLocale, {
                                         year: 'numeric',
                                         month: 'short',
                                         day: 'numeric',
@@ -498,7 +500,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                                   )}
                                 </div>
                                 <span className="text-xs font-medium text-tertiary bg-inset px-2.5 py-1 rounded-chip">
-                                  {ex.sets.length} {translations.setsCount[lang]}
+                                  {ex.sets.length}{' '}
+                                  {isCn ? '组' : plural(ex.sets.length, 'Set')}
                                 </span>
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -552,7 +555,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             <Download size={18} strokeWidth={1.75} className="text-accent" />
             {lang === Language.CN ? '立即导出备份' : 'Export backup'}
           </button>
-          <p className="text-[10px] text-tertiary">Your data is yours. Always.</p>
+          <p className="text-[10px] text-tertiary">
+            {isCn ? '你的数据，始终属于你。' : 'Your data is yours. Always.'}
+          </p>
         </div>
       </div>
     </div>

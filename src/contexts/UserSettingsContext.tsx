@@ -27,7 +27,7 @@ interface UserSettingsContextType {
   reloadFromIndexedDb: () => Promise<void>;
 }
 
-const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);
+export const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);
 
 export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: string }> = ({
   children,
@@ -68,6 +68,16 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
   useEffect(() => {
     void reloadFromIndexedDb();
   }, [userId, reloadFromIndexedDb]);
+
+  /**
+   * <html lang> 跟着语言走。index.html 里写死的是 zh-CN，切到英文后一直没人改它 ——
+   * 读屏会用中文嗓子念英文界面，浏览器的 CJK／拉丁字体回退也照中文规则来。
+   * 放在 Provider 里而不是 index.html 的引导脚本里：语言键带数据环境前缀
+   * （dev: / 无），引导脚本拿不到前缀，读出来的可能是另一个环境的设置。
+   */
+  useEffect(() => {
+    document.documentElement.lang = lang === Language.EN ? 'en' : 'zh-CN';
+  }, [lang]);
 
   const setLang = (newLang: Language) => {
     setLangState(newLang);

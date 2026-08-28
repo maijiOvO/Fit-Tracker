@@ -54,7 +54,7 @@ export const LongPressAffordance: React.FC<Props> = ({
         className={`longpress-label ${placementClass} ${hint && !active ? 'is-hint' : ''}`}
         style={active ? { animationDelay: `${LONGPRESS_DELAY_MS}ms` } : undefined}
       >
-        {active ? label : (hintLabel ?? `按住${label}`)}
+        {active ? label : (hintLabel ?? label)}
       </span>
     </>
   );

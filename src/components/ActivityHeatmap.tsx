@@ -14,6 +14,7 @@
 import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Language } from '../../types';
+import { plural } from '../utils/format';
 
 export interface HeatmapDay {
   /** YYYY-MM-DD */
@@ -121,7 +122,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
         </span>
         <span className="text-tertiary">
           {isCn ? `近 ${shownWeeks} 周` : `Last ${shownWeeks}w`} · {activeDays}{' '}
-          {isCn ? '天有训练' : 'active'} · {totalSets} {isCn ? '组' : 'sets'}
+          {isCn ? '天有训练' : 'active'} · {totalSets} {isCn ? '组' : plural(totalSets, 'set')}
         </span>
       </div>
 
@@ -136,8 +137,8 @@ export const ActivityHeatmap: React.FC<Props> = ({
       <div className="grid grid-cols-7 gap-1">
         {shown.map(c => {
           if (c.future) return <span key={c.date} />;
-          const title = `${c.date} · ${c.sets} ${isCn ? '组' : 'sets'}${
-            c.sessions > 1 ? ` · ${c.sessions} ${isCn ? '场' : 'sessions'}` : ''
+          const title = `${c.date} · ${c.sets} ${isCn ? '组' : plural(c.sets, 'set')}${
+            c.sessions > 1 ? ` · ${c.sessions} ${isCn ? '场' : plural(c.sessions, 'session')}` : ''
           }`;
           return (
             <button

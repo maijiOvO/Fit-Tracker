@@ -23,6 +23,7 @@ import { ExerciseCard } from './ExerciseCard';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { BodyPartPicker } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
+import { plural } from '../utils/format';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -423,7 +424,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       >
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <span className="text-xs font-semibold text-secondary whitespace-nowrap tabular-nums">
-            {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount} {isCn ? '组' : 'sets'}
+            {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount} {isCn ? '组' : plural(setCount, 'set')}
           </span>
           <button
             type="button"

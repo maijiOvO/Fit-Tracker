@@ -15,6 +15,7 @@ import { SetCapsule } from './SetCapsule';
 import { LongPressAffordance } from './LongPressAffordance';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { haptic, H } from '../utils/haptics';
+import { plural } from '../utils/format';
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。
  *  底稿行（ghost）不算 —— 它还不是数据（§12.6）。 */
@@ -178,7 +179,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
           <span className="font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
             {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} · {realSetCount}
-            {isCn ? '组' : ' sets'} · {formatVolume(totalVolumeKg(exercise), unit)}
+            {isCn ? '组' : ` ${plural(realSetCount, 'set')}`} · {formatVolume(totalVolumeKg(exercise), unit)}
           </span>
 
           <div className="relative -mr-1 -my-2" ref={menuRef}>

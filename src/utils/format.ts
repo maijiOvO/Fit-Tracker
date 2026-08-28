@@ -100,3 +100,10 @@ export const formatTime = (seconds: number): string => {
   }
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
+
+/**
+ * 英文单复数。中文不区分，所以调用方形如 `isCn ? '组' : plural(n, 'set')`,
+ * 只在英文分支里用。缩写（ex. / sess.）本来就不变形，不要套这个。
+ */
+export const plural = (n: number, one: string, many: string = one + 's'): string =>
+  (n === 1 ? one : many);

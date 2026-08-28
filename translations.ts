@@ -38,6 +38,12 @@ export const translations: TranslationStrings = {
     en: 'Rejected by the server (403): this API key is not allowed on the current endpoint. Check VITE_API_KEY / VITE_API_KEY_DEV.',
     cn: '服务器拒绝（403）：当前 API key 无权访问该端点。请检查 .env.local 里的 VITE_API_KEY / VITE_API_KEY_DEV。',
   },
+  // 客户端硬守卫（fitlogRemote 的 env/端点断言）拦下的请求。它意味着这个包的
+  // 构建环境和它要访问的端点对不上，属于装错包，不是网络问题。
+  remoteEnvGuard: {
+    en: 'Blocked locally: this build’s data environment does not match the endpoint it tried to reach. Reinstall the build that matches the environment you want.',
+    cn: '已在本机拦下：这个包的数据环境与它要访问的端点不符。请改装与目标环境匹配的包。',
+  },
   remoteEnvMismatch: {
     en: 'Rejected by the server (409): data environment does not match the endpoint. The write was refused to protect your data.',
     cn: '服务器拒绝（409）：数据环境与端点不符，写入已被拒绝以保护数据。',

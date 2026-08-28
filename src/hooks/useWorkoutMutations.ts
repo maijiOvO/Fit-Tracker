@@ -34,6 +34,24 @@ export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
 const RESUME_WINDOW_MS = 10 * 60 * 1000;
 
 /**
+ * 没选部位、也没手打标题时的兜底标题。
+ *
+ * 原先写死 `Workout ${new Date().toLocaleDateString()}`：中文模式下刊头是英文单词，
+ * 而日期又跟着【浏览器】的 locale 走而不是 App 的语言设置 —— 两头都不对。
+ * 现在词和日期都由 lang 决定。标题是存进库里的数据，之后不再随语言切换而变，
+ * 这符合「记下来的就是当时那句」的直觉。
+ */
+function defaultWorkoutTitle(isCn: boolean, now: Date = new Date()): string {
+  return isCn
+    ? `训练 ${now.toLocaleDateString('zh-CN')}`
+    : `Workout ${now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })}`;
+}
+
+/**
  * 把一串既有的组铺成底稿行（§12.6）。
  *
  * 只抄数值字段：力竭是当日事实、递减子组是结构性的（长按重建），都不继承。
@@ -215,7 +233,7 @@ export function useWorkoutMutations({
       const finalWorkout: WorkoutSession = {
         ...currentWorkout,
         exercises: cleanedExercises,
-        title: currentWorkout.title || `Workout ${new Date().toLocaleDateString()}`,
+        title: currentWorkout.title || defaultWorkoutTitle(isCn),
         date: currentWorkout.date || new Date().toISOString(),
         ...(scheduleId ? { fromSchedule: { scheduleId } } : {}),
       };
@@ -281,7 +299,7 @@ export function useWorkoutMutations({
 
   const handleFinishWithConfirmation = useCallback(async () => {
     console.log('[DEBUG] handleFinishWithConfirmation 被调用');
-    const unitText = unit === 'kg' ? '公斤(kg)' : '磅(lbs)';
+    const unitText = isCn ? (unit === 'kg' ? '公斤(kg)' : '磅(lbs)') : unit === 'kg' ? 'kg' : 'lbs';
     const ok = await confirm({
       message: isCn
         ? `确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被添加到历史记录。`

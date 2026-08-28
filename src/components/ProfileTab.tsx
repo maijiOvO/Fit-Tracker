@@ -15,6 +15,7 @@ import { translations } from '../../translations';
 import { db } from '../../services/db';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { storage } from '../../services/appStorage';
+import { plural } from '../utils/format';
 
 // 懒加载 MetricChart（包含 recharts）
 const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
@@ -165,7 +166,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             toast(
               lang === Language.CN
                 ? `${day.date}：${day.sets} 组 · ${day.sessions} 场`
-                : `${day.date}: ${day.sets} sets · ${day.sessions} sessions`,
+                : `${day.date}: ${day.sets} ${plural(day.sets, 'set')} · ${day.sessions} ${plural(
+                    day.sessions,
+                    'session',
+                  )}`,
               'info',
             )
           }
