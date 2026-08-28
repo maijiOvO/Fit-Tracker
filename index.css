@@ -291,6 +291,40 @@ body {
   min-height: 100vh;
 }
 
+/* ── 全局禁选文字 ───────────────────────────────────────────────
+   这个 App 里长按是一个**手势**（§12.5 通则 2：长按＝次级操作 ——
+   子组 / 删组 / 动作菜单 / 拖动排序 / 时间线菜单）。系统默认的
+   长按选词会跟它抢：手指按住 400–500ms 等菜单浮出的同时，WebView
+   已经起了选区、弹出了两个蓝色手柄和放大镜。菜单出来时下面还压着一层
+   选中高亮，看着就是坏的。
+
+   全局关掉，只给真正要打字的元素开回来。三条属性缺一不可：
+     user-select        —— 选区本身；
+     -webkit-touch-callout —— 长按弹出的系统菜单（复制/全选）与放大镜；
+     -webkit-tap-highlight-color —— 点按时那块半透明蓝底。
+   前两条在 Android WebView 上是分开生效的，只关 user-select 仍会出手柄。
+   ──────────────────────────────────────────────────────────── */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* 输入类元素必须选得动：否则移动端连「点进去把光标挪到中间」都做不到，
+   长按全选替换一个已填的重量也会失效。contenteditable 一并放行。 */
+input,
+textarea,
+[contenteditable='true'],
+[contenteditable='']:not([contenteditable='false']) {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
 input,
 textarea,
 select,
