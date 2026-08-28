@@ -142,6 +142,12 @@ interface SessionCardProps {
   onCopy: () => void;
   /** 前面还有训练可并入时才给这一项 —— 最早的一场没有「上一场」 */
   canMerge: boolean;
+  /**
+   * 合并态（天粒度且这一天只有一场）：组头已经被吃掉，日期改由卡片
+   * 最左边那一列承担。false 时保留原来那行完整日期（周/月/年粒度、
+   * 以及一天里有两场以上的情况仍然需要组头）。
+   */
+  merged: boolean;
 }
 
 /**
@@ -170,6 +176,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onMerge,
   onCopy,
   canMerge,
+  merged,
 }) => {
   const isCN = lang === Language.CN;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -249,15 +256,28 @@ const SessionCard: React.FC<SessionCardProps> = ({
 
   const exerciseCount = w.exercises?.length || 0;
   const setCount = w.exercises?.reduce((s, ex) => s + realSets(ex).length, 0) || 0;
-  const dateStr = new Date(w.date).toLocaleDateString(isCN ? 'zh-CN' : 'en-US', {
+  const when = new Date(w.date);
+  const dateStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', {
     month: 'short',
     day: 'numeric',
     weekday: 'short',
   });
-  const timeStr = new Date(w.date).toLocaleTimeString(isCN ? 'zh-CN' : 'en-US', {
+  const timeStr = when.toLocaleTimeString(isCN ? 'zh-CN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
+  const weekdayStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
+
+  /**
+   * 副行：时间 + 前三个动作。
+   * 原先这一行只有「N 动作 M 组」两个数字 —— 回看时想知道的是「那天练了啥」，
+   * 不是「练了几个」。数字挪到右列，这一行换成真正有信息的内容，不多占高度。
+   */
+  const preview = (w.exercises ?? [])
+    .slice(0, 3)
+    .map(ex => resolveName(ex.name))
+    .join(' · ');
+  const subtitle = [timeStr, preview].filter(Boolean).join(' · ');
 
   const menuItem =
     'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-sm text-primary active:bg-card-hover';
@@ -265,7 +285,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   return (
     <div
       data-testid={`timeline-session-${w.id}`}
-      className={`ui-card-interactive relative p-4 transition-ui touch-pan-y ${
+      className={`ui-card-interactive relative px-3 py-2.5 transition-ui touch-pan-y ${
         isExpanded ? 'ring-2 ring-accent/25' : ''
       }${menuOpen ? ' z-30 shadow-overlay' : ''}`}
       {...pressHandlers}
@@ -279,51 +299,75 @@ const SessionCard: React.FC<SessionCardProps> = ({
         placement="down"
       />
 
+      {/* 一行三列：日期柱 / 标题+副行 / 计数。
+          原先是三行左对齐（日期、标题、计数），右半张卡永远是空的，
+          而天粒度下第一行还跟组头重复了一遍。 */}
       <div
-        className="flex items-start justify-between gap-3 cursor-pointer"
+        className="flex items-center gap-3 cursor-pointer"
         onClick={() => {
           if (swallowingClick()) return;
           onToggleExpand();
         }}
       >
+        {merged && (
+          <div className="flex-none w-10 text-center">
+            <div className="font-mono font-bold text-[19px] leading-none text-primary tabular-nums">
+              {when.getDate()}
+            </div>
+            <div className="text-[9.5px] text-tertiary mt-1">{weekdayStr}</div>
+          </div>
+        )}
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-[11px] text-tertiary mb-1.5">
-            <Calendar size={11} strokeWidth={2} />
-            <span className="font-medium">
-              {dateStr} · {timeStr}
-            </span>
+          {!merged && (
+            <div className="flex items-center gap-2 text-[11px] text-tertiary mb-1">
+              <Calendar size={11} strokeWidth={2} />
+              <span className="font-medium">{dateStr}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2 min-w-0">
+            <h4 className="font-bold text-primary truncate">
+              {w.title || (isCN ? '未命名训练' : 'Untitled')}
+            </h4>
             {w.fromSchedule && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
+              <span className="flex-none text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
                 {isCN ? '按计划' : 'Planned'}
               </span>
             )}
-            {/* §12.11 场地。没标过的（新增字段之前的历史）什么都不显示 —— 不编。 */}
+            {/* §12.11 场地。没标过的（新增字段之前的历史）什么都不显示 —— 不编。
+                ⚠️ 必须能被压缩并自己截断：写死 flex-none 的话，一个长场地名
+                会把标题挤到只剩几个字 —— 标题才是主信息，该让路的是场地。 */}
             {w.gym && (
               <span
-                className="text-[9px] px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
+                className="min-w-0 max-w-[5rem] text-[9px] px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
                 data-testid="timeline-gym"
               >
-                <MapPin size={8} strokeWidth={2.25} />
-                {w.gym}
+                <MapPin size={8} strokeWidth={2.25} className="flex-none" />
+                <span className="truncate">{w.gym}</span>
               </span>
             )}
           </div>
-          <h4 className="font-bold text-primary truncate">
-            {w.title || (isCN ? '未命名训练' : 'Untitled')}
-          </h4>
-          <div className="flex items-center gap-3 text-[11px] text-tertiary mt-1.5">
-            <span>
-              <span className="text-secondary font-bold">{exerciseCount}</span>{' '}
-              {isCN ? '动作' : 'ex.'}
-            </span>
-            <span>
-              <span className="text-secondary font-bold">{setCount}</span>{' '}
-              {isCN ? '组' : 'sets'}
-            </span>
-          </div>
+          <div className="text-[10.5px] text-tertiary truncate mt-0.5">{subtitle}</div>
         </div>
-        <div className="text-tertiary flex-shrink-0">
-          {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+
+        <div className="flex-none flex items-center gap-1.5">
+          <div className="text-right text-[10px] text-tertiary leading-[1.45]">
+            <div>
+              <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
+                {exerciseCount}
+              </span>{' '}
+              {isCN ? '动作' : 'ex.'}
+            </div>
+            <div>
+              <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
+                {setCount}
+              </span>{' '}
+              {isCN ? '组' : 'sets'}
+            </div>
+          </div>
+          <div className="text-tertiary">
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </div>
         </div>
       </div>
 
@@ -495,7 +539,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
       {/* 颛粒度切换 */}
       <div className="ui-card p-1.5 flex items-center gap-1">
         <GranularityChip
@@ -524,8 +568,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         />
       </div>
 
-      {/* 分组列表 */}
-      {grouped.map((group) => {
+      {/* 分组列表。
+          天粒度下一个组就是一天，而一天几乎总是只有一场 —— 组头与卡片会把
+          日期和计数各说两遍。所以「天粒度 + 组内只有一场」时组头整个吃掉，
+          日期改由卡片最左边那一列承担，月份降级成一条轻标题（见 mergedGroup）。
+          周/月/年粒度，以及一天里练了两场的情况，仍然走原来的组头。 */}
+      <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
+      {grouped.map((group, gi) => {
         const totalExercises = group.workouts.reduce(
           (s, w) => s + (w.exercises?.length || 0),
           0,
@@ -535,9 +584,56 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           0,
         );
         const isCollapsed = collapsedGroups.has(group.key);
+        const mergedGroup = granularity === 'day' && group.workouts.length === 1;
+
+        // 合并态下月份换了才起一条标题；非合并态的组头自带完整日期，不需要它
+        const monthLabel = (() => {
+          if (!mergedGroup) return null;
+          const d = new Date(group.workouts[0].date);
+          const prev = gi > 0 ? grouped[gi - 1] : null;
+          const prevD = prev?.workouts?.[0]?.date ? new Date(prev.workouts[0].date) : null;
+          const sameMonth =
+            !!prevD &&
+            prevD.getFullYear() === d.getFullYear() &&
+            prevD.getMonth() === d.getMonth();
+          if (sameMonth) return null;
+          return isCN
+            ? `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
+            : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+        })();
+
+        if (mergedGroup) {
+          const w = group.workouts[0];
+          return (
+            <div key={group.key} className="space-y-2">
+              {monthLabel && (
+                <div className="px-1 pt-2 text-[10px] tracking-[0.14em] text-tertiary font-medium">
+                  {monthLabel}
+                </div>
+              )}
+              <SessionCard
+                w={w}
+                lang={lang}
+                merged
+                isExpanded={expandedWorkoutId === w.id}
+                onToggleExpand={() =>
+                  setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
+                }
+                resolveName={resolveName}
+                renderSetCapsule={renderSetCapsule}
+                onEdit={() => onEditWorkout(w.id)}
+                onAppend={() => onAddExerciseToWorkout(w.id)}
+                onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
+                onMerge={() => onMergeIntoPrevious(w.id)}
+                onCopy={() => onCopyToToday(w.id)}
+                canMerge={w.id !== earliestId}
+              />
+            </div>
+          );
+        }
 
         return (
-          <div key={group.key} className="space-y-3">
+          <div key={group.key} className="space-y-2">
             {/* 组头：可折叠 */}
             <button
               type="button"
@@ -586,11 +682,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onMerge={() => onMergeIntoPrevious(w.id)}
                   onCopy={() => onCopyToToday(w.id)}
                   canMerge={w.id !== earliestId}
+                  merged={false}
                 />
               ))}
           </div>
         );
       })}
+      </div>
     </div>
   );
 };

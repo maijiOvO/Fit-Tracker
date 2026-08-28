@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 时间线密度</title>
+<!--
+  时间线纵向密度四案。数据是真的（云端快照，最近 12 场）。
+
+  诊断：「天」粒度下一个组就是一天，而一天几乎总是只有一场训练 ——
+  于是组头和卡片在说同一件事：日期说两遍、计数说两遍。竖向空间花在了重复上，
+  右侧那片空白则是因为所有信息都挤在左边、没有右对齐的一列。
+
+  A 现状 / B 瘦身卡 / C 组头合并 / D 账本行
+  右下角切换，顶部实时显示「每场占多少像素 / 一屏(812)放得下几场」。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+    }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    background:var(--bg-base); color:var(--text-primary); min-height:100%;
+    font:14px/1.5 -apple-system,'PingFang SC','MiSans','Noto Sans SC',sans-serif;
+    -webkit-user-select:none; user-select:none; padding-bottom:112px;
+  }
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:7px 0 0; }
+  .page{ padding:6px 14px 0; max-width:460px; margin:0 auto; }
+
+  /* 量尺 */
+  .ruler{ position:sticky; top:0; z-index:20; background:var(--bg-base);
+    padding:8px 0 9px; border-bottom:1px solid var(--divider); margin-bottom:12px; }
+  .ruler .big{ font:600 13px/1.3 'IBM Plex Mono',ui-monospace,monospace; color:var(--text-primary);
+    font-variant-numeric:tabular-nums; }
+  .ruler .sub{ font-size:10.5px; color:var(--text-tertiary); margin-top:2px; }
+  .ruler .win{ color:var(--accent); font-weight:700; }
+
+  .gymchip{ display:inline-flex; align-items:center; gap:3px; font-size:9px; line-height:1;
+    padding:2px 5px; border-radius:2px; background:var(--bg-inset); color:var(--text-tertiary);
+    white-space:nowrap; flex:none; }
+  .num{ font-family:'IBM Plex Mono',ui-monospace,monospace; font-variant-numeric:tabular-nums;
+    font-weight:600; color:var(--text-secondary); }
+
+  /* ══ A 现状 ══ */
+  .A .grp{ margin-bottom:20px; }
+  .A .grphead{ display:flex; align-items:center; justify-content:space-between;
+    padding:8px 4px; }
+  .A .grphead h3{ font-size:14px; font-weight:700; }
+  .A .grphead .meta{ font-size:11px; color:var(--text-tertiary); }
+  .A .card{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); padding:16px; }
+  .A .l1{ font-size:11px; color:var(--text-tertiary); margin-bottom:6px; }
+  .A .l2{ font-size:15px; font-weight:700; }
+  .A .l3{ font-size:11px; color:var(--text-tertiary); margin-top:6px; }
+
+  /* ══ B 瘦身卡：组头保留，卡内两行，计数右对齐吃掉右侧空白 ══ */
+  .B .grp{ margin-bottom:14px; }
+  .B .grphead{ display:flex; align-items:center; justify-content:space-between; padding:5px 4px 6px; }
+  .B .grphead h3{ font-size:13px; font-weight:700; }
+  .B .grphead .meta{ font-size:10.5px; color:var(--text-tertiary); }
+  .B .card{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); padding:10px 12px;
+    display:flex; align-items:center; gap:10px; }
+  .B .card .main{ flex:1; min-width:0; }
+  .B .card .t{ font-size:14.5px; font-weight:700; display:flex; align-items:center; gap:6px; }
+  .B .card .s{ font-size:10.5px; color:var(--text-tertiary); margin-top:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .B .card .right{ text-align:right; flex:none; font-size:10.5px; color:var(--text-tertiary); }
+  .B .card .right .n{ font-size:13px; }
+
+  /* ══ C 组头合并：天粒度下只有一场时，组头与卡合成一张 ══ */
+  .C .card{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page);
+    padding:11px 13px; margin-bottom:8px; display:flex; align-items:center; gap:12px; }
+  .C .day{ flex:none; width:44px; text-align:center; }
+  .C .day .d{ font:700 19px/1 'IBM Plex Mono',ui-monospace,monospace; color:var(--text-primary); }
+  .C .day .m{ font-size:9.5px; color:var(--text-tertiary); margin-top:3px; }
+  .C .mid{ flex:1; min-width:0; }
+  .C .mid .t{ font-size:15px; font-weight:700; display:flex; align-items:center; gap:6px; }
+  .C .mid .s{ font-size:10.5px; color:var(--text-tertiary); margin-top:2px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .C .right{ flex:none; text-align:right; font-size:10px; color:var(--text-tertiary); line-height:1.45; }
+  .C .right .n{ font-size:13px; }
+  .C .mon{ font-size:10px; letter-spacing:.14em; color:var(--text-tertiary);
+    padding:14px 4px 6px; }
+  .C .mon:first-child{ padding-top:2px; }
+
+  /* ══ D 账本行：去掉卡片外框，用分隔线（§6.1 账本语言），最紧 ══ */
+  .D .sheet{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); overflow:hidden; }
+  .D .row{ display:grid; grid-template-columns:52px 1fr auto; align-items:center;
+    gap:10px; padding:9px 12px; border-top:1px solid var(--divider); }
+  .D .row:first-child{ border-top:0; }
+  .D .dt{ font:600 11px/1.3 'IBM Plex Mono',ui-monospace,monospace; color:var(--text-tertiary);
+    font-variant-numeric:tabular-nums; }
+  .D .mid{ min-width:0; }
+  .D .t{ font-size:14px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .D .s{ font-size:10px; color:var(--text-tertiary); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .D .right{ text-align:right; font-size:10px; color:var(--text-tertiary); white-space:nowrap; }
+  .D .right .n{ font-size:12.5px; }
+  .D .mon{ font-size:10px; letter-spacing:.14em; color:var(--text-tertiary); padding:14px 4px 6px; }
+  .D .mon:first-child{ padding-top:2px; }
+
+  /* 切换器 */
+  .switcher{ position:fixed; left:0; right:0; bottom:0; z-index:30; background:var(--bg-card);
+    border-top:1px solid var(--divider); box-shadow:var(--shadow-overlay);
+    padding:9px 14px calc(9px + env(safe-area-inset-bottom)); }
+  .segs{ display:flex; border:1px solid var(--divider); border-radius:var(--radius-card);
+    overflow:hidden; max-width:460px; margin:0 auto; }
+  .segs button{ appearance:none; font-family:inherit; font-size:11px; cursor:pointer; flex:1;
+    padding:7px 4px; border:0; background:none; color:var(--text-secondary); line-height:1.35; }
+  .segs button + button{ border-left:1px solid var(--divider); }
+  .segs button[aria-pressed="true"]{ background:var(--accent-soft); color:var(--accent-ink); font-weight:700; }
+  .segs button b{ display:block; font-size:12px; }
+  .note{ max-width:460px; margin:7px auto 0; font-size:10.5px; color:var(--text-tertiary);
+    line-height:1.6; text-align:center; }
+</style>
+</head>
+<body>
+
+<div class="demotag">DEMO · 时间线密度 · 非产品页面</div>
+
+<div class="page">
+  <div class="ruler">
+    <div class="big" id="metric">—</div>
+    <div class="sub" id="metricsub">—</div>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div class="switcher">
+  <div class="segs" id="sw">
+    <button data-v="A" aria-pressed="true"><b>A 现状</b>基准</button>
+    <button data-v="B" aria-pressed="false"><b>B 瘦身卡</b>保留组头</button>
+    <button data-v="C" aria-pressed="false"><b>C 合并</b>组头吃掉</button>
+    <button data-v="D" aria-pressed="false"><b>D 账本行</b>最紧</button>
+  </div>
+  <div class="note" id="note"></div>
+</div>
+
+<script>
+/* 真实数据：云端快照最近 12 场 */
+const W = [
+  {d:'2026-08-26',t:'16:07',title:'练手臂',gym:'F4L', ex:5,sets:20,first:['绳索二头弯举','下斜卷腹','头顶绳索三头屈伸']},
+  {d:'2026-08-23',t:'22:45',title:'练肩',  gym:'国内',ex:4,sets:14,first:['坐姿磕头机','蝴蝶机反飞鸟','站姿飞鸟']},
+  {d:'2026-08-18',t:'07:05',title:'练背',  gym:'国内',ex:4,sets:16,first:['坐姿划船','窄距高位下拉','拉上背']},
+  {d:'2026-08-14',t:'07:39',title:'练胸',  gym:'国内',ex:6,sets:22,first:['下斜卷腹','下斜抬腿','器械推胸']},
+  {d:'2026-08-10',t:'03:40',title:'练手臂',gym:'国内',ex:5,sets:19,first:['坐姿磕头机','头顶绳索三头屈伸','直杆二头弯举']},
+  {d:'2026-08-04',t:'02:37',title:'练肩',  gym:'国内',ex:4,sets:16,first:['坐姿磕头机','蝴蝶机反飞鸟','站姿飞鸟']},
+  {d:'2026-08-02',t:'01:25',title:'练背',  gym:'国内',ex:6,sets:22,first:['坐姿磕头机','直臂下压','划船机']},
+  {d:'2026-07-29',t:'02:59',title:'练胸',  gym:'国内',ex:4,sets:12,first:['坐姿磕头机','龙门架夹胸','哑铃上斜卧推']},
+  {d:'2026-07-23',t:'07:32',title:'练手臂',gym:'国内',ex:4,sets:16,first:['直杆头顶三头屈伸','三头直臂下压','哑铃弯举']},
+  {d:'2026-07-21',t:'07:27',title:'练肩',  gym:'国内',ex:3,sets:9, first:['蝴蝶机反飞鸟','单手绳索侧平举','哑铃推肩']},
+  {d:'2026-07-18',t:'06:58',title:'练背',  gym:'国内',ex:3,sets:9, first:['窄距高位下拉','拉上背','引体向上']},
+  {d:'2026-07-15',t:'01:04',title:'练胸',  gym:'国内',ex:3,sets:9, first:['器械推胸','杠铃平板卧推','哑铃上斜卧推']},
+];
+const WK=['周日','周一','周二','周三','周四','周五','周六'];
+const parts=(w)=>({y:+w.d.slice(0,4),m:+w.d.slice(5,7),dd:+w.d.slice(8,10)});
+const wd=(w)=>{const p=parts(w);return WK[new Date(p.y,p.m-1,p.dd).getDay()];};
+const PIN='<svg viewBox="0 0 24 24" style="width:8px;height:8px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round"><path d="M12 21s7-6.4 7-11a7 7 0 1 0-14 0c0 4.6 7 11 7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>';
+const chip=g=>`<span class="gymchip">${PIN}${g}</span>`;
+const summary=w=>w.first.join(' · ');
+
+const R={};
+R.A = () => W.map(w=>{const p=parts(w);return `
+  <div class="grp" data-item>
+    <div class="grphead">
+      <h3>${p.m}月${p.dd}日 · ${wd(w)}</h3>
+      <span class="meta">1 场 · ${w.ex} 动作 · ${w.sets} 组</span>
+    </div>
+    <div class="card">
+      <div class="l1">${p.m}月${p.dd}日${wd(w)} · ${w.t}</div>
+      <div class="l2">${w.title}</div>
+      <div class="l3">${w.ex} 动作 &nbsp; ${w.sets} 组</div>
+    </div>
+  </div>`;}).join('');
+
+R.B = () => W.map(w=>{const p=parts(w);return `
+  <div class="grp" data-item>
+    <div class="grphead">
+      <h3>${p.m}月${p.dd}日 · ${wd(w)}</h3>
+      <span class="meta">1 场</span>
+    </div>
+    <div class="card">
+      <div class="main">
+        <div class="t">${w.title}${chip(w.gym)}</div>
+        <div class="s">${w.t} · ${summary(w)}</div>
+      </div>
+      <div class="right"><span class="num n">${w.ex}</span> 动作<br><span class="num n">${w.sets}</span> 组</div>
+    </div>
+  </div>`;}).join('');
+
+R.C = () => {
+  let out='', lastM=null;
+  W.forEach(w=>{const p=parts(w);
+    if(p.m!==lastM){ out+=`<div class="mon">${p.y} 年 ${p.m} 月</div>`; lastM=p.m; }
+    out+=`
+    <div class="card" data-item>
+      <div class="day"><div class="d">${p.dd}</div><div class="m">${wd(w)}</div></div>
+      <div class="mid">
+        <div class="t">${w.title}${chip(w.gym)}</div>
+        <div class="s">${w.t} · ${summary(w)}</div>
+      </div>
+      <div class="right"><span class="num n">${w.ex}</span> 动作<br><span class="num n">${w.sets}</span> 组</div>
+    </div>`;});
+  return out;
+};
+
+R.D = () => {
+  let out='', lastM=null, open=false;
+  W.forEach(w=>{const p=parts(w);
+    if(p.m!==lastM){ if(open) out+='</div>'; out+=`<div class="mon">${p.y} 年 ${p.m} 月</div><div class="sheet">`; lastM=p.m; open=true; }
+    out+=`
+    <div class="row" data-item>
+      <div class="dt">${p.m}/${p.dd}<br>${wd(w).slice(1)} ${w.t}</div>
+      <div class="mid">
+        <div class="t">${w.title}${chip(w.gym)}</div>
+        <div class="s">${summary(w)}</div>
+      </div>
+      <div class="right"><span class="num n">${w.ex}</span> 动作 · <span class="num n">${w.sets}</span> 组</div>
+    </div>`;});
+  if(open) out+='</div>';
+  return out;
+};
+
+const NOTES={
+  A:'现状。日期说两遍、计数说两遍 —— 天粒度下一个组就是一天，而一天几乎总是只有一场。右侧空白是因为所有信息都靠左堆着。',
+  B:'保留组头（周/月粒度还需要它），卡内压成两行：标题+场地一行，时间+前三个动作一行；计数右对齐，把右侧那片空白用掉。改动最小。',
+  C:'天粒度下组内只有一场时，组头整个吃掉 —— 日期变成卡片最左边那一列（数字大、星期小）。月份升级成一条轻标题。省得最多，且右侧仍是计数列。',
+  D:'再去掉卡片外框，一个月一张「稿纸」，每场是一行账本行（§6.1 的语言）。最紧，但每场的存在感也最弱——长按菜单、展开详情这些还得能落得下。',
+};
+
+let cur='A';
+function render(){
+  const list=document.getElementById('list');
+  list.className=cur;
+  list.innerHTML=R[cur]();
+  document.getElementById('note').textContent=NOTES[cur];
+  // 同步量，不走 rAF —— 标签页不可见时 rAF 不推进，量尺会永远停在「—」。
+  // getBoundingClientRect 本身就会强制同步布局，这里不需要等下一帧。
+  measure(list);
+}
+
+function measure(list){
+  {
+    const items=[...list.querySelectorAll('[data-item]')];
+    if(items.length<2){ return; }
+    // 用相邻两项的 top 差量出「每场真实占位」（含间距），比 offsetHeight 准
+    const tops=items.map(i=>i.getBoundingClientRect().top);
+    const gaps=[]; for(let i=1;i<tops.length;i++) gaps.push(tops[i]-tops[i-1]);
+    gaps.sort((a,b)=>a-b);
+    const per=gaps[Math.floor(gaps.length/2)];      // 取中位数，避开月份标题那一跳
+    const screen=812-56-96;                          // 812 减状态栏与底部导航，可视列表高
+    const fit=Math.floor(screen/per);
+    window.__PER=per; window.__FIT=fit;
+    // 基准每次回到 A 都重量一次：首屏渲染可能发生在容器还没定宽的时候，
+    // 那一次量到的行高偏大，缓存下来会让后面的「省了多少」全是假的（真踩过）。
+    if(cur==='A') window.__BASE=per;
+    const base=window.__BASE || null;
+    const save=base? Math.round((1-per/base)*100) : 0;
+    document.getElementById('metric').innerHTML =
+      `每场 ${per.toFixed(0)}px　·　一屏放得下 <span class="win">${fit}</span> 场` +
+      (cur!=='A'&&base ? `　·　省 ${save}%` : '');
+    document.getElementById('metricsub').textContent =
+      cur==='A' ? '基准。切下面的方案看差多少。' : `现状是每场 ${base.toFixed(0)}px、一屏 ${Math.floor(screen/base)} 场。`;
+  }
+}
+document.getElementById('sw').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  cur=b.dataset.v;
+  [...e.currentTarget.children].forEach(c=>c.setAttribute('aria-pressed',String(c===b)));
+  render();
+});
+render();
+</script>
+</body>
+</html>
