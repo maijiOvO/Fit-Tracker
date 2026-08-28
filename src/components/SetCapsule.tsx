@@ -208,6 +208,50 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           );
         })}
 
+        {/* 力竭：可见开关，不做隐藏手势。
+            它是用户主动上报的数据，本来就该像别的字段一样看得见；
+            而且这一行的两个长按（组号加子组、减号删组）都已占用，
+            再叠第三个长按语义会打架。
+
+            再点一次取消 —— 误触必须有退路，这是它和「删组」的关键差别：
+            删组不可逆所以必须长按 400ms，力竭可逆所以点一下就够。
+            §5.7 两档触感：标记＝确认感，取消＝点击感。
+
+            字形用 font-display（Noto Serif SC）而不是 font-seal：
+            Ma Shan Zheng 的子集只切了 SEAL_CHARS（'记破新纪录今天多住了一点'），
+            没有「竭」；而且印章字体留给印章本身，别稀释掉 PR 那一处仪式。 */}
+        {!readOnly ? (
+          <button
+            type="button"
+            onClick={() => {
+              const next = !set.toFailure;
+              haptic(next ? H.longpress : H.tap);
+              onUpdate({ toFailure: next });
+            }}
+            aria-pressed={!!set.toFailure}
+            aria-label={
+              set.toFailure
+                ? isCn ? '取消力竭标记' : 'Clear failure mark'
+                : isCn ? '标记这一组做到力竭' : 'Mark set to failure'
+            }
+            className={`w-9 h-11 justify-self-center flex items-center justify-center
+              font-display font-semibold leading-none transition-ui active:scale-press-sm
+              ${set.toFailure ? 'text-accent text-[19px]' : 'text-tertiary/35 text-[17px]'}`}
+          >
+            {isCn ? '竭' : 'F'}
+          </button>
+        ) : set.toFailure ? (
+          <span
+            className="w-9 justify-self-center flex items-center justify-center
+              font-display font-semibold text-[19px] leading-none text-accent"
+            title={isCn ? '做到力竭' : 'To failure'}
+          >
+            {isCn ? '竭' : 'F'}
+          </span>
+        ) : (
+          <span />
+        )}
+
         {/* 删组：热区补到 44×44（原先是 35px 列里的 16px 图标，
             与页面其他处精心维护的 min-h-[44px] 自相矛盾）。
             §6.6：不靠颜色区分危险，靠「必须长按」这个形态。 */}
@@ -284,6 +328,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               </label>
             );
           })}
+
+          {/* 力竭列的占位：递减组按定义多半就是做到力竭的，逐档再标一遍只是噪音。
+              力竭挂在母组上。这里必须留一个格，否则子组行会比父行少一列、整排错位。 */}
+          <span />
 
           {!readOnly ? (
             <button

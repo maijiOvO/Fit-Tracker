@@ -35,7 +35,20 @@ export function getLoadMode(exercise: Exercise): LoadMode {
  * 只靠父级下发的话 var(--cols) 会解析失败、网格塌成单列。
  */
 export function ledgerCols(metricCount: number): string {
-  return `36px repeat(${metricCount}, 1fr) 44px`;
+  // 组号 36 | 各指标 | 力竭 | 删组 44
+  //
+  // 力竭列不取 44：它紧挨删组按钮，两个 44 并排会把指标列挤爆，
+  // 撞上硬约束 1（抬眼 0.3 秒读到重量和次数）。36 有先例——
+  // 组号胶囊本身就是 36×36 且承载长按；且它左右两侧误触的代价都很低
+  // （左边是输入框，点了只是聚焦；右边删组必须长按 400ms）。
+  //
+  // 指标 ≥3 时再收到 26：那种配置在 375px 上本来就装不下
+  // （实测 26px 的「102.5」要 78px，而 3 指标每列只有 79px、输入框约 64px，
+  // 加这一列之前就已经在溢出）。收窄是为了不把已经紧的场景推得更远。
+  const fail = metricCount >= 3 ? 26 : 36;
+  // minmax(0,1fr) 而不是 1fr：1fr 的自动最小值是 min-content，
+  // 26px 数字撑不下时整行会横向溢出而不是让列收缩。
+  return `36px repeat(${metricCount}, minmax(0, 1fr)) ${fail}px 44px`;
 }
 
 /**

@@ -27,7 +27,18 @@ export interface SetLog {
   distance?: number;
   distanceUnit?: 'km' | 'm';
   bodyweightMode?: BodyweightMode;
-  
+  /**
+   * 这一组做到力竭。
+   *
+   * 只能由用户上报 —— App 算不出来「你是不是真的推不动了」。
+   * 它是渐进超负荷唯一可靠的信号：没有它，「这周该不该加重量」
+   * 只能靠记忆（SetCapsule.tsx 里那句「递减组多半做到力竭」的注释，
+   * 说明这个概念早就在决策里，只是一直没被记下来）。
+   *
+   * 可选字段：远端旧快照没有它，合并时天然兼容，不需要迁移。
+   */
+  toFailure?: boolean;
+
   // ✅ 增强：递增递减组子组数据
   subSets?: SubSetLog[];
 }

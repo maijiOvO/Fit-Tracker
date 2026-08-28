@@ -246,6 +246,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
           </span>
         ))}
+        {/* 力竭列的表头。给它一个列名而不是留空——这一列是全行唯一
+            没有数字、也没有图标语义的控件，不写字就没人知道那个「竭」能点。 */}
+        <span className="text-center">{isCn ? '竭' : 'F'}</span>
         <span />
       </div>
 
