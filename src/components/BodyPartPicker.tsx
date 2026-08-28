@@ -1,97 +1,72 @@
 /**
  * 训练部位选择 —— 进入训练页、还没有任何动作时的第一步。
  *
- * 选完即自动填入训练名称，此后本界面不再出现（见 NewWorkoutTab 的 partChosenFor）。
- * 「其他」不填名，只把焦点交给顶部标题输入框，保持原来的手写流程。
+ * 选完即自动填入训练名称并打开动作弹层，此后本界面不再出现
+ * （见 NewWorkoutTab 的 partChosenFor）。
+ * 「其他」不填名、也不开弹层：那条路的下一步是把名字打出来，
+ * 弹层盖上去反而挡住标题输入框。
  *
- * 图标用【同一个人形轮廓 + 朱砂高亮目标部位】，不是五个各画各的部位图：
- *  - 小尺寸下「孤立的胸肌」和「孤立的背肌」几乎无法区分，放进人形里立刻就清楚了
- *  - 一套轮廓五种高亮，风格天然统一，符合 §6.5 自绘版画的路线
- *  - 胸与背的轮廓相同，靠脊柱线区分正面／背面（健身语境里的通用约定）
+ * 图标＝【人体轮廓 + 目标肌群高亮】，解剖路径取自 react-native-body-highlighter
+ * （MIT，见 utils/bodyPaths.ts 的来源注释）。
+ *
+ * 为什么不自己画：手绘的五个部位在小尺寸下靠「几根示意线」区分，
+ * 胸和背几乎只能靠一条脊柱线分辨，实测就是「能认出来」而不是「设计过」。
+ * 真实解剖轮廓把这件事一次解决 —— 而且肌群位置本身就是最强的区分信号，
+ * 不需要额外的隐喻。
  */
 import React from 'react';
 import { Pencil } from 'lucide-react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
+import { BODY_VIEWBOX, BODY_OUTLINE, BODY_GROUPS, type BodyGroupKey } from '../utils/bodyPaths';
 
-export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'other';
+export type BodyPartKey = BodyGroupKey | 'other';
 
-/** 墨线：底图。§6.5 的 1.75px 墨线在 44×56 视框下按比例收到 1.5。 */
-const BASE = {
-  fill: 'none',
-  stroke: 'currentColor',
-  strokeWidth: 1.5,
-  strokeLinecap: 'round' as const,
-  strokeLinejoin: 'round' as const,
+/**
+ * 人体图标。视框 724×1448，而实际渲染只有 60px 宽 —— 缩了 12 倍。
+ *
+ * 尺寸取 60 是量出来的：40px 时肌群只剩几像素的红点，轮廓反客为主
+ * （高 DPR 只解决清晰度，不解决尺寸）；68px 最清楚但三行会顶到 638px，
+ * 在 812px 的机器上要滚动。60 是「读得清」和「一屏放得下」的交点。
+ *
+ * ⚠️ 所以描边必须用 vectorEffect="non-scaling-stroke"：
+ * 普通 stroke-width 会跟着一起缩，2 会变成 0.11px，屏幕上什么都看不见。
+ * 用它之后 strokeWidth 直接就是 CSS 像素，1.75 正是 §6.5 的墨线宽度。
+ */
+const BodyGlyph: React.FC<{ part: BodyGroupKey }> = ({ part }) => {
+  const { side, d } = BODY_GROUPS[part];
+  return (
+    <svg
+      viewBox={BODY_VIEWBOX[side]}
+      width="60"
+      height="120"
+      aria-hidden
+      focusable="false"
+      className="text-primary"
+    >
+      <path
+        d={BODY_OUTLINE[side]}
+        fill="none"
+        stroke="currentColor"
+        strokeOpacity={0.22}
+        strokeWidth={1.75}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      {/* 肌群用朱砂实填而不是描边：这个尺寸下细线会糊成一团，
+          实填的色块反而读得出「就是这块」，且像纸上盖下的一记印。
+
+          ⚠️ 每条路径必须【各自成 path】，不能拼成一条复合路径 ——
+          nonzero 填充规则下互相重叠的子路径会彼此抵消，
+          实测「练背」只剩一道细边、「练胸」的色块跑到锁骨上去了。 */}
+      {d.map((seg, i) => (
+        <path key={i} d={seg} style={{ fill: 'var(--accent)' }} />
+      ))}
+    </svg>
+  );
 };
 
-/** 朱砂：高亮。比底图粗一档，读得出「就是这块」。 */
-const MARK: React.CSSProperties = {
-  fill: 'none',
-  stroke: 'var(--accent)',
-  strokeWidth: 2.4,
-  strokeLinecap: 'round',
-  strokeLinejoin: 'round',
-};
-
-const BodyGlyph: React.FC<{ part: Exclude<BodyPartKey, 'other'> }> = ({ part }) => (
-  <svg viewBox="0 0 44 56" width="40" height="51" aria-hidden focusable="false">
-    {/* ── 底图：始终整个人 ───────────────────────── */}
-    <g {...BASE} opacity={0.26}>
-      <circle cx="22" cy="7" r="4.6" />
-      <path d="M13 14.5 L31 14.5 L28.6 33 L15.4 33 Z" />
-      <path d="M12.6 16 L9 27.5 L7.2 38" />
-      <path d="M31.4 16 L35 27.5 L36.8 38" />
-      <path d="M18.2 33 L16.4 52" />
-      <path d="M25.8 33 L27.6 52" />
-    </g>
-
-    {/* ── 朱砂：只标目标部位 ─────────────────────── */}
-    {part === 'chest' && (
-      <g style={MARK}>
-        <path d="M14.6 17.5 Q22 22.4 29.4 17.5" />
-        <path d="M14.9 22.6 Q22 27.2 29.1 22.6" />
-      </g>
-    )}
-
-    {part === 'shoulders' && (
-      <g style={MARK}>
-        <path d="M12.4 16.4 A4.6 4.6 0 0 1 17.8 13.6" />
-        <path d="M31.6 16.4 A4.6 4.6 0 0 0 26.2 13.6" />
-      </g>
-    )}
-
-    {part === 'back' && (
-      <g style={MARK}>
-        {/* 脊柱线＝这是背面。没有它，背和胸的轮廓完全一样。 */}
-        <path d="M22 15.6 L22 31.4" strokeWidth={1.6} />
-        {/* 背阔：从腋下向外张、往腰收的翼形。
-            早先画成两条斜线交于中心，整体读起来是个「Y」，不像背。 */}
-        <path d="M14.2 17 Q13 23.6 17.6 29.2" />
-        <path d="M29.8 17 Q31 23.6 26.4 29.2" />
-      </g>
-    )}
-
-    {part === 'legs' && (
-      <g style={MARK}>
-        <path d="M18.2 33.5 L16.4 51.6" />
-        <path d="M25.8 33.5 L27.6 51.6" />
-      </g>
-    )}
-
-    {part === 'arms' && (
-      <g style={MARK}>
-        <path d="M12.6 16.4 L9 27.4" />
-        <path d="M31.4 16.4 L35 27.4" />
-        {/* 二头肌隆起，把「手臂」和「肩」区分开 */}
-        <path d="M12.2 19.4 Q9.4 21.6 10.4 24.4" strokeWidth={1.8} />
-        <path d="M31.8 19.4 Q34.6 21.6 33.6 24.4" strokeWidth={1.8} />
-      </g>
-    )}
-  </svg>
-);
-
-const PARTS: { key: Exclude<BodyPartKey, 'other'>; tk: keyof typeof translations }[] = [
+const PARTS: { key: BodyGroupKey; tk: keyof typeof translations }[] = [
   { key: 'chest', tk: 'partChest' },
   { key: 'shoulders', tk: 'partShoulders' },
   { key: 'back', tk: 'partBack' },
@@ -130,7 +105,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
               data-testid={`body-part-${key}`}
               /* §5.3 列表 stagger：delay = min(i,6) × 32ms，封顶第 7 项 */
               style={{ animationDelay: `${Math.min(i, 6) * 32}ms` }}
-              className="anim-reveal min-h-[104px] rounded-card border border-divider bg-base
+              className="anim-reveal min-h-[168px] rounded-card border border-divider bg-base
                          flex flex-col items-center justify-center gap-2 text-primary
                          hover:border-accent active:scale-press transition-ui"
             >
@@ -145,11 +120,11 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           onClick={onPickOther}
           data-testid="body-part-other"
           style={{ animationDelay: `${5 * 32}ms` }}
-          className="anim-reveal min-h-[104px] rounded-card border border-dashed border-rule
+          className="anim-reveal min-h-[168px] rounded-card border border-dashed border-rule
                      bg-base flex flex-col items-center justify-center gap-2 text-secondary
                      hover:border-accent hover:text-accent active:scale-press transition-ui"
         >
-          <Pencil size={22} strokeWidth={1.75} />
+          <Pencil size={24} strokeWidth={1.75} />
           <span className="text-sm font-semibold">{translations.partOther[lang]}</span>
           <span className="text-[11px] text-tertiary">{translations.partOtherHint[lang]}</span>
         </button>
