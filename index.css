@@ -759,6 +759,43 @@ button {
   transform: scaleX(1);
 }
 
+/* 重量格可横向拖动改值（useValueScrub）。
+   默认零视觉噪音——不拖的时候这一格就是个干净的数字；
+   刻度与档位角标只在拖动过程中长出来。 */
+.ledger-field.is-scrubbable {
+  /* pan-y：竖向滚动照旧交给页面，只截横向。
+     不能用 none —— 这一格同时是输入框的点击区，
+     整个截掉会让手指落在重量上时列表滚不动。 */
+  touch-action: pan-y;
+}
+.ledger-field.is-scrubbing {
+  touch-action: none;
+  user-select: none;
+}
+/* 刻度间距 10px＝一档，与 PX_PER_DETENT 对齐：看得见「又跨过一格」。 */
+.ledger-field.is-scrubbing::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 6px;
+  background: repeating-linear-gradient(to right, var(--accent) 0 1px, transparent 1px 10px);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.scrub-step {
+  position: absolute;
+  top: -3px;
+  right: 0;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--accent);
+  pointer-events: none;
+}
+
 /* 单位：11px 内嵌在数值右下角，取代原来 10px 的表头副行 */
 .ledger-unit {
   font-size: 11px;

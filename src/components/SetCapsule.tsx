@@ -12,6 +12,7 @@ import { Minus } from 'lucide-react';
 import { Language, SubSetLog, SetLog } from '../../types';
 import { ledgerCols, metricUnitLabel, LoadMode } from '../utils/exerciseConfig';
 import { useLongPress } from '../hooks/useLongPress';
+import { useValueScrub } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 
@@ -80,6 +81,17 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   ) as Record<string, string>;
   const [expandedSubSets, setExpandedSubSets] = useState<SubSetLog[]>(set.subSets || []);
   const hasSubSets = expandedSubSets.length > 0;
+
+  // 重量格横向拖动改值。hook 不能在下面的 map 里调，所以在这里调一次，
+  // 再把 handlers 单独摊到 weight 那一格上。
+  // 步长按【显示单位】走：kg 里的 1 就是 1kg，lbs 里的 1 就是 1lb，不做换算——
+  // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
+  const weightDisplay = Number(formatWeight(Number(set.weight) || 0, unit));
+  const scrub = useValueScrub({
+    value: weightDisplay,
+    onChange: next => onUpdate({ weight: parseWeight(next, unit) }),
+    disabled: readOnly,
+  });
 
   const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>) => {
     const newSubSets = [...expandedSubSets];
@@ -178,8 +190,21 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             );
           }
 
+          const scrubbable = m === 'weight';
           return (
-            <label key={m} className="ledger-field">
+            <label
+              key={m}
+              className={`ledger-field${scrubbable ? ' is-scrubbable' : ''}${
+                scrubbable && scrub.scrubbing ? ' is-scrubbing' : ''
+              }`}
+              {...(scrubbable ? scrub.handlers : {})}
+            >
+              {/* 档位角标只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
+              {scrubbable && scrub.scrubbing && (
+                <span className="scrub-step" aria-hidden>
+                  ×{scrub.step}
+                </span>
+              )}
               <input
                 type="number"
                 step="any"
