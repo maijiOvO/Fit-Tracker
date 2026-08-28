@@ -132,12 +132,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     <>
       <div className="anim-tab-enter">
         {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}
-      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base/95 z-30 border-b border-divider mb-4">
+      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base/95 z-sticky border-b border-divider mb-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={onBack}
-            className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center bg-card/60 border border-divider rounded-2xl text-primary hover:bg-card active:scale-90 transition-all"
+            className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center bg-card/60 border border-divider rounded-card text-primary hover:bg-card active:scale-90 transition-all"
             aria-label={isCn ? '返回' : 'Back'}
           >
             <ArrowLeft size={18} />
@@ -167,7 +167,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               <button
                 type="button"
                 onClick={onToggleUnit}
-                className="ml-auto normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-lg bg-inset text-tertiary active:scale-95 hover:text-secondary transition-all"
+                className="ml-auto normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-chip bg-inset text-tertiary active:scale-95 hover:text-secondary transition-all"
                 title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
                 aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
                 data-testid="unit-toggle"
@@ -196,7 +196,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             type="button"
             onClick={onSave}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length)}
-            className={`min-h-[44px] px-4 rounded-2xl font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-all active:scale-95 ${
+            className={`min-h-[44px] px-4 rounded-card font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-all active:scale-95 ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
@@ -210,7 +210,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           >
             {saveStatus === 'saving' ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                 <span>{isCn ? '结束中' : 'Ending'}</span>
               </>
             ) : saveStatus === 'saved' ? (
@@ -294,7 +294,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
       {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外 */}
       <div
-        className="fixed bottom-0 inset-x-0 z-40 bg-base/95 border-t border-divider"
+        className="fixed bottom-0 inset-x-0 z-bar bg-base/95 border-t border-divider"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
@@ -304,7 +304,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={() => onPickerOpenChange(true)}
-            className="flex-1 min-h-[52px] rounded-2xl bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
             data-testid="open-picker-sheet"
           >
             <Plus size={19} strokeWidth={2.5} />

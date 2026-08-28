@@ -33,7 +33,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <nav
-      className="fixed bottom-0 inset-x-0 z-50 bg-base/95 border-t border-divider"
+      className="fixed bottom-0 inset-x-0 z-nav bg-base/95 border-t border-divider"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="relative h-16 max-w-2xl mx-auto grid grid-cols-5">

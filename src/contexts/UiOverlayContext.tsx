@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { X, Check, AlertCircle } from 'lucide-react';
 import { Language } from '../../types';
+import { Modal, ModalFooter } from '../components/Modal';
 
 export type ToastVariant = 'success' | 'error' | 'info';
 
@@ -149,55 +150,40 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
     <UiOverlayContext.Provider value={{ lang, confirm, toast, toastUndo }}>
       {children}
 
-      {/* 确认对话框 */}
-      {confirmState && (
-        <div
-          className="fixed inset-0 z-[200] bg-base/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 sm:p-6 anim-fade"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-inset border border-divider w-full sm:max-w-sm rounded-t-3xl sm:rounded-card p-6 shadow-2xl space-y-4">
-            {confirmState.options.title && (
-              <h3 className="text-lg font-bold text-primary">
-                {confirmState.options.title}
-              </h3>
-            )}
-            <p className="text-sm text-secondary whitespace-pre-line leading-relaxed">
-              {confirmState.options.message}
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => closeConfirm(false)}
-                className="flex-1 min-h-[48px] rounded-2xl bg-card text-secondary font-bold hover:bg-card-hover transition-colors"
-              >
-                {confirmState.options.cancelLabel ?? (isCn ? '取消' : 'Cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={() => closeConfirm(true)}
-                className={`flex-1 min-h-[48px] rounded-2xl font-bold text-on-accent transition-all active:scale-95 ${
-                  confirmState.options.danger
-                    ? 'bg-danger hover:opacity-90'
-                    : 'bg-accent hover:opacity-90'
-                }`}
-              >
-                {confirmState.options.confirmLabel ?? (isCn ? '确定' : 'OK')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 确认对话框。§6.6：危险确认是唯一允许出现 danger 实心的地方，
+          且只存在于确认弹窗内——列表里的删除入口一律降级为墨色文字项。 */}
+      <Modal
+        isOpen={!!confirmState}
+        onClose={() => closeConfirm(false)}
+        title={confirmState?.options.title}
+        size="sm"
+        layer="confirm"
+        showCloseButton={false}
+        dismissOnScrim={false}
+        footer={
+          <ModalFooter
+            cancelLabel={confirmState?.options.cancelLabel ?? (isCn ? '取消' : 'Cancel')}
+            confirmLabel={confirmState?.options.confirmLabel ?? (isCn ? '确定' : 'OK')}
+            onCancel={() => closeConfirm(false)}
+            onConfirm={() => closeConfirm(true)}
+            danger={confirmState?.options.danger}
+          />
+        }
+      >
+        <p className="text-body text-secondary whitespace-pre-line">
+          {confirmState?.options.message}
+        </p>
+      </Modal>
 
       {/* Toast 栈 */}
       <div
-        className="fixed bottom-20 left-0 right-0 z-[190] flex flex-col items-center gap-2 px-4 pointer-events-none"
+        className="fixed bottom-20 left-0 right-0 z-toast flex flex-col items-center gap-2 px-4 pointer-events-none"
         aria-live="polite"
       >
         {toasts.map(item => (
           <div
             key={item.id}
-            className={`pointer-events-auto w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
+            className={`pointer-events-auto w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
           >
             {item.variant === 'success' && (
               <Check size={18} className="text-success flex-shrink-0" strokeWidth={2.5} />
@@ -210,7 +196,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
               <button
                 type="button"
                 onClick={() => handleUndo(item)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-xl bg-accent text-on-accent text-xs font-bold active:scale-95"
+                className="flex-shrink-0 px-3 py-1.5 rounded-control bg-accent text-on-accent text-xs font-bold active:scale-95"
               >
                 {item.undoLabel}
               </button>

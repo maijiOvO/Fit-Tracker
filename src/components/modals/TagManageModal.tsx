@@ -7,9 +7,10 @@
  *   - 系统标签只能改名不能删（与老动作库管理模式的规则一致）
  */
 import React, { useMemo } from 'react';
-import { Edit2, PlusCircle, Trash2, X, Sparkles, Filter } from 'lucide-react';
+import { Edit2, PlusCircle, Trash2, Sparkles, Filter } from 'lucide-react';
 import { Language } from '../../../types';
 import { BODY_PARTS, DEFAULT_EXERCISES, EQUIPMENT_TAGS } from '../../constants/exercises';
+import { Modal } from '../Modal';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 
 interface TagManageModalProps {
@@ -62,7 +63,7 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
     return (
       <div
         key={id}
-        className="flex items-stretch rounded-xl overflow-hidden border border-divider bg-card"
+        className="flex items-stretch rounded-control overflow-hidden border border-divider bg-card"
       >
         <button
           type="button"
@@ -116,7 +117,7 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
           <button
             type="button"
             onClick={() => onCreateCustomTag(category)}
-            className="min-h-[44px] px-3.5 rounded-xl text-xs font-bold text-accent border border-dashed border-accent/40 active:bg-accent/10 transition-colors flex items-center gap-1.5"
+            className="min-h-[44px] px-3.5 rounded-control text-xs font-bold text-accent border border-dashed border-accent/40 active:bg-accent/10 transition-colors flex items-center gap-1.5"
           >
             <PlusCircle size={13} /> {addLabel}
           </button>
@@ -126,27 +127,23 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] bg-base/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade"
-      data-testid="tag-manage-modal"
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={isCn ? '标签管理' : 'Manage Tags'}
+      size="md"
+      layer="modal-2"
+      testId="tag-manage-modal"
+      bodyClassName="overflow-y-auto max-h-[65vh] custom-scrollbar"
+      footer={
+        <p className="text-micro text-tertiary leading-relaxed">
+          {isCn
+            ? '点标签改名 · 带「自定义」的是你创建的标签，可删除（可撤销）· 其余为系统标签，只能改名（改过名的也算系统标签）'
+            : 'Tap to rename · "custom" tags are yours and deletable (undoable) · the rest are system tags, rename-only (renaming does not make them custom)'}
+        </p>
+      }
     >
-      <div className="bg-inset border-t sm:border border-divider w-full sm:max-w-md rounded-t-3xl sm:rounded-card shadow-2xl flex flex-col max-h-[85vh]">
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-primary">
-            {isCn ? '标签管理' : 'Manage Tags'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-card-hover active:scale-90 transition-all"
-            aria-label={isCn ? '关闭' : 'Close'}
-            data-testid="tag-manage-close"
-          >
-            <X size={22} className="text-secondary" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-6 custom-scrollbar">
+      <div className="space-y-6">
           {renderSection(
             <Sparkles size={11} />,
             isCn ? '部位标签' : 'Body parts',
@@ -163,18 +160,8 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
             'equipment',
             isCn ? '新建器材' : 'New gear',
           )}
-        </div>
-
-        <p
-          className="flex-shrink-0 px-5 py-3 text-[10px] text-tertiary border-t border-divider"
-          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
-        >
-          {isCn
-            ? '点标签改名 · 带「自定义」的是你创建的标签，可删除（可撤销）· 其余为系统标签，只能改名（改过名的也算系统标签）'
-            : 'Tap to rename · "custom" tags are yours and deletable (undoable) · the rest are system tags, rename-only (renaming does not make them custom)'}
-        </p>
       </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -305,9 +305,29 @@ const main = async () => {
   await step(page, 'plan-pick-from-library', async () => {
     // Open library through the editor and append the first available exercise
     await page.locator('[data-testid="schedule-pick-library"]').click();
-    // Library overlay should appear at z-100 above editor
-    const lib = page.locator('div.fixed.inset-0.z-\\[100\\]');
+    // Library overlay must sit above the schedule editor.
+    // 以前这里按 `.z-[100]` 类名找 —— 锁死在一个随手 z 值上，而设计规格
+    // 要求的正是干掉这些随手值。现在按 testid 找，并且真的比较计算层级。
+    const lib = page.locator('[data-testid="library-modal"]');
     await lib.waitFor({ state: 'visible', timeout: 5_000 });
+    const stacking = await page.evaluate(() => {
+      const z = el => (el ? Number(getComputedStyle(el).zIndex) : NaN);
+      const libEl = document.querySelector('[data-testid="library-modal"]');
+      const editorEl = document.querySelector('[data-testid="schedule-editor"]');
+      const editorRoot = editorEl && editorEl.closest('[role="presentation"]');
+      return {
+        lib: z(libEl),
+        editor: z(editorRoot),
+        // 同一个父节点才使 z-index 的比较有意义（否则各自在局部层叠上下文里）
+        sameParent: !!libEl && !!editorRoot && libEl.parentElement === editorRoot.parentElement,
+      };
+    });
+    if (!(stacking.lib > stacking.editor)) {
+      throw new Error(`library z-index ${stacking.lib} not above editor ${stacking.editor}`);
+    }
+    if (!stacking.sameParent) {
+      throw new Error('library and editor are not in the same stacking parent');
+    }
 
     // === Sub-check: the sidebar tags should be functional ===
     // In "all categories" mode (default from plan picker), sidebar should show body parts header.

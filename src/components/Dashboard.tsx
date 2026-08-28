@@ -149,7 +149,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   if (workouts.length === 0 && weightEntries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-fade-in">
-        <div className="bg-accent-soft p-8 rounded-full mb-8">
+        <div className="bg-accent-soft p-8 rounded-control mb-8">
           <Trophy size={64} className="text-accent" strokeWidth={1.75} />
         </div>
         <h2 className="font-display text-display-sm text-primary mb-3">
@@ -199,7 +199,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               e.stopPropagation();
               actions.onLogWeight();
             }}
-            className="w-10 h-10 flex items-center justify-center bg-accent text-on-accent rounded-xl active:scale-95"
+            className="w-10 h-10 flex items-center justify-center bg-accent text-on-accent rounded-control active:scale-95"
             aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
           >
             <Plus size={18} strokeWidth={2} />
@@ -276,7 +276,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <button
           type="button"
           onClick={() => setView('timeline')}
-          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-all ${
             view === 'timeline'
               ? 'bg-accent text-on-accent'
               : 'bg-transparent text-secondary hover:text-primary'
@@ -288,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <button
           type="button"
           onClick={() => setView('pr')}
-          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-xl text-sm font-bold transition-all ${
+          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-all ${
             view === 'pr'
               ? 'bg-accent text-on-accent'
               : 'bg-transparent text-secondary hover:text-primary'
@@ -531,7 +531,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <div className="mt-8 mb-8 px-1 pb-16">
         <div className="ui-card p-6 text-center space-y-4">
           <div className="flex justify-center">
-            <div className="p-3 bg-accent-soft text-accent rounded-full">
+            <div className="p-3 bg-accent-soft text-accent rounded-control">
               <Cloud size={28} strokeWidth={1.75} />
             </div>
           </div>

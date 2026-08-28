@@ -2,10 +2,11 @@
  * 时长（H / M / S）选择器：用于设置某一组动作的持续时间
  */
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { secondsToHMS } from '../../utils/format';
+import { Modal, ModalFooter } from '../Modal';
 
 interface DurationPickerModalProps {
   open: boolean;
@@ -38,18 +39,23 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[100] bg-base/90 backdrop-blur-md flex items-end sm:items-center justify-center anim-fade">
-      <div className="bg-inset border-t sm:border border-divider w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl anim-paper-drop">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-xl font-semibold text-primary">
-            {isCn ? '设置时长' : 'Set Duration'}
-          </h2>
-          <button onClick={onClose} className="p-2 text-secondary">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="flex justify-around items-center gap-4 mb-10">
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title={isCn ? '设置时长' : 'Set Duration'}
+      size="md"
+      layer="modal-2"
+      dismissOnScrim={false}
+      footer={
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={translations.confirm[lang]}
+          onCancel={onClose}
+          onConfirm={() => onConfirm(tempHMS.h * 3600 + tempHMS.m * 60 + tempHMS.s)}
+        />
+      }
+    >
+      <div className="flex justify-around items-center gap-4">
           {columns.map(col => (
             <div key={col.key} className="flex flex-col items-center gap-4 flex-1">
               <button
@@ -59,7 +65,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     [col.key]: p[col.key] + 1 > col.max ? 0 : p[col.key] + 1,
                   }))
                 }
-                className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
+                className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
               >
                 <ChevronUp size={28} strokeWidth={3} />
               </button>
@@ -80,30 +86,14 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     [col.key]: p[col.key] - 1 < 0 ? col.max : p[col.key] - 1,
                   }))
                 }
-                className="w-full py-4 bg-card rounded-2xl flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
+                className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-all"
               >
                 <ChevronDown size={28} strokeWidth={3} />
               </button>
             </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={onClose}
-            className="py-5 rounded-card bg-card text-secondary font-semibold"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={() => onConfirm(tempHMS.h * 3600 + tempHMS.m * 60 + tempHMS.s)}
-            className="py-5 rounded-card bg-accent text-on-accent font-semibold"
-          >
-            {translations.confirm[lang]}
-          </button>
-        </div>
+        ))}
       </div>
-    </div>
+    </Modal>
   );
 };
 

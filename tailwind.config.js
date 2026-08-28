@@ -127,6 +127,20 @@ export default {
         stamp: 'var(--dur-stamp)',
         reveal: 'var(--dur-reveal)',
       },
+      // §4 z-index 收敛：原先 30/40/50/70/80/100/110/120/190/200 十个随手值，
+      // 收敛成一条有名字的梯子。modal-2 / modal-3 是「从弹层或弹窗里再开出来的弹窗」，
+      // 命名如实反映它就是一级级往上叠，不装成语义分类。
+      zIndex: {
+        sticky: '30',   // 页内吸顶栏
+        bar: '40',      // 常驻顶栏 / 底部添加栏
+        nav: '50',      // 底部 tab
+        sheet: '80',    // 底部弹层
+        modal: '100',
+        'modal-2': '110',
+        'modal-3': '120',
+        toast: '190',
+        confirm: '200', // 确认框永远在最上
+      },
       transitionTimingFunction: {
         paper: 'var(--ease-paper)',
         stamp: 'var(--ease-stamp)',

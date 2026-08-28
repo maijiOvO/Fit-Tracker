@@ -1,7 +1,7 @@
 import React from 'react';
-import { X } from 'lucide-react';
 import { Goal, GoalType, Language } from '../../../types';
 import { translations } from '../../../translations';
+import { Modal, ModalFooter } from '../Modal';
 
 interface EditGoalModalProps {
   open: boolean;
@@ -20,30 +20,33 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
   onCancel,
   onSave,
 }) => {
-  if (!open || !editingGoal) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 anim-fade">
-      <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 space-y-6 shadow-2xl">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">{isCn ? '编辑目标' : 'Edit Goal'}</h2>
-          <button
-            onClick={onCancel}
-            className="p-2 hover:bg-card rounded-full transition-colors"
-          >
-            <X size={20} className="text-secondary" />
-          </button>
-        </div>
+    <Modal
+      isOpen={open && !!editingGoal}
+      onClose={onCancel}
+      title={isCn ? '编辑目标' : 'Edit Goal'}
+      size="sm"
+      dismissOnScrim={false}
+      footer={
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={isCn ? '保存更改' : 'Save Changes'}
+          onCancel={onCancel}
+          onConfirm={onSave}
+        />
+      }
+    >
+      {editingGoal && (
         <div className="space-y-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 p-1 bg-inset border border-divider rounded-control">
             {(['weight', 'strength', 'frequency'] as const).map(type => (
               <button
                 key={type}
-                onClick={() =>
-                  setEditingGoal({ ...editingGoal, type: type as GoalType })
-                }
-                className={`flex-1 py-3 rounded-2xl text-[10px] font-semibold uppercase transition-all ${
-                  editingGoal.type === type ? 'bg-accent' : 'bg-card'
+                type="button"
+                onClick={() => setEditingGoal({ ...editingGoal, type: type as GoalType })}
+                className={`flex-1 min-h-[40px] rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
+                  editingGoal.type === type ? 'bg-accent text-on-accent' : 'text-secondary'
                 }`}
               >
                 {
@@ -56,95 +59,60 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
           </div>
 
           <input
-            className="w-full bg-card border border-divider rounded-2xl py-4 px-6"
+            className="ui-input"
             value={editingGoal.title || editingGoal.label || ''}
             onChange={e =>
-              setEditingGoal({
-                ...editingGoal,
-                title: e.target.value,
-                label: e.target.value,
-              })
+              setEditingGoal({ ...editingGoal, title: e.target.value, label: e.target.value })
             }
             placeholder={translations.goalLabelPlaceholder[lang]}
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <input
               type="number"
-              className="bg-card border border-divider rounded-2xl py-4 px-6"
+              inputMode="decimal"
+              className="ui-input"
               placeholder={translations.current[lang]}
               value={editingGoal.currentValue || ''}
-              onChange={e =>
-                setEditingGoal({
-                  ...editingGoal,
-                  currentValue: Number(e.target.value),
-                })
-              }
+              onChange={e => setEditingGoal({ ...editingGoal, currentValue: Number(e.target.value) })}
             />
             <input
               type="number"
-              className="bg-card border border-divider rounded-2xl py-4 px-6"
+              inputMode="decimal"
+              className="ui-input"
               placeholder={translations.target[lang]}
               value={editingGoal.targetValue || ''}
-              onChange={e =>
-                setEditingGoal({
-                  ...editingGoal,
-                  targetValue: Number(e.target.value),
-                })
-              }
+              onChange={e => setEditingGoal({ ...editingGoal, targetValue: Number(e.target.value) })}
             />
           </div>
 
           <textarea
-            className="w-full bg-card border border-divider rounded-2xl py-4 px-6 resize-none"
+            className="ui-input resize-none"
             rows={3}
             value={editingGoal.description || ''}
-            onChange={e =>
-              setEditingGoal({ ...editingGoal, description: e.target.value })
-            }
+            onChange={e => setEditingGoal({ ...editingGoal, description: e.target.value })}
             placeholder={isCn ? '目标描述（可选）' : 'Goal description (optional)'}
           />
 
-          <div className="flex items-center justify-between p-4 bg-card/50 rounded-2xl">
-            <span className="text-sm font-bold text-primary">
+          <div className="flex items-center justify-between px-4 py-3 bg-inset border border-divider rounded-control">
+            <span className="text-body font-medium text-primary">
               {isCn ? '目标状态' : 'Goal Status'}
             </span>
             <button
-              onClick={() =>
-                setEditingGoal({ ...editingGoal, isActive: !editingGoal.isActive })
-              }
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                editingGoal.isActive
-                  ? 'bg-success text-on-accent'
-                  : 'bg-inset text-secondary'
+              type="button"
+              onClick={() => setEditingGoal({ ...editingGoal, isActive: !editingGoal.isActive })}
+              className={`min-h-[36px] px-4 rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
+                editingGoal.isActive ? 'bg-success text-on-accent' : 'bg-card text-secondary'
               }`}
+              role="switch"
+              aria-checked={!!editingGoal.isActive}
             >
-              {editingGoal.isActive
-                ? isCn
-                  ? '活跃'
-                  : 'Active'
-                : isCn
-                  ? '暂停'
-                  : 'Paused'}
+              {editingGoal.isActive ? (isCn ? '活跃' : 'Active') : isCn ? '暂停' : 'Paused'}
             </button>
           </div>
         </div>
-        <div className="flex gap-4">
-          <button
-            onClick={onCancel}
-            className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary hover:bg-card-hover transition-colors"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={onSave}
-            className="flex-[2] bg-accent py-4 rounded-2xl font-semibold text-on-accent hover:opacity-90 transition-all shadow-elevated active:scale-95"
-          >
-            {isCn ? '保存更改' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 };
 

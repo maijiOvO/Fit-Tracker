@@ -367,9 +367,12 @@ button {
 .ui-input::placeholder {
   color: var(--text-tertiary);
 }
+/* 聚焦是描边不是光晕：ring 与外发光是 Material 的东西，纸上没有辐射源（§5.3）。
+   底边加粗一档，像笔尖压在那一行上。 */
 .ui-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-bottom-width: 2px;
+  padding-bottom: calc(0.75rem - 1px);
 }
 
 .ui-section-label {
@@ -505,6 +508,49 @@ button {
 }
 .anim-toast {
   animation: toast-print var(--dur-base) var(--ease-paper) both;
+}
+
+/* 底部弹层入场：从下缘推上来。这是 sheet 唯一合法的空间隐喻——
+   它真的是从屏幕下方来的（tab 之间没有这种关系，所以 tab 不做横滑）。 */
+@keyframes sheet-in {
+  from {
+    transform: translateY(calc(100% * var(--move)));
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.anim-sheet-in {
+  animation: sheet-in var(--dur-page) var(--ease-paper) both;
+}
+
+/* 退场 §6.6：只用 opacity，不反向播 clip——反着放看起来像倒带。
+   面板可以带一点点下沉，遮罩纯淡出。 */
+@keyframes panel-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(6px * var(--move)));
+  }
+}
+.anim-panel-out {
+  animation: panel-out var(--dur-exit) var(--ease-leave) both;
+}
+@keyframes scrim-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.anim-scrim-out {
+  animation: scrim-out var(--dur-exit) var(--ease-leave) both;
 }
 
 /* 列表 stagger：delay(i) = min(i,6) × 32ms，封顶第 7 项——

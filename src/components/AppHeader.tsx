@@ -30,7 +30,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSync,
   onToggleUnit,
 }) => (
-  <header className="sticky top-0 z-40 bg-base/90 border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
+  <header className="sticky top-0 z-bar bg-base/90 border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
     <div className="flex items-center gap-3">
       <Dumbbell className="text-accent" />
       <h1 className="font-display text-lg font-semibold tracking-tight text-primary">
@@ -42,7 +42,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <button
         onClick={onSync}
         disabled={syncDisabled}
-        className={`p-2 rounded-xl border transition-all active:scale-90 ${
+        className={`p-2 rounded-control border transition-all active:scale-90 ${
           syncStatus === 'error'
             ? 'bg-danger/10 border-danger/20'
             : 'bg-card border-divider'
@@ -59,7 +59,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
       <button
         onClick={onToggleUnit}
-        className="bg-card border border-divider px-3 py-1.5 rounded-xl text-xs font-semibold uppercase text-accent hover:bg-card-hover hover:text-primary transition-all active:scale-95 shadow-sm"
+        className="bg-card border border-divider px-3 py-1.5 rounded-control text-xs font-semibold uppercase text-accent hover:bg-card-hover hover:text-primary transition-all active:scale-95 shadow-sm"
       >
         {unit}
       </button>

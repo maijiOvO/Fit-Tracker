@@ -3,9 +3,10 @@
  * 注意：这是一个 self-contained 组件，所有日历状态都在内部管理。
  */
 import React, { useEffect, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
+import { Modal, ModalFooter } from '../Modal';
 
 interface ExerciseDateTimePickerModalProps {
   open: boolean;
@@ -80,16 +81,22 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 anim-fade">
-      <div className="bg-inset border border-divider w-full max-w-md rounded-card p-8 space-y-6 shadow-2xl">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">
-            {isCn ? '设置训练时间' : 'Set Exercise Time'}
-          </h2>
-          <button onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title={isCn ? '设置训练时间' : 'Set Exercise Time'}
+      size="md"
+      dismissOnScrim={false}
+      bodyClassName="space-y-6"
+      footer={
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={isCn ? '确定' : 'Confirm'}
+          onCancel={onClose}
+          onConfirm={handleConfirm}
+        />
+      }
+    >
 
         <div className="space-y-4">
           <div className="space-y-2">
@@ -107,7 +114,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                     setCurrentMonth(currentMonth - 1);
                   }
                 }}
-                className="p-2 hover:bg-card rounded-lg transition-colors"
+                className="p-2 hover:bg-card rounded-chip transition-colors"
               >
                 <ChevronLeft size={20} className="text-secondary" />
               </button>
@@ -126,7 +133,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                     setCurrentMonth(currentMonth + 1);
                   }
                 }}
-                className="p-2 hover:bg-card rounded-lg transition-colors"
+                className="p-2 hover:bg-card rounded-chip transition-colors"
               >
                 <ChevronRight size={20} className="text-secondary" />
               </button>
@@ -161,7 +168,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                     <button
                       key={day}
                       onClick={() => setSelectedDate(date)}
-                      className={`h-10 rounded-lg text-sm font-bold transition-all ${
+                      className={`h-10 rounded-chip text-sm font-bold transition-all ${
                         isSelected
                           ? 'bg-accent text-on-accent shadow-elevated'
                           : isTodayDate
@@ -185,7 +192,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 setCurrentMonth(today.getMonth());
                 setCurrentYear(today.getFullYear());
               }}
-              className="flex-1 px-4 py-2 bg-card border border-divider rounded-xl text-sm font-bold hover:bg-card-hover transition-colors"
+              className="flex-1 px-4 py-2 bg-card border border-divider rounded-control text-sm font-bold hover:bg-card-hover transition-colors"
             >
               {translations.today[lang]}
             </button>
@@ -197,7 +204,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 setCurrentMonth(yesterday.getMonth());
                 setCurrentYear(yesterday.getFullYear());
               }}
-              className="flex-1 px-4 py-2 bg-card border border-divider rounded-xl text-sm font-bold hover:bg-card-hover transition-colors"
+              className="flex-1 px-4 py-2 bg-card border border-divider rounded-control text-sm font-bold hover:bg-card-hover transition-colors"
             >
               {translations.yesterday[lang]}
             </button>
@@ -212,12 +219,12 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
               <div className="flex flex-col items-center space-y-2">
                 <button
                   onClick={() => setSelectedHour((selectedHour + 1) % 24)}
-                  className="p-2 hover:bg-card rounded-lg transition-colors"
+                  className="p-2 hover:bg-card rounded-chip transition-colors"
                 >
                   <ChevronUp size={20} className="text-secondary" />
                 </button>
 
-                <div className="bg-card border border-divider rounded-xl px-4 py-3 min-w-[60px] text-center">
+                <div className="bg-card border border-divider rounded-control px-4 py-3 min-w-[60px] text-center">
                   <div className="text-2xl font-bold text-primary">
                     {selectedHour.toString().padStart(2, '0')}
                   </div>
@@ -230,7 +237,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                   onClick={() =>
                     setSelectedHour(selectedHour === 0 ? 23 : selectedHour - 1)
                   }
-                  className="p-2 hover:bg-card rounded-lg transition-colors"
+                  className="p-2 hover:bg-card rounded-chip transition-colors"
                 >
                   <ChevronDown size={20} className="text-secondary" />
                 </button>
@@ -241,12 +248,12 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
               <div className="flex flex-col items-center space-y-2">
                 <button
                   onClick={() => setSelectedMinute((selectedMinute + 5) % 60)}
-                  className="p-2 hover:bg-card rounded-lg transition-colors"
+                  className="p-2 hover:bg-card rounded-chip transition-colors"
                 >
                   <ChevronUp size={20} className="text-secondary" />
                 </button>
 
-                <div className="bg-card border border-divider rounded-xl px-4 py-3 min-w-[60px] text-center">
+                <div className="bg-card border border-divider rounded-control px-4 py-3 min-w-[60px] text-center">
                   <div className="text-2xl font-bold text-primary">
                     {selectedMinute.toString().padStart(2, '0')}
                   </div>
@@ -259,7 +266,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                   onClick={() =>
                     setSelectedMinute(selectedMinute === 0 ? 55 : selectedMinute - 5)
                   }
-                  className="p-2 hover:bg-card rounded-lg transition-colors"
+                  className="p-2 hover:bg-card rounded-chip transition-colors"
                 >
                   <ChevronDown size={20} className="text-secondary" />
                 </button>
@@ -273,7 +280,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                   setSelectedHour(now.getHours());
                   setSelectedMinute(now.getMinutes());
                 }}
-                className="px-3 py-2 bg-card border border-divider rounded-lg text-xs font-bold hover:bg-card-hover transition-colors"
+                className="px-3 py-2 bg-card border border-divider rounded-chip text-xs font-bold hover:bg-card-hover transition-colors"
               >
                 {isCn ? '现在' : 'Now'}
               </button>
@@ -282,7 +289,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                   setSelectedHour(8);
                   setSelectedMinute(0);
                 }}
-                className="px-3 py-2 bg-card border border-divider rounded-lg text-xs font-bold hover:bg-card-hover transition-colors"
+                className="px-3 py-2 bg-card border border-divider rounded-chip text-xs font-bold hover:bg-card-hover transition-colors"
               >
                 {isCn ? '早上8点' : '8:00 AM'}
               </button>
@@ -291,14 +298,14 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                   setSelectedHour(18);
                   setSelectedMinute(0);
                 }}
-                className="px-3 py-2 bg-card border border-divider rounded-lg text-xs font-bold hover:bg-card-hover transition-colors"
+                className="px-3 py-2 bg-card border border-divider rounded-chip text-xs font-bold hover:bg-card-hover transition-colors"
               >
                 {isCn ? '晚上6点' : '6:00 PM'}
               </button>
             </div>
           </div>
 
-          <div className="bg-card/50 border border-divider rounded-xl p-4">
+          <div className="bg-card/50 border border-divider rounded-control p-4">
             <div className="text-xs font-bold text-secondary mb-1">
               {isCn ? '选择的时间' : 'Selected Time'}
             </div>
@@ -312,22 +319,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <button
-            onClick={onClose}
-            className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={handleConfirm}
-            className="flex-1 bg-accent py-4 rounded-2xl font-semibold"
-          >
-            {isCn ? '确定' : 'Confirm'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

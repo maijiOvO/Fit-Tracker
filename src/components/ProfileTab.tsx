@@ -118,7 +118,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
     <div className="space-y-6 animate-fade-in">
       {/* Profile Header */}
       <div className="flex flex-col items-center justify-center py-10 relative overflow-hidden">
-        <div className="absolute inset-0 bg-accent/5 rounded-full blur-3xl scale-150" />
+        <div className="absolute inset-0 bg-accent/5 rounded-control blur-3xl scale-150" />
 
         {/* Avatar Container */}
         <div 
@@ -163,7 +163,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             <Activity size={12} className="text-accent" />
             {lang === Language.CN ? '训练活跃度' : 'Activity'}
           </h3>
-          <span className="text-[10px] font-bold text-tertiary bg-card px-2 py-1 rounded-lg">
+          <span className="text-[10px] font-bold text-tertiary bg-card px-2 py-1 rounded-chip">
             {lang === Language.CN ? '近3个月' : 'Last 90 Days'}
           </span>
         </div>
@@ -198,7 +198,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       {/* Guest Mode Warning */}
       {user.id === 'u_guest' && (
         <div className="mx-2 p-5 bg-warning/10 border border-warning/20 rounded-card flex items-start gap-4 anim-reveal">
-          <div className="p-3 bg-warning/20 text-warning rounded-2xl flex-shrink-0">
+          <div className="p-3 bg-warning/20 text-warning rounded-card flex-shrink-0">
             <ShieldAlert size={24} />
           </div>
           <div className="flex flex-col gap-1">
@@ -211,7 +211,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             {onCreateAccount && (
               <button
                 onClick={onCreateAccount}
-                className="mt-2 text-[10px] font-semibold text-primary bg-warning/40 hover:bg-warning/60 px-3 py-1.5 rounded-lg self-start transition-colors"
+                className="mt-2 text-[10px] font-semibold text-primary bg-warning/40 hover:bg-warning/60 px-3 py-1.5 rounded-chip self-start transition-colors"
               >
                 {translations.createAccount[lang]}
               </button>
@@ -236,7 +236,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         className="w-full bg-card border border-divider p-5 rounded-card flex items-center justify-between group active:scale-95 transition-all shadow-lg"
       >
         <div className="flex items-center gap-4">
-          <div className="p-4 bg-accent/20 text-accent rounded-2xl group-hover:bg-accent group-hover:text-primary transition-colors">
+          <div className="p-4 bg-accent/20 text-accent rounded-card group-hover:bg-accent group-hover:text-primary transition-colors">
             <Scale size={24} />
           </div>
           <div className="text-left">
@@ -246,7 +246,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             </p>
           </div>
         </div>
-        <div className="bg-inset p-3 rounded-full text-secondary group-hover:text-accent transition-colors">
+        <div className="bg-inset p-3 rounded-control text-secondary group-hover:text-accent transition-colors">
           <Plus size={20} />
         </div>
       </button>
@@ -316,7 +316,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                           .filter(m => m.name === metric.name)
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                           .map((historyItem) => (
-                            <div key={historyItem.id} className="flex justify-between items-center bg-inset/30 p-3 rounded-xl border border-divider group">
+                            <div key={historyItem.id} className="flex justify-between items-center bg-inset/30 p-3 rounded-control border border-divider group">
                               <div className="flex items-center gap-3">
                                 <div className="flex flex-col">
                                   <span className="text-sm font-bold text-primary">
@@ -332,13 +332,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                               <div className="flex gap-2">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); onEditMeasurement(historyItem); }} 
-                                  className="p-2 bg-accent/10 text-accent rounded-lg hover:bg-accent/20 active:scale-90 transition-all"
+                                  className="p-2 bg-accent/10 text-accent rounded-chip hover:bg-accent/20 active:scale-90 transition-all"
                                 >
                                   <Edit2 size={12} />
                                 </button>
                                 <button 
                                   onClick={(e) => onDeleteMeasurement(e, historyItem.id)} 
-                                  className="p-2 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 active:scale-90 transition-all"
+                                  className="p-2 bg-danger/10 text-danger rounded-chip hover:bg-danger/20 active:scale-90 transition-all"
                                 >
                                   <Trash2 size={12} />
                                 </button>
@@ -369,7 +369,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             onClick={onShowMeasureModal} 
             className="bg-card border-2 border-dashed border-divider p-4 rounded-card flex flex-col items-center justify-center gap-2 hover:bg-card transition-all min-h-[100px]"
           >
-            <div className="p-2 bg-card rounded-full text-secondary">
+            <div className="p-2 bg-card rounded-control text-secondary">
               <Plus size={16} />
             </div>
             <span className="text-[10px] font-bold text-secondary">
@@ -447,7 +447,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           aria-checked={haptics}
         >
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent/10 text-accent rounded-xl">
+            <div className="p-3 bg-accent/10 text-accent rounded-control">
               <Vibrate size={20} strokeWidth={1.75} />
             </div>
             <span className="font-bold text-primary">
@@ -467,12 +467,12 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           className="w-full p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors"
         >
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent/10 text-accent rounded-xl">
+            <div className="p-3 bg-accent/10 text-accent rounded-control">
               <Globe size={20} />
             </div>
             <span className="font-bold text-primary">{translations.languageLabel[lang]}</span>
           </div>
-          <span className="font-semibold text-secondary text-sm px-3 py-1 bg-card rounded-lg">
+          <span className="font-semibold text-secondary text-sm px-3 py-1 bg-card rounded-chip">
             {lang === Language.CN ? '中文' : 'EN'}
           </span>
         </button>
@@ -481,10 +481,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         {onLogout && (
           <button
             onClick={onLogout}
-            className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-danger/10 transition-colors group mt-4 border-t border-divider"
+            className="w-full p-4 flex justify-between items-center rounded-card hover:bg-danger/10 transition-colors group mt-4 border-t border-divider"
           >
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-danger/10 text-danger rounded-xl group-hover:opacity-90 group-hover:text-primary transition-colors">
+              <div className="p-3 bg-danger/10 text-danger rounded-control group-hover:opacity-90 group-hover:text-primary transition-colors">
                 <LogOut size={20} />
               </div>
               <span className="font-bold text-danger group-hover:text-danger transition-colors">
@@ -498,10 +498,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         {/* Reset Account */}
         <button 
           onClick={() => setShowResetAccountModal(true)} 
-          className="w-full p-4 flex justify-between items-center rounded-2xl hover:bg-danger/10 transition-colors group border-t border-divider"
+          className="w-full p-4 flex justify-between items-center rounded-card hover:bg-danger/10 transition-colors group border-t border-divider"
         >
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-danger/10 text-danger rounded-xl group-hover:opacity-90 group-hover:text-primary transition-colors">
+            <div className="p-3 bg-danger/10 text-danger rounded-control group-hover:opacity-90 group-hover:text-primary transition-colors">
               <Trash2 size={20} />
             </div>
             <span className="font-bold text-danger group-hover:text-danger transition-colors">
@@ -515,10 +515,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         {onToggleDevMode && (
           <button
             onClick={onToggleDevMode}
-            className="w-full p-4 flex justify-between items-center rounded-2xl transition-colors group border-t border-divider"
+            className="w-full p-4 flex justify-between items-center rounded-card transition-colors group border-t border-divider"
           >
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl transition-colors ${
+              <div className={`p-3 rounded-control transition-colors ${
                 devMode ? 'bg-warning/10 text-warning' : 'bg-card text-secondary'
               }`}>
                 <Beaker size={20} strokeWidth={1.75} />
@@ -538,7 +538,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                 </p>
               </div>
             </div>
-            <span className={`text-xs font-semibold px-3 py-1 rounded-lg shrink-0 ${
+            <span className={`text-xs font-semibold px-3 py-1 rounded-chip shrink-0 ${
               devMode ? 'bg-warning/15 text-warning' : 'bg-card text-secondary'
             }`}>
               {devMode ? (lang === Language.CN ? '开发' : 'Dev') : (lang === Language.CN ? '用户' : 'User')}

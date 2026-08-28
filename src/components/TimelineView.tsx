@@ -102,7 +102,7 @@ const GranularityChip: React.FC<GranularityChipProps> = ({ active, icon, label, 
   <button
     type="button"
     onClick={onClick}
-    className={`flex-1 min-h-[40px] flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all ${
+    className={`flex-1 min-h-[40px] flex items-center justify-center gap-1.5 rounded-control text-xs font-bold transition-all ${
       active
         ? 'bg-accent text-on-accent'
         : 'bg-transparent text-secondary hover:text-primary'
@@ -306,7 +306,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                            e.stopPropagation();
                            onEditWorkout(w.id);
                          }}
-                         className="flex-1 min-h-[40px] flex items-center justify-center gap-1.5 bg-accent text-on-accent rounded-xl text-xs font-bold hover:opacity-90 active:scale-95 transition-all"
+                         className="flex-1 min-h-[40px] flex items-center justify-center gap-1.5 bg-accent text-on-accent rounded-control text-xs font-bold hover:opacity-90 active:scale-95 transition-all"
                          title={isCN ? '编辑训练' : 'Edit'}
                        >
                          <Edit2 size={13} strokeWidth={2} />
@@ -318,7 +318,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                            e.stopPropagation();
                            onAddExerciseToWorkout(w.id);
                          }}
-                         className="min-h-[40px] px-3 flex items-center justify-center gap-1.5 bg-inset text-secondary rounded-xl text-xs font-bold hover:text-primary active:scale-95 transition-all"
+                         className="min-h-[40px] px-3 flex items-center justify-center gap-1.5 bg-inset text-secondary rounded-control text-xs font-bold hover:text-primary active:scale-95 transition-all"
                          title={isCN ? '为此训练补加动作' : 'Add exercise'}
                        >
                          <Plus size={14} strokeWidth={2} />
@@ -330,7 +330,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                            e.stopPropagation();
                            onDeleteWorkout(w.id);
                          }}
-                         className="min-h-[40px] w-11 flex items-center justify-center text-danger bg-danger/10 rounded-xl hover:opacity-80 active:scale-95 transition-all"
+                         className="min-h-[40px] w-11 flex items-center justify-center text-danger bg-danger/10 rounded-control hover:opacity-80 active:scale-95 transition-all"
                          title={isCN ? '删除整场' : 'Delete workout'}
                        >
                          <Trash2 size={14} strokeWidth={2} />

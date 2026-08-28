@@ -239,7 +239,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary" size={18} />
           <input
-            className="w-full bg-inset border border-divider rounded-2xl pl-11 pr-4 py-3 text-sm text-primary outline-none focus:border-accent transition-all min-h-[44px]"
+            className="w-full bg-inset border border-divider rounded-card pl-11 pr-4 py-3 text-sm text-primary outline-none focus:border-accent transition-all min-h-[44px]"
             placeholder={isCn ? '搜索动作名称…' : 'Search exercise name…'}
             value={searchQuery}
             onChange={e => onSearchChange(e.target.value)}
@@ -248,7 +248,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         </div>
         <button
           onClick={() => onCreateCustomExercise(searchQuery.trim() || undefined)}
-          className="px-4 min-h-[44px] bg-accent text-on-accent rounded-2xl text-xs font-bold flex items-center gap-1.5 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
+          className="px-4 min-h-[44px] bg-accent text-on-accent rounded-card text-xs font-bold flex items-center gap-1.5 hover:opacity-90 active:scale-95 transition-all whitespace-nowrap"
           aria-label={t.addCustomExercise[lang]}
         >
           <Plus size={16} strokeWidth={2.5} />
@@ -268,7 +268,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
                 onCategoryChange(opt.id);
                 onSelectedTagsChange([]);
               }}
-              className={`px-4 min-h-[40px] rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
+              className={`px-4 min-h-[40px] rounded-control text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap ${
                 active
                   ? 'bg-accent text-on-accent shadow-elevated'
                   : 'bg-inset text-secondary hover:bg-card-hover'
@@ -291,7 +291,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           </h4>
           <button
             onClick={onToggleEditingTags}
-            className={`px-3 min-h-[36px] rounded-lg text-[10px] font-bold transition-all ${
+            className={`px-3 min-h-[36px] rounded-chip text-[10px] font-bold transition-all ${
               isEditingTags
                 ? 'bg-warning/20 text-warning'
                 : 'text-tertiary hover:text-secondary'
@@ -319,7 +319,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           })}
           <button
             onClick={() => onCreateCustomTag('bodyPart')}
-            className="min-h-[40px] px-3 rounded-xl text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-all flex items-center gap-1"
+            className="min-h-[40px] px-3 rounded-control text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-all flex items-center gap-1"
           >
             <PlusCircle size={12} /> {isCn ? '部位' : 'part'}
           </button>
@@ -353,7 +353,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           })}
           <button
             onClick={() => onCreateCustomTag('equipment')}
-            className="min-h-[40px] px-3 rounded-xl text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-all flex items-center gap-1"
+            className="min-h-[40px] px-3 rounded-control text-[11px] font-bold text-accent border border-dashed border-accent/40 hover:bg-accent/10 transition-all flex items-center gap-1"
           >
             <PlusCircle size={12} /> {isCn ? '器材' : 'gear'}
           </button>
@@ -459,7 +459,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
             {searchHasNoExactMatch && (
               <button
                 onClick={() => onCreateCustomExercise(searchQuery.trim())}
-                className="inline-flex items-center gap-2 px-5 min-h-[44px] bg-accent text-on-accent rounded-2xl font-bold text-sm active:scale-95 transition-all"
+                className="inline-flex items-center gap-2 px-5 min-h-[44px] bg-accent text-on-accent rounded-card font-bold text-sm active:scale-95 transition-all"
               >
                 <Plus size={18} strokeWidth={2.5} />
                 {isCn ? `创建「${searchQuery.trim()}」` : `Create "${searchQuery.trim()}"`}
@@ -472,7 +472,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         {totalCount > 0 && searchHasNoExactMatch && (
           <button
             onClick={() => onCreateCustomExercise(searchQuery.trim())}
-            className="w-full min-h-[44px] py-3 border border-dashed border-divider rounded-2xl text-sm text-accent font-bold hover:bg-card-hover transition-all flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] py-3 border border-dashed border-divider rounded-card text-sm text-accent font-bold hover:bg-card-hover transition-all flex items-center justify-center gap-2"
           >
             <Plus size={16} strokeWidth={2.5} />
             {isCn ? `没找到？创建「${searchQuery.trim()}」` : `Create "${searchQuery.trim()}"`}
@@ -498,7 +498,7 @@ const TagChip: React.FC<TagChipProps> = ({ label, active, isCustom, isEditing, o
   // 管理模式 + 自定义标签：拆分为「重命名」和「删除」两个并排大按钮
   if (isEditing && isCustom && onDelete) {
     return (
-      <div className="flex items-stretch rounded-xl overflow-hidden border border-warning/40 bg-warning/10">
+      <div className="flex items-stretch rounded-control overflow-hidden border border-warning/40 bg-warning/10">
         <button
           onClick={onClick}
           className="min-h-[44px] pl-4 pr-3 text-xs font-bold uppercase tracking-wider text-warning flex items-center gap-1.5 active:bg-warning/20 transition-colors"
@@ -526,7 +526,7 @@ const TagChip: React.FC<TagChipProps> = ({ label, active, isCustom, isEditing, o
     return (
       <button
         onClick={onClick}
-        className="min-h-[44px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-warning/15 text-warning border border-warning/30 active:scale-95"
+        className="min-h-[44px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-warning/15 text-warning border border-warning/30 active:scale-95"
         aria-label={`rename ${label}`}
       >
         {label}
@@ -539,7 +539,7 @@ const TagChip: React.FC<TagChipProps> = ({ label, active, isCustom, isEditing, o
   return (
     <button
       onClick={onClick}
-      className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center ${
+      className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all flex items-center ${
         active
           ? 'bg-accent text-on-accent shadow-elevated'
           : isCustom
@@ -658,7 +658,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
   const partName = ex.bodyPart ? getTagName(ex.bodyPart) : '';
 
   return (
-    <div className="bg-card border border-divider rounded-2xl flex items-stretch overflow-hidden hover:border-accent/40 transition-all">
+    <div className="bg-card border border-divider rounded-card flex items-stretch overflow-hidden hover:border-accent/40 transition-all">
       {/* 主区：点击添加 / 选中 */}
       <button
         onClick={() => (isEditing ? onRename(ex.id, displayName) : onPick(ex))}
@@ -670,7 +670,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
         </span>
         <div className="flex flex-wrap gap-1.5">
           {partName && (
-            <span className="text-[10px] font-bold uppercase bg-inset px-2 py-1 rounded-lg text-tertiary">
+            <span className="text-[10px] font-bold uppercase bg-inset px-2 py-1 rounded-chip text-tertiary">
               {partName}
             </span>
           )}
@@ -680,7 +680,7 @@ const ExerciseListItem: React.FC<ExerciseListItemProps> = ({
             return (
               <span
                 key={t}
-                className="text-[10px] font-bold uppercase bg-accent/10 px-2 py-1 rounded-lg text-accent"
+                className="text-[10px] font-bold uppercase bg-accent/10 px-2 py-1 rounded-chip text-accent"
               >
                 {tagName}
               </span>

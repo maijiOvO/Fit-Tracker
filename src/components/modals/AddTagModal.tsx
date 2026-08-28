@@ -1,7 +1,7 @@
 import React from 'react';
-import { X } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
+import { Modal, ModalFooter } from '../Modal';
 
 interface AddTagModalProps {
   open: boolean;
@@ -24,30 +24,33 @@ export const AddTagModal: React.FC<AddTagModalProps> = ({
   onClose,
   onConfirm,
 }) => {
-  if (!open) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[110] bg-base/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade">
-      <div className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-3xl sm:rounded-card p-6 space-y-5 shadow-2xl">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-primary">
-            {translations.addCustomTag[lang]}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-card-hover active:scale-90 transition-all"
-          >
-            <X size={20} className="text-secondary" />
-          </button>
-        </div>
-        <div className="flex gap-2 p-1 bg-card rounded-xl">
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title={translations.addCustomTag[lang]}
+      size="sm"
+      layer="modal-2"
+      dismissOnScrim={false}
+      footer={
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={translations.confirm[lang]}
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          confirmDisabled={!newTagName.trim()}
+        />
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex gap-2 p-1 bg-inset border border-divider rounded-control">
           {(['bodyPart', 'equipment'] as const).map(cat => (
             <button
               key={cat}
               type="button"
               onClick={() => setNewTagCategory(cat)}
-              className={`flex-1 min-h-[40px] rounded-lg text-xs font-bold transition-all ${
+              className={`flex-1 min-h-[40px] rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
                 newTagCategory === cat ? 'bg-accent text-on-accent' : 'text-secondary'
               }`}
             >
@@ -58,30 +61,14 @@ export const AddTagModal: React.FC<AddTagModalProps> = ({
           ))}
         </div>
         <input
-          className="w-full bg-card border border-divider rounded-2xl py-4 px-6 outline-none focus:ring-2 focus:ring-accent min-h-[48px]"
+          className="ui-input"
           value={newTagName}
           onChange={e => setNewTagName(e.target.value)}
           placeholder={translations.tagNamePlaceholder[lang]}
           autoFocus
         />
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 min-h-[48px] rounded-2xl bg-card text-secondary font-bold"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="flex-[2] min-h-[48px] rounded-2xl bg-accent text-on-accent font-bold active:scale-95 transition-all"
-          >
-            {translations.confirm[lang]}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

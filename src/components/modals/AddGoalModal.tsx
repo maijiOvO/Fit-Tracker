@@ -1,7 +1,7 @@
 import React from 'react';
-import { X } from 'lucide-react';
 import { Goal, Language } from '../../../types';
 import { translations } from '../../../translations';
+import { Modal, ModalFooter } from '../Modal';
 
 interface AddGoalModalProps {
   open: boolean;
@@ -20,81 +20,70 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
   onClose,
   onConfirm,
 }) => {
-  if (!open) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[70] bg-base/80 backdrop-blur-md flex items-center justify-center p-6 anim-fade">
-      <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 space-y-6 shadow-2xl">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-semibold">{translations.setGoal[lang]}</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-card rounded-full transition-colors"
-          >
-            <X size={20} className="text-secondary" />
-          </button>
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      title={translations.setGoal[lang]}
+      size="sm"
+      dismissOnScrim={false}
+      footer={
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={translations.confirm[lang]}
+          onCancel={onClose}
+          onConfirm={onConfirm}
+          confirmDisabled={!newGoal.label?.trim()}
+        />
+      }
+    >
+      <div className="space-y-4">
+        {/* 原来是 10px uppercase——中文下 uppercase 无效、10px 低于 11px 下限（§3） */}
+        <div className="flex gap-2 p-1 bg-inset border border-divider rounded-control">
+          {(['weight', 'strength', 'frequency'] as const).map(type => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setNewGoal({ ...newGoal, type })}
+              className={`flex-1 min-h-[40px] rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
+                newGoal.type === type ? 'bg-accent text-on-accent' : 'text-secondary'
+              }`}
+            >
+              {
+                translations[
+                  `goal${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof typeof translations
+                ][lang]
+              }
+            </button>
+          ))}
         </div>
-        <div className="space-y-4">
-          <div className="flex gap-2">
-            {(['weight', 'strength', 'frequency'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setNewGoal({ ...newGoal, type })}
-                className={`flex-1 py-3 rounded-2xl text-[10px] font-semibold uppercase transition-all ${
-                  newGoal.type === type ? 'bg-accent' : 'bg-card'
-                }`}
-              >
-                {
-                  translations[
-                    `goal${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof typeof translations
-                  ][lang]
-                }
-              </button>
-            ))}
-          </div>
+        <input
+          className="ui-input"
+          value={newGoal.label || ''}
+          onChange={e => setNewGoal({ ...newGoal, label: e.target.value })}
+          placeholder={translations.goalLabelPlaceholder[lang]}
+        />
+        <div className="grid grid-cols-2 gap-3">
           <input
-            className="w-full bg-card border border-divider rounded-2xl py-4 px-6"
-            value={newGoal.label || ''}
-            onChange={e => setNewGoal({ ...newGoal, label: e.target.value })}
-            placeholder={translations.goalLabelPlaceholder[lang]}
+            type="number"
+            inputMode="decimal"
+            className="ui-input"
+            placeholder={translations.current[lang]}
+            value={newGoal.currentValue || ''}
+            onChange={e => setNewGoal({ ...newGoal, currentValue: Number(e.target.value) })}
           />
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="number"
-              className="bg-card border border-divider rounded-2xl py-4 px-6"
-              placeholder={translations.current[lang]}
-              value={newGoal.currentValue || ''}
-              onChange={e =>
-                setNewGoal({ ...newGoal, currentValue: Number(e.target.value) })
-              }
-            />
-            <input
-              type="number"
-              className="bg-card border border-divider rounded-2xl py-4 px-6"
-              placeholder={translations.target[lang]}
-              value={newGoal.targetValue || ''}
-              onChange={e =>
-                setNewGoal({ ...newGoal, targetValue: Number(e.target.value) })
-              }
-            />
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <button
-            onClick={onClose}
-            className="flex-1 bg-card py-4 rounded-2xl font-semibold text-secondary hover:bg-card-hover transition-colors"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="flex-[2] bg-accent py-4 rounded-2xl font-semibold text-on-accent hover:opacity-90 transition-all shadow-elevated active:scale-95"
-          >
-            {translations.confirm[lang]}
-          </button>
+          <input
+            type="number"
+            inputMode="decimal"
+            className="ui-input"
+            placeholder={translations.target[lang]}
+            value={newGoal.targetValue || ''}
+            onChange={e => setNewGoal({ ...newGoal, targetValue: Number(e.target.value) })}
+          />
         </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

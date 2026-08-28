@@ -57,7 +57,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
   return (
     <div
       ref={bindRef}
-      className="flex items-stretch bg-card border border-divider rounded-2xl overflow-hidden"
+      className="flex items-stretch bg-card border border-divider rounded-card overflow-hidden"
     >
       <button
         type="button"
@@ -69,14 +69,14 @@ const PickerRow: React.FC<PickerRowProps> = ({
         <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
           {displayName}
           {added > 0 && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-success/15 text-success text-[10px] font-bold whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-chip bg-success/15 text-success text-[10px] font-bold whitespace-nowrap">
               ✓ {isCn ? '已添加' : 'Added'}{added > 1 ? ` ×${added}` : ''}
             </span>
           )}
         </span>
         <span className="flex flex-wrap gap-1">
           {partName && (
-            <span className="text-[9px] font-bold uppercase tracking-wide bg-inset px-1.5 py-0.5 rounded-md text-tertiary">
+            <span className="text-[9px] font-bold uppercase tracking-wide bg-inset px-1.5 py-0.5 rounded-chip text-tertiary">
               {partName}
             </span>
           )}
@@ -84,7 +84,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
             name ? (
               <span
                 key={tag}
-                className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md ${
+                className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-chip ${
                   hit ? 'bg-accent text-on-accent' : 'bg-accent/10 text-accent'
                 }`}
               >
@@ -393,12 +393,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-[80] ${open ? '' : 'pointer-events-none'}`}
+      className={`fixed inset-0 z-sheet ${open ? '' : 'pointer-events-none'}`}
       aria-hidden={!open}
     >
       {/* 蒙层 */}
       <div
-        className={`absolute inset-0 bg-black/45 transition-opacity duration-200 ${
+        className={`absolute inset-0 bg-scrim transition-opacity duration-base ease-paper ${
           open ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={onClose}
@@ -447,7 +447,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           {sessionAdded > 0 && (
             <span
               key={sessionAdded}
-              className="anim-chip-pop inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-success/15 text-success text-[11px] font-bold"
+              className="anim-chip-pop inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold"
             >
               ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
             </span>
@@ -455,7 +455,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={onOpenTagManage}
-            className="ml-auto w-11 h-11 flex items-center justify-center rounded-xl text-secondary hover:bg-card-hover active:scale-90 transition-all"
+            className="ml-auto w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-90 transition-all"
             aria-label={isCn ? '管理标签' : 'Manage tags'}
             data-testid="open-tag-manage"
           >
@@ -464,7 +464,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-xl text-secondary hover:bg-card-hover active:scale-90 transition-all"
+            className="w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-90 transition-all"
             aria-label={isCn ? '完成并关闭' : 'Done'}
             data-testid="picker-sheet-close"
           >
@@ -489,7 +489,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               }}
               enterKeyHint="search"
               autoComplete="off"
-              className="w-full min-h-[46px] bg-inset border border-divider rounded-2xl pl-10 pr-10 text-sm text-primary outline-none focus:border-accent transition-colors placeholder:text-tertiary"
+              className="w-full min-h-[46px] bg-inset border border-divider rounded-card pl-10 pr-10 text-sm text-primary outline-none focus:border-accent transition-colors placeholder:text-tertiary"
               placeholder={isCn ? '名称 / 拼音 / 首字母 / 部位…' : 'Name / initials / body part…'}
               aria-label={isCn ? '搜索动作' : 'Search exercises'}
             />
@@ -500,7 +500,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   setQuery('');
                   searchInputRef.current?.focus();
                 }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full text-tertiary active:bg-card-hover"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-control text-tertiary active:bg-card-hover"
                 aria-label={isCn ? '清除搜索' : 'Clear search'}
               >
                 <X size={15} strokeWidth={2.4} />
@@ -510,7 +510,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={() => onCreateCustomExercise(q || undefined)}
-            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-2xl bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
+            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-95 transition-transform"
           >
             <Plus size={14} strokeWidth={2.5} />
             {isCn ? '新动作' : 'New'}
@@ -523,7 +523,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={() => setKbExpandFilters(true)}
-              className="flex-1 min-w-0 min-h-[36px] px-3 rounded-xl bg-inset text-[11px] font-bold text-secondary flex items-center gap-1.5 active:bg-card-hover transition-colors"
+              className="flex-1 min-w-0 min-h-[36px] px-3 rounded-control bg-inset text-[11px] font-bold text-secondary flex items-center gap-1.5 active:bg-card-hover transition-colors"
               data-testid="filters-summary"
             >
               <Filter size={12} className="flex-shrink-0" />
@@ -539,7 +539,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   setAxis(null);
                   setEquips(new Set());
                 }}
-                className="w-9 min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-xl bg-inset text-tertiary active:scale-90 transition-transform"
+                className="w-9 min-h-[36px] flex-shrink-0 flex items-center justify-center rounded-control bg-inset text-tertiary active:scale-90 transition-transform"
                 aria-label={isCn ? '清空筛选' : 'Clear filters'}
               >
                 <X size={14} />
@@ -557,7 +557,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <button
             type="button"
             onClick={() => setAxis(null)}
-            className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-xl text-xs font-bold transition-colors ${
+            className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold transition-colors ${
               axis === null ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
             }`}
           >
@@ -576,7 +576,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 key={chip.kind + chip.v}
                 type="button"
                 onClick={() => setAxis(on ? null : { kind: chip.kind, v: chip.v })}
-                className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-xl text-xs font-bold transition-colors ${
+                className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold transition-colors ${
                   on
                     ? 'bg-accent text-on-accent shadow-elevated'
                     : chip.custom
@@ -614,7 +614,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   else next.add(key);
                   setEquips(next);
                 }}
-                className={`flex-shrink-0 min-h-[34px] px-3 rounded-xl text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+                className={`flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
                   on ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
                 }`}
               >
@@ -700,7 +700,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={() => onCreateCustomExercise(q)}
-              className="w-full min-h-[46px] mt-3 border border-dashed border-divider rounded-2xl text-accent text-sm font-bold flex items-center justify-center gap-2 active:bg-card-hover transition-colors"
+              className="w-full min-h-[46px] mt-3 border border-dashed border-divider rounded-card text-accent text-sm font-bold flex items-center justify-center gap-2 active:bg-card-hover transition-colors"
             >
               <Plus size={15} strokeWidth={2.5} />
               {isCn ? `没找到？创建「${q}」` : `Create "${q}"`}
@@ -712,12 +712,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       {/* 长按动作行 → 管理菜单 */}
       {menuFor && (
         <div
-          className="absolute inset-0 z-10 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade"
+          className="absolute inset-0 z-10 bg-scrim flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade"
           onClick={() => setMenuFor(null)}
           data-testid="row-action-menu"
         >
           <div
-            className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-3xl sm:rounded-card p-4 space-y-2 shadow-2xl"
+            className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
             style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
           >
@@ -731,7 +731,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 setMenuFor(null);
                 onEditExerciseTags(ex);
               }}
-              className="w-full min-h-[48px] px-4 rounded-2xl bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
+              className="w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
             >
               <Tags size={16} className="text-accent" />
               {isCn ? '编辑标签' : 'Edit tags'}
@@ -743,7 +743,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 setMenuFor(null);
                 onRenameExercise(ex.id, resolveName(ex.name[lang]));
               }}
-              className="w-full min-h-[48px] px-4 rounded-2xl bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
+              className="w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
             >
               <PencilLine size={16} className="text-accent" />
               {isCn ? '重命名' : 'Rename'}
@@ -755,7 +755,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 setMenuFor(null);
                 onDeleteExercise(ex.id);
               }}
-              className="w-full min-h-[48px] px-4 rounded-2xl bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
+              className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
             >
               <Trash2 size={16} />
               {isCn ? '从动作库删除' : 'Delete from library'}
@@ -763,7 +763,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={() => setMenuFor(null)}
-              className="w-full min-h-[48px] px-4 rounded-2xl text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+              className="w-full min-h-[48px] px-4 rounded-card text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
             >
               {isCn ? '取消' : 'Cancel'}
             </button>

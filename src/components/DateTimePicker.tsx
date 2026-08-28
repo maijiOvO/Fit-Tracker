@@ -2,9 +2,10 @@
  * 日期时间选择器组件
  */
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown, X } from 'lucide-react';
+import { ChevronUp, ChevronDown } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
+import { Modal, ModalFooter } from './Modal';
 
 interface DateTimePickerProps {
   isOpen: boolean;
@@ -66,16 +67,23 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
     currentYear === selectedDate.getFullYear();
 
   return (
-    <div className="fixed inset-0 z-[80] bg-base/90 backdrop-blur-md flex items-center justify-center p-6 animate-fade-in">
-      <div className="bg-card border border-divider w-full max-w-md rounded-card p-6 space-y-5 shadow-elevated">
-        <div className="flex justify-between items-center">
-          <h2 className="font-display text-lg font-semibold text-primary">
-            {lang === Language.CN ? '选择日期和时间' : 'Select Date & Time'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-inset rounded-full transition-colors">
-            <X size={20} className="text-tertiary" strokeWidth={1.75} />
-          </button>
-        </div>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={lang === Language.CN ? '选择日期和时间' : 'Select Date & Time'}
+      size="md"
+      layer="modal-2"
+      dismissOnScrim={false}
+      bodyClassName="space-y-5"
+      footer={
+        <ModalFooter
+          cancelLabel={lang === Language.CN ? '取消' : 'Cancel'}
+          confirmLabel={lang === Language.CN ? '确定' : 'Confirm'}
+          onCancel={onClose}
+          onConfirm={handleConfirm}
+        />
+      }
+    >
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -224,16 +232,7 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
           ))}
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={onClose} className="ui-btn-secondary flex-1 py-3.5">
-            {lang === Language.CN ? '取消' : 'Cancel'}
-          </button>
-          <button onClick={handleConfirm} className="ui-btn-primary flex-1 py-3.5">
-            {lang === Language.CN ? '确定' : 'Confirm'}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

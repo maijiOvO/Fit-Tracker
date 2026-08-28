@@ -2,11 +2,11 @@
  * 全屏动作库
  */
 import React from 'react';
-import { X } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../../types';
 import { ExercisePicker } from '../ExercisePicker';
 import { ExerciseCategory } from '../../constants/exercises';
 import type { CustomTag } from '../../contexts/ExercisePrefsContext';
+import { Modal } from '../Modal';
 
 interface LibraryModalProps {
   open: boolean;
@@ -68,62 +68,50 @@ export const LibraryModal: React.FC<LibraryModalProps> = ({
   onDeleteLibraryExercise,
   onToggleStar,
 }) => {
-  if (!open) return null;
   const isCn = lang === Language.CN;
   return (
-    <div className="fixed inset-0 z-[100] bg-base flex flex-col anim-fade">
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-divider">
-        <h2 className="text-lg font-semibold text-primary">
-          {pickMode
-            ? isCn
-              ? '选择动作'
-              : 'Pick Exercise'
-            : isCn
-              ? '动作库'
-              : 'Exercise Library'}
-        </h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-card-hover active:scale-90 transition-all"
-          aria-label={isCn ? '关闭' : 'Close'}
-        >
-          <X size={24} className="text-secondary" />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 pb-10 custom-scrollbar">
-        <ExercisePicker
-          variant="modal"
-          lang={lang}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          activeCategory={activeLibraryCategory}
-          onCategoryChange={cat => {
-            setActiveLibraryCategory(cat);
-            setSelectedTags([]);
-          }}
-          selectedTags={selectedTags}
-          onSelectedTagsChange={setSelectedTags}
-          filteredExercises={filteredExercises}
-          customTags={customTags}
-          starredExercises={starredExercises}
-          recentExerciseNames={recentExerciseNames}
-          getTagName={getTagName}
-          resolveName={resolveName}
-          isEditingTags={isEditingTags}
-          onToggleEditingTags={onToggleEditingTags}
-          onPickExercise={onPickExercise}
-          onCreateCustomExercise={onCreateCustomExercise}
-          onCreateCustomTag={onCreateCustomTag}
-          onEditExerciseTags={onEditExerciseTags}
-          onRenameTag={onRenameTag}
-          onDeleteTag={onDeleteTag}
-          onRenameExercise={onRenameExercise}
-          onDeleteExercise={onDeleteLibraryExercise}
-          onToggleStar={onToggleStar}
-        />
-      </div>
-    </div>
+    <Modal
+      isOpen={open}
+      onClose={onClose}
+      variant="full"
+      // 它会从日程编辑器（layer=modal）里被打开，必须压在它上面。
+      // 这条在 Modal portal 到 body 之后才真的成立——就地渲染时 z-index
+      // 只在各自的局部层叠上下文里比较，比不出结果。
+      layer="modal-2"
+      testId="library-modal"
+      title={pickMode ? (isCn ? '选择动作' : 'Pick Exercise') : isCn ? '动作库' : 'Exercise Library'}
+    >
+      <ExercisePicker
+        variant="modal"
+        lang={lang}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        activeCategory={activeLibraryCategory}
+        onCategoryChange={cat => {
+          setActiveLibraryCategory(cat);
+          setSelectedTags([]);
+        }}
+        selectedTags={selectedTags}
+        onSelectedTagsChange={setSelectedTags}
+        filteredExercises={filteredExercises}
+        customTags={customTags}
+        starredExercises={starredExercises}
+        recentExerciseNames={recentExerciseNames}
+        getTagName={getTagName}
+        resolveName={resolveName}
+        isEditingTags={isEditingTags}
+        onToggleEditingTags={onToggleEditingTags}
+        onPickExercise={onPickExercise}
+        onCreateCustomExercise={onCreateCustomExercise}
+        onCreateCustomTag={onCreateCustomTag}
+        onEditExerciseTags={onEditExerciseTags}
+        onRenameTag={onRenameTag}
+        onDeleteTag={onDeleteTag}
+        onRenameExercise={onRenameExercise}
+        onDeleteExercise={onDeleteLibraryExercise}
+        onToggleStar={onToggleStar}
+      />
+    </Modal>
   );
 };
 

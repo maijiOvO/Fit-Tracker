@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Check, Plus, Settings as SettingsIcon } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
+import { Modal } from '../Modal';
 import { STANDARD_METRICS } from '../../constants/exercises';
 import { LoadMode } from '../../utils/exerciseConfig';
 
@@ -31,19 +32,40 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   onChangeLoadMode,
 }) => {
   const [newCustomDimension, setNewCustomDimension] = useState('');
-  if (!open || !exerciseName) return null;
   const isCn = lang === Language.CN;
-  const activeMetrics = getActiveMetrics(exerciseName);
+  const activeMetrics = exerciseName ? getActiveMetrics(exerciseName) : [];
 
   return (
-    <div className="fixed inset-0 z-[80] bg-base/80 backdrop-blur-sm flex items-center justify-center p-6 anim-fade">
-      <div className="bg-inset border border-divider w-full max-w-sm rounded-card p-8 shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
-        <h2 className="text-xl font-semibold text-primary mb-6 flex items-center gap-2">
-          <SettingsIcon size={20} className="text-accent" />
-          {translations.manageMetrics[lang]} - {exerciseName}
-        </h2>
-
-        <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
+    <Modal
+      isOpen={open && !!exerciseName}
+      onClose={onClose}
+      title={translations.manageMetrics[lang]}
+      subtitle={exerciseName || undefined}
+      size="sm"
+      layer="modal-2"
+      bodyClassName="overflow-y-auto max-h-[70vh] custom-scrollbar"
+      footer={
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onResetDefault}
+            className="flex-1 min-h-[52px] rounded-control border border-divider text-secondary font-medium transition-colors duration-tap ease-paper active:bg-card-hover"
+          >
+            {isCn ? '重置默认' : 'Reset Default'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-[2] min-h-[52px] rounded-control bg-accent text-on-accent font-semibold transition-opacity duration-tap ease-paper"
+          >
+            {translations.confirm[lang]}
+          </button>
+        </div>
+      }
+    >
+      <div>
+        {/* 原来是 10px——低于 §3 的 11px 下限 */}
+        <p className="text-label font-medium text-secondary mb-3">
           {isCn ? '选择要记录的维度' : 'Select metrics to track'}
         </p>
 
@@ -52,10 +74,10 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
             <button
               key={m}
               onClick={() => toggleMetric(exerciseName, m)}
-              className={`w-full p-4 rounded-2xl border flex justify-between items-center transition-all ${
+              className={`w-full p-4 rounded-card border flex justify-between items-center transition-all ${
                 activeMetrics.includes(m)
-                  ? 'bg-accent/10 border-accent/50 text-on-accent'
-                  : 'bg-card/50 border-divider text-secondary'
+                  ? 'bg-accent-soft border-accent text-accent'
+                  : 'bg-inset border-divider text-secondary'
               }`}
             >
               <span className="font-bold uppercase text-xs">
@@ -76,12 +98,12 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
             <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
               {isCn ? '负重 / 辅助标记' : 'Load mode'}
             </p>
-            <div className="flex gap-1 p-1 mb-2 bg-card/50 border border-divider rounded-xl">
+            <div className="flex gap-1 p-1 mb-2 bg-card/50 border border-divider rounded-control">
               {(['none', 'weighted', 'assisted'] as const).map(m => (
                 <button
                   key={m}
                   onClick={() => onChangeLoadMode(m)}
-                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-colors ${
+                  className={`flex-1 py-2.5 rounded-chip text-xs font-bold transition-colors ${
                     (loadMode ?? 'none') === m
                       ? 'bg-accent text-on-accent'
                       : 'text-secondary hover:text-primary'
@@ -109,7 +131,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
 
         <div className="flex gap-2 mb-8">
           <input
-            className="flex-1 bg-base border border-divider rounded-xl px-4 py-3 text-sm text-primary outline-none focus:border-accent"
+            className="flex-1 bg-base border border-divider rounded-control px-4 py-3 text-sm text-primary outline-none focus:border-accent"
             placeholder={translations.dimensionPlaceholder[lang]}
             value={newCustomDimension}
             onChange={e => setNewCustomDimension(e.target.value)}
@@ -120,28 +142,14 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
               toggleMetric(exerciseName, `custom_${newCustomDimension}`);
               setNewCustomDimension('');
             }}
-            className="bg-card border border-divider p-2 px-4 rounded-xl text-accent font-bold text-xs active:scale-95 transition-all"
+            className="bg-card border border-divider p-2 px-4 rounded-control text-accent font-bold text-xs active:scale-95 transition-all"
           >
             {isCn ? '添加' : 'Add'}
           </button>
         </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={onResetDefault}
-            className="flex-1 py-4 rounded-2xl bg-card border border-divider text-secondary font-bold text-sm active:scale-95 transition-all hover:bg-card-hover"
-          >
-            {isCn ? '重置默认' : 'Reset Default'}
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-[2] py-4 rounded-2xl bg-accent text-on-accent font-semibold active:scale-95 transition-all"
-          >
-            {translations.confirm[lang]}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 

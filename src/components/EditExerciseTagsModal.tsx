@@ -2,10 +2,11 @@
  * 编辑某个具体动作的标签（部位 + 器材）。替代过去的拖拽-改标签交互。
  */
 import React, { useState, useEffect } from 'react';
-import { X, Check, Sparkles, Filter, Trash2 } from 'lucide-react';
+import { Check, Sparkles, Filter, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS, EQUIPMENT_TAGS } from '../constants/exercises';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { Modal, ModalFooter } from './Modal';
 
 interface EditExerciseTagsModalProps {
   open: boolean;
@@ -64,25 +65,29 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-base/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade">
-      <div className="bg-inset border-t sm:border border-divider w-full sm:max-w-md rounded-t-3xl sm:rounded-card p-6 space-y-5 shadow-2xl overflow-y-auto max-h-[85vh] custom-scrollbar">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-xs font-bold text-secondary uppercase tracking-wider">
-              {isCn ? '编辑标签' : 'Edit Tags'}
-            </h3>
-            <h2 className="text-lg font-semibold text-primary mt-1">
-              {exercise.name[lang]}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-xl hover:bg-card-hover active:scale-90 transition-all"
-            aria-label="close"
-          >
-            <X size={20} className="text-secondary" />
-          </button>
-        </div>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={exercise.name[lang]}
+      subtitle={isCn ? '编辑标签' : 'Edit Tags'}
+      size="md"
+      // 从弹层的动作菜单里开出来，再往上一层
+      layer="modal-3"
+      dismissOnScrim={false}
+      bodyClassName="overflow-y-auto max-h-[65vh] custom-scrollbar space-y-5"
+      footer={
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={isCn ? '保存' : 'Save'}
+          onCancel={onClose}
+          onConfirm={() => {
+            onSave(exercise.id, bodyPart, tags);
+            onClose();
+          }}
+          confirmIcon={<Check size={16} strokeWidth={2.5} />}
+        />
+      }
+    >
 
         {/* 部位（单选） */}
         <div>
@@ -95,7 +100,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setBodyPart('')}
-              className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+              className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all ${
                 bodyPart === ''
                   ? 'bg-accent text-on-accent'
                   : 'bg-card text-tertiary hover:bg-card-hover'
@@ -110,7 +115,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                 <button
                   key={id}
                   onClick={() => setBodyPart(id)}
-                  className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all ${
                     bodyPart === id
                       ? 'bg-accent text-on-accent shadow-elevated'
                       : 'bg-card text-secondary hover:bg-card-hover'
@@ -140,7 +145,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                 <button
                   key={id}
                   onClick={() => toggleEquipment(id)}
-                  className={`min-h-[40px] px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                  className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-all ${
                     active
                       ? 'bg-accent text-on-accent shadow-elevated'
                       : 'bg-card text-secondary hover:bg-card-hover'
@@ -153,27 +158,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
           </div>
         </div>
 
-        {/* 操作按钮 */}
-        <div className="flex gap-3 pt-2">
-          <button
-            onClick={onClose}
-            className="flex-1 min-h-[48px] py-3 rounded-2xl bg-card text-secondary font-bold hover:bg-card-hover transition-colors"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={() => {
-              onSave(exercise.id, bodyPart, tags);
-              onClose();
-            }}
-            className="flex-[2] min-h-[48px] py-3 rounded-2xl bg-accent text-on-accent font-bold flex items-center justify-center gap-2 shadow-elevated active:scale-95 transition-all"
-          >
-            <Check size={18} strokeWidth={2.5} />
-            {isCn ? '保存' : 'Save'}
-          </button>
-        </div>
-
-        {/* 危险区：删除此动作（不放在主操作区，避免误触） */}
+        {/* 危险区：删除此动作（§6.6：列表里的删除入口降级为墨色文字项，不喊颜色） */}
         {onDelete && (
           <div className="pt-3 mt-3 border-t border-divider">
             <button
@@ -190,7 +175,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                   onClose();
                 }
               }}
-              className="w-full min-h-[44px] py-3 rounded-2xl bg-danger/10 text-danger font-bold flex items-center justify-center gap-2 hover:bg-danger/20 active:scale-[0.98] transition-all"
+              className="w-full min-h-[44px] rounded-control border border-divider text-primary font-medium flex items-center justify-center gap-2 transition-colors duration-tap ease-paper active:bg-card-hover"
             >
               <Trash2 size={16} strokeWidth={2} />
               {isCn ? '从动作库中删除' : 'Delete from library'}
@@ -202,8 +187,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
             </p>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 };
 
