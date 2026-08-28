@@ -12,6 +12,9 @@
     "typecheck": "tsc --noEmit",
     "e2e": "node scripts/e2e-smoke.mjs",
     "validate": "npm run typecheck && npm run build",
+    "android": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1",
+    "android:dev": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1 -Dev",
+    "android:reinstall": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1 -SkipBuild",
     "check-remote": "node scripts/check-remote.mjs",
     "remote-detail": "node scripts/remote-detail.mjs"
   },
