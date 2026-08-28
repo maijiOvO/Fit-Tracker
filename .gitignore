@@ -19,6 +19,9 @@ dist-ssr
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+# Claude Code：launch.json 是项目配置（dev server 怎么起），要提交；
+# settings.local.json 按约定是本机覆盖（权限白名单、本地路径），不要。
+.claude/settings.local.json
 .idea
 .DS_Store
 *.suo
