@@ -197,6 +197,12 @@ C「呼吸体」柔和生命体——落地最容易但正是「健康类 App �
 - **`font-display: optional`，不是 `swap`。** 中文兜底字体与目标字体度量差异大，
   一次晚到的 swap 会让整个滚动列表重排。`optional` 给约 100ms 阻塞期、超时用兜底且**本次永不再换**，
   布局抖动为零；而本地打包的字体几乎必赢这 100ms。
+  ⚠️ **「几乎必赢」输过一次（2026-08-28 真机实测）：安装新 APK 后的首次冷启动**
+  （WebView 缓存全空 + 装完立即拉起），三张正文字体全部错过窗口，整个会话都是系统字，
+  且每次 App 更新都会复现。解法是 `src/utils/fontGuard.ts`：fonts.ready 后用
+  **拉丁字宽差探测 DOM**（canvas 不受 font-display 约束，探不出真相；DOM 才算数），
+  没用上且用户未开始操作 → 本会话一次性 reload（此刻字体已热，必赢）。
+  排查这类问题时记住：`document.fonts` 状态 loaded ≠ DOM 在用它。
 - 字体栈永远留系统兜底（用户自定义动作名可能含子集外的字）：
   `'Noto Sans SC','Noto Sans CJK SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif`
 - `<link rel="preload" as="font" type="font/woff2" crossorigin>` 中文子集（`crossorigin` 即使同源也必须写）。

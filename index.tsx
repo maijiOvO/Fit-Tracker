@@ -6,6 +6,10 @@ import './index.css';
 import { pushFitlogRemoteSnapshot, pullAndMergeFitlogRemote } from './services/fitlogRemoteSync';
 import { fetchRemoteSnapshot } from './services/fitlogRemote';
 import { getDataEnv, isEnvLocked, dbName, statePath } from './services/appEnv';
+import { installFontGuard } from './src/utils/fontGuard';
+
+// 更新后首次冷启动可能整会话掉回系统字（optional 的语义），探测到就重载一次挽回
+installFontGuard();
 
 // 当前数据环境必须一眼可见 —— 「以为自己在开发模式」是最危险的状态
 {
