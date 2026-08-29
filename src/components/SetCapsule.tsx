@@ -272,13 +272,26 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           }
 
           const scrub = scrubFor(m);
+          /**
+           * 显示串先算出来，因为它的**长度**要喂给 --ledger-chars。
+           * 26px 的等宽数字在 384px 手机上，两指标布局的输入框只有 88px 宽，
+           * 而 lbs 下 kg 换算出来的「154.32」是 6 个字符 = 93.6px，装不下（§6.1）。
+           */
+          const raw = set[m as keyof typeof set];
+          const display =
+            raw === 0 || raw === undefined
+              ? ''
+              : m === 'weight'
+                ? formatWeight(Number(raw), unit)
+                : Number(raw).toFixed(2).replace(/\.?0+$/, '');
           return (
             <label
               key={m}
               data-testid={`ledger-field-${m}`}
-              className={`ledger-field${scrub ? ' is-scrubbable' : ''}${
+              className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
               }`}
+              style={{ ['--ledger-chars' as string]: Math.max(display.length, 1) }}
               {...(scrub ? scrub.handlers : {})}
             >
               {/* 档位角标只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
@@ -294,15 +307,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 className="ledger-input"
                 placeholder="0"
                 aria-label={unitLabel ? `${m} (${unitLabel})` : m}
-                value={
-                  set[m as keyof typeof set] === 0 || set[m as keyof typeof set] === undefined
-                    ? ''
-                    : (() => {
-                        const rawValue = Number(set[m as keyof typeof set]);
-                        if (m === 'weight') return formatWeight(rawValue, unit);
-                        return rawValue.toFixed(2).replace(/\.?0+$/, '');
-                      })()
-                }
+                value={display}
                 onChange={e => {
                   const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
                   let storageValue = inputValue;

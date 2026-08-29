@@ -833,6 +833,29 @@ button {
   font-size: 20px;
 }
 
+/* 长数字按格宽收字号，短数字一律还是 26px。
+   26px 是 §6.1 唯一不可妥协的约束（抬眼 0.3 秒读到重量和次数），所以不能一刀切小：
+   常见的「100」「45」必须留在 26px，只有装不下的那几个才让步。
+
+   算式：IBM Plex Mono 的字身宽是 0.6em，字符数由 React 把显示串长度写进
+   --ledger-chars。100cqi 是这一格的实际宽度 —— 用它而不是写死阈值，
+   三指标布局（每列只有 ~74px）才能一起被照顾到，不用再补一套数。
+   减 20px 是给内嵌单位（lbs 15.4px）和 2px gap 留的位置。
+
+   实测（384px 手机 = 1440 物理 ÷ 3.75，两指标）：格宽 105.3、输入框 88，
+   「154.32」6 字符在 26px 下是 93.6px 溢出 5.7px；收到 23.7px 后是 73.9px。
+
+   外面那层 max(11px, …) 是 §3 的字号下限：真实取值到不了那儿（三指标布局里
+   7 字符是 12.7px），它兜的是病态输入 —— 那时宁可撑格也不要缩到读不出来。
+
+   ⚠️ 选择器必须带 .ledger-fit：cqi 在找不到查询容器时会回落到视口，
+   而不是报错。写成裸 .ledger-input 的话，子组行（没有容器）会拿视口宽去算，
+   算出来的数字毫无意义，只是碰巧被 .ledger-input-sm 的 20px 盖住了才没露馅。
+   ⚠️ 26px 那条兜底要留在上面：不支持容器查询单位的浏览器会整条丢弃本规则。 */
+.ledger-fit .ledger-input {
+  font-size: max(11px, min(26px, calc((100cqi - 20px) / (var(--ledger-chars, 3) * 0.6))));
+}
+
 /* 落笔聚焦 §5.3：底部 2px 朱砂下划线从中心向两端展开。
    删掉 focus-within:ring-*——ring 是 Material 的东西，纸上没有光晕。 */
 .ledger-field {
@@ -841,6 +864,18 @@ button {
   align-items: baseline;
   justify-content: center;
   gap: 2px;
+}
+
+/* 只有【工作台里可编辑的那一格】开容器查询，给下面 .ledger-input 的 min() 用。
+   ⚠️ 千万别把 container-type 提到 .ledger-field 上 —— 踩过：
+   `container-type: inline-size` 的语义是「算这个盒子的宽度时当它没有内容」
+   （contain: inline-size）。工作台里行宽由卡片给定、列是 minmax(0,1fr)，
+   与内容无关，所以没事；但时间线展开详情是把 <SetCapsule readOnly> 塞进
+   `flex flex-wrap`（Dashboard.tsx renderSetCapsule），那里整行的宽度**正是**
+   由内容撑出来的 —— 各格对固有宽度的贡献变成 0，列全塌成 0，重量和次数直接叠在一起。
+   只读态用的是 22px 定值、又是内容自适应布局，本来就不需要这套。 */
+.ledger-field.ledger-fit {
+  container-type: inline-size;
 }
 .ledger-field::after {
   content: '';
