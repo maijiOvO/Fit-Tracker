@@ -155,6 +155,12 @@
   --radius-sheet: 4px;   /* 弹层顶部 */
   --radius-stamp: 4px;   /* 印章方印 */
 
+  /* 休息标记（§12.13）的几何。demo 里逐个调过的值：docs/demos/rest-marker.html */
+  --rest-h: 18px;     /* 丝带高 */
+  --rest-w: 9px;      /* 丝带宽（往左边距外探出的那截） */
+  --rest-hit: 14px;   /* 热区外扩，凑够 44 触达 */
+  --rest-len: 88px;   /* 骑缝线长 */
+
   /* 阴影 = 接触阴影：极短偏移、几乎不模糊、面积小。
      ⚠ 阴影只表达海拔，不再兼做选中态。 */
   --shadow-page: 0 1px 1px rgba(26, 23, 20, .07);
@@ -750,14 +756,17 @@ button {
   animation: row-in var(--dur-base) var(--ease-paper) both;
 }
 
-/* 稿纸横纹：52px 一行，与 .ledger-row 的 min-height 对齐。
-   它画在组区容器上，空行也有线——那正是「稿纸」的意思。 */
+/* 组区容器。
+   ⚠️ 这里原来画一层 52px 的 repeating-linear-gradient 当「稿纸横纹」。已删。
+   横纹是**第二个**关于「线画在哪」的事实来源，而行本身的 border-bottom 是第一个。
+   两者只在「每一行都恰好 52px」时才重合 —— 递减子组是 44px、「再加一档」是 44px，
+   开一档子组之后下面所有行就与横纹错开，横纹从行的中间穿过去（真机可见）。
+   行自己有 border-bottom，容器高度又恰好等于所有行之和（下面没有空白），
+   所以横纹在同步时是重复的、失同步时是错的 —— 没有它是对的那一档。
+   要恢复「空行也有线」的稿纸感，得先给容器一个 min-height，再把横纹画在
+   最后一行**之下**的剩余空间里（伪元素），而不是铺在行的身上。 */
 .ledger-paper {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0 51px,
-    var(--divider) 51px 52px
-  );
+  position: relative;
 }
 
 /* 子组行＝引文式缩进。旧写法是 bg-card 反在 bg-inset 上，
@@ -773,6 +782,23 @@ button {
      后者占布局宽度，会把子组的列整体推右，账本就读不成一列了。 */
   box-shadow: inset 2px 0 0 var(--divider);
   border-bottom: 1px solid var(--divider);
+}
+
+/* 「＋ 再加一档递减」＝引文块的最后一行，不是浮在行间的一个按钮。
+   原来它是 ml-6 的裸 button：既不在 --cols 网格上，也没有引文竖线，
+   于是它左边缘既不对齐组号、也不对齐「递减」，读起来像掉进来的。
+   继承子组行的全套外壳（引文竖线 + 底线 + 12px 内边距 + 44px 触达），
+   文字就落在「递减」标签的同一条左边线上。 */
+.ledger-subrow-add {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  box-shadow: inset 2px 0 0 var(--divider);
+  border-bottom: 1px solid var(--divider);
+  color: var(--accent);
+  text-align: left;
 }
 
 /* 数值输入：14px → 26px。本案最关键的一个数字。
@@ -1038,23 +1064,98 @@ button {
   animation: seal-cut var(--dur-stamp) var(--ease-ink);
 }
 
-/* ── §12.6 指针：书签停在第一条还没描实的行 ──
-   训练现场问的是「下一组做哪个」，不是「我做了几组」。
-   行与行之间是交叉淡入而不是滑动 —— 子组会把行撑高，
-   按实测位置平移那套要挂 ResizeObserver，为一道 2.5px 的线不值。 */
-.ledger-row.is-next {
-  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+/* ── §12.13 休息标记：书签夹在两组之间 ──────────────────────────
+   旧版 .ledger-row.is-next 铺在**行**上，读作「下一组做哪个」。但真正会去看它的
+   时刻是组间休息，那时问的是「我这次休息在哪两组中间」—— 落点在缝上，不在行上。
+   顺带这么改让隐喻更正确：书签本来就是夹在两页之间的东西，铺满一整行的是荧光笔。
+
+   ⚠️ 位置**不靠测量**：书签是 .ledger-paper 里的一个正常流子节点，
+   夹在两个组块之间，高度 0，靠 CSS 自己贴在缝上。
+   规格 §12.6 当年因为「子组会把行撑高、要挂 ResizeObserver」而放弃了平移方案 ——
+   在流里插一个节点就绕开了整件事：行怎么长高，缝跟着走，一次测量都不用做。
+   （只有拖动过程中才量一次全场缝位，见 RestBookmark.tsx。） */
+.rest-seam {
+  position: relative;
+  height: 0;
+  z-index: 4;
 }
-.ledger-row.is-next::before {
-  content: '';
+.rest-seam .rest-grab {
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2.5px;
-  border-radius: 0 2px 2px 0;
+  display: flex;
+  align-items: center;
+  /* 热区靠 padding 撑出来，视觉尺寸不受影响；负 margin 把它拉回骑在缝上 */
+  padding: var(--rest-hit) var(--rest-hit);
+  margin-left: calc(0px - var(--rest-hit));
+  margin-top: calc(0px - var(--rest-hit) - var(--rest-h) / 2);
+  touch-action: none;
+  cursor: grab;
+  background: none;
+  border: 0;
+  appearance: none;
+}
+.rest-seam .rest-grab:active {
+  cursor: grabbing;
+}
+.rest-seam .tab {
+  flex: none;
+  width: var(--rest-w);
+  height: var(--rest-h);
+  border-radius: 0 3px 3px 0;
   background: var(--accent);
+  box-shadow: 0 1px 2px rgba(26, 23, 20, 0.18);
+}
+/* 骑缝线是 tab 的 flex 兄弟，align-items:center 自己会把它压在缝上。
+   绝对定位就得再算一次 top —— 那个坑不值得踩第二遍。 */
+.rest-seam .line {
+  flex: none;
+  height: 2px;
+  width: var(--rest-len);
+  border-radius: 1px;
+  background: var(--accent);
+}
+.rest-seam.is-dragging .rest-grab {
+  visibility: hidden;
+}
+
+/* 拖动中脱离卡片：fixed 才跨得过去（超级组就是在两个动作之间来回） */
+.rest-float,
+.rest-float-line,
+.rest-float-cap {
+  position: fixed;
+  left: 0;
+  top: 0;
   pointer-events: none;
+}
+.rest-float {
+  z-index: 60;
+}
+.rest-float .tab {
+  width: var(--rest-w);
+  height: var(--rest-h);
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(26, 23, 20, 0.3);
+}
+.rest-float-line {
+  z-index: 59;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0.38;
+  transition: transform var(--dur-tap) var(--ease-paper);
+}
+.rest-float-cap {
+  z-index: 61;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  transition: transform var(--dur-tap) var(--ease-paper);
 }
 
 /* ── FAB 印谱扇开 §12.4 ──────────────────────────────────────────

@@ -135,13 +135,6 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
       layer="modal-2"
       testId="tag-manage-modal"
       bodyClassName="overflow-y-auto max-h-[65vh] custom-scrollbar"
-      footer={
-        <p className="text-micro text-tertiary leading-relaxed">
-          {isCn
-            ? '点标签改名 · 带「自定义」的是你创建的标签，可删除（可撤销）· 其余为系统标签，只能改名（改过名的也算系统标签）'
-            : 'Tap to rename · "custom" tags are yours and deletable (undoable) · the rest are system tags, rename-only (renaming does not make them custom)'}
-        </p>
-      }
     >
       <div className="space-y-6">
           {renderSection(

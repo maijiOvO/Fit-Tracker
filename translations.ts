@@ -105,7 +105,6 @@ export const translations: TranslationStrings = {
   partLegs: { en: 'Legs', cn: '练腿' },
   partArms: { en: 'Arms', cn: '练手臂' },
   partOther: { en: 'Other', cn: '其他' },
-  partOtherHint: { en: 'Name it yourself', cn: '自己写名称' },
   goalLabel: { en: 'Goal Tag', cn: '目标名称' },
   setsCount: { en: 'Sets', cn: '组' },
   bodyPartHeader: { en: 'Body Parts', cn: '训练部位' },

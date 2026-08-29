@@ -2,7 +2,7 @@
  * 一个动作＝一页稿纸（规格 §6.2）
  *
  * 头部是刊头行：左边衬线动作名，右边等宽的「第N个 · M组 · X.Xt」，下方双线分隔。
- * 组区画稿纸横纹，每条组行落在横纹上。
+ * 组区每条组行落在自己的 border-bottom 上（稿纸横纹已于 2026-08-29 撤销，见 §6.1）。
  * 删除动作只保留一处——刊头右侧的 ⋯ 溢出菜单（§6.6：列表里的删除入口
  * 一律降级为菜单内的墨色文字项，不靠颜色区分危险）。
  */
@@ -13,6 +13,7 @@ import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
 import { SetCapsule } from './SetCapsule';
 import { LongPressAffordance } from './LongPressAffordance';
+import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
@@ -28,15 +29,6 @@ function totalVolumeKg(exercise: Exercise): number {
   }, 0);
 }
 
-/** 眉批用：底稿出处的短日期 */
-function formatPrefillDate(iso: string, isCn: boolean): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return isCn
-    ? `${d.getMonth() + 1}月${d.getDate()}日`
-    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function formatVolume(kg: number, unit: string): string {
   const v = unit === 'lbs' ? kg * 2.20462 : kg;
   if (v <= 0) return '—';
@@ -49,8 +41,6 @@ interface ExerciseCardProps {
   exIdx: number;
   lang: Language;
   unit: string;
-  /** 本场训练的场地（§12.11）。只用来判断底稿是不是从别的馆抄来的。 */
-  workoutGym?: string;
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;
@@ -62,6 +52,13 @@ interface ExerciseCardProps {
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
+  /**
+   * §12.13 休息标记落在本动作的第几条缝上（gap=0 是第一组之前，gap=k 是第 k 组之后）。
+   * 全场唯一，所以绝大多数卡片拿到的是 null。
+   */
+  restGap?: number | null;
+  /** 书签被拖到别处（可能是别的动作卡）后回报新位置 */
+  onMoveRest?: (exId: string, gap: number) => void;
   /** §12.7 长按刊头拖动排序：由 NewWorkoutTab 的 useCardReorder 下发，摊到刊头行上 */
   dragHandle?: {
     handlers: React.DOMAttributes<HTMLElement>;
@@ -76,7 +73,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exIdx,
   lang,
   unit,
-  workoutGym,
   exerciseNotes,
   getActiveMetrics,
   resolveName,
@@ -87,6 +83,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onSetUpdate,
   onAddSet,
   onRemoveSet,
+  restGap = null,
+  onMoveRest,
   dragHandle,
 }) => {
   const isCn = lang === Language.CN;
@@ -102,14 +100,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 「这个动作有几组」。补上分母，同一个数字才变成进度。
    * 底稿描完（或抹完）后分母自然消失，回到原来的单个数字。
    */
-  const firstGhostIdx = exercise.sets.findIndex((s: any) => s.ghost);
-  /**
-   * §12.11：底稿来自别的馆时，眉批要把这件事摊开 —— 照抄的重量是按另一套
-   * 刻度记的。在渲染时判而不是在预填时判：加完动作再回头改本场场地是常见操作。
-   * 两边都标了场地才谈得上「不同」；有一边没标就是不知道，不知道就不说。
-   */
-  const draftFromOtherGym =
-    !!exercise.prefillGym && !!workoutGym && exercise.prefillGym !== workoutGym;
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -255,33 +245,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           </div>
         </div>
 
-        {/* 眉批 §12.6：底稿的出处与用法。只在还有未描实的底稿行时出现，
-            全部描实（或抹掉）后自然消失。 */}
-        {ghostSetCount > 0 && (
-          <div className="mt-1.5 text-label text-tertiary">
-            {isCn ? (
-              <>
-                底稿 · 上次
-                {exercise.prefillFrom ? ` ${formatPrefillDate(exercise.prefillFrom, true)}` : ''}
-                {draftFromOtherGym ? ` · ${exercise.prefillGym}` : ''}
-                {' —— '}
-                {draftFromOtherGym && <span className="text-secondary">刻度可能不同；</span>}
-                <span className="text-accent font-medium">点组号照抄</span>
-                （再点退回）；改哪格，记哪格；没描的不入册
-              </>
-            ) : (
-              <>
-                Draft{exercise.prefillFrom ? ` · last ${formatPrefillDate(exercise.prefillFrom, false)}` : ''}
-                {draftFromOtherGym ? ` · ${exercise.prefillGym}` : ''}
-                {' — '}
-                {draftFromOtherGym && <span className="text-secondary">different gym; </span>}
-                <span className="text-accent font-medium">tap # to copy</span>
-                {' (tap again to undo)'}; edits confirm; untouched drafts are dropped
-              </>
-            )}
-          </div>
-        )}
-
         {/* 眉批：负重/辅助与动作时间。虚线下划线＝可点的批注，
             ::before 补 44px 热区而不撑大视觉尺寸。 */}
         {(loadMode !== 'none' || exercise.exerciseTime) && (
@@ -338,23 +301,35 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         <span />
       </div>
 
-      {/* ── 组区：稿纸横纹 ── */}
-      <div className="ledger-paper">
+      {/* ── 组区 ── */}
+      <div
+        className="ledger-paper"
+        data-ledger-paper={exercise.id}
+        data-ex-name={exerciseName}
+      >
+        {/* §12.13：书签是流里的一个零高节点，夹在两个组块之间。
+            不测量、不挂 ResizeObserver —— 行长高了缝自己会跟着走。 */}
+        {restGap === 0 && onMoveRest && <RestBookmark lang={lang} onMove={onMoveRest} />}
         {exercise.sets.map((set, setIdx) => (
-          <SetCapsule
-            key={set.id}
-            set={set}
-            setIdx={setIdx}
-            activeMetrics={activeMetrics}
-            loadMode={loadMode}
-            isNew={newSetIds.has(String(set.id))}
-            isNext={setIdx === firstGhostIdx}
-            unit={unit}
-            lang={lang}
-            onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}
-            onRemove={() => onRemoveSet(exIdx, setIdx)}
-            onDurationClick={() => handleDurationClick(setIdx)}
-          />
+          <React.Fragment key={set.id}>
+            <SetCapsule
+              set={set}
+              setIdx={setIdx}
+              activeMetrics={activeMetrics}
+              loadMode={loadMode}
+              isNew={newSetIds.has(String(set.id))}
+              unit={unit}
+              lang={lang}
+              onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}
+              onRemove={() => onRemoveSet(exIdx, setIdx)}
+              onDurationClick={() => handleDurationClick(setIdx)}
+            />
+            {/* 缝在这一组的整块之后 —— 递减档全都在 SetCapsule 的 fragment 里，
+                所以书签自然落在「递减做完」之后，而不是母行之后。 */}
+            {restGap === setIdx + 1 && onMoveRest && (
+              <RestBookmark lang={lang} onMove={onMoveRest} />
+            )}
+          </React.Fragment>
         ))}
       </div>
 

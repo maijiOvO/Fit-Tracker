@@ -125,12 +125,9 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
 
   return (
     <section className="bg-card border border-divider rounded-card p-5">
-      <h2 className="font-display font-semibold text-[17px] text-primary text-center">
+      <h2 className="mb-5 font-display font-semibold text-[17px] text-primary text-center">
         {translations.pickBodyPartTitle[lang]}
       </h2>
-      <p className="mt-1 mb-5 text-center text-xs text-tertiary">
-        {isCn ? '选完自动作为训练名称，之后仍可改' : 'Becomes the session title; editable later'}
-      </p>
 
       {/* 三列两行＝一页印谱。印比人形矮得多，六枚正好铺成一版。 */}
       <div className="grid grid-cols-3 gap-2.5">
@@ -163,28 +160,6 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           <span className="text-[13px] font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>
-
-      {/* 三列下的格子太窄，塞不下两行文案，所以「其他」的说明挪到版心底下。
-          写明是给哪一枚的，否则会被读成整页的通用说明。 */}
-      <p className="mt-4 text-center text-[11px] text-tertiary">
-        {isCn ? '「其他」——' : '"Other" — '}
-        {translations.partOtherHint[lang]}
-      </p>
-
-      {/* §12.4 的自教学：手势是加速器，可见路径永远在——但得有人告诉你手势存在 */}
-      <p className="mt-1.5 text-center text-[11px] text-tertiary">
-        {isCn ? (
-          <>
-            小技巧：在任何页面<span className="text-secondary font-semibold">按住底栏加号</span>
-            ，印谱会直接在拇指下摊开
-          </>
-        ) : (
-          <>
-            Tip: <span className="text-secondary font-semibold">hold the + button</span> on any
-            tab to fan these out under your thumb
-          </>
-        )}
-      </p>
     </section>
   );
 };

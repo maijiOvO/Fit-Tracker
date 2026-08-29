@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 休息标记</title>
+<!--
+  交互 demo：把「下一组做哪个」的指针改成「我这次休息在哪两组之间」。
+
+  ── 问题 ────────────────────────────────────────────────────────
+  现状 §12.6 的指针是派生的：.is-next 落在第一条还没描实的行上
+  （ExerciseCard.tsx `setIdx === firstGhostIdx`），整行淡朱砂底 + 左缘 2.5px 竖条。
+  但真正会去看它的时刻是**组间休息**，那时要回答的不是「下一组做哪个」，
+  而是「我当前这个休息位于哪两组中间」。标记的落点应该在**行与行的缝**上，不在行上。
+
+  顺带一说：这么改让现有隐喻更正确 —— 书签本来就是夹在两页之间的东西，
+  铺满一整行的那个其实是荧光笔。
+
+  ── 一半的需求不需要手势 ──────────────────────────────────────────
+  「我刚做完第 k 组正在休息」和「第一条没描实的是第 k+1 组」是同一个事实的两种说法。
+  所以光把标记从行上挪到缝上，语义就已经对了，零新机制。右下角「形态」可对照。
+  手势要解决的是另一件事：**自动位置不对时把书签挪走**（超级组、跳着做、回头补）。
+  这件事今天完全没有入口，所以不属于 §12.10 说的「省一次点击」。
+
+  ── 为什么是拖，不是横滑行 ───────────────────────────────────────
+  行上的横向手势已经被 scrub 占了（.ledger-field.is-scrubbable，横拖改重量/次数）。
+  行里剩下的自由区只有组号 36 / 竭 36 / 删组 44，全都有语义。横滑必然从数值格起手，打架。
+  而拖动书签本身，做的动作就是「把书签夹到另外两页之间」—— 过 §12.10 那关
+  （手势化的收益来自隐喻贴合度，不是省一次点击）。
+
+  ── 这个 demo 要你拍板的三件事 ───────────────────────────────────
+  Q1 形态   骑缝书签（提案） vs 整行高亮（现状）
+  Q2 作用域 全场唯一 vs 每张卡一个
+            ← 这是最大的语义变更。今天每张有底稿的卡各算各的 firstGhostIdx，
+              复制来的训练会同时亮好几道。作为「下一组做哪个」说得通；
+              作为「我**现在**在哪休息」，全场只能有一个。
+  Q3 递减档之间算不算一个可停的缝
+            ← 我的看法是不算：递减组的定义就是**不休息**地往下掉档。
+              开着可以看到它把缝的密度搞乱成什么样。
+
+  第二张卡故意带了两档递减 —— 递减行 44px、母行 52px，缝的间距天生不等，
+  吸附必须按实测位置算而不是按行号乘高度。顺带也能看 2026-08-29 修掉的那次错位。
+
+  手动挪过的位置是「此刻」的 UI 状态，跟滚动位置同级，不进 SetLog，结束训练即弃。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px;
+    --dur-tap:120ms; --dur-base:220ms; --ease-paper:cubic-bezier(.2,.8,.2,1);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+    }
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body{
+    background:var(--bg-base); color:var(--text-primary); min-height:100%;
+    font:14px/1.5 -apple-system,'PingFang SC','MiSans','Noto Sans SC',sans-serif;
+    -webkit-user-select:none; user-select:none; padding-bottom:64px;
+  }
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:8px 0 2px; }
+  .topbar{ padding:2px 14px 10px; max-width:460px; margin:0 auto; }
+  .topbar h1{ font-size:19px; font-weight:600; }
+  .topbar .sub{ font-size:11px; color:var(--text-tertiary); }
+  .page{ padding:0 14px; max-width:460px; margin:0 auto; }
+
+  .card{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); margin-bottom:12px; }
+
+  /* ── 刊头 ── */
+  .head{ display:flex; align-items:baseline; gap:10px; padding:11px 13px 8px; }
+  .head .n{ font-size:16px; font-weight:600; flex:1; }
+  .head .m{ font-family:ui-monospace,'IBM Plex Mono',monospace; font-size:11px;
+    color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+  .head .m b{ color:var(--text-primary); font-weight:600; }
+  .rule{ border-bottom:1px solid var(--rule-strong); }
+  .rule2{ border-bottom:1px solid var(--divider); margin-top:2px; }
+
+  /* ── 表头 ── */
+  .colhead{ display:grid; grid-template-columns:var(--cols); align-items:center;
+    padding:5px 12px; font-size:10px; letter-spacing:.14em; color:var(--text-tertiary); }
+  .colhead span{ text-align:center; }
+  .colhead span:first-child{ text-align:left; }
+
+  /* ── 组区（横纹已删，线归每行自己的 border-bottom）── */
+  .paper{ position:relative; }
+
+  .row{ display:grid; grid-template-columns:var(--cols); align-items:center;
+    position:relative; min-height:52px; padding:0 12px;
+    border-bottom:1px solid var(--divider); }
+  .subrow{ display:grid; grid-template-columns:var(--cols); align-items:center;
+    position:relative; min-height:44px; padding:0 12px;
+    box-shadow:inset 2px 0 0 var(--divider); border-bottom:1px solid var(--divider); }
+  .subadd{ display:flex; align-items:center; width:100%; min-height:44px; padding:0 12px;
+    box-shadow:inset 2px 0 0 var(--divider); border-bottom:1px solid var(--divider);
+    color:var(--accent); font-size:11px; font-weight:600; text-align:left;
+    appearance:none; background:none; border-top:0; border-left:0; border-right:0;
+    font-family:inherit; cursor:pointer; }
+
+  .num{ width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+    font-family:ui-monospace,'IBM Plex Mono',monospace; font-size:14px; font-weight:600;
+    border-radius:2px; cursor:pointer; }
+  .row.ghost .num{ border:1px dashed var(--accent); color:var(--accent); opacity:.75; }
+  .row.inked .num{ background:var(--accent); color:var(--text-on-accent); }
+  .subrow .lbl{ font-size:10px; font-weight:500; color:var(--text-tertiary); }
+
+  .fld{ display:flex; align-items:baseline; justify-content:center; gap:2px; }
+  .fld .v{ font-family:ui-monospace,'IBM Plex Mono',monospace; font-weight:600;
+    font-size:26px; line-height:1; font-variant-numeric:tabular-nums; }
+  .subrow .fld .v{ font-size:20px; }
+  .fld .u{ font-size:11px; font-weight:500; color:var(--text-tertiary); }
+  .row.ghost .fld .v, .row.ghost .fld .u{ opacity:.42; }
+  .fail{ text-align:center; font-size:14px; color:var(--text-tertiary); opacity:.5; }
+  .del{ justify-self:end; color:var(--text-tertiary); font-size:15px; }
+
+  /* ── Q1-B：现状，整行高亮 ── */
+  .row.isnext{ background:color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+  .row.isnext::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:2.5px;
+    border-radius:0 2px 2px 0; background:var(--accent); pointer-events:none; }
+
+  /* ── Q1-A：提案，骑缝书签 ──
+     丝带骑在分隔线上、往左边距外探出一点。整条是热区（padding 撑出来的），
+     touch-action:none 只加在它身上，页面滚动不受影响。 */
+  /* ⚠️ top:0 不能省。absolute 而不写 top ＝ top:auto ＝ 摆在正常流的位置上
+     （它是 paper 的最后一个子节点，也就是所有行的下面），translateY 再从那儿往下推。 */
+  .ribbon{ position:absolute; left:0; top:0; z-index:6; display:flex; align-items:center;
+    touch-action:none; cursor:grab;
+    transition:transform var(--dur-base) var(--ease-paper); }
+  .ribbon.dragging{ transition:none; cursor:grabbing; z-index:9; }
+  .ribbon .tab{ background:var(--accent); border-radius:0 3px 3px 0;
+    box-shadow:0 1px 2px rgba(0,0,0,.18); flex:none;
+    transition:height var(--dur-tap) var(--ease-paper), width var(--dur-tap) var(--ease-paper); }
+  /* 骑缝短线：做成 tab 的 flex 兄弟，align-items:center 自己会把它压在缝上。
+     绝对定位的话又得再算一次 top —— 同一个坑不踩第二遍。 */
+  .ribbon .line{ height:2px; background:var(--accent); border-radius:1px; flex:none; }
+  .ribbon.dragging .tab{ box-shadow:0 2px 8px rgba(0,0,0,.30); }
+
+  /* 拖动时：候选缝先亮起来，落点在松手前就可见 */
+  .ghostline{ position:absolute; left:0; top:0; height:2px; background:var(--accent);
+    opacity:0; pointer-events:none; border-radius:1px;
+    transition:opacity var(--dur-tap) linear, transform var(--dur-tap) var(--ease-paper); }
+  .ghostline.on{ opacity:.38; }
+
+  /* 拖动中的三件套：fixed，脱离卡片，才跨得过去 */
+  .floater{ position:fixed; left:0; top:0; z-index:40; pointer-events:none; }
+  .floater .tab{ background:var(--accent); border-radius:0 3px 3px 0;
+    box-shadow:0 2px 8px rgba(0,0,0,.30); }
+  .floatline{ position:fixed; left:0; top:0; height:2px; z-index:39; pointer-events:none;
+    background:var(--accent); opacity:.38; border-radius:1px;
+    transition:transform var(--dur-tap) var(--ease-paper); }
+  .floatcap{ position:fixed; left:0; top:0; z-index:41; pointer-events:none;
+    font-size:10px; font-weight:600; color:var(--accent-ink);
+    background:var(--bg-card); border:1px solid var(--accent);
+    border-radius:2px; padding:1px 5px; white-space:nowrap;
+    transition:transform var(--dur-tap) var(--ease-paper); }
+
+  .caption{ position:absolute; left:0; top:0; z-index:7; pointer-events:none;
+    font-size:10px; font-weight:600; color:var(--accent-ink);
+    background:var(--bg-card); border:1px solid var(--accent);
+    border-radius:2px; padding:1px 5px; white-space:nowrap;
+    opacity:0; transition:opacity var(--dur-tap) linear, transform var(--dur-base) var(--ease-paper); }
+  .caption.on{ opacity:1; }
+
+  .foot{ padding:9px 11px 11px; }
+  .foot .add{ width:100%; min-height:40px; border:1px dashed var(--divider);
+    border-radius:var(--radius-card); color:var(--text-secondary); font-size:12.5px;
+    background:none; font-family:inherit; cursor:pointer; }
+
+  .note{ font-size:11px; color:var(--text-tertiary); padding:2px 2px 14px; line-height:1.7; }
+  .note b{ color:var(--accent); font-weight:600; }
+  .note code{ font-family:ui-monospace,monospace; font-size:10.5px; color:var(--text-secondary); }
+
+  /* ── 调参盘 ── */
+  #gear{ position:fixed; right:12px; bottom:12px; z-index:30; appearance:none;
+    font-family:inherit; font-size:11px; padding:7px 12px; cursor:pointer;
+    background:var(--bg-card); color:var(--text-secondary);
+    border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); }
+  #panel{ position:fixed; bottom:52px; right:12px; z-index:29; width:252px; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:12px 14px;
+    max-height:calc(100vh - 90px); overflow-y:auto; }
+  #panel.on{ display:block; }
+  #panel .row2{ margin-bottom:10px; }
+  #panel label{ display:flex; justify-content:space-between; font-size:11px;
+    color:var(--text-secondary); margin-bottom:3px; }
+  #panel label output{ color:var(--text-primary); font-variant-numeric:tabular-nums; }
+  #panel input[type=range]{ width:100%; accent-color:var(--accent); }
+  #panel .q{ font-size:10px; letter-spacing:.1em; color:var(--text-tertiary);
+    margin:12px 0 5px; }
+  #panel .q:first-child{ margin-top:0; }
+  .segs{ display:flex; border:1px solid var(--divider);
+    border-radius:var(--radius-card); overflow:hidden; }
+  .segs button{ appearance:none; font-family:inherit; font-size:11px; cursor:pointer; flex:1;
+    padding:5px 4px; border:0; background:none; color:var(--text-secondary); }
+  .segs button + button{ border-left:1px solid var(--divider); }
+  .segs button[aria-pressed="true"]{ background:var(--accent-soft);
+    color:var(--accent-ink); font-weight:600; }
+  #panel .ft{ display:flex; justify-content:space-between; align-items:center;
+    margin-top:12px; padding-top:10px; border-top:1px solid var(--divider); }
+  #panel .ft button{ appearance:none; font-family:inherit; border:1px solid var(--divider);
+    background:none; color:var(--text-secondary); border-radius:var(--radius-card);
+    font-size:11px; padding:4px 8px; cursor:pointer; }
+  #panel .st{ font-size:10px; color:var(--text-tertiary); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="demotag">DEMO · 休息标记 · 非产品页面</div>
+<div class="topbar">
+  <h1>练背</h1>
+  <span class="sub">拖左边那道朱砂丝带 · 点组号＝描实这一组</span>
+</div>
+
+<div class="page" id="page"></div>
+
+<div class="note" id="note"></div>
+
+<button id="gear">调参</button>
+<div id="panel">
+  <div class="q">Q1 · 标记形态</div>
+  <div class="segs" id="qForm">
+    <button data-v="seam" aria-pressed="true">骑缝书签</button>
+    <button data-v="row" aria-pressed="false">整行高亮（现状）</button>
+  </div>
+
+  <div class="q">Q2 · 作用域</div>
+  <div class="segs" id="qScope">
+    <button data-v="one" aria-pressed="true">全场唯一</button>
+    <button data-v="each" aria-pressed="false">每卡一个</button>
+  </div>
+
+  <div class="q">Q3 · 递减档之间可停</div>
+  <div class="segs" id="qDrop">
+    <button data-v="off" aria-pressed="true">不可停</button>
+    <button data-v="on" aria-pressed="false">可停</button>
+  </div>
+
+  <div class="q">几何</div>
+  <div class="row2"><label>丝带高 <output id="o-h">18px</output></label>
+    <input type="range" id="p-h" min="10" max="30" step="2" value="18"></div>
+  <div class="row2"><label>丝带宽（探出量） <output id="o-w">9px</output></label>
+    <input type="range" id="p-w" min="4" max="18" step="1" value="9"></div>
+  <div class="row2"><label>热区外扩 <output id="o-hit">14px</output></label>
+    <input type="range" id="p-hit" min="6" max="24" step="2" value="14"></div>
+  <div class="row2"><label>骑缝线长（拉到底＝满宽） <output id="o-len">88px</output></label>
+    <input type="range" id="p-len" min="24" max="240" step="4" value="88"></div>
+  <div class="row2"><label>起拖阈值 <output id="o-tol">6px</output></label>
+    <input type="range" id="p-tol" min="2" max="16" step="1" value="6"></div>
+  <div class="row2"><label>落定时长 <output id="o-dur">220ms</output></label>
+    <input type="range" id="p-dur" min="80" max="420" step="20" value="220"></div>
+
+  <div class="ft">
+    <button id="reset">重置</button>
+    <span class="st" id="st">idle</span>
+  </div>
+</div>
+
+<script>
+const P = { form:'seam', scope:'one', drop:'off',
+            h:18, w:9, hit:14, len:88, tol:6, dur:220 };
+/* len 拉到滑杆最右端＝满宽（0 在内部表示「铺满这张卡」） */
+const LEN_MAX = 240;
+
+/* 两张卡。第二张的第 2 组带两档递减 —— 行高不等，吸附必须按实测位置算。 */
+const DATA = [
+  { name:'高位下拉', cols:2, sets:[
+      { w:45, r:12, inked:true  },
+      { w:45, r:12, inked:true  },
+      { w:45, r:12, inked:false },
+      { w:45, r:12, inked:false },
+  ]},
+  { name:'坐姿划船', cols:2, sets:[
+      { w:50, r:10, inked:true },
+      { w:50, r:10, inked:true, subs:[{w:40,r:10},{w:32,r:10}] },
+      { w:50, r:10, inked:false },
+  ]},
+];
+
+/* 休息标记的位置：{card, gap}。gap=k 表示「第 k 组之后那条缝」，
+   gap=0 是第一组之前（热身完），gap=N 是最后一组之后（练完了）。
+   手动挪过就置 manual=true，之后描实不再自动推它。 */
+let MARK = { card:0, gap:2, manual:false };
+
+const page = document.getElementById('page');
+const st   = document.getElementById('st');
+
+/* ── 渲染 ───────────────────────────────────────────────── */
+function render(){
+  page.innerHTML = '';
+  DATA.forEach((ex, ci) => {
+    const inked = ex.sets.filter(s => s.inked).length;
+    const vol   = ex.sets.reduce((a,s) =>
+      a + (s.inked ? s.w*s.r + (s.subs||[]).reduce((b,x)=>b+x.w*x.r,0) : 0), 0);
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.setProperty('--cols', `36px repeat(${ex.cols}, minmax(0,1fr)) 36px 44px`);
+    card.innerHTML =
+      `<div class="head">
+         <span class="n">${ex.name}</span>
+         <span class="m">第${ci+1}个 · <b>${inked}</b>${
+           inked < ex.sets.length ? '/'+ex.sets.length : ''}组 · ${(vol/1000).toFixed(1)}t</span>
+       </div>
+       <div class="rule"></div><div class="rule2"></div>
+       <div class="colhead"><span>#</span><span>重量</span><span>次数</span><span>竭</span><span></span></div>
+       <div class="paper" data-card="${ci}"></div>
+       <div class="foot"><button class="add">＋ 添加组</button></div>`;
+
+    const paper = card.querySelector('.paper');
+    ex.sets.forEach((s, si) => {
+      const row = document.createElement('div');
+      row.className = 'row ' + (s.inked ? 'inked' : 'ghost');
+      row.dataset.card = ci; row.dataset.set = si;
+      row.innerHTML =
+        `<div class="num">${si+1}</div>
+         <div class="fld"><span class="v">${s.w}</span><span class="u">kg</span></div>
+         <div class="fld"><span class="v">${s.r}</span><span class="u">次</span></div>
+         <div class="fail">竭</div><div class="del">−</div>`;
+      row.querySelector('.num').addEventListener('click', () => ink(ci, si));
+      paper.appendChild(row);
+
+      (s.subs || []).forEach(sub => {
+        const sr = document.createElement('div');
+        sr.className = 'subrow';
+        sr.dataset.card = ci; sr.dataset.set = si; sr.dataset.sub = '1';
+        sr.innerHTML =
+          `<div class="lbl">递减</div>
+           <div class="fld"><span class="v">${sub.w}</span><span class="u">kg</span></div>
+           <div class="fld"><span class="v">${sub.r}</span><span class="u">次</span></div>
+           <div></div><div class="del">−</div>`;
+        paper.appendChild(sr);
+      });
+      if (s.subs && s.subs.length){
+        const b = document.createElement('button');
+        b.className = 'subadd';
+        b.dataset.card = ci; b.dataset.set = si; b.dataset.sub = '1';
+        b.textContent = '+ 再加一档递减';
+        paper.appendChild(b);
+      }
+    });
+
+    page.appendChild(card);
+  });
+
+  paintMarker();
+  paintNote();
+}
+
+/* ── 缝的位置 ────────────────────────────────────────────
+   按实测 bottom 算，而不是行号 × 52 —— 递减行 44px，母行 52px，
+   还有 44px 的「再加一档」，行号乘高度必然错。 */
+/* 全场的缝，视口坐标。「全场唯一」时书签必须能从一张卡拖到另一张 ——
+   超级组就是在两个动作之间来回，跨不过去的话这个作用域就是假的。 */
+function gapsAllViewport(){
+  const out = [];
+  DATA.forEach((ex, ci) => {
+    const paper = page.querySelector(`.paper[data-card="${ci}"]`);
+    const top = paper.getBoundingClientRect().top;
+    gapsOf(ci).forEach(g => out.push({
+      card:ci, gap:g.gap, vy:top + g.y,
+      label:`${ex.name} · ${g.label}`
+    }));
+  });
+  return out;
+}
+
+function gapsOf(ci){
+  const paper = page.querySelector(`.paper[data-card="${ci}"]`);
+  const top = paper.getBoundingClientRect().top;
+  const out = [{ gap:0, y:0, label:'第 1 组之前' }];
+  const n = DATA[ci].sets.length;
+  for (let si = 0; si < n; si++){
+    // Q3=on 时递减档之间也算缝；否则只认母组块的下边缘
+    const parts = [...paper.querySelectorAll(
+      `.row[data-set="${si}"], .subrow[data-set="${si}"], .subadd[data-set="${si}"]`)];
+    if (P.drop === 'on'){
+      parts.forEach((el, k) => {
+        if (k === parts.length - 1) return;
+        out.push({ gap: si + (k+1)/(parts.length), y: el.getBoundingClientRect().bottom - top,
+                   label: `第 ${si+1} 组的递减档之间` });
+      });
+    }
+    const last = parts[parts.length - 1];
+    out.push({ gap: si+1, y: last.getBoundingClientRect().bottom - top,
+               label: si+1 === n ? `第 ${n} 组之后（练完）` : `第 ${si+1} 组 ↔ 第 ${si+2} 组之间` });
+  }
+  return out;
+}
+
+function currentGapY(ci, gap){
+  const g = gapsOf(ci);
+  const hit = g.find(x => Math.abs(x.gap - gap) < 1e-6);
+  return hit ? hit.y : g[g.length-1].y;
+}
+
+/* ── 画标记 ─────────────────────────────────────────────── */
+function paintMarker(){
+  page.querySelectorAll('.ribbon,.ghostline,.caption').forEach(e => e.remove());
+  page.querySelectorAll('.row.isnext').forEach(e => e.classList.remove('isnext'));
+
+  const cards = P.scope === 'one' ? [MARK.card] : DATA.map((_,i) => i);
+
+  cards.forEach(ci => {
+    const gap = P.scope === 'one' ? MARK.gap : autoGap(ci);
+    if (P.form === 'row'){
+      // 现状：整行高亮，落在缝之后的那一行；练完了就没有行可高亮
+      const si = Math.ceil(gap);
+      const row = page.querySelector(`.row[data-card="${ci}"][data-set="${si}"]`);
+      if (row) row.classList.add('isnext');
+      return;
+    }
+
+    const paper = page.querySelector(`.paper[data-card="${ci}"]`);
+    const y = currentGapY(ci, gap);
+
+    const gl = document.createElement('div');
+    gl.className = 'ghostline';
+    gl.style.width = P.len ? P.len + 'px' : '100%';
+    paper.appendChild(gl);
+
+    const rb = document.createElement('div');
+    rb.className = 'ribbon';
+    rb.dataset.card = ci;
+    rb.style.padding = P.hit + 'px ' + P.hit + 'px';
+    rb.style.margin  = -P.hit + 'px 0 0 ' + (-P.hit) + 'px';
+    rb.style.transform = `translateY(${y}px)`;
+    rb.style.transitionDuration = P.dur + 'ms';
+    const lineW = P.len || (paper.getBoundingClientRect().width - P.w);
+    rb.innerHTML =
+      `<div class="tab" style="width:${P.w}px;height:${P.h}px"></div>` +
+      `<div class="line" style="width:${lineW}px"></div>`;
+    // 丝带整体上移半个高度，让它真正骑在缝上
+    rb.style.marginTop = (-P.hit - P.h/2) + 'px';
+    paper.appendChild(rb);
+
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.style.transform = `translate(${P.w + 10}px, ${y - 9}px)`;
+    paper.appendChild(cap);
+
+    if (P.scope === 'one') attachDrag(rb, gl, cap, ci);
+  });
+}
+
+/* 派生的自动位置：最后一条已描实的组之后 —— 与今天的 firstGhostIdx 同一个事实 */
+function autoGap(ci){
+  const sets = DATA[ci].sets;
+  let k = 0;
+  for (let i = 0; i < sets.length; i++) if (sets[i].inked) k = i+1;
+  return k;
+}
+
+/* ── 拖动 ────────────────────────────────────────────────── */
+/* 拖动期间丝带脱离所属卡片，改用 fixed 浮在页面上 ——
+   卡片各自 overflow 与 absolute 定位都在，留在原容器里就跨不出去。 */
+function attachDrag(rb, gl, cap, ci){
+  let startY = 0, baseVY = 0, moved = false, gaps = null, pick = null;
+  let fl = null, flLine = null, flCap = null;
+
+  const makeFloaters = () => {
+    fl = document.createElement('div');
+    fl.className = 'floater';
+    fl.innerHTML = `<div class="tab" style="width:${P.w}px;height:${P.h}px"></div>`;
+    flLine = document.createElement('div');
+    flLine.className = 'floatline';
+    flCap = document.createElement('div');
+    flCap.className = 'floatcap';
+    document.body.append(fl, flLine, flCap);
+  };
+  const killFloaters = () => { [fl, flLine, flCap].forEach(e => e?.remove()); fl = flLine = flCap = null; };
+
+  const move = e => {
+    if (!gaps) return;
+    const dy = e.clientY - startY;
+    if (!moved && Math.abs(dy) < P.tol) return;
+    if (!moved){
+      moved = true;
+      rb.style.visibility = 'hidden';
+      makeFloaters();
+    }
+
+    const vy = baseVY + dy;
+    // 吸附：全场最近的缝。落点在松手前就亮出来。
+    pick = gaps.reduce((a,b) => Math.abs(b.vy - vy) < Math.abs(a.vy - vy) ? b : a);
+
+    const paper = page.querySelector(`.paper[data-card="${pick.card}"]`);
+    const px = paper.getBoundingClientRect().left;
+    fl.style.transform = `translate(${px}px, ${vy - P.h/2}px)`;
+    flLine.style.width = (P.len || paper.getBoundingClientRect().width) + 'px';
+    flLine.style.transform = `translate(${px}px, ${pick.vy - 1}px)`;
+    flCap.textContent = pick.label;
+    flCap.style.transform = `translate(${px + P.w + 10}px, ${pick.vy - 9}px)`;
+    st.textContent = `卡${pick.card+1} gap ${pick.gap} · Δ${Math.round(pick.vy - vy)}px`;
+  };
+
+  const end = () => {
+    if (!gaps) return;
+    removeEventListener('pointermove', move);
+    removeEventListener('pointerup', end);
+    removeEventListener('pointercancel', end);
+    const landed = moved && pick;
+    if (landed){
+      MARK = { card:pick.card, gap:pick.gap, manual:true };
+      if (navigator.vibrate) navigator.vibrate(14);
+    }
+    killFloaters();
+    rb.style.visibility = '';
+    gaps = null;
+    st.textContent = landed ? `落在 卡${MARK.card+1} gap ${MARK.gap}` : 'tap';
+    pick = null;
+    if (landed) render(); else paintNote();
+  };
+
+  rb.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    // 捕获能把手指拖出丝带范围之后的 move 也留给我们；
+    // 拿不到也不该让手势失效，所以同时把 move/up 挂到 window 上兜底。
+    try { rb.setPointerCapture(e.pointerId); } catch { /* 没有活动指针就算了 */ }
+    const paper = page.querySelector(`.paper[data-card="${ci}"]`);
+    startY = e.clientY;
+    baseVY = paper.getBoundingClientRect().top + currentGapY(ci, MARK.gap);
+    gaps   = gapsAllViewport();
+    moved  = false;
+    st.textContent = 'grab';
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', end);
+    addEventListener('pointercancel', end);
+  });
+}
+
+/* ── 描实一组：标记自动跟进（除非已被手动挪过）───────────── */
+function ink(ci, si){
+  const s = DATA[ci].sets[si];
+  s.inked = !s.inked;
+  if (navigator.vibrate) navigator.vibrate(10);
+  if (!MARK.manual){ MARK = { card:ci, gap:autoGap(ci), manual:false }; }
+  render();
+}
+
+function paintNote(){
+  const g = gapsOf(MARK.card).find(x => Math.abs(x.gap - MARK.gap) < 1e-6);
+  const el = document.getElementById('note');
+  if (P.form === 'row'){
+    el.innerHTML = `现状：标记铺在<b>行</b>上，读作「下一组做哪个」。休息时想问的那句
+      「我在哪两组中间」它答不了 —— 它指的是一行，不是一条缝。`;
+  } else if (P.scope === 'each'){
+    el.innerHTML = `每张卡各算各的（＝今天 <code>firstGhostIdx</code> 的口径）。
+      <b>这个模式下丝带拖不动</b>，因为「每卡一个」本来就没有「我现在在哪休息」这个单数概念 ——
+      它答的还是「这个动作的下一组」。要能拖，作用域就得是全场唯一。`;
+  } else {
+    el.innerHTML = `此刻：<b>${DATA[MARK.card].name} · ${g ? g.label : '—'}</b>
+      ${MARK.manual ? '（已手动挪过，描实不再自动推它）' : '（跟着描实自动走）'}<br>
+      位置是「此刻」的 UI 状态，不进 <code>SetLog</code>，结束训练即弃。`;
+  }
+}
+
+/* ── 调参盘接线 ──────────────────────────────────────────── */
+document.getElementById('gear').onclick = () =>
+  document.getElementById('panel').classList.toggle('on');
+
+[['qForm','form'],['qScope','scope'],['qDrop','drop']].forEach(([id,key]) => {
+  const box = document.getElementById(id);
+  box.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    [...box.children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    P[key] = b.dataset.v;
+    if (key === 'scope' && P.scope === 'each') MARK.manual = false;
+    render();
+  });
+});
+
+[['p-h','h','o-h','px'],['p-w','w','o-w','px'],['p-hit','hit','o-hit','px'],
+ ['p-len','len','o-len','px'],['p-tol','tol','o-tol','px'],['p-dur','dur','o-dur','ms']
+].forEach(([pid,key,oid,unit]) => {
+  const el = document.getElementById(pid);
+  el.addEventListener('input', () => {
+    const v = +el.value;
+    // 骑缝线拉到最右＝满宽，内部用 0 表示
+    P[key] = (key === 'len' && v >= LEN_MAX) ? 0 : v;
+    document.getElementById(oid).textContent =
+      (key === 'len' && v >= LEN_MAX) ? '满宽' : v + unit;
+    render();
+  });
+});
+
+document.getElementById('reset').onclick = () => {
+  DATA[0].sets.forEach((s,i) => s.inked = i < 2);
+  DATA[1].sets.forEach((s,i) => s.inked = i < 2);
+  MARK = { card:0, gap:2, manual:false };
+  render();
+};
+
+render();
+addEventListener('resize', paintMarker);
+</script>
+</body>
+</html>

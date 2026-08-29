@@ -122,6 +122,63 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    */
   const [partChosenFor, setPartChosenFor] = useState<string | null>(null);
 
+  /**
+   * §12.13 休息标记：「我这次休息在哪两组之间」。**全场唯一** ——
+   * 你同一时刻只可能在一个地方休息，所以它是一份状态，不是每张卡各算各的。
+   *
+   * 是「此刻」的 UI 状态，跟滚动位置同级：不进 SetLog、不落盘、离开工作台即弃。
+   * null = 还没有落点（一场训练刚开始，什么都没做过）。
+   */
+  const [restMark, setRestMark] = useState<{ exId: string; gap: number } | null>(null);
+
+  /**
+   * 加了新动作 → 书签跳到新动作的最上方（gap 0）。
+   *
+   * 认「id 集合里冒出了没见过的」，而不是认某一条添加路径：动作可以从弹层来、
+   * 从「补记动作」来、从整场复制来，认路径必然漏。
+   * 换了一场训练（workout id 变了）就整个清空，别把上一场的落点带过来。
+   */
+  const seenExIdsRef = useRef<{ workoutId: string; ids: string[] } | null>(null);
+  useEffect(() => {
+    const ids = (currentWorkout.exercises ?? []).map(ex => ex.id);
+    const prev = seenExIdsRef.current;
+    seenExIdsRef.current = { workoutId: currentWorkout.id, ids };
+
+    if (!prev || prev.workoutId !== currentWorkout.id) {
+      // 换场：整场复制会一次铺进来一堆动作，那不是「加了一个动作」，不该跳
+      setRestMark(null);
+      return;
+    }
+    const fresh = ids.filter(id => !prev.ids.includes(id));
+    if (fresh.length) setRestMark({ exId: fresh[fresh.length - 1], gap: 0 });
+  }, [currentWorkout.id, (currentWorkout.exercises ?? []).map(ex => ex.id).join('|')]);
+
+  // 书签指向的动作被删掉之后别留一个悬空引用
+  useEffect(() => {
+    if (!restMark) return;
+    if (!(currentWorkout.exercises ?? []).some(ex => ex.id === restMark.exId)) setRestMark(null);
+  }, [restMark, currentWorkout.exercises]);
+
+  /**
+   * restMark 为 null（刚进工作台、刚换场）时的派生落点：最后一条已描实的组之后。
+   *
+   * 「我刚做完第 k 组正在休息」和「第一条没描实的是第 k+1 组」是同一个事实的两种说法，
+   * 所以这跟旧的 firstGhostIdx 指针是同一个口径，只是落在缝上而不是行上。
+   * 一条都没描实（整场都是底稿）就落在第一个动作的最上方。
+   */
+  const effectiveRest = (() => {
+    if (restMark) return restMark;
+    const exs = currentWorkout.exercises ?? [];
+    if (!exs.length) return null;
+    for (let i = exs.length - 1; i >= 0; i--) {
+      const sets = exs[i].sets ?? [];
+      let lastInked = -1;
+      for (let k = 0; k < sets.length; k++) if (!(sets[k] as any).ghost) lastInked = k;
+      if (lastInked >= 0) return { exId: exs[i].id, gap: lastInked + 1 };
+    }
+    return { exId: exs[0].id, gap: 0 };
+  })();
+
   const exerciseCount = currentWorkout.exercises?.length ?? 0;
   // 底稿行不算数据（§12.6）：口径必须跟刊头的 realSetCount 一致，
   // 否则刊头写「3组」底栏写「4组」，其中一个在说假话。
@@ -337,10 +394,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               exIdx={exIdx}
               lang={lang}
               unit={unit}
-              workoutGym={currentWorkout.gym}
               exerciseNotes={exerciseNotes}
               getActiveMetrics={getActiveMetrics}
               resolveName={resolveName}
+              restGap={effectiveRest?.exId === ex.id ? effectiveRest.gap : null}
+              onMoveRest={(exId, gap) => setRestMark({ exId, gap })}
               onUpdateExercise={(idx, updates) => {
                 const exs = [...currentWorkout.exercises!];
                 exs[idx] = { ...exs[idx], ...updates };
@@ -364,6 +422,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 const exs = [...currentWorkout.exercises!];
                 exs[eIdx].sets[setIdx] = { ...exs[eIdx].sets[setIdx], ...updates };
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });
+                // §12.13：描实一组＝「我刚做完这组」，休息标记跟到它下面那条缝。
+                // 手动拖过的位置也在这里被覆盖 —— 描实是关于「我人在哪」最强的证据，
+                // 拖动管的是两次描实**之间**那段时间。
+                if ((updates as any).ghost === false) {
+                  setRestMark({ exId: exs[eIdx].id, gap: setIdx + 1 });
+                }
               }}
               onAddSet={idx => {
                 const exs = [...currentWorkout.exercises!];

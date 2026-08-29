@@ -649,15 +649,23 @@ const main = async () => {
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const hasExercise = await page.locator('text=E2E Bench Press').first().isVisible().catch(() => false);
     if (!hasExercise) throw new Error('copied workout has no exercises');
-    // 红线（§12.6）：复制来的组必须是底稿，不能静默变成数据 —— 眉批就是它的凭据
-    const draftNote = page.locator('text=/底稿 · 上次|Draft · last/').first();
-    await draftNote.waitFor({ state: 'visible', timeout: 3_000 });
+    // 红线（§12.6）：复制来的组必须是底稿，不能静默变成数据。
+    // 眉批（「底稿 · 上次 X月X日」）已删，改盯行本身的 is-ghost —— 它才是状态，
+    // 眉批只是它的说明文字。刊头的 0/N 分母同源，一并核一眼。
+    const ghostRows = page.locator('.ledger-row.is-ghost');
+    await ghostRows.first().waitFor({ state: 'visible', timeout: 3_000 });
+    const ghostCount = await ghostRows.count();
+    const inkedRows = await page.locator('.ledger-row.is-inked').count();
+    if (inkedRows > 0) throw new Error(`copied sets must all be drafts, found ${inkedRows} inked`);
+    const denom = page.locator('text=/0\\/\\d+组|0\\/\\d+ sets?/').first();
+    if (!(await denom.isVisible().catch(() => false)))
+      throw new Error('header progress denominator missing on copied workout');
 
     // 别给后续用例留状态：底稿从没落过盘，返回即丢
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
     await acceptAppConfirm(page);
     await page.waitForTimeout(300);
-    return 'copied as drafts with prefill note';
+    return `copied as ${ghostCount} draft rows`;
   });
 
   await step(page, 'open-workout-via-fab', async () => {

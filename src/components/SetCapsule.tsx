@@ -24,12 +24,6 @@ interface SetCapsuleProps {
   loadMode?: LoadMode;
   /** 这一行是刚添加出来的 → 播「写下一组」入场（§5.3） */
   isNew?: boolean;
-  /**
-   * 本动作里第一条还没描实的底稿行 → 左缘落一道朱砂书签（§12.6 指针）。
-   * 训练现场真正会问的是「下一组做哪个」，不是「我做了几组」；
-   * 书签逐行下移本身就是进度反馈，不必再造一根进度条。
-   */
-  isNext?: boolean;
   unit: string;
   lang: Language;
   readOnly?: boolean;
@@ -76,7 +70,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   activeMetrics,
   loadMode,
   isNew = false,
-  isNext = false,
   unit,
   lang,
   readOnly = false,
@@ -202,8 +195,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       <div
         className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${
           inkin ? ' is-inkin' : ''
-        }${isNext ? ' is-next' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}`}
+        }${!isGhost && !readOnly ? ' is-inked' : ''}`}
         style={colStyle}
+        data-set-idx={setIdx}
         onAnimationEnd={e => {
           if (e.animationName === 'row-in') setEntering(false);
         }}
@@ -409,7 +403,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       </div>
 
       {expandedSubSets.map((sub, ssi) => (
-        <div key={sub.id || ssi} className="ledger-subrow" style={colStyle}>
+        <div key={sub.id || ssi} className="ledger-subrow" style={colStyle} data-set-idx={setIdx}>
           <span className="text-micro font-medium text-tertiary select-none">
             {isCn ? '递减' : 'Drop'}
           </span>
@@ -419,7 +413,11 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               递减组只承载重量与次数，其余列留空。 */}
           {activeMetrics.map(m => {
             if (m !== 'weight' && m !== 'reps') return <span key={m} />;
-            const unitLabel = m === 'weight' ? unitLabels.weight : '';
+            /* 单位必须跟父行取同一份（原来这里 reps 硬写成 ''）。
+               .ledger-field 是 justify-content:center 的 flex：居中的是
+               「数字＋单位」这一对，不是数字。父行有「次」、子组行没有，
+               同一列里两个数字就差了半个单位宽 —— 账本读不成一列。 */
+            const unitLabel = unitLabels[m] || '';
             const value = m === 'weight' ? sub.weight : sub.reps;
             const display =
               m === 'weight' ? formatWeight(sub.weight || 0, unit) : String(sub.reps || '');
@@ -493,7 +491,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             haptic(H.tap);
             handleAddSubSet();
           }}
-          className="ml-6 mb-1 min-h-[36px] px-2 text-micro font-semibold text-accent text-left"
+          className="ledger-subrow-add text-micro font-semibold"
+          data-set-idx={setIdx}
         >
           + {isCn ? '再加一档递减' : 'Add drop set'}
         </button>
