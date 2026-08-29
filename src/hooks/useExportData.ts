@@ -34,7 +34,7 @@ export function useExportData(
       const isCn = lang === Language.CN;
 
       const exportPackage = {
-        app: 'FitLog AI',
+        app: 'Fit Tracker',
         exportDate: new Date().toISOString(),
         user: {
           id: user?.id,
@@ -64,7 +64,7 @@ export function useExportData(
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = `FitLog_Backup_${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `FitTracker_Backup_${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

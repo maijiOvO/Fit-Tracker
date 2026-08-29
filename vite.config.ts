@@ -8,15 +8,23 @@ import react from '@vitejs/plugin-react';
  * VITE_FITLOG_ENV 的判断在客户端会被压成常量、看不出来，
  * 所以单独落一个文件，让打包脚本能在 gradlew 之前核对：
  * 「这份 dist 到底是不是 release 构建」。
+ *
+ * 演示构建单独戳成 'demo'：它既不是 dev 也不是 prod，
+ * 万一 demo 的 dist 留在目录里被拿去打 APK，闸门要能一眼看出不对
+ * —— 戳成 dev 的话 `deploy-android.ps1 -Dev` 会把它放行。
  */
-function emitBuildEnv(resolved: string) {
+function emitBuildEnv(resolved: string, demo: boolean) {
   return {
     name: 'fitlog-emit-build-env',
     generateBundle(this: { emitFile: (f: unknown) => void }) {
       this.emitFile({
         type: 'asset',
         fileName: 'fitlog-build-env.json',
-        source: JSON.stringify({ env: resolved === 'prod' ? 'prod' : 'dev' }, null, 2),
+        source: JSON.stringify(
+          { env: demo ? 'demo' : resolved === 'prod' ? 'prod' : 'dev' },
+          null,
+          2,
+        ),
       });
     },
   };
@@ -29,7 +37,7 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
-      plugins: [react(), emitBuildEnv(env.VITE_FITLOG_ENV || '')],
+      plugins: [react(), emitBuildEnv(env.VITE_FITLOG_ENV || '', env.VITE_FITLOG_DEMO === 'true')],
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),

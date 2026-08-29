@@ -1,6 +1,6 @@
 {
-  "name": "FitLog AI",
-  "short_name": "FitLog",
+  "name": "Fit Tracker",
+  "short_name": "Fit Tracker",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EFE9DC",

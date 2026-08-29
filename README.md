@@ -1,4 +1,4 @@
-# FitLog AI
+# Fit Tracker
 
 > A fitness logbook designed for people who actually train.
 > Workouts, PRs, body metrics and schedule — all yours, all local-first.
@@ -143,20 +143,47 @@ write) is tracked in [`docs/nas-server-prompt.md`](docs/nas-server-prompt.md).
 
 ### Backend host
 
-The backend runs on a home NAS exposed via **Tailscale Serve**:
+The backend runs on a home NAS exposed via **Tailscale Funnel**:
 
 | | |
 |---|---|
 | Default | `https://hometj.taild995c6.ts.net` |
-| Previous (still running, usable for rollback) | `https://fitlog.myronhub.com` |
 
-- Use the **hostname**, never the Tailscale IP `100.106.208.88` — Tailscale Serve routes by `Host` header, so requests straight to the IP return `404`.
-- Reachable **only while the device is connected to Tailscale**; it is not exposed to the public internet.
+- Use the **hostname**, never the Tailscale IP `100.106.208.88` — Tailscale routes by `Host` header, so requests straight to the IP return `404`.
+- **Funnel means this endpoint is reachable from the public internet** — the phone does not need to be on the tailnet. Treat the API key as the only thing standing between the open internet and the data.
+- Emergency takedown: `tailscale funnel --https=443 off` on the NAS.
 - The certificate is issued by Let's Encrypt, so Android needs no `usesCleartextTraffic` or `networkSecurityConfig` entry.
-
-To roll back, set `VITE_API_URL=https://fitlog.myronhub.com` in `.env.local` and rebuild.
+- There is **no rollback host any more**: the old `fitlog.myronhub.com` VPS was destroyed on 2026-08-29.
 
 > **Note on `VITE_*` variables:** Vite inlines them into the client bundle at build time, so any value with the `VITE_` prefix is visible to anyone who opens the deployed site in DevTools. Keep server-side authoritative logic — `VITE_API_KEY` should only authorize the *intended* endpoints, not be trusted for sensitive operations.
+
+### Demo build
+
+`npm run build:demo` produces a public, offline, single-session build — for letting
+people try the app in a browser without touching any real data.
+
+| | |
+|---|---|
+| Flag | `VITE_FITLOG_DEMO=true` (injected only by `.env.demo`) |
+| IndexedDB | `FitLogDB-demo` |
+| `localStorage` prefix | `demo:` |
+| Build stamp | `dist/fitlog-build-env.json` → `{"env":"demo"}` |
+
+What the flag actually does:
+
+- `isRemoteConfigured()` returns `false`, so every sync path (scheduler, pull, push,
+  the sync button) takes its existing no-op branch.
+- `remoteFetch()` — the single exit for all remote I/O — throws outright. This second
+  guard is the one that matters: the first is a convention a new call site could forget,
+  this one cannot be bypassed.
+- Because that guard is a build-time constant, the `fetch` call becomes dead code and
+  the minifier drops it — **taking the inlined `VITE_API_KEY` with it**. A demo bundle
+  contains no credential even if one is present in `.env.local`. Verify with
+  `grep -c Bearer dist/assets/*.js` → `0`.
+- On boot, before React mounts, the demo IndexedDB and every `demo:`-prefixed
+  `localStorage` key are wiped, so each visit starts clean.
+
+⚠️ Never set `VITE_API_KEY` / `VITE_API_KEY_DEV` in the demo deployment's environment.
 
 ## Project status
 

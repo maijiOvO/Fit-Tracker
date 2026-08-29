@@ -1,5 +1,5 @@
 {
-  "name": "fitlog-ai",
+  "name": "fit-tracker",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "npm run build:fonts && vite build",
     "build:release": "npm run build:fonts && vite build --mode release",
+    "build:demo": "npm run build:fonts && vite build --mode demo",
     "build:fonts": "node scripts/build-fonts.mjs",
     "icons": "node scripts/build-icons.mjs",
     "preview": "vite preview",

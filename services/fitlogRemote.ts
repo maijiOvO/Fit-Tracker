@@ -18,22 +18,33 @@ import type {
   ScheduledWorkout,
 } from '../types';
 import { storage } from './appStorage';
-import { getDataEnv, statePath } from './appEnv';
+import { getDataEnv, isDemo, statePath } from './appEnv';
 
 /**
- * 个人服务器默认地址：家庭 NAS，经 Tailscale Serve 对外暴露。
+ * 个人服务器默认地址：家庭 NAS，经 Tailscale Funnel 对外暴露。
  *
  * ⚠️ 必须使用主机名，不能换成 Tailscale IP：
- *    Tailscale Serve 按 Host 头路由，直接请求 IP 会返回 404。
- * ⚠️ 仅在设备已连接 Tailscale 时可达，公网无法访问。
+ *    Tailscale 按 Host 头路由，直接请求 IP 会返回 404。
+ * ⚠️ Funnel = **公网可直达**，不需要设备连着 tailnet。
+ *    因此这把 API key 是开放互联网与真实数据之间唯一的东西。
  *
  * 证书为 Let's Encrypt 正式签发，Android 无需 cleartext / 自签白名单。
  *
  * 覆盖方式：在 .env.local 设置 VITE_API_URL（环境变量优先级最高）。
  * 端点路径（state / state-dev）不可用环境变量覆盖 —— 见 services/appEnv.ts。
- * 回滚旧 VPS：VITE_API_URL=https://fitlog.myronhub.com
+ * （旧的 fitlog.myronhub.com VPS 已于 2026-08-29 销毁，不再是回滚路径。）
+ *
+ * 演示构建里置空 —— 理由就是上面那条「公网可直达」：
+ * demo 产物是公开托管的，把主机名留在里面等于把个人数据服务器的公网地址
+ * 递给每一个访客，只剩一把 key 挡着。
+ *
+ * 这里直接查 import.meta.env 而不复用 appEnv 的 isDemo()，是刻意的：
+ * vite 把 VITE_FITLOG_DEMO 替换成字面量，三元于是在压缩期折叠、另一支的
+ * 字符串被整个丢掉。改成跨模块的 isDemo() 调用则折不掉 —— 运行时行为一样，
+ * 但主机名会原样留在 bundle 里，这层防护当场归零。改动前先 grep 产物。
  */
-export const DEFAULT_API_BASE_URL = 'https://hometj.taild995c6.ts.net';
+export const DEFAULT_API_BASE_URL =
+  import.meta.env.VITE_FITLOG_DEMO === 'true' ? '' : 'https://hometj.taild995c6.ts.net';
 
 const RAW_API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
 
@@ -74,6 +85,9 @@ export function normalizeApiBaseUrl(raw: string): string {
 export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
 
 export function isRemoteConfigured(): boolean {
+  // 演示构建永不联网：这里返回 false，调度器 / pull / push / 同步按钮
+  // 全都顺着既有的 no-op 分支停下，不必在每个调用点各加一次判断。
+  if (isDemo()) return false;
   return Boolean(API_BASE_URL && apiKey().trim());
 }
 
@@ -147,6 +161,16 @@ async function remoteFetch(
   body?: unknown,
   timeoutMs?: number,
 ): Promise<Response> {
+  // 🔒 硬守卫：演示构建一个请求都不许发出去。
+  //    isRemoteConfigured() 已经让所有调用点 no-op，这里是第二道 ——
+  //    前者是约定（新增调用点可能忘了查），后者是保证（唯一出口拦得死）。
+  if (isDemo()) {
+    throw new RemoteError(
+      `[fitlog] blocked: demo build attempted ${method} ${path}`,
+      'env-guard',
+    );
+  }
+
   const env = getDataEnv();
   const pathIsDev = path.endsWith('-dev');
 

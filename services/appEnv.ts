@@ -16,6 +16,17 @@
 
 export type DataEnv = 'dev' | 'prod';
 
+/**
+ * 演示构建（VITE_FITLOG_DEMO=true，仅由 `npm run build:demo` 经 .env.demo 注入）。
+ *
+ * 与 dev/prod **正交**：它不是第三种数据环境，而是"断网 + 一次性"的开关。
+ * 不做成 DataEnv 的第三个取值，是为了让上面那条失效方向约定原样成立 ——
+ * 演示模式仍然落在 dev 一侧，只是额外禁掉了全部远端调用。
+ */
+export function isDemo(): boolean {
+  return import.meta.env.VITE_FITLOG_DEMO === 'true';
+}
+
 /** 开关本身永远存在**未加前缀**的 localStorage 里，否则会鸡生蛋 */
 const DEV_MODE_LS_KEY = 'fitlog_dev_mode';
 
@@ -50,7 +61,7 @@ function isStampedProd(): boolean {
  * 手机 APK 与正式发布构建都锁死在 prod。
  */
 export function isEnvLocked(): boolean {
-  return isNativeApp() || isStampedProd();
+  return isNativeApp() || isStampedProd() || isDemo();
 }
 
 /**
@@ -63,6 +74,13 @@ let cached: DataEnv | null = null;
 
 export function getDataEnv(): DataEnv {
   if (cached) return cached;
+
+  // 必须排在 isEnvLocked() 之前：demo 也算"锁定"，但落点是 dev 而非 prod。
+  // 演示构建本就一个请求都不发，这条只是万一有路径漏网时的失效方向兜底。
+  if (isDemo()) {
+    cached = 'dev';
+    return cached;
+  }
 
   if (isEnvLocked()) {
     cached = 'prod';
@@ -109,11 +127,13 @@ export function setDevMode(on: boolean): void {
 
 /** localStorage key 前缀：prod 无前缀，保证既有真实数据零迁移 */
 export function storagePrefix(): string {
+  if (isDemo()) return 'demo:';
   return getDataEnv() === 'dev' ? 'dev:' : '';
 }
 
 /** IndexedDB 库名：dev 用完全独立的库，物理隔离 */
 export function dbName(): string {
+  if (isDemo()) return 'FitLogDB-demo';
   return getDataEnv() === 'dev' ? 'FitLogDB-dev' : 'FitLogDB';
 }
 
@@ -124,5 +144,6 @@ export function statePath(): string {
 
 /** 人类可读标签，用于日志与 UI */
 export function envLabel(): string {
+  if (isDemo()) return 'demo';
   return getDataEnv() === 'dev' ? 'dev' : 'prod';
 }

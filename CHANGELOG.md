@@ -1,6 +1,6 @@
 # 更新日志
 
-本文件记录 Fit-Tracker 的阶段性变更。
+本文件记录 Fit Tracker 的阶段性变更。
 新条目放在最上面，遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 风格，
 版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
