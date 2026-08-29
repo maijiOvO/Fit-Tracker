@@ -210,11 +210,20 @@ export function useWorkoutMutations({
        * §12.6 红线：底稿永远不会静默变成数据。
        * 结束训练时剥掉所有仍是 ghost 的行；整动作只剩底稿的，连动作一起丢；
        * prefillFrom 只服务工作台眉批，也一并剥掉。
+       * fromGhost 同理：它是工作台上的退回凭据，训练收尾后不该跟进历史。
        */
       const cleanedExercises = currentWorkout.exercises
         .map(ex => {
           const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
-          return { ...rest, sets: ex.sets.filter(s => !s.ghost) };
+          return {
+            ...rest,
+            sets: ex.sets
+              .filter(s => !s.ghost)
+              .map(s => {
+                const { fromGhost: _fg, ...set } = s;
+                return set;
+              }),
+          };
         })
         .filter(ex => ex.sets.length > 0);
 

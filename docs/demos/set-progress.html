@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Demo · 训练中的组进度</title>
+<!--
+  交互 demo：底稿预填之后，「我做到第几组了」这件事怎么读出来。
+
+  背景：§12.6 把上次的每一组都铺成底稿行之后，旧的进度信号没了 ——
+  以前是一行一行加，行数就是进度条；现在四行一次躺满，行数变成了「上次做了几组」。
+  但进度其实一直在数据里：ghost = 还没做，实墨 = 已做，点组号描实 = 「这组做完了」。
+  缺的不是机制，是没人把它念出来。
+
+  所以这里不加新手势（§12.5 通则 2：组号上的点按已经归「照抄描实」），
+  只试三种「把已有状态说出来」的说法，右下角可任意组合：
+
+  · 分母  刊头 3/4组 —— 已描实/总行数。零新机制，纯读数。
+  · 落印  描实时组号从「未刻的虚线印」收成实心朱砂印，# 列长出一根朱砂柱。
+          ⚠ 要看的就是这个的代价：朱砂在 §5.3 里是签名时刻的稀缺色，
+            每组都盖等于稀释它；而且没有底稿的动作卡会变成整列全是印。
+  · 指针  第一条未描实的行左侧一道朱砂竖线（书签），随描实逐行下滑。
+          回答的是训练现场真正会问的那句「我下一组该做哪个」，
+          顺带把「该点哪一格」也指出来了 —— 虚线框那份太薄的活儿由它接。
+
+  · 退回  ⚠ 误触补丁，见下。默认开。
+
+  ── 误触：描实现在是单向的 ────────────────────────────────────────
+  现状 `ghost:false` 全站只在 SetCapsule.tsx:102 写过一次，没有任何地方写回
+  true —— 描实不可逆。而误触的入口有三个，全都一击成事实：
+    1. 点组号（36×36，且是唯一「零输入就产生数据」的路径，风险最高）
+    2. 点竭（update 顺带描实）—— 最刺眼：竭自己是 toggle，取消竭却退不回底稿，
+       一个可逆动作留下了不可逆的副作用
+    3. 横拖改重量越过 12px 容差
+  代价不对称：删一组要长按 400ms 保险（§6.6），凭空造一条记录却零保险。
+  误描实的行结束训练时不再被丢弃，它会进 PR / bestLifts / 图表 / 容量；
+  想收拾只能长按删整行，而删掉之后**底稿拿不回来** —— 全站没有「新增一条底稿行」，
+  「添加组」克隆末行且强制剥 ghost（NewWorkoutTab.tsx:374）。
+  §12.6 的红线是「底稿永远不会静默变成数据」，误触正是那条红线上的洞：
+  不静默，但一击且不可撤销。而 §12.5 通则 3 要的是「先执行 + 撤销」。
+
+  这里的解法不是 toast（描实每组一次，是高频动作，每次弹会把通则 3 用成噪音），
+  而是让犯错的手势自己就是反悔的手势：
+    · 再点一次组号 = 退回底稿，值复原成上次那份
+    · 取消竭 = 若这行除了竭没别的编辑，一并退回（补上 2 那个洞）
+    · 只对「生来是底稿、且描实后零编辑」的行开放 —— 改过值的行退回等于丢弃真实
+      输入，那才是真破坏，仍旧走长按删除。而误触产生的恰好就是零编辑的行，
+      这个限定不多不少正好盖住它。
+  组号 toggle 不是新发明：卡里的「竭」本来就是点开点关，这是对齐不是加法。
+  ────────────────────────────────────────────────────────────────
+
+  默认开的是我的推荐组合：分母 + 指针 + 退回，不落印。
+  其余交互（点组号照抄 / 改哪格记哪格 / 减号抹底稿 / 结束训练划掉未描实）
+  与 ghost-prefill.html 一致，照搬过来是为了让进度读数在完整流程里被看到。
+  数据取自实机截图：练背 · 拉上背 · 上次 8月18日在「国内」· 4 组 100lbs×12。
+-->
+<style>
+  :root{
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10), 0 18px 40px -24px rgba(26,23,20,.30);
+    --radius-card:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-exit:180ms; --dur-stamp:520ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --ease-ink:cubic-bezier(.4,0,.2,1);
+    --ease-leave:cubic-bezier(.5,0,.9,.7);
+    --move:1;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45), 0 18px 40px -24px rgba(0,0,0,.80);
+    }
+  }
+  @media (prefers-reduced-motion: reduce){ :root{ --move:0; } }
+
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; overflow:hidden; }
+  body{
+    background:var(--bg-base); color:var(--text-primary);
+    font:14px/1.5 -apple-system, "PingFang SC", "MiSans", "Noto Sans SC", sans-serif;
+    user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+  }
+  /* 桌面上把它收成一部手机：账本行拉到 1300px 宽会散架，而且固定底栏会掉出视口。
+     .phone 同时当住 absolute 的包含块，底栏/方案面板才跟着这一列走而不是跟着窗口。 */
+  .phone{ position:relative; display:flex; flex-direction:column;
+    height:100%; max-width:430px; margin:0 auto; overflow:hidden; background:var(--bg-base); }
+  @media (min-width:470px){
+    body{ background:var(--bg-inset); }
+    .phone{ border-left:1px solid var(--divider); border-right:1px solid var(--divider);
+      box-shadow:var(--shadow-overlay); }
+  }
+  /* 卡片长过一屏时这一段自己滚，底部留出常驻栏的高度 */
+  .scroll{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding-bottom:96px; }
+
+  .demotag{ text-align:center; font-size:10px; color:var(--text-tertiary); padding:6px 0 0; }
+
+  .topbar{ display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-bottom:1px solid var(--divider); }
+  .topbar .back{ appearance:none; border:0; background:none; color:var(--text-secondary);
+    width:36px; height:36px; display:flex; align-items:center; justify-content:center; }
+  .topbar .back svg{ width:20px; height:20px; stroke:currentColor; stroke-width:2;
+    fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .topbar h1{ flex:1; font-size:17px; font-weight:600; }
+  #finish{ appearance:none; font-family:inherit; font-size:12px; color:var(--text-on-accent);
+    border:0; background:var(--accent); border-radius:var(--radius-card);
+    padding:7px 12px; cursor:pointer; }
+  #finish:disabled{ opacity:.4; }
+
+  .page{ padding:14px 14px 0; }
+
+  /* ── 动作卡 = 一页稿纸 ── */
+  .excard{ background:var(--bg-card); border:1px solid var(--divider);
+    border-radius:var(--radius-card); box-shadow:var(--shadow-page); overflow:hidden; }
+  .exhead{ display:flex; align-items:baseline; gap:8px; padding:13px 14px 4px; }
+  .exhead .name{ flex:1; font-size:15px; font-weight:600; }
+  .exhead .tag{ font-size:11px; color:var(--text-tertiary);
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  /* 分子＝已描实。它是刊头里唯一会动的数字，给它实墨，分母留淡墨。 */
+  .exhead .tag .did{ color:var(--text-primary); font-weight:600; }
+  .exhead .tag .of{ opacity:.8; }
+  .marginal{ padding:0 14px 8px; font-size:11px; color:var(--text-tertiary); }
+  .marginal b{ color:var(--accent); font-weight:600; }
+  .marginal i{ font-style:normal; color:var(--text-secondary); }
+
+  .gridhead, .setrow{ display:grid;
+    grid-template-columns:36px minmax(0,1fr) minmax(0,1fr) 36px 44px;
+    align-items:center; }
+  .gridhead{ padding:0 4px; height:24px; font-size:10px; color:var(--text-tertiary);
+    border-bottom:1px solid var(--divider); }
+  .gridhead span{ text-align:center; }
+
+  #rows{ position:relative; }
+
+  .setrow{ position:relative; height:52px; padding:0 4px;
+    border-bottom:1px solid var(--divider); overflow:hidden;
+    transition:height var(--dur-base) var(--ease-paper),
+               opacity var(--dur-exit) var(--ease-ink),
+               background-color var(--dur-base) var(--ease-ink),
+               border-color var(--dur-exit); }
+  .setrow.collapse{ height:0; opacity:0; border-color:transparent; }
+  .setrow.reveal{ animation:rowReveal var(--dur-base) var(--ease-paper); }
+  @keyframes rowReveal{ from{ clip-path:inset(0 0 100% 0); } to{ clip-path:inset(0); } }
+
+  .setrow .num{ appearance:none; background:none; font-family:inherit; cursor:pointer;
+    width:26px; height:26px; margin:0 auto; border-radius:var(--radius-card);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600; font-variant-numeric:tabular-nums;
+    color:var(--accent); border:1.5px solid transparent;
+    transition:background-color var(--dur-base) var(--ease-ink),
+               color var(--dur-base) var(--ease-ink),
+               border-color var(--dur-base) var(--ease-ink); }
+  .setrow .val{ position:relative; display:flex; align-items:baseline; justify-content:center;
+    gap:3px; height:100%; touch-action:pan-y; }
+  /* 退回时值要「淡下去」而不是瞬切：状态变化用墨的深浅表达（§5.5）。
+     描实那一下是 animation（带过冲），animation 天然压过 transition，两者不打架。 */
+  .setrow .val input{ appearance:none; border:0; background:none; font-family:inherit;
+    width:56px; text-align:right; font-size:17px; font-weight:600;
+    font-variant-numeric:tabular-nums; color:var(--text-primary); outline:none;
+    border-bottom:1.5px solid transparent; padding-bottom:1px;
+    transition:color var(--dur-base) var(--ease-ink),
+               border-bottom-color var(--dur-base) var(--ease-ink); }
+  .setrow .unit{ font-size:10px; color:var(--text-tertiary); }
+  .setrow .fail{ appearance:none; background:none; font-family:inherit; cursor:pointer;
+    width:28px; height:28px; margin:0 auto; border-radius:var(--radius-card);
+    border:1px solid transparent; color:var(--text-tertiary); font-size:13px; opacity:.45; }
+  .setrow .fail.on{ opacity:1; color:var(--accent); border-color:var(--accent); font-weight:600; }
+  .setrow .minus{ appearance:none; background:none; border:0; font-family:inherit; cursor:pointer;
+    width:32px; height:32px; margin:0 auto; color:var(--text-tertiary); font-size:18px; }
+
+  /* ── 底稿态（现状，不动）：淡墨 + 朱砂虚线 ── */
+  .setrow.ghost .num{ color:var(--text-tertiary);
+    border-color:color-mix(in srgb, var(--accent) 55%, transparent); border-style:dashed; }
+  .setrow.ghost .val input{ color:var(--text-tertiary);
+    border-bottom-color:color-mix(in srgb, var(--accent) 45%, transparent);
+    border-bottom-style:dashed; }
+  .setrow.ghost .unit{ opacity:.7; }
+
+  /* 描实：墨色过冲，零位移（§5.3） */
+  .setrow.inkin .num, .setrow.inkin .val input, .setrow.inkin .fail.on{
+    animation:inkOver var(--dur-stamp) var(--ease-ink); }
+  @keyframes inkOver{ from{ color:var(--accent-ink); } }
+
+  /* ── 方案「落印」：描实后组号收成实心朱砂印 ──
+     inkin 那段 color 动画会跟这里的反白字打架，所以落印态自带一条完整的关键帧。 */
+  body.opt-seal .setrow:not(.ghost) .num{
+    background:var(--accent); color:var(--text-on-accent); border-color:var(--accent); }
+  body.opt-seal .setrow.inkin:not(.ghost) .num{
+    animation:sealIn var(--dur-stamp) var(--ease-ink); }
+  @keyframes sealIn{
+    0%{ background:transparent; color:var(--accent-ink);
+        border-color:color-mix(in srgb, var(--accent) 55%, transparent); border-style:dashed; }
+    45%{ border-style:solid; }
+    100%{ background:var(--accent); color:var(--text-on-accent); border-color:var(--accent); }
+  }
+
+  /* ── 方案「指针」：第一条未描实的行左侧一道朱砂竖线（书签），随描实下滑 ──
+     单个绝对定位元素平移，不给每行挂状态 —— 位移本身就是进度反馈。 */
+  #ptr{ position:absolute; left:0; width:2.5px; background:var(--accent);
+    border-radius:0 2px 2px 0; opacity:0; pointer-events:none;
+    transition:transform var(--dur-base) var(--ease-paper),
+               height var(--dur-base) var(--ease-paper),
+               opacity var(--dur-exit) var(--ease-ink); }
+  body.opt-ptr #ptr.on{ opacity:1; }
+  /* 指针所在行淡淡地亮一下：「眼前这一组」 */
+  body.opt-ptr .setrow.here{ background:color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+
+  #addset{ appearance:none; font-family:inherit; display:block; width:calc(100% - 28px);
+    margin:10px 14px 14px; padding:10px; font-size:13px; color:var(--text-secondary);
+    background:none; border:1px dashed var(--divider); border-radius:var(--radius-card);
+    cursor:pointer; }
+
+  #scrubtip{ position:fixed; z-index:5; pointer-events:none; font-size:10px;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); color:var(--text-secondary); padding:2px 6px;
+    opacity:0; transition:opacity var(--dur-tap); }
+  #scrubtip.on{ opacity:1; }
+
+  .strikeline{ position:absolute; left:10px; right:10px; top:50%; height:1.5px;
+    background:var(--text-primary); transform:scaleX(0); transform-origin:left center; }
+  .setrow.strike .strikeline{ transition:transform 180ms linear; transform:scaleX(1); }
+
+  #colophon{ position:absolute; left:50%; bottom:96px; transform:translateX(-50%); z-index:6;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:12px 16px; text-align:center; display:none;
+    min-width:250px; }
+  #colophon.on{ display:block; animation:printIn 300ms var(--ease-paper); }
+  @keyframes printIn{ from{ clip-path:inset(0 100% 0 0); } to{ clip-path:inset(0); } }
+  #colophon .line{ height:2px; width:64px; margin:0 auto 8px; background:var(--accent);
+    transform-origin:center; animation:ruleOut 320ms var(--ease-paper); }
+  @keyframes ruleOut{ from{ transform:scaleX(0);} to{ transform:scaleX(1);} }
+  #colophon .t{ font-size:13px; font-weight:600; }
+  #colophon .s{ font-size:11px; color:var(--text-tertiary); margin-top:2px; }
+  #colophon button{ appearance:none; font-family:inherit; margin-top:10px; font-size:12px;
+    color:var(--text-secondary); background:none; border:1px solid var(--divider);
+    border-radius:var(--radius-card); padding:5px 12px; cursor:pointer; }
+
+  /* 底部常驻栏：口径要跟刊头一致 —— 现状它把底稿也数进去了（NewWorkoutTab.tsx:126） */
+  .dock{ position:absolute; left:0; right:0; bottom:0; z-index:4;
+    display:flex; align-items:center; gap:10px; padding:10px 14px 14px;
+    background:var(--bg-base); border-top:1px solid var(--divider); }
+  .dock .count{ font-size:12px; color:var(--text-tertiary);
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .dock .count b{ color:var(--text-secondary); font-weight:600; }
+  .dock .add{ flex:1; appearance:none; font-family:inherit; border:0; cursor:pointer;
+    background:var(--accent); color:var(--text-on-accent); border-radius:var(--radius-card);
+    font-size:14px; font-weight:600; padding:12px; }
+
+  /* ── 方案面板 ── */
+  #gear{ position:absolute; bottom:80px; right:12px; z-index:7; appearance:none; font-family:inherit;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    color:var(--text-secondary); font-size:12px; padding:6px 10px; box-shadow:var(--shadow-page);
+    cursor:pointer; }
+  #panel{ position:absolute; bottom:116px; right:12px; z-index:7; width:242px; display:none;
+    background:var(--bg-card); border:1px solid var(--divider); border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay); padding:12px 14px; }
+  #panel.on{ display:block; }
+  #panel label{ display:flex; gap:8px; align-items:flex-start; font-size:12px;
+    color:var(--text-primary); padding:5px 0; cursor:pointer; }
+  #panel label small{ display:block; font-size:10px; color:var(--text-tertiary); line-height:1.45; }
+  #panel input{ accent-color:var(--accent); margin-top:3px; }
+  #panel .foot{ display:flex; justify-content:space-between; align-items:center;
+    gap:6px; margin-top:8px; border-top:1px solid var(--divider); padding-top:8px; }
+  #panel .foot button{ appearance:none; font-family:inherit; border:1px solid var(--divider);
+    background:none; color:var(--text-secondary); border-radius:var(--radius-card);
+    font-size:11px; padding:4px 8px; cursor:pointer; }
+</style>
+</head>
+<body class="opt-denom opt-ptr opt-undo">
+<div class="phone">
+
+<div class="demotag">Demo · 训练中的组进度（§12.6 续）</div>
+<div class="topbar">
+  <button class="back" aria-label="返回">
+    <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
+  <h1>练背</h1>
+  <button id="finish">结束训练</button>
+</div>
+
+<div class="scroll">
+<div class="page">
+  <div class="excard">
+    <div class="exhead">
+      <span class="name">拉上背</span>
+      <span class="tag" id="exhead-tag"></span>
+    </div>
+    <div class="marginal" id="marginal"></div>
+    <div class="gridhead"><span>#</span><span>重量</span><span>次数</span><span>竭</span><span></span></div>
+    <div id="rows"><span id="ptr"></span></div>
+    <button id="addset">＋ 添加组</button>
+  </div>
+</div>
+</div>
+
+<span id="scrubtip">×5</span>
+
+<div id="colophon">
+  <div class="line"></div>
+  <div class="t" id="co-t"></div>
+  <div class="s" id="co-s"></div>
+  <button id="redo">重来一次</button>
+</div>
+
+<div class="dock">
+  <span class="count" id="dockcount"></span>
+  <button class="add">＋ 添加动作</button>
+</div>
+
+<button id="gear">方案</button>
+<div id="panel">
+  <label><input type="checkbox" id="o-denom" checked>
+    <span>分母 · 刊头 3/4组<small>已描实 / 总行数。零新机制，纯读数；全描实后分母自动消失</small></span></label>
+  <label><input type="checkbox" id="o-seal">
+    <span>落印 · 描实即刻印<small>虚线印收成实心朱砂。代价：朱砂是签名时刻的稀缺色，每组都盖会稀释</small></span></label>
+  <label><input type="checkbox" id="o-ptr" checked>
+    <span>指针 · 下一组书签<small>朱砂竖线停在第一条未描实的行，随描实下滑；也顺带指出该点哪一格</small></span></label>
+  <label><input type="checkbox" id="o-undo" checked>
+    <span>退回 · 描实可反悔<small>再点组号退回底稿；取消竭一并退回。只对零编辑的行开放。关掉＝现状（不可逆）</small></span></label>
+  <div class="foot">
+    <button id="preset">我的推荐</button>
+    <button id="asis">现状</button>
+    <button id="reset2">重做</button>
+  </div>
+</div>
+
+</div><!-- /.phone -->
+
+<script>
+/* 上次（8月18日 · 国内）拉上背的实际记录 —— 取自实机截图 */
+var LAST = [ {w:100, r:12}, {w:100, r:12}, {w:100, r:12}, {w:100, r:12} ];
+var LAST_DATE = '8月18日';
+var LAST_GYM  = '国内';
+
+var finished = false;
+
+var lastVib = 0;
+function vib(v){
+  var now = performance.now();
+  if (now - lastVib < 55) return;
+  lastVib = now;
+  try{ if (navigator.vibrate) navigator.vibrate(v); }catch(e){}
+}
+
+var rowsEl   = document.getElementById('rows');
+var ptrEl    = document.getElementById('ptr');
+var marginal = document.getElementById('marginal');
+var headTag  = document.getElementById('exhead-tag');
+var dockCnt  = document.getElementById('dockcount');
+
+function fmt(n){ return (Math.round(n*10)/10).toString(); }
+function formatVol(lbs){ return lbs >= 1000 ? (Math.round(lbs/100)/10) + 'k' : String(Math.round(lbs)); }
+function allRows(){ return Array.prototype.slice.call(rowsEl.querySelectorAll('.setrow')); }
+
+/* ── 行的构建（与 ghost-prefill.html 一致，进度读数以外的部分原样） ── */
+function makeRow(data, ghost){
+  var row = document.createElement('div');
+  row.className = 'setrow' + (ghost ? ' ghost' : '');
+  row.innerHTML =
+    '<button class="num"></button>' +
+    '<div class="val w"><input inputmode="decimal"><span class="unit">lbs</span></div>' +
+    '<div class="val r"><input inputmode="numeric"><span class="unit">次</span></div>' +
+    '<button class="fail">竭</button>' +
+    '<button class="minus">−</button>' +
+    '<span class="strikeline"></span>';
+  var wIn = row.querySelector('.val.w input');
+  var rIn = row.querySelector('.val.r input');
+  wIn.value = fmt(data.w); rIn.value = data.r;
+
+  /* 退回要用的两份记账：
+     born  —— 这行是不是「生来就是底稿」。「添加组」造的行没有底稿可退。
+     dirty —— 描实之后值有没有被真改过。改过的行退回＝丢弃真实输入，不给退。 */
+  row.dataset.born  = ghost ? 'ghost' : 'fresh';
+  row.dataset.orig  = JSON.stringify({ w: fmt(data.w), r: String(data.r) });
+  row.dataset.dirty = '0';
+
+  /* 点组号：ghost → 照抄描实。已描实 → 若可退则退回底稿。
+     反悔手势 = 犯错手势，是人第一个会试的动作。 */
+  row.querySelector('.num').addEventListener('click', function(){
+    if (finished) return;
+    if (row.classList.contains('ghost')) confirmRow(row);
+    else if (canRevert(row)) revertRow(row);
+  });
+  [wIn, rIn].forEach(function(inp){
+    inp.addEventListener('focus', function(){ inp.select(); });
+    inp.addEventListener('input', function(){
+      if (finished) return;
+      row.dataset.dirty = '1';       /* 改过值就锁死退回：那是真实输入 */
+      confirmRow(row); sync();
+    });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') inp.blur(); });
+  });
+  /* 竭：在底稿上点竭会顺带描实。取消竭时，若这行除了竭没别的编辑，一并退回 ——
+     补上「可逆动作留下不可逆副作用」那个洞。 */
+  row.querySelector('.fail').addEventListener('click', function(e){
+    if (finished) return;
+    var on = e.currentTarget.classList.toggle('on');
+    if (on) confirmRow(row);
+    else if (canRevert(row)) revertRow(row);
+    vib(8); sync();
+  });
+  row.querySelector('.minus').addEventListener('click', function(){
+    if (finished) return;
+    if (row.classList.contains('ghost')) removeRow(row, false);
+  });
+  attachScrub(row, wIn);
+  return row;
+}
+
+function confirmRow(row){
+  if (!row.classList.contains('ghost')) return;
+  row.classList.remove('ghost');
+  row.classList.add('inkin');
+  setTimeout(function(){ row.classList.remove('inkin'); }, 520);
+  vib(8);
+  sync();
+}
+
+/* 可退回的三个条件缺一不可：开关开着、生来是底稿、描实后零编辑。
+   竭还亮着时不给退 —— 那是这行上一份真实的输入，退回会把它一起抹掉。 */
+function canRevert(row){
+  return document.body.classList.contains('opt-undo')
+    && row.dataset.born === 'ghost'
+    && row.dataset.dirty === '0'
+    && !row.querySelector('.fail').classList.contains('on');
+}
+
+/* 退回底稿：值复原成上次那一份，回到淡墨。
+   不播过冲 —— 描实是「落笔」可以有力度，退回是「擦淡」，越安静越好（§5.5）。 */
+function revertRow(row){
+  var orig = JSON.parse(row.dataset.orig);
+  row.querySelector('.val.w input').value = orig.w;
+  row.querySelector('.val.r input').value = orig.r;
+  row.classList.remove('inkin');
+  row.classList.add('ghost');
+  vib(6);
+  sync();
+}
+
+function removeRow(row, strike){
+  var go = function(){
+    row.classList.add('collapse');
+    setTimeout(function(){ row.remove(); renumber(); sync(); }, 240);
+    sync();
+  };
+  if (strike){ row.classList.add('strike'); setTimeout(go, 200); }
+  else go();
+}
+
+function renumber(){
+  allRows().forEach(function(r, i){ r.querySelector('.num').textContent = i + 1; });
+}
+
+/* ── 三个读数全在这里同步 ── */
+function sync(){
+  var rows = allRows().filter(function(r){ return !r.classList.contains('collapse'); });
+  var ghost = rows.filter(function(r){ return r.classList.contains('ghost'); });
+  var done = rows.length - ghost.length;
+  var vol = rows.filter(function(r){ return !r.classList.contains('ghost'); })
+    .reduce(function(s, r){
+      return s + (parseFloat(r.querySelector('.val.w input').value) || 0)
+               * (parseInt(r.querySelector('.val.r input').value, 10) || 0);
+    }, 0);
+
+  /* 刊头：有底稿在时给分母，全描实/全抹掉后回到单个数字 */
+  var showDenom = document.body.classList.contains('opt-denom') && ghost.length > 0;
+  headTag.innerHTML = '第1个 · ' + (showDenom
+      ? '<span class="did">' + done + '</span><span class="of">/' + rows.length + '</span>组'
+      : done + '组')
+    + ' · ' + formatVol(vol);
+
+  /* 底部常驻栏：跟刊头同一口径（现状是 sets.length，把底稿也数了） */
+  dockCnt.innerHTML = '1 动作 · <b>' + done + '</b> 组';
+
+  /* 眉批：只在还有未描实的底稿时出现（现有行为不变） */
+  marginal.style.display = ghost.length ? '' : 'none';
+
+  /* 指针：停在第一条未描实的行 */
+  var here = ghost[0];
+  rows.forEach(function(r){ r.classList.toggle('here', r === here); });
+  if (here && !finished){
+    ptrEl.style.height = here.offsetHeight + 'px';
+    ptrEl.style.transform = 'translateY(' + here.offsetTop + 'px)';
+    ptrEl.classList.add('on');
+  } else {
+    ptrEl.classList.remove('on');
+  }
+}
+
+/* ── 简化版横拖改值（正式实现用 useValueScrub；这里固定 5lbs/档示意） ── */
+var scrubtip = document.getElementById('scrubtip');
+function attachScrub(row, input){
+  var cell = row.querySelector('.val.w');
+  var sid = null, sx = 0, baseX = 0, base = 0, engaged = false, lastEnd = 0;
+  cell.addEventListener('pointerdown', function(e){
+    if (finished || !e.isPrimary) return;
+    sid = e.pointerId; sx = e.clientX; engaged = false;
+  });
+  cell.addEventListener('pointermove', function(e){
+    if (e.pointerId !== sid) return;
+    var dx = e.clientX - sx;
+    if (!engaged){
+      if (Math.abs(dx) < 12) return;            /* §12.3：12px 才认定拖动 */
+      engaged = true; baseX = e.clientX; base = parseFloat(input.value) || 0;
+      input.blur();
+      try{ cell.setPointerCapture(sid); }catch(_){}
+      scrubtip.classList.add('on'); vib(8);
+    }
+    var steps = Math.round((e.clientX - baseX) / 10);
+    var v = Math.max(0, base + steps * 5);
+    if (fmt(v) !== input.value){
+      input.value = fmt(v);
+      row.dataset.dirty = '1';       /* 拖过就是改过：留下的错重量看得见，不给静默退回 */
+      confirmRow(row); vib(8); sync();
+    }
+    var r = cell.getBoundingClientRect();
+    scrubtip.style.left = (r.left + r.width/2) + 'px';
+    scrubtip.style.top  = (r.top - 8) + 'px';
+    scrubtip.textContent = '×5 · ' + input.value;
+  });
+  var end = function(e){
+    if (e.pointerId !== sid) return;
+    sid = null;
+    if (engaged){ lastEnd = performance.now(); scrubtip.classList.remove('on'); }
+  };
+  cell.addEventListener('pointerup', end);
+  cell.addEventListener('pointercancel', end);
+  cell.addEventListener('click', function(e){
+    if (performance.now() - lastEnd < 300){ e.preventDefault(); e.stopPropagation(); }
+  }, true);
+}
+
+/* ── 添加组：克隆上一行、剥掉 ghost（现有行为） ── */
+document.getElementById('addset').addEventListener('click', function(){
+  if (finished) return;
+  var all = allRows();
+  var src = all[all.length - 1];
+  var data = src
+    ? { w: parseFloat(src.querySelector('.val.w input').value) || 0,
+        r: parseInt(src.querySelector('.val.r input').value, 10) || 0 }
+    : { w: 100, r: 12 };
+  var row = makeRow(data, false);
+  row.classList.add('reveal');
+  rowsEl.appendChild(row);
+  renumber(); vib(8); sync();
+});
+
+/* ── 结束训练：未描实的底稿逐行划掉，不入册 ── */
+document.getElementById('finish').addEventListener('click', function(){
+  if (finished) return;
+  finished = true;
+  document.getElementById('finish').disabled = true;
+  var ghosts = allRows().filter(function(r){ return r.classList.contains('ghost'); });
+  var real = allRows().length - ghosts.length;
+  sync();
+  ghosts.forEach(function(g, i){ setTimeout(function(){ removeRow(g, true); }, i * 120); });
+  setTimeout(function(){
+    document.getElementById('co-t').textContent = '已入册 ' + real + ' 组';
+    document.getElementById('co-s').textContent = ghosts.length
+      ? ghosts.length + ' 行底稿未描实，划掉不入册'
+      : '底稿全部描实';
+    document.getElementById('colophon').classList.add('on');
+    vib([0,18,40,12]);
+    sync();
+  }, ghosts.length * 120 + 480);
+});
+
+/* ── 重置 / 方案开关 ── */
+function reset(){
+  finished = false;
+  document.getElementById('finish').disabled = false;
+  document.getElementById('colophon').classList.remove('on');
+  allRows().forEach(function(r){ r.remove(); });
+  LAST.forEach(function(d){ rowsEl.appendChild(makeRow(d, true)); });
+  renumber();
+  syncMarginal();
+  sync();
+}
+
+/* 眉批要把「再点退回」说出来：撤销可以比主动作难发现，但不能没人提过 */
+function syncMarginal(){
+  var undo = document.body.classList.contains('opt-undo');
+  marginal.innerHTML = '底稿 · 上次 ' + LAST_DATE + ' · ' + LAST_GYM + ' —— '
+    + '<i>刻度可能不同；</i><b>点组号照抄</b>'
+    + (undo ? '<i>（再点退回）</i>' : '')
+    + '；改哪格，记哪格；没描的不入册';
+}
+
+var OPTS = [['o-denom','opt-denom'], ['o-seal','opt-seal'],
+            ['o-ptr','opt-ptr'], ['o-undo','opt-undo']];
+function applyOpts(){
+  OPTS.forEach(function(p){
+    document.body.classList.toggle(p[1], document.getElementById(p[0]).checked);
+  });
+  syncMarginal();
+  sync();
+}
+OPTS.forEach(function(p){
+  document.getElementById(p[0]).addEventListener('change', applyOpts);
+});
+function setOpts(d, s, p, u){
+  document.getElementById('o-denom').checked = d;
+  document.getElementById('o-seal').checked  = s;
+  document.getElementById('o-ptr').checked   = p;
+  document.getElementById('o-undo').checked  = u;
+  applyOpts();
+}
+document.getElementById('preset').addEventListener('click', function(){ setOpts(true, false, true, true); });
+document.getElementById('asis').addEventListener('click',  function(){ setOpts(false, false, false, false); });
+document.getElementById('reset2').addEventListener('click', reset);
+document.getElementById('redo').addEventListener('click', reset);
+document.getElementById('gear').addEventListener('click', function(){
+  document.getElementById('panel').classList.toggle('on');
+});
+
+addEventListener('resize', sync);
+reset();
+</script>
+</body>
+</html>

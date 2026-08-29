@@ -997,6 +997,65 @@ button {
 .ledger-row.is-inkin .set-num {
   animation: ink-text var(--dur-stamp) var(--ease-ink);
 }
+/* 退回底稿时值要「淡下去」而不是瞬切（§5.5：状态变化用墨的深浅表达）。
+   描实那一下是 animation，animation 天然压过 transition，两者不打架。 */
+.ledger-row .ledger-input,
+.ledger-row .set-num {
+  transition:
+    color var(--dur-base) var(--ease-ink),
+    background-color var(--dur-base) var(--ease-ink),
+    border-color var(--dur-base) var(--ease-ink);
+}
+
+/* ── §12.6 落印：描实后组号从「未刻的印」收成实心朱砂印 ──
+   只在工作台（可编辑的账本）里落 —— 历史视图里所有组都已入册，
+   印不区分任何东西，只剩噪音。.is-inked 由 SetCapsule 在 !readOnly 时挂。
+   ⚠ 没有底稿的动作卡（全新动作）会整列都是印：那时它同样不区分任何东西。 */
+.ledger-row.is-inked .set-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+/* 描实那一帧：虚线印 → 实心印，与 ink-text 同拍。
+   自带完整关键帧，否则 ink-text 的 color 会跟反白字打架。 */
+@keyframes seal-cut {
+  0% {
+    background: transparent;
+    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+    border-style: dashed;
+    color: var(--accent-ink);
+  }
+  45% {
+    border-style: solid;
+  }
+  100% {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-on-accent);
+  }
+}
+.ledger-row.is-inkin.is-inked .set-num {
+  animation: seal-cut var(--dur-stamp) var(--ease-ink);
+}
+
+/* ── §12.6 指针：书签停在第一条还没描实的行 ──
+   训练现场问的是「下一组做哪个」，不是「我做了几组」。
+   行与行之间是交叉淡入而不是滑动 —— 子组会把行撑高，
+   按实测位置平移那套要挂 ResizeObserver，为一道 2.5px 的线不值。 */
+.ledger-row.is-next {
+  background: color-mix(in srgb, var(--accent-soft) 55%, transparent);
+}
+.ledger-row.is-next::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2.5px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+  pointer-events: none;
+}
 
 /* ── FAB 印谱扇开 §12.4 ──────────────────────────────────────────
    长按底栏加号，六枚朱文印从拇指下扇形摊开。

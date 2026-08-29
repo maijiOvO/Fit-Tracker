@@ -98,6 +98,12 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const realSetCount = exercise.sets.filter((s: any) => !s.ghost).length;
   const ghostSetCount = exercise.sets.length - realSetCount;
   /**
+   * §12.6 进度：realSetCount 一直就是「已做几组」，只是没有分母时它读起来像
+   * 「这个动作有几组」。补上分母，同一个数字才变成进度。
+   * 底稿描完（或抹完）后分母自然消失，回到原来的单个数字。
+   */
+  const firstGhostIdx = exercise.sets.findIndex((s: any) => s.ghost);
+  /**
    * §12.11：底稿来自别的馆时，眉批要把这件事摊开 —— 照抄的重量是按另一套
    * 刻度记的。在渲染时判而不是在预填时判：加完动作再回头改本场场地是常见操作。
    * 两边都标了场地才谈得上「不同」；有一边没标就是不知道，不知道就不说。
@@ -178,8 +184,12 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           </h3>
 
           <span className="font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
-            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} · {realSetCount}
-            {isCn ? '组' : ` ${plural(realSetCount, 'set')}`} · {formatVolume(totalVolumeKg(exercise), unit)}
+            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} ·{' '}
+            <span className="text-primary font-semibold">{realSetCount}</span>
+            {ghostSetCount > 0 && <span className="opacity-80">/{exercise.sets.length}</span>}
+            {/* 有分母时按分母定单复数（"1/4 sets"），没分母时还按原来的分子 */}
+            {isCn ? '组' : ` ${plural(ghostSetCount > 0 ? exercise.sets.length : realSetCount, 'set')}`} ·{' '}
+            {formatVolume(totalVolumeKg(exercise), unit)}
           </span>
 
           <div className="relative -mr-1 -my-2" ref={menuRef}>
@@ -257,7 +267,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 {' —— '}
                 {draftFromOtherGym && <span className="text-secondary">刻度可能不同；</span>}
                 <span className="text-accent font-medium">点组号照抄</span>
-                ；改哪格，记哪格；没描的不入册
+                （再点退回）；改哪格，记哪格；没描的不入册
               </>
             ) : (
               <>
@@ -266,7 +276,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 {' — '}
                 {draftFromOtherGym && <span className="text-secondary">different gym; </span>}
                 <span className="text-accent font-medium">tap # to copy</span>
-                ; edits confirm; untouched drafts are dropped
+                {' (tap again to undo)'}; edits confirm; untouched drafts are dropped
               </>
             )}
           </div>
@@ -338,6 +348,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             activeMetrics={activeMetrics}
             loadMode={loadMode}
             isNew={newSetIds.has(String(set.id))}
+            isNext={setIdx === firstGhostIdx}
             unit={unit}
             lang={lang}
             onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}

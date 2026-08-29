@@ -24,6 +24,12 @@ interface SetCapsuleProps {
   loadMode?: LoadMode;
   /** 这一行是刚添加出来的 → 播「写下一组」入场（§5.3） */
   isNew?: boolean;
+  /**
+   * 本动作里第一条还没描实的底稿行 → 左缘落一道朱砂书签（§12.6 指针）。
+   * 训练现场真正会问的是「下一组做哪个」，不是「我做了几组」；
+   * 书签逐行下移本身就是进度反馈，不必再造一根进度条。
+   */
+  isNext?: boolean;
   unit: string;
   lang: Language;
   readOnly?: boolean;
@@ -31,6 +37,17 @@ interface SetCapsuleProps {
   onRemove: () => void;
   onDurationClick?: () => void;
 }
+
+/**
+ * 值字段：改动其中任何一个，这一行就有了真实输入，退回凭据随即作废（§12.6 误触）。
+ * toFailure 故意不在内 —— 它自己是 toggle，取消竭要能连带把行退回底稿，
+ * 否则「可逆的动作留下不可逆的副作用」那个洞就补不上。
+ */
+const VALUE_KEYS: (keyof SetLog)[] = [
+  'weight', 'reps', 'duration', 'score', 'time', 'timeUnit',
+  'distance', 'distanceUnit', 'bodyweightMode', 'subSets',
+];
+const touchesValue = (updates: Partial<SetLog>) => VALUE_KEYS.some(k => k in updates);
 
 function secondsToHMS(seconds: number): { h: number; m: number; s: number } {
   const h = Math.floor(seconds / 3600);
@@ -59,6 +76,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   activeMetrics,
   loadMode,
   isNew = false,
+  isNext = false,
   unit,
   lang,
   readOnly = false,
@@ -89,9 +107,24 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
    * 转正瞬间播一次文字版墨色过冲（is-inkin）。
    */
   const isGhost = !!set.ghost && !readOnly;
+  /**
+   * 误触退回（§12.6）：让犯错的手势自己就是反悔的手势 —— 再点一次组号退回底稿。
+   * 没走 toastUndo，是因为描实每组一次、是高频动作，每次弹 toast 会把
+   * §12.5 通则 3 用成噪音；而组号点开点关本来就跟同一行里的「竭」是一个模式。
+   *
+   * 只对「还留着退回凭据」的行开放，竭亮着时也不给退（那是这行上一份真实输入）。
+   * 误触产生的恰好就是零编辑的行，这个限定不多不少正好盖住它。
+   */
+  const canRevert = !!set.fromGhost && !set.toFailure && !readOnly;
+  const revert = () => {
+    haptic(H.tap);
+    // 值不用还原：凭据还在就说明行里的值仍是底稿原值
+    onUpdate({ ghost: true, fromGhost: undefined });
+  };
   const [inkin, setInkin] = useState(false);
   const inkinTimerRef = React.useRef<number | null>(null);
   const update = (updates: Partial<SetLog>) => {
+    const valued = touchesValue(updates);
     if (isGhost) {
       setInkin(true);
       if (inkinTimerRef.current !== null) window.clearTimeout(inkinTimerRef.current);
@@ -99,9 +132,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       // 不该再被「按住加子组」的教学提示叠一层（动画本体 520ms 播完即止）。
       inkinTimerRef.current = window.setTimeout(() => setInkin(false), 1500);
       haptic(H.tap);
-      onUpdate({ ...updates, ghost: false });
+      // 改哪格记哪格的那几条路径不留凭据：有了真实输入就不该再静默退回
+      onUpdate({ ...updates, ghost: false, fromGhost: valued ? undefined : true });
     } else {
-      onUpdate(updates);
+      onUpdate(valued && set.fromGhost ? { ...updates, fromGhost: undefined } : updates);
     }
   };
 
@@ -168,7 +202,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       <div
         className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${
           inkin ? ' is-inkin' : ''
-        }`}
+        }${isNext ? ' is-next' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}`}
         style={colStyle}
         onAnimationEnd={e => {
           if (e.animationName === 'row-in') setEntering(false);
@@ -177,14 +211,22 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         {/* 组号：36×36 可长按胶囊。
             底稿行上多一个语义：点一下 = 照抄描实（§12.6 的「一组一击」）。
             与长按加子组不冲突 —— 长按达成后 update 会先把行转正，
-            松手带出的 click 落在已转正的行上是空操作。 */}
+            松手带出的 click 落在已转正的行上是空操作。
+            描实之后、改值之前，同一击反过来 = 退回底稿（§12.6 误触）。 */}
         <span
           className="set-num relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y"
           onClick={() => {
             if (isGhost) update({});
+            else if (canRevert) revert();
           }}
-          role={isGhost ? 'button' : undefined}
-          aria-label={isGhost ? (isCn ? '照抄上次这一组' : 'Copy last time') : undefined}
+          role={isGhost || canRevert ? 'button' : undefined}
+          aria-label={
+            isGhost
+              ? isCn ? '照抄上次这一组' : 'Copy last time'
+              : canRevert
+                ? isCn ? '退回底稿' : 'Back to draft'
+                : undefined
+          }
           {...addSub.handlers}
         >
           {setIdx + 1}
@@ -297,7 +339,13 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             onClick={() => {
               const next = !set.toFailure;
               haptic(next ? H.longpress : H.tap);
-              update({ toFailure: next });
+              // 在底稿上点竭会顺带描实。取消竭时若这行除了竭没别的编辑，一并退回底稿 ——
+              // 否则「竭可逆、它带来的描实不可逆」就是上面那句话的反例（§12.6 误触）。
+              if (!next && !isGhost && !!set.fromGhost) {
+                onUpdate({ toFailure: false, ghost: true, fromGhost: undefined });
+              } else {
+                update({ toFailure: next });
+              }
             }}
             aria-pressed={!!set.toFailure}
             aria-label={

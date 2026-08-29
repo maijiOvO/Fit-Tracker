@@ -123,8 +123,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const [partChosenFor, setPartChosenFor] = useState<string | null>(null);
 
   const exerciseCount = currentWorkout.exercises?.length ?? 0;
+  // 底稿行不算数据（§12.6）：口径必须跟刊头的 realSetCount 一致，
+  // 否则刊头写「3组」底栏写「4组」，其中一个在说假话。
   const setCount = (currentWorkout.exercises ?? []).reduce(
-    (s, ex) => s + (ex.sets?.length || 0),
+    (s, ex) => s + (ex.sets?.filter((set: any) => !set.ghost).length || 0),
     0,
   );
 
@@ -369,9 +371,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 const lastSet =
                   currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
                 // 克隆上一行的值，但剥掉 ghost：「加一组」是用户的主动动作，
-                // 长出来的行是真实数据（§12.6）
+                // 长出来的行是真实数据（§12.6）。
+                // fromGhost 也必须剥 —— 它没有底稿可退，留着会让新行被一击退回成底稿。
                 const newSet = lastSet
-                  ? { ...lastSet, id: Date.now().toString(), ghost: undefined }
+                  ? { ...lastSet, id: Date.now().toString(), ghost: undefined, fromGhost: undefined }
                   : { id: Date.now().toString(), weight: 0, reps: 0 };
                 exs[idx].sets.push(newSet);
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });
