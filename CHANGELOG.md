@@ -6,6 +6,13 @@
 
 ---
 
+## [unreleased] – 2026-09-13
+
+### 变更
+
+- 网页 demo 默认浅色「墨与纸」，首帧初始化与 React 主题状态保持一致，不跟随系统深色。保留本次体验中的深色/跟随系统切换；刷新清空演示状态后恢复浅色。Android 与非演示构建的默认行为不变。
+- 验证：`npm run typecheck`、`npm run build:demo`、`node scripts/check-demo-theme.mjs`；浏览器实测浅色首屏、切深色与刷新恢复浅色。
+
 ## [unreleased] – 2026-08-27
 
 ### 变更

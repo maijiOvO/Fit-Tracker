@@ -13,7 +13,12 @@
 
     <script>
       (function () {
-        var pref = localStorage.getItem('theme-pref') || 'auto';
+        // Vite substitutes this flag in demo builds. The demo starts fresh and
+        // light even when the system or another FitLog environment is dark.
+        var demo = '%VITE_FITLOG_DEMO%' === 'true';
+        var pref = 'auto';
+        try { pref = localStorage.getItem('theme-pref') || 'auto'; } catch (_) {}
+        if (demo) pref = 'light';
         var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
         var meta = document.querySelector('meta[name="theme-color"][data-dynamic]');

@@ -171,6 +171,7 @@ people try the app in a browser without touching any real data.
 
 What the flag actually does:
 
+- Starts in the light “ink and paper” theme, including the pre-React first paint. Visitors can switch themes during the session; reloading starts light again. Non-demo builds retain their existing theme preferences.
 - `isRemoteConfigured()` returns `false`, so every sync path (scheduler, pull, push,
   the sync button) takes its existing no-op branch.
 - `remoteFetch()` — the single exit for all remote I/O — throws outright. This second
