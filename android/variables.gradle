@@ -1,4 +1,11 @@
 ext {
+    /**
+     * Kotlin 标准库 / 协程版本。必须 >= 所有 Capacitor 插件编译时用的版本
+     * —— 低了是运行时 NoClassDefFoundError 闪退，编译期无感。理由见 build.gradle 的 force 块。
+     * 当前下限来自 @capacitor/filesystem@8（其 build.gradle 默认 kotlin_version 2.2.20）。
+     */
+    kotlin_version = '2.2.20'
+    kotlinxCoroutinesVersion = '1.10.2'
     minSdkVersion = 24
     // 编译用 36：本机只装了 platforms/android-36，而 Gradle 的 SDK 自动下载走
     // dl.google.com、不吃项目里配的阿里云镜像，国内基本拉不动 android-35。

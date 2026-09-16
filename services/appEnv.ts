@@ -27,6 +27,29 @@ export function isDemo(): boolean {
   return import.meta.env.VITE_FITLOG_DEMO === 'true';
 }
 
+/**
+ * 单机发行版（VITE_FITLOG_SOLO=true，仅由 `npm run build:solo` 经 .env.solo 注入）。
+ *
+ * 与 demo 的区别只有一条，但这条是全部意义所在：
+ *   demo = 断网 + **每次启动清空**（展示用，访客数据是一次性的）
+ *   solo = 断网 + **持久保存**（发行版，用户的训练记录只有本地这一份）
+ * 这两个语义原先绑死在 isDemo() 里，拆开是整个发布改造的起点。
+ */
+export function isSolo(): boolean {
+  return import.meta.env.VITE_FITLOG_SOLO === 'true';
+}
+
+/**
+ * 断网构建 = demo ∪ solo。
+ *
+ * **所有远端守卫该查的是这个谓词，不是 isDemo()。**
+ * 新增任何 fetch 路径时也查它 —— 查错了的后果是单机版偷偷联网，
+ * 而这件事从界面上完全看不出来（同步是静默的）。
+ */
+export function isOffline(): boolean {
+  return isDemo() || isSolo();
+}
+
 /** 开关本身永远存在**未加前缀**的 localStorage 里，否则会鸡生蛋 */
 const DEV_MODE_LS_KEY = 'fitlog_dev_mode';
 
@@ -61,7 +84,7 @@ function isStampedProd(): boolean {
  * 手机 APK 与正式发布构建都锁死在 prod。
  */
 export function isEnvLocked(): boolean {
-  return isNativeApp() || isStampedProd() || isDemo();
+  return isNativeApp() || isStampedProd() || isOffline();
 }
 
 /**
@@ -79,6 +102,14 @@ export function getDataEnv(): DataEnv {
   // 演示构建本就一个请求都不发，这条只是万一有路径漏网时的失效方向兜底。
   if (isDemo()) {
     cached = 'dev';
+    return cached;
+  }
+
+  // 单机版没有任何端点，dev/prod 这条轴对它本就无意义。
+  // 仍标成 prod：它装的是用户的真实数据，不是玩具数据。
+  // 命名空间不跟自用版共用，另由 dbName() / storagePrefix() 单独给 —— 理由见那里。
+  if (isSolo()) {
+    cached = 'prod';
     return cached;
   }
 
@@ -128,12 +159,23 @@ export function setDevMode(on: boolean): void {
 /** localStorage key 前缀：prod 无前缀，保证既有真实数据零迁移 */
 export function storagePrefix(): string {
   if (isDemo()) return 'demo:';
+  if (isSolo()) return 'solo:';
   return getDataEnv() === 'dev' ? 'dev:' : '';
 }
 
 /** IndexedDB 库名：dev 用完全独立的库，物理隔离 */
+/**
+ * IndexedDB 库名：dev 用完全独立的库，物理隔离。
+ *
+ * 单机版单独一个库名，理由不是隔离用户数据（发行版用户只会装一个构建），
+ * 而是**让自己能诚实地测发行版**：两个变体共用 applicationId，
+ * 把发行版装到本机手机上会继承同一个数据目录 —— 若共用库名，
+ * 它一打开就满屏你自己的训练记录、一切正常，而新用户看到的根本不是这个。
+ * 分开之后：发行版开局是空的（= 真实新用户），你的 FitLogDB 原封不动。
+ */
 export function dbName(): string {
   if (isDemo()) return 'FitLogDB-demo';
+  if (isSolo()) return 'FitLogDB-solo';
   return getDataEnv() === 'dev' ? 'FitLogDB-dev' : 'FitLogDB';
 }
 
@@ -145,5 +187,6 @@ export function statePath(): string {
 /** 人类可读标签，用于日志与 UI */
 export function envLabel(): string {
   if (isDemo()) return 'demo';
+  if (isSolo()) return 'solo';
   return getDataEnv() === 'dev' ? 'dev' : 'prod';
 }

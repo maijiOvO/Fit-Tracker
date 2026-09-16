@@ -1,5 +1,26 @@
 apply plugin: 'com.android.application'
 
+/**
+ * 正式签名配置 —— 密钥与口令都放在 android/key.properties，**不进 git**。
+ *
+ * 文件不存在时整块跳过，release 构建退化成未签名包（装不上，但能构建）。
+ * 这是刻意的：新克隆 / CI 不该因为缺私钥就构建失败，
+ * 而「装不上」是个立刻会被发现的故障，不会伪装成成功。
+ *
+ * 生成方式见 docs/release-signing.md。
+ * key.properties 模板：
+ *   storeFile=fitlog-release.keystore     # 相对 android/ 目录
+ *   storePassword=...
+ *   keyAlias=fitlog
+ *   keyPassword=...
+ */
+def keystorePropsFile = rootProject.file("key.properties")
+def hasSigning = keystorePropsFile.exists()
+def keystoreProps = new Properties()
+if (hasSigning) {
+    keystorePropsFile.withInputStream { keystoreProps.load(it) }
+}
+
 android {
     namespace = "com.myron.fittracker"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -9,8 +30,16 @@ android {
         applicationId "com.myron.fittracker"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
+        /**
+         * versionName 是给人看的，versionCode 是给系统看的。
+         *
+         * **versionCode 必须单调递增**：安卓拒绝安装 versionCode 更小的包，
+         * 所以它是发布的真正序号 —— 每发一版 +1，不要跟版本号对齐、
+         * 也不要因为回滚而调小（回滚要发一个 code 更大的包）。
+         * 1.0.0 的首发是 1。
+         */
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -18,10 +47,52 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasSigning) {
+            release {
+                storeFile rootProject.file(keystoreProps['storeFile'])
+                storePassword keystoreProps['storePassword']
+                keyAlias keystoreProps['keyAlias']
+                keyPassword keystoreProps['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasSigning) {
+                signingConfig signingConfigs.release
+            } else {
+                logger.warn("[fitlog] 未找到 android/key.properties —— release 包不会被签名，装不上手机")
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    /**
+     * 两个发行变体。**共用 applicationId**（com.myron.fittracker）——
+     * 这是刻意的取舍：不需要在同一台手机上共存，代价是它们会互相覆盖安装、
+     * 且共用数据目录。数据不会串（solo 用独立的 IndexedDB 库名），
+     * 但装错了不容易发现，所以 personal 变体的桌面名字带「· NAS」后缀。
+     *
+     *   personal —— 自用版：与家里 NAS 同步，保留 INTERNET 权限。
+     *               web 侧必须是 `npm run build:release`（构建戳 prod）。
+     *   solo     —— 单机发行版：完全断网，INTERNET 权限被 src/solo 的清单删掉。
+     *               web 侧必须是 `npm run build:solo`（构建戳 solo）。
+     *
+     * ⚠️ 变体只管原生层。web 产物是 `npx cap sync` 写进 src/main/assets/public 的，
+     *    **两个变体共用同一份**，谁最后同步就是谁 —— gradle 这层拦不住配错。
+     *    拦它的是打包脚本里的构建戳闸门（dist/fitlog-build-env.json 必须匹配变体），
+     *    沿用 scripts/deploy-android.ps1 里已经验证过的那道闸。
+     */
+    flavorDimensions = ["distribution"]
+    productFlavors {
+        personal {
+            dimension "distribution"
+        }
+        solo {
+            dimension "distribution"
         }
     }
 }

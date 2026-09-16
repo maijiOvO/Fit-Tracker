@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  单机发行版的原生层保证 —— 第三道守卫，也是唯一一道用户能自己核实的。
+
+  前两道在 JS 里（services/fitlogRemote.ts）：isRemoteConfigured() 让调用点 no-op，
+  remoteFetch() 在唯一出口抛错。但那两道都是「代码这么写的」，
+  拿到 APK 的人验证不了，也挡不住将来某次改动把守卫绕过去。
+
+  这里把它升级成系统强制：没有 INTERNET 权限，进程发不出任何网络请求，
+  和代码里写了什么无关。用户在系统设置的权限列表里能直接看到。
+
+  tools:node="remove" 是清单合并指令：main 里声明过的这两条权限，
+  在 solo 变体合并后被删除。合并结果可核对：
+    android/app/build/intermediates/merged_manifests/soloRelease/AndroidManifest.xml
+
+  ⚠️ WebView 加载本地 assets 走的是 Capacitor 的拦截器、不经过网络栈，
+     因此不需要 INTERNET。但这件事必须在真机上验过才算数，不能靠推理。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+
+</manifest>

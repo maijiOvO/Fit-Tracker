@@ -52,3 +52,20 @@ assets/icon.png
 
 # 场地回填前的云端快照备份（含个人训练数据，不入库）
 scripts/.gym-backup.json
+
+# ✅ 安卓正式签名 —— 泄漏不可逆
+# keystore 一旦进过 git 历史就等于作废：别人能签出冒充你的更新包，
+# 而 git 历史里的文件删不干净（要 filter-repo 重写 + 强推 + 换密钥）。
+# 反过来 keystore 自己丢了同样不可逆：包名 + 签名指纹绑定，
+# 丢了就永远无法给已装用户发更新，只能换包名重来。
+# ⇒ 本地备份到 git 以外的地方（密码管理器 / 加密网盘），两头都堵死。
+*.keystore
+*.jks
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
+
+# 签名产物
+android/app/release/
+**/*-release.apk
+**/*-release.aab

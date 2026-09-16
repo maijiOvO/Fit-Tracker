@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  两个变体共用 applicationId，系统里长得一模一样 —— 桌面图标上的名字
+  是唯一能一眼分辨「手机上现在装的是哪一个」的地方。
+  同包名意味着它们会互相覆盖安装并共用数据目录，认错了会白白查半天。
+  （数据本身不会串：solo 用 FitLogDB-solo，见 services/appEnv.ts 的 dbName()。）
+-->
+<resources>
+    <string name="app_name">Fit Tracker · NAS</string>
+    <string name="title_activity_main">Fit Tracker · NAS</string>
+</resources>

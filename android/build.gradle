@@ -27,11 +27,31 @@ allprojects {
         mavenCentral()
     }
 
+    /**
+     * 统一钉住 Kotlin 标准库版本，避免镜像上拉多个版本。
+     *
+     * ⚠️ 这个版本**不能低于任何一个 Capacitor 插件编译时用的 Kotlin 版本**，
+     *    否则是运行时才炸、编译期完全看不出来：
+     *
+     *      java.lang.NoClassDefFoundError: Failed resolution of:
+     *        Lkotlin/coroutines/jvm/internal/SpillingKt;
+     *        at com.capacitorjs.plugins.filesystem.FilesystemPlugin$runWithPermission$1
+     *      Caused by: ClassNotFoundException: Didn't find class
+     *        "kotlin.coroutines.jvm.internal.SpillingKt"
+     *
+     *    2026-09-15 实测：钉 1.9.24 时点「导出备份」直接闪退 —— App 消失回桌面，
+     *    界面上没有任何提示，普通 logcat 里也没有，只有 `adb logcat -b crash` 才看得到。
+     *    SpillingKt 是 Kotlin 2.x stdlib 才有的类（协程状态机用），
+     *    而 @capacitor/filesystem@8 的 build.gradle 里 kotlin_version 默认 2.2.20。
+     *
+     *    stdlib 向后兼容，**抬高安全、压低危险**。加插件之后如果又闪退，
+     *    先查它的 android/build.gradle 要什么 kotlin_version，再把这里抬上去。
+     */
     configurations.all {
         resolutionStrategy {
-            force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
-            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24'
-            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
+            force "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
         }
     }
 }

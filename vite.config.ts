@@ -13,7 +13,7 @@ import react from '@vitejs/plugin-react';
  * 万一 demo 的 dist 留在目录里被拿去打 APK，闸门要能一眼看出不对
  * —— 戳成 dev 的话 `deploy-android.ps1 -Dev` 会把它放行。
  */
-function emitBuildEnv(resolved: string, demo: boolean) {
+function emitBuildEnv(resolved: string, demo: boolean, solo: boolean) {
   return {
     name: 'fitlog-emit-build-env',
     generateBundle(this: { emitFile: (f: unknown) => void }) {
@@ -21,7 +21,7 @@ function emitBuildEnv(resolved: string, demo: boolean) {
         type: 'asset',
         fileName: 'fitlog-build-env.json',
         source: JSON.stringify(
-          { env: demo ? 'demo' : resolved === 'prod' ? 'prod' : 'dev' },
+          { env: demo ? 'demo' : solo ? 'solo' : resolved === 'prod' ? 'prod' : 'dev' },
           null,
           2,
         ),
@@ -37,7 +37,14 @@ export default defineConfig(({ mode }) => {
         port: 3000,
         host: '0.0.0.0',
       },
-      plugins: [react(), emitBuildEnv(env.VITE_FITLOG_ENV || '', env.VITE_FITLOG_DEMO === 'true')],
+      plugins: [
+        react(),
+        emitBuildEnv(
+          env.VITE_FITLOG_ENV || '',
+          env.VITE_FITLOG_DEMO === 'true',
+          env.VITE_FITLOG_SOLO === 'true',
+        ),
+      ],
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
