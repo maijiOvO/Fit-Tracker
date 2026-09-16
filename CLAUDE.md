@@ -2,10 +2,10 @@
 
 ## 编码知识库：先查，再动手
 
-`D:\DevNotes` 是跨项目的编码知识库（Obsidian vault）。fitlog 的历史坑已经挖过一遍并写进去了，**动手前先查**：
+`G:\我的云端硬盘\DevNotes` 是跨项目的编码知识库（Obsidian vault）。fitlog 的历史坑已经挖过一遍并写进去了，**动手前先查**：
 
 ```sh
-grep -ril "<关键词>" D:\DevNotes
+grep -ril "<关键词>" G:\我的云端硬盘\DevNotes
 ```
 
 本项目直接相关的入口：
