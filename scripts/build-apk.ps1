@@ -4,7 +4,8 @@
       npm run apk:solo        # 单机发行版（交给别人的那份）
       npm run apk:personal    # 自用版（与 NAS 同步）
 
-  这个脚本的价值不在于跑 gradle —— 而在于 gradle 之前的四道闸门。
+  这个脚本的价值不在于跑 gradle —— 而在于围着 gradle 的五道闸门
+  （1–4 在 gradle 之前查输入，5 在之后查产物）。
   两个变体共用 applicationId、共用 android/app/src/main/assets/public，
   gradle 本身分辨不出「这份 web 产物属于哪个变体」，配错了照样构建成功、
   照样装得上，直到用户发现自己的记录不见了（或者你发现 key 被发出去了）。

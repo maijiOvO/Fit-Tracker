@@ -78,11 +78,14 @@ RSA 4096 · 2026-09-15 生成
 
 ## 打包
 
-```
-npm run build:solo && npx cap sync android && npm run apk:solo
+**这台机器的终端是 Windows PowerShell 5.1，不支持 `&&`** —— 用 `;` 串，
+或者「成功才继续」写成 `A; if ($?) { B }`：
+
+```powershell
+npm run build:solo; if ($?) { npx cap sync android }; if ($?) { npm run apk:solo }
 ```
 
-`scripts/build-apk.ps1` 在 gradle 之前有四道闸门，配错了会当场停：
+`scripts/build-apk.ps1` 在 gradle 之前后共有五道闸门，配错了会当场停：
 
 1. `dist/fitlog-build-env.json` 的构建戳必须匹配变体
 2. `android/app/src/main/assets/public/` 里同步过去的那一份必须与 dist 一致
@@ -90,9 +93,117 @@ npm run build:solo && npx cap sync android && npm run apk:solo
 3. `android/key.properties` 与它指向的 keystore 必须都在
 4. **solo 专有**：解压 APK 逐个扫 `assets/public/*.{js,html,json,css}`，
    命中 NAS 主机名或 `.env.local` 里的真实 API key 就拒绝出包
+5. 产出的 APK 必须**真的被签了**（闸门 3 查的是输入，这道查产物），并打印指纹
 
 第 4 道是唯一能证明「这个要发出去的文件真的没带凭据」的检查。
-前三道证明的都只是「我构建的东西是干净的」。
+1–3 证明的都只是「我构建的东西是干净的」。
+
+---
+
+## 发布一个新版本：完整清单
+
+> 五道闸门只管「这次构建对不对」。**它们管不到「传上去的那个文件是不是这次构建的」** ——
+> 2026-09-16 实测过一次：GitHub 草稿里挂的 APK 打于前一天，晚于它的一个 commit 没进去，
+> 而文件名、大小、sha256 与本地那个文件完全对得上。
+> **「草稿 = 本地某个文件」证明不了「本地那个文件 = 当前代码」。** 所以有第 3 步。
+
+### 1. 先定版本号
+
+`android/app/build.gradle` 的 `defaultConfig`：
+
+- **`versionCode` 必须单调递增**，每发一版 +1。安卓拒绝安装 versionCode 更小的包，
+  忘了加 = 已装用户永远收不到这次更新。回滚也要发一个 code 更大的包，不能调小。
+- `versionName` 是给人看的，按语义化版本改。
+
+### 2. 打包 solo
+
+```powershell
+npm run build:solo; if ($?) { npx cap sync android }; if ($?) { npm run apk:solo }
+```
+
+五道闸门全绿才算数。产物在
+`android\app\build\outputs\apk\solo\release\app-solo-release.apk`。
+
+### 3. 核对「这个 APK 确实是当前代码构建的」
+
+闸门管不到这件事，手动核一次。把 APK 里的 `assets/public/` 与 `dist/` 逐个文件名比对
+（`Expand-Archive` 不认 `.apk` 后缀，所以直接读 zip 条目，不解压）：
+
+```powershell
+$apk = "android\app\build\outputs\apk\solo\release\app-solo-release.apk"; Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path $apk)); $inApk = $zip.Entries | Where-Object { $_.FullName -like 'assets/public/*' -and -not $_.FullName.EndsWith('/') } | ForEach-Object { $_.FullName.Substring('assets/public/'.Length) } | Sort-Object; $zip.Dispose(); $distRoot = (Resolve-Path dist).Path; $inDist = Get-ChildItem dist -Recurse -File | ForEach-Object { $_.FullName.Substring($distRoot.Length + 1).Replace('\','/') } | Sort-Object; Compare-Object $inApk $inDist | Format-Table -AutoSize
+```
+
+**期望输出正好是这三行，多一行都要查**（`<=` 只在 APK 里，`=>` 只在 dist 里）：
+
+```
+InputObject         SideIndicator
+-----------         -------------
+fonts/.charset-hash =>
+cordova.js          <=
+cordova_plugins.js  <=
+```
+
+前两个是 Capacitor 注入的、dist 里本来就没有；`.charset-hash` 是点文件，
+被 build.gradle 里 aapt 的 `ignoreAssetsPattern` 排除掉了。
+
+带哈希的文件名（`index-XXXX.js` 之类）只要出现在输出里，就说明 APK 不是这次 dist 打的，回第 2 步。
+
+### 4. 真机验一遍（改动碰了数据层就必做）
+
+发行版没有服务端兜底，**卸载即失**，所以备份往返是 solo 的生命线。
+验它要用 `soloDebug`（release 包 `debuggable=false`，CDP 连不上、驱动不了界面）：
+
+```powershell
+npm run build:solo; if ($?) { npx cap sync android }; if ($?) { cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain; cd .. }
+```
+
+装它会顶掉正式签名的 personal 包（签名不一致，先 `adb uninstall com.myron.fittracker`）。
+判据必须落在 `FitLogDB-solo` 的 **id** 上，不是 toast、也不是条数 ——
+导入前要把数据**双向**改脏（删几条 + 加几条），否则「恢复成功」和「什么都没发生」长得一样。
+完整做法见知识库 `patterns\每一段都验过不等于整条验过.md`。
+
+### 5. 传到 GitHub Release 草稿
+
+先删旧资产（草稿里已经有同名文件时）：
+
+```powershell
+gh release delete-asset v1.0.0 FitTracker-1.0.0.apk --repo maijiOvO/Fit-Tracker --yes
+```
+
+再传新的，`#` 后面是发行用的文件名：
+
+```powershell
+gh release upload v1.0.0 "android\app\build\outputs\apk\solo\release\app-solo-release.apk#FitTracker-1.0.0.apk" --repo maijiOvO/Fit-Tracker
+```
+
+### 6. 发布
+
+在 GitHub 页面上点，或 `gh release edit <tag> --draft=false`。**这一下自己点** ——
+发出去就会被人下载，撤不回来。
+
+### 7. 收尾：把工作区和手机恢复成日常状态
+
+上面第 2/4 步把原生工程的 `assets/public` 换成了 solo 的，手机上可能还装着 soloDebug。
+两边都要还原：
+
+```powershell
+npm run build:release; if ($?) { npx cap sync android }; if ($?) { npm run apk:personal }
+```
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" uninstall com.myron.fittracker; & "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" install -r "android\app\build\outputs\apk\personal\release\app-personal-release.apk"
+```
+
+`uninstall` 是必要的：debug 与 release 签名不一致，覆盖装会报
+`INSTALL_FAILED_UPDATE_INCOMPATIBLE`。训练记录在 NAS 上会自己同步回来，
+只丢主题 / 振动 / 动效三个纯本地设置。
+
+### 已知的产品缺口（发行说明里最好提一句）
+
+分享面板里**没有「保存到文件」**：`Share.share()` 发的是 `ACTION_SEND`（交给另一个 app），
+而 Android 的系统文件管理器不接 SEND ——「存到本地」要用 SAF 的 `ACTION_CREATE_DOCUMENT`，
+是另一个 intent。所以用户能不能把备份留在本机，取决于他装没装会接 SEND 的文件管理器。
+详见知识库 `troubleshooting\Android 分享面板里没有「保存到文件」…md`。
 
 ---
 

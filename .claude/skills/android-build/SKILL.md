@@ -95,15 +95,46 @@ Android Studio 装在非默认路径 `D:\tools\Android_studio\install`。
 
 ## 5. 正式签名包（2026-09-15 起可用）
 
-调试装机走上面的 debug 路径；**要发出去的包**走这两条：
+调试装机走上面的 debug 路径；**要发出去的包**走这两条（`;` 不是 `&&` —— 用户的终端是
+PowerShell 5.1，`&&` 整条命令一个字都不执行）：
 
 | 变体 | 谁用 | 命令 |
 |---|---|---|
-| `solo` | 发行给别人，完全断网、无 INTERNET 权限 | `npm run build:solo && npx cap sync android && npm run apk:solo` |
-| `personal` | 自己用，与 NAS 同步 | `npm run build:release && npx cap sync android && npm run apk:personal` |
+| `solo` | 发行给别人，完全断网、无 INTERNET 权限 | `npm run build:solo; if ($?) { npx cap sync android }; if ($?) { npm run apk:solo }` |
+| `personal` | 自己用，与 NAS 同步 | `npm run build:release; if ($?) { npx cap sync android }; if ($?) { npm run apk:personal }` |
 
 两个变体**共用 applicationId**，同机不能共存、会互相覆盖安装；桌面名字是唯一区分
-（personal 显示 `Fit Tracker · NAS`）。完整说明见仓库里的 `docs/release-signing.md`。
+（personal 显示 `Fit Tracker · NAS`）。
+
+> **要发版（不只是打个包）？走 `docs/release-signing.md` 的「发布一个新版本：完整清单」。**
+> 那里是七步：定 versionCode → 打包 → **核对 APK 是不是当前代码构建的** → 真机验往返 →
+> 传草稿 → 用户自己点发布 → 把工作区和手机恢复成 personal。
+> 别只跑打包命令就报完成，第 3 和第 7 步是最容易漏的。
+
+### 打包闸门管不到的两件事
+
+1. **「草稿里那个 APK 是不是这次构建的」。** 2026-09-16 实测撞过：GitHub 草稿里的包
+   打于前一天，晚于它的一个 commit 没进去，而文件名 / 大小 / sha256 与本地文件完全对得上 ——
+   **「草稿 = 本地某个文件」证明不了「本地那个文件 = 当前代码」。** 判据见清单第 3 步。
+2. **`versionCode` 有没有递增。** 还是模板默认的 `1`。安卓拒装 versionCode 更小的包，
+   忘了加 = 已装用户永远收不到更新，而构建和安装全程不会报任何错。
+
+### 要在真机上验 solo 的行为，用 `soloDebug`
+
+`soloRelease` 是 `debuggable=false`，**CDP 连不上**，界面驱动不了。
+`soloDebug` 是同一个 flavor、同样没有 INTERNET 权限，但可调试：
+
+```sh
+cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain
+```
+
+这是**验证专用的例外**——要发出去的包仍然只走 `npm run apk:solo`（闸门都在那条路上）。
+装它会顶掉正式签名的 personal 包（签名不一致，先 `adb uninstall com.myron.fittracker`），
+验完记得按清单第 7 步装回去。
+
+solo 构建**不挂 `window.__fitlog` 探针**（`isOffline()` 时不挂），要读数据只能直接开
+IndexedDB `FitLogDB-solo`。备份往返已于 2026-09-16 端到端验过，做法见知识库
+`patterns\每一段都验过不等于整条验过.md`。
 
 签名密钥在 `android/fitlog-release.keystore` + `android/key.properties`，两者都不进 git。
 **密钥丢了或漏了都不可逆**（丢 = 再也无法给已装用户发更新）。
