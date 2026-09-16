@@ -1,10 +1,11 @@
 import React, { lazy, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DateTimePicker } from './DateTimePicker';
 import { SetCapsule } from './SetCapsule';
+import { BackupCard } from './BackupCard';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
-  Scale, TrendingUp, History, ChevronDown, ChevronUp, Cloud,
-  Download, Clock, Play
+  Scale, TrendingUp, History, ChevronDown, ChevronUp,
+  Clock, Play
 } from 'lucide-react';
 import { Language, WeightEntry, Exercise } from '../../types';
 import { translations } from '../../translations';
@@ -45,6 +46,7 @@ export interface DashboardActions {
   onLogWeight: () => void;
   onEditWeight: (entry: WeightEntry) => void;
   onExportData: () => void;
+  onImportData: () => void;
 }
 
 interface DashboardProps {
@@ -537,29 +539,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         }}
       />
 
-      {/* 导出 */}
-      <div className="mt-8 mb-8 px-1 pb-16">
-        <div className="ui-card p-6 text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="p-3 bg-accent-soft text-accent rounded-control">
-              <Cloud size={28} strokeWidth={1.75} />
-            </div>
-          </div>
-          <h4 className="font-display text-lg font-semibold text-primary">
-            {translations.exportData[lang]}
-          </h4>
-          <p className="text-xs text-secondary leading-relaxed max-w-[240px] mx-auto">
-            {translations.exportDesc[lang]}
-          </p>
-          <button onClick={actions.onExportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
-            <Download size={18} strokeWidth={1.75} className="text-accent" />
-            {lang === Language.CN ? '立即导出备份' : 'Export backup'}
-          </button>
-          <p className="text-[10px] text-tertiary">
-            {isCn ? '你的数据，始终属于你。' : 'Your data is yours. Always.'}
-          </p>
-        </div>
-      </div>
+      <BackupCard onExportData={actions.onExportData} onImportData={actions.onImportData} />
+
     </div>
   );
 };

@@ -1,81 +1,44 @@
 /**
- * 全量数据格式化导出
+ * 全量数据导出。
+ *
+ * 导出的是 services/fitlogBackup 里的完整快照，**不是**自己攒的字段子集。
+ * 改版前这里手工列字段，漏了 prs 与 scheduledWorkouts —— 导出会成功、
+ * 文件也有模有样，直到换手机恢复后才发现训练计划没了。见 fitlogBackup.ts 顶部。
  */
 import { useCallback } from 'react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
-import { useAuthContext } from '../contexts/AuthContext';
-import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { backupFileName, buildBackupFile } from '../../services/fitlogBackup';
+import { saveTextFile } from '../../services/fitlogSaveFile';
 
 export type ExportStatus = 'idle' | 'syncing' | 'error';
 
-/**
- * @param setSyncStatus  借用顶部同步状态显示导出进度（保留原行为）
- */
 export function useExportData(
   setSyncStatus: (status: ExportStatus) => void,
 ): () => Promise<void> {
-  const authCtx = useAuthContext();
   const settingsCtx = useUserSettingsContext();
-  const workoutCtx = useWorkoutContext();
-  const goalsCtx = useGoalsContext();
-  const prefs = useExercisePrefs();
   const { toast } = useUiOverlay();
 
   return useCallback(async () => {
+    const lang = settingsCtx.lang;
     try {
       setSyncStatus('syncing');
-      const user = authCtx.user;
-      const lang = settingsCtx.lang;
-      const isCn = lang === Language.CN;
-
-      const exportPackage = {
-        app: 'Fit Tracker',
-        exportDate: new Date().toISOString(),
-        user: {
-          id: user?.id,
-          email: user?.email,
-          username: user?.username,
-        },
-        data: {
-          workouts: workoutCtx.workouts,
-          weightHistory: settingsCtx.weightEntries,
-          goals: goalsCtx.goals,
-          bodyMeasurements: settingsCtx.measurements,
-        },
-        settings: {
-          unit: settingsCtx.unit,
-          language: lang,
-          exerciseNotes: prefs.exerciseNotes,
-          customTags: prefs.customTags,
-          customExercises: prefs.customExercises,
-          starredExercises: prefs.starredExercises,
-          metricConfigs: prefs.exerciseMetricConfigs,
-        },
-      };
-
-      const jsonString = JSON.stringify(exportPackage, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `FitTracker_Backup_${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast(String(translations.exportSuccess[lang]), 'success');
+      const file = await buildBackupFile();
+      const outcome = await saveTextFile(backupFileName(), JSON.stringify(file, null, 2));
       setSyncStatus('idle');
-      void isCn;
+      // 只有真的交出去了才报成功。取消分享 = 用户手上没有文件，
+      // 这时弹「导出成功」就是又造一个假信号 —— 这条路正是这么坏过一次的。
+      if (outcome.kind === 'cancelled') {
+        toast(lang === Language.CN ? '已取消，没有导出文件' : 'Cancelled, nothing exported', 'info');
+      } else {
+        toast(String(translations.exportSuccess[lang]), 'success');
+      }
     } catch (error) {
       console.error('Export failed:', error);
+      toast(lang === Language.CN ? '导出失败' : 'Export failed', 'error');
       setSyncStatus('error');
     }
-  }, [authCtx, goalsCtx, prefs, setSyncStatus, settingsCtx, toast, workoutCtx]);
+  }, [setSyncStatus, settingsCtx, toast]);
 }

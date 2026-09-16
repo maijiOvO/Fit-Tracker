@@ -93,6 +93,7 @@ import { useWeightLog } from './src/hooks/useWeightLog';
 import { useMeasurementLog } from './src/hooks/useMeasurementLog';
 import { useAvatarUpload } from './src/hooks/useAvatarUpload';
 import { useExportData } from './src/hooks/useExportData';
+import { useImportData } from './src/hooks/useImportData';
 import { useResetAccount } from './src/hooks/useResetAccount';
 import { storage } from './services/appStorage';
 import { WorkoutColophon } from './src/components/WorkoutColophon';
@@ -328,6 +329,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const { fileInputRef, handleAvatarUpload } = useAvatarUpload();
   const handleExportData = useExportData(setSyncStatus);
+  const handleImportData = useImportData(setSyncStatus);
 
   // ============== 数据环境切换（dev ⇄ prod，运行时，无需重启）==============
   // 本地存储已按环境分区（IndexedDB 分库 + localStorage 前缀），
@@ -501,6 +503,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       },
       onEditWeight: triggerEditWeight,
       onExportData: handleExportData,
+      onImportData: handleImportData,
     }),
     [
       handleEditWorkout,
@@ -512,6 +515,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       handleDeleteWeightEntry,
       triggerEditWeight,
       handleExportData,
+      handleImportData,
       startWorkoutGuarded,
       setEditingWorkoutId,
       setActiveTab,

@@ -23,5 +23,7 @@ export { useMeasurementLog } from './useMeasurementLog';
 export type { MeasurementForm } from './useMeasurementLog';
 export { useAvatarUpload } from './useAvatarUpload';
 export { useExportData } from './useExportData';
+export type { ExportStatus } from './useExportData';
+export { useImportData, useRollbackImport } from './useImportData';
 export { useResetAccount } from './useResetAccount';
 export { useExerciseTimeEditor } from './useExerciseTimeEditor';

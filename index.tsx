@@ -5,7 +5,14 @@ import App from './App';
 import './index.css';
 import { pushFitlogRemoteSnapshot, pullAndMergeFitlogRemote } from './services/fitlogRemoteSync';
 import { fetchRemoteSnapshot } from './services/fitlogRemote';
-import { getDataEnv, isEnvLocked, isDemo, dbName, statePath, storagePrefix } from './services/appEnv';
+import { getDataEnv, isEnvLocked, isDemo, isSolo, isOffline, dbName, statePath, storagePrefix } from './services/appEnv';
+import {
+  applyBackup,
+  buildBackupFile,
+  parseBackupFile,
+  readRollback,
+  rollbackImport,
+} from './services/fitlogBackup';
 import { installFontGuard } from './src/utils/fontGuard';
 import DemoBanner from './src/components/DemoBanner';
 
@@ -17,27 +24,40 @@ installFontGuard();
   const env = getDataEnv();
   const style = isDemo()
     ? 'background:#2563eb;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'
-    : env === 'dev'
-      ? 'background:#f59e0b;color:#000;padding:2px 8px;border-radius:4px;font-weight:bold'
-      : 'background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold';
+    : isSolo()
+      ? 'background:#0f766e;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold'
+      : env === 'dev'
+        ? 'background:#f59e0b;color:#000;padding:2px 8px;border-radius:4px;font-weight:bold'
+        : 'background:#dc2626;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold';
   console.log(
-    `%c fitlog · ${isDemo() ? 'DEMO' : env.toUpperCase()} `,
+    `%c fitlog · ${isDemo() ? 'DEMO' : isSolo() ? 'SOLO' : env.toUpperCase()} `,
     style,
     isDemo()
       ? `${dbName()} · localStorage 前缀 "${storagePrefix()}" · 远端已禁用，每次启动清空`
-      : `${statePath()} · ${dbName()} · localStorage 前缀 "${env === 'dev' ? 'dev:' : '(无)'}"`,
-    isEnvLocked() ? '· 已锁定（原生容器 / release 构建 / demo）' : '· 可在「我的 → 数据环境」切换',
+      : isSolo()
+        ? `${dbName()} · localStorage 前缀 "${storagePrefix()}" · 远端已禁用，数据持久保存在本机`
+        : `${statePath()} · ${dbName()} · localStorage 前缀 "${env === 'dev' ? 'dev:' : '(无)'}"`,
+    isEnvLocked() ? '· 已锁定（原生容器 / release 构建 / demo / solo）' : '· 可在「我的 → 数据环境」切换',
   );
 }
 
 // e2e 与本机调试用：把强制 push / fetch 暴露出来，跳过防抖。
-// demo 构建不挂 —— 那几个入口在演示里全是 no-op，挂上去只会误导人。
-if (typeof window !== 'undefined' && !isDemo()) {
+// 断网构建（demo / solo）不挂 —— 那几个入口在断网下全是 no-op，挂上去只会误导人。
+if (typeof window !== 'undefined' && !isOffline()) {
   (window as any).__fitlog = {
     env: () => ({ env: getDataEnv(), locked: isEnvLocked(), db: dbName(), path: statePath() }),
     flush: () => pushFitlogRemoteSnapshot(),
     pull: () => pullAndMergeFitlogRemote(),
     fetchRemote: () => fetchRemoteSnapshot(),
+    // 备份链路的探针。导出/导入/回滚都绕不开文件选择器与下载，
+    // e2e 摸不到 —— 只能从这里直接调服务层做真实往返验证。
+    backup: {
+      build: () => buildBackupFile(),
+      parse: (raw: string) => parseBackupFile(raw),
+      apply: (raw: string) => applyBackup(parseBackupFile(raw)),
+      rollback: () => rollbackImport(),
+      peek: () => readRollback(),
+    },
   };
 }
 

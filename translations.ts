@@ -150,6 +150,12 @@ export const translations: TranslationStrings = {
   exportData: { cn: '导出全部数据', en: 'Export All Data' },
   exportDesc: { cn: '将您的训练记录、体重和设置导出为 JSON 文件备份', en: 'Export your workouts, weight, and settings as a JSON backup' },
   exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
+  importData: { cn: '导入备份', en: 'Import Backup' },
+  importDesc: {
+    cn: '从导出的 JSON 文件恢复。当前数据会被完全替换，导入前会自动存一份可撤销的副本',
+    en: 'Restore from an exported JSON file. Current data is replaced; an undoable copy is saved first',
+  },
+  undoImport: { cn: '撤销上次导入', en: 'Undo last import' },
   
 
   // --- 新增器材/环境标签 ---
