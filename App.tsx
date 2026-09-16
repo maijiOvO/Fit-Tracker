@@ -94,6 +94,7 @@ import { useMeasurementLog } from './src/hooks/useMeasurementLog';
 import { useAvatarUpload } from './src/hooks/useAvatarUpload';
 import { useExportData } from './src/hooks/useExportData';
 import { useImportData } from './src/hooks/useImportData';
+import FirstRunNotice from './src/components/FirstRunNotice';
 import { useResetAccount } from './src/hooks/useResetAccount';
 import { storage } from './services/appStorage';
 import { WorkoutColophon } from './src/components/WorkoutColophon';
@@ -123,6 +124,8 @@ const AppWithAuth: React.FC<AppWithAuthProps> = props => {
   return (
     <UiOverlayProvider lang={lang}>
       <ExercisePrefsProvider>
+        {/* 只在 solo 发行版渲染；自用版里这个组件直接返回 null */}
+        <FirstRunNotice />
         <AppWithAuthShell {...props} />
       </ExercisePrefsProvider>
     </UiOverlayProvider>

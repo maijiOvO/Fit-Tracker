@@ -82,9 +82,11 @@ export function useImportData(
         ? '\n\n这是旧版导出的文件，里面没有 PR 和训练计划 —— 这两项会保留你现在的数据，不会被清空。'
         : '\n\nThis is an old-format export with no PRs or schedule — those will be kept as they are now.'
       : '';
+    // 确认弹窗是纯文本渲染（UiOverlayContext 里就是 <p>{message}</p>），
+    // markdown 的 ** 会原样显示给用户。强调只能靠措辞，不能靠标记。
     const warning = isCn
-      ? '\n\n当前数据会被**完全替换**。导入前会自动存一份可撤销的副本。'
-      : '\n\nYour current data will be **replaced**. An undoable copy is saved first.';
+      ? '\n\n当前数据会被整个替换掉，不是合并。导入前会自动存一份可撤销的副本。'
+      : '\n\nThis replaces your current data entirely — it does not merge. An undoable copy is saved first.';
 
     const go = await confirm({
       title: isCn ? '用备份覆盖当前数据？' : 'Restore from backup?',
