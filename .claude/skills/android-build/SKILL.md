@@ -90,7 +90,32 @@ Android Studio 装在非默认路径 `D:\tools\Android_studio\install`。
   才会真的改运行时行为（Android 15+ 强制 edge-to-edge），会打乱本项目的 safe-area 布局。
 - **不要为了修构建去下 SDK 组件。** 国内下不动，而且当前版本组合本来就不需要下。
 - **不要手敲 `cap sync` + `gradlew` 绕过脚本。** 等于自愿承担坏包风险。
-- 根目录的 `build-release.bat` / `build-release-apk.ps1` 是**死的** —— 它们依赖的
-  `android/key.properties`、`android/app/fitlog-release-key.keystore`、`setup-release-build.ps1`
-  三个前提都不在仓库里，现在跑必然在第一道检查就退出。当前所有装机走 debug 签名，够用。
-  真要补活 release 签名路径，是一件独立的事，keystore 密码得用户自己敲。
+- **不要手敲 `gradlew assemble*Release` 绕过 `npm run apk:*`。** 那五道闸门里有一道是
+  解压 APK 扫凭据，它是唯一能证明「要发出去的这个文件没带 NAS 地址和 API key」的检查。
+
+## 5. 正式签名包（2026-09-15 起可用）
+
+调试装机走上面的 debug 路径；**要发出去的包**走这两条：
+
+| 变体 | 谁用 | 命令 |
+|---|---|---|
+| `solo` | 发行给别人，完全断网、无 INTERNET 权限 | `npm run build:solo && npx cap sync android && npm run apk:solo` |
+| `personal` | 自己用，与 NAS 同步 | `npm run build:release && npx cap sync android && npm run apk:personal` |
+
+两个变体**共用 applicationId**，同机不能共存、会互相覆盖安装；桌面名字是唯一区分
+（personal 显示 `Fit Tracker · NAS`）。完整说明见仓库里的 `docs/release-signing.md`。
+
+签名密钥在 `android/fitlog-release.keystore` + `android/key.properties`，两者都不进 git。
+**密钥丢了或漏了都不可逆**（丢 = 再也无法给已装用户发更新）。
+
+装新 Capacitor 插件之后必查一件事：
+
+```sh
+grep -n kotlin_version node_modules/@capacitor/<插件>/android/build.gradle
+```
+
+比 `android/variables.gradle` 里的 `kotlin_version` 高就必须抬上去 ——
+低了是**运行时闪退、编译期无感**，而且普通 `adb logcat` 里没有，要 `adb logcat -b crash`。
+
+（根目录原来那个 `build-release-apk.ps1` 已删除：它依赖的 `setup-release-build.ps1`
+从来不存在，是一份跑不通的旧流程。）
