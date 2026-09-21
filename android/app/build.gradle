@@ -38,8 +38,8 @@ android {
          * 也不要因为回滚而调小（回滚要发一个 code 更大的包）。
          * 1.0.0 的首发是 1。
          */
-        versionCode 1
-        versionName "1.0.0"
+        versionCode 2
+        versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
