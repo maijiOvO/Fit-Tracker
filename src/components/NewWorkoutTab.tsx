@@ -53,7 +53,10 @@ export interface NewWorkoutTabProps {
 
   // ===== 添加动作弹层 =====
   pickerOpen: boolean;
-  onPickerOpenChange: (open: boolean) => void;
+  /** focusPart：打开时直接停在哪个部位栏（选了部位印进来时带上） */
+  onPickerOpenChange: (open: boolean, focusPart?: string | null) => void;
+  /** 本次打开弹层要停在的部位栏，由 App 保管（FAB 印谱与页内印谱两条路共用） */
+  pickerFocusPart?: string | null;
   /** 小写显示名 -> 当前训练中出现次数（弹层「已添加」徽标） */
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数 */
@@ -98,6 +101,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onChangeGym,
   pickerOpen,
   onPickerOpenChange,
+  pickerFocusPart = null,
   addedCounts,
   sessionAdded,
   onPickExercise,
@@ -437,9 +441,19 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 // 克隆上一行的值，但剥掉 ghost：「加一组」是用户的主动动作，
                 // 长出来的行是真实数据（§12.6）。
                 // fromGhost 也必须剥 —— 它没有底稿可退，留着会让新行被一击退回成底稿。
+                // 递减子组跟着母组一起照抄，但每档换新 id —— 两组共用同一批 id 会让同步分不清。
+                const newId = Date.now().toString();
                 const newSet = lastSet
-                  ? { ...lastSet, id: Date.now().toString(), ghost: undefined, fromGhost: undefined }
-                  : { id: Date.now().toString(), weight: 0, reps: 0 };
+                  ? {
+                      ...lastSet,
+                      id: newId,
+                      ghost: undefined,
+                      fromGhost: undefined,
+                      ...(lastSet.subSets?.length
+                        ? { subSets: lastSet.subSets.map((sub, k) => ({ ...sub, id: `sub_${newId}_${k}` })) }
+                        : {}),
+                    }
+                  : { id: newId, weight: 0, reps: 0 };
                 exs[idx].sets.push(newSet);
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });
               }}
@@ -456,13 +470,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           (needsBodyPart ? (
             <BodyPartPicker
               lang={lang}
-              onPick={title => {
+              onPick={(title, bodyPart) => {
                 setCurrentWorkout({ ...currentWorkout, title });
                 setPartChosenFor(currentWorkout.id);
                 // 选完部位的下一步必然是挑动作，别让用户再点一次「添加动作」。
                 // （「其他」不走这条：那条路的下一步是把名字打出来，
                 //   弹层盖上去反而挡住标题输入框。）
-                onPickerOpenChange(true);
+                // 选的是「练胸」，弹层就直接停在胸部那一栏。
+                onPickerOpenChange(true, bodyPart);
               }}
               onPickOther={() => {
                 setPartChosenFor(currentWorkout.id);
@@ -508,6 +523,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       {/* 添加动作弹层（常驻挂载，open 控制显隐 → 筛选记忆） */}
       <ExercisePickerSheet
         open={pickerOpen}
+        focusPart={pickerFocusPart}
         onClose={() => onPickerOpenChange(false)}
         addedCounts={addedCounts}
         sessionAdded={sessionAdded}

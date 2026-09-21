@@ -51,13 +51,20 @@ export const PARTS: {
   /** 英文印面。取标签首字母，六枚 C S B L A O 互不相同。 */
   latin: string;
   tk: keyof typeof translations;
+  /** 动作弹层里对应的部位标签（constants/exercises 的 BODY_PARTS）。选完部位，弹层直接停在这一栏。 */
+  bodyPart: string;
 }[] = [
-  { key: 'chest', seal: '胸', latin: 'C', tk: 'partChest' },
-  { key: 'shoulders', seal: '肩', latin: 'S', tk: 'partShoulders' },
-  { key: 'back', seal: '背', latin: 'B', tk: 'partBack' },
-  { key: 'legs', seal: '腿', latin: 'L', tk: 'partLegs' },
-  { key: 'arms', seal: '臂', latin: 'A', tk: 'partArms' },
+  { key: 'chest', seal: '胸', latin: 'C', tk: 'partChest', bodyPart: 'subChest' },
+  { key: 'shoulders', seal: '肩', latin: 'S', tk: 'partShoulders', bodyPart: 'subShoulder' },
+  { key: 'back', seal: '背', latin: 'B', tk: 'partBack', bodyPart: 'subBack' },
+  { key: 'legs', seal: '腿', latin: 'L', tk: 'partLegs', bodyPart: 'subLegs' },
+  { key: 'arms', seal: '臂', latin: 'A', tk: 'partArms', bodyPart: 'subArms' },
 ];
+
+/** 部位印 → 动作弹层的部位标签。「其他」没有对应栏，返回 null（弹层保持上次的筛选）。 */
+export function bodyPartTagFor(key: BodyPartKey): string | null {
+  return PARTS.find(p => p.key === key)?.bodyPart ?? null;
+}
 
 /** FAB 印谱扇开（§12.4）用的完整六枚：五部位 + 「制」。顺序=印谱阅读序，位置固定不按频率排。 */
 export const FAN_PARTS: {
@@ -65,6 +72,7 @@ export const FAN_PARTS: {
   seal: string;
   latin: string;
   tk: keyof typeof translations;
+  bodyPart?: string;
   dashed?: boolean;
 }[] = [
   ...PARTS,
@@ -110,8 +118,8 @@ const Seal: React.FC<{ char: string; latin: string; isCn: boolean; dashed?: bool
 
 export interface BodyPartPickerProps {
   lang: Language;
-  /** 选中某个部位：把 label 当作训练名称填进去 */
-  onPick: (title: string) => void;
+  /** 选中某个部位：把 label 当作训练名称填进去；bodyPart 给动作弹层定位到该部位 */
+  onPick: (title: string, bodyPart: string) => void;
   /** 选「其他」：不填名，交给顶部标题输入框 */
   onPickOther: () => void;
 }
@@ -131,13 +139,13 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
 
       {/* 三列两行＝一页印谱。印比人形矮得多，六枚正好铺成一版。 */}
       <div className="grid grid-cols-3 gap-2.5">
-        {PARTS.map(({ key, seal, latin, tk }, i) => {
+        {PARTS.map(({ key, seal, latin, tk, bodyPart }, i) => {
           const label = translations[tk][lang] as string;
           return (
             <button
               key={key}
               type="button"
-              onClick={() => onPick(label)}
+              onClick={() => onPick(label, bodyPart)}
               data-testid={`body-part-${key}`}
               /* §5.3 列表 stagger：delay = min(i,6) × 32ms，封顶第 7 项 */
               style={{ animationDelay: `${Math.min(i, 6) * 32}ms` }}

@@ -6,6 +6,7 @@
  *   - 部位行（单选，含自定义部位 + 有氧/自由两个伪部位）+ 器材行（多选，联动计数，0 隐藏）
  *   - 点行即添加，弹层不关：行闪烁 + ✓已添加徽标 + 头部「本次已加 N」+ 震动；450ms 双击防误触
  *   - 软键盘弹起时 visualViewport 计算 inset，弹层压缩到键盘上沿
+ *   - 手指在弹层任何位置往下拉即可关闭（列表不在顶部时先让列表往回滚）；带部位进来时停在该部位栏
  *   - 标签管理入口在头部（Tags 图标）直达 TagManageModal；长按动作行弹出该动作的管理菜单
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -118,6 +119,12 @@ const PickerRow: React.FC<PickerRowProps> = ({
 interface ExercisePickerSheetProps {
   open: boolean;
   onClose: () => void;
+  /**
+   * 这次打开要直接停在哪个部位（BODY_PARTS 的 id，如 'subChest'）。
+   * 开练时选了「练胸」→ 弹层一打开就是胸部那一栏，不用再点一次。
+   * 只在打开的那一刻生效一次；null = 沿用上次的筛选（筛选记忆）。
+   */
+  focusPart?: string | null;
   /** 小写显示名 -> 当前训练中出现次数（驱动「已添加 ×N」徽标） */
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数（App 维护，含新建动作路径） */
@@ -135,6 +142,7 @@ interface ExercisePickerSheetProps {
 export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   open,
   onClose,
+  focusPart = null,
   addedCounts,
   sessionAdded,
   onPickExercise,
@@ -170,16 +178,18 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const sheetRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<{ startY: number; y: number } | null>(null);
 
-  // ===== 抓手拖动关闭（grabber 区域向下拖 > 110px 松手即关闭，否则弹回） =====
+  // ===== 下拉关闭（向下拖 > 110px 松手即关闭，否则弹回） =====
+  // 手指：整张弹层任何位置都能往下拉（见下面的 touch 监听）。
+  // 鼠标：只有抓手与头部，桌面上没有「顺手往下一划」这回事，按住列表拖会跟选字打架。
   const handleDragStart = (e: React.PointerEvent) => {
-    if (!open) return;
+    if (!open || e.pointerType !== 'mouse') return;
     dragRef.current = { startY: e.clientY, y: 0 };
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ }
     if (sheetRef.current) sheetRef.current.style.transition = 'none';
   };
   const handleDragMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d) return;
+    if (!d || e.pointerType !== 'mouse') return;
     d.y = Math.max(0, e.clientY - d.startY);
     if (sheetRef.current) sheetRef.current.style.transform = `translateY(${d.y}px)`;
   };
@@ -198,11 +208,125 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       });
     });
   };
+  // 指针的松手只收鼠标拖动；手指拖动由下面 touchend 收尾（pointerup 先到，会抢在它前面）
+  const handlePointerEnd = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') handleDragEnd();
+  };
+  const dragEndRef = useRef(handleDragEnd);
+  dragEndRef.current = handleDragEnd;
+  const openRef = useRef(open);
+  openRef.current = open;
+
+  /**
+   * 手指下拉关闭：整张弹层都是热区，不用再够到顶上那根横条。
+   *
+   * 走原生 touch 监听而不是 pointer：列表要能正常滚，热区不能 touch-action:none，
+   * 而那样的话浏览器一旦把手势认作滚动就会发 pointercancel，拖到一半就断了。
+   * 这里在第一个 touchmove 就做决定，要接管就立刻 preventDefault（必须非被动监听，
+   * React 的 onTouchMove 挂在根上是被动的，拦不住），浏览器的滚动根本起不来。
+   *
+   * 什么时候接管：往下拉，并且——起手不在列表里，或列表已经在顶上。
+   * 列表滚到一半时往下拉＝往回滚，照旧交给列表；往上推、横向划一律不管。
+   */
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    /** 超过这么多才下结论。要小于浏览器自己的触摸容差（Android Chrome 约 15px），抢在它前面 */
+    const DECIDE_PX = 4;
+    let t: { x0: number; y0: number; fromList: boolean; mode: 'undecided' | 'drag' | 'pass' } | null = null;
+    // 拖过之后松手，浏览器可能还会补一个 click 落在起手那一行上 —— 那会把动作加进去。
+    // 这个 click 只会紧跟在 touchend 后面到；限时作废，免得没来的时候把下一次正常点击吞掉。
+    let swallowClick = false;
+    let swallowTimer: number | undefined;
+
+    const onStart = (e: TouchEvent) => {
+      swallowClick = false;
+      if (!openRef.current || e.touches.length !== 1) {
+        t = null;
+        return;
+      }
+      const target = e.target as Node;
+      t = {
+        x0: e.touches[0].clientX,
+        y0: e.touches[0].clientY,
+        fromList: !!resultsRef.current?.contains(target),
+        mode: 'undecided',
+      };
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!t || t.mode === 'pass') return;
+      if (e.touches.length !== 1) {
+        if (t.mode === 'drag') dragEndRef.current();
+        t = null;
+        return;
+      }
+      const dx = e.touches[0].clientX - t.x0;
+      const dy = e.touches[0].clientY - t.y0;
+      if (t.mode === 'undecided') {
+        if (Math.abs(dx) < DECIDE_PX && Math.abs(dy) < DECIDE_PX) return;
+        const listAtTop = (resultsRef.current?.scrollTop ?? 0) <= 0;
+        if (dy > 0 && Math.abs(dy) > Math.abs(dx) && (!t.fromList || listAtTop)) {
+          t.mode = 'drag';
+          // 从这一刻起的位移才算，免得一接管就跳 4px
+          t.y0 = e.touches[0].clientY;
+          dragRef.current = { startY: t.y0, y: 0 };
+          el.style.transition = 'none';
+          // 输入框里起手往下拉：先收键盘，否则弹层在键盘上面被拖着走
+          (document.activeElement as HTMLElement | null)?.blur?.();
+        } else {
+          t.mode = 'pass';
+          return;
+        }
+      }
+      e.preventDefault();
+      const d = dragRef.current;
+      if (!d) return;
+      d.y = Math.max(0, e.touches[0].clientY - d.startY);
+      el.style.transform = `translateY(${d.y}px)`;
+    };
+    const onEnd = () => {
+      if (t?.mode === 'drag') {
+        if ((dragRef.current?.y ?? 0) > DECIDE_PX) {
+          swallowClick = true;
+          window.clearTimeout(swallowTimer);
+          swallowTimer = window.setTimeout(() => (swallowClick = false), 400);
+        }
+        dragEndRef.current();
+      }
+      t = null;
+    };
+    const onClickCapture = (e: MouseEvent) => {
+      if (!swallowClick) return;
+      swallowClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    el.addEventListener('click', onClickCapture, true);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+      el.removeEventListener('click', onClickCapture, true);
+      window.clearTimeout(swallowTimer);
+    };
+  }, []);
 
   // 打开：清搜索词、结果滚回顶部；关闭：收键盘
   useEffect(() => {
     if (open) {
       setQuery('');
+      // 选过部位 → 部位栏直接落在那一格。器材筛选一并清掉：带着上次的器材
+      // 进来，「胸部」下面可能只剩两三个动作，看起来像动作库不全。
+      if (focusPart) {
+        setAxis({ kind: 'part', v: focusPart });
+        setEquips(new Set());
+      }
       if (resultsRef.current) resultsRef.current.scrollTop = 0;
     } else {
       searchInputRef.current?.blur();
@@ -424,8 +548,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           style={{ touchAction: 'none' }}
           onPointerDown={handleDragStart}
           onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
         >
           <div className="w-12 h-1.5 rounded-full bg-divider mx-auto" />
         </div>
@@ -439,8 +563,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             handleDragStart(e);
           }}
           onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
         >
           <h2 className="font-display text-lg font-semibold text-primary">
             {isCn ? '添加动作' : 'Add Exercise'}

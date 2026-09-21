@@ -54,7 +54,8 @@ function defaultWorkoutTitle(isCn: boolean, now: Date = new Date()): string {
 /**
  * 把一串既有的组铺成底稿行（§12.6）。
  *
- * 只抄数值字段：力竭是当日事实、递减子组是结构性的（长按重建），都不继承。
+ * 只抄数值字段，递减子组也照抄（和母组一样是上次的数据，跟着母组一起描实 / 丢弃）。
+ * 力竭是当日事实，不继承。
  * 上次若本身是未收尾的草稿，先滤掉它的 ghost —— 别把底稿再抄成底稿。
  *
  * 添加单个动作（底稿预填）和整场复制共用这一份，两处的语义必须是同一套：
@@ -70,6 +71,15 @@ function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
       ...(s.duration ? { duration: s.duration } : {}),
       ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
       ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),
+      ...(s.subSets?.length
+        ? {
+            subSets: s.subSets.map((sub, k) => ({
+              id: `${idPrefix}_${j}_sub${k}`,
+              weight: sub.weight ?? 0,
+              reps: sub.reps ?? 0,
+            })),
+          }
+        : {}),
       ghost: true,
     }));
 }

@@ -90,8 +90,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const unitLabels = Object.fromEntries(
     activeMetrics.map(m => [m, metricUnitLabel(m, unit, isCn, mode)]),
   ) as Record<string, string>;
-  const [expandedSubSets, setExpandedSubSets] = useState<SubSetLog[]>(set.subSets || []);
-  const hasSubSets = expandedSubSets.length > 0;
+  // 直接读 props，不留本地副本：原先的 useState(set.subSets) 只在挂载时读一次，
+  // 之后外部改了这一组（底稿预填、撤销、同步回来）子组行不会跟着变。
+  const subSets: SubSetLog[] = set.subSets || [];
+  const hasSubSets = subSets.length > 0;
 
   /**
    * 底稿行（§12.6）：ghost=true 的行是上次训练抄来的淡墨底稿，还不是数据。
@@ -156,31 +158,32 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     m === 'weight' ? weightScrub : m === 'reps' ? repsScrub : null;
 
   const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>) => {
-    const newSubSets = [...expandedSubSets];
+    const newSubSets = [...subSets];
     newSubSets[subIdx] = { ...newSubSets[subIdx], ...updates };
-    setExpandedSubSets(newSubSets);
     update({ subSets: newSubSets });
   };
 
   const handleAddSubSet = () => {
-    // 递减组的定义就是降重量再来一轮，所以默认降一档（-20%，取整到 0.5kg）。
-    // 旧默认是「重量不变、次数 -5」——重量不变的话它就不是递减组了。
-    // 次数保持与母组一致：递减组多半做到力竭，具体数只能现填。
-    const base = set.weight || 0;
+    // 上次练过、带着递减档的组，底稿里已经原样抄来了子组（toGhostSets），不经过这里。
+    // 这里只管「没有记录可抄」时的手动加一档：递减组的定义就是降重量再来一轮，
+    // 所以从【上一行】降一档（-20%，取整到 0.5kg）。上一行＝最后一档递减，没有就是母组；
+    // 原先永远拿母组算，第二档会和第一档一模一样。
+    // 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
+    const prev = subSets.length > 0 ? subSets[subSets.length - 1] : set;
+    const base = Number(prev.weight) || 0;
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
       weight: base > 0 ? Math.round(base * 0.8 * 2) / 2 : 0,
-      reps: set.reps || 0,
+      reps: Number(prev.reps) || 0,
     };
-    const newSubSets = [...expandedSubSets, newSubSet];
-    setExpandedSubSets(newSubSets);
-    update({ subSets: newSubSets });
+    update({ subSets: [...subSets, newSubSet] });
   };
 
   const handleRemoveSubSet = (subIdx: number) => {
-    const newSubSets = expandedSubSets.filter((_, i) => i !== subIdx);
-    setExpandedSubSets(newSubSets);
-    update({ subSets: newSubSets });
+    const newSubSets = subSets.filter((_, i) => i !== subIdx);
+    // 底稿里的子组一点即抹、且不把母组描实 —— 跟母组「抹掉这行底稿」同一个规矩
+    if (isGhost) onUpdate({ subSets: newSubSets });
+    else update({ subSets: newSubSets });
   };
 
   // 长按组号＝加一条递减子组（§6.4，极低频动作）
@@ -407,83 +410,21 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         )}
       </div>
 
-      {expandedSubSets.map((sub, ssi) => (
-        <div key={sub.id || ssi} className="ledger-subrow" style={colStyle} data-set-idx={setIdx}>
-          <span className="text-micro font-medium text-tertiary select-none">
-            {isCn ? '递减' : 'Drop'}
-          </span>
-
-          {/* 与父行遍历同一个 activeMetrics，落在同一套 --cols 上——
-              原先子组行写死 grid-cols-4，指标数不等于 2 时整行错位。
-              递减组只承载重量与次数，其余列留空。 */}
-          {activeMetrics.map(m => {
-            if (m !== 'weight' && m !== 'reps') return <span key={m} />;
-            /* 单位必须跟父行取同一份（原来这里 reps 硬写成 ''）。
-               .ledger-field 是 justify-content:center 的 flex：居中的是
-               「数字＋单位」这一对，不是数字。父行有「次」、子组行没有，
-               同一列里两个数字就差了半个单位宽 —— 账本读不成一列。 */
-            const unitLabel = unitLabels[m] || '';
-            const value = m === 'weight' ? sub.weight : sub.reps;
-            const display =
-              m === 'weight' ? formatWeight(sub.weight || 0, unit) : String(sub.reps || '');
-
-            if (readOnly) {
-              return (
-                <span key={m} className="ledger-field">
-                  <span className="font-mono font-semibold text-[22px] leading-none text-primary tabular-nums">
-                    {value ? display : '—'}
-                  </span>
-                  {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
-                </span>
-              );
-            }
-
-            return (
-              <label key={m} className="ledger-field">
-                <input
-                  type="number"
-                  step={m === 'weight' ? 'any' : undefined}
-                  inputMode={m === 'weight' ? 'decimal' : 'numeric'}
-                  className="ledger-input ledger-input-sm"
-                  aria-label={
-                    m === 'weight'
-                      ? isCn ? '递减组重量' : 'Drop set weight'
-                      : isCn ? '递减组次数' : 'Drop set reps'
-                  }
-                  value={value ? display : ''}
-                  onChange={e => {
-                    const val = e.target.value === '' ? 0 : Number(e.target.value);
-                    handleSubSetUpdate(
-                      ssi,
-                      m === 'weight' ? { weight: parseWeight(val, unit) } : { reps: val },
-                    );
-                  }}
-                />
-                {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
-              </label>
-            );
-          })}
-
-          {/* 力竭列的占位：递减组按定义多半就是做到力竭的，逐档再标一遍只是噪音。
-              力竭挂在母组上。这里必须留一个格，否则子组行会比父行少一列、整排错位。 */}
-          <span />
-
-          {!readOnly ? (
-            <button
-              type="button"
-              onClick={() => {
-                haptic(H.tap);
-                handleRemoveSubSet(ssi);
-              }}
-              className="w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
-              aria-label={isCn ? '删除递减组' : 'Remove drop set'}
-            >
-              <Minus size={16} strokeWidth={1.75} />
-            </button>
-          ) : (
-            <span />
-          )}
-        </div>
+      {subSets.map((sub, ssi) => (
+        <SubSetRow
+          key={sub.id || ssi}
+          sub={sub}
+          setIdx={setIdx}
+          activeMetrics={activeMetrics}
+          unitLabels={unitLabels}
+          colStyle={colStyle}
+          unit={unit}
+          isCn={isCn}
+          readOnly={readOnly}
+          ghost={isGhost}
+          onUpdate={updates => handleSubSetUpdate(ssi, updates)}
+          onRemove={() => handleRemoveSubSet(ssi)}
+        />
       ))}
 
       {/* 母组有子组时，补一条「再加一档」的入口——
@@ -503,6 +444,167 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         </button>
       )}
     </>
+  );
+};
+
+
+interface SubSetRowProps {
+  sub: SubSetLog;
+  setIdx: number;
+  activeMetrics: string[];
+  unitLabels: Record<string, string>;
+  colStyle: React.CSSProperties;
+  unit: string;
+  isCn: boolean;
+  readOnly: boolean;
+  /** 母组还是底稿 → 子组跟着显示淡墨，删除也按底稿规矩一点即抹 */
+  ghost: boolean;
+  onUpdate: (updates: Partial<SubSetLog>) => void;
+  onRemove: () => void;
+}
+
+/**
+ * 递减子组的一行。手势与母组逐项对齐：
+ *   - 重量 / 次数格横向拖动改值（同一套档位）
+ *   - 删除必须长按 400ms（§6.6），底稿里的一点即抹
+ * 提成组件是因为 useValueScrub / useLongPress 不能在 map 里调。
+ */
+const SubSetRow: React.FC<SubSetRowProps> = ({
+  sub,
+  setIdx,
+  activeMetrics,
+  unitLabels,
+  colStyle,
+  unit,
+  isCn,
+  readOnly,
+  ghost,
+  onUpdate,
+  onRemove,
+}) => {
+  const weightScrub = useValueScrub({
+    value: Number(formatWeight(Number(sub.weight) || 0, unit)),
+    onChange: next => onUpdate({ weight: parseWeight(next, unit) }),
+    steps: SCRUB_STEPS_WEIGHT,
+    disabled: readOnly,
+  });
+  const repsScrub = useValueScrub({
+    value: Number(sub.reps) || 0,
+    onChange: next => onUpdate({ reps: next }),
+    steps: SCRUB_STEPS_REPS,
+    disabled: readOnly,
+  });
+  const removeSub = useLongPress({ onLongPress: onRemove, durationMs: 400, disabled: readOnly });
+
+  return (
+    <div
+      className={`ledger-subrow${ghost ? ' is-ghost' : ''}`}
+      style={colStyle}
+      data-set-idx={setIdx}
+    >
+      <span className="text-micro font-medium text-tertiary select-none">
+        {isCn ? '递减' : 'Drop'}
+      </span>
+
+      {/* 与父行遍历同一个 activeMetrics，落在同一套 --cols 上——
+          原先子组行写死 grid-cols-4，指标数不等于 2 时整行错位。
+          递减组只承载重量与次数，其余列留空。 */}
+      {activeMetrics.map(m => {
+        if (m !== 'weight' && m !== 'reps') return <span key={m} />;
+        /* 单位必须跟父行取同一份（原来这里 reps 硬写成 ''）。
+           .ledger-field 是 justify-content:center 的 flex：居中的是
+           「数字＋单位」这一对，不是数字。父行有「次」、子组行没有，
+           同一列里两个数字就差了半个单位宽 —— 账本读不成一列。 */
+        const unitLabel = unitLabels[m] || '';
+        const value = m === 'weight' ? sub.weight : sub.reps;
+        const display =
+          m === 'weight' ? formatWeight(sub.weight || 0, unit) : String(sub.reps || '');
+
+        if (readOnly) {
+          return (
+            <span key={m} className="ledger-field">
+              <span className="font-mono font-semibold text-[22px] leading-none text-primary tabular-nums">
+                {value ? display : '—'}
+              </span>
+              {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
+            </span>
+          );
+        }
+
+        const scrub = m === 'weight' ? weightScrub : repsScrub;
+        return (
+          <label
+            key={m}
+            data-testid={`subset-field-${m}`}
+            className={`ledger-field is-scrubbable${scrub.scrubbing ? ' is-scrubbing' : ''}`}
+            {...scrub.handlers}
+          >
+            {/* 档位角标只在拖动时出现，与母组同 */}
+            {scrub.scrubbing && (
+              <span className="scrub-step" aria-hidden>
+                ×{scrub.step}
+              </span>
+            )}
+            <input
+              type="number"
+              step={m === 'weight' ? 'any' : undefined}
+              inputMode={m === 'weight' ? 'decimal' : 'numeric'}
+              className="ledger-input ledger-input-sm"
+              placeholder="0"
+              aria-label={
+                m === 'weight'
+                  ? isCn ? '递减组重量' : 'Drop set weight'
+                  : isCn ? '递减组次数' : 'Drop set reps'
+              }
+              value={value ? display : ''}
+              onChange={e => {
+                const val = e.target.value === '' ? 0 : Number(e.target.value);
+                onUpdate(m === 'weight' ? { weight: parseWeight(val, unit) } : { reps: val });
+              }}
+            />
+            {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
+          </label>
+        );
+      })}
+
+      {/* 力竭列的占位：递减组按定义多半就是做到力竭的，逐档再标一遍只是噪音。
+          力竭挂在母组上。这里必须留一个格，否则子组行会比父行少一列、整排错位。 */}
+      <span />
+
+      {/* 删除规矩与母组逐字相同：已入册的长按 400ms 才删（§6.6），底稿一点即抹（§12.6） */}
+      {readOnly ? (
+        <span />
+      ) : ghost ? (
+        <button
+          type="button"
+          onClick={() => {
+            haptic(H.tap);
+            onRemove();
+          }}
+          className="w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
+          aria-label={isCn ? '抹掉这档递减底稿' : 'Discard this draft drop set'}
+        >
+          <Minus size={16} strokeWidth={1.75} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary touch-pan-y"
+          aria-label={isCn ? '长按删除递减组' : 'Hold to remove drop set'}
+          data-testid="subset-remove"
+          {...removeSub.handlers}
+        >
+          <Minus size={16} strokeWidth={1.75} />
+          <LongPressAffordance
+            active={removeSub.pressing}
+            hint={removeSub.hinting}
+            label={isCn ? '删除' : 'Delete'}
+            hintLabel={isCn ? '按住删除' : 'Hold to delete'}
+            drawMs={removeSub.drawMs}
+          />
+        </button>
+      )}
+    </div>
   );
 };
 

@@ -46,6 +46,7 @@ import { getLoadMode, LoadMode } from './src/utils/exerciseConfig';
 import { listGyms } from './src/utils/gyms';
 
 import TabNavigation from './src/components/TabNavigation';
+import { bodyPartTagFor } from './src/components/BodyPartPicker';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
 import { DateTimePicker } from './src/components/DateTimePicker';
 import { EditExerciseTagsModal } from './src/components/EditExerciseTagsModal';
@@ -192,6 +193,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 训练页「添加动作」弹层 ==============
   const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
+  /** 这次打开弹层要停在的部位栏（选了部位印才有；其余入口一律 null = 沿用筛选记忆） */
+  const [pickerFocusPart, setPickerFocusPart] = useState<string | null>(null);
+  /** FAB 印谱开练时先存在这里，等进页后 pendingScrollToPicker 那一拍打开弹层时再交出去 */
+  const pendingFocusPartRef = useRef<string | null>(null);
   /** §12.4：经由 FAB 印谱选了「制」的训练 id —— 进页不再问部位、聚焦标题 */
   const [partPrechosenId, setPartPrechosenId] = useState<string | null>(null);
   const [sheetSessionAdded, setSheetSessionAdded] = useState(0);
@@ -402,6 +407,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       const timer = setTimeout(() => {
         setSheetSessionAdded(0);
         lastAddedExerciseIdRef.current = null;
+        // 只有 FAB 印谱那条路会留下部位；「补加动作」等其他入口拿到的是 null
+        setPickerFocusPart(pendingFocusPartRef.current);
+        pendingFocusPartRef.current = null;
         setPickerSheetOpen(true);
         setPendingScrollToPicker(false);
       }, 120);
@@ -684,8 +692,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     [addExerciseToWorkout],
   );
 
-  const handlePickerSheetOpenChange = useCallback((open: boolean) => {
+  const handlePickerSheetOpenChange = useCallback((open: boolean, focusPart?: string | null) => {
     if (open) {
+      setPickerFocusPart(focusPart ?? null);
       setSheetSessionAdded(0);
       lastAddedExerciseIdRef.current = null;
     } else if (lastAddedExerciseIdRef.current) {
@@ -1042,6 +1051,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             onToggleUnit={handleUnitToggle}
             pickerOpen={pickerSheetOpen}
             onPickerOpenChange={handlePickerSheetOpenChange}
+            pickerFocusPart={pickerFocusPart}
             addedCounts={sheetAddedCounts}
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
@@ -1257,7 +1267,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               setEditingWorkoutId(null);
               if (partKey === 'other') setPartPrechosenId(w.id);
               setActiveTab('new');
-              if (partKey !== 'other') setPendingScrollToPicker(true);
+              if (partKey !== 'other') {
+                // 选的是「胸」印 → 弹层打开时直接停在胸部那一栏
+                pendingFocusPartRef.current = bodyPartTagFor(partKey);
+                setPendingScrollToPicker(true);
+              }
             });
           }}
         />

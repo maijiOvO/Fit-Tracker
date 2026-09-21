@@ -1033,12 +1033,15 @@ button {
    前者改造成上面的 .anim-ink-mark，后两者废弃。 */
 
 /* ── 底稿预填 §12.6：淡墨 + 朱砂虚线 = 「这是抄的，等你确认」（§5.3 语言） ── */
-.ledger-row.is-ghost .ledger-input {
+/* 上次的递减档随母组一起抄来，跟母组同一身淡墨（它们一起描实、一起丢弃） */
+.ledger-row.is-ghost .ledger-input,
+.ledger-subrow.is-ghost .ledger-input {
   color: var(--text-tertiary);
   border-bottom: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);
   padding-bottom: 1px;
 }
-.ledger-row.is-ghost .ledger-unit {
+.ledger-row.is-ghost .ledger-unit,
+.ledger-subrow.is-ghost .ledger-unit {
   opacity: 0.7;
 }
 /* 组号在底稿行里是「未刻的印」：虚线框 + 淡墨（与「制」那枚虚线印同语义） */
