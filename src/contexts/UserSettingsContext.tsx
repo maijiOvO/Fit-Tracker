@@ -5,6 +5,7 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { storage } from '../../services/appStorage';
+import { isDemo } from '../../services/appEnv';
 
 interface UserSettingsContextType {
   lang: Language;
@@ -35,7 +36,9 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
 }) => {
   const [lang, setLangState] = useState<Language>(() => {
     const saved = storage.getItem('fitlog_lang');
-    return saved === Language.EN ? Language.EN : Language.CN;
+    if (saved === Language.EN || saved === Language.CN) return saved;
+    // Public demo (fit.myronhub.com) faces an international audience: default to English.
+    return isDemo() ? Language.EN : Language.CN;
   });
 
   const [unit, setUnitState] = useState<'kg' | 'lbs'>(() => {
