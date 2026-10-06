@@ -10,7 +10,7 @@
  *   - 标签管理入口在头部（Tags 图标）直达 TagManageModal；长按动作行弹出该动作的管理菜单
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, CircleDashed, Filter, History, PencilLine, Plus, Search, Star, Tags, Trash2, X, Zap } from 'lucide-react';
+import { ChevronDown, CircleDashed, Filter, GripVertical, History, Move, PencilLine, Plus, Search, Star, Tags, Trash2, X, Zap } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
@@ -19,6 +19,8 @@ import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExercisePickerData, PickerAxis, matchAxis } from '../hooks/useExercisePickerData';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
+import { useRegionDrag } from '../hooks/useRegionDrag';
+import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { haptic, H } from '../utils/haptics';
 import { LongPressAffordance } from './LongPressAffordance';
 
@@ -34,6 +36,9 @@ interface PickerRowProps {
   onPick: () => void;
   onLongPress: () => void;
   onToggleStar: () => void;
+  /** 细分格的「未细分」组里：长按交给拖到细分（useRegionDrag），这里不再自己管 */
+  dragId?: string;
+  arranging?: boolean;
 }
 
 /**
@@ -53,12 +58,15 @@ const PickerRow: React.FC<PickerRowProps> = ({
   onPick,
   onLongPress,
   onToggleStar,
+  dragId,
+  arranging = false,
 }) => {
-  const press = useLongPress({ onLongPress });
+  const press = useLongPress({ onLongPress, disabled: !!dragId });
   return (
     <div
       ref={bindRef}
       className="flex items-stretch bg-card border border-divider rounded-card overflow-hidden"
+      {...(dragId ? { 'data-drag-host': '' } : {})}
     >
       <button
         type="button"
@@ -66,6 +74,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
         {...press.handlers}
         className="relative flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors duration-tap ease-paper select-none touch-pan-y"
         data-testid="picker-sheet-exercise"
+        {...(dragId ? { 'data-drag-id': dragId } : {})}
       >
         <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
           {displayName}
@@ -101,69 +110,59 @@ const PickerRow: React.FC<PickerRowProps> = ({
           placement="down"
         />
       </button>
-      <button
-        type="button"
-        onClick={e => {
-          e.stopPropagation();
-          onToggleStar();
-        }}
-        className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-press-sm transition-transform duration-tap ease-paper"
-        aria-label={isCn ? '收藏' : 'Star'}
-      >
-        <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
-      </button>
+      {arranging ? (
+        <span className="w-11 flex items-center justify-center border-l border-divider text-tertiary" aria-hidden>
+          <GripVertical size={18} strokeWidth={2} />
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={e => {
+            e.stopPropagation();
+            onToggleStar();
+          }}
+          className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-press-sm transition-transform duration-tap ease-paper"
+          aria-label={isCn ? '收藏' : 'Star'}
+        >
+          <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
+        </button>
+      )}
     </div>
   );
 };
 
 interface RegionCardProps {
+  id: string;
   displayName: string;
   added: number;
   isStarred: boolean;
-  isCn: boolean;
   bindRef: (el: HTMLButtonElement | null) => void;
   onPick: () => void;
-  onLongPress: () => void;
 }
 
 /**
  * 细分格里的小卡（第 3 条）：动作行的窄版，跟上面部位 / 器材 chip 同一套样子 ——
  * 灰底无边框、粗体；已添加＝朱砂实底（同选中态）；收藏是名字前一颗实心星。
- * 长按同样出管理菜单（菜单第一行是「归到细分」）。
+ * 长按（浮起后拖到细分 / 不动松手出管理菜单）由 useRegionDrag 在结果区统一接管。
  */
-const RegionCard: React.FC<RegionCardProps> = ({
-  displayName,
-  added,
-  isStarred,
-  isCn,
-  bindRef,
-  onPick,
-  onLongPress,
-}) => {
-  const press = useLongPress({ onLongPress });
-  return (
-    <button
-      ref={bindRef}
-      type="button"
-      onClick={onPick}
-      {...press.handlers}
-      className={`region-card select-none touch-pan-y${added ? ' is-added' : ''}`}
-      data-testid="picker-region-card"
-    >
-      <span className="region-card-name">
-        {isStarred && <Star size={11} strokeWidth={2} className="inline-block align-[-1px] mr-0.5 fill-current" />}
-        {displayName}
-        {added > 1 && <span className="region-card-x">×{added}</span>}
-      </span>
-      <LongPressAffordance
-        active={press.pressing}
-        label={isCn ? '管理这个动作' : 'Manage'}
-        drawMs={press.drawMs}
-        placement="down"
-      />
-    </button>
-  );
-};
+const RegionCard: React.FC<RegionCardProps> = ({ id, displayName, added, isStarred, bindRef, onPick }) => (
+  <button
+    ref={bindRef}
+    type="button"
+    onClick={onPick}
+    onContextMenu={e => e.preventDefault()}
+    className={`region-card select-none${added ? ' is-added' : ''}`}
+    data-testid="picker-region-card"
+    data-drag-id={id}
+    data-drag-host=""
+  >
+    <span className="region-card-name">
+      {isStarred && <Star size={11} strokeWidth={2} className="inline-block align-[-1px] mr-0.5 fill-current" />}
+      {displayName}
+      {added > 1 && <span className="region-card-x">×{added}</span>}
+    </span>
+  </button>
+);
 
 interface ExercisePickerSheetProps {
   open: boolean;
@@ -208,8 +207,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     toggleStarExercise,
     regionsOf,
     effectiveRegion,
-    assignRegion,
+    applyRegionLayout,
   } = useExercisePrefs();
+  const { toastUndo } = useUiOverlay();
+  /** 「整理」：按下即拖、点卡片不添加（一口气给几十个动作归细分时用） */
+  const [arranging, setArranging] = useState(false);
+  /** 拖到细分的手势已接管（长按满 / 拖拽中）：弹层整张下拉关闭看到它就让路 */
+  const regionGestureRef = useRef(false);
+  /** 细分格当前每一列（含 '' = 未细分）的顺序，落下 / 归列时据此写序号 */
+  const boardColsRef = useRef<Map<string, ExerciseDefinition[]>>(new Map());
   const { lang } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
@@ -317,6 +323,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     };
     const onMove = (e: TouchEvent) => {
       if (!t || t.mode === 'pass') return;
+      // 拖到细分接管了这次触摸（长按满 / 整理模式）：整次手势都不归弹层
+      if (regionGestureRef.current && t.mode === 'undecided') {
+        t.mode = 'pass';
+        return;
+      }
       if (e.touches.length !== 1) {
         if (t.mode === 'drag') dragEndRef.current();
         t = null;
@@ -393,6 +404,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     } else {
       searchInputRef.current?.blur();
       setMenuFor(null);
+      setArranging(false);
     }
   }, [open]);
 
@@ -513,6 +525,73 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     return parts.join(' · ');
   })();
 
+  /**
+   * 放进某个细分（拖拽落下 / 菜单里点细分都走这里）。
+   * 拖拽落下（idx 有值）或这一列已经手动排过：整列按当前顺序写序号，从此这一列按手动顺序；
+   * 菜单归列且这一列没排过：只写细分，照默认排序。'' = 放回未细分（去掉序号）。
+   */
+  const placeInRegion = (exId: string, region: string, idx: number | null, fallback?: ExerciseDefinition) => {
+    // 不在细分格里（从「全部」列表的长按菜单进来）：格子的列顺序不可信，只写这一个动作，接在列尾
+    const inBoard = !!boardPart && [...boardColsRef.current.values()].flat().some(e => e.id === exId);
+    const cols = inBoard ? boardColsRef.current : new Map<string, ExerciseDefinition[]>();
+    const all = inBoard ? [...cols.values()].flat() : fallback ? [fallback] : [];
+    const ex = all.find(e => e.id === exId);
+    if (!ex) return;
+    const before = all.map(e => ({ id: e.id, region: e.region ?? '', regionRank: e.regionRank }));
+    const fromRegion = effectiveRegion(ex) ?? '';
+    let changes: { id: string; region: string; regionRank?: number }[];
+    if (region) {
+      const others = (cols.get(region) ?? []).filter(e => e.id !== exId);
+      if (idx != null || others.some(e => e.regionRank != null)) {
+        const at = idx == null ? others.length : Math.min(idx, others.length);
+        const order = [...others.slice(0, at), ex, ...others.slice(at)];
+        changes = order.map((e, i) => ({ id: e.id, region, regionRank: i }));
+      } else {
+        changes = [{ id: exId, region }];
+      }
+    } else {
+      changes = [{ id: exId, region: '' }];
+    }
+    applyRegionLayout(changes);
+    haptic(H.tap);
+    const msg =
+      region === fromRegion
+        ? isCn ? '已调整顺序' : 'Order updated'
+        : region
+          ? isCn ? `已归到「${getTagName(region)}」` : `Moved to ${getTagName(region)}`
+          : isCn ? '已放回未细分' : 'Back to unassigned';
+    toastUndo(msg, () => applyRegionLayout(before));
+    // 落到哪一列，那张卡渗一下墨
+    window.requestAnimationFrame(() => {
+      const el = rowRefs.current.get(exId);
+      if (!el) return;
+      el.classList.remove('anim-ink-mark');
+      void el.offsetWidth;
+      el.classList.add('anim-ink-mark');
+    });
+  };
+
+  useRegionDrag({
+    resultsRef,
+    sheetRef,
+    enabled: !!boardPart,
+    arranging,
+    activeRef: regionGestureRef,
+    suppressClickRef,
+    liftLabel: isCn ? '拖到细分' : 'Drag to a region',
+    describe: id => {
+      const ex = [...boardColsRef.current.values()].flat().find(e => e.id === id);
+      if (!ex) return null;
+      const name = resolveName(ex.name[lang]);
+      return { name, starred: Object.keys(starredExercises).some(k => k.toLowerCase() === name.toLowerCase()) };
+    },
+    onMenu: id => {
+      const ex = [...boardColsRef.current.values()].flat().find(e => e.id === id);
+      if (ex) setMenuFor(ex);
+    },
+    onDrop: (id, target, idx) => placeInRegion(id, target, idx),
+  });
+
   // ===== 添加 =====
   const handlePick = (ex: ExerciseDefinition) => {
     const now = Date.now();
@@ -536,7 +615,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   // ===== 行渲染 =====
   // 提成真组件而不是 renderRow 函数：长按要用 useLongPress，
   // 而 hook 不能写在 .map() 的回调里。
-  const renderRow = (ex: ExerciseDefinition) => {
+  const renderRow = (ex: ExerciseDefinition, inBoard = false) => {
     const displayName = resolveName(ex.name[lang]);
     const key = displayName.toLowerCase();
     return (
@@ -555,6 +634,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             suppressClickRef.current = 0;
             return;
           }
+          if (inBoard && arranging) return; // 整理时点选不添加
           handlePick(ex);
         }}
         onLongPress={() => {
@@ -562,6 +642,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           setMenuFor(ex);
         }}
         onToggleStar={() => toggleStarExercise(displayName)}
+        dragId={inBoard ? ex.id : undefined}
+        arranging={inBoard && arranging}
       />
     );
   };
@@ -577,21 +659,18 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     return (
       <RegionCard
         key={ex.id}
+        id={ex.id}
         displayName={displayName}
         added={addedCounts[key] || 0}
         isStarred={Object.keys(starredExercises).some(k => k.toLowerCase() === key)}
-        isCn={isCn}
         bindRef={bindItemRef(ex.id)}
         onPick={() => {
           if (performance.now() - suppressClickRef.current < 450) {
             suppressClickRef.current = 0;
             return;
           }
+          if (arranging) return; // 整理时点卡片不添加
           handlePick(ex);
-        }}
-        onLongPress={() => {
-          suppressClickRef.current = performance.now();
-          setMenuFor(ex);
         }}
       />
     );
@@ -604,6 +683,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const renderBoard = (part: string) => {
     const regs = regionsOf(part);
     const items = results.map(r => r.ex).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    // 列内顺序：手动排过的（regionRank）在前按序号，没排过的接在后面按默认（收藏 → 最近 → 其余）
+    const byRank = (arr: ExerciseDefinition[]) => [
+      ...arr.filter(e => e.regionRank != null).sort((a, b) => a.regionRank! - b.regionRank!),
+      ...arr.filter(e => e.regionRank == null),
+    ];
     const by = new Map<string, ExerciseDefinition[]>(regs.map(r => [r.id, []]));
     const unassigned: ExerciseDefinition[] = [];
     for (const ex of items) {
@@ -612,6 +696,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       if (col) col.push(ex);
       else unassigned.push(ex);
     }
+    for (const [k, arr] of by) by.set(k, byRank(arr));
+    boardColsRef.current = new Map([...by, ['', unassigned]]);
     const scroll = regs.length > 5;
     return (
       <>
@@ -619,10 +705,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           className={`region-board${scroll ? ' is-scroll' : ''}`}
           style={{ ['--region-cols' as string]: regs.length }}
           data-testid="picker-region-board"
+          data-region-board=""
         >
           <div className="region-grid region-heads">
             {regs.map(r => (
-              <div key={r.id} className="region-head">
+              <div key={r.id} className="region-head" data-region-head={r.id}>
                 <b>{getTagName(r.id)}</b>
                 <i>{by.get(r.id)!.length}</i>
               </div>
@@ -630,7 +717,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           </div>
           <div className="region-grid">
             {regs.map(r => (
-              <div key={r.id} className="region-col" role="group" aria-label={getTagName(r.id)}>
+              <div key={r.id} className="region-col" role="group" aria-label={getTagName(r.id)} data-region-col={r.id}>
                 {by.get(r.id)!.length ? (
                   by.get(r.id)!.map(renderCard)
                 ) : (
@@ -642,16 +729,22 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             ))}
           </div>
         </div>
-        {renderGroup(
-          <CircleDashed size={13} className="text-tertiary" />,
-          isCn ? '未细分' : 'Unassigned',
-          unassigned,
-        )}
+        {/* 「未细分」那一片也是落点：拖进来＝放回未细分。空着时只在整理里留一块落点 */}
+        <div className="region-unzone" data-region-col="">
+          {unassigned.length > 0
+            ? renderGroup(
+                <CircleDashed size={13} className="text-tertiary" />,
+                isCn ? '未细分' : 'Unassigned',
+                unassigned,
+                true,
+              )
+            : arranging && <div className="region-card is-empty mt-3 min-h-[60px]" aria-hidden />}
+        </div>
       </>
     );
   };
 
-  const renderGroup = (icon: React.ReactNode, title: string, items: ExerciseDefinition[]) => {
+  const renderGroup = (icon: React.ReactNode, title: string, items: ExerciseDefinition[], inBoard = false) => {
     if (items.length === 0) return null;
     return (
       <div key={title}>
@@ -660,7 +753,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <h3 className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">{title}</h3>
           <span className="text-[10px] font-bold text-tertiary">· {items.length}</span>
         </div>
-        <div className="space-y-2">{items.map(renderRow)}</div>
+        <div className="space-y-2">{items.map(ex => renderRow(ex, inBoard))}</div>
       </div>
     );
   };
@@ -726,10 +819,24 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
             </span>
           )}
+          {boardPart && (
+            <button
+              type="button"
+              onClick={() => setArranging(a => !a)}
+              aria-pressed={arranging}
+              className={`ml-auto min-h-[34px] px-3 rounded-control text-xs font-bold flex items-center gap-1.5 transition-colors ${
+                arranging ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
+              }`}
+              data-testid="region-arrange"
+            >
+              <Move size={14} strokeWidth={2} />
+              {arranging ? (isCn ? '完成' : 'Done') : isCn ? '整理' : 'Arrange'}
+            </button>
+          )}
           <button
             type="button"
             onClick={onOpenTagManage}
-            className="ml-auto w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
+            className={`${boardPart ? '' : 'ml-auto '}w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui`}
             aria-label={isCn ? '管理标签' : 'Manage tags'}
             data-testid="open-tag-manage"
           >
@@ -931,7 +1038,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         {/* 结果列表 */}
         <div
           ref={resultsRef}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-6 custom-scrollbar"
+          className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 custom-scrollbar ${
+            boardPart ? 'pb-24' : 'pb-6'
+          }${boardPart && arranging ? ' is-arranging' : ''}`}
         >
           {q ? (
             axis ? (
@@ -1036,18 +1145,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                               onClick={() => {
                                 const ex = menuFor;
                                 setMenuFor(null);
-                                if (!on) {
-                                  haptic(H.tap);
-                                  assignRegion(ex.id, r.id);
-                                }
-                                // 落到哪一列，那张卡渗一下墨
-                                window.requestAnimationFrame(() => {
-                                  const el = rowRefs.current.get(ex.id);
-                                  if (!el) return;
-                                  el.classList.remove('anim-ink-mark');
-                                  void el.offsetWidth;
-                                  el.classList.add('anim-ink-mark');
-                                });
+                                if (!on) placeInRegion(ex.id, r.id, null, ex);
                               }}
                               className={`min-h-[38px] px-3 rounded-control text-xs font-bold border transition-colors ${
                                 on

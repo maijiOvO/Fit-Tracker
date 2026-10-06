@@ -773,6 +773,60 @@ const main = async () => {
     return 'assign via menu moves the card; new region adds a column; delete → undo toast, column gone';
   });
 
+  // 拖到细分：长按满后拖进别的列（落位跟手指高度，放第一个就是第一个）+ 撤销；
+  // 整理模式按下即拖，同列上下拖＝调顺序。
+  await step(page, 'region-drag', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const col = name => sheet.locator(`.region-col[aria-label="${name}"]`);
+    const names = async name => (await col(name).locator('[data-testid="picker-region-card"]').allInnerTexts()).map(t => t.trim());
+    const drag = async (from, toX, toY, holdMs) => {
+      const b = await from.boundingBox();
+      const sx = b.x + b.width / 2, sy = b.y + b.height / 2;
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      await page.waitForTimeout(holdMs);
+      for (let i = 1; i <= 14; i++) {
+        await page.mouse.move(sx + (toX - sx) * i / 14, sy + (toY - sy) * i / 14);
+        await page.waitForTimeout(25);
+      }
+      await page.waitForTimeout(80);
+      await page.mouse.up();
+      await page.waitForTimeout(500); // 浮卡落定（220ms）+ 重渲染
+    };
+
+    // 1) 长按满后拖：中胸的「杠铃平板卧推」→ 上胸第一个
+    const top = await col('上胸').locator('[data-testid="picker-region-card"]').first().boundingBox();
+    await drag(col('中胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' }), top.x + top.width / 2, top.y + 4, 650);
+    const upper = await names('上胸');
+    if (upper[0] !== '杠铃平板卧推') throw new Error(`long-press drag did not land first in 上胸: ${upper.join('|')}`);
+    const toast = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已归到「上胸」/.test(toast)) throw new Error(`no undo toast after drag: ${toast}`);
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await page.waitForTimeout(300);
+    if (!(await names('中胸')).includes('杠铃平板卧推')) throw new Error('undo did not put it back to 中胸');
+
+    // 2) 整理：按下即拖，同列把最后一张拖到最上面
+    // 先收掉「已撤销」提示：它停在底部，正好盖住这一列最后一张卡，按下去会点到提示条
+    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
+    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+    await sheet.locator('[data-testid="region-arrange"]').click();
+    const mid = await names('中胸');
+    const first = await col('中胸').locator('[data-testid="picker-region-card"]').first().boundingBox();
+    await drag(col('中胸').locator('[data-testid="picker-region-card"]').last(), first.x + first.width / 2, first.y + 4, 60);
+    const midAfter = await names('中胸');
+    if (midAfter[0] !== mid[mid.length - 1]) throw new Error(`arrange reorder failed: ${mid.join('|')} → ${midAfter.join('|')}`);
+    // 整理时点卡片不添加
+    const addedBefore = await sheet.locator('.region-card.is-added').count();
+    await col('上胸').locator('[data-testid="picker-region-card"]').first().click();
+    await page.waitForTimeout(200);
+    if ((await sheet.locator('.region-card.is-added').count()) !== addedBefore) throw new Error('tapping a card in arrange mode added it');
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await page.waitForTimeout(300);
+    await sheet.locator('[data-testid="region-arrange"]').click();
+    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+    return `long-press drag → 上胸 #1 + undo; arrange reorder ${mid.at(-1)} → top; tap in arrange does not add`;
+  });
+
   await step(page, 'close-library', async () => {
     // 清空筛选（不给后续步骤留状态）并关闭弹层
     const clearBtn = page

@@ -419,6 +419,12 @@ export const H = { tap: 8, pick: 12, longpress: 14, threshold: 6,
 > （随部位联动、可就地新建）；标签管理有「细分标签」节（按部位分组，删自建细分走撤销条，动作自然回未细分）。
 > 数据：`ExerciseDefinition.region` + `BODY_REGIONS` / `REGION_OF`（constants）；自建细分 = customTags 里
 > `category:'region'` + `parentPart`；全部放进已有同步容器，不新增 prefs key。
+> **拖到细分**（demo：`docs/demos/region-drag.html` 第二版，用户定：磁吸中、列内虚线落位、要「整理」开关）：
+> 长按小卡 / 未细分动作行满 500ms 浮起后拖进某一列；不动松手仍是管理菜单；长按满前动 >10px＝滚动。
+> 「整理」开着时按下即拖、点卡片不添加。目标列整列亮起、表头反白，虚线落位**跟手指高度**——
+> 列内顺序由用户定（`regionRank`，在某列拖过一次，这一列整列写序号；没排过的接在后面按默认）。
+> 跨列震一下、落下滑进落位、弹撤销条。长按满之后弹层的整张下拉关闭让路（`regionGestureRef`）；
+> 拖拽走 DOM 命令式（`useRegionDrag`），落位节点必须在 setState 之前摘掉。
 > 上面几条 2026-08 的「chip 两级形态 / 只读标签改眉批」仍未落地，与本节无关。
 
 ### 6.4 长按手势（两处共用一个 hook）

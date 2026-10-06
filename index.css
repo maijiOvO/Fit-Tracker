@@ -1199,6 +1199,73 @@ button {
   position: static;
 }
 
+/* ── 拖到细分（2026-10，demo：docs/demos/region-drag.html 第二版）──
+   浮卡＝离桌（同训练卡拖动排序：shadow-overlay + scale 1.03），手指下那一列整列亮起、表头反白，
+   列里虚线落位跟着手指高度走。DOM 由 useRegionDrag 命令式管理。 */
+.region-card {
+  touch-action: pan-y;
+}
+.is-arranging .region-card,
+.is-arranging [data-drag-id] {
+  /* 整理：按下即拖，不让浏览器先把它当成滚动 */
+  touch-action: none;
+}
+.region-floater {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  width: var(--fw);
+  pointer-events: none;
+  background: var(--bg-card);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-overlay);
+  transform: translate(var(--fx), var(--fy)) scale(calc(1 + 0.03 * var(--move)));
+}
+.region-floater.is-landing {
+  transition: transform var(--dur-base) var(--ease-paper);
+}
+.is-drag-source {
+  opacity: 0.35;
+  outline: 1px dashed var(--rule-strong);
+  outline-offset: -1px;
+}
+.region-col,
+.region-unzone,
+.region-head {
+  border-radius: var(--radius-control);
+  transition:
+    background-color var(--dur-tap) var(--ease-ink),
+    box-shadow var(--dur-tap) var(--ease-ink);
+}
+.region-col {
+  min-height: 48px;
+}
+.region-col.is-target,
+.region-unzone.is-target {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.region-head.is-target {
+  background: var(--accent);
+}
+.region-head.is-target b,
+.region-head.is-target i {
+  color: var(--text-on-accent);
+}
+.region-slot {
+  min-height: 48px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .region-floater.is-landing {
+    transition-duration: 1ms;
+  }
+}
+
 /* −5 / +5（第 2 条）：只在休息书签正下方那一组的整块之后出现，整行两颗宽键 */
 .ledger-step {
   display: flex;

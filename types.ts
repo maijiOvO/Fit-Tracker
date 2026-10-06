@@ -144,6 +144,11 @@ export interface ExerciseDefinition {
    * 不属于当前部位就当「未细分」（部位改过的情况）。'' = 明确放回未细分（覆盖层用）。
    */
   region?: string;
+  /**
+   * 细分列里的手动顺序（拖到细分，2026-10）。用户在某一列拖过一次，这一列每个动作都写上序号；
+   * 没有序号的接在后面按默认（收藏 → 最近 → 其余）。
+   */
+  regionRank?: number;
   // ✅ 新增这一行，允许存储分类信息
   category?: ExerciseCategory;
   

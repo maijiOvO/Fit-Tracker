@@ -96,6 +96,11 @@ interface ExercisePrefsContextValue {
   addCustomTag: (tag: CustomTag) => void;
   /** 归到细分；'' = 放回未细分 */
   assignRegion: (exerciseId: string, regionId: string) => void;
+  /**
+   * 批量写细分与列内顺序（拖到细分 / 撤销都走这里）。regionRank 不给＝去掉手动顺序。
+   * 内置动作写覆盖层、自建动作写定义本身，一次写完、一次推送。
+   */
+  applyRegionLayout: (changes: { id: string; region: string; regionRank?: number }[]) => void;
   /** 新建自建细分，返回新 id；同一部位下重名返回 null（已 toast） */
   addRegionTag: (part: string, name: string) => string | null;
 
@@ -703,6 +708,36 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [customExercises],
   );
 
+  const applyRegionLayout = useCallback(
+    (changes: { id: string; region: string; regionRank?: number }[]) => {
+      if (!changes.length) return;
+      const byId = new Map(changes.map(c => [c.id, c]));
+      const customIds = new Set(customExercises.map(c => c.id));
+      const put = <T extends Partial<ExerciseDefinition>>(base: T, ch: { region: string; regionRank?: number }): T => {
+        const { regionRank: _old, ...rest } = base;
+        return { ...rest, region: ch.region, ...(ch.regionRank != null ? { regionRank: ch.regionRank } : {}) } as T;
+      };
+      if (changes.some(c => customIds.has(c.id))) {
+        setCustomExercises(prev => {
+          const next = prev.map(c => (byId.has(c.id) ? put(c, byId.get(c.id)!) : c));
+          writeJSON(LS_KEYS.customExercises, next);
+          return next;
+        });
+      }
+      if (changes.some(c => !customIds.has(c.id))) {
+        setExerciseOverrides(prev => {
+          const updated = { ...prev };
+          for (const c of changes) if (!customIds.has(c.id)) updated[c.id] = put(prev[c.id] || {}, c);
+          writeJSON(LS_KEYS.exerciseOverrides, updated);
+          return updated;
+        });
+      }
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+    },
+    [customExercises],
+  );
+
   const addRegionTag = useCallback(
     (part: string, name: string): string | null => {
       const n = name.trim();
@@ -797,6 +832,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addCustomExercise,
       addCustomTag,
       assignRegion,
+      applyRegionLayout,
       addRegionTag,
       applyPrefsFromSnapshot,
       resetAllPrefs,
@@ -827,6 +863,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addCustomExercise,
       addCustomTag,
       assignRegion,
+      applyRegionLayout,
       addRegionTag,
       applyPrefsFromSnapshot,
       resetAllPrefs,
