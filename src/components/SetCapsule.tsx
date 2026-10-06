@@ -30,18 +30,24 @@ interface SetCapsuleProps {
   onUpdate: (updates: Partial<SetLog>) => void;
   onRemove: () => void;
   onDurationClick?: () => void;
+  /**
+   * 休息书签正下方那一行（「下一组」）：在这一组的整块之后露出 −5 / +5（第 2 条）。
+   * 全场只有一行是 true。
+   */
+  showStep?: boolean;
+  /** 删一档递减：交给工作台做（要挂撤销条，撤销必须按最新状态插回去） */
+  onRemoveSub?: (subIdx: number) => void;
 }
 
 /**
- * 值字段：改动其中任何一个，这一行就有了真实输入，退回凭据随即作废（§12.6 误触）。
- * toFailure 故意不在内 —— 它自己是 toggle，取消竭要能连带把行退回底稿，
- * 否则「可逆的动作留下不可逆的副作用」那个洞就补不上。
+ * 值字段。待做行上改了其中任何一个，就记进 touched（「改过但没点完成」）——
+ * 改值只改值，不再顺手描实（第 4 条）；touched 只给结束训练时的提醒和格子墨色用。
  */
 const VALUE_KEYS: (keyof SetLog)[] = [
   'weight', 'reps', 'duration', 'score', 'time', 'timeUnit',
   'distance', 'distanceUnit', 'bodyweightMode', 'subSets',
 ];
-const touchesValue = (updates: Partial<SetLog>) => VALUE_KEYS.some(k => k in updates);
+const touchedKeys = (updates: Partial<SetLog>) => VALUE_KEYS.filter(k => k in updates);
 
 function secondsToHMS(seconds: number): { h: number; m: number; s: number } {
   const h = Math.floor(seconds / 3600);
@@ -76,6 +82,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   onUpdate,
   onRemove,
   onDurationClick,
+  showStep = false,
+  onRemoveSub,
 }) => {
   const isCn = lang === Language.CN;
   // §11 坑 1：动画跑完必须摘掉入场类，否则它会盖住后续的反馈动画，
@@ -96,41 +104,71 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const hasSubSets = subSets.length > 0;
 
   /**
-   * 底稿行（§12.6）：ghost=true 的行是上次训练抄来的淡墨底稿，还不是数据。
-   * 统一的转正规则走这个包装器 —— 任何一次编辑（打字 / scrub / 点竭 / 加子组）
-   * 都让整行以当前值入册；点组号 = 不改值照抄（update({})）。
-   * 转正瞬间播一次文字版墨色过冲（is-inkin）。
+   * 组行只有两种状态（第 4 条）：待做（ghost=true，虚线印）/ 做完（实心印）。
+   * 底稿、「添加组」新长出来的行、新动作的第一行，一律从待做开始。
+   *
+   * **只有点组号（或点「竭」）才算做完**；改值只改值。原先「任何编辑都让整行入册」
+   * 导致新动作第一行、添加组的新行一出现就是实心印，实心印就不再区分任何东西。
+   * 做完 ⇄ 待做 随时点着切（不再限「没改过值才能退回」—— 那条退回凭据 fromGhost 已停写，读到忽略）。
    */
   const isGhost = !!set.ghost && !readOnly;
-  /**
-   * 误触退回（§12.6）：让犯错的手势自己就是反悔的手势 —— 再点一次组号退回底稿。
-   * 没走 toastUndo，是因为描实每组一次、是高频动作，每次弹 toast 会把
-   * §12.5 通则 3 用成噪音；而组号点开点关本来就跟同一行里的「竭」是一个模式。
-   *
-   * 只对「还留着退回凭据」的行开放，竭亮着时也不给退（那是这行上一份真实输入）。
-   * 误触产生的恰好就是零编辑的行，这个限定不多不少正好盖住它。
-   */
-  const canRevert = !!set.fromGhost && !set.toFailure && !readOnly;
-  const revert = () => {
-    haptic(H.tap);
-    // 值不用还原：凭据还在就说明行里的值仍是底稿原值
-    onUpdate({ ghost: true, fromGhost: undefined });
-  };
   const [inkin, setInkin] = useState(false);
   const inkinTimerRef = React.useRef<number | null>(null);
   const update = (updates: Partial<SetLog>) => {
-    const valued = touchesValue(updates);
+    const keys = isGhost ? touchedKeys(updates) : [];
+    if (!keys.length) {
+      onUpdate(updates);
+      return;
+    }
+    const touched = { ...(set.touched || {}) };
+    for (const k of keys) touched[k] = true;
+    onUpdate({ ...updates, touched });
+  };
+
+  /** 全零的行点不实：一组什么都没填，做完也记不下任何东西 */
+  const hasValue =
+    ['weight', 'reps', 'duration', 'distance', 'score', 'time'].some(k => Number(set[k]) > 0) ||
+    subSets.some(sub => Number(sub.weight) > 0 || Number(sub.reps) > 0);
+  const [nope, setNope] = useState(false);
+  const nopeTimerRef = React.useRef<number | null>(null);
+  const refuse = () => {
+    haptic(H.tap);
+    setNope(false);
+    // 下一帧再挂，连点时摆动能重播
+    window.requestAnimationFrame(() => setNope(true));
+    if (nopeTimerRef.current !== null) window.clearTimeout(nopeTimerRef.current);
+    nopeTimerRef.current = window.setTimeout(() => setNope(false), 1400);
+  };
+
+  /** 做完：落印（seal-cut 与 ink-text 同拍）；改过的标记随之作废 */
+  const markDone = (extra: Partial<SetLog> = {}) => {
+    setInkin(true);
+    if (inkinTimerRef.current !== null) window.clearTimeout(inkinTimerRef.current);
+    inkinTimerRef.current = window.setTimeout(() => setInkin(false), 700);
+    haptic(H.tap);
+    onUpdate({
+      ...extra,
+      ghost: false,
+      touched: undefined,
+      fromGhost: undefined,
+      ...(hasSubSets ? { subSets: subSets.map(({ touched: _t, ...sub }) => sub) } : {}),
+    });
+  };
+
+  /** 长按加递减达成后，松手带出的那次 click 不能再被读成「点组号」 */
+  const longPressAtRef = React.useRef(0);
+  const onSetNumClick = () => {
+    // 只吞松手带出的那一次：吞完立即作废，否则紧跟着的一次正常点击也会被吃掉
+    if (performance.now() - longPressAtRef.current < 600) {
+      longPressAtRef.current = 0;
+      return;
+    }
     if (isGhost) {
-      setInkin(true);
-      if (inkinTimerRef.current !== null) window.clearTimeout(inkinTimerRef.current);
-      // 1500ms 盖过 useLongPress 的 hint 窗口：照抄那一击本身就是有效操作，
-      // 不该再被「按住加子组」的教学提示叠一层（动画本体 520ms 播完即止）。
-      inkinTimerRef.current = window.setTimeout(() => setInkin(false), 1500);
-      haptic(H.tap);
-      // 改哪格记哪格的那几条路径不留凭据：有了真实输入就不该再静默退回
-      onUpdate({ ...updates, ghost: false, fromGhost: valued ? undefined : true });
+      if (hasValue) markDone();
+      else refuse();
     } else {
-      onUpdate(valued && set.fromGhost ? { ...updates, fromGhost: undefined } : updates);
+      haptic(H.tap);
+      onUpdate({ ghost: true });
     }
   };
 
@@ -141,7 +179,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const weightDisplay = Number(formatWeight(Number(set.weight) || 0, unit));
   const weightScrub = useValueScrub({
     value: weightDisplay,
-    // 走 update：在底稿行上横拖改值，第一档落下的同时整行描实入册
+    // 走 update：待做行上横拖只改值、记 touched，不描实
     onChange: next => update({ weight: parseWeight(next, unit) }),
     steps: SCRUB_STEPS_WEIGHT,
     disabled: readOnly,
@@ -159,7 +197,13 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
   const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>) => {
     const newSubSets = [...subSets];
-    newSubSets[subIdx] = { ...newSubSets[subIdx], ...updates };
+    const cur = newSubSets[subIdx];
+    newSubSets[subIdx] = {
+      ...cur,
+      ...updates,
+      // 格子墨色要按格算：哪一格改过，哪一格变实墨
+      ...(isGhost ? { touched: { ...(cur.touched || {}), ...Object.fromEntries(Object.keys(updates).map(k => [k, true])) } } : {}),
+    };
     update({ subSets: newSubSets });
   };
 
@@ -185,18 +229,30 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   };
 
   const handleRemoveSubSet = (subIdx: number) => {
-    const newSubSets = subSets.filter((_, i) => i !== subIdx);
-    // 底稿里的子组一点即抹、且不把母组描实 —— 跟母组「抹掉这行底稿」同一个规矩
-    if (isGhost) onUpdate({ subSets: newSubSets });
-    else update({ subSets: newSubSets });
+    haptic(H.tap);
+    if (onRemoveSub) {
+      onRemoveSub(subIdx);
+      return;
+    }
+    onUpdate({ subSets: subSets.filter((_, i) => i !== subIdx) });
   };
 
-  // 长按组号＝加一条递减子组（§6.4，极低频动作）
-  const addSub = useLongPress({ onLongPress: handleAddSubSet, disabled: readOnly });
+  // 长按组号＝加一条递减子组（§6.4，极低频动作）。轻点有了自己的意思（做完 ⇄ 待做），
+  // 所以不再闪「按住加子组」的提示。
+  const addSub = useLongPress({
+    onLongPress: () => {
+      longPressAtRef.current = performance.now();
+      handleAddSubSet();
+    },
+    disabled: readOnly,
+  });
 
-  // §6.6：删除组必须长按才真删。出汗手滑场景下，只靠颜色和文案不够。
-  // 400ms = 120ms 静默 + 280ms 画线。
-  const removeSet = useLongPress({ onLongPress: onRemove, durationMs: 400, disabled: readOnly });
+  /** −5 / +5：按当前单位，下限 0；换算残留不取整（132.28 → 137.28，只有拖动才取整） */
+  const bump = (d: number) => {
+    haptic(H.tap);
+    const next = Math.max(0, Math.round((weightDisplay + d) * 100) / 100);
+    update({ weight: parseWeight(next, unit) });
+  };
 
   return (
     <>
@@ -210,33 +266,31 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           if (e.animationName === 'row-in') setEntering(false);
         }}
       >
-        {/* 组号：36×36 可长按胶囊。
-            底稿行上多一个语义：点一下 = 照抄描实（§12.6 的「一组一击」）。
-            与长按加子组不冲突 —— 长按达成后 update 会先把行转正，
-            松手带出的 click 落在已转正的行上是空操作。
-            描实之后、改值之前，同一击反过来 = 退回底稿（§12.6 误触）。 */}
+        {/* 组号：36×36 胶囊。点 = 做完 ⇄ 待做（第 4 条：唯一的「这组做完了」）；
+            长按 = 加一档递减（达成后吞掉松手那次 click）。 */}
         <span
-          className="set-num relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y"
-          onClick={() => {
-            if (isGhost) update({});
-            else if (canRevert) revert();
-          }}
-          role={isGhost || canRevert ? 'button' : undefined}
+          className={`set-num relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y${
+            nope ? ' is-nope' : ''
+          }`}
+          onClick={readOnly ? undefined : onSetNumClick}
+          role={readOnly ? undefined : 'button'}
+          aria-pressed={readOnly ? undefined : !isGhost}
           aria-label={
-            isGhost
-              ? isCn ? '照抄上次这一组' : 'Copy last time'
-              : canRevert
-                ? isCn ? '退回底稿' : 'Back to draft'
-                : undefined
+            readOnly
+              ? undefined
+              : isGhost
+                ? isCn ? `第 ${setIdx + 1} 组做完了` : `Set ${setIdx + 1} done`
+                : isCn ? `第 ${setIdx + 1} 组退回待做` : `Set ${setIdx + 1} back to to-do`
           }
           {...addSub.handlers}
         >
           {setIdx + 1}
+          {/* 全零点不实时闪一下原因（瞬时反馈，不是常驻文字） */}
           <LongPressAffordance
             active={addSub.pressing}
-            hint={addSub.hinting && !isGhost && !inkin}
+            hint={nope}
             label={isCn ? '加子组' : 'Drop set'}
-            hintLabel={isCn ? '按住加子组' : 'Hold for drop set'}
+            hintLabel={isCn ? '没填数' : 'Nothing entered'}
             drawMs={addSub.drawMs}
           />
         </span>
@@ -305,7 +359,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               data-testid={`ledger-field-${m}`}
               className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
-              }`}
+              }${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
                 ['--ledger-chars' as string]: Math.max(display.length, 1),
                 ['--ledger-unit-w' as string]: `${Math.max(20, unitLabel.length * 6.5 + 4)}px`,
@@ -355,14 +409,18 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             type="button"
             onClick={() => {
               const next = !set.toFailure;
-              haptic(next ? H.longpress : H.tap);
-              // 在底稿上点竭会顺带描实。取消竭时若这行除了竭没别的编辑，一并退回底稿 ——
-              // 否则「竭可逆、它带来的描实不可逆」就是上面那句话的反例（§12.6 误触）。
-              if (!next && !isGhost && !!set.fromGhost) {
-                onUpdate({ toFailure: false, ghost: true, fromGhost: undefined });
-              } else {
-                update({ toFailure: next });
+              // 点竭 = 这组做完了（做到力竭当然是做完）；取消竭只清竭，不退回待做
+              if (next && isGhost) {
+                if (!hasValue) {
+                  refuse();
+                  return;
+                }
+                haptic(H.longpress);
+                markDone({ toFailure: true });
+                return;
               }
+              haptic(next ? H.longpress : H.tap);
+              onUpdate({ toFailure: next });
             }}
             aria-pressed={!!set.toFailure}
             aria-label={
@@ -388,37 +446,21 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           <span />
         )}
 
-        {/* 删组：热区补到 44×44（原先是 35px 列里的 16px 图标，
-            与页面其他处精心维护的 min-h-[44px] 自相矛盾）。
-            §6.6：不靠颜色区分危险，靠「必须长按」这个形态。
-            例外（§12.6）：底稿行一点即抹 —— 它还不是事实，抹掉不算破坏。 */}
-        {!readOnly && isGhost ? (
+        {/* 删组：热区 44×44。一律单击，删完弹撤销条（第 4 条）——
+            原先待做行单击、做完行长按 400ms，两套规矩混在一起；
+            §12.5 通则 3：破坏性操作用「先执行 + 撤销」，而不是靠手势设门槛。 */}
+        {!readOnly ? (
           <button
             type="button"
             className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
-            aria-label={isCn ? '抹掉这行底稿' : 'Discard this draft set'}
+            aria-label={isCn ? '删除这一组' : 'Delete set'}
+            data-testid="set-remove"
             onClick={() => {
               haptic(H.tap);
               onRemove();
             }}
           >
             <Minus size={18} strokeWidth={1.75} />
-          </button>
-        ) : !readOnly ? (
-          <button
-            type="button"
-            className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary touch-pan-y"
-            aria-label={isCn ? '长按删除这一组' : 'Hold to delete set'}
-            {...removeSet.handlers}
-          >
-            <Minus size={18} strokeWidth={1.75} />
-            <LongPressAffordance
-              active={removeSet.pressing}
-              hint={removeSet.hinting}
-              label={isCn ? '删除' : 'Delete'}
-              hintLabel={isCn ? '按住删除' : 'Hold to delete'}
-              drawMs={removeSet.drawMs}
-            />
           </button>
         ) : (
           <span />
@@ -437,6 +479,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           isCn={isCn}
           readOnly={readOnly}
           ghost={isGhost}
+          edited={isGhost ? sub.touched : undefined}
           onUpdate={updates => handleSubSetUpdate(ssi, updates)}
           onRemove={() => handleRemoveSubSet(ssi)}
         />
@@ -458,6 +501,19 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           + {isCn ? '再加一档递减' : 'Add drop set'}
         </button>
       )}
+
+      {/* −5 / +5（第 2 条）：只在休息书签正下方那一行露出 —— 休息时调的就是下一组。
+          整行两颗宽键，热区够大，出汗的手也按得准。 */}
+      {!readOnly && showStep && activeMetrics.includes('weight') && (
+        <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
+          <button type="button" onClick={() => bump(-5)} aria-label={isCn ? `重量减 5 ${unit}` : `Weight −5 ${unit}`}>
+            −5 <span className="ledger-unit">{unit}</span>
+          </button>
+          <button type="button" onClick={() => bump(5)} aria-label={isCn ? `重量加 5 ${unit}` : `Weight +5 ${unit}`}>
+            +5 <span className="ledger-unit">{unit}</span>
+          </button>
+        </div>
+      )}
     </>
   );
 };
@@ -472,8 +528,10 @@ interface SubSetRowProps {
   unit: string;
   isCn: boolean;
   readOnly: boolean;
-  /** 母组还是底稿 → 子组跟着显示淡墨，删除也按底稿规矩一点即抹 */
+  /** 母组还是待做 → 子组跟着显示淡墨 */
   ghost: boolean;
+  /** 待做时改过的格子（变实墨） */
+  edited?: SubSetLog['touched'];
   onUpdate: (updates: Partial<SubSetLog>) => void;
   onRemove: () => void;
 }
@@ -481,7 +539,7 @@ interface SubSetRowProps {
 /**
  * 递减子组的一行。手势与母组逐项对齐：
  *   - 重量 / 次数格横向拖动改值（同一套档位）
- *   - 删除必须长按 400ms（§6.6），底稿里的一点即抹
+ *   - 删除单击 + 撤销条
  * 提成组件是因为 useValueScrub / useLongPress 不能在 map 里调。
  */
 const SubSetRow: React.FC<SubSetRowProps> = ({
@@ -494,6 +552,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   isCn,
   readOnly,
   ghost,
+  edited,
   onUpdate,
   onRemove,
 }) => {
@@ -509,7 +568,6 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
     steps: SCRUB_STEPS_REPS,
     disabled: readOnly,
   });
-  const removeSub = useLongPress({ onLongPress: onRemove, durationMs: 400, disabled: readOnly });
 
   return (
     <div
@@ -551,7 +609,9 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
           <label
             key={m}
             data-testid={`subset-field-${m}`}
-            className={`ledger-field is-scrubbable${scrub.scrubbing ? ' is-scrubbing' : ''}`}
+            className={`ledger-field is-scrubbable${scrub.scrubbing ? ' is-scrubbing' : ''}${
+              edited?.[m as 'weight' | 'reps'] ? ' is-edited' : ''
+            }`}
             {...scrub.handlers}
           >
             {/* 档位角标只在拖动时出现，与母组同 */}
@@ -586,37 +646,18 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
           力竭挂在母组上。这里必须留一个格，否则子组行会比父行少一列、整排错位。 */}
       <span />
 
-      {/* 删除规矩与母组逐字相同：已入册的长按 400ms 才删（§6.6），底稿一点即抹（§12.6） */}
+      {/* 删除规矩与母组相同：单击 + 撤销条 */}
       {readOnly ? (
         <span />
-      ) : ghost ? (
-        <button
-          type="button"
-          onClick={() => {
-            haptic(H.tap);
-            onRemove();
-          }}
-          className="w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
-          aria-label={isCn ? '抹掉这档递减底稿' : 'Discard this draft drop set'}
-        >
-          <Minus size={16} strokeWidth={1.75} />
-        </button>
       ) : (
         <button
           type="button"
-          className="relative w-11 h-11 justify-self-end flex items-center justify-center text-tertiary touch-pan-y"
-          aria-label={isCn ? '长按删除递减组' : 'Hold to remove drop set'}
+          onClick={onRemove}
+          className="w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
+          aria-label={isCn ? '删除这档递减' : 'Remove drop set'}
           data-testid="subset-remove"
-          {...removeSub.handlers}
         >
           <Minus size={16} strokeWidth={1.75} />
-          <LongPressAffordance
-            active={removeSub.pressing}
-            hint={removeSub.hinting}
-            label={isCn ? '删除' : 'Delete'}
-            hintLabel={isCn ? '按住删除' : 'Hold to delete'}
-            drawMs={removeSub.drawMs}
-          />
         </button>
       )}
     </div>

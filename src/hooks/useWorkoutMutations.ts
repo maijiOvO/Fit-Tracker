@@ -230,8 +230,11 @@ export function useWorkoutMutations({
             sets: ex.sets
               .filter(s => !s.ghost)
               .map(s => {
-                const { fromGhost: _fg, ...set } = s;
-                return set;
+                // fromGhost（已停写）与 touched 都是工作台上的标记，不跟进历史
+                const { fromGhost: _fg, touched: _t, ...set } = s;
+                return set.subSets?.length
+                  ? { ...set, subSets: set.subSets.map(({ touched: _st, ...sub }) => sub) }
+                  : set;
               }),
           };
         })
@@ -318,14 +321,33 @@ export function useWorkoutMutations({
 
   const handleFinishWithConfirmation = useCallback(async () => {
     const unitText = isCn ? (unit === 'kg' ? '公斤(kg)' : '磅(lbs)') : unit === 'kg' ? 'kg' : 'lbs';
+    /**
+     * 改过数但没点完成的组（第 4 条）：改值不再顺手描实，这种行结束时照规矩丢弃 ——
+     * 那是一次不可逆后果，所以要点出来，并把「取消」换成「返回补点」。
+     * 没动过的底稿行静默丢弃，不提（那本来就是「没做」）。
+     */
+    const touchedCount = (currentWorkout.exercises ?? []).reduce(
+      (n, ex) =>
+        n +
+        (ex.sets ?? []).filter(
+          s => s.ghost && (Object.values(s.touched ?? {}).some(Boolean) || (s.subSets ?? []).some(sub => Object.values(sub.touched ?? {}).some(Boolean))),
+        ).length,
+      0,
+    );
+    const warn = touchedCount
+      ? isCn
+        ? `\n\n有 ${touchedCount} 组改过数但没点完成，结束后会丢弃。`
+        : `\n\n${touchedCount} edited ${touchedCount === 1 ? 'set was' : 'sets were'} never marked done and will be discarded.`
+      : '';
     const ok = await confirm({
       message: isCn
-        ? `确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被添加到历史记录。`
-        : `Confirm ending this workout?\n\nCurrent unit: ${unitText}\n\nThe workout will be saved to history.`,
+        ? `确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被添加到历史记录。${warn}`
+        : `Confirm ending this workout?\n\nCurrent unit: ${unitText}\n\nThe workout will be saved to history.${warn}`,
       confirmLabel: isCn ? '结束训练' : 'End Workout',
+      ...(touchedCount ? { cancelLabel: isCn ? '返回补点' : 'Go back' } : {}),
     });
     if (ok) await finishWorkout();
-  }, [confirm, finishWorkout, isCn, unit]);
+  }, [confirm, currentWorkout.exercises, finishWorkout, isCn, unit]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean }) => {
@@ -635,10 +657,12 @@ export function useWorkoutMutations({
           name: ex.name,
           category: ex.category,
           bodyPart: ex.bodyPart,
+          // 计划里的组是「打算做的」，不是做完的：一律待做（第 4 条），点组号才入册
           sets: Array.from({ length: Math.max(1, ex.targetSets ?? 1) }, (_, j) => ({
             id: `${Date.now()}_${i}_${j}`,
             weight: ex.targetWeight ?? 0,
             reps: ex.targetReps ?? 0,
+            ghost: true,
           })),
           tags: ex.tags ?? [],
         })),
@@ -774,7 +798,8 @@ export function useWorkoutMutations({
               sets:
                 ghostSets && ghostSets.length > 0
                   ? ghostSets
-                  : [{ id: Date.now().toString(), weight: 0, reps: 0 }],
+                  : // 没练过的新动作：第一行空着、从待做开始（第 4 条），点组号才算做完
+                    [{ id: Date.now().toString(), weight: 0, reps: 0, ghost: true }],
               ...(ghostSets && ghostSets.length > 0 && lastExerciseDate
                 ? { prefillFrom: lastExerciseDate }
                 : {}),

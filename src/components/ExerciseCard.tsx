@@ -54,6 +54,8 @@ interface ExerciseCardProps {
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
+  /** 删一档递减（工作台挂撤销条） */
+  onRemoveSubSet?: (exIdx: number, setIdx: number, subIdx: number) => void;
   /**
    * §12.13 休息标记落在本动作的第几条缝上（gap=0 是第一组之前，gap=k 是第 k 组之后）。
    * 全场唯一，所以绝大多数卡片拿到的是 null。
@@ -86,6 +88,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onSetUpdate,
   onAddSet,
   onRemoveSet,
+  onRemoveSubSet,
   restGap = null,
   onMoveRest,
   dragHandle,
@@ -338,6 +341,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               lang={lang}
               onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}
               onRemove={() => onRemoveSet(exIdx, setIdx)}
+              onRemoveSub={onRemoveSubSet ? subIdx => onRemoveSubSet(exIdx, setIdx, subIdx) : undefined}
+              // 书签落在第 k 条缝 → 它正下方那一行是第 k 组（下标 k）
+              showStep={restGap === setIdx}
               onDurationClick={() => handleDurationClick(setIdx)}
             />
             {/* 缝在这一组的整块之后 —— 递减档全都在 SetCapsule 的 fragment 里，

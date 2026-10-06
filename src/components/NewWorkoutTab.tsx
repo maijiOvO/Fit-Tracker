@@ -16,6 +16,7 @@ import {
 import {
   ExerciseDefinition,
   Language,
+  SubSetLog,
   WorkoutSession,
 } from '../../types';
 import { translations } from '../../translations';
@@ -25,12 +26,14 @@ import { BodyPartPicker } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
 import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useUiOverlay } from '../contexts/UiOverlayContext';
 
 export interface NewWorkoutTabProps {
   lang: Language;
   unit: string;
   currentWorkout: WorkoutSession;
-  setCurrentWorkout: (w: WorkoutSession) => void;
+  /** 要支持函数式更新：撤销条的回调是 5 秒后才跑的，必须按那一刻的最新状态插回去 */
+  setCurrentWorkout: React.Dispatch<React.SetStateAction<WorkoutSession>>;
   editingWorkoutId: string | null;
   hasUnsavedChanges: boolean;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
@@ -117,6 +120,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const { findExerciseDef } = useExercisePrefs();
+  const { toastUndo } = useUiOverlay();
   const flashTimerRef = useRef<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -439,6 +443,13 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 // 拖动管的是两次描实**之间**那段时间。
                 if ((updates as any).ghost === false) {
                   setRestMark({ exId: exs[eIdx].id, gap: setIdx + 1 });
+                } else if ((updates as any).ghost === true) {
+                  // 退回待做：书签回到这个动作里最后一组做完的下面（一组都没做完就回最上方）
+                  let last = -1;
+                  exs[eIdx].sets.forEach((st: any, k) => {
+                    if (!st.ghost) last = k;
+                  });
+                  setRestMark({ exId: exs[eIdx].id, gap: last + 1 });
                 }
               }}
               onAddSet={idx => {
@@ -446,29 +457,86 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 const currentSets = exs[idx].sets;
                 const lastSet =
                   currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
-                // 克隆上一行的值，但剥掉 ghost：「加一组」是用户的主动动作，
-                // 长出来的行是真实数据（§12.6）。
-                // fromGhost 也必须剥 —— 它没有底稿可退，留着会让新行被一击退回成底稿。
+                // 克隆上一行的值，新行从【待做】开始（第 4 条）：加出来不等于做完了，
+                // 原先一出现就是实心印，「这组做到哪了」就读不出来。
+                // 力竭是当日这一组的事实，不跟着抄；touched / fromGhost 同理。
                 // 递减子组跟着母组一起照抄，但每档换新 id —— 两组共用同一批 id 会让同步分不清。
                 const newId = Date.now().toString();
                 const newSet = lastSet
                   ? {
                       ...lastSet,
                       id: newId,
-                      ghost: undefined,
+                      ghost: true,
+                      touched: undefined,
                       fromGhost: undefined,
+                      toFailure: undefined,
                       ...(lastSet.subSets?.length
-                        ? { subSets: lastSet.subSets.map((sub, k) => ({ ...sub, id: `sub_${newId}_${k}` })) }
+                        ? {
+                            subSets: lastSet.subSets.map(({ touched: _t, ...sub }, k) => ({
+                              ...sub,
+                              id: `sub_${newId}_${k}`,
+                            })),
+                          }
                         : {}),
                     }
-                  : { id: newId, weight: 0, reps: 0 };
+                  : { id: newId, weight: 0, reps: 0, ghost: true };
                 exs[idx].sets.push(newSet);
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });
               }}
               onRemoveSet={(eIdx, setIdx) => {
-                const exs = [...currentWorkout.exercises!];
-                exs[eIdx].sets = exs[eIdx].sets.filter((_, i) => i !== setIdx);
-                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+                // 删组一律「先执行 + 撤销」（第 4 条；§12.5 通则 3）
+                const exId = currentWorkout.exercises![eIdx].id;
+                const removed = currentWorkout.exercises![eIdx].sets[setIdx];
+                const restBefore = restMark;
+                setCurrentWorkout(w => ({
+                  ...w,
+                  exercises: (w.exercises ?? []).map(e =>
+                    e.id === exId ? { ...e, sets: e.sets.filter(st => st.id !== removed.id) } : e,
+                  ),
+                }));
+                if (restMark?.exId === exId && restMark.gap > setIdx) {
+                  setRestMark({ exId, gap: restMark.gap - 1 });
+                }
+                toastUndo(isCn ? `已删除第 ${setIdx + 1} 组` : `Set ${setIdx + 1} deleted`, () => {
+                  setCurrentWorkout(w => ({
+                    ...w,
+                    exercises: (w.exercises ?? []).map(e => {
+                      if (e.id !== exId || e.sets.some(st => st.id === removed.id)) return e;
+                      const sets = [...e.sets];
+                      sets.splice(Math.min(setIdx, sets.length), 0, removed);
+                      return { ...e, sets };
+                    }),
+                  }));
+                  setRestMark(restBefore);
+                });
+              }}
+              onRemoveSubSet={(eIdx, setIdx, subIdx) => {
+                const exId = currentWorkout.exercises![eIdx].id;
+                const setId = currentWorkout.exercises![eIdx].sets[setIdx].id;
+                const removed = (currentWorkout.exercises![eIdx].sets[setIdx].subSets ?? [])[subIdx];
+                if (!removed) return;
+                const patchSubs = (fn: (subs: SubSetLog[]) => SubSetLog[]) => {
+                  setCurrentWorkout(w => ({
+                    ...w,
+                    exercises: (w.exercises ?? []).map(e =>
+                      e.id !== exId
+                        ? e
+                        : {
+                            ...e,
+                            sets: e.sets.map(st => (st.id === setId ? { ...st, subSets: fn(st.subSets ?? []) } : st)),
+                          },
+                    ),
+                  }));
+                };
+                patchSubs(subs => subs.filter(sb => sb.id !== removed.id));
+                toastUndo(isCn ? '已删除一档递减' : 'Drop set deleted', () =>
+                  patchSubs(subs => {
+                    if (subs.some(sb => sb.id === removed.id)) return subs;
+                    const next = [...subs];
+                    next.splice(Math.min(subIdx, next.length), 0, removed);
+                    return next;
+                  }),
+                );
               }}
             />
           </div>

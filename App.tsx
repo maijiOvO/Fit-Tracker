@@ -654,8 +654,14 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     exs[exIdx] = {
       ...exs[exIdx],
       sets: exs[exIdx].sets.map((set, idx) =>
-        // 在底稿行上确认时长也算一次编辑：整行描实（§12.6「改哪格记哪格」）
-        idx === setIdx ? { ...set, duration: totalSeconds, ghost: undefined } : set,
+        // 改值只改值（第 4 条）：待做行上确认时长只记 touched，不描实
+        idx === setIdx
+          ? {
+              ...set,
+              duration: totalSeconds,
+              ...(set.ghost ? { touched: { ...(set.touched ?? {}), duration: true } } : {}),
+            }
+          : set,
       ),
     };
     setCurrentWorkout({ ...currentWorkout, exercises: exs });

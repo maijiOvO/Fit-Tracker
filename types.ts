@@ -62,6 +62,16 @@ export interface SetLog {
    */
   fromGhost?: boolean;
 
+  /**
+   * 待做行上改过哪几格（第 4 条，2026-10）。工作台专用，结束训练时剥掉。
+   *
+   * 改值不再顺手描实（只有点组号 / 点竭才算做完），于是会出现「改过但没点完成」的行 ——
+   * 它结束训练时照规矩丢弃，确认框要单独点出来（「N 组改过但没点完成」），并给「返回补点」。
+   * 也给格子墨色用：改过的格子变实墨，组号仍是虚线印。
+   * 键是 VALUE_KEYS 里的字段名。⚠️ fromGhost 已停写，旧数据里读到忽略。
+   */
+  touched?: Partial<Record<string, boolean>>;
+
   // ✅ 增强：递增递减组子组数据
   subSets?: SubSetLog[];
 }
@@ -73,6 +83,8 @@ export interface SubSetLog {
   reps: number;      // 独立的次数设置
   restSeconds?: number; // 子组间休息时间（可选）
   note?: string;     // 子组备注（可选）
+  /** 母组待做时改过的格子（同 SetLog.touched，工作台专用，结束训练时剥掉） */
+  touched?: Partial<Record<'weight' | 'reps', boolean>>;
 }
 
 export interface Exercise {

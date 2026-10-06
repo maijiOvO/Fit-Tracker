@@ -458,6 +458,11 @@ const main = async () => {
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    // 计划里的组是待做（第 4 条）：填个次数、点组号才算做完，否则「底稿不入册」结束不了
+    const firstRow = page.locator('.ledger-row').first();
+    await firstRow.locator('[data-testid="ledger-field-reps"] input').fill('5');
+    await firstRow.locator('.set-num').click();
+    await firstRow.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
     // 按钮文案是动态的（结束训练/结束中/已结束/失败），所以不能用 ^...$ 精确匹配。
     await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
     await acceptAppConfirm(page);
@@ -769,6 +774,9 @@ const main = async () => {
       const y = box.y + box.height / 2;
       await page.mouse.move(x0, y);
       await page.mouse.down();
+      // 按下后先停一下：按下到第一次移动若只隔一两毫秒，速度会算成「猛甩」，
+      // 直接跳到 ×2 / ×5 档 —— 真手指挪 14px 要几十毫秒，不会这样
+      await page.waitForTimeout(80);
       for (const dx of dxs) {
         await page.mouse.move(x0 + dx, y);
         await page.waitForTimeout(80);
@@ -797,6 +805,69 @@ const main = async () => {
     return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
+  // 第 4、2 条：组只有待做 / 做完两种状态。只有点组号才算做完，改值只改值；
+  // 全零的组点不实；删组单击 + 撤销；休息书签正下方那一行露出 −5 / +5。
+  await step(page, 'set-state-gestures', async () => {
+    const rows = page.locator('.ledger-row');
+    const row0 = rows.first();
+    const isInked = async r => (await r.getAttribute('class')).includes('is-inked');
+    // 前面的用例改过这一行的重量和次数，但从没点过组号：仍是待做，改过的格子挂 is-edited
+    if (await isInked(row0)) throw new Error('editing values marked the row done — 改值必须只改值');
+    const edited = await row0.locator('.ledger-field.is-edited').count();
+    if (edited < 1) throw new Error('edited cells on a to-do row are not marked is-edited');
+
+    await row0.locator('.set-num').click();
+    if (!(await isInked(row0))) throw new Error('tapping the set number did not mark it done');
+    await page.waitForTimeout(650); // 过长按吞 click 的窗口之外，正常连点
+    await row0.locator('.set-num').click();
+    if (await isInked(row0)) throw new Error('tapping a done set number did not revert it to to-do');
+
+    // 添加组：新行从待做开始
+    const before = await rows.count();
+    await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
+    await page.waitForTimeout(300);
+    const newRow = rows.nth(before);
+    if (await isInked(newRow)) throw new Error('a freshly added set started as done');
+
+    // 全零的行点不实
+    await newRow.locator('[data-testid="ledger-field-weight"] input').fill('');
+    await newRow.locator('[data-testid="ledger-field-reps"] input').fill('');
+    const subRemoves = page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`);
+    while (await subRemoves.count()) await subRemoves.first().click(); // 复制来的递减档也清掉，才算全零
+    await newRow.locator('.set-num').click();
+    if (await isInked(newRow)) throw new Error('an all-zero set could be marked done');
+
+    // ±5：全场只有一处，在书签下面那一组（第 1 组，刚退回待做，书签回到最上方）
+    const steps = page.locator('[data-testid="weight-step"]');
+    if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
+    const w = row0.locator('[data-testid="ledger-field-weight"] input');
+    const w0 = Number(await w.inputValue());
+    await steps.getByRole('button', { name: /加 5|\+5/ }).click();
+    const w1 = Number(await w.inputValue());
+    if (Math.abs(w1 - (w0 + 5)) > 0.011) throw new Error(`+5 went ${w0} → ${w1}`);
+    if (await isInked(row0)) throw new Error('+5 marked the row done');
+
+    // 删组：单击即删 + 撤销条
+    const n = await rows.count();
+    await rows.nth(n - 1).locator('[data-testid="set-remove"]').click();
+    await page.waitForTimeout(200);
+    if ((await rows.count()) !== n - 1) throw new Error('single tap did not delete the set');
+    // 前面删递减档也各弹过一条撤销条，栈里最新的才是这次删组的
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await page.waitForTimeout(200);
+    if ((await rows.count()) !== n) throw new Error('undo did not bring the set back');
+
+    // 结束训练：改过没点完成的组要点出来，「取消」换成「返回补点」
+    await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
+    const dlg = page.locator('[role="dialog"]');
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    const text = await dlg.innerText();
+    if (!/改过数但没点完成/.test(text)) throw new Error(`end confirm does not mention edited-but-not-done sets: ${text}`);
+    await dlg.getByRole('button', { name: /^返回补点$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    return `toggle ok · new row to-do · all-zero refused · +5 ${w0}→${w1} · delete+undo · end warns`;
+  });
+
   // 第 7 条：训练卡 ⋯ → 重命名。改的是动作库里的名字，卡片立刻显示新名；
   // 撞上另一个动作的现名 / 曾用名时拒绝，弹窗不关（否则两个动作的历史会被认成一个）。
   await step(page, 'rename-exercise-from-card', async () => {
@@ -821,7 +892,9 @@ const main = async () => {
     await dlg.getByRole('button', { name: /^(取消|Cancel)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
     // 报错 toast 收掉，别让它活到后面的英文扫雷里
-    for (const x of await page.locator('[data-testid="toast"] [aria-label="dismiss"]').all()) await x.click();
+    // 每次重查第一条：撤销条会自己到期消失，按快照逐个点会去等一个已经不存在的元素
+    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
+    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
 
     // 正常改名
     const fresh = 'E2E 改名卧推';

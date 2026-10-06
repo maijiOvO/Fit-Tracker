@@ -1052,6 +1052,60 @@ button {
 .ledger-subrow.is-ghost .ledger-unit {
   opacity: 0.7;
 }
+/* 待做行里改过的格子：墨色变实（第 4 条）。虚线下划线留着 —— 组号还是虚线印，这组还没算做完。 */
+.ledger-row.is-ghost .ledger-field.is-edited .ledger-input,
+.ledger-subrow.is-ghost .ledger-field.is-edited .ledger-input {
+  color: var(--text-primary);
+}
+.ledger-row.is-ghost .ledger-field.is-edited .ledger-unit,
+.ledger-subrow.is-ghost .ledger-field.is-edited .ledger-unit {
+  opacity: 1;
+}
+
+/* 全零的行点不实：组号左右轻摆一下（位移乘 --move，reduced-motion 下不动，只剩标签） */
+@keyframes set-nope {
+  0%,
+  100% {
+    transform: none;
+  }
+  25% {
+    transform: translateX(calc(-3px * var(--move)));
+  }
+  75% {
+    transform: translateX(calc(3px * var(--move)));
+  }
+}
+.set-num.is-nope {
+  animation: set-nope 240ms var(--ease-ink);
+}
+
+/* −5 / +5（第 2 条）：只在休息书签正下方那一组的整块之后出现，整行两颗宽键 */
+.ledger-step {
+  display: flex;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--divider);
+}
+.ledger-step button {
+  flex: 1;
+  min-height: 40px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  padding-top: 11px;
+  border-radius: var(--radius-control);
+  background: var(--bg-inset);
+  color: var(--text-secondary);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  transition: background-color var(--dur-tap) var(--ease-ink);
+}
+.ledger-step button:active {
+  background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-inset));
+}
 /* 组号在底稿行里是「未刻的印」：虚线框 + 淡墨（与「制」那枚虚线印同语义） */
 .ledger-row.is-ghost .set-num {
   color: var(--text-tertiary);
