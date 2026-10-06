@@ -23,7 +23,7 @@
 自建「山羊挺身」与内置同名（解析到内置）；自建「器械上斜推胸」部位为空，任何部位筛选都看不到它。
 新增候选去重：9 个用户已有自建的没加（其中器械侧平举、器械划船经用户确认）。
 
-- 备份 / 体检脚本：`C:\Users\30257\AppData\Local\Temp\claude\D--Users-30257-Desktop-personal-project-fitlog\2c346cc1-170d-4af1-8987-0304fa95040a\scratchpad\pull-exercise-library.mjs`
+- 备份 / 体检脚本：会话临时目录里的只读脚本 `pull-exercise-library.mjs`（已跑完，结果在仓库外 `fitlog-backups/`）；
   （只读 GET；完整快照 + 动作库摘要写到仓库外 `D:\Users\30257\Desktop\personal project\fitlog-backups\`）。
 - 摸底脚本入库了：`scripts/layout-survey.mjs`（mock 后端夹具，4 宽 × 中英 × kg/lbs）。
   没修、留给用户定的：全 App 大量 9–10.5px 字（时间线副行、底栏标签、弹层标签 9px、月份标题 10px），与规格「下限 11px」冲突，属视觉改动；
@@ -40,7 +40,7 @@
 - git：除了 demo，工作区原本就有 `android/app/capacitor.build.gradle`、`android/capacitor.settings.gradle` 两个改动（不是我改的，别动）。
 - 用户已确认：**其余各条按下面的推荐方案做**；第 3 条的**交互理解正确**，第一版 demo「太丑」，第二版改成照现有组件的样子（用户还没对第二版表态）。
 - 被挡住的一步：只读拉 NAS 生产快照（`scripts/fitlogEnvArgs.mjs` 的 `--prod`）被自动模式权限拦了（Production Reads），**不要绕**。
-  已写好的只读脚本：`C:\Users\30257\AppData\Local\Temp\claude\...\scratchpad\pull-exercise-library.mjs`（临时目录，可能已清）；
+  已写好的只读脚本 `pull-exercise-library.mjs`（会话临时目录）；
   需要用户放行或自己跑。用途：拿到真实自建动作 → 第 3 条新增候选去重 + 第 9 条数据体检。
 - 顺带发现：本地 dev server 打开应用时 `GET /api/fitlog/state-dev` 返回 403
   （`this key is not allowed on /api/fitlog/state-dev`），开发环境同步不通，与本次无关，未处理。
