@@ -13,12 +13,15 @@
   新的只有这些：
     · 长按小卡或动作行满 500ms（卡片浮起）后，手指一动就进入拖拽；不动直接松手，照旧出管理菜单。
       长按满之前手指移动 > 10px＝在滚列表，手势作废（与训练卡「长按拖动排序」同一套语言）。
-    · 拖拽中：手指下的那一列整列亮起，列里出现虚线落位（落在按「收藏→最近→其余」排好的位置），
-      浮起的卡片被吸向落位（磁吸），跨列震一下；拖到「未细分」那一片＝放回未细分。
+    · 拖拽中：手指下的那一列整列亮起，列里出现虚线落位 —— **落位跟着手指的高度走**，放在第几个就是第几个
+      （第二版：列里的顺序由你定）。同一列里上下拖＝调顺序。浮起的卡片被吸向落位（磁吸），跨列震一下；
+      拖到「未细分」那一片＝放回未细分。
+    · 顺序：没手动排过的列仍按「收藏→最近→其余」；在某一列拖过一次，这一列的顺序就定下来，
+      之后新归进来的接在最后。
       靠近列表上下缘自动滚；细分多于 5 列横滑时，靠近左右缘自动横滚。
-    · 松手：卡片滑进落位；弹撤销条「已归到「上胸」」。拖回原列或拖到格子外＝原样放回，不弹。
+    · 松手：卡片滑进落位；弹撤销条「已归到「上胸」」/「已调整顺序」。放回原位或拖到格子外＝原样放回，不弹。
     · 头部「整理」开关：打开后按下即拖（不用等长按），点卡片也不再是添加 —— 一口气归几十个时用。
-  右上「方案」可调：磁吸强度、落位提示的样子、整理开关的有无。
+  已定（用户 2026-10-06）：磁吸「中」、列内虚线落位、要「整理」开关；动作行上不显示「自建」小标签。
 
   数据：胸 / 背 / 核心三个部位，系统动作已归好列；「未细分」里是你生产库里真实的自建动作
   （胸 6、背 11、核心 6）。收藏照你库里的。
@@ -291,12 +294,17 @@
   function seed() {
     LIB = []; let order = 0;
     for (const [p, cols] of Object.entries(RAW)) for (const [rg, names] of Object.entries(cols)) for (const raw of names) {
-      LIB.push({ id: 'x' + (++order), name: raw.replace(/[*@]/g, ''), part: p, region: rg, starred: raw.includes('*'), own: raw.includes('@'), order });
+      LIB.push({ id: 'x' + (++order), name: raw.replace(/[*@]/g, ''), part: p, region: rg, starred: raw.includes('*'), own: raw.includes('@'), order, rank: null });
     }
     part = 'subChest'; arranging = false; added = new Map();
   }
   const byId = id => LIB.find(e => e.id === id);
-  const sortItems = arr => arr.slice().sort((a, b) => (b.starred - a.starred) || (a.order - b.order));
+  const sortDefault = arr => arr.slice().sort((a, b) => (b.starred - a.starred) || (a.order - b.order));
+  /** 列内顺序：手动排过的（rank）在前按 rank；没排过的接在后面，按收藏 → 库内顺序 */
+  const sortItems = arr => {
+    const ranked = arr.filter(e => e.rank != null).sort((a, b) => a.rank - b.rank);
+    return ranked.concat(sortDefault(arr.filter(e => e.rank == null)));
+  };
   const regionName = rg => (PARTS[part].regions.find(r => r[0] === rg) || ['', '未细分'])[1];
 
   // ── 渲染 ──
@@ -314,7 +322,7 @@
       return `<div class="rcol" data-col="${id}" role="group" aria-label="${n}">` +
         (arr.length ? arr.map(cardHTML).join('') : '<div class="rcard empty" aria-hidden="true">—</div>') + '</div>';
     }).join('');
-    const un = sortItems(items.filter(e => !e.region));
+    const un = sortDefault(items.filter(e => !e.region));
     $('#results').innerHTML =
       `<div class="rboard${scroll ? ' scroll' : ''}" style="--cols:${regs.length}"><div class="rgrid rheads">${heads}</div><div class="rgrid">${cols}</div></div>` +
       `<div class="unzone" data-col=""><div class="gh"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-tertiary)" aria-hidden="true"><path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"/><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"/></svg><h3>未细分</h3><span class="n">· ${un.length}</span></div>` +
@@ -331,7 +339,7 @@
   function rowHTML(ex) {
     const n = added.get(ex.id) || 0;
     return `<div class="xrow" data-row="${ex.id}"><button type="button" class="main" data-ex="${ex.id}"><span class="nm">${esc(ex.name)}${n ? '<span class="badge-add">✓ 已添加</span>' : ''}</span>` +
-      `<span class="pills"><span class="pill">${PARTS[part].name}</span><span class="pill">自建</span><span class="pill eq">固定器械</span></span></button>` +
+      `<span class="pills"><span class="pill">${PARTS[part].name}</span><span class="pill eq">固定器械</span></span></button>` +
       (arranging ? `<span class="side grip" aria-hidden="true">${GRIP}</span>` : `<span class="side">${ex.starred ? STAR_BIG.replace('<svg', '<svg style="color:var(--warning)"') : STAR_BIG.replace('fill="currentColor"', 'fill="none" stroke="currentColor" stroke-width="2"')}</span>`) + '</div>';
   }
   const flash = id => requestAnimationFrame(() => {
@@ -360,19 +368,33 @@
       `<div class="mlab">归到细分</div><div class="mchips">${chips}</div><button type="button" class="mbtn">编辑标签</button><button type="button" class="mbtn">重命名</button><button type="button" class="mbtn cancel" data-close>取消</button></div></div>`;
     $('#menuHost').onclick = ev => {
       const a = ev.target.closest('[data-assign]');
-      if (a) { $('#menuHost').innerHTML = ''; assign(id, a.dataset.assign); return; }
+      if (a) { $('#menuHost').innerHTML = ''; if (a.dataset.assign !== byId(id).region) assign(id, a.dataset.assign); return; }
       if (ev.target.closest('[data-stop]') && !ev.target.closest('[data-close]')) return;
       $('#menuHost').innerHTML = '';
     };
   }
 
-  function assign(id, rg) {
+  /**
+   * 归列（菜单里点细分）：接在那一列最后。
+   * 拖拽落下：idx = 落位下标，整列按当前顺序写一遍 rank（这一列从此按手动顺序）。
+   */
+  function assign(id, rg, idx) {
     const ex = byId(id);
+    const snap = LIB.filter(e => e.part === part).map(e => [e, e.region, e.rank]);
     const prev = ex.region;
-    if (prev === rg) return;
     ex.region = rg;
+    ex.rank = null;
+    if (rg) {
+      const others = sortItems(LIB.filter(e => e.part === part && e.region === rg && e.id !== id));
+      // 拖拽落下、或这一列已经手动排过：整列按当前顺序写 rank；菜单归列且没排过：照默认排序
+      if (idx != null || others.some(e => e.rank != null)) {
+        others.splice(idx == null ? others.length : Math.min(idx, others.length), 0, ex);
+        others.forEach((e, i) => { e.rank = i; });
+      }
+    }
     render(); flash(id); vib(10);
-    toast(rg ? `已归到「${regionName(rg)}」` : '已放回未细分', () => { ex.region = prev; render(); flash(id); });
+    const msg = prev === rg ? '已调整顺序' : rg ? `已归到「${regionName(rg)}」` : '已放回未细分';
+    toast(msg, () => { snap.forEach(([e, r, k]) => { e.region = r; e.rank = k; }); render(); flash(id); });
   }
 
   // ── 拖拽 ──
@@ -480,8 +502,17 @@
 
   function moveDrag() {
     const t = hitTarget(g.x, g.y);
-    if (t !== g.target) {
-      g.target = t;
+    // 落位跟着手指的高度走：在目标列里按手指 y 找插入点（同一列也会变，所以每帧都要算）
+    let idx = null;
+    if (t) {
+      const col = R.querySelector(`.rcol[data-col="${t}"]`);
+      const kids = [...col.querySelectorAll('[data-ex]')].filter(k => k.dataset.ex !== g.id);
+      idx = kids.findIndex(k => { const r = k.getBoundingClientRect(); return g.y < r.top + r.height / 2; });
+      if (idx < 0) idx = kids.length;
+    }
+    if (t !== g.target || idx !== g.idx) {
+      const colChanged = t !== g.target;
+      g.target = t; g.idx = idx;
       R.querySelectorAll('.target').forEach(n => n.classList.remove('target'));
       R.querySelectorAll('.slot').forEach(n => n.remove());
       if (t !== null) {
@@ -489,10 +520,6 @@
           const col = R.querySelector(`.rcol[data-col="${t}"]`);
           col.classList.add('target');
           R.querySelector(`.rh[data-head="${t}"]`).classList.add('target');
-          // 落位放在排序后它会在的位置（收藏 → 其余，库内顺序）
-          const ex = byId(g.id);
-          const arr = sortItems(LIB.filter(e => e.part === part && e.region === t && e.id !== g.id).concat(ex));
-          const idx = arr.indexOf(ex);
           const slot = document.createElement('div'); slot.className = 'slot';
           col.querySelectorAll('.rcard.empty').forEach(n => n.hidden = true);
           const kids = [...col.querySelectorAll('[data-ex]')].filter(k => k.dataset.ex !== g.id);
@@ -500,7 +527,7 @@
         } else {
           R.querySelector('.unzone').classList.add('target');
         }
-        if (t !== (byId(g.id).region)) vib(10); // 跨列＝一下确认感
+        if (colChanged) vib(10); // 跨列＝一下确认感
       } else {
         R.querySelectorAll('.rcard.empty[hidden]').forEach(n => n.hidden = false);
       }
@@ -542,8 +569,11 @@
     const ex = byId(id);
     const slot = R.querySelector('.slot');
     const f = g.f;
-    if (t === null || t === undefined || t === ex.region) {
-      // 格子外 / 原列：原样放回
+    const origIdx = ex.region === t && t
+      ? sortItems(LIB.filter(e => e.part === part && e.region === t)).findIndex(e => e.id === id)
+      : -1;
+    if (t === null || t === undefined || (t === ex.region && (!t || g.idx === origIdx))) {
+      // 格子外 / 放回原位：原样放回
       const src = R.querySelector(`[data-ex="${id}"]`);
       const sr = hostOf(src).getBoundingClientRect();
       landTo(f, sr.left - g.pr.left, sr.top - g.pr.top, () => render());
@@ -551,7 +581,8 @@
       return;
     }
     const tr = slot ? slot.getBoundingClientRect() : R.querySelector('.unzone .rows').getBoundingClientRect();
-    landTo(f, tr.left - g.pr.left, tr.top - g.pr.top, () => assign(id, t));
+    const idx = g.idx;
+    landTo(f, tr.left - g.pr.left, tr.top - g.pr.top, () => assign(id, t, t ? idx : null));
     endGesture(false);
   }
   function cancelDrag() { if (g && g.f) g.f.remove(); endGesture(true); render(); }
