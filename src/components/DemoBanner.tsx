@@ -41,10 +41,10 @@ export default function DemoBanner(): React.ReactElement | null {
         userSelect: 'none',
       }}
     >
-      演示模式 · 数据只留在你自己的浏览器里，刷新即清空
+      Demo — nothing is uploaded; reloading starts over
       <br />
       <span style={{ opacity: 0.6, fontSize: 12 }}>
-        Demo — nothing is uploaded; reloading starts over
+        演示模式 · 数据只留在你自己的浏览器里，刷新即清空
       </span>
     </div>
   );
