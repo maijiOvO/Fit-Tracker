@@ -18,7 +18,8 @@ import React, {
 } from 'react';
 import { ExerciseDefinition, Language } from '../../types';
 import { translations } from '../../translations';
-import { DEFAULT_EXERCISES } from '../constants/exercises';
+import { BODY_REGIONS, DEFAULT_EXERCISES } from '../constants/exercises';
+import { mergeOverride } from '../utils/exerciseOverride';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
@@ -29,8 +30,10 @@ import { storage } from '../../services/appStorage';
 export interface CustomTag {
   id: string;
   name: string;
-  category: 'bodyPart' | 'equipment';
+  category: 'bodyPart' | 'equipment' | 'region';
   parentCategory?: string;
+  /** category='region' 时：挂在哪个部位下（如 'subChest'） */
+  parentPart?: string;
 }
 
 interface ExercisePrefsContextValue {
@@ -66,6 +69,10 @@ interface ExercisePrefsContextValue {
   resolveName: (storedName: string) => string;
   /** 任意一个名字（原名 / 现名 / 曾用名，中英皆可）→ 它属于的动作定义；库里没有返回 undefined */
   findExerciseDef: (name: string) => ExerciseDefinition | undefined;
+  /** 部位下的细分：系统细分在前，自建细分接在后面（第 3 条） */
+  regionsOf: (part: string) => { id: string; custom: boolean }[];
+  /** 动作（已合并覆盖层）此刻落在哪一列；不分细分 / 未细分 / 细分不属于当前部位 → null */
+  effectiveRegion: (ex: ExerciseDefinition) => string | null;
   getTagName: (tid: string) => string;
   getActiveMetrics: (exerciseName: string) => string[];
 
@@ -75,7 +82,8 @@ interface ExercisePrefsContextValue {
   toggleStarExercise: (exerciseName: string) => void;
   saveExerciseNote: (name: string, note: string) => void;
   saveExerciseTags: (exerciseId: string, bodyPart: string, tags: string[]) => void;
-  renameTag: (id: string, newName: string) => void;
+  /** 返回 false = 没改成（细分在同一部位下重名） */
+  renameTag: (id: string, newName: string) => boolean;
   deleteTag: (id: string) => Promise<void>;
   /** 返回 false = 没改成（重名 / 空名），调用方别关弹窗 */
   renameExercise: (exerciseId: string, newName: string) => boolean;
@@ -85,6 +93,10 @@ interface ExercisePrefsContextValue {
   ) => Promise<void>;
   addCustomExercise: (ex: ExerciseDefinition) => void;
   addCustomTag: (tag: CustomTag) => void;
+  /** 归到细分；'' = 放回未细分 */
+  assignRegion: (exerciseId: string, regionId: string) => void;
+  /** 新建自建细分，返回新 id；同一部位下重名返回 null（已 toast） */
+  addRegionTag: (part: string, name: string) => string | null;
 
   /** 用远端拉下来的 snapshot 全量覆盖偏好（语言/单位/头像由 caller 处理） */
   applyPrefsFromSnapshot: (p: FitlogSyncedPrefs) => void;
@@ -106,6 +118,11 @@ const LS_KEYS = {
   exerciseOverrides: 'fitlog_exercise_overrides',
   tagRenameOverrides: 'fitlog_tag_rename_overrides',
 } as const;
+
+/** 系统细分 id → 它所在的部位（自建细分看 CustomTag.parentPart） */
+function systemRegionPart(id: string): string | undefined {
+  return Object.keys(BODY_REGIONS).find(p => BODY_REGIONS[p].includes(id));
+}
 
 function readJSON<T>(key: string, fallback: T): T {
   try {
@@ -278,6 +295,25 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   // 按显示名查：原先直接拿传进来的名字查原键，中文下设的「跑步机 = 距离/时长/速度」
   // 到英文模式（名字是 Treadmill）就查不到，有氧变回重量 × 次数。
+  const regionsOf = useCallback(
+    (part: string) => [
+      ...(BODY_REGIONS[part] ?? []).map(id => ({ id, custom: false })),
+      ...customTags
+        .filter(t => t.category === 'region' && t.parentPart === part)
+        .map(t => ({ id: t.id, custom: true })),
+    ],
+    [customTags],
+  );
+
+  const effectiveRegion = useCallback(
+    (ex: ExerciseDefinition): string | null => {
+      // 有氧 / 自由不分细分（跑步机挂在腿部、划船机挂在背部，不能混进细分列）
+      if ((ex.category || 'STRENGTH') !== 'STRENGTH' || !ex.region) return null;
+      return regionsOf(ex.bodyPart).some(r => r.id === ex.region) ? ex.region : null;
+    },
+    [regionsOf],
+  );
+
   const getActiveMetrics = useCallback(
     (exerciseName: string): string[] =>
       exerciseMetricConfigs[resolveName(exerciseName)] || ['weight', 'reps'],
@@ -380,22 +416,45 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [customExercises],
   );
 
-  const renameTag = useCallback((id: string, newName: string) => {
-    setTagRenameOverrides(prev => {
-      const updated = { ...prev, [id]: newName };
-      writeJSON(LS_KEYS.tagRenameOverrides, updated);
-      return updated;
-    });
-    // 原先两样都没做：改名只活在本机，下次拉远端还会被旧快照盖回去
-    markPrefsUpdated();
-    scheduleDebouncedFitlogPush();
-  }, []);
+  const renameTag = useCallback(
+    (id: string, newName: string): boolean => {
+      const name = newName.trim();
+      if (!name) return false;
+      // 细分只在同一部位下查重（「内收」既可以是腿部细分，也可以是别处的东西）
+      const part = systemRegionPart(id) ?? customTags.find(t => t.id === id)?.parentPart;
+      if (part && regionsOf(part).some(r => r.id !== id && getTagName(r.id) === name)) {
+        toast(
+          lang === Language.CN ? `${getTagName(part)}已经有「${name}」` : `"${name}" already exists`,
+          'error',
+        );
+        return false;
+      }
+      setTagRenameOverrides(prev => {
+        const updated = { ...prev, [id]: name };
+        writeJSON(LS_KEYS.tagRenameOverrides, updated);
+        return updated;
+      });
+      // 原先两样都没做：改名只活在本机，下次拉远端还会被旧快照盖回去
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+      return true;
+    },
+    [customTags, getTagName, lang, regionsOf, toast],
+  );
 
   const deleteTag = useCallback(
     async (id: string) => {
       const tag = customTags.find(ct => ct.id === id);
       if (!tag) return;
-      const ok = await confirm({
+      const isRegion = tag.category === 'region';
+      // 细分：先执行 + 撤销（§12.5 通则 3），不弹确认。动作上的引用原样留着 ——
+      // effectiveRegion 认不到被删的 id，动作自然回到「未细分」；撤销把标签放回来，动作也就回去了。
+      const affected = isRegion
+        ? [...DEFAULT_EXERCISES, ...customExercises]
+            .map(d => mergeOverride(d, exerciseOverrides[d.id]))
+            .filter(d => d.region === id && !(exerciseOverrides[d.id] as { hidden?: boolean } | undefined)?.hidden).length
+        : 0;
+      const ok = isRegion || await confirm({
         message:
           lang === Language.CN
             ? `确定删除标签「${tag.name}」吗？\n（已经标记过这个标签的动作会保留这个引用，但筛选器里不再出现。）`
@@ -423,7 +482,12 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
 
-      toastUndo(lang === Language.CN ? '已删除标签' : 'Tag deleted', () => {
+      const msg = isRegion
+        ? lang === Language.CN
+          ? `已删除细分「${getTagName(id)}」${affected ? `，${affected} 个动作回到未细分` : ''}`
+          : `Region deleted${affected ? ` — ${affected} back to unassigned` : ''}`
+        : lang === Language.CN ? '已删除标签' : 'Tag deleted';
+      toastUndo(msg, () => {
         setCustomTags(prev => {
           const next = [...prev, tagSnapshot];
           writeJSON(LS_KEYS.customTags, next);
@@ -440,7 +504,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         scheduleDebouncedFitlogPush();
       });
     },
-    [confirm, customTags, lang, tagRenameOverrides, toastUndo],
+    [confirm, customExercises, customTags, exerciseOverrides, getTagName, lang, tagRenameOverrides, toastUndo],
   );
 
   /**
@@ -615,6 +679,49 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     scheduleDebouncedFitlogPush();
   }, []);
 
+  /** 归到细分：自建动作写进定义本身，内置动作写进覆盖层（已有同步容器，不新增 prefs key） */
+  const assignRegion = useCallback(
+    (exerciseId: string, regionId: string) => {
+      if (customExercises.some(c => c.id === exerciseId)) {
+        setCustomExercises(prev => {
+          const next = prev.map(c => (c.id === exerciseId ? { ...c, region: regionId } : c));
+          writeJSON(LS_KEYS.customExercises, next);
+          return next;
+        });
+      } else {
+        setExerciseOverrides(prev => {
+          const updated = { ...prev, [exerciseId]: { ...(prev[exerciseId] || {}), region: regionId } };
+          writeJSON(LS_KEYS.exerciseOverrides, updated);
+          return updated;
+        });
+      }
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+    },
+    [customExercises],
+  );
+
+  const addRegionTag = useCallback(
+    (part: string, name: string): string | null => {
+      const n = name.trim();
+      if (!n) return null;
+      if (regionsOf(part).some(r => getTagName(r.id) === n)) {
+        toast(lang === Language.CN ? `${getTagName(part)}已经有「${n}」` : `"${n}" already exists`, 'error');
+        return null;
+      }
+      const id = `rg_${Date.now()}`;
+      setCustomTags(prev => {
+        const next = [...prev, { id, name: n, category: 'region' as const, parentPart: part }];
+        writeJSON(LS_KEYS.customTags, next);
+        return next;
+      });
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+      return id;
+    },
+    [getTagName, lang, regionsOf, toast],
+  );
+
   const applyPrefsFromSnapshot = useCallback((p: FitlogSyncedPrefs) => {
     setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
     setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
@@ -672,6 +779,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       setTagRenameOverrides,
       resolveName,
       findExerciseDef,
+      regionsOf,
+      effectiveRegion,
       getTagName,
       getActiveMetrics,
       toggleMetric,
@@ -685,6 +794,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       deleteLibraryExercise,
       addCustomExercise,
       addCustomTag,
+      assignRegion,
+      addRegionTag,
       applyPrefsFromSnapshot,
       resetAllPrefs,
     }),
@@ -698,6 +809,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       tagRenameOverrides,
       resolveName,
       findExerciseDef,
+      regionsOf,
+      effectiveRegion,
       getTagName,
       getActiveMetrics,
       toggleMetric,
@@ -711,6 +824,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       deleteLibraryExercise,
       addCustomExercise,
       addCustomTag,
+      assignRegion,
+      addRegionTag,
       applyPrefsFromSnapshot,
       resetAllPrefs,
     ],

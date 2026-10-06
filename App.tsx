@@ -829,7 +829,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onClose={() => setShowRenameModal(false)}
         onConfirm={() => {
           if (!tagToRename || !newTagNameInput) return;
-          prefs.renameTag(tagToRename.id, newTagNameInput);
+          // 细分在同一部位下重名会被拒（toast 说明），弹窗留着
+          if (!prefs.renameTag(tagToRename.id, newTagNameInput)) return;
           setShowRenameModal(false);
           setTagToRename(null);
           setNewTagNameInput('');

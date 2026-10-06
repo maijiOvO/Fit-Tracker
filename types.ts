@@ -139,6 +139,11 @@ export interface ExerciseDefinition {
    * （放进已有的同步容器，不新增 prefs key）。可选字段，旧数据天然兼容。
    */
   aliases?: string[];
+  /**
+   * 部位细分（第 3 条）：系统细分 id（BODY_REGIONS）或自建细分标签 id。
+   * 不属于当前部位就当「未细分」（部位改过的情况）。'' = 明确放回未细分（覆盖层用）。
+   */
+  region?: string;
   // ✅ 新增这一行，允许存储分类信息
   category?: ExerciseCategory;
   

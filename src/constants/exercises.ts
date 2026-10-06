@@ -30,7 +30,7 @@ export const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'spee
  * 改内置动作的名字时，旧名必须进 aliases：历史记录里存的是旧名，不改写；
  * 名字解析靠 aliases 把旧记录认回来（ExercisePrefsContext 的名字索引）。
  */
-export const DEFAULT_EXERCISES: ExerciseDefinition[] = [
+const BASE_EXERCISES: ExerciseDefinition[] = [
   // === 胸部 (Chest) ===
   { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
   { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '上斜杠铃卧推' }, aliases: ['杠铃上斜卧推'], bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing'] } },
@@ -96,6 +96,47 @@ export const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   { id: 'stair', name: { en: 'Stair Climber', cn: '登山机' }, bodyPart: 'subLegs', tags: ['tagMachine', 'tagGym'], category: 'CARDIO' },
   { id: 'rope', name: { en: 'Jump Rope', cn: '跳绳' }, bodyPart: 'subFullBody', tags: ['tagBodyweight'], category: 'CARDIO' },
 
+  // === 2026-10 补充（部位细分，第 3 条）===
+  // 换做法就换列的（上斜/下斜、低位/高位绳索、宽距）是独立动作；只换手感的归「练法」（第 8 条）。
+  // 已和用户的自建动作去过重：蝴蝶机夹胸、直臂下压、器械内收/外展、上斜器械推胸、反向蝴蝶机、
+  // 绳索弯举、器械侧平举、器械划船 这 9 个用户已有自建的，没有加进来。
+  { id: 'bp_incline_smith', name: { en: "Incline Smith Machine Press", cn: '上斜史密斯卧推' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH' },
+  { id: 'fly_cable_low', name: { en: "Low-to-High Cable Fly", cn: '低位绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH' },
+  { id: 'fly_incline_db', name: { en: "Incline Dumbbell Fly", cn: '上斜哑铃飞鸟' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'bp_smith', name: { en: "Smith Machine Bench Press", cn: '史密斯平板卧推' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH' },
+  { id: 'bp_decline_barbell', name: { en: "Decline Barbell Bench Press", cn: '下斜杠铃卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'bp_decline_dumbbell', name: { en: "Decline Dumbbell Bench Press", cn: '下斜哑铃卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'fly_cable_high', name: { en: "High-to-Low Cable Fly", cn: '高位绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH' },
+  { id: 'press_squeeze_db', name: { en: "Dumbbell Squeeze Press", cn: '哑铃挤压卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'fly_db', name: { en: "Dumbbell Fly", cn: '哑铃飞鸟' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'bp_wide_barbell', name: { en: "Wide-Grip Barbell Bench Press", cn: '宽距杠铃卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'pushup_wide', name: { en: "Wide Push-ups", cn: '宽距俯卧撑' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH' },
+  { id: 'ohp_smith', name: { en: "Smith Machine Shoulder Press", cn: '史密斯推肩' }, bodyPart: 'subShoulder', tags: ['tagMachine'], category: 'STRENGTH' },
+  { id: 'lat_raise_cable', name: { en: "Cable Lateral Raise", cn: '绳索侧平举' }, bodyPart: 'subShoulder', tags: ['tagCable'], category: 'STRENGTH' },
+  { id: 'upright_row', name: { en: "Barbell Upright Row", cn: '杠铃直立划船' }, bodyPart: 'subShoulder', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'rear_fly_db', name: { en: "Bent-Over Dumbbell Reverse Fly", cn: '俯身哑铃飞鸟' }, bodyPart: 'subShoulder', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'rear_fly_cable', name: { en: "Cable Reverse Fly", cn: '绳索反向飞鸟' }, bodyPart: 'subShoulder', tags: ['tagCable'], category: 'STRENGTH' },
+  { id: 'shrug_barbell', name: { en: "Barbell Shrug", cn: '杠铃耸肩' }, bodyPart: 'subBack', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'shrug_db', name: { en: "Dumbbell Shrug", cn: '哑铃耸肩' }, bodyPart: 'subBack', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'cu_incline_db', name: { en: "Incline Dumbbell Curl", cn: '上斜哑铃弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'close_grip_bench', name: { en: "Close-Grip Bench Press", cn: '窄距杠铃卧推' }, bodyPart: 'subArms', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'wrist_curl', name: { en: "Wrist Curl", cn: '腕弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell', 'tagBarbell'], category: 'STRENGTH' },
+  { id: 'reverse_curl', name: { en: "Reverse Curl", cn: '反握弯举' }, bodyPart: 'subArms', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'farmer_walk', name: { en: "Farmer's Walk", cn: '农夫行走' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'hack_squat', name: { en: "Hack Squat", cn: '哈克深蹲' }, bodyPart: 'subLegs', tags: ['tagMachine'], category: 'STRENGTH' },
+  { id: 'nordic_curl', name: { en: "Nordic Hamstring Curl", cn: '北欧挺身' }, bodyPart: 'subLegs', tags: ['tagBodyweight'], category: 'STRENGTH' },
+  { id: 'hip_thrust', name: { en: "Barbell Hip Thrust", cn: '杠铃臀推' }, bodyPart: 'subLegs', tags: ['tagBarbell'], category: 'STRENGTH' },
+  { id: 'bulgarian_split', name: { en: "Bulgarian Split Squat", cn: '保加利亚分腿蹲' }, bodyPart: 'subLegs', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'glute_kickback_cable', name: { en: "Cable Glute Kickback", cn: '绳索后踢腿' }, bodyPart: 'subLegs', tags: ['tagCable'], category: 'STRENGTH' },
+  { id: 'crunch', name: { en: "Crunch", cn: '卷腹' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH' },
+  { id: 'machine_crunch', name: { en: "Machine Crunch", cn: '器械卷腹' }, bodyPart: 'subCore', tags: ['tagMachine'], category: 'STRENGTH' },
+  { id: 'lying_leg_raise', name: { en: "Lying Leg Raise", cn: '仰卧举腿' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH' },
+  { id: 'reverse_crunch', name: { en: "Reverse Crunch", cn: '反向卷腹' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH' },
+  { id: 'woodchop_cable', name: { en: "Cable Woodchop", cn: '绳索伐木' }, bodyPart: 'subCore', tags: ['tagCable'], category: 'STRENGTH' },
+  { id: 'side_bend_db', name: { en: "Dumbbell Side Bend", cn: '哑铃侧屈' }, bodyPart: 'subCore', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'side_plank', name: { en: "Side Plank", cn: '侧平板支撑' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH' },
+  { id: 'dead_bug', name: { en: "Dead Bug", cn: '死虫' }, bodyPart: 'subCore', tags: ['tagBodyweight'], category: 'STRENGTH' },
+
   // === 自由训练 (FREE) ===
   { id: 'ball_basket', name: { en: 'Basketball', cn: '篮球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
   { id: 'ball_soccer', name: { en: 'Soccer', cn: '足球' }, bodyPart: 'subFullBody', tags: ['tagBallGame', 'tagOutdoor'], category: 'FREE' },
@@ -105,6 +146,112 @@ export const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   { id: 'stretch_all', name: { en: 'Stretching', cn: '拉伸' }, bodyPart: 'subFullBody', tags: ['tagBodyweight'], category: 'FREE' },
   { id: 'hiit_session', name: { en: 'HIIT', cn: '高强度间歇训练' }, bodyPart: 'subFullBody', tags: ['tagBodyweight', 'tagIndoor'], category: 'FREE' },
 ];
+
+/**
+ * 部位细分（第 3 条）：每个部位下面再分一层，添加动作弹层按细分分列摆动作。
+ * 名字走 translations（getTagName），用户可改名（tagRenameOverrides）；
+ * 自建细分是 customTags 里 category='region' 的标签，parentPart 指向部位。
+ * 全身 / 有氧 / 自由不分细分。一个动作只落一列。
+ */
+export const BODY_REGIONS: Record<string, string[]> = {
+  subChest: ['chestUpper', 'chestMid', 'chestLower', 'chestInner', 'chestOuter'],
+  subShoulder: ['shFront', 'shSide', 'shRear'],
+  subBack: ['backLats', 'backMid', 'backTraps', 'backLower'],
+  subArms: ['armBi', 'armTri', 'armFore'],
+  subLegs: ['legQuad', 'legHam', 'legGlute', 'legCalf', 'legAdd'],
+  subCore: ['coreUpper', 'coreLower', 'coreObl', 'coreStab'],
+};
+
+/** 内置动作落在哪个细分。没列的（有氧、自由、全身）不分细分 */
+export const REGION_OF: Record<string, string> = {
+  bp_incline_barbell: 'chestUpper',
+  bp_incline_dumbbell: 'chestUpper',
+  bp_barbell: 'chestMid',
+  bp_dumbbell: 'chestMid',
+  press_machine_chest: 'chestMid',
+  pushup: 'chestMid',
+  chest_dip: 'chestLower',
+  fly_cable: 'chestInner',
+  ohp_barbell: 'shFront',
+  ohp_dumbbell: 'shFront',
+  press_machine_shoulder: 'shFront',
+  arnold_press: 'shFront',
+  front_raise_db: 'shFront',
+  lat_raise_dumbbell: 'shSide',
+  face_pull_cable: 'shRear',
+  lat_pulldown: 'backLats',
+  pu_weighted: 'backLats',
+  single_arm_db_row: 'backLats',
+  row_barbell: 'backMid',
+  row_seated_cable: 'backMid',
+  tbar_row: 'backMid',
+  dl_barbell: 'backLower',
+  hyperextension: 'backLower',
+  cu_barbell: 'armBi',
+  cu_dumbbell: 'armBi',
+  cu_hammer: 'armBi',
+  preacher_curl: 'armBi',
+  tricep_pushdown: 'armTri',
+  skull_crusher: 'armTri',
+  overhead_extension_db: 'armTri',
+  sq_barbell: 'legQuad',
+  goblet_squat: 'legQuad',
+  leg_press: 'legQuad',
+  leg_extension: 'legQuad',
+  leg_curl: 'legHam',
+  romanian_deadlift: 'legHam',
+  lunge_dumbbell: 'legGlute',
+  calf_raise: 'legCalf',
+  cable_crunch: 'coreUpper',
+  leg_raise: 'coreLower',
+  russian_twist: 'coreObl',
+  plank: 'coreStab',
+  ab_wheel: 'coreStab',
+  bp_incline_smith: 'chestUpper',
+  fly_cable_low: 'chestUpper',
+  fly_incline_db: 'chestUpper',
+  bp_smith: 'chestMid',
+  bp_decline_barbell: 'chestLower',
+  bp_decline_dumbbell: 'chestLower',
+  fly_cable_high: 'chestLower',
+  press_squeeze_db: 'chestInner',
+  fly_db: 'chestOuter',
+  bp_wide_barbell: 'chestOuter',
+  pushup_wide: 'chestOuter',
+  ohp_smith: 'shFront',
+  lat_raise_cable: 'shSide',
+  upright_row: 'shSide',
+  rear_fly_db: 'shRear',
+  rear_fly_cable: 'shRear',
+  shrug_barbell: 'backTraps',
+  shrug_db: 'backTraps',
+  cu_incline_db: 'armBi',
+  close_grip_bench: 'armTri',
+  wrist_curl: 'armFore',
+  reverse_curl: 'armFore',
+  farmer_walk: 'armFore',
+  hack_squat: 'legQuad',
+  nordic_curl: 'legHam',
+  hip_thrust: 'legGlute',
+  bulgarian_split: 'legGlute',
+  glute_kickback_cable: 'legGlute',
+  crunch: 'coreUpper',
+  machine_crunch: 'coreUpper',
+  lying_leg_raise: 'coreLower',
+  reverse_crunch: 'coreLower',
+  woodchop_cable: 'coreObl',
+  side_bend_db: 'coreObl',
+  side_plank: 'coreStab',
+  dead_bug: 'coreStab',
+};
+
+/**
+ * 默认动作库：基础定义 + 细分。
+ * 改内置动作的名字时，旧名必须进 aliases（见 BASE_EXERCISES 上方说明）。
+ */
+export const DEFAULT_EXERCISES: ExerciseDefinition[] = BASE_EXERCISES.map(d =>
+  REGION_OF[d.id] ? { ...d, region: REGION_OF[d.id] } : d,
+);
 
 /**
  * 获取分类的显示名称

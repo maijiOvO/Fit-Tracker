@@ -31,7 +31,7 @@ export function useFilteredExercises({
   selectedTags,
   activeLibraryCategory,
 }: FilteredExercisesParams) {
-  const { customExercises, exerciseOverrides, customTags, getTagName } = useExercisePrefs();
+  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
   return useMemo(() => {
@@ -68,6 +68,8 @@ export function useFilteredExercises({
           }
           // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
           tagNames.push(...(ex.aliases ?? []));
+          const rg = effectiveRegion(ex);
+          if (rg) tagNames.push(getTagName(rg));
           score = scoreEntry(
             buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames),
             tokens,
@@ -113,6 +115,7 @@ export function useFilteredExercises({
     exerciseOverrides,
     customTags,
     getTagName,
+    effectiveRegion,
     activeLibraryCategory,
     searchQuery,
     selectedTags,

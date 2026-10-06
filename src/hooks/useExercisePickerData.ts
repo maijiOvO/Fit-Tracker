@@ -50,7 +50,7 @@ export function useExercisePickerData({
   /** 已选器材 tag id 集合（小写） */
   equips: ReadonlySet<string>;
 }) {
-  const { customExercises, exerciseOverrides, customTags, getTagName } = useExercisePrefs();
+  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
   /** 覆盖合并 + 去隐藏后的完整动作库 */
@@ -76,10 +76,13 @@ export function useExercisePickerData({
       }
       // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
       tagNames.push(...(ex.aliases ?? []));
+      // 细分名也能搜到（搜「上胸」出整列）
+      const rg = effectiveRegion(ex);
+      if (rg) tagNames.push(getTagName(rg));
       m.set(ex.id, buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames));
     }
     return m;
-  }, [merged, getTagName]);
+  }, [merged, getTagName, effectiveRegion]);
 
   const tokens = useMemo(() => tokenize(query), [query]);
 
