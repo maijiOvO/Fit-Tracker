@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Demo · 组的状态</title>
+<!--
+  交互 demo：组行只剩「待做 / 做完」两种状态，删组统一单击 + 撤销，下一组那行露出 −5 / +5（改进计划第 4、2 条）。
+
+  照现在 App 搬的：训练页顶栏、ExerciseCard 刊头（组数已挪到眉批行右侧，cfb0dc4）、表头、账本行、
+  递减子组行、「再加一档递减」、休息书签、底部常驻栏、确认弹窗（Modal + ModalFooter）、撤销条。
+  类名和取值照 index.css 抄。
+
+  新的只有这些：
+    · 规则：只有点组号（或点「竭」）才算做完；改值只改值，不再顺手描实。
+      做完 ⇄ 待做 随时点着切（不再限「没改过值才能退回」）。全零的行点不实（闪一下，不入册）。
+      点「竭」= 做完；取消竭只清竭，不退回。
+    · 「添加组」新加的行、新动作的第一行都从待做开始（现在一出现就是实心印）。
+    · 删组 / 删递减档：一律单击，弹撤销条。长按 400ms 删除取消。
+    · 长按组号加递减档保留；轻点不再闪「按住加子组」（轻点现在有自己的意思）。
+    · 待做行里改过的格子：墨色变实（方案里可切回淡墨对比）—— 组号还是虚线印，所以没算做完。
+    · 结束训练：有「改过但没点完成」的组时，确认框多一句会丢弃几组；取消 = 返回补点。
+    · −5 / +5：只在休息书签正下方那一行露出，按当前单位 ±5，下限 0；换算残留不取整（132.28 → 137.28）。
+      方案里可切两种样子：重量格下面一对窄键 / 整行宽的两颗键。
+
+  数据是演示用的：卧推、上斜哑铃是「上次练过」铺来的底稿，绳索夹胸是没练过的新动作。
+  右上「方案」可切 ±5 样子、改过格子的墨色、kg / lbs，也能重置。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+  :root{
+    /* 令牌照抄 index.css（墨与纸） */
+    --bg-desk:#E2DACA;
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --success:#3F6B45; --success-soft:#E2EBDF;
+    --warning:#815709;
+    --danger:#8E2C1D; --danger-soft:#F3DED8;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10),0 18px 40px -24px rgba(26,23,20,.30);
+    --shadow-lg:0 10px 15px -3px rgba(26,23,20,.10),0 4px 6px -4px rgba(26,23,20,.10);
+    --radius-card:4px; --radius-control:3px; --radius-chip:2px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-page:320ms; --dur-stamp:520ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1); --ease-ink:cubic-bezier(.4,0,.2,1);
+    --move:1;
+    --rest-h:18px; --rest-w:9px; --rest-hit:14px; --rest-len:88px;
+    --f-sans:'Noto Sans SC',-apple-system,'PingFang SC','MiSans','Microsoft YaHei',system-ui,sans-serif;
+    --f-serif:'Noto Serif SC','Songti SC','SimSun',serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg-desk:#0A0908;
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --success:#86B27C; --success-soft:#1B2A1C; --warning:#CE9B3C;
+      --danger:#E8776A; --danger-soft:#331611; --scrim:rgba(0,0,0,.6);
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+      --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-desk:#0A0908;
+    --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+    --divider:#332E25; --rule-strong:#4A4232;
+    --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+    --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+    --success:#86B27C; --success-soft:#1B2A1C; --warning:#CE9B3C;
+    --danger:#E8776A; --danger-soft:#331611; --scrim:rgba(0,0,0,.6);
+    --shadow-page:0 1px 1px rgba(0,0,0,.35);
+    --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+  @media (prefers-reduced-motion:reduce){ :root{ --move:0; } }
+  [hidden]{display:none!important}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg-desk);color:var(--text-primary);font:14px/1.5 var(--f-sans);
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:inherit}
+  input{font:inherit;color:inherit;-webkit-user-select:text;user-select:text}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .ic{flex:none;display:block}
+  .phone{position:relative;height:100%;max-width:430px;margin:0 auto;overflow:hidden;background:var(--bg-base)}
+  @media (min-width:470px){
+    .phone{border-left:1px solid var(--divider);border-right:1px solid var(--divider);box-shadow:var(--shadow-overlay)}
+  }
+  /* demo 自己的：顶上一行小字 + 方案按钮 */
+  .demotag{position:absolute;top:0;left:0;right:0;z-index:130;height:30px;display:flex;align-items:center;
+    padding:0 16px;font-size:10px;color:var(--text-tertiary);pointer-events:none}
+  .planbtn{position:absolute;top:2px;right:8px;z-index:131;min-height:26px;padding:0 10px;border-radius:var(--radius-control);
+    background:var(--bg-inset);color:var(--text-secondary);font-size:11px;font-weight:700}
+  .planbtn[aria-expanded="true"]{background:var(--accent);color:var(--text-on-accent)}
+
+  /* ── 训练页顶栏（NewWorkoutTab） ── */
+  .bench{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain;overflow-anchor:none}
+  .wtop{position:sticky;top:0;z-index:30;padding:30px 16px 12px;margin-bottom:16px;
+    background:color-mix(in srgb,var(--bg-base) 95%,transparent);border-bottom:1px solid var(--divider)}
+  .wtopin{display:flex;align-items:center;gap:8px}
+  .wback{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb,var(--bg-card) 60%,transparent);border:1px solid var(--divider);border-radius:var(--radius-card);color:var(--text-primary)}
+  .wmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+  .weyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:10px;font-weight:700;letter-spacing:.15em;color:var(--text-tertiary)}
+  .weyebrow>*{white-space:nowrap}
+  .wunit{margin:-4px 0 -4px auto;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:var(--radius-chip);
+    background:var(--bg-inset);letter-spacing:0;color:var(--text-tertiary);font-weight:700;font-size:10px}
+  .wtitle{width:100%;min-height:36px;border:0;background:transparent;outline:none;font-size:16px;font-weight:700;color:var(--text-primary)}
+  .wend{flex:none;min-height:44px;padding:0 16px;border-radius:var(--radius-card);display:flex;align-items:center;gap:8px;
+    font-size:14px;font-weight:700;background:var(--accent);color:var(--text-on-accent)}
+  .wbody{padding:0 16px 170px}
+
+  /* ── ExerciseCard ── */
+  .excard{background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);margin-bottom:24px}
+  .exmast{padding:16px 12px 10px;border-bottom:1px solid var(--rule-strong);box-shadow:0 3px 0 -2px var(--divider)}
+  .exmast .row{display:flex;align-items:baseline;gap:12px}
+  .exmast h3{flex:1;min-width:0;font:600 17px/1.35 var(--f-serif)}
+  .exmast .more{width:44px;height:44px;margin:-8px -4px -8px 0;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)}
+  .exmast .marg{display:flex;align-items:center;gap:16px;margin-top:6px}
+  .exmast .time{font:500 12px/1.4 var(--f-mono);color:var(--text-secondary);border-bottom:1px dashed currentColor}
+  .exmast .meta{margin-left:auto;font:500 12px/1.4 var(--f-mono);color:var(--text-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .exmast .meta b{color:var(--text-primary);font-weight:600}
+  .exmast .meta .den{opacity:.8}
+  .cols{--cols:36px repeat(2,minmax(0,1fr)) 36px 44px}
+  .exhead{display:grid;grid-template-columns:var(--cols);align-items:center;padding:10px 12px 4px;font-size:11px;font-weight:500;color:var(--text-tertiary)}
+  .exhead span:not(:first-child){text-align:center}
+  .paper{position:relative}
+
+  /* 账本行（.ledger-row） */
+  .lrow{display:grid;grid-template-columns:var(--cols);align-items:center;position:relative;min-height:52px;padding:0 12px;border-bottom:1px solid var(--divider)}
+  .setnum{position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+    font:600 12px var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums;touch-action:pan-y;cursor:pointer;
+    transition:color var(--dur-base) var(--ease-ink),background-color var(--dur-base) var(--ease-ink),border-color var(--dur-base) var(--ease-ink)}
+  .lf{position:relative;display:flex;align-items:baseline;justify-content:center;gap:2px;min-width:0}
+  .lf input{width:100%;min-width:0;background:transparent;border:0;outline:none;text-align:center;font:600 26px/1 var(--f-mono);
+    color:var(--text-primary);font-variant-numeric:tabular-nums;caret-color:var(--accent);-moz-appearance:textfield;appearance:textfield;
+    transition:color var(--dur-base) var(--ease-ink)}
+  .lf input::-webkit-outer-spin-button,.lf input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .lf input::placeholder{color:var(--text-tertiary);opacity:.5}
+  .lf::after{content:'';position:absolute;left:0;right:0;bottom:-6px;height:2px;background:var(--accent);transform:scaleX(0);
+    transition:transform var(--dur-base) var(--ease-paper)}
+  .lf:focus-within::after{transform:scaleX(1)}
+  .unit{font-size:11px;font-weight:500;line-height:1;color:var(--text-tertiary);white-space:nowrap;pointer-events:none}
+  .fail{width:36px;height:44px;justify-self:center;display:flex;align-items:center;justify-content:center;
+    font:600 17px/1 var(--f-serif);color:color-mix(in srgb,var(--text-tertiary) 35%,transparent)}
+  .fail.on{color:var(--accent);font-size:19px}
+  .minus{width:44px;height:44px;justify-self:end;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)}
+  .minus:active{color:var(--text-primary)}
+
+  /* 待做（底稿语言：淡墨 + 朱砂虚线；组号是「未刻的印」） */
+  .lrow.todo .lf input,.subrow.todo .lf input{color:var(--text-tertiary);border-bottom:1.5px dashed color-mix(in srgb,var(--accent) 45%,transparent);padding-bottom:1px}
+  .lrow.todo .unit,.subrow.todo .unit{opacity:.7}
+  .lrow.todo .setnum{color:var(--text-tertiary);border:1.5px dashed color-mix(in srgb,var(--accent) 55%,transparent);border-radius:var(--radius-card)}
+  /* 待做行里改过的格子：墨色变实（方案可切） */
+  .phone.touch-ink .lrow.todo .lf.edited input,.phone.touch-ink .subrow.todo .lf.edited input{color:var(--text-primary)}
+  /* 做完：实心朱砂印 */
+  .lrow.done .setnum{background:var(--accent);border:1.5px solid var(--accent);color:var(--text-on-accent);border-radius:0}
+  @keyframes sealcut{
+    0%{background:transparent;border-color:color-mix(in srgb,var(--accent) 55%,transparent);border-style:dashed;color:var(--accent-ink)}
+    45%{border-style:solid}
+    100%{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}}
+  @keyframes inktext{from{color:var(--accent-ink)}}
+  .lrow.inkin.done .setnum{animation:sealcut var(--dur-stamp) var(--ease-ink)}
+  .lrow.inkin .lf input{animation:inktext var(--dur-stamp) var(--ease-ink)}
+  /* 全零点不实：组号左右轻摆一下 + 墨色提示标签 */
+  @keyframes nope{0%,100%{transform:none}25%{transform:translateX(calc(-3px * var(--move)))}75%{transform:translateX(calc(3px * var(--move)))}}
+  .setnum.nope{animation:nope 240ms var(--ease-ink)}
+
+  /* 递减子组行（.ledger-subrow） */
+  .subrow{display:grid;grid-template-columns:var(--cols);align-items:center;position:relative;min-height:44px;padding:0 12px;
+    box-shadow:inset 2px 0 0 var(--divider);border-bottom:1px solid var(--divider)}
+  .subrow .lab{font-size:11px;font-weight:500;color:var(--text-tertiary)}
+  .subrow .lf input{font-size:20px}
+  .subadd{display:flex;align-items:center;width:100%;min-height:44px;padding:0 12px;box-shadow:inset 2px 0 0 var(--divider);
+    border-bottom:1px solid var(--divider);color:var(--accent);font-size:11px;font-weight:600}
+
+  /* ±5（新） */
+  .step{display:grid;grid-template-columns:var(--cols);align-items:center;padding:0 12px;border-bottom:1px solid var(--divider)}
+  .step .pair{display:flex;justify-content:center;gap:6px}
+  .step button{font:600 13px/1 var(--f-mono);color:var(--text-secondary);background:var(--bg-inset);border-radius:var(--radius-control);
+    display:flex;align-items:center;justify-content:center;gap:2px;transition:background-color var(--dur-tap)}
+  .step button:active{background:color-mix(in srgb,var(--text-primary) 10%,var(--bg-inset))}
+  .step button small{font:500 10px var(--f-sans);color:var(--text-tertiary)}
+  .step.narrow{min-height:44px}
+  .step.narrow button{width:44px;height:32px}
+  .step.wide{display:flex;gap:8px;padding:6px 12px}
+  .step.wide button{flex:1;height:40px;font-size:14px}
+
+  /* 长按：底边进度线 + 朱砂小标签（LongPressAffordance） */
+  @keyframes lpdraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .lpline{position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);transform-origin:left center;
+    animation:lpdraw 380ms linear both;pointer-events:none}
+  .lplabel{position:absolute;left:50%;bottom:calc(100% + 4px);transform:translateX(-50%);z-index:2;padding:2px 7px;border-radius:var(--radius-chip);
+    background:var(--accent);color:var(--text-on-accent);font:600 11px/1.4 var(--f-sans);white-space:nowrap;pointer-events:none}
+  .lplabel.ink{background:var(--text-primary);color:var(--bg-card)}
+
+  /* 休息书签（.rest-seam） */
+  .seam{position:relative;height:0;z-index:4}
+  .seam .grab{position:absolute;left:0;display:flex;align-items:center;margin-top:calc(0px - var(--rest-h) / 2);pointer-events:none}
+  .seam .tab{flex:none;width:var(--rest-w);height:var(--rest-h);border-radius:0 3px 3px 0;background:var(--accent);box-shadow:0 1px 2px rgba(26,23,20,.18)}
+  .seam .line{flex:none;height:2px;width:var(--rest-len);border-radius:1px;background:var(--accent)}
+
+  .exfoot{padding:8px 12px 12px}
+  .addset{width:100%;min-height:44px;border:1px dashed var(--divider);border-radius:var(--radius-control);color:var(--text-secondary);
+    font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
+  .addset:active{background:var(--bg-card-hover)}
+
+  /* 底部常驻栏 */
+  .wbar{position:absolute;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--bg-base) 95%,transparent);
+    border-top:1px solid var(--divider);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .wbar .in{display:flex;align-items:center;gap:12px;padding:12px 16px}
+  .wbar .cnt{font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .wbar .add{flex:1;min-height:52px;border-radius:var(--radius-card);background:var(--accent);color:var(--text-on-accent);
+    font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+
+  /* 确认弹窗（Modal center + ModalFooter） */
+  .mdwrap{position:absolute;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
+  .mdscrim{position:absolute;inset:0;background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+  @keyframes paperdrop{from{opacity:0;transform:translateY(calc(-10px * var(--move))) scale(calc(1 - .015 * var(--move)))}to{opacity:1;transform:none}}
+  .md{position:relative;width:100%;max-width:448px;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);
+    box-shadow:var(--shadow-overlay);animation:paperdrop var(--dur-page) var(--ease-paper) both}
+  .md .bd{padding:20px 20px 20px;font-size:14px;line-height:1.6;color:var(--text-secondary);white-space:pre-line}
+  .md .bd b{color:var(--text-primary);font-weight:600}
+  .md .ft{display:flex;gap:12px;padding:0 20px 20px}
+  .md .ft .c{flex:1;min-height:52px;border-radius:var(--radius-control);border:1px solid var(--divider);color:var(--text-secondary);font-weight:500;text-align:center}
+  .md .ft .o{flex:2;min-height:52px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);font-weight:600;text-align:center}
+
+  /* 撤销条（toast info + 撤销 + 底边倒计时线） */
+  @keyframes toastprint{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+  @keyframes countdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .toast{position:absolute;left:16px;right:16px;bottom:88px;z-index:190;display:flex;align-items:center;gap:12px;padding:12px 16px;
+    overflow:hidden;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);color:var(--text-primary);
+    box-shadow:var(--shadow-lg);font-size:14px;font-weight:500;animation:toastprint var(--dur-base) var(--ease-paper) both}
+  .toast .msg{flex:1;min-width:0}
+  .toast .undo{flex:none;padding:6px 12px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);font-size:12px;font-weight:700}
+  .toast .cd{position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);transform-origin:left center;animation:countdown 5000ms linear both}
+
+  /* 结束后的「入册」读数（demo 用，代替刊末页） */
+  .ended{padding:48px 24px;text-align:center}
+  .ended h2{font:600 20px/1.4 var(--f-serif);margin-bottom:12px}
+  .ended p{font-size:13px;color:var(--text-secondary);line-height:1.8;white-space:pre-line}
+  .ended button{margin-top:20px;min-height:44px;padding:0 20px;border-radius:var(--radius-control);border:1px solid var(--divider);color:var(--text-secondary)}
+
+  /* 方案面板（demo 用） */
+  .panel{position:absolute;top:32px;right:8px;z-index:131;width:min(304px,calc(100% - 16px));max-height:calc(100% - 40px);overflow-y:auto;
+    display:flex;flex-direction:column;gap:14px;padding:16px;background:var(--bg-card);border:1px solid var(--divider);
+    border-radius:var(--radius-card);box-shadow:var(--shadow-overlay)}
+  .panel .q{margin-bottom:8px;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--text-secondary)}
+  .panel .opts{display:flex;flex-wrap:wrap;gap:6px}
+  .pchip{flex:none;min-height:34px;padding:0 12px;border-radius:var(--radius-control);font-size:11px;font-weight:700;text-align:center;
+    background:var(--bg-inset);color:var(--text-secondary)}
+  .pchip.on{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .panel .reset{min-height:44px;border-radius:var(--radius-control);border:1px solid var(--divider);color:var(--text-secondary);font-size:13px;text-align:center}
+  @media (prefers-reduced-motion:reduce){
+    .md,.toast,.lrow.inkin .setnum,.lrow.inkin .lf input,.setnum.nope{animation-duration:1ms}
+  }
+</style>
+</head>
+<body>
+<div class="phone touch-ink" id="phone">
+  <div class="demotag">Demo · 组的状态与手势（不是产品页面）</div>
+  <button type="button" class="planbtn" id="btnPlan" aria-expanded="false" aria-controls="panel">方案</button>
+
+  <div class="bench" id="bench">
+    <header class="wtop">
+      <div class="wtopin">
+        <button type="button" class="wback" aria-label="返回"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
+        <div class="wmid">
+          <div class="weyebrow">
+            <span>新建训练</span>
+            <button type="button" class="wunit" id="unitBtn" aria-label="切换重量单位"><svg class="ic" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg><span id="unitTxt">kg</span></button>
+          </div>
+          <input class="wtitle" value="胸 + 三头" aria-label="训练名称">
+        </div>
+        <button type="button" class="wend" id="wEnd"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>结束训练</button>
+      </div>
+    </header>
+    <main class="wbody" id="body"></main>
+  </div>
+
+  <div class="wbar">
+    <div class="in">
+      <span class="cnt" id="dockCount"></span>
+      <button type="button" class="add" id="addEx"><svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>添加动作</button>
+    </div>
+  </div>
+
+  <div id="modal"></div>
+  <div id="toastHost"></div>
+  <div class="panel" id="panel" hidden></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const LB = 2.20462;
+  const $ = s => document.querySelector(s);
+  const phone = $('#phone');
+  const bodyEl = $('#body');
+
+  // ---------- 数据 ----------
+  let uid = 0;
+  const nid = p => `${p}${++uid}`;
+  const row = (w, r, extra = {}) => ({ id: nid('s'), w, r, ghost: true, touched: {}, fail: false, subs: [], ...extra });
+  const sub = (w, r) => ({ id: nid('d'), w, r, touched: {} });
+
+  const opts = { step: 'narrow', touchInk: true, unit: 'kg' };
+  let st;
+  function seed() {
+    uid = 0;
+    st = {
+      ended: null,
+      rest: null, // { ex, gap }：书签在第 ex 个动作的第 gap 条缝（0 = 最上方）
+      ex: [
+        // 上次练过 → 每一组以底稿铺进来（待做）
+        { id: nid('e'), name: '杠铃平板卧推', time: '18:42', sets: [row(60, 8), row(60, 8), row(60, 7), row(55, 8, { subs: [sub(45, 10)] })] },
+        { id: nid('e'), name: '哑铃上斜卧推', time: '18:42', sets: [row(22.5, 10), row(22.5, 9), row(20, 10)] },
+        // 没练过的新动作：第一行空着，也是待做
+        { id: nid('e'), name: '绳索夹胸', time: '18:42', sets: [row(0, 0)] },
+      ],
+    };
+    st.rest = { ex: 0, gap: 0 };
+  }
+
+  // ---------- 单位 ----------
+  const fmt = kg => {
+    const v = opts.unit === 'lbs' ? kg * LB : kg;
+    return Number(v.toFixed(2)).toString();
+  };
+  const shown = kg => Number(fmt(kg || 0));
+  const toKg = v => (opts.unit === 'lbs' ? v / LB : v);
+  const isResidue = v => Math.abs(v * 2 - Math.round(v * 2)) > 1e-6;
+
+  // ---------- 读数（全部按「不是待做」算） ----------
+  const doneCount = e => e.sets.filter(s => !s.ghost).length;
+  const vol = e => e.sets.filter(s => !s.ghost).reduce((a, s) => a + s.w * s.r + s.subs.reduce((b, d) => b + d.w * d.r, 0), 0);
+  const fmtVol = kg => {
+    const v = opts.unit === 'lbs' ? kg * LB : kg;
+    if (!v) return '–';
+    return v >= 1000 ? `${(v / 1000).toFixed(1)}${opts.unit === 'lbs' ? 'k' : 't'}` : `${Math.round(v)}`;
+  };
+
+  // ---------- 渲染 ----------
+  const ICON_MINUS = '<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>';
+  const ICON_MINUS_SM = ICON_MINUS.replace(/18/g, '16');
+  const ICON_PLUS = '<svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+  const ICON_MORE = '<svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>';
+  let flashId = null;
+
+  const field = (key, kg, edited) => {
+    const d = key === 'w' ? (kg ? fmt(kg) : '') : (kg ? String(kg) : '');
+    const unit = key === 'w' ? opts.unit : '次';
+    return `<label class="lf${edited ? ' edited' : ''}"><input type="number" inputmode="decimal" step="any" data-k="${key}" value="${d}" placeholder="0"><span class="unit">${unit}</span></label>`;
+  };
+
+  function stepRow(eIdx, sIdx) {
+    const u = opts.unit;
+    if (opts.step === 'wide') {
+      return `<div class="step wide" data-step="${eIdx}:${sIdx}"><button type="button" data-d="-5">−5 <small>${u}</small></button><button type="button" data-d="5">+5 <small>${u}</small></button></div>`;
+    }
+    return `<div class="step narrow" data-step="${eIdx}:${sIdx}"><span></span><span class="pair"><button type="button" data-d="-5" aria-label="重量减 5 ${u}">−5</button><button type="button" data-d="5" aria-label="重量加 5 ${u}">+5</button></span><span></span><span></span><span></span></div>`;
+  }
+
+  const seam = () => '<div class="seam"><span class="grab"><span class="tab"></span><span class="line"></span></span></div>';
+
+  function render() {
+    if (st.ended) {
+      bodyEl.innerHTML = `<div class="ended"><h2>已结束</h2><p>${st.ended}</p><button type="button" id="again">再来一遍</button></div>`;
+      $('#dockCount').textContent = '';
+      return;
+    }
+    const scrollTop = $('#bench').scrollTop;
+    const flash = flashId; // 只播一次：下一次重绘不能再带着它
+    flashId = null;
+    bodyEl.innerHTML = st.ex.map((e, ei) => {
+      const done = doneCount(e);
+      const hasTodo = done < e.sets.length;
+      const meta = `第${ei + 1}个 · <b>${done}</b>${hasTodo ? `<span class="den">/${e.sets.length}</span>` : ''}组 · ${fmtVol(vol(e))}`;
+      let rows = '';
+      e.sets.forEach((s, si) => {
+        if (st.rest && st.rest.ex === ei && st.rest.gap === si) rows += seam();
+        const todo = s.ghost;
+        rows += `<div class="lrow ${todo ? 'todo' : 'done'}${flash === s.id ? ' inkin' : ''}" data-e="${ei}" data-s="${si}">
+          <span class="setnum" role="button" aria-label="${todo ? '这组做完了' : '退回待做'}">${si + 1}</span>
+          ${field('w', s.w, todo && s.touched.w)}
+          ${field('r', s.r, todo && s.touched.r)}
+          <button type="button" class="fail${s.fail ? ' on' : ''}" data-act="fail" aria-pressed="${s.fail}">竭</button>
+          <button type="button" class="minus" data-act="del" aria-label="删除这一组">${ICON_MINUS}</button>
+        </div>`;
+        s.subs.forEach((d, di) => {
+          rows += `<div class="subrow ${todo ? 'todo' : ''}" data-e="${ei}" data-s="${si}" data-d="${di}">
+            <span class="lab">递减</span>
+            ${field('w', d.w, todo && d.touched.w)}
+            ${field('r', d.r, todo && d.touched.r)}
+            <span></span>
+            <button type="button" class="minus" data-act="delsub" aria-label="删除这档递减">${ICON_MINUS_SM}</button>
+          </div>`;
+        });
+        if (s.subs.length) rows += `<button type="button" class="subadd" data-act="addsub" data-e="${ei}" data-s="${si}">+ 再加一档递减</button>`;
+        // ±5：只在书签正下方那一行（整块之后）露出
+        if (st.rest && st.rest.ex === ei && st.rest.gap === si) rows += stepRow(ei, si);
+      });
+      if (st.rest && st.rest.ex === ei && st.rest.gap === e.sets.length) rows += seam();
+      return `<section class="excard cols" data-card="${ei}">
+        <div class="exmast">
+          <div class="row"><h3>${e.name}</h3><button type="button" class="more" aria-label="动作菜单">${ICON_MORE}</button></div>
+          <div class="marg"><span class="time">${e.time}</span><span class="meta">${meta}</span></div>
+        </div>
+        <div class="exhead"><span>#</span><span>重量</span><span>次数</span><span>竭</span><span></span></div>
+        <div class="paper">${rows}</div>
+        <div class="exfoot"><button type="button" class="addset" data-act="addset" data-e="${ei}">${ICON_PLUS} 添加组</button></div>
+      </section>`;
+    }).join('');
+    const total = st.ex.reduce((a, e) => a + doneCount(e), 0);
+    $('#dockCount').textContent = `${st.ex.length} 动作 · ${total} 组`;
+    $('#bench').scrollTop = scrollTop;
+  }
+
+  // 只刷读数，不重绘（打字时别把输入框换掉）
+  function refreshCounts() {
+    st.ex.forEach((e, ei) => {
+      const done = doneCount(e);
+      const hasTodo = done < e.sets.length;
+      const m = bodyEl.querySelector(`[data-card="${ei}"] .meta`);
+      if (m) m.innerHTML = `第${ei + 1}个 · <b>${done}</b>${hasTodo ? `<span class="den">/${e.sets.length}</span>` : ''}组 · ${fmtVol(vol(e))}`;
+    });
+    $('#dockCount').textContent = `${st.ex.length} 动作 · ${st.ex.reduce((a, e) => a + doneCount(e), 0)} 组`;
+  }
+
+  // ---------- 书签 ----------
+  // 描实一组 → 跟到那组下面那条缝（与 §12.13 现行规则相同）
+  const restAfter = (ei, si) => { st.rest = { ex: ei, gap: si + 1 }; };
+  // 退回待做 → 回到这个动作里最后一条做完的组下面；一组都没做完就回最上方
+  function restBack(ei) {
+    const sets = st.ex[ei].sets;
+    let last = -1;
+    sets.forEach((s, i) => { if (!s.ghost) last = i; });
+    st.rest = { ex: ei, gap: last + 1 };
+  }
+
+  // ---------- 动作 ----------
+  function toggleDone(ei, si, el) {
+    const s = st.ex[ei].sets[si];
+    if (s.ghost) {
+      const empty = !s.w && !s.r && !s.subs.some(d => d.w || d.r);
+      if (empty) { nope(el); return; }
+      s.ghost = false;
+      s.touched = {};
+      s.subs.forEach(d => { d.touched = {}; });
+      flashId = s.id;
+      restAfter(ei, si);
+    } else {
+      s.ghost = true;
+      restBack(ei);
+    }
+    render();
+  }
+
+  function nope(el) {
+    el.classList.remove('nope');
+    void el.offsetWidth;
+    el.classList.add('nope');
+    hint(el, '没填数', true);
+  }
+
+  let hintTimer = 0;
+  function hint(el, text, ink) {
+    el.querySelectorAll('.lplabel').forEach(n => n.remove());
+    const lab = document.createElement('span');
+    lab.className = `lplabel${ink ? ' ink' : ''}`;
+    lab.textContent = text;
+    el.appendChild(lab);
+    clearTimeout(hintTimer);
+    hintTimer = setTimeout(() => lab.remove(), ink ? 1100 : 600);
+  }
+
+  function addSub(ei, si) {
+    const s = st.ex[ei].sets[si];
+    const prev = s.subs.length ? s.subs[s.subs.length - 1] : s;
+    const v = shown(prev.w);
+    const base = isResidue(v) ? Math.floor(v) : v;
+    s.subs.push(sub(v > 0 ? toKg(Math.max(0, base - 5)) : 0, prev.r));
+    render();
+  }
+
+  function addSet(ei) {
+    const sets = st.ex[ei].sets;
+    const last = sets[sets.length - 1];
+    const fresh = last
+      ? row(last.w, last.r, { subs: last.subs.map(d => sub(d.w, d.r)) })
+      : row(0, 0);
+    sets.push(fresh); // 新行一律待做
+    render();
+  }
+
+  // 撤销条：一次只挂一条，新的顶掉旧的（旧的那次删除就此生效）
+  let toastTimer = 0;
+  function toastUndo(msg, undo) {
+    const host = $('#toastHost');
+    clearTimeout(toastTimer);
+    host.innerHTML = `<div class="toast" role="status"><span class="msg">${msg}</span><button type="button" class="undo">撤销</button><span class="cd"></span></div>`;
+    host.querySelector('.undo').onclick = () => { host.innerHTML = ''; undo(); render(); };
+    toastTimer = setTimeout(() => { host.innerHTML = ''; }, 5000);
+  }
+
+  function delSet(ei, si) {
+    const e = st.ex[ei];
+    const [gone] = e.sets.splice(si, 1);
+    const restSnap = { ...st.rest };
+    if (st.rest.ex === ei && st.rest.gap > si) st.rest.gap -= 1;
+    render();
+    toastUndo(`已删除第 ${si + 1} 组`, () => { e.sets.splice(si, 0, gone); st.rest = restSnap; });
+  }
+
+  function delSub(ei, si, di) {
+    const s = st.ex[ei].sets[si];
+    const [gone] = s.subs.splice(di, 1);
+    render();
+    toastUndo('已删除一档递减', () => { s.subs.splice(di, 0, gone); });
+  }
+
+  function bump(ei, si, d) {
+    const s = st.ex[ei].sets[si];
+    const v = shown(s.w);
+    s.w = toKg(Math.max(0, Math.round((v + d) * 100) / 100)); // 残留不取整：132.28 → 137.28
+    if (s.ghost) s.touched.w = true; // 改值只改值：待做行仍是待做
+    render();
+  }
+
+  function endWorkout() {
+    let done = 0, touched = 0, drafts = 0;
+    st.ex.forEach(e => e.sets.forEach(s => {
+      if (!s.ghost) done++;
+      else if (s.touched.w || s.touched.r || s.subs.some(d => d.touched.w || d.touched.r)) touched++;
+      else drafts++;
+    }));
+    if (!done) {
+      toastUndo('还没有点完成任何一组——底稿不入册', () => {});
+      $('#toastHost .undo').remove();
+      return;
+    }
+    const unitText = opts.unit === 'kg' ? '公斤(kg)' : '磅(lbs)';
+    const warn = touched ? `\n\n<b>有 ${touched} 组改过数但没点完成，结束后会丢弃。</b>` : '';
+    $('#modal').innerHTML = `<div class="mdwrap" role="dialog" aria-modal="true"><div class="mdscrim"></div><div class="md">
+      <div class="bd">确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被添加到历史记录。${warn}</div>
+      <div class="ft"><button type="button" class="c" data-md="cancel">${touched ? '返回补点' : '取消'}</button><button type="button" class="o" data-md="ok">结束训练</button></div>
+    </div></div>`;
+    $('#modal').onclick = ev => {
+      const b = ev.target.closest('[data-md]');
+      if (!b) return;
+      $('#modal').innerHTML = '';
+      if (b.dataset.md === 'ok') {
+        st.ended = `入册 ${done} 组\n丢弃：改过没点完成 ${touched} 组 · 没动过的底稿 ${drafts} 组`;
+        render();
+      }
+    };
+  }
+
+  // ---------- 长按组号 = 加递减档；轻点 = 做完 ⇄ 待做 ----------
+  const LP_DELAY = 120, LP_DRAW = 380;
+  let lp = null;
+  let swallowUntil = 0; // 长按达成后吞掉随后那次 click（时间戳，会自己过期）
+  bodyEl.addEventListener('pointerdown', ev => {
+    const num = ev.target.closest('.setnum');
+    if (!num) return;
+    const r = num.closest('.lrow');
+    const ei = +r.dataset.e, si = +r.dataset.s;
+    lp = { num, ei, si, x: ev.clientX, y: ev.clientY, t1: 0, t2: 0 };
+    lp.t1 = setTimeout(() => {
+      const line = document.createElement('span');
+      line.className = 'lpline';
+      num.appendChild(line);
+      const lab = document.createElement('span');
+      lab.className = 'lplabel';
+      lab.textContent = '加子组';
+      num.appendChild(lab);
+    }, LP_DELAY);
+    lp.t2 = setTimeout(() => {
+      swallowUntil = performance.now() + 450;
+      const { ei: e2, si: s2 } = lp;
+      cancelLp();
+      addSub(e2, s2);
+    }, LP_DELAY + LP_DRAW);
+  });
+  function cancelLp() {
+    if (!lp) return;
+    clearTimeout(lp.t1); clearTimeout(lp.t2);
+    lp.num.querySelectorAll('.lpline,.lplabel').forEach(n => n.remove());
+    lp = null;
+  }
+  bodyEl.addEventListener('pointermove', ev => {
+    if (lp && Math.hypot(ev.clientX - lp.x, ev.clientY - lp.y) > 10) cancelLp();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => bodyEl.addEventListener(t, cancelLp, true));
+  bodyEl.addEventListener('contextmenu', ev => { if (ev.target.closest('.setnum')) ev.preventDefault(); });
+
+  bodyEl.addEventListener('click', ev => {
+    if (ev.target.id === 'again') { seed(); render(); return; }
+    const num = ev.target.closest('.setnum');
+    if (num) {
+      if (performance.now() < swallowUntil) { swallowUntil = 0; return; }
+      const r = num.closest('.lrow');
+      toggleDone(+r.dataset.e, +r.dataset.s, num);
+      return;
+    }
+    const stepBtn = ev.target.closest('.step button');
+    if (stepBtn) {
+      const [ei, si] = stepBtn.closest('.step').dataset.step.split(':').map(Number);
+      bump(ei, si, Number(stepBtn.dataset.d));
+      return;
+    }
+    const act = ev.target.closest('[data-act]');
+    if (!act) return;
+    const host = act.closest('[data-e]') || act;
+    const ei = +host.dataset.e, si = +host.dataset.s;
+    switch (act.dataset.act) {
+      case 'fail': {
+        const s = st.ex[ei].sets[si];
+        if (!s.fail) {
+          s.fail = true;
+          if (s.ghost) { s.ghost = false; s.touched = {}; flashId = s.id; restAfter(ei, si); } // 点竭 = 做完
+        } else {
+          s.fail = false; // 取消竭只清竭
+        }
+        render();
+        break;
+      }
+      case 'del': delSet(ei, si); break;
+      case 'delsub': delSub(ei, si, +host.dataset.d); break;
+      case 'addsub': addSub(+act.dataset.e, +act.dataset.s); break;
+      case 'addset': addSet(+act.dataset.e); break;
+    }
+  });
+
+  bodyEl.addEventListener('input', ev => {
+    const inp = ev.target.closest('input[data-k]');
+    if (!inp) return;
+    const host = inp.closest('[data-e]');
+    const ei = +host.dataset.e, si = +host.dataset.s;
+    const s = st.ex[ei].sets[si];
+    const tgt = host.dataset.d !== undefined ? s.subs[+host.dataset.d] : s;
+    const v = inp.value === '' ? 0 : Number(inp.value);
+    if (inp.dataset.k === 'w') tgt.w = toKg(v); else tgt.r = v;
+    if (s.ghost) { tgt.touched[inp.dataset.k] = true; inp.closest('.lf').classList.add('edited'); } // 改值只改值
+    refreshCounts();
+  });
+
+  // ---------- 顶栏 / 底栏 ----------
+  $('#wEnd').onclick = endWorkout;
+  $('#addEx').onclick = () => {
+    const names = ['肱三头肌下压', '器械推胸', '哑铃飞鸟'];
+    const name = names[(st.ex.length - 3) % names.length] || '新动作';
+    st.ex.push({ id: nid('e'), name, time: '19:20', sets: [row(0, 0)] });
+    st.rest = { ex: st.ex.length - 1, gap: 0 }; // 加了新动作 → 书签跳到新动作最上方
+    render();
+    setTimeout(() => { $('#bench').scrollTop = $('#bench').scrollHeight; }, 0);
+  };
+  function setUnit(u) { opts.unit = u; $('#unitTxt').textContent = u; render(); renderPanel(); }
+  $('#unitBtn').onclick = () => setUnit(opts.unit === 'kg' ? 'lbs' : 'kg');
+
+  // ---------- 方案 ----------
+  function renderPanel() {
+    const p = $('#panel');
+    const chip = (k, v, label) => `<button type="button" class="pchip${opts[k] === v ? ' on' : ''}" data-k="${k}" data-v="${v}">${label}</button>`;
+    p.innerHTML = `
+      <div><div class="q">−5 / +5 的样子</div><div class="opts">${chip('step', 'narrow', '重量格下一对窄键')}${chip('step', 'wide', '整行两颗宽键')}</div></div>
+      <div><div class="q">待做行里改过的格子</div><div class="opts">${chip('touchInk', true, '墨色变实')}${chip('touchInk', false, '仍是淡墨')}</div></div>
+      <div><div class="q">单位</div><div class="opts">${chip('unit', 'kg', 'kg')}${chip('unit', 'lbs', 'lbs')}</div></div>
+      <button type="button" class="reset" data-reset>重置数据</button>`;
+  }
+  $('#panel').addEventListener('click', ev => {
+    if (ev.target.closest('[data-reset]')) { seed(); render(); return; }
+    const c = ev.target.closest('.pchip');
+    if (!c) return;
+    const k = c.dataset.k;
+    const v = k === 'touchInk' ? c.dataset.v === 'true' : c.dataset.v;
+    if (k === 'unit') { setUnit(v); return; }
+    opts[k] = v;
+    phone.classList.toggle('touch-ink', opts.touchInk);
+    renderPanel();
+    render();
+  });
+  $('#btnPlan').onclick = () => {
+    const p = $('#panel');
+    p.hidden = !p.hidden;
+    $('#btnPlan').setAttribute('aria-expanded', String(!p.hidden));
+    if (!p.hidden) renderPanel();
+  };
+
+  seed();
+  render();
+})();
+</script>
+</body>
+</html>
