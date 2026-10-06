@@ -7,7 +7,7 @@
  *   - 系统标签只能改名不能删（与老动作库管理模式的规则一致）
  */
 import React, { useMemo, useState } from 'react';
-import { Columns3, Edit2, PlusCircle, Trash2, Sparkles, Filter } from 'lucide-react';
+import { Columns3, Edit2, PlusCircle, RotateCcw, Trash2, Sparkles, Filter } from 'lucide-react';
 import { Language } from '../../../types';
 import { BODY_PARTS, BODY_REGIONS, DEFAULT_EXERCISES, EQUIPMENT_TAGS } from '../../constants/exercises';
 import { Modal } from '../Modal';
@@ -35,8 +35,18 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
   onDeleteTag,
   onCreateCustomTag,
 }) => {
-  const { customTags, customExercises, exerciseOverrides, getTagName, regionsOf, effectiveRegion, addRegionTag } =
-    useExercisePrefs();
+  const {
+    customTags,
+    customExercises,
+    exerciseOverrides,
+    getTagName,
+    regionsOf,
+    hiddenRegionsOf,
+    effectiveRegion,
+    addRegionTag,
+    removeRegion,
+    restoreRegion,
+  } = useExercisePrefs();
   const isCn = lang === Language.CN;
   /** 「新建细分」挂在哪个部位下；null = 没在新建 */
   const [newRegionFor, setNewRegionFor] = useState<string | null>(null);
@@ -64,7 +74,7 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
 
   if (!open) return null;
 
-  const renderChip = (id: string, isCustom: boolean) => {
+  const renderChip = (id: string, isCustom: boolean, onRemove?: () => void) => {
     const name = getTagName(id);
     if (!name) return null;
     const n = usage.get(id.toLowerCase()) ?? 0;
@@ -90,10 +100,10 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
           )}
           <Edit2 size={11} className="text-tertiary" />
         </button>
-        {isCustom && (
+        {(isCustom || onRemove) && (
           <button
             type="button"
-            onClick={() => onDeleteTag(id)}
+            onClick={() => (onRemove ? onRemove() : onDeleteTag(id))}
             className="w-10 min-h-[44px] flex items-center justify-center text-danger border-l border-divider active:bg-danger/15 transition-colors"
             aria-label={`delete ${name}`}
           >
@@ -169,7 +179,18 @@ export const TagManageModal: React.FC<TagManageModalProps> = ({
                     {getTagName(part)}
                   </span>
                   <div className="flex-1 min-w-0 flex flex-wrap gap-2">
-                    {regionsOf(part).map(r => renderChip(r.id, r.custom))}
+                    {regionsOf(part).map(r => renderChip(r.id, r.custom, () => removeRegion(part, r.id)))}
+                    {hiddenRegionsOf(part).map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => restoreRegion(part, h)}
+                        className="min-h-[44px] px-3.5 rounded-control text-xs font-bold text-tertiary border border-dashed border-divider active:bg-card-hover transition-colors flex items-center gap-1.5"
+                        aria-label={`restore ${getTagName(h)}`}
+                      >
+                        <RotateCcw size={12} /> {getTagName(h)}
+                      </button>
+                    ))}
                     <button
                       type="button"
                       onClick={() => {

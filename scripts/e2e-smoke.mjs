@@ -827,6 +827,60 @@ const main = async () => {
     return `long-press drag → 上胸 #1 + undo; arrange reorder ${mid.at(-1)} → top; tap in arrange does not add`;
   });
 
+  // 整理里自定义细分：点表头改名 / 右移 / 删除（系统细分＝隐藏，撤销条，动作回未细分），「＋ 新建细分」里恢复与新建
+  await step(page, 'region-layout-edit', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const heads = async () => (await sheet.locator('.region-head b').allInnerTexts()).map(t => t.trim());
+    const menu = page.locator('[data-testid="region-menu"]');
+    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
+    const clearToasts = async () => { while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {}); };
+    await sheet.locator('[data-testid="region-arrange"]').click();
+
+    // 改名 + 右移
+    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '中缝' }).click();
+    await menu.locator('input').fill('内侧');
+    await menu.getByRole('button', { name: /^改名$/ }).click();
+    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '内侧' }).click();
+    await menu.getByRole('button', { name: /右移/ }).click();
+    await menu.getByRole('button', { name: /^完成$/ }).click();
+    const h1 = await heads();
+    if (h1.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`rename/move failed: ${h1.join('|')}`);
+
+    // 删除系统细分：撤销条 + 它的动作回到未细分
+    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '内侧' }).click();
+    await menu.getByRole('button', { name: /删除这个细分/ }).click();
+    const t = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已删除细分「内侧」，2 个动作回到未细分/.test(t)) throw new Error(`remove toast: ${t}`);
+    const un = await sheet.locator('.region-unzone [data-testid="picker-sheet-exercise"]').allInnerTexts();
+    if (!un.some(x => x.includes('绳索夹胸'))) throw new Error('exercises of the removed region did not go back to unassigned');
+    await clearToasts();
+
+    // 「＋ 新建细分」：恢复删掉的系统细分（名字与位置都还在）+ 新建一个
+    await sheet.locator('[data-testid="region-new"]').click();
+    await menu.getByRole('button', { name: /内侧/ }).click();
+    const h2 = await heads();
+    if (h2.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`restore failed: ${h2.join('|')}`);
+    await sheet.locator('[data-testid="region-new"]').click();
+    await menu.locator('input').fill('E2E新列');
+    await menu.getByRole('button', { name: /^添加$/ }).click();
+    if (!(await heads()).includes('E2E新列')) throw new Error('new region did not appear');
+
+    // 收尾：删掉新列、名字改回去、退出整理
+    await sheet.locator('[data-testid="region-head-edit"]', { hasText: 'E2E新列' }).click();
+    await menu.getByRole('button', { name: /删除这个细分/ }).click();
+    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '内侧' }).click();
+    await menu.locator('input').fill('中缝');
+    await menu.getByRole('button', { name: /^改名$/ }).click();
+    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '中缝' }).click();
+    await menu.getByRole('button', { name: /左移/ }).click();
+    await menu.getByRole('button', { name: /^完成$/ }).click();
+    await sheet.locator('[data-testid="region-arrange"]').click();
+    await clearToasts();
+    const h3 = await heads();
+    if (h3.join('|') !== '上胸|中胸|下胸|中缝|外轮廓') throw new Error(`cleanup left ${h3.join('|')}`);
+    return 'rename + move + remove(undo toast, back to unassigned) + restore + new region';
+  });
+
   await step(page, 'close-library', async () => {
     // 清空筛选（不给后续步骤留状态）并关闭弹层
     const clearBtn = page

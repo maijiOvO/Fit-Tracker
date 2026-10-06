@@ -30,10 +30,18 @@ import { storage } from '../../services/appStorage';
 export interface CustomTag {
   id: string;
   name: string;
-  category: 'bodyPart' | 'equipment' | 'region';
+  /**
+   * 'regionLayout'：某个部位的细分布局（列的顺序 + 删掉的系统细分），每个部位至多一条，
+   * id 固定为 `regionLayout:<部位>`。放进 customTags 是为了不新增 prefs key（四处枚举）。
+   */
+  category: 'bodyPart' | 'equipment' | 'region' | 'regionLayout';
   parentCategory?: string;
-  /** category='region' 时：挂在哪个部位下（如 'subChest'） */
+  /** category='region' / 'regionLayout' 时：挂在哪个部位下（如 'subChest'） */
   parentPart?: string;
+  /** regionLayout：列的顺序（细分 id）；没列到的接在后面按默认 */
+  order?: string[];
+  /** regionLayout：删掉（隐藏）的系统细分。动作上的引用不动，自然回未细分；恢复即回来 */
+  hidden?: string[];
 }
 
 interface ExercisePrefsContextValue {
@@ -69,8 +77,10 @@ interface ExercisePrefsContextValue {
   resolveName: (storedName: string) => string;
   /** 任意一个名字（原名 / 现名 / 曾用名，中英皆可）→ 它属于的动作定义；库里没有返回 undefined */
   findExerciseDef: (name: string) => ExerciseDefinition | undefined;
-  /** 部位下的细分：系统细分在前，自建细分接在后面（第 3 条） */
+  /** 部位下的细分：按用户排的列顺序（没排过：系统在前、自建在后），删掉的系统细分不在内 */
   regionsOf: (part: string) => { id: string; custom: boolean }[];
+  /** 部位下被删掉（隐藏）的系统细分，可恢复 */
+  hiddenRegionsOf: (part: string) => string[];
   /** 动作（已合并覆盖层）此刻落在哪一列；不分细分 / 未细分 / 细分不属于当前部位 → null */
   effectiveRegion: (ex: ExerciseDefinition) => string | null;
   getTagName: (tid: string) => string;
@@ -103,6 +113,11 @@ interface ExercisePrefsContextValue {
   applyRegionLayout: (changes: { id: string; region: string; regionRank?: number }[]) => void;
   /** 新建自建细分，返回新 id；同一部位下重名返回 null（已 toast） */
   addRegionTag: (part: string, name: string) => string | null;
+  /** 整理里挪列：dir = -1 左移 / 1 右移 */
+  moveRegion: (part: string, id: string, dir: -1 | 1) => void;
+  /** 整理里删细分：系统细分＝隐藏、自建细分＝删标签；都走撤销条，动作回未细分 */
+  removeRegion: (part: string, id: string) => void;
+  restoreRegion: (part: string, id: string) => void;
 
   /** 用远端拉下来的 snapshot 全量覆盖偏好（语言/单位/头像由 caller 处理） */
   applyPrefsFromSnapshot: (p: FitlogSyncedPrefs) => void;
@@ -301,14 +316,29 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   // 按显示名查：原先直接拿传进来的名字查原键，中文下设的「跑步机 = 距离/时长/速度」
   // 到英文模式（名字是 Treadmill）就查不到，有氧变回重量 × 次数。
-  const regionsOf = useCallback(
-    (part: string) => [
-      ...(BODY_REGIONS[part] ?? []).map(id => ({ id, custom: false })),
-      ...customTags
-        .filter(t => t.category === 'region' && t.parentPart === part)
-        .map(t => ({ id: t.id, custom: true })),
-    ],
+  const layoutOf = useCallback(
+    (part: string) => customTags.find(t => t.category === 'regionLayout' && t.parentPart === part),
     [customTags],
+  );
+
+  const regionsOf = useCallback(
+    (part: string) => {
+      const sys = BODY_REGIONS[part] ?? [];
+      const lay = layoutOf(part);
+      const hidden = new Set(lay?.hidden ?? []);
+      const all = [
+        ...sys,
+        ...customTags.filter(t => t.category === 'region' && t.parentPart === part).map(t => t.id),
+      ].filter(id => !hidden.has(id));
+      const order = (lay?.order ?? []).filter(id => all.includes(id));
+      return [...order, ...all.filter(id => !order.includes(id))].map(id => ({ id, custom: !sys.includes(id) }));
+    },
+    [customTags, layoutOf],
+  );
+
+  const hiddenRegionsOf = useCallback(
+    (part: string) => (layoutOf(part)?.hidden ?? []).filter(id => (BODY_REGIONS[part] ?? []).includes(id)),
+    [layoutOf],
   );
 
   const effectiveRegion = useCallback(
@@ -759,6 +789,68 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [getTagName, lang, regionsOf, toast],
   );
 
+  /** 写某个部位的细分布局（upsert 那一条 regionLayout） */
+  const writeLayout = useCallback((part: string, patch: { order?: string[]; hidden?: string[] }) => {
+    setCustomTags(prev => {
+      const id = `regionLayout:${part}`;
+      const cur = prev.find(t => t.id === id);
+      const nextTag: CustomTag = { id, name: '', category: 'regionLayout', parentPart: part, ...cur, ...patch };
+      const next = cur ? prev.map(t => (t.id === id ? nextTag : t)) : [...prev, nextTag];
+      writeJSON(LS_KEYS.customTags, next);
+      return next;
+    });
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
+  }, []);
+
+  const moveRegion = useCallback(
+    (part: string, id: string, dir: -1 | 1) => {
+      const ids = regionsOf(part).map(r => r.id);
+      const i = ids.indexOf(id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= ids.length) return;
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      writeLayout(part, { order: ids });
+    },
+    [regionsOf, writeLayout],
+  );
+
+  /** 此刻落在某一列的动作数（撤销条里说「N 个动作回到未细分」） */
+  const countInRegion = useCallback(
+    (id: string) =>
+      [...DEFAULT_EXERCISES, ...customExercises]
+        .map(d => mergeOverride(d, exerciseOverrides[d.id]))
+        .filter(d => d.region === id && !(exerciseOverrides[d.id] as { hidden?: boolean } | undefined)?.hidden)
+        .length,
+    [customExercises, exerciseOverrides],
+  );
+
+  const restoreRegion = useCallback(
+    (part: string, id: string) => {
+      writeLayout(part, { hidden: (layoutOf(part)?.hidden ?? []).filter(h => h !== id) });
+    },
+    [layoutOf, writeLayout],
+  );
+
+  const removeRegion = useCallback(
+    (part: string, id: string) => {
+      if (!(BODY_REGIONS[part] ?? []).includes(id)) {
+        void deleteTag(id); // 自建细分：删标签（自带撤销条，不弹确认）
+        return;
+      }
+      const n = countInRegion(id);
+      const name = getTagName(id);
+      writeLayout(part, { hidden: [...new Set([...(layoutOf(part)?.hidden ?? []), id])] });
+      toastUndo(
+        lang === Language.CN
+          ? `已删除细分「${name}」${n ? `，${n} 个动作回到未细分` : ''}`
+          : `Region removed${n ? ` — ${n} back to unassigned` : ''}`,
+        () => restoreRegion(part, id),
+      );
+    },
+    [countInRegion, deleteTag, getTagName, lang, layoutOf, restoreRegion, toastUndo, writeLayout],
+  );
+
   const applyPrefsFromSnapshot = useCallback((p: FitlogSyncedPrefs) => {
     setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
     setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
@@ -817,6 +909,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       resolveName,
       findExerciseDef,
       regionsOf,
+      hiddenRegionsOf,
       effectiveRegion,
       getTagName,
       getActiveMetrics,
@@ -834,6 +927,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       assignRegion,
       applyRegionLayout,
       addRegionTag,
+      moveRegion,
+      removeRegion,
+      restoreRegion,
       applyPrefsFromSnapshot,
       resetAllPrefs,
     }),
@@ -848,6 +944,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       resolveName,
       findExerciseDef,
       regionsOf,
+      hiddenRegionsOf,
       effectiveRegion,
       getTagName,
       getActiveMetrics,
@@ -865,6 +962,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       assignRegion,
       applyRegionLayout,
       addRegionTag,
+      moveRegion,
+      removeRegion,
+      restoreRegion,
       applyPrefsFromSnapshot,
       resetAllPrefs,
     ],

@@ -24,7 +24,15 @@ export interface FitlogTombstones {
  * 与 UI / localStorage / 服务端同步的首选项（原 Supabase user_configs）
  */
 export interface FitlogSyncedPrefs {
-  customTags: { id: string; name: string; category: 'bodyPart' | 'equipment' | 'region'; parentCategory?: string; parentPart?: string }[];
+  customTags: {
+    id: string;
+    name: string;
+    category: 'bodyPart' | 'equipment' | 'region' | 'regionLayout';
+    parentCategory?: string;
+    parentPart?: string;
+    order?: string[];
+    hidden?: string[];
+  }[];
   customExercises: ExerciseDefinition[];
   exerciseNotes: Record<string, string>;
   /** @deprecated 休息计时器功能已移除，仅为兼容旧 snapshot 解析保留字段 */

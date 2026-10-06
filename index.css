@@ -1254,6 +1254,14 @@ button {
 .region-head.is-target i {
   color: var(--text-on-accent);
 }
+/* 整理时表头可点（改名 / 左右移 / 删除）：名字下一道朱砂虚线＝可点的批注（同 .marginalia） */
+.region-head.is-editable {
+  min-height: 32px;
+  text-align: left;
+}
+.region-head.is-editable b {
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+}
 .region-slot {
   min-height: 48px;
   border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
