@@ -3,7 +3,24 @@
 新对话从这里接着做。用户原始需求、已拍板的决定、每条的施工方案、现状和坑都在下面。
 动 UI 之前先读 `CLAUDE.md`、`docs/design-ink-and-paper.md`，以及知识库 `_memory/fitlog/`（尤其是新加的 `demo-match-current-ui`）。
 
-## 0. 现状
+## 进度（2026-10-06 第二个会话，按 §5 顺序）
+
+| 阶段 | 状态 | 提交 |
+|---|---|---|
+| 0 | 手机排版摸底完成，三处便宜的已修；备份 + 真实数据体检**等用户跑脚本**（见下） | `cfb0dc4` |
+| 1 | 第 1、6 条 + renameTag 等同步标记，完成 | `a13450d` |
+| 2 | demo `docs/demos/set-state.html` 已出，**等用户拍板**（±5 样子、待做行改过的格子墨色）再写代码 | `147c278` |
+| 3 | 第 7 条完成（曾用名、偏好按显示名归并、卡片改名入口、三个内置改名） | `48a9efb` `a9f1daa` |
+| 4 | 用户已认可 region-board **第三版**样式（「对应功能按照 demo 的样式做」）；新增候选入库仍要等真实数据去重 | — |
+
+- 备份 / 体检脚本：`C:\Users\30257\AppData\Local\Temp\claude\D--Users-30257-Desktop-personal-project-fitlog\2c346cc1-170d-4af1-8987-0304fa95040a\scratchpad\pull-exercise-library.mjs`
+  （只读 GET；完整快照 + 动作库摘要写到仓库外 `D:\Users\30257\Desktop\personal project\fitlog-backups\`）。
+- 摸底脚本入库了：`scripts/layout-survey.mjs`（mock 后端夹具，4 宽 × 中英 × kg/lbs）。
+  没修、留给用户定的：全 App 大量 9–10.5px 字（时间线副行、底栏标签、弹层标签 9px、月份标题 10px），与规格「下限 11px」冲突，属视觉改动；
+  三指标有氧行在 360 宽能放下但很挤；四指标 + lbs 六位数在 360 会触到 11px 下限被截。
+- e2e：本机 Playwright 浏览器版本与 node_modules 对不上，跑时 `E2E_CHROMIUM` 指向 `ms-playwright\chromium_headless_shell-1228\...\chrome-headless-shell.exe`。
+
+## 0. 现状（第一个会话结束时）
 
 - 代码一行没改。唯一产物：`docs/demos/region-board.html`（第 3 条的 demo，第二版，**未提交**）。
   在线版：https://claude.ai/artifact/GuYHyn4grFDMd2N7Wxhgwe（私有）。
