@@ -54,7 +54,7 @@ interface ExerciseCardProps {
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   onRename?: () => void;
   /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
-  onSwitchVariant?: (variantId: string | undefined) => void;
+  onSwitchVariant?: (variantId: string | undefined, name?: string) => void;
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;

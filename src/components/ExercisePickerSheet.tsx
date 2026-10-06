@@ -505,6 +505,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     q.length > 0
     && results.some(r => resolveName(r.ex.name[lang]).toLowerCase() === q.toLowerCase());
   const nFilters = (axis ? 1 : 0) + equips.size;
+  /**
+   * 整理视图：搜索 / 部位 / 器材 / 计数在整理时没用（就是在给当前部位排列），收起来把格子顶上去。
+   * 走查实测：不收的话 384×854 上格子只露一行半，「未细分」在下面很远，往上拖时目标列不在屏上。
+   */
+  const arrangeView = !!boardPart && arranging;
 
   // ===== 浏览轴 chips =====
   const axisChips = useMemo(() => {
@@ -776,7 +781,21 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         </div>
         {/* 「未细分」那一片也是落点：拖进来＝放回未细分。空着时只在整理里留一块落点 */}
         <div className="region-unzone" data-region-col="">
-          {unassigned.length > 0
+          {arranging && unassigned.length > 0 ? (
+            // 整理：未细分也排成小卡（同一套列宽），就在格子正下方，拖动距离短
+            <>
+              <div className="flex items-center gap-1.5 mb-2 px-0.5 mt-3">
+                <CircleDashed size={13} className="text-tertiary" />
+                <h3 className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">
+                  {isCn ? '未细分' : 'Unassigned'}
+                </h3>
+                <span className="text-[10px] font-bold text-tertiary">· {unassigned.length}</span>
+              </div>
+              <div className="region-tray" data-drop-body="" style={{ ['--region-cols' as string]: Math.min(regs.length, 5) || 5 }}>
+                {unassigned.map(renderCard)}
+              </div>
+            </>
+          ) : unassigned.length > 0
             ? renderGroup(
                 <CircleDashed size={13} className="text-tertiary" />,
                 isCn ? '未细分' : 'Unassigned',
@@ -798,7 +817,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <h3 className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">{title}</h3>
           <span className="text-[10px] font-bold text-tertiary">· {items.length}</span>
         </div>
-        <div className="space-y-2">{items.map(ex => renderRow(ex, inBoard))}</div>
+        <div className="space-y-2" {...(inBoard ? { 'data-drop-body': '' } : {})}>
+          {items.map(ex => renderRow(ex, inBoard))}
+        </div>
       </div>
     );
   };
@@ -854,9 +875,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           onPointerCancel={handlePointerEnd}
         >
           <h2 className="font-display text-lg font-semibold text-primary">
-            {isCn ? '添加动作' : 'Add Exercise'}
+            {arrangeView
+              ? `${isCn ? '整理' : 'Arrange'} · ${getTagName(boardPart!)}`
+              : isCn ? '添加动作' : 'Add Exercise'}
           </h2>
-          {sessionAdded > 0 && (
+          {sessionAdded > 0 && !arrangeView && (
             <span
               key={sessionAdded}
               className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold"
@@ -899,7 +922,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         </div>
 
         {/* 搜索行 */}
-        <div className="flex gap-2 px-4 pt-1.5 pb-2.5 flex-shrink-0">
+        <div className={`flex gap-2 px-4 pt-1.5 pb-2.5 flex-shrink-0${arrangeView ? ' hidden' : ''}`}>
           <div className="relative flex-1">
             <Search
               size={16}
@@ -944,7 +967,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         </div>
 
         {/* 筛选区收起态：一行摘要（键盘弹起时） */}
-        {filtersCollapsed && (
+        {filtersCollapsed && !arrangeView && (
           <div className="flex items-center gap-2 px-4 pb-2 flex-shrink-0">
             <button
               type="button"
@@ -975,7 +998,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         )}
 
         {/* 部位行（单选，铺开多行，0 结果隐藏） */}
-        {!filtersCollapsed && (
+        {!filtersCollapsed && !arrangeView && (
         <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0 items-center">
           <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
             {isCn ? '部位' : 'PART'}
@@ -1018,7 +1041,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         )}
 
         {/* 器材行（多选，联动计数，0 隐藏，铺开多行）—— 与部位行用分隔线隔开 */}
-        {!filtersCollapsed && (
+        {!filtersCollapsed && !arrangeView && (
         <div className="mx-4 pt-2.5 pb-2.5 flex-shrink-0 border-t border-divider flex flex-wrap gap-2 items-center">
           <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
             {isCn ? '器材' : 'GEAR'}
@@ -1059,7 +1082,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         )}
 
         {/* 计数 / 清空 */}
-        {(q || nFilters > 0) && (
+        {(q || nFilters > 0) && !arrangeView && (
           <div className="flex items-center justify-between px-4 pb-1.5 flex-shrink-0 text-[11px] font-semibold text-tertiary">
             <span>
               <b className="text-secondary">{totalCount}</b> {isCn ? '个结果' : 'results'}

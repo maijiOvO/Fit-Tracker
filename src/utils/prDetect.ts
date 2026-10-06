@@ -83,7 +83,7 @@ interface DetectParams {
   resolveName: (name: string) => string;
   /**
    * 项目键（第 8 条）：同一动作的不同练法各算各的纪录。不传＝按现名（旧行为）。
-   * 印上写的也是它（「高位下拉 · 宽握」）。
+   * 印上写的也是它（「高位下拉（宽握）」）。
    */
   keyOf?: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /** 判断自重类动作：activeMetrics 不含 weight 时才启用 reps 口径 */

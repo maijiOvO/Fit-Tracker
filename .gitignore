@@ -69,3 +69,6 @@ android/app/*.jks
 android/app/release/
 **/*-release.apk
 **/*-release.aab
+
+# 本机独立开发库（scripts/dev-with-local-db.mjs），种子是生产快照的拷贝，含个人数据
+.dev-data/

@@ -851,7 +851,8 @@ const main = async () => {
     await menu.getByRole('button', { name: /删除这个细分/ }).click();
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/已删除细分「内侧」，2 个动作回到未细分/.test(t)) throw new Error(`remove toast: ${t}`);
-    const un = await sheet.locator('.region-unzone [data-testid="picker-sheet-exercise"]').allInnerTexts();
+    // 整理时「未细分」是小卡托盘（不是动作行）
+    const un = await sheet.locator('.region-unzone [data-testid="picker-region-card"]').allInnerTexts();
     if (!un.some(x => x.includes('绳索夹胸'))) throw new Error('exercises of the removed region did not go back to unassigned');
     await clearToasts();
 

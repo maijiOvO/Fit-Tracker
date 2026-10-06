@@ -160,7 +160,7 @@ export function useExerciseStats() {
         const w = weights.length ? Math.max(...weights) : 0;
         // 按显示名聚合：改过名的动作，旧名下的记录和新名下的是同一个动作，
         // 原先按存的原名分组会在 PR 列表里裂成两行（旧名那行还显示成新名）。
-        // 练法（第 8 条）各占一行：「高位下拉 · 宽握」和「高位下拉」是两个纪录
+        // 练法（第 8 条）各占一行：「高位下拉（宽握）」和「高位下拉」是两个纪录
         const originalName = liftKey(ex);
         if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
           liftsMap[originalName] = { weight: w, originalName, baseName: resolveName(ex.name) };

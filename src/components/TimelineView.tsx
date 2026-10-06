@@ -181,7 +181,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
   merged,
 }) => {
   const isCN = lang === Language.CN;
-  // 动作名带练法（第 8 条）：「高位下拉 · 宽握」
+  // 动作名带练法（第 8 条）：「高位下拉（宽握）」
   const { liftKey } = useExercisePrefs();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);

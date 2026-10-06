@@ -84,7 +84,7 @@ interface ExercisePrefsContextValue {
   /** 一条记录的练法名：现名优先，练法被删了用记录里当时的名字；标准返回 '' */
   variantLabel: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /**
-   * 「项目键」：现名，带练法时是「现名 · 练法」。PR、PR 列表、趋势图、历史筛选都按它分开。
+   * 「项目键」：现名，带练法时是「现名（练法）」。PR、PR 列表、趋势图、历史筛选都按它分开。
    */
   liftKey: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /** 部位下被删掉（隐藏）的系统细分，可恢复 */
@@ -298,9 +298,11 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (ex: { name: string; variantId?: string; variantName?: string }) => {
       const base = resolveName(ex.name).trim();
       const v = variantLabel(ex);
-      return v ? `${base} · ${v}` : base;
+      // 括号而不是「 · 」：时间线副行本来就用「 · 」隔开不同动作，「上斜哑铃卧推 · 宽握」读起来像两个动作（走查实测）
+      if (!v) return base;
+      return lang === Language.CN ? `${base}（${v}）` : `${base} (${v})`;
     },
-    [resolveName, variantLabel],
+    [lang, resolveName, variantLabel],
   );
 
   /** 原键 → 显示名归并。同一动作有多个原键时，键名正好等于显示名的那个说了算。 */

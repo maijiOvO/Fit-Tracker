@@ -1108,9 +1108,15 @@ button {
   white-space: nowrap;
 }
 .region-head b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 12px;
   font-weight: 700;
   color: var(--text-primary);
+}
+.region-head i {
+  flex: none;
 }
 .region-head i {
   font-style: normal;
@@ -1153,7 +1159,8 @@ button {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  word-break: break-all;
+  /* 中文本来就逐字可断；英文要按词换行，只有单个超长词才强拆（break-all 会拆成「Dumbb / ell Fly」） */
+  overflow-wrap: anywhere;
 }
 .region-card-name svg {
   color: var(--warning);
@@ -1261,6 +1268,11 @@ button {
 }
 .region-head.is-editable b {
   border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.region-tray {
+  display: grid;
+  grid-template-columns: repeat(var(--region-cols), minmax(0, 1fr));
+  gap: 5px;
 }
 .region-slot {
   min-height: 48px;

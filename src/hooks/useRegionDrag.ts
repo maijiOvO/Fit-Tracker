@@ -208,11 +208,14 @@ export function useRegionDrag(opts: Options): void {
     /** 手指下的落点：细分 id / ''（未细分那一片）/ null（格子外） */
     const hitTarget = (x: number, y: number): string | null => {
       const board = R.querySelector('[data-region-board]');
-      const un = R.querySelector('[data-region-col=""]');
       if (!board) return null;
       const br = board.getBoundingClientRect();
-      if (un && y >= un.getBoundingClientRect().top - 8) return '';
-      if (y < br.top - 4 || y > br.bottom + 8) return null;
+      // 「未细分」只从它的卡片 / 行开始算；它的小标题那一条归格子末尾 ——
+      // 最长那一列的尾巴紧贴着它，不留这一条的话，往最长的列末尾放会被判成「放回未细分」（走查实测）
+      const body = R.querySelector('[data-region-col=""] [data-drop-body]') ?? R.querySelector('[data-region-col=""]');
+      const bodyTop = body ? body.getBoundingClientRect().top : Infinity;
+      if (y >= bodyTop - 4) return '';
+      if (y < br.top - 4) return null;
       for (const c of R.querySelectorAll<HTMLElement>('[data-region-board] [data-region-col]')) {
         const cr = c.getBoundingClientRect();
         if (x >= cr.left - 3 && x <= cr.right + 3) return c.dataset.regionCol!;

@@ -19,7 +19,8 @@ interface VariantModalProps {
   /** 记录里存的动作名（任意曾用名都行，按库里的定义找练法） */
   exerciseName: string;
   currentVariantId?: string;
-  onSelect: (variantId: string | undefined) => void;
+  /** name 一并给：刚建的练法还没进状态，按 id 查不到名字（走查实测：记录里漏了 variantName） */
+  onSelect: (variantId: string | undefined, name?: string) => void;
   onClose: () => void;
 }
 
@@ -41,15 +42,15 @@ export const VariantModal: React.FC<VariantModalProps> = ({
 
   const isCn = lang === Language.CN;
   const variants = variantsOf(exerciseName);
-  const pick = (id: string | undefined) => {
-    onSelect(id);
+  const pick = (id: string | undefined, name?: string) => {
+    onSelect(id, name);
     onClose();
   };
   const create = (name: string) => {
     const id = addVariant(exerciseName, name);
     if (!id) return; // 重名：已 toast，留着改
     setDraft('');
-    pick(id);
+    pick(id, name.trim());
   };
   const suggestions = (isCn ? SUGGEST_CN : SUGGEST_EN).filter(n => !variants.some(v => v.name === n));
 
@@ -90,7 +91,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       >
         <button
           type="button"
-          onClick={() => pick(id)}
+          onClick={() => pick(id, id ? name : undefined)}
           aria-pressed={on}
           className="flex-1 min-w-0 min-h-[48px] px-4 flex items-center gap-2.5 text-left text-sm font-bold text-primary active:bg-card-hover"
           data-testid="variant-option"

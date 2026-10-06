@@ -166,7 +166,7 @@ export interface UseWorkoutMutationsResult {
   markActiveSchedulePending: React.MutableRefObject<boolean>;
 
   /** 切换一张卡的练法（第 8 条）；undefined＝标准 */
-  switchExerciseVariant: (exerciseId: string, variantId: string | undefined) => void;
+  switchExerciseVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
   /** 添加动作到当前训练 */
   addExerciseToWorkout: (
     ex: { id: string; name: { en: string; cn: string }; category?: ExerciseCategory; exerciseConfig?: any },
@@ -852,14 +852,16 @@ export function useWorkoutMutations({
    * 已经有做完 / 改过的组：只换标签，不动组。
    */
   const switchExerciseVariant = useCallback(
-    (exerciseId: string, variantId: string | undefined) => {
+    (exerciseId: string, variantId: string | undefined, name?: string) => {
       setCurrentWorkout((p: WorkoutSession) => {
         const exs = p.exercises ?? [];
         const idx = exs.findIndex(e => e.id === exerciseId);
         if (idx < 0) return p;
         const ex = exs[idx];
         if ((ex.variantId || undefined) === (variantId || undefined)) return p;
-        const variantName = variantId ? variantsOf(ex.name).find(v => v.id === variantId)?.name : undefined;
+        const variantName = variantId
+          ? name || variantsOf(ex.name).find(v => v.id === variantId)?.name
+          : undefined;
         const untouched = ex.sets.every(
           st => st.ghost && !Object.values(st.touched ?? {}).some(Boolean),
         );

@@ -73,7 +73,7 @@ export interface NewWorkoutTabProps {
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onRenameExercise: (id: string, currentName: string) => void;
   /** 换练法（第 8 条） */
-  onSwitchVariant: (exerciseId: string, variantId: string | undefined) => void;
+  onSwitchVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
   onDeleteLibraryExercise: (id: string) => void;
   /** 弹层关闭后需要滚动定位并高亮的动作卡 id */
   flashExerciseId: string | null;
@@ -433,7 +433,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onOpenTimePicker={onOpenTimePicker}
               onToggleNote={onToggleNote}
               onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
-              onSwitchVariant={v => onSwitchVariant(ex.id, v)}
+              onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
               onRename={(() => {
                 const def = findExerciseDef(ex.name);
                 return def ? () => onRenameExercise(def.id, resolveName(ex.name)) : undefined;
