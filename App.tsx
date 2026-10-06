@@ -840,7 +840,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onClose={() => setShowRenameExerciseModal(false)}
         onConfirm={() => {
           if (!exerciseToRename || !newExerciseNameInput) return;
-          prefs.renameExercise(exerciseToRename.id, newExerciseNameInput);
+          // 重名会被拒（toast 说明），弹窗留着让人改
+          if (!prefs.renameExercise(exerciseToRename.id, newExerciseNameInput)) return;
           setShowRenameExerciseModal(false);
           setExerciseToRename(null);
           setNewExerciseNameInput('');

@@ -797,6 +797,50 @@ const main = async () => {
     return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
+  // 第 7 条：训练卡 ⋯ → 重命名。改的是动作库里的名字，卡片立刻显示新名；
+  // 撞上另一个动作的现名 / 曾用名时拒绝，弹窗不关（否则两个动作的历史会被认成一个）。
+  await step(page, 'rename-exercise-from-card', async () => {
+    const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
+    const title = card.locator('h3').first();
+    const before = (await title.textContent())?.trim();
+    const openRename = async () => {
+      await card.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
+      await card.getByRole('menuitem', { name: /重命名|Rename/ }).click();
+      const dlg = page.locator('[role="dialog"]');
+      await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+      return dlg;
+    };
+
+    // 重名：拿库里另一个动作的名字，必须被拒
+    let dlg = await openRename();
+    const other = before === '哑铃平板卧推' ? '杠铃平板卧推' : '哑铃平板卧推';
+    await dlg.locator('input').fill(other);
+    await dlg.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }).click();
+    await page.waitForTimeout(300);
+    if (!(await dlg.isVisible())) throw new Error(`renaming to another exercise's name "${other}" was accepted`);
+    await dlg.getByRole('button', { name: /^(取消|Cancel)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    // 报错 toast 收掉，别让它活到后面的英文扫雷里
+    for (const x of await page.locator('[data-testid="toast"] [aria-label="dismiss"]').all()) await x.click();
+
+    // 正常改名
+    const fresh = 'E2E 改名卧推';
+    dlg = await openRename();
+    await dlg.locator('input').fill(fresh);
+    await dlg.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    const after = (await title.textContent())?.trim();
+    if (after !== fresh) throw new Error(`card title did not follow rename (${before} → ${after})`);
+
+    // 旧名记成曾用名：覆盖层里带着它（历史记录不改写，靠它认回来）
+    const aliases = await page.evaluate(() => {
+      const raw = localStorage.getItem(lsKey('fitlog_exercise_overrides')) || '{}';
+      return Object.values(JSON.parse(raw)).flatMap(o => o.aliases || []);
+    });
+    if (!aliases.includes(before)) throw new Error(`old name "${before}" not kept as alias: ${JSON.stringify(aliases)}`);
+    return `${before} → ${after}; clash with "${other}" rejected; alias kept`;
+  });
+
   await step(page, 'back-to-tab-from-workout', async () => {
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
     // 现在工作台里有一个刚加的动作，返回会先确认

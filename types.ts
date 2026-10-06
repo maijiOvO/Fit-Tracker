@@ -120,6 +120,13 @@ export interface ExerciseDefinition {
   };
   bodyPart: string;
   tags: string[];
+  /**
+   * 曾用名（第 7 条改名）。历史记录里存的是当时的名字，**一律不改写**；
+   * 名字解析认「原名 + 曾用名 + 现名」，所以改过几次名，旧记录都还认得回来。
+   * 内置动作改名时旧名写在这里；用户改名时旧名推进 exerciseOverrides[id].aliases
+   * （放进已有的同步容器，不新增 prefs key）。可选字段，旧数据天然兼容。
+   */
+  aliases?: string[];
   // ✅ 新增这一行，允许存储分类信息
   category?: ExerciseCategory;
   

@@ -37,6 +37,12 @@ interface ExercisePrefsContextValue {
   /** ============ State ============ */
   customTags: CustomTag[];
   customExercises: ExerciseDefinition[];
+  /**
+   * 备注 / 维度配置 / 收藏都按名字存，存的是「当时」的名字（可能是旧名、可能是另一种语言）。
+   * 这里给出去的是【按当前显示名归并过的视图】：键 = resolveName(原键)。
+   * 所以读处一律拿 resolveName(...) 去查就对，跟语言、改没改过名都无关；
+   * 存储里的原键不动（兼容旧数据），写入走下面的 actions，它们会找回原键。
+   */
   exerciseNotes: Record<string, string>;
   exerciseMetricConfigs: Record<string, string[]>;
   starredExercises: Record<string, number>;
@@ -58,6 +64,8 @@ interface ExercisePrefsContextValue {
 
   /** ============ Helpers（纯函数） ============ */
   resolveName: (storedName: string) => string;
+  /** 任意一个名字（原名 / 现名 / 曾用名，中英皆可）→ 它属于的动作定义；库里没有返回 undefined */
+  findExerciseDef: (name: string) => ExerciseDefinition | undefined;
   getTagName: (tid: string) => string;
   getActiveMetrics: (exerciseName: string) => string[];
 
@@ -69,7 +77,8 @@ interface ExercisePrefsContextValue {
   saveExerciseTags: (exerciseId: string, bodyPart: string, tags: string[]) => void;
   renameTag: (id: string, newName: string) => void;
   deleteTag: (id: string) => Promise<void>;
-  renameExercise: (exerciseId: string, newName: string) => void;
+  /** 返回 false = 没改成（重名 / 空名），调用方别关弹窗 */
+  renameExercise: (exerciseId: string, newName: string) => boolean;
   deleteLibraryExercise: (
     exerciseId: string,
     options?: { skipConfirm?: boolean },
@@ -140,7 +149,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { lang } = useUserSettingsContext();
-  const { confirm, toastUndo } = useUiOverlay();
+  const { confirm, toast, toastUndo } = useUiOverlay();
 
   const [customTags, setCustomTags] = useState<CustomTag[]>(() =>
     readJSON<CustomTag[]>(LS_KEYS.customTags, []),
@@ -148,10 +157,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   const [customExercises, setCustomExercises] = useState<ExerciseDefinition[]>(() =>
     readJSON<ExerciseDefinition[]>(LS_KEYS.customExercises, []),
   );
-  const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>(() =>
+  const [rawNotes, setExerciseNotes] = useState<Record<string, string>>(() =>
     readJSON<Record<string, string>>(LS_KEYS.exerciseNotes, {}),
   );
-  const [exerciseMetricConfigs, setExerciseMetricConfigs] = useState<
+  const [rawMetricConfigs, setExerciseMetricConfigs] = useState<
     Record<string, string[]>
   >(() => {
     const parsed = readJSON<Record<string, string[]>>(LS_KEYS.exerciseMetricConfigs, {});
@@ -159,7 +168,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     if (mutated) writeJSON(LS_KEYS.exerciseMetricConfigs, cleaned);
     return cleaned;
   });
-  const [starredExercises, setStarredExercises] = useState<Record<string, number>>(() =>
+  const [rawStarred, setStarredExercises] = useState<Record<string, number>>(() =>
     readJSON<Record<string, number>>(LS_KEYS.starredExercises, {}),
   );
   const [exerciseOverrides, setExerciseOverrides] = useState<
@@ -173,24 +182,77 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   /** ====================== Helpers ====================== */
 
+  /**
+   * 名字索引：一个动作认得的全部名字 → 定义。
+   * 三轮登记、先到先得：现名（覆盖层）→ 原名（中英）→ 曾用名。
+   * 现名优先，是为了曾用名和别的动作现名撞车时，以现名为准。
+   */
+  const nameIndex = useMemo(() => {
+    const m = new Map<string, ExerciseDefinition>();
+    const defs = [...DEFAULT_EXERCISES, ...customExercises];
+    const put = (n: string | undefined, d: ExerciseDefinition) => {
+      const k = (n || '').trim();
+      if (k && !m.has(k)) m.set(k, d);
+    };
+    for (const d of defs) {
+      const over = exerciseOverrides[d.id];
+      put(over?.name?.cn, d);
+      put(over?.name?.en, d);
+    }
+    for (const d of defs) {
+      put(d.name.cn, d);
+      put(d.name.en, d);
+    }
+    for (const d of defs) {
+      for (const a of d.aliases ?? []) put(a, d);
+      for (const a of exerciseOverrides[d.id]?.aliases ?? []) put(a, d);
+    }
+    return m;
+  }, [customExercises, exerciseOverrides]);
+
+  const findExerciseDef = useCallback(
+    (name: string) => nameIndex.get((name || '').trim()),
+    [nameIndex],
+  );
+
+  /** 存的名字（原名 / 曾用名 / 另一语言名）→ 当前语言下的现名。库里没有的名字原样返回。 */
   const resolveName = useCallback(
     (storedName: string): string => {
-      const allDef = [...DEFAULT_EXERCISES, ...customExercises];
-      const def = allDef.find(d => {
-        const over = exerciseOverrides[d.id];
-        return (
-          d.name.en === storedName ||
-          d.name.cn === storedName ||
-          over?.name?.en === storedName ||
-          over?.name?.cn === storedName
-        );
-      });
+      const def = findExerciseDef(storedName);
       if (def) {
-        return exerciseOverrides[def.id]?.name?.[lang] || def.name[lang];
+        return exerciseOverrides[def.id]?.name?.[lang] || def.name[lang] || storedName;
       }
       return storedName;
     },
-    [customExercises, exerciseOverrides, lang],
+    [findExerciseDef, exerciseOverrides, lang],
+  );
+
+  /** 原键 → 显示名归并。同一动作有多个原键时，键名正好等于显示名的那个说了算。 */
+  const byDisplayName = useCallback(
+    <T,>(raw: Record<string, T>): Record<string, T> => {
+      const out: Record<string, T> = {};
+      for (const [k, v] of Object.entries(raw)) {
+        const d = resolveName(k);
+        if (!(d in out) || k === d) out[d] = v;
+      }
+      return out;
+    },
+    [resolveName],
+  );
+  const exerciseNotes = useMemo(() => byDisplayName(rawNotes), [byDisplayName, rawNotes]);
+  const exerciseMetricConfigs = useMemo(
+    () => byDisplayName(rawMetricConfigs),
+    [byDisplayName, rawMetricConfigs],
+  );
+  const starredExercises = useMemo(() => byDisplayName(rawStarred), [byDisplayName, rawStarred]);
+
+  /** 写入用：这个名字在原始存储里对应的全部键（同一动作的旧名 / 另一语言名都算） */
+  const rawKeysFor = useCallback(
+    (raw: Record<string, unknown>, name: string): string[] => {
+      const d = resolveName(name);
+      return Object.keys(raw).filter(k => k === name || resolveName(k) === d);
+    },
+    [resolveName],
   );
 
   const getTagName = useCallback(
@@ -214,10 +276,12 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [customTags, tagRenameOverrides, lang],
   );
 
+  // 按显示名查：原先直接拿传进来的名字查原键，中文下设的「跑步机 = 距离/时长/速度」
+  // 到英文模式（名字是 Treadmill）就查不到，有氧变回重量 × 次数。
   const getActiveMetrics = useCallback(
     (exerciseName: string): string[] =>
-      exerciseMetricConfigs[exerciseName] || ['weight', 'reps'],
-    [exerciseMetricConfigs],
+      exerciseMetricConfigs[resolveName(exerciseName)] || ['weight', 'reps'],
+    [exerciseMetricConfigs, resolveName],
   );
 
   /** ====================== Actions ====================== */
@@ -225,7 +289,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   const toggleMetric = useCallback(
     (exerciseName: string, metricKey: string) => {
       setExerciseMetricConfigs(prev => {
-        const current = prev[exerciseName] || ['weight', 'reps'];
+        // 写回这个动作原来就有的那个键（可能是旧名 / 另一语言名），没有才用显示名新开
+        const key = rawKeysFor(prev, exerciseName)[0] ?? resolveName(exerciseName);
+        const current = prev[key] || ['weight', 'reps'];
         const normalizedCurrent = current.map(m => m.trim());
         const normalizedKey = metricKey.trim();
         const isCurrentlySelected = normalizedCurrent.includes(normalizedKey);
@@ -239,50 +305,54 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         }
         if (next.length === 0) next = ['reps'];
         const cleanNext = next.map(m => m.trim()).filter(m => m.length > 0);
-        const updated = { ...prev, [exerciseName]: cleanNext };
+        const updated = { ...prev, [key]: cleanNext };
         writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
         storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
         scheduleDebouncedFitlogPush();
         return updated;
       });
     },
-    [],
+    [rawKeysFor, resolveName],
   );
 
   const resetMetricsToDefault = useCallback((exerciseName: string) => {
     setExerciseMetricConfigs(prev => {
       const updated = { ...prev };
-      delete updated[exerciseName];
+      for (const k of rawKeysFor(prev, exerciseName)) delete updated[k];
       writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
       storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
       scheduleDebouncedFitlogPush();
       return updated;
     });
-  }, []);
+  }, [rawKeysFor]);
 
   const toggleStarExercise = useCallback((exerciseName: string) => {
     setStarredExercises(prev => {
       const next = { ...prev };
-      if (next[exerciseName]) delete next[exerciseName];
-      else next[exerciseName] = Date.now();
+      const keys = rawKeysFor(prev, exerciseName);
+      // 取消收藏要把同一动作的所有原键一起删，否则旧名那个键会让它「取消不掉」
+      if (keys.some(k => next[k])) for (const k of keys) delete next[k];
+      else next[resolveName(exerciseName)] = Date.now();
       writeJSON(LS_KEYS.starredExercises, next);
       storage.setItem(LS_KEYS.starredLastUpdate, Date.now().toString());
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
       return next;
     });
-  }, []);
+  }, [rawKeysFor, resolveName]);
 
   const saveExerciseNote = useCallback((name: string, note: string) => {
     setExerciseNotes(prev => {
-      const next = { ...prev, [name]: note };
-      if (!note.trim()) delete next[name];
+      const next = { ...prev };
+      const keys = rawKeysFor(prev, name);
+      for (const k of keys) delete next[k];
+      if (note.trim()) next[resolveName(name)] = note;
       writeJSON(LS_KEYS.exerciseNotes, next);
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
       return next;
     });
-  }, []);
+  }, [rawKeysFor, resolveName]);
 
   const saveExerciseTags = useCallback(
     (exerciseId: string, bodyPart: string, tags: string[]) => {
@@ -373,22 +443,91 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [confirm, customTags, lang, tagRenameOverrides, toastUndo],
   );
 
+  /**
+   * 改名（第 7 条）。改的是动作库里的名字，历史记录一条都不改写 ——
+   * 旧名推进 aliases，名字解析靠它把旧记录认回来；历史 / PR / 图表 / 备注 / 设置 / 收藏跟着走。
+   *   - 覆盖层 name 按语言合并（只动当前语言那一个）
+   *   - 与别的动作现名 / 曾用名重名 → 拒绝（否则两个动作的历史会被认成一个）
+   *   - 备注 / 维度配置 / 收藏的原键搬到新名下（视图本来就认得旧键，搬是为了存储整洁）
+   */
   const renameExercise = useCallback(
-    (exerciseId: string, newName: string) => {
-      setExerciseOverrides(prev => {
-        const current = prev[exerciseId] || {};
-        const next: Partial<ExerciseDefinition> = {
+    (exerciseId: string, newName: string): boolean => {
+      const next = newName.trim();
+      const def = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === exerciseId);
+      if (!def || !next) return false;
+      const current = exerciseOverrides[exerciseId] || {};
+      const oldName = current.name?.[lang] || def.name[lang];
+      if (next === oldName) return true;
+
+      const clash = findExerciseDef(next);
+      if (clash && clash.id !== exerciseId) {
+        toast(
+          lang === Language.CN
+            ? `「${next}」已经是另一个动作的名字（或曾用名）`
+            : `"${next}" is already used by another exercise`,
+          'error',
+        );
+        return false;
+      }
+
+      // 在改名前的状态下找出要搬的原键（此刻的 resolveName 还认旧名）
+      const moveKeys = <T,>(raw: Record<string, T>): Record<string, T> | null => {
+        const keys = rawKeysFor(raw, oldName);
+        if (!keys.length) return null;
+        const out = { ...raw };
+        const keep = keys.includes(oldName) ? oldName : keys[0];
+        const val = raw[keep];
+        for (const k of keys) delete out[k];
+        out[next] = val;
+        return out;
+      };
+      const notes = moveKeys(rawNotes);
+      const metrics = moveKeys(rawMetricConfigs);
+      const starred = moveKeys(rawStarred);
+
+      // 曾用名：旧名进去、新名出来（改回原来的名字时它就不再是「曾用」）
+      const aliases = [...new Set([...(current.aliases ?? []), oldName])].filter(
+        a => a && a !== next,
+      );
+      const updated = {
+        ...exerciseOverrides,
+        [exerciseId]: {
           ...current,
-          name: { ...((current.name as any) || {}), [lang]: newName },
-        };
-        const updated = { ...prev, [exerciseId]: next };
-        writeJSON(LS_KEYS.exerciseOverrides, updated);
-        return updated;
-      });
+          name: { ...((current.name as ExerciseDefinition['name']) || {}), [lang]: next },
+          aliases,
+        } as Partial<ExerciseDefinition>,
+      };
+      setExerciseOverrides(updated);
+      writeJSON(LS_KEYS.exerciseOverrides, updated);
+      if (notes) {
+        setExerciseNotes(notes);
+        writeJSON(LS_KEYS.exerciseNotes, notes);
+      }
+      if (metrics) {
+        setExerciseMetricConfigs(metrics);
+        writeJSON(LS_KEYS.exerciseMetricConfigs, metrics);
+        storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
+      }
+      if (starred) {
+        setStarredExercises(starred);
+        writeJSON(LS_KEYS.starredExercises, starred);
+        storage.setItem(LS_KEYS.starredLastUpdate, String(Date.now()));
+      }
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
+      return true;
     },
-    [lang],
+    [
+      customExercises,
+      exerciseOverrides,
+      findExerciseDef,
+      lang,
+      rawKeysFor,
+      rawMetricConfigs,
+      rawNotes,
+      rawStarred,
+      toast,
+    ],
   );
 
   const deleteLibraryExercise = useCallback(
@@ -532,6 +671,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       setExerciseOverrides,
       setTagRenameOverrides,
       resolveName,
+      findExerciseDef,
       getTagName,
       getActiveMetrics,
       toggleMetric,
@@ -557,6 +697,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       exerciseOverrides,
       tagRenameOverrides,
       resolveName,
+      findExerciseDef,
       getTagName,
       getActiveMetrics,
       toggleMetric,

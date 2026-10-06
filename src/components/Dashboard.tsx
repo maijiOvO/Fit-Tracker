@@ -334,7 +334,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {bestLifts.map(lift => {
           const isExpanded = selectedPRProject === lift.key;
-          const isStarred = !!prefs.starredExercises[lift.key];
+          const isStarred = !!prefs.starredExercises[lift.name];
           const historyExs = workouts
             .flatMap(w => w.exercises.map(e => ({
               ...e,
@@ -342,7 +342,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               workoutId: w.id,
               fromSchedule: w.fromSchedule,
             })))
-            .filter(e => e.name === lift.key)
+            .filter(e => prefs.resolveName(e.name) === lift.name)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
           return (
@@ -358,7 +358,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      prefs.toggleStarExercise(lift.key);
+                      prefs.toggleStarExercise(lift.name);
                     }}
                     className={`p-2.5 rounded-control transition-colors ${
                       isStarred

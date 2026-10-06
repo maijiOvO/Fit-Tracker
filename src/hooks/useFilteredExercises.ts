@@ -14,6 +14,7 @@ import {
   ExerciseCategory,
 } from '../constants/exercises';
 import { Language } from '../../types';
+import { mergeOverride } from '../utils/exerciseOverride';
 import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 
 export interface FilteredExercisesParams {
@@ -37,7 +38,7 @@ export function useFilteredExercises({
     const allBase = [...DEFAULT_EXERCISES, ...customExercises];
 
     const all = allBase
-      .map(ex => (exerciseOverrides[ex.id] ? { ...ex, ...exerciseOverrides[ex.id] } : ex))
+      .map(ex => mergeOverride(ex, exerciseOverrides[ex.id]))
       .filter(ex => !(exerciseOverrides[ex.id] as any)?.hidden)
       .filter(ex =>
         activeLibraryCategory === null
@@ -65,6 +66,8 @@ export function useFilteredExercises({
             const n = getTagName(t);
             if (n) tagNames.push(n);
           }
+          // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
+          tagNames.push(...(ex.aliases ?? []));
           score = scoreEntry(
             buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames),
             tokens,
@@ -152,7 +155,9 @@ export function useExerciseStats() {
         // 底稿行不算数据（§12.6）：未收尾的草稿里可能带着 ghost 行，别让它顶进 PR
         const weights = (ex.sets ?? []).filter(s => !s.ghost).map(s => s.weight || 0);
         const w = weights.length ? Math.max(...weights) : 0;
-        const originalName = ex.name;
+        // 按显示名聚合：改过名的动作，旧名下的记录和新名下的是同一个动作，
+        // 原先按存的原名分组会在 PR 列表里裂成两行（旧名那行还显示成新名）。
+        const originalName = resolveName(ex.name);
         if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
           liftsMap[originalName] = { weight: w, originalName };
         }
@@ -160,7 +165,7 @@ export function useExerciseStats() {
     );
 
     return Object.entries(liftsMap)
-      .map(([key, { weight }]) => ({ name: resolveName(key), key, weight }))
+      .map(([key, { weight }]) => ({ name: key, key, weight }))
       .sort((a, b) => {
         const starA = starredExercises[a.key] || 0;
         const starB = starredExercises[b.key] || 0;

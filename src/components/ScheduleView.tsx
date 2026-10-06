@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Plus, Play, Trash2, Edit2, CalendarClock, Ba
 import { ExerciseDefinition, Language, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
 import { useScheduleContext } from '../contexts';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import ScheduleEditorModal from './ScheduleEditorModal';
 import { haptic, H } from '../utils/haptics';
@@ -70,6 +71,8 @@ function statusBadge(status: ScheduledWorkout['status'], lang: Language) {
 const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onStartScheduledSession, onOpenLibraryForPicker }) => {
   const { confirm } = useUiOverlay();
   const { schedules, schedulesByDate, updateSchedule, deleteSchedule } = useScheduleContext();
+  // 计划里存的是排计划那天的名字；改过名后要显示现名
+  const { resolveName } = useExercisePrefs();
 
   const today = useMemo(() => new Date(), []);
   const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -411,7 +414,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                         key={ex.id}
                         className="flex items-center justify-between text-sm border border-divider rounded-chip px-3 py-2"
                       >
-                        <span className="text-primary truncate">{ex.name}</span>
+                        <span className="text-primary truncate">{resolveName(ex.name)}</span>
                         <span className="font-mono tabular-nums text-secondary text-xs">
                           {ex.targetSets ? `${ex.targetSets}×` : ''}
                           {ex.targetReps ?? ''}

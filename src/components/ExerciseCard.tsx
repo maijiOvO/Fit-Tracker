@@ -7,7 +7,7 @@
  * 一律降级为菜单内的墨色文字项，不靠颜色区分危险）。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus } from 'lucide-react';
+import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil } from 'lucide-react';
 import { Exercise, Language } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
@@ -49,6 +49,8 @@ interface ExerciseCardProps {
   onOpenTimePicker: (exIdx: number, setIdx: number, currentSeconds: number) => void;
   onToggleNote: (name: string) => void;
   onOpenMetricModal: (name: string) => void;
+  /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
+  onRename?: () => void;
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
@@ -80,6 +82,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onOpenTimePicker,
   onToggleNote,
   onOpenMetricModal,
+  onRename,
   onSetUpdate,
   onAddSet,
   onRemoveSet,
@@ -217,6 +220,20 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary" />
                   {isCn ? '动作设置' : 'Settings'}
                 </button>
+                {onRename && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRename();
+                    }}
+                  >
+                    <Pencil size={16} strokeWidth={1.75} className="text-tertiary" />
+                    {isCn ? '重命名' : 'Rename'}
+                  </button>
+                )}
                 {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险；
                     真正的危险确认在弹窗里做（全宽实心 + 明确文案）。 */}
                 <button

@@ -12,6 +12,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { DEFAULT_EXERCISES, EQUIPMENT_TAGS } from '../constants/exercises';
 import { ExerciseDefinition } from '../../types';
+import { mergeOverride } from '../utils/exerciseOverride';
 import {
   ExerciseSearchEntry,
   buildSearchEntry,
@@ -55,7 +56,7 @@ export function useExercisePickerData({
   /** 覆盖合并 + 去隐藏后的完整动作库 */
   const merged = useMemo(() => {
     return [...DEFAULT_EXERCISES, ...customExercises]
-      .map(ex => (exerciseOverrides[ex.id] ? { ...ex, ...exerciseOverrides[ex.id] } : ex))
+      .map(ex => mergeOverride(ex, exerciseOverrides[ex.id]))
       .filter(ex => !(exerciseOverrides[ex.id] as any)?.hidden)
       .filter(ex => ex.name && ex.name[lang]);
   }, [customExercises, exerciseOverrides, lang]);
@@ -73,6 +74,8 @@ export function useExercisePickerData({
         const n = getTagName(t);
         if (n) tagNames.push(n);
       }
+      // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
+      tagNames.push(...(ex.aliases ?? []));
       m.set(ex.id, buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames));
     }
     return m;

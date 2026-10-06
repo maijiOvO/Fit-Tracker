@@ -24,6 +24,7 @@ import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { BodyPartPicker } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
 import { plural } from '../utils/format';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -115,6 +116,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   partPrechosenId = null,
 }) => {
   const isCn = lang === Language.CN;
+  const { findExerciseDef } = useExercisePrefs();
   const flashTimerRef = useRef<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -424,6 +426,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onOpenTimePicker={onOpenTimePicker}
               onToggleNote={onToggleNote}
               onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
+              onRename={(() => {
+                const def = findExerciseDef(ex.name);
+                return def ? () => onRenameExercise(def.id, resolveName(ex.name)) : undefined;
+              })()}
               onSetUpdate={(eIdx, setIdx, updates) => {
                 const exs = [...currentWorkout.exercises!];
                 exs[eIdx].sets[setIdx] = { ...exs[eIdx].sets[setIdx], ...updates };

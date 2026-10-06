@@ -26,17 +26,16 @@ export const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'spee
 
 /**
  * 默认动作库
- */
-
-/**
- * 默认动作库
+ *
+ * 改内置动作的名字时，旧名必须进 aliases：历史记录里存的是旧名，不改写；
+ * 名字解析靠 aliases 把旧记录认回来（ExercisePrefsContext 的名字索引）。
  */
 export const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   // === 胸部 (Chest) ===
   { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
-  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '杠铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing'] } },
+  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '上斜杠铃卧推' }, aliases: ['杠铃上斜卧推'], bodyPart: 'subChest', tags: ['tagBarbell'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing'] } },
   { id: 'bp_dumbbell', name: { en: 'Dumbbell Bench Press', cn: '哑铃平板卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
-  { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '哑铃上斜卧推' }, bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
+  { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '上斜哑铃卧推' }, aliases: ['哑铃上斜卧推'], bodyPart: 'subChest', tags: ['tagDumbbell'], category: 'STRENGTH' },
   { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', tags: ['tagCable'], category: 'STRENGTH' },
   { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', tags: ['tagMachine'], category: 'STRENGTH' },
   { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', tags: ['tagBodyweight'], category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'mixed'] } },
@@ -76,7 +75,7 @@ export const DEFAULT_EXERCISES: ExerciseDefinition[] = [
   { id: 'cu_dumbbell', name: { en: 'Dumbbell Curl', cn: '哑铃弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH' },
   { id: 'cu_hammer', name: { en: 'Hammer Curl', cn: '锤式弯举' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH' },
   { id: 'tricep_pushdown', name: { en: 'Tricep Pushdown', cn: '肱三头肌下压' }, bodyPart: 'subArms', tags: ['tagCable'], category: 'STRENGTH' },
-  { id: 'skull_crusher', name: { en: 'Skull Crusher', cn: '哑卧臂屈伸' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagDumbbell'], category: 'STRENGTH' },
+  { id: 'skull_crusher', name: { en: 'Skull Crusher', cn: '仰卧臂屈伸' }, aliases: ['哑卧臂屈伸'], bodyPart: 'subArms', tags: ['tagBarbell', 'tagDumbbell'], category: 'STRENGTH' },
   { id: 'preacher_curl', name: { en: 'Preacher Curl', cn: '牧师凳弯举' }, bodyPart: 'subArms', tags: ['tagBarbell', 'tagMachine'], category: 'STRENGTH' },
   { id: 'overhead_extension_db', name: { en: 'Overhead Tricep Extension', cn: '颈后臂屈伸' }, bodyPart: 'subArms', tags: ['tagDumbbell'], category: 'STRENGTH' },
   
