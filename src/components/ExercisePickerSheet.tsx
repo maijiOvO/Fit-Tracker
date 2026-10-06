@@ -10,13 +10,13 @@
  *   - 标签管理入口在头部（Tags 图标）直达 TagManageModal；长按动作行弹出该动作的管理菜单
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, Filter, History, PencilLine, Plus, Search, Star, Tags, Trash2, X, Zap } from 'lucide-react';
+import { ChevronDown, CircleDashed, Filter, History, PencilLine, Plus, Search, Star, Tags, Trash2, X, Zap } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
-import { useExercisePickerData, PickerAxis } from '../hooks/useExercisePickerData';
+import { useExercisePickerData, PickerAxis, matchAxis } from '../hooks/useExercisePickerData';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
 import { haptic, H } from '../utils/haptics';
@@ -116,6 +116,55 @@ const PickerRow: React.FC<PickerRowProps> = ({
   );
 };
 
+interface RegionCardProps {
+  displayName: string;
+  added: number;
+  isStarred: boolean;
+  isCn: boolean;
+  bindRef: (el: HTMLButtonElement | null) => void;
+  onPick: () => void;
+  onLongPress: () => void;
+}
+
+/**
+ * 细分格里的小卡（第 3 条）：动作行的窄版，跟上面部位 / 器材 chip 同一套样子 ——
+ * 灰底无边框、粗体；已添加＝朱砂实底（同选中态）；收藏是名字前一颗实心星。
+ * 长按同样出管理菜单（菜单第一行是「归到细分」）。
+ */
+const RegionCard: React.FC<RegionCardProps> = ({
+  displayName,
+  added,
+  isStarred,
+  isCn,
+  bindRef,
+  onPick,
+  onLongPress,
+}) => {
+  const press = useLongPress({ onLongPress });
+  return (
+    <button
+      ref={bindRef}
+      type="button"
+      onClick={onPick}
+      {...press.handlers}
+      className={`region-card select-none touch-pan-y${added ? ' is-added' : ''}`}
+      data-testid="picker-region-card"
+    >
+      <span className="region-card-name">
+        {isStarred && <Star size={11} strokeWidth={2} className="inline-block align-[-1px] mr-0.5 fill-current" />}
+        {displayName}
+        {added > 1 && <span className="region-card-x">×{added}</span>}
+      </span>
+      <LongPressAffordance
+        active={press.pressing}
+        label={isCn ? '管理这个动作' : 'Manage'}
+        drawMs={press.drawMs}
+        placement="down"
+      />
+    </button>
+  );
+};
+
 interface ExercisePickerSheetProps {
   open: boolean;
   onClose: () => void;
@@ -152,7 +201,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   onRenameExercise,
   onDeleteExercise,
 }) => {
-  const { starredExercises, resolveName, getTagName, toggleStarExercise } = useExercisePrefs();
+  const {
+    starredExercises,
+    resolveName,
+    getTagName,
+    toggleStarExercise,
+    regionsOf,
+    effectiveRegion,
+    assignRegion,
+  } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
@@ -162,13 +219,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const [axis, setAxis] = useState<PickerAxis>(null);
   const [equips, setEquips] = useState<ReadonlySet<string>>(new Set());
 
-  const { results, equipCounts, axisAvailable, equipIds, customPartIds } =
+  const { results, equipCounts, axisAvailable, equipIds, customPartIds, boardPart } =
     useExercisePickerData({ query, axis, equips });
 
   const inset = useKeyboardInset(open);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const lastPickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 });
   // 长按动作行 → 该动作的管理菜单（编辑标签 / 重命名 / 删除）
   const [menuFor, setMenuFor] = useState<ExerciseDefinition | null>(null);
@@ -352,7 +409,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
   // ===== 分组 =====
   const q = query.trim();
-  const { starredGroup, recentGroup, otherGroup, flatGroup } = useMemo(() => {
+  const { starredGroup, recentGroup, otherGroup, flatGroup, rank } = useMemo(() => {
     const boost = (ex: ExerciseDefinition) => {
       const key = resolveName(ex.name[lang]).toLowerCase();
       const starSet = new Set(Object.keys(starredExercises).map(k => k.toLowerCase()));
@@ -366,7 +423,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       const flat = [...results]
         .sort((a, b) => b.score + boost(b.ex) - (a.score + boost(a.ex)))
         .map(r => r.ex);
-      return { starredGroup: [], recentGroup: [], otherGroup: [], flatGroup: flat };
+      return { starredGroup: [], recentGroup: [], otherGroup: [], flatGroup: flat, rank: new Map<string, number>() };
     }
 
     // 浏览模式：常用 → 最近 → 其余（与原 ExercisePicker 一致）
@@ -405,10 +462,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         - recentExerciseNames.findIndex(n => n.toLowerCase() === kb)
       );
     });
-    return { starredGroup: starred, recentGroup: dedupedRecent, otherGroup: other, flatGroup: [] };
+    // 细分格的列内排序：收藏 → 最近 → 其余（库内顺序），跟上面三组同一个口径
+    const rank = new Map<string, number>();
+    [...starred, ...dedupedRecent, ...other].forEach((ex, i) => rank.set(ex.id, i));
+    return { starredGroup: starred, recentGroup: dedupedRecent, otherGroup: other, flatGroup: [], rank };
   }, [q, results, starredExercises, recentExerciseNames, resolveName, lang]);
 
   const totalCount = results.length;
+  const searchHere = axis ? flatGroup.filter(ex => matchAxis(ex, axis)) : flatGroup;
+  const searchRest = axis ? flatGroup.filter(ex => !matchAxis(ex, axis)) : [];
   const hasExactMatch =
     q.length > 0
     && results.some(r => resolveName(r.ex.name[lang]).toLowerCase() === q.toLowerCase());
@@ -482,10 +544,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         partName={ex.bodyPart ? getTagName(ex.bodyPart) : ''}
         tagNames={(ex.tags ?? []).slice(0, 3).map(t => ({ tag: t, name: getTagName(t), hit: equips.has((t || '').toLowerCase()) }))}
         isCn={isCn}
-        bindRef={el => {
-          if (el) rowRefs.current.set(ex.id, el);
-          else rowRefs.current.delete(ex.id);
-        }}
+        bindRef={bindItemRef(ex.id)}
         onPick={() => {
           if (suppressClickRef.current) {
             suppressClickRef.current = false;
@@ -499,6 +558,91 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         }}
         onToggleStar={() => toggleStarExercise(displayName)}
       />
+    );
+  };
+
+  const bindItemRef = (id: string) => (el: HTMLElement | null) => {
+    if (el) rowRefs.current.set(id, el);
+    else rowRefs.current.delete(id);
+  };
+
+  const renderCard = (ex: ExerciseDefinition) => {
+    const displayName = resolveName(ex.name[lang]);
+    const key = displayName.toLowerCase();
+    return (
+      <RegionCard
+        key={ex.id}
+        displayName={displayName}
+        added={addedCounts[key] || 0}
+        isStarred={Object.keys(starredExercises).some(k => k.toLowerCase() === key)}
+        isCn={isCn}
+        bindRef={bindItemRef(ex.id)}
+        onPick={() => {
+          if (suppressClickRef.current) {
+            suppressClickRef.current = false;
+            return;
+          }
+          handlePick(ex);
+        }}
+        onLongPress={() => {
+          suppressClickRef.current = true;
+          setMenuFor(ex);
+        }}
+      />
+    );
+  };
+
+  /**
+   * 细分格（第 3 条）：上面一排吸顶的细分表头，每个细分下面一列小卡；
+   * 没归细分的用现有动作行列在格子下面。细分超过 5 列时横向滑动。
+   */
+  const renderBoard = (part: string) => {
+    const regs = regionsOf(part);
+    const items = results.map(r => r.ex).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    const by = new Map<string, ExerciseDefinition[]>(regs.map(r => [r.id, []]));
+    const unassigned: ExerciseDefinition[] = [];
+    for (const ex of items) {
+      const rg = effectiveRegion(ex);
+      const col = rg ? by.get(rg) : undefined;
+      if (col) col.push(ex);
+      else unassigned.push(ex);
+    }
+    const scroll = regs.length > 5;
+    return (
+      <>
+        <div
+          className={`region-board${scroll ? ' is-scroll' : ''}`}
+          style={{ ['--region-cols' as string]: regs.length }}
+          data-testid="picker-region-board"
+        >
+          <div className="region-grid region-heads">
+            {regs.map(r => (
+              <div key={r.id} className="region-head">
+                <b>{getTagName(r.id)}</b>
+                <i>{by.get(r.id)!.length}</i>
+              </div>
+            ))}
+          </div>
+          <div className="region-grid">
+            {regs.map(r => (
+              <div key={r.id} className="region-col" role="group" aria-label={getTagName(r.id)}>
+                {by.get(r.id)!.length ? (
+                  by.get(r.id)!.map(renderCard)
+                ) : (
+                  <div className="region-card is-empty" aria-hidden>
+                    —
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        {renderGroup(
+          <CircleDashed size={13} className="text-tertiary" />,
+          isCn ? '未细分' : 'Unassigned',
+          unassigned,
+        )}
+      </>
     );
   };
 
@@ -785,11 +929,20 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-6 custom-scrollbar"
         >
           {q ? (
-            renderGroup(
-              <Search size={13} className="text-accent" />,
-              isCn ? '搜索结果' : 'Results',
-              flatGroup,
+            axis ? (
+              <>
+                {renderGroup(<Search size={13} className="text-accent" />, axisLabel(axis), searchHere)}
+                {renderGroup(
+                  <Search size={13} className="text-accent" />,
+                  axis.kind === 'part' ? (isCn ? '其他部位' : 'Other parts') : isCn ? '其他' : 'Others',
+                  searchRest,
+                )}
+              </>
+            ) : (
+              renderGroup(<Search size={13} className="text-accent" />, isCn ? '搜索结果' : 'Results', flatGroup)
             )
+          ) : boardPart ? (
+            renderBoard(boardPart)
           ) : (
             <>
               {renderGroup(
@@ -846,9 +999,67 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
             onClick={e => e.stopPropagation()}
           >
-            <p className="px-2 pb-1 text-sm font-semibold text-primary">
-              {resolveName(menuFor.name[lang])}
-            </p>
+            {(() => {
+              const regs =
+                (menuFor.category || 'STRENGTH') === 'STRENGTH' ? regionsOf(menuFor.bodyPart) : [];
+              const cur = effectiveRegion(menuFor) ?? '';
+              const where = [
+                menuFor.bodyPart ? getTagName(menuFor.bodyPart) : '',
+                cur ? getTagName(cur) : regs.length ? (isCn ? '未细分' : 'Unassigned') : '',
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              return (
+                <>
+                  <p className="px-2 pb-1 text-sm font-semibold text-primary">
+                    {resolveName(menuFor.name[lang])}
+                    {where && <span className="block text-xs font-medium text-tertiary">{where}</span>}
+                  </p>
+                  {regs.length > 0 && (
+                    <>
+                      <div className="px-2 pt-0.5 text-[10px] font-bold tracking-[0.2em] text-secondary">
+                        {isCn ? '归到细分' : 'REGION'}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pb-1.5" data-testid="menu-region-chips">
+                        {[{ id: '', custom: false }, ...regs].map(r => {
+                          const on = cur === r.id;
+                          return (
+                            <button
+                              key={r.id || 'none'}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => {
+                                const ex = menuFor;
+                                setMenuFor(null);
+                                if (!on) {
+                                  haptic(H.tap);
+                                  assignRegion(ex.id, r.id);
+                                }
+                                // 落到哪一列，那张卡渗一下墨
+                                window.requestAnimationFrame(() => {
+                                  const el = rowRefs.current.get(ex.id);
+                                  if (!el) return;
+                                  el.classList.remove('anim-ink-mark');
+                                  void el.offsetWidth;
+                                  el.classList.add('anim-ink-mark');
+                                });
+                              }}
+                              className={`min-h-[38px] px-3 rounded-control text-xs font-bold border transition-colors ${
+                                on
+                                  ? 'bg-accent border-accent text-on-accent shadow-elevated'
+                                  : 'bg-card border-divider text-secondary'
+                              }`}
+                            >
+                              {r.id ? getTagName(r.id) : isCn ? '未细分' : 'Unassigned'}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
+              );
+            })()}
             <button
               type="button"
               onClick={() => {

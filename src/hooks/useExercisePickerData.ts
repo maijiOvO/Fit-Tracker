@@ -27,7 +27,7 @@ export interface ScoredExercise {
   score: number;
 }
 
-function matchAxis(ex: ExerciseDefinition, axis: PickerAxis): boolean {
+export function matchAxis(ex: ExerciseDefinition, axis: PickerAxis): boolean {
   if (!axis) return true;
   if (axis.kind === 'part') {
     return (ex.bodyPart || '').toLowerCase() === axis.v.toLowerCase();
@@ -50,7 +50,8 @@ export function useExercisePickerData({
   /** 已选器材 tag id 集合（小写） */
   equips: ReadonlySet<string>;
 }) {
-  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion } = useExercisePrefs();
+  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion, regionsOf } =
+    useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
   /** 覆盖合并 + 去隐藏后的完整动作库 */
@@ -96,9 +97,22 @@ export function useExercisePickerData({
       .filter(r => r.score > 0);
   }, [merged, index, tokens]);
 
+  /**
+   * 搜索不再被部位锁死（第 3 条）：有搜索词时不按浏览轴过滤，弹层把当前部位的排前面、
+   * 其他部位的接在下面。原先从印谱进来就选着胸，搜「三头」会说「动作库里没有」。
+   * 器材是手动点的筛选，照旧生效。
+   */
+  const searching = tokens.length > 0;
+  /** 细分格：选了有细分的部位、且没在搜索。格子里只摆力量动作（有氧不进细分列） */
+  const boardPart =
+    !searching && axis?.kind === 'part' && regionsOf(axis.v).length > 0 ? axis.v : null;
+  const inScope = (ex: ExerciseDefinition) =>
+    (searching || matchAxis(ex, axis)) &&
+    (!boardPart || (ex.category || 'STRENGTH') === 'STRENGTH');
+
   const results = useMemo(
-    () => scored.filter(r => matchAxis(r.ex, axis) && matchEquips(r.ex, equips)),
-    [scored, axis, equips],
+    () => scored.filter(r => inScope(r.ex) && matchEquips(r.ex, equips)),
+    [scored, axis, equips, searching, boardPart],
   );
 
   /** 器材 chip 候选：系统器材 + 自定义器材标签 */
@@ -123,15 +137,16 @@ export function useExercisePickerData({
       counts.set(id, 0);
       lowerToId.set(id.toLowerCase(), id);
     }
+    // 口径跟结果一致：搜索时不按部位算；细分格里只算力量动作
     for (const { ex } of scored) {
-      if (!matchAxis(ex, axis)) continue;
+      if (!inScope(ex)) continue;
       for (const t of ex.tags ?? []) {
         const id = lowerToId.get((t || '').toLowerCase());
         if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
       }
     }
     return counts;
-  }, [scored, axis, equipIds]);
+  }, [scored, axis, equipIds, searching, boardPart]);
 
   /** `part:<lowercase id>` / `cat:<CATEGORY>` → 在器材+搜索约束下是否有结果 */
   const axisAvailable = useMemo(() => {
@@ -144,7 +159,7 @@ export function useExercisePickerData({
     return avail;
   }, [scored, equips]);
 
-  return { results, equipCounts, axisAvailable, equipIds, customPartIds };
+  return { results, equipCounts, axisAvailable, equipIds, customPartIds, boardPart, searching };
 }
 
 export default useExercisePickerData;

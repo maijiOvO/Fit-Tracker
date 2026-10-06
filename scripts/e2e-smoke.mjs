@@ -703,13 +703,18 @@ const main = async () => {
     if (!alreadyOpen) await page.locator('[data-testid="open-picker-sheet"]').click();
     await page.waitForTimeout(400); // 弹层滑入动画
     await sheet.getByRole('button', { name: /^(胸部|Chest)$/ }).first().click();
-    await page.locator('[data-testid="picker-sheet-exercise"]').first().waitFor({
-      state: 'visible',
-      timeout: 5_000,
-    });
-    const count = await page.locator('[data-testid="picker-sheet-exercise"]').count();
-    if (count === 0) throw new Error('picker sheet showed 0 exercises under 胸部');
-    return `picker sheet visible, ${count} exercises under 胸部`;
+    // 第 3 条：选了有细分的部位 → 细分格（表头一排 + 每列小卡），不再是一长串动作行
+    const cards = page.locator('[data-testid="picker-region-card"]');
+    await cards.first().waitFor({ state: 'visible', timeout: 5_000 });
+    const heads = await page.locator('[data-testid="picker-region-board"] .region-head').allInnerTexts();
+    if (heads.length !== 5) throw new Error(`chest should have 5 regions, got ${heads.length}: ${heads.join('|')}`);
+    const count = await cards.count();
+    // 搜索不被部位锁死：胸部下搜「三头」要落到「其他部位」，不能说「没有」
+    const search = sheet.locator('input[type="text"]');
+    await search.fill('三头');
+    await sheet.getByText(/^其他部位$/).waitFor({ state: 'visible', timeout: 3_000 });
+    await search.fill('');
+    return `chest board: ${heads.map(h => h.replace(/\s+/g, '')).join(' ')} · ${count} cards; cross-part search ok`;
   });
 
   await step(page, 'close-library', async () => {
