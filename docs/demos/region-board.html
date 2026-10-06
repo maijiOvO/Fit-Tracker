@@ -1,0 +1,1840 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Demo · 部位细分</title>
+<!--
+  交互 demo：部位下面再分一层「细分」，添加动作弹层按细分分列摆动作（改进计划第 3 条）。
+
+  第二版。交互理解已经确认（选部位 → 上面一排细分 → 每个细分下面一列动作），这一版只重做样子：
+  除了「细分表头 + 竖排小卡」这一样新东西，其余一律照现在 App 的组件搬，不再按规格文档自己改：
+    弹层   = ExercisePickerSheet：22px 顶圆角、搜索行、部位 / 器材两行 chip、计数行、带图标的分组标题、动作行卡片
+    小卡   = 跟上面部位 / 器材 chip 同一套样式：灰底无边框、粗体；已添加＝朱砂实底（同选中态），收藏是一颗实心星
+    工作台 = NewWorkoutTab 顶栏 + 页内印谱 + ExerciseCard 刊头与账本行 + 底部常驻栏
+    其余   = 长按菜单、Modal + ModalFooter、标签管理、撤销条，都照现有组件的类名取值
+
+  标签逻辑跟着改的几处：
+    · 长按动作 → 菜单第一行「归到细分」，点一下就改；「编辑标签」「新动作」里部位 → 细分联动
+    · 标签管理多一节「细分标签」，按部位分组：改名、新建、删除自建细分（删除走撤销条，动作回「未细分」）
+    · 搜索认细分名（搜「上胸」出整列），也认曾用名（搜「杠铃上斜卧推」能找到改名后的那个）
+    · 搜索不再被部位锁死：现状下从印谱进来就选着胸，这时搜「三头」会说「动作库里没有」；
+      现在当前部位的排前面，其他部位的接在下面
+    · 有氧动作不进细分列（跑步机、划船机现在分别挂在腿部、背部下面）
+
+  已定（计划里同意过的）：一个动作只落一列；自建动作没标细分的，先进「未细分」。
+
+  右上「方案」可切：五列并排 / 横向滑动、列内排序、自建动作按名字猜、格子上标新增改名、筛选两行铺开或横滑。
+  「看总表」把整张动作库按 部位 → 细分 列出来，点动作可以划掉；在弹层里改的细分、名字、新建的细分
+  都会记下来，「复制修改」一键贴回对话。
+
+  数据：现有内置动作照搬，另补一批候选（标「新」）；两处按你的叫法改名，一处疑似笔误
+  （哑卧臂屈伸 → 仰卧臂屈伸），旧名都记成曾用名。三个自建动作（头顶绳索三头屈伸、器械固定二头、拉上背）
+  取自之前几个 demo 里的真实名字，部位是按当时那场的标题推的；收藏和「最近练过」是演示数据。
+  NAS 上的真实动作库这次没读到（只读请求被权限挡了），所以新增的候选还没跟你的自建动作对过重。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Ma+Shan+Zheng&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+  :root{
+    /* 版式：手机宽的一列，照 App 的训练页与添加动作弹层。令牌照抄 index.css（墨与纸）。 */
+    --bg-desk:#E2DACA;
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --success:#3F6B45; --success-soft:#E2EBDF;
+    --warning:#815709;
+    --danger:#8E2C1D; --danger-soft:#F3DED8;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10),0 18px 40px -24px rgba(26,23,20,.30);
+    --shadow-lg:0 10px 15px -3px rgba(26,23,20,.10),0 4px 6px -4px rgba(26,23,20,.10);
+    --radius-card:4px; --radius-control:3px; --radius-chip:2px; --radius-sheet:4px; --radius-stamp:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-exit:180ms; --dur-page:320ms; --dur-stamp:520ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1); --ease-ink:cubic-bezier(.4,0,.2,1);
+    --move:1;
+    --f-sans:'Noto Sans SC',-apple-system,'PingFang SC','MiSans','Microsoft YaHei',system-ui,sans-serif;
+    --f-serif:'Noto Serif SC','Songti SC','SimSun',serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --f-seal:'Ma Shan Zheng','Noto Serif SC',cursive;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg-desk:#0A0908;
+      --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --success:#86B27C; --success-soft:#1B2A1C;
+      --warning:#CE9B3C;
+      --danger:#E8776A; --danger-soft:#331611;
+      --scrim:rgba(0,0,0,.6);
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+      --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-desk:#0A0908;
+    --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+    --divider:#332E25; --rule-strong:#4A4232;
+    --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+    --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+    --success:#86B27C; --success-soft:#1B2A1C;
+    --warning:#CE9B3C;
+    --danger:#E8776A; --danger-soft:#331611;
+    --scrim:rgba(0,0,0,.6);
+    --shadow-page:0 1px 1px rgba(0,0,0,.35);
+    --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+  @media (prefers-reduced-motion:reduce){ :root{ --move:0; } }
+
+  [hidden]{display:none!important}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg-desk);color:var(--text-primary);font:14px/1.5 var(--f-sans);
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:inherit}
+  input,textarea{font:inherit;color:inherit;-webkit-user-select:text;user-select:text}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .ic{flex:none;display:block}
+  .ic.fill{fill:currentColor}
+  .ic.acc{color:var(--accent)} .ic.warn{color:var(--warning)} .ic.ter{color:var(--text-tertiary)}
+
+  .phone{position:relative;height:100%;max-width:430px;margin:0 auto;overflow:hidden;background:var(--bg-base)}
+  @media (min-width:470px){
+    .phone{border-left:1px solid var(--divider);border-right:1px solid var(--divider);box-shadow:var(--shadow-overlay)}
+  }
+
+  /* ── demo 自己的东西：顶上一行小字 + 方案按钮（不是产品界面） ── */
+  .demotag{position:absolute;top:0;left:0;right:0;z-index:130;height:30px;display:flex;align-items:center;
+    padding:0 16px;font-size:10px;color:var(--text-tertiary);pointer-events:none}
+  .planbtn{position:absolute;top:2px;right:8px;z-index:131;min-height:26px;padding:0 10px;border-radius:var(--radius-control);
+    background:var(--bg-inset);color:var(--text-secondary);font-size:11px;font-weight:700}
+  .planbtn[aria-expanded="true"]{background:var(--accent);color:var(--text-on-accent)}
+
+  /* ── 训练页（NewWorkoutTab） ── */
+  .bench{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain}
+  .wtop{position:sticky;top:0;z-index:30;padding:30px 16px 12px;margin-bottom:16px;
+    background:color-mix(in srgb,var(--bg-base) 95%,transparent);border-bottom:1px solid var(--divider)}
+  .wtopin{display:flex;align-items:center;gap:8px}
+  .wback{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb,var(--bg-card) 60%,transparent);border:1px solid var(--divider);border-radius:var(--radius-card);color:var(--text-primary)}
+  .wmid{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+  .weyebrow{display:flex;align-items:center;gap:8px;font-size:10px;font-weight:700;letter-spacing:.15em;color:var(--text-tertiary)}
+  .weyebrow .pin{color:var(--text-tertiary);opacity:.45}
+  .wunit{margin:-4px 0 -4px auto;display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:var(--radius-chip);
+    background:var(--bg-inset);letter-spacing:0}
+  .wtitle{width:100%;min-height:36px;border:0;background:transparent;outline:none;font-size:16px;font-weight:700;color:var(--text-primary)}
+  .wtitle::placeholder{color:color-mix(in srgb,var(--text-tertiary) 60%,transparent)}
+  .wend{flex:none;min-height:44px;padding:0 16px;border-radius:var(--radius-card);display:flex;align-items:center;gap:8px;
+    font-size:14px;font-weight:700;background:var(--accent);color:var(--text-on-accent);transition:opacity var(--dur-tap)}
+  .wend:disabled{background:color-mix(in srgb,var(--bg-card) 40%,transparent);color:var(--text-tertiary);cursor:default}
+  .wbody{padding:0 16px 150px}
+
+  .bpp{background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);padding:20px}
+  .bpp h2{margin-bottom:20px;font:600 17px/1.4 var(--f-serif);text-align:center}
+  .bpp .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .bpt{min-height:112px;border-radius:var(--radius-card);border:1px solid var(--divider);background:var(--bg-base);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:13px;font-weight:600;
+    transition:transform var(--dur-tap) var(--ease-paper),border-color var(--dur-tap) var(--ease-paper)}
+  .bpt:active{transform:scale(.985)}
+  .bpt.other{color:var(--text-secondary)}
+  .seal{width:52px;height:52px;border:2.5px solid var(--accent);border-radius:var(--radius-stamp);color:var(--accent);
+    font:30px/1 var(--f-seal);display:flex;align-items:center;justify-content:center;padding-top:1px}
+  .seal.dashed{border-style:dashed}
+  .emptyhint{background:var(--bg-inset);border:1px dashed var(--divider);border-radius:var(--radius-card);
+    padding:40px;text-align:center;font-size:14px;font-weight:600;color:var(--text-secondary)}
+
+  /* ExerciseCard：刊头 + 表头 + 一条账本行 + 添加组 */
+  .excard{background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);margin-bottom:24px}
+  .exmast{padding:16px 12px 10px;border-bottom:1px solid var(--rule-strong);box-shadow:0 3px 0 -2px var(--divider)}
+  .exmast .row{display:flex;align-items:baseline;gap:12px}
+  .exmast h3{flex:1;min-width:0;font:600 17px/1.35 var(--f-serif)}
+  .exmast .meta{font:500 12px/1.4 var(--f-mono);color:var(--text-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .exmast .meta b{color:var(--text-primary);font-weight:600}
+  .exmast .more{width:44px;height:44px;margin:-8px -4px -8px 0;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);align-self:center}
+  .exgrid{display:grid;grid-template-columns:36px repeat(2,minmax(0,1fr)) 36px 44px;align-items:center;padding:0 12px}
+  .exhead{padding-top:10px;padding-bottom:4px;font-size:11px;font-weight:500;color:var(--text-tertiary)}
+  .exhead span:not(:first-child){text-align:center}
+  .ledger{min-height:52px;border-bottom:1px solid var(--divider)}
+  .setnum{width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+    font:600 12px var(--f-mono);background:var(--accent);color:var(--text-on-accent)}
+  .lf{display:flex;align-items:baseline;justify-content:center;gap:2px}
+  .lf .v{font:600 26px/1 var(--f-mono);color:var(--text-tertiary);opacity:.5}
+  .lf .u{font-size:11px;font-weight:500;color:var(--text-tertiary)}
+  .fail{justify-self:center;font:600 17px/1 var(--f-serif);color:color-mix(in srgb,var(--text-tertiary) 35%,transparent)}
+  .minus{justify-self:end;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)}
+  .exfoot{padding:8px 12px 12px}
+  .addset{min-height:44px;border:1px dashed var(--divider);border-radius:var(--radius-control);color:var(--text-secondary);
+    font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px}
+
+  .wbar{position:absolute;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--bg-base) 95%,transparent);
+    border-top:1px solid var(--divider);padding-bottom:env(safe-area-inset-bottom,0px)}
+  .wbar .in{display:flex;align-items:center;gap:12px;padding:12px 16px}
+  .wbar .cnt{font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .wbar .add{flex:1;min-height:52px;border-radius:var(--radius-card);background:var(--accent);color:var(--text-on-accent);
+    font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;transition:transform var(--dur-tap)}
+  .wbar .add:active{transform:scale(.985)}
+
+  /* ── 添加动作弹层（ExercisePickerSheet） ── */
+  .scrim{position:absolute;inset:0;z-index:79;background:var(--scrim);opacity:0;pointer-events:none;
+    transition:opacity var(--dur-base) var(--ease-paper)}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .sheet{position:absolute;left:0;right:0;bottom:0;z-index:80;height:90%;display:flex;flex-direction:column;
+    background:var(--bg-base);border-top:1px solid var(--divider);border-radius:22px 22px 0 0;box-shadow:var(--shadow-page);
+    transform:translateY(103%);visibility:hidden;
+    transition:transform 300ms ease-out,visibility 0s linear 300ms}
+  .sheet.on{transform:none;visibility:visible;transition:transform 300ms ease-out}
+  .grab{flex:none;padding:10px 0 6px}
+  .grab i{display:block;width:48px;height:6px;border-radius:999px;background:var(--divider);margin:0 auto}
+  .shead{flex:none;display:flex;align-items:center;gap:10px;padding:6px 16px 2px}
+  .shead h2{font:600 18px/28px var(--f-serif)}
+  .spill{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:var(--radius-control);
+    background:color-mix(in srgb,var(--success) 15%,transparent);color:var(--success);font-size:11px;font-weight:700;white-space:nowrap}
+  .sicon{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-control);
+    color:var(--text-secondary);transition:transform var(--dur-tap)}
+  .sicon:active{transform:scale(.94)}
+  .sicon.first{margin-left:auto}
+  .srow{flex:none;display:flex;gap:8px;padding:6px 16px 10px}
+  .sbox{position:relative;flex:1;min-width:0}
+  .sbox .lead{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);pointer-events:none}
+  #q{width:100%;min-height:46px;background:var(--bg-inset);border:1px solid var(--divider);border-radius:var(--radius-card);
+    padding:0 40px;font-size:14px;color:var(--text-primary);outline:none;transition:border-color var(--dur-tap)}
+  #q:focus{border-color:var(--accent)}
+  #q::placeholder{color:var(--text-tertiary)}
+  .sbox .clr{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;border-radius:var(--radius-control);color:var(--text-tertiary)}
+  .newbtn{flex:none;min-height:46px;padding:0 14px;border-radius:var(--radius-card);background:var(--accent);color:var(--text-on-accent);
+    font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px;transition:transform var(--dur-tap)}
+  .newbtn:active{transform:scale(.94)}
+
+  .prow{flex:none;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 16px 10px}
+  .erow{flex:none;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 16px;padding:10px 0;border-top:1px solid var(--divider)}
+  .erow:not(:has(.echip)){display:none}
+  .lab{width:28px;flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--text-tertiary)}
+  .pchip{flex:none;min-height:38px;padding:0 14px;border-radius:var(--radius-control);font-size:12px;font-weight:700;
+    background:var(--bg-inset);color:var(--text-secondary);transition:background-color var(--dur-tap),color var(--dur-tap)}
+  .pchip.on{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .echip{flex:none;min-height:34px;padding:0 12px;border-radius:var(--radius-control);font-size:11px;font-weight:700;
+    display:flex;align-items:center;gap:6px;background:var(--bg-inset);color:var(--text-secondary);
+    transition:background-color var(--dur-tap),color var(--dur-tap)}
+  .echip .n{font-size:10px;font-weight:700;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+  .echip.on{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .echip.on .n{color:color-mix(in srgb,var(--text-on-accent) 75%,transparent)}
+  /* 方案里的「横滑」：两行各收成一行，给下面腾高度 */
+  .phone.chipscroll .prow,.phone.chipscroll .erow{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .phone.chipscroll .prow::-webkit-scrollbar,.phone.chipscroll .erow::-webkit-scrollbar{display:none}
+  .fbar{flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px 6px;
+    font-size:11px;font-weight:600;color:var(--text-tertiary)}
+  .fbar b{color:var(--text-secondary)}
+  .fbar button{min-height:32px;padding:0 4px;color:var(--accent);font-weight:700}
+  .results{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 24px}
+
+  /* 分组标题：图标 + 11px 粗体 + · N（照弹层现在的写法） */
+  .gh{display:flex;align-items:center;gap:6px;margin:12px 0 8px;padding:0 2px}
+  .gh:first-child{margin-top:4px}
+  .gh h3{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text-primary)}
+  .gh .n{font-size:10px;font-weight:700;color:var(--text-tertiary)}
+  .rows{display:flex;flex-direction:column;gap:8px}
+
+  /* 动作行（PickerRow） */
+  .xrow{display:flex;align-items:stretch;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);overflow:hidden}
+  .xrow .main{position:relative;flex:1;min-width:0;min-height:60px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;
+    text-align:left;touch-action:manipulation;transition:background-color var(--dur-tap) var(--ease-paper)}
+  .xrow .main:active,.xrow .main.pressing{background:var(--bg-card-hover)}
+  .xrow .nm{display:flex;align-items:center;flex-wrap:wrap;gap:8px;font-size:14px;font-weight:600;color:var(--text-primary)}
+  .badge-add{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:var(--radius-chip);
+    background:color-mix(in srgb,var(--success) 15%,transparent);color:var(--success);font-size:10px;font-weight:700;white-space:nowrap}
+  .pills{display:flex;flex-wrap:wrap;gap:4px}
+  .pill{font-size:10px;font-weight:700;line-height:1.5;padding:1px 6px;border-radius:var(--radius-chip);background:var(--bg-inset);color:var(--text-tertiary)}
+  .pill.eq{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+  .pill.eq.hit{background:var(--accent);color:var(--text-on-accent)}
+  .pill.guess{background:transparent;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent);color:var(--accent)}
+  .pill.mark{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+  .xrow .star{width:44px;flex:none;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--divider);
+    color:var(--warning);transition:transform var(--dur-tap)}
+  .xrow .star:active{transform:scale(.94)}
+  .none{padding:36px 0 8px;display:flex;flex-direction:column;align-items:center;gap:10px;font-size:14px;font-weight:600;color:var(--text-secondary)}
+  .createbtn{width:100%;min-height:46px;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px;
+    border:1px dashed var(--divider);border-radius:var(--radius-card);color:var(--accent);font-size:14px;font-weight:700}
+
+  /* ── 新东西：细分表头 + 竖排小卡 ──
+     表头一行吸顶（五列并排时），字号跟分组标题同族、大一档；
+     小卡就是动作行的窄版：同底色、同边框、同圆角，名字最多三行。 */
+  .rwrap{margin-top:2px}
+  .rgrid{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));column-gap:5px}
+  .rheads{position:sticky;top:0;z-index:2;background:var(--bg-base);padding:8px 0 7px;margin-bottom:8px;border-bottom:1px solid var(--divider)}
+  .rh{display:flex;align-items:baseline;gap:4px;min-width:0;padding-left:6px;white-space:nowrap}
+  .rh b{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--text-primary)}
+  .rh i{font-style:normal;font-size:10px;font-weight:700;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+  .rcol{display:flex;flex-direction:column;gap:5px;min-width:0}
+  /* 小卡与上面的部位 / 器材 chip 同一套：灰底无边框、粗体、次级墨色；已添加＝朱砂实底（同选中态） */
+  .rcard{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;
+    min-height:48px;padding:7px 5px 7px 7px;text-align:left;background:var(--bg-inset);border:1px solid transparent;
+    border-radius:var(--radius-control);font-size:clamp(12px,3.35vw,13px);line-height:1.32;font-weight:700;color:var(--text-secondary);
+    touch-action:manipulation;transition:background-color var(--dur-tap) var(--ease-paper),color var(--dur-tap) var(--ease-paper)}
+  .rcard:active,.rcard.pressing{background:color-mix(in srgb,var(--text-primary) 8%,var(--bg-inset))}
+  .rcard .nm{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+  .rcard .nm .ic{display:inline-block;vertical-align:-1px;margin-right:2px}
+  .rcard .x2{font:600 11px var(--f-mono);color:inherit;opacity:.75;margin-left:2px}
+  .rcard.added{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .rcard.added .ic.warn{color:inherit}
+  /* 按名字猜出来的落点：虚线框＝还没确认（跟自定义标签的虚线同一套） */
+  .rcard.guessed{background:color-mix(in srgb,var(--accent) 5%,transparent);border-style:dashed;border-color:color-mix(in srgb,var(--accent) 40%,transparent);color:var(--accent)}
+  .rcard.empty{align-items:center;background:transparent;border:1px dashed var(--divider);color:var(--text-tertiary);font-weight:500;cursor:default}
+  .rwrap.scroll{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none}
+  .rwrap.scroll::-webkit-scrollbar{display:none}
+  .rwrap.scroll .rgrid{grid-template-columns:repeat(var(--cols),118px);width:max-content}
+  .rwrap.scroll .rheads{position:static}
+  .rwrap.scroll .rcard{font-size:13px}
+
+  /* 长按：底边 1.5px 朱砂线画出来 + 朱砂小标签（LongPressAffordance） */
+  @keyframes lpdraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .pressing::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);
+    transform-origin:left center;animation:lpdraw 380ms linear both;pointer-events:none}
+  .lplabel{position:absolute;z-index:120;padding:2px 7px;border-radius:var(--radius-chip);background:var(--accent);
+    color:var(--text-on-accent);font-size:11px;font-weight:600;line-height:1.4;white-space:nowrap;pointer-events:none;
+    transform:translateX(-50%);opacity:0;transition:opacity var(--dur-tap) var(--ease-ink)}
+  .lplabel.on{opacity:1}
+
+  /* 落笔：墨色过冲（anim-ink-mark） */
+  @keyframes inkmark{0%{background-color:color-mix(in srgb,var(--accent) 9%,var(--bg-card));border-color:var(--accent)}}
+  .ink{animation:inkmark var(--dur-stamp) var(--ease-ink)}
+
+  /* ── 长按菜单（照弹层里那份） ── */
+  .mwrap{position:absolute;inset:0;z-index:90;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity var(--dur-base) var(--ease-ink)}
+  .mwrap.on{opacity:1;pointer-events:auto}
+  .mpanel{width:100%;max-height:92%;overflow-y:auto;background:var(--bg-inset);border-top:1px solid var(--divider);
+    border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));
+    display:flex;flex-direction:column;gap:8px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);
+    transform:translateY(calc(12px * var(--move)));transition:transform var(--dur-base) var(--ease-paper)}
+  .mwrap.on .mpanel{transform:none}
+  .mpanel .mt{padding:0 8px 4px;font-size:14px;font-weight:600;color:var(--text-primary)}
+  .mpanel .mt small{display:block;font-size:12px;font-weight:500;color:var(--text-tertiary)}
+  .mlab{padding:2px 8px 0;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--text-secondary)}
+  .mchips{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 6px}
+  .mchip{min-height:38px;padding:0 12px;border-radius:var(--radius-control);font-size:12px;font-weight:700;
+    background:var(--bg-card);border:1px solid var(--divider);color:var(--text-secondary)}
+  .mchip.on{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .mchip.guess{border-style:dashed;border-color:color-mix(in srgb,var(--accent) 45%,transparent);color:var(--accent)}
+  .mbtn{width:100%;min-height:48px;padding:0 16px;border-radius:var(--radius-card);background:var(--bg-card);border:1px solid var(--divider);
+    font-size:14px;font-weight:700;color:var(--text-primary);display:flex;align-items:center;gap:10px;text-align:left;
+    transition:background-color var(--dur-tap)}
+  .mbtn:active{background:var(--bg-card-hover)}
+  .mbtn.danger{background:color-mix(in srgb,var(--danger) 10%,transparent);border-color:transparent;color:var(--danger)}
+  .mbtn.cancel{background:transparent;border-color:transparent;justify-content:center;color:var(--text-secondary)}
+
+  /* ── 弹窗（Modal center + ModalFooter） ── */
+  .mdwrap{position:absolute;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;
+    opacity:0;pointer-events:none;transition:opacity var(--dur-base) var(--ease-ink)}
+  .mdwrap.on{opacity:1;pointer-events:auto}
+  .mdscrim{position:absolute;inset:0;background:var(--scrim);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+  @keyframes paperdrop{from{opacity:0;transform:translateY(calc(-10px * var(--move))) scale(calc(1 - .015 * var(--move)))}to{opacity:1;transform:none}}
+  .md{position:relative;width:100%;max-width:448px;max-height:100%;display:flex;flex-direction:column;background:var(--bg-card);
+    border:1px solid var(--divider);border-radius:var(--radius-card);box-shadow:var(--shadow-overlay)}
+  .mdwrap.on .md.enter{animation:paperdrop var(--dur-page) var(--ease-paper) both}
+  .md .hd{flex:none;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 20px 0}
+  .md .hd h2{font:600 17px/1.35 var(--f-serif);color:var(--text-primary);word-break:break-word}
+  .md .hd p{margin-top:4px;font-size:12px;line-height:1.4;font-weight:500;color:var(--text-secondary)}
+  .md .hd .x{width:44px;height:44px;flex:none;margin:-4px -8px 0 0;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)}
+  .md .bd{flex:1;min-height:0;overflow-y:auto;padding:16px 20px 20px;display:flex;flex-direction:column;gap:20px}
+  .md .ft{flex:none;display:flex;gap:12px;padding:0 20px 20px}
+  .md .ft .c{flex:1;min-height:52px;border-radius:var(--radius-control);border:1px solid var(--divider);color:var(--text-secondary);font-weight:500;text-align:center}
+  .md .ft .o{flex:2;min-height:52px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);
+    font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+  .md .ft .o:disabled{opacity:.4;cursor:default}
+  .sec h4{display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--text-secondary)}
+  .sec h4 span{letter-spacing:0;color:var(--text-tertiary)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .kchip{min-height:40px;padding:0 16px;border-radius:var(--radius-control);font-size:12px;font-weight:700;letter-spacing:.05em;
+    background:var(--bg-inset);color:var(--text-secondary);transition:background-color var(--dur-tap),color var(--dur-tap)}
+  .kchip.on{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .kchip.custom:not(.on){background:color-mix(in srgb,var(--accent) 5%,transparent);color:var(--accent);
+    box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+  .kseg{display:flex;gap:8px}
+  .kseg .kchip{flex:1;padding:0 6px}
+  .addchip{min-height:40px;padding:0 14px;border-radius:var(--radius-control);font-size:12px;font-weight:700;color:var(--accent);
+    border:1px dashed color-mix(in srgb,var(--accent) 40%,transparent);display:inline-flex;align-items:center;gap:6px}
+  .fld{display:block;width:100%;min-height:48px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--divider);
+    border-radius:var(--radius-card);font-size:15px;color:var(--text-primary);outline:none;transition:box-shadow var(--dur-tap)}
+  .fld:focus{box-shadow:0 0 0 2px var(--accent)}
+  .ui-input{display:block;width:100%;padding:12px 16px;background:var(--bg-inset);border:1px solid var(--divider);
+    border-radius:var(--radius-control);font-size:15px;color:var(--text-primary);outline:none}
+  .ui-input:focus{border-color:var(--accent);border-bottom-width:2px;padding-bottom:11px}
+  .ui-input::placeholder,.fld::placeholder{color:var(--text-tertiary)}
+  .err{margin-top:6px;font-size:12px;font-weight:500;color:var(--danger)}
+  .err:empty{display:none}
+  .inline-new{display:flex;gap:8px;margin-top:10px}
+  .inline-new .ui-input{flex:1;min-width:0}
+  .inline-new button{flex:none;padding:0 16px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);font-weight:600}
+  /* 标签管理的 chip（TagManageModal） */
+  .tchip{display:inline-flex;align-items:stretch;border:1px solid var(--divider);border-radius:var(--radius-control);background:var(--bg-card);overflow:hidden}
+  .tchip .tn{min-height:44px;padding:0 12px 0 14px;display:flex;align-items:center;gap:6px}
+  .tchip .tn b{font-size:12px;font-weight:700;color:var(--text-primary)}
+  .tchip.custom .tn b{color:var(--accent)}
+  .tchip .tn i{font-style:normal;font-size:10px;font-weight:700;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+  .tchip .tn em{font-style:normal;font-size:10px;font-weight:700;padding:1px 4px;border-radius:var(--radius-chip);
+    background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+  .tchip .del{width:40px;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--divider);color:var(--danger)}
+  .tchip .del:active{background:color-mix(in srgb,var(--danger) 15%,transparent)}
+  .tgroup{display:flex;gap:10px;align-items:flex-start}
+  .tgroup + .tgroup{margin-top:10px;padding-top:10px;border-top:1px solid var(--divider)}
+  .tgroup .gp{width:30px;flex:none;font-size:11px;font-weight:700;line-height:44px;color:var(--text-tertiary)}
+  .tgroup .chips{flex:1;min-width:0}
+
+  /* ── 撤销条（toast info + 撤销按钮 + 底边倒计时线） ── */
+  @keyframes toastprint{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+  @keyframes countdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .toast{position:absolute;left:16px;right:16px;bottom:80px;z-index:190;display:flex;align-items:center;gap:12px;padding:12px 16px;
+    overflow:hidden;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);color:var(--text-primary);
+    box-shadow:var(--shadow-lg);font-size:14px;font-weight:500}
+  .toast.on{animation:toastprint var(--dur-base) var(--ease-paper) both}
+  .toast .msg{flex:1;min-width:0}
+  .toast .undo{flex:none;padding:6px 12px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);font-size:12px;font-weight:700}
+  .toast .dis{flex:none;padding:4px;color:var(--text-tertiary)}
+  .toast .cd{position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);transform-origin:left center;animation:countdown linear both}
+
+  /* ── 方案面板（demo 用） ── */
+  .panel{position:absolute;top:32px;right:8px;z-index:131;width:min(304px,calc(100% - 16px));max-height:calc(100% - 40px);overflow-y:auto;
+    display:flex;flex-direction:column;gap:14px;padding:16px;background:var(--bg-card);border:1px solid var(--divider);
+    border-radius:var(--radius-card);box-shadow:var(--shadow-overlay)}
+  .panel .q{margin-bottom:8px;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--text-secondary)}
+  .panel .opts{display:flex;flex-wrap:wrap;gap:6px}
+  .panel .opts .pchip{min-height:34px;padding:0 12px;font-size:11px}
+  .panel .btns{display:flex;gap:8px;padding-top:2px}
+  .panel .btns button{flex:1;min-height:44px;border-radius:var(--radius-control);font-size:13px;font-weight:700;text-align:center}
+  .panel .btns .primary{background:var(--accent);color:var(--text-on-accent)}
+  .panel .btns .ghost{border:1px solid var(--divider);color:var(--text-secondary);font-weight:500}
+
+  /* ── 总表（Modal full 的样子） ── */
+  .tb{position:absolute;inset:0;z-index:110;display:flex;flex-direction:column;background:var(--bg-base)}
+  .tb .hd{flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:30px 12px 6px 20px;border-bottom:1px solid var(--divider)}
+  .tb .hd h2{font:600 17px/1.35 var(--f-serif)}
+  .tb .bd{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 16px 24px}
+  .tstat{font:500 11px/1.6 var(--f-mono);color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+  .rules{margin-top:10px;padding:14px 16px 14px 34px;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);
+    font-size:13px;line-height:1.7;color:var(--text-secondary)}
+  .rules li + li{margin-top:4px}
+  .rules + p{margin-top:10px;font-size:12px;line-height:1.6;color:var(--text-tertiary)}
+  .tpart{margin-top:6px}
+  .trow{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--divider)}
+  .trow .rg{width:42px;flex:none;padding-top:5px;font-size:12px;font-weight:700;color:var(--text-secondary)}
+  .trow .its{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px}
+  .ti{min-height:30px;padding:3px 10px;display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px;border-radius:var(--radius-control);
+    background:var(--bg-card);border:1px solid var(--divider);font-size:12px;font-weight:600;color:var(--text-primary);text-align:left}
+  .ti em{font-style:normal;font-size:10px;font-weight:700;padding:0 4px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+  .ti em.old{background:transparent;padding:0;font-weight:500;color:var(--text-tertiary)}
+  .ti.struck{background:transparent;border-style:dashed;color:var(--text-tertiary);text-decoration:line-through}
+  .ti.blank{background:transparent;border-color:transparent;color:var(--text-tertiary)}
+  .copyfallback{display:block;width:100%;min-height:140px;margin-top:16px;padding:10px;font:12px/1.6 var(--f-mono);
+    background:var(--bg-inset);border:1px solid var(--divider);border-radius:var(--radius-card);color:var(--text-primary)}
+  .tb .ftbar{flex:none;display:flex;align-items:center;gap:12px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+    border-top:1px solid var(--divider);background:color-mix(in srgb,var(--bg-base) 95%,transparent)}
+  .tb .ftbar span{font-size:12px;font-weight:600;color:var(--text-secondary);white-space:nowrap}
+  .tb .ftbar button{flex:1;min-height:52px;border-radius:var(--radius-card);background:var(--accent);color:var(--text-on-accent);font-size:15px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
+  /* 按钮重置成了 text-align:inherit；chip 被拉宽（等分）时字要居中 */
+  .pchip,.echip,.kchip,.mchip{text-align:center;justify-content:center}
+
+  @media (prefers-reduced-motion:reduce){
+    .sheet,.sheet.on,.scrim,.mwrap,.mpanel,.mdwrap{transition-duration:1ms}
+    .ink,.mdwrap.on .md.enter,.toast.on{animation-duration:1ms}
+  }
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+
+  <div class="demotag">Demo · 部位细分（不是产品页面）</div>
+  <button type="button" class="planbtn" id="btnPlan" data-act="plan" aria-expanded="false" aria-controls="panel">方案</button>
+
+  <div class="bench" id="bench">
+    <header class="wtop">
+      <div class="wtopin">
+        <button type="button" class="wback" aria-label="返回"><svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg></button>
+        <div class="wmid">
+          <div class="weyebrow">
+            <span>新建训练</span>
+            <svg class="ic pin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="wunit"><svg class="ic" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></svg>kg</span>
+          </div>
+          <input id="woTitle" class="wtitle" autocomplete="off" placeholder="训练名称..." aria-label="训练名称">
+        </div>
+        <button type="button" class="wend" id="wEnd" disabled><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>结束训练</button>
+      </div>
+    </header>
+    <main class="wbody" id="benchBody"></main>
+  </div>
+
+  <div class="wbar">
+    <div class="in">
+      <span class="cnt" id="dockCount"></span>
+      <button type="button" class="add" data-act="open-sheet"><svg class="ic" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>添加动作</button>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim" data-act="close-sheet"></div>
+  <section class="sheet" id="sheet" aria-label="添加动作" aria-hidden="true">
+    <div class="grab"><i></i></div>
+    <div class="shead">
+      <h2>添加动作</h2>
+      <span class="spill" id="addedPill" hidden></span>
+      <button type="button" class="sicon first" data-act="tag-manage" aria-label="管理标签"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5 6.3 6.3a2.4 2.4 0 0 1 0 3.4L17 19"/><path d="M9.586 5.586A2 2 0 0 0 8.172 5H3a1 1 0 0 0-1 1v5.172a2 2 0 0 0 .586 1.414L8.29 18.29a2.426 2.426 0 0 0 3.42 0l3.58-3.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="6.5" cy="9.5" r=".5" fill="currentColor"/></svg></button>
+      <button type="button" class="sicon" data-act="close-sheet" aria-label="完成并关闭"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="srow">
+      <div class="sbox">
+        <svg class="ic lead" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="q" type="text" enterkeyhint="search" autocomplete="off" placeholder="名称 / 部位 / 细分…" aria-label="搜索动作">
+        <button type="button" class="clr" id="clrQ" data-act="clear-q" aria-label="清除搜索" hidden><svg class="ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+      <button type="button" class="newbtn" data-act="new-ex"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>新动作</button>
+    </div>
+    <div class="prow" id="partRow"></div>
+    <div class="erow" id="eqRow"></div>
+    <div class="fbar" id="fbar" hidden></div>
+    <div class="results" id="results"></div>
+  </section>
+
+  <div class="mwrap" id="menu" data-act="menu-close"></div>
+  <div class="mdwrap" id="modal"></div>
+  <div class="lplabel" id="lpLabel" aria-hidden="true">管理这个动作</div>
+  <div class="tb" id="table" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="panel" id="panel" hidden></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  document.documentElement.lang = 'zh-CN';
+
+  const $ = sel => document.querySelector(sel);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // lucide 图标（与 App 里 lucide-react 同一套路径）
+  const ICON = {
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    minus: '<path d="M5 12h14"/>',
+    search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    tags: '<path d="m15 5 6.3 6.3a2.4 2.4 0 0 1 0 3.4L17 19"/><path d="M9.586 5.586A2 2 0 0 0 8.172 5H3a1 1 0 0 0-1 1v5.172a2 2 0 0 0 .586 1.414L8.29 18.29a2.426 2.426 0 0 0 3.42 0l3.58-3.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="6.5" cy="9.5" r=".5" fill="currentColor"/>',
+    star: '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>',
+    history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+    zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+    dashed: '<path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"/><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"/>',
+    pencil: '<path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/>',
+    trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+    edit2: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+    plusCircle: '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>',
+    sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/>',
+    filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+    columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    more: '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  };
+  const svg = (name, size = 18, sw = 2, cls = '') =>
+    `<svg class="ic ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[name]}</svg>`;
+
+  /* ───────────── 词表 ───────────── */
+
+  // 部位：顺序同 constants/exercises.ts 的 BODY_PARTS；名字同 translations（getTagName）
+  const PARTS = [
+    { id: 'subChest', name: '胸部', seal: '胸', title: '练胸' },
+    { id: 'subShoulder', name: '肩部', seal: '肩', title: '练肩' },
+    { id: 'subBack', name: '背部', seal: '背', title: '练背' },
+    { id: 'subArms', name: '手臂', seal: '臂', title: '练手臂' },
+    { id: 'subLegs', name: '腿部', seal: '腿', title: '练腿' },
+    { id: 'subCore', name: '核心' },
+    { id: 'subFullBody', name: '全身' },
+  ];
+  const PART = Object.fromEntries(PARTS.map(p => [p.id, p]));
+  // 页内印谱的阅读序：胸 肩 背 腿 臂（+ 制）
+  const SEALS = ['subChest', 'subShoulder', 'subBack', 'subLegs', 'subArms'];
+
+  const EQ = [
+    ['tagBarbell', '杠铃'], ['tagDumbbell', '哑铃'], ['tagMachine', '固定器械'], ['tagCable', '绳索'],
+    ['tagBodyweight', '自重'], ['tagOutdoor', '室外'], ['tagIndoor', '室内'], ['tagBallGame', '球类'], ['tagGym', '健身房器材'],
+  ];
+  const eqName = id => (EQ.find(q => q[0] === id) || ['', ''])[1];
+  const TAG = { B: 'tagBarbell', D: 'tagDumbbell', M: 'tagMachine', C: 'tagCable', W: 'tagBodyweight', O: 'tagOutdoor', I: 'tagIndoor', G: 'tagBallGame', Y: 'tagGym' };
+  const PC = { ch: 'subChest', sh: 'subShoulder', bk: 'subBack', ar: 'subArms', lg: 'subLegs', co: 'subCore', fb: 'subFullBody' };
+
+  // 细分。胸的五个是你给的；其余是我的初稿
+  const REGIONS0 = {
+    subChest: [['chestUpper', '上胸'], ['chestMid', '中胸'], ['chestLower', '下胸'], ['chestInner', '中缝'], ['chestOuter', '外轮廓']],
+    subShoulder: [['shFront', '前束'], ['shSide', '中束'], ['shRear', '后束']],
+    subBack: [['backLats', '背阔'], ['backMid', '中背'], ['backTraps', '斜方'], ['backLower', '下背']],
+    subArms: [['armBi', '二头'], ['armTri', '三头'], ['armFore', '前臂']],
+    subLegs: [['legQuad', '股四头'], ['legHam', '腘绳'], ['legGlute', '臀'], ['legCalf', '小腿'], ['legAdd', '内收']],
+    subCore: [['coreUpper', '上腹'], ['coreLower', '下腹'], ['coreObl', '腹斜'], ['coreStab', '稳定']],
+    subFullBody: [],
+  };
+
+  /* 动作库。[id, 名字, 部位, 细分, 器材, 类别 S力量/C有氧/F自由, 标记, 旧名, 备注]
+     标记：new＝这次补的候选；ren＝按你的叫法改名；typo＝疑似笔误改名；own＝你的自建动作。
+     id 全部沿用 constants/exercises.ts，新增的才是新 id。 */
+  const ROWS = [
+    // 胸部
+    ['bp_incline_barbell', '上斜杠铃卧推', 'ch', 'chestUpper', 'B', 'S', 'ren', '杠铃上斜卧推'],
+    ['bp_incline_dumbbell', '上斜哑铃卧推', 'ch', 'chestUpper', 'D', 'S', 'ren', '哑铃上斜卧推'],
+    ['bp_incline_smith', '上斜史密斯卧推', 'ch', 'chestUpper', 'M', 'S', 'new'],
+    ['press_incline_machine', '上斜器械推胸', 'ch', 'chestUpper', 'M', 'S', 'new'],
+    ['fly_cable_low', '低位绳索夹胸', 'ch', 'chestUpper', 'C', 'S', 'new'],
+    ['fly_incline_db', '上斜哑铃飞鸟', 'ch', 'chestUpper', 'D', 'S', 'new'],
+    ['bp_barbell', '杠铃平板卧推', 'ch', 'chestMid', 'B'],
+    ['bp_dumbbell', '哑铃平板卧推', 'ch', 'chestMid', 'D'],
+    ['press_machine_chest', '器械推胸', 'ch', 'chestMid', 'M'],
+    ['bp_smith', '史密斯平板卧推', 'ch', 'chestMid', 'M', 'S', 'new'],
+    ['pushup', '俯卧撑', 'ch', 'chestMid', 'W'],
+    ['bp_decline_barbell', '下斜杠铃卧推', 'ch', 'chestLower', 'B', 'S', 'new'],
+    ['bp_decline_dumbbell', '下斜哑铃卧推', 'ch', 'chestLower', 'D', 'S', 'new'],
+    ['chest_dip', '胸部双杠臂屈伸', 'ch', 'chestLower', 'W'],
+    ['fly_cable_high', '高位绳索夹胸', 'ch', 'chestLower', 'C', 'S', 'new'],
+    ['fly_pec_deck', '蝴蝶机夹胸', 'ch', 'chestInner', 'M', 'S', 'new'],
+    ['fly_cable', '绳索夹胸', 'ch', 'chestInner', 'C', 'S', '', '', '原来没分高低，按中位算'],
+    ['press_squeeze_db', '哑铃挤压卧推', 'ch', 'chestInner', 'D', 'S', 'new'],
+    ['fly_db', '哑铃飞鸟', 'ch', 'chestOuter', 'D', 'S', 'new'],
+    ['bp_wide_barbell', '宽距杠铃卧推', 'ch', 'chestOuter', 'B', 'S', 'new', '', '握距一换就换列，所以单列'],
+    ['pushup_wide', '宽距俯卧撑', 'ch', 'chestOuter', 'W', 'S', 'new'],
+    // 肩部
+    ['ohp_barbell', '杠铃推举', 'sh', 'shFront', 'B'],
+    ['ohp_dumbbell', '哑铃推肩', 'sh', 'shFront', 'D'],
+    ['press_machine_shoulder', '器械推肩', 'sh', 'shFront', 'M'],
+    ['arnold_press', '阿诺德推举', 'sh', 'shFront', 'D'],
+    ['front_raise_db', '哑铃前平举', 'sh', 'shFront', 'D'],
+    ['ohp_smith', '史密斯推肩', 'sh', 'shFront', 'M', 'S', 'new'],
+    ['lat_raise_dumbbell', '哑铃侧平举', 'sh', 'shSide', 'D'],
+    ['lat_raise_cable', '绳索侧平举', 'sh', 'shSide', 'C', 'S', 'new'],
+    ['lat_raise_machine', '器械侧平举', 'sh', 'shSide', 'M', 'S', 'new'],
+    ['upright_row', '杠铃直立划船', 'sh', 'shSide', 'B', 'S', 'new'],
+    ['face_pull_cable', '绳索面拉', 'sh', 'shRear', 'C'],
+    ['rear_fly_db', '俯身哑铃飞鸟', 'sh', 'shRear', 'D', 'S', 'new'],
+    ['rear_delt_machine', '反向蝴蝶机', 'sh', 'shRear', 'M', 'S', 'new'],
+    ['rear_fly_cable', '绳索反向飞鸟', 'sh', 'shRear', 'C', 'S', 'new'],
+    // 背部
+    ['lat_pulldown', '高位下拉', 'bk', 'backLats', 'MC'],
+    ['pu_weighted', '加重引体向上', 'bk', 'backLats', 'W'],
+    ['straight_arm_pulldown', '直臂下压', 'bk', 'backLats', 'C', 'S', 'new'],
+    ['single_arm_db_row', '哑铃单臂划船', 'bk', 'backLats', 'D', 'S', '', '', '偏背阔'],
+    ['row_barbell', '杠铃划船', 'bk', 'backMid', 'B'],
+    ['row_seated_cable', '坐姿划船', 'bk', 'backMid', 'C'],
+    ['tbar_row', 'T杠划船', 'bk', 'backMid', 'BM'],
+    ['row_machine', '器械划船', 'bk', 'backMid', 'M', 'S', 'new'],
+    ['shrug_barbell', '杠铃耸肩', 'bk', 'backTraps', 'B', 'S', 'new'],
+    ['shrug_db', '哑铃耸肩', 'bk', 'backTraps', 'D', 'S', 'new'],
+    ['dl_barbell', '硬拉', 'bk', 'backLower', 'B', 'S', '', '', '全身性动作，暂放下背'],
+    ['hyperextension', '山羊挺身', 'bk', 'backLower', 'WM'],
+    ['own_upper_back', '拉上背', 'bk', '', '', 'S', 'own'],
+    // 手臂
+    ['cu_barbell', '杠铃弯举', 'ar', 'armBi', 'B'],
+    ['cu_dumbbell', '哑铃弯举', 'ar', 'armBi', 'D'],
+    ['cu_hammer', '锤式弯举', 'ar', 'armBi', 'D'],
+    ['preacher_curl', '牧师凳弯举', 'ar', 'armBi', 'BM'],
+    ['cu_cable', '绳索弯举', 'ar', 'armBi', 'C', 'S', 'new'],
+    ['cu_incline_db', '上斜哑铃弯举', 'ar', 'armBi', 'D', 'S', 'new'],
+    ['tricep_pushdown', '肱三头肌下压', 'ar', 'armTri', 'C'],
+    ['skull_crusher', '仰卧臂屈伸', 'ar', 'armTri', 'BD', 'S', 'typo', '哑卧臂屈伸'],
+    ['overhead_extension_db', '颈后臂屈伸', 'ar', 'armTri', 'D'],
+    ['close_grip_bench', '窄距杠铃卧推', 'ar', 'armTri', 'B', 'S', 'new', '', '主练三头，放手臂'],
+    ['wrist_curl', '腕弯举', 'ar', 'armFore', 'DB', 'S', 'new'],
+    ['reverse_curl', '反握弯举', 'ar', 'armFore', 'B', 'S', 'new'],
+    ['farmer_walk', '农夫行走', 'ar', 'armFore', 'D', 'S', 'new'],
+    ['own_oh_tri', '头顶绳索三头屈伸', 'ar', '', '', 'S', 'own'],
+    ['own_machine_bi', '器械固定二头', 'ar', '', '', 'S', 'own'],
+    // 腿部
+    ['sq_barbell', '深蹲', 'lg', 'legQuad', 'B'],
+    ['goblet_squat', '高杯深蹲', 'lg', 'legQuad', 'D'],
+    ['leg_press', '倒蹬/腿举', 'lg', 'legQuad', 'M'],
+    ['leg_extension', '腿屈伸', 'lg', 'legQuad', 'M'],
+    ['hack_squat', '哈克深蹲', 'lg', 'legQuad', 'M', 'S', 'new'],
+    ['leg_curl', '腿弯举', 'lg', 'legHam', 'M'],
+    ['romanian_deadlift', '罗马尼亚硬拉', 'lg', 'legHam', 'BD'],
+    ['nordic_curl', '北欧挺身', 'lg', 'legHam', 'W', 'S', 'new'],
+    ['hip_thrust', '杠铃臀推', 'lg', 'legGlute', 'B', 'S', 'new'],
+    ['lunge_dumbbell', '哑铃箭步蹲', 'lg', 'legGlute', 'D'],
+    ['bulgarian_split', '保加利亚分腿蹲', 'lg', 'legGlute', 'D', 'S', 'new'],
+    ['glute_kickback_cable', '绳索后踢腿', 'lg', 'legGlute', 'C', 'S', 'new'],
+    ['hip_abduction', '器械外展', 'lg', 'legGlute', 'M', 'S', 'new', '', '练臀中肌，放臀'],
+    ['calf_raise', '提踵', 'lg', 'legCalf', 'MW'],
+    ['hip_adduction', '器械内收', 'lg', 'legAdd', 'M', 'S', 'new'],
+    // 核心
+    ['cable_crunch', '绳索卷腹', 'co', 'coreUpper', 'C'],
+    ['crunch', '卷腹', 'co', 'coreUpper', 'W', 'S', 'new'],
+    ['machine_crunch', '器械卷腹', 'co', 'coreUpper', 'M', 'S', 'new'],
+    ['leg_raise', '悬垂举腿', 'co', 'coreLower', 'W'],
+    ['lying_leg_raise', '仰卧举腿', 'co', 'coreLower', 'W', 'S', 'new'],
+    ['reverse_crunch', '反向卷腹', 'co', 'coreLower', 'W', 'S', 'new'],
+    ['russian_twist', '俄罗斯转体', 'co', 'coreObl', 'WD'],
+    ['woodchop_cable', '绳索伐木', 'co', 'coreObl', 'C', 'S', 'new'],
+    ['side_bend_db', '哑铃侧屈', 'co', 'coreObl', 'D', 'S', 'new'],
+    ['plank', '平板支撑', 'co', 'coreStab', 'W'],
+    ['ab_wheel', '健腹轮', 'co', 'coreStab', 'W'],
+    ['side_plank', '侧平板支撑', 'co', 'coreStab', 'W', 'S', 'new'],
+    ['dead_bug', '死虫', 'co', 'coreStab', 'W', 'S', 'new'],
+    // 有氧（部位照旧，但不进细分列）
+    ['run_out', '室外跑步', 'lg', '', 'O', 'C'],
+    ['run_tread', '跑步机', 'lg', '', 'IY', 'C'],
+    ['bike_out', '室外骑行', 'lg', '', 'O', 'C'],
+    ['bike_stat', '动感单车', 'lg', '', 'IY', 'C'],
+    ['swim', '游泳', 'fb', '', 'IO', 'C'],
+    ['rower', '划船机', 'bk', '', 'MY', 'C'],
+    ['stair', '登山机', 'lg', '', 'MY', 'C'],
+    ['rope', '跳绳', 'fb', '', 'W', 'C'],
+    // 自由
+    ['ball_basket', '篮球', 'fb', '', 'GO', 'F'],
+    ['ball_soccer', '足球', 'fb', '', 'GO', 'F'],
+    ['ball_badm', '羽毛球', 'fb', '', 'GI', 'F'],
+    ['ball_tennis', '网球', 'fb', '', 'GO', 'F'],
+    ['yoga_flow', '瑜伽', 'fb', '', 'WI', 'F'],
+    ['stretch_all', '拉伸', 'fb', '', 'W', 'F'],
+    ['hiit_session', '高强度间歇训练', 'fb', '', 'WI', 'F'],
+  ];
+
+  // 演示数据：收藏与「最近练过」。前三个自建动作的先后取自旧 demo 里的真实日期（8/26、8/26、8/18）
+  const STARRED = ['bp_barbell', 'lat_pulldown', 'sq_barbell'];
+  const RECENT = ['own_oh_tri', 'own_machine_bi', 'own_upper_back', 'bp_barbell', 'bp_incline_dumbbell', 'fly_cable', 'lat_pulldown', 'row_seated_cable'];
+
+  // 「按名字猜」：只在动作所属部位的细分里猜；猜不出就留在未细分
+  const GUESS = [
+    [/三头|臂屈伸|下压/, 'armTri'], [/二头|弯举/, 'armBi'], [/腕|前臂|农夫/, 'armFore'],
+    [/上斜.*(卧推|推胸|飞鸟)|低位.*夹胸/, 'chestUpper'], [/下斜|双杠|高位.*夹胸/, 'chestLower'],
+    [/蝴蝶机|夹胸|挤压/, 'chestInner'], [/飞鸟|宽距/, 'chestOuter'], [/卧推|推胸|俯卧撑/, 'chestMid'],
+    [/侧平举|直立划船/, 'shSide'], [/面拉|后束|反向|俯身.*飞鸟/, 'shRear'], [/推肩|推举|前平举/, 'shFront'],
+    [/下拉|引体|直臂/, 'backLats'], [/划船/, 'backMid'], [/耸肩|斜方/, 'backTraps'], [/挺身|硬拉/, 'backLower'],
+    [/深蹲|腿举|倒蹬|腿屈伸/, 'legQuad'], [/腿弯举|罗马尼亚|北欧/, 'legHam'], [/臀|箭步|分腿蹲|后踢|外展/, 'legGlute'],
+    [/提踵|小腿/, 'legCalf'], [/内收/, 'legAdd'],
+    [/卷腹/, 'coreUpper'], [/举腿/, 'coreLower'], [/转体|侧屈|伐木/, 'coreObl'], [/平板支撑|健腹轮|死虫/, 'coreStab'],
+  ];
+
+  /* ───────────── 状态 ───────────── */
+
+  let LIB, REG, INIT, S;
+  let uid = 0;
+
+  function buildLib() {
+    return ROWS.map((r, i) => {
+      const [id, name, pc, region, tg, cat = 'S', flag = '', old = '', note = ''] = r;
+      return {
+        id, name, part: PC[pc], region: region || null,
+        tags: [...(tg || '')].map(c => TAG[c]),
+        cat, flag, note, own: flag === 'own',
+        aliases: old ? [old] : [],
+        hidden: false, starred: STARRED.includes(id), regionSet: false, order: i,
+      };
+    });
+  }
+  function buildReg() {
+    const o = {};
+    for (const [p, list] of Object.entries(REGIONS0)) o[p] = list.map(([id, name]) => ({ id, name, custom: false }));
+    return o;
+  }
+  function reset() {
+    LIB = buildLib();
+    REG = buildReg();
+    INIT = { lib: JSON.parse(JSON.stringify(LIB)), reg: JSON.parse(JSON.stringify(REG)) };
+    S = {
+      title: '', partChosen: false, workout: [], sheetOpen: false,
+      axis: null, equips: new Set(), query: '', sessionAdded: 0, lastAddedUid: null, lastBoard: null,
+      layout: 'fit', sort: 'smart', own: 'unassigned', review: false, chips: 'wrap', struck: new Set(),
+    };
+  }
+
+  /* ───────────── 派生 ───────────── */
+
+  const byId = id => LIB.find(e => e.id === id);
+  const visible = () => LIB.filter(e => !e.hidden && !S.struck.has(e.id));
+  const regionsOf = p => REG[p] || [];
+  const recentRank = id => { const i = RECENT.indexOf(id); return i < 0 ? 1e9 : i; };
+  const byOrder = (a, b) => a.order - b.order;
+  function regionName(rid) {
+    for (const list of Object.values(REG)) { const r = list.find(x => x.id === rid); if (r) return r.name; }
+    return '';
+  }
+  function guessRegion(ex) {
+    const ids = new Set(regionsOf(ex.part).map(r => r.id));
+    for (const [re, id] of GUESS) if (ids.has(id) && re.test(ex.name)) return id;
+    return null;
+  }
+  /** 动作此刻落在哪一列。region 不属于当前部位就当没标（部位被改过的情况） */
+  function effRegion(ex) {
+    if (ex.cat !== 'S') return { id: null };
+    const ids = regionsOf(ex.part).map(r => r.id);
+    if (ex.region && ids.includes(ex.region)) return { id: ex.region };
+    if (S.own === 'guess' && ex.own && !ex.regionSet) {
+      const g = guessRegion(ex);
+      if (g) return { id: g, guessed: true };
+    }
+    return { id: null };
+  }
+  function sortItems(arr) {
+    if (S.sort === 'lib') return arr.slice().sort(byOrder);
+    return arr.slice().sort((a, b) => (b.starred - a.starred) || (recentRank(a.id) - recentRank(b.id)) || (a.order - b.order));
+  }
+  function matchAxis(ex) {
+    if (!S.axis) return true;
+    return S.axis.kind === 'part' ? ex.part === S.axis.v : ex.cat === S.axis.v;
+  }
+  const matchEquips = ex => !S.equips.size || ex.tags.some(t => S.equips.has(t));
+  const addedCount = id => S.workout.reduce((n, w) => n + (w.exId === id ? 1 : 0), 0);
+  /** 选了一个有细分的部位、且没在搜索 → 细分格；否则列表 */
+  function boardPart() {
+    if (S.query.trim() || !S.axis || S.axis.kind !== 'part') return null;
+    return regionsOf(S.axis.v).length ? S.axis.v : null;
+  }
+  /** 名字被谁占了：现名或曾用名都算 */
+  function owner(name, exceptId) {
+    const n = name.trim().toLowerCase();
+    return LIB.find(e => e.id !== exceptId && !e.hidden &&
+      (e.name.toLowerCase() === n || e.aliases.some(a => a.toLowerCase() === n)));
+  }
+
+  // 搜索：名字 > 曾用名 > 细分名 > 部位名 > 器材名，多个词之间是「且」
+  function scoreEx(ex, toks) {
+    if (!toks.length) return 1;
+    const name = ex.name.toLowerCase();
+    const r = effRegion(ex).id;
+    const rn = r ? regionName(r) : '';
+    const pn = PART[ex.part] ? PART[ex.part].name : '';
+    const en = ex.tags.map(eqName).join(' ');
+    let total = 0;
+    for (const t of toks) {
+      let s = 0;
+      if (name.startsWith(t)) s = 30;
+      else if (name.includes(t)) s = 20;
+      else if (ex.aliases.some(a => a.toLowerCase().includes(t))) s = 12;
+      else if (rn && rn.includes(t)) s = 10;
+      else if (pn.includes(t)) s = 6;
+      else if (en.includes(t)) s = 4;
+      else if (ex.own && '自建'.includes(t)) s = 2;
+      if (!s) return 0;
+      total += s;
+    }
+    return total;
+  }
+  function scored() {
+    const toks = S.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return visible().map(ex => ({ ex, s: scoreEx(ex, toks) })).filter(r => r.s > 0);
+  }
+  function usage() {
+    const part = {}, region = {}, equip = {};
+    for (const ex of LIB) {
+      if (ex.hidden) continue;
+      part[ex.part] = (part[ex.part] || 0) + 1;
+      const r = effRegion(ex).id;
+      if (r) region[r] = (region[r] || 0) + 1;
+      for (const t of ex.tags) equip[t] = (equip[t] || 0) + 1;
+    }
+    return { part, region, equip };
+  }
+
+  /* ───────────── 小工具 ───────────── */
+
+  let lastVib = 0;
+  function vib(ms) {
+    const now = performance.now();
+    if (now - lastVib < 55) return;
+    lastVib = now;
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* noop */ }
+  }
+  function flash(el) {
+    if (!el) return;
+    el.classList.remove('ink'); void el.offsetWidth; el.classList.add('ink');
+    el.addEventListener('animationend', () => el.classList.remove('ink'), { once: true });
+  }
+  function flashEx(id) {
+    requestAnimationFrame(() => document.querySelectorAll('#results [data-ex="' + id + '"]').forEach(flash));
+  }
+
+  let toastTimer = 0, undoFn = null;
+  function toast(msg, undo) {
+    const t = $('#toast');
+    undoFn = undo || null;
+    t.hidden = false;
+    t.classList.remove('on'); void t.offsetWidth; t.classList.add('on');
+    t.innerHTML = `<span class="msg">${esc(msg)}</span>` +
+      (undo ? '<button type="button" class="undo" data-act="undo">撤销</button>' : '') +
+      `<button type="button" class="dis" data-act="toast-close" aria-label="dismiss">${svg('x', 16)}</button>` +
+      '<span class="cd" style="animation-duration:5000ms" aria-hidden="true"></span>';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(closeToast, 5000);
+  }
+  function closeToast() {
+    clearTimeout(toastTimer);
+    undoFn = null;
+    $('#toast').hidden = true;
+  }
+  function runUndo() {
+    const f = undoFn;
+    closeToast();
+    if (f) f();
+  }
+
+  /* ───────────── 训练页 ───────────── */
+
+  function sealsHTML() {
+    const tiles = SEALS.map(id => {
+      const p = PART[id];
+      return `<button type="button" class="bpt" data-act="seal" data-part="${id}" aria-label="${p.title}"><span class="seal" aria-hidden="true">${p.seal}</span><span>${p.title}</span></button>`;
+    }).join('');
+    return `<section class="bpp"><h2>今天练哪里</h2><div class="grid">${tiles}` +
+      '<button type="button" class="bpt other" data-act="seal-other" aria-label="其他"><span class="seal dashed" aria-hidden="true">制</span><span>其他</span></button></div></section>';
+  }
+  function exCardHTML(w, i) {
+    const ex = byId(w.exId);
+    return `<article class="excard" data-wuid="${w.uid}">` +
+      `<div class="exmast"><div class="row"><h3>${esc(ex ? ex.name : '')}</h3>` +
+      `<span class="meta">第${i + 1}个 · <b>1</b>组 · —</span><span class="more">${svg('more', 20, 1.75)}</span></div></div>` +
+      '<div class="exgrid exhead"><span>#</span><span>重量</span><span>次数</span><span>竭</span><span></span></div>' +
+      '<div class="exgrid ledger"><span class="setnum">1</span>' +
+      '<span class="lf"><span class="v">0</span><span class="u">kg</span></span>' +
+      '<span class="lf"><span class="v">0</span><span class="u">次</span></span>' +
+      `<span class="fail">竭</span><span class="minus">${svg('minus', 18, 1.75)}</span></div>` +
+      `<div class="exfoot"><div class="addset">${svg('plus', 16, 1.75)}添加组</div></div></article>`;
+  }
+  function renderBench() {
+    const ti = $('#woTitle');
+    if (ti.value !== S.title) ti.value = S.title;
+    $('#wEnd').disabled = !S.workout.length;
+    const body = $('#benchBody');
+    if (!S.workout.length) body.innerHTML = S.partChosen ? '<div class="emptyhint">还没有动作</div>' : sealsHTML();
+    else body.innerHTML = S.workout.map(exCardHTML).join('');
+    $('#dockCount').textContent = `${S.workout.length} 动作 · ${S.workout.length} 组`;
+  }
+
+  /* ───────────── 弹层 ───────────── */
+
+  function renderHead() {
+    const pill = $('#addedPill');
+    pill.hidden = S.sessionAdded === 0;
+    pill.textContent = `✓ 本次已加 ${S.sessionAdded}`;
+    $('#clrQ').hidden = !S.query;
+  }
+  function renderFilters() {
+    const sc = scored();
+    const axisChip = (kind, v, label) => {
+      const on = !!S.axis && S.axis.kind === kind && S.axis.v === v;
+      return `<button type="button" class="pchip${on ? ' on' : ''}" data-act="axis" data-kind="${kind}" data-v="${v}" aria-pressed="${on}">${esc(label)}</button>`;
+    };
+    $('#partRow').innerHTML = '<span class="lab">部位</span>' +
+      `<button type="button" class="pchip${S.axis ? '' : ' on'}" data-act="axis" data-kind="" data-v="" aria-pressed="${!S.axis}">全部</button>` +
+      PARTS.map(p => axisChip('part', p.id, p.name)).join('') + axisChip('cat', 'C', '有氧') + axisChip('cat', 'F', '自由');
+
+    // 器材计数跟着部位与搜索联动；细分格里只有力量动作，口径跟它一致；搜索时不按部位算
+    const bp = boardPart();
+    const searching = !!S.query.trim();
+    const counts = new Map(EQ.map(([id]) => [id, 0]));
+    for (const { ex } of sc) {
+      if ((!searching && !matchAxis(ex)) || (bp && ex.cat !== 'S')) continue;
+      for (const t of ex.tags) counts.set(t, (counts.get(t) || 0) + 1);
+    }
+    $('#eqRow').innerHTML = '<span class="lab">器材</span>' + EQ.map(([id, name]) => {
+      const n = counts.get(id) || 0, on = S.equips.has(id);
+      if (!n && !on) return '';
+      return `<button type="button" class="echip${on ? ' on' : ''}" data-act="equip" data-v="${id}" aria-pressed="${on}">${esc(name)}<span class="n">${n}</span></button>`;
+    }).join('');
+  }
+  function renderFbar(n) {
+    const el = $('#fbar');
+    const nF = (S.axis ? 1 : 0) + S.equips.size;
+    const show = !!S.query.trim() || nF > 0;
+    el.hidden = !show;
+    if (!show) return;
+    el.innerHTML = `<span><b>${n}</b> 个结果${nF ? ` · ${nF} 个筛选` : ''}</span>` +
+      (nF ? '<button type="button" data-act="clear-filters">清空筛选</button>' : '');
+  }
+
+  function markPill(ex) {
+    if (ex.flag === 'new') return '<span class="pill mark">新</span>';
+    if (ex.flag === 'ren' || ex.flag === 'typo') return '<span class="pill mark">改</span>';
+    if (ex.own) return '<span class="pill">自建</span>';
+    return '';
+  }
+  // 小卡：动作行的窄版
+  function cardHTML(ex) {
+    const n = addedCount(ex.id);
+    const r = effRegion(ex);
+    const cls = 'rcard' + (n ? ' added' : '') + (r.guessed ? ' guessed' : '');
+    const mk = S.review ? markPill(ex) : '';
+    return `<button type="button" class="${cls}" data-ex="${ex.id}"><span class="nm">` +
+      (ex.starred ? svg('star', 11, 2, 'warn fill') : '') + esc(ex.name) +
+      (n > 1 ? `<span class="x2">×${n}</span>` : '') + '</span>' + mk + '</button>';
+  }
+  // 动作行（PickerRow）：名字 + 已添加徽标；下面一行部位 / 细分 / 器材小标签；右边收藏
+  function rowHTML(ex) {
+    const n = addedCount(ex.id);
+    const r = effRegion(ex);
+    const pills = [];
+    if (PART[ex.part]) pills.push(`<span class="pill">${esc(PART[ex.part].name)}</span>`);
+    if (r.id) pills.push(`<span class="pill${r.guessed ? ' guess' : ''}">${esc(regionName(r.id))}</span>`);
+    ex.tags.slice(0, 3).forEach(t => pills.push(`<span class="pill eq${S.equips.has(t) ? ' hit' : ''}">${esc(eqName(t))}</span>`));
+    if (S.review) { const m = markPill(ex); if (m) pills.push(m); }
+    return `<div class="xrow"><button type="button" class="main" data-ex="${ex.id}">` +
+      `<span class="nm">${esc(ex.name)}${n ? `<span class="badge-add">✓ 已添加${n > 1 ? ' ×' + n : ''}</span>` : ''}</span>` +
+      `<span class="pills">${pills.join('')}</span></button>` +
+      `<button type="button" class="star" data-act="star" data-v="${ex.id}" aria-label="${ex.starred ? '取消收藏' : '收藏'}" aria-pressed="${ex.starred}">${svg('star', 18, 2, ex.starred ? 'fill' : '')}</button></div>`;
+  }
+  const GICON = { star: ['star', 'warn fill'], recent: ['history', 'acc'], more: ['zap', 'ter'], search: ['search', 'acc'], dashed: ['dashed', 'ter'] };
+  function groupHTML(kind, title, arr) {
+    if (!arr.length) return '';
+    const [ic, c] = GICON[kind];
+    return `<div class="gh">${svg(ic, 13, 2, c)}<h3>${esc(title)}</h3><span class="n">· ${arr.length}</span></div>` +
+      `<div class="rows">${arr.map(rowHTML).join('')}</div>`;
+  }
+  const NONE = msg => `<div class="none">${svg('search', 32, 1.5, 'ter')}<span>${esc(msg)}</span></div>`;
+
+  function boardHTML(p) {
+    const items = visible().filter(e => e.part === p && e.cat === 'S' && matchEquips(e));
+    if (!items.length) return { html: NONE('当前筛选下没有动作'), n: 0 };
+    const regs = regionsOf(p);
+    const by = new Map(regs.map(r => [r.id, []]));
+    const un = [];
+    for (const ex of items) {
+      const r = effRegion(ex);
+      if (r.id && by.has(r.id)) by.get(r.id).push(ex); else un.push(ex);
+    }
+    const scroll = S.layout === 'scroll' || regs.length > 5;
+    const heads = regs.map(r => `<div class="rh"><b>${esc(r.name)}</b><i>${by.get(r.id).length}</i></div>`).join('');
+    const cols = regs.map(r => {
+      const arr = sortItems(by.get(r.id));
+      return `<div class="rcol" role="group" aria-label="${esc(r.name)}">` +
+        (arr.length ? arr.map(cardHTML).join('') : '<div class="rcard empty" aria-hidden="true">—</div>') + '</div>';
+    }).join('');
+    let html = `<div class="rwrap${scroll ? ' scroll' : ''}" style="--cols:${regs.length}">` +
+      `<div class="rgrid rheads">${heads}</div><div class="rgrid rcols">${cols}</div></div>`;
+    if (un.length) html += groupHTML('dashed', '未细分', sortItems(un));
+    return { html, n: items.length };
+  }
+  function listHTML() {
+    const items = visible().filter(e => matchAxis(e) && matchEquips(e));
+    if (!items.length) return { html: NONE('当前筛选下没有动作'), n: 0 };
+    const star = [], rec = [], other = [];
+    for (const ex of items) {
+      if (ex.starred) star.push(ex);
+      else if (RECENT.includes(ex.id)) rec.push(ex);
+      else other.push(ex);
+    }
+    star.sort(byOrder);
+    rec.sort((a, b) => recentRank(a.id) - recentRank(b.id));
+    other.sort(byOrder);
+    return {
+      html: groupHTML('star', '我的常用', star) + groupHTML('recent', '最近练过', rec) +
+        groupHTML('more', star.length + rec.length ? '更多' : '全部动作', other),
+      n: items.length,
+    };
+  }
+  // 搜索不再被部位锁死：当前部位的排前面，其余接在下面；器材是手动点的筛选，照旧生效
+  function searchHTML() {
+    const boost = ex => (ex.starred ? 15 : 0) + (RECENT.includes(ex.id) ? 8 : 0);
+    const res = scored().filter(r => matchEquips(r.ex))
+      .sort((a, b) => (b.s + boost(b.ex)) - (a.s + boost(a.ex)) || a.ex.order - b.ex.order);
+    const q = S.query.trim();
+    let html;
+    if (!res.length) html = NONE('动作库里没有匹配的动作');
+    else if (S.axis) {
+      const here = res.filter(r => matchAxis(r.ex)).map(r => r.ex);
+      const rest = res.filter(r => !matchAxis(r.ex)).map(r => r.ex);
+      const label = S.axis.kind === 'cat' ? (S.axis.v === 'C' ? '有氧' : '自由') : PART[S.axis.v].name;
+      html = groupHTML('search', label, here) + groupHTML('search', S.axis.kind === 'part' ? '其他部位' : '其他', rest);
+    } else html = groupHTML('search', '搜索结果', res.map(r => r.ex));
+    if (!res.some(r => r.ex.name === q)) {
+      html += `<button type="button" class="createbtn" data-act="new-ex" data-v="${esc(q)}">${svg('plus', 15, 2.5)}没找到？创建「${esc(q)}」</button>`;
+    }
+    return { html, n: res.length };
+  }
+  function renderResults() {
+    const box = $('#results');
+    const bp = boardPart();
+    const prev = box.querySelector('.rwrap');
+    const keepLeft = prev && S.lastBoard === bp ? prev.scrollLeft : 0;
+    const out = bp ? boardHTML(bp) : S.query.trim() ? searchHTML() : listHTML();
+    box.innerHTML = out.html;
+    S.lastBoard = bp;
+    const rw = box.querySelector('.rwrap');
+    if (rw) rw.scrollLeft = keepLeft;
+    renderFbar(out.n);
+  }
+  function renderSheet() {
+    const sh = $('#sheet');
+    sh.classList.toggle('on', S.sheetOpen);
+    sh.setAttribute('aria-hidden', String(!S.sheetOpen));
+    $('#scrim').classList.toggle('on', S.sheetOpen);
+    if ($('#q').value !== S.query) $('#q').value = S.query;
+    renderHead();
+    renderFilters();
+    renderResults();
+  }
+
+  function openSheet(focusPart) {
+    S.query = '';
+    S.sessionAdded = 0;
+    S.lastAddedUid = null;
+    if (focusPart) { S.axis = { kind: 'part', v: focusPart }; S.equips = new Set(); }
+    S.sheetOpen = true;
+    renderSheet();
+    $('#results').scrollTop = 0;
+  }
+  function closeSheet() {
+    if (!S.sheetOpen) return;
+    S.sheetOpen = false;
+    $('#q').blur();
+    cancelLP();
+    closeMenu();
+    renderSheet();
+    renderBench();
+    const u = S.lastAddedUid;
+    if (u) {
+      setTimeout(() => {
+        const card = document.querySelector('[data-wuid="' + u + '"]');
+        if (card) { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); flash(card); }
+      }, 260);
+    }
+  }
+  function choosePart(p) {
+    S.title = PART[p].title;
+    S.partChosen = true;
+    renderBench();
+    openSheet(p);
+  }
+
+  let lastPick = { id: '', t: 0 };
+  function addToWorkout(id) {
+    const w = { uid: ++uid, exId: id };
+    S.workout.push(w);
+    S.sessionAdded++;
+    S.lastAddedUid = w.uid;
+    vib(8);
+    renderHead();
+    flash($('#addedPill'));
+    renderBench();
+  }
+  function pick(id) {
+    const t = performance.now();
+    if (lastPick.id === id && t - lastPick.t < 450) return; // 双击防误加
+    lastPick = { id, t };
+    addToWorkout(id);
+    renderResults();
+    flashEx(id);
+  }
+  function toggleStar(id) {
+    const ex = byId(id);
+    if (!ex) return;
+    ex.starred = !ex.starred;
+    vib(10);
+    renderResults();
+  }
+
+  /* ───────────── 长按（120ms 静默 + 380ms 画线，按住即浮出说明） ───────────── */
+
+  const R = $('#results');
+  let lp = null, lpFiredAt = 0;
+  function cancelLP() {
+    if (!lp) return;
+    clearTimeout(lp.t1);
+    clearTimeout(lp.t2);
+    lp.el.classList.remove('pressing');
+    $('#lpLabel').classList.remove('on');
+    lp = null;
+  }
+  function fireLP() {
+    if (!lp) return;
+    const id = lp.el.dataset.ex;
+    cancelLP();
+    lpFiredAt = performance.now();
+    vib(14);
+    openMenu(id);
+  }
+  function showLPLabel(el) {
+    const lab = $('#lpLabel');
+    const ph = $('#phone').getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const x = Math.min(Math.max(r.left + r.width / 2 - ph.left, 50), ph.width - 50);
+    lab.style.left = x + 'px';
+    lab.style.top = (r.bottom - ph.top + 4) + 'px';
+    lab.classList.add('on');
+  }
+  R.addEventListener('pointerdown', e => {
+    const el = e.target.closest('[data-ex]');
+    if (!el || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    cancelLP();
+    lp = { el, x: e.clientX, y: e.clientY };
+    lp.t1 = setTimeout(() => { if (lp && lp.el === el) { el.classList.add('pressing'); showLPLabel(el); } }, 120);
+    lp.t2 = setTimeout(fireLP, 500);
+  });
+  R.addEventListener('pointermove', e => {
+    if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) cancelLP();
+  });
+  R.addEventListener('pointerup', cancelLP);
+  R.addEventListener('pointercancel', cancelLP);
+  R.addEventListener('scroll', cancelLP, true);
+  R.addEventListener('contextmenu', e => {
+    const el = e.target.closest('[data-ex]');
+    if (!el) return;
+    e.preventDefault();
+    if (lp) { fireLP(); return; }
+    if (performance.now() - lpFiredAt < 700) return;
+    lpFiredAt = performance.now(); // 桌面右键直接出菜单
+    openMenu(el.dataset.ex);
+  });
+  R.addEventListener('click', e => {
+    const el = e.target.closest('[data-ex]');
+    if (!el) return;
+    if (performance.now() - lpFiredAt < 450) return; // 长按松手带出的那次点击不算「添加」
+    pick(el.dataset.ex);
+  });
+
+  /* ───────────── 长按菜单 ───────────── */
+
+  let menuEx = null, menuSeq = 0;
+  function openMenu(id) {
+    const ex = byId(id);
+    if (!ex) return;
+    menuEx = id;
+    const r = effRegion(ex);
+    const regs = ex.cat === 'S' ? regionsOf(ex.part) : [];
+    const where = [PART[ex.part] ? PART[ex.part].name : '',
+      r.id ? regionName(r.id) + (r.guessed ? '（猜的）' : '') : (regs.length ? '未细分' : '')].filter(Boolean).join(' · ');
+    const chips = regs.length
+      ? '<div class="mlab">归到细分</div><div class="mchips">' + [{ id: '', name: '未细分' }, ...regs].map(g => {
+          const cur = (r.id || '') === g.id;
+          const cls = cur ? (r.guessed ? ' guess' : ' on') : '';
+          return `<button type="button" class="mchip${cls}" data-act="assign" data-v="${g.id}" aria-pressed="${cur && !r.guessed}">${esc(g.name)}</button>`;
+        }).join('') + '</div>'
+      : '';
+    menuSeq++;
+    const m = $('#menu');
+    m.innerHTML = `<div class="mpanel" data-act="noop" role="dialog" aria-modal="true" aria-label="${esc(ex.name)}">` +
+      `<p class="mt">${esc(ex.name)}<small>${esc(where)}</small></p>${chips}` +
+      `<button type="button" class="mbtn" data-act="menu-tags">${svg('tags', 16, 2, 'acc')}编辑标签</button>` +
+      `<button type="button" class="mbtn" data-act="menu-star">${svg('star', 16, 2, 'warn' + (ex.starred ? ' fill' : ''))}${ex.starred ? '取消收藏' : '收藏'}</button>` +
+      `<button type="button" class="mbtn" data-act="menu-rename">${svg('pencil', 16, 2, 'acc')}重命名</button>` +
+      `<button type="button" class="mbtn danger" data-act="menu-delete">${svg('trash', 16)}从动作库删除</button>` +
+      '<button type="button" class="mbtn cancel" data-act="menu-close">取消</button></div>';
+    m.classList.add('on');
+  }
+  function closeMenu() {
+    const m = $('#menu');
+    if (!m.classList.contains('on')) return;
+    const s = ++menuSeq;
+    m.classList.remove('on');
+    setTimeout(() => { if (s === menuSeq) m.innerHTML = ''; }, 260);
+  }
+  function assignRegion(id, rid) {
+    const ex = byId(id);
+    if (!ex) return;
+    ex.region = rid || null;
+    ex.regionSet = true;
+    closeMenu();
+    vib(10);
+    renderFilters();
+    renderResults();
+    flashEx(id);
+  }
+  function deleteExercise(id) {
+    const ex = byId(id);
+    if (!ex) return;
+    ex.hidden = true;
+    renderFilters();
+    renderResults();
+    toast('已从动作库移除', () => { ex.hidden = false; renderFilters(); renderResults(); flashEx(id); });
+  }
+
+  /* ───────────── 弹窗（Modal + ModalFooter 的样子） ───────────── */
+
+  let ED = null, RN = null, NR = null;
+  let modalSeq = 0, modalKind = null, modalBackTo = null, manageScroll = 0;
+  function modalHTML({ title, subtitle, body, footer, closeAct = 'modal-close' }) {
+    return '<div class="mdscrim" aria-hidden="true"></div>' +
+      `<div class="md" data-act="noop" role="dialog" aria-modal="true" aria-label="${esc(title)}">` +
+      `<div class="hd"><div><h2>${esc(title)}</h2>${subtitle ? `<p>${esc(subtitle)}</p>` : ''}</div>` +
+      `<button type="button" class="x" data-act="${closeAct}" aria-label="关闭">${svg('x', 20, 1.75)}</button></div>` +
+      `<div class="bd">${body}</div>${footer ? `<div class="ft">${footer}</div>` : ''}</div>`;
+  }
+  const footerHTML = (okLabel, okAct, { disabled = false, cancelAct = 'modal-close', icon = '' } = {}) =>
+    `<button type="button" class="c" data-act="${cancelAct}">取消</button>` +
+    `<button type="button" class="o" id="mdOk" data-act="${okAct}"${disabled ? ' disabled' : ''}>${icon}${okLabel}</button>`;
+  function showModal(html, kind, back, scrollTop) {
+    const m = $('#modal');
+    const prev = m.querySelector('.bd');
+    const same = modalKind === kind && m.classList.contains('on');
+    const keep = scrollTop != null ? scrollTop : (prev && same ? prev.scrollTop : 0);
+    modalSeq++;
+    modalKind = kind;
+    modalBackTo = back || null;
+    m.innerHTML = html;
+    if (!same) m.querySelector('.md').classList.add('enter');
+    m.classList.add('on');
+    const bd = m.querySelector('.bd');
+    if (bd) bd.scrollTop = keep;
+  }
+  function closeModal() {
+    const m = $('#modal');
+    const s = ++modalSeq;
+    m.classList.remove('on');
+    ED = RN = NR = null;
+    modalKind = null;
+    modalBackTo = null;
+    setTimeout(() => { if (s === modalSeq) m.innerHTML = ''; }, 260);
+  }
+  function modalBack() {
+    if (modalBackTo === 'manage') openManage(true);
+    else closeModal();
+  }
+  function rememberManageScroll() {
+    const bd = $('#modal .bd');
+    if (bd && modalKind === 'manage') manageScroll = bd.scrollTop;
+  }
+  const secHTML = (icon, title, hint, inner) =>
+    `<div class="sec"><h4>${icon ? svg(icon, 11, 2) : ''}${esc(title)}${hint ? `<span>· ${esc(hint)}</span>` : ''}</h4>${inner}</div>`;
+
+  // 编辑标签 / 新动作：同一个表单，部位 → 细分联动
+  function openEditor(id) {
+    const ex = byId(id);
+    if (!ex) return;
+    const r = effRegion(ex);
+    ED = { mode: 'edit', exId: id, name: ex.name, cat: ex.cat, part: ex.part, region: r.id, tags: new Set(ex.tags), adding: false, draft: '', err: '', regErr: '' };
+    renderEditor();
+  }
+  function openEditorNew(prefill) {
+    const axis = S.axis;
+    ED = {
+      mode: 'new', name: prefill || '',
+      cat: axis && axis.kind === 'cat' ? axis.v : 'S',
+      part: axis && axis.kind === 'part' ? axis.v : '',
+      region: null, tags: new Set(), adding: false, draft: '', err: '', regErr: '',
+    };
+    renderEditor();
+    if (!ED.name) setTimeout(() => { const i = $('#edName'); if (i) i.focus(); }, 80);
+  }
+  function renderEditor() {
+    const isNew = ED.mode === 'new';
+    const showReg = ED.cat === 'S' && ED.part && ED.part !== 'subFullBody';
+    const partChips = [{ id: '', name: '无' }, ...PARTS].map(p => {
+      const on = ED.part === p.id;
+      return `<button type="button" class="kchip${on ? ' on' : ''}" data-act="ed-part" data-v="${p.id}" aria-pressed="${on}">${esc(p.name)}</button>`;
+    }).join('');
+    const regChips = [{ id: '', name: '未细分' }, ...regionsOf(ED.part || '')].map(g => {
+      const on = (ED.region || '') === g.id;
+      return `<button type="button" class="kchip${on ? ' on' : ''}${g.custom ? ' custom' : ''}" data-act="ed-region" data-v="${g.id}" aria-pressed="${on}">${esc(g.name)}</button>`;
+    }).join('');
+    const eqChips = EQ.map(([id, n]) => {
+      const on = ED.tags.has(id);
+      return `<button type="button" class="kchip${on ? ' on' : ''}" data-act="ed-eq" data-v="${id}" aria-pressed="${on}">${esc(n)}</button>`;
+    }).join('');
+    let body = '';
+    if (isNew) {
+      body += secHTML('', '动作名称', '', `<input class="fld" id="edName" value="${esc(ED.name)}" placeholder="例如：上斜哑铃卧推" autocomplete="off" enterkeyhint="done" aria-label="动作名称"><div class="err" id="edErr">${esc(ED.err)}</div>`);
+      body += secHTML('', '训练类型', '', '<div class="kseg">' + [['S', '力量训练'], ['C', '有氧训练'], ['F', '自由训练']].map(([k, l]) =>
+        `<button type="button" class="kchip${ED.cat === k ? ' on' : ''}" data-act="ed-cat" data-v="${k}" aria-pressed="${ED.cat === k}">${l}</button>`).join('') + '</div>');
+    }
+    body += secHTML('sparkles', '训练部位', '单选', `<div class="chips">${partChips}</div>`);
+    if (showReg) {
+      body += secHTML('columns', '细分', '单选',
+        `<div class="chips">${regChips}<button type="button" class="addchip" data-act="ed-newregion">${svg('plusCircle', 13)}新建细分</button></div>` +
+        (ED.adding ? `<div class="inline-new"><input class="ui-input" id="edNewRegion" value="${esc(ED.draft)}" placeholder="细分名称" autocomplete="off" enterkeyhint="done" aria-label="新细分名称"><button type="button" data-act="ed-newregion-ok">添加</button></div><div class="err">${esc(ED.regErr)}</div>` : ''));
+    }
+    body += secHTML('filter', '使用器材', '多选', `<div class="chips">${eqChips}</div>`);
+    showModal(modalHTML({
+      title: isNew ? '新动作' : ED.name,
+      subtitle: isNew ? '创建后将加入本次训练' : '编辑标签',
+      body,
+      footer: footerHTML(isNew ? '确认' : '保存', 'ed-save', { disabled: isNew && !ED.name.trim(), icon: isNew ? '' : svg('check', 16, 2.5) }),
+    }), 'editor');
+  }
+  function editorAddRegion() {
+    const i = $('#edNewRegion');
+    const name = (i ? i.value : ED.draft).trim();
+    if (!name) return;
+    const list = REG[ED.part];
+    if (list.some(r => r.name === name)) {
+      ED.draft = name;
+      ED.regErr = `${PART[ED.part].name}已经有「${name}」`;
+      renderEditor();
+      return;
+    }
+    const r = { id: 'rg_' + Date.now(), name, custom: true };
+    list.push(r);
+    ED.region = r.id;
+    ED.adding = false;
+    ED.draft = '';
+    ED.regErr = '';
+    renderEditor();
+    renderResults();
+  }
+  function editorSave() {
+    if (ED.mode === 'edit') {
+      const ex = byId(ED.exId);
+      if (!ex) return closeModal();
+      ex.part = ED.part || ex.part;
+      ex.region = ED.cat === 'S' ? ED.region : null;
+      ex.regionSet = true;
+      ex.tags = [...ED.tags];
+      const id = ex.id;
+      closeModal();
+      vib(10);
+      renderFilters();
+      renderResults();
+      flashEx(id);
+      return;
+    }
+    const name = ED.name.trim();
+    if (!name) return;
+    const o = owner(name);
+    if (o) {
+      ED.err = o.name.toLowerCase() === name.toLowerCase() ? `已经有「${o.name}」了` : `「${name}」是「${o.name}」以前的名字`;
+      renderEditor();
+      return;
+    }
+    const ex = {
+      id: 'own_' + Date.now(), name, part: ED.part || 'subFullBody', region: ED.cat === 'S' ? ED.region : null,
+      tags: [...ED.tags], cat: ED.cat, flag: 'own', note: '', own: true, aliases: [],
+      hidden: false, starred: false, regionSet: true, order: LIB.length,
+    };
+    LIB.push(ex);
+    closeModal();
+    addToWorkout(ex.id);
+    renderFilters();
+    renderResults();
+    flashEx(ex.id);
+  }
+
+  // 标签管理（TagManageModal）：部位 / 细分（按部位分组，新增）/ 器材，数字是使用数
+  function openManage(restore) {
+    const u = usage();
+    const tchip = (name, n) => `<span class="tchip"><span class="tn"><b>${esc(name)}</b><i>${n || 0}</i></span></span>`;
+    const groups = PARTS.filter(p => p.id !== 'subFullBody').map(p =>
+      `<div class="tgroup"><span class="gp">${esc(p.name)}</span><div class="chips">` +
+      regionsOf(p.id).map(r =>
+        `<span class="tchip${r.custom ? ' custom' : ''}"><button type="button" class="tn" data-act="mg-rename" data-v="${r.id}" data-p="${p.id}" aria-label="重命名${esc(r.name)}">` +
+        `<b>${esc(r.name)}</b><i>${u.region[r.id] || 0}</i>${r.custom ? '<em>自定义</em>' : ''}${svg('edit2', 11, 2, 'ter')}</button>` +
+        (r.custom ? `<button type="button" class="del" data-act="mg-del" data-v="${r.id}" data-p="${p.id}" aria-label="删除细分${esc(r.name)}">${svg('trash', 14)}</button>` : '') +
+        '</span>').join('') +
+      `<button type="button" class="addchip" data-act="mg-new" data-p="${p.id}">${svg('plusCircle', 13)}新建细分</button></div></div>`).join('');
+    const body =
+      secHTML('sparkles', '部位标签', '', `<div class="chips">${PARTS.map(p => tchip(p.name, u.part[p.id])).join('')}</div>`) +
+      secHTML('columns', '细分标签', '', groups) +
+      secHTML('filter', '器材标签', '', `<div class="chips">${EQ.map(([id, n]) => tchip(n, u.equip[id])).join('')}</div>`);
+    showModal(modalHTML({ title: '标签管理', body }), 'manage', null, restore ? manageScroll : null);
+  }
+  function deleteRegion(p, rid) {
+    const list = REG[p];
+    const idx = list.findIndex(r => r.id === rid);
+    if (idx < 0) return;
+    rememberManageScroll();
+    const removed = list.splice(idx, 1)[0];
+    const affected = LIB.filter(e => e.region === rid);
+    affected.forEach(e => { e.region = null; });
+    openManage(true);
+    renderFilters();
+    renderResults();
+    toast(`已删除细分「${removed.name}」${affected.length ? `，${affected.length} 个动作回到未细分` : ''}`, () => {
+      list.splice(idx, 0, removed);
+      affected.forEach(e => { e.region = rid; });
+      if (modalKind === 'manage') { rememberManageScroll(); openManage(true); }
+      renderFilters();
+      renderResults();
+    });
+  }
+
+  // 改名（RenameModal）：动作改名把旧名记成曾用名；细分改名只查本部位重名
+  function openRename(o) {
+    if (o.kind === 'region') rememberManageScroll();
+    const cur = o.kind === 'ex' ? (byId(o.id) || {}).name : (regionsOf(o.part).find(r => r.id === o.id) || {}).name;
+    RN = Object.assign({}, o, { value: cur || '', err: '', cur: cur || '' });
+    renderRename();
+    setTimeout(() => { const i = $('#rnInput'); if (i) { i.focus(); i.select(); } }, 80);
+  }
+  function renderRename() {
+    showModal(modalHTML({
+      title: RN.kind === 'ex' ? '重命名动作' : '重命名标签',
+      subtitle: RN.kind === 'region' ? `${PART[RN.part].name} · 细分` : '',
+      body: `<div><input class="ui-input" id="rnInput" value="${esc(RN.value)}" placeholder="${esc(RN.cur)}" autocomplete="off" enterkeyhint="done" aria-label="新名字"><div class="err">${esc(RN.err)}</div></div>`,
+      footer: footerHTML('确认', 'rn-ok', { disabled: !RN.value.trim(), cancelAct: 'modal-back' }),
+      closeAct: 'modal-back',
+    }), 'rename', RN.back);
+  }
+  function renameOk() {
+    const v = (RN.value || '').trim();
+    if (!v) return;
+    if (RN.kind === 'ex') {
+      const ex = byId(RN.id);
+      if (!ex || v === ex.name) return closeModal();
+      const o = owner(v, ex.id);
+      if (o) {
+        RN.err = o.name.toLowerCase() === v.toLowerCase() ? `已经有「${o.name}」了` : `「${v}」是「${o.name}」以前的名字`;
+        renderRename();
+        return;
+      }
+      if (!ex.aliases.includes(ex.name)) ex.aliases.push(ex.name);
+      ex.aliases = ex.aliases.filter(a => a !== v);
+      ex.name = v;
+      closeModal();
+      renderResults();
+      renderBench();
+      flashEx(ex.id);
+      return;
+    }
+    const list = REG[RN.part];
+    const r = list.find(x => x.id === RN.id);
+    if (!r) return modalBack();
+    if (list.some(x => x.id !== r.id && x.name === v)) {
+      RN.err = `${PART[RN.part].name}已经有「${v}」`;
+      renderRename();
+      return;
+    }
+    r.name = v;
+    renderResults();
+    modalBack();
+  }
+  function openNewRegion(p) {
+    rememberManageScroll();
+    NR = { part: p, value: '', err: '' };
+    renderNewRegion();
+    setTimeout(() => { const i = $('#nrInput'); if (i) i.focus(); }, 80);
+  }
+  function renderNewRegion() {
+    showModal(modalHTML({
+      title: '新建细分',
+      subtitle: PART[NR.part].name,
+      body: `<div><input class="ui-input" id="nrInput" value="${esc(NR.value)}" placeholder="细分名称" autocomplete="off" enterkeyhint="done" aria-label="细分名称"><div class="err">${esc(NR.err)}</div></div>`,
+      footer: footerHTML('确认', 'nr-ok', { disabled: !NR.value.trim(), cancelAct: 'modal-back' }),
+      closeAct: 'modal-back',
+    }), 'newregion', 'manage');
+  }
+  function newRegionOk() {
+    const v = (NR.value || '').trim();
+    if (!v) return;
+    const list = REG[NR.part];
+    if (list.some(x => x.name === v)) {
+      NR.err = `${PART[NR.part].name}已经有「${v}」`;
+      renderNewRegion();
+      return;
+    }
+    list.push({ id: 'rg_' + Date.now(), name: v, custom: true });
+    renderResults();
+    modalBack();
+  }
+
+  $('#modal').addEventListener('input', e => {
+    const t = e.target;
+    const ok = $('#mdOk');
+    if (t.id === 'edName' && ED) {
+      ED.name = t.value;
+      ED.err = '';
+      if (ok) ok.disabled = !t.value.trim();
+      const er = $('#edErr');
+      if (er) er.textContent = '';
+    } else if (t.id === 'edNewRegion' && ED) ED.draft = t.value;
+    else if (t.id === 'rnInput' && RN) { RN.value = t.value; if (ok) ok.disabled = !t.value.trim(); }
+    else if (t.id === 'nrInput' && NR) { NR.value = t.value; if (ok) ok.disabled = !t.value.trim(); }
+  });
+  $('#modal').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const id = e.target.id;
+    if (id === 'edNewRegion') { e.preventDefault(); editorAddRegion(); }
+    else if (id === 'rnInput') { e.preventDefault(); renameOk(); }
+    else if (id === 'nrInput') { e.preventDefault(); newRegionOk(); }
+    else if (id === 'edName') { e.preventDefault(); e.target.blur(); }
+  });
+
+  /* ───────────── 方案面板（demo 用） ───────────── */
+
+  const OPT_LABEL = {
+    layout: { fit: '五列并排', scroll: '横向滑动' },
+    sort: { smart: '常用 → 最近 → 其余', lib: '动作库顺序' },
+    own: { unassigned: '先放未细分', guess: '按名字猜' },
+    review: { false: '不标', true: '标出新增 / 改名' },
+    chips: { wrap: '铺开（现状）', scroll: '各一行横滑' },
+  };
+  function renderPanel() {
+    const row = (k, title) => `<div><div class="q">${title}</div><div class="opts">` +
+      Object.entries(OPT_LABEL[k]).map(([v, l]) =>
+        `<button type="button" class="pchip${String(S[k]) === v ? ' on' : ''}" data-act="opt" data-k="${k}" data-v="${v}" aria-pressed="${String(S[k]) === v}">${l}</button>`).join('') +
+      '</div></div>';
+    $('#panel').innerHTML =
+      row('layout', '细分列') + row('sort', '列内排序') + row('own', '没标细分的自建动作') +
+      row('review', '新增 / 改名') + row('chips', '部位、器材两行') +
+      '<div class="btns"><button type="button" class="primary" data-act="table-open">看总表</button><button type="button" class="ghost" data-act="reset">全部重来</button></div>';
+  }
+  function togglePanel(force) {
+    const p = $('#panel');
+    const open = force != null ? force : p.hidden;
+    p.hidden = !open;
+    $('#btnPlan').setAttribute('aria-expanded', String(open));
+    if (open) renderPanel();
+  }
+  function applyPhoneClasses() {
+    $('#phone').classList.toggle('chipscroll', S.chips === 'scroll');
+  }
+  function setOpt(k, v) {
+    S[k] = k === 'review' ? v === 'true' : v;
+    applyPhoneClasses();
+    renderPanel();
+    renderFilters();
+    renderResults();
+    if (!$('#table').hidden) renderTable();
+  }
+
+  /* ───────────── 总表（demo 用，Modal full 的样子） ───────────── */
+
+  function tItem(ex) {
+    const struck = S.struck.has(ex.id);
+    const notes = [];
+    if (ex.flag === 'new') notes.push('<em>新</em>');
+    if (ex.own) notes.push('<em class="old">自建</em>');
+    if (ex.aliases.length) notes.push(`<em class="old">原「${esc(ex.aliases.join('」「'))}」${ex.flag === 'typo' ? '，疑似笔误' : ''}</em>`);
+    if (ex.note) notes.push(`<em class="old">${esc(ex.note)}</em>`);
+    if (effRegion(ex).guessed) notes.push('<em>猜的</em>');
+    return `<button type="button" class="ti${struck ? ' struck' : ''}" data-act="strike" data-v="${ex.id}" aria-pressed="${struck}">${esc(ex.name)}${notes.join('')}</button>`;
+  }
+  function renderTable() {
+    const el = $('#table');
+    const prev = el.querySelector('.bd');
+    const top = prev ? prev.scrollTop : 0;
+    const live = LIB.filter(e => !e.hidden);
+    const base = live.filter(e => !e.own && e.flag !== 'new').length;
+    const ren = live.filter(e => e.flag === 'ren' || e.flag === 'typo').length;
+    const add = live.filter(e => e.flag === 'new').length;
+    const own = live.filter(e => e.own).length;
+    const nReg = Object.values(REG).reduce((n, l) => n + l.length, 0);
+    const tRow = (label, arr) => `<div class="trow"><span class="rg">${esc(label)}</span><span class="its">${arr.length ? arr.map(tItem).join('') : '<span class="ti blank">—</span>'}</span></div>`;
+    const gh = (title, n, sub) => `<div class="gh">${svg('columns', 13, 2, 'acc')}<h3>${esc(title)}</h3><span class="n">· ${n}${sub ? ' · ' + esc(sub) : ''}</span></div>`;
+    const parts = PARTS.map(p => {
+      const items = live.filter(e => e.part === p.id && e.cat === 'S');
+      const regs = regionsOf(p.id);
+      if (!items.length && !regs.length) return '';
+      const rows = regs.map(r => tRow(r.name, items.filter(e => effRegion(e).id === r.id).sort(byOrder))).join('');
+      const un = items.filter(e => !effRegion(e).id).sort(byOrder);
+      return `<section class="tpart">${gh(p.name, items.length)}${rows}${un.length ? tRow('未细分', un) : ''}</section>`;
+    }).join('');
+    const flat = (title, cat) => {
+      const arr = live.filter(e => e.cat === cat).sort(byOrder);
+      return arr.length ? `<section class="tpart">${gh(title, arr.length, '不分细分')}<div class="trow"><span class="its">${arr.map(tItem).join('')}</span></div></section>` : '';
+    };
+    el.innerHTML =
+      `<div class="hd"><h2>细分总表 · 初稿</h2><button type="button" class="sicon" data-act="table-close" aria-label="关闭总表">${svg('x', 20, 1.75)}</button></div>` +
+      '<div class="bd">' +
+      `<p class="tstat">内置 ${base}（其中改名 ${ren}）· 新增候选 ${add} · 你的自建 ${own} · 细分 ${nReg}</p>` +
+      '<ol class="rules">' +
+      '<li>一个动作只落一列。</li>' +
+      '<li>同一个动作换个做法就会换列的（上斜 / 下斜、低位 / 高位绳索、宽距），拆成两个动作；只换手感的（握法、节奏、单侧 / 双侧）归第 8 条的「练法」，不拆。</li>' +
+      '<li>标「新」的是这次补的候选。正式入库前要先跟你的自建动作对一遍，同一个动作的不加；这次没读到你的真实数据，还没对。</li>' +
+      '<li>写着「原……」的是改了名的：旧名记成曾用名，历史记录照样认，搜旧名也能搜到。</li>' +
+      '<li>有氧、自由不分细分，也不进腿、背的细分列。</li>' +
+      '</ol>' +
+      '<p>点动作可以划掉。在弹层里长按改细分、改名，或在标签管理里新建细分，改动都会记进「复制修改」。</p>' +
+      parts + flat('有氧', 'C') + flat('自由', 'F') +
+      '<textarea class="copyfallback" id="copyFallback" readonly hidden aria-label="修改清单"></textarea>' +
+      '</div>' +
+      `<div class="ftbar"><span>已划掉 ${S.struck.size} 个</span><button type="button" data-act="copy">复制修改</button></div>`;
+    const bd = el.querySelector('.bd');
+    if (bd) bd.scrollTop = top;
+  }
+  function openTable() {
+    $('#table').hidden = false;
+    renderTable();
+  }
+  function closeTable() {
+    $('#table').hidden = true;
+  }
+  function toggleStrike(id) {
+    if (S.struck.has(id)) S.struck.delete(id); else S.struck.add(id);
+    renderTable();
+    renderFilters();
+    renderResults();
+  }
+
+  function summaryText() {
+    const lines = ['【部位细分 demo · 我的修改】'];
+    const init = new Map(INIT.lib.map(e => [e.id, e]));
+    const regIn = (reg, rid) => { for (const l of Object.values(reg)) { const r = l.find(x => x.id === rid); if (r) return r.name; } return rid; };
+    const struck = LIB.filter(e => S.struck.has(e.id)).map(e => e.name);
+    const moved = [], parted = [], renamed = [], deleted = [], created = [];
+    for (const e of LIB) {
+      const o = init.get(e.id);
+      if (!o) {
+        if (!e.hidden) created.push(`${e.name}（${PART[e.part].name}${e.region ? ' · ' + regionName(e.region) : ''}）`);
+        continue;
+      }
+      if (e.hidden && !o.hidden) deleted.push(e.name);
+      if (e.name !== o.name) renamed.push(`${o.name} → ${e.name}`);
+      if (e.part !== o.part) parted.push(`${e.name}：${PART[o.part].name} → ${PART[e.part].name}`);
+      if (e.regionSet && (o.region || null) !== (e.region || null)) {
+        moved.push(`${e.name}：${o.region ? regIn(INIT.reg, o.region) : '未细分'} → ${e.region ? regionName(e.region) : '未细分'}`);
+      }
+    }
+    const regLines = [];
+    for (const p of PARTS) {
+      const before = INIT.reg[p.id] || [], after = REG[p.id] || [];
+      for (const r of after) {
+        const b = before.find(x => x.id === r.id);
+        if (!b) regLines.push(`新建细分：${p.name} · ${r.name}`);
+        else if (b.name !== r.name) regLines.push(`细分改名：${p.name} · ${b.name} → ${r.name}`);
+      }
+      for (const b of before) if (!after.some(x => x.id === b.id)) regLines.push(`删除细分：${p.name} · ${b.name}`);
+    }
+    if (struck.length) lines.push('划掉：' + struck.join('、'));
+    if (moved.length) lines.push('改细分：' + moved.join('；'));
+    if (parted.length) lines.push('改部位：' + parted.join('；'));
+    if (renamed.length) lines.push('改名：' + renamed.join('；'));
+    if (deleted.length) lines.push('从动作库删除：' + deleted.join('、'));
+    if (created.length) lines.push('新建动作：' + created.join('、'));
+    regLines.forEach(l => lines.push(l));
+    if (lines.length === 1) lines.push('（没有改动）');
+    lines.push(`看的时候选的：细分列 ${OPT_LABEL.layout[S.layout]}，列内排序 ${OPT_LABEL.sort[S.sort]}，自建动作 ${OPT_LABEL.own[S.own]}，筛选两行 ${OPT_LABEL.chips[S.chips]}`);
+    return lines.join('\n');
+  }
+  function copySummary() {
+    const text = summaryText();
+    const fallback = () => {
+      const ta = $('#copyFallback');
+      if (!ta) return;
+      ta.hidden = false;
+      ta.value = text;
+      ta.focus();
+      ta.select();
+      ta.scrollIntoView({ block: 'nearest' });
+      toast('没能直接复制，下面框里已经全选，手动复制一下');
+    };
+    try {
+      const p = navigator.clipboard && navigator.clipboard.writeText(text);
+      if (p && p.then) p.then(() => toast('已复制，贴回对话里就行'), fallback);
+      else fallback();
+    } catch (e) {
+      fallback();
+    }
+  }
+
+  /* ───────────── 事件分发 ───────────── */
+
+  function act(name, el) {
+    const v = el.dataset.v;
+    switch (name) {
+      case 'noop': return;
+      case 'seal': return choosePart(el.dataset.part);
+      case 'seal-other':
+        S.partChosen = true;
+        renderBench();
+        setTimeout(() => $('#woTitle').focus(), 0);
+        return;
+      case 'open-sheet': return openSheet(null);
+      case 'close-sheet': return closeSheet();
+      case 'axis': {
+        const k = el.dataset.kind;
+        if (!k || (S.axis && S.axis.kind === k && S.axis.v === v)) S.axis = null;
+        else S.axis = { kind: k, v };
+        renderFilters();
+        renderResults();
+        R.scrollTop = 0;
+        return;
+      }
+      case 'equip':
+        if (S.equips.has(v)) S.equips.delete(v); else S.equips.add(v);
+        renderFilters();
+        renderResults();
+        return;
+      case 'clear-filters':
+        S.axis = null;
+        S.equips = new Set();
+        renderFilters();
+        renderResults();
+        return;
+      case 'clear-q':
+        S.query = '';
+        $('#q').value = '';
+        renderHead();
+        renderFilters();
+        renderResults();
+        $('#q').focus();
+        return;
+      case 'star': return toggleStar(v);
+      case 'new-ex': return openEditorNew(v != null ? v : S.query.trim());
+      case 'tag-manage': return openManage(false);
+      case 'menu-close': return closeMenu();
+      case 'assign': return assignRegion(menuEx, v);
+      case 'menu-tags': { const id = menuEx; closeMenu(); return openEditor(id); }
+      case 'menu-star': { const id = menuEx; closeMenu(); return toggleStar(id); }
+      case 'menu-rename': { const id = menuEx; closeMenu(); return openRename({ kind: 'ex', id }); }
+      case 'menu-delete': { const id = menuEx; closeMenu(); return deleteExercise(id); }
+      case 'ed-part': ED.part = v; ED.region = null; ED.adding = false; ED.regErr = ''; return renderEditor();
+      case 'ed-region': ED.region = v || null; return renderEditor();
+      case 'ed-eq': if (ED.tags.has(v)) ED.tags.delete(v); else ED.tags.add(v); return renderEditor();
+      case 'ed-cat': ED.cat = v; ED.region = null; ED.adding = false; return renderEditor();
+      case 'ed-newregion':
+        ED.adding = true;
+        renderEditor();
+        setTimeout(() => { const i = $('#edNewRegion'); if (i) i.focus(); }, 30);
+        return;
+      case 'ed-newregion-ok': return editorAddRegion();
+      case 'ed-save': return editorSave();
+      case 'mg-rename': return openRename({ kind: 'region', id: v, part: el.dataset.p, back: 'manage' });
+      case 'mg-new': return openNewRegion(el.dataset.p);
+      case 'mg-del': return deleteRegion(el.dataset.p, v);
+      case 'rn-ok': return renameOk();
+      case 'nr-ok': return newRegionOk();
+      case 'modal-back': return modalBack();
+      case 'modal-close': return closeModal();
+      case 'plan': return togglePanel();
+      case 'opt': return setOpt(el.dataset.k, v);
+      case 'table-open': togglePanel(false); return openTable();
+      case 'table-close': return closeTable();
+      case 'strike': return toggleStrike(v);
+      case 'copy': return copySummary();
+      case 'toast-close': return closeToast();
+      case 'reset':
+        togglePanel(false);
+        closeModal();
+        closeMenu();
+        closeTable();
+        closeToast();
+        reset();
+        renderAll();
+        return;
+      case 'undo': return runUndo();
+    }
+  }
+
+  $('#phone').addEventListener('click', e => {
+    if (!$('#panel').hidden && !e.target.closest('#panel') && !e.target.closest('#btnPlan')) togglePanel(false);
+    const a = e.target.closest('[data-act]');
+    if (a) act(a.dataset.act, a);
+  });
+  $('#q').addEventListener('input', e => {
+    S.query = e.target.value;
+    renderHead();
+    renderFilters();
+    renderResults();
+  });
+  $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+  $('#woTitle').addEventListener('input', e => { S.title = e.target.value; });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!$('#panel').hidden) togglePanel(false);
+    else if ($('#modal').classList.contains('on')) modalBack();
+    else if ($('#menu').classList.contains('on')) closeMenu();
+    else if (!$('#table').hidden) closeTable();
+    else if (S.sheetOpen) closeSheet();
+  });
+
+  function renderAll() {
+    applyPhoneClasses();
+    renderBench();
+    renderSheet();
+    if (!$('#panel').hidden) renderPanel();
+    if (!$('#table').hidden) renderTable();
+  }
+
+  reset();
+  renderAll();
+})();
+</script>
+</body>
+</html>
