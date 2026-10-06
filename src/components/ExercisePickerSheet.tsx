@@ -231,7 +231,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const [menuFor, setMenuFor] = useState<ExerciseDefinition | null>(null);
   // 键盘弹起时筛选区收起为摘要行（点摘要可临时展开，键盘收起后自动复原）
   const [kbExpandFilters, setKbExpandFilters] = useState(false);
-  const suppressClickRef = useRef(false);
+  /**
+   * 长按出菜单后，吞掉松手带出的那次 click（不算「添加」）。
+   * 用时间戳不用布尔：菜单一弹出就盖在手指下面，那次 click 往往根本落不到行上，
+   * 布尔立起来就没人清 —— 用完长按菜单后的下一次正常点选会被吃掉（§12.5 粘滞布尔）。
+   */
+  const suppressClickRef = useRef(0);
   const sheetRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<{ startY: number; y: number } | null>(null);
 
@@ -546,14 +551,14 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         isCn={isCn}
         bindRef={bindItemRef(ex.id)}
         onPick={() => {
-          if (suppressClickRef.current) {
-            suppressClickRef.current = false;
+          if (performance.now() - suppressClickRef.current < 450) {
+            suppressClickRef.current = 0;
             return;
           }
           handlePick(ex);
         }}
         onLongPress={() => {
-          suppressClickRef.current = true; // 松手后的 click 不再当作「添加」
+          suppressClickRef.current = performance.now(); // 松手后的 click 不再当作「添加」
           setMenuFor(ex);
         }}
         onToggleStar={() => toggleStarExercise(displayName)}
@@ -578,14 +583,14 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         isCn={isCn}
         bindRef={bindItemRef(ex.id)}
         onPick={() => {
-          if (suppressClickRef.current) {
-            suppressClickRef.current = false;
+          if (performance.now() - suppressClickRef.current < 450) {
+            suppressClickRef.current = 0;
             return;
           }
           handlePick(ex);
         }}
         onLongPress={() => {
-          suppressClickRef.current = true;
+          suppressClickRef.current = performance.now();
           setMenuFor(ex);
         }}
       />

@@ -2,11 +2,12 @@
  * 编辑某个具体动作的标签（部位 + 器材）。替代过去的拖拽-改标签交互。
  */
 import React, { useState, useEffect } from 'react';
-import { Check, Sparkles, Filter, Trash2 } from 'lucide-react';
+import { Check, Columns3, Sparkles, Filter, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS, EQUIPMENT_TAGS } from '../constants/exercises';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { Modal, ModalFooter } from './Modal';
+import { RegionChooser, hasRegionSection } from './RegionChooser';
 
 interface EditExerciseTagsModalProps {
   open: boolean;
@@ -15,11 +16,11 @@ interface EditExerciseTagsModalProps {
   customTags: {
     id: string;
     name: string;
-    category: 'bodyPart' | 'equipment';
+    category: 'bodyPart' | 'equipment' | 'region';
   }[];
   getTagName: (tid: string) => string;
   onClose: () => void;
-  onSave: (exerciseId: string, bodyPart: string, tags: string[]) => void;
+  onSave: (exerciseId: string, bodyPart: string, tags: string[], region: string) => void;
   /**
    * 从动作库中删除此动作（自定义动作会被彻底移除，系统动作会被标记为隐藏）。
    * 不传则不显示"删除"按钮。
@@ -40,11 +41,13 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
   const { confirm } = useUiOverlay();
   const [bodyPart, setBodyPart] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [region, setRegion] = useState('');
 
   useEffect(() => {
     if (open && exercise) {
       setBodyPart(exercise.bodyPart || '');
       setTags(exercise.tags || []);
+      setRegion(exercise.region || '');
     }
   }, [open, exercise]);
 
@@ -81,7 +84,8 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
           confirmLabel={isCn ? '保存' : 'Save'}
           onCancel={onClose}
           onConfirm={() => {
-            onSave(exercise.id, bodyPart, tags);
+            // 部位换了、细分没跟着选：存成未细分（细分只认当前部位下的）
+            onSave(exercise.id, bodyPart, tags, hasRegionSection(bodyPart, exercise.category || 'STRENGTH') ? region : '');
             onClose();
           }}
           confirmIcon={<Check size={16} strokeWidth={2.5} />}
@@ -127,6 +131,25 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
             })}
           </div>
         </div>
+
+        {/* 细分（单选，随部位联动；第 3 条） */}
+        {hasRegionSection(bodyPart, exercise.category || 'STRENGTH') && (
+          <div>
+            <h4 className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+              <Columns3 size={11} /> {isCn ? '细分' : 'Region'}
+              <span className="text-tertiary normal-case tracking-normal">
+                · {isCn ? '单选' : 'single'}
+              </span>
+            </h4>
+            <RegionChooser
+              part={bodyPart}
+              category={exercise.category || 'STRENGTH'}
+              value={region}
+              onChange={setRegion}
+              lang={lang}
+            />
+          </div>
+        )}
 
         {/* 器材（多选） */}
         <div>

@@ -81,7 +81,8 @@ interface ExercisePrefsContextValue {
   resetMetricsToDefault: (exerciseName: string) => void;
   toggleStarExercise: (exerciseName: string) => void;
   saveExerciseNote: (name: string, note: string) => void;
-  saveExerciseTags: (exerciseId: string, bodyPart: string, tags: string[]) => void;
+  /** region 不传 = 不动细分；'' = 放回未细分 */
+  saveExerciseTags: (exerciseId: string, bodyPart: string, tags: string[], region?: string) => void;
   /** 返回 false = 没改成（细分在同一部位下重名） */
   renameTag: (id: string, newName: string) => boolean;
   deleteTag: (id: string) => Promise<void>;
@@ -391,12 +392,13 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   }, [rawKeysFor, resolveName]);
 
   const saveExerciseTags = useCallback(
-    (exerciseId: string, bodyPart: string, tags: string[]) => {
+    (exerciseId: string, bodyPart: string, tags: string[], region?: string) => {
       const isCustom = customExercises.some(c => c.id === exerciseId);
+      const withRegion = region === undefined ? {} : { region };
       if (isCustom) {
         setCustomExercises(prev => {
           const next = prev.map(c =>
-            c.id === exerciseId ? { ...c, bodyPart, tags } : c,
+            c.id === exerciseId ? { ...c, bodyPart, tags, ...withRegion } : c,
           );
           writeJSON(LS_KEYS.customExercises, next);
           return next;
@@ -404,7 +406,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       } else {
         setExerciseOverrides(prev => {
           const current = prev[exerciseId] || {};
-          const next = { ...current, bodyPart, tags };
+          const next = { ...current, bodyPart, tags, ...withRegion };
           const updated = { ...prev, [exerciseId]: next };
           writeJSON(LS_KEYS.exerciseOverrides, updated);
           return updated;

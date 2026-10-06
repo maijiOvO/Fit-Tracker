@@ -226,6 +226,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseTags, setNewExerciseTags] = useState<string[]>([]);
+  /** 新动作的细分（第 3 条）；'' = 未细分 */
+  const [newExerciseRegion, setNewExerciseRegion] = useState('');
   const [newExerciseBodyPart, setNewExerciseBodyPart] = useState<string>('');
   const [newExerciseCategory, setNewExerciseCategory] =
     useState<ExerciseCategory>('STRENGTH');
@@ -728,6 +730,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       setNewExerciseName(prefilledName?.trim() || '');
       setNewExerciseBodyPart('');
       setNewExerciseTags([]);
+      setNewExerciseRegion('');
       setNewExerciseCategory(activeLibraryCategory || 'STRENGTH');
       setShowAddExerciseModal(true);
     },
@@ -866,11 +869,27 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setNewExerciseBodyPart={setNewExerciseBodyPart}
         newExerciseTags={newExerciseTags}
         setNewExerciseTags={setNewExerciseTags}
+        newExerciseRegion={newExerciseRegion}
+        setNewExerciseRegion={setNewExerciseRegion}
         customTags={prefs.customTags}
         getTagName={prefs.getTagName}
         onClose={() => setShowAddExerciseModal(false)}
         onConfirm={() => {
           if (!newExerciseName.trim()) return;
+          // 与库里动作的现名 / 曾用名重名就拒绝（第 7 条同一条规矩），弹窗留着改
+          const clash = prefs.findExerciseDef(newExerciseName.trim());
+          if (clash) {
+            const clashName = prefs.resolveName(newExerciseName.trim());
+            toast(
+              isCn
+                ? clashName === newExerciseName.trim()
+                  ? `已经有「${clashName}」了`
+                  : `「${newExerciseName.trim()}」是「${clashName}」以前的名字`
+                : `"${newExerciseName.trim()}" is already taken`,
+              'error',
+            );
+            return;
+          }
           const currentCat = newExerciseCategory;
           // 切类前先清理 customTag 的 parentCategory（保持原行为）
           const selectedTagIds = [...newExerciseTags, newExerciseBodyPart].filter(Boolean);
@@ -895,6 +914,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             bodyPart: newExerciseBodyPart,
             tags: newExerciseTags,
             category: currentCat,
+            ...(newExerciseRegion ? { region: newExerciseRegion } : {}),
           };
           prefs.addCustomExercise(ex);
 
@@ -913,6 +933,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           setNewExerciseName('');
           setNewExerciseBodyPart('');
           setNewExerciseTags([]);
+          setNewExerciseRegion('');
         }}
       />
 
@@ -923,8 +944,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         customTags={prefs.customTags}
         getTagName={prefs.getTagName}
         onClose={() => setEditExerciseTagsTarget(null)}
-        onSave={(exerciseId, bodyPart, tags) => {
-          prefs.saveExerciseTags(exerciseId, bodyPart, tags);
+        onSave={(exerciseId, bodyPart, tags, region) => {
+          prefs.saveExerciseTags(exerciseId, bodyPart, tags, region);
           setEditExerciseTagsTarget(null);
         }}
         onDelete={id => prefs.deleteLibraryExercise(id, { skipConfirm: true })}

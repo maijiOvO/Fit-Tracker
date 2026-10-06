@@ -9,6 +9,7 @@ import {
   ExerciseCategory,
 } from '../../constants/exercises';
 import type { CustomTag } from '../../contexts/ExercisePrefsContext';
+import { RegionChooser, hasRegionSection } from '../RegionChooser';
 
 interface AddCustomExerciseModalProps {
   open: boolean;
@@ -21,6 +22,9 @@ interface AddCustomExerciseModalProps {
   setNewExerciseBodyPart: (s: string) => void;
   newExerciseTags: string[];
   setNewExerciseTags: React.Dispatch<React.SetStateAction<string[]>>;
+  /** 细分（第 3 条）；'' = 未细分 */
+  newExerciseRegion: string;
+  setNewExerciseRegion: (id: string) => void;
   customTags: CustomTag[];
   getTagName: (id: string) => string;
   onClose: () => void;
@@ -38,6 +42,8 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   setNewExerciseBodyPart,
   newExerciseTags,
   setNewExerciseTags,
+  newExerciseRegion,
+  setNewExerciseRegion,
   customTags,
   getTagName,
   onClose,
@@ -128,6 +134,20 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
           </div>
         </div>
 
+        {hasRegionSection(newExerciseBodyPart, newExerciseCategory) && (
+          <div>
+            <label className="text-[10px] font-semibold text-secondary px-1 mb-2 block">
+              {isCn ? '细分' : 'Region'} · {isCn ? '单选' : 'single'}
+            </label>
+            <RegionChooser
+              part={newExerciseBodyPart}
+              category={newExerciseCategory}
+              value={newExerciseRegion}
+              onChange={setNewExerciseRegion}
+              lang={lang}
+            />
+          </div>
+        )}
         <div>
           <label className="text-[10px] font-semibold text-secondary px-1 mb-2 block">
             {translations.equipmentHeader[lang]} · {isCn ? '多选' : 'multi'}

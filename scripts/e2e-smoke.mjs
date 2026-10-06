@@ -717,6 +717,62 @@ const main = async () => {
     return `chest board: ${heads.map(h => h.replace(/\s+/g, '')).join(' ')} · ${count} cards; cross-part search ok`;
   });
 
+  // 第 3 条：长按小卡 → 菜单第一行「归到细分」，卡片换列；标签管理里新建细分 → 格子多一列；
+  // 删自建细分走撤销条（不弹确认），用到它的动作回到未细分。
+  await step(page, 'region-assign-and-manage', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const col = name => sheet.locator(`.region-col[aria-label="${name}"]`);
+    const card = col('中胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' });
+    await card.waitFor({ state: 'visible', timeout: 3_000 });
+    const box = await card.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '上胸' }).click();
+    await col('上胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' }).waitFor({ timeout: 3_000 });
+
+    // 放回中胸，别给后面的用例留状态
+    const moved = col('上胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' });
+    const b2 = await moved.boundingBox();
+    await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+    await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '中胸' }).click();
+    await card.waitFor({ timeout: 3_000 });
+
+    // 标签管理：胸部下新建一个细分 → 细分格多一列
+    await page.locator('[data-testid="open-tag-manage"]').click();
+    const mgr = page.locator('[data-testid="tag-manage-modal"]');
+    await mgr.waitFor({ state: 'visible', timeout: 3_000 });
+    await mgr.locator('[data-testid="region-group-subChest"]').getByRole('button', { name: /新建细分/ }).click();
+    const dlg = page.locator('[role="dialog"]').filter({ hasText: /新建细分 · 胸部/ });
+    await dlg.locator('input').fill('E2E细分');
+    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    const chip = mgr.locator('[data-testid="region-group-subChest"]').getByRole('button', { name: /rename E2E细分/ });
+    await chip.waitFor({ timeout: 3_000 });
+    const headsWith = await sheet.locator('.region-head').count();
+
+    // 删掉：不弹确认，直接撤销条
+    await mgr.getByRole('button', { name: 'delete E2E细分' }).click();
+    await page.waitForTimeout(300);
+    const confirmDlg = await page.locator('[role="dialog"]').filter({ hasText: /确定删除/ }).count();
+    if (confirmDlg) throw new Error('deleting a region still asks for confirmation — 应当先执行 + 撤销');
+    const toastText = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已删除细分/.test(toastText)) throw new Error(`no undo toast for region delete: ${toastText}`);
+    await mgr.getByRole('button', { name: /^(关闭|Close)$/ }).first().click();
+    await mgr.waitFor({ state: 'detached', timeout: 3_000 });
+    const headsAfter = await sheet.locator('.region-head').count();
+    if (headsWith !== 6 || headsAfter !== 5) throw new Error(`region columns ${headsWith} → ${headsAfter}, expected 6 → 5`);
+    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
+    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+    return 'assign via menu moves the card; new region adds a column; delete → undo toast, column gone';
+  });
+
   await step(page, 'close-library', async () => {
     // 清空筛选（不给后续步骤留状态）并关闭弹层
     const clearBtn = page
