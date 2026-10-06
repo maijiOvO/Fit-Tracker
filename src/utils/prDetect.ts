@@ -81,6 +81,11 @@ interface DetectParams {
   /** 编辑旧训练时不触发 */
   editingWorkoutId: string | null;
   resolveName: (name: string) => string;
+  /**
+   * 项目键（第 8 条）：同一动作的不同练法各算各的纪录。不传＝按现名（旧行为）。
+   * 印上写的也是它（「高位下拉 · 宽握」）。
+   */
+  keyOf?: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /** 判断自重类动作：activeMetrics 不含 weight 时才启用 reps 口径 */
   getActiveMetrics: (name: string) => string[];
   unitLabel: string;
@@ -91,28 +96,29 @@ export function detectPRs({
   history,
   editingWorkoutId,
   resolveName,
+  keyOf,
   getActiveMetrics,
   unitLabel,
 }: DetectParams): PRResult {
+  const key = keyOf ?? ((e: { name: string }) => resolveName(e.name));
   // 在改历史，语义混乱，不触发
   if (editingWorkoutId !== null) return { stamps: [], extraCount: 0 };
 
   const hits: PRHit[] = [];
 
   for (const ex of session.exercises ?? []) {
-    const name = resolveName(ex.name).trim();
+    const name = key(ex).trim();
     if (!name) continue;
 
-    // 该动作的历史记录
+    // 该动作（同一练法）的历史记录
     const past = history.flatMap(w =>
-      (w.exercises ?? []).filter(
-        e => resolveName(e.name).trim() === name && realSets(e).length > 0,
-      ),
+      (w.exercises ?? []).filter(e => key(e).trim() === name && realSets(e).length > 0),
     );
     // 历史为空不算 PR
     if (past.length === 0) continue;
 
-    const metrics = getActiveMetrics(name);
+    // 动作设置按动作共享，不分练法
+    const metrics = getActiveMetrics(resolveName(ex.name));
     const tracksWeight = metrics.includes('weight');
 
     if (tracksWeight) {

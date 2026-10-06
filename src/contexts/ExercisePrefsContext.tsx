@@ -79,6 +79,14 @@ interface ExercisePrefsContextValue {
   findExerciseDef: (name: string) => ExerciseDefinition | undefined;
   /** 部位下的细分：按用户排的列顺序（没排过：系统在前、自建在后），删掉的系统细分不在内 */
   regionsOf: (part: string) => { id: string; custom: boolean }[];
+  /** 动作的练法（第 8 条）；不在库里的名字返回 [] */
+  variantsOf: (exerciseName: string) => { id: string; name: string }[];
+  /** 一条记录的练法名：现名优先，练法被删了用记录里当时的名字；标准返回 '' */
+  variantLabel: (ex: { name: string; variantId?: string; variantName?: string }) => string;
+  /**
+   * 「项目键」：现名，带练法时是「现名 · 练法」。PR、PR 列表、趋势图、历史筛选都按它分开。
+   */
+  liftKey: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /** 部位下被删掉（隐藏）的系统细分，可恢复 */
   hiddenRegionsOf: (part: string) => string[];
   /** 动作（已合并覆盖层）此刻落在哪一列；不分细分 / 未细分 / 细分不属于当前部位 → null */
@@ -113,6 +121,10 @@ interface ExercisePrefsContextValue {
   applyRegionLayout: (changes: { id: string; region: string; regionRank?: number }[]) => void;
   /** 新建自建细分，返回新 id；同一部位下重名返回 null（已 toast） */
   addRegionTag: (part: string, name: string) => string | null;
+  /** 练法：新建返回 id（同名返回 null 并 toast）、改名（同名返回 false）、删除（撤销条） */
+  addVariant: (exerciseName: string, name: string) => string | null;
+  renameVariant: (exerciseName: string, id: string, name: string) => boolean;
+  removeVariant: (exerciseName: string, id: string) => void;
   /** 整理里挪列：dir = -1 左移 / 1 右移 */
   moveRegion: (part: string, id: string, dir: -1 | 1) => void;
   /** 整理里删细分：系统细分＝隐藏、自建细分＝删标签；都走撤销条，动作回未细分 */
@@ -263,6 +275,32 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       return storedName;
     },
     [findExerciseDef, exerciseOverrides, lang],
+  );
+
+  const variantsOf = useCallback(
+    (exerciseName: string) => {
+      const def = findExerciseDef(exerciseName);
+      if (!def) return [];
+      return exerciseOverrides[def.id]?.variants ?? def.variants ?? [];
+    },
+    [findExerciseDef, exerciseOverrides],
+  );
+
+  const variantLabel = useCallback(
+    (ex: { name: string; variantId?: string; variantName?: string }) => {
+      if (!ex.variantId) return '';
+      return variantsOf(ex.name).find(v => v.id === ex.variantId)?.name || ex.variantName || '';
+    },
+    [variantsOf],
+  );
+
+  const liftKey = useCallback(
+    (ex: { name: string; variantId?: string; variantName?: string }) => {
+      const base = resolveName(ex.name).trim();
+      const v = variantLabel(ex);
+      return v ? `${base} · ${v}` : base;
+    },
+    [resolveName, variantLabel],
   );
 
   /** 原键 → 显示名归并。同一动作有多个原键时，键名正好等于显示名的那个说了算。 */
@@ -789,6 +827,83 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [getTagName, lang, regionsOf, toast],
   );
 
+  /** 写练法表：自建动作写定义本身、内置动作写覆盖层 */
+  const writeVariants = useCallback(
+    (exerciseName: string, next: { id: string; name: string }[]) => {
+      const def = findExerciseDef(exerciseName);
+      if (!def) return;
+      if (customExercises.some(c => c.id === def.id)) {
+        setCustomExercises(prev => {
+          const list = prev.map(c => (c.id === def.id ? { ...c, variants: next } : c));
+          writeJSON(LS_KEYS.customExercises, list);
+          return list;
+        });
+      } else {
+        setExerciseOverrides(prev => {
+          const updated = { ...prev, [def.id]: { ...(prev[def.id] || {}), variants: next } };
+          writeJSON(LS_KEYS.exerciseOverrides, updated);
+          return updated;
+        });
+      }
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+    },
+    [customExercises, findExerciseDef],
+  );
+
+  const variantClash = useCallback(
+    (exerciseName: string, name: string, exceptId?: string) => {
+      const n = name.trim();
+      const std = lang === Language.CN ? '标准' : 'Standard';
+      return n === std || variantsOf(exerciseName).some(v => v.id !== exceptId && v.name === n);
+    },
+    [lang, variantsOf],
+  );
+
+  const addVariant = useCallback(
+    (exerciseName: string, name: string): string | null => {
+      const n = name.trim();
+      if (!n || !findExerciseDef(exerciseName)) return null;
+      if (variantClash(exerciseName, n)) {
+        toast(lang === Language.CN ? `已经有「${n}」这个练法了` : `"${n}" already exists`, 'error');
+        return null;
+      }
+      const id = `v_${Date.now()}`;
+      writeVariants(exerciseName, [...variantsOf(exerciseName), { id, name: n }]);
+      return id;
+    },
+    [findExerciseDef, lang, toast, variantClash, variantsOf, writeVariants],
+  );
+
+  const renameVariant = useCallback(
+    (exerciseName: string, id: string, name: string): boolean => {
+      const n = name.trim();
+      if (!n) return false;
+      if (variantClash(exerciseName, n, id)) {
+        toast(lang === Language.CN ? `已经有「${n}」这个练法了` : `"${n}" already exists`, 'error');
+        return false;
+      }
+      writeVariants(exerciseName, variantsOf(exerciseName).map(v => (v.id === id ? { ...v, name: n } : v)));
+      return true;
+    },
+    [lang, toast, variantClash, variantsOf, writeVariants],
+  );
+
+  /** 删练法：历史记录里带着当时的名字，照样能显示、照样单独算 PR；撤销放回原位 */
+  const removeVariant = useCallback(
+    (exerciseName: string, id: string) => {
+      const before = variantsOf(exerciseName);
+      const gone = before.find(v => v.id === id);
+      if (!gone) return;
+      writeVariants(exerciseName, before.filter(v => v.id !== id));
+      toastUndo(
+        lang === Language.CN ? `已删除练法「${gone.name}」` : `Variant "${gone.name}" removed`,
+        () => writeVariants(exerciseName, before),
+      );
+    },
+    [lang, toastUndo, variantsOf, writeVariants],
+  );
+
   /** 写某个部位的细分布局（upsert 那一条 regionLayout） */
   const writeLayout = useCallback((part: string, patch: { order?: string[]; hidden?: string[] }) => {
     setCustomTags(prev => {
@@ -910,6 +1025,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       findExerciseDef,
       regionsOf,
       hiddenRegionsOf,
+      variantsOf,
+      variantLabel,
+      liftKey,
       effectiveRegion,
       getTagName,
       getActiveMetrics,
@@ -930,6 +1048,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       moveRegion,
       removeRegion,
       restoreRegion,
+      addVariant,
+      renameVariant,
+      removeVariant,
       applyPrefsFromSnapshot,
       resetAllPrefs,
     }),
@@ -945,6 +1066,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       findExerciseDef,
       regionsOf,
       hiddenRegionsOf,
+      variantsOf,
+      variantLabel,
+      liftKey,
       effectiveRegion,
       getTagName,
       getActiveMetrics,
@@ -965,6 +1089,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       moveRegion,
       removeRegion,
       restoreRegion,
+      addVariant,
+      renameVariant,
+      removeVariant,
       applyPrefsFromSnapshot,
       resetAllPrefs,
     ],

@@ -301,6 +301,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     activeScheduleIdRef,
     markActiveSchedulePending,
     addExerciseToWorkout,
+    switchExerciseVariant,
   } = useWorkoutMutations({
     setActiveTab,
     reloadAfterSave: () => loadLocalData(resolvedUserId),
@@ -1093,6 +1094,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               setShowRenameExerciseModal(true);
             }}
             onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
+            onSwitchVariant={switchExerciseVariant}
             flashExerciseId={flashExerciseId}
             onFlashDone={handleFlashDone}
             partPrechosenId={partPrechosenId}

@@ -128,7 +128,7 @@ export function useFilteredExercises({
  */
 export function useExerciseStats() {
   const { workouts } = useWorkoutContext();
-  const { resolveName, starredExercises, exerciseOverrides } = useExercisePrefs();
+  const { resolveName, liftKey, starredExercises, exerciseOverrides } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
   const recentExerciseNames = useMemo(() => {
@@ -152,7 +152,7 @@ export function useExerciseStats() {
   }, [workouts, resolveName]);
 
   const bestLifts = useMemo(() => {
-    const liftsMap: Record<string, { weight: number; originalName: string }> = {};
+    const liftsMap: Record<string, { weight: number; originalName: string; baseName: string }> = {};
     workouts.forEach(session =>
       (session.exercises ?? []).forEach(ex => {
         // 底稿行不算数据（§12.6）：未收尾的草稿里可能带着 ghost 行，别让它顶进 PR
@@ -160,22 +160,24 @@ export function useExerciseStats() {
         const w = weights.length ? Math.max(...weights) : 0;
         // 按显示名聚合：改过名的动作，旧名下的记录和新名下的是同一个动作，
         // 原先按存的原名分组会在 PR 列表里裂成两行（旧名那行还显示成新名）。
-        const originalName = resolveName(ex.name);
+        // 练法（第 8 条）各占一行：「高位下拉 · 宽握」和「高位下拉」是两个纪录
+        const originalName = liftKey(ex);
         if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
-          liftsMap[originalName] = { weight: w, originalName };
+          liftsMap[originalName] = { weight: w, originalName, baseName: resolveName(ex.name) };
         }
       }),
     );
 
     return Object.entries(liftsMap)
-      .map(([key, { weight }]) => ({ name: key, key, weight }))
+      .map(([key, { weight, baseName }]) => ({ name: key, key, weight, baseName }))
       .sort((a, b) => {
-        const starA = starredExercises[a.key] || 0;
-        const starB = starredExercises[b.key] || 0;
+        // 收藏按动作，不分练法
+        const starA = starredExercises[a.baseName] || 0;
+        const starB = starredExercises[b.baseName] || 0;
         if (starA !== starB) return starB - starA;
         return a.name.localeCompare(b.name, lang === Language.CN ? 'zh-Hans-CN' : 'en');
       });
-  }, [workouts, lang, exerciseOverrides, starredExercises, resolveName]);
+  }, [workouts, lang, exerciseOverrides, starredExercises, resolveName, liftKey]);
 
   /**
    * 训练日历热力图数据。

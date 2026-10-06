@@ -19,6 +19,7 @@ import { translations } from '../../translations';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
 
@@ -180,6 +181,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
   merged,
 }) => {
   const isCN = lang === Language.CN;
+  // 动作名带练法（第 8 条）：「高位下拉 · 宽握」
+  const { liftKey } = useExercisePrefs();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   /**
@@ -276,7 +279,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
    */
   const preview = (w.exercises ?? [])
     .slice(0, 3)
-    .map(ex => resolveName(ex.name))
+    .map(ex => liftKey(ex))
     .join(' · ');
   const subtitle = [timeStr, preview].filter(Boolean).join(' · ');
 
@@ -448,7 +451,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               <div key={`${ex.id}-${idx}`} className="bg-inset/60 p-3 rounded-control space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm text-primary truncate">
-                    {resolveName(ex.name)}
+                    {liftKey(ex)}
                   </span>
                   <span className="text-[10px] text-tertiary bg-card px-2 py-0.5 rounded-chip">
                     {sets.length} {isCN ? '组' : plural(sets.length, 'set')}

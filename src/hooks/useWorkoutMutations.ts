@@ -165,6 +165,8 @@ export interface UseWorkoutMutationsResult {
   activeScheduleIdRef: React.MutableRefObject<string | null>;
   markActiveSchedulePending: React.MutableRefObject<boolean>;
 
+  /** 切换一张卡的练法（第 8 条）；undefined＝标准 */
+  switchExerciseVariant: (exerciseId: string, variantId: string | undefined) => void;
   /** 添加动作到当前训练 */
   addExerciseToWorkout: (
     ex: { id: string; name: { en: string; cn: string }; category?: ExerciseCategory; exerciseConfig?: any },
@@ -183,7 +185,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast, toastUndo } = useUiOverlay();
-  const { resolveName, getActiveMetrics } = useExercisePrefs();
+  const { resolveName, getActiveMetrics, liftKey, variantsOf } = useExercisePrefs();
 
   const lang = settingsCtx.lang;
   const unit = settingsCtx.unit;
@@ -267,6 +269,7 @@ export function useWorkoutMutations({
         history: workouts.filter(w => w.id !== finalWorkout.id),
         editingWorkoutId,
         resolveName,
+        keyOf: liftKey,
         getActiveMetrics,
         unitLabel: unit,
       });
@@ -315,6 +318,7 @@ export function useWorkoutMutations({
     workouts,
     editingWorkoutId,
     resolveName,
+    liftKey,
     getActiveMetrics,
     unit,
   ]);
@@ -535,6 +539,7 @@ export function useWorkoutMutations({
           ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
           tags: ex.tags ?? [],
           sets: toGhostSets(ex.sets, `${stamp}_${i}`),
+          ...(ex.variantId ? { variantId: ex.variantId, variantName: ex.variantName } : {}),
           exerciseTime: new Date().toISOString(),
           ...(src.date ? { prefillFrom: src.date } : {}),
           ...(ex.instanceConfig ? { instanceConfig: { ...ex.instanceConfig } } : {}),
@@ -795,6 +800,10 @@ export function useWorkoutMutations({
               id: newExerciseId,
               name: exerciseName,
               category: ex.category || 'STRENGTH',
+              // 练法（第 8 条）沿用上次：底稿就是从那次抄的，两者必须是同一种练法
+              ...(lastExercise?.variantId
+                ? { variantId: lastExercise.variantId, variantName: lastExercise.variantName }
+                : {}),
               sets:
                 ghostSets && ghostSets.length > 0
                   ? ghostSets
@@ -836,7 +845,64 @@ export function useWorkoutMutations({
     [currentWorkout.date, editingWorkoutId, lang, onPersist, resolveName, setCurrentWorkout, workouts],
   );
 
+  /**
+   * 切换一张卡的练法（第 8 条）。variantId 为 undefined＝标准。
+   * 这张卡还全是底稿（一组都没做完、也没改过）时，底稿换成这个练法上次的那几组；
+   * 这个练法从没练过 → 一行空的待做，不借别的练法的数（重量不通用）。
+   * 已经有做完 / 改过的组：只换标签，不动组。
+   */
+  const switchExerciseVariant = useCallback(
+    (exerciseId: string, variantId: string | undefined) => {
+      setCurrentWorkout((p: WorkoutSession) => {
+        const exs = p.exercises ?? [];
+        const idx = exs.findIndex(e => e.id === exerciseId);
+        if (idx < 0) return p;
+        const ex = exs[idx];
+        if ((ex.variantId || undefined) === (variantId || undefined)) return p;
+        const variantName = variantId ? variantsOf(ex.name).find(v => v.id === variantId)?.name : undefined;
+        const untouched = ex.sets.every(
+          st => st.ghost && !Object.values(st.touched ?? {}).some(Boolean),
+        );
+        let sets = ex.sets;
+        let prefillFrom: string | undefined = ex.prefillFrom;
+        if (untouched) {
+          const target = resolveName(ex.name);
+          let last: Exercise | null = null;
+          for (const w of workouts) {
+            if (w.id === p.id) continue;
+            const hit = w.exercises.find(
+              e => resolveName(e.name) === target && (e.variantId || undefined) === (variantId || undefined),
+            );
+            if (hit && hit.sets.some(st => !st.ghost)) {
+              last = hit;
+              prefillFrom = w.date;
+              break;
+            }
+          }
+          const stamp = Date.now();
+          sets = last
+            ? toGhostSets(last.sets, `${stamp}`)
+            : [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
+          if (!last) prefillFrom = undefined;
+        }
+        const { variantId: _v, variantName: _n, prefillFrom: _pf, ...rest } = ex;
+        const next: Exercise = {
+          ...rest,
+          ...(variantId ? { variantId, variantName } : {}),
+          ...(prefillFrom ? { prefillFrom } : {}),
+          sets,
+        };
+        const copy = [...exs];
+        copy[idx] = next;
+        return { ...p, exercises: copy };
+      });
+      onPersist?.();
+    },
+    [onPersist, resolveName, setCurrentWorkout, variantsOf, workouts],
+  );
+
   return {
+    switchExerciseVariant,
     saveStatus,
     setSaveStatus,
     editingWorkoutId,

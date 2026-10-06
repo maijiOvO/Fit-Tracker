@@ -239,11 +239,14 @@ export function getChartDataFor(
   lang?: Language,
   unit?: 'kg' | 'lbs',
   resolveName?: (name: string) => string,
-  getChartMetric?: (name: string) => string
+  getChartMetric?: (name: string) => string,
+  /** 项目键（动作 + 练法，第 8 条）；不传＝按现名 */
+  keyOf?: (ex: any) => string,
 ): ChartDataPoint[] {
   const l = lang || Language.EN;
   const u = unit || 'kg';
   const resolver = resolveName || ((n: string) => n);
+  const keyFn = keyOf || ((ex: any) => resolver(ex.name));
   const metricGetter = getChartMetric || ((n: string) => 'weight');
 
   if (target === '__WEIGHT__') {
@@ -261,9 +264,9 @@ export function getChartDataFor(
   // 画进去就是给一场没发生过的训练画了个点。整动作只剩底稿的直接跳过，
   // 否则 Math.max(...[]) 会得到 -Infinity。
   return workouts
-    .filter(w => w.exercises.some((ex: any) => resolver(ex.name).trim() === searchName))
+    .filter(w => w.exercises.some((ex: any) => keyFn(ex).trim() === searchName))
     .map(w => {
-      const ex = w.exercises.find((e: any) => resolver(e.name).trim() === searchName)!;
+      const ex = w.exercises.find((e: any) => keyFn(e).trim() === searchName)!;
 
       const values = (ex.sets ?? [])
         .filter((s: any) => !s.ghost)
@@ -298,6 +301,7 @@ interface TrendChartProps {
   unit: 'kg' | 'lbs';
   resolveName: (name: string) => string;
   getChartMetric: (name: string) => string;
+  keyOf?: (ex: any) => string;
 }
 
 export function TrendChart({ 
@@ -308,7 +312,8 @@ export function TrendChart({
   lang, 
   unit, 
   resolveName,
-  getChartMetric 
+  getChartMetric,
+  keyOf,
 }: TrendChartProps) {
   const { resolved } = useTheme();
   const p = chartPalette(resolved === 'dark');
@@ -320,7 +325,8 @@ export function TrendChart({
     lang, 
     unit, 
     resolveName,
-    getChartMetric
+    getChartMetric,
+    keyOf,
   );
   // §12.11：跨场地那一段改虚线。没标过场地时 hasCrossing 为 false，
   // 一条实线，跟改动前完全一样。

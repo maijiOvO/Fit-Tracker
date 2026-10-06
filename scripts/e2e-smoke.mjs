@@ -1083,6 +1083,42 @@ const main = async () => {
     return `${before} → ${after}; clash with "${other}" rejected; alias kept`;
   });
 
+  // 第 8 条：练法。⋯ → 练法 → 快捷「宽握」建好即选中，眉批显示；改名；点眉批换回标准；删除走撤销条
+  await step(page, 'exercise-variant', async () => {
+    const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
+    const modal = page.locator('[data-testid="variant-modal"]');
+    await card.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
+    await card.getByRole('menuitem', { name: /^练法$|^Variant$/ }).click();
+    await modal.waitFor({ state: 'visible', timeout: 3_000 });
+    await modal.getByRole('button', { name: /^宽握$/ }).click();
+    await modal.waitFor({ state: 'detached', timeout: 3_000 });
+    const mark = card.locator('[data-testid="variant-marginalia"]');
+    if ((await mark.innerText()).trim() !== '宽握') throw new Error(`marginalia should show 宽握, got ${await mark.innerText()}`);
+
+    // 改名
+    await mark.click();
+    await modal.getByRole('button', { name: /改名 宽握/ }).click();
+    await modal.locator('input').first().fill('宽握·暂停');
+    await modal.getByRole('button', { name: /^保存$/ }).click();
+    const opts = await modal.locator('[data-testid="variant-option"]').allInnerTexts();
+    if (!opts.some(o => o.includes('宽握·暂停'))) throw new Error(`rename failed: ${opts.join('|')}`);
+    // 换回标准
+    await modal.locator('[data-testid="variant-option"]', { hasText: '标准' }).click();
+    await modal.waitFor({ state: 'detached', timeout: 3_000 });
+    if ((await mark.innerText()).trim() !== '标准') throw new Error('switching back to standard failed');
+    // 删除：撤销条
+    await mark.click();
+    await modal.getByRole('button', { name: /删除 宽握·暂停/ }).click();
+    const t = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已删除练法「宽握·暂停」/.test(t)) throw new Error(`no undo toast for variant delete: ${t}`);
+    await modal.getByRole('button', { name: /^(关闭|Close)$/ }).first().click();
+    await modal.waitFor({ state: 'detached', timeout: 3_000 });
+    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
+    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+    if (await mark.count()) throw new Error('marginalia should disappear once the exercise has no variants');
+    return 'create via quick chip → marginalia; rename; back to standard; delete → undo toast';
+  });
+
   await step(page, 'back-to-tab-from-workout', async () => {
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
     // 现在工作台里有一个刚加的动作，返回会先确认

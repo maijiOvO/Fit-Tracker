@@ -94,6 +94,13 @@ export interface Exercise {
   bodyPart?: string; 
   sets: SetLog[];
   tags?: string[];
+  /**
+   * 练法（第 8 条）：同一个动作的不同做法（宽握 / 窄握 / 暂停…）。一条记录只选一种。
+   * variantId 指向动作定义上的 variants；variantName 是当时的名字（练法被删 / 改名后，历史仍能显示）。
+   * 都没有＝「标准」。可选字段，旧记录天然归标准，不改写历史。
+   */
+  variantId?: string;
+  variantName?: string;
   // ✅ 新增：动作的具体训练时间
   exerciseTime?: string; // ISO 8601 格式
   // ✅ 新增：动作持续时间（可选）
@@ -149,6 +156,11 @@ export interface ExerciseDefinition {
    * 没有序号的接在后面按默认（收藏 → 最近 → 其余）。
    */
   regionRank?: number;
+  /**
+   * 练法（第 8 条）。内置动作写在覆盖层、自建动作写在定义本身（已有同步容器）。
+   * 底稿预填、PR、PR 列表、趋势图按「动作 + 练法」分开；备注与动作设置按动作共享。
+   */
+  variants?: { id: string; name: string }[];
   // ✅ 新增这一行，允许存储分类信息
   category?: ExerciseCategory;
   

@@ -7,7 +7,9 @@
  * 一律降级为菜单内的墨色文字项，不靠颜色区分危险）。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil } from 'lucide-react';
+import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil, Shuffle } from 'lucide-react';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
@@ -51,6 +53,8 @@ interface ExerciseCardProps {
   onOpenMetricModal: (name: string) => void;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   onRename?: () => void;
+  /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
+  onSwitchVariant?: (variantId: string | undefined) => void;
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
@@ -85,6 +89,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onToggleNote,
   onOpenMetricModal,
   onRename,
+  onSwitchVariant,
   onSetUpdate,
   onAddSet,
   onRemoveSet,
@@ -95,6 +100,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
+  const { variantsOf, variantLabel, findExerciseDef } = useExercisePrefs();
+  const [variantOpen, setVariantOpen] = React.useState(false);
+  const variantName = variantLabel(exercise);
+  const variantCount = variantsOf(exercise.name).length;
+  const hasDef = !!findExerciseDef(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
   const hasNote = !!exerciseNotes[exerciseName];
   const loadMode = getLoadMode(exercise);
@@ -223,6 +233,20 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary" />
                   {isCn ? '动作设置' : 'Settings'}
                 </button>
+                {onSwitchVariant && hasDef && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setVariantOpen(true);
+                    }}
+                  >
+                    <Shuffle size={16} strokeWidth={1.75} className="text-tertiary" />
+                    {isCn ? '练法' : 'Variant'}
+                  </button>
+                )}
                 {onRename && (
                   <button
                     type="button"
@@ -261,6 +285,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         {/* 组数·容量放在眉批行右侧，不和名字抢第一行：360 宽下两者同一行时
             「杠铃平板卧推」会被挤成「杠铃平板卧 / 推」（2026-10 手机排版摸底）。 */}
         <div className="flex items-center gap-4 mt-1.5">
+          {/* 练法（第 8 条）：选了练法时常驻；有练法但这张卡是标准时淡墨「标准」，点开换 */}
+          {onSwitchVariant && (variantName || variantCount > 0) && (
+            <button
+              type="button"
+              onClick={() => setVariantOpen(true)}
+              className={`marginalia text-label font-medium ${variantName ? 'text-accent' : 'text-tertiary'}`}
+              data-testid="variant-marginalia"
+            >
+              {variantName || (isCn ? '标准' : 'Standard')}
+            </button>
+          )}
             {loadMode !== 'none' && (
               <button
                 type="button"
@@ -354,6 +389,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           </React.Fragment>
         ))}
       </div>
+
+      {onSwitchVariant && (
+        <VariantModal
+          open={variantOpen}
+          lang={lang}
+          exerciseName={exercise.name}
+          currentVariantId={exercise.variantId}
+          onSelect={onSwitchVariant}
+          onClose={() => setVariantOpen(false)}
+        />
+      )}
 
       {/* ── 页脚：只剩一个通栏虚线按钮 ── */}
       <div className="p-3 pt-2">

@@ -73,9 +73,10 @@ const Dashboard: React.FC<DashboardProps> = ({
   const { formatExerciseTime, updateExerciseTime } = useExerciseTimeEditor();
 
   const getChartMetric = useCallback(
-    (exerciseName: string) =>
+    // key 可能是「动作 · 练法」；默认维度按动作取（动作设置不分练法）
+    (exerciseName: string, baseName: string = exerciseName) =>
       chartMetricPreference[exerciseName] ||
-      prefs.getActiveMetrics(exerciseName)[0] ||
+      prefs.getActiveMetrics(baseName)[0] ||
       'reps',
     [chartMetricPreference, prefs],
   );
@@ -334,7 +335,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {bestLifts.map(lift => {
           const isExpanded = selectedPRProject === lift.key;
-          const isStarred = !!prefs.starredExercises[lift.name];
+          const isStarred = !!prefs.starredExercises[lift.baseName];
           const historyExs = workouts
             .flatMap(w => w.exercises.map(e => ({
               ...e,
@@ -342,7 +343,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               workoutId: w.id,
               fromSchedule: w.fromSchedule,
             })))
-            .filter(e => prefs.resolveName(e.name) === lift.name)
+            .filter(e => prefs.liftKey(e) === lift.name)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
           return (
@@ -358,7 +359,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      prefs.toggleStarExercise(lift.name);
+                      prefs.toggleStarExercise(lift.baseName);
                     }}
                     className={`p-2.5 rounded-control transition-colors ${
                       isStarred
@@ -386,14 +387,14 @@ const Dashboard: React.FC<DashboardProps> = ({
               {isExpanded && (
                 <div className="border-t border-divider mt-5 pt-5 anim-reveal">
                   <div className="flex flex-wrap gap-2 mb-4">
-                    {prefs.getActiveMetrics(lift.name).map(m => (
+                    {prefs.getActiveMetrics(lift.baseName).map(m => (
                       <button
                         key={m}
                         onClick={() =>
                           setChartMetricPreference({ ...chartMetricPreference, [lift.name]: m })
                         }
                         className={`px-3 py-1.5 rounded-chip text-xs font-medium transition-colors ${
-                          getChartMetric(lift.name) === m
+                          getChartMetric(lift.name, lift.baseName) === m
                             ? 'bg-accent text-on-accent'
                             : 'bg-inset text-secondary border border-divider'
                         }`}
@@ -406,12 +407,13 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <div className="mb-6">
                     <TrendChart
                       target={lift.name}
-                      metricKey={getChartMetric(lift.name)}
+                      metricKey={getChartMetric(lift.name, lift.baseName)}
                       workouts={workouts}
                       weightEntries={weightEntries}
                       lang={lang}
                       unit={unit}
                       resolveName={prefs.resolveName}
+                      keyOf={prefs.liftKey}
                       getChartMetric={getChartMetric}
                     />
                   </div>
