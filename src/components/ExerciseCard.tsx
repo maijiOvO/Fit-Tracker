@@ -173,15 +173,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             {exerciseName}
           </h3>
 
-          <span className="font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
-            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} ·{' '}
-            <span className="text-primary font-semibold">{realSetCount}</span>
-            {ghostSetCount > 0 && <span className="opacity-80">/{exercise.sets.length}</span>}
-            {/* 有分母时按分母定单复数（"1/4 sets"），没分母时还按原来的分子 */}
-            {isCn ? '组' : ` ${plural(ghostSetCount > 0 ? exercise.sets.length : realSetCount, 'set')}`} ·{' '}
-            {formatVolume(totalVolumeKg(exercise), unit)}
-          </span>
-
           <div className="relative -mr-1 -my-2" ref={menuRef}>
             <button
               type="button"
@@ -247,8 +238,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
         {/* 眉批：负重/辅助与动作时间。虚线下划线＝可点的批注，
             ::before 补 44px 热区而不撑大视觉尺寸。 */}
-        {(loadMode !== 'none' || exercise.exerciseTime) && (
-          <div className="flex items-center gap-4 mt-1.5">
+        {/* 组数·容量放在眉批行右侧，不和名字抢第一行：360 宽下两者同一行时
+            「杠铃平板卧推」会被挤成「杠铃平板卧 / 推」（2026-10 手机排版摸底）。 */}
+        <div className="flex items-center gap-4 mt-1.5">
             {loadMode !== 'none' && (
               <button
                 type="button"
@@ -269,8 +261,15 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 {formatExerciseTime(exercise.exerciseTime, isCn ? 'cn' : 'en').time}
               </button>
             )}
-          </div>
-        )}
+          <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
+            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} ·{' '}
+            <span className="text-primary font-semibold">{realSetCount}</span>
+            {ghostSetCount > 0 && <span className="opacity-80">/{exercise.sets.length}</span>}
+            {/* 有分母时按分母定单复数（"1/4 sets"），没分母时还按原来的分子 */}
+            {isCn ? '组' : ` ${plural(ghostSetCount > 0 ? exercise.sets.length : realSetCount, 'set')}`} ·{' '}
+            {formatVolume(totalVolumeKg(exercise), unit)}
+          </span>
+        </div>
       </div>
 
       {hasNote && (

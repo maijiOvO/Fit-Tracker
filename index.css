@@ -853,7 +853,15 @@ button {
    算出来的数字毫无意义，只是碰巧被 .ledger-input-sm 的 20px 盖住了才没露馅。
    ⚠️ 26px 那条兜底要留在上面：不支持容器查询单位的浏览器会整条丢弃本规则。 */
 .ledger-fit .ledger-input {
-  font-size: max(11px, min(26px, calc((100cqi - 20px) / (var(--ledger-chars, 3) * 0.6))));
+  font-size: max(11px, min(26px, calc((100cqi - var(--ledger-unit-w, 20px)) / (var(--ledger-chars, 3) * 0.6))));
+}
+/* 单位比「lbs」长时（km/h、mph）20px 不够，三指标布局里「11.8」会被 km/h 挤得截掉末位。
+   --ledger-unit-w 由 React 按单位串长度给，≤3 个字符时仍是 20px，两指标的老数不变。 */
+
+/* 时长格（00:00:00）原先写死 22px：8 个字符 = 106px，三指标布局每列只有 65–83px，
+   直接压到隔壁格的数字上。同一套「按格宽收字号」，只是没有单位要让。 */
+.ledger-fit .ledger-fit-text {
+  font-size: max(11px, min(22px, calc(100cqi / (var(--ledger-chars, 8) * 0.6))));
 }
 
 /* 落笔聚焦 §5.3：底部 2px 朱砂下划线从中心向两端展开。

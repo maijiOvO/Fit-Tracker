@@ -275,7 +275,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           </button>
 
           <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-[10px] font-bold text-tertiary uppercase tracking-[0.15em]">
+            {/* flex-wrap + 每项 nowrap：360/384 宽下编辑态的五项挤不下一行，
+                原先是每项被压成一字一行（「未保存」竖着排）；现在整项折到第二行。 */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
               <span>
                 {editingWorkoutId
                   ? (isCn ? '编辑训练' : 'Edit Workout')

@@ -253,9 +253,16 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 type="button"
                 onClick={onDurationClick}
                 disabled={readOnly}
-                className="ledger-field min-h-[44px] font-mono font-semibold text-[22px] leading-none text-primary tabular-nums"
+                className={`ledger-field min-h-[44px] font-mono font-semibold text-[22px] leading-none text-primary tabular-nums${
+                  readOnly ? '' : ' ledger-fit'
+                }`}
+                // 居中而不是 .ledger-field 的 baseline：按钮 44px 高、只有一段文字，
+                // baseline 会把它顶到格子上沿，比同排的数字高出一截。
+                style={{ ['--ledger-chars' as string]: 8, alignItems: 'center' }}
               >
-                {pad(hms.h)}:{pad(hms.m)}:{pad(hms.s)}
+                <span className="ledger-fit-text">
+                  {pad(hms.h)}:{pad(hms.m)}:{pad(hms.s)}
+                </span>
               </button>
             );
           }
@@ -299,7 +306,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
               }`}
-              style={{ ['--ledger-chars' as string]: Math.max(display.length, 1) }}
+              style={{
+                ['--ledger-chars' as string]: Math.max(display.length, 1),
+                ['--ledger-unit-w' as string]: `${Math.max(20, unitLabel.length * 6.5 + 4)}px`,
+              }}
               {...(scrub ? scrub.handlers : {})}
             >
               {/* 档位角标只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
