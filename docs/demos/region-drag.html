@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Demo · 拖到细分</title>
+<!--
+  交互 demo：在添加动作弹层的细分格里，把动作直接拖进某一列（磁吸落位），快速给动作归细分。
+
+  照现在 App 搬的（2b816dd 之后的样子）：弹层头部 / 搜索行 / 部位与器材两行 chip / 计数行 /
+  细分表头 + 小卡（.region-card）/「未细分」分组与动作行 / 长按管理菜单 / 撤销条。
+
+  新的只有这些：
+    · 长按小卡或动作行满 500ms（卡片浮起）后，手指一动就进入拖拽；不动直接松手，照旧出管理菜单。
+      长按满之前手指移动 > 10px＝在滚列表，手势作废（与训练卡「长按拖动排序」同一套语言）。
+    · 拖拽中：手指下的那一列整列亮起，列里出现虚线落位（落在按「收藏→最近→其余」排好的位置），
+      浮起的卡片被吸向落位（磁吸），跨列震一下；拖到「未细分」那一片＝放回未细分。
+      靠近列表上下缘自动滚；细分多于 5 列横滑时，靠近左右缘自动横滚。
+    · 松手：卡片滑进落位；弹撤销条「已归到「上胸」」。拖回原列或拖到格子外＝原样放回，不弹。
+    · 头部「整理」开关：打开后按下即拖（不用等长按），点卡片也不再是添加 —— 一口气归几十个时用。
+  右上「方案」可调：磁吸强度、落位提示的样子、整理开关的有无。
+
+  数据：胸 / 背 / 核心三个部位，系统动作已归好列；「未细分」里是你生产库里真实的自建动作
+  （胸 6、背 11、核心 6）。收藏照你库里的。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+  :root{
+    --bg-desk:#E2DACA;
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --success:#3F6B45; --warning:#815709; --danger:#8E2C1D;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10),0 18px 40px -24px rgba(26,23,20,.30);
+    --shadow-lg:0 10px 15px -3px rgba(26,23,20,.10),0 4px 6px -4px rgba(26,23,20,.10);
+    --radius-card:4px; --radius-control:3px; --radius-chip:2px; --radius-sheet:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-stamp:520ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1); --ease-ink:cubic-bezier(.4,0,.2,1);
+    --move:1;
+    --f-sans:'Noto Sans SC',-apple-system,'PingFang SC','MiSans','Microsoft YaHei',system-ui,sans-serif;
+    --f-serif:'Noto Serif SC','Songti SC','SimSun',serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg-desk:#0A0908; --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --success:#86B27C; --warning:#CE9B3C; --danger:#E8776A; --scrim:rgba(0,0,0,.6);
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+      --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-desk:#0A0908; --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+    --divider:#332E25; --rule-strong:#4A4232;
+    --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+    --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+    --success:#86B27C; --warning:#CE9B3C; --danger:#E8776A; --scrim:rgba(0,0,0,.6);
+    --shadow-page:0 1px 1px rgba(0,0,0,.35);
+    --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+  @media (prefers-reduced-motion:reduce){ :root{ --move:0; } }
+  [hidden]{display:none!important}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg-desk);color:var(--text-primary);font:14px/1.5 var(--f-sans);
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:inherit}
+  input{font:inherit;color:inherit}
+  .ic{flex:none;display:block}
+  .phone{position:relative;height:100%;max-width:430px;margin:0 auto;overflow:hidden;background:var(--scrim)}
+  @media (min-width:470px){ .phone{box-shadow:var(--shadow-overlay)} }
+  .demotag{position:absolute;top:0;left:0;right:0;z-index:130;height:30px;display:flex;align-items:center;padding:0 16px;font-size:10px;color:var(--bg-card);pointer-events:none}
+  .planbtn{position:absolute;top:2px;right:8px;z-index:131;min-height:26px;padding:0 10px;border-radius:var(--radius-control);background:var(--bg-inset);color:var(--text-secondary);font-size:11px;font-weight:700}
+  .planbtn[aria-expanded="true"]{background:var(--accent);color:var(--text-on-accent)}
+
+  /* ── 弹层（ExercisePickerSheet） ── */
+  .sheet{position:absolute;left:0;right:0;bottom:0;height:92%;display:flex;flex-direction:column;background:var(--bg-base);
+    border-top:1px solid var(--divider);border-radius:22px 22px 0 0;box-shadow:var(--shadow-page)}
+  .grab{flex:none;padding:10px 0 6px}
+  .grab i{display:block;width:48px;height:6px;border-radius:999px;background:var(--divider);margin:0 auto}
+  .shead{flex:none;display:flex;align-items:center;gap:10px;padding:6px 16px 2px}
+  .shead h2{font:600 18px/28px var(--f-serif)}
+  .sicon{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--text-secondary)}
+  .sicon.first{margin-left:auto}
+  /* 「整理」开关（新）：跟部位 chip 同一套；开着＝朱砂实底 */
+  .arrange{flex:none;min-height:34px;padding:0 12px;border-radius:var(--radius-control);font-size:12px;font-weight:700;
+    background:var(--bg-inset);color:var(--text-secondary);display:flex;align-items:center;gap:5px;margin-left:auto}
+  .arrange[aria-pressed="true"]{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .arrange + .sicon.first{margin-left:0}
+  .srow{flex:none;display:flex;gap:8px;padding:6px 16px 10px}
+  .sbox{position:relative;flex:1;min-width:0}
+  .sbox .lead{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-tertiary)}
+  .sbox input{width:100%;min-height:46px;background:var(--bg-inset);border:1px solid var(--divider);border-radius:var(--radius-card);padding:0 40px;font-size:14px;outline:none}
+  .sbox input::placeholder{color:var(--text-tertiary)}
+  .newbtn{flex:none;min-height:46px;padding:0 14px;border-radius:var(--radius-card);background:var(--accent);color:var(--text-on-accent);font-size:12px;font-weight:700;display:flex;align-items:center;gap:4px}
+  .prow{flex:none;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 16px 10px}
+  .lab{width:28px;flex:none;font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--text-tertiary)}
+  .pchip{flex:none;min-height:38px;padding:0 14px;border-radius:var(--radius-control);font-size:12px;font-weight:700;background:var(--bg-inset);color:var(--text-secondary);text-align:center}
+  .pchip.on{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .fbar{flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 16px 6px;font-size:11px;font-weight:600;color:var(--text-tertiary)}
+  .fbar b{color:var(--text-secondary)}
+  /* 底部留出撤销条的高度：连着拖十几个时，撤销条每次停 5 秒，不留就盖住「未细分」最后几行 */
+  .results{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 96px;position:relative}
+
+  /* 细分格（.region-*，照 index.css） */
+  .rboard{margin-top:2px;position:relative}
+  .rgrid{display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));column-gap:5px}
+  .rheads{position:sticky;top:0;z-index:2;background:var(--bg-base);padding:8px 0 7px;margin-bottom:8px;border-bottom:1px solid var(--divider)}
+  .rh{display:flex;align-items:baseline;gap:4px;min-width:0;padding-left:6px;white-space:nowrap;border-radius:var(--radius-control);
+    transition:background-color var(--dur-tap) var(--ease-ink),color var(--dur-tap) var(--ease-ink)}
+  .rh b{font-size:12px;font-weight:700;color:var(--text-primary)}
+  .rh i{font-style:normal;font-size:10px;font-weight:700;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+  .rcol{display:flex;flex-direction:column;gap:5px;min-width:0;min-height:48px;border-radius:var(--radius-control);
+    transition:background-color var(--dur-tap) var(--ease-ink),box-shadow var(--dur-tap) var(--ease-ink)}
+  .rcard{position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:48px;padding:7px 5px 7px 7px;
+    text-align:left;background:var(--bg-inset);border:1px solid transparent;border-radius:var(--radius-control);
+    font-size:clamp(12px,3.35vw,13px);line-height:1.32;font-weight:700;color:var(--text-secondary);touch-action:pan-y;
+    transition:background-color var(--dur-tap) var(--ease-paper),color var(--dur-tap) var(--ease-paper),opacity var(--dur-tap)}
+  .rcard .nm{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-all}
+  .rcard .star{display:inline-block;vertical-align:-1px;margin-right:2px;color:var(--warning)}
+  .rcard.added{background:var(--accent);color:var(--text-on-accent);box-shadow:var(--shadow-page)}
+  .rcard.added .star{color:inherit}
+  .rcard.empty{align-items:center;background:transparent;border:1px dashed var(--divider);color:var(--text-tertiary);font-weight:500}
+  .rboard.scroll{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:none}
+  .rboard.scroll::-webkit-scrollbar{display:none}
+  .rboard.scroll .rgrid{grid-template-columns:repeat(var(--cols),118px);width:max-content}
+  .rboard.scroll .rheads{position:static}
+
+  /* 分组标题 + 动作行（PickerRow） */
+  .gh{display:flex;align-items:center;gap:6px;margin:14px 0 8px;padding:0 2px}
+  .gh h3{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text-primary)}
+  .gh .n{font-size:10px;font-weight:700;color:var(--text-tertiary)}
+  .unzone{position:relative;border-radius:var(--radius-card);transition:background-color var(--dur-tap) var(--ease-ink),box-shadow var(--dur-tap) var(--ease-ink)}
+  .rows{display:flex;flex-direction:column;gap:8px}
+  .xrow{display:flex;align-items:stretch;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);overflow:hidden;
+    transition:opacity var(--dur-tap)}
+  .xrow .main{position:relative;flex:1;min-width:0;min-height:60px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;text-align:left;touch-action:pan-y}
+  .xrow .nm{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--text-primary)}
+  .pills{display:flex;flex-wrap:wrap;gap:4px}
+  .pill{font-size:9px;font-weight:700;line-height:1.5;padding:1px 6px;border-radius:var(--radius-chip);background:var(--bg-inset);color:var(--text-tertiary)}
+  .pill.eq{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--accent)}
+  .xrow .side{width:44px;flex:none;display:flex;align-items:center;justify-content:center;border-left:1px solid var(--divider);color:var(--warning)}
+  .xrow .side.grip{color:var(--text-tertiary)}
+  .badge-add{display:inline-flex;padding:2px 6px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--success) 15%,transparent);color:var(--success);font-size:10px;font-weight:700}
+
+  /* ── 新：长按浮起 / 拖拽 / 落位 ── */
+  @keyframes lpdraw{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  .pressing::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);transform-origin:left center;
+    animation:lpdraw 380ms linear both;pointer-events:none}
+  .lplabel{position:absolute;z-index:120;padding:2px 7px;border-radius:var(--radius-chip);background:var(--accent);color:var(--text-on-accent);
+    font-size:11px;font-weight:600;line-height:1.4;white-space:nowrap;pointer-events:none;transform:translateX(-50%)}
+  .is-source{opacity:.35}
+  .is-source.rcard,.is-source .main{outline:1px dashed var(--rule-strong);outline-offset:-1px}
+  /* 浮起的那张：离桌（同训练卡拖动排序：shadow-overlay + scale 1.03） */
+  .floater{position:absolute;left:0;top:0;z-index:150;pointer-events:none;width:var(--fw);
+    transform:translate(var(--fx),var(--fy)) scale(calc(1 + .03 * var(--move)));box-shadow:var(--shadow-overlay)}
+  .floater.landing{transition:transform var(--dur-base) var(--ease-paper)}
+  .floater.rcard{background:var(--bg-card);border-color:var(--accent);color:var(--text-primary)}
+  /* 目标列：整列亮起（朱砂 6% 底 + 细描边），表头同步变色 */
+  .rcol.target{background:color-mix(in srgb,var(--accent) 6%,transparent);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 55%,transparent)}
+  .rh.target{background:var(--accent)}
+  .rh.target b,.rh.target i{color:var(--text-on-accent)}
+  .unzone.target{background:color-mix(in srgb,var(--accent) 6%,transparent);box-shadow:0 0 0 1.5px color-mix(in srgb,var(--accent) 55%,transparent)}
+  .slot{min-height:48px;border:1.5px dashed color-mix(in srgb,var(--accent) 60%,transparent);border-radius:var(--radius-control);
+    background:color-mix(in srgb,var(--accent) 4%,transparent)}
+  .phone.hint-col .slot{display:none}
+  .phone.hint-slot .rcol.target{background:transparent;box-shadow:none}
+  .arranging .rcard,.arranging .xrow .main{touch-action:none}
+  @keyframes inkmark{0%{background-color:color-mix(in srgb,var(--accent) 12%,var(--bg-inset));border-color:var(--accent)}}
+  .ink{animation:inkmark var(--dur-stamp) var(--ease-ink)}
+
+  /* 长按菜单（照弹层里那份） */
+  .mwrap{position:absolute;inset:0;z-index:90;background:var(--scrim);display:flex;align-items:flex-end}
+  .mpanel{width:100%;background:var(--bg-inset);border-top:1px solid var(--divider);padding:16px;display:flex;flex-direction:column;gap:8px}
+  .mt{padding:0 8px 4px;font-size:14px;font-weight:600}
+  .mt small{display:block;font-size:12px;font-weight:500;color:var(--text-tertiary)}
+  .mlab{padding:2px 8px 0;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--text-secondary)}
+  .mchips{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:6px}
+  .mchip{min-height:38px;padding:0 12px;border-radius:var(--radius-control);font-size:12px;font-weight:700;background:var(--bg-card);border:1px solid var(--divider);color:var(--text-secondary)}
+  .mchip.on{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}
+  .mbtn{min-height:48px;padding:0 16px;border-radius:var(--radius-card);background:var(--bg-card);border:1px solid var(--divider);font-size:14px;font-weight:700;display:flex;align-items:center}
+  .mbtn.cancel{background:transparent;border-color:transparent;justify-content:center;color:var(--text-secondary)}
+
+  /* 撤销条 */
+  @keyframes toastprint{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+  @keyframes countdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .toast{position:absolute;left:16px;right:16px;bottom:24px;z-index:190;display:flex;align-items:center;gap:12px;padding:12px 16px;overflow:hidden;
+    background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);box-shadow:var(--shadow-lg);font-size:14px;font-weight:500;
+    animation:toastprint var(--dur-base) var(--ease-paper) both}
+  .toast .msg{flex:1;min-width:0}
+  .toast .undo{flex:none;padding:6px 12px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);font-size:12px;font-weight:700}
+  .toast .cd{position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);transform-origin:left;animation:countdown 5000ms linear both}
+
+  /* 方案面板（demo 用） */
+  .panel{position:absolute;top:32px;right:8px;z-index:131;width:min(304px,calc(100% - 16px));display:flex;flex-direction:column;gap:14px;padding:16px;
+    background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);box-shadow:var(--shadow-overlay)}
+  .panel .q{margin-bottom:8px;font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--text-secondary)}
+  .panel .opts{display:flex;flex-wrap:wrap;gap:6px}
+  .panel .pchip{min-height:34px;padding:0 12px;font-size:11px}
+  .panel .reset{min-height:44px;border-radius:var(--radius-control);border:1px solid var(--divider);color:var(--text-secondary);font-size:13px;text-align:center}
+  @media (prefers-reduced-motion:reduce){ .floater.landing{transition-duration:1ms} .ink,.toast{animation-duration:1ms} }
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <div class="demotag">Demo · 拖到细分（不是产品页面）</div>
+  <button type="button" class="planbtn" id="btnPlan" aria-expanded="false">方案</button>
+
+  <section class="sheet" id="sheet">
+    <div class="grab"><i></i></div>
+    <div class="shead">
+      <h2>添加动作</h2>
+      <button type="button" class="arrange" id="arrange" aria-pressed="false">
+        <svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9l-3 3 3 3"/><path d="M9 5l3-3 3 3"/><path d="M15 19l-3 3-3-3"/><path d="M19 9l3 3-3 3"/><path d="M2 12h20"/><path d="M12 2v20"/></svg>
+        <span id="arrangeTxt">整理</span>
+      </button>
+      <button type="button" class="sicon first" aria-label="管理标签"><svg class="ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5 6.3 6.3a2.4 2.4 0 0 1 0 3.4L17 19"/><path d="M9.586 5.586A2 2 0 0 0 8.172 5H3a1 1 0 0 0-1 1v5.172a2 2 0 0 0 .586 1.414L8.29 18.29a2.426 2.426 0 0 0 3.42 0l3.58-3.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="6.5" cy="9.5" r=".5" fill="currentColor"/></svg></button>
+      <button type="button" class="sicon" aria-label="完成并关闭"><svg class="ic" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    </div>
+    <div class="srow">
+      <div class="sbox">
+        <svg class="ic lead" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" placeholder="名称 / 拼音 / 首字母 / 部位…" aria-label="搜索动作" disabled>
+      </div>
+      <button type="button" class="newbtn">＋ 新动作</button>
+    </div>
+    <div class="prow" id="partRow"></div>
+    <div class="fbar" id="fbar"></div>
+    <div class="results" id="results"></div>
+  </section>
+
+  <div id="menuHost"></div>
+  <div id="toastHost"></div>
+  <div class="panel" id="panel" hidden></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const STAR = '<svg class="star" width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>';
+  const GRIP = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+  const STAR_BIG = STAR.replace('width="11" height="11"', 'width="18" height="18"').replace('class="star"', 'class="ic"');
+
+  // ── 数据 ──
+  const PARTS = {
+    subChest: { name: '胸部', regions: [['chestUpper', '上胸'], ['chestMid', '中胸'], ['chestLower', '下胸'], ['chestInner', '中缝'], ['chestOuter', '外轮廓']] },
+    subBack: { name: '背部', regions: [['backLats', '背阔'], ['backMid', '中背'], ['backTraps', '斜方'], ['backLower', '下背']] },
+    subCore: { name: '核心', regions: [['coreUpper', '上腹'], ['coreLower', '下腹'], ['coreObl', '腹斜'], ['coreStab', '稳定']] },
+  };
+  const RAW = {
+    subChest: {
+      chestUpper: ['上斜哑铃卧推*', '上斜杠铃卧推', '上斜史密斯卧推', '低位绳索夹胸', '上斜哑铃飞鸟'],
+      chestMid: ['杠铃平板卧推*', '哑铃平板卧推', '器械推胸', '俯卧撑', '史密斯平板卧推'],
+      chestLower: ['胸部双杠臂屈伸*', '下斜杠铃卧推', '下斜哑铃卧推', '高位绳索夹胸'],
+      chestInner: ['绳索夹胸', '哑铃挤压卧推'],
+      chestOuter: ['哑铃飞鸟', '宽距杠铃卧推', '宽距俯卧撑'],
+      '': ['器械平板卧推@', '蝴蝶机夹胸@', '龙门架夹胸@', '史密斯窄推@', '悍马卧推*@', '曲肘蝴蝶机@'],
+    },
+    subBack: {
+      backLats: ['高位下拉*', '加重引体向上', '哑铃单臂划船'],
+      backMid: ['杠铃划船', '坐姿划船', 'T杠划船'],
+      backTraps: ['杠铃耸肩', '哑铃耸肩'],
+      backLower: ['硬拉', '山羊挺身'],
+      '': ['器械高位下拉@', '器械窄距高位下拉@', '大剪刀@', '直臂下压@', '宽距对握龙门架坐姿划船@', '宽距对握高位下拉@', '窄距高位下拉*@', '鹦鹉螺@', '单手划船机@', '拉上背*@', '引体向上*@'],
+    },
+    subCore: {
+      coreUpper: ['绳索卷腹', '卷腹', '器械卷腹'],
+      coreLower: ['悬垂举腿*', '仰卧举腿', '反向卷腹'],
+      coreObl: ['俄罗斯转体', '绳索伐木', '哑铃侧屈'],
+      coreStab: ['平板支撑', '健腹轮', '侧平板支撑', '死虫'],
+      '': ['山羊挺身@', '器械收腹左中右*@', '下斜抬腿@', '坐姿磕头机*@', '下斜卷腹*@', '平地抬腿@'],
+    },
+  };
+  const opts = { magnet: 'mid', hint: 'slot', arrangeBtn: true };
+  const MAGNET = { off: 0, soft: 0.25, mid: 0.5, strong: 0.8 };
+  let LIB, part, arranging, added;
+  function seed() {
+    LIB = []; let order = 0;
+    for (const [p, cols] of Object.entries(RAW)) for (const [rg, names] of Object.entries(cols)) for (const raw of names) {
+      LIB.push({ id: 'x' + (++order), name: raw.replace(/[*@]/g, ''), part: p, region: rg, starred: raw.includes('*'), own: raw.includes('@'), order });
+    }
+    part = 'subChest'; arranging = false; added = new Map();
+  }
+  const byId = id => LIB.find(e => e.id === id);
+  const sortItems = arr => arr.slice().sort((a, b) => (b.starred - a.starred) || (a.order - b.order));
+  const regionName = rg => (PARTS[part].regions.find(r => r[0] === rg) || ['', '未细分'])[1];
+
+  // ── 渲染 ──
+  function render() {
+    $('#partRow').innerHTML = '<span class="lab">部位</span><button type="button" class="pchip">全部</button>' +
+      Object.entries(PARTS).map(([id, p]) => `<button type="button" class="pchip${id === part ? ' on' : ''}" data-part="${id}">${p.name}</button>`).join('') +
+      '<button type="button" class="pchip">手臂</button><button type="button" class="pchip">腿部</button>';
+    const items = LIB.filter(e => e.part === part);
+    $('#fbar').innerHTML = `<span><b>${items.length}</b> 个结果 · 1 个筛选</span>`;
+    const regs = PARTS[part].regions;
+    const scroll = regs.length > 5;
+    const heads = regs.map(([id, n]) => `<div class="rh" data-head="${id}"><b>${n}</b><i>${items.filter(e => e.region === id).length}</i></div>`).join('');
+    const cols = regs.map(([id, n]) => {
+      const arr = sortItems(items.filter(e => e.region === id));
+      return `<div class="rcol" data-col="${id}" role="group" aria-label="${n}">` +
+        (arr.length ? arr.map(cardHTML).join('') : '<div class="rcard empty" aria-hidden="true">—</div>') + '</div>';
+    }).join('');
+    const un = sortItems(items.filter(e => !e.region));
+    $('#results').innerHTML =
+      `<div class="rboard${scroll ? ' scroll' : ''}" style="--cols:${regs.length}"><div class="rgrid rheads">${heads}</div><div class="rgrid">${cols}</div></div>` +
+      `<div class="unzone" data-col=""><div class="gh"><svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-tertiary)" aria-hidden="true"><path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"/><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"/></svg><h3>未细分</h3><span class="n">· ${un.length}</span></div>` +
+      `<div class="rows">${un.length ? un.map(rowHTML).join('') : '<div class="rcard empty" style="min-height:60px">拖到这里＝放回未细分</div>'}</div></div>`;
+    $('#sheet').classList.toggle('arranging', arranging);
+    $('#arrange').setAttribute('aria-pressed', String(arranging));
+    $('#arrange').hidden = !opts.arrangeBtn;
+    $('#arrangeTxt').textContent = arranging ? '完成' : '整理';
+  }
+  function cardHTML(ex) {
+    const n = added.get(ex.id) || 0;
+    return `<button type="button" class="rcard${n ? ' added' : ''}" data-ex="${ex.id}"><span class="nm">${ex.starred ? STAR : ''}${esc(ex.name)}</span></button>`;
+  }
+  function rowHTML(ex) {
+    const n = added.get(ex.id) || 0;
+    return `<div class="xrow" data-row="${ex.id}"><button type="button" class="main" data-ex="${ex.id}"><span class="nm">${esc(ex.name)}${n ? '<span class="badge-add">✓ 已添加</span>' : ''}</span>` +
+      `<span class="pills"><span class="pill">${PARTS[part].name}</span><span class="pill">自建</span><span class="pill eq">固定器械</span></span></button>` +
+      (arranging ? `<span class="side grip" aria-hidden="true">${GRIP}</span>` : `<span class="side">${ex.starred ? STAR_BIG.replace('<svg', '<svg style="color:var(--warning)"') : STAR_BIG.replace('fill="currentColor"', 'fill="none" stroke="currentColor" stroke-width="2"')}</span>`) + '</div>';
+  }
+  const flash = id => requestAnimationFrame(() => {
+    const el = document.querySelector(`[data-ex="${id}"]`);
+    const t = el && (el.classList.contains('main') ? el.parentElement : el);
+    if (!t) return; t.classList.remove('ink'); void t.offsetWidth; t.classList.add('ink');
+  });
+  const vib = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+
+  // ── 撤销条 ──
+  let toastTimer = 0;
+  function toast(msg, undo) {
+    clearTimeout(toastTimer);
+    $('#toastHost').innerHTML = `<div class="toast" role="status"><span class="msg">${esc(msg)}</span>${undo ? '<button type="button" class="undo">撤销</button>' : ''}<span class="cd"></span></div>`;
+    const u = $('#toastHost .undo');
+    if (u) u.onclick = () => { $('#toastHost').innerHTML = ''; undo(); };
+    toastTimer = setTimeout(() => { $('#toastHost').innerHTML = ''; }, 5000);
+  }
+
+  // ── 长按菜单（不动松手时出这个，跟现在一样） ──
+  function openMenu(id) {
+    const ex = byId(id);
+    const chips = [['', '未细分'], ...PARTS[part].regions].map(([rg, n]) =>
+      `<button type="button" class="mchip${ex.region === rg ? ' on' : ''}" data-assign="${rg}">${n}</button>`).join('');
+    $('#menuHost').innerHTML = `<div class="mwrap" data-close><div class="mpanel" data-stop><p class="mt">${esc(ex.name)}<small>${PARTS[part].name} · ${regionName(ex.region)}</small></p>` +
+      `<div class="mlab">归到细分</div><div class="mchips">${chips}</div><button type="button" class="mbtn">编辑标签</button><button type="button" class="mbtn">重命名</button><button type="button" class="mbtn cancel" data-close>取消</button></div></div>`;
+    $('#menuHost').onclick = ev => {
+      const a = ev.target.closest('[data-assign]');
+      if (a) { $('#menuHost').innerHTML = ''; assign(id, a.dataset.assign); return; }
+      if (ev.target.closest('[data-stop]') && !ev.target.closest('[data-close]')) return;
+      $('#menuHost').innerHTML = '';
+    };
+  }
+
+  function assign(id, rg) {
+    const ex = byId(id);
+    const prev = ex.region;
+    if (prev === rg) return;
+    ex.region = rg;
+    render(); flash(id); vib(10);
+    toast(rg ? `已归到「${regionName(rg)}」` : '已放回未细分', () => { ex.region = prev; render(); flash(id); });
+  }
+
+  // ── 拖拽 ──
+  const R = $('#results');
+  const LP_DELAY = 120, LP_MS = 500, CANCEL_PX = 10, START_PX = 6, EDGE = 56;
+  let g = null;            // 当前手势
+  let swallowAt = 0;       // 手势后吞掉补发的 click（时间戳 + 吞一次即作废）
+  const phoneRect = () => $('#phone').getBoundingClientRect();
+
+  function hostOf(el) { return el.classList.contains('main') ? el.parentElement : el; }
+
+  R.addEventListener('pointerdown', ev => {
+    const el = ev.target.closest('[data-ex]');
+    if (!el || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    endGesture(true);
+    g = { el, id: el.dataset.ex, x0: ev.clientX, y0: ev.clientY, x: ev.clientX, y: ev.clientY, armed: arranging, dragging: false, pid: ev.pointerId };
+    if (!arranging) {
+      g.t1 = setTimeout(() => { if (g && !g.armed) { hostOf(el).classList.add('pressing'); showLabel(el, '拖到细分 · 松手出菜单'); } }, LP_DELAY);
+      g.t2 = setTimeout(() => {
+        if (!g || g.armed) return;
+        g.armed = true; vib(14);
+        hostOf(el).classList.remove('pressing');
+        showLabel(el, '拖到细分 · 松手出菜单');
+      }, LP_MS);
+    }
+  });
+  // 长按满 / 整理模式下必须拦住滚动和弹层下拉：原生非被动 touchmove，跟训练卡拖动排序同一套
+  R.addEventListener('touchmove', ev => { if (g && (g.armed || g.dragging)) ev.preventDefault(); }, { passive: false });
+  window.addEventListener('pointermove', ev => {
+    if (!g || ev.pointerId !== g.pid) return;
+    g.x = ev.clientX; g.y = ev.clientY;
+    const d = Math.hypot(g.x - g.x0, g.y - g.y0);
+    if (!g.armed) { if (d > CANCEL_PX) endGesture(true); return; } // 长按满之前动了＝在滚
+    if (!g.dragging) { if (d > START_PX) startDrag(); else return; }
+    moveDrag();
+  });
+  window.addEventListener('pointerup', ev => {
+    if (!g || ev.pointerId !== g.pid) return;
+    if (g.dragging) { swallowAt = performance.now(); drop(); return; }
+    if (g.armed && !arranging) { swallowAt = performance.now(); const id = g.id; endGesture(true); openMenu(id); return; }
+    endGesture(true);
+  });
+  window.addEventListener('pointercancel', () => { if (g && g.dragging) cancelDrag(); else endGesture(true); });
+  R.addEventListener('click', ev => {
+    const el = ev.target.closest('[data-ex]');
+    if (!el) return;
+    if (performance.now() - swallowAt < 450) { swallowAt = 0; return; }
+    if (arranging) return; // 整理模式下点卡片不添加
+    added.set(el.dataset.ex, (added.get(el.dataset.ex) || 0) + 1);
+    render(); flash(el.dataset.ex); vib(8);
+  });
+  R.addEventListener('contextmenu', ev => { if (ev.target.closest('[data-ex]')) ev.preventDefault(); });
+
+  function showLabel(el, text) {
+    hideLabel();
+    const lab = document.createElement('span');
+    lab.className = 'lplabel'; lab.id = 'lpLabel'; lab.textContent = text;
+    const pr = phoneRect(), r = hostOf(el).getBoundingClientRect();
+    lab.style.left = Math.min(Math.max(r.left + r.width / 2 - pr.left, 80), pr.width - 80) + 'px';
+    lab.style.top = (r.top - pr.top - 26) + 'px';
+    $('#phone').appendChild(lab);
+  }
+  const hideLabel = () => { const l = $('#lpLabel'); if (l) l.remove(); };
+
+  function startDrag() {
+    g.dragging = true;
+    hideLabel();
+    const host = hostOf(g.el);
+    const r = host.getBoundingClientRect(), pr = phoneRect();
+    const isCard = host.classList.contains('rcard');
+    // 从「未细分」拖出来的长条行，浮起时收成一张小卡、宽度跟格子的一列一样 —— 不然吸不进列里
+    const colW = R.querySelector('.rcol')?.getBoundingClientRect().width || 118;
+    const fw = isCard ? r.width : colW;
+    const f = document.createElement('div');
+    f.className = 'floater rcard';
+    f.innerHTML = `<span class="nm">${byId(g.id).starred ? STAR : ''}${esc(byId(g.id).name)}</span>`;
+    f.style.setProperty('--fw', fw + 'px');
+    $('#phone').appendChild(f);
+    g.f = f;
+    // 手指相对卡片的抓取点（行变卡时按比例收）
+    g.grabX = Math.min(g.x0 - r.left, fw - 12); g.grabY = Math.min(g.y0 - r.top, 40);
+    g.pr = pr;
+    host.classList.add('is-source');
+    g.target = undefined;
+    g.fx = g.x - pr.left - g.grabX; g.fy = g.y - pr.top - g.grabY;
+    place(g.fx, g.fy);
+    vib(12);
+    autoScroll();
+  }
+  const place = (x, y) => { g.f.style.setProperty('--fx', x + 'px'); g.f.style.setProperty('--fy', y + 'px'); };
+
+  /** 手指下的落点：某一列 / 未细分 / null（格子外） */
+  function hitTarget(x, y) {
+    const board = R.querySelector('.rboard');
+    const br = board.getBoundingClientRect();
+    const un = R.querySelector('.unzone').getBoundingClientRect();
+    if (y >= un.top - 8) return '';           // 「未细分」那一片（含下面的空白）
+    if (y < br.top - 4 || y > un.top - 8) return null;
+    for (const c of R.querySelectorAll('.rcol')) {
+      const r = c.getBoundingClientRect();
+      if (x >= r.left - 3 && x <= r.right + 3) return c.dataset.col;
+    }
+    return null;
+  }
+
+  function moveDrag() {
+    const t = hitTarget(g.x, g.y);
+    if (t !== g.target) {
+      g.target = t;
+      R.querySelectorAll('.target').forEach(n => n.classList.remove('target'));
+      R.querySelectorAll('.slot').forEach(n => n.remove());
+      if (t !== null) {
+        if (t) {
+          const col = R.querySelector(`.rcol[data-col="${t}"]`);
+          col.classList.add('target');
+          R.querySelector(`.rh[data-head="${t}"]`).classList.add('target');
+          // 落位放在排序后它会在的位置（收藏 → 其余，库内顺序）
+          const ex = byId(g.id);
+          const arr = sortItems(LIB.filter(e => e.part === part && e.region === t && e.id !== g.id).concat(ex));
+          const idx = arr.indexOf(ex);
+          const slot = document.createElement('div'); slot.className = 'slot';
+          col.querySelectorAll('.rcard.empty').forEach(n => n.hidden = true);
+          const kids = [...col.querySelectorAll('[data-ex]')].filter(k => k.dataset.ex !== g.id);
+          if (kids[idx]) col.insertBefore(slot, kids[idx]); else col.appendChild(slot);
+        } else {
+          R.querySelector('.unzone').classList.add('target');
+        }
+        if (t !== (byId(g.id).region)) vib(10); // 跨列＝一下确认感
+      } else {
+        R.querySelectorAll('.rcard.empty[hidden]').forEach(n => n.hidden = false);
+      }
+    }
+    // 磁吸：落在某一列时，浮卡往落位中心靠
+    let x = g.x - g.pr.left - g.grabX, y = g.y - g.pr.top - g.grabY;
+    const k = MAGNET[opts.magnet];
+    const slot = R.querySelector('.slot');
+    if (k && slot && opts.hint === 'slot') {
+      const s = slot.getBoundingClientRect();
+      const sx = s.left - g.pr.left, sy = s.top - g.pr.top;
+      const dist = Math.hypot(sx - x, sy - y);
+      const pull = k * Math.max(0, 1 - dist / 160);
+      x += (sx - x) * pull; y += (sy - y) * pull;
+    }
+    g.fx = x; g.fy = y; place(x, y);
+  }
+
+  // 靠近上下缘自动滚；横滑格子靠近左右缘自动横滚
+  function autoScroll() {
+    if (!g || !g.dragging) return;
+    const r = R.getBoundingClientRect();
+    let dy = 0;
+    if (g.y < r.top + EDGE) dy = -Math.ceil((r.top + EDGE - g.y) / 6);
+    else if (g.y > r.bottom - EDGE) dy = Math.ceil((g.y - (r.bottom - EDGE)) / 6);
+    if (dy) { R.scrollTop += dy; moveDrag(); }
+    const b = R.querySelector('.rboard.scroll');
+    if (b) {
+      const br = b.getBoundingClientRect();
+      if (g.x < br.left + 40) { b.scrollLeft -= 6; moveDrag(); }
+      else if (g.x > br.right - 40) { b.scrollLeft += 6; moveDrag(); }
+    }
+    g.raf = requestAnimationFrame(autoScroll);
+  }
+
+  function drop() {
+    const t = g.target;
+    const id = g.id;
+    const ex = byId(id);
+    const slot = R.querySelector('.slot');
+    const f = g.f;
+    if (t === null || t === undefined || t === ex.region) {
+      // 格子外 / 原列：原样放回
+      const src = R.querySelector(`[data-ex="${id}"]`);
+      const sr = hostOf(src).getBoundingClientRect();
+      landTo(f, sr.left - g.pr.left, sr.top - g.pr.top, () => render());
+      endGesture(false);
+      return;
+    }
+    const tr = slot ? slot.getBoundingClientRect() : R.querySelector('.unzone .rows').getBoundingClientRect();
+    landTo(f, tr.left - g.pr.left, tr.top - g.pr.top, () => assign(id, t));
+    endGesture(false);
+  }
+  function cancelDrag() { if (g && g.f) g.f.remove(); endGesture(true); render(); }
+  function landTo(f, x, y, done) {
+    f.classList.add('landing');
+    f.style.setProperty('--fx', x + 'px'); f.style.setProperty('--fy', y + 'px');
+    let fired = false;
+    const fin = () => { if (fired) return; fired = true; f.remove(); done(); };  // 收尾回调幂等
+    f.addEventListener('transitionend', fin, { once: true });
+    setTimeout(fin, 320);
+  }
+  function endGesture(removeFloater) {
+    if (!g) return;
+    clearTimeout(g.t1); clearTimeout(g.t2); cancelAnimationFrame(g.raf);
+    hostOf(g.el).classList.remove('pressing');
+    hideLabel();
+    if (removeFloater && g.f) g.f.remove();
+    R.querySelectorAll('.target').forEach(n => n.classList.remove('target'));
+    g = null;
+  }
+
+  // ── 头部 / 部位 / 方案 ──
+  $('#arrange').onclick = () => { arranging = !arranging; render(); };
+  $('#partRow').addEventListener('click', ev => { const b = ev.target.closest('[data-part]'); if (b) { part = b.dataset.part; render(); R.scrollTop = 0; } });
+  function renderPanel() {
+    const chip = (k, v, l) => `<button type="button" class="pchip${opts[k] === v ? ' on' : ''}" data-k="${k}" data-v="${v}">${l}</button>`;
+    $('#panel').innerHTML =
+      `<div><div class="q">磁吸强度</div><div class="opts">${chip('magnet', 'off', '不吸')}${chip('magnet', 'soft', '弱')}${chip('magnet', 'mid', '中')}${chip('magnet', 'strong', '强')}</div></div>` +
+      `<div><div class="q">落位提示</div><div class="opts">${chip('hint', 'slot', '列内虚线落位')}${chip('hint', 'col', '只亮整列')}</div></div>` +
+      `<div><div class="q">「整理」开关</div><div class="opts">${chip('arrangeBtn', true, '有')}${chip('arrangeBtn', false, '没有（只靠长按拖）')}</div></div>` +
+      '<button type="button" class="reset" data-reset>重置数据</button>';
+  }
+  $('#panel').addEventListener('click', ev => {
+    if (ev.target.closest('[data-reset]')) { seed(); render(); return; }
+    const c = ev.target.closest('.pchip'); if (!c) return;
+    const k = c.dataset.k; let v = c.dataset.v; if (k === 'arrangeBtn') v = v === 'true';
+    opts[k] = v;
+    if (k === 'arrangeBtn' && !v) arranging = false;
+    $('#phone').classList.toggle('hint-col', opts.hint === 'col');
+    $('#phone').classList.toggle('hint-slot', false);
+    renderPanel(); render();
+  });
+  $('#btnPlan').onclick = () => { const p = $('#panel'); p.hidden = !p.hidden; $('#btnPlan').setAttribute('aria-expanded', String(!p.hidden)); if (!p.hidden) renderPanel(); };
+
+  seed(); render();
+})();
+</script>
+</body>
+</html>
