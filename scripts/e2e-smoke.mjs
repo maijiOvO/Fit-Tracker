@@ -103,7 +103,8 @@ async function step(page, name, fn) {
 const main = async () => {
   console.log(`\n== e2e smoke against ${BASE} ==\n`);
 
-  const browser = await chromium.launch({ headless: true });
+  // E2E_CHROMIUM：本机装的 Playwright 浏览器版本和 node_modules 里的对不上时，指向已有的那份可执行文件
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.E2E_CHROMIUM || undefined });
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 }, // iPhone-ish portrait
     deviceScaleFactor: 2,
@@ -750,6 +751,50 @@ const main = async () => {
     if (!Number.isInteger(after)) throw new Error(`reps scrubbed to a non-integer: ${after}`);
     if (!badgeVisible) throw new Error('档位角标 (.scrub-step) never appeared during the drag');
     return `reps ${before} → ${after}, tier badge shown`;
+  });
+
+  // 换算残留（不是 0.5 的倍数，如 lbs↔kg 换出来的 61.24）：拖动的第一档先取整并吃掉这一档，
+  // 之后照常 ±1。打字不取整。递减档默认 = 上一行显示值（残留先 floor）−5 当前单位。
+  await step(page, 'scrub-weight-residue-and-drop-set', async () => {
+    const weight = page.locator('[data-testid="ledger-field-weight"]').first();
+    const input = weight.locator('input');
+    await input.fill('61.24');
+    const typed = await input.inputValue();
+    if (typed !== '61.24') throw new Error(`typing must keep the residue, got ${typed}`);
+
+    // 慢拖：每次 move 隔开足够久，速度留在 ×1 档
+    const slow = async (dxs) => {
+      const box = await weight.boundingBox();
+      const x0 = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x0, y);
+      await page.mouse.down();
+      for (const dx of dxs) {
+        await page.mouse.move(x0 + dx, y);
+        await page.waitForTimeout(80);
+      }
+      await page.mouse.up();
+      await page.waitForTimeout(350);
+      return Number(await input.inputValue());
+    };
+    const right1 = await slow([14]); // 越过 12px 接管阈值，正好落一档
+    if (right1 !== 62) throw new Error(`61.24 dragged right one detent should ceil to 62, got ${right1}`);
+    const left2 = await slow([-14, -24]); // 两档：62 → 61 → 60（不再是残留，照常 −1）
+    if (left2 !== 60) throw new Error(`62 dragged left two detents should be 60, got ${left2}`);
+
+    // 回到残留值再加递减档：floor(61.24) − 5 = 56
+    await input.fill('61.24');
+    const num = page.locator('.ledger-row .set-num').first();
+    const nb = await num.boundingBox();
+    await page.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+    const sub = page.locator('[data-testid="subset-field-weight"] input').first();
+    await sub.waitFor({ state: 'visible', timeout: 3_000 });
+    const subW = Number(await sub.inputValue());
+    if (subW !== 56) throw new Error(`drop set default should be floor(61.24)−5 = 56, got ${subW}`);
+    return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
   await step(page, 'back-to-tab-from-workout', async () => {

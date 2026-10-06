@@ -166,14 +166,19 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const handleAddSubSet = () => {
     // 上次练过、带着递减档的组，底稿里已经原样抄来了子组（toGhostSets），不经过这里。
     // 这里只管「没有记录可抄」时的手动加一档：递减组的定义就是降重量再来一轮，
-    // 所以从【上一行】降一档（-20%，取整到 0.5kg）。上一行＝最后一档递减，没有就是母组；
+    // 所以从【上一行】降一档。上一行＝最后一档递减，没有就是母组；
     // 原先永远拿母组算，第二档会和第一档一模一样。
+    // 降多少按【当前单位】减 5（磅就 −5 磅，kg 就 −5kg），跟换片的手感一致；
+    // 原先 −20% 取整到 0.5kg 与单位无关，lbs 下会落出 105.82 这种数。
+    // 上一行若是换算残留（132.28）先 floor 再减，新档落在整数上。下限 0。
     // 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
     const prev = subSets.length > 0 ? subSets[subSets.length - 1] : set;
-    const base = Number(prev.weight) || 0;
+    const shown = Number(formatWeight(Number(prev.weight) || 0, unit));
+    const residue = Math.abs(shown * 2 - Math.round(shown * 2)) > 1e-6;
+    const dropped = Math.max(0, (residue ? Math.floor(shown) : shown) - 5);
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
-      weight: base > 0 ? Math.round(base * 0.8 * 2) / 2 : 0,
+      weight: shown > 0 ? parseWeight(dropped, unit) : 0,
       reps: Number(prev.reps) || 0,
     };
     update({ subSets: [...subSets, newSubSet] });

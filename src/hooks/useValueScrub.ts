@@ -48,6 +48,12 @@ const ENGAGE_PX = 12;
 /** 速度平滑系数。不平滑的话档位会在阈值边界反复横跳。 */
 const EMA = 0.7;
 
+/**
+ * 换算残留：显示值不是 0.5 的倍数（kg↔lbs 换算出来的 132.28、61.24）。
+ * 62.5、132.5 这种用户自己定的半档不算。
+ */
+const isResidue = (v: number) => Math.abs(v * 2 - Math.round(v * 2)) > 1e-6;
+
 function tierFor(v: number, steps: number[]): number {
   let step = steps[0] ?? 1;
   for (let i = 0; i < steps.length && i < VELOCITY_LADDER.length; i++) {
@@ -101,6 +107,8 @@ export function useValueScrub({
     engaged: boolean;
     vs: number;
     samples: [number, number][];
+    /** 本次拖动已经落过第一档 —— 残留取整只在第一档做 */
+    snapped: boolean;
   } | null>(null);
   /**
    * 拖过之后要吞掉紧跟着的那次 click，否则松手会顺手聚焦输入框、弹出键盘。
@@ -143,6 +151,7 @@ export function useValueScrub({
         engaged: false,
         vs: 0,
         samples: [[performance.now(), e.clientX]],
+        snapped: false,
       };
     },
     [disabled],
@@ -184,7 +193,15 @@ export function useValueScrub({
       let next = valueRef.current;
       while (Math.abs(d.acc) >= PX_PER_DETENT) {
         const sign = d.acc > 0 ? 1 : -1;
-        next = Math.max(min, Math.round((next + sign * nextStep) * 10) / 10);
+        if (!d.snapped && isResidue(next)) {
+          // 切过单位后的 132.28 这种值，第一档先取整（往右 ceil、往左 floor）并吃掉这一档，
+          // 之后再照常 ±1/2/5/10 —— 否则会一路拖出 133.28、134.28。
+          // 只在拖动时取整：切单位、打字都保留原值。
+          next = Math.max(min, sign > 0 ? Math.ceil(next) : Math.floor(next));
+        } else {
+          next = Math.max(min, Math.round((next + sign * nextStep) * 10) / 10);
+        }
+        d.snapped = true;
         d.acc -= sign * PX_PER_DETENT;
         moved = true;
       }

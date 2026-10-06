@@ -316,6 +316,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       writeJSON(LS_KEYS.tagRenameOverrides, updated);
       return updated;
     });
+    // 原先两样都没做：改名只活在本机，下次拉远端还会被旧快照盖回去
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
   }, []);
 
   const deleteTag = useCallback(
@@ -382,6 +385,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         writeJSON(LS_KEYS.exerciseOverrides, updated);
         return updated;
       });
+      markPrefsUpdated();
       scheduleDebouncedFitlogPush();
     },
     [lang],
@@ -419,6 +423,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         writeJSON(LS_KEYS.exerciseOverrides, updated);
         return updated;
       });
+      markPrefsUpdated();
       scheduleDebouncedFitlogPush();
 
       if (!options?.skipConfirm) {
@@ -442,6 +447,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
               writeJSON(LS_KEYS.exerciseOverrides, updated);
               return updated;
             });
+            markPrefsUpdated();
             scheduleDebouncedFitlogPush();
           },
         );
@@ -456,6 +462,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       writeJSON(LS_KEYS.customExercises, next);
       return next;
     });
+    markPrefsUpdated();
     scheduleDebouncedFitlogPush();
   }, []);
 
