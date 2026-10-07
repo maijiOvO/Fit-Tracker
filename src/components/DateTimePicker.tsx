@@ -15,8 +15,18 @@ interface DateTimePickerProps {
   lang: Language;
 }
 
-export const DateTimePicker: React.FC<DateTimePickerProps> = ({
-  isOpen,
+/**
+ * 外壳只管开关：关着时什么都不挂，打开那一刻才挂上内层。
+ * 内层的 useState 只在挂载时取初值 —— 以前整个组件常驻挂载，
+ * 打开时停在 App 启动那一刻（或上一次的选择），只调分钟点确定就把旧训练挪到今天
+ * （datepicker-stale-initial）。现在每次打开都从 initialDate 重新开始。
+ */
+export const DateTimePicker: React.FC<DateTimePickerProps> = ({ isOpen, ...rest }) => {
+  if (!isOpen) return null;
+  return <DateTimePickerBody {...rest} />;
+};
+
+const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
   onClose,
   onConfirm,
   initialDate = new Date(),
@@ -27,8 +37,6 @@ export const DateTimePicker: React.FC<DateTimePickerProps> = ({
   const [selectedMinute, setSelectedMinute] = useState(initialDate.getMinutes());
   const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
   const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
-
-  if (!isOpen) return null;
 
   const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
   const getFirstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();

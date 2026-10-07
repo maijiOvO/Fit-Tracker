@@ -29,7 +29,7 @@ interface TimelineViewProps {
   granularity: TimelineGranularity;
   onGranularityChange: (g: TimelineGranularity) => void;
   resolveName: (name: string) => string;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
   onEditWorkout: (workoutId: string) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
   /** §12.8：长按菜单里的删除走「先执行 + 撤销条」，skipConfirm 跳过确认弹窗 */
@@ -136,7 +136,7 @@ interface SessionCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   resolveName: (name: string) => string;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
   onEdit: () => void;
   onAppend: () => void;
   onDelete: () => void;
@@ -459,7 +459,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                 </div>
                 {sets.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {sets.map((s) => renderSetCapsule(s, ex.name, ex))}
+                    {sets.map((s, i) => renderSetCapsule(s, ex.name, ex, i))}
                   </div>
                 )}
               </div>

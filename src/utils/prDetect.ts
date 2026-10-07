@@ -155,6 +155,21 @@ export function detectPRs({
   return { stamps: [sorted[0]], extraCount: sorted.length - 1 };
 }
 
+/**
+ * 印章上的数按显示单位换算（pr-stamp-kg-labeled-lbs）。
+ * detectPRs 只管判定，prev / next / delta 一律是库里存的 kg（容量是 kg×次）；
+ * 刊末页后面又标着当前单位，lbs 下不换算就成了「83.9 → 90.7 lbs」。
+ * 次数类（reps）不是重量，不换算。
+ */
+export function stampsInUnit(stamps: PRHit[], unit: 'kg' | 'lbs', kgToLbs: number): PRHit[] {
+  if (unit === 'kg') return stamps;
+  return stamps.map(s =>
+    s.kind === 'reps'
+      ? s
+      : { ...s, prev: s.prev * kgToLbs, next: s.next * kgToLbs, delta: s.delta * kgToLbs },
+  );
+}
+
 /** 一场训练的总容量与总组数，刊末页要用 */
 export function sessionSummary(session: WorkoutSession) {
   const exercises = session.exercises ?? [];

@@ -13,7 +13,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { ExerciseCategory } from '../constants/exercises';
-import { detectPRs, sessionSummary, PRHit } from '../utils/prDetect';
+import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -164,6 +164,8 @@ export interface UseWorkoutMutationsResult {
   /** 给计划训练保存后回写日程状态使用，由调用方在 useEffect 中触发 */
   activeScheduleIdRef: React.MutableRefObject<string | null>;
   markActiveSchedulePending: React.MutableRefObject<boolean>;
+  /** 「继续这场」接回来的训练 id：删光动作时不整场删 */
+  resumedWorkoutIdsRef: React.MutableRefObject<Set<string>>;
 
   /** 切换一张卡的练法（第 8 条）；undefined＝标准 */
   switchExerciseVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
@@ -203,6 +205,11 @@ export function useWorkoutMutations({
   const [pendingScrollToPicker, setPendingScrollToPicker] = useState(false);
 
   const activeScheduleIdRef = useRef<string | null>(null);
+  /**
+   * 「继续这场」接回来的训练 id。它们里面有真正练过的组，删光动作时不能像新训练那样整场删掉
+   * （App.tsx onDeleteExerciseFromSession）。resumeWorkout 会剥掉 finishedAt，数据上分不出来，只能记在这里。
+   */
+  const resumedWorkoutIdsRef = useRef<Set<string>>(new Set());
   const markActiveSchedulePending = useRef(false);
 
   /**
@@ -286,7 +293,7 @@ export function useWorkoutMutations({
         setCount: summary.setCount,
         volume,
         unitLabel: unit,
-        stamps: pr.stamps,
+        stamps: stampsInUnit(pr.stamps, unit, KG_TO_LBS),
         extraCount: pr.extraCount,
       });
 
@@ -433,6 +440,10 @@ export function useWorkoutMutations({
       const snapshot = structuredClone(w);
       try {
         await deleteWorkout(workoutId);
+        // 立刻写墓碑（workout-delete-no-tombstone），和「并入上一场」同一个理由：
+        // 推送没落地时，下次启动的拉取会把这场原样合并回来。撤销时摘掉（下面 removeTombstone）。
+        // deleteWorkout 里的推送是防抖的，这一行同步执行，赶得上同一次推送。
+        recordTombstone('workouts', workoutId);
         toastUndo(isCn ? '已删除训练' : 'Workout deleted', async () => {
           await db.save('workouts', snapshot);
           removeTombstone('workouts', workoutId);
@@ -691,6 +702,7 @@ export function useWorkoutMutations({
       const { finishedAt: _fa, status: _st, ...rest } = w;
       const resumed: WorkoutSession = { ...rest, updatedAt: new Date().toISOString() };
       await db.save('workouts', resumed);
+      resumedWorkoutIdsRef.current.add(resumed.id);
       await refreshFromDb();
       setCurrentWorkout(resumed);
       setEditingWorkoutId(null);
@@ -929,5 +941,6 @@ export function useWorkoutMutations({
     activeScheduleIdRef,
     markActiveSchedulePending,
     addExerciseToWorkout,
+    resumedWorkoutIdsRef,
   };
 }

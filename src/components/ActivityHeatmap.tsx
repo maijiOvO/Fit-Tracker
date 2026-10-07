@@ -15,6 +15,7 @@ import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Language } from '../../types';
 import { plural } from '../utils/format';
+import { localYmd } from '../utils/dateUtils';
 
 export interface HeatmapDay {
   /** YYYY-MM-DD */
@@ -44,9 +45,8 @@ function levelOf(sets: number): number {
   return 4;
 }
 
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
+/** 网格、连续天数与 heatmapData 的日键必须同一个函数（本地日期） */
+const ymd = localYmd;
 
 export const ActivityHeatmap: React.FC<Props> = ({
   days,

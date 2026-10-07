@@ -87,7 +87,14 @@ async function clickAppConfirm(page, labelRe) {
   await dlg.waitFor({ state: 'detached', timeout: 5_000 });
 }
 
+/**
+ * E2E_ONLY=<前缀,前缀…>：只跑名字以其中之一开头的步骤（如 E2E_ONLY=seeded 只跑带夹具的场景，调试用）。
+ * 主流程的步骤前后依赖，只能整段跳过，不能挑着跑。
+ */
+const ONLY = (process.env.E2E_ONLY || '').split(',').filter(Boolean);
+
 async function step(page, name, fn) {
+  if (ONLY.length && !ONLY.some(p => name.startsWith(p))) return;
   process.stdout.write(`▶ ${name}\n`);
   try {
     const detail = await fn();
@@ -98,6 +105,422 @@ async function step(page, name, fn) {
     await shoot(page, 'FAIL-' + name.replace(/[^a-z0-9]+/gi, '_').toLowerCase());
     throw err;
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 带夹具的场景（2026-10-06 审查第 1 批数据 bug）
+//
+// 主流程是一条从空库走到底的长链，造不出「历史里有一场昨晚 9 点的训练」「两个自建动作原名撞车」
+// 这种数据。这里另开一个干净的 context：远端 mock 在第一次 GET 时吐一份旧格式快照当夹具
+// （只用已有字段，没有新字段），App 启动时照常拉取合并，就等于「用户带着这些历史打开 App」。
+// 时区钉在 America/Toronto（用户所在地）：按 UTC 切日期的 bug 只有在这里才现形。
+// 每条盯的是状态（库里的日期、墓碑、存储顺序、格子的档位、组号），不是文案。
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TZ = 'America/Toronto';
+const LBS = 2.20462;
+
+/** 多伦多当地「N 天前的 YYYY-MM-DD」 */
+function torontoYmd(daysAgo) {
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
+  const [y, m, d] = today.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d - daysAgo));
+  return t.toISOString().slice(0, 10);
+}
+
+/** 多伦多当地 ymd 的 h:m 对应的绝对时刻（夏令时 −4、冬令时 −5，试出来是哪个） */
+function torontoAt(ymd, h, m) {
+  const [y, mo, d] = ymd.split('-').map(Number);
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  for (const off of [4, 5]) {
+    const t = new Date(Date.UTC(y, mo - 1, d, h + off, m));
+    const p = Object.fromEntries(fmt.formatToParts(t).map(x => [x.type, x.value]));
+    if (`${p.year}-${p.month}-${p.day}` === ymd && Number(p.hour) === h) return t;
+  }
+  throw new Error(`cannot place ${ymd} ${h}:${m} in ${TZ}`);
+}
+
+function seedWorkout(id, at, title, exName, sets) {
+  const iso = at.toISOString();
+  return {
+    id,
+    userId: 'u_guest',
+    date: iso,
+    title,
+    status: 'completed',
+    finishedAt: iso,
+    updatedAt: iso,
+    exercises: [
+      {
+        id: `${id}_ex`,
+        name: exName,
+        category: 'STRENGTH',
+        sets: sets.map(([weight, reps], i) => ({ id: `${id}_s${i}`, weight, reps })),
+      },
+    ],
+  };
+}
+
+async function seededScenarios(browser, { escapedRemoteCalls }) {
+  const yesterday = torontoYmd(1);
+  const threeDaysAgo = torontoYmd(3);
+  // 昨晚 21:15（多伦多）—— UTC 已经是今天了
+  const W_HEAT = seedWorkout('seed_heat', torontoAt(yesterday, 21, 15), 'E2E 昨晚', '杠铃平板卧推', [
+    [185 / LBS, 5],
+    [185 / LBS, 5],
+    [185 / LBS, 5],
+  ]);
+  const W_DATE = seedWorkout('seed_date', torontoAt(threeDaysAgo, 14, 33), 'E2E 改时间', '哑铃平板卧推', [[20, 10]]);
+  const W_DEL = seedWorkout('seed_del', torontoAt(torontoYmd(5), 10, 0), 'E2E 待删', '杠铃深蹲', [[60, 5]]);
+  const W_NAME = seedWorkout('seed_name', torontoAt(torontoYmd(7), 10, 0), 'E2E 撞名', '悍马卧推', [[50, 8]]);
+
+  // 两个自建动作原名都是「悍马卧推」（真实数据就是这样）：B 早年改名成「曲肘蝴蝶机」，A 是后来新建的。
+  // 列表顺序故意是 [B, A, C] —— 旧版「删除再撤销」会把 B 插到最前，就是这个顺序。
+  const DEF_A = { id: '1781149667255', name: { cn: '悍马卧推', en: '悍马卧推' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
+  const DEF_B = { id: '1779420343792', name: { cn: '悍马卧推', en: '悍马卧推' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
+  const DEF_C = { id: '1779000000000', name: { cn: 'E2E自建甲', en: 'E2E自建甲' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
+
+  const seed = {
+    schemaVersion: 2,
+    workouts: [W_HEAT, W_DATE, W_DEL, W_NAME],
+    goals: [],
+    weightLogs: [],
+    customMetrics: [],
+    prs: [],
+    scheduledWorkouts: [],
+    prefs: {
+      customTags: [],
+      customExercises: [DEF_B, DEF_A, DEF_C],
+      exerciseNotes: {},
+      starredExercises: {},
+      exerciseMetricConfigs: {},
+      tagRenameOverrides: {},
+      exerciseOverrides: { [DEF_B.id]: { name: { cn: '曲肘蝴蝶机', en: '曲肘蝴蝶机' } } },
+      starredLastUpdateMs: 0,
+      metricsLastUpdateMs: 0,
+      prefsLastUpdateMs: Date.now(),
+      lang: 'cn',
+      unit: 'lbs',
+    },
+    tombstones: {},
+  };
+
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 2,
+    colorScheme: 'light',
+    locale: 'zh-CN',
+    timezoneId: TZ,
+    ignoreHTTPSErrors: true,
+  });
+  const page = await context.newPage();
+
+  const remote = { snapshot: seed, failPuts: false };
+  const apiHostPattern = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/api/fitlog/state.*`);
+  const escapedApiHost = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/.*`);
+  await context.route(escapedApiHost, async route => {
+    escapedRemoteCalls.push(`${route.request().method()} ${route.request().url()}`);
+    return route.abort();
+  });
+  await context.route(apiHostPattern, async route => {
+    const req = route.request();
+    if (req.method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(remote.snapshot) });
+    }
+    if (req.method() === 'PUT') {
+      if (remote.failPuts) return route.abort(); // 模拟「推送没送到」（离线 / NAS 不通）
+      try {
+        remote.snapshot = JSON.parse(req.postData() || '{}');
+      } catch {}
+      return route.fulfill({ status: 200, body: 'ok' });
+    }
+    return route.continue();
+  });
+
+  const ignoredConsole = ['SW registration failed', 'Failed to load resource', 'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED'];
+  page.on('console', msg => {
+    if (msg.type() !== 'error') return;
+    const text = msg.text();
+    if (ignoredConsole.some(s => text.includes(s))) return;
+    report.consoleErrors.push(`[seeded] ${text}`);
+    console.log(`    [console.error] ${text}`);
+  });
+  page.on('pageerror', err => {
+    report.pageErrors.push(`[seeded] ${err}`);
+    console.log(`    [pageerror] ${err}`);
+  });
+
+  // 只在第一次打开时清空：后面要 reload 模拟「重开 App」，不能把本机数据一起抹掉
+  await page.addInitScript(() => {
+    try {
+      if (!sessionStorage.getItem('__e2e_seeded_clean')) {
+        sessionStorage.setItem('__e2e_seeded_clean', '1');
+        localStorage.clear();
+        indexedDB.databases?.().then(dbs => dbs.forEach(d => d.name && indexedDB.deleteDatabase(d.name)));
+      }
+    } catch {}
+    window.lsKey = key => {
+      const env = window.__fitlog?.env?.().env;
+      return env === 'dev' ? `dev:${key}` : key;
+    };
+  });
+
+  const card = id => page.locator(`[data-testid="timeline-session-${id}"]`);
+  const toDashboard = async () => {
+    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    await page.waitForTimeout(300);
+  };
+  const longPress = async loc => {
+    const box = await loc.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 30));
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+  };
+  const sessionMenu = async (id, itemRe) => {
+    await longPress(card(id));
+    const menu = page.locator('[data-testid="timeline-session-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.waitForTimeout(400); // 菜单项的 350ms 静默期
+    await menu.getByRole('menuitem').filter({ hasText: itemRe }).click();
+  };
+  const readLs = key => page.evaluate(k => JSON.parse(localStorage.getItem(lsKey(k)) || 'null'), key);
+  const workoutTombstones = async () => (await readLs('fitlog_tombstones'))?.workouts ?? [];
+  const remoteWorkout = id =>
+    page.evaluate(async wid => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      return (snap?.workouts || []).find(w => w.id === wid) ?? null;
+    }, id);
+  const dismissToasts = async () => {
+    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
+    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+  };
+
+  await step(page, 'seeded-load', async () => {
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 10_000 });
+    const unit = await page.evaluate(() => localStorage.getItem(lsKey('fitlog_unit')));
+    if (unit !== 'lbs') throw new Error(`seed unit not applied (${unit})`);
+    return `seeded 4 workouts, unit ${unit}, tz ${TZ}`;
+  });
+
+  // heatmap-utc-day：昨晚 21:15 练的要亮在昨天那格，不是今天（UTC 日期）那格
+  await step(page, 'seeded-heatmap-local-day', async () => {
+    await page.locator('nav button', { hasText: /我的|Profile/ }).click();
+    await page.waitForTimeout(400);
+    const level = ymd =>
+      page.evaluate(d => {
+        const el = document.querySelector(`button[aria-label^="${d} "]`);
+        return el ? Number(getComputedStyle(el).getPropertyValue('--lvl') || el.style.getPropertyValue('--lvl')) : null;
+      }, ymd);
+    const today = torontoYmd(0);
+    const [ly, lt] = [await level(yesterday), await level(today)];
+    if (ly === null || lt === null) throw new Error(`heatmap cells not found (${yesterday}: ${ly}, ${today}: ${lt})`);
+    if (!(ly > 0)) throw new Error(`${yesterday} 21:15 workout not on ${yesterday} (level ${ly})`);
+    if (lt !== 0) throw new Error(`nothing trained today yet, but ${today} is lit (level ${lt}) — UTC 归日`);
+    return `${yesterday} level ${ly}, ${today} level ${lt}`;
+  });
+
+  // set-number-all-one：时间线展开后组号是 1、2、3，不是 1、1、1
+  await step(page, 'seeded-timeline-set-numbers', async () => {
+    await toDashboard();
+    await card(W_HEAT.id).click();
+    const nums = card(W_HEAT.id).locator('.set-num');
+    await nums.first().waitFor({ state: 'visible', timeout: 3_000 });
+    const got = (await nums.allInnerTexts()).map(t => t.trim().match(/^\d+/)?.[0]);
+    if (got.join(',') !== '1,2,3') throw new Error(`set numbers ${JSON.stringify(got)}, expected 1,2,3`);
+    await card(W_HEAT.id).click(); // 收起
+    return got.join(',');
+  });
+
+  // name-index-order-dependent（一）：自建列表顺序是 [B, A]，「悍马卧推」的历史仍归 A（现名悍马卧推），
+  // 不能因为 B 排在前面就被认成「曲肘蝴蝶机」
+  await step(page, 'seeded-name-collision-stable', async () => {
+    await card(W_NAME.id).click();
+    const text = await card(W_NAME.id).innerText();
+    await card(W_NAME.id).click();
+    if (/曲肘蝴蝶机/.test(text)) throw new Error('「悍马卧推」history resolved to 曲肘蝴蝶机 — 按数组顺序先到先得');
+    if (!/悍马卧推/.test(text)) throw new Error(`unexpected card text: ${text.slice(0, 80)}`);
+    return 'history stays with 悍马卧推';
+  });
+
+  // datepicker-stale-initial：编辑三天前 14:33 那场 → 打开日期选择器 → 不动直接确定，日期不能变
+  await step(page, 'seeded-datepicker-initial', async () => {
+    await sessionMenu(W_DATE.id, /编辑这次训练|Edit/);
+    await page.waitForSelector('text=/编辑训练|Edit Workout/', { timeout: 5_000 });
+    await page.getByTitle(/修改训练日期|Change workout date/).click();
+    const dlg = page.locator('[role="dialog"]');
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    await page.waitForTimeout(300);
+    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
+    if (await dlg.isVisible().catch(() => false)) await acceptAppConfirm(page);
+    await page.waitForTimeout(300);
+    const w = await remoteWorkout(W_DATE.id);
+    const local = await page.evaluate(iso => {
+      const d = new Date(iso);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${d.getHours()}:${d.getMinutes()}`;
+    }, w.date);
+    if (local !== `${threeDaysAgo} 14:33`) throw new Error(`confirming untouched picker moved the workout to ${local} (was ${threeDaysAgo} 14:33)`);
+    return `date kept: ${local}`;
+  });
+
+  // workout-delete-no-tombstone（一）：删整场立刻写墓碑，撤销摘掉
+  await step(page, 'seeded-delete-tombstone-undo', async () => {
+    await toDashboard();
+    await sessionMenu(W_DATE.id, /删除|Delete/);
+    await card(W_DATE.id).waitFor({ state: 'detached', timeout: 3_000 });
+    if (!(await workoutTombstones()).includes(W_DATE.id)) throw new Error('deleting a workout wrote no tombstone');
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await card(W_DATE.id).waitFor({ state: 'visible', timeout: 5_000 });
+    if ((await workoutTombstones()).includes(W_DATE.id)) throw new Error('undo left the tombstone behind');
+    return 'tombstone written on delete, removed on undo';
+  });
+
+  // workout-delete-no-tombstone（二）：推送没送到时删一场，重开 App 拉取旧快照，它不能回来
+  await step(page, 'seeded-delete-survives-failed-push', async () => {
+    remote.failPuts = true;
+    await sessionMenu(W_DEL.id, /删除|Delete/);
+    await card(W_DEL.id).waitFor({ state: 'detached', timeout: 3_000 });
+    await page.waitForTimeout(5_600); // 撤销条到期
+    const stillRemote = (remote.snapshot.workouts || []).some(w => w.id === W_DEL.id);
+    if (!stillRemote) throw new Error('fixture drift: the server copy should still have the deleted workout');
+    await page.reload({ waitUntil: 'networkidle' });
+    await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForTimeout(500);
+    remote.failPuts = false;
+    if (await card(W_DEL.id).count()) throw new Error('deleted workout came back after reload — 推送失败时被拉取复活');
+    await dismissToasts();
+    return 'stays deleted across a reload with a stale server copy';
+  });
+
+  // name-index-order-dependent（二）：从动作库删除再撤销，自建动作放回原位置，不是插到最前
+  await step(page, 'seeded-library-delete-undo-keeps-order', async () => {
+    const before = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill('E2E自建甲');
+    const row = sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: 'E2E自建甲' }).first();
+    await row.waitFor({ state: 'visible', timeout: 3_000 });
+    await longPress(row);
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.waitForTimeout(400);
+    await menu.getByRole('button', { name: /从动作库删除|Delete from library/ }).click();
+    await acceptAppConfirm(page);
+    const mid = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
+    if (mid.includes(DEF_C.id)) throw new Error('library delete did not remove the custom exercise');
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await page.waitForTimeout(300);
+    const after = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
+    if (after.join(',') !== before.join(',')) throw new Error(`undo changed custom order: ${before.join(',')} → ${after.join(',')}`);
+    await sheet.locator('input[type="text"]').fill('');
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    await dismissToasts();
+    return `order kept: ${after.join(',')}`;
+  });
+
+  // remove-last-exercise-not-persisted：新训练删光动作 → 这场从库里删掉（写墓碑），撤销能拿回来
+  await step(page, 'seeded-remove-last-exercise-drops-workout', async () => {
+    // 接着上一条：已经在空的新训练里
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('[data-testid="picker-sheet-exercise"]').first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    const exCard = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
+    await exCard.waitFor({ state: 'visible', timeout: 3_000 });
+    const t0 = await workoutTombstones();
+    const removeIt = async () => {
+      await exCard.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
+      await exCard.getByRole('menuitem', { name: /删除动作|Delete exercise/ }).click();
+      await exCard.waitFor({ state: 'detached', timeout: 3_000 });
+      await page.waitForTimeout(300);
+    };
+    await removeIt();
+    const t1 = await workoutTombstones();
+    const added = t1.filter(x => !t0.includes(x));
+    if (added.length !== 1) throw new Error(`emptying a new workout should tombstone it, got ${JSON.stringify(added)}`);
+    const wid = added[0];
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await exCard.waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await workoutTombstones()).includes(wid)) throw new Error('undo left the tombstone of the emptied workout');
+    await page.waitForTimeout(300);
+    await removeIt();
+    await page.waitForTimeout(5_600); // 撤销条到期
+    await page.getByLabel(/^返回$|^Back$/).first().click();
+    await page.waitForTimeout(400);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await acceptAppConfirm(page);
+    await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 5_000 });
+    if (await card(wid).count()) throw new Error('emptied workout still shows on the timeline');
+    const w = await remoteWorkout(wid);
+    if (w) throw new Error('emptied workout still in the library / snapshot');
+    return `workout ${wid} dropped, undo restores, tombstoned`;
+  });
+
+  // pr-stamp-kg-labeled-lbs：lbs 下历史最大 185，这次 200 → 印章写 185 → 200（不是 kg 的 83.9 → 90.7）
+  await step(page, 'seeded-pr-stamp-in-display-unit', async () => {
+    await sessionMenu(W_HEAT.id, /复制为今天的训练|Copy to today/);
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    const row0 = page.locator('.ledger-row').first();
+    await row0.locator('[data-testid="ledger-field-weight"] input').fill('200');
+    await row0.locator('.set-num').click();
+    await row0.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
+    await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
+    await acceptAppConfirm(page);
+    const nums = page.locator('.anim-stamp-drop + span .font-mono');
+    await nums.first().waitFor({ state: 'visible', timeout: 5_000 });
+    const t = (await nums.first().innerText()).replace(/\s+/g, ' ').trim();
+    if (t !== '185 → 200') throw new Error(`PR stamp shows "${t}", expected "185 → 200" (lbs)`);
+    return `stamp ${t}`;
+  });
+
+  // 「继续这场」接回来的训练删光动作，不整场删（用户定）：里面是真正练过的组
+  await step(page, 'seeded-resumed-emptied-keeps-workout', async () => {
+    // 接着上一条：刚结束的那场（复制自 W_HEAT，200 lbs 做完一组）
+    const latest = await page.evaluate(async () => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      const done = (snap?.workouts || []).filter(w => w.finishedAt);
+      done.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+      return done[0] ? { id: done[0].id, n: done[0].exercises.length } : null;
+    });
+    if (!latest) throw new Error('fixture drift: no finished workout to resume');
+    const colo = page.locator('[data-testid="workout-colophon"]');
+    if (await colo.isVisible().catch(() => false)) await colo.click();
+    await page.waitForTimeout(500);
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+    await clickAppConfirm(page, /^(继续这场|Resume)$/);
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    const t0 = await workoutTombstones();
+    const cards = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') });
+    while (await cards.count()) {
+      const c = cards.first();
+      await c.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
+      await c.getByRole('menuitem', { name: /删除动作|Delete exercise/ }).click();
+      await page.waitForTimeout(400);
+    }
+    const added = (await workoutTombstones()).filter(x => !t0.includes(x));
+    if (added.length) throw new Error(`emptying a resumed workout tombstoned ${JSON.stringify(added)} — 整场被删`);
+    await page.waitForTimeout(5_600); // 撤销条到期
+    await page.getByLabel(/^返回$|^Back$/).first().click();
+    await page.waitForTimeout(400);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await acceptAppConfirm(page);
+    await card(latest.id).waitFor({ state: 'visible', timeout: 5_000 });
+    const w = await remoteWorkout(latest.id);
+    if (!w || !w.exercises?.length) throw new Error('resumed workout lost its recorded exercises');
+    return `workout ${latest.id} kept (${w.exercises.length} exercise)`;
+  });
+
+  await context.close();
 }
 
 const main = async () => {
@@ -999,11 +1422,16 @@ const main = async () => {
     const newRow = rows.nth(before);
     if (await isInked(newRow)) throw new Error('a freshly added set started as done');
 
+    // 上一组带着递减档（前面的用例加的），「添加组」不能把它抄过来（addset-clones-drop-set）：
+    // 抄过来点了组号，没做过的那档就进了历史和容量
+    const prevSubs = await page.locator(`[data-set-idx="${before - 1}"] [data-testid="subset-remove"]`).count();
+    if (prevSubs < 1) throw new Error('fixture drift: the previous set should carry a drop set here');
+    const copiedSubs = await page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`).count();
+    if (copiedSubs !== 0) throw new Error(`添加组 copied ${copiedSubs} drop-set row(s) from the previous set`);
+
     // 全零的行点不实
     await newRow.locator('[data-testid="ledger-field-weight"] input').fill('');
     await newRow.locator('[data-testid="ledger-field-reps"] input').fill('');
-    const subRemoves = page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`);
-    while (await subRemoves.count()) await subRemoves.first().click(); // 复制来的递减档也清掉，才算全零
     await newRow.locator('.set-num').click();
     if (await isInked(newRow)) throw new Error('an all-zero set could be marked done');
 
@@ -1261,6 +1689,8 @@ const main = async () => {
     if (check.finishedAt) throw new Error(`finishedAt not cleared on resume: ${check.finishedAt}`);
     return `resumed same record (${check.total} workouts), finishedAt cleared`;
   });
+
+  await seededScenarios(browser, { escapedRemoteCalls });
 
   await step(page, 'final-screenshot', async () => 'done');
 

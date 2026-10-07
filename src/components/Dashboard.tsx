@@ -82,10 +82,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   );
 
   const renderSetCapsule = useCallback(
-    (s: any, exerciseName: string) => (
+    // setIdx 是这一组在它所在列表里的下标：组号显示 setIdx + 1（set-number-all-one：以前写死 0，全是「1」）
+    (s: any, exerciseName: string, _exercise?: unknown, setIdx = 0) => (
       <SetCapsule
+        key={`${s.id ?? 'set'}-${setIdx}`}
         set={s}
-        setIdx={0}
+        setIdx={setIdx}
         activeMetrics={prefs.getActiveMetrics(exerciseName)}
         unit={unit}
         lang={lang}
@@ -509,7 +511,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                                 </span>
                               </div>
                               <div className="flex flex-wrap gap-2">
-                                {ex.sets.map((s: any) => renderSetCapsule(s, ex.name))}
+                                {ex.sets.map((s: any, i: number) => renderSetCapsule(s, ex.name, ex, i))}
                               </div>
                             </div>
                           ))}

@@ -464,25 +464,21 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 // 克隆上一行的值，新行从【待做】开始（第 4 条）：加出来不等于做完了，
                 // 原先一出现就是实心印，「这组做到哪了」就读不出来。
                 // 力竭是当日这一组的事实，不跟着抄；touched / fromGhost 同理。
-                // 递减子组跟着母组一起照抄，但每档换新 id —— 两组共用同一批 id 会让同步分不清。
+                // 递减档也一样（addset-clones-drop-set）：递减是当组的事实，照抄过来点了组号，
+                // 没做过的那档就被记进历史和容量；从历史铺底稿时本来就不继承递减，这里对齐。
+                // 真要再做递减，长按组号加。
                 const newId = Date.now().toString();
                 const newSet = lastSet
-                  ? {
-                      ...lastSet,
-                      id: newId,
-                      ghost: true,
-                      touched: undefined,
-                      fromGhost: undefined,
-                      toFailure: undefined,
-                      ...(lastSet.subSets?.length
-                        ? {
-                            subSets: lastSet.subSets.map(({ touched: _t, ...sub }, k) => ({
-                              ...sub,
-                              id: `sub_${newId}_${k}`,
-                            })),
-                          }
-                        : {}),
-                    }
+                  ? (() => {
+                      const {
+                        subSets: _sub,
+                        touched: _t,
+                        fromGhost: _fg,
+                        toFailure: _tf,
+                        ...base
+                      } = lastSet;
+                      return { ...base, id: newId, ghost: true };
+                    })()
                   : { id: newId, weight: 0, reps: 0, ghost: true };
                 exs[idx].sets.push(newSet);
                 setCurrentWorkout({ ...currentWorkout, exercises: exs });

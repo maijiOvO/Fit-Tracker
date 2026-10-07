@@ -15,6 +15,7 @@ import {
 } from '../constants/exercises';
 import { Language } from '../../types';
 import { mergeOverride } from '../utils/exerciseOverride';
+import { localYmd } from '../utils/dateUtils';
 import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 
 export interface FilteredExercisesParams {
@@ -200,12 +201,8 @@ export function useExerciseStats() {
         const workoutYear = d.getFullYear();
         if (workoutYear < 1900 || workoutYear > currentYear + 10) return;
 
-        let dayString: string;
-        try {
-          dayString = d.toISOString().split('T')[0];
-        } catch {
-          return;
-        }
+        // 按本地日期归日（和 ActivityHeatmap 的网格同一个函数），不是 UTC 日期
+        const dayString = localYmd(d);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dayString)) return;
 
         const sets = (w.exercises || []).reduce(

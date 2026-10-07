@@ -3,6 +3,13 @@
  */
 import { Language } from '../../types';
 
+/**
+ * 本地日期的 YYYY-MM-DD。按天归组一律用它，别用 toISOString().split('T')[0] ——
+ * 那是 UTC 日期，多伦多晚上 8 点（冬令时 7 点）以后练的会归到第二天（heatmap-utc-day）。
+ */
+export const localYmd = (d: Date): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // 获取月份天数
 export const getDaysInMonth = (month: number, year: number): number => {
   return new Date(year, month + 1, 0).getDate();

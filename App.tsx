@@ -33,7 +33,7 @@ import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
 import { switchDataEnv } from './services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
-import { recordTombstone } from './services/fitlogTombstones';
+import { recordTombstone, removeTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
 import {
@@ -302,6 +302,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     markActiveSchedulePending,
     addExerciseToWorkout,
     switchExerciseVariant,
+    resumedWorkoutIdsRef,
   } = useWorkoutMutations({
     setActiveTab,
     reloadAfterSave: () => loadLocalData(resolvedUserId),
@@ -742,7 +743,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   void BODY_PARTS;
   void EQUIPMENT_TAGS;
   void translations;
-  void recordTombstone;
 
   // =========================================================
   // Render
@@ -1109,13 +1109,34 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               const snapshot = [...(currentWorkout.exercises ?? [])];
               const removed = snapshot[exIdx];
               const label = removed ? prefs.resolveName(removed.name) : '';
-              setCurrentWorkout({
-                ...currentWorkout,
-                exercises: snapshot.filter((_, i) => i !== exIdx),
+              const remaining = snapshot.filter((_, i) => i !== exIdx);
+              /**
+               * 新训练删光动作 = 这场不存在了（remove-last-exercise-not-persisted）。
+               * 自动落盘以「有动作」为前提，删光后既不写也不删，库里会留下删之前那一版，
+               * 时间线多出一场没练过的训练。这里直接从库里删掉并写墓碑（防拉取复活），撤销时摘掉。
+               * 编辑旧训练时不这么做：那是在改历史，静默删整场太重，保持原样（库里不变）。
+               * 「继续这场」接回来的也不这么做（用户定）：里面有真正练过的组，删光多半是误操作。
+               */
+              const workoutId = currentWorkout.id;
+              const dropWhole =
+                remaining.length === 0 &&
+                !editingWorkoutId &&
+                !!workoutId &&
+                !resumedWorkoutIdsRef.current.has(workoutId);
+              setCurrentWorkout({ ...currentWorkout, exercises: remaining });
+              if (dropWhole) {
+                recordTombstone('workouts', workoutId);
+                void db
+                  .delete('workouts', workoutId)
+                  .then(() => workoutCtx.refreshFromDb())
+                  .then(() => scheduleDebouncedFitlogPush())
+                  .catch(err => console.error('Drop emptied workout failed:', err));
+              }
+              toastUndo(isCn ? `已移除 ${label}` : `Removed ${label}`, () => {
+                if (dropWhole) removeTombstone('workouts', workoutId);
+                // 动作回来后自动落盘会把这场重新写回库里
+                setCurrentWorkout({ ...currentWorkout, exercises: snapshot });
               });
-              toastUndo(isCn ? `已移除 ${label}` : `Removed ${label}`, () =>
-                setCurrentWorkout({ ...currentWorkout, exercises: snapshot }),
-              );
             }}
           />
         )}
