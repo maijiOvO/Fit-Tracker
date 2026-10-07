@@ -7,7 +7,7 @@
  * 可玩的调参 demo 在 docs/demos/fab-seal-fan.html。
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { BarChart2, CalendarDays, User as UserIcon, Plus } from 'lucide-react';
+import { BarChart2, CalendarDays, User as UserIcon, Plus, Play } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
 import { FAN_PARTS, type BodyPartKey } from './BodyPartPicker';
@@ -20,6 +20,8 @@ interface TabNavigationProps {
   onTabChange: (tab: TabType) => void;
   lang: Language;
   onStartWorkout?: () => void;
+  /** 有进行中的训练：FAB 是「回到训练」（不扇开印谱，点了直接回工作台） */
+  resume?: boolean;
   /** §12.4：印谱扇开选中某枚印。title=训练名（「制」为 null，进页后写名字） */
   onStartWorkoutWithPart?: (partKey: BodyPartKey, title: string | null) => void;
 }
@@ -71,6 +73,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   lang,
   onStartWorkout,
   onStartWorkoutWithPart,
+  resume = false,
 }) => {
   const isCn = lang === Language.CN;
 
@@ -366,18 +369,22 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           ref={fabRef}
           onClick={handleStartClick}
           onClickCapture={onFabClickCapture}
-          onPointerDown={onFabPointerDown}
+          onPointerDown={resume ? undefined : onFabPointerDown}
           onPointerMove={onFabPointerMove}
           onPointerUp={onFabPointerUp}
           onPointerCancel={onFabPointerCancel}
           onContextMenu={e => e.preventDefault()}
-          aria-label={isCn ? '开始训练（按住可直接选部位）' : 'Start workout (hold to pick a body part)'}
+          aria-label={
+            resume
+              ? isCn ? '回到训练' : 'Resume workout'
+              : isCn ? '开始训练（按住可直接选部位）' : 'Start workout (hold to pick a body part)'
+          }
           style={{ touchAction: 'none' }}
           className={`absolute left-[12.5%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-on-accent bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-press-sm transition-transform ${
             activeTab === 'new' ? 'opacity-90' : ''
           }`}
         >
-          <Plus size={24} strokeWidth={2.5} />
+          {resume ? <Play size={22} strokeWidth={2.5} className="ml-0.5 fill-current" /> : <Plus size={24} strokeWidth={2.5} />}
         </button>
       </div>
     </nav>

@@ -12,6 +12,7 @@ import { useMotionPreference, MotionPreference } from '../hooks/useMotionPrefere
 import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
 import { undoWorkoutDeletes, setUndoWorkoutDeletes } from '../utils/undoPref';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
+import { hasDoneSets } from '../contexts/WorkoutContext';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -206,7 +207,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       {/* Stats Overview */}
       <div className="w-full">
         <div className="bg-card p-6 rounded-card border border-divider flex flex-col items-center justify-center gap-2 w-full">
-          <span className="text-3xl font-semibold text-primary">{workouts.length}</span>
+          {/* 一组都没做完的空场不算一场 */}
+          <span className="text-3xl font-semibold text-primary">{workouts.filter(hasDoneSets).length}</span>
           <span className="text-[10px] font-semibold uppercase text-secondary tracking-widest">
             {lang === Language.CN ? '累计训练' : 'Workouts'}
           </span>

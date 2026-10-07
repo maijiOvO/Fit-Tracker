@@ -498,9 +498,18 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     return () => window.removeEventListener('fitlog:push-failed', handler);
   }, [isCn, lang, toast]);
 
+  /** 工作台里有一场进行中的训练（不是在编辑旧训练）：FAB 变「回到训练」，首页顶上一行「进行中」 */
+  const inProgress = !editingWorkoutId && !!currentWorkout.id && (currentWorkout.exercises?.length ?? 0) > 0;
+
   const dashboardActions = useMemo(
     () => ({
+      onResumeWorkout: () => setActiveTab('new'),
+      onEndInProgress: () => void handleFinishWithConfirmation(),
       onStartNewWorkout: () => {
+        if (inProgress) {
+          setActiveTab('new');
+          return;
+        }
         void startWorkoutGuarded(() => {
           setEditingWorkoutId(null);
           setActiveTab('new');
@@ -536,6 +545,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       startWorkoutGuarded,
       setEditingWorkoutId,
       setActiveTab,
+      inProgress,
+      handleFinishWithConfirmation,
       setEditingWeightId,
       setWeightInputValue,
       setShowWeightInput,
@@ -1298,7 +1309,13 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           activeTab={activeTab as 'dashboard' | 'new' | 'plan' | 'profile'}
           onTabChange={setActiveTab}
           lang={lang}
+          resume={inProgress}
           onStartWorkout={() => {
+            // 有进行中的训练：FAB 就是「回到训练」（workbench-not-restored）
+            if (inProgress) {
+              setActiveTab('new');
+              return;
+            }
             // 10 分钟内刚结束过一场就先问「是不是刚才那场」（防误结束拆场）
             void startWorkoutGuarded(() => {
               setCurrentWorkout(workoutCtx.createNewWorkout());
@@ -1309,6 +1326,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             });
           }}
           onStartWorkoutWithPart={(partKey, title) => {
+            if (inProgress) {
+              setActiveTab('new');
+              return;
+            }
             // §12.4 印谱扇开：一笔完成「开练 + 选部位」。
             // 部位印 → 标题已定，进页后 120ms 自动弹动作弹层（复用补加动作的机制）；
             // 「制」 → 不填名，进页聚焦标题（partPrechosenId 抑制页内印谱再问一遍）。

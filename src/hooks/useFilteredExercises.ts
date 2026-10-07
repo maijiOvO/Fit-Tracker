@@ -217,6 +217,8 @@ export function useExerciseStats() {
             n + (ex?.sets?.filter((s: any) => !s.ghost).length || 0),
           0,
         );
+        // 一组都没做完的空场（放弃的、还在进行中的）不算一场
+        if (sets === 0) return;
         const prev = map.get(dayString) || { sets: 0, sessions: 0 };
         map.set(dayString, { sets: prev.sets + sets, sessions: prev.sessions + 1 });
       } catch (e) {

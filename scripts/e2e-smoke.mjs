@@ -88,6 +88,30 @@ async function clickAppConfirm(page, labelRe) {
 }
 
 /**
+ * 离开工作台并放弃这场（一组都没做完时）。
+ * workbench-not-restored 之后按返回只离开页面、工作台原样留着（首页顶上「进行中」、FAB 变「回到训练」）；
+ * 原来靠「返回即清空」给后续用例复位的地方，改成首页「进行中 → 结束 → 放弃」。
+ */
+async function backAndDiscard(page) {
+  await page.getByLabel(/^返回$|^Back$/).first().click();
+  await page.waitForTimeout(300);
+  if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) {
+    throw new Error('back from an in-progress workout should not ask anything any more');
+  }
+  const row = page.locator('[data-testid="in-progress"]');
+  // 返回落在来源页（比如计划页）时，「进行中」那一行在首页：去首页找
+  if (!(await row.isVisible().catch(() => false))) {
+    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    await page.waitForTimeout(400);
+  }
+  if (await row.isVisible().catch(() => false)) {
+    await page.locator('[data-testid="in-progress-end"]').click();
+    await clickAppConfirm(page, /^(放弃|Discard)$/);
+    await page.waitForTimeout(300);
+  }
+}
+
+/**
  * E2E_ONLY=<前缀,前缀…>：只跑名字以其中之一开头的步骤（如 E2E_ONLY=seeded 只跑带夹具的场景，调试用）。
  * 主流程的步骤前后依赖，只能整段跳过，不能挑着跑。
  */
@@ -904,11 +928,10 @@ const main = async () => {
     // The prefilled exercise name should be visible somewhere in the workout view
     const has = await page.locator('text=E2E Bench Press').first().isVisible().catch(() => false);
     if (!has) throw new Error('prefilled exercise not visible in new-workout view');
-    // Go back without saving (UiOverlay confirm, not window.confirm)
-    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    await acceptAppConfirm(page);
+    // 按返回只离开页面（不再确认），首页「进行中 → 结束」：一组没做 → 放弃
+    await backAndDiscard(page);
     await page.locator('[data-testid="tab-plan"]').waitFor({ state: 'visible', timeout: 5_000 });
-    return 'prefill + back ok';
+    return 'prefill + back (kept as in-progress) + discard ok';
   });
 
   // 从计划开始训练 → 结束 → 训练记录带上 fromSchedule.scheduleId 并推到远端。
@@ -1073,7 +1096,29 @@ const main = async () => {
   // 并入上一场：误结束拆场的事后补救。同样是「先执行 + 撤销」。
   await step(page, 'timeline-merge-into-previous', async () => {
     const cards = page.locator('[data-testid^="timeline-session-"]');
-    const before = await cards.count();
+    let before = await cards.count();
+    if (before < 2) {
+      // 原先计划页「开练又返回」会留下一场 0 组的空场，正好凑够两张卡；空场现在不进时间线了，
+      // 这里把现有那场复制成今天的、做一组再结束，造出真正的第二场
+      const b0 = await cards.first().boundingBox();
+      await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(750);
+      await page.mouse.up();
+      const m0 = page.locator('[data-testid="timeline-session-menu"]');
+      await m0.waitFor({ state: 'visible', timeout: 3_000 });
+      await page.waitForTimeout(400);
+      await m0.getByRole('menuitem').filter({ hasText: /复制为今天的训练|Copy to today/ }).click();
+      await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+      await page.locator('.ledger-row .set-num').first().click(); // 默认选中指针下那组：一下就做完
+      await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
+      await acceptAppConfirm(page);
+      await page.waitForTimeout(2500);
+      const colo = page.locator('[data-testid="workout-colophon"]');
+      if (await colo.isVisible().catch(() => false)) await colo.click();
+      await page.waitForTimeout(500);
+      before = await cards.count();
+    }
     if (before < 2) throw new Error(`need >= 2 sessions to test merge, got ${before}`);
     const first = cards.first();
     const mergedId = await first.getAttribute('data-testid');
@@ -1131,10 +1176,8 @@ const main = async () => {
     if (!(await denom.isVisible().catch(() => false)))
       throw new Error('header progress denominator missing on copied workout');
 
-    // 别给后续用例留状态：底稿从没落过盘，返回即丢
-    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    await acceptAppConfirm(page);
-    await page.waitForTimeout(300);
+    // 别给后续用例留状态：一组没做，返回后从「进行中」放弃
+    await backAndDiscard(page);
     return `copied as ${ghostCount} draft rows`;
   });
 
@@ -1713,14 +1756,21 @@ const main = async () => {
     return 'create via quick chip → marginalia; rename; back to standard; delete → undo toast';
   });
 
+  // workbench-not-restored：按返回只离开页面，工作台留着 —— 首页「进行中」+ FAB「回到训练」，点了接回原样；
+  // 一组都没做 →「结束」＝放弃这场（不留空场在时间线里）
   await step(page, 'back-to-tab-from-workout', async () => {
-    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    // 现在工作台里有一个刚加的动作，返回会先确认
-    await acceptAppConfirm(page);
+    await page.getByLabel(/^返回$|^Back$/).first().click();
     await page.waitForTimeout(300);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('back still asks for confirmation');
     const navVisible = await page.locator('nav').first().isVisible();
     if (!navVisible) throw new Error('bottom nav should reappear after back');
-    return 'back to dashboard';
+    const row = page.locator('[data-testid="in-progress"]');
+    await row.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.getByRole('button', { name: /^回到训练$|^Resume workout$/ }).click();
+    await page.locator('[data-testid="ledger-field-weight"]').first().waitFor({ state: 'visible', timeout: 3_000 });
+    await backAndDiscard(page);
+    if (await row.isVisible().catch(() => false)) throw new Error('discarded workout still shows as in progress');
+    return 'back keeps the workout (in-progress row + resume FAB); end → discard';
   });
 
   await step(page, 'unit-toggle', async () => {
@@ -1830,6 +1880,15 @@ const main = async () => {
   await step(page, 'resume-recent-workout', async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     await page.waitForTimeout(300);
+    // 接回的是「最近结束的那一场」：前面的用例可能又结束过别的场次（并入上一场那条会造一场），按快照现查
+    const resumeId = await page.evaluate(async () => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      const done = ((snap && snap.workouts) || []).filter(w => w.finishedAt);
+      done.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
+      return done[0]?.id ?? null;
+    });
+    if (!resumeId) throw new Error('fixture drift: no finished workout to resume');
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     await clickAppConfirm(page, /^继续这场$|^Resume$/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
@@ -1849,8 +1908,8 @@ const main = async () => {
       const list = (snap && snap.workouts) || [];
       const w = list.find(x => x.id === id);
       return { total: list.length, found: !!w, finishedAt: w?.finishedAt ?? null };
-    }, finishedWorkoutId);
-    if (!check.found) throw new Error(`resumed workout ${finishedWorkoutId} vanished from the snapshot`);
+    }, resumeId);
+    if (!check.found) throw new Error(`resumed workout ${resumeId} vanished from the snapshot`);
     if (check.finishedAt) throw new Error(`finishedAt not cleared on resume: ${check.finishedAt}`);
     return `resumed same record (${check.total} workouts), finishedAt cleared`;
   });

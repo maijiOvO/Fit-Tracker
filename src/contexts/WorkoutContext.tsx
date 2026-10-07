@@ -5,6 +5,28 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { lastUsedGym } from '../utils/gyms';
 
+/** 「进行中」能接回来的时限：超过这么久没动过的未结束训练不再自动接回（早期没有 finishedAt 字段的旧记录也靠它挡掉） */
+const IN_PROGRESS_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/** 一场里有没有真正做完的组（全是底稿 / 跳过的不算数据） */
+export function hasDoneSets(w: Pick<WorkoutSession, 'exercises'>): boolean {
+  return (w.exercises ?? []).some(ex => (ex.sets ?? []).some(s => !s.ghost));
+}
+
+/**
+ * 库里最近一场「进行中」的训练：没结束、有动作、12 小时内动过。
+ * 练到一半按返回 / App 被系统回收 / 刷新之后，靠它把这场接回工作台（workbench-not-restored）。
+ */
+export function findInProgress(list: WorkoutSession[]): WorkoutSession | null {
+  const now = Date.now();
+  const ts = (w: WorkoutSession) => new Date(w.updatedAt || w.startTime || w.date).getTime() || 0;
+  return (
+    list
+      .filter(w => !w.finishedAt && w.status !== 'completed' && (w.exercises?.length ?? 0) > 0 && now - ts(w) < IN_PROGRESS_MAX_AGE_MS)
+      .sort((a, b) => ts(b) - ts(a))[0] ?? null
+  );
+}
+
 function createEmptyWorkout(userId: string): WorkoutSession {
   const now = new Date().toISOString();
   return {
@@ -47,6 +69,8 @@ interface WorkoutContextType {
 
   syncWorkouts: () => Promise<void>;
   refreshFromDb: () => Promise<void>;
+  /** 工作台是空的时候，把库里最近一场进行中的训练接回来（启动时自动跑一次；退出编辑旧训练后再跑） */
+  restoreInProgress: () => Promise<void>;
 }
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
@@ -81,9 +105,20 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     }
   }, [uid]);
 
+  /** 工作台空着时接回进行中的那场。只接一次性的：已经有内容就不碰 */
+  const restoreInProgress = useCallback(async () => {
+    if ((currentWorkoutRef.current.exercises?.length ?? 0) > 0) return;
+    try {
+      const hit = findInProgress(await db.getAll<WorkoutSession>('workouts'));
+      if (hit && (currentWorkoutRef.current.exercises?.length ?? 0) === 0) setCurrentWorkout(hit);
+    } catch (err) {
+      console.error('[WorkoutContext] 接回进行中的训练失败:', err);
+    }
+  }, []);
+
   useEffect(() => {
-    void refreshFromDb();
-  }, [uid, refreshFromDb]);
+    void refreshFromDb().then(restoreInProgress);
+  }, [uid, refreshFromDb, restoreInProgress]);
 
   // ==================== visibilitychange：后台保活 ====================
   useEffect(() => {
@@ -203,6 +238,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
         finishWorkout,
         syncWorkouts,
         refreshFromDb,
+        restoreInProgress,
       }}
     >
       {children}

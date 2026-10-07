@@ -7,7 +7,7 @@ import { Exercise, Language, SetLog, WorkoutSession } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone, removeTombstone } from '../../services/fitlogTombstones';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { hasDoneSets, useWorkoutContext } from '../contexts/WorkoutContext';
 import { useScheduleContext } from '../contexts/ScheduleContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -151,7 +151,7 @@ export interface UseWorkoutMutationsResult {
     date: string,
   ) => Promise<void>;
 
-  handleStartScheduledSession: (scheduleId: string) => void;
+  handleStartScheduledSession: (scheduleId: string) => void | Promise<void>;
 
   /**
    * 开新训练前的防误结束拆场闸门（FAB / 案头两个入口共用）。
@@ -169,6 +169,8 @@ export interface UseWorkoutMutationsResult {
   /** 「继续这场」接回来的训练 id：删光动作时不整场删 */
   resumedWorkoutIdsRef: React.MutableRefObject<Set<string>>;
 
+  /** 放弃进行中的这场（一组都没做完时）：删掉 + 写墓碑 + 清空工作台 */
+  discardCurrentWorkout: () => Promise<void>;
   /** 切换一张卡的练法（第 8 条）；undefined＝标准 */
   switchExerciseVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
   /**
@@ -220,6 +222,27 @@ export function useWorkoutMutations({
   const markActiveSchedulePending = useRef(false);
 
   /**
+   * 放弃进行中的这场（一组都没做完时）：从库里删掉 + 写墓碑（防拉取复活），工作台清空。
+   * 不留「N 动作 0 组」的空场在时间线里（workbench-not-restored 的连带后果）。
+   */
+  const discardCurrentWorkout = useCallback(async () => {
+    const id = currentWorkout.id;
+    setCurrentWorkout(workoutCtx.createNewWorkout());
+    setEditingWorkoutId(null);
+    activeScheduleIdRef.current = null;
+    setActiveTab('dashboard');
+    if (!id) return;
+    try {
+      await db.delete('workouts', id);
+      recordTombstone('workouts', id);
+      await refreshFromDb();
+      scheduleDebouncedFitlogPush();
+    } catch (err) {
+      console.error('[useWorkoutMutations] 放弃训练失败:', err);
+    }
+  }, [currentWorkout.id, refreshFromDb, setActiveTab, setCurrentWorkout, workoutCtx]);
+
+  /**
    * 结束训练：标记 finishedAt → 写 DB → 清空 workbench → 跳转
    */
   const finishWorkout = useCallback(async () => {
@@ -261,12 +284,18 @@ export function useWorkoutMutations({
 
       if (cleanedExercises.length === 0) {
         setSaveStatus('idle');
-        toast(
-          isCn
-            ? '还没有描实任何一组——底稿不入册'
-            : 'No sets confirmed yet — drafts are not saved',
-          'info',
-        );
+        // 一组都没做完：没有可入册的东西。编辑旧训练时只提示；新训练问一句要不要放弃这场（不留空场在库里）
+        if (editingWorkoutId) {
+          toast(isCn ? '还没有做完任何一组' : 'No sets done yet', 'info');
+          return;
+        }
+        const ok = await confirm({
+          message: isCn ? '还没有做完任何一组。放弃这场训练？' : 'No sets done yet. Discard this workout?',
+          confirmLabel: isCn ? '放弃' : 'Discard',
+          cancelLabel: isCn ? '接着练' : 'Keep going',
+          danger: true,
+        });
+        if (ok) await discardCurrentWorkout();
         return;
       }
 
@@ -297,7 +326,8 @@ export function useWorkoutMutations({
       await ctxFinishWorkout(finalWorkout);
 
       setColophon({
-        issueNo: workouts.length + 1,
+        // 期号＝第几场真正练过的训练（空场、本场自己不算）
+        issueNo: workouts.filter(w => w.id !== finalWorkout.id && hasDoneSets(w)).length + 1,
         title: finalWorkout.title,
         dateISO: finalWorkout.date,
         exerciseCount: summary.exerciseCount,
@@ -340,6 +370,8 @@ export function useWorkoutMutations({
     getActiveMetrics,
     unit,
     signedLoadOf,
+    confirm,
+    discardCurrentWorkout,
   ]);
 
   const handleFinishWithConfirmation = useCallback(async () => {
@@ -362,15 +394,30 @@ export function useWorkoutMutations({
         ? `\n\n有 ${touchedCount} 组改过数但没点完成，结束后会丢弃。`
         : `\n\n${touchedCount} edited ${touchedCount === 1 ? 'set was' : 'sets were'} never marked done and will be discarded.`
       : '';
+    const backLabel = touchedCount ? { cancelLabel: isCn ? '返回补点' : 'Go back' } : {};
+
+    // 一组都没做完：直接问要不要放弃这场（不留空场在库里），别先问「确认结束」再说「底稿不入册」
+    if (!editingWorkoutId && !hasDoneSets(currentWorkout)) {
+      const ok = await confirm({
+        message: (isCn ? '还没有做完任何一组。放弃这场训练？' : 'No sets done yet. Discard this workout?') + warn,
+        confirmLabel: isCn ? '放弃' : 'Discard',
+        cancelLabel: isCn ? '接着练' : 'Keep going',
+        ...backLabel,
+        danger: true,
+      });
+      if (ok) await discardCurrentWorkout();
+      return;
+    }
+
     const ok = await confirm({
       message: isCn
         ? `确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被添加到历史记录。${warn}`
         : `Confirm ending this workout?\n\nCurrent unit: ${unitText}\n\nThe workout will be saved to history.${warn}`,
       confirmLabel: isCn ? '结束训练' : 'End Workout',
-      ...(touchedCount ? { cancelLabel: isCn ? '返回补点' : 'Go back' } : {}),
+      ...backLabel,
     });
     if (ok) await finishWorkout();
-  }, [confirm, currentWorkout.exercises, finishWorkout, isCn, unit]);
+  }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, isCn, unit]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean }) => {
@@ -396,28 +443,23 @@ export function useWorkoutMutations({
   );
 
   const handleNewWorkoutBack = useCallback(async () => {
-    const hasContent = (currentWorkout?.exercises?.length ?? 0) > 0;
-    if (hasContent && !editingWorkoutId) {
-      const ok = await confirm({
-        message: isCn
-          ? '训练数据已自动保存。确定要返回吗？'
-          : 'Workout data is auto-saved. Continue back?',
-      });
-      if (!ok) return;
-      setCurrentWorkout(workoutCtx.createNewWorkout());
-    } else if (editingWorkoutId && hasUnsavedChanges) {
+    // 进行中的训练按返回＝只离开页面，工作台原样留着（workbench-not-restored）：
+    // 想翻一眼时间线 / PR 是常事，回来点「回到训练」接着练。不再问「确定要返回吗」。
+    if (editingWorkoutId && hasUnsavedChanges) {
       const ok = await confirm({
         message: isCn
           ? '有未保存的修改，确定要返回吗？'
           : 'Unsaved edits will be lost. Continue?',
       });
       if (!ok) return;
-      setCurrentWorkout(workoutCtx.createNewWorkout());
     }
+    const wasEditing = !!editingWorkoutId;
+    if (wasEditing) setCurrentWorkout(workoutCtx.createNewWorkout());
     setEditingWorkoutId(null);
     const prev = getPreviousTab();
     setActiveTab(prev === 'new' ? 'dashboard' : prev);
-    void workoutCtx.refreshFromDb();
+    // 编辑旧训练顶掉了进行中的那场：退出编辑后把它接回来
+    void workoutCtx.refreshFromDb().then(() => (wasEditing ? workoutCtx.restoreInProgress() : undefined));
   }, [
     confirm,
     currentWorkout,
@@ -678,9 +720,19 @@ export function useWorkoutMutations({
   );
 
   const handleStartScheduledSession = useCallback(
-    (scheduleId: string) => {
+    async (scheduleId: string) => {
       const target = scheduleCtx.schedules.find(s => s.id === scheduleId);
       if (!target) return;
+      // 进行中的训练现在会一直留在工作台（不再按返回就清空），从计划开练会顶掉它：先问一句（同「复制为今天」）
+      if (!editingWorkoutId && (currentWorkout.exercises?.length ?? 0) > 0) {
+        const ok = await confirm({
+          message: isCn
+            ? '工作台里还有一场没结束的训练，从计划开始会把它替换掉。\n\n（它已经存过，之后可以从时间线里接着编辑。）'
+            : 'There is an unfinished workout on the bench; starting the plan replaces it.\n\n(It is already saved — you can keep editing it from the timeline.)',
+          confirmLabel: isCn ? '继续' : 'Continue',
+        });
+        if (!ok) return;
+      }
       activeScheduleIdRef.current = scheduleId;
       const empty = workoutCtx.createNewWorkout();
       const prefilled: WorkoutSession = {
@@ -709,7 +761,7 @@ export function useWorkoutMutations({
       // 立即落盘
       onPersist?.();
     },
-    [isCn, onPersist, scheduleCtx.schedules, setActiveTab, setCurrentWorkout, workoutCtx],
+    [confirm, currentWorkout.exercises, editingWorkoutId, isCn, onPersist, scheduleCtx.schedules, setActiveTab, setCurrentWorkout, workoutCtx],
   );
 
   /**
@@ -984,6 +1036,7 @@ export function useWorkoutMutations({
   );
 
   return {
+    discardCurrentWorkout,
     switchExerciseVariant,
     saveStatus,
     setSaveStatus,

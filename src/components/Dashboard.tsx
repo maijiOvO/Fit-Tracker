@@ -13,7 +13,7 @@ import { formatWeight, plural } from '../utils/format';
 import { formatSignedLoad } from '../utils/load';
 import { TimelineView, type TimelineGranularity } from './TimelineView';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { hasDoneSets, useWorkoutContext } from '../contexts/WorkoutContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
@@ -28,6 +28,10 @@ const GRANULARITY_STORAGE_KEY = 'fitlog_timeline_granularity';
 /** 必须由 App 注入的交互（依赖 Tab 切换、Modal、Workout 变更等） */
 export interface DashboardActions {
   onStartNewWorkout: () => void;
+  /** 回到进行中的训练 */
+  onResumeWorkout: () => void;
+  /** 结束进行中的训练（一组都没做完时＝问要不要放弃） */
+  onEndInProgress: () => void;
   onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
   onDeleteWorkout: (
@@ -68,8 +72,19 @@ const Dashboard: React.FC<DashboardProps> = ({
   const { lang, unit, weightEntries } = useUserSettingsContext();
   const isCn = lang === Language.CN;
   const dateLocale = isCn ? 'zh-CN' : 'en-US';
-  const { workouts } = useWorkoutContext();
+  const { workouts: allWorkouts, currentWorkout } = useWorkoutContext();
   const prefs = useExercisePrefs();
+  /**
+   * 进行中的那场（工作台里有动作、还没结束）：顶上单独一行，不进时间线。
+   * 一组都没做完的空场（练到一半放弃留下的「N 动作 0 组」）也不进时间线 —— 它不是数据。
+   */
+  const inProgress = !!currentWorkout.id && (currentWorkout.exercises?.length ?? 0) > 0 && !currentWorkout.finishedAt
+    ? currentWorkout
+    : null;
+  const workouts = useMemo(
+    () => allWorkouts.filter(w => w.id !== inProgress?.id && hasDoneSets(w)),
+    [allWorkouts, inProgress?.id],
+  );
   const { bestLifts } = useExerciseStats();
   const { formatExerciseTime, updateExerciseTime } = useExerciseTimeEditor();
 
@@ -159,7 +174,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [weightEntries, unit]);
 
-  if (workouts.length === 0 && weightEntries.length === 0) {
+  // 进行中的训练要能接回去：哪怕还没有任何历史，也别落到空状态页（那里没有「进行中」那一行）
+  if (workouts.length === 0 && weightEntries.length === 0 && !inProgress) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 anim-tab-enter">
         <div className="bg-accent-soft p-8 rounded-control mb-8">
@@ -179,8 +195,43 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
+  const inProgressDone = inProgress
+    ? inProgress.exercises.reduce((n, ex) => n + ex.sets.filter(s => !s.ghost).length, 0)
+    : 0;
+
   return (
     <div className="space-y-5 anim-tab-enter">
+      {/* 进行中的训练（workbench-not-restored）：练到一半出来看一眼，从这里接回去 */}
+      {inProgress && (
+        <div className="ui-card flex items-stretch overflow-hidden border-accent/50" data-testid="in-progress">
+          <button
+            type="button"
+            onClick={actions.onResumeWorkout}
+            className="flex-1 min-w-0 min-h-[56px] px-4 flex items-center gap-3 text-left active:bg-card-hover"
+          >
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse flex-shrink-0" aria-hidden />
+            <span className="flex-1 min-w-0">
+              <span className="block text-label font-semibold text-accent">{isCn ? '进行中' : 'In progress'}</span>
+              <span className="block font-semibold text-primary truncate">
+                {inProgress.title || (isCn ? '未命名训练' : 'Untitled')}
+                <span className="font-mono text-label text-tertiary tabular-nums ml-2">
+                  {inProgress.exercises.length} {isCn ? '动作' : 'ex'} · {inProgressDone} {isCn ? '组' : plural(inProgressDone, 'set')}
+                </span>
+              </span>
+            </span>
+            <span className="text-sm font-bold text-accent whitespace-nowrap">{isCn ? '回到训练 ›' : 'Resume ›'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={actions.onEndInProgress}
+            className="px-4 border-l border-divider text-sm font-semibold text-secondary active:bg-card-hover whitespace-nowrap"
+            data-testid="in-progress-end"
+          >
+            {isCn ? '结束' : 'End'}
+          </button>
+        </div>
+      )}
+
       {/* 体重：单行摘要，点击展开趋势 */}
       <div className="ui-card px-4 py-3">
         <div
