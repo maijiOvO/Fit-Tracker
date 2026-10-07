@@ -6,6 +6,9 @@
  *   - 自建的练法可改名 / 删除（删除走撤销条；历史记录里带着当时的名字，照样能显示）
  *   - 新练法：输入框 + 几个常用叫法的快捷 chip，建完直接选中
  * 「标准」＝没选练法，旧记录都在这里。
+ *
+ * manage：从动作库（添加动作弹层的动作面板）进来时只管理 —— 改名 / 删除 / 新建，
+ * 点行不切换、建完也不选中（那里没有「这张卡」可切）。
  */
 import React, { useState } from 'react';
 import { Check, PencilLine, Plus, Trash2 } from 'lucide-react';
@@ -22,6 +25,8 @@ interface VariantModalProps {
   /** name 一并给：刚建的练法还没进状态，按 id 查不到名字（走查实测：记录里漏了 variantName） */
   onSelect: (variantId: string | undefined, name?: string) => void;
   onClose: () => void;
+  /** 只管理，不选（动作库入口） */
+  manage?: boolean;
 }
 
 const SUGGEST_CN = ['宽握', '窄握', '反握', '对握', '暂停', '单侧'];
@@ -34,6 +39,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
   currentVariantId,
   onSelect,
   onClose,
+  manage = false,
 }) => {
   const { variantsOf, addVariant, renameVariant, removeVariant, resolveName } = useExercisePrefs();
   const [draft, setDraft] = useState('');
@@ -50,12 +56,12 @@ export const VariantModal: React.FC<VariantModalProps> = ({
     const id = addVariant(exerciseName, name);
     if (!id) return; // 重名：已 toast，留着改
     setDraft('');
-    pick(id, name.trim());
+    if (!manage) pick(id, name.trim());
   };
   const suggestions = (isCn ? SUGGEST_CN : SUGGEST_EN).filter(n => !variants.some(v => v.name === n));
 
   const row = (id: string | undefined, name: string) => {
-    const on = (currentVariantId || undefined) === id;
+    const on = !manage && (currentVariantId || undefined) === id;
     if (id && editing?.id === id) {
       return (
         <div key={id} className="flex gap-2">
@@ -91,7 +97,13 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       >
         <button
           type="button"
-          onClick={() => pick(id, id ? name : undefined)}
+          onClick={() => {
+            if (manage) {
+              if (id) setEditing({ id, value: name });
+              return;
+            }
+            pick(id, id ? name : undefined);
+          }}
           aria-pressed={on}
           className="flex-1 min-w-0 min-h-[48px] px-4 flex items-center gap-2.5 text-left text-sm font-bold text-primary active:bg-card-hover"
           data-testid="variant-option"
@@ -140,7 +152,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       bodyClassName="overflow-y-auto max-h-[65vh] custom-scrollbar space-y-5"
     >
       <div className="space-y-2">
-        {row(undefined, isCn ? '标准' : 'Standard')}
+        {!manage && row(undefined, isCn ? '标准' : 'Standard')}
         {variants.map(v => row(v.id, v.name))}
       </div>
       <div>

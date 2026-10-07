@@ -44,6 +44,8 @@ interface UiOverlayContextValue {
     onUndo: () => void | Promise<void>,
     options?: { durationMs?: number; undoLabel?: string },
   ) => void;
+  /** 收起当前所有 toast（底部面板打开时：撤销条会盖住面板底部的按钮，toast-covers-region-menu） */
+  dismissToasts: () => void;
 }
 
 const UiOverlayContext = createContext<UiOverlayContextValue | null>(null);
@@ -81,6 +83,8 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  const dismissToasts = useCallback(() => setToasts([]), []);
 
   const toast = useCallback((message: string, variant: ToastVariant = 'info') => {
     const id = `toast-${++toastIdRef.current}`;
@@ -151,7 +155,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
   };
 
   return (
-    <UiOverlayContext.Provider value={{ lang, confirm, toast, toastUndo }}>
+    <UiOverlayContext.Provider value={{ lang, confirm, toast, toastUndo, dismissToasts }}>
       {children}
 
       {/* 确认对话框。§6.6：危险确认是唯一允许出现 danger 实心的地方，

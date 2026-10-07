@@ -161,6 +161,11 @@ export interface ExerciseDefinition {
    * 底稿预填、PR、PR 列表、趋势图按「动作 + 练法」分开；备注与动作设置按动作共享。
    */
   variants?: { id: string; name: string }[];
+  /**
+   * 从动作库删除（2026-10 起内置 / 自建一律只隐藏，可在「整理 → 已删除」恢复）。
+   * 只写在覆盖层 exerciseOverrides[id] 上；定义本身不动，历史记录照样认得这个名字。
+   */
+  hidden?: boolean;
   // ✅ 新增这一行，允许存储分类信息
   category?: ExerciseCategory;
   

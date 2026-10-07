@@ -47,8 +47,8 @@ export interface NewWorkoutTabProps {
   onToggleUnit: () => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
   onToggleNote: (name: string) => void;
-  /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记 */
-  onOpenMetricModal: (name: string, exIdx: number) => void;
+  /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
+  onOpenMetricModal: (name: string, exIdx?: number) => void;
   onDeleteExerciseFromSession: (exIdx: number) => void;
   /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
   onChangeDate?: () => void;
@@ -67,9 +67,7 @@ export interface NewWorkoutTabProps {
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition) => void;
   onCreateCustomExercise: (prefilled?: string) => void;
-  /** 打开标签管理弹窗 */
-  onOpenTagManage: () => void;
-  /** 长按动作行的管理菜单（转发到 App 层的弹窗/删除流程） */
+  /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onRenameExercise: (id: string, currentName: string) => void;
   /** 换练法（第 8 条） */
@@ -112,7 +110,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   sessionAdded,
   onPickExercise,
   onCreateCustomExercise,
-  onOpenTagManage,
   onEditExerciseTags,
   onRenameExercise,
   onSwitchVariant,
@@ -605,10 +602,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
         onCreateCustomExercise={onCreateCustomExercise}
-        onOpenTagManage={onOpenTagManage}
         onEditExerciseTags={onEditExerciseTags}
-        onRenameExercise={onRenameExercise}
         onDeleteExercise={onDeleteLibraryExercise}
+        onOpenNote={onToggleNote}
+        onOpenMetrics={name => onOpenMetricModal(name)}
       />
     </>
   );

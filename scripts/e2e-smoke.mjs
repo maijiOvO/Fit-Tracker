@@ -398,8 +398,9 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     return 'stays deleted across a reload with a stale server copy';
   });
 
-  // name-index-order-dependent（二）：从动作库删除再撤销，自建动作放回原位置，不是插到最前
-  await step(page, 'seeded-library-delete-undo-keeps-order', async () => {
+  // 从动作库删除＝隐藏（2026-10 起内置 / 自建一样）：不弹确认，定义留在 customExercises，覆盖层打 hidden；
+  // 撤销把 hidden 摘掉，自建列表的顺序一点不变（name-index-order-dependent 的那条也一并守住）
+  await step(page, 'seeded-library-delete-hides', async () => {
     const before = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
@@ -412,20 +413,23 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await longPress(row);
     const menu = page.locator('[data-testid="row-action-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
-    await page.waitForTimeout(400);
     await menu.getByRole('button', { name: /从动作库删除|Delete from library/ }).click();
-    await acceptAppConfirm(page);
+    await page.waitForTimeout(300);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('library delete asked for confirmation');
     const mid = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
-    if (mid.includes(DEF_C.id)) throw new Error('library delete did not remove the custom exercise');
+    if (mid.join(',') !== before.join(',')) throw new Error(`delete removed the custom definition: ${before.join(',')} → ${mid.join(',')}`);
+    if (!(await readLs('fitlog_exercise_overrides'))?.[DEF_C.id]?.hidden) throw new Error('delete did not mark it hidden');
+    if (await row.isVisible().catch(() => false)) throw new Error('hidden exercise still listed');
     await page.locator('[data-testid="toast-undo"]').last().click();
     await page.waitForTimeout(300);
+    if ((await readLs('fitlog_exercise_overrides'))?.[DEF_C.id]?.hidden) throw new Error('undo did not unhide');
     const after = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
     if (after.join(',') !== before.join(',')) throw new Error(`undo changed custom order: ${before.join(',')} → ${after.join(',')}`);
     await sheet.locator('input[type="text"]').fill('');
     await page.locator('[data-testid="picker-sheet-close"]').click();
     await page.waitForTimeout(400);
     await dismissToasts();
-    return `order kept: ${after.join(',')}`;
+    return `hidden + undo, definition and order kept: ${after.join(',')}`;
   });
 
   // remove-last-exercise-not-persisted：新训练删光动作 → 这场从库里删掉（写墓碑），撤销能拿回来
@@ -518,6 +522,39 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const w = await remoteWorkout(latest.id);
     if (!w || !w.exercises?.length) throw new Error('resumed workout lost its recorded exercises');
     return `workout ${latest.id} kept (${w.exercises.length} exercise)`;
+  });
+
+  // hidden-builtin-name-locked：删掉的动作名字不再被永久占着 —— 用同一个名字新建＝把它恢复出来（历史还挂在它身上）
+  await step(page, 'seeded-create-restores-deleted', async () => {
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+    await page.waitForTimeout(500);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(新开一场|Start new)$/);
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const search = sheet.locator('input[type="text"]');
+    await search.fill('E2E自建甲');
+    const row = sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: 'E2E自建甲' }).first();
+    await row.waitFor({ state: 'visible', timeout: 3_000 });
+    await longPress(row);
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.getByRole('button', { name: /从动作库删除|Delete from library/ }).click();
+    await dismissToasts();
+    await search.fill('');
+    await search.fill('E2E自建甲');
+    await sheet.getByRole('button', { name: /没找到？创建「E2E自建甲」/ }).click();
+    const dlg = page.locator('[role="dialog"]').filter({ has: page.locator('input') }).last();
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await page.waitForTimeout(400);
+    const toasts = await page.locator('[data-testid="toast"]').allInnerTexts();
+    if (toasts.some(t => /已经有/.test(t))) throw new Error(`create was refused: ${toasts.join(' / ')}`);
+    if ((await readLs('fitlog_exercise_overrides'))?.[DEF_C.id]?.hidden) throw new Error('create with a deleted name did not restore it');
+    const defs = (await readLs('fitlog_custom_exercises')) || [];
+    if (defs.filter(d => d.name.cn === 'E2E自建甲').length !== 1) throw new Error('create with a deleted name made a duplicate definition');
+    return 'same-name create restores the hidden exercise (no duplicate)';
   });
 
   await context.close();
@@ -1140,68 +1177,82 @@ const main = async () => {
     return `chest board: ${heads.map(h => h.replace(/\s+/g, '')).join(' ')} · ${count} cards; cross-part search ok`;
   });
 
-  // 第 3 条：长按小卡 → 菜单第一行「归到细分」，卡片换列；标签管理里新建细分 → 格子多一列；
-  // 删自建细分走撤销条（不弹确认），用到它的动作回到未细分。
-  await step(page, 'region-assign-and-manage', async () => {
-    const sheet = page.locator('[data-testid="picker-sheet"]');
-    const col = name => sheet.locator(`.region-col[aria-label="${name}"]`);
-    const card = col('中胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' });
-    await card.waitFor({ state: 'visible', timeout: 3_000 });
-    const box = await card.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(750);
-    await page.mouse.up();
-    const menu = page.locator('[data-testid="row-action-menu"]');
-    await menu.waitFor({ state: 'visible', timeout: 3_000 });
-    await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '上胸' }).click();
-    await col('上胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' }).waitFor({ timeout: 3_000 });
-
-    // 放回中胸，别给后面的用例留状态
-    const moved = col('上胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' });
-    const b2 = await moved.boundingBox();
-    await page.mouse.move(b2.x + b2.width / 2, b2.y + b2.height / 2);
-    await page.mouse.down();
-    await page.waitForTimeout(750);
-    await page.mouse.up();
-    await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '中胸' }).click();
-    await card.waitFor({ timeout: 3_000 });
-
-    // 标签管理：胸部下新建一个细分 → 细分格多一列
-    await page.locator('[data-testid="open-tag-manage"]').click();
-    const mgr = page.locator('[data-testid="tag-manage-modal"]');
-    await mgr.waitFor({ state: 'visible', timeout: 3_000 });
-    await mgr.locator('[data-testid="region-group-subChest"]').getByRole('button', { name: /新建细分/ }).click();
-    const dlg = page.locator('[role="dialog"]').filter({ hasText: /新建细分 · 胸部/ });
-    await dlg.locator('input').fill('E2E细分');
-    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
-    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
-    const chip = mgr.locator('[data-testid="region-group-subChest"]').getByRole('button', { name: /rename E2E细分/ });
-    await chip.waitFor({ timeout: 3_000 });
-    const headsWith = await sheet.locator('.region-head').count();
-
-    // 删掉：不弹确认，直接撤销条
-    await mgr.getByRole('button', { name: 'delete E2E细分' }).click();
-    await page.waitForTimeout(300);
-    const confirmDlg = await page.locator('[role="dialog"]').filter({ hasText: /确定删除/ }).count();
-    if (confirmDlg) throw new Error('deleting a region still asks for confirmation — 应当先执行 + 撤销');
-    const toastText = await page.locator('[data-testid="toast"]').last().innerText();
-    if (!/已删除细分/.test(toastText)) throw new Error(`no undo toast for region delete: ${toastText}`);
-    await mgr.getByRole('button', { name: /^(关闭|Close)$/ }).first().click();
-    await mgr.waitFor({ state: 'detached', timeout: 3_000 });
-    const headsAfter = await sheet.locator('.region-head').count();
-    if (headsWith !== 6 || headsAfter !== 5) throw new Error(`region columns ${headsWith} → ${headsAfter}, expected 6 → 5`);
+  // 细分格第三版（2026-10，docs/demos/region-board-v3.html）：格子是一张行对齐的 grid，没有按列包的容器 ——
+  // 某一列的卡＝`.region-grid [data-region-col="<细分 id>"]`，按 data-r（显式行号）排序。
+  const regionHelpers = sheet => {
+    const colId = async name =>
+      sheet.locator('[data-region-head]').filter({ has: page.locator('b', { hasText: new RegExp(`^${name}$`) }) }).first().getAttribute('data-region-head');
+    const col = async name => sheet.locator(`.region-grid [data-region-col="${await colId(name)}"]`);
+    const names = async name =>
+      (await (await col(name)).evaluateAll(els =>
+        els.sort((a, b) => Number(a.dataset.r) - Number(b.dataset.r)).map(e => e.innerText.replace(/\s+/g, '')),
+      ));
+    const cardIn = async (name, ex) => (await col(name)).filter({ hasText: ex });
+    const hold = async (loc, ms = 750) => {
+      const b = await loc.boundingBox();
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(ms);
+    };
+    return { colId, col, names, cardIn, hold };
+  };
+  const clearToasts = async () => {
     const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
     while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
-    return 'assign via menu moves the card; new region adds a column; delete → undo toast, column gone';
+  };
+
+  // 普通态长按小卡 → 动作面板（不能拖），第一行「归到细分」→ 卡片换列；长按不算「添加」
+  await step(page, 'region-assign-via-panel', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const { names, cardIn, hold } = regionHelpers(sheet);
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    const addedBefore = await sheet.locator('.region-card.is-added').count();
+    await hold(await cardIn('中胸', '杠铃平板卧推'));
+    // 长按满 500ms 时面板已经弹出（手指还按着）
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    if ((await sheet.locator('.region-card.is-added').count()) !== addedBefore) throw new Error('long-press added the exercise');
+    await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '上胸' }).click();
+    await page.waitForTimeout(300);
+    if (!(await names('上胸')).includes('杠铃平板卧推')) throw new Error(`assign via panel failed: 上胸 = ${(await names('上胸')).join('|')}`);
+    // 放回中胸，别给后面的用例留状态
+    await hold(await cardIn('上胸', '杠铃平板卧推'));
+    await page.mouse.up();
+    await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '中胸' }).click();
+    await page.waitForTimeout(300);
+    if (!(await names('中胸')).includes('杠铃平板卧推')) throw new Error('could not move it back to 中胸');
+    await clearToasts();
+    return 'long-press → panel (no add), region chip moves the card and back';
   });
 
-  // 拖到细分：长按满后拖进别的列（落位跟手指高度，放第一个就是第一个）+ 撤销；
-  // 整理模式按下即拖，同列上下拖＝调顺序。
+  // longpress-ghost-click：面板在手指还按着时弹出，松手补发的那次 click（不带新的 pointerdown）
+  // 会落在指下的面板按钮上。这里把这次 click 直接打在「从动作库删除」上 —— 必须被吞掉。
+  await step(page, 'region-longpress-ghost-click', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const { cardIn, hold } = regionHelpers(sheet);
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    await hold(await cardIn('下胸', '高位绳索夹胸'));
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    const del = menu.getByRole('button', { name: /从动作库删除/ });
+    await del.evaluate(el => el.click()); // 合成 click，没有 pointerdown＝松手补发的那一下
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const toasts = await page.locator('[data-testid="toast"]').allInnerTexts();
+    if (toasts.some(t => /已从动作库删除/.test(t))) throw new Error('ghost click after long-press deleted the exercise');
+    if (!(await menu.isVisible())) throw new Error('ghost click closed the panel');
+    // 之后的正常点击（有 pointerdown）照常生效
+    await menu.getByRole('button', { name: /^取消$/ }).click();
+    await menu.waitFor({ state: 'detached', timeout: 3_000 });
+    return 'release click swallowed once; next real tap works';
+  });
+
+  // 普通态长按后拖：不再拖到细分（2026-10-06 用户定，拖动只在整理里）；整理：按住即拖，同列调顺序；
+  // 整理态点卡＝动作面板，不添加
   await step(page, 'region-drag', async () => {
     const sheet = page.locator('[data-testid="picker-sheet"]');
-    const col = name => sheet.locator(`.region-col[aria-label="${name}"]`);
-    const names = async name => (await col(name).locator('[data-testid="picker-region-card"]').allInnerTexts()).map(t => t.trim());
+    const { col, names, cardIn } = regionHelpers(sheet);
+    const menu = page.locator('[data-testid="row-action-menu"]');
     const drag = async (from, toX, toY, holdMs) => {
       const b = await from.boundingBox();
       const sx = b.x + b.width / 2, sy = b.y + b.height / 2;
@@ -1217,92 +1268,191 @@ const main = async () => {
       await page.waitForTimeout(500); // 浮卡落定（220ms）+ 重渲染
     };
 
-    // 1) 长按满后拖：中胸的「杠铃平板卧推」→ 上胸第一个
-    const top = await col('上胸').locator('[data-testid="picker-region-card"]').first().boundingBox();
-    await drag(col('中胸').locator('[data-testid="picker-region-card"]', { hasText: '杠铃平板卧推' }), top.x + top.width / 2, top.y + 4, 650);
-    const upper = await names('上胸');
-    if (upper[0] !== '杠铃平板卧推') throw new Error(`long-press drag did not land first in 上胸: ${upper.join('|')}`);
-    const toast = await page.locator('[data-testid="toast"]').last().innerText();
-    if (!/已归到「上胸」/.test(toast)) throw new Error(`no undo toast after drag: ${toast}`);
-    await page.locator('[data-testid="toast-undo"]').last().click();
-    await page.waitForTimeout(300);
-    if (!(await names('中胸')).includes('杠铃平板卧推')) throw new Error('undo did not put it back to 中胸');
+    // 1) 普通态：长按满后拖向上胸 —— 卡片不动，弹出的是动作面板
+    const top = await (await col('上胸')).first().boundingBox();
+    await drag(await cardIn('中胸', '杠铃平板卧推'), top.x + top.width / 2, top.y + 4, 650);
+    if ((await names('上胸')).includes('杠铃平板卧推')) throw new Error('long-press drag still moves cards in normal mode');
+    if (!(await names('中胸')).includes('杠铃平板卧推')) throw new Error('card left 中胸');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.getByRole('button', { name: /^取消$/ }).click();
+    await menu.waitFor({ state: 'detached', timeout: 3_000 });
 
-    // 2) 整理：按下即拖，同列把最后一张拖到最上面
-    // 先收掉「已撤销」提示：它停在底部，正好盖住这一列最后一张卡，按下去会点到提示条
-    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
-    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+    // 2) 整理：按住即拖，同列把最后一张拖到最上面；撤销条撤回
     await sheet.locator('[data-testid="region-arrange"]').click();
     const mid = await names('中胸');
-    const first = await col('中胸').locator('[data-testid="picker-region-card"]').first().boundingBox();
-    await drag(col('中胸').locator('[data-testid="picker-region-card"]').last(), first.x + first.width / 2, first.y + 4, 60);
+    const first = await (await col('中胸')).first().boundingBox();
+    const midCol = await col('中胸');
+    const last = midCol.filter({ hasText: mid[mid.length - 1] });
+    await drag(last, first.x + first.width / 2, first.y + 4, 60);
     const midAfter = await names('中胸');
     if (midAfter[0] !== mid[mid.length - 1]) throw new Error(`arrange reorder failed: ${mid.join('|')} → ${midAfter.join('|')}`);
-    // 整理时点卡片不添加
-    const addedBefore = await sheet.locator('.region-card.is-added').count();
-    await col('上胸').locator('[data-testid="picker-region-card"]').first().click();
-    await page.waitForTimeout(200);
-    if ((await sheet.locator('.region-card.is-added').count()) !== addedBefore) throw new Error('tapping a card in arrange mode added it');
+    const t = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已调整顺序/.test(t)) throw new Error(`no undo toast after reorder: ${t}`);
     await page.locator('[data-testid="toast-undo"]').last().click();
     await page.waitForTimeout(300);
+    if ((await names('中胸')).join('|') !== mid.join('|')) throw new Error('undo did not restore the order');
+    await clearToasts();
+
+    // 3) 整理态点卡＝动作面板，不添加
+    const addedBefore = await sheet.locator('.region-card.is-added').count();
+    await (await col('上胸')).first().click();
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await sheet.locator('.region-card.is-added').count()) !== addedBefore) throw new Error('tapping a card in arrange mode added it');
+    await menu.getByRole('button', { name: /^取消$/ }).click();
+    await menu.waitFor({ state: 'detached', timeout: 3_000 });
     await sheet.locator('[data-testid="region-arrange"]').click();
-    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
-    return `long-press drag → 上胸 #1 + undo; arrange reorder ${mid.at(-1)} → top; tap in arrange does not add`;
+    return `normal long-press does not drag; arrange reorder ${mid.at(-1)} → top + undo; tap in arrange opens the panel`;
   });
 
-  // 整理里自定义细分：点表头改名 / 右移 / 删除（系统细分＝隐藏，撤销条，动作回未细分），「＋ 新建细分」里恢复与新建
+  // 整理里的细分：表头末尾「＋」新建；点表头改名 / 右移 / 删除（系统细分＝隐藏，撤销条，动作回未细分）；
+  // 输完名字直接点「完成」也要存；新建时撞上删掉的系统细分＝恢复它（不建第二个同名的）
   await step(page, 'region-layout-edit', async () => {
     const sheet = page.locator('[data-testid="picker-sheet"]');
     const heads = async () => (await sheet.locator('.region-head b').allInnerTexts()).map(t => t.trim());
     const menu = page.locator('[data-testid="region-menu"]');
-    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
-    const clearToasts = async () => { while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {}); };
+    const head = name => sheet.locator('[data-testid="region-head-edit"]', { has: page.locator('b', { hasText: new RegExp(`^${name}$`) }) });
     await sheet.locator('[data-testid="region-arrange"]').click();
 
-    // 改名 + 右移
-    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '中缝' }).click();
+    // 改名（不点「改名」，直接点「完成」）+ 右移
+    await head('中缝').click();
     await menu.locator('input').fill('内侧');
-    await menu.getByRole('button', { name: /^改名$/ }).click();
-    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '内侧' }).click();
+    await menu.getByRole('button', { name: /^完成$/ }).click();
+    await menu.waitFor({ state: 'detached', timeout: 3_000 });
+    if (!(await heads()).includes('内侧')) throw new Error(`「完成」dropped the typed rename: ${(await heads()).join('|')}`);
+    await head('内侧').click();
     await menu.getByRole('button', { name: /右移/ }).click();
     await menu.getByRole('button', { name: /^完成$/ }).click();
     const h1 = await heads();
     if (h1.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`rename/move failed: ${h1.join('|')}`);
 
-    // 删除系统细分：撤销条 + 它的动作回到未细分
-    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '内侧' }).click();
+    // 删除系统细分：不弹确认、撤销条 + 它的动作回到未细分（未细分是小卡托盘）
+    await head('内侧').click();
     await menu.getByRole('button', { name: /删除这个细分/ }).click();
+    if (await page.locator('[role="dialog"]').filter({ hasText: /确定/ }).count()) throw new Error('removing a region asks for confirmation');
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/已删除细分「内侧」，2 个动作回到未细分/.test(t)) throw new Error(`remove toast: ${t}`);
-    // 整理时「未细分」是小卡托盘（不是动作行）
     const un = await sheet.locator('.region-unzone [data-testid="picker-region-card"]').allInnerTexts();
-    if (!un.some(x => x.includes('绳索夹胸'))) throw new Error('exercises of the removed region did not go back to unassigned');
+    if (!un.some(x => x.replace(/\s+/g, '').includes('绳索夹胸'))) throw new Error('exercises of the removed region did not go back to unassigned');
     await clearToasts();
 
-    // 「＋ 新建细分」：恢复删掉的系统细分（名字与位置都还在）+ 新建一个
+    // 「＋」新建「内侧」＝恢复那个系统细分（名字与位置都还在），不是再建一个
     await sheet.locator('[data-testid="region-new"]').click();
-    await menu.getByRole('button', { name: /内侧/ }).click();
+    await menu.locator('input').fill('内侧');
+    await menu.getByRole('button', { name: /^添加$/ }).click();
     const h2 = await heads();
-    if (h2.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`restore failed: ${h2.join('|')}`);
+    if (h2.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`typing a hidden system region's name did not restore it: ${h2.join('|')}`);
+    // 表头字符串一样不算数：自建一个同名列也会排在最后。恢复回来的必须是那个系统细分本身
+    const innerId = await head('内侧').getAttribute('data-region-head');
+    if (innerId !== 'chestInner') throw new Error(`「内侧」is a new custom region (${innerId}), not the restored system one`);
+    // 新建一个真的新列
     await sheet.locator('[data-testid="region-new"]').click();
     await menu.locator('input').fill('E2E新列');
     await menu.getByRole('button', { name: /^添加$/ }).click();
     if (!(await heads()).includes('E2E新列')) throw new Error('new region did not appear');
+    if ((await heads()).length !== 6) throw new Error(`expected 6 columns, got ${(await heads()).join('|')}`);
+    await clearToasts();
 
-    // 收尾：删掉新列、名字改回去、退出整理
-    await sheet.locator('[data-testid="region-head-edit"]', { hasText: 'E2E新列' }).click();
+    // 收尾：删掉新列、名字改回去、挪回去、退出整理
+    await head('E2E新列').click();
     await menu.getByRole('button', { name: /删除这个细分/ }).click();
-    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '内侧' }).click();
+    await head('内侧').click();
     await menu.locator('input').fill('中缝');
     await menu.getByRole('button', { name: /^改名$/ }).click();
-    await sheet.locator('[data-testid="region-head-edit"]', { hasText: '中缝' }).click();
+    await head('中缝').click();
     await menu.getByRole('button', { name: /左移/ }).click();
     await menu.getByRole('button', { name: /^完成$/ }).click();
     await sheet.locator('[data-testid="region-arrange"]').click();
     await clearToasts();
     const h3 = await heads();
     if (h3.join('|') !== '上胸|中胸|下胸|中缝|外轮廓') throw new Error(`cleanup left ${h3.join('|')}`);
-    return 'rename + move + remove(undo toast, back to unassigned) + restore + new region';
+    return 'rename via 完成 + move + remove(undo toast, back to unassigned) + restore-by-name + new region';
+  });
+
+  // 整理＝动作库唯一的编辑入口：删除＝隐藏（不弹确认），「已删除」里点一下恢复；
+  // 自建部位：新建、把动作挪进去（部位与器材）、删掉后动作落到「未分部位」、撤销
+  await step(page, 'region-arrange-library', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const { names, cardIn } = regionHelpers(sheet);
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    const parts = sheet.locator('[data-testid="arrange-parts"]');
+    // 切部位：已经选中时再点会打开部位面板，所以只在没选中时点
+    const goPart = async name => {
+      const chip = parts.getByRole('button', { name: new RegExp(`^${name}$`) });
+      if ((await chip.getAttribute('data-on')) !== '1') await chip.click();
+    };
+    await sheet.locator('[data-testid="region-arrange"]').click();
+
+    // 删除 → 已删除 → 恢复
+    await (await cardIn('外轮廓', '宽距杠铃卧推')).click();
+    await menu.getByRole('button', { name: /从动作库删除/ }).click();
+    await page.waitForTimeout(300);
+    if (await page.locator('[role="dialog"]').filter({ hasText: /确定/ }).count()) throw new Error('library delete still asks for confirmation');
+    const t = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已从动作库删除「宽距杠铃卧推」/.test(t)) throw new Error(`delete toast: ${t}`);
+    if ((await names('外轮廓')).includes('宽距杠铃卧推')) throw new Error('deleted exercise still in its column');
+    await clearToasts();
+    await parts.locator('[data-testid="arrange-deleted"]').click();
+    const del = sheet.locator('.region-card.is-deleted', { hasText: '宽距杠铃卧推' });
+    await del.waitFor({ state: 'visible', timeout: 3_000 });
+    await del.click();
+    await page.waitForTimeout(300);
+    await goPart('胸部');
+    if (!(await names('外轮廓')).includes('宽距杠铃卧推')) throw new Error('restore from 已删除 did not bring it back');
+    await clearToasts();
+
+    // 自建部位：「＋」新建 → 自动切过去
+    await parts.locator('[data-testid="arrange-new-part"]').click();
+    const pm = page.locator('[data-testid="part-menu"]');
+    await pm.locator('input').fill('E2E部位');
+    await pm.getByRole('button', { name: /^添加$/ }).click();
+    await pm.waitFor({ state: 'detached', timeout: 3_000 });
+    if (!/E2E部位/.test(await sheet.locator('h2').innerText())) throw new Error('new part not selected');
+    // 部位与器材：把「宽距俯卧撑」挪进 E2E部位（训练类型那一行也在）
+    await goPart('胸部');
+    await (await cardIn('外轮廓', '宽距俯卧撑')).click();
+    await menu.getByRole('button', { name: /部位与器材/ }).click();
+    const dlg = page.locator('[role="dialog"]').filter({ hasText: /部位与器材/ });
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await dlg.getByRole('button', { name: /力量训练/ }).getAttribute('aria-pressed')) !== 'true') throw new Error('category row missing in 部位与器材');
+    await dlg.getByRole('button', { name: /^E2E部位$/ }).click();
+    await dlg.getByRole('button', { name: /^(保存|Save)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    await goPart('E2E部位');
+    await sheet.locator('[data-testid="picker-region-card"]', { hasText: '宽距俯卧撑' }).waitFor({ timeout: 3_000 });
+    // 再点一次已选中的部位＝部位面板 → 删除：不弹确认，动作落到「未分部位」
+    await parts.getByRole('button', { name: /^E2E部位$/ }).click();
+    await pm.getByRole('button', { name: /删除这个部位/ }).click();
+    await page.waitForTimeout(300);
+    if (await page.locator('[role="dialog"]').filter({ hasText: /确定/ }).count()) throw new Error('deleting a part asks for confirmation');
+    const pt = await page.locator('[data-testid="toast"]').last().innerText();
+    if (!/已删除部位「E2E部位」，1 个动作回到未分部位/.test(pt)) throw new Error(`part delete toast: ${pt}`);
+    if (!/未分部位/.test(await sheet.locator('h2').innerText())) throw new Error('did not land on 未分部位');
+    await sheet.locator('[data-testid="picker-region-card"]', { hasText: '宽距俯卧撑' }).waitFor({ timeout: 3_000 });
+    if (/CT_/i.test(await sheet.innerText())) throw new Error('raw custom-part id leaked into the UI');
+    // 撤销：部位回来，动作也回去
+    await page.locator('[data-testid="toast-undo"]').last().click();
+    await page.waitForTimeout(300);
+    await goPart('E2E部位');
+    await sheet.locator('[data-testid="picker-region-card"]', { hasText: '宽距俯卧撑' }).waitFor({ timeout: 3_000 });
+    await clearToasts();
+
+    // 收尾：宽距俯卧撑挪回胸部 · 外轮廓，删掉 E2E部位
+    await sheet.locator('[data-testid="picker-region-card"]', { hasText: '宽距俯卧撑' }).click();
+    await menu.getByRole('button', { name: /部位与器材/ }).click();
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    await dlg.getByRole('button', { name: /^胸部$/ }).click();
+    await dlg.getByRole('button', { name: /^外轮廓$/ }).click();
+    await dlg.getByRole('button', { name: /^(保存|Save)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    await goPart('E2E部位');
+    await parts.getByRole('button', { name: /^E2E部位$/ }).click();
+    await pm.getByRole('button', { name: /删除这个部位/ }).click();
+    await page.waitForTimeout(300);
+    await clearToasts();
+    await goPart('胸部');
+    if (!(await names('外轮廓')).includes('宽距俯卧撑')) throw new Error('cleanup: 宽距俯卧撑 not back in 外轮廓');
+    await sheet.locator('[data-testid="region-arrange"]').click();
+    return 'delete = hide + undo, restore from 已删除; custom part new / move into / delete → 未分部位 / undo';
   });
 
   await step(page, 'close-library', async () => {
@@ -1312,6 +1462,9 @@ const main = async () => {
       .getByRole('button', { name: /清空筛选|Clear/ })
       .first();
     if (await clearBtn.isVisible().catch(() => false)) await clearBtn.click();
+    // 选了部位时筛选收成一行、没有「清空筛选」那一行：清空＝点行首的「全部」
+    const oneLine = page.locator('[data-testid="filters-one-line"]');
+    if (await oneLine.isVisible().catch(() => false)) await oneLine.getByRole('button', { name: /^(全部|All)$/ }).click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
     await page.waitForTimeout(400);
     return 'picker sheet closed';

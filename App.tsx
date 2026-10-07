@@ -44,6 +44,7 @@ import {
 } from './src/constants/exercises';
 import { getLoadMode, LoadMode } from './src/utils/exerciseConfig';
 import { listGyms } from './src/utils/gyms';
+import { mergeOverride } from './src/utils/exerciseOverride';
 
 import TabNavigation from './src/components/TabNavigation';
 import { bodyPartTagFor } from './src/components/BodyPartPicker';
@@ -65,7 +66,6 @@ import {
   NoteModal,
   RenameModal,
   ResetAccountModal,
-  TagManageModal,
   WeightInputModal,
 } from './src/components/modals';
 
@@ -189,7 +189,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     [],
   );
   /** 训练页弹层头部入口：标签管理（只管标签词表，不再进全屏动作库） */
-  const [showTagManage, setShowTagManage] = useState(false);
 
   // ============== 训练页「添加动作」弹层 ==============
   const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
@@ -879,6 +878,25 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           if (!newExerciseName.trim()) return;
           // 与库里动作的现名 / 曾用名重名就拒绝（第 7 条同一条规矩），弹窗留着改
           const clash = prefs.findExerciseDef(newExerciseName.trim());
+          // 撞上的是删掉（隐藏）的动作：把它恢复出来接着用，历史、PR 都还挂在它身上（hidden-builtin-name-locked）
+          if (clash && prefs.exerciseOverrides[clash.id]?.hidden) {
+            prefs.restoreLibraryExercise(clash.id);
+            const restored = mergeOverride(clash, { ...prefs.exerciseOverrides[clash.id], hidden: false });
+            if (!libraryPickCallbackRef.current) {
+              const newId = addExerciseToWorkout(restored, false);
+              if (pickerSheetOpen) {
+                lastAddedExerciseIdRef.current = newId;
+                setSheetSessionAdded(n => n + 1);
+              }
+            } else {
+              libraryPickCallbackRef.current(restored);
+              libraryPickCallbackRef.current = null;
+              setShowLibrary(false);
+            }
+            setShowAddExerciseModal(false);
+            setNewExerciseName('');
+            return;
+          }
           if (clash) {
             const clashName = prefs.resolveName(newExerciseName.trim());
             toast(
@@ -945,11 +963,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         customTags={prefs.customTags}
         getTagName={prefs.getTagName}
         onClose={() => setEditExerciseTagsTarget(null)}
-        onSave={(exerciseId, bodyPart, tags, region) => {
-          prefs.saveExerciseTags(exerciseId, bodyPart, tags, region);
+        onSave={(exerciseId, bodyPart, tags, region, category) => {
+          prefs.saveExerciseTags(exerciseId, bodyPart, tags, region, category);
           setEditExerciseTagsTarget(null);
         }}
-        onDelete={id => prefs.deleteLibraryExercise(id, { skipConfirm: true })}
       />
 
       <LibraryModal
@@ -995,23 +1012,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         }}
         onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
         onToggleStar={prefs.toggleStarExercise}
-      />
-
-      <TagManageModal
-        open={showTagManage}
-        lang={lang}
-        onClose={() => setShowTagManage(false)}
-        onRenameTag={(id, name) => {
-          setTagToRename({ id, name });
-          setNewTagNameInput(name);
-          setShowRenameModal(true);
-        }}
-        onDeleteTag={prefs.deleteTag}
-        onCreateCustomTag={category => {
-          setNewTagCategory(category);
-          setNewTagName('');
-          setShowAddTagModal(true);
-        }}
       />
 
       <AddGoalModal
@@ -1086,7 +1086,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
             onCreateCustomExercise={openCreateCustomExerciseModal}
-            onOpenTagManage={() => setShowTagManage(true)}
             onEditExerciseTags={ex => setEditExerciseTagsTarget(ex)}
             onRenameExercise={(id, name) => {
               setExerciseToRename({ id, name });

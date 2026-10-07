@@ -50,17 +50,25 @@ export function useExercisePickerData({
   /** 已选器材 tag id 集合（小写） */
   equips: ReadonlySet<string>;
 }) {
-  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion, regionsOf } =
+  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion, effectivePart, regionsOf } =
     useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
-  /** 覆盖合并 + 去隐藏后的完整动作库 */
-  const merged = useMemo(() => {
+  /** 覆盖合并后的完整动作库（含已删除＝隐藏的） */
+  const library = useMemo(() => {
     return [...DEFAULT_EXERCISES, ...customExercises]
       .map(ex => mergeOverride(ex, exerciseOverrides[ex.id]))
-      .filter(ex => !(exerciseOverrides[ex.id] as any)?.hidden)
       .filter(ex => ex.name && ex.name[lang]);
   }, [customExercises, exerciseOverrides, lang]);
+  const merged = useMemo(() => library.filter(ex => !ex.hidden), [library]);
+  const byId = useMemo(() => new Map(library.map(ex => [ex.id, ex])), [library]);
+  /** 整理的「已删除」托盘 */
+  const deleted = useMemo(() => library.filter(ex => ex.hidden), [library]);
+  /** 整理的「未分部位」：力量动作没有部位，或部位（自建）已被删掉 */
+  const noPart = useMemo(
+    () => merged.filter(ex => (ex.category || 'STRENGTH') === 'STRENGTH' && !effectivePart(ex)),
+    [merged, effectivePart],
+  );
 
   /** 搜索索引（名字/拼音/标签名），随库或标签名变化重建 */
   const index = useMemo(() => {
@@ -159,7 +167,19 @@ export function useExercisePickerData({
     return avail;
   }, [scored, equips]);
 
-  return { results, equipCounts, axisAvailable, equipIds, customPartIds, boardPart, searching };
+  return {
+    results,
+    equipCounts,
+    axisAvailable,
+    equipIds,
+    customPartIds,
+    boardPart,
+    searching,
+    merged,
+    byId,
+    deleted,
+    noPart,
+  };
 }
 
 export default useExercisePickerData;

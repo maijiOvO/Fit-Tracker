@@ -1,11 +1,12 @@
 /**
- * 编辑某个具体动作的标签（部位 + 器材）。替代过去的拖拽-改标签交互。
+ * 「部位与器材」：改某个动作的训练类型、部位、细分、器材（原「编辑标签」）。
+ * 从添加动作弹层的动作面板进来。删除不在这里（动作面板里「从动作库删除」，先执行 + 撤销）。
  */
 import React, { useState, useEffect } from 'react';
-import { Check, Columns3, Sparkles, Filter, Trash2 } from 'lucide-react';
-import { ExerciseDefinition, Language } from '../../types';
+import { Check, Columns3, Sparkles, Filter } from 'lucide-react';
+import { ExerciseCategory, ExerciseDefinition, Language } from '../../types';
+import { translations } from '../../translations';
 import { BODY_PARTS, EQUIPMENT_TAGS } from '../constants/exercises';
-import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { Modal, ModalFooter } from './Modal';
 import { RegionChooser, hasRegionSection } from './RegionChooser';
 
@@ -20,12 +21,7 @@ interface EditExerciseTagsModalProps {
   }[];
   getTagName: (tid: string) => string;
   onClose: () => void;
-  onSave: (exerciseId: string, bodyPart: string, tags: string[], region: string) => void;
-  /**
-   * 从动作库中删除此动作（自定义动作会被彻底移除，系统动作会被标记为隐藏）。
-   * 不传则不显示"删除"按钮。
-   */
-  onDelete?: (exerciseId: string) => void;
+  onSave: (exerciseId: string, bodyPart: string, tags: string[], region: string, category: ExerciseCategory) => void;
 }
 
 export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
@@ -36,15 +32,15 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
   getTagName,
   onClose,
   onSave,
-  onDelete,
 }) => {
-  const { confirm } = useUiOverlay();
+  const [category, setCategory] = useState<ExerciseCategory>('STRENGTH');
   const [bodyPart, setBodyPart] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [region, setRegion] = useState('');
 
   useEffect(() => {
     if (open && exercise) {
+      setCategory(exercise.category || 'STRENGTH');
       setBodyPart(exercise.bodyPart || '');
       setTags(exercise.tags || []);
       setRegion(exercise.region || '');
@@ -72,7 +68,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
       isOpen
       onClose={onClose}
       title={exercise.name[lang]}
-      subtitle={isCn ? '编辑标签' : 'Edit Tags'}
+      subtitle={isCn ? '部位与器材' : 'Part & gear'}
       size="md"
       // 从弹层的动作菜单里开出来，再往上一层
       layer="modal-3"
@@ -85,13 +81,37 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
           onCancel={onClose}
           onConfirm={() => {
             // 部位换了、细分没跟着选：存成未细分（细分只认当前部位下的）
-            onSave(exercise.id, bodyPart, tags, hasRegionSection(bodyPart, exercise.category || 'STRENGTH') ? region : '');
+            onSave(exercise.id, bodyPart, tags, hasRegionSection(bodyPart, category) ? region : '', category);
             onClose();
           }}
           confirmIcon={<Check size={16} strokeWidth={2.5} />}
         />
       }
     >
+
+        {/* 训练类型（category-not-editable：原先只能在新建时选，建错了只能删了重建） */}
+        <div>
+          <h4 className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] mb-2">
+            {isCn ? '训练类型' : 'Category'}
+          </h4>
+          <div className="flex gap-2">
+            {(['STRENGTH', 'CARDIO', 'FREE'] as ExerciseCategory[]).map(cat => (
+              <button
+                key={cat}
+                type="button"
+                aria-pressed={category === cat}
+                onClick={() => setCategory(cat)}
+                className={`flex-1 min-h-[40px] rounded-control text-xs font-bold transition-ui ${
+                  category === cat ? 'bg-accent text-on-accent' : 'bg-card text-secondary hover:bg-card-hover'
+                }`}
+              >
+                {cat === 'STRENGTH' && translations.strengthTraining[lang]}
+                {cat === 'CARDIO' && translations.cardioTraining[lang]}
+                {cat === 'FREE' && translations.freeTraining[lang]}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* 部位（单选） */}
         <div>
@@ -133,7 +153,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
         </div>
 
         {/* 细分（单选，随部位联动；第 3 条） */}
-        {hasRegionSection(bodyPart, exercise.category || 'STRENGTH') && (
+        {hasRegionSection(bodyPart, category) && (
           <div>
             <h4 className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
               <Columns3 size={11} /> {isCn ? '细分' : 'Region'}
@@ -143,7 +163,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
             </h4>
             <RegionChooser
               part={bodyPart}
-              category={exercise.category || 'STRENGTH'}
+              category={category}
               value={region}
               onChange={setRegion}
               lang={lang}
@@ -181,35 +201,6 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
           </div>
         </div>
 
-        {/* 危险区：删除此动作（§6.6：列表里的删除入口降级为墨色文字项，不喊颜色） */}
-        {onDelete && (
-          <div className="pt-3 mt-3 border-t border-divider">
-            <button
-              onClick={async () => {
-                const ok = await confirm({
-                  message: isCn
-                    ? `确定要从动作库中删除「${exercise.name[lang]}」吗？\n相关历史训练记录不会被删除。`
-                    : `Delete "${exercise.name[lang]}" from the library?\nExisting workout records will not be removed.`,
-                  danger: true,
-                  confirmLabel: isCn ? '删除' : 'Delete',
-                });
-                if (ok) {
-                  onDelete(exercise.id);
-                  onClose();
-                }
-              }}
-              className="w-full min-h-[44px] rounded-control border border-divider text-primary font-medium flex items-center justify-center gap-2 transition-colors duration-tap ease-paper active:bg-card-hover"
-            >
-              <Trash2 size={16} strokeWidth={2} />
-              {isCn ? '从动作库中删除' : 'Delete from library'}
-            </button>
-            <p className="text-[10px] text-tertiary text-center mt-2 px-2 leading-relaxed">
-              {isCn
-                ? '自定义动作会被彻底删除；系统动作会从列表中隐藏，可在「设置 → 重置」中恢复。'
-                : 'Custom exercises will be removed. System exercises will be hidden and can be restored in Settings.'}
-            </p>
-          </div>
-        )}
     </Modal>
   );
 };

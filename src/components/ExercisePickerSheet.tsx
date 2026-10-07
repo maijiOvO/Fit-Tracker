@@ -3,14 +3,35 @@
  *
  * 交互设计（与 App.tsx / NewWorkoutTab 配合）：
  *   - 常驻挂载，open 切换显隐（内部筛选状态跨开合保留 = 筛选记忆；每次打开只清搜索词）
- *   - 部位行（单选，含自定义部位 + 有氧/自由两个伪部位）+ 器材行（多选，联动计数，0 隐藏）
- *   - 点行即添加，弹层不关：行闪烁 + ✓已添加徽标 + 头部「本次已加 N」+ 震动；450ms 双击防误触
+ *   - 部位行（单选，含自定义部位 + 有氧/自由两个伪部位）+ 器材行（多选，联动计数，0 隐藏）；
+ *     选了部位时筛选收成一行：部位横滑，器材收成行尾一颗 chip（点开才铺器材行）
+ *   - 点 = 添加，弹层不关：闪一下 + 头部「本次已加 N」+ 震动；450ms 双击防误触
+ *   - 长按 = 动作面板（ExerciseActionPanel），不能拖
+ *   - 「整理」常驻头部，是动作库唯一的编辑入口（2026-10 第三版，demo：docs/demos/region-board-v3.html）：
+ *     点 = 动作面板、按住即拖（归细分 / 调顺序）；部位行末尾「未分部位 · 已删除 · ＋」；
+ *     点表头出细分面板、表头末尾「＋」新建细分；再点已选中的部位出部位面板；最底下器材节
  *   - 软键盘弹起时 visualViewport 计算 inset，弹层压缩到键盘上沿
  *   - 手指在弹层任何位置往下拉即可关闭（列表不在顶部时先让列表往回滚）；带部位进来时停在该部位栏
- *   - 标签管理入口在头部（Tags 图标）直达 TagManageModal；长按动作行弹出该动作的管理菜单
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, CircleDashed, Filter, GripVertical, History, Move, PencilLine, Plus, PlusCircle, RotateCcw, Search, Star, Tags, Trash2, X, Zap } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  CircleDashed,
+  Filter,
+  History,
+  Move,
+  Plus,
+  RotateCcw,
+  Search,
+  Star,
+  Trash2,
+  ArrowDownUp,
+  X,
+  Zap,
+} from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
@@ -22,10 +43,14 @@ import { useLongPress } from '../hooks/useLongPress';
 import { useRegionDrag } from '../hooks/useRegionDrag';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { haptic, H } from '../utils/haptics';
+import { segmentName } from '../utils/nameSegments';
 import { LongPressAffordance } from './LongPressAffordance';
+import { ExerciseActionPanel } from './ExerciseActionPanel';
+import { VariantModal } from './modals/VariantModal';
+
+const NO_EQUIPS: ReadonlySet<string> = new Set();
 
 interface PickerRowProps {
-  ex: ExerciseDefinition;
   displayName: string;
   added: number;
   isStarred: boolean;
@@ -36,16 +61,11 @@ interface PickerRowProps {
   onPick: () => void;
   onLongPress: () => void;
   onToggleStar: () => void;
-  /** 细分格的「未细分」组里：长按交给拖到细分（useRegionDrag），这里不再自己管 */
-  dragId?: string;
-  arranging?: boolean;
 }
 
 /**
- * 弹层里的一行动作。
- *
- * 长按＝该动作的管理菜单（编辑标签/重命名/删除），极低频动作（§6.4）。
- * 必须带自解释标签：不加的话连设计者本人都不记得这手势是干嘛的。
+ * 弹层里的一行动作（全部 / 搜索 / 没有细分的部位）。
+ * 长按＝动作面板。必须带自解释标签：不加的话连设计者本人都不记得这手势是干嘛的。
  */
 const PickerRow: React.FC<PickerRowProps> = ({
   displayName,
@@ -58,23 +78,16 @@ const PickerRow: React.FC<PickerRowProps> = ({
   onPick,
   onLongPress,
   onToggleStar,
-  dragId,
-  arranging = false,
 }) => {
-  const press = useLongPress({ onLongPress, disabled: !!dragId });
+  const press = useLongPress({ onLongPress });
   return (
-    <div
-      ref={bindRef}
-      className="flex items-stretch bg-card border border-divider rounded-card overflow-hidden"
-      {...(dragId ? { 'data-drag-host': '' } : {})}
-    >
+    <div ref={bindRef} className="flex items-stretch bg-card border border-divider rounded-card overflow-hidden">
       <button
         type="button"
         onClick={onPick}
         {...press.handlers}
         className="relative flex-1 min-w-0 text-left px-3 py-2.5 flex flex-col gap-1.5 min-h-[60px] active:bg-card-hover transition-colors duration-tap ease-paper select-none touch-pan-y"
         data-testid="picker-sheet-exercise"
-        {...(dragId ? { 'data-drag-id': dragId } : {})}
       >
         <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
           {displayName}
@@ -110,23 +123,17 @@ const PickerRow: React.FC<PickerRowProps> = ({
           placement="down"
         />
       </button>
-      {arranging ? (
-        <span className="w-11 flex items-center justify-center border-l border-divider text-tertiary" aria-hidden>
-          <GripVertical size={18} strokeWidth={2} />
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={e => {
-            e.stopPropagation();
-            onToggleStar();
-          }}
-          className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-press-sm transition-transform duration-tap ease-paper"
-          aria-label={isCn ? '收藏' : 'Star'}
-        >
-          <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={e => {
+          e.stopPropagation();
+          onToggleStar();
+        }}
+        className="w-11 flex items-center justify-center border-l border-divider text-warning active:scale-press-sm transition-transform duration-tap ease-paper"
+        aria-label={isCn ? '收藏' : 'Star'}
+      >
+        <Star size={18} strokeWidth={2} className={isStarred ? 'fill-warning' : ''} />
+      </button>
     </div>
   );
 };
@@ -136,33 +143,164 @@ interface RegionCardProps {
   displayName: string;
   added: number;
   isStarred: boolean;
+  /** 额外 class：is-un（未细分）/ is-tap（只能点）/ is-deleted（已删除） */
+  variant?: string;
+  /** 格子里的显式行列（行对齐的 grid） */
+  cell?: { col: string; ci: number; r: number };
+  /** 未细分托盘里的卡：可拖回格子 */
+  unassigned?: boolean;
+  /** 普通态：长按满 500ms 出动作面板 */
+  longPress: boolean;
   bindRef: (el: HTMLButtonElement | null) => void;
   onPick: () => void;
+  onLongPress: () => void;
 }
 
 /**
- * 细分格里的小卡（第 3 条）：动作行的窄版，跟上面部位 / 器材 chip 同一套样子 ——
- * 灰底无边框、粗体；已添加＝朱砂实底（同选中态）；收藏是名字前一颗实心星。
- * 长按（浮起后拖到细分 / 不动松手出管理菜单）由 useRegionDrag 在结果区统一接管。
+ * 细分格里的小卡（第三版，方向 A）：跟部位 / 器材 chip 同一套样子 ——
+ * 灰底无边框、粗体；已添加＝朱砂实底；收藏是右上角一颗小星，「×N」是右下角 mono 角标。
+ * 名字按词断行（词间 <wbr>，CSS keep-all）。整理态的「按住即拖」由 useRegionDrag 在结果区统一接管。
  */
-const RegionCard: React.FC<RegionCardProps> = ({ id, displayName, added, isStarred, bindRef, onPick }) => (
-  <button
-    ref={bindRef}
-    type="button"
-    onClick={onPick}
-    onContextMenu={e => e.preventDefault()}
-    className={`region-card select-none${added ? ' is-added' : ''}`}
-    data-testid="picker-region-card"
-    data-drag-id={id}
-    data-drag-host=""
-  >
-    <span className="region-card-name">
-      {isStarred && <Star size={11} strokeWidth={2} className="inline-block align-[-1px] mr-0.5 fill-current" />}
-      {displayName}
+const RegionCard: React.FC<RegionCardProps> = ({
+  id,
+  displayName,
+  added,
+  isStarred,
+  variant = '',
+  cell,
+  unassigned = false,
+  longPress,
+  bindRef,
+  onPick,
+  onLongPress,
+}) => {
+  const press = useLongPress({ onLongPress, disabled: !longPress });
+  const segs = segmentName(displayName);
+  const draggable = !!cell || unassigned;
+  return (
+    <button
+      ref={bindRef}
+      type="button"
+      onClick={onPick}
+      {...(longPress ? press.handlers : { onContextMenu: (e: React.SyntheticEvent) => e.preventDefault() })}
+      className={`region-card select-none${variant ? ` ${variant}` : ''}${added ? ' is-added' : ''}`}
+      style={cell ? { gridColumn: cell.ci, gridRow: cell.r } : undefined}
+      data-testid="picker-region-card"
+      {...(draggable ? { 'data-drag-id': id, 'data-region-col': cell?.col ?? '' } : {})}
+      {...(cell ? { 'data-r': cell.r, 'data-ci': cell.ci } : {})}
+    >
+      <span className="region-card-name">
+        {segs.map((s, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <wbr />}
+            {s}
+          </React.Fragment>
+        ))}
+      </span>
+      {isStarred && (
+        <span className="region-card-star" aria-hidden>
+          <Star size={9} strokeWidth={0} className="fill-current" />
+        </span>
+      )}
       {added > 1 && <span className="region-card-x">×{added}</span>}
-    </span>
-  </button>
-);
+      {press.pressing && <span className="longpress-line" style={{ animationDuration: `${press.drawMs}ms` }} />}
+    </button>
+  );
+};
+
+interface NamePanelProps {
+  testId: string;
+  title: string;
+  subtitle: string;
+  /** 现名；'' = 新建 */
+  initial: string;
+  placeholder: string;
+  isCn: boolean;
+  /** 返回 false = 没成（重名等，已 toast），面板留着 */
+  onCommit: (name: string) => boolean;
+  onClose: () => void;
+  children?: React.ReactNode;
+}
+
+/**
+ * 细分 / 部位 / 器材的底部面板（同一个样子：标题 + 名字输入 + 改名/添加 + 其他操作 + 完成）。
+ * 「完成」时名字改过就一起存（region-panel-done-discards-rename：原先只认改名按钮和回车，直接点完成会丢）。
+ */
+const NamePanel: React.FC<NamePanelProps> = ({
+  testId,
+  title,
+  subtitle,
+  initial,
+  placeholder,
+  isCn,
+  onCommit,
+  onClose,
+  children,
+}) => {
+  const [draft, setDraft] = useState(initial);
+  const dirty = !!draft.trim() && draft.trim() !== initial;
+  const commit = () => {
+    if (dirty && onCommit(draft.trim())) onClose();
+  };
+  return (
+    <div
+      className="absolute inset-0 z-10 bg-scrim flex items-end sm:items-center justify-center anim-fade"
+      onClick={onClose}
+      data-testid={testId}
+    >
+      <div
+        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        onClick={e => e.stopPropagation()}
+      >
+        <p className="px-2 pb-1 text-sm font-semibold text-primary">
+          {title}
+          <span className="block text-xs font-medium text-tertiary">{subtitle}</span>
+        </p>
+        <div className="flex gap-2">
+          <input
+            className="ui-input flex-1 min-w-0"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commit();
+              }
+            }}
+            placeholder={placeholder}
+            aria-label={placeholder}
+            autoFocus={!initial}
+          />
+          <button
+            type="button"
+            onClick={commit}
+            disabled={!dirty}
+            className="flex-shrink-0 px-4 rounded-control bg-accent text-on-accent font-semibold disabled:opacity-40"
+          >
+            {initial ? (isCn ? '改名' : 'Rename') : isCn ? '添加' : 'Add'}
+          </button>
+        </div>
+        {children}
+        <button
+          type="button"
+          onClick={() => {
+            if (dirty && !onCommit(draft.trim())) return;
+            onClose();
+          }}
+          className="w-full min-h-[48px] px-4 rounded-card text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+        >
+          {isCn ? '完成' : 'Done'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const panelBtn =
+  'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors disabled:opacity-40';
+const dangerBtn =
+  'w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors';
 
 interface ExercisePickerSheetProps {
   open: boolean;
@@ -173,19 +311,21 @@ interface ExercisePickerSheetProps {
    * 只在打开的那一刻生效一次；null = 沿用上次的筛选（筛选记忆）。
    */
   focusPart?: string | null;
-  /** 小写显示名 -> 当前训练中出现次数（驱动「已添加 ×N」徽标） */
+  /** 小写显示名 -> 当前训练中出现次数（驱动「已添加 ×N」） */
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数（App 维护，含新建动作路径） */
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition) => void;
   onCreateCustomExercise: (prefilledName?: string) => void;
-  /** 打开标签管理页（头部 Tags 图标） */
-  onOpenTagManage: () => void;
-  // ===== 长按动作行的管理菜单（复用 App 层的弹窗/删除流程） =====
+  // ===== 动作面板里打开的弹窗（复用 App 层同一批弹窗） =====
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
-  onRenameExercise: (id: string, currentName: string) => void;
   onDeleteExercise: (id: string) => void;
+  onOpenNote: (name: string) => void;
+  onOpenMetrics: (name: string) => void;
 }
+
+/** 整理里的特殊视图：未分部位 / 已删除 */
+type Special = 'none' | 'del' | null;
 
 export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   open,
@@ -195,10 +335,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   sessionAdded,
   onPickExercise,
   onCreateCustomExercise,
-  onOpenTagManage,
   onEditExerciseTags,
-  onRenameExercise,
   onDeleteExercise,
+  onOpenNote,
+  onOpenMetrics,
 }) => {
   const {
     starredExercises,
@@ -208,51 +348,64 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     regionsOf,
     hiddenRegionsOf,
     effectiveRegion,
+    effectivePart,
     applyRegionLayout,
     renameTag,
     addRegionTag,
+    addTag,
+    deleteTag,
     moveRegion,
     removeRegion,
     restoreRegion,
+    restoreLibraryExercise,
   } = useExercisePrefs();
-  /**
-   * 整理里的细分面板：点某个表头＝{ id }（改名 / 左右移 / 删除）；「＋ 新建细分」＝{ id: '' }。
-   * 用户自定义「这个部位有哪些细分、怎么排」都在这里。
-   */
-  const [regionMenu, setRegionMenu] = useState<{ id: string } | null>(null);
-  const [regionDraft, setRegionDraft] = useState('');
-  const { toastUndo } = useUiOverlay();
-  /** 「整理」：按下即拖、点卡片不添加（一口气给几十个动作归细分时用） */
-  const [arranging, setArranging] = useState(false);
-  /** 拖到细分的手势已接管（长按满 / 拖拽中）：弹层整张下拉关闭看到它就让路 */
-  const regionGestureRef = useRef(false);
-  /** 细分格当前每一列（含 '' = 未细分）的顺序，落下 / 归列时据此写序号 */
-  const boardColsRef = useRef<Map<string, ExerciseDefinition[]>>(new Map());
+  const { toast, toastUndo, dismissToasts } = useUiOverlay();
   const { lang } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
+
+  /** 「整理」：动作库的编辑态。点 = 动作面板，按住即拖 */
+  const [arranging, setArranging] = useState(false);
+  const [special, setSpecial] = useState<Special>(null);
+  /** 从「全部」/ 搜索进整理时落到上次整理的部位 */
+  const lastArrangePartRef = useRef<string>(BODY_PARTS[0]);
+  /** 细分面板：点某个表头＝{ id }；表头末尾「＋」＝{ id: '' } */
+  const [regionMenu, setRegionMenu] = useState<{ id: string } | null>(null);
+  /** 部位 / 器材面板：{ id }＝改名 / 删除；{ id: '' }＝新建 */
+  const [partMenu, setPartMenu] = useState<{ id: string } | null>(null);
+  const [equipMenu, setEquipMenu] = useState<{ id: string } | null>(null);
+  /** 动作面板（长按 / 整理态点卡）：存 id，每次渲染从库里取最新的（改名、加星后立刻反映） */
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  /** 动作面板里打开的练法（只管理，不切换） */
+  const [variantFor, setVariantFor] = useState<string | null>(null);
+  /** 收成一行时，器材 chip 点开铺出器材行 */
+  const [equipOpen, setEquipOpen] = useState(false);
+  /** 拖拽接管中（整理态按下）：弹层整张下拉关闭看到它就让路 */
+  const regionGestureRef = useRef(false);
+  /** 细分格当前每一列（含 '' = 未细分）的顺序，落下 / 归列时据此写序号 */
+  const boardColsRef = useRef<Map<string, ExerciseDefinition[]>>(new Map());
 
   // ===== 筛选状态（跨开合保留；仅搜索词随打开重置） =====
   const [query, setQuery] = useState('');
   const [axis, setAxis] = useState<PickerAxis>(null);
   const [equips, setEquips] = useState<ReadonlySet<string>>(new Set());
 
-  const { results, equipCounts, axisAvailable, equipIds, customPartIds, boardPart } =
-    useExercisePickerData({ query, axis, equips });
+  // 整理：不搜索、不按器材筛（整理态看不到器材行，筛着会让格子缺一块，arrange-hidden-equip-filter）
+  const { results, equipCounts, axisAvailable, equipIds, customPartIds, boardPart, merged, byId, deleted, noPart } =
+    useExercisePickerData({ query: arranging ? '' : query, axis, equips: arranging ? NO_EQUIPS : equips });
 
   const inset = useKeyboardInset(open);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
+  const partScrollRef = useRef<HTMLDivElement | null>(null);
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const lastPickRef = useRef<{ id: string; t: number }>({ id: '', t: 0 });
-  // 长按动作行 → 该动作的管理菜单（编辑标签 / 重命名 / 删除）
-  const [menuFor, setMenuFor] = useState<ExerciseDefinition | null>(null);
   // 键盘弹起时筛选区收起为摘要行（点摘要可临时展开，键盘收起后自动复原）
   const [kbExpandFilters, setKbExpandFilters] = useState(false);
   /**
-   * 长按出菜单后，吞掉松手带出的那次 click（不算「添加」）。
-   * 用时间戳不用布尔：菜单一弹出就盖在手指下面，那次 click 往往根本落不到行上，
-   * 布尔立起来就没人清 —— 用完长按菜单后的下一次正常点选会被吃掉（§12.5 粘滞布尔）。
+   * 长按出面板 / 拖完之后，吞掉松手带出的那次 click（不算「添加」）。
+   * 用时间戳不用布尔：面板一弹出就盖在手指下面，那次 click 往往根本落不到卡上，
+   * 布尔立起来就没人清 —— 用完长按之后的下一次正常点选会被吃掉（§12.5 粘滞布尔）。
    */
   const suppressClickRef = useRef(0);
   const sheetRef = useRef<HTMLElement | null>(null);
@@ -335,7 +488,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     };
     const onMove = (e: TouchEvent) => {
       if (!t || t.mode === 'pass') return;
-      // 拖到细分接管了这次触摸（长按满 / 整理模式）：整次手势都不归弹层
+      // 整理态的拖动接管了这次触摸：整次手势都不归弹层
       if (regionGestureRef.current && t.mode === 'undecided') {
         t.mode = 'pass';
         return;
@@ -402,7 +555,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     };
   }, []);
 
-  // 打开：清搜索词、结果滚回顶部；关闭：收键盘
+  // 打开：清搜索词、结果滚回顶部；关闭：收键盘、退出整理、收掉所有面板
   useEffect(() => {
     if (open) {
       setQuery('');
@@ -417,7 +570,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       searchInputRef.current?.blur();
       setMenuFor(null);
       setArranging(false);
+      setSpecial(null);
       setRegionMenu(null);
+      setPartMenu(null);
+      setEquipMenu(null);
+      setEquipOpen(false);
     }
   }, [open]);
 
@@ -437,8 +594,19 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     };
   }, [open]);
 
+  // 部位横滑：选中的那颗滚进可见
+  useEffect(() => {
+    const sc = partScrollRef.current;
+    const on = sc?.querySelector<HTMLElement>('[data-on="1"]');
+    if (!sc || !on) return;
+    const l = on.offsetLeft - 16;
+    const r = on.offsetLeft + on.offsetWidth - sc.clientWidth + 16;
+    if (sc.scrollLeft > l) sc.scrollLeft = l;
+    else if (sc.scrollLeft < r) sc.scrollLeft = r;
+  }, [axis, special, arranging]);
+
   // ===== 分组 =====
-  const q = query.trim();
+  const q = arranging ? '' : query.trim();
   const { starredGroup, recentGroup, otherGroup, flatGroup, rank } = useMemo(() => {
     const boost = (ex: ExerciseDefinition) => {
       const key = resolveName(ex.name[lang]).toLowerCase();
@@ -505,11 +673,6 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     q.length > 0
     && results.some(r => resolveName(r.ex.name[lang]).toLowerCase() === q.toLowerCase());
   const nFilters = (axis ? 1 : 0) + equips.size;
-  /**
-   * 整理视图：搜索 / 部位 / 器材 / 计数在整理时没用（就是在给当前部位排列），收起来把格子顶上去。
-   * 走查实测：不收的话 384×854 上格子只露一行半，「未细分」在下面很远，往上拖时目标列不在屏上。
-   */
-  const arrangeView = !!boardPart && arranging;
 
   // ===== 浏览轴 chips =====
   const axisChips = useMemo(() => {
@@ -531,25 +694,16 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
 
   // 收起态摘要：已选部位 + 已选器材名
-  const filterSummary = (() => {
-    const parts: string[] = [];
-    if (axis) parts.push(axisLabel(axis));
-    for (const id of equipIds) {
-      if (equips.has(id.toLowerCase())) {
-        const n = getTagName(id);
-        if (n) parts.push(n);
-      }
-    }
-    return parts.join(' · ');
-  })();
+  const selectedEquipNames = equipIds.filter(id => equips.has(id.toLowerCase())).map(getTagName).filter(Boolean);
+  const filterSummary = [...(axis ? [axisLabel(axis)] : []), ...selectedEquipNames].join(' · ');
 
   /**
-   * 放进某个细分（拖拽落下 / 菜单里点细分都走这里）。
+   * 放进某个细分（拖拽落下 / 面板里点细分都走这里）。
    * 拖拽落下（idx 有值）或这一列已经手动排过：整列按当前顺序写序号，从此这一列按手动顺序；
-   * 菜单归列且这一列没排过：只写细分，照默认排序。'' = 放回未细分（去掉序号）。
+   * 面板归列且这一列没排过：只写细分，照默认排序。'' = 放回未细分（去掉序号）。
    */
   const placeInRegion = (exId: string, region: string, idx: number | null, fallback?: ExerciseDefinition) => {
-    // 不在细分格里（从「全部」列表的长按菜单进来）：格子的列顺序不可信，只写这一个动作，接在列尾
+    // 不在细分格里（从「全部」列表的长按面板进来）：格子的列顺序不可信，只写这一个动作，接在列尾
     const inBoard = !!boardPart && [...boardColsRef.current.values()].flat().some(e => e.id === exId);
     const cols = inBoard ? boardColsRef.current : new Map<string, ExerciseDefinition[]>();
     const all = inBoard ? [...cols.values()].flat() : fallback ? [fallback] : [];
@@ -592,21 +746,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   useRegionDrag({
     resultsRef,
     sheetRef,
-    enabled: !!boardPart,
-    arranging,
+    enabled: arranging && !special && !!boardPart,
     activeRef: regionGestureRef,
     suppressClickRef,
-    liftLabel: isCn ? '拖到细分' : 'Drag to a region',
-    describe: id => {
-      const ex = [...boardColsRef.current.values()].flat().find(e => e.id === id);
-      if (!ex) return null;
-      const name = resolveName(ex.name[lang]);
-      return { name, starred: Object.keys(starredExercises).some(k => k.toLowerCase() === name.toLowerCase()) };
-    },
-    onMenu: id => {
-      const ex = [...boardColsRef.current.values()].flat().find(e => e.id === id);
-      if (ex) setMenuFor(ex);
-    },
     onDrop: (id, target, idx) => placeInRegion(id, target, idx),
   });
 
@@ -630,48 +772,75 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     onPickExercise(ex);
   };
 
+  /** 打开动作面板：先收起撤销条（它会盖住面板底部的「删除」） */
+  const openActionPanel = (id: string) => {
+    dismissToasts();
+    setMenuFor(id);
+  };
+  const swallowed = () => {
+    if (performance.now() - suppressClickRef.current < 450) {
+      suppressClickRef.current = 0;
+      return true;
+    }
+    return false;
+  };
+
+  const toggleArranging = () => {
+    if (arranging) {
+      setArranging(false);
+      setSpecial(null);
+    } else {
+      setQuery('');
+      searchInputRef.current?.blur();
+      // 从「全部」进来：落到上次整理的部位
+      if (!axis) setAxis({ kind: 'part', v: lastArrangePartRef.current });
+      setArranging(true);
+    }
+    setEquipOpen(false);
+    if (resultsRef.current) resultsRef.current.scrollTop = 0;
+  };
+  useEffect(() => {
+    if (arranging && axis?.kind === 'part') lastArrangePartRef.current = axis.v;
+  }, [arranging, axis]);
+
   // ===== 行渲染 =====
-  // 提成真组件而不是 renderRow 函数：长按要用 useLongPress，
-  // 而 hook 不能写在 .map() 的回调里。
-  const renderRow = (ex: ExerciseDefinition, inBoard = false) => {
+  const bindItemRef = (id: string) => (el: HTMLElement | null) => {
+    if (el) rowRefs.current.set(id, el);
+    else rowRefs.current.delete(id);
+  };
+  const isStarredName = (name: string) => Object.keys(starredExercises).some(k => k.toLowerCase() === name.toLowerCase());
+
+  // 提成真组件而不是 renderRow 函数：长按要用 useLongPress，而 hook 不能写在 .map() 的回调里。
+  const renderRow = (ex: ExerciseDefinition) => {
     const displayName = resolveName(ex.name[lang]);
     const key = displayName.toLowerCase();
     return (
       <PickerRow
         key={ex.id}
-        ex={ex}
         displayName={displayName}
         added={addedCounts[key] || 0}
-        isStarred={Object.keys(starredExercises).some(k => k.toLowerCase() === key)}
+        isStarred={isStarredName(displayName)}
         partName={ex.bodyPart ? getTagName(ex.bodyPart) : ''}
         tagNames={(ex.tags ?? []).slice(0, 3).map(t => ({ tag: t, name: getTagName(t), hit: equips.has((t || '').toLowerCase()) }))}
         isCn={isCn}
         bindRef={bindItemRef(ex.id)}
         onPick={() => {
-          if (performance.now() - suppressClickRef.current < 450) {
-            suppressClickRef.current = 0;
-            return;
-          }
-          if (inBoard && arranging) return; // 整理时点选不添加
+          if (swallowed()) return;
           handlePick(ex);
         }}
         onLongPress={() => {
           suppressClickRef.current = performance.now(); // 松手后的 click 不再当作「添加」
-          setMenuFor(ex);
+          openActionPanel(ex.id);
         }}
         onToggleStar={() => toggleStarExercise(displayName)}
-        dragId={inBoard ? ex.id : undefined}
-        arranging={inBoard && arranging}
       />
     );
   };
 
-  const bindItemRef = (id: string) => (el: HTMLElement | null) => {
-    if (el) rowRefs.current.set(id, el);
-    else rowRefs.current.delete(id);
-  };
-
-  const renderCard = (ex: ExerciseDefinition) => {
+  const renderCard = (
+    ex: ExerciseDefinition,
+    opts: { variant?: string; cell?: { col: string; ci: number; r: number }; unassigned?: boolean; isDeleted?: boolean } = {},
+  ) => {
     const displayName = resolveName(ex.name[lang]);
     const key = displayName.toLowerCase();
     return (
@@ -679,27 +848,62 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         key={ex.id}
         id={ex.id}
         displayName={displayName}
-        added={addedCounts[key] || 0}
-        isStarred={Object.keys(starredExercises).some(k => k.toLowerCase() === key)}
+        added={opts.isDeleted ? 0 : addedCounts[key] || 0}
+        isStarred={!opts.isDeleted && isStarredName(displayName)}
+        variant={opts.variant}
+        cell={opts.cell}
+        unassigned={opts.unassigned}
+        longPress={!arranging}
         bindRef={bindItemRef(ex.id)}
         onPick={() => {
-          if (performance.now() - suppressClickRef.current < 450) {
-            suppressClickRef.current = 0;
+          if (swallowed()) return;
+          if (opts.isDeleted) {
+            restoreLibraryExercise(ex.id);
+            haptic(H.tap);
+            // 「已删除」恢复空了：落到它所在的部位（demo 同）
+            if (special === 'del' && deleted.length <= 1) {
+              const part = effectivePart(ex);
+              setSpecial(part || (ex.category || 'STRENGTH') !== 'STRENGTH' ? null : 'none');
+              if (part) setAxis({ kind: 'part', v: part });
+            }
             return;
           }
-          if (arranging) return; // 整理时点卡片不添加
+          if (arranging) {
+            openActionPanel(ex.id);
+            return;
+          }
           handlePick(ex);
+        }}
+        onLongPress={() => {
+          suppressClickRef.current = performance.now();
+          openActionPanel(ex.id);
         }}
       />
     );
   };
 
+  /** 栏线：列与列之间正中一道 1px，按列宽算位置（中文等分 / 英文 112px） */
+  const rules = (n: number) =>
+    Array.from({ length: n - 1 }, (_, k) => (
+      <span
+        key={k}
+        className="region-rule"
+        style={{ left: `calc(var(--region-colw) * ${k + 1} + var(--region-gap) * ${k + 0.5} - 0.5px)` }}
+        aria-hidden
+      />
+    ));
+
+  const trayTpl = (n = 5) => (isCn ? `repeat(${n}, minmax(0, 1fr))` : 'repeat(auto-fill, minmax(104px, 1fr))');
+
   /**
-   * 细分格（第 3 条）：上面一排吸顶的细分表头，每个细分下面一列小卡；
-   * 没归细分的用现有动作行列在格子下面。细分超过 5 列时横向滑动。
+   * 细分格（第三版「A + 栏线」）：吸顶的表头（刊头双线）+ 一张行对齐的 grid；
+   * 下面是同列宽的「未细分」小卡托盘（轻一档），整理时再接本部位的「已删除」托盘。
    */
   const renderBoard = (part: string) => {
     const regs = regionsOf(part);
+    const n = regs.length;
+    const wide = !isCn;
+    const tpl = wide ? `repeat(${n}, 112px)` : `repeat(${n}, minmax(0, 1fr))`;
     const items = results.map(r => r.ex).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
     // 列内顺序：手动排过的（regionRank）在前按序号，没排过的接在后面按默认（收藏 → 最近 → 其余）
     const byRank = (arr: ExerciseDefinition[]) => [
@@ -716,99 +920,172 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     }
     for (const [k, arr] of by) by.set(k, byRank(arr));
     boardColsRef.current = new Map([...by, ['', unassigned]]);
-    const scroll = regs.length > 5;
+    const dels = arranging ? deleted.filter(ex => (ex.bodyPart || '').toLowerCase() === part.toLowerCase()) : [];
     return (
-      <>
-        {arranging && (
-          <div className="flex justify-end pt-1">
-            <button
-              type="button"
-              onClick={() => {
-                setRegionDraft('');
-                setRegionMenu({ id: '' });
-              }}
-              className="min-h-[34px] px-3 rounded-control text-xs font-bold text-accent border border-dashed border-accent/40 active:bg-accent/10 transition-colors flex items-center gap-1.5"
-              data-testid="region-new"
-            >
-              <PlusCircle size={13} /> {isCn ? '新建细分' : 'New region'}
-            </button>
-          </div>
-        )}
-        <div
-          className={`region-board${scroll ? ' is-scroll' : ''}`}
-          style={{ ['--region-cols' as string]: regs.length }}
-          data-testid="picker-region-board"
-          data-region-board=""
-        >
-          <div className="region-grid region-heads">
-            {regs.map(r =>
-              arranging ? (
+      <div
+        className={`region-board${wide ? ' is-wide' : ''}`}
+        style={{ ['--region-n' as string]: n, ['--region-tpl' as string]: tpl }}
+        data-testid="picker-region-board"
+        data-region-board=""
+      >
+        <div className="region-bscroll">
+          <div className="region-bin">
+            <div className="region-heads">
+              {regs.map(r =>
+                arranging ? (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className="region-head is-editable"
+                    data-region-head={r.id}
+                    data-testid="region-head-edit"
+                    onClick={() => {
+                      dismissToasts();
+                      setRegionMenu({ id: r.id });
+                    }}
+                  >
+                    <b>{getTagName(r.id)}</b>
+                    <i>{by.get(r.id)!.length}</i>
+                  </button>
+                ) : (
+                  <div key={r.id} className="region-head" data-region-head={r.id}>
+                    <b>{getTagName(r.id)}</b>
+                  </div>
+                ),
+              )}
+              {arranging && (
                 <button
-                  key={r.id}
                   type="button"
-                  className="region-head is-editable"
-                  data-region-head={r.id}
-                  data-testid="region-head-edit"
+                  className="region-head-plus"
+                  aria-label={isCn ? '新建细分' : 'New region'}
+                  data-testid="region-new"
                   onClick={() => {
-                    setRegionDraft(getTagName(r.id));
-                    setRegionMenu({ id: r.id });
+                    dismissToasts();
+                    setRegionMenu({ id: '' });
                   }}
                 >
-                  <b>{getTagName(r.id)}</b>
-                  <i>{by.get(r.id)!.length}</i>
+                  <span>
+                    <Plus size={13} strokeWidth={2.5} />
+                  </span>
                 </button>
-              ) : (
-                <div key={r.id} className="region-head" data-region-head={r.id}>
-                  <b>{getTagName(r.id)}</b>
-                  <i>{by.get(r.id)!.length}</i>
-                </div>
-              ),
-            )}
-          </div>
-          <div className="region-grid">
-            {regs.map(r => (
-              <div key={r.id} className="region-col" role="group" aria-label={getTagName(r.id)} data-region-col={r.id}>
-                {by.get(r.id)!.length ? (
-                  by.get(r.id)!.map(renderCard)
-                ) : (
-                  <div className="region-card is-empty" aria-hidden>
-                    —
-                  </div>
-                )}
+              )}
+              {rules(n)}
+            </div>
+            <div className="region-gwrap">
+              <div className="region-band" aria-hidden />
+              {rules(n)}
+              <div className="region-grid">
+                {regs.map((r, ci) => {
+                  const col = by.get(r.id)!;
+                  if (!col.length) {
+                    // 正常态空列不画占位（表头下留白就整齐）；整理时是「可以放进来」的虚线落位
+                    return arranging ? (
+                      <div
+                        key={r.id}
+                        className="region-card is-empty"
+                        style={{ gridColumn: ci + 1, gridRow: 1 }}
+                        data-ci={ci + 1}
+                        aria-hidden
+                      />
+                    ) : null;
+                  }
+                  return col.map((ex, ri) => renderCard(ex, { cell: { col: r.id, ci: ci + 1, r: ri + 1 } }));
+                })}
               </div>
-            ))}
+            </div>
           </div>
         </div>
-        {/* 「未细分」那一片也是落点：拖进来＝放回未细分。空着时只在整理里留一块落点 */}
+        {/* 「未细分」那一片也是落点：拖进来＝放回未细分 */}
         <div className="region-unzone" data-region-col="">
-          {arranging && unassigned.length > 0 ? (
-            // 整理：未细分也排成小卡（同一套列宽），就在格子正下方，拖动距离短
-            <>
-              <div className="flex items-center gap-1.5 mb-2 px-0.5 mt-3">
-                <CircleDashed size={13} className="text-tertiary" />
-                <h3 className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">
-                  {isCn ? '未细分' : 'Unassigned'}
-                </h3>
-                <span className="text-[10px] font-bold text-tertiary">· {unassigned.length}</span>
-              </div>
-              <div className="region-tray" data-drop-body="" style={{ ['--region-cols' as string]: Math.min(regs.length, 5) || 5 }}>
-                {unassigned.map(renderCard)}
-              </div>
-            </>
-          ) : unassigned.length > 0
-            ? renderGroup(
-                <CircleDashed size={13} className="text-tertiary" />,
-                isCn ? '未细分' : 'Unassigned',
-                unassigned,
-                true,
-              )
-            : arranging && <div className="region-card is-empty mt-3 min-h-[60px]" aria-hidden />}
+          {(unassigned.length > 0 || arranging) && (
+            <div className="region-ulab">
+              <CircleDashed size={13} />
+              <h3>{isCn ? '未细分' : 'Unassigned'}</h3>
+              <span>{unassigned.length}</span>
+            </div>
+          )}
+          <div
+            className="region-tray"
+            data-drop-body=""
+            style={{ ['--region-tpl' as string]: wide ? trayTpl() : tpl, minHeight: arranging && !unassigned.length ? 44 : undefined }}
+          >
+            {unassigned.map(ex => renderCard(ex, { variant: 'is-un', unassigned: true }))}
+          </div>
         </div>
-      </>
+        {dels.length > 0 && (
+          <>
+            <div className="region-ulab">
+              <RotateCcw size={13} />
+              <h3>{isCn ? '已删除' : 'Deleted'}</h3>
+              <span>{dels.length}</span>
+            </div>
+            <div className="region-tray" style={{ ['--region-tpl' as string]: wide ? trayTpl() : tpl }}>
+              {dels.map(ex => renderCard(ex, { variant: 'is-deleted is-tap', isDeleted: true }))}
+            </div>
+          </>
+        )}
+      </div>
     );
   };
 
-  const renderGroup = (icon: React.ReactNode, title: string, items: ExerciseDefinition[], inBoard = false) => {
+  /** 整理里的小卡托盘（没有细分的部位 / 未分部位 / 已删除）：只能点，不能拖 */
+  const renderTray = (list: ExerciseDefinition[], isDeleted = false) => {
+    if (!list.length) return null;
+    const sorted = isDeleted ? list : [...list].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+    return (
+      <div className="region-tray mt-1" style={{ ['--region-tpl' as string]: trayTpl(), ['--region-gap' as string]: '9px' }}>
+        {sorted.map(ex =>
+          renderCard(ex, { variant: isDeleted ? 'is-deleted is-tap' : 'is-un is-tap', isDeleted }),
+        )}
+      </div>
+    );
+  };
+
+  /** 整理最底下的器材节：一行器材 chip（带使用数），点开器材面板；行尾「＋」新建 */
+  const renderEquipSection = () => {
+    const pool = special === 'none' ? noPart : special === 'del' ? deleted : results.map(r => r.ex);
+    return (
+      <div className="mt-1.5" data-testid="arrange-equip">
+        <div className="region-ulab">
+          <h3>{isCn ? '器材' : 'Gear'}</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {equipIds.map(id => {
+            const label = getTagName(id);
+            if (!label) return null;
+            const n = pool.filter(ex => (ex.tags ?? []).some(t => (t || '').toLowerCase() === id.toLowerCase())).length;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  dismissToasts();
+                  setEquipMenu({ id });
+                }}
+                className="flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 bg-inset text-secondary"
+              >
+                {label}
+                <span className="text-[10px] font-bold tabular-nums text-tertiary">{n}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              dismissToasts();
+              setEquipMenu({ id: '' });
+            }}
+            aria-label={isCn ? '新建器材' : 'New gear'}
+            className="flex-shrink-0 min-h-[34px] px-2.5 rounded-control flex items-center bg-accent/5 text-accent border border-dashed border-accent/40"
+          >
+            <Plus size={13} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderGroup = (icon: React.ReactNode, title: string, items: ExerciseDefinition[]) => {
     if (items.length === 0) return null;
     return (
       <div key={title}>
@@ -817,12 +1094,91 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <h3 className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">{title}</h3>
           <span className="text-[10px] font-bold text-tertiary">· {items.length}</span>
         </div>
-        <div className="space-y-2" {...(inBoard ? { 'data-drop-body': '' } : {})}>
-          {items.map(ex => renderRow(ex, inBoard))}
-        </div>
+        <div className="space-y-2">{items.map(ex => renderRow(ex))}</div>
       </div>
     );
   };
+
+  const chipCls = (on: boolean, custom = false) =>
+    `flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
+      on
+        ? 'bg-accent text-on-accent shadow-elevated'
+        : custom
+          ? 'bg-accent/5 text-accent border border-dashed border-accent/40'
+          : 'bg-inset text-secondary'
+    }`;
+
+  /** 部位 chip（普通态：0 结果的隐藏，已选中的除外；整理态：全部列出） */
+  const renderAxisChips = () =>
+    axisChips.map(chip => {
+      const on = !special && axis !== null && axis.kind === chip.kind && axis.v === chip.v;
+      const availKey = chip.kind === 'part' ? 'part:' + chip.v.toLowerCase() : 'cat:' + chip.v;
+      if (!arranging && !on && !axisAvailable.has(availKey)) return null;
+      const label = axisLabel(chip);
+      if (!label) return null;
+      return (
+        <button
+          key={chip.kind + chip.v}
+          type="button"
+          data-on={on ? '1' : undefined}
+          onClick={() => {
+            if (arranging) {
+              // 再点一次已选中的部位＝部位面板（改名 / 删除自建）
+              if (on && chip.kind === 'part') {
+                dismissToasts();
+                setPartMenu({ id: chip.v });
+                return;
+              }
+              setSpecial(null);
+              setAxis({ kind: chip.kind, v: chip.v });
+              if (resultsRef.current) resultsRef.current.scrollTop = 0;
+              return;
+            }
+            setAxis(on ? null : { kind: chip.kind, v: chip.v });
+          }}
+          className={chipCls(on, chip.custom)}
+        >
+          {label}
+        </button>
+      );
+    });
+
+  const equipChips = () =>
+    equipIds.map(id => {
+      const n = equipCounts.get(id) ?? 0;
+      const on = equips.has(id.toLowerCase());
+      if (n === 0 && !on) return null;
+      const label = getTagName(id);
+      if (!label) return null;
+      return (
+        <button
+          key={id}
+          type="button"
+          onClick={() => {
+            const next = new Set(equips);
+            const key = id.toLowerCase();
+            if (next.has(key)) next.delete(key);
+            else next.add(key);
+            setEquips(next);
+          }}
+          className={`flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+            on ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
+          }`}
+        >
+          {label}
+          <span className={`text-[10px] font-bold tabular-nums ${on ? 'text-on-accent/75' : 'text-tertiary'}`}>{n}</span>
+        </button>
+      );
+    });
+
+  const arrangeTitle = special === 'none'
+    ? isCn ? '未分部位' : 'No part'
+    : special === 'del'
+      ? isCn ? '已删除' : 'Deleted'
+      : axis ? axisLabel(axis) : '';
+  /** 选了部位（普通态）：筛选收成一行 */
+  const oneLine = !arranging && !!axis;
+  const menuEx = menuFor ? byId.get(menuFor) : undefined;
 
   return (
     <div
@@ -862,9 +1218,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <div className="w-12 h-1.5 rounded-full bg-divider mx-auto" />
         </div>
 
-        {/* 头部：标题 + 本次已加 + 关闭；整行（按钮除外）也是拖拽关闭的热区 */}
+        {/* 头部：普通态「添加动作 [本次已加 N] … [整理] [×]」；整理态「整理 · 胸部 [完成]」。整行（按钮除外）也是拖拽关闭的热区 */}
         <div
-          className="flex items-center gap-2.5 px-4 pt-1.5 pb-0.5 flex-shrink-0 select-none cursor-grab active:cursor-grabbing"
+          className="flex items-center gap-2.5 px-4 pt-1.5 pb-0.5 flex-shrink-0 select-none cursor-grab active:cursor-grabbing min-h-[52px]"
           style={{ touchAction: 'none' }}
           onPointerDown={e => {
             if ((e.target as HTMLElement).closest('button')) return;
@@ -874,100 +1230,91 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
         >
-          <h2 className="font-display text-lg font-semibold text-primary">
-            {arrangeView
-              ? `${isCn ? '整理' : 'Arrange'} · ${getTagName(boardPart!)}`
-              : isCn ? '添加动作' : 'Add Exercise'}
+          <h2 className="font-display text-lg font-semibold text-primary whitespace-nowrap truncate">
+            {arranging ? `${isCn ? '整理' : 'Arrange'} · ${arrangeTitle}` : isCn ? '添加动作' : 'Add Exercise'}
           </h2>
-          {sessionAdded > 0 && !arrangeView && (
+          {sessionAdded > 0 && !arranging && (
             <span
               key={sessionAdded}
-              className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold"
+              className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold whitespace-nowrap"
             >
               ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
             </span>
           )}
-          {boardPart && (
+          <button
+            type="button"
+            onClick={toggleArranging}
+            aria-pressed={arranging}
+            className={`ml-auto flex-shrink-0 min-h-[34px] px-3 rounded-control text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors ${
+              arranging ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
+            }`}
+            data-testid="region-arrange"
+          >
+            <Move size={14} strokeWidth={2} />
+            {arranging ? (isCn ? '完成' : 'Done') : isCn ? '整理' : 'Arrange'}
+          </button>
+          {!arranging && (
             <button
               type="button"
-              onClick={() => setArranging(a => !a)}
-              aria-pressed={arranging}
-              className={`ml-auto min-h-[34px] px-3 rounded-control text-xs font-bold flex items-center gap-1.5 transition-colors ${
-                arranging ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
-              }`}
-              data-testid="region-arrange"
+              onClick={onClose}
+              className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
+              aria-label={isCn ? '完成并关闭' : 'Done'}
+              data-testid="picker-sheet-close"
             >
-              <Move size={14} strokeWidth={2} />
-              {arranging ? (isCn ? '完成' : 'Done') : isCn ? '整理' : 'Arrange'}
+              <X size={21} />
             </button>
           )}
-          <button
-            type="button"
-            onClick={onOpenTagManage}
-            className={`${boardPart ? '' : 'ml-auto '}w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui`}
-            aria-label={isCn ? '管理标签' : 'Manage tags'}
-            data-testid="open-tag-manage"
-          >
-            <Tags size={20} />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-11 h-11 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
-            aria-label={isCn ? '完成并关闭' : 'Done'}
-            data-testid="picker-sheet-close"
-          >
-            <X size={21} />
-          </button>
         </div>
 
-        {/* 搜索行 */}
-        <div className={`flex gap-2 px-4 pt-1.5 pb-2.5 flex-shrink-0${arrangeView ? ' hidden' : ''}`}>
-          <div className="relative flex-1">
-            <Search
-              size={16}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none"
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-              }}
-              enterKeyHint="search"
-              autoComplete="off"
-              className="w-full min-h-[46px] bg-inset border border-divider rounded-card pl-10 pr-10 text-sm text-primary outline-none focus:border-accent transition-colors placeholder:text-tertiary"
-              placeholder={isCn ? '名称 / 拼音 / 首字母 / 部位…' : 'Name / initials / body part…'}
-              aria-label={isCn ? '搜索动作' : 'Search exercises'}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  searchInputRef.current?.focus();
+        {/* 搜索行（整理时收起） */}
+        {!arranging && (
+          <div className="flex gap-2 px-4 pt-1.5 pb-2.5 flex-shrink-0">
+            <div className="relative flex-1">
+              <Search
+                size={16}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-tertiary pointer-events-none"
+              />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                 }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-control text-tertiary active:bg-card-hover"
-                aria-label={isCn ? '清除搜索' : 'Clear search'}
-              >
-                <X size={15} strokeWidth={2.4} />
-              </button>
-            )}
+                enterKeyHint="search"
+                autoComplete="off"
+                className="w-full min-h-[46px] bg-inset border border-divider rounded-card pl-10 pr-10 text-sm text-primary outline-none focus:border-accent transition-colors placeholder:text-tertiary"
+                placeholder={isCn ? '名称 / 拼音 / 首字母 / 部位…' : 'Name / initials / body part…'}
+                aria-label={isCn ? '搜索动作' : 'Search exercises'}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-control text-tertiary active:bg-card-hover"
+                  aria-label={isCn ? '清除搜索' : 'Clear search'}
+                >
+                  <X size={15} strokeWidth={2.4} />
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onCreateCustomExercise(q || undefined)}
+              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform"
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              {isCn ? '新动作' : 'New'}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => onCreateCustomExercise(q || undefined)}
-            className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform"
-          >
-            <Plus size={14} strokeWidth={2.5} />
-            {isCn ? '新动作' : 'New'}
-          </button>
-        </div>
+        )}
 
         {/* 筛选区收起态：一行摘要（键盘弹起时） */}
-        {filtersCollapsed && !arrangeView && (
+        {filtersCollapsed && !arranging && (
           <div className="flex items-center gap-2 px-4 pb-2 flex-shrink-0">
             <button
               type="button"
@@ -997,92 +1344,107 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           </div>
         )}
 
-        {/* 部位行（单选，铺开多行，0 结果隐藏） */}
-        {!filtersCollapsed && !arrangeView && (
-        <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0 items-center">
-          <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
-            {isCn ? '部位' : 'PART'}
-          </span>
-          <button
-            type="button"
-            onClick={() => setAxis(null)}
-            className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold transition-colors ${
-              axis === null ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
-            }`}
+        {/* 整理：部位行一行横滑，末尾「未分部位 N · 已删除 N · ＋」 */}
+        {arranging && (
+          <div
+            ref={partScrollRef}
+            className="flex gap-2 px-4 pb-2.5 flex-shrink-0 overflow-x-auto hscroll-bare"
+            data-testid="arrange-parts"
           >
-            {isCn ? '全部' : 'All'}
-          </button>
-          {axisChips.map(chip => {
-            const on = axis !== null && axis.kind === chip.kind && axis.v === chip.v;
-            const availKey =
-              chip.kind === 'part' ? 'part:' + chip.v.toLowerCase() : 'cat:' + chip.v;
-            // 当前筛选下 0 结果的部位直接隐藏（与器材行同规则），已选中的除外
-            if (!on && !axisAvailable.has(availKey)) return null;
-            const label = axisLabel(chip);
-            if (!label) return null;
-            return (
+            {renderAxisChips()}
+            {noPart.length > 0 && (
               <button
-                key={chip.kind + chip.v}
                 type="button"
-                onClick={() => setAxis(on ? null : { kind: chip.kind, v: chip.v })}
-                className={`flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold transition-colors ${
-                  on
-                    ? 'bg-accent text-on-accent shadow-elevated'
-                    : chip.custom
-                      ? 'bg-accent/5 text-accent border border-dashed border-accent/40'
-                      : 'bg-inset text-secondary'
-                }`}
+                data-on={special === 'none' ? '1' : undefined}
+                onClick={() => setSpecial('none')}
+                className={chipCls(special === 'none')}
+                data-testid="arrange-nopart"
               >
-                {label}
+                {isCn ? '未分部位' : 'No part'}
+                <i className={`not-italic font-mono text-[10px] font-semibold ${special === 'none' ? 'text-on-accent/75' : 'text-tertiary'}`}>
+                  {noPart.length}
+                </i>
               </button>
-            );
-          })}
-        </div>
+            )}
+            {deleted.length > 0 && (
+              <button
+                type="button"
+                data-on={special === 'del' ? '1' : undefined}
+                onClick={() => setSpecial('del')}
+                className={chipCls(special === 'del')}
+                data-testid="arrange-deleted"
+              >
+                {isCn ? '已删除' : 'Deleted'}
+                <i className={`not-italic font-mono text-[10px] font-semibold ${special === 'del' ? 'text-on-accent/75' : 'text-tertiary'}`}>
+                  {deleted.length}
+                </i>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                dismissToasts();
+                setPartMenu({ id: '' });
+              }}
+              aria-label={isCn ? '新建部位' : 'New part'}
+              className="flex-shrink-0 min-h-[38px] w-[38px] rounded-control flex items-center justify-center bg-accent/5 text-accent border border-dashed border-accent/40"
+              data-testid="arrange-new-part"
+            >
+              <Plus size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        )}
+
+        {/* 选了部位：筛选收成一行 —— 部位横滑 + 行尾一颗器材 chip（点开才铺器材行） */}
+        {!filtersCollapsed && oneLine && (
+          <>
+            <div className="flex items-center gap-2 px-4 pb-2.5 flex-shrink-0" data-testid="filters-one-line">
+              <div ref={partScrollRef} className="flex-1 min-w-0 flex gap-2 overflow-x-auto hscroll-bare -ml-4 pl-4">
+                <button type="button" onClick={() => setAxis(null)} className={chipCls(false)}>
+                  {isCn ? '全部' : 'All'}
+                </button>
+                {renderAxisChips()}
+              </div>
+              <button
+                type="button"
+                onClick={() => setEquipOpen(v => !v)}
+                aria-expanded={equipOpen}
+                className={`${chipCls(equips.size > 0)} max-w-[120px]`}
+                data-testid="equip-toggle"
+              >
+                <span className="truncate">{selectedEquipNames.length ? selectedEquipNames.join(' · ') : isCn ? '器材' : 'Gear'}</span>
+                {equipOpen ? <ChevronUp size={13} className="flex-shrink-0" /> : <ChevronDown size={13} className="flex-shrink-0" />}
+              </button>
+            </div>
+            {equipOpen && <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0">{equipChips()}</div>}
+          </>
+        )}
+
+        {/* 没选部位：部位行（单选，铺开多行，0 结果隐藏） */}
+        {!filtersCollapsed && !arranging && !oneLine && (
+          <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0 items-center">
+            <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
+              {isCn ? '部位' : 'PART'}
+            </span>
+            <button type="button" onClick={() => setAxis(null)} className={chipCls(axis === null)}>
+              {isCn ? '全部' : 'All'}
+            </button>
+            {renderAxisChips()}
+          </div>
         )}
 
         {/* 器材行（多选，联动计数，0 隐藏，铺开多行）—— 与部位行用分隔线隔开 */}
-        {!filtersCollapsed && !arrangeView && (
-        <div className="mx-4 pt-2.5 pb-2.5 flex-shrink-0 border-t border-divider flex flex-wrap gap-2 items-center">
-          <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
-            {isCn ? '器材' : 'GEAR'}
-          </span>
-          {equipIds.map(id => {
-            const n = equipCounts.get(id) ?? 0;
-            const on = equips.has(id.toLowerCase());
-            if (n === 0 && !on) return null;
-            const label = getTagName(id);
-            if (!label) return null;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  const next = new Set(equips);
-                  const key = id.toLowerCase();
-                  if (next.has(key)) next.delete(key);
-                  else next.add(key);
-                  setEquips(next);
-                }}
-                className={`flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
-                  on ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
-                }`}
-              >
-                {label}
-                <span
-                  className={`text-[10px] font-bold tabular-nums ${
-                    on ? 'text-on-accent/75' : 'text-tertiary'
-                  }`}
-                >
-                  {n}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {!filtersCollapsed && !arranging && !oneLine && (
+          <div className="mx-4 pt-2.5 pb-2.5 flex-shrink-0 border-t border-divider flex flex-wrap gap-2 items-center">
+            <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
+              {isCn ? '器材' : 'GEAR'}
+            </span>
+            {equipChips()}
+          </div>
         )}
 
-        {/* 计数 / 清空 */}
-        {(q || nFilters > 0) && !arrangeView && (
+        {/* 计数 / 清空（选了部位时不显示：清空就是点「全部」） */}
+        {(q || nFilters > 0) && !arranging && !oneLine && (
           <div className="flex items-center justify-between px-4 pb-1.5 flex-shrink-0 text-[11px] font-semibold text-tertiary">
             <span>
               <b className="text-secondary">{totalCount}</b> {isCn ? '个结果' : 'results'}
@@ -1107,10 +1469,21 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         <div
           ref={resultsRef}
           className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 custom-scrollbar ${
-            boardPart ? 'pb-24' : 'pb-6'
-          }${boardPart && arranging ? ' is-arranging' : ''}`}
+            boardPart || arranging ? 'pb-24' : 'pb-6'
+          }${arranging ? ' is-arranging' : ''}${isCn ? '' : ' is-en'}`}
         >
-          {q ? (
+          {arranging ? (
+            <>
+              {special === 'none'
+                ? renderTray(noPart)
+                : special === 'del'
+                  ? renderTray(deleted, true)
+                  : boardPart
+                    ? renderBoard(boardPart)
+                    : renderTray(results.map(r => r.ex))}
+              {renderEquipSection()}
+            </>
+          ) : q ? (
             axis ? (
               <>
                 {renderGroup(<Search size={13} className="text-accent" />, axisLabel(axis), searchHere)}
@@ -1147,7 +1520,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             </>
           )}
 
-          {totalCount === 0 && (
+          {!arranging && totalCount === 0 && (
             <div className="text-center pt-9 pb-2 text-sm font-semibold text-secondary">
               <Search size={32} className="mx-auto mb-2.5 text-tertiary" strokeWidth={1.5} />
               {q
@@ -1156,7 +1529,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             </div>
           )}
 
-          {q && !hasExactMatch && (
+          {!arranging && q && !hasExactMatch && (
             <button
               type="button"
               onClick={() => onCreateCustomExercise(q)}
@@ -1169,7 +1542,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         </div>
       </section>
 
-      {/* 整理里的细分面板：改名 / 左右移 / 删除，或新建 + 恢复删掉的系统细分 */}
+      {/* 细分面板（整理）：改名 / 左右移 / 按默认排序 / 删除；或新建 + 恢复删掉的系统细分 */}
       {regionMenu && boardPart && (() => {
         const part = boardPart;
         const ids = regionsOf(part).map(r => r.id);
@@ -1177,226 +1550,190 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         const i = ids.indexOf(id);
         const hidden = hiddenRegionsOf(part);
         const close = () => setRegionMenu(null);
-        const btn =
-          'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors disabled:opacity-40';
-        const commit = () => {
-          const name = regionDraft.trim();
-          if (!name) return;
-          if (id) {
-            if (name !== getTagName(id) && !renameTag(id, name)) return;
-            close();
-          } else if (addRegionTag(part, name)) close();
-        };
         return (
-          <div
-            className="absolute inset-0 z-10 bg-scrim flex items-end sm:items-center justify-center anim-fade"
-            onClick={close}
-            data-testid="region-menu"
+          <NamePanel
+            key={id || 'new'}
+            testId="region-menu"
+            title={id ? getTagName(id) : isCn ? '新建细分' : 'New region'}
+            subtitle={getTagName(part)}
+            initial={id ? getTagName(id) : ''}
+            placeholder={isCn ? '细分名称' : 'Region name'}
+            isCn={isCn}
+            onCommit={name => (id ? renameTag(id, name) : !!addRegionTag(part, name))}
+            onClose={close}
           >
-            <div
-              className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
-              style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-              onClick={e => e.stopPropagation()}
-            >
-              <p className="px-2 pb-1 text-sm font-semibold text-primary">
-                {id ? getTagName(id) : isCn ? '新建细分' : 'New region'}
-                <span className="block text-xs font-medium text-tertiary">{getTagName(part)}</span>
-              </p>
-              <div className="flex gap-2">
-                <input
-                  className="ui-input flex-1 min-w-0"
-                  value={regionDraft}
-                  onChange={e => setRegionDraft(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      commit();
-                    }
-                  }}
-                  placeholder={isCn ? '细分名称' : 'Region name'}
-                  aria-label={isCn ? '细分名称' : 'Region name'}
-                  autoFocus={!id}
-                />
-                <button
-                  type="button"
-                  onClick={commit}
-                  disabled={!regionDraft.trim() || (!!id && regionDraft.trim() === getTagName(id))}
-                  className="flex-shrink-0 px-4 rounded-control bg-accent text-on-accent font-semibold disabled:opacity-40"
-                >
-                  {id ? (isCn ? '改名' : 'Rename') : isCn ? '添加' : 'Add'}
-                </button>
-              </div>
-              {id ? (
-                <>
-                  <div className="flex gap-2">
-                    <button type="button" className={`${btn} justify-center`} disabled={i <= 0} onClick={() => moveRegion(part, id, -1)}>
-                      <ChevronLeft size={16} className="text-accent" /> {isCn ? '左移' : 'Move left'}
-                    </button>
-                    <button
-                      type="button"
-                      className={`${btn} justify-center`}
-                      disabled={i < 0 || i >= ids.length - 1}
-                      onClick={() => moveRegion(part, id, 1)}
-                    >
-                      {isCn ? '右移' : 'Move right'} <ChevronRight size={16} className="text-accent" />
-                    </button>
-                  </div>
+            {id ? (
+              <>
+                <div className="flex gap-2">
+                  <button type="button" className={`${panelBtn} justify-center`} disabled={i <= 0} onClick={() => moveRegion(part, id, -1)}>
+                    <ChevronLeft size={16} className="text-accent" /> {isCn ? '左移' : 'Move left'}
+                  </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      close();
-                      removeRegion(part, id);
-                    }}
-                    className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
+                    className={`${panelBtn} justify-center`}
+                    disabled={i < 0 || i >= ids.length - 1}
+                    onClick={() => moveRegion(part, id, 1)}
                   >
-                    <Trash2 size={16} />
-                    {isCn ? '删除这个细分' : 'Remove region'}
+                    {isCn ? '右移' : 'Move right'} <ChevronRight size={16} className="text-accent" />
                   </button>
+                </div>
+                <button
+                  type="button"
+                  className={panelBtn}
+                  onClick={() => {
+                    // 拖过一次的列从此按手动顺序；这里清掉序号，回到「收藏 → 最近 → 其余」
+                    const col = boardColsRef.current.get(id) ?? [];
+                    applyRegionLayout(col.map(e => ({ id: e.id, region: id })));
+                    close();
+                    toast(isCn ? `「${getTagName(id)}」已按默认排序` : `"${getTagName(id)}" back to default order`, 'success');
+                  }}
+                >
+                  <ArrowDownUp size={16} className="text-accent" />
+                  {isCn ? '按默认排序' : 'Default order'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    close();
+                    removeRegion(part, id);
+                  }}
+                  className={dangerBtn}
+                >
+                  <Trash2 size={16} />
+                  {isCn ? '删除这个细分' : 'Remove region'}
+                </button>
+              </>
+            ) : (
+              hidden.length > 0 && (
+                <>
+                  <div className="px-2 pt-1 text-[10px] font-bold tracking-[0.2em] text-secondary">
+                    {isCn ? '恢复' : 'RESTORE'}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {hidden.map(h => (
+                      <button
+                        key={h}
+                        type="button"
+                        onClick={() => {
+                          restoreRegion(part, h);
+                          close();
+                        }}
+                        className="min-h-[38px] px-3 rounded-control text-xs font-bold bg-card border border-dashed border-divider text-secondary flex items-center gap-1.5"
+                      >
+                        <RotateCcw size={12} /> {getTagName(h)}
+                      </button>
+                    ))}
+                  </div>
                 </>
-              ) : (
-                hidden.length > 0 && (
-                  <>
-                    <div className="px-2 pt-1 text-[10px] font-bold tracking-[0.2em] text-secondary">
-                      {isCn ? '恢复' : 'RESTORE'}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {hidden.map(h => (
-                        <button
-                          key={h}
-                          type="button"
-                          onClick={() => {
-                            restoreRegion(part, h);
-                            close();
-                          }}
-                          className="min-h-[38px] px-3 rounded-control text-xs font-bold bg-card border border-dashed border-divider text-secondary flex items-center gap-1.5"
-                        >
-                          <RotateCcw size={12} /> {getTagName(h)}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )
-              )}
-              <button
-                type="button"
-                onClick={close}
-                className="w-full min-h-[48px] px-4 rounded-card text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
-              >
-                {isCn ? '完成' : 'Done'}
-              </button>
-            </div>
-          </div>
+              )
+            )}
+          </NamePanel>
         );
       })()}
 
-      {/* 长按动作行 → 管理菜单 */}
-      {menuFor && (
-        <div
-          className="absolute inset-0 z-10 bg-scrim flex items-end sm:items-center justify-center p-0 sm:p-6 anim-fade"
-          onClick={() => setMenuFor(null)}
-          data-testid="row-action-menu"
-        >
-          <div
-            className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
-            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-            onClick={e => e.stopPropagation()}
+      {/* 部位面板（整理）：再点已选中的部位＝改名 / 删除自建；「＋」＝新建 */}
+      {partMenu && (() => {
+        const id = partMenu.id;
+        const custom = !!id && customPartIds.some(c => c.toLowerCase() === id.toLowerCase());
+        const close = () => setPartMenu(null);
+        return (
+          <NamePanel
+            key={id || 'new'}
+            testId="part-menu"
+            title={id ? getTagName(id) : isCn ? '新建部位' : 'New part'}
+            subtitle={isCn ? '部位' : 'Part'}
+            initial={id ? getTagName(id) : ''}
+            placeholder={isCn ? '部位名称' : 'Part name'}
+            isCn={isCn}
+            onCommit={name => {
+              if (id) return renameTag(id, name);
+              const nid = addTag('bodyPart', name);
+              if (!nid) return false;
+              setSpecial(null);
+              setAxis({ kind: 'part', v: nid });
+              return true;
+            }}
+            onClose={close}
           >
-            {(() => {
-              const regs =
-                (menuFor.category || 'STRENGTH') === 'STRENGTH' ? regionsOf(menuFor.bodyPart) : [];
-              const cur = effectiveRegion(menuFor) ?? '';
-              const where = [
-                menuFor.bodyPart ? getTagName(menuFor.bodyPart) : '',
-                cur ? getTagName(cur) : regs.length ? (isCn ? '未细分' : 'Unassigned') : '',
-              ]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <>
-                  <p className="px-2 pb-1 text-sm font-semibold text-primary">
-                    {resolveName(menuFor.name[lang])}
-                    {where && <span className="block text-xs font-medium text-tertiary">{where}</span>}
-                  </p>
-                  {regs.length > 0 && (
-                    <>
-                      <div className="px-2 pt-0.5 text-[10px] font-bold tracking-[0.2em] text-secondary">
-                        {isCn ? '归到细分' : 'REGION'}
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 pb-1.5" data-testid="menu-region-chips">
-                        {[{ id: '', custom: false }, ...regs].map(r => {
-                          const on = cur === r.id;
-                          return (
-                            <button
-                              key={r.id || 'none'}
-                              type="button"
-                              aria-pressed={on}
-                              onClick={() => {
-                                const ex = menuFor;
-                                setMenuFor(null);
-                                if (!on) placeInRegion(ex.id, r.id, null, ex);
-                              }}
-                              className={`min-h-[38px] px-3 rounded-control text-xs font-bold border transition-colors ${
-                                on
-                                  ? 'bg-accent border-accent text-on-accent shadow-elevated'
-                                  : 'bg-card border-divider text-secondary'
-                              }`}
-                            >
-                              {r.id ? getTagName(r.id) : isCn ? '未细分' : 'Unassigned'}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </>
-              );
-            })()}
-            <button
-              type="button"
-              onClick={() => {
-                const ex = menuFor;
-                setMenuFor(null);
-                onEditExerciseTags(ex);
-              }}
-              className="w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
-            >
-              <Tags size={16} className="text-accent" />
-              {isCn ? '编辑标签' : 'Edit tags'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const ex = menuFor;
-                setMenuFor(null);
-                onRenameExercise(ex.id, resolveName(ex.name[lang]));
-              }}
-              className="w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors"
-            >
-              <PencilLine size={16} className="text-accent" />
-              {isCn ? '重命名' : 'Rename'}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const ex = menuFor;
-                setMenuFor(null);
-                onDeleteExercise(ex.id);
-              }}
-              className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
-            >
-              <Trash2 size={16} />
-              {isCn ? '从动作库删除' : 'Delete from library'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMenuFor(null)}
-              className="w-full min-h-[48px] px-4 rounded-card text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
-            >
-              {isCn ? '取消' : 'Cancel'}
-            </button>
-          </div>
-        </div>
+            {custom && (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  // 用过它的动作落到「未分部位」（引用不改，撤销即回来）
+                  const orphans = merged.filter(ex => (ex.bodyPart || '').toLowerCase() === id.toLowerCase()).length;
+                  void deleteTag(id);
+                  if (orphans) setSpecial('none');
+                  else setAxis({ kind: 'part', v: BODY_PARTS[0] });
+                }}
+                className={dangerBtn}
+              >
+                <Trash2 size={16} />
+                {isCn ? '删除这个部位' : 'Delete part'}
+              </button>
+            )}
+          </NamePanel>
+        );
+      })()}
+
+      {/* 器材面板（整理最底下的器材节）：改名 / 删除自建；「＋」＝新建 */}
+      {equipMenu && (() => {
+        const id = equipMenu.id;
+        const custom = !!id && /^ct_/i.test(id);
+        const close = () => setEquipMenu(null);
+        return (
+          <NamePanel
+            key={id || 'new'}
+            testId="equip-menu"
+            title={id ? getTagName(id) : isCn ? '新建器材' : 'New gear'}
+            subtitle={isCn ? '器材' : 'Gear'}
+            initial={id ? getTagName(id) : ''}
+            placeholder={isCn ? '器材名称' : 'Gear name'}
+            isCn={isCn}
+            onCommit={name => (id ? renameTag(id, name) : !!addTag('equipment', name))}
+            onClose={close}
+          >
+            {custom && (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  void deleteTag(id);
+                }}
+                className={dangerBtn}
+              >
+                <Trash2 size={16} />
+                {isCn ? '删除这个器材' : 'Delete gear'}
+              </button>
+            )}
+          </NamePanel>
+        );
+      })()}
+
+      {/* 动作面板：普通态长按 / 整理态点卡 */}
+      {menuEx && (
+        <ExerciseActionPanel
+          ex={menuEx}
+          lang={lang}
+          onClose={() => setMenuFor(null)}
+          onAssignRegion={(ex, region) => placeInRegion(ex.id, region, null, ex)}
+          onEditTags={onEditExerciseTags}
+          onVariants={setVariantFor}
+          onNote={onOpenNote}
+          onMetrics={onOpenMetrics}
+          onDelete={onDeleteExercise}
+        />
       )}
+
+      {/* 从动作库进的练法：只管理（改名 / 删除 / 新建），不切换任何一张训练卡 */}
+      <VariantModal
+        open={!!variantFor}
+        lang={lang}
+        exerciseName={variantFor ?? ''}
+        manage
+        onSelect={() => {}}
+        onClose={() => setVariantFor(null)}
+      />
     </div>
   );
 };

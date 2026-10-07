@@ -1079,74 +1079,180 @@ button {
   animation: set-nope 240ms var(--ease-ink);
 }
 
-/* ── 部位细分格（第 3 条，照 docs/demos/region-board.html 第三版）──
-   表头一行吸顶，字号跟弹层分组标题同族、大一档；小卡跟部位 / 器材 chip 同一套：
-   灰底无边框、粗体、次级墨色；已添加＝朱砂实底（同选中态）。名字最多三行。 */
+/* ── 部位细分格（2026-10 第三版「A + 栏线」，照 docs/demos/region-board-v3.html）──
+   小卡跟部位 / 器材 chip 同一套：灰底无边框、粗体；已添加＝朱砂实底。
+   列是第一层级：列间一道 1px divider 栏线（列距 9px，线在正中），从表头穿到格子底；
+   表头 13px/700 + 刊头双线（同动作卡 .masthead-rule）。格子是一张行对齐的 grid（卡片带显式行列）。
+   中文按列等分、不横滑；英文每列 112px 横滑（5 列怎么排都放不下 Dumbb/ell）。 */
 .region-board {
-  margin-top: 2px;
+  --region-gap: 9px;
+  /* 栏线位置按列宽算：中文等分（% 在用到它的地方解析，即 heads / gwrap 的宽度） */
+  --region-colw: calc((100% - (var(--region-n) - 1) * var(--region-gap)) / var(--region-n));
+  position: relative;
 }
-.region-grid {
+.region-board.is-wide {
+  --region-colw: 112px;
+}
+.region-board.is-wide .region-bscroll {
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 0 16px;
+  scrollbar-width: none;
+}
+.region-board.is-wide .region-bscroll::-webkit-scrollbar {
+  display: none;
+}
+.region-board.is-wide .region-bin {
+  width: max-content;
+}
+.region-heads,
+.region-grid,
+.region-tray {
   display: grid;
-  grid-template-columns: repeat(var(--region-cols), minmax(0, 1fr));
-  column-gap: 5px;
+  grid-template-columns: var(--region-tpl);
+  column-gap: var(--region-gap, 9px);
 }
 .region-heads {
   position: sticky;
   top: 0;
-  z-index: 2;
-  margin-bottom: 8px;
-  padding: 8px 0 7px;
+  z-index: 3;
+  margin-bottom: 10px;
+  padding: 12px 0 6px;
   background: var(--bg-base);
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--rule-strong);
+  box-shadow: 0 3px 0 -2px var(--divider);
+}
+/* 横滑时表头在横向滚动容器里，吸不了顶（demo 同） */
+.region-board.is-wide .region-heads {
+  position: relative;
 }
 .region-head {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: baseline;
   gap: 4px;
   min-width: 0;
-  padding-left: 6px;
+  padding-left: 5px;
   white-space: nowrap;
+  text-align: left;
+  border-radius: var(--radius-control);
+  transition: background-color var(--dur-tap) var(--ease-ink);
 }
 .region-head b {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
 }
 .region-head i {
   flex: none;
-}
-.region-head i {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-style: normal;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
 }
-.region-col {
+/* 整理：表头可点（改名 / 移动 / 排序 / 删除），名字下一道朱砂虚线＝可点的批注（同 .marginalia） */
+.region-head.is-editable {
+  min-height: 30px;
+  align-items: center;
+}
+.region-head.is-editable b {
+  line-height: 1.4;
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.region-head.is-target {
+  background: var(--accent);
+}
+.region-head.is-target b,
+.region-head.is-target i {
+  color: var(--text-on-accent);
+}
+.region-head.is-target b {
+  border-bottom-color: transparent;
+}
+/* 表头行末的「＋」：5 列已经占满宽度，不能再占一列（会把每列挤窄），挂在行尾、半截伸进右侧留白 */
+.region-head-plus {
+  position: absolute;
+  top: 6px;
+  right: -16px;
+  bottom: 2px;
+  width: 30px;
+  padding-right: 4px;
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
 }
+.region-head-plus span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  color: var(--accent);
+}
+.region-gwrap {
+  position: relative;
+}
+.region-grid {
+  position: relative;
+  row-gap: 4px;
+  align-items: stretch;
+}
+.region-rule {
+  position: absolute;
+  z-index: 0;
+  width: 1px;
+  background: var(--divider);
+  pointer-events: none;
+}
+.region-heads .region-rule {
+  top: 6px;
+  bottom: -7px;
+}
+.region-gwrap .region-rule {
+  top: -10px;
+  bottom: 0;
+}
+/* 拖动时整列高亮：范围就是两条栏线之间（useRegionDrag 摆位置） */
+.region-band {
+  position: absolute;
+  top: -10px;
+  bottom: -4px;
+  z-index: 0;
+  display: none;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  pointer-events: none;
+}
+.region-band.is-on {
+  display: block;
+}
+
 .region-card {
   position: relative;
+  z-index: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 48px;
-  padding: 7px 5px 7px 7px;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  padding: 6px 4px 6px 5px;
   text-align: left;
   background: var(--bg-inset);
-  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  font-size: clamp(12px, 3.35vw, 13px);
-  line-height: 1.32;
+  font-size: 12.5px;
+  line-height: 1.3;
   font-weight: 700;
   color: var(--text-secondary);
+  /* 名字按词断行：词间插了零宽空格（nameSegments），词内不断；词表外的长名字兜底逐字断 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  touch-action: pan-y;
   transition:
     background-color var(--dur-tap) var(--ease-paper),
     color var(--dur-tap) var(--ease-paper);
@@ -1159,74 +1265,132 @@ button {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  /* 中文本来就逐字可断；英文要按词换行，只有单个超长词才强拆（break-all 会拆成「Dumbb / ell Fly」） */
-  overflow-wrap: anywhere;
 }
-.region-card-name svg {
+.region-card-star {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  line-height: 0;
   color: var(--warning);
 }
 .region-card-x {
-  margin-left: 2px;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.75;
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  font: 600 10px/1 'IBM Plex Mono', ui-monospace, monospace;
+  opacity: 0.8;
 }
 .region-card.is-added {
   background: var(--accent);
   color: var(--text-on-accent);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--shadow-page);
 }
-.region-card.is-added .region-card-name svg {
+.region-card.is-added .region-card-star {
   color: inherit;
 }
+/* 未细分：同一种小卡，轻一档（透明底 + 描边）＝还没放好 */
+.region-card.is-un {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--divider);
+  font-weight: 600;
+}
+.region-card.is-un.is-added {
+  background: var(--accent);
+  box-shadow: var(--shadow-page);
+}
+/* 空列的落位（只在整理时画：那时它确实是「可以放进来」） */
 .region-card.is-empty {
-  align-items: center;
   background: transparent;
   border: 1px dashed var(--divider);
-  color: var(--text-tertiary);
-  font-weight: 500;
-  cursor: default;
+  pointer-events: none;
 }
-/* 细分超过 5 列（自建了细分）：横向滑动，每列固定宽 */
-.region-board.is-scroll {
-  overflow-x: auto;
-  margin: 0 -16px;
-  padding: 0 16px;
-  scrollbar-width: none;
-}
-.region-board.is-scroll::-webkit-scrollbar {
-  display: none;
-}
-.region-board.is-scroll .region-grid {
-  grid-template-columns: repeat(var(--region-cols), 118px);
-  width: max-content;
-}
-.region-board.is-scroll .region-heads {
-  position: static;
-}
-
-/* ── 拖到细分（2026-10，demo：docs/demos/region-drag.html 第二版）──
-   浮卡＝离桌（同训练卡拖动排序：shadow-overlay + scale 1.03），手指下那一列整列亮起、表头反白，
-   列里虚线落位跟着手指高度走。DOM 由 useRegionDrag 命令式管理。 */
-.region-card {
-  touch-action: pan-y;
-}
-.is-arranging .region-card,
-.is-arranging [data-drag-id] {
-  /* 整理：按下即拖，不让浏览器先把它当成滚动 */
+/* 整理：小卡浮起成纸片＝可以拿起来挪（材质表达状态，不加图标、不写说明） */
+.is-arranging .region-card {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-page), inset 0 0 0 1px var(--divider);
+  color: var(--text-primary);
+  /* 按下即拖，不让浏览器先把它当成滚动 */
   touch-action: none;
 }
+.is-arranging .region-card.is-added {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  box-shadow: var(--shadow-page);
+}
+.is-arranging .region-card.is-empty {
+  background: transparent;
+  box-shadow: none;
+}
+/* 只能点、不能拖的托盘（没有细分的部位 / 未分部位 / 已删除）照常能滚 */
+.is-arranging .region-card.is-tap {
+  touch-action: pan-y;
+}
+.is-arranging .region-card.is-deleted {
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--divider);
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.is-en .region-card {
+  font-size: 12px;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+/* 「未细分」「已删除」「器材」的小标题：跟表头同族、小一号、tertiary，中文不加字距 */
+.region-ulab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 18px 0 8px;
+  padding-left: 2px;
+  color: var(--text-tertiary);
+}
+.region-ulab h3 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+.region-ulab span {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+.region-unzone {
+  position: relative;
+  border-radius: var(--radius-card);
+  transition:
+    background-color var(--dur-tap) var(--ease-ink),
+    box-shadow var(--dur-tap) var(--ease-ink);
+}
+.region-unzone.is-target {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.region-tray {
+  row-gap: 4px;
+}
+/* 横滑的部位行（筛选收成一行 / 整理的部位行） */
+.hscroll-bare {
+  scrollbar-width: none;
+}
+.hscroll-bare::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── 拖动（整理态，useRegionDrag 命令式管理 DOM）──
+   浮卡＝离桌（shadow-overlay + scale 1.03）；落位虚线跟着手指高度走；浮卡被吸向落位。 */
 .region-floater {
   position: absolute;
   left: 0;
   top: 0;
   z-index: 30;
   width: var(--fw);
+  min-height: var(--fh, 44px);
   pointer-events: none;
   background: var(--bg-card);
-  border-color: var(--accent);
   color: var(--text-primary);
+  outline: 1px solid var(--accent);
   box-shadow: var(--shadow-overlay);
   transform: translate(var(--fx), var(--fy)) scale(calc(1 + 0.03 * var(--move)));
 }
@@ -1238,44 +1402,10 @@ button {
   outline: 1px dashed var(--rule-strong);
   outline-offset: -1px;
 }
-.region-col,
-.region-unzone,
-.region-head {
-  border-radius: var(--radius-control);
-  transition:
-    background-color var(--dur-tap) var(--ease-ink),
-    box-shadow var(--dur-tap) var(--ease-ink);
-}
-.region-col {
-  min-height: 48px;
-}
-.region-col.is-target,
-.region-unzone.is-target {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
-}
-.region-head.is-target {
-  background: var(--accent);
-}
-.region-head.is-target b,
-.region-head.is-target i {
-  color: var(--text-on-accent);
-}
-/* 整理时表头可点（改名 / 左右移 / 删除）：名字下一道朱砂虚线＝可点的批注（同 .marginalia） */
-.region-head.is-editable {
-  min-height: 32px;
-  text-align: left;
-}
-.region-head.is-editable b {
-  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
-}
-.region-tray {
-  display: grid;
-  grid-template-columns: repeat(var(--region-cols), minmax(0, 1fr));
-  gap: 5px;
-}
 .region-slot {
-  min-height: 48px;
+  position: relative;
+  z-index: 1;
+  min-height: 44px;
   border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--accent) 4%, transparent);
