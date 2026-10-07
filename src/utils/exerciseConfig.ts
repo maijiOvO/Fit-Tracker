@@ -34,7 +34,7 @@ export function getLoadMode(exercise: Exercise): LoadMode {
  * 行自己也要设一遍：只读的历史视图里没有 ExerciseCard 当父级，
  * 只靠父级下发的话 var(--cols) 会解析失败、网格塌成单列。
  */
-export function ledgerCols(metricCount: number): string {
+export function ledgerCols(metricCount: number, firstCol = 36): string {
   // 组号 36 | 各指标 | 力竭 | 删组 44
   //
   // 力竭列不取 44：它紧挨删组按钮，两个 44 并排会把指标列挤爆，
@@ -48,7 +48,8 @@ export function ledgerCols(metricCount: number): string {
   const fail = metricCount >= 3 ? 26 : 36;
   // minmax(0,1fr) 而不是 1fr：1fr 的自动最小值是 min-content，
   // 26px 数字撑不下时整行会横向溢出而不是让列收缩。
-  return `36px repeat(${metricCount}, minmax(0, 1fr)) ${fail}px 44px`;
+  // firstCol：交替组的组号前多一个动作简称（「收」「展」），首列放宽
+  return `${firstCol}px repeat(${metricCount}, minmax(0, 1fr)) ${fail}px 44px`;
 }
 
 /**

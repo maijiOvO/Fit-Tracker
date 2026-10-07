@@ -259,6 +259,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
         sessionStorage.setItem('__e2e_seeded_clean', '1');
         localStorage.clear();
         indexedDB.databases?.().then(dbs => dbs.forEach(d => d.name && indexedDB.deleteDatabase(d.name)));
+        // 删组 / 删动作的撤销条默认关（2.6）；这批用例测的是开着时的撤销，先打开
+        localStorage.setItem('fitlog_undo_workout_deletes', '1');
       }
     } catch {}
     window.lsKey = key => {
@@ -645,6 +647,8 @@ const main = async () => {
     try {
       localStorage.clear();
       indexedDB.databases?.().then(dbs => dbs.forEach(d => d.name && indexedDB.deleteDatabase(d.name)));
+      // 删组 / 删动作的撤销条默认关（2.6）；这批用例测的是开着时的撤销，先打开
+      localStorage.setItem('fitlog_undo_workout_deletes', '1');
     } catch {}
 
     /**
@@ -1167,7 +1171,7 @@ const main = async () => {
     const cards = page.locator('[data-testid="picker-region-card"]');
     await cards.first().waitFor({ state: 'visible', timeout: 5_000 });
     const heads = await page.locator('[data-testid="picker-region-board"] .region-head').allInnerTexts();
-    if (heads.length !== 5) throw new Error(`chest should have 5 regions, got ${heads.length}: ${heads.join('|')}`);
+    if (heads.length !== 6 || heads[0].trim() !== '热身') throw new Error(`chest should have 6 regions (热身 first), got ${heads.length}: ${heads.join('|')}`);
     const count = await cards.count();
     // 搜索不被部位锁死：胸部下搜「三头」要落到「其他部位」，不能说「没有」
     const search = sheet.locator('input[type="text"]');
@@ -1323,7 +1327,7 @@ const main = async () => {
     await menu.getByRole('button', { name: /右移/ }).click();
     await menu.getByRole('button', { name: /^完成$/ }).click();
     const h1 = await heads();
-    if (h1.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`rename/move failed: ${h1.join('|')}`);
+    if (h1.join('|') !== '热身|上胸|中胸|下胸|外轮廓|内侧') throw new Error(`rename/move failed: ${h1.join('|')}`);
 
     // 删除系统细分：不弹确认、撤销条 + 它的动作回到未细分（未细分是小卡托盘）
     await head('内侧').click();
@@ -1340,7 +1344,7 @@ const main = async () => {
     await menu.locator('input').fill('内侧');
     await menu.getByRole('button', { name: /^添加$/ }).click();
     const h2 = await heads();
-    if (h2.join('|') !== '上胸|中胸|下胸|外轮廓|内侧') throw new Error(`typing a hidden system region's name did not restore it: ${h2.join('|')}`);
+    if (h2.join('|') !== '热身|上胸|中胸|下胸|外轮廓|内侧') throw new Error(`typing a hidden system region's name did not restore it: ${h2.join('|')}`);
     // 表头字符串一样不算数：自建一个同名列也会排在最后。恢复回来的必须是那个系统细分本身
     const innerId = await head('内侧').getAttribute('data-region-head');
     if (innerId !== 'chestInner') throw new Error(`「内侧」is a new custom region (${innerId}), not the restored system one`);
@@ -1349,7 +1353,7 @@ const main = async () => {
     await menu.locator('input').fill('E2E新列');
     await menu.getByRole('button', { name: /^添加$/ }).click();
     if (!(await heads()).includes('E2E新列')) throw new Error('new region did not appear');
-    if ((await heads()).length !== 6) throw new Error(`expected 6 columns, got ${(await heads()).join('|')}`);
+    if ((await heads()).length !== 7) throw new Error(`expected 7 columns, got ${(await heads()).join('|')}`);
     await clearToasts();
 
     // 收尾：删掉新列、名字改回去、挪回去、退出整理
@@ -1364,7 +1368,7 @@ const main = async () => {
     await sheet.locator('[data-testid="region-arrange"]').click();
     await clearToasts();
     const h3 = await heads();
-    if (h3.join('|') !== '上胸|中胸|下胸|中缝|外轮廓') throw new Error(`cleanup left ${h3.join('|')}`);
+    if (h3.join('|') !== '热身|上胸|中胸|下胸|中缝|外轮廓') throw new Error(`cleanup left ${h3.join('|')}`);
     return 'rename via 完成 + move + remove(undo toast, back to unassigned) + restore-by-name + new region';
   });
 
@@ -1551,8 +1555,8 @@ const main = async () => {
     return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
-  // 第 4、2 条：组只有待做 / 做完两种状态。只有点组号才算做完，改值只改值；
-  // 全零的组点不实；删组单击 + 撤销；休息书签正下方那一行露出 −5 / +5。
+  // 指针（2026-10）：点组号＝选中，选中的再点＝做完（默认选中指针下面那一组，所以一下就够）；
+  // 刚做完那组选中后再点＝退回；改值只改值；全零的组点不实；删组单击（+ 撤销，设置开着时）；±5 跟着选中的那组。
   await step(page, 'set-state-gestures', async () => {
     const rows = page.locator('.ledger-row');
     const row0 = rows.first();
@@ -1562,11 +1566,27 @@ const main = async () => {
     const edited = await row0.locator('.ledger-field.is-edited').count();
     if (edited < 1) throw new Error('edited cells on a to-do row are not marked is-edited');
 
+    const isSel = async r => (await r.getAttribute('class')).includes('is-selected');
+    if (!(await isSel(row0))) throw new Error('the set under the pointer is not selected by default');
     await row0.locator('.set-num').click();
-    if (!(await isInked(row0))) throw new Error('tapping the set number did not mark it done');
+    if (!(await isInked(row0))) throw new Error('tapping the selected set number did not mark it done');
+    if (await isSel(row0)) throw new Error('selection did not move on after marking done');
     await page.waitForTimeout(650); // 过长按吞 click 的窗口之外，正常连点
-    await row0.locator('.set-num').click();
-    if (await isInked(row0)) throw new Error('tapping a done set number did not revert it to to-do');
+    await row0.locator('.set-num').click(); // 选中刚做完的那组
+    if (!(await isSel(row0)) || !(await isInked(row0))) throw new Error('first tap on a done set should only select it');
+    await page.waitForTimeout(650);
+    await row0.locator('.set-num').click(); // 再点＝退回
+    if (await isInked(row0)) throw new Error('tapping the just-done selected set did not revert it to to-do');
+
+    // ±5：全场只有一处，在选中的那一组（第 1 组，刚退回、仍选中）
+    const steps = page.locator('[data-testid="weight-step"]');
+    if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
+    const w = row0.locator('[data-testid="ledger-field-weight"] input');
+    const w0 = Number(await w.inputValue());
+    await steps.getByRole('button', { name: /加 5|\+5/ }).click();
+    const w1 = Number(await w.inputValue());
+    if (Math.abs(w1 - (w0 + 5)) > 0.011) throw new Error(`+5 went ${w0} → ${w1}`);
+    if (await isInked(row0)) throw new Error('+5 marked the row done');
 
     // 添加组：新行从待做开始
     const before = await rows.count();
@@ -1582,21 +1602,13 @@ const main = async () => {
     const copiedSubs = await page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`).count();
     if (copiedSubs !== 0) throw new Error(`添加组 copied ${copiedSubs} drop-set row(s) from the previous set`);
 
-    // 全零的行点不实
+    // 全零的行点不实（先选中，再点）
     await newRow.locator('[data-testid="ledger-field-weight"] input').fill('');
     await newRow.locator('[data-testid="ledger-field-reps"] input').fill('');
     await newRow.locator('.set-num').click();
+    await page.waitForTimeout(650);
+    await newRow.locator('.set-num').click();
     if (await isInked(newRow)) throw new Error('an all-zero set could be marked done');
-
-    // ±5：全场只有一处，在书签下面那一组（第 1 组，刚退回待做，书签回到最上方）
-    const steps = page.locator('[data-testid="weight-step"]');
-    if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
-    const w = row0.locator('[data-testid="ledger-field-weight"] input');
-    const w0 = Number(await w.inputValue());
-    await steps.getByRole('button', { name: /加 5|\+5/ }).click();
-    const w1 = Number(await w.inputValue());
-    if (Math.abs(w1 - (w0 + 5)) > 0.011) throw new Error(`+5 went ${w0} → ${w1}`);
-    if (await isInked(row0)) throw new Error('+5 marked the row done');
 
     // 删组：单击即删 + 撤销条
     const n = await rows.count();
@@ -1665,12 +1677,12 @@ const main = async () => {
     return `${before} → ${after}; clash with "${other}" rejected; alias kept`;
   });
 
-  // 第 8 条：练法。⋯ → 练法 → 快捷「宽握」建好即选中，眉批显示；改名；点眉批换回标准；删除走撤销条
+  // 第 8 条：做法（原练法）。⋯ → 做法 → 快捷「宽握」建好即选中，眉批显示；改名；点眉批换回标准；删除走撤销条
   await step(page, 'exercise-variant', async () => {
     const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
     const modal = page.locator('[data-testid="variant-modal"]');
     await card.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
-    await card.getByRole('menuitem', { name: /^练法$|^Variant$/ }).click();
+    await card.getByRole('menuitem', { name: /^做法$|^Variant$/ }).click();
     await modal.waitFor({ state: 'visible', timeout: 3_000 });
     await modal.getByRole('button', { name: /^宽握$/ }).click();
     await modal.waitFor({ state: 'detached', timeout: 3_000 });
@@ -1692,7 +1704,7 @@ const main = async () => {
     await mark.click();
     await modal.getByRole('button', { name: /删除 宽握·暂停/ }).click();
     const t = await page.locator('[data-testid="toast"]').last().innerText();
-    if (!/已删除练法「宽握·暂停」/.test(t)) throw new Error(`no undo toast for variant delete: ${t}`);
+    if (!/已删除做法「宽握·暂停」/.test(t)) throw new Error(`no undo toast for variant delete: ${t}`);
     await modal.getByRole('button', { name: /^(关闭|Close)$/ }).first().click();
     await modal.waitFor({ state: 'detached', timeout: 3_000 });
     const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');

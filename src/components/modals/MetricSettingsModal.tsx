@@ -4,7 +4,6 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { STANDARD_METRICS } from '../../constants/exercises';
-import { LoadMode } from '../../utils/exerciseConfig';
 
 interface MetricSettingsModalProps {
   open: boolean;
@@ -15,9 +14,12 @@ interface MetricSettingsModalProps {
   /** 重置到默认（应配合 confirm 弹窗使用） */
   onResetDefault: () => Promise<void> | void;
   onClose: () => void;
-  /** 当前动作实例的负重/辅助标记（从训练页打开时才有） */
-  loadMode?: LoadMode;
-  onChangeLoadMode?: (mode: LoadMode) => void;
+  /**
+   * 负荷记法（变体第二层）：普通重量，还是带正负（自重类：辅助负、自重 0、负重正，±5 可以跨过 0）。
+   * 按动作存（动作库里的设置），不传＝不显示这一节（动作不在库里）。
+   */
+  signedLoad?: boolean;
+  onChangeSignedLoad?: (on: boolean) => void;
 }
 
 export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
@@ -28,8 +30,8 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   toggleMetric,
   onResetDefault,
   onClose,
-  loadMode,
-  onChangeLoadMode,
+  signedLoad,
+  onChangeSignedLoad,
 }) => {
   const [newCustomDimension, setNewCustomDimension] = useState('');
   const isCn = lang === Language.CN;
@@ -93,35 +95,26 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
           ))}
         </div>
 
-        {onChangeLoadMode && (
+        {onChangeSignedLoad && (
           <>
             <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
-              {isCn ? '负重 / 辅助标记' : 'Load mode'}
+              {isCn ? '负荷记法' : 'Load'}
             </p>
-            <div className="flex gap-1 p-1 mb-2 bg-card/50 border border-divider rounded-control">
-              {(['none', 'weighted', 'assisted'] as const).map(m => (
+            <div className="flex gap-1 p-1 mb-8 bg-card/50 border border-divider rounded-control" data-testid="signed-load-toggle">
+              {([false, true] as const).map(on => (
                 <button
-                  key={m}
-                  onClick={() => onChangeLoadMode(m)}
+                  key={String(on)}
+                  type="button"
+                  onClick={() => onChangeSignedLoad(on)}
+                  aria-pressed={!!signedLoad === on}
                   className={`flex-1 py-2.5 rounded-chip text-xs font-bold transition-colors ${
-                    (loadMode ?? 'none') === m
-                      ? 'bg-accent text-on-accent'
-                      : 'text-secondary hover:text-primary'
+                    !!signedLoad === on ? 'bg-accent text-on-accent' : 'text-secondary hover:text-primary'
                   }`}
                 >
-                  {m === 'none'
-                    ? isCn ? '标准' : 'Standard'
-                    : m === 'weighted'
-                      ? translations.modeWeighted[lang]
-                      : translations.modeAssisted[lang]}
+                  {on ? (isCn ? '辅助 − / 自重 / 负重 +' : 'Assisted − / BW / Weighted +') : isCn ? '普通重量' : 'Plain weight'}
                 </button>
               ))}
             </div>
-            <p className="text-[10px] text-tertiary mb-8 px-1">
-              {isCn
-                ? '仅作标记：重量列表头显示 + / −，不参与统计'
-                : 'Label only: weight header shows + / −, excluded from stats'}
-            </p>
           </>
         )}
 

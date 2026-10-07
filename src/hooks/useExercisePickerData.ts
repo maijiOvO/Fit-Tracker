@@ -62,8 +62,8 @@ export function useExercisePickerData({
   }, [customExercises, exerciseOverrides, lang]);
   const merged = useMemo(() => library.filter(ex => !ex.hidden), [library]);
   const byId = useMemo(() => new Map(library.map(ex => [ex.id, ex])), [library]);
-  /** 整理的「已删除」托盘 */
-  const deleted = useMemo(() => library.filter(ex => ex.hidden), [library]);
+  /** 整理的「已删除」托盘（并入了别的动作的不算：它已经是那个动作的一个做法） */
+  const deleted = useMemo(() => library.filter(ex => ex.hidden && !ex.mergedInto), [library]);
   /** 整理的「未分部位」：力量动作没有部位，或部位（自建）已被删掉 */
   const noPart = useMemo(
     () => merged.filter(ex => (ex.category || 'STRENGTH') === 'STRENGTH' && !effectivePart(ex)),
@@ -85,6 +85,9 @@ export function useExercisePickerData({
       }
       // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
       tagNames.push(...(ex.aliases ?? []));
+      // 做法名也能搜到（搜「宽握」出高位下拉），并进来的旧名同理
+      for (const v of ex.variants ?? []) tagNames.push(v.name);
+      tagNames.push(...Object.keys(ex.variantAliases ?? {}));
       // 细分名也能搜到（搜「上胸」出整列）
       const rg = effectiveRegion(ex);
       if (rg) tagNames.push(getTagName(rg));

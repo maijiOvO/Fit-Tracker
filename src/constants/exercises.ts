@@ -154,12 +154,13 @@ const BASE_EXERCISES: ExerciseDefinition[] = [
  * 全身 / 有氧 / 自由不分细分。一个动作只落一列。
  */
 export const BODY_REGIONS: Record<string, string[]> = {
-  subChest: ['chestUpper', 'chestMid', 'chestLower', 'chestInner', 'chestOuter'],
-  subShoulder: ['shFront', 'shSide', 'shRear'],
-  subBack: ['backLats', 'backMid', 'backTraps', 'backLower'],
-  subArms: ['armBi', 'armTri', 'armFore'],
-  subLegs: ['legQuad', 'legHam', 'legGlute', 'legCalf', 'legAdd'],
-  subCore: ['coreUpper', 'coreLower', 'coreObl', 'coreStab'],
+  // 每个部位第一列是「热身」（2.4，2026-10-06 用户定：热身动作放进各部位的细分，不再单开自建部位）
+  subChest: ['chestWarm', 'chestUpper', 'chestMid', 'chestLower', 'chestInner', 'chestOuter'],
+  subShoulder: ['shWarm', 'shFront', 'shSide', 'shRear'],
+  subBack: ['backWarm', 'backLats', 'backMid', 'backTraps', 'backLower'],
+  subArms: ['armWarm', 'armBi', 'armTri', 'armFore'],
+  subLegs: ['legWarm', 'legQuad', 'legHam', 'legGlute', 'legCalf', 'legAdd'],
+  subCore: ['coreWarm', 'coreUpper', 'coreLower', 'coreObl', 'coreStab'],
 };
 
 /** 内置动作落在哪个细分。没列的（有氧、自由、全身）不分细分 */

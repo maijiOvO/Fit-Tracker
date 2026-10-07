@@ -14,13 +14,38 @@ import {
   Scale,
 } from 'lucide-react';
 import {
+  Exercise,
   ExerciseDefinition,
   Language,
+  SetLog,
   SubSetLog,
   WorkoutSession,
 } from '../../types';
 import { translations } from '../../translations';
 import { ExerciseCard } from './ExerciseCard';
+import { AlternatingCard } from './AlternatingCard';
+import {
+  buildCards,
+  cardRows,
+  findSet,
+  groupExercises,
+  isJustDone,
+  markSetDone,
+  moveGroupMember,
+  movePointerTo,
+  moveSetToExercise,
+  nextPendingRow,
+  normalizeGroups,
+  pointerSeam,
+  removeFromGroup,
+  revertSet,
+  RowRef,
+  setHasValue,
+  splitGroup,
+} from '../utils/workbench';
+import { usesSignedLoad } from '../utils/load';
+import { undoWorkoutDeletes } from '../utils/undoPref';
+import { haptic, H } from '../utils/haptics';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { BodyPartPicker } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
@@ -57,8 +82,13 @@ export interface NewWorkoutTabProps {
 
   // ===== 添加动作弹层 =====
   pickerOpen: boolean;
-  /** focusPart：打开时直接停在哪个部位栏（选了部位印进来时带上） */
-  onPickerOpenChange: (open: boolean, focusPart?: string | null) => void;
+  /**
+   * focusPart：打开时直接停在哪个部位栏（选了部位印进来时带上）。
+   * targetGroup：从交替组的「加一个动作」打开 —— 这次选的动作加进这个组（App 记着，pick 时带上）。
+   */
+  onPickerOpenChange: (open: boolean, focusPart?: string | null, targetGroup?: string | null) => void;
+  /** 这次弹层是「加到某个交替组」：头部写「加到 X ⇄ Y」 */
+  pickerTargetLabel?: string | null;
   /** 本次打开弹层要停在的部位栏，由 App 保管（FAB 印谱与页内印谱两条路共用） */
   pickerFocusPart?: string | null;
   /** 小写显示名 -> 当前训练中出现次数（弹层「已添加」徽标） */
@@ -106,6 +136,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   pickerOpen,
   onPickerOpenChange,
   pickerFocusPart = null,
+  pickerTargetLabel = null,
   addedCounts,
   sessionAdded,
   onPickExercise,
@@ -119,8 +150,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   partPrechosenId = null,
 }) => {
   const isCn = lang === Language.CN;
-  const { findExerciseDef } = useExercisePrefs();
-  const { toastUndo } = useUiOverlay();
+  const { findExerciseDef, signedLoadOf } = useExercisePrefs();
+  const { toast, toastUndo } = useUiOverlay();
   const flashTimerRef = useRef<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -133,70 +164,159 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const [partChosenFor, setPartChosenFor] = useState<string | null>(null);
 
   /**
-   * §12.13 休息标记：「我这次休息在哪两组之间」。**全场唯一** ——
-   * 你同一时刻只可能在一个地方休息，所以它是一份状态，不是每张卡各算各的。
+   * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
+   * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
+   * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
    *
-   * 是「此刻」的 UI 状态，跟滚动位置同级：不进 SetLog、不落盘、离开工作台即弃。
-   * null = 还没有落点（一场训练刚开始，什么都没做过）。
+   * 选中：组号实心 + ±5。默认选中指针下面那一组（正常情况点一下就做完）；点别的组号先选中它，再点才算做完。
+   * 只存「手动选中的那一组」，做完 / 删掉之后清空，回到默认。
    */
-  const [restMark, setRestMark] = useState<{ exId: string; gap: number } | null>(null);
+  const exs = currentWorkout.exercises ?? [];
+  const [pickedSetId, setPickedSetId] = useState<string | null>(null);
+  const seam = pointerSeam(exs);
+  const defaultRow = nextPendingRow(exs);
+  const pickedValid = !!pickedSetId && exs.some(e => e.sets.some(s => String(s.id) === pickedSetId));
+  const selectedSetId = pickedValid ? pickedSetId : defaultRow?.setId ?? null;
+  const cards = buildCards(exs);
 
-  /**
-   * 加了新动作 → 书签跳到新动作的最上方（gap 0）。
-   *
-   * 认「id 集合里冒出了没见过的」，而不是认某一条添加路径：动作可以从弹层来、
-   * 从「补记动作」来、从整场复制来，认路径必然漏。
-   * 换了一场训练（workout id 变了）就整个清空，别把上一场的落点带过来。
-   */
-  const seenExIdsRef = useRef<{ workoutId: string; ids: string[] } | null>(null);
-  useEffect(() => {
-    const ids = (currentWorkout.exercises ?? []).map(ex => ex.id);
-    const prev = seenExIdsRef.current;
-    seenExIdsRef.current = { workoutId: currentWorkout.id, ids };
+  const setExs = (fn: (list: Exercise[]) => Exercise[]) =>
+    setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(fn(w.exercises ?? [])) }));
 
-    if (!prev || prev.workoutId !== currentWorkout.id) {
-      // 换场：整场复制会一次铺进来一堆动作，那不是「加了一个动作」，不该跳
-      setRestMark(null);
+  const isSigned = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex.name));
+
+  /** 点组号：没选中＝选中；选中的待做 / 跳过组＝做完；选中的刚做完那组＝退回；其余选中的做完组＝取消选中 */
+  const tapSetNum = (r: RowRef) => {
+    const set = findSet(exs, r);
+    if (!set) return;
+    if (selectedSetId !== r.setId) {
+      haptic(H.tap);
+      setPickedSetId(r.setId);
       return;
     }
-    const fresh = ids.filter(id => !prev.ids.includes(id));
-    if (fresh.length) setRestMark({ exId: fresh[fresh.length - 1], gap: 0 });
-  }, [currentWorkout.id, (currentWorkout.exercises ?? []).map(ex => ex.id).join('|')]);
-
-  // 书签指向的动作被删掉之后别留一个悬空引用
-  useEffect(() => {
-    if (!restMark) return;
-    if (!(currentWorkout.exercises ?? []).some(ex => ex.id === restMark.exId)) setRestMark(null);
-  }, [restMark, currentWorkout.exercises]);
-
-  /**
-   * restMark 为 null（刚进工作台、刚换场）时的派生落点：最后一条已描实的组之后。
-   *
-   * 「我刚做完第 k 组正在休息」和「第一条没描实的是第 k+1 组」是同一个事实的两种说法，
-   * 所以这跟旧的 firstGhostIdx 指针是同一个口径，只是落在缝上而不是行上。
-   * 一条都没描实（整场都是底稿）就落在第一个动作的最上方。
-   */
-  const effectiveRest = (() => {
-    if (restMark) return restMark;
-    const exs = currentWorkout.exercises ?? [];
-    if (!exs.length) return null;
-    for (let i = exs.length - 1; i >= 0; i--) {
-      const sets = exs[i].sets ?? [];
-      let lastInked = -1;
-      for (let k = 0; k < sets.length; k++) if (!(sets[k] as any).ghost) lastInked = k;
-      if (lastInked >= 0) return { exId: exs[i].id, gap: lastInked + 1 };
+    if (set.ghost) {
+      if (!setHasValue(set)) {
+        // 全零的组点不实：一组什么都没填，做完也记不下任何东西
+        haptic(H.tap);
+        toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
+        return;
+      }
+      haptic(H.tap);
+      const res = markSetDone(exs, r);
+      setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(res.exs) }));
+      setPickedSetId(null);
+      if (res.suggestPair) {
+        const { a, b } = res.suggestPair;
+        const other = exs.find(e => e.id === b);
+        toastUndo(
+          isCn ? `和「${other ? resolveName(other.name) : ''}」交替做？` : `Alternate with "${other ? resolveName(other.name) : ''}"?`,
+          () => setExs(list => groupExercises(list, [a, b], { unskip: true })),
+          { undoLabel: isCn ? '交替' : 'Alternate', durationMs: 6000 },
+        );
+      }
+      return;
     }
-    return { exId: exs[0].id, gap: 0 };
-  })();
+    if (isJustDone(exs, r)) {
+      haptic(H.tap);
+      setCurrentWorkout(w => ({ ...w, exercises: revertSet(w.exercises ?? [], r) }));
+      setPickedSetId(r.setId);
+      return;
+    }
+    setPickedSetId(null);
+  };
 
-  const exerciseCount = currentWorkout.exercises?.length ?? 0;
+  const movePointer = (cardKey: string, gap: number) => {
+    setCurrentWorkout(w => ({ ...w, exercises: movePointerTo(w.exercises ?? [], cardKey, gap) }));
+    setPickedSetId(null);
+  };
+
+  /** 更新一组（按 id，交替组和单卡共用） */
+  const updateSet = (r: RowRef, updates: Partial<SetLog>) =>
+    setCurrentWorkout(w => ({
+      ...w,
+      exercises: (w.exercises ?? []).map(e =>
+        e.id !== r.exId ? e : { ...e, sets: e.sets.map(s => (String(s.id) === r.setId ? { ...s, ...updates } : s)) },
+      ),
+    }));
+
+  /** 添加组：克隆这个动作最后一组的值，新行从待做开始 */
+  const addSetTo = (exId: string) =>
+    setCurrentWorkout(w => ({
+      ...w,
+      exercises: (w.exercises ?? []).map(e => {
+        if (e.id !== exId) return e;
+        const lastSet = e.sets.length > 0 ? e.sets[e.sets.length - 1] : null;
+        // 克隆上一行的值，新行从【待做】开始（第 4 条）：加出来不等于做完了。
+        // 力竭是当日这一组的事实，不跟着抄；touched / 跳过 / 先后号同理。
+        // 递减档也一样（addset-clones-drop-set）：子组是当组的事实，照抄过来点了组号，
+        // 没做过的那档就被记进历史和容量；真要再做，长按组号加。
+        const newId = `${Date.now()}`;
+        const newSet: SetLog = lastSet
+          ? (() => {
+              const { subSets: _sub, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, ...base } = lastSet;
+              return { ...base, id: newId, ghost: true };
+            })()
+          : { id: newId, weight: 0, reps: 0, ghost: true };
+        return { ...e, sets: [...e.sets, newSet] };
+      }),
+    }));
+
+  /** 删组：单击即删；撤销条看设置（2.6，默认关） */
+  const removeSet = (r: RowRef) => {
+    const ex = exs.find(e => e.id === r.exId);
+    const idx = ex?.sets.findIndex(s => String(s.id) === r.setId) ?? -1;
+    if (!ex || idx < 0) return;
+    const removed = ex.sets[idx];
+    setCurrentWorkout(w => ({
+      ...w,
+      exercises: (w.exercises ?? []).map(e =>
+        e.id === r.exId ? { ...e, sets: e.sets.filter(st => String(st.id) !== r.setId) } : e,
+      ),
+    }));
+    if (pickedSetId === r.setId) setPickedSetId(null);
+    if (!undoWorkoutDeletes()) return;
+    toastUndo(isCn ? '已删除一组' : 'Set deleted', () => {
+      setCurrentWorkout(w => ({
+        ...w,
+        exercises: (w.exercises ?? []).map(e => {
+          if (e.id !== r.exId || e.sets.some(st => String(st.id) === r.setId)) return e;
+          const sets = [...e.sets];
+          sets.splice(Math.min(idx, sets.length), 0, removed);
+          return { ...e, sets };
+        }),
+      }));
+    });
+  };
+
+  const removeSubSet = (r: RowRef, subIdx: number) => {
+    const set = findSet(exs, r);
+    const removed = (set?.subSets ?? [])[subIdx];
+    if (!removed) return;
+    const patchSubs = (fn: (subs: SubSetLog[]) => SubSetLog[]) => {
+      setCurrentWorkout(w => ({
+        ...w,
+        exercises: (w.exercises ?? []).map(e =>
+          e.id !== r.exId
+            ? e
+            : { ...e, sets: e.sets.map(st => (String(st.id) === r.setId ? { ...st, subSets: fn(st.subSets ?? []) } : st)) },
+        ),
+      }));
+    };
+    patchSubs(subs => subs.filter(sb => sb.id !== removed.id));
+    if (!undoWorkoutDeletes()) return;
+    toastUndo(isCn ? '已删除一档' : 'Step deleted', () =>
+      patchSubs(subs => {
+        if (subs.some(sb => sb.id === removed.id)) return subs;
+        const next = [...subs];
+        next.splice(Math.min(subIdx, next.length), 0, removed);
+        return next;
+      }),
+    );
+  };
+
+  const exerciseCount = exs.length;
   // 底稿行不算数据（§12.6）：口径必须跟刊头的 realSetCount 一致，
   // 否则刊头写「3组」底栏写「4组」，其中一个在说假话。
-  const setCount = (currentWorkout.exercises ?? []).reduce(
-    (s, ex) => s + (ex.sets?.filter((set: any) => !set.ghost).length || 0),
-    0,
-  );
-
+  const setCount = exs.reduce((s, ex) => s + (ex.sets?.filter(set => !set.ghost).length || 0), 0);
   /**
    * 是否先问「今天练哪里」。四个条件缺一不可：
    *  - 还没有动作：一旦开始记就不该再打断
@@ -230,12 +350,18 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
   /** §12.7 长按刊头拖动排序 */
   const reorder = useCardReorder({
-    count: exerciseCount,
+    // 按卡排：交替组整张一起挪
+    count: cards.length,
     onReorder: (from, to) => {
-      const exs = [...(currentWorkout.exercises ?? [])];
-      const [moved] = exs.splice(from, 1);
-      exs.splice(to, 0, moved);
-      setCurrentWorkout({ ...currentWorkout, exercises: exs });
+      setCurrentWorkout(w => {
+        const list = w.exercises ?? [];
+        const cs = buildCards(list);
+        const order = [...cs];
+        const [moved] = order.splice(from, 1);
+        order.splice(to, 0, moved);
+        const m = new Map(list.map(e => [e.id, e]));
+        return { ...w, exercises: order.flatMap(c => c.exIds.map(id => m.get(id)!)) };
+      });
     },
   });
 
@@ -392,41 +518,106 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
       {/* 动作卡列表；底部为常驻添加栏预留空间 */}
       <div className="space-y-6 pb-32">
-        {currentWorkout.exercises?.map((ex, exIdx) => (
-          <div
-            key={ex.id}
-            data-ex-card={ex.id}
-            ref={reorder.itemRef(exIdx)}
-            className={`relative rounded-card bg-base${
-              reorder.draggingIdx === exIdx ? ' reorder-lifted' : ''
-            }`}
-          >
+        {cards.map((card, ci) => {
+          const pointerGap = seam?.cardKey === card.key ? seam.gap : null;
+          const wrap = (body: React.ReactNode, flashId: string) => (
+            <div
+              key={card.key}
+              data-ex-card={flashId}
+              data-card-key={card.key}
+              ref={reorder.itemRef(ci)}
+              className={`relative rounded-card bg-base${reorder.draggingIdx === ci ? ' reorder-lifted' : ''}`}
+            >
+              {body}
+            </div>
+          );
+          const dragHandle =
+            cards.length > 1
+              ? {
+                  handlers: reorder.handleProps(ci),
+                  pressing: reorder.pressingIdx === ci,
+                  hinting: reorder.hintingIdx === ci,
+                  drawMs: reorder.drawMs,
+                }
+              : undefined;
+
+          if (card.group) {
+            const members = card.exIds.map(id => exs.find(e => e.id === id)!).filter(Boolean);
+            const indexOf = (exId: string) => exs.findIndex(e => e.id === exId);
+            return wrap(
+              <AlternatingCard
+                cardKey={card.key}
+                cardNo={ci + 1}
+                members={members}
+                rows={cardRows(card, exs)}
+                lang={lang}
+                unit={unit}
+                exerciseNotes={exerciseNotes}
+                getActiveMetrics={getActiveMetrics}
+                resolveName={resolveName}
+                isSigned={isSigned}
+                pointerGap={pointerGap}
+                onMovePointer={movePointer}
+                selectedSetId={selectedSetId}
+                onNumTap={tapSetNum}
+                onSetUpdate={updateSet}
+                onRemoveSet={removeSet}
+                onRemoveSubSet={removeSubSet}
+                onAddSet={addSetTo}
+                onMoveMember={(exId, dir) => setExs(list => moveGroupMember(list, exId, dir))}
+                onRemoveMember={exId => setExs(list => removeFromGroup(list, exId))}
+                onDeleteMember={exId => onDeleteExerciseFromSession(indexOf(exId))}
+                onSplit={() => setExs(list => splitGroup(list, card.group!))}
+                onAddMember={() => onPickerOpenChange(true, null, card.group)}
+                onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to))}
+                onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
+                onToggleNote={onToggleNote}
+                onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId))}
+                onOpenTimePicker={(exId, setId, sec) => {
+                  const ei = indexOf(exId);
+                  const si = exs[ei]?.sets.findIndex(s => String(s.id) === setId) ?? -1;
+                  if (ei >= 0 && si >= 0) onOpenTimePicker(ei, si, sec);
+                }}
+                dragHandle={dragHandle}
+              />,
+              members[members.length - 1]?.id ?? card.key,
+            );
+          }
+
+          const ex = exs.find(e => e.id === card.exIds[0])!;
+          const exIdx = exs.indexOf(ex);
+          const next = cards[ci + 1];
+          const prev = cards[ci - 1];
+          return wrap(
             <ExerciseCard
               exercise={ex}
               exIdx={exIdx}
+              cardNo={ci + 1}
               lang={lang}
               unit={unit}
               exerciseNotes={exerciseNotes}
               getActiveMetrics={getActiveMetrics}
               resolveName={resolveName}
-              restGap={effectiveRest?.exId === ex.id ? effectiveRest.gap : null}
-              onMoveRest={(exId, gap) => setRestMark({ exId, gap })}
+              pointerGap={pointerGap}
+              onMovePointer={movePointer}
+              selectedSetId={selectedSetId}
+              onNumTap={setId => tapSetNum({ exId: ex.id, setId })}
+              signed={isSigned(ex)}
+              onAlternateWithNext={
+                next ? () => setExs(list => groupExercises(list, [ex.id, ...next.exIds])) : undefined
+              }
+              onJoinGroupAbove={
+                prev?.group ? () => setExs(list => groupExercises(list, [...prev.exIds, ex.id])) : undefined
+              }
               onUpdateExercise={(idx, updates) => {
-                const exs = [...currentWorkout.exercises!];
-                exs[idx] = { ...exs[idx], ...updates };
-                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+                setCurrentWorkout(w => {
+                  const list = [...(w.exercises ?? [])];
+                  list[idx] = { ...list[idx], ...updates };
+                  return { ...w, exercises: list };
+                });
               }}
               onDeleteExercise={onDeleteExerciseFromSession}
-              dragHandle={
-                exerciseCount > 1
-                  ? {
-                      handlers: reorder.handleProps(exIdx),
-                      pressing: reorder.pressingIdx === exIdx,
-                      hinting: reorder.hintingIdx === exIdx,
-                      drawMs: reorder.drawMs,
-                    }
-                  : undefined
-              }
+              dragHandle={dragHandle}
               onOpenTimePicker={onOpenTimePicker}
               onToggleNote={onToggleNote}
               onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
@@ -435,109 +626,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 const def = findExerciseDef(ex.name);
                 return def ? () => onRenameExercise(def.id, resolveName(ex.name)) : undefined;
               })()}
-              onSetUpdate={(eIdx, setIdx, updates) => {
-                const exs = [...currentWorkout.exercises!];
-                exs[eIdx].sets[setIdx] = { ...exs[eIdx].sets[setIdx], ...updates };
-                setCurrentWorkout({ ...currentWorkout, exercises: exs });
-                // §12.13：描实一组＝「我刚做完这组」，休息标记跟到它下面那条缝。
-                // 手动拖过的位置也在这里被覆盖 —— 描实是关于「我人在哪」最强的证据，
-                // 拖动管的是两次描实**之间**那段时间。
-                if ((updates as any).ghost === false) {
-                  setRestMark({ exId: exs[eIdx].id, gap: setIdx + 1 });
-                } else if ((updates as any).ghost === true) {
-                  // 退回待做：书签回到这个动作里最后一组做完的下面（一组都没做完就回最上方）
-                  let last = -1;
-                  exs[eIdx].sets.forEach((st: any, k) => {
-                    if (!st.ghost) last = k;
-                  });
-                  setRestMark({ exId: exs[eIdx].id, gap: last + 1 });
-                }
+              onSetUpdate={(_eIdx, setIdx, updates) => {
+                const s = ex.sets[setIdx];
+                if (s) updateSet({ exId: ex.id, setId: String(s.id) }, updates);
               }}
-              onAddSet={idx => {
-                const exs = [...currentWorkout.exercises!];
-                const currentSets = exs[idx].sets;
-                const lastSet =
-                  currentSets.length > 0 ? currentSets[currentSets.length - 1] : null;
-                // 克隆上一行的值，新行从【待做】开始（第 4 条）：加出来不等于做完了，
-                // 原先一出现就是实心印，「这组做到哪了」就读不出来。
-                // 力竭是当日这一组的事实，不跟着抄；touched / fromGhost 同理。
-                // 递减档也一样（addset-clones-drop-set）：递减是当组的事实，照抄过来点了组号，
-                // 没做过的那档就被记进历史和容量；从历史铺底稿时本来就不继承递减，这里对齐。
-                // 真要再做递减，长按组号加。
-                const newId = Date.now().toString();
-                const newSet = lastSet
-                  ? (() => {
-                      const {
-                        subSets: _sub,
-                        touched: _t,
-                        fromGhost: _fg,
-                        toFailure: _tf,
-                        ...base
-                      } = lastSet;
-                      return { ...base, id: newId, ghost: true };
-                    })()
-                  : { id: newId, weight: 0, reps: 0, ghost: true };
-                exs[idx].sets.push(newSet);
-                setCurrentWorkout({ ...currentWorkout, exercises: exs });
+              onAddSet={() => addSetTo(ex.id)}
+              onRemoveSet={(_eIdx, setIdx) => {
+                const s = ex.sets[setIdx];
+                if (s) removeSet({ exId: ex.id, setId: String(s.id) });
               }}
-              onRemoveSet={(eIdx, setIdx) => {
-                // 删组一律「先执行 + 撤销」（第 4 条；§12.5 通则 3）
-                const exId = currentWorkout.exercises![eIdx].id;
-                const removed = currentWorkout.exercises![eIdx].sets[setIdx];
-                const restBefore = restMark;
-                setCurrentWorkout(w => ({
-                  ...w,
-                  exercises: (w.exercises ?? []).map(e =>
-                    e.id === exId ? { ...e, sets: e.sets.filter(st => st.id !== removed.id) } : e,
-                  ),
-                }));
-                if (restMark?.exId === exId && restMark.gap > setIdx) {
-                  setRestMark({ exId, gap: restMark.gap - 1 });
-                }
-                toastUndo(isCn ? `已删除第 ${setIdx + 1} 组` : `Set ${setIdx + 1} deleted`, () => {
-                  setCurrentWorkout(w => ({
-                    ...w,
-                    exercises: (w.exercises ?? []).map(e => {
-                      if (e.id !== exId || e.sets.some(st => st.id === removed.id)) return e;
-                      const sets = [...e.sets];
-                      sets.splice(Math.min(setIdx, sets.length), 0, removed);
-                      return { ...e, sets };
-                    }),
-                  }));
-                  setRestMark(restBefore);
-                });
+              onRemoveSubSet={(_eIdx, setIdx, subIdx) => {
+                const s = ex.sets[setIdx];
+                if (s) removeSubSet({ exId: ex.id, setId: String(s.id) }, subIdx);
               }}
-              onRemoveSubSet={(eIdx, setIdx, subIdx) => {
-                const exId = currentWorkout.exercises![eIdx].id;
-                const setId = currentWorkout.exercises![eIdx].sets[setIdx].id;
-                const removed = (currentWorkout.exercises![eIdx].sets[setIdx].subSets ?? [])[subIdx];
-                if (!removed) return;
-                const patchSubs = (fn: (subs: SubSetLog[]) => SubSetLog[]) => {
-                  setCurrentWorkout(w => ({
-                    ...w,
-                    exercises: (w.exercises ?? []).map(e =>
-                      e.id !== exId
-                        ? e
-                        : {
-                            ...e,
-                            sets: e.sets.map(st => (st.id === setId ? { ...st, subSets: fn(st.subSets ?? []) } : st)),
-                          },
-                    ),
-                  }));
-                };
-                patchSubs(subs => subs.filter(sb => sb.id !== removed.id));
-                toastUndo(isCn ? '已删除一档递减' : 'Drop set deleted', () =>
-                  patchSubs(subs => {
-                    if (subs.some(sb => sb.id === removed.id)) return subs;
-                    const next = [...subs];
-                    next.splice(Math.min(subIdx, next.length), 0, removed);
-                    return next;
-                  }),
-                );
-              }}
-            />
-          </div>
-        ))}
+            />,
+            ex.id,
+          );
+        })}
 
         {exerciseCount === 0 &&
           (needsBodyPart ? (
@@ -597,6 +702,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       <ExercisePickerSheet
         open={pickerOpen}
         focusPart={pickerFocusPart}
+        targetLabel={pickerTargetLabel}
         onClose={() => onPickerOpenChange(false)}
         addedCounts={addedCounts}
         sessionAdded={sessionAdded}

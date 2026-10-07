@@ -3,13 +3,14 @@ import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import { 
   Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
   ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone,
-  Beaker, Vibrate,
+  Beaker, Vibrate, Undo2,
 } from 'lucide-react';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { useTheme, ThemePreference } from '../hooks/useTheme';
 import { useMotionPreference, MotionPreference } from '../hooks/useMotionPreference';
 import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
+import { undoWorkoutDeletes, setUndoWorkoutDeletes } from '../utils/undoPref';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
@@ -105,6 +106,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   // §5.7 第 5 条：安静的健身房里会自己嗡嗡的 App 很讨人嫌
   const [haptics, setHaptics] = useState(hapticsEnabled);
+  const [undoDeletes, setUndoDeletes] = useState(undoWorkoutDeletes);
 
   return (
     <div className="space-y-6 anim-tab-enter">
@@ -439,6 +441,34 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </div>
           <span className={`text-label font-semibold ${haptics ? 'text-accent' : 'text-tertiary'}`}>
             {haptics
+              ? lang === Language.CN ? '开' : 'On'
+              : lang === Language.CN ? '关' : 'Off'}
+          </span>
+        </button>
+
+        {/* 删组 / 删动作的撤销条（2.6：默认关，单击即删） */}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !undoDeletes;
+            setUndoWorkoutDeletes(next);
+            setUndoDeletes(next);
+          }}
+          className="w-full min-h-[44px] p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors duration-tap ease-paper"
+          role="switch"
+          aria-checked={undoDeletes}
+          data-testid="undo-deletes-toggle"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-accent/10 text-accent rounded-control">
+              <Undo2 size={20} strokeWidth={1.75} />
+            </div>
+            <span className="font-bold text-primary text-left">
+              {lang === Language.CN ? '删组 / 删动作后可撤销' : 'Undo after deleting a set'}
+            </span>
+          </div>
+          <span className={`text-label font-semibold ${undoDeletes ? 'text-accent' : 'text-tertiary'}`}>
+            {undoDeletes
               ? lang === Language.CN ? '开' : 'On'
               : lang === Language.CN ? '关' : 'Off'}
           </span>

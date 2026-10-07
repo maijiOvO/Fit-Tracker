@@ -42,7 +42,8 @@ import {
   EQUIPMENT_TAGS,
   ExerciseCategory,
 } from './src/constants/exercises';
-import { getLoadMode, LoadMode } from './src/utils/exerciseConfig';
+import { normalizeGroups } from './src/utils/workbench';
+import { undoWorkoutDeletes } from './src/utils/undoPref';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
 
@@ -194,6 +195,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
   /** 这次打开弹层要停在的部位栏（选了部位印才有；其余入口一律 null = 沿用筛选记忆） */
   const [pickerFocusPart, setPickerFocusPart] = useState<string | null>(null);
+  /** 这次弹层是从交替组「加一个动作」打开的：选的动作加进这个组 */
+  const [pickerTargetGroup, setPickerTargetGroup] = useState<string | null>(null);
   /** FAB 印谱开练时先存在这里，等进页后 pendingScrollToPicker 那一拍打开弹层时再交出去 */
   const pendingFocusPartRef = useRef<string | null>(null);
   /** §12.4：经由 FAB 印谱选了「制」的训练 id —— 进页不再问部位、聚焦标题 */
@@ -694,16 +697,17 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
   const handlePickFromSheet = useCallback(
-    (ex: ExerciseDefinition) => {
-      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false);
+    (ex: ExerciseDefinition, variantId?: string) => {
+      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false, { altGroup: pickerTargetGroup, variantId });
       setSheetSessionAdded(n => n + 1);
     },
-    [addExerciseToWorkout],
+    [addExerciseToWorkout, pickerTargetGroup],
   );
 
-  const handlePickerSheetOpenChange = useCallback((open: boolean, focusPart?: string | null) => {
+  const handlePickerSheetOpenChange = useCallback((open: boolean, focusPart?: string | null, targetGroup?: string | null) => {
     if (open) {
       setPickerFocusPart(focusPart ?? null);
+      setPickerTargetGroup(targetGroup ?? null);
       setSheetSessionAdded(0);
       lastAddedExerciseIdRef.current = null;
     } else if (lastAddedExerciseIdRef.current) {
@@ -722,9 +726,21 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     for (const ex of currentWorkout.exercises ?? []) {
       const key = prefs.resolveName(ex.name).toLowerCase();
       counts[key] = (counts[key] || 0) + 1;
+      // 做法小卡按「动作::做法」认
+      const vid = prefs.variantIdOf(ex);
+      if (vid) counts[`${key}::${vid}`] = (counts[`${key}::${vid}`] || 0) + 1;
     }
     return counts;
-  }, [currentWorkout.exercises, prefs.resolveName]);
+  }, [currentWorkout.exercises, prefs.resolveName, prefs.variantIdOf]);
+
+  /** 弹层头部「加到 内收 ⇄ 外展」 */
+  const pickerTargetLabel = useMemo(() => {
+    if (!pickerTargetGroup) return null;
+    const names = (currentWorkout.exercises ?? [])
+      .filter(e => e.altGroup === pickerTargetGroup)
+      .map(e => prefs.resolveName(e.name));
+    return names.length ? names.join(' ⇄ ') : null;
+  }, [currentWorkout.exercises, pickerTargetGroup, prefs.resolveName]);
 
   const openCreateCustomExerciseModal = useCallback(
     (prefilledName?: string) => {
@@ -1082,6 +1098,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             pickerOpen={pickerSheetOpen}
             onPickerOpenChange={handlePickerSheetOpenChange}
             pickerFocusPart={pickerFocusPart}
+            pickerTargetLabel={pickerTargetLabel}
             addedCounts={sheetAddedCounts}
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
@@ -1122,7 +1139,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                 !editingWorkoutId &&
                 !!workoutId &&
                 !resumedWorkoutIdsRef.current.has(workoutId);
-              setCurrentWorkout({ ...currentWorkout, exercises: remaining });
+              // 删的是交替组成员：组里只剩一个就拆掉（normalize）
+              setCurrentWorkout({ ...currentWorkout, exercises: normalizeGroups(remaining) });
               if (dropWhole) {
                 recordTombstone('workouts', workoutId);
                 void db
@@ -1131,6 +1149,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                   .then(() => scheduleDebouncedFitlogPush())
                   .catch(err => console.error('Drop emptied workout failed:', err));
               }
+              // 撤销条看设置（2.6，默认关）：关着就单击即删
+              if (!undoWorkoutDeletes()) return;
               toastUndo(isCn ? `已移除 ${label}` : `Removed ${label}`, () => {
                 if (dropWhole) removeTombstone('workouts', workoutId);
                 // 动作回来后自动落盘会把这场重新写回库里
@@ -1205,30 +1225,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         toggleMetric={prefs.toggleMetric}
         onResetDefault={handleResetMetricsToDefault}
         onClose={() => setShowMetricModal(null)}
-        loadMode={
-          showMetricModal?.exIdx !== undefined && currentWorkout.exercises?.[showMetricModal.exIdx]
-            ? getLoadMode(currentWorkout.exercises[showMetricModal.exIdx])
-            : undefined
-        }
-        onChangeLoadMode={
-          showMetricModal?.exIdx !== undefined
-            ? (mode: LoadMode) => {
-                const exIdx = showMetricModal.exIdx!;
-                const exs = [...(currentWorkout.exercises ?? [])];
-                const ex = exs[exIdx];
-                if (!ex) return;
-                exs[exIdx] = {
-                  ...ex,
-                  instanceConfig: {
-                    enablePyramid: false,
-                    pyramidMode: 'decreasing',
-                    autoCalculateSubSets: false,
-                    ...ex.instanceConfig,
-                    bodyweightMode: mode,
-                  },
-                };
-                setCurrentWorkout({ ...currentWorkout, exercises: exs });
-              }
+        signedLoad={showMetricModal?.name ? prefs.signedLoadOf(showMetricModal.name) : false}
+        onChangeSignedLoad={
+          showMetricModal?.name && prefs.findExerciseDef(showMetricModal.name)
+            ? (on: boolean) => prefs.setSignedLoad(showMetricModal.name, on)
             : undefined
         }
       />

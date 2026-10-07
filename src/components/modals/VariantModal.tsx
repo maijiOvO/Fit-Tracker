@@ -1,18 +1,21 @@
 /**
- * 练法（第 8 条）：同一个动作的不同做法，一条记录只选一种（组合就起组合名，如「窄握·暂停」）。
+ * 做法（变体第一层，原「练法」）：同一个动作的不同做法，一条记录只选一种（组合就起组合名，如「窄握·暂停」）。
  *
- * 从训练卡的眉批（当前练法）或 ⋯ 菜单「练法」进来。
- *   - 点一行＝这张卡换成这个练法（全是底稿时，底稿换成这个练法上次的那几组）
- *   - 自建的练法可改名 / 删除（删除走撤销条；历史记录里带着当时的名字，照样能显示）
- *   - 新练法：输入框 + 几个常用叫法的快捷 chip，建完直接选中
- * 「标准」＝没选练法，旧记录都在这里。
+ * 从训练卡的眉批（当前做法）或 ⋯ 菜单「做法」进来。
+ *   - 点一行＝这张卡换成这个做法（全是底稿时，底稿换成这个做法上次的那几组）
+ *   - 做法可改名 / 删除（删除走撤销条；历史记录里带着当时的名字，照样能显示）
+ *   - 新做法：输入框 + 几个常用叫法的快捷 chip，建完直接选中
+ * 「标准」＝没选做法，旧记录都在这里。
  *
  * manage：从动作库（添加动作弹层的动作面板）进来时只管理 —— 改名 / 删除 / 新建，
- * 点行不切换、建完也不选中（那里没有「这张卡」可切）。
+ * 外加每个做法自己的细分和器材（2.3：不同的杆子、握法练不同的肌肉）。带细分的做法在添加动作的细分格里
+ * 单独成一张小卡、落在那一列。点行展开它的细分 / 器材，不切换。
  */
 import React, { useState } from 'react';
-import { Check, PencilLine, Plus, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { Language } from '../../../types';
+import { EQUIPMENT_TAGS } from '../../constants/exercises';
+import { mergeOverride } from '../../utils/exerciseOverride';
 import { Modal } from '../Modal';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 
@@ -29,8 +32,8 @@ interface VariantModalProps {
   manage?: boolean;
 }
 
-const SUGGEST_CN = ['宽握', '窄握', '反握', '对握', '暂停', '单侧'];
-const SUGGEST_EN = ['Wide grip', 'Close grip', 'Underhand', 'Neutral grip', 'Paused', 'Single-arm'];
+const SUGGEST_CN = ['宽握', '窄握', '反握', '对握', 'V 把', '单侧', '暂停'];
+const SUGGEST_EN = ['Wide grip', 'Close grip', 'Underhand', 'Neutral grip', 'V-bar', 'Single-arm', 'Paused'];
 
 export const VariantModal: React.FC<VariantModalProps> = ({
   open,
@@ -41,10 +44,31 @@ export const VariantModal: React.FC<VariantModalProps> = ({
   onClose,
   manage = false,
 }) => {
-  const { variantsOf, addVariant, renameVariant, removeVariant, resolveName } = useExercisePrefs();
+  const {
+    variantsOf,
+    addVariant,
+    renameVariant,
+    removeVariant,
+    resolveName,
+    findExerciseDef,
+    exerciseOverrides,
+    effectivePart,
+    regionsOf,
+    getTagName,
+    customTags,
+    updateVariant,
+  } = useExercisePrefs();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
   if (!open) return null;
+
+  // 做法的细分只能在这个动作所在的部位里选（有氧 / 自由不分细分）
+  const def = findExerciseDef(exerciseName);
+  const merged = def ? mergeOverride(def, exerciseOverrides[def.id]) : undefined;
+  const part = merged && (merged.category || 'STRENGTH') === 'STRENGTH' ? effectivePart(merged) : '';
+  const regs = part ? regionsOf(part) : [];
+  const equipIds = [...EQUIPMENT_TAGS, ...customTags.filter(t => t.category === 'equipment').map(t => t.id)];
 
   const isCn = lang === Language.CN;
   const variants = variantsOf(exerciseName);
@@ -72,7 +96,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
             onKeyDown={e => {
               if (e.key === 'Enter' && renameVariant(exerciseName, id, editing.value)) setEditing(null);
             }}
-            aria-label={isCn ? '练法名称' : 'Variant name'}
+            aria-label={isCn ? '做法名称' : 'Variant name'}
             autoFocus
           />
           <button
@@ -99,7 +123,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
           type="button"
           onClick={() => {
             if (manage) {
-              if (id) setEditing({ id, value: name });
+              if (id) setExpanded(expanded === id ? null : id);
               return;
             }
             pick(id, id ? name : undefined);
@@ -112,7 +136,24 @@ export const VariantModal: React.FC<VariantModalProps> = ({
             <Check size={16} strokeWidth={2.5} />
           </span>
           <span className={id ? '' : 'text-secondary'}>{name}</span>
+          {id && (() => {
+            const v = variants.find(x => x.id === id);
+            const bits = [v?.region ? getTagName(v.region) : '', ...(v?.tags ?? []).map(getTagName)].filter(Boolean);
+            return bits.length ? <span className="ml-auto text-xs font-medium text-tertiary truncate">{bits.join(' · ')}</span> : null;
+          })()}
         </button>
+        {id && manage && (
+          <button
+            type="button"
+            onClick={() => setExpanded(expanded === id ? null : id)}
+            className="w-11 flex items-center justify-center border-l border-divider text-tertiary active:bg-card-hover"
+            aria-label={isCn ? `${name} 的细分与器材` : `Region & gear of ${name}`}
+            aria-expanded={expanded === id}
+            data-testid="variant-expand"
+          >
+            <ChevronDown size={15} className={expanded === id ? 'rotate-180' : ''} />
+          </button>
+        )}
         {id && (
           <>
             <button
@@ -145,7 +186,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       isOpen
       onClose={onClose}
       title={resolveName(exerciseName)}
-      subtitle={isCn ? '练法' : 'Variant'}
+      subtitle={isCn ? '做法' : 'Variant'}
       size="sm"
       layer="modal-2"
       testId="variant-modal"
@@ -153,11 +194,67 @@ export const VariantModal: React.FC<VariantModalProps> = ({
     >
       <div className="space-y-2">
         {!manage && row(undefined, isCn ? '标准' : 'Standard')}
-        {variants.map(v => row(v.id, v.name))}
+        {variants.map(v => (
+          <React.Fragment key={v.id}>
+            {row(v.id, v.name)}
+            {manage && expanded === v.id && (
+              <div className="pl-2 pb-1 space-y-2" data-testid="variant-tags">
+                {regs.length > 0 && (
+                  <>
+                    <div className="text-[10px] font-bold tracking-[0.2em] text-secondary">{isCn ? '细分' : 'REGION'}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[{ id: '' }, ...regs].map(r => {
+                        const on = (v.region ?? '') === r.id;
+                        return (
+                          <button
+                            key={r.id || 'none'}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => updateVariant(exerciseName, v.id, { region: r.id })}
+                            className={`min-h-[36px] px-3 rounded-control text-xs font-bold border ${
+                              on ? 'bg-accent border-accent text-on-accent' : 'bg-card border-divider text-secondary'
+                            }`}
+                          >
+                            {r.id ? getTagName(r.id) : isCn ? '跟动作走' : 'Same as exercise'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+                <div className="text-[10px] font-bold tracking-[0.2em] text-secondary">{isCn ? '器材' : 'GEAR'}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {equipIds.map(t => {
+                    const label = getTagName(t);
+                    if (!label) return null;
+                    const on = (v.tags ?? []).includes(t);
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() =>
+                          updateVariant(exerciseName, v.id, {
+                            tags: on ? (v.tags ?? []).filter(x => x !== t) : [...(v.tags ?? []), t],
+                          })
+                        }
+                        className={`min-h-[36px] px-3 rounded-control text-xs font-bold border ${
+                          on ? 'bg-accent border-accent text-on-accent' : 'bg-card border-divider text-secondary'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
       </div>
       <div>
         <h4 className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
-          <Plus size={11} /> {isCn ? '新练法' : 'New variant'}
+          <Plus size={11} /> {isCn ? '新做法' : 'New variant'}
         </h4>
         <div className="flex gap-2">
           <input
@@ -168,7 +265,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
               if (e.key === 'Enter') create(draft);
             }}
             placeholder={isCn ? '如：窄握·暂停' : 'e.g. Close grip, paused'}
-            aria-label={isCn ? '新练法名称' : 'New variant name'}
+            aria-label={isCn ? '新做法名称' : 'New variant name'}
           />
           <button
             type="button"

@@ -11,6 +11,7 @@
  *   - 最多 2 枚印 —— 满屏印章就不是签名时刻了
  */
 import { WorkoutSession, Exercise } from '../../types';
+import { setVolumeKg, signedKg } from './load';
 
 export type PRKind = 'weight' | 'volume' | 'reps';
 
@@ -32,10 +33,14 @@ export interface PRResult {
   extraCount: number;
 }
 
-/** §9 阈值：提升 < 0.5kg 或 < 1% 不算 */
-function passesThreshold(prev: number, next: number): boolean {
-  if (prev <= 0) return false;
+/**
+ * §9 阈值：提升 < 0.5kg 或 < 1% 不算。
+ * signed：带正负的负荷（辅助 −30 → −20 也是进步），起点可以是 0 或负数，只看绝对提升。
+ */
+function passesThreshold(prev: number, next: number, signed = false): boolean {
   const abs = next - prev;
+  if (signed) return abs >= 0.5;
+  if (prev <= 0) return false;
   if (abs < 0.5) return false;
   if (abs / prev < 0.01) return false;
   return true;
@@ -54,8 +59,9 @@ function realSets(ex: Exercise): any[] {
   return (ex.sets ?? []).filter((s: any) => !s.ghost);
 }
 
+/** 单组最重：带正负的负荷按带符号的数比（辅助为负） */
 function maxSetWeight(ex: Exercise): number {
-  const ws = realSets(ex).map((s: any) => s.weight || 0);
+  const ws = realSets(ex).map((s: any) => signedKg(s, ex));
   return ws.length ? Math.max(...ws) : 0;
 }
 
@@ -64,13 +70,9 @@ function maxSetReps(ex: Exercise): number {
   return rs.length ? Math.max(...rs) : 0;
 }
 
-/** 单次训练里这个动作的总容量 Σ(weight × reps)，含递减子组 */
+/** 单次训练里这个动作的总容量 Σ(weight × reps)，含子组；辅助的那部分不算 */
 function exerciseVolume(ex: Exercise): number {
-  return realSets(ex).reduce((sum: number, s: any) => {
-    let v = (s.weight || 0) * (s.reps || 0);
-    for (const sub of s.subSets || []) v += (sub.weight || 0) * (sub.reps || 0);
-    return sum + v;
-  }, 0);
+  return realSets(ex).reduce((sum: number, s: any) => sum + setVolumeKg(s, ex), 0);
 }
 
 interface DetectParams {
@@ -89,6 +91,8 @@ interface DetectParams {
   /** 判断自重类动作：activeMetrics 不含 weight 时才启用 reps 口径 */
   getActiveMetrics: (name: string) => string[];
   unitLabel: string;
+  /** 这条记录按带正负的负荷记吗（辅助负、自重 0、负重正）；不传＝都不是 */
+  isSigned?: (ex: Exercise) => boolean;
 }
 
 export function detectPRs({
@@ -99,6 +103,7 @@ export function detectPRs({
   keyOf,
   getActiveMetrics,
   unitLabel,
+  isSigned,
 }: DetectParams): PRResult {
   const key = keyOf ?? ((e: { name: string }) => resolveName(e.name));
   // 在改历史，语义混乱，不触发
@@ -125,7 +130,8 @@ export function detectPRs({
       // weight：该动作历史 max(sets.weight)，本次更大
       const prevW = Math.max(...past.map(maxSetWeight));
       const nextW = maxSetWeight(ex);
-      if (passesThreshold(prevW, nextW)) {
+      const signed = !!isSigned?.(ex);
+      if (passesThreshold(prevW, nextW, signed)) {
         hits.push({ kind: 'weight', exercise: name, prev: prevW, next: nextW, delta: nextW - prevW, unitLabel });
         continue; // §9：同时命中时 weight 优先于 volume（更硬）
       }

@@ -3,6 +3,24 @@
 新对话从这里接着做。用户原始需求、已拍板的决定、每条的施工方案、现状和坑都在下面。
 动 UI 之前先读 `CLAUDE.md`、`docs/design-ink-and-paper.md`，以及知识库 `_memory/fitlog/`（尤其是新加的 `demo-match-current-ui`）。
 
+## 第二轮：2.1–2.6（2026-10-06 第四个会话，未提交，等用户验收）
+
+需求原话在对话里，这里只记拍板结果和代码落点。另一个对话的「整理 = 统一入口」改动在它之前完成，同样未提交；
+开工前把它的工作区原样存成了 `refs/snapshots/before-2x`（`git diff refs/snapshots/before-2x` 只看本轮改动）。
+
+| 条 | 拍板 | 落点 |
+|---|---|---|
+| 2.1 做到哪 | 全场一个指针（原休息书签），指针以上＝做完或跳过；组号只两种样子：平时空心细框、选中实心；±5 跟着选中走；点＝选中，选中再点＝做完，刚做完那组再点＝退回；竭只标力竭 | `src/utils/workbench.ts`（纯函数，指针由组状态推出、不存状态）、`SetCapsule` / `ExerciseCard` / `NewWorkoutTab`；demo `docs/demos/set-pointer-alternating.html` |
+| 2.1 跳过 | 做了一半去点别的动作＝剩下的组跳过（淡墨 + 删除线，结束时丢）；还没开始就去做别的＝只是把那张卡挪到前面 | `markSetDone` |
+| 交替组 | 名字叫「交替」，不设上限；做完的按实际先后、待做的按轮换；改错：卡头动作名（左右移 / 做法 / 备注 / 设置 / 移出 / 删除）、组号前简称（改记到另一个动作）、⋯（加一个动作＝同一个添加动作弹层「加到 X ⇄ Y」/ 拆开）、卡底按动作分开的添加组；跳回来补做跳过的组 → 提示「交替？」；进历史，下次底稿把同组一起带进来、按干净的轮换排 | `Exercise.altGroup`、`SetLog.skipped / seq`、`AlternatingCard.tsx`、`useWorkoutMutations.addExerciseToWorkout` |
+| 2.2 细分格 | 一屏最多 4 列，多了横滑；表头吸顶，跟格子 scrollLeft 双向同步 | `ExercisePickerSheet.renderBoard`、`index.css .region-headwrap / .is-scroll`（列宽用 `100cqi`） |
+| 2.3 变体 | 三层：做法（原练法，挂在动作上，可带自己的细分 / 器材，带细分的在细分格单独一张小卡）、负荷（每组带正负：辅助负 / 自重 0 / 负重正，存储不变：weight 非负 + 组上 bodyweightMode）、组型（子组递减 / 递增）。交替组单独做，不进变体 | `ExerciseVariant`、`utils/load.ts`、`VariantModal`（manage 模式展开改细分 / 器材）、`MetricSettingsModal`「负荷记法」、`prDetect` / `bestLifts` 按带符号比 |
+| 2.4 热身 | 每个部位第一列「热身」（系统细分 chestWarm 等） | `constants/exercises.ts BODY_REGIONS`、`translations.ts` |
+| 2.5 整理 | 新增「并入另一个动作」（变成目标的做法，历史不改写，名字解析 + variantAliases 认回来）；清单待用户圈 | `ExercisePrefsContext.mergeExerciseInto`、`ExerciseActionPanel`；清单 `docs/exercise-cleanup-2026-10-06.md` |
+| 2.6 撤销 | 删组（含递减档）/ 删训练里的动作：撤销条做成开关，默认关（跟设备走，不同步）；其余删除照旧 | `utils/undoPref.ts`、「我的」页开关、`NewWorkoutTab.removeSet / removeSubSet`、`App onDeleteExerciseFromSession` |
+
+e2e：init 里把撤销开关打开（原有用例测的是开着时的撤销）；组号 / ±5 / 做法 / 热身列的断言已按新行为改。
+
 ## 进度（2026-10-06 第二个会话，按 §5 顺序）
 
 | 阶段 | 状态 | 提交 |

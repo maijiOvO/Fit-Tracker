@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Demo · 指针与交替组</title>
+<!--
+  交互 demo：训练页「做到哪了」改成全场一个指针 + 跳过 + 交替组（2026-10-06 用户拍板的方向）。
+
+  照现在 App 搬的（ExerciseCard / SetCapsule / index.css ledger-* / rest-seam / ledger-step / 底部面板 / 撤销条）：
+    动作卡（ui-card + 刊头双线 + 衬线动作名 + ⋯）、表头「# 重量 次数 竭」、账本行（52px、底线、mono 数字、单位内嵌）、
+    待做行的淡墨 + 朱砂虚线、改过的格子变实墨、竭、单击删组、休息书签（9×18 丝带 + 88px 骑缝线，拖动时浮起）、
+    −5 / +5 两颗宽键、底部面板（bg-inset + 全宽 bg-card 按钮）、撤销条外形。
+
+  新的只有这些：
+    1. 指针＝休息书签，全场一个。指针以上＝做完或跳过，以下＝待做。拖书签到任何缝：往下拖，经过的组记做完；往上拖，经过的组退回待做（值保留）。
+    2. 组号只有两种：平时一律空心细框，选中＝实心朱砂印（2026-10-06 用户定：去掉「待做虚线 / 做完实线」那层，
+       做完没做完只看指针位置和数字墨色——实墨＝做完，淡墨 + 虚线下划线＝待做）。±5 跟着「选中」走，不再跟书签走。
+       点组号＝选中；再点一次已选中的组号＝做完（指针移到它下面）。默认选中指针下面那一组，所以正常情况一下就够。
+       刚做完的那组（指针正上方）选中后再点＝退回待做。
+    3. 跳过：当前动作做了一半、在别的动作上点做完时，当前动作没做的组记为跳过（淡墨 + 删除线，结束训练时丢掉）；那张卡挪到指针下面。
+       当前动作还没开始就去做别的：不算跳过，那张卡插到它前面（只是换了顺序）。
+       跳过的组点两下＝补做完。补的是另一张卡上的组时，提示「和 X 交替做？」，点了就合成交替组，跳过的组恢复待做。
+    4. 交替组：一张卡，组按 A1 B1 A2 B2 交替排；组号前一个字的简称（点简称＝改成记到组里另一个动作名下）。
+       待做的组始终按轮换排，从最后做完那组的下一个动作接着轮；做完的组按实际先后。
+       卡头动作名可点：左移 / 右移（只重排待做的组）、移出交替。⋯：加一个动作、拆开。卡底按动作分开的「＋ 添加组」。
+       单个动作的 ⋯：和下一个动作交替做 / 加入上面的交替组。
+    5. 结束训练后的「下次训练」：用这场生成底稿，交替组带着配对，按干净的轮换重排（用户拍板）。
+
+  不在这个 demo 里：横拖改重量、递减档、计时、撤销条（删组按 2.6 默认关撤销，单击即删）、长按拖行。
+  数据：开发库真实数据，10 月 3 日「练腿」后四个动作（kg 显示）。
+-->
+<style>
+  @font-face{font-family:'Noto Sans SC';src:url('/fonts/noto-sans-sc.woff2') format('woff2-variations'),url('../../public/fonts/noto-sans-sc.woff2') format('woff2-variations');font-weight:400 700;font-display:block}
+  @font-face{font-family:'Noto Serif SC';src:url('/fonts/noto-serif-sc.woff2') format('woff2-variations'),url('../../public/fonts/noto-serif-sc.woff2') format('woff2-variations');font-weight:600 700;font-display:block}
+  @font-face{font-family:'IBM Plex Mono';src:url('/fonts/plex-mono-500.woff2') format('woff2'),url('../../public/fonts/plex-mono-500.woff2') format('woff2');font-weight:500;font-display:block}
+  @font-face{font-family:'IBM Plex Mono';src:url('/fonts/plex-mono-600.woff2') format('woff2'),url('../../public/fonts/plex-mono-600.woff2') format('woff2');font-weight:600;font-display:block}
+  :root{
+    --bg-desk:#E2DACA;
+    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
+    --divider:#D9D0BC; --rule-strong:#B9AE97;
+    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
+    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
+    --danger:#8E2C1D;
+    --scrim:rgba(26,23,20,.45);
+    --shadow-page:0 1px 1px rgba(26,23,20,.07);
+    --shadow-overlay:0 2px 6px rgba(26,23,20,.10),0 18px 40px -24px rgba(26,23,20,.30);
+    --shadow-lg:0 10px 15px -3px rgba(26,23,20,.10),0 4px 6px -4px rgba(26,23,20,.10);
+    --shadow-2xl:0 25px 50px -12px rgba(0,0,0,.25);
+    --radius-card:4px; --radius-control:3px; --radius-sheet:4px;
+    --dur-tap:120ms; --dur-base:220ms; --dur-exit:180ms; --dur-stamp:520ms;
+    --ease-paper:cubic-bezier(.2,.8,.2,1); --ease-ink:cubic-bezier(.4,0,.2,1);
+    --move:1;
+    --rest-h:18px; --rest-w:9px; --rest-hit:14px; --rest-len:88px;
+    --f-sans:'Noto Sans SC',-apple-system,'PingFang SC','MiSans','Microsoft YaHei',system-ui,sans-serif;
+    --f-serif:'Noto Serif SC','Songti SC','SimSun',serif;
+    --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --pw:384px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg-desk:#0A0908; --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+      --divider:#332E25; --rule-strong:#4A4232;
+      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+      --danger:#E8776A; --scrim:rgba(0,0,0,.6);
+      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+      --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-desk:#0A0908; --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
+    --divider:#332E25; --rule-strong:#4A4232;
+    --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
+    --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
+    --danger:#E8776A; --scrim:rgba(0,0,0,.6);
+    --shadow-page:0 1px 1px rgba(0,0,0,.35);
+    --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
+    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
+    color-scheme:dark;
+  }
+  @media (prefers-reduced-motion:reduce){ :root{ --move:0; } }
+  [hidden]{display:none!important}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--bg-desk);color:var(--text-primary);font:14px/1.5 var(--f-sans);
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-appearance:none;appearance:none;text-align:inherit}
+  input{font:inherit;color:inherit;-webkit-user-select:text;user-select:text}
+
+  .phone{position:relative;display:flex;flex-direction:column;height:100%;max-width:var(--pw);margin:0 auto;overflow:hidden;background:var(--bg-base)}
+  @media (min-width:400px){ .phone{box-shadow:var(--shadow-overlay)} }
+  .demotag{flex:none;text-align:center;font-size:10px;color:var(--text-tertiary);padding:6px 0 0}
+  .topbar{flex:none;display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--divider)}
+  .topbar .back{width:36px;height:36px;display:flex;align-items:center;justify-content:center;color:var(--text-secondary)}
+  .topbar h1{flex:1;font:600 22px/1.2 var(--f-serif)}
+  .finish{font-size:12px;font-weight:700;color:var(--text-on-accent);background:var(--accent);border-radius:var(--radius-control);padding:8px 12px}
+  .finish:disabled{opacity:.4}
+  .scroll{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 12px 96px}
+
+  /* ── 动作卡（ExerciseCard 原样） ── */
+  .card{background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);margin-bottom:12px;transition:opacity var(--dur-base)}
+  .mast{position:relative;padding:16px 12px 10px;border-bottom:1px solid var(--rule-strong);box-shadow:0 3px 0 -2px var(--divider)}
+  .mast .l1{display:flex;align-items:baseline;gap:12px}
+  .mast h3{flex:1;min-width:0;font:600 17px/1.35 var(--f-serif);color:var(--text-primary);word-break:break-word}
+  .mast h3 .alt{color:var(--text-tertiary);font-family:var(--f-sans);font-weight:500;margin:0 4px}
+  .mast .more{width:44px;height:36px;margin:-8px -6px -8px 0;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)}
+  .mast .l2{display:flex;align-items:center;gap:16px;margin-top:6px}
+  .mast .meta{margin-left:auto;font:500 12px/1.4 var(--f-mono);color:var(--text-tertiary);white-space:nowrap}
+  .mast .meta b{color:var(--text-primary);font-weight:600}
+  .marginalia{position:relative;border-bottom:1px dashed currentColor;line-height:1.4}
+  .marginalia::before{content:'';position:absolute;inset:-10px}
+  .mem{font:inherit;color:inherit}
+  .tagalt{font-size:12px;font-weight:500;color:var(--accent)}
+
+  .gh,.row{display:grid;grid-template-columns:var(--c0) repeat(2,minmax(0,1fr)) 36px 44px;align-items:center}
+  .card{--c0:36px}
+  .card.grp{--c0:58px}
+  .gh{padding:10px 12px 4px;font-size:11px;font-weight:500;color:var(--text-tertiary)}
+  .gh span{text-align:center}
+  .gh span:first-child{text-align:left}
+  .paper{position:relative}
+
+  .row{position:relative;min-height:52px;padding:0 12px;border-bottom:1px solid var(--divider)}
+  .num{display:flex;align-items:center;gap:4px}
+  .abbr{min-width:18px;font-size:12px;font-weight:600;color:var(--text-secondary);text-align:center}
+  .sn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-card);
+    font:600 12px var(--f-mono);color:var(--accent);border:1.5px solid transparent;
+    transition:color var(--dur-base) var(--ease-ink),background-color var(--dur-base) var(--ease-ink),border-color var(--dur-base) var(--ease-ink)}
+  .grp .sn{width:30px;height:30px}
+  /* 组号只有两种：平时一律空心细框；选中＝实心朱砂印。做完 / 待做只看指针位置和数字的墨色 */
+  .row .sn{border:1.5px solid color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent)}
+  /* 跳过：整行变淡（删除线在行上），组号跟着淡 */
+  .row.skip .sn{opacity:.5}
+  .row.sel .sn{background:var(--accent);border:1.5px solid var(--accent);color:var(--text-on-accent)}
+  .row.inkin .sn,.row.inkin input{animation:inktext var(--dur-stamp) var(--ease-ink)}
+  @keyframes inktext{from{color:var(--accent-ink)}}
+
+  .fld{position:relative;display:flex;align-items:baseline;justify-content:center;gap:3px;height:100%;padding-top:13px}
+  .fld input{width:100%;min-width:0;max-width:84px;border:0;background:none;outline:none;text-align:right;
+    font:600 24px/1 var(--f-mono);font-variant-numeric:tabular-nums;color:var(--text-primary);padding-bottom:1px;border-bottom:1.5px solid transparent;
+    -moz-appearance:textfield}
+  .fld input::-webkit-outer-spin-button,.fld input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .fld .u{font-size:11px;font-weight:500;line-height:1;color:var(--text-tertiary);white-space:nowrap}
+  .row.pend .fld input,.row.skip .fld input{color:var(--text-tertiary);border-bottom:1.5px dashed color-mix(in srgb,var(--accent) 45%,transparent)}
+  .row.pend .fld.ed input{color:var(--text-primary)}
+  .row.skip .fld input{border-bottom-color:transparent;opacity:.6}
+  .row.skip::after{content:'';position:absolute;left:var(--c0);right:92px;top:55%;height:1.5px;background:var(--text-tertiary);opacity:.6;margin-left:12px}
+  .fail{width:36px;height:44px;justify-self:center;display:flex;align-items:center;justify-content:center;font:600 17px/1 var(--f-serif);color:color-mix(in srgb,var(--text-tertiary) 35%,transparent)}
+  .fail.on{color:var(--accent);font-size:19px}
+  .minus{width:44px;height:44px;justify-self:end;display:flex;align-items:center;justify-content:center;color:var(--text-tertiary)}
+
+  /* −5 / +5（ledger-step 原样），跟着选中的组 */
+  .step{display:flex;gap:8px;padding:6px 12px;border-bottom:1px solid var(--divider)}
+  .step button{flex:1;min-height:40px;display:flex;align-items:baseline;justify-content:center;gap:3px;padding-top:11px;border-radius:var(--radius-control);
+    background:var(--bg-inset);color:var(--text-secondary);font:600 14px/1 var(--f-mono);transition:background-color var(--dur-tap) var(--ease-ink)}
+  .step button:active{background:color-mix(in srgb,var(--text-primary) 10%,var(--bg-inset))}
+  .step .u{font:500 11px/1 var(--f-sans);color:var(--text-tertiary)}
+
+  /* 休息书签＝指针（rest-seam 原样） */
+  .seam{position:relative;height:0;z-index:4}
+  .seam .grab{position:absolute;left:0;display:flex;align-items:center;padding:var(--rest-hit);margin-left:calc(0px - var(--rest-hit));
+    margin-top:calc(0px - var(--rest-hit) - var(--rest-h) / 2);touch-action:none;cursor:grab}
+  .seam .tab{flex:none;width:var(--rest-w);height:var(--rest-h);border-radius:0 3px 3px 0;background:var(--accent);box-shadow:0 1px 2px rgba(26,23,20,.18)}
+  .seam .line{flex:none;height:2px;width:var(--rest-len);border-radius:1px;background:var(--accent)}
+  .seam.dragging .grab{visibility:hidden}
+  .rfloat,.rfline,.rfcap{position:fixed;left:0;top:0;pointer-events:none}
+  .rfloat{z-index:60;width:var(--rest-w);height:var(--rest-h);border-radius:0 3px 3px 0;background:var(--accent);box-shadow:0 2px 8px rgba(26,23,20,.3)}
+  .rfline{z-index:59;height:2px;border-radius:1px;background:var(--accent);opacity:.38;transition:transform var(--dur-tap) var(--ease-paper)}
+  .rfcap{z-index:61;font-size:11px;font-weight:600;color:var(--accent-ink);background:var(--bg-card);border:1px solid var(--accent);border-radius:2px;padding:1px 5px;white-space:nowrap;transition:transform var(--dur-tap) var(--ease-paper)}
+
+  .foot{display:flex;gap:8px;padding:8px 12px 12px}
+  .addset{flex:1;min-width:0;min-height:44px;border:1px dashed var(--divider);border-radius:var(--radius-control);color:var(--text-secondary);font-weight:500;
+    display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .addset:active{background:var(--bg-card-hover)}
+
+  .dock{position:absolute;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;gap:10px;padding:10px 14px 14px;background:var(--bg-base);border-top:1px solid var(--divider)}
+  .dock .count{font:500 12px var(--f-mono);color:var(--text-tertiary);white-space:nowrap}
+  .dock .count b{color:var(--text-secondary);font-weight:600}
+  .dock .add{flex:1;border-radius:var(--radius-card);background:var(--accent);color:var(--text-on-accent);font-size:14px;font-weight:600;padding:12px;text-align:center}
+
+  /* 底部面板（row-action-menu / region-menu 原样） */
+  @keyframes fade{from{opacity:0}}
+  .mwrap{position:absolute;inset:0;z-index:90;background:var(--scrim);display:flex;align-items:flex-end;animation:fade var(--dur-base) var(--ease-paper)}
+  .mpanel{width:100%;max-height:88%;overflow-y:auto;background:var(--bg-inset);border-top:1px solid var(--divider);border-radius:var(--radius-sheet) var(--radius-sheet) 0 0;
+    padding:16px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow-2xl)}
+  .mt{padding:0 0 4px 8px;font-size:14px;font-weight:600}
+  .mt small{display:block;font-size:12px;font-weight:500;color:var(--text-tertiary)}
+  .mbtn{width:100%;min-height:48px;padding:0 16px;border-radius:var(--radius-card);background:var(--bg-card);border:1px solid var(--divider);font-size:14px;font-weight:700;
+    color:var(--text-primary);display:flex;align-items:center;gap:10px;transition:background-color var(--dur-tap)}
+  .mbtn:active{background:var(--bg-card-hover)}
+  .mbtn:disabled{opacity:.4}
+  .mbtn.on{border-color:var(--accent);color:var(--accent)}
+  .mbtn .n{margin-left:auto;font:600 12px var(--f-mono);color:var(--text-tertiary)}
+  .mbtn.center{justify-content:center}
+  .mbtn.cancel{background:transparent;border-color:transparent;justify-content:center;color:var(--text-secondary)}
+  .mrow{display:flex;gap:8px}
+
+  /* 撤销条外形（UiOverlayContext 原样），这里装「交替？」提示 */
+  @keyframes toastprint{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
+  @keyframes countdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+  .toast{position:absolute;left:16px;right:16px;bottom:84px;z-index:70;display:flex;align-items:center;gap:12px;padding:12px 16px;overflow:hidden;
+    background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);box-shadow:var(--shadow-lg);font-size:14px;font-weight:500;
+    animation:toastprint var(--dur-base) var(--ease-paper) both}
+  .toast .msg{flex:1;min-width:0}
+  .toast .act{flex:none;padding:6px 12px;border-radius:var(--radius-control);background:var(--accent);color:var(--text-on-accent);font-size:12px;font-weight:700}
+  .toast .cd{position:absolute;left:0;right:0;bottom:0;height:1.5px;background:var(--accent);transform-origin:left;animation:countdown 6000ms linear both}
+
+  .colo{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:30;min-width:260px;background:var(--bg-card);border:1px solid var(--divider);
+    border-radius:var(--radius-card);box-shadow:var(--shadow-overlay);padding:14px 16px;text-align:center;animation:toastprint 300ms var(--ease-paper)}
+  .colo .rule{height:2px;width:64px;margin:0 auto 8px;background:var(--accent)}
+  .colo .t{font-size:14px;font-weight:600}
+  .colo .s{font-size:12px;color:var(--text-tertiary);margin-top:2px}
+  .colo .bt{display:flex;gap:8px;justify-content:center;margin-top:10px}
+  .colo .bt button{font-size:12px;font-weight:700;padding:7px 12px;border-radius:var(--radius-control);border:1px solid var(--divider);color:var(--text-secondary)}
+  .colo .bt button.pri{background:var(--accent);border-color:var(--accent);color:var(--text-on-accent)}
+
+  /* 方案面板（demo 用） */
+  .gear{position:absolute;top:2px;right:8px;z-index:95;min-height:24px;padding:0 10px;border-radius:var(--radius-control);background:var(--bg-inset);color:var(--text-secondary);font-size:11px;font-weight:700}
+  .panel{position:absolute;top:30px;right:8px;z-index:95;width:250px;background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);box-shadow:var(--shadow-overlay);padding:10px 12px}
+  .panel label{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:5px 0;cursor:pointer}
+  .panel label small{display:block;font-size:10px;color:var(--text-tertiary);line-height:1.45}
+  .panel input{accent-color:var(--accent);margin-top:3px}
+  .panel .foot2{display:flex;gap:6px;margin-top:6px;border-top:1px solid var(--divider);padding-top:8px}
+  .panel .foot2 button{border:1px solid var(--divider);color:var(--text-secondary);border-radius:var(--radius-control);font-size:11px;padding:4px 8px}
+  @media (prefers-reduced-motion:reduce){ .toast,.mwrap,.colo,.row.inkin .sn,.row.inkin input{animation-duration:1ms} }
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+  <div class="demotag" id="demotag">Demo · 指针与交替组</div>
+  <button class="gear" id="gear" type="button">方案</button>
+  <div class="panel" id="panel" hidden>
+    <label><input type="radio" name="sc" value="A" checked><span>场景 A · 上次配过<small>底稿里内收、髋外展已经是交替组</small></span></label>
+    <label><input type="radio" name="sc" value="B"><span>场景 B · 没配过<small>两张单独的卡：试试做一半跳去另一个、再跳回来</small></span></label>
+    <div class="foot2"><button type="button" id="reset">重来</button></div>
+  </div>
+  <div class="topbar">
+    <button class="back" type="button" aria-label="返回"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>练腿</h1>
+    <button class="finish" id="finish" type="button">结束训练</button>
+  </div>
+  <div class="scroll" id="scroll"><div id="cards"></div></div>
+  <div class="dock"><span class="count" id="dockcount"></span><button class="add" type="button" id="addEx">＋ 添加动作</button></div>
+  <div id="toastHost"></div>
+  <div id="ovl"></div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const vib = v => { try { navigator.vibrate && navigator.vibrate(v); } catch (_) {} };
+  const fmt = n => String(Math.round(n * 10) / 10);
+
+  /* 10 月 3 日练腿的后四个动作（开发库真实数据，kg） */
+  const EX = {
+    hamPress: { name: '坐姿蹬腿(腘绳)', last: [[75, 12], [86, 12], [97, 12], [97, 12]] },
+    legCurl: { name: '腿弯举', last: [[63.5, 12], [63.5, 15], [63.5, 15], [63.5, 15]] },
+    abd: { name: '髋外展', last: [[57, 15], [63, 15], [70, 15], [70, 15]] },
+    add: { name: '内收', last: [[29, 15], [36, 15], [29, 15], [29, 15]] },
+  };
+
+  let S; // 全部状态
+  let uid = 0;
+  const nid = p => p + (++uid);
+
+  function newRow(ex, w, r) { return { id: nid('r'), ex, w, r, st: 'pend', ed: {}, fail: false, seq: 0 }; }
+
+  /* ── 场景 ── */
+  function build(spec) {
+    S = { cards: [], rows: {}, ptr: null, sel: null, seq: 0, finished: false, inkin: null };
+    spec.forEach(members => {
+      const card = { id: nid('c'), members: members.map(m => m.ex), rows: [] };
+      members.forEach(m => m.sets.forEach(([w, r]) => { const row = newRow(m.ex, w, r); S.rows[row.id] = row; card.rows.push(row.id); }));
+      S.cards.push(card);
+      if (card.members.length > 1) arrange(card);
+    });
+    S.ptr = { card: S.cards[0].id, after: null };
+    autoSelect();
+    render();
+  }
+  function scenario(k) {
+    const m = ex => ({ ex, sets: EX[ex].last });
+    build(k === 'A'
+      ? [[m('hamPress')], [m('legCurl')], [m('abd'), m('add')]]
+      : [[m('hamPress')], [m('legCurl')], [m('abd')], [m('add')]]);
+    $('#demotag').textContent = 'Demo · 指针与交替组 · 场景 ' + k;
+  }
+
+  /* ── 查找 ── */
+  const card = id => S.cards.find(c => c.id === id);
+  const cardOfRow = rid => S.cards.find(c => c.rows.includes(rid));
+  const isGrp = c => c.members.length > 1;
+  function ptrGap() {
+    const c = card(S.ptr.card);
+    if (!c) return 0;
+    if (!S.ptr.after) return 0;
+    const i = c.rows.indexOf(S.ptr.after);
+    return i < 0 ? 0 : i + 1;
+  }
+  /* 指针以上有几行（全场扁平序） */
+  function flat() { const out = []; S.cards.forEach(c => c.rows.forEach((rid, i) => out.push({ rid, c, i }))); return out; }
+  function ptrIndex() {
+    let n = 0;
+    for (const c of S.cards) { if (c.id === S.ptr.card) return n + ptrGap(); n += c.rows.length; }
+    return n;
+  }
+  /* 把指针放到「某卡第 gap 条缝」 */
+  function setPtr(c, gap) { S.ptr = { card: c.id, after: gap > 0 ? c.rows[gap - 1] : null }; }
+
+  /* 交替组排法：非待做（做完 / 跳过）在前、按实际先后；待做按轮换，从最后做完那组的下一个动作接着轮 */
+  function arrange(c, sortDone) {
+    const non = c.rows.filter(id => S.rows[id].st !== 'pend');
+    if (sortDone) non.sort((a, b) => S.rows[a].seq - S.rows[b].seq);
+    const pend = c.rows.filter(id => S.rows[id].st === 'pend');
+    if (!isGrp(c)) { c.rows = non.concat(pend); return; }
+    const q = c.members.map(ex => pend.filter(id => S.rows[id].ex === ex));
+    const lastDone = non.filter(id => S.rows[id].st === 'done').sort((a, b) => S.rows[a].seq - S.rows[b].seq).pop();
+    let k = lastDone ? (c.members.indexOf(S.rows[lastDone].ex) + 1) % c.members.length : 0;
+    const out = [];
+    while (q.some(x => x.length)) { if (q[k].length) out.push(q[k].shift()); k = (k + 1) % c.members.length; }
+    c.rows = non.concat(out);
+  }
+
+  /* 默认选中：指针下面第一条待做 */
+  function autoSelect() {
+    const f = flat(); const P = ptrIndex();
+    const nxt = f.slice(P).find(x => S.rows[x.rid].st === 'pend');
+    S.sel = nxt ? nxt.rid : null;
+  }
+  function fixPtr() {
+    // 锚点行被挪走 / 删掉之后，按它现在所在的卡重算
+    if (S.ptr.after) { const c = cardOfRow(S.ptr.after); if (c) S.ptr.card = c.id; else S.ptr.after = null; }
+    if (!card(S.ptr.card)) S.ptr = { card: S.cards[0] ? S.cards[0].id : null, after: null };
+  }
+
+  /* ── 做完 ── */
+  function markDone(rid) {
+    const row = S.rows[rid]; const rc = cardOfRow(rid);
+    if (row.st === 'skip') {
+      // 补做：它在指针上面，原地记做完
+      row.st = 'done'; row.seq = ++S.seq; S.inkin = rid; vib(8);
+      const pc = card(S.ptr.card);
+      autoSelect(); render();
+      if (pc && pc.id !== rc.id && !isGrp(pc) && !isGrp(rc)) suggestPair(rc, pc);
+      return;
+    }
+    const pc = card(S.ptr.card);
+    if (rc.id === pc.id) {
+      const g = ptrGap();
+      rc.rows.splice(rc.rows.indexOf(rid), 1);
+      rc.rows.splice(g, 0, rid);
+      row.st = 'done'; row.seq = ++S.seq;
+      S.ptr.after = rid;
+      if (isGrp(rc)) arrange(rc);
+    } else {
+      // 跳到别的动作。当前卡还没开始（指针在它开头）：不算跳过，目标卡插到它前面——只是换了顺序。
+      // 当前卡做了一半：没做的组记为跳过，目标卡挪到它下面。
+      const g = ptrGap();
+      S.cards.splice(S.cards.indexOf(rc), 1);
+      if (g === 0) {
+        S.cards.splice(S.cards.indexOf(pc), 0, rc);
+      } else {
+        pc.rows.slice(g).forEach(id => { const r = S.rows[id]; if (r.st === 'pend') { r.st = 'skip'; r.seq = ++S.seq; } });
+        S.cards.splice(S.cards.indexOf(pc) + 1, 0, rc);
+      }
+      const k = rc.rows.filter(id => S.rows[id].st !== 'pend').length;
+      rc.rows.splice(rc.rows.indexOf(rid), 1);
+      rc.rows.splice(k, 0, rid);
+      row.st = 'done'; row.seq = ++S.seq;
+      S.ptr = { card: rc.id, after: rid };
+      if (isGrp(rc)) arrange(rc);
+    }
+    S.inkin = rid; vib(8);
+    autoSelect(); render();
+  }
+  function revert(rid) {
+    const c = cardOfRow(rid); const i = c.rows.indexOf(rid);
+    S.rows[rid].st = 'pend';
+    S.ptr = { card: c.id, after: i > 0 ? c.rows[i - 1] : null };
+    if (isGrp(c)) arrange(c);
+    S.sel = rid; vib(6); render();
+  }
+  function tapNum(rid) {
+    if (S.finished) return;
+    const row = S.rows[rid];
+    if (S.sel !== rid) { S.sel = rid; vib(4); render(); return; }
+    if (row.st === 'pend' || row.st === 'skip') {
+      if (!(row.w > 0 || row.r > 0)) { vib(12); return; }
+      markDone(rid); return;
+    }
+    // 已做完：只有指针正上方那组能再点退回
+    if (S.ptr.after === rid) revert(rid);
+    else { S.sel = null; render(); }
+  }
+
+  /* ── 拖指针 ── */
+  function movePtr(cid, gap) {
+    const P = ptrIndex();
+    const c = card(cid); setPtr(c, gap);
+    const N = ptrIndex(); const f = flat();
+    if (N > P) f.slice(P, N).forEach(x => { const r = S.rows[x.rid]; if (r.st === 'pend') { r.st = 'done'; r.seq = ++S.seq; } });
+    if (N < P) f.slice(N, P).forEach(x => { S.rows[x.rid].st = 'pend'; });
+    if (N < P) S.cards.forEach(cc => { if (isGrp(cc)) arrange(cc); });
+    fixPtr(); autoSelect(); vib(10); render();
+  }
+
+  /* ── 交替组 ── */
+  function mergeCards(a, b, opts) {
+    // b 并进 a；opts.unskip：把跳过的组恢复成待做（「跳回来」那条路）
+    const all = a.rows.concat(b.rows);
+    if (opts && opts.unskip) all.forEach(id => { if (S.rows[id].st === 'skip') S.rows[id].st = 'pend'; });
+    a.members = a.members.concat(b.members.filter(m => !a.members.includes(m)));
+    a.rows = all;
+    S.cards.splice(S.cards.indexOf(b), 1);
+    if (S.ptr.card === b.id) S.ptr.card = a.id;
+    arrange(a, true);
+    return a;
+  }
+  function pairWithNext(c) {
+    const nx = S.cards[S.cards.indexOf(c) + 1]; if (!nx) return;
+    const ptrIn = S.ptr.card === c.id || S.ptr.card === nx.id;
+    mergeCards(c, nx);
+    if (ptrIn) { const lastNon = c.rows.filter(id => S.rows[id].st !== 'pend').pop(); S.ptr = { card: c.id, after: lastNon || null }; }
+    fixPtr(); autoSelect(); render();
+  }
+  function suggestPair(rc, pc) {
+    toast(`和「${EX[pc.members[0]].name}」交替做？`, '交替', () => {
+      if (!S.cards.includes(rc) || !S.cards.includes(pc)) return;
+      const [a, b] = S.cards.indexOf(rc) < S.cards.indexOf(pc) ? [rc, pc] : [pc, rc];
+      mergeCards(a, b, { unskip: true });
+      const lastDone = a.rows.filter(id => S.rows[id].st === 'done').pop();
+      S.ptr = { card: a.id, after: lastDone || null };
+      fixPtr(); autoSelect(); render();
+    });
+  }
+  function moveMember(c, ex, d) {
+    const i = c.members.indexOf(ex); const j = i + d;
+    if (j < 0 || j >= c.members.length) return;
+    c.members.splice(i, 1); c.members.splice(j, 0, ex);
+    arrange(c); fixPtr(); autoSelect(); render();
+  }
+  function removeMember(c, ex) {
+    const out = c.rows.filter(id => S.rows[id].ex === ex);
+    let anchor = S.ptr.after;
+    if (anchor && out.includes(anchor)) {
+      // 锚点被拿走：指针留在交替组里，退到它前面最近的一行
+      const i = c.rows.indexOf(anchor);
+      anchor = c.rows.slice(0, i).reverse().find(id => !out.includes(id)) || null;
+      S.ptr = { card: c.id, after: anchor };
+    }
+    c.rows = c.rows.filter(id => !out.includes(id));
+    c.members = c.members.filter(m => m !== ex);
+    const nc = { id: nid('c'), members: [ex], rows: out };
+    S.cards.splice(S.cards.indexOf(c) + 1, 0, nc);
+    if (isGrp(c)) arrange(c);
+    fixPtr(); autoSelect(); render();
+  }
+  function split(c) {
+    const firstSeq = ex => Math.min(...c.rows.filter(id => S.rows[id].ex === ex && S.rows[id].st !== 'pend').map(id => S.rows[id].seq), Infinity);
+    const order = c.members.slice().sort((a, b) => firstSeq(a) - firstSeq(b));
+    const news = order.map(ex => ({ id: nid('c'), members: [ex], rows: c.rows.filter(id => S.rows[id].ex === ex) }));
+    const i = S.cards.indexOf(c);
+    S.cards.splice(i, 1, ...news);
+    if (S.ptr.card === c.id) S.ptr = { card: news[0].id, after: S.ptr.after };
+    news.forEach(arrange);
+    fixPtr(); autoSelect(); render();
+  }
+  function switchEx(rid, ex) {
+    S.rows[rid].ex = ex;
+    const c = cardOfRow(rid); if (S.rows[rid].st === 'pend') arrange(c);
+    render();
+  }
+  function addSet(c, ex) {
+    const mine = c.rows.filter(id => S.rows[id].ex === ex);
+    const src = mine.length ? S.rows[mine[mine.length - 1]] : { w: EX[ex].last[0][0], r: EX[ex].last[0][1] };
+    const row = newRow(ex, src.w, src.r);
+    S.rows[row.id] = row; c.rows.push(row.id);
+    arrange(c); if (!S.sel) autoSelect(); vib(8); render();
+  }
+  function delRow(rid) {
+    const c = cardOfRow(rid); const i = c.rows.indexOf(rid);
+    if (S.ptr.after === rid) S.ptr = { card: c.id, after: i > 0 ? c.rows[i - 1] : null };
+    c.rows.splice(i, 1); delete S.rows[rid];
+    if (S.sel === rid) S.sel = null;
+    if (isGrp(c)) arrange(c);
+    fixPtr(); if (!S.sel) autoSelect(); vib(6); render();
+  }
+
+  /* 简称：每个名字从后往前，找第一个别的成员名字里没有的字；找不到用 A / B / C */
+  function abbrs(c) {
+    const m = {};
+    c.members.forEach((ex, i) => {
+      const others = c.members.filter(o => o !== ex).map(o => EX[o].name).join('');
+      const chars = [...EX[ex].name.replace(/[（）()]/g, '')].reverse();
+      m[ex] = chars.find(ch => !others.includes(ch)) || 'ABCDEFGH'[i];
+    });
+    return m;
+  }
+
+  /* ── 渲染 ── */
+  const ICON_MORE = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
+  const ICON_MINUS = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  const ICON_PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  const seamHtml = () => `<div class="seam" id="seam"><span class="grab" id="grab"><span class="tab"></span><span class="line"></span></span></div>`;
+
+  function render() {
+    const host = $('#cards');
+    const st = $('#scroll').scrollTop;
+    const P = S.ptr;
+    host.innerHTML = S.cards.map((c, ci) => {
+      const g = isGrp(c); const ab = g ? abbrs(c) : null;
+      const counter = {};
+      const rowsLive = c.rows.map(id => S.rows[id]);
+      const done = rowsLive.filter(r => r.st === 'done').length;
+      const tot = rowsLive.filter(r => r.st !== 'skip').length;
+      const name = g
+        ? c.members.map(ex => `<button type="button" class="mem marginalia" data-act="mem" data-c="${c.id}" data-ex="${ex}">${esc(EX[ex].name)}</button>`).join('<span class="alt">⇄</span>')
+        : esc(EX[c.members[0]].name);
+      const gap = P.card === c.id ? (P.after ? c.rows.indexOf(P.after) + 1 : 0) : -1;
+      let rowsHtml = gap === 0 && !S.finished ? seamHtml() : '';
+      c.rows.forEach((rid, i) => {
+        const r = S.rows[rid];
+        counter[r.ex] = (counter[r.ex] || 0) + 1;
+        const cls = ['row', r.st === 'pend' ? 'pend' : r.st === 'skip' ? 'skip' : 'done', S.sel === rid ? 'sel' : '', S.inkin === rid ? 'inkin' : ''].join(' ');
+        rowsHtml += `<div class="${cls}" data-r="${rid}">
+          <span class="num">${g ? `<button type="button" class="abbr marginalia" data-act="abbr" data-r="${rid}">${esc(ab[r.ex])}</button>` : ''}<button type="button" class="sn" data-act="num" data-r="${rid}">${counter[r.ex]}</button></span>
+          <label class="fld${r.ed.w ? ' ed' : ''}"><input type="number" inputmode="decimal" data-f="w" data-r="${rid}" value="${r.w ? fmt(r.w) : ''}" placeholder="0"><span class="u">kg</span></label>
+          <label class="fld${r.ed.r ? ' ed' : ''}"><input type="number" inputmode="numeric" data-f="r" data-r="${rid}" value="${r.r || ''}" placeholder="0"><span class="u">次</span></label>
+          <button type="button" class="fail${r.fail ? ' on' : ''}" data-act="fail" data-r="${rid}">竭</button>
+          <button type="button" class="minus" data-act="del" data-r="${rid}" aria-label="删除这一组">${ICON_MINUS}</button>
+        </div>`;
+        if (S.sel === rid && r.st !== 'skip' && !S.finished) rowsHtml += `<div class="step"><button type="button" data-act="bump" data-d="-5" data-r="${rid}">−5 <span class="u">kg</span></button><button type="button" data-act="bump" data-d="5" data-r="${rid}">+5 <span class="u">kg</span></button></div>`;
+        if (gap === i + 1 && !S.finished) rowsHtml += seamHtml();
+      });
+      const foot = g
+        ? c.members.map(ex => `<button type="button" class="addset" data-act="add" data-c="${c.id}" data-ex="${ex}">${ICON_PLUS}${esc(EX[ex].name)}</button>`).join('')
+        : `<button type="button" class="addset" data-act="add" data-c="${c.id}" data-ex="${c.members[0]}">${ICON_PLUS}添加组</button>`;
+      return `<div class="card${g ? ' grp' : ''}" data-c="${c.id}">
+        <div class="mast">
+          <div class="l1"><h3>${name}</h3><button type="button" class="more" data-act="more" data-c="${c.id}" aria-label="动作菜单">${ICON_MORE}</button></div>
+          <div class="l2">${g ? '<span class="tagalt">交替</span>' : ''}<span class="meta">第${ci + 1}个 · <b>${done}</b>${done < tot ? `/${tot}` : ''}组</span></div>
+        </div>
+        <div class="gh"><span>#</span><span>重量</span><span>次数</span><span>竭</span><span></span></div>
+        <div class="paper" data-paper="${c.id}">${rowsHtml}</div>
+        <div class="foot">${foot}</div>
+      </div>`;
+    }).join('');
+    $('#scroll').scrollTop = st;
+    const doneAll = Object.values(S.rows).filter(r => r.st === 'done').length;
+    $('#dockcount').innerHTML = `${S.cards.length} 动作 · <b>${doneAll}</b> 组`;
+    $('#finish').disabled = S.finished;
+    S.inkin = null;
+    bindGrab();
+  }
+
+  /* ── 事件 ── */
+  $('#cards').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b || S.finished) return;
+    const rid = b.dataset.r; const c = b.dataset.c && card(b.dataset.c);
+    switch (b.dataset.act) {
+      case 'num': tapNum(rid); break;
+      case 'fail': S.rows[rid].fail = !S.rows[rid].fail; vib(8); render(); break;
+      case 'del': delRow(rid); break;
+      case 'bump': {
+        const r = S.rows[rid]; r.w = Math.max(0, r.w + Number(b.dataset.d)); if (r.st === 'pend') r.ed.w = true; vib(6); render(); break;
+      }
+      case 'add': addSet(c, b.dataset.ex); break;
+      case 'mem': memberMenu(c, b.dataset.ex); break;
+      case 'abbr': abbrMenu(rid); break;
+      case 'more': moreMenu(c); break;
+    }
+  });
+  $('#cards').addEventListener('input', e => {
+    const inp = e.target.closest('input[data-f]'); if (!inp) return;
+    const r = S.rows[inp.dataset.r]; const f = inp.dataset.f;
+    r[f] = inp.value === '' ? 0 : Number(inp.value);
+    if (r.st === 'pend') { r.ed[f] = true; inp.closest('.fld').classList.add('ed'); }
+  });
+  $('#cards').addEventListener('focusin', e => { if (e.target.matches('input[data-f]')) e.target.select(); });
+
+  /* ── 底部面板 ── */
+  function sheet(html, bind) {
+    $('#ovl').innerHTML = `<div class="mwrap" id="mwrap"><div class="mpanel">${html}<button type="button" class="mbtn cancel" data-x>取消</button></div></div>`;
+    const w = $('#mwrap');
+    w.addEventListener('click', e => {
+      if (e.target === w || e.target.closest('[data-x]')) { close(); return; }
+      const b = e.target.closest('[data-k]'); if (b && !b.disabled) { close(); bind(b.dataset.k, b); }
+    });
+    clearToast();
+  }
+  const close = () => { $('#ovl').innerHTML = ''; };
+
+  function memberMenu(c, ex) {
+    const i = c.members.indexOf(ex);
+    sheet(`<div class="mt">${esc(EX[ex].name)}<small>交替组里的第 ${i + 1} 个 · 共 ${c.members.length} 个</small></div>
+      <div class="mrow"><button type="button" class="mbtn center" data-k="l" ${i === 0 ? 'disabled' : ''}>← 左移</button><button type="button" class="mbtn center" data-k="r" ${i === c.members.length - 1 ? 'disabled' : ''}>右移 →</button></div>
+      <button type="button" class="mbtn" data-k="out">移出交替</button>`,
+      k => { if (k === 'l') moveMember(c, ex, -1); if (k === 'r') moveMember(c, ex, 1); if (k === 'out') removeMember(c, ex); });
+  }
+  function abbrMenu(rid) {
+    const c = cardOfRow(rid); const r = S.rows[rid];
+    sheet(`<div class="mt">这一组记到</div>` + c.members.map(ex =>
+      `<button type="button" class="mbtn${ex === r.ex ? ' on' : ''}" data-k="${ex}">${esc(EX[ex].name)}${ex === r.ex ? '<span class="n">当前</span>' : ''}</button>`).join(''),
+      k => { if (k !== r.ex) switchEx(rid, k); });
+  }
+  function moreMenu(c) {
+    const i = S.cards.indexOf(c);
+    if (isGrp(c)) {
+      const singles = S.cards.filter(x => x !== c && !isGrp(x));
+      sheet(`<div class="mt">${c.members.map(ex => esc(EX[ex].name)).join(' ⇄ ')}</div>
+        <div class="mt" style="padding-top:4px"><small>加一个动作</small></div>` +
+        (singles.length ? singles.map(x => `<button type="button" class="mbtn" data-k="join:${x.id}">${ICON_PLUS}${esc(EX[x.members[0]].name)}</button>`).join('') : '<div class="mt"><small>本场没有别的单个动作</small></div>') +
+        `<button type="button" class="mbtn" data-k="split">拆开</button>`,
+        k => {
+          if (k === 'split') split(c);
+          else if (k.startsWith('join:')) { const x = card(k.slice(5)); mergeCards(c, x); fixPtr(); autoSelect(); render(); }
+        });
+      return;
+    }
+    const nx = S.cards[i + 1]; const pv = S.cards[i - 1];
+    sheet(`<div class="mt">${esc(EX[c.members[0]].name)}</div>
+      <button type="button" class="mbtn" data-k="next" ${nx ? '' : 'disabled'}>和下一个动作交替做${nx ? `<span class="n">${esc(isGrp(nx) ? '交替组' : EX[nx.members[0]].name)}</span>` : ''}</button>
+      ${pv && isGrp(pv) ? `<button type="button" class="mbtn" data-k="prev">加入上面的交替组</button>` : ''}`,
+      k => {
+        if (k === 'next') { if (isGrp(nx)) { mergeCards(nx, c); S.cards.splice(S.cards.indexOf(nx), 1); S.cards.splice(i, 0, nx); fixPtr(); autoSelect(); render(); } else pairWithNext(c); }
+        if (k === 'prev') { mergeCards(pv, c); fixPtr(); autoSelect(); render(); }
+      });
+  }
+
+  /* ── 提示条 ── */
+  let toastTimer = 0;
+  function clearToast() { clearTimeout(toastTimer); $('#toastHost').innerHTML = ''; }
+  function toast(msg, act, fn) {
+    clearTimeout(toastTimer);
+    $('#toastHost').innerHTML = `<div class="toast" role="status"><span class="msg">${esc(msg)}</span>${act ? `<button type="button" class="act">${esc(act)}</button>` : ''}<span class="cd"></span></div>`;
+    const a = $('#toastHost .act'); if (a) a.onclick = () => { clearToast(); fn(); vib(10); };
+    toastTimer = setTimeout(clearToast, 6000);
+  }
+
+  /* ── 拖书签 ── */
+  function seams() {
+    const out = []; const sc = $('#scroll'); const sr = sc.getBoundingClientRect();
+    S.cards.forEach(c => {
+      const paper = document.querySelector(`[data-paper="${c.id}"]`); if (!paper) return;
+      const pr = paper.getBoundingClientRect();
+      const rows = [...paper.querySelectorAll('.row')];
+      const ys = [pr.top];
+      rows.forEach(rw => {
+        let el = rw; const nx = rw.nextElementSibling;
+        if (nx && nx.classList.contains('step')) el = nx;
+        ys.push(el.getBoundingClientRect().bottom);
+      });
+      const ab = isGrp(c) ? abbrs(c) : null; const cnt = {};
+      const labels = ['开头'].concat(c.rows.map(id => { const r = S.rows[id]; cnt[r.ex] = (cnt[r.ex] || 0) + 1; return (ab ? ab[r.ex] : '第') + cnt[r.ex] + (ab ? '' : '组') + ' 之后'; }));
+      ys.forEach((y, gap) => out.push({ cid: c.id, gap, y: y - sr.top + sc.scrollTop, left: pr.left, width: pr.width, label: (isGrp(c) ? '' : EX[c.members[0]].name + ' ') + labels[gap] }));
+    });
+    return out;
+  }
+  function bindGrab() {
+    const g = $('#grab'); if (!g) return;
+    g.addEventListener('pointerdown', e => {
+      if (S.finished || !e.isPrimary) return;
+      e.preventDefault();
+      const sc = $('#scroll'); const sid = e.pointerId; let moved = false; let best = null; let all = null; const sy = e.clientY;
+      let fl, ln, cap;
+      try { g.setPointerCapture(sid); } catch (_) {}
+      const mv = ev => {
+        if (ev.pointerId !== sid) return;
+        if (!moved) {
+          if (Math.abs(ev.clientY - sy) < 6) return;
+          moved = true; all = seams();
+          $('#seam').classList.add('dragging');
+          fl = document.createElement('div'); fl.className = 'rfloat';
+          ln = document.createElement('div'); ln.className = 'rfline';
+          cap = document.createElement('div'); cap.className = 'rfcap';
+          document.body.append(ln, fl, cap); vib(8);
+        }
+        const sr = sc.getBoundingClientRect();
+        if (ev.clientY < sr.top + 40) sc.scrollTop -= 8; else if (ev.clientY > sr.bottom - 120) sc.scrollTop += 8;
+        const yc = ev.clientY - sr.top + sc.scrollTop;
+        let nb = null; all.forEach(s => { if (!nb || Math.abs(s.y - yc) < Math.abs(nb.y - yc)) nb = s; });
+        if (best !== nb) { best = nb; vib(4); }
+        const vy = best.y - sc.scrollTop + sr.top;
+        fl.style.transform = `translate(${best.left}px, ${ev.clientY - 9}px)`;
+        ln.style.width = best.width + 'px'; ln.style.transform = `translate(${best.left}px, ${vy - 1}px)`;
+        cap.textContent = best.label; cap.style.transform = `translate(${best.left + 16}px, ${vy - 24}px)`;
+      };
+      const up = ev => {
+        if (ev.pointerId !== sid) return;
+        g.removeEventListener('pointermove', mv); g.removeEventListener('pointerup', up); g.removeEventListener('pointercancel', up);
+        [fl, ln, cap].forEach(x => x && x.remove());
+        if (moved && best) movePtr(best.cid, best.gap); else render();
+      };
+      g.addEventListener('pointermove', mv); g.addEventListener('pointerup', up); g.addEventListener('pointercancel', up);
+    });
+  }
+
+  /* ── 结束训练 / 下次训练 ── */
+  $('#finish').addEventListener('click', () => {
+    if (S.finished) return;
+    clearToast();
+    const drop = Object.values(S.rows).filter(r => r.st !== 'done');
+    const kept = Object.keys(S.rows).length - drop.length;
+    S.finished = true; S.sel = null;
+    drop.forEach(r => { delete S.rows[r.id]; });
+    S.cards.forEach(c => { c.rows = c.rows.filter(id => S.rows[id]); });
+    const pairs = S.cards.filter(c => isGrp(c) && c.rows.length).map(c => c.members.map(ex => EX[ex].name).join(' ⇄ '));
+    render();
+    $('#toastHost').innerHTML = `<div class="colo"><div class="rule"></div><div class="t">已入册 ${kept} 组</div>
+      <div class="s">${drop.length ? `${drop.length} 组没做 / 跳过，不入册` : '全部做完'}${pairs.length ? ` · 交替：${esc(pairs.join('，'))}` : ''}</div>
+      <div class="bt"><button type="button" class="pri" id="nextSess">下次训练</button><button type="button" id="redo">重来</button></div></div>`;
+    $('#nextSess').onclick = nextSession;
+    $('#redo').onclick = () => { clearToast(); scenario(curScenario()); };
+    vib([0, 18, 40, 12]);
+  });
+  function nextSession() {
+    clearToast();
+    const spec = S.cards.filter(c => c.rows.length).map(c => {
+      const mem = c.members.filter(ex => c.rows.some(id => S.rows[id].ex === ex));
+      return mem.map(ex => ({ ex, sets: c.rows.filter(id => S.rows[id].ex === ex).sort((a, b) => S.rows[a].seq - S.rows[b].seq).map(id => [S.rows[id].w, S.rows[id].r]) }));
+    });
+    if (!spec.length) { scenario(curScenario()); return; }
+    build(spec);
+    $('#demotag').textContent = 'Demo · 下次训练 · 底稿按轮换重排';
+  }
+
+  /* ── 方案面板 ── */
+  const curScenario = () => document.querySelector('input[name=sc]:checked').value;
+  $('#gear').onclick = () => { $('#panel').hidden = !$('#panel').hidden; };
+  document.querySelectorAll('input[name=sc]').forEach(x => x.addEventListener('change', () => { scenario(curScenario()); $('#panel').hidden = true; }));
+  $('#reset').onclick = () => { clearToast(); scenario(curScenario()); $('#panel').hidden = true; };
+  $('#addEx').onclick = () => toast('demo 里不加动作');
+
+  scenario('A');
+})();
+</script>
+</body>
+</html>

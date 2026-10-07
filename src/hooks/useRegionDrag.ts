@@ -7,7 +7,7 @@
  *   - 按住即拖：按下就接管，手指一动（> 6px）浮起；不动松手＝普通点击（弹层据此打开动作面板）。
  *   - 拖拽中：手指下那一列（两条栏线之间）整列亮起 + 表头反白；列里虚线落位跟着手指高度走
  *     （放第几个就是第几个）；浮卡被吸向落位（磁吸「中」）；跨列震一下。拖到「未细分」那一片＝放回未细分。
- *     靠近列表上下缘自动滚；英文横滑时靠近左右缘自动横滚。
+ *     靠近列表上下缘自动滚；横滑时（细分多于 4 个 / 英文）靠近左右缘自动横滚。
  *   - 松手：浮卡滑进落位后回调 onDrop；放回原位 / 拖到格子外＝原样放回。
  *
  * 格子是行对齐的 grid（卡片带显式 grid-column / grid-row），落位不能像 flex 列那样插节点：
@@ -273,7 +273,7 @@ export function useRegionDrag(opts: Options): void {
         R.scrollTop += dy;
         moveDrag();
       }
-      const b = R.querySelector<HTMLElement>('.region-board.is-wide .region-bscroll');
+      const b = R.querySelector<HTMLElement>('.region-board.is-scroll .region-bscroll');
       if (b) {
         const br = b.getBoundingClientRect();
         if (g.x < br.left + 40) {

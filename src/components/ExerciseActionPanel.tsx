@@ -5,7 +5,8 @@
  * 由原来的长按管理菜单扩出来，样子照旧：bg-inset 底部面板 + 全宽 bg-card 描边按钮 + 删除项 danger/10 底。
  *   - 头部：名字（点了就地改名）+ ★ 开关；副行「部位 · 细分」
  *   - 「归到细分」chip 行（有细分的力量动作）
- *   - 部位与器材 / 练法 / 备注 / 记录项：打开现有的同一批弹窗
+ *   - 部位与器材 / 做法 / 备注 / 记录项：打开现有的同一批弹窗
+ *   - 并入另一个动作（2.5 整理）：这个动作变成那个动作的一个做法，历史 / 纪录跟过去；撤销条
  *   - 从动作库删除：先执行 + 撤销，不弹确认
  *
  * 长按满 500ms 时面板就弹出来了，手指还按着：松手补发的那次 click 不带新的 pointerdown，
@@ -14,7 +15,7 @@
  * 这是吞一次就作废的条件版，不会把以后的正常点击吃掉。
  */
 import React, { useRef, useState } from 'react';
-import { FileText, ListChecks, Shuffle, Star, Tags, Trash2 } from 'lucide-react';
+import { FileText, GitMerge, ListChecks, Search, Shuffle, Star, Tags, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -30,6 +31,8 @@ interface Props {
   onNote: (name: string) => void;
   onMetrics: (name: string) => void;
   onDelete: (id: string) => void;
+  /** 并入候选：动作库里还在的动作（已合并覆盖层） */
+  library: ExerciseDefinition[];
 }
 
 const btn =
@@ -45,6 +48,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
   onNote,
   onMetrics,
   onDelete,
+  library,
 }) => {
   const {
     resolveName,
@@ -55,11 +59,14 @@ export const ExerciseActionPanel: React.FC<Props> = ({
     starredExercises,
     toggleStarExercise,
     renameExercise,
+    mergeExerciseInto,
   } = useExercisePrefs();
   const { toast } = useUiOverlay();
   const isCn = lang === Language.CN;
   const name = resolveName(ex.name[lang]);
   const [draft, setDraft] = useState<string | null>(null);
+  /** 并入另一个动作：null＝没打开；字符串＝搜索词 */
+  const [mergeQ, setMergeQ] = useState<string | null>(null);
   const ghostRef = useRef(true);
 
   const part = effectivePart(ex);
@@ -194,8 +201,59 @@ export const ExerciseActionPanel: React.FC<Props> = ({
         </button>
         <button type="button" className={btn} onClick={then(() => onVariants(name))}>
           <Shuffle size={16} className="text-accent" />
-          {isCn ? '练法' : 'Variants'}
+          {isCn ? '做法' : 'Variants'}
         </button>
+        {mergeQ === null ? (
+          <button type="button" className={btn} onClick={() => setMergeQ('')} data-testid="merge-open">
+            <GitMerge size={16} className="text-accent" />
+            {isCn ? '并入另一个动作…' : 'Merge into another…'}
+          </button>
+        ) : (
+          (() => {
+            // 同部位的排前面；搜名字（中英、曾用名）
+            const q = mergeQ.trim().toLowerCase();
+            const myPart = (part || '').toLowerCase();
+            const list = library
+              .filter(d => d.id !== ex.id)
+              .filter(d => {
+                if (!q) return (d.bodyPart || '').toLowerCase() === myPart;
+                return [d.name.cn, d.name.en, ...(d.aliases ?? [])].some(n => (n || '').toLowerCase().includes(q));
+              })
+              .slice(0, 12);
+            return (
+              <div className="rounded-card border border-divider bg-card p-2 space-y-1.5" data-testid="merge-panel">
+                <div className="px-1 text-xs font-medium text-tertiary">
+                  {isCn ? `把「${name}」并进哪个动作？它会成为那个动作的一个做法，历史和纪录一起过去` : `Merge "${name}" into which exercise? It becomes a variant; history follows.`}
+                </div>
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
+                  <input
+                    className="ui-input w-full pl-8"
+                    value={mergeQ}
+                    onChange={e => setMergeQ(e.target.value)}
+                    placeholder={isCn ? '搜动作名' : 'Search'}
+                    aria-label={isCn ? '搜动作名' : 'Search'}
+                  />
+                </div>
+                {list.map(d => (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => {
+                      if (mergeExerciseInto(ex.id, d.id)) onClose();
+                    }}
+                    className="w-full min-h-[44px] px-3 rounded-control text-left text-sm font-semibold text-primary active:bg-card-hover flex items-center gap-2"
+                    data-testid="merge-target"
+                  >
+                    {resolveName(d.name[lang])}
+                    {d.bodyPart && <span className="ml-auto text-xs font-medium text-tertiary">{getTagName(d.bodyPart)}</span>}
+                  </button>
+                ))}
+                {!list.length && <div className="px-1 py-2 text-xs text-tertiary">{isCn ? '没有匹配的动作' : 'No match'}</div>}
+              </div>
+            );
+          })()
+        )}
         <button type="button" className={btn} onClick={then(() => onNote(name))}>
           <FileText size={16} className="text-accent" />
           {isCn ? '备注' : 'Note'}

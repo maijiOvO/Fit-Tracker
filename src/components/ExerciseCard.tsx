@@ -7,7 +7,7 @@
  * 一律降级为菜单内的墨色文字项，不靠颜色区分危险）。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil, Shuffle } from 'lucide-react';
+import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil, Shuffle, Repeat } from 'lucide-react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language } from '../../types';
@@ -17,18 +17,15 @@ import { SetCapsule } from './SetCapsule';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
+import { setVolumeKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。
  *  底稿行（ghost）不算 —— 它还不是数据（§12.6）。 */
 function totalVolumeKg(exercise: Exercise): number {
-  return exercise.sets.reduce((sum, s: any) => {
-    if (s.ghost) return sum;
-    let v = (s.weight || 0) * (s.reps || 0);
-    for (const sub of s.subSets || []) v += (sub.weight || 0) * (sub.reps || 0);
-    return sum + v;
-  }, 0);
+  // 辅助的那部分不是举起来的，不算容量（带正负的负荷）
+  return exercise.sets.reduce((sum, s) => (s.ghost ? sum : sum + setVolumeKg(s, exercise)), 0);
 }
 
 function formatVolume(kg: number, unit: string): string {
@@ -61,12 +58,24 @@ interface ExerciseCardProps {
   /** 删一档递减（工作台挂撤销条） */
   onRemoveSubSet?: (exIdx: number, setIdx: number, subIdx: number) => void;
   /**
-   * §12.13 休息标记落在本动作的第几条缝上（gap=0 是第一组之前，gap=k 是第 k 组之后）。
-   * 全场唯一，所以绝大多数卡片拿到的是 null。
+   * 指针（2026-10，原休息书签）落在本动作的第几条缝上（gap=0 是第一组之前，gap=k 是第 k 组之后）。
+   * 全场唯一，所以绝大多数卡片拿到的是 null。指针以上＝做完或跳过。
    */
-  restGap?: number | null;
-  /** 书签被拖到别处（可能是别的动作卡）后回报新位置 */
-  onMoveRest?: (exId: string, gap: number) => void;
+  pointerGap?: number | null;
+  /** 书签被拖到别处（可能是别的卡）：cardKey + gap，交给工作台改状态 */
+  onMovePointer?: (cardKey: string, gap: number) => void;
+  /** 选中的那一组（组号实心 + ±5） */
+  selectedSetId?: string | null;
+  /** 点组号（选中 / 做完 / 退回由工作台判） */
+  onNumTap?: (setId: string) => void;
+  /** 带正负的负荷（变体第二层）：这张卡按「辅助负、自重 0、负重正」记 */
+  signed?: boolean;
+  /** 刊头「第 N 个」：按卡算（交替组算一张） */
+  cardNo?: number;
+  /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */
+  onAlternateWithNext?: () => void;
+  /** ⋯ 菜单：加入上面的交替组（上一张不是交替组时不传） */
+  onJoinGroupAbove?: () => void;
   /** §12.7 长按刊头拖动排序：由 NewWorkoutTab 的 useCardReorder 下发，摊到刊头行上 */
   dragHandle?: {
     handlers: React.DOMAttributes<HTMLElement>;
@@ -94,8 +103,14 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onAddSet,
   onRemoveSet,
   onRemoveSubSet,
-  restGap = null,
-  onMoveRest,
+  pointerGap = null,
+  onMovePointer,
+  selectedSetId = null,
+  onNumTap,
+  signed = false,
+  cardNo,
+  onAlternateWithNext,
+  onJoinGroupAbove,
   dragHandle,
 }) => {
   const isCn = lang === Language.CN;
@@ -109,8 +124,10 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const hasNote = !!exerciseNotes[exerciseName];
   const loadMode = getLoadMode(exercise);
   // 底稿行不计入「M组」——它还不是数据（§12.6）
-  const realSetCount = exercise.sets.filter((s: any) => !s.ghost).length;
-  const ghostSetCount = exercise.sets.length - realSetCount;
+  const realSetCount = exercise.sets.filter(s => !s.ghost).length;
+  // 分母不算跳过的组：跳过＝这次不做了
+  const plannedCount = exercise.sets.filter(s => !s.skipped).length;
+  const ghostSetCount = plannedCount - realSetCount;
   /**
    * §12.6 进度：realSetCount 一直就是「已做几组」，只是没有分母时它读起来像
    * 「这个动作有几组」。补上分母，同一个数字才变成进度。
@@ -244,7 +261,36 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     }}
                   >
                     <Shuffle size={16} strokeWidth={1.75} className="text-tertiary" />
-                    {isCn ? '练法' : 'Variant'}
+                    {isCn ? '做法' : 'Variant'}
+                  </button>
+                )}
+                {onAlternateWithNext && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onAlternateWithNext();
+                    }}
+                    data-testid="alternate-with-next"
+                  >
+                    <Repeat size={16} strokeWidth={1.75} className="text-tertiary" />
+                    {isCn ? '和下一个动作交替做' : 'Alternate with next'}
+                  </button>
+                )}
+                {onJoinGroupAbove && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onJoinGroupAbove();
+                    }}
+                  >
+                    <Repeat size={16} strokeWidth={1.75} className="text-tertiary" />
+                    {isCn ? '加入上面的交替组' : 'Join the group above'}
                   </button>
                 )}
                 {onRename && (
@@ -285,7 +331,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         {/* 组数·容量放在眉批行右侧，不和名字抢第一行：360 宽下两者同一行时
             「杠铃平板卧推」会被挤成「杠铃平板卧 / 推」（2026-10 手机排版摸底）。 */}
         <div className="flex items-center gap-4 mt-1.5">
-          {/* 练法（第 8 条）：选了练法时常驻；有练法但这张卡是标准时淡墨「标准」，点开换 */}
+          {/* 做法（变体第一层）：选了做法时常驻；有做法但这张卡是标准时淡墨「标准」，点开换 */}
           {onSwitchVariant && (variantName || variantCount > 0) && (
             <button
               type="button"
@@ -296,17 +342,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               {variantName || (isCn ? '标准' : 'Standard')}
             </button>
           )}
-            {loadMode !== 'none' && (
-              <button
-                type="button"
-                onClick={() => onOpenMetricModal(exerciseName)}
-                className="marginalia text-label font-medium text-accent"
-              >
-                {loadMode === 'weighted'
-                  ? isCn ? '负重 +' : 'Weighted +'
-                  : isCn ? '辅助 −' : 'Assisted −'}
-              </button>
-            )}
             {exercise.exerciseTime && (
               <button
                 type="button"
@@ -317,11 +352,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               </button>
             )}
           <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
-            {isCn ? `第${exIdx + 1}个` : `#${exIdx + 1}`} ·{' '}
+            {isCn ? `第${cardNo ?? exIdx + 1}个` : `#${cardNo ?? exIdx + 1}`} ·{' '}
             <span className="text-primary font-semibold">{realSetCount}</span>
-            {ghostSetCount > 0 && <span className="opacity-80">/{exercise.sets.length}</span>}
+            {ghostSetCount > 0 && <span className="opacity-80">/{plannedCount}</span>}
             {/* 有分母时按分母定单复数（"1/4 sets"），没分母时还按原来的分子 */}
-            {isCn ? '组' : ` ${plural(ghostSetCount > 0 ? exercise.sets.length : realSetCount, 'set')}`} ·{' '}
+            {isCn ? '组' : ` ${plural(ghostSetCount > 0 ? plannedCount : realSetCount, 'set')}`} ·{' '}
             {formatVolume(totalVolumeKg(exercise), unit)}
           </span>
         </div>
@@ -363,7 +398,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
       >
         {/* §12.13：书签是流里的一个零高节点，夹在两个组块之间。
             不测量、不挂 ResizeObserver —— 行长高了缝自己会跟着走。 */}
-        {restGap === 0 && onMoveRest && <RestBookmark lang={lang} onMove={onMoveRest} />}
+        {pointerGap === 0 && onMovePointer && <RestBookmark lang={lang} onMove={onMovePointer} />}
         {exercise.sets.map((set, setIdx) => (
           <React.Fragment key={set.id}>
             <SetCapsule
@@ -378,13 +413,15 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               onRemove={() => onRemoveSet(exIdx, setIdx)}
               onRemoveSub={onRemoveSubSet ? subIdx => onRemoveSubSet(exIdx, setIdx, subIdx) : undefined}
               // 书签落在第 k 条缝 → 它正下方那一行是第 k 组（下标 k）
-              showStep={restGap === setIdx}
+              selected={selectedSetId === String(set.id)}
+              onNumTap={onNumTap ? () => onNumTap(String(set.id)) : undefined}
+              signed={signed ? { sign: () => (getLoadMode(exercise) === 'assisted' ? -1 : 1) } : undefined}
               onDurationClick={() => handleDurationClick(setIdx)}
             />
             {/* 缝在这一组的整块之后 —— 递减档全都在 SetCapsule 的 fragment 里，
                 所以书签自然落在「递减做完」之后，而不是母行之后。 */}
-            {restGap === setIdx + 1 && onMoveRest && (
-              <RestBookmark lang={lang} onMove={onMoveRest} />
+            {pointerGap === setIdx + 1 && onMovePointer && (
+              <RestBookmark lang={lang} onMove={onMovePointer} />
             )}
           </React.Fragment>
         ))}

@@ -32,7 +32,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { ExerciseDefinition, Language } from '../../types';
+import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
@@ -315,8 +315,11 @@ interface ExercisePickerSheetProps {
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数（App 维护，含新建动作路径） */
   sessionAdded: number;
-  onPickExercise: (ex: ExerciseDefinition) => void;
+  /** variantId：点的是某个做法的小卡 */
+  onPickExercise: (ex: ExerciseDefinition, variantId?: string) => void;
   onCreateCustomExercise: (prefilledName?: string) => void;
+  /** 从交替组「加一个动作」打开：头部写「加到 X ⇄ Y」，选的动作加进那个组 */
+  targetLabel?: string | null;
   // ===== 动作面板里打开的弹窗（复用 App 层同一批弹窗） =====
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onDeleteExercise: (id: string) => void;
@@ -331,6 +334,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   open,
   onClose,
   focusPart = null,
+  targetLabel = null,
   addedCounts,
   sessionAdded,
   onPickExercise,
@@ -358,6 +362,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     removeRegion,
     restoreRegion,
     restoreLibraryExercise,
+    updateVariant,
   } = useExercisePrefs();
   const { toast, toastUndo, dismissToasts } = useUiOverlay();
   const { lang } = useUserSettingsContext();
@@ -384,6 +389,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const regionGestureRef = useRef(false);
   /** 细分格当前每一列（含 '' = 未细分）的顺序，落下 / 归列时据此写序号 */
   const boardColsRef = useRef<Map<string, ExerciseDefinition[]>>(new Map());
+  /**
+   * 吸顶表头与格子是两个横向滚动容器，scrollLeft 双向同步：滑格子表头跟着走，滑表头格子跟着走
+   * （也让「滚到某个表头」这类 scrollIntoView 能把格子带过去）。
+   */
+  const headwrapRef = useRef<HTMLDivElement | null>(null);
+  const bscrollRef = useRef<HTMLDivElement | null>(null);
+  const syncScroll = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
+    if (from && to && Math.abs(to.scrollLeft - from.scrollLeft) > 0.5) to.scrollLeft = from.scrollLeft;
+  };
 
   // ===== 筛选状态（跨开合保留；仅搜索词随打开重置） =====
   const [query, setQuery] = useState('');
@@ -749,27 +763,46 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     enabled: arranging && !special && !!boardPart,
     activeRef: regionGestureRef,
     suppressClickRef,
-    onDrop: (id, target, idx) => placeInRegion(id, target, idx),
+    onDrop: (id, target, idx) => {
+      // 做法小卡（ex::v）：改的是这个做法的细分，不动动作本身；拖回未细分＝跟动作走
+      const sep = id.indexOf('::');
+      if (sep > 0) {
+        const ex = byId.get(id.slice(0, sep));
+        const vid = id.slice(sep + 2);
+        if (!ex) return;
+        const name = ex.name[lang];
+        const before = (ex.variants ?? []).find(v => v.id === vid)?.region ?? '';
+        updateVariant(name, vid, { region: target });
+        haptic(H.tap);
+        toastUndo(
+          target ? (isCn ? `做法已归到「${getTagName(target)}」` : `Variant moved to ${getTagName(target)}`) : isCn ? '做法跟回动作本身' : 'Variant follows the exercise',
+          () => updateVariant(name, vid, { region: before }),
+        );
+        return;
+      }
+      placeInRegion(id, target, idx);
+    },
   });
 
   // ===== 添加 =====
-  const handlePick = (ex: ExerciseDefinition) => {
+  const handlePick = (ex: ExerciseDefinition, variantId?: string) => {
     const now = Date.now();
-    if (lastPickRef.current.id === ex.id && now - lastPickRef.current.t < 450) return;
-    lastPickRef.current = { id: ex.id, t: now };
+    const pickKey = variantId ? `${ex.id}::${variantId}` : ex.id;
+    if (lastPickRef.current.id === pickKey && now - lastPickRef.current.t < 450) return;
+    lastPickRef.current = { id: pickKey, t: now };
     try {
       haptic(H.pick);
     } catch {
       /* noop */
     }
-    const row = rowRefs.current.get(ex.id);
+    const row = rowRefs.current.get(pickKey);
     if (row) {
       // remove → offsetWidth → add 的强制重排触发法保留（写得对，能重放同一条动画）
       row.classList.remove('anim-ink-mark');
       void row.offsetWidth;
       row.classList.add('anim-ink-mark');
     }
-    onPickExercise(ex);
+    onPickExercise(ex, variantId);
   };
 
   /** 打开动作面板：先收起撤销条（它会盖住面板底部的「删除」） */
@@ -839,22 +872,33 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
   const renderCard = (
     ex: ExerciseDefinition,
-    opts: { variant?: string; cell?: { col: string; ci: number; r: number }; unassigned?: boolean; isDeleted?: boolean } = {},
+    opts: {
+      variantCls?: string;
+      cell?: { col: string; ci: number; r: number };
+      unassigned?: boolean;
+      isDeleted?: boolean;
+      /** 做法小卡（带细分的做法单独一张） */
+      variant?: ExerciseVariant;
+    } = {},
   ) => {
-    const displayName = resolveName(ex.name[lang]);
-    const key = displayName.toLowerCase();
+    const baseName = resolveName(ex.name[lang]);
+    const v = opts.variant;
+    const displayName = v ? `${baseName}·${v.name}` : baseName;
+    const key = baseName.toLowerCase();
+    const id = v ? `${ex.id}::${v.id}` : ex.id;
+    const added = opts.isDeleted ? 0 : v ? addedCounts[`${key}::${v.id}`] || 0 : addedCounts[key] || 0;
     return (
       <RegionCard
-        key={ex.id}
-        id={ex.id}
+        key={id}
+        id={id}
         displayName={displayName}
-        added={opts.isDeleted ? 0 : addedCounts[key] || 0}
-        isStarred={!opts.isDeleted && isStarredName(displayName)}
-        variant={opts.variant}
+        added={added}
+        isStarred={!opts.isDeleted && !v && isStarredName(baseName)}
+        variant={`${opts.variantCls ?? ''}${v ? ' is-variant' : ''}`.trim()}
         cell={opts.cell}
         unassigned={opts.unassigned}
         longPress={!arranging}
-        bindRef={bindItemRef(ex.id)}
+        bindRef={bindItemRef(id)}
         onPick={() => {
           if (swallowed()) return;
           if (opts.isDeleted) {
@@ -872,7 +916,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             openActionPanel(ex.id);
             return;
           }
-          handlePick(ex);
+          handlePick(ex, v?.id);
         }}
         onLongPress={() => {
           suppressClickRef.current = performance.now();
@@ -898,12 +942,20 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   /**
    * 细分格（第三版「A + 栏线」）：吸顶的表头（刊头双线）+ 一张行对齐的 grid；
    * 下面是同列宽的「未细分」小卡托盘（轻一档），整理时再接本部位的「已删除」托盘。
+   *
+   * 一屏最多 4 列（2.2，2026-10-06 用户定）：细分多于 4 个时每列按 4 列宽、整张格子横滑；
+   * 表头始终吸顶、不随纵向滚动走（横滑时跟着格子同步平移 —— 吸顶的表头放在横滑容器外面，
+   * 横向位置由 onScroll 同步，因为 sticky 在 overflow-x 容器里吸不了顶）。英文每列 112px，同样横滑。
+   *
+   * 带细分的做法（变体第一层）单独成一张小卡、落在自己那一列（「高位下拉 · 宽握」在背阔、「· V 把」在中背）：
+   * 用户找的是「练到这块肌肉的动作」。点它＝加这个动作并直接用这个做法；整理时拖它＝改这个做法的细分。
    */
   const renderBoard = (part: string) => {
     const regs = regionsOf(part);
     const n = regs.length;
     const wide = !isCn;
-    const tpl = wide ? `repeat(${n}, 112px)` : `repeat(${n}, minmax(0, 1fr))`;
+    const scroll = wide || n > 4;
+    const tpl = scroll ? `repeat(${n}, var(--region-colw))` : `repeat(${n}, minmax(0, 1fr))`;
     const items = results.map(r => r.ex).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
     // 列内顺序：手动排过的（regionRank）在前按序号，没排过的接在后面按默认（收藏 → 最近 → 其余）
     const byRank = (arr: ExerciseDefinition[]) => [
@@ -911,73 +963,94 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       ...arr.filter(e => e.regionRank == null),
     ];
     const by = new Map<string, ExerciseDefinition[]>(regs.map(r => [r.id, []]));
+    /** 做法小卡：每列里接在动作后面 */
+    const vby = new Map<string, { ex: ExerciseDefinition; v: ExerciseVariant }[]>(regs.map(r => [r.id, []]));
     const unassigned: ExerciseDefinition[] = [];
     for (const ex of items) {
       const rg = effectiveRegion(ex);
       const col = rg ? by.get(rg) : undefined;
       if (col) col.push(ex);
       else unassigned.push(ex);
+      for (const v of ex.variants ?? []) {
+        if (v.region && vby.has(v.region)) vby.get(v.region)!.push({ ex, v });
+      }
     }
     for (const [k, arr] of by) by.set(k, byRank(arr));
     boardColsRef.current = new Map([...by, ['', unassigned]]);
     const dels = arranging ? deleted.filter(ex => (ex.bodyPart || '').toLowerCase() === part.toLowerCase()) : [];
+    const trayCols = scroll ? (wide ? trayTpl() : trayTpl(4)) : tpl;
+    const heads = (
+      <div className="region-heads">
+        {regs.map(r =>
+          arranging ? (
+            <button
+              key={r.id}
+              type="button"
+              className="region-head is-editable"
+              data-region-head={r.id}
+              data-testid="region-head-edit"
+              onClick={() => {
+                dismissToasts();
+                setRegionMenu({ id: r.id });
+              }}
+            >
+              <b>{getTagName(r.id)}</b>
+              <i>{by.get(r.id)!.length + vby.get(r.id)!.length}</i>
+            </button>
+          ) : (
+            <div key={r.id} className="region-head" data-region-head={r.id}>
+              <b>{getTagName(r.id)}</b>
+            </div>
+          ),
+        )}
+        {arranging && (
+          <button
+            type="button"
+            className="region-head-plus"
+            aria-label={isCn ? '新建细分' : 'New region'}
+            data-testid="region-new"
+            onClick={() => {
+              dismissToasts();
+              setRegionMenu({ id: '' });
+            }}
+          >
+            <span>
+              <Plus size={13} strokeWidth={2.5} />
+            </span>
+          </button>
+        )}
+        {rules(n)}
+      </div>
+    );
     return (
       <div
-        className={`region-board${wide ? ' is-wide' : ''}`}
+        className={`region-board${wide ? ' is-wide' : ''}${scroll ? ' is-scroll' : ''}`}
         style={{ ['--region-n' as string]: n, ['--region-tpl' as string]: tpl }}
         data-testid="picker-region-board"
         data-region-board=""
       >
-        <div className="region-bscroll">
+        {/* 吸顶的表头：在横滑容器外面（sticky 在 overflow-x 里吸不了顶），横向位置跟格子双向同步 */}
+        <div
+          className="region-headwrap"
+          ref={headwrapRef}
+          onScroll={() => syncScroll(headwrapRef.current, bscrollRef.current)}
+        >
+          {heads}
+        </div>
+        <div
+          className="region-bscroll"
+          ref={bscrollRef}
+          onScroll={() => syncScroll(bscrollRef.current, headwrapRef.current)}
+        >
           <div className="region-bin">
-            <div className="region-heads">
-              {regs.map(r =>
-                arranging ? (
-                  <button
-                    key={r.id}
-                    type="button"
-                    className="region-head is-editable"
-                    data-region-head={r.id}
-                    data-testid="region-head-edit"
-                    onClick={() => {
-                      dismissToasts();
-                      setRegionMenu({ id: r.id });
-                    }}
-                  >
-                    <b>{getTagName(r.id)}</b>
-                    <i>{by.get(r.id)!.length}</i>
-                  </button>
-                ) : (
-                  <div key={r.id} className="region-head" data-region-head={r.id}>
-                    <b>{getTagName(r.id)}</b>
-                  </div>
-                ),
-              )}
-              {arranging && (
-                <button
-                  type="button"
-                  className="region-head-plus"
-                  aria-label={isCn ? '新建细分' : 'New region'}
-                  data-testid="region-new"
-                  onClick={() => {
-                    dismissToasts();
-                    setRegionMenu({ id: '' });
-                  }}
-                >
-                  <span>
-                    <Plus size={13} strokeWidth={2.5} />
-                  </span>
-                </button>
-              )}
-              {rules(n)}
-            </div>
             <div className="region-gwrap">
               <div className="region-band" aria-hidden />
               {rules(n)}
               <div className="region-grid">
                 {regs.map((r, ci) => {
                   const col = by.get(r.id)!;
-                  if (!col.length) {
+                  const vcol = vby.get(r.id)!;
+                  if (!col.length && !vcol.length) {
                     // 正常态空列不画占位（表头下留白就整齐）；整理时是「可以放进来」的虚线落位
                     return arranging ? (
                       <div
@@ -989,7 +1062,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                       />
                     ) : null;
                   }
-                  return col.map((ex, ri) => renderCard(ex, { cell: { col: r.id, ci: ci + 1, r: ri + 1 } }));
+                  return [
+                    ...col.map((ex, ri) => renderCard(ex, { cell: { col: r.id, ci: ci + 1, r: ri + 1 } })),
+                    ...vcol.map(({ ex, v }, vi) =>
+                      renderCard(ex, { cell: { col: r.id, ci: ci + 1, r: col.length + vi + 1 }, variant: v }),
+                    ),
+                  ];
                 })}
               </div>
             </div>
@@ -1007,9 +1085,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <div
             className="region-tray"
             data-drop-body=""
-            style={{ ['--region-tpl' as string]: wide ? trayTpl() : tpl, minHeight: arranging && !unassigned.length ? 44 : undefined }}
+            style={{ ['--region-tpl' as string]: trayCols, minHeight: arranging && !unassigned.length ? 44 : undefined }}
           >
-            {unassigned.map(ex => renderCard(ex, { variant: 'is-un', unassigned: true }))}
+            {unassigned.map(ex => renderCard(ex, { variantCls: 'is-un', unassigned: true }))}
           </div>
         </div>
         {dels.length > 0 && (
@@ -1019,8 +1097,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               <h3>{isCn ? '已删除' : 'Deleted'}</h3>
               <span>{dels.length}</span>
             </div>
-            <div className="region-tray" style={{ ['--region-tpl' as string]: wide ? trayTpl() : tpl }}>
-              {dels.map(ex => renderCard(ex, { variant: 'is-deleted is-tap', isDeleted: true }))}
+            <div className="region-tray" style={{ ['--region-tpl' as string]: trayCols }}>
+              {dels.map(ex => renderCard(ex, { variantCls: 'is-deleted is-tap', isDeleted: true }))}
             </div>
           </>
         )}
@@ -1035,7 +1113,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     return (
       <div className="region-tray mt-1" style={{ ['--region-tpl' as string]: trayTpl(), ['--region-gap' as string]: '9px' }}>
         {sorted.map(ex =>
-          renderCard(ex, { variant: isDeleted ? 'is-deleted is-tap' : 'is-un is-tap', isDeleted }),
+          renderCard(ex, { variantCls: isDeleted ? 'is-deleted is-tap' : 'is-un is-tap', isDeleted }),
         )}
       </div>
     );
@@ -1231,7 +1309,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           onPointerCancel={handlePointerEnd}
         >
           <h2 className="font-display text-lg font-semibold text-primary whitespace-nowrap truncate">
-            {arranging ? `${isCn ? '整理' : 'Arrange'} · ${arrangeTitle}` : isCn ? '添加动作' : 'Add Exercise'}
+            {arranging
+              ? `${isCn ? '整理' : 'Arrange'} · ${arrangeTitle}`
+              : targetLabel
+                ? `${isCn ? '加到' : 'Add to'} ${targetLabel}`
+                : isCn ? '添加动作' : 'Add Exercise'}
           </h2>
           {sessionAdded > 0 && !arranging && (
             <span
@@ -1722,10 +1804,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           onNote={onOpenNote}
           onMetrics={onOpenMetrics}
           onDelete={onDeleteExercise}
+          library={merged}
         />
       )}
 
-      {/* 从动作库进的练法：只管理（改名 / 删除 / 新建），不切换任何一张训练卡 */}
+      {/* 从动作库进的做法：只管理（改名 / 删除 / 新建 / 细分与器材），不切换任何一张训练卡 */}
       <VariantModal
         open={!!variantFor}
         lang={lang}

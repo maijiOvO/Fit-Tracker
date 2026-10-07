@@ -1083,26 +1083,34 @@ button {
    小卡跟部位 / 器材 chip 同一套：灰底无边框、粗体；已添加＝朱砂实底。
    列是第一层级：列间一道 1px divider 栏线（列距 9px，线在正中），从表头穿到格子底；
    表头 13px/700 + 刊头双线（同动作卡 .masthead-rule）。格子是一张行对齐的 grid（卡片带显式行列）。
-   中文按列等分、不横滑；英文每列 112px 横滑（5 列怎么排都放不下 Dumbb/ell）。 */
+   一屏最多 4 列（2.2，2026-10-06 用户定）：≤4 个细分按列等分；多于 4 个每列按 4 列宽、整张横滑（.is-scroll）。
+   英文每列 112px 横滑（5 列怎么排都放不下 Dumbb/ell）。
+   表头始终吸顶：它在横滑容器外面（.region-headwrap，自己也是横向滚动容器），两边 scrollLeft 双向同步 ——
+   sticky 在 overflow-x 的容器里吸不了顶。 */
 .region-board {
   --region-gap: 9px;
-  /* 栏线位置按列宽算：中文等分（% 在用到它的地方解析，即 heads / gwrap 的宽度） */
+  /* 栏线位置按列宽算：等分时 % 在用到它的地方解析（heads / gwrap 的宽度） */
   --region-colw: calc((100% - (var(--region-n) - 1) * var(--region-gap)) / var(--region-n));
   position: relative;
+  /* 给横滑时的列宽当参照（100cqi＝格子可见宽度） */
+  container-type: inline-size;
+}
+.region-board.is-scroll {
+  --region-colw: calc((100cqi - 3 * var(--region-gap)) / 4);
 }
 .region-board.is-wide {
   --region-colw: 112px;
 }
-.region-board.is-wide .region-bscroll {
+.region-board.is-scroll .region-bscroll {
   overflow-x: auto;
   margin: 0 -16px;
   padding: 0 16px;
   scrollbar-width: none;
 }
-.region-board.is-wide .region-bscroll::-webkit-scrollbar {
+.region-board.is-scroll .region-bscroll::-webkit-scrollbar {
   display: none;
 }
-.region-board.is-wide .region-bin {
+.region-board.is-scroll .region-bin {
   width: max-content;
 }
 .region-heads,
@@ -1112,19 +1120,31 @@ button {
   grid-template-columns: var(--region-tpl);
   column-gap: var(--region-gap, 9px);
 }
-.region-heads {
+/* 吸顶层：两侧伸进弹层的 16px 留白（表头行末的「＋」挂在那里），下面留出栏线伸出去的 7px。
+   横滑时它跟格子一起滚（scrollLeft 双向同步），不画滚动条 */
+.region-headwrap {
   position: sticky;
   top: 0;
   z-index: 3;
-  margin-bottom: 10px;
+  margin: 0 -16px 3px;
+  padding: 0 16px 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  background: var(--bg-base);
+}
+.region-headwrap::-webkit-scrollbar {
+  display: none;
+}
+.region-heads {
+  position: relative;
   padding: 12px 0 6px;
   background: var(--bg-base);
   border-bottom: 1px solid var(--rule-strong);
   box-shadow: 0 3px 0 -2px var(--divider);
 }
-/* 横滑时表头在横向滚动容器里，吸不了顶（demo 同） */
-.region-board.is-wide .region-heads {
-  position: relative;
+.region-board.is-scroll .region-heads {
+  width: max-content;
 }
 .region-head {
   position: relative;
@@ -1444,10 +1464,42 @@ button {
   background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-inset));
 }
 /* 组号在底稿行里是「未刻的印」：虚线框 + 淡墨（与「制」那枚虚线印同语义） */
-.ledger-row.is-ghost .set-num {
-  color: var(--text-tertiary);
-  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+/* ── 组号只有两种样子（2026-10 指针，用户定）：平时一律空心细框，选中＝实心朱砂印 ──
+   做完没做完看指针位置和数字墨色（实墨＝做完，淡墨 + 虚线下划线＝待做），组号不再分虚线 / 实心。
+   只在工作台里画框（.is-ghost / .is-inked 只在可编辑的账本上挂），历史视图的组号还是素字。 */
+.ledger-row.is-ghost .set-num,
+.ledger-row.is-inked .set-num {
+  color: var(--accent);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
   border-radius: var(--radius-card);
+  background: transparent;
+}
+.ledger-row.is-selected .set-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+/* 跳过：这次不做了 —— 整行淡下去 + 一道删除线（数字那几列），结束训练时丢掉 */
+.ledger-row.is-skipped > :not(:first-child) {
+  opacity: 0.45;
+}
+.ledger-row.is-skipped .set-num {
+  opacity: 0.55;
+}
+.ledger-row.is-skipped::after {
+  content: '';
+  position: absolute;
+  left: calc(12px + var(--strike-l, 44px));
+  right: 92px;
+  top: 55%;
+  height: 1.5px;
+  background: var(--text-tertiary);
+  opacity: 0.7;
+  pointer-events: none;
+}
+/* 带正负的负荷：单位前的 + / − 可点（换号），虚线下划线＝可点的批注 */
+.ledger-unit.marginalia {
+  pointer-events: auto;
 }
 
 /* 描实 = 墨色过冲（文字版）：从朱砂墨沉回实墨，零位移 */
@@ -1474,32 +1526,8 @@ button {
    只在工作台（可编辑的账本）里落 —— 历史视图里所有组都已入册，
    印不区分任何东西，只剩噪音。.is-inked 由 SetCapsule 在 !readOnly 时挂。
    ⚠ 没有底稿的动作卡（全新动作）会整列都是印：那时它同样不区分任何东西。 */
-.ledger-row.is-inked .set-num {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--text-on-accent);
-}
-/* 描实那一帧：虚线印 → 实心印，与 ink-text 同拍。
-   自带完整关键帧，否则 ink-text 的 color 会跟反白字打架。 */
-@keyframes seal-cut {
-  0% {
-    background: transparent;
-    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-    border-style: dashed;
-    color: var(--accent-ink);
-  }
-  45% {
-    border-style: solid;
-  }
-  100% {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--text-on-accent);
-  }
-}
-.ledger-row.is-inkin.is-inked .set-num {
-  animation: seal-cut var(--dur-stamp) var(--ease-ink);
-}
+/* （原「描实落印」：做完的组号变实心朱砂。2026-10 起组号只两种样子，实心只给「选中」，这条撤掉；
+   做完那一下只剩数字的墨色过冲 ink-text。） */
 
 /* ── §12.13 休息标记：书签夹在两组之间 ──────────────────────────
    旧版 .ledger-row.is-next 铺在**行**上，读作「下一组做哪个」。但真正会去看它的

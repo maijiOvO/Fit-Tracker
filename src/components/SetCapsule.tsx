@@ -31,10 +31,26 @@ interface SetCapsuleProps {
   onRemove: () => void;
   onDurationClick?: () => void;
   /**
-   * 休息书签正下方那一行（「下一组」）：在这一组的整块之后露出 −5 / +5（第 2 条）。
-   * 全场只有一行是 true。
+   * 选中（2026-10 指针）：组号实心，这一组的整块之后露出 −5 / +5。全场至多一行。
+   * 默认选中的是指针下面那一组；点别的组号先选中它。
    */
-  showStep?: boolean;
+  selected?: boolean;
+  /**
+   * 点组号交给工作台（选中 / 做完 / 退回由 workbench 判）。只读历史视图不传。
+   * 长按组号仍是加一档递减，这里只收「点」。
+   */
+  onNumTap?: () => void;
+  /** 显示的组号（交替组里按动作各数各的）；不传＝setIdx + 1 */
+  displayNo?: number;
+  /** 交替组：组号前的动作简称，点它＝改记到组里另一个动作名下 */
+  badge?: { label: string; onClick: () => void; title: string };
+  /** 首列宽（交替组放宽到能放下简称） */
+  firstCol?: number;
+  /**
+   * 带正负的负荷（变体第二层）：重量格按「辅助为负、自重 0、负重为正」记，±5 / 横拖可以跨过 0；
+   * 单位前的 + / − 可点，换号。sign 给出旧数据（组上没写号）时的号。
+   */
+  signed?: { sign: (s: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] }) => -1 | 1 };
   /** 删一档递减：交给工作台做（要挂撤销条，撤销必须按最新状态插回去） */
   onRemoveSub?: (subIdx: number) => void;
 }
@@ -82,7 +98,12 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   onUpdate,
   onRemove,
   onDurationClick,
-  showStep = false,
+  selected = false,
+  onNumTap,
+  displayNo,
+  badge,
+  firstCol = 36,
+  signed,
   onRemoveSub,
 }) => {
   const isCn = lang === Language.CN;
@@ -93,27 +114,46 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const mode: LoadMode = loadMode ?? 'none';
   // 自带一份列宽：ExerciseCard 会在卡片上设同样的值（表头要用），
   // 但只读历史视图没有那个父级，行必须自己兜住。
-  const colStyle = { ['--cols' as string]: ledgerCols(activeMetrics.length) };
-  // 单位内嵌在每个数值右下角（§6.1：10px 表头副行已删），所以标签在行内算
-  const unitLabels = Object.fromEntries(
-    activeMetrics.map(m => [m, metricUnitLabel(m, unit, isCn, mode)]),
-  ) as Record<string, string>;
+  const colStyle = { ['--cols' as string]: ledgerCols(activeMetrics.length, firstCol) };
   // 直接读 props，不留本地副本：原先的 useState(set.subSets) 只在挂载时读一次，
   // 之后外部改了这一组（底稿预填、撤销、同步回来）子组行不会跟着变。
   const subSets: SubSetLog[] = set.subSets || [];
   const hasSubSets = subSets.length > 0;
 
   /**
-   * 组行只有两种状态（第 4 条）：待做（ghost=true，虚线印）/ 做完（实心印）。
-   * 底稿、「添加组」新长出来的行、新动作的第一行，一律从待做开始。
-   *
-   * **只有点组号（或点「竭」）才算做完**；改值只改值。原先「任何编辑都让整行入册」
-   * 导致新动作第一行、添加组的新行一出现就是实心印，实心印就不再区分任何东西。
-   * 做完 ⇄ 待做 随时点着切（不再限「没改过值才能退回」—— 那条退回凭据 fromGhost 已停写，读到忽略）。
+   * 带正负的负荷：号按组算（组上没写按动作实例），显示的是绝对值，号在单位前（+kg / −kg）；
+   * 运算（±5、横拖、递减）在带符号的数上做，所以能从 −5 走到 0 再走到 +5。
+   */
+  const signOf = (
+    x: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] },
+    parent?: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] },
+  ): -1 | 1 => {
+    if (!signed) return 1;
+    if (x.bodyweightMode === 'assisted') return -1;
+    if (x.bodyweightMode === 'weighted') return 1;
+    return parent ? signOf(parent) : signed.sign(x);
+  };
+  const rowSign = signOf(set);
+  // 组上写了号（带正负的负荷记下来的）：历史视图没传 signed 也照样显示 + / −
+  const ownMode: LoadMode | null =
+    set.bodyweightMode === 'assisted' || set.bodyweightMode === 'weighted' ? set.bodyweightMode : null;
+  const rowMode: LoadMode = signed
+    ? Number(set.weight) > 0
+      ? rowSign < 0 ? 'assisted' : 'weighted'
+      : 'none'
+    : ownMode ?? mode;
+  // 单位内嵌在每个数值右下角（§6.1：10px 表头副行已删），所以标签在行内算
+  const unitLabels = Object.fromEntries(
+    activeMetrics.map(m => [m, metricUnitLabel(m, unit, isCn, rowMode)]),
+  ) as Record<string, string>;
+
+  /**
+   * 组行三种状态（2026-10 指针）：待做（ghost）/ 跳过（ghost + skipped）/ 做完。
+   * 做完没做完看指针位置和数字墨色；组号平时一律空心细框，选中才实心（用户定：只两种样子）。
+   * 点组号交给工作台：没选中＝选中；选中的再点＝做完（或刚做完那组＝退回）。改值只改值。
    */
   const isGhost = !!set.ghost && !readOnly;
-  const [inkin, setInkin] = useState(false);
-  const inkinTimerRef = React.useRef<number | null>(null);
+  const isSkipped = isGhost && !!set.skipped;
   const update = (updates: Partial<SetLog>) => {
     const keys = isGhost ? touchedKeys(updates) : [];
     if (!keys.length) {
@@ -125,36 +165,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     onUpdate({ ...updates, touched });
   };
 
-  /** 全零的行点不实：一组什么都没填，做完也记不下任何东西 */
-  const hasValue =
-    ['weight', 'reps', 'duration', 'distance', 'score', 'time'].some(k => Number(set[k]) > 0) ||
-    subSets.some(sub => Number(sub.weight) > 0 || Number(sub.reps) > 0);
-  const [nope, setNope] = useState(false);
-  const nopeTimerRef = React.useRef<number | null>(null);
-  const refuse = () => {
-    haptic(H.tap);
-    setNope(false);
-    // 下一帧再挂，连点时摆动能重播
-    window.requestAnimationFrame(() => setNope(true));
-    if (nopeTimerRef.current !== null) window.clearTimeout(nopeTimerRef.current);
-    nopeTimerRef.current = window.setTimeout(() => setNope(false), 1400);
-  };
-
-  /** 做完：落印（seal-cut 与 ink-text 同拍）；改过的标记随之作废 */
-  const markDone = (extra: Partial<SetLog> = {}) => {
-    setInkin(true);
-    if (inkinTimerRef.current !== null) window.clearTimeout(inkinTimerRef.current);
-    inkinTimerRef.current = window.setTimeout(() => setInkin(false), 700);
-    haptic(H.tap);
-    onUpdate({
-      ...extra,
-      ghost: false,
-      touched: undefined,
-      fromGhost: undefined,
-      ...(hasSubSets ? { subSets: subSets.map(({ touched: _t, ...sub }) => sub) } : {}),
-    });
-  };
-
   /** 长按加递减达成后，松手带出的那次 click 不能再被读成「点组号」 */
   const longPressAtRef = React.useRef(0);
   const onSetNumClick = () => {
@@ -163,26 +173,30 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       longPressAtRef.current = 0;
       return;
     }
-    if (isGhost) {
-      if (hasValue) markDone();
-      else refuse();
-    } else {
-      haptic(H.tap);
-      onUpdate({ ghost: true });
-    }
+    onNumTap?.();
+  };
+
+  /** 显示单位下的带符号重量 ⇄ 存储（kg，非负 + 号） */
+  const toDisplay = (kg: number, sign: -1 | 1) => sign * Number(formatWeight(Number(kg) || 0, unit));
+  const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode'> => {
+    const kg = parseWeight(Math.abs(v), unit);
+    if (!signed) return { weight: kg };
+    return { weight: kg, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
   };
 
   // 重量格横向拖动改值。hook 不能在下面的 map 里调，所以在这里调一次，
   // 再把 handlers 单独摊到 weight 那一格上。
   // 步长按【显示单位】走：kg 里的 1 就是 1kg，lbs 里的 1 就是 1lb，不做换算——
   // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
-  const weightDisplay = Number(formatWeight(Number(set.weight) || 0, unit));
+  const weightDisplay = toDisplay(set.weight, rowSign);
   const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：待做行上横拖只改值、记 touched，不描实
-    onChange: next => update({ weight: parseWeight(next, unit) }),
+    onChange: next => update(fromDisplay(next)),
     steps: SCRUB_STEPS_WEIGHT,
     disabled: readOnly,
+    // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
+    ...(signed ? { min: -9999 } : {}),
   });
   // 次数格同一套手势（§12.6 提到的一致性补全）：档位 1/2/5，没有 ×10 ——
   // 一次训练里 reps 的动态范围比重量小得多，最高档给到 5 就够跨一整个区间。
@@ -202,27 +216,30 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       ...cur,
       ...updates,
       // 格子墨色要按格算：哪一格改过，哪一格变实墨
-      ...(isGhost ? { touched: { ...(cur.touched || {}), ...Object.fromEntries(Object.keys(updates).map(k => [k, true])) } } : {}),
+      ...(isGhost ? { touched: { ...(cur.touched || {}), ...Object.fromEntries(Object.keys(updates).filter(k => k === 'weight' || k === 'reps').map(k => [k, true])) } } : {}),
     };
     update({ subSets: newSubSets });
   };
 
-  const handleAddSubSet = () => {
-    // 上次练过、带着递减档的组，底稿里已经原样抄来了子组（toGhostSets），不经过这里。
-    // 这里只管「没有记录可抄」时的手动加一档：递减组的定义就是降重量再来一轮，
-    // 所以从【上一行】降一档。上一行＝最后一档递减，没有就是母组；
-    // 原先永远拿母组算，第二档会和第一档一模一样。
-    // 降多少按【当前单位】减 5（磅就 −5 磅，kg 就 −5kg），跟换片的手感一致；
-    // 原先 −20% 取整到 0.5kg 与单位无关，lbs 下会落出 105.82 这种数。
-    // 上一行若是换算残留（132.28）先 floor 再减，新档落在整数上。下限 0。
-    // 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
+  /**
+   * 加一档子组（组型：递减 / 递增，变体第三层）。
+   * 上次练过、带着子组的组，底稿里已经原样抄来了（toGhostSets），不经过这里。
+   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）按当前单位 ∓5（磅就 5 磅，kg 就 5kg），
+   * 跟换片的手感一致。上一行若是换算残留（132.28）先取整再走，新档落在整数上。
+   * 带正负的负荷在带符号的数上走：+10 → +5 → 0 → −5（递减可以一路降进辅助）。普通重量下限 0。
+   * 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
+   */
+  const handleAddSubSet = (dir: -1 | 1 = -1) => {
     const prev = subSets.length > 0 ? subSets[subSets.length - 1] : set;
-    const shown = Number(formatWeight(Number(prev.weight) || 0, unit));
+    const prevSign = subSets.length > 0 ? signOf(prev, set) : rowSign;
+    const shown = toDisplay(prev.weight, prevSign);
     const residue = Math.abs(shown * 2 - Math.round(shown * 2)) > 1e-6;
-    const dropped = Math.max(0, (residue ? Math.floor(shown) : shown) - 5);
+    const base = residue ? (dir < 0 ? Math.floor(shown) : Math.ceil(shown)) : shown;
+    let next = base + dir * 5;
+    if (!signed) next = Math.max(0, next);
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
-      weight: shown > 0 ? parseWeight(dropped, unit) : 0,
+      ...(shown !== 0 || signed ? fromDisplay(next) : { weight: 0 }),
       reps: Number(prev.reps) || 0,
     };
     update({ subSets: [...subSets, newSubSet] });
@@ -237,62 +254,104 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     onUpdate({ subSets: subSets.filter((_, i) => i !== subIdx) });
   };
 
-  // 长按组号＝加一条递减子组（§6.4，极低频动作）。轻点有了自己的意思（做完 ⇄ 待做），
+  // 长按组号＝加一档递减（§6.4，极低频动作）。轻点有了自己的意思（选中 / 做完），
   // 所以不再闪「按住加子组」的提示。
   const addSub = useLongPress({
     onLongPress: () => {
       longPressAtRef.current = performance.now();
-      handleAddSubSet();
+      handleAddSubSet(-1);
     },
     disabled: readOnly,
   });
 
-  /** −5 / +5：按当前单位，下限 0；换算残留不取整（132.28 → 137.28，只有拖动才取整） */
+  /** −5 / +5：按当前单位；普通重量下限 0，带正负的负荷可以跨过 0。换算残留不取整（只有拖动才取整） */
   const bump = (d: number) => {
     haptic(H.tap);
-    const next = Math.max(0, Math.round((weightDisplay + d) * 100) / 100);
-    update({ weight: parseWeight(next, unit) });
+    let next = Math.round((weightDisplay + d) * 100) / 100;
+    if (!signed) next = Math.max(0, next);
+    update(fromDisplay(next));
   };
+
+  /** 换号（点单位前的 + / −）：辅助 ⇄ 负重，绝对值不动 */
+  const flipSign = () => {
+    if (!signed || !(Number(set.weight) > 0)) return;
+    haptic(H.tap);
+    update({ bodyweightMode: rowSign < 0 ? 'weighted' : 'assisted' });
+  };
+
+  /** 子组行的标签：比上一行轻＝递减，重＝递增（按带符号的数比） */
+  const subLabel = (i: number): 'drop' | 'up' => {
+    const prev = i === 0 ? set : subSets[i - 1];
+    const a = toDisplay(prev.weight, i === 0 ? rowSign : signOf(prev, set));
+    const b = toDisplay(subSets[i].weight, signOf(subSets[i], set));
+    return b > a ? 'up' : 'drop';
+  };
+
+  /** 待做 → 做完的那一下渗一次墨（ink-text 与组号同拍）。状态由工作台改，这里只看前后两次的 ghost */
+  const [inkin, setInkin] = useState(false);
+  const wasGhostRef = React.useRef(!!set.ghost);
+  React.useEffect(() => {
+    const was = wasGhostRef.current;
+    wasGhostRef.current = !!set.ghost;
+    if (!was || set.ghost || readOnly) return;
+    setInkin(true);
+    const t = window.setTimeout(() => setInkin(false), 700);
+    return () => window.clearTimeout(t);
+  }, [set.ghost, readOnly]);
+
+  const no = displayNo ?? setIdx + 1;
 
   return (
     <>
       <div
         className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${
-          inkin ? ' is-inkin' : ''
-        }${!isGhost && !readOnly ? ' is-inked' : ''}`}
+          isSkipped ? ' is-skipped' : ''
+        }${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}`}
         style={colStyle}
         data-set-idx={setIdx}
+        data-set-id={set.id}
         onAnimationEnd={e => {
           if (e.animationName === 'row-in') setEntering(false);
         }}
       >
-        {/* 组号：36×36 胶囊。点 = 做完 ⇄ 待做（第 4 条：唯一的「这组做完了」）；
-            长按 = 加一档递减（达成后吞掉松手那次 click）。 */}
-        <span
-          className={`set-num relative w-9 h-9 flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y${
-            nope ? ' is-nope' : ''
-          }`}
-          onClick={readOnly ? undefined : onSetNumClick}
-          role={readOnly ? undefined : 'button'}
-          aria-pressed={readOnly ? undefined : !isGhost}
-          aria-label={
-            readOnly
-              ? undefined
-              : isGhost
-                ? isCn ? `第 ${setIdx + 1} 组做完了` : `Set ${setIdx + 1} done`
-                : isCn ? `第 ${setIdx + 1} 组退回待做` : `Set ${setIdx + 1} back to to-do`
-          }
-          {...addSub.handlers}
-        >
-          {setIdx + 1}
-          {/* 全零点不实时闪一下原因（瞬时反馈，不是常驻文字） */}
-          <LongPressAffordance
-            active={addSub.pressing}
-            hint={nope}
-            label={isCn ? '加子组' : 'Drop set'}
-            hintLabel={isCn ? '没填数' : 'Nothing entered'}
-            drawMs={addSub.drawMs}
-          />
+        {/* 组号：36×36 胶囊。点 = 选中，选中的再点 = 做完（指针移到它下面）；
+            长按 = 加一档递减（达成后吞掉松手那次 click）。交替组在前面加一个动作简称。 */}
+        <span className="flex items-center gap-1 min-w-0">
+          {badge && (
+            <button
+              type="button"
+              onClick={badge.onClick}
+              title={badge.title}
+              aria-label={badge.title}
+              className="marginalia flex-none min-w-[16px] text-center text-label font-semibold text-secondary"
+              data-testid="set-badge"
+            >
+              {badge.label}
+            </button>
+          )}
+          <span
+            className={`set-num relative ${badge ? 'w-[30px] h-[30px]' : 'w-9 h-9'} flex-none flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y`}
+            onClick={readOnly ? undefined : onSetNumClick}
+            role={readOnly ? undefined : 'button'}
+            aria-pressed={readOnly ? undefined : selected}
+            aria-label={
+              readOnly
+                ? undefined
+                : selected
+                  ? isGhost
+                    ? isCn ? `第 ${no} 组做完了` : `Set ${no} done`
+                    : isCn ? `第 ${no} 组` : `Set ${no}`
+                  : isCn ? `选中第 ${no} 组` : `Select set ${no}`
+            }
+            {...addSub.handlers}
+          >
+            {no}
+            <LongPressAffordance
+              active={addSub.pressing}
+              label={isCn ? '加子组' : 'Drop set'}
+              drawMs={addSub.drawMs}
+            />
+          </span>
         </span>
 
         {activeMetrics.map(m => {
@@ -345,6 +404,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
            * 显示串先算出来，因为它的**长度**要喂给 --ledger-chars。
            * 26px 的等宽数字在 384px 手机上，两指标布局的输入框只有 88px 宽，
            * 而 lbs 下 kg 换算出来的「154.32」是 6 个字符 = 93.6px，装不下（§6.1）。
+           * 带正负的负荷显示绝对值，号在单位前（+kg / −kg）。
            */
           const raw = set[m as keyof typeof set];
           const display =
@@ -353,6 +413,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               : m === 'weight'
                 ? formatWeight(Number(raw), unit)
                 : Number(raw).toFixed(2).replace(/\.?0+$/, '');
+          const unitTap = m === 'weight' && signed && Number(set.weight) > 0;
           return (
             <label
               key={m}
@@ -382,43 +443,45 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 value={display}
                 onChange={e => {
                   const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
-                  let storageValue = inputValue;
-                  if (m === 'weight') storageValue = parseWeight(inputValue, unit);
-                  update({ [m]: storageValue });
+                  if (m === 'weight') {
+                    // 带正负：打负数＝辅助；打正数沿用这一组现在的号（辅助的组改数还是辅助）
+                    const v = signed && inputValue >= 0 ? inputValue * rowSign : inputValue;
+                    update(fromDisplay(signed ? v : Math.max(0, v)));
+                    return;
+                  }
+                  update({ [m]: inputValue });
                 }}
               />
-              {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
+              {unitLabel &&
+                (unitTap ? (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.preventDefault();
+                      flipSign();
+                    }}
+                    className="ledger-unit marginalia pointer-events-auto"
+                    aria-label={isCn ? (rowSign < 0 ? '改成负重' : '改成辅助') : rowSign < 0 ? 'Switch to weighted' : 'Switch to assisted'}
+                    data-testid="load-sign"
+                  >
+                    {unitLabel}
+                  </button>
+                ) : (
+                  <span className="ledger-unit">{unitLabel}</span>
+                ))}
             </label>
           );
         })}
 
-        {/* 力竭：可见开关，不做隐藏手势。
-            它是用户主动上报的数据，本来就该像别的字段一样看得见；
-            而且这一行的两个长按（组号加子组、减号删组）都已占用，
-            再叠第三个长按语义会打架。
-
-            再点一次取消 —— 误触必须有退路，这是它和「删组」的关键差别：
-            删组不可逆所以必须长按 400ms，力竭可逆所以点一下就够。
-            §5.7 两档触感：标记＝确认感，取消＝点击感。
-
-            字形用 font-display（Noto Serif SC）而不是 font-seal：
-            Ma Shan Zheng 的子集只切了 SEAL_CHARS（'记破新纪录今天多住了一点'），
-            没有「竭」；而且印章字体留给印章本身，别稀释掉 PR 那一处仪式。 */}
+        {/* 力竭：可见开关，不做隐藏手势。只标力竭，不顺带算做完（2026-10 指针：做完只看指针）。
+            再点一次取消。§5.7 两档触感：标记＝确认感，取消＝点击感。
+            字形用 font-display（Noto Serif SC）而不是 font-seal：印章字体的子集没有「竭」，
+            而且印章字体留给印章本身，别稀释掉 PR 那一处仪式。 */}
         {!readOnly ? (
           <button
             type="button"
             onClick={() => {
               const next = !set.toFailure;
-              // 点竭 = 这组做完了（做到力竭当然是做完）；取消竭只清竭，不退回待做
-              if (next && isGhost) {
-                if (!hasValue) {
-                  refuse();
-                  return;
-                }
-                haptic(H.longpress);
-                markDone({ toFailure: true });
-                return;
-              }
               haptic(next ? H.longpress : H.tap);
               onUpdate({ toFailure: next });
             }}
@@ -446,9 +509,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           <span />
         )}
 
-        {/* 删组：热区 44×44。一律单击，删完弹撤销条（第 4 条）——
-            原先待做行单击、做完行长按 400ms，两套规矩混在一起；
-            §12.5 通则 3：破坏性操作用「先执行 + 撤销」，而不是靠手势设门槛。 */}
+        {/* 删组：热区 44×44，一律单击。撤销条看设置（2.6，默认关）—— 由工作台决定给不给。 */}
         {!readOnly ? (
           <button
             type="button"
@@ -467,44 +528,70 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         )}
       </div>
 
-      {subSets.map((sub, ssi) => (
-        <SubSetRow
-          key={sub.id || ssi}
-          sub={sub}
-          setIdx={setIdx}
-          activeMetrics={activeMetrics}
-          unitLabels={unitLabels}
-          colStyle={colStyle}
-          unit={unit}
-          isCn={isCn}
-          readOnly={readOnly}
-          ghost={isGhost}
-          edited={isGhost ? sub.touched : undefined}
-          onUpdate={updates => handleSubSetUpdate(ssi, updates)}
-          onRemove={() => handleRemoveSubSet(ssi)}
-        />
-      ))}
+      {subSets.map((sub, ssi) => {
+        const sign = signOf(sub, set);
+        const subOwn: LoadMode | null =
+          sub.bodyweightMode === 'assisted' || sub.bodyweightMode === 'weighted' ? sub.bodyweightMode : null;
+        const subMode: LoadMode = signed
+          ? Number(sub.weight) > 0 ? (sign < 0 ? 'assisted' : 'weighted') : 'none'
+          : subOwn ?? rowMode;
+        return (
+          <SubSetRow
+            key={sub.id || ssi}
+            sub={sub}
+            setIdx={setIdx}
+            activeMetrics={activeMetrics}
+            unitLabels={{ ...unitLabels, weight: metricUnitLabel('weight', unit, isCn, subMode) }}
+            colStyle={colStyle}
+            unit={unit}
+            isCn={isCn}
+            readOnly={readOnly}
+            ghost={isGhost}
+            label={subLabel(ssi)}
+            weightDisplay={toDisplay(sub.weight, sign)}
+            signed={!!signed}
+            edited={isGhost ? sub.touched : undefined}
+            onWeight={v => {
+              const vv = signed && v >= 0 ? v * sign : v;
+              handleSubSetUpdate(ssi, fromDisplay(signed ? vv : Math.max(0, vv)));
+            }}
+            onUpdate={updates => handleSubSetUpdate(ssi, updates)}
+            onRemove={() => handleRemoveSubSet(ssi)}
+          />
+        );
+      })}
 
-      {/* 母组有子组时，补一条「再加一档」的入口——
-          子组本身是低频的，但已经开了头之后再加一档是顺手的事，
-          不该逼用户再长按一次。 */}
+      {/* 母组有子组时，补「再加一档」的入口（组型：递减 / 递增）——
+          子组本身是低频的，但已经开了头之后再加一档是顺手的事，不该逼用户再长按一次。 */}
       {!readOnly && hasSubSets && (
-        <button
-          type="button"
-          onClick={() => {
-            haptic(H.tap);
-            handleAddSubSet();
-          }}
-          className="ledger-subrow-add text-micro font-semibold"
-          data-set-idx={setIdx}
-        >
-          + {isCn ? '再加一档递减' : 'Add drop set'}
-        </button>
+        <div className="ledger-subrow-add text-micro font-semibold gap-4" data-set-idx={setIdx}>
+          <button
+            type="button"
+            onClick={() => {
+              haptic(H.tap);
+              handleAddSubSet(-1);
+            }}
+            className="min-h-[44px]"
+            data-testid="subset-add-drop"
+          >
+            + {isCn ? '递减一档' : 'Drop'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              haptic(H.tap);
+              handleAddSubSet(1);
+            }}
+            className="min-h-[44px]"
+            data-testid="subset-add-up"
+          >
+            + {isCn ? '递增一档' : 'Step up'}
+          </button>
+        </div>
       )}
 
-      {/* −5 / +5（第 2 条）：只在休息书签正下方那一行露出 —— 休息时调的就是下一组。
-          整行两颗宽键，热区够大，出汗的手也按得准。 */}
-      {!readOnly && showStep && activeMetrics.includes('weight') && (
+      {/* −5 / +5：跟着选中的那一组（2026-10 指针；原先跟着休息书签）。整行两颗宽键，出汗的手也按得准。 */}
+      {!readOnly && selected && !isSkipped && activeMetrics.includes('weight') && (
         <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
           <button type="button" onClick={() => bump(-5)} aria-label={isCn ? `重量减 5 ${unit}` : `Weight −5 ${unit}`}>
             −5 <span className="ledger-unit">{unit}</span>
@@ -530,16 +617,23 @@ interface SubSetRowProps {
   readOnly: boolean;
   /** 母组还是待做 → 子组跟着显示淡墨 */
   ghost: boolean;
+  /** 比上一档轻＝递减，重＝递增 */
+  label: 'drop' | 'up';
+  /** 显示单位下的带符号重量（普通重量就是非负的显示值） */
+  weightDisplay: number;
+  signed: boolean;
   /** 待做时改过的格子（变实墨） */
   edited?: SubSetLog['touched'];
+  /** 改重量（显示单位，带符号） */
+  onWeight: (v: number) => void;
   onUpdate: (updates: Partial<SubSetLog>) => void;
   onRemove: () => void;
 }
 
 /**
- * 递减子组的一行。手势与母组逐项对齐：
- *   - 重量 / 次数格横向拖动改值（同一套档位）
- *   - 删除单击 + 撤销条
+ * 子组（递减 / 递增）的一行。手势与母组逐项对齐：
+ *   - 重量 / 次数格横向拖动改值（同一套档位；带正负的负荷可以拖过 0）
+ *   - 删除单击（撤销看设置）
  * 提成组件是因为 useValueScrub / useLongPress 不能在 map 里调。
  */
 const SubSetRow: React.FC<SubSetRowProps> = ({
@@ -552,15 +646,20 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   isCn,
   readOnly,
   ghost,
+  label,
+  weightDisplay,
+  signed,
   edited,
+  onWeight,
   onUpdate,
   onRemove,
 }) => {
   const weightScrub = useValueScrub({
-    value: Number(formatWeight(Number(sub.weight) || 0, unit)),
-    onChange: next => onUpdate({ weight: parseWeight(next, unit) }),
+    value: weightDisplay,
+    onChange: next => onWeight(next),
     steps: SCRUB_STEPS_WEIGHT,
     disabled: readOnly,
+    ...(signed ? { min: -9999 } : {}),
   });
   const repsScrub = useValueScrub({
     value: Number(sub.reps) || 0,
@@ -576,12 +675,12 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
       data-set-idx={setIdx}
     >
       <span className="text-micro font-medium text-tertiary select-none">
-        {isCn ? '递减' : 'Drop'}
+        {label === 'up' ? (isCn ? '递增' : 'Up') : isCn ? '递减' : 'Drop'}
       </span>
 
       {/* 与父行遍历同一个 activeMetrics，落在同一套 --cols 上——
           原先子组行写死 grid-cols-4，指标数不等于 2 时整行错位。
-          递减组只承载重量与次数，其余列留空。 */}
+          子组只承载重量与次数，其余列留空。 */}
       {activeMetrics.map(m => {
         if (m !== 'weight' && m !== 'reps') return <span key={m} />;
         /* 单位必须跟父行取同一份（原来这里 reps 硬写成 ''）。
@@ -628,13 +727,14 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               placeholder="0"
               aria-label={
                 m === 'weight'
-                  ? isCn ? '递减组重量' : 'Drop set weight'
-                  : isCn ? '递减组次数' : 'Drop set reps'
+                  ? isCn ? '子组重量' : 'Sub-set weight'
+                  : isCn ? '子组次数' : 'Sub-set reps'
               }
               value={value ? display : ''}
               onChange={e => {
                 const val = e.target.value === '' ? 0 : Number(e.target.value);
-                onUpdate(m === 'weight' ? { weight: parseWeight(val, unit) } : { reps: val });
+                if (m === 'weight') onWeight(val);
+                else onUpdate({ reps: val });
               }}
             />
             {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
@@ -642,11 +742,10 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
         );
       })}
 
-      {/* 力竭列的占位：递减组按定义多半就是做到力竭的，逐档再标一遍只是噪音。
+      {/* 力竭列的占位：子组按定义多半就是做到力竭的，逐档再标一遍只是噪音。
           力竭挂在母组上。这里必须留一个格，否则子组行会比父行少一列、整排错位。 */}
       <span />
 
-      {/* 删除规矩与母组相同：单击 + 撤销条 */}
       {readOnly ? (
         <span />
       ) : (
@@ -654,7 +753,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
           type="button"
           onClick={onRemove}
           className="w-11 h-11 justify-self-end flex items-center justify-center text-tertiary"
-          aria-label={isCn ? '删除这档递减' : 'Remove drop set'}
+          aria-label={isCn ? '删除这一档' : 'Remove this step'}
           data-testid="subset-remove"
         >
           <Minus size={16} strokeWidth={1.75} />

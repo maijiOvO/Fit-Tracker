@@ -10,6 +10,7 @@ import {
 import { Language, WeightEntry, Exercise } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight, plural } from '../utils/format';
+import { formatSignedLoad } from '../utils/load';
 import { TimelineView, type TimelineGranularity } from './TimelineView';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
@@ -376,9 +377,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                 <div className="flex items-center gap-4">
                   <div className="text-right">
                     <span className="font-mono font-medium text-lg text-primary tabular-nums leading-none">
-                      {formatWeight(lift.weight, unit)}
+                      {lift.signed ? formatSignedLoad(lift.weight, unit, isCn).replace(/ (kg|lbs)$/, '') : formatWeight(lift.weight, unit)}
                     </span>
-                    <span className="text-xs text-tertiary uppercase block">{unit}</span>
+                    <span className="text-xs text-tertiary uppercase block">{lift.signed && Math.round(lift.weight * 10) === 0 ? '' : unit}</span>
                   </div>
                   <span className="text-tertiary">
                     {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}

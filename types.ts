@@ -72,6 +72,17 @@ export interface SetLog {
    */
   touched?: Partial<Record<string, boolean>>;
 
+  /**
+   * 跳过（2026-10 指针）：这组还没做，人已经去做别的动作了。只在 ghost 行上出现，工作台专用。
+   * 指针以上＝做完或跳过；跳过的组淡墨 + 删除线，结束训练时跟底稿一起丢掉。点两下＝补做完。
+   */
+  skipped?: boolean;
+  /**
+   * 做完 / 跳过的先后（工作台专用，结束训练时剥掉）。交替组里做完的组按它排 ——
+   * 实际先做哪组、后做哪组；没有它（旧数据、接回来的训练）按轮换排。
+   */
+  seq?: number;
+
   // ✅ 增强：递增递减组子组数据
   subSets?: SubSetLog[];
 }
@@ -85,6 +96,8 @@ export interface SubSetLog {
   note?: string;     // 子组备注（可选）
   /** 母组待做时改过的格子（同 SetLog.touched，工作台专用，结束训练时剥掉） */
   touched?: Partial<Record<'weight' | 'reps', boolean>>;
+  /** 带正负的负荷（2026-10 变体第二层）：这一档是辅助还是负重。不写＝跟母组同号 */
+  bodyweightMode?: BodyweightMode;
 }
 
 export interface Exercise {
@@ -101,6 +114,12 @@ export interface Exercise {
    */
   variantId?: string;
   variantName?: string;
+  /**
+   * 交替组（2026-10）：同一场里几个动作交替着做（内收 ⇄ 外展）。同一个值＝同一组，成员在 exercises 里挨着放，
+   * 先后就是轮换顺序。进历史：下次加其中一个动作，底稿把同组的一起带进来、按轮换排。
+   * 不影响纪录 / 统计：每个动作还是各算各的。
+   */
+  altGroup?: string;
   // ✅ 新增：动作的具体训练时间
   exerciseTime?: string; // ISO 8601 格式
   // ✅ 新增：动作持续时间（可选）
@@ -129,6 +148,19 @@ export interface Exercise {
     bodyweightMode: 'none' | 'bodyweight' | 'assisted' | 'weighted'; // 本次训练的自重模式
     autoCalculateSubSets?: boolean; // 是否自动计算子组重量/次数
   };
+}
+
+/**
+ * 做法（变体第一层，原「练法」）：同一个动作的不同做法（宽握 / 窄握 / V 把…）。
+ * 可以带自己的细分和器材：添加动作的细分格里，带细分的做法单独成一张小卡、落在自己那一列
+ * （用户要找的是「练到这块肌肉的动作」，具体是哪个动作的哪种做法不那么重要）。
+ * 不写 region / tags＝跟动作本身走。
+ */
+export interface ExerciseVariant {
+  id: string;
+  name: string;
+  region?: string;
+  tags?: string[];
 }
 
 export interface ExerciseDefinition {
@@ -160,7 +192,20 @@ export interface ExerciseDefinition {
    * 练法（第 8 条）。内置动作写在覆盖层、自建动作写在定义本身（已有同步容器）。
    * 底稿预填、PR、PR 列表、趋势图按「动作 + 练法」分开；备注与动作设置按动作共享。
    */
-  variants?: { id: string; name: string }[];
+  variants?: ExerciseVariant[];
+  /**
+   * 带正负的负荷（2026-10 变体第二层）：自重类动作的重量记成一条数轴 —— 辅助为负、自重 0、负重为正，
+   * 从辅助一路练到负重是连续的，纪录按带符号的数比。不写＝按默认（内置自重类 / 带「自重」器材标签的开）。
+   * 内置动作写覆盖层、自建动作写定义本身。
+   */
+  signedLoad?: boolean;
+  /**
+   * 并进来的动作（「并入另一个动作」）：旧名 → 它变成的那个做法 id。
+   * 历史记录不改写：记录里存的还是旧名、没有 variantId，名字解析认到这个动作、做法按这张表认。
+   */
+  variantAliases?: Record<string, string>;
+  /** 这个动作已并入另一个动作（只写覆盖层）：名字解析把它的名字全交给那个动作，动作库里不再出现 */
+  mergedInto?: string;
   /**
    * 从动作库删除（2026-10 起内置 / 自建一律只隐藏，可在「整理 → 已删除」恢复）。
    * 只写在覆盖层 exerciseOverrides[id] 上；定义本身不动，历史记录照样认得这个名字。
