@@ -146,9 +146,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const lang = settingsCtx.lang;
   const isCn = lang === Language.CN;
-  const setLang = settingsCtx.setLang;
   const unit = settingsCtx.unit;
-  const setUnit = settingsCtx.setUnit;
   const weightEntries = settingsCtx.weightEntries;
   const measurements = settingsCtx.measurements;
 
@@ -284,7 +282,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     editingWorkoutId,
     setEditingWorkoutId,
     hasUnsavedChanges,
-    setHasUnsavedChanges,
     finishWorkout,
     colophon,
     dismissColophon,
@@ -298,6 +295,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleDeleteExerciseRecord,
     handleStartScheduledSession,
     startWorkoutGuarded,
+    resumeWorkout,
     pendingScrollToPicker,
     setPendingScrollToPicker,
     activeScheduleIdRef,
@@ -442,27 +440,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     markActiveSchedulePending.current = false;
   }, [workouts, scheduleCtx, activeScheduleIdRef, markActiveSchedulePending]);
 
-  // ============== 监听训练编辑：标记未保存 + 自动持久化 ==============
+  // ============== 工作台一变就落盘（编辑旧训练的草稿除外，persistCurrentWorkout 自己认） ==============
   useEffect(() => {
     if (currentWorkout?.exercises && currentWorkout.exercises.length > 0) {
-      const hasAnyData = currentWorkout.exercises.some(
-        ex =>
-          ex.sets &&
-          ex.sets.length > 0 &&
-          // 底稿行（ghost）不算数据：一组都没描实的训练不该亮「未保存」（§12.6）
-          ex.sets.some(
-            set =>
-              !set.ghost &&
-              (set.weight || set.reps || set.distance || set.duration || set.score),
-          ),
-      );
-      setHasUnsavedChanges(hasAnyData);
-      // 任何 exercises 变化都触发 debounce persist
       workoutCtx.persistCurrentWorkout();
-    } else {
-      setHasUnsavedChanges(false);
     }
-  }, [currentWorkout, setHasUnsavedChanges, workoutCtx]);
+  }, [currentWorkout, workoutCtx]);
 
   // ============== 监听远端推送失败：通知用户 ==============
   useEffect(() => {
@@ -498,6 +481,17 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     return () => window.removeEventListener('fitlog:push-failed', handler);
   }, [isCn, lang, toast]);
 
+  // 本机存储写满（appStorage.setItem 失败）：设置改动会在重启后丢，要让人知道
+  useEffect(() => {
+    const handler = () =>
+      toast(
+        isCn ? '本机存储已满，刚才的设置改动可能没存住' : 'Device storage is full — recent setting changes may not be saved',
+        'error',
+      );
+    window.addEventListener('fitlog:storage-write-failed', handler);
+    return () => window.removeEventListener('fitlog:storage-write-failed', handler);
+  }, [isCn, toast]);
+
   /** 工作台里有一场进行中的训练（不是在编辑旧训练）：FAB 变「回到训练」，首页顶上一行「进行中」 */
   const inProgress = !editingWorkoutId && !!currentWorkout.id && (currentWorkout.exercises?.length ?? 0) > 0;
 
@@ -511,9 +505,15 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           return;
         }
         void startWorkoutGuarded(() => {
+          // 和 FAB 同一条路：新建一个带 id / startTime 的对象，别复用上一个 currentWorkout
+          setCurrentWorkout(workoutCtx.createNewWorkout());
           setEditingWorkoutId(null);
           setActiveTab('new');
         });
+      },
+      onResumeFinishedWorkout: (id: string) => {
+        const w = workouts.find(x => x.id === id);
+        if (w) void resumeWorkout(w);
       },
       onEditWorkout: handleEditWorkout,
       onAddExerciseToPastWorkout: handleAddExerciseToPastWorkout,
@@ -543,6 +543,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       handleExportData,
       handleImportData,
       startWorkoutGuarded,
+      resumeWorkout,
+      workouts,
+      setCurrentWorkout,
+      workoutCtx,
       setEditingWorkoutId,
       setActiveTab,
       inProgress,
@@ -569,15 +573,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setSelectedPRProject(nameInNextLang);
       }
     }
-    setLang(nextLang);
-    storage.setItem('fitlog_lang', nextLang);
-  }, [lang, prefs.customExercises, prefs.exerciseOverrides, selectedPRProject, setLang]);
+    settingsCtx.changeLang(nextLang);
+  }, [lang, prefs.customExercises, prefs.exerciseOverrides, selectedPRProject, settingsCtx]);
 
   const handleUnitToggle = useCallback(() => {
-    const newUnit = unit === 'kg' ? 'lbs' : 'kg';
-    setUnit(newUnit);
-    storage.setItem('fitlog_unit', newUnit);
-  }, [setUnit, unit]);
+    settingsCtx.changeUnit(unit === 'kg' ? 'lbs' : 'kg');
+  }, [settingsCtx, unit]);
 
   // ============== 目标的增 / 改 ==============
   const handleAddGoal = useCallback(async () => {
@@ -706,13 +707,64 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     [addExerciseToWorkout],
   );
 
-  // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
-  const handlePickFromSheet = useCallback(
-    (ex: ExerciseDefinition, variantId?: string) => {
-      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false, { altGroup: pickerTargetGroup, variantId });
-      setSheetSessionAdded(n => n + 1);
+  /** C2：这张卡的底稿抄自哪一场、那次做了哪几组（prefillFrom 原来只写不读） */
+  const lastSessionFor = useCallback(
+    (ex: { name: string; prefillFrom?: string }) => {
+      if (!ex.prefillFrom) return null;
+      const name = prefs.resolveName(ex.name);
+      const w = workouts.find(x => x.date === ex.prefillFrom && x.exercises?.some(e => prefs.resolveName(e.name) === name));
+      const we = w?.exercises.find(e => prefs.resolveName(e.name) === name);
+      if (!w || !we) return null;
+      return { date: w.date, sets: (we.sets ?? []).filter(s => !s.ghost) };
     },
-    [addExerciseToWorkout, pickerTargetGroup],
+    [prefs, workouts],
+  );
+
+  // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
+  /** 本次打开弹层里每次点选建出的卡片 id（按「动作::做法」分组、后进先出）：再点一下＝取消这次添加 */
+  const sheetPicksRef = useRef<Map<string, string[][]>>(new Map());
+  const handlePickFromSheet = useCallback(
+    (ex: ExerciseDefinition, variantId?: string): boolean => {
+      const key = variantId ? `${ex.id}::${variantId}` : ex.id;
+      const stack = sheetPicksRef.current.get(key) ?? [];
+      const prev = stack.pop();
+      if (prev) {
+        // B2（2026-10-11）：本次打开里加过的再点一下＝取消（原来是再加一份、没撤销）；真要两份，卡上「添加组」
+        const ids = new Set(prev);
+        setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups((w.exercises ?? []).filter(e => !ids.has(e.id))) }));
+        sheetPicksRef.current.set(key, stack);
+        setSheetSessionAdded(n => Math.max(0, n - 1));
+        if (lastAddedExerciseIdRef.current && ids.has(lastAddedExerciseIdRef.current)) lastAddedExerciseIdRef.current = null;
+        return false;
+      }
+      let created: string[] = [];
+      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false, {
+        altGroup: pickerTargetGroup,
+        variantId,
+        onCreated: (ids, partnerNames) => {
+          created = ids;
+          if (partnerNames.length) {
+            // 上次是交替做的：搭档连带进来了，说一声并给撤销（只撤搭档，这个动作留着）
+            const partnerIds = ids.slice(1);
+            toastUndo(
+              isCn ? `已连带加入 ${partnerNames.join('、')}（上次交替做的）` : `Also added ${partnerNames.join(', ')} (alternated last time)`,
+              () => {
+                const drop = new Set(partnerIds);
+                setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups((w.exercises ?? []).filter(e => !drop.has(e.id))) }));
+              },
+              { undoLabel: isCn ? '撤销' : 'Undo', durationMs: 6000 },
+            );
+          }
+        },
+      });
+      if (created.length) {
+        stack.push(created);
+        sheetPicksRef.current.set(key, stack);
+        setSheetSessionAdded(n => n + 1);
+      }
+      return true;
+    },
+    [addExerciseToWorkout, isCn, pickerTargetGroup, setCurrentWorkout, toastUndo],
   );
 
   const handlePickerSheetOpenChange = useCallback((open: boolean, focusPart?: string | null, targetGroup?: string | null) => {
@@ -720,6 +772,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       setPickerFocusPart(focusPart ?? null);
       setPickerTargetGroup(targetGroup ?? null);
       setSheetSessionAdded(0);
+      sheetPicksRef.current = new Map();
       lastAddedExerciseIdRef.current = null;
     } else if (lastAddedExerciseIdRef.current) {
       // 关闭后滚动定位到最新添加的动作卡
@@ -1126,6 +1179,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             onFlashDone={handleFlashDone}
             partPrechosenId={partPrechosenId}
             onOpenTimePicker={openTimePicker}
+            lastSessionFor={lastSessionFor}
+            onOpenExerciseTime={exId => {
+              const ex = currentWorkout.exercises?.find(e => e.id === exId);
+              setShowTimePickerModal({ exerciseId: exId, currentTime: ex?.exerciseTime });
+            }}
             onToggleNote={name =>
               setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })
             }

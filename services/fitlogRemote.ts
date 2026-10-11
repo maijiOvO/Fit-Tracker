@@ -18,6 +18,7 @@ import type {
   ScheduledWorkout,
 } from '../types';
 import { storage } from './appStorage';
+import { mergeAppPrefs, readAppPrefs, writeAppPrefs } from './appPrefs';
 import { getDataEnv, isDemo, isOffline, statePath } from './appEnv';
 
 /**
@@ -340,6 +341,14 @@ export function mergeFitlogPrefs(
   const remotePrefsTs = remote.prefsLastUpdateMs ?? 0;
   const localWins = localPrefsTs >= remotePrefsTs;
 
+  // 单位 / 语言按 appPrefs 自己的时间戳定胜负（unit-lang-sync-revert）；两边都还没有 appPrefs 时退回整块的旧口径
+  const app = mergeAppPrefs(
+    localLs.appPrefs,
+    localLs.appPrefsUpdatedMs ?? 0,
+    remote.appPrefs,
+    remote.appPrefsUpdatedMs ?? 0,
+  );
+
   return {
     customTags: pickArray(localLs.customTags ?? [], remote.customTags ?? [], localWins),
     customExercises: pickArray(localLs.customExercises ?? [], remote.customExercises ?? [], localWins),
@@ -363,11 +372,13 @@ export function mergeFitlogPrefs(
     starredLastUpdateMs: Math.max(localStarTs, remoteStarTs),
     metricsLastUpdateMs: Math.max(localMetTs, remoteMetTs),
     prefsLastUpdateMs: Math.max(localPrefsTs, remotePrefsTs),
-    lang: localWins ? (localLs.lang ?? remote.lang) : (remote.lang ?? localLs.lang),
-    unit: localWins ? (localLs.unit ?? remote.unit) : (remote.unit ?? localLs.unit),
+    lang: app.appPrefs?.lang ?? (localWins ? (localLs.lang ?? remote.lang) : (remote.lang ?? localLs.lang)),
+    unit: app.appPrefs?.unit ?? (localWins ? (localLs.unit ?? remote.unit) : (remote.unit ?? localLs.unit)),
     avatarDataUrl: localWins
       ? (localLs.avatarDataUrl ?? remote.avatarDataUrl)
       : (remote.avatarDataUrl ?? localLs.avatarDataUrl),
+    appPrefs: app.appPrefs,
+    appPrefsUpdatedMs: app.appPrefsUpdatedMs,
   };
 }
 
@@ -395,6 +406,7 @@ export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
     lang: (storage.getItem('fitlog_lang') as FitlogSyncedPrefs['lang']) || undefined,
     unit: (storage.getItem('fitlog_unit') as 'kg' | 'lbs') || undefined,
     avatarDataUrl: storage.getItem('fitlog_avatar_data_url'),
+    ...readAppPrefs(),
   };
 }
 
@@ -409,6 +421,9 @@ export function writePrefsToLocalStorage(p: FitlogSyncedPrefs): void {
   storage.setItem('fitlog_exercise_overrides', JSON.stringify(p.exerciseOverrides ?? {}));
   storage.setItem('fitlog_starred_last_update', String(p.starredLastUpdateMs || 0));
   storage.setItem('fitlog_metrics_last_update', String(p.metricsLastUpdateMs || 0));
+  // 合并后的时间戳写回本机：原先不写，本机一旦比远端旧就永远旧，之后每次合并都输（unit-lang-sync-revert）
+  storage.setItem('fitlog_prefs_last_update', String(p.prefsLastUpdateMs || 0));
+  writeAppPrefs(p.appPrefs, p.appPrefsUpdatedMs ?? 0);
   if (p.lang) storage.setItem('fitlog_lang', String(p.lang));
   if (p.unit) storage.setItem('fitlog_unit', p.unit);
   if (p.avatarDataUrl) storage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);

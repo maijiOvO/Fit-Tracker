@@ -66,6 +66,17 @@ export function bodyPartTagFor(key: BodyPartKey): string | null {
   return PARTS.find(p => p.key === key)?.bodyPart ?? null;
 }
 
+/** 部位标签（弹层里的 subChest 这种）→ 「练胸」这样的训练名；自建部位没有 */
+export function partTitleFor(bodyPart: string, lang: Language): string | null {
+  const p = PARTS.find(x => x.bodyPart === bodyPart);
+  return p ? (translations[p.tk][lang] as string) : null;
+}
+
+/** 训练名是不是「今天练哪里」自动填的那几个（没手动改过 → 弹层里换部位可以跟着改） */
+export function isPartTitle(title: string, lang: Language): boolean {
+  return PARTS.some(p => translations[p.tk][lang] === title);
+}
+
 /** FAB 印谱扇开（§12.4）用的完整六枚：五部位 + 「制」。顺序=印谱阅读序，位置固定不按频率排。 */
 export const FAN_PARTS: {
   key: BodyPartKey;

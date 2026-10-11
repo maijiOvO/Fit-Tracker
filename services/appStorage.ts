@@ -18,6 +18,9 @@ function k(key: string): string {
   return storagePrefix() + key;
 }
 
+/** 写失败只报一次：之后的写多半也会失败，没必要每次都弹 */
+let warnedWriteFailure = false;
+
 export const storage = {
   getItem(key: string): string | null {
     try {
@@ -30,8 +33,14 @@ export const storage = {
   setItem(key: string, value: string): void {
     try {
       localStorage.setItem(k(key), value);
-    } catch {
-      /* 配额满 / 隐私模式，与原先 localStorage 直接调用的容错行为一致 */
+    } catch (err) {
+      /* 配额满 / 隐私模式。原先静默吞掉：界面看着正常，重启后改动全没了（avatar-bloats-storage）。
+         仍不抛（调用方都没准备接），但发一次事件，App 弹提示 */
+      if (!warnedWriteFailure && typeof window !== 'undefined') {
+        warnedWriteFailure = true;
+        console.error('[storage] 写入失败:', key, err);
+        window.dispatchEvent(new CustomEvent('fitlog:storage-write-failed', { detail: key }));
+      }
     }
   },
 

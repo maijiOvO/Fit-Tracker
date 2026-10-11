@@ -299,6 +299,9 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await page.waitForTimeout(300);
   };
   const longPress = async loc => {
+    // 先居中：上一条用例留下的滚动位置可能让卡片贴在吸顶页头底下，按下去落在页头上
+    await loc.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(250);
     const box = await loc.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 30));
     await page.mouse.down();
@@ -383,9 +386,13 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
     await page.waitForTimeout(300);
+    // 编辑态改的是草稿、不落库：日期被挪了的话这里会亮「已修改」（库里倒是不变，所以光看库测不到）
+    if (await page.locator('[data-testid="edit-dirty"]').count()) {
+      throw new Error('confirming the untouched picker changed the workout date (edit shows 已修改)');
+    }
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    if (await dlg.isVisible().catch(() => false)) await acceptAppConfirm(page);
     await page.waitForTimeout(300);
+    if (await dlg.isVisible().catch(() => false)) throw new Error('back from an unchanged edit asked something');
     const w = await remoteWorkout(W_DATE.id);
     const local = await page.evaluate(iso => {
       const d = new Date(iso);
@@ -393,6 +400,49 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     }, w.date);
     if (local !== `${threeDaysAgo} 14:33`) throw new Error(`confirming untouched picker moved the workout to ${local} (was ${threeDaysAgo} 14:33)`);
     return `date kept: ${local}`;
+  });
+
+  // edit-history-cannot-discard / edit-history-false-unsaved / edit-history-end-semantics：
+  // 编辑旧训练改的是草稿 —— 没改不亮「已修改」、保存键灰着；改了也不落库；返回点「放弃修改」真的丢；
+  // 「保存修改」才写库，且不动 finishedAt、不出刊末页（否则 10 分钟内开练会被问「继续」这场旧训练）
+  await step(page, 'seeded-edit-history-draft', async () => {
+    const dirty = page.locator('[data-testid="edit-dirty"]');
+    const save = page.locator('[data-testid="finish-button"]');
+    const reps0 = () => page.locator('.ledger-row').first().locator('[data-testid="ledger-field-reps"] input');
+    const repsInDb = async () => (await remoteWorkout(W_DATE.id))?.exercises?.[0]?.sets?.[0]?.reps;
+    const openEdit = async () => {
+      await sessionMenu(W_DATE.id, /编辑这次训练|Edit/);
+      await page.waitForSelector('text=/编辑训练|Edit Workout/', { timeout: 5_000 });
+    };
+
+    await openEdit();
+    if (await dirty.count()) throw new Error('untouched edit already shows 已修改');
+    if (!(await save.isDisabled())) throw new Error('save button is enabled before any change');
+    await reps0().fill('99');
+    await dirty.waitFor({ state: 'visible', timeout: 3_000 });
+    if (await save.isDisabled()) throw new Error('save button still disabled after an edit');
+    if ((await repsInDb()) !== 10) throw new Error(`the draft leaked into the db (reps=${await repsInDb()})`);
+
+    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
+    await clickAppConfirm(page, /^(放弃修改|Discard)$/);
+    await page.waitForTimeout(300);
+    if ((await repsInDb()) !== 10) throw new Error(`「放弃修改」kept the edit (reps=${await repsInDb()})`);
+
+    await openEdit();
+    if ((await reps0().inputValue()) !== '10') throw new Error('discarded edit is still on the bench');
+    await reps0().fill('12');
+    await dirty.waitFor({ state: 'visible', timeout: 3_000 });
+    await save.click();
+    await page.waitForSelector('text=/编辑训练|Edit Workout/', { state: 'detached', timeout: 5_000 });
+    await page.waitForTimeout(300);
+    if (await page.locator('[data-testid="workout-colophon"]').isVisible().catch(() => false)) {
+      throw new Error('saving an edit replayed the colophon');
+    }
+    const w = await remoteWorkout(W_DATE.id);
+    if (w.exercises[0].sets[0].reps !== 12) throw new Error(`save did not write (reps=${w.exercises[0].sets[0].reps})`);
+    if (w.finishedAt !== W_DATE.finishedAt) throw new Error(`save moved finishedAt ${W_DATE.finishedAt} → ${w.finishedAt}`);
+    await dismissToasts();
+    return 'no-op edit clean; draft not persisted; discard drops it; save writes, finishedAt kept, no colophon';
   });
 
   // workout-delete-no-tombstone（一）：删整场立刻写墓碑，撤销摘掉
@@ -527,8 +577,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const colo = page.locator('[data-testid="workout-colophon"]');
     if (await colo.isVisible().catch(() => false)) await colo.click();
     await page.waitForTimeout(500);
-    await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
-    await clickAppConfirm(page, /^(继续这场|Resume)$/);
+    // 2026-10-11：开新一场不再弹「继续刚才那场？」；接回刚结束的那场走时间线长按菜单「继续这场」
+    await sessionMenu(latest.id, /继续这场|Resume/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const t0 = await workoutTombstones();
     const cards = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') });
@@ -548,6 +598,51 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const w = await remoteWorkout(latest.id);
     if (!w || !w.exercises?.length) throw new Error('resumed workout lost its recorded exercises');
     return `workout ${latest.id} kept (${w.exercises.length} exercise)`;
+  });
+
+  // B1 / B2 / C2（2026-10-11）：弹层底部「完成」；本次打开里加过的再点一下＝取消；卡头「底稿 · M/D」点开看上次的几组
+  await step(page, 'seeded-picker-toggle-done-bar-prefill', async () => {
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    await page.waitForTimeout(300);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('starting a workout must not ask about the last one any more');
+    await page.locator('[data-testid="body-part-chest"]').click();
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const search = sheet.locator('input[type="text"]');
+    await search.waitFor({ state: 'visible', timeout: 3_000 });
+    await search.fill('杠铃平板卧推');
+    const row = sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first();
+    await row.waitFor({ state: 'visible', timeout: 3_000 });
+    const cards = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') });
+    await row.click();
+    await page.waitForTimeout(600); // 过 450ms 连点去重
+    if ((await cards.count()) !== 1) throw new Error(`one tap should add one card, got ${await cards.count()}`);
+    const done = page.locator('[data-testid="picker-done"]');
+    if (!/1/.test(await done.innerText())) throw new Error(`done bar should read 本次已加 1, got "${await done.innerText()}"`);
+    await row.click(); // 再点一下＝取消本次添加
+    await page.waitForTimeout(600);
+    if ((await cards.count()) !== 0) throw new Error(`tapping the same card again should cancel the add, got ${await cards.count()} card(s)`);
+    if (/1/.test(await done.innerText())) throw new Error('done bar should drop the count after cancelling');
+    await row.click();
+    await page.waitForTimeout(600);
+    await done.click(); // 底部「完成」关弹层
+    await page.waitForTimeout(500);
+    // 弹层常驻挂载、关了只是移出屏幕 + pointer-events-none，isVisible 看不出来，查类名
+    const closed = await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="picker-sheet"]');
+      return !!el && !!el.closest('.pointer-events-none');
+    });
+    if (!closed) throw new Error('bottom 完成 did not close the sheet');
+    // C2：底稿抄自上次 → 卡头「底稿 · M/D」，点开看那次的几组
+    const pf = page.locator('[data-testid="prefill-from"]').first();
+    await pf.waitFor({ state: 'visible', timeout: 3_000 });
+    await pf.click();
+    const last = page.locator('[data-testid="prefill-last"]').first();
+    await last.waitFor({ state: 'visible', timeout: 3_000 });
+    const txt = (await last.innerText()).replace(/\s+/g, ' ').trim();
+    if (!/×/.test(txt)) throw new Error(`last-session line should list sets, got "${txt}"`);
+    await backAndDiscard(page);
+    return `toggle add/cancel ok · done bar · ${txt}`;
   });
 
   // hidden-builtin-name-locked：删掉的动作名字不再被永久占着 —— 用同一个名字新建＝把它恢复出来（历史还挂在它身上）
@@ -581,6 +676,76 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const defs = (await readLs('fitlog_custom_exercises')) || [];
     if (defs.filter(d => d.name.cn === 'E2E自建甲').length !== 1) throw new Error('create with a deleted name made a duplicate definition');
     return 'same-name create restores the hidden exercise (no duplicate)';
+  });
+
+  // unit-lang-sync-revert：另一台设备后改过 prefs（远端整块时间戳更新），本机切单位后推送没送到、App 重开 ——
+  // 拉取合并时单位不能被远端的旧值翻回去（原先切单位不打时间戳，整块 prefs 远端新就连单位一起赢）
+  await step(page, 'seeded-unit-survives-stale-remote', async () => {
+    await page.goto(BASE, { waitUntil: 'networkidle' });
+    const btn = page.locator('[data-testid="header-unit-toggle"]');
+    await btn.waitFor({ state: 'visible', timeout: 10_000 });
+    const before = (await btn.innerText()).trim().toLowerCase();
+    remote.snapshot = {
+      ...remote.snapshot,
+      prefs: { ...remote.snapshot.prefs, unit: before, prefsLastUpdateMs: Date.now() + 60_000 },
+    };
+    remote.failPuts = true;
+    await btn.click();
+    const after = (await btn.innerText()).trim().toLowerCase();
+    if (after === before) throw new Error('unit toggle did nothing');
+    await page.waitForTimeout(1_500); // 防抖推送（这次送不到）
+    await page.reload({ waitUntil: 'networkidle' });
+    await btn.waitFor({ state: 'visible', timeout: 10_000 });
+    await page.waitForTimeout(800);
+    const reopened = (await btn.innerText()).trim().toLowerCase();
+    remote.failPuts = false;
+    if (reopened !== after) throw new Error(`unit flipped back to ${reopened} after relaunch (switched ${before} → ${after})`);
+    const pushed = await page.evaluate(async () => {
+      await window.__fitlog.flush();
+      return (await window.__fitlog.fetchRemote())?.prefs?.appPrefs ?? null;
+    });
+    if (pushed?.unit !== after) throw new Error(`pushed appPrefs.unit is ${pushed?.unit}, expected ${after}`);
+    await btn.click(); // 换回去，别影响后面
+    return `${before} → ${after} survived a stale remote + relaunch; appPrefs pushed`;
+  });
+
+  // avatar-bloats-storage：头像缩成小 JPEG、只存一份（current_user 不再带）；旧版存的原图启动时缩一次
+  await step(page, 'seeded-avatar-small-single-copy', async () => {
+    const { default: sharp } = await import('sharp');
+    const W = 900, H = 700;
+    const noise = Buffer.alloc(W * H * 3);
+    for (let i = 0; i < noise.length; i++) noise[i] = Math.floor(Math.random() * 256); // 真噪声：PNG 压不动，才像相册原图那么大
+    const png = await sharp(noise, { raw: { width: W, height: H, channels: 3 } }).png().toBuffer();
+    const bigDataUrl = `data:image/png;base64,${png.toString('base64')}`;
+    const avatarState = () =>
+      page.evaluate(() => {
+        const a = localStorage.getItem(lsKey('fitlog_avatar_data_url')) || '';
+        const u = JSON.parse(localStorage.getItem(lsKey('fitlog_current_user')) || '{}');
+        return { len: a.length, jpeg: a.startsWith('data:image/jpeg'), userHasAvatar: 'avatarUrl' in u };
+      });
+
+    // 旧数据：两处各一整张原图
+    await page.evaluate(url => {
+      localStorage.setItem(lsKey('fitlog_avatar_data_url'), url);
+      const u = JSON.parse(localStorage.getItem(lsKey('fitlog_current_user')) || '{}');
+      localStorage.setItem(lsKey('fitlog_current_user'), JSON.stringify({ ...u, avatarUrl: url }));
+    }, bigDataUrl);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1_000);
+    const legacy = await avatarState();
+    if (!legacy.jpeg || legacy.len > 80_000) throw new Error(`legacy avatar not shrunk on start: ${JSON.stringify(legacy)} (was ${bigDataUrl.length} chars)`);
+    if (legacy.userHasAvatar) throw new Error('fitlog_current_user still carries a second avatar copy');
+
+    // 新上传
+    await page.locator('nav button', { hasText: /^我的$|^Profile$/ }).click();
+    await page.locator('input[type="file"][accept="image/*"]').setInputFiles({ name: 'big.png', mimeType: 'image/png', buffer: png });
+    await page.waitForTimeout(1_000);
+    const up = await avatarState();
+    if (!up.jpeg || up.len > 80_000) throw new Error(`uploaded avatar not shrunk: ${JSON.stringify(up)}`);
+    if (up.userHasAvatar) throw new Error('upload wrote a second avatar copy into fitlog_current_user');
+    const shown = await page.locator('img[alt="Avatar"]').getAttribute('src');
+    if (!shown?.startsWith('data:image/jpeg')) throw new Error('profile does not show the shrunk avatar');
+    return `legacy ${bigDataUrl.length} → ${legacy.len} chars; upload → ${up.len} chars; one copy`;
   });
 
   await context.close();
@@ -1183,10 +1348,11 @@ const main = async () => {
 
   await step(page, 'open-workout-via-fab', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
-    // 刚才结束过训练，防误结束拆场的闸门会先问一句 —— 这里选「新开一场」
-    await clickAppConfirm(page, /^新开一场$|^Start new$/);
+    // 2026-10-11：刚结束过一场也不再问「继续刚才那场？」，直接进新建页（接回走时间线长按菜单）
+    await page.waitForTimeout(400);
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('FAB must not ask about the just-finished workout any more');
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
-    return 'resume prompt dismissed, new-workout view shown';
+    return 'no resume prompt, new-workout view shown';
   });
 
   await step(page, 'rest-timer-hidden-on-empty', async () => {
@@ -1598,8 +1764,8 @@ const main = async () => {
     return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
-  // 指针（2026-10）：点组号＝选中，选中的再点＝做完（默认选中指针下面那一组，所以一下就够）；
-  // 刚做完那组选中后再点＝退回；改值只改值；全零的组点不实；删组单击（+ 撤销，设置开着时）；±5 跟着选中的那组。
+  // 指针（2026-10-11）：点组号＝选中这一组 + 指针挪到它正下方（经过的待做组一并做完）；
+  // 刚做完那组再点＝退回；改值只改值；全零的组点不实；删组单击（+ 撤销，设置开着时）；±5 跟着选中的那组。
   await step(page, 'set-state-gestures', async () => {
     const rows = page.locator('.ledger-row');
     const row0 = rows.first();
@@ -1612,14 +1778,12 @@ const main = async () => {
     const isSel = async r => (await r.getAttribute('class')).includes('is-selected');
     if (!(await isSel(row0))) throw new Error('the set under the pointer is not selected by default');
     await row0.locator('.set-num').click();
-    if (!(await isInked(row0))) throw new Error('tapping the selected set number did not mark it done');
-    if (await isSel(row0)) throw new Error('selection did not move on after marking done');
+    if (!(await isInked(row0))) throw new Error('tapping the set number did not mark it done');
+    if (!(await isSel(row0))) throw new Error('the set just done should stay selected (solid number)');
     await page.waitForTimeout(650); // 过长按吞 click 的窗口之外，正常连点
-    await row0.locator('.set-num').click(); // 选中刚做完的那组
-    if (!(await isSel(row0)) || !(await isInked(row0))) throw new Error('first tap on a done set should only select it');
-    await page.waitForTimeout(650);
     await row0.locator('.set-num').click(); // 再点＝退回
-    if (await isInked(row0)) throw new Error('tapping the just-done selected set did not revert it to to-do');
+    if (await isInked(row0)) throw new Error('tapping the just-done set did not revert it to to-do');
+    if (!(await isSel(row0))) throw new Error('the reverted set should stay selected');
 
     // ±5：全场只有一处，在选中的那一组（第 1 组，刚退回、仍选中）
     const steps = page.locator('[data-testid="weight-step"]');
@@ -1645,7 +1809,57 @@ const main = async () => {
     const copiedSubs = await page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`).count();
     if (copiedSubs !== 0) throw new Error(`添加组 copied ${copiedSubs} drop-set row(s) from the previous set`);
 
-    // 全零的行点不实（先选中，再点）
+    // 点下面的组＝指针直接挪到它下方：经过的那组一并做完；再点上面的组＝指针挪回去，后面的退回待做
+    // （新加的那组抄了上一组的值、仍待做，正好当第 2 组用；单组卡测不到扫动，所以这里不许跳过）
+    const card0Rows = page.locator('[data-ledger-paper]').first().locator('.ledger-row');
+    if ((await card0Rows.count()) < 2) throw new Error('fixture drift: the first card needs >= 2 sets to test the sweep');
+    const row1 = card0Rows.nth(1);
+    await page.waitForTimeout(650);
+    await row1.locator('.set-num').click();
+    if (!(await isInked(row0)) || !(await isInked(row1))) throw new Error('tapping set 2 should mark sets 1 and 2 done');
+    if (!(await isSel(row1)) || (await isSel(row0))) throw new Error('after tapping set 2 only set 2 should be selected');
+    await page.waitForTimeout(650);
+    await row0.locator('.set-num').click();
+    if (!(await isInked(row0)) || (await isInked(row1))) throw new Error('tapping set 1 should move the pointer back: set 2 reverts');
+    if (!(await isSel(row0))) throw new Error('set 1 should be selected after moving the pointer back');
+    await page.waitForTimeout(650);
+    await row0.locator('.set-num').click(); // 刚做完的再点＝退回，回到全待做
+    if (await isInked(row0)) throw new Error('reverting set 1 after the sweep failed');
+
+    // A1：点进格子即全选，打字替换旧值；回车跳到同一行的次数格
+    // A2：改了的值带动后面「同值、没动过」的底稿；手动改过的不跟
+    const w0in = row0.locator('[data-testid="ledger-field-weight"] input');
+    const w1in = row1.locator('[data-testid="ledger-field-weight"] input');
+    const wBefore = await w0in.inputValue();
+    if ((await w1in.inputValue()) !== wBefore) throw new Error('fixture drift: set 2 should start as a clone of set 1');
+    await w0in.click();
+    await page.waitForTimeout(80); // 全选放在下一帧
+    await page.keyboard.type('77');
+    if ((await w0in.inputValue()) !== '77') throw new Error(`typing into a draft cell should replace it, got ${await w0in.inputValue()} (was ${wBefore})`);
+    if ((await w1in.inputValue()) !== '77') throw new Error(`same-value draft below did not follow: ${await w1in.inputValue()}`);
+    if ((await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) !== 0) throw new Error('a follower must stay a draft (not is-edited)');
+    await page.keyboard.press('Enter');
+    const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || '');
+    if (!/^reps/.test(focused)) throw new Error(`Enter in the weight cell should focus reps, focused "${focused}"`);
+    await page.keyboard.press('Enter'); // 次数格回车收键盘
+    await w1in.click();
+    await page.waitForTimeout(80);
+    await page.keyboard.type('80'); // 手动改第 2 组
+    await w0in.click();
+    await page.waitForTimeout(80);
+    await page.keyboard.type('70');
+    if ((await w1in.inputValue()) !== '80') throw new Error('a manually edited draft must not follow');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Enter');
+
+    // A3：选中行的 ±5 条右端「递减」一次点击加一档
+    const subsBefore = await page.locator(`[data-set-idx="0"] [data-testid="subset-remove"]`).count();
+    await page.locator('[data-testid="add-drop-set"]').click();
+    await page.waitForTimeout(200);
+    const subsAfter = await page.locator(`[data-set-idx="0"] [data-testid="subset-remove"]`).count();
+    if (subsAfter !== subsBefore + 1) throw new Error(`「递减」button should add one drop step: ${subsBefore} → ${subsAfter}`);
+
+    // 全零的行点不实（只选中，指针不动）
     await newRow.locator('[data-testid="ledger-field-weight"] input').fill('');
     await newRow.locator('[data-testid="ledger-field-reps"] input').fill('');
     await newRow.locator('.set-num').click();
@@ -1671,7 +1885,7 @@ const main = async () => {
     if (!/改过数但没点完成/.test(text)) throw new Error(`end confirm does not mention edited-but-not-done sets: ${text}`);
     await dlg.getByRole('button', { name: /^返回补点$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
-    return `toggle ok · new row to-do · all-zero refused · +5 ${w0}→${w1} · delete+undo · end warns`;
+    return `toggle ok · sweep down/up · type replaces + follow · drop btn · new row to-do · all-zero refused · +5 ${w0}→${w1} · delete+undo · end warns`;
   });
 
   // 第 7 条：训练卡 ⋯ → 重命名。改的是动作库里的名字，卡片立刻显示新名；
@@ -1889,8 +2103,26 @@ const main = async () => {
       return done[0]?.id ?? null;
     });
     if (!resumeId) throw new Error('fixture drift: no finished workout to resume');
-    await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
-    await clickAppConfirm(page, /^继续这场$|^Resume$/);
+    // 2026-10-11：「继续这场」在时间线长按菜单里（刚结束 10 分钟内才有），FAB 不再问
+    const rcard = page.locator(`[data-testid="timeline-session-${resumeId}"]`);
+    if (!(await rcard.isVisible().catch(() => false))) {
+      await page.getByRole('button', { name: /按时间|Timeline/ }).first().click();
+      await page.waitForTimeout(400);
+    }
+    // 居中：贴顶会被吸顶的页头盖住，按下去落在页头上
+    await rcard.evaluate(el => el.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(300);
+    const rbox = await rcard.boundingBox();
+    await page.mouse.move(rbox.x + rbox.width / 2, rbox.y + rbox.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(750);
+    await page.mouse.up();
+    const rmenu = page.locator('[data-testid="timeline-session-menu"]');
+    await rmenu.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.waitForTimeout(400);
+    const resumeItem = rmenu.locator('[data-testid="timeline-resume"]');
+    if (!(await resumeItem.isVisible().catch(() => false))) throw new Error('「继续这场」missing from the menu of a workout finished minutes ago');
+    await resumeItem.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
 
     // 接回来的是那一场【本身】：动作还在

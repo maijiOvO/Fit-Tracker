@@ -2,7 +2,7 @@
  * 训练记录的增改删 + 计划训练联动 + 单组动作删除
  * v3: 移除 draft/completed 分流，简化结束训练逻辑
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Exercise, Language, SetLog, WorkoutSession } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone, removeTombstone } from '../../services/fitlogTombstones';
@@ -33,7 +33,7 @@ export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
  * 拆场之后两场各自都是「正常记录」，事后没有任何信号能自动认出它们本是一场。
  * 挡在产生之前，比事后给撤销便宜得多。
  */
-const RESUME_WINDOW_MS = 10 * 60 * 1000;
+export const RESUME_WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * 没选部位、也没手打标题时的兜底标题。
@@ -86,6 +86,65 @@ function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
     }));
 }
 
+/**
+ * 入册的样子（§12.6 红线：底稿永远不会静默变成数据）。
+ * 剥掉所有仍是 ghost 的行（待做和跳过都是 ghost：跳过＝这次没做）；整动作只剩底稿的，连动作一起丢；
+ * prefillFrom / prefillGym 只服务工作台眉批；fromGhost（已停写）、touched、seq 都是工作台上的标记，不跟进历史。
+ * 结束训练、保存修改、判「编辑态改没改」共用这一份。
+ */
+function toRecordedExercises(exercises: Exercise[] | undefined): Exercise[] {
+  return normalizeGroups(
+    (exercises ?? [])
+      .map(ex => {
+        const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
+        return {
+          ...rest,
+          sets: (ex.sets ?? [])
+            .filter(s => !s.ghost)
+            .map(s => {
+              const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet(s);
+              return set.subSets?.length
+                ? { ...set, subSets: set.subSets.map(({ touched: _st, ...sub }) => sub) }
+                : set;
+            }),
+        };
+      })
+      .filter(ex => ex.sets.length > 0),
+  );
+}
+
+/** 改过数但没点完成的组（第 4 条）：还是底稿，结束 / 保存时会丢，所以要点出来 */
+function countTouchedGhosts(exercises: Exercise[] | undefined): number {
+  const touched = (t: Record<string, boolean | undefined> | undefined) => Object.values(t ?? {}).some(Boolean);
+  return (exercises ?? []).reduce(
+    (n, ex) => n + (ex.sets ?? []).filter(s => s.ghost && (touched(s.touched) || (s.subSets ?? []).some(sub => touched(sub.touched)))).length,
+    0,
+  );
+}
+
+/** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
+function stableJson(v: unknown): string {
+  return JSON.stringify(v, (k, val) => {
+    if (k === 'ghost' && !val) return undefined;
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      return Object.fromEntries(Object.keys(val).sort().map(key => [key, (val as Record<string, unknown>)[key]]));
+    }
+    return val;
+  });
+}
+
+/** 编辑旧训练「改没改」的比较键：只看会进库的东西（只加了一个没做的底稿动作不算改动） */
+function editKey(w: WorkoutSession): string {
+  return stableJson({
+    title: w.title ?? '',
+    date: w.date,
+    gym: w.gym ?? null,
+    notes: w.notes ?? '',
+    tags: w.tags ?? [],
+    exercises: toRecordedExercises(w.exercises),
+  });
+}
+
 export interface UseWorkoutMutationsParams {
   setActiveTab: (tab: ActiveTab) => void;
   reloadAfterSave: () => Promise<void>;
@@ -117,11 +176,10 @@ export interface UseWorkoutMutationsResult {
   editingWorkoutId: string | null;
   setEditingWorkoutId: React.Dispatch<React.SetStateAction<string | null>>;
 
+  /** 编辑旧训练时，草稿和进来时的原样不一样（只在编辑态为 true；新训练每一下都已自动保存） */
   hasUnsavedChanges: boolean;
-  setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
 
-
-  /** 结束训练（标记 finishedAt + 清空 + 跳转） */
+  /** 结束训练（标记 finishedAt + 清空 + 跳转）；编辑旧训练时＝保存修改（不动 finishedAt、不出刊末页） */
   finishWorkout: () => Promise<void>;
   /** 刊末页数据。§9：非 PR 日也必须有收尾，所以每次结束训练都会有值。 */
   colophon: ColophonState | null;
@@ -159,6 +217,8 @@ export interface UseWorkoutMutationsResult {
    * 选继续＝恢复那一场回工作台，选否＝执行 proceed() 走正常新建。
    */
   startWorkoutGuarded: (proceed: () => void) => Promise<void>;
+  /** 把一场已结束的训练接回工作台（时间线「继续这场」） */
+  resumeWorkout: (w: WorkoutSession) => Promise<void>;
   /** 进入 new tab 后是否滚到 ExercisePicker（用于"补加动作"快捷入口） */
   pendingScrollToPicker: boolean;
   setPendingScrollToPicker: React.Dispatch<React.SetStateAction<boolean>>;
@@ -181,7 +241,7 @@ export interface UseWorkoutMutationsResult {
   addExerciseToWorkout: (
     ex: { id: string; name: { en: string; cn: string }; category?: ExerciseCategory; exerciseConfig?: any },
     closeLibrary?: boolean,
-    opts?: { altGroup?: string | null; variantId?: string },
+    opts?: { altGroup?: string | null; variantId?: string; onCreated?: (ids: string[], partnerNames: string[]) => void },
   ) => string;
 }
 
@@ -210,7 +270,6 @@ export function useWorkoutMutations({
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingScrollToPicker, setPendingScrollToPicker] = useState(false);
 
   const activeScheduleIdRef = useRef<string | null>(null);
@@ -220,6 +279,38 @@ export function useWorkoutMutations({
    */
   const resumedWorkoutIdsRef = useRef<Set<string>>(new Set());
   const markActiveSchedulePending = useRef(false);
+
+  /**
+   * 编辑旧训练：进来时那场的原样（存的是比较键）。工作台上改的是一份深拷贝的草稿，
+   * 库里只在「保存修改」时写（edit-history-cannot-discard）；返回时「放弃修改」就是什么都不写。
+   * 深拷贝是因为工作台有些改动仍是原地写对象（set-update-mutates-shared-objects），浅拷贝会连 workouts 里的原场次一起改掉。
+   */
+  const editOriginalRef = useRef<{ id: string; key: string } | null>(null);
+
+  // 草稿 id 交给 WorkoutContext，自动落盘的几条路（改动即存、切后台、pagehide）都跳过它。
+  // handleEditWorkout 里也同步设一次：等这个 effect 跑之前，App 的自动落盘 effect 可能先跑。
+  useEffect(() => {
+    workoutCtx.setDraftWorkoutId(editingWorkoutId);
+    if (!editingWorkoutId) editOriginalRef.current = null;
+  }, [editingWorkoutId, workoutCtx]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    const orig = editOriginalRef.current;
+    if (!editingWorkoutId || !orig || orig.id !== currentWorkout.id) return false;
+    // 改过数没点完成的底稿行也算：它们不进库，但不问一句就随返回丢掉不对
+    return editKey(currentWorkout) !== orig.key || countTouchedGhosts(currentWorkout.exercises) > 0;
+  }, [currentWorkout, editingWorkoutId]);
+
+  /** 离开编辑态（保存完 / 放弃）：工作台换回空场，回到进来前的页面，把进行中的那场接回来 */
+  const exitEditing = useCallback(() => {
+    workoutCtx.setDraftWorkoutId(null);
+    editOriginalRef.current = null;
+    setCurrentWorkout(workoutCtx.createNewWorkout());
+    setEditingWorkoutId(null);
+    const prev = getPreviousTab();
+    setActiveTab(prev === 'new' ? 'dashboard' : prev);
+    void workoutCtx.refreshFromDb().then(() => workoutCtx.restoreInProgress());
+  }, [getPreviousTab, setActiveTab, setCurrentWorkout, workoutCtx]);
 
   /**
    * 放弃进行中的这场（一组都没做完时）：从库里删掉 + 写墓碑（防拉取复活），工作台清空。
@@ -247,7 +338,6 @@ export function useWorkoutMutations({
    */
   const finishWorkout = useCallback(async () => {
     setSaveStatus('saving');
-    setHasUnsavedChanges(false);
 
     try {
       if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
@@ -255,38 +345,13 @@ export function useWorkoutMutations({
         return;
       }
 
-      /**
-       * §12.6 红线：底稿永远不会静默变成数据。
-       * 结束训练时剥掉所有仍是 ghost 的行；整动作只剩底稿的，连动作一起丢；
-       * prefillFrom 只服务工作台眉批，也一并剥掉。
-       * fromGhost 同理：它是工作台上的退回凭据，训练收尾后不该跟进历史。
-       */
-      const cleanedExercises = normalizeGroups(
-        currentWorkout.exercises
-          .map(ex => {
-            const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
-            return {
-              ...rest,
-              sets: ex.sets
-                // 待做和跳过的都还是 ghost：一起丢（跳过＝这次没做）
-                .filter(s => !s.ghost)
-                .map(s => {
-                  // fromGhost（已停写）、touched、seq 都是工作台上的标记，不跟进历史
-                  const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet(s);
-                  return set.subSets?.length
-                    ? { ...set, subSets: set.subSets.map(({ touched: _st, ...sub }) => sub) }
-                    : set;
-                }),
-            };
-          })
-          .filter(ex => ex.sets.length > 0),
-      );
+      const cleanedExercises = toRecordedExercises(currentWorkout.exercises);
 
       if (cleanedExercises.length === 0) {
         setSaveStatus('idle');
         // 一组都没做完：没有可入册的东西。编辑旧训练时只提示；新训练问一句要不要放弃这场（不留空场在库里）
         if (editingWorkoutId) {
-          toast(isCn ? '还没有做完任何一组' : 'No sets done yet', 'info');
+          toast(isCn ? '一组都不剩了，存不了；要删整场去时间线里删' : 'No sets left to save — delete the whole workout from the timeline', 'info');
           return;
         }
         const ok = await confirm({
@@ -296,6 +361,16 @@ export function useWorkoutMutations({
           danger: true,
         });
         if (ok) await discardCurrentWorkout();
+        return;
+      }
+
+      // 编辑旧训练＝保存修改：只写库，finishedAt / status / 期号都不动，不出刊末页，也不挂计划
+      // （edit-history-end-semantics：原先这里会把 finishedAt 改成现在，接着「继续刚才那场」就指向这场旧训练）
+      if (editingWorkoutId) {
+        await workoutCtx.saveEditedWorkout({ ...currentWorkout, exercises: cleanedExercises });
+        setSaveStatus('idle');
+        toast(isCn ? '已保存' : 'Saved', 'success');
+        exitEditing();
         return;
       }
 
@@ -372,29 +447,39 @@ export function useWorkoutMutations({
     signedLoadOf,
     confirm,
     discardCurrentWorkout,
+    exitEditing,
   ]);
 
   const handleFinishWithConfirmation = useCallback(async () => {
-    const unitText = isCn ? (unit === 'kg' ? '公斤(kg)' : '磅(lbs)') : unit === 'kg' ? 'kg' : 'lbs';
     /**
      * 改过数但没点完成的组（第 4 条）：改值不再顺手描实，这种行结束时照规矩丢弃 ——
      * 那是一次不可逆后果，所以要点出来，并把「取消」换成「返回补点」。
      * 没动过的底稿行静默丢弃，不提（那本来就是「没做」）。
      */
-    const touchedCount = (currentWorkout.exercises ?? []).reduce(
-      (n, ex) =>
-        n +
-        (ex.sets ?? []).filter(
-          s => s.ghost && (Object.values(s.touched ?? {}).some(Boolean) || (s.subSets ?? []).some(sub => Object.values(sub.touched ?? {}).some(Boolean))),
-        ).length,
-      0,
-    );
+    const touchedCount = countTouchedGhosts(currentWorkout.exercises);
     const warn = touchedCount
       ? isCn
         ? `\n\n有 ${touchedCount} 组改过数但没点完成，结束后会丢弃。`
         : `\n\n${touchedCount} edited ${touchedCount === 1 ? 'set was' : 'sets were'} never marked done and will be discarded.`
       : '';
     const backLabel = touchedCount ? { cancelLabel: isCn ? '返回补点' : 'Go back' } : {};
+
+    // 编辑旧训练：「保存修改」不用确认，只有「改过数没点完成」那种会丢东西的才问
+    if (editingWorkoutId) {
+      if (!hasUnsavedChanges) return;
+      if (touchedCount) {
+        const ok = await confirm({
+          message: isCn
+            ? `有 ${touchedCount} 组改过数但没点完成，保存后会丢弃。`
+            : `${touchedCount} edited ${touchedCount === 1 ? 'set was' : 'sets were'} never marked done and will be discarded.`,
+          confirmLabel: isCn ? '保存修改' : 'Save changes',
+          ...backLabel,
+        });
+        if (!ok) return;
+      }
+      await finishWorkout();
+      return;
+    }
 
     // 一组都没做完：直接问要不要放弃这场（不留空场在库里），别先问「确认结束」再说「底稿不入册」
     if (!editingWorkoutId && !hasDoneSets(currentWorkout)) {
@@ -410,20 +495,26 @@ export function useWorkoutMutations({
     }
 
     const ok = await confirm({
-      message: isCn
-        ? `确认结束当前训练吗？\n\n当前单位设置: ${unitText}\n\n训练将被添加到历史记录。${warn}`
-        : `Confirm ending this workout?\n\nCurrent unit: ${unitText}\n\nThe workout will be saved to history.${warn}`,
+      // 2026-10-11：去掉「当前单位设置」「将被添加到历史记录」两行 —— 都是常识，每场都读一遍是噪音
+      message: isCn ? `确认结束当前训练吗？${warn}` : `Confirm ending this workout?${warn}`,
       confirmLabel: isCn ? '结束训练' : 'End Workout',
       ...backLabel,
     });
     if (ok) await finishWorkout();
-  }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, isCn, unit]);
+  }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn, unit]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean }) => {
       const workoutToEdit = workouts.find(w => w.id === workoutId);
       if (workoutToEdit) {
-        setCurrentWorkout({ ...workoutToEdit });
+        // 工作台上还有进行中的一场：它已经落过盘，退出编辑时 restoreInProgress 会接回来；说一声，别让人以为丢了
+        if (!editingWorkoutId && hasDoneSets(currentWorkout)) {
+          toast(isCn ? '进行中的训练已暂存，退出编辑后接回' : 'Your workout in progress is saved; it comes back after editing', 'info');
+        }
+        // 先设草稿 id 再换工作台：App 的自动落盘 effect 不能先把这份写回库
+        workoutCtx.setDraftWorkoutId(workoutId);
+        editOriginalRef.current = { id: workoutId, key: editKey(workoutToEdit) };
+        setCurrentWorkout(structuredClone(workoutToEdit));
         setEditingWorkoutId(workoutId);
         setActiveTab('new');
         onEnterEditWorkout?.();
@@ -432,7 +523,7 @@ export function useWorkoutMutations({
         }
       }
     },
-    [onEnterEditWorkout, setActiveTab, setCurrentWorkout, workouts],
+    [currentWorkout, editingWorkoutId, isCn, onEnterEditWorkout, setActiveTab, setCurrentWorkout, toast, workoutCtx, workouts],
   );
 
   const handleAddExerciseToPastWorkout = useCallback(
@@ -445,32 +536,24 @@ export function useWorkoutMutations({
   const handleNewWorkoutBack = useCallback(async () => {
     // 进行中的训练按返回＝只离开页面，工作台原样留着（workbench-not-restored）：
     // 想翻一眼时间线 / PR 是常事，回来点「回到训练」接着练。不再问「确定要返回吗」。
-    if (editingWorkoutId && hasUnsavedChanges) {
+    if (!editingWorkoutId) {
+      const prev = getPreviousTab();
+      setActiveTab(prev === 'new' ? 'dashboard' : prev);
+      void workoutCtx.refreshFromDb();
+      return;
+    }
+    // 编辑旧训练：草稿从没写过库，返回＝放弃。真有改动才问一句
+    if (hasUnsavedChanges) {
       const ok = await confirm({
-        message: isCn
-          ? '有未保存的修改，确定要返回吗？'
-          : 'Unsaved edits will be lost. Continue?',
+        message: isCn ? '放弃这次的修改？' : 'Discard your changes?',
+        confirmLabel: isCn ? '放弃修改' : 'Discard',
+        cancelLabel: isCn ? '继续编辑' : 'Keep editing',
+        danger: true,
       });
       if (!ok) return;
     }
-    const wasEditing = !!editingWorkoutId;
-    if (wasEditing) setCurrentWorkout(workoutCtx.createNewWorkout());
-    setEditingWorkoutId(null);
-    const prev = getPreviousTab();
-    setActiveTab(prev === 'new' ? 'dashboard' : prev);
-    // 编辑旧训练顶掉了进行中的那场：退出编辑后把它接回来
-    void workoutCtx.refreshFromDb().then(() => (wasEditing ? workoutCtx.restoreInProgress() : undefined));
-  }, [
-    confirm,
-    currentWorkout,
-    editingWorkoutId,
-    getPreviousTab,
-    hasUnsavedChanges,
-    isCn,
-    setActiveTab,
-    setCurrentWorkout,
-    workoutCtx,
-  ]);
+    exitEditing();
+  }, [confirm, editingWorkoutId, exitEditing, getPreviousTab, hasUnsavedChanges, isCn, setActiveTab, workoutCtx]);
 
   const handleDeleteWorkout = useCallback(
     async (workoutId: string, options?: { skipConfirm?: boolean }) => {
@@ -662,15 +745,8 @@ export function useWorkoutMutations({
       date: string,
     ) => {
       e.stopPropagation();
-
-      const ok = await confirm({
-        message: isCn
-          ? `确定要删除 ${exerciseName} 在 ${date} 的记录吗？\n\n仅删除该动作，同场其他动作不受影响。`
-          : `Delete ${exerciseName} from ${date}?\n\nOther exercises in this session stay unchanged.`,
-        danger: true,
-        confirmLabel: isCn ? '删除' : 'Delete',
-      });
-      if (!ok) return;
+      // 2026-10-11：下面已经有撤销条，确认框是重复的保险，去掉
+      void date;
 
       try {
         const allWorkouts = await db.getAll<WorkoutSession>('workouts');
@@ -786,36 +862,13 @@ export function useWorkoutMutations({
     [refreshFromDb, setActiveTab, setCurrentWorkout],
   );
 
-  const startWorkoutGuarded = useCallback(
-    async (proceed: () => void) => {
-      const cutoff = Date.now() - RESUME_WINDOW_MS;
-      const recent = workouts
-        .filter(w => w.finishedAt && new Date(w.finishedAt).getTime() >= cutoff)
-        .sort(
-          (a, b) => new Date(b.finishedAt!).getTime() - new Date(a.finishedAt!).getTime(),
-        )[0];
-      if (!recent) {
-        proceed();
-        return;
-      }
-      const minsAgo = Math.max(
-        1,
-        Math.round((Date.now() - new Date(recent.finishedAt!).getTime()) / 60000),
-      );
-      const name = recent.title || (isCn ? '未命名训练' : 'Untitled');
-      const ok = await confirm({
-        title: isCn ? '继续刚才那场？' : 'Resume last workout?',
-        message: isCn
-          ? `「${name}」在 ${minsAgo} 分钟前刚结束。\n\n如果刚才是误点了结束，选「继续这场」把它接回来——新加的动作会记在同一场里。`
-          : `"${name}" ended ${minsAgo} min ago.\n\nIf you ended it by mistake, resume it — new exercises will go into the same session.`,
-        confirmLabel: isCn ? '继续这场' : 'Resume',
-        cancelLabel: isCn ? '新开一场' : 'Start new',
-      });
-      if (ok) await resumeWorkout(recent);
-      else proceed();
-    },
-    [confirm, isCn, resumeWorkout, workouts],
-  );
+  /**
+   * 开新一场（2026-10-11 用户定）：**不再**问「继续刚才那场？」。结束本身已经有一道确认，两道叠着，
+   * 每场都多一次点 + 一个弹窗。误点结束的补救挪到时间线：刚结束 10 分钟内长按那张卡有「继续这场」。
+   */
+  const startWorkoutGuarded = useCallback(async (proceed: () => void) => {
+    proceed();
+  }, []);
 
   /** 这个动作（某个做法）最近一次练过的那一条，连同那一场 */
   const findLast = useCallback(
@@ -894,7 +947,12 @@ export function useWorkoutMutations({
         exerciseConfig?: any;
       },
       _closeLibrary = false,
-      opts: { altGroup?: string | null; variantId?: string } = {},
+      opts: {
+        altGroup?: string | null;
+        variantId?: string;
+        /** 真的新建了卡片才回调：本次建出的全部 id（含连带进来的交替搭档）+ 搭档名（给「已连带加入，撤销」用） */
+        onCreated?: (ids: string[], partnerNames: string[]) => void;
+      } = {},
     ) => {
       const exerciseTime =
         editingWorkoutId && currentWorkout.date
@@ -969,6 +1027,7 @@ export function useWorkoutMutations({
         .map(e => (gid ? { ...e, altGroup: gid } : e))
         .sort((a, b) => order.indexOf(resolveName(a.name)) - order.indexOf(resolveName(b.name)));
 
+      opts.onCreated?.(fresh.map(e => e.id), partners.map(p => resolveName(p.name)));
       setCurrentWorkout((p: WorkoutSession) => {
         // 首次添加动作：如果没有 id，说明是全新的训练，先分配 id
         const needsId = !p.id;
@@ -1043,7 +1102,6 @@ export function useWorkoutMutations({
     editingWorkoutId,
     setEditingWorkoutId,
     hasUnsavedChanges,
-    setHasUnsavedChanges,
     finishWorkout,
     colophon,
     dismissColophon,
@@ -1057,6 +1115,7 @@ export function useWorkoutMutations({
     handleDeleteExerciseRecord,
     handleStartScheduledSession,
     startWorkoutGuarded,
+    resumeWorkout,
     pendingScrollToPicker,
     setPendingScrollToPicker,
     activeScheduleIdRef,

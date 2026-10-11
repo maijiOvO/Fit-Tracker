@@ -10,10 +10,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil, Shuffle, Repeat } from 'lucide-react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
-import { Exercise, Language } from '../../types';
+import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
-import { SetCapsule } from './SetCapsule';
+import { SetCapsule, formatWeight } from './SetCapsule';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
@@ -46,6 +46,10 @@ interface ExerciseCardProps {
   onUpdateExercise: (exIdx: number, updates: Partial<Exercise>) => void;
   onDeleteExercise: (exIdx: number) => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, currentSeconds: number) => void;
+  /** 改这个动作的时间（卡头「12:13」）；不传则那行只显示不可点 */
+  onOpenExerciseTime?: () => void;
+  /** 底稿抄自哪一场（C2，2026-10-11）：卡头「底稿 · 10/4」，点开在卡内看那次的几组，不用离开工作台 */
+  lastSession?: { date: string; sets: SetLog[] } | null;
   onToggleNote: (name: string) => void;
   onOpenMetricModal: (name: string) => void;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
@@ -95,6 +99,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   resolveName,
   onDeleteExercise,
   onOpenTimePicker,
+  onOpenExerciseTime,
+  lastSession = null,
   onToggleNote,
   onOpenMetricModal,
   onRename,
@@ -171,6 +177,19 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
       document.removeEventListener('keydown', onKey);
     };
   }, [menuOpen]);
+
+  const [lastOpen, setLastOpen] = useState(false);
+  const lastLine = lastSession
+    ? lastSession.sets
+        .map(s => {
+          const w = formatWeight(Number(s.weight) || 0, unit);
+          const sub = s.subSets?.length ? `→${s.subSets.map(x => formatWeight(Number(x.weight) || 0, unit)).join('→')}` : '';
+          return `${w}${sub}×${Number(s.reps) || 0}`;
+        })
+        .join('、')
+    : '';
+  const lastDate = lastSession ? new Date(lastSession.date) : null;
+  const lastDateLabel = lastDate ? `${lastDate.getMonth() + 1}/${lastDate.getDate()}` : '';
 
   const handleDurationClick = (setIdx: number) => {
     onOpenTimePicker(exIdx, setIdx, exercise.sets[setIdx].duration || 0);
@@ -342,15 +361,33 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               {variantName || (isCn ? '标准' : 'Standard')}
             </button>
           )}
-            {exercise.exerciseTime && (
-              <button
-                type="button"
-                onClick={() => handleDurationClick(0)}
-                className="marginalia font-mono text-label text-secondary tabular-nums"
-              >
-                {formatExerciseTime(exercise.exerciseTime, isCn ? 'cn' : 'en').time}
-              </button>
-            )}
+            {exercise.exerciseTime &&
+              (onOpenExerciseTime ? (
+                <button
+                  type="button"
+                  onClick={onOpenExerciseTime}
+                  className="marginalia font-mono text-label text-secondary tabular-nums"
+                  aria-label={isCn ? '改动作时间' : 'Change exercise time'}
+                  data-testid="exercise-time"
+                >
+                  {formatExerciseTime(exercise.exerciseTime, isCn ? 'cn' : 'en').time}
+                </button>
+              ) : (
+                <span className="font-mono text-label text-tertiary tabular-nums">
+                  {formatExerciseTime(exercise.exerciseTime, isCn ? 'cn' : 'en').time}
+                </span>
+              ))}
+          {lastSession && (
+            <button
+              type="button"
+              onClick={() => setLastOpen(v => !v)}
+              aria-expanded={lastOpen}
+              className="marginalia font-mono text-label text-tertiary tabular-nums"
+              data-testid="prefill-from"
+            >
+              {isCn ? '底稿' : 'Draft'} · {lastDateLabel}
+            </button>
+          )}
           <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
             {isCn ? `第${cardNo ?? exIdx + 1}个` : `#${cardNo ?? exIdx + 1}`} ·{' '}
             <span className="text-primary font-semibold">{realSetCount}</span>
@@ -360,6 +397,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             {formatVolume(totalVolumeKg(exercise), unit)}
           </span>
         </div>
+        {lastSession && lastOpen && (
+          <p className="mt-1.5 font-mono text-label text-secondary tabular-nums break-words" data-testid="prefill-last">
+            {isCn ? `上次 ${lastDateLabel}` : `Last ${lastDateLabel}`} · {lastLine} {unit}
+          </p>
+        )}
       </div>
 
       {hasNote && (

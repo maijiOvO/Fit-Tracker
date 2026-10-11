@@ -13,7 +13,13 @@ import {
   CalendarClock,
   CalendarSearch,
   MapPin,
+  Play,
 } from 'lucide-react';
+import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
+
+/** 刚结束 10 分钟内：长按菜单给「继续这场」 */
+const justEnded = (w: { finishedAt?: string }) =>
+  !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
 import { Language, WorkoutSession, Exercise } from '../../types';
 import { translations } from '../../translations';
 import { useLongPress } from '../hooks/useLongPress';
@@ -36,6 +42,8 @@ interface TimelineViewProps {
   onDeleteWorkout: (workoutId: string, options?: { skipConfirm?: boolean }) => void;
   /** 把这场并入时间上紧邻的前一场（误结束拆场的事后补救），带撤销 */
   onMergeIntoPrevious: (workoutId: string) => void;
+  /** 刚结束（10 分钟内）的那场接回工作台：误点结束的补救（原来是开新一场时弹「继续刚才那场？」） */
+  onResumeFinished: (workoutId: string) => void;
   /** 把这场的结构铺成今天的一次新训练（全部为底稿），进工作台 */
   onCopyToToday: (workoutId: string) => void;
 }
@@ -142,6 +150,9 @@ interface SessionCardProps {
   onDelete: () => void;
   onMerge: () => void;
   onCopy: () => void;
+  onResume: () => void;
+  /** 刚结束 10 分钟内才给「继续这场」 */
+  canResume: boolean;
   /** 前面还有训练可并入时才给这一项 —— 最早的一场没有「上一场」 */
   canMerge: boolean;
   /**
@@ -177,6 +188,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
   onDelete,
   onMerge,
   onCopy,
+  onResume,
+  canResume,
   canMerge,
   merged,
 }) => {
@@ -294,9 +307,10 @@ const SessionCard: React.FC<SessionCardProps> = ({
       }${menuOpen ? ' z-30 shadow-overlay' : ''}`}
       {...pressHandlers}
     >
+      {/* 点按有自己的意思（展开详情），所以不闪「按住出菜单」的提示 —— 原来每次点击都闪 1.4 秒（2026-10-11） */}
       <LongPressAffordance
         active={press.pressing}
-        hint={press.hinting}
+        hint={false}
         label={isCN ? '更多操作' : 'Actions'}
         hintLabel={isCN ? '按住出菜单 · 点按看详情' : 'Hold for actions'}
         drawMs={press.drawMs}
@@ -383,6 +397,19 @@ const SessionCard: React.FC<SessionCardProps> = ({
           data-testid="timeline-session-menu"
           className="anim-reveal absolute right-3 top-3 z-20 w-48 py-1 bg-card border border-divider rounded-card shadow-overlay"
         >
+          {canResume && (
+            <button
+              type="button"
+              role="menuitem"
+              className={menuItem}
+              onClick={() => runMenuAction(onResume)}
+              data-testid="timeline-resume"
+            >
+              <Play size={16} strokeWidth={1.75} className="text-tertiary" />
+              <span className="flex-1">{isCN ? '继续这场' : 'Resume'}</span>
+              <span className="text-[10px] text-tertiary">{isCN ? '刚结束' : 'Just ended'}</span>
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"
@@ -488,6 +515,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onDeleteWorkout,
   onMergeIntoPrevious,
   onCopyToToday,
+  onResumeFinished,
 }) => {
   const isCN = lang === Language.CN;
   /** 全局最早那一场的 id —— 只有它没有「上一场」可并 */
@@ -630,6 +658,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
                 onMerge={() => onMergeIntoPrevious(w.id)}
                 onCopy={() => onCopyToToday(w.id)}
+                onResume={() => onResumeFinished(w.id)}
+                canResume={justEnded(w)}
                 canMerge={w.id !== earliestId}
               />
             </div>
@@ -685,6 +715,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
                   onMerge={() => onMergeIntoPrevious(w.id)}
                   onCopy={() => onCopyToToday(w.id)}
+                  onResume={() => onResumeFinished(w.id)}
+                  canResume={justEnded(w)}
                   canMerge={w.id !== earliestId}
                   merged={false}
                 />

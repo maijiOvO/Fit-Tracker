@@ -135,6 +135,13 @@ export function parseBackupFile(raw: string): ParsedBackup {
     exerciseMetricConfigs: st.metricConfigs ?? current.exerciseMetricConfigs,
     lang: st.language ?? current.lang,
     unit: st.unit ?? current.unit,
+    // 单位 / 语言的胜负看 appPrefs（services/appPrefs.ts）：备份里的值要一并写进去，否则读回来还是当前值
+    appPrefs: {
+      ...(current.appPrefs ?? {}),
+      ...(st.language ? { lang: st.language } : {}),
+      ...(st.unit ? { unit: st.unit } : {}),
+    },
+    appPrefsUpdatedMs: now,
     starredLastUpdateMs: now,
     metricsLastUpdateMs: now,
     prefsLastUpdateMs: now,

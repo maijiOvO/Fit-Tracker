@@ -69,7 +69,7 @@ function statusBadge(status: ScheduledWorkout['status'], lang: Language) {
 }
 
 const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onStartScheduledSession, onOpenLibraryForPicker }) => {
-  const { confirm } = useUiOverlay();
+  const { confirm, toastUndo } = useUiOverlay();
   const { schedules, schedulesByDate, updateSchedule, deleteSchedule } = useScheduleContext();
   // 计划里存的是排计划那天的名字；改过名后要显示现名
   const { resolveName } = useExercisePrefs();
@@ -222,8 +222,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     setEditorOpen(true);
   };
 
+  /** 标记跳过：先执行 + 撤销条（2026-10-11，原来一点就生效、没退路） */
   const markSkipped = async (s: ScheduledWorkout) => {
+    const before = { ...s };
     await updateSchedule({ ...s, status: 'skipped', updatedAt: new Date().toISOString() });
+    toastUndo(lang === Language.CN ? '已标记跳过' : 'Marked as skipped', () =>
+      updateSchedule({ ...before, updatedAt: new Date().toISOString() }),
+    );
   };
   const onDelete = async (s: ScheduledWorkout) => {
     const ok = await confirm({

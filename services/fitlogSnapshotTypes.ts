@@ -8,6 +8,7 @@ import type {
   WorkoutSession,
   Measurement,
 } from '../types';
+import type { AppPrefs } from './appPrefs';
 
 /** 已删除实体 ID（多端同步时防止「删了又回来」） */
 export interface FitlogTombstones {
@@ -49,6 +50,9 @@ export interface FitlogSyncedPrefs {
   lang?: Language | string;
   unit?: 'kg' | 'lbs';
   avatarDataUrl?: string | null;
+  /** 首选项容器（services/appPrefs.ts）：自带时间戳，不跟上面整块的 prefsLastUpdateMs 走 */
+  appPrefs?: AppPrefs;
+  appPrefsUpdatedMs?: number;
   /** 是否将智能助手对话同步到远端；默认 true（未设置视为开启） */
 }
 

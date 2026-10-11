@@ -1,5 +1,6 @@
 /**
- * 时长（H / M / S）选择器：用于设置某一组动作的持续时间
+ * 时长（H / M / S）选择器：用于设置某一组动作的持续时间。
+ * 数字本身是输入框（2026-10-11）：以前只有 ±1 的箭头，设 1:30 要点 32 下；现在点进去直接打，箭头保留。
  */
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -55,7 +56,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
         />
       }
     >
-      <div className="flex justify-around items-center gap-4">
+      <div className="flex justify-around items-center gap-4" data-duration-fields>
           {columns.map(col => (
             <div key={col.key} className="flex flex-col items-center gap-4 flex-1">
               <button
@@ -71,9 +72,36 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
               </button>
 
               <div className="flex flex-col items-center">
-                <span className="text-4xl font-semibold text-primary tabular-nums">
-                  {tempHMS[col.key].toString().padStart(2, '0')}
-                </span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={col.max}
+                  enterKeyHint={col.key === 's' ? 'done' : 'next'}
+                  className="w-16 bg-transparent text-center text-4xl font-semibold text-primary tabular-nums outline-none focus:text-accent"
+                  aria-label={col.label}
+                  data-testid={`duration-${col.key}`}
+                  value={tempHMS[col.key].toString().padStart(2, '0')}
+                  onFocus={e => {
+                    const el = e.currentTarget;
+                    requestAnimationFrame(() => {
+                      if (document.activeElement === el) el.select();
+                    });
+                  }}
+                  onChange={e => {
+                    const n = Math.max(0, Math.min(col.max, Math.floor(Number(e.target.value) || 0)));
+                    setTempHMS(p => ({ ...p, [col.key]: n }));
+                  }}
+                  onKeyDown={e => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const box = e.currentTarget.closest('[data-duration-fields]');
+                    const inputs: HTMLInputElement[] = box ? Array.prototype.slice.call(box.querySelectorAll('input')) : [];
+                    const next = inputs[inputs.indexOf(e.currentTarget) + 1];
+                    if (next) next.focus();
+                    else e.currentTarget.blur();
+                  }}
+                />
                 <span className="text-[10px] font-bold text-tertiary  mt-1">
                   {col.label}
                 </span>

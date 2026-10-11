@@ -135,6 +135,100 @@ t('拖指针：往下经过的做完（全零的记跳过），往上经过的�
   assert.equal(read(exs), 'A1[D] | A2[p] A3[p]');
 });
 
+/** 点组号（2026-10-11）：一下＝选中 + 指针挪到这一组正下方 */
+const tap = (exs, setId) => {
+  const r = W.flatRows(exs).find(x => x.setId === setId);
+  const res = W.tapSetNum(exs, r);
+  return { exs: W.normalizeGroups(res.exs), outcome: res.outcome, suggest: res.suggestPair };
+};
+const fill = (exs, setId, patch) => exs.map(e => ({ ...e, sets: e.sets.map(s => (s.id === setId ? { ...s, ...patch } : s)) }));
+
+t('点组号：同一张卡里点下面的组，经过的做完（全零的跳过）、指针落在它正下方', () => {
+  let exs = [ex('A', [[50, 10], [0, 0], [55, 8], [60, 6]]), ex('B', [[20, 12]])];
+  const r = tap(exs, 'A3');
+  assert.equal(r.outcome, 'done');
+  exs = r.exs;
+  assert.equal(read(exs), 'A1[D] A2[S] A3[D] | A4[p] B1[p]');
+  assert.equal(W.nextPendingRow(exs).setId, 'A4');
+});
+
+t('点组号：刚做完的再点＝退回；更上面的做完组再点＝指针挪回去、后面的退回待做', () => {
+  let exs = [ex('A', [[50, 10], [50, 10], [50, 10]])];
+  exs = tap(exs, 'A3').exs;
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] |');
+  let r = tap(exs, 'A3');
+  assert.equal(r.outcome, 'revert');
+  assert.equal(read(r.exs), 'A1[D] A2[D] | A3[p]');
+  r = tap(exs, 'A1');
+  assert.equal(r.outcome, 'moved');
+  assert.equal(read(r.exs), 'A1[D] | A2[p] A3[p]');
+  assert.equal(r.exs[0].sets[1].weight, 50, 'reverted sets keep their values');
+});
+
+t('点组号：全零的组点不实（只选中，指针不动）；跳过的组点＝原地补做', () => {
+  let exs = [ex('A', [[50, 10], [0, 0], [50, 10]])];
+  exs = tap(exs, 'A1').exs;
+  const r = tap(exs, 'A2');
+  assert.equal(r.outcome, 'empty');
+  assert.equal(read(r.exs), 'A1[D] | A2[p] A3[p]');
+  exs = tap(exs, 'A3').exs; // A2 全零 → 跳过
+  assert.equal(read(exs), 'A1[D] A2[S] A3[D] |');
+  assert.equal(tap(exs, 'A2').outcome, 'empty'); // 跳过且全零：还是点不实
+  exs = tap(fill(exs, 'A2', { reps: 8 }), 'A2').exs;
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] |');
+});
+
+t('点组号：点别的卡 → 当前卡剩下的跳过、那张卡挪上来并扫到被点的组；还没开始就挪到最前', () => {
+  let exs = [ex('A', [[50, 10], [50, 10], [50, 10]]), ex('B', [[20, 12]]), ex('C', [[30, 15], [30, 15], [30, 15]])];
+  exs = tap(exs, 'A1').exs;
+  exs = tap(exs, 'C2').exs;
+  assert.equal(read(exs), 'A1[D] A2[S] A3[S] C1[D] C2[D] | C3[p] B1[p]');
+  const r = tap(exs, 'A2');
+  assert.equal(r.outcome, 'done');
+  assert.deepEqual(r.suggest, { a: 'A', b: 'C' });
+  assert.equal(read(r.exs), 'A1[D] A2[D] A3[S] C1[D] C2[D] | C3[p] B1[p]');
+
+  let fresh = [ex('A', [[50, 10], [50, 10]]), ex('B', [[20, 12], [20, 12]])];
+  fresh = tap(fresh, 'B2').exs;
+  assert.equal(read(fresh), 'B1[D] B2[D] | A1[p] A2[p]');
+});
+
+t('点组号：交替组里按轮换扫过去', () => {
+  let exs = W.groupExercises([ex('A', [[1, 1], [1, 1]]), ex('B', [[2, 2], [2, 2]])], ['A', 'B']);
+  exs = tap(exs, 'A2').exs;
+  assert.equal(read(exs), 'A1[D] B1[D] A2[D] | B2[p]');
+});
+
+t('改值：后面同值、没动过的待做底稿跟着变；改过的、不同值的、做完的不跟；重量次数各算各的', () => {
+  const r = exs => W.flatRows(exs)[0];
+  // 全是 60：改第 1 组（待做）→ 后面全跟；跟着变的不记 touched
+  let exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
+  exs = W.applySetUpdate(exs, r(exs), { weight: 62.5, touched: { weight: true } });
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [62.5, 62.5, 62.5]);
+  assert.equal(exs[0].sets[1].touched, undefined, 'followers stay drafts');
+  assert.deepEqual(exs[0].sets.map(s => s.reps), [8, 8, 8], 'reps untouched by a weight edit');
+  // 金字塔：只有原值相同的跟
+  exs = [ex('A', [[60, 8], [65, 6], [60, 8]])];
+  exs = W.applySetUpdate(exs, r(exs), { weight: 70 });
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [70, 65, 70]);
+  // 手动改过的不跟；做完的不跟
+  exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
+  exs[0].sets[1].touched = { weight: true };
+  exs[0].sets[2].ghost = false;
+  exs = W.applySetUpdate(exs, r(exs), { weight: 65 });
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [65, 60, 60]);
+  // 做完的组改值也带动后面的底稿（做完第 1 组按 +5 记实际重量）
+  exs = [ex('A', [[60, 8], [60, 8]])];
+  exs[0].sets[0].ghost = false;
+  exs = W.applySetUpdate(exs, r(exs), { weight: 65 });
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [65, 65]);
+  // 热身的代价：改第 1 组成 40 全跟；第 2 组改回 60，3 跟第 2 组回来
+  exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
+  exs = W.applySetUpdate(exs, r(exs), { weight: 40 });
+  exs = W.applySetUpdate(exs, W.flatRows(exs)[1], { weight: 60, touched: { weight: true } });
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [40, 60, 60]);
+});
+
 t('退回只给刚做完的那组', () => {
   let exs = [ex('A', [[50, 10], [50, 10]])];
   exs = done(exs, 'A1').exs;

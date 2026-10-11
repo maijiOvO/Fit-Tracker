@@ -67,6 +67,15 @@ interface WorkoutContextType {
    */
   finishWorkout: (workout: WorkoutSession) => Promise<void>;
 
+  /**
+   * 编辑旧训练时，工作台上那份是草稿（edit-history-cannot-discard）：
+   * 设了 id 之后自动落盘 / 切后台 / pagehide 都不写它，只有 saveEditedWorkout 写库。传 null 解除。
+   */
+  setDraftWorkoutId: (id: string | null) => void;
+
+  /** 保存编辑过的旧训练：只写库 + 推送，不动 finishedAt / status（不是「再结束一次」） */
+  saveEditedWorkout: (workout: WorkoutSession) => Promise<void>;
+
   syncWorkouts: () => Promise<void>;
   refreshFromDb: () => Promise<void>;
   /** 工作台是空的时候，把库里最近一场进行中的训练接回来（启动时自动跑一次；退出编辑旧训练后再跑） */
@@ -87,6 +96,15 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   // 持有最新 currentWorkout 的 ref，避免闭包过期
   const currentWorkoutRef = useRef(currentWorkout);
   currentWorkoutRef.current = currentWorkout;
+
+  /** 工作台上那份是编辑草稿时的 id：自动落盘的三条路都认它（见 setDraftWorkoutId） */
+  const draftIdRef = useRef<string | null>(null);
+  const setDraftWorkoutId = useCallback((id: string | null) => {
+    draftIdRef.current = id;
+  }, []);
+  /** 这一份该不该自动落盘：有 id、有动作、不是编辑草稿 */
+  const shouldAutoPersist = (w: WorkoutSession) =>
+    !!w.id && (w.exercises?.length ?? 0) > 0 && w.id !== draftIdRef.current;
 
   const refreshFromDb = useCallback(async () => {
     try {
@@ -125,7 +143,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     const handleVisibilityChange = () => {
       if (document.hidden) {
         const w = currentWorkoutRef.current;
-        if (w.id && w.exercises && w.exercises.length > 0) {
+        if (shouldAutoPersist(w)) {
           // 同步落盘（fire-and-forget，页面隐藏时不阻塞）
           void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
         }
@@ -139,7 +157,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   useEffect(() => {
     const handlePageHide = () => {
       const w = currentWorkoutRef.current;
-      if (w.id && w.exercises && w.exercises.length > 0) {
+      if (shouldAutoPersist(w)) {
         // pagehide 时同步落盘（使用 sendBeacon 类似的同步方式）
         const req = db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
         // 不能 await，但至少发出请求
@@ -155,7 +173,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
    */
   const persistCurrentWorkout = useCallback(() => {
     const w = currentWorkoutRef.current;
-    if (!w.id || !w.exercises || w.exercises.length === 0) return;
+    if (!shouldAutoPersist(w)) return;
     void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
   }, []);
 
@@ -175,6 +193,12 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
       console.error('[WorkoutContext] 结束训练保存失败:', err);
       throw err;
     }
+  }, [refreshFromDb]);
+
+  const saveEditedWorkout = useCallback(async (workout: WorkoutSession) => {
+    await db.save('workouts', { ...workout, updatedAt: new Date().toISOString() });
+    await refreshFromDb();
+    scheduleDebouncedFitlogPush();
   }, [refreshFromDb]);
 
   const addWorkout = async (workout: WorkoutSession) => {
@@ -236,6 +260,8 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
         createNewWorkout,
         persistCurrentWorkout,
         finishWorkout,
+        setDraftWorkoutId,
+        saveEditedWorkout,
         syncWorkouts,
         refreshFromDb,
         restoreInProgress,

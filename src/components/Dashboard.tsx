@@ -40,6 +40,8 @@ export interface DashboardActions {
   ) => void | Promise<void>;
   onMergeIntoPrevious: (workoutId: string) => void | Promise<void>;
   onCopyWorkoutToToday: (workoutId: string) => void | Promise<void>;
+  /** 刚结束 10 分钟内的那场接回工作台（时间线长按菜单） */
+  onResumeFinishedWorkout: (workoutId: string) => void;
   onDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,
@@ -376,6 +378,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onDeleteWorkout={actions.onDeleteWorkout}
           onMergeIntoPrevious={actions.onMergeIntoPrevious}
           onCopyToToday={actions.onCopyWorkoutToToday}
+          onResumeFinished={actions.onResumeFinishedWorkout}
         />
       )}
 

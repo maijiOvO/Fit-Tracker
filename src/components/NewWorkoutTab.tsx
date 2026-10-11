@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  Check,
   Flag,
   MapPin,
   Plus,
@@ -25,12 +26,11 @@ import { translations } from '../../translations';
 import { ExerciseCard } from './ExerciseCard';
 import { AlternatingCard } from './AlternatingCard';
 import {
+  applySetUpdate,
   buildCards,
   cardRows,
   findSet,
   groupExercises,
-  isJustDone,
-  markSetDone,
   moveGroupMember,
   movePointerTo,
   moveSetToExercise,
@@ -40,14 +40,14 @@ import {
   removeFromGroup,
   revertSet,
   RowRef,
-  setHasValue,
   splitGroup,
+  tapSetNum as tapSetNumPure,
 } from '../utils/workbench';
 import { usesSignedLoad } from '../utils/load';
 import { undoWorkoutDeletes } from '../utils/undoPref';
 import { haptic, H } from '../utils/haptics';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
-import { BodyPartPicker } from './BodyPartPicker';
+import { BodyPartPicker, isPartTitle, partTitleFor } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
 import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
@@ -71,6 +71,10 @@ export interface NewWorkoutTabProps {
   /** kg ⇄ lbs 显示切换（训练页隐藏了全局 AppHeader，入口在本页头部） */
   onToggleUnit: () => void;
   onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
+  /** 改动作的时间（卡头那个「12:13」）。以前它误开的是第 1 组的时长 */
+  onOpenExerciseTime?: (exId: string) => void;
+  /** 底稿抄自哪一场（C2）：给卡头「底稿 · 10/4」用 */
+  lastSessionFor?: (ex: Exercise) => { date: string; sets: SetLog[] } | null;
   onToggleNote: (name: string) => void;
   /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
   onOpenMetricModal: (name: string, exIdx?: number) => void;
@@ -95,7 +99,7 @@ export interface NewWorkoutTabProps {
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数 */
   sessionAdded: number;
-  onPickExercise: (ex: ExerciseDefinition) => void;
+  onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
   onCreateCustomExercise: (prefilled?: string) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
@@ -128,6 +132,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onSave,
   onToggleUnit,
   onOpenTimePicker,
+  onOpenExerciseTime,
+  lastSessionFor,
   onToggleNote,
   onOpenMetricModal,
   onDeleteExerciseFromSession,
@@ -168,8 +174,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
    *
-   * 选中：组号实心 + ±5。默认选中指针下面那一组（正常情况点一下就做完）；点别的组号先选中它，再点才算做完。
-   * 只存「手动选中的那一组」，做完 / 删掉之后清空，回到默认。
+   * 选中：组号实心 + ±5。默认选中指针下面那一组；点哪一组的组号，哪一组就选中，
+   * 同时指针挪到它正下方（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）。
+   * 只存「手动选中的那一组」，删掉 / 拖书签之后清空，回到默认。
    */
   const exs = currentWorkout.exercises ?? [];
   const [pickedSetId, setPickedSetId] = useState<string | null>(null);
@@ -184,44 +191,30 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
   const isSigned = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex.name));
 
-  /** 点组号：没选中＝选中；选中的待做 / 跳过组＝做完；选中的刚做完那组＝退回；其余选中的做完组＝取消选中 */
+  /**
+   * 点组号：一下＝选中这一组 + 指针挪到它正下方（语义全在 workbench.tapSetNum）。
+   * 刚做完的那组再点＝退回（点错了一下就撤）；全零的组点不实，只选中。
+   */
   const tapSetNum = (r: RowRef) => {
-    const set = findSet(exs, r);
-    if (!set) return;
-    if (selectedSetId !== r.setId) {
-      haptic(H.tap);
-      setPickedSetId(r.setId);
+    const res = tapSetNumPure(exs, r);
+    if (res.outcome === 'noop') return;
+    haptic(H.tap);
+    setPickedSetId(r.setId);
+    if (res.outcome === 'empty') {
+      // 全零的组点不实：一组什么都没填，做完也记不下任何东西
+      toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
       return;
     }
-    if (set.ghost) {
-      if (!setHasValue(set)) {
-        // 全零的组点不实：一组什么都没填，做完也记不下任何东西
-        haptic(H.tap);
-        toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
-        return;
-      }
-      haptic(H.tap);
-      const res = markSetDone(exs, r);
-      setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(res.exs) }));
-      setPickedSetId(null);
-      if (res.suggestPair) {
-        const { a, b } = res.suggestPair;
-        const other = exs.find(e => e.id === b);
-        toastUndo(
-          isCn ? `和「${other ? resolveName(other.name) : ''}」交替做？` : `Alternate with "${other ? resolveName(other.name) : ''}"?`,
-          () => setExs(list => groupExercises(list, [a, b], { unskip: true })),
-          { undoLabel: isCn ? '交替' : 'Alternate', durationMs: 6000 },
-        );
-      }
-      return;
+    setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(res.exs) }));
+    if (res.suggestPair) {
+      const { a, b } = res.suggestPair;
+      const other = exs.find(e => e.id === b);
+      toastUndo(
+        isCn ? `和「${other ? resolveName(other.name) : ''}」交替做？` : `Alternate with "${other ? resolveName(other.name) : ''}"?`,
+        () => setExs(list => groupExercises(list, [a, b], { unskip: true })),
+        { undoLabel: isCn ? '交替' : 'Alternate', durationMs: 6000 },
+      );
     }
-    if (isJustDone(exs, r)) {
-      haptic(H.tap);
-      setCurrentWorkout(w => ({ ...w, exercises: revertSet(w.exercises ?? [], r) }));
-      setPickedSetId(r.setId);
-      return;
-    }
-    setPickedSetId(null);
   };
 
   const movePointer = (cardKey: string, gap: number) => {
@@ -229,14 +222,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     setPickedSetId(null);
   };
 
-  /** 更新一组（按 id，交替组和单卡共用） */
+  /** 更新一组（按 id，交替组和单卡共用）；后面同值、没动过的底稿跟着变（workbench.applySetUpdate） */
   const updateSet = (r: RowRef, updates: Partial<SetLog>) =>
-    setCurrentWorkout(w => ({
-      ...w,
-      exercises: (w.exercises ?? []).map(e =>
-        e.id !== r.exId ? e : { ...e, sets: e.sets.map(s => (String(s.id) === r.setId ? { ...s, ...updates } : s)) },
-      ),
-    }));
+    setCurrentWorkout(w => ({ ...w, exercises: applySetUpdate(w.exercises ?? [], r, updates) }));
 
   /** 添加组：克隆这个动作最后一组的值，新行从待做开始 */
   const addSetTo = (exId: string) =>
@@ -457,10 +445,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 <Scale size={10} />
                 {unit}
               </button>
-              {hasUnsavedChanges && (
-                <span className="inline-flex items-center gap-1 text-warning normal-case">
-                  <span className="w-1.5 h-1.5 rounded-full bg-warning animate-pulse" />
-                  {isCn ? '未保存' : 'Unsaved'}
+              {/* 只在编辑旧训练、草稿和原样真不一样时亮；新训练每一下都已自动保存，不挂这个 */}
+              {editingWorkoutId && hasUnsavedChanges && (
+                <span className="inline-flex items-center gap-1 text-warning normal-case" data-testid="edit-dirty">
+                  <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+                  {isCn ? '已修改' : 'Edited'}
                 </span>
               )}
             </div>
@@ -478,7 +467,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={onSave}
-            disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length)}
+            disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length) || (!!editingWorkoutId && !hasUnsavedChanges)}
+            data-testid="finish-button"
             className={`min-h-[44px] px-4 rounded-card font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
@@ -486,7 +476,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   ? 'bg-success text-on-accent'
                   : saveStatus === 'error'
                     ? 'bg-danger text-on-accent'
-                    : !(currentWorkout.exercises?.length)
+                    : !(currentWorkout.exercises?.length) || (editingWorkoutId && !hasUnsavedChanges)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
                       : 'bg-accent text-on-accent hover:opacity-90'
             }`}
@@ -494,7 +484,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             {saveStatus === 'saving' ? (
               <>
                 <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                <span>{isCn ? '结束中' : 'Ending'}</span>
+                <span>{editingWorkoutId ? (isCn ? '保存中' : 'Saving') : isCn ? '结束中' : 'Ending'}</span>
               </>
             ) : saveStatus === 'saved' ? (
               <>
@@ -508,8 +498,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               </>
             ) : (
               <>
-                <Flag size={16} strokeWidth={3} />
-                <span>{isCn ? '结束训练' : 'End Workout'}</span>
+                {editingWorkoutId ? <Check size={16} strokeWidth={3} /> : <Flag size={16} strokeWidth={3} />}
+                <span>{editingWorkoutId ? (isCn ? '保存修改' : 'Save changes') : isCn ? '结束训练' : 'End Workout'}</span>
               </>
             )}
           </button>
@@ -619,6 +609,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onDeleteExercise={onDeleteExerciseFromSession}
               dragHandle={dragHandle}
               onOpenTimePicker={onOpenTimePicker}
+              onOpenExerciseTime={onOpenExerciseTime ? () => onOpenExerciseTime(ex.id) : undefined}
+              lastSession={lastSessionFor ? lastSessionFor(ex) : null}
               onToggleNote={onToggleNote}
               onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
               onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
@@ -707,6 +699,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         addedCounts={addedCounts}
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
+        onPartChange={bodyPart => {
+          // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改
+          const label = partTitleFor(bodyPart, lang);
+          if (!label) return;
+          setCurrentWorkout(w => (w.title && w.title !== label && isPartTitle(w.title, lang) ? { ...w, title: label } : w));
+        }}
         onCreateCustomExercise={onCreateCustomExercise}
         onEditExerciseTags={onEditExerciseTags}
         onDeleteExercise={onDeleteLibraryExercise}

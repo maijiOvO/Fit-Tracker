@@ -80,6 +80,7 @@ interface Result {
     onPointerMove: (e: React.PointerEvent) => void;
     onPointerUp: (e: React.PointerEvent) => void;
     onPointerCancel: () => void;
+    onDragStart: (e: React.DragEvent) => void;
     onClickCapture: (e: React.MouseEvent) => void;
   };
   /** 正在拖动 —— 用来显示刻度与档位角标 */
@@ -227,6 +228,12 @@ export function useValueScrub({
       onPointerMove,
       onPointerUp: end,
       onPointerCancel: end,
+      /**
+       * 点进格子旧值是全选的（2026-10-11 聚焦即全选）：鼠标在选中的文字上按住一拖，浏览器会起一次
+       * 「拖拽选中文字」的原生拖放，这一拖就不再是横拖改值了（Playwright 的鼠标事件还会被它卡死）。
+       * 触屏不会这样，但统一掐掉：这一格上的拖动只有一种意思。
+       */
+      onDragStart: (e: React.DragEvent) => e.preventDefault(),
       onClickCapture: (e: React.MouseEvent) => {
         if (performance.now() - scrubEndedAt.current > SWALLOW_MS) return;
         scrubEndedAt.current = 0;

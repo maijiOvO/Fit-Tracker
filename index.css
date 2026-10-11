@@ -1463,6 +1463,15 @@ button {
 .ledger-step button:active {
   background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-inset));
 }
+/* 「递减」：窄一档、用正文字体（它不是数字），和 ±5 同高 */
+.ledger-step button.ledger-step-drop {
+  flex: 0 0 auto;
+  min-width: 64px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 13px;
+  align-items: center;
+}
 /* 组号在底稿行里是「未刻的印」：虚线框 + 淡墨（与「制」那枚虚线印同语义） */
 /* ── 组号只有两种样子（2026-10 指针，用户定）：平时一律空心细框，选中＝实心朱砂印 ──
    做完没做完看指针位置和数字墨色（实墨＝做完，淡墨 + 虚线下划线＝待做），组号不再分虚线 / 实心。

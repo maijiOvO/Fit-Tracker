@@ -8,6 +8,8 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { storage } from '../../services/appStorage';
+import { markPrefsUpdated } from '../../services/fitlogRemote';
+import { shrinkAvatar } from '../utils/avatarImage';
 
 export interface UseAvatarUploadResult {
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -31,16 +33,12 @@ export function useAvatarUpload(): UseAvatarUploadResult {
 
       try {
         setUiBusy(true);
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const r = new FileReader();
-          r.onload = () => resolve(String(r.result));
-          r.onerror = () => reject(new Error('read failed'));
-          r.readAsDataURL(file);
-        });
+        // 缩成 256px JPEG、只存这一份（fitlog_current_user 里不再带头像，AuthContext 从这里读）
+        const dataUrl = await shrinkAvatar(file);
         storage.setItem('fitlog_avatar_data_url', dataUrl);
-        const updatedUser = { ...user, avatarUrl: dataUrl };
-        authCtx.setUser(updatedUser);
-        storage.setItem('fitlog_current_user', JSON.stringify(updatedUser));
+        authCtx.setUser({ ...user, avatarUrl: dataUrl });
+        // 头像在 prefs 块里同步：打时间戳，否则下次合并会被远端的旧头像盖回去
+        markPrefsUpdated();
         scheduleDebouncedFitlogPush();
       } catch (error: any) {
         console.error('Upload error:', error);

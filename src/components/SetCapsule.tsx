@@ -65,6 +65,29 @@ const VALUE_KEYS: (keyof SetLog)[] = [
 ];
 const touchedKeys = (updates: Partial<SetLog>) => VALUE_KEYS.filter(k => k in updates);
 
+/**
+ * 点进格子即全选（2026-10-11 用户定：底稿一半时候要改、一半时候照用）：打字直接替换，不打字旧值留着。
+ * 选中放到下一帧：触屏上 focus 之后还有一次 mouseup，同步选会被它收掉。
+ */
+const selectOnFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+  const el = e.currentTarget;
+  requestAnimationFrame(() => {
+    if (document.activeElement === el) el.select();
+  });
+};
+
+/** 回车 / 键盘上的「下一步」：跳到同一行的下一格，没有下一格就收键盘 */
+const focusNextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const cur = e.currentTarget;
+  const row = cur.closest('.ledger-row, .ledger-subrow');
+  const inputs: HTMLInputElement[] = row ? Array.prototype.slice.call(row.querySelectorAll('input.ledger-input')) : [];
+  const next = inputs[inputs.indexOf(cur) + 1];
+  if (next) next.focus();
+  else cur.blur();
+};
+
 function secondsToHMS(seconds: number): { h: number; m: number; s: number } {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -72,7 +95,7 @@ function secondsToHMS(seconds: number): { h: number; m: number; s: number } {
   return { h, m, s };
 }
 
-function formatWeight(kg: number, targetUnit: string): string {
+export function formatWeight(kg: number, targetUnit: string): string {
   if (targetUnit === 'lbs') {
     return (kg * 2.20462).toFixed(2).replace(/\.?0+$/, '');
   }
@@ -150,7 +173,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   /**
    * 组行三种状态（2026-10 指针）：待做（ghost）/ 跳过（ghost + skipped）/ 做完。
    * 做完没做完看指针位置和数字墨色；组号平时一律空心细框，选中才实心（用户定：只两种样子）。
-   * 点组号交给工作台：没选中＝选中；选中的再点＝做完（或刚做完那组＝退回）。改值只改值。
+   * 点组号交给工作台：一下＝选中 + 指针挪到这一组正下方（刚做完那组再点＝退回）。改值只改值。
    */
   const isGhost = !!set.ghost && !readOnly;
   const isSkipped = isGhost && !!set.skipped;
@@ -436,11 +459,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               <input
                 type="number"
                 step="any"
-                inputMode="decimal"
+                inputMode={m === 'reps' ? 'numeric' : 'decimal'}
+                enterKeyHint={activeMetrics.indexOf(m) < activeMetrics.length - 1 ? 'next' : 'done'}
                 className="ledger-input"
                 placeholder="0"
                 aria-label={unitLabel ? `${m} (${unitLabel})` : m}
                 value={display}
+                onFocus={selectOnFocus}
+                onKeyDown={focusNextOnEnter}
                 onChange={e => {
                   const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
                   if (m === 'weight') {
@@ -590,7 +616,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         </div>
       )}
 
-      {/* −5 / +5：跟着选中的那一组（2026-10 指针；原先跟着休息书签）。整行两颗宽键，出汗的手也按得准。 */}
+      {/* −5 / +5：跟着选中的那一组（2026-10 指针；原先跟着休息书签）。整行两颗宽键，出汗的手也按得准。
+          右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。 */}
       {!readOnly && selected && !isSkipped && activeMetrics.includes('weight') && (
         <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
           <button type="button" onClick={() => bump(-5)} aria-label={isCn ? `重量减 5 ${unit}` : `Weight −5 ${unit}`}>
@@ -598,6 +625,18 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           </button>
           <button type="button" onClick={() => bump(5)} aria-label={isCn ? `重量加 5 ${unit}` : `Weight +5 ${unit}`}>
             +5 <span className="ledger-unit">{unit}</span>
+          </button>
+          <button
+            type="button"
+            className="ledger-step-drop"
+            onClick={() => {
+              haptic(H.tap);
+              handleAddSubSet(-1);
+            }}
+            aria-label={isCn ? '加一档递减' : 'Add a drop set'}
+            data-testid="add-drop-set"
+          >
+            {isCn ? '递减' : 'Drop'}
           </button>
         </div>
       )}
@@ -723,8 +762,11 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               type="number"
               step={m === 'weight' ? 'any' : undefined}
               inputMode={m === 'weight' ? 'decimal' : 'numeric'}
+              enterKeyHint={m === 'weight' ? 'next' : 'done'}
               className="ledger-input ledger-input-sm"
               placeholder="0"
+              onFocus={selectOnFocus}
+              onKeyDown={focusNextOnEnter}
               aria-label={
                 m === 'weight'
                   ? isCn ? '子组重量' : 'Sub-set weight'

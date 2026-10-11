@@ -16,6 +16,7 @@ import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { SetCapsule } from './SetCapsule';
 import { RestBookmark } from './RestBookmark';
+import { LongPressAffordance } from './LongPressAffordance';
 import { VariantModal } from './modals/VariantModal';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
@@ -173,6 +174,17 @@ export const AlternatingCard: React.FC<Props> = ({
   return (
     <div className="ui-card p-0 overflow-visible" style={{ ['--cols' as string]: cols }} data-alt-card={cardKey}>
       <div className="masthead-rule relative px-3 pt-4 pb-2.5 touch-pan-y" {...(dragHandle?.handlers ?? {})}>
+        {/* 和单卡一样：长按拖排序要自我解释（原来交替卡挂了手势却没画进度线，2026-10-11） */}
+        {dragHandle && (
+          <LongPressAffordance
+            active={dragHandle.pressing}
+            hint={dragHandle.hinting}
+            label={isCn ? '拖动排序' : 'Drag to reorder'}
+            hintLabel={isCn ? '按住拖动排序' : 'Hold to reorder'}
+            drawMs={dragHandle.drawMs}
+            placement="down"
+          />
+        )}
         <div className="flex items-baseline gap-3">
           <h3 className="font-display text-h2 text-primary leading-snug flex-1 min-w-0 break-words">
             {members.map((m, i) => (

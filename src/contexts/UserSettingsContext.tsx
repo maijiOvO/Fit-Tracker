@@ -6,14 +6,21 @@ import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { storage } from '../../services/appStorage';
 import { isDemo } from '../../services/appEnv';
+import { recordAppPrefs } from '../../services/appPrefs';
 
 interface UserSettingsContextType {
   lang: Language;
+  /** 套用一个已经定下的值（同步拉回 / 切数据环境）：不打时间戳、不推送 */
   setLang: (lang: Language) => void;
+  /** 用户改语言：记进 appPrefs（打时间戳）并推送，同步时才不会被远端旧值翻回去 */
+  changeLang: (lang: Language) => void;
   toggleLanguage: () => void;
 
   unit: 'kg' | 'lbs';
+  /** 套用一个已经定下的值（同步拉回 / 切数据环境）：不打时间戳、不推送 */
   setUnit: (unit: 'kg' | 'lbs') => void;
+  /** 用户切单位：记进 appPrefs（打时间戳）并推送 */
+  changeUnit: (unit: 'kg' | 'lbs') => void;
 
   weightEntries: WeightEntry[];
   addWeightEntry: (entry: WeightEntry) => Promise<void>;
@@ -87,14 +94,25 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
     storage.setItem('fitlog_lang', newLang);
   };
 
+  const changeLang = (newLang: Language) => {
+    setLang(newLang);
+    recordAppPrefs({ lang: newLang });
+    scheduleDebouncedFitlogPush();
+  };
+
   const toggleLanguage = () => {
-    const nextLang = lang === Language.CN ? Language.EN : Language.CN;
-    setLang(nextLang);
+    changeLang(lang === Language.CN ? Language.EN : Language.CN);
   };
 
   const setUnit = (newUnit: 'kg' | 'lbs') => {
     setUnitState(newUnit);
     storage.setItem('fitlog_unit', newUnit);
+  };
+
+  const changeUnit = (newUnit: 'kg' | 'lbs') => {
+    setUnit(newUnit);
+    recordAppPrefs({ unit: newUnit });
+    scheduleDebouncedFitlogPush();
   };
 
   const addWeightEntry = async (entry: WeightEntry) => {
@@ -136,9 +154,11 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
       value={{
         lang,
         setLang,
+        changeLang,
         toggleLanguage,
         unit,
         setUnit,
+        changeUnit,
         weightEntries,
         addWeightEntry,
         deleteWeightEntry,

@@ -5,7 +5,6 @@
 
 export { useWorkout, default as useWorkoutDefault } from './useWorkout';
 
-export { useUserSettings, default as useUserSettingsDefault } from './useUserSettings';
 
 export { useChartData, getChartTimeRange } from './useChartData';
 export type { ChartDataPoint } from './useChartData';

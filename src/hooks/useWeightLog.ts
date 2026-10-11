@@ -32,7 +32,7 @@ export function useWeightLog(
   const authCtx = useAuthContext();
   const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
-  const { confirm, toast, toastUndo } = useUiOverlay();
+  const { toast, toastUndo } = useUiOverlay();
 
   const lang = settingsCtx.lang;
   const isCn = lang === Language.CN;
@@ -103,12 +103,7 @@ export function useWeightLog(
       e.stopPropagation();
       const entry = weightEntries.find(w => w.id === id);
       if (!entry) return;
-      const ok = await confirm({
-        message: isCn ? '确定要删除这条记录吗？' : 'Delete this entry?',
-        danger: true,
-        confirmLabel: isCn ? '删除' : 'Delete',
-      });
-      if (!ok) return;
+      // 2026-10-11：下面有撤销条，确认框去掉
       const snapshot = structuredClone(entry);
       try {
         await settingsCtx.deleteWeightEntry(id);
@@ -123,7 +118,7 @@ export function useWeightLog(
         toast(isCn ? '删除失败' : 'Delete failed', 'error');
       }
     },
-    [confirm, isCn, settingsCtx, toast, toastUndo, weightEntries],
+    [isCn, settingsCtx, toast, toastUndo, weightEntries],
   );
 
   const triggerEditWeight = useCallback(

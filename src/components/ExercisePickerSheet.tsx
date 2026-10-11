@@ -316,7 +316,10 @@ interface ExercisePickerSheetProps {
   /** 本次弹层会话累计添加数（App 维护，含新建动作路径） */
   sessionAdded: number;
   /** variantId：点的是某个做法的小卡 */
-  onPickExercise: (ex: ExerciseDefinition, variantId?: string) => void;
+  /** 点卡片。返回 false＝这是「取消本次添加」（本次打开里刚加过的再点一下），不播添加动画 */
+  onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
+  /** 普通态里换了部位 chip（部位标签，如 subChest）：训练名没手动改过时跟着改 */
+  onPartChange?: (bodyPart: string) => void;
   onCreateCustomExercise: (prefilledName?: string) => void;
   /** 从交替组「加一个动作」打开：头部写「加到 X ⇄ Y」，选的动作加进那个组 */
   targetLabel?: string | null;
@@ -338,6 +341,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   addedCounts,
   sessionAdded,
   onPickExercise,
+  onPartChange,
   onCreateCustomExercise,
   onEditExerciseTags,
   onDeleteExercise,
@@ -795,6 +799,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     } catch {
       /* noop */
     }
+    // 本次打开里加过的再点一下＝取消这次添加（App 里判），那一下不播「添加」的墨迹
+    if (onPickExercise(ex, variantId) === false) return;
     const row = rowRefs.current.get(pickKey);
     if (row) {
       // remove → offsetWidth → add 的强制重排触发法保留（写得对，能重放同一条动画）
@@ -802,8 +808,14 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       void row.offsetWidth;
       row.classList.add('anim-ink-mark');
     }
-    onPickExercise(ex, variantId);
   };
+
+  // B3（2026-10-11）：普通态换部位 → 告诉工作台（训练名还是「练胸」这种自动填的就跟着改）
+  useEffect(() => {
+    if (!open || arranging || !axis || axis.kind !== 'part') return;
+    onPartChange?.(axis.v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [axis, open, arranging]);
 
   /** 打开动作面板：先收起撤销条（它会盖住面板底部的「删除」） */
   const openActionPanel = (id: string) => {
@@ -1622,6 +1634,29 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             </button>
           )}
         </div>
+
+        {/* 底部「完成」（2026-10-11）：关闭原来只在最上面（× / 顶上一条 scrim），而「添加动作」在最下面，
+            每加一个动作都要换一次手位。这一条固定在拇指区；下滑关闭照旧。整理态底部是器材栏，不叠。 */}
+        {!arranging && (
+          <div
+            className="flex-shrink-0 px-4 pt-2 border-t border-divider"
+            style={{ paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }}
+          >
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full min-h-[48px] rounded-control bg-accent text-on-accent font-bold text-[15px] flex items-center justify-center gap-2 active:opacity-90"
+              data-testid="picker-done"
+            >
+              {isCn ? '完成' : 'Done'}
+              {sessionAdded > 0 && (
+                <span className="text-[12px] font-semibold opacity-85 tabular-nums">
+                  · {isCn ? `本次已加 ${sessionAdded}` : `${sessionAdded} added`}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 细分面板（整理）：改名 / 左右移 / 按默认排序 / 删除；或新建 + 恢复删掉的系统细分 */}
