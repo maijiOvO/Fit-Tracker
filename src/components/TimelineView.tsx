@@ -601,10 +601,10 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       </div>
 
       {/* 分组列表。
-          天粒度下一个组就是一天，而一天几乎总是只有一场 —— 组头与卡片会把
-          日期和计数各说两遍。所以「天粒度 + 组内只有一场」时组头整个吃掉，
-          日期改由卡片最左边那一列承担，月份降级成一条轻标题（见 mergedGroup）。
-          周/月/年粒度，以及一天里练了两场的情况，仍然走原来的组头。 */}
+          天粒度下一个组就是一天 —— 组头与卡片会把日期和计数各说两遍。所以天粒度
+          不要组头，日期由卡片最左边那一列承担，月份降级成一条轻标题（见 mergedGroup）。
+          一天练了两场也一样，就是同一天并排两张卡（2026-10-16 用户定：不另起一种样式）。
+          周/月/年粒度仍然走原来的组头。 */}
       <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
       {grouped.map((group, gi) => {
         const totalExercises = group.workouts.reduce(
@@ -616,7 +616,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           0,
         );
         const isCollapsed = collapsedGroups.has(group.key);
-        const mergedGroup = granularity === 'day' && group.workouts.length === 1;
+        const mergedGroup = granularity === 'day';
 
         // 天粒度下段落（本周 / 某年某月）换了就起一条轻标题，不管下面是单场卡片还是一天多场的组头 ——
         // 多场组头只说是哪天，不说属于哪一段，漏了标题，后面上周的卡会读成还在「本周」下面。
@@ -642,29 +642,31 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         );
 
         if (mergedGroup) {
-          const w = group.workouts[0];
           return (
             <div key={group.key} className="space-y-2">
               {sectionTitle}
-              <SessionCard
-                w={w}
-                lang={lang}
-                merged
-                isExpanded={expandedWorkoutId === w.id}
-                onToggleExpand={() =>
-                  setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
-                }
-                resolveName={resolveName}
-                renderSetCapsule={renderSetCapsule}
-                onEdit={() => onEditWorkout(w.id)}
-                onAppend={() => onAddExerciseToWorkout(w.id)}
-                onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
-                onMerge={() => onMergeIntoPrevious(w.id)}
-                onCopy={() => onCopyToToday(w.id)}
-                onResume={() => onResumeFinished(w.id)}
-                canResume={justEnded(w)}
-                canMerge={w.id !== earliestId}
-              />
+              {group.workouts.map((w) => (
+                <SessionCard
+                  key={w.id}
+                  w={w}
+                  lang={lang}
+                  merged
+                  isExpanded={expandedWorkoutId === w.id}
+                  onToggleExpand={() =>
+                    setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
+                  }
+                  resolveName={resolveName}
+                  renderSetCapsule={renderSetCapsule}
+                  onEdit={() => onEditWorkout(w.id)}
+                  onAppend={() => onAddExerciseToWorkout(w.id)}
+                  onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
+                  onMerge={() => onMergeIntoPrevious(w.id)}
+                  onCopy={() => onCopyToToday(w.id)}
+                  onResume={() => onResumeFinished(w.id)}
+                  canResume={justEnded(w)}
+                  canMerge={w.id !== earliestId}
+                />
+              ))}
             </div>
           );
         }
