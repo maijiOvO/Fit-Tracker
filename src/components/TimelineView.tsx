@@ -618,31 +618,34 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         const isCollapsed = collapsedGroups.has(group.key);
         const mergedGroup = granularity === 'day' && group.workouts.length === 1;
 
-        // 合并态下月份换了才起一条标题；非合并态的组头自带完整日期，不需要它
+        // 天粒度下段落（本周 / 某年某月）换了就起一条轻标题，不管下面是单场卡片还是一天多场的组头 ——
+        // 多场组头只说是哪天，不说属于哪一段，漏了标题，后面上周的卡会读成还在「本周」下面。
+        // 本周的几场标「本周」（2026-10-15 用户定）：标「2026 年 10 月」会让人以为下面几张卡是同一天。
+        const thisWeek = getISOWeekKey(new Date()).key;
+        const sectionOf = (d: Date) =>
+          getISOWeekKey(d).key === thisWeek ? 'this-week' : `${d.getFullYear()}-${d.getMonth()}`;
         const monthLabel = (() => {
-          if (!mergedGroup) return null;
+          if (granularity !== 'day') return null;
           const d = new Date(group.workouts[0].date);
           const prev = gi > 0 ? grouped[gi - 1] : null;
           const prevD = prev?.workouts?.[0]?.date ? new Date(prev.workouts[0].date) : null;
-          const sameMonth =
-            !!prevD &&
-            prevD.getFullYear() === d.getFullYear() &&
-            prevD.getMonth() === d.getMonth();
-          if (sameMonth) return null;
+          if (prevD && sectionOf(prevD) === sectionOf(d)) return null;
+          if (sectionOf(d) === 'this-week') return isCN ? '本周' : 'This week';
           return isCN
             ? `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
             : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
         })();
+        const sectionTitle = monthLabel && (
+          <div className="px-1 pt-2 text-[10px] tracking-[0.14em] text-tertiary font-medium">
+            {monthLabel}
+          </div>
+        );
 
         if (mergedGroup) {
           const w = group.workouts[0];
           return (
             <div key={group.key} className="space-y-2">
-              {monthLabel && (
-                <div className="px-1 pt-2 text-[10px] tracking-[0.14em] text-tertiary font-medium">
-                  {monthLabel}
-                </div>
-              )}
+              {sectionTitle}
               <SessionCard
                 w={w}
                 lang={lang}
@@ -668,6 +671,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
         return (
           <div key={group.key} className="space-y-2">
+            {sectionTitle}
             {/* 组头：可折叠 */}
             <button
               type="button"
