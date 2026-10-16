@@ -42,6 +42,7 @@ import {
   RowRef,
   splitGroup,
   tapSetNum as tapSetNumPure,
+  tapSetNumEditing,
 } from '../utils/workbench';
 import { usesSignedLoad } from '../utils/load';
 import { undoWorkoutDeletes } from '../utils/undoPref';
@@ -194,12 +195,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   /**
    * 点组号：一下＝选中这一组 + 指针挪到它正下方（语义全在 workbench.tapSetNum）。
    * 刚做完的那组再点＝退回（点错了一下就撤）；全零的组点不实，只选中。
+   * 编辑旧训练另走 tapSetNumEditing：只动被点的那一组（练完的训练没有指针可挪）。
    */
   const tapSetNum = (r: RowRef) => {
-    const res = tapSetNumPure(exs, r);
+    const res = editingWorkoutId ? tapSetNumEditing(exs, r) : tapSetNumPure(exs, r);
     if (res.outcome === 'noop') return;
     haptic(H.tap);
     setPickedSetId(r.setId);
+    if (res.outcome === 'select') return;
     if (res.outcome === 'empty') {
       // 全零的组点不实：一组什么都没填，做完也记不下任何东西
       toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
@@ -509,7 +512,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       {/* 动作卡列表；底部为常驻添加栏预留空间 */}
       <div className="space-y-6 pb-32">
         {cards.map((card, ci) => {
-          const pointerGap = seam?.cardKey === card.key ? seam.gap : null;
+          // 编辑旧训练不画书签：拖它往上会把后面的组退回待做，保存时整段被剥掉
+          const pointerGap = !editingWorkoutId && seam?.cardKey === card.key ? seam.gap : null;
           const wrap = (body: React.ReactNode, flashId: string) => (
             <div
               key={card.key}

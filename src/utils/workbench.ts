@@ -272,6 +272,8 @@ export type TapOutcome =
   | 'moved'
   /** 全零的组：只选中，不动指针 */
   | 'empty'
+  /** 编辑旧训练时点记录里的组：只选中，什么都不改 */
+  | 'select'
   | 'noop';
 
 export interface TapResult extends DoneResult {
@@ -312,6 +314,22 @@ export function tapSetNum(exs: Exercise[], r: RowRef): TapResult {
   const seat = rowSeat(exs, r);
   if (!seat) return { exs, outcome: 'noop' };
   return { exs: movePointerTo(exs, seat.card.key, seat.idx + 1), outcome: 'moved' };
+}
+
+/**
+ * 编辑旧训练时点组号（2026-10-15）：**只动被点的这一组，不挪卡、不扫别的组。**
+ * 练完的训练没有「做到哪了」：指针停在最后一组下面，套 tapSetNum 会把点到的待做组当成「换到另一张卡」、
+ * 把点到的旧组当成「书签往上拖」—— 后面的组全退回待做，保存时被当底稿剥掉，记录就丢了。
+ *   - 记录里的组（没有 seq：入册时 seq 被剥掉）：只选中，用来改数。
+ *   - 这次编辑里点实的组（有 seq）：退回待做 —— 点错了再点一下就撤。
+ *   - 待做 / 跳过（编辑时加的组）：原地做完；全零的点不实。
+ */
+export function tapSetNumEditing(exs: Exercise[], r: RowRef): TapResult {
+  const s = findSet(exs, r);
+  if (!s) return { exs, outcome: 'noop' };
+  if (!s.ghost) return s.seq ? { exs: revertSet(exs, r), outcome: 'revert' } : { exs, outcome: 'select' };
+  if (!setHasValue(s)) return { exs, outcome: 'empty' };
+  return { exs: patchSet(exs, r, x => asDone(x, nextSeq(exs))), outcome: 'done' };
 }
 
 /** 跟着变的字段：重量、次数各算各的 */
