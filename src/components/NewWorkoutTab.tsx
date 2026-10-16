@@ -44,6 +44,7 @@ import {
   tapSetNum as tapSetNumPure,
   tapSetNumEditing,
 } from '../utils/workbench';
+import { followDiag } from '../utils/followDiag';
 import { usesSignedLoad } from '../utils/load';
 import { undoWorkoutDeletes } from '../utils/undoPref';
 import { haptic, H } from '../utils/haptics';
@@ -253,6 +254,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               };
             })()
           : { id: newId, weight: 0, reps: 0, ghost: true };
+        followDiag('add-set', { ex: e.name, no: e.sets.length + 1, id: newId, from: lastSet?.id, weight: newSet.weight, reps: newSet.reps, fromTouched: lastSet?.touched });
         return { ...e, sets: [...e.sets, newSet] };
       }),
     }));
