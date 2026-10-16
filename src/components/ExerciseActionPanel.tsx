@@ -4,6 +4,7 @@
  * 两个入口共用这一个面板：添加动作弹层普通态「长按动作」、整理态「点动作」。
  * 由原来的长按管理菜单扩出来，样子照旧：bg-inset 底部面板 + 全宽 bg-card 描边按钮 + 删除项 danger/10 底。
  *   - 头部：名字（点了就地改名）+ ★ 开关；副行「部位 · 细分」
+ *   - 「改名」一行：和头部点名字是同一个就地输入框，给找不到头部入口的人一个看得见的按钮
  *   - 「归到细分」chip 行（有细分的力量动作）
  *   - 部位与器材 / 做法 / 备注 / 记录项：打开现有的同一批弹窗
  *   - 并入另一个动作（2.5 整理）：这个动作变成那个动作的一个做法，历史 / 纪录跟过去；撤销条
@@ -15,7 +16,7 @@
  * 这是吞一次就作废的条件版，不会把以后的正常点击吃掉。
  */
 import React, { useRef, useState } from 'react';
-import { FileText, GitMerge, ListChecks, Search, Shuffle, Star, Tags, Trash2 } from 'lucide-react';
+import { FileText, GitMerge, ListChecks, Pencil, Search, Shuffle, Star, Tags, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -195,6 +196,13 @@ export const ExerciseActionPanel: React.FC<Props> = ({
           </>
         )}
 
+        {/* 改名单独一行（2026-10-15）：只靠「点头部名字」没人找得到，它看着就是个标题 */}
+        {draft === null && (
+          <button type="button" className={btn} onClick={() => setDraft(name)} data-testid="action-panel-rename">
+            <Pencil size={16} className="text-accent" />
+            {isCn ? '改名' : 'Rename'}
+          </button>
+        )}
         <button type="button" className={btn} onClick={then(() => onEditTags(ex))}>
           <Tags size={16} className="text-accent" />
           {isCn ? '部位与器材' : 'Part & gear'}

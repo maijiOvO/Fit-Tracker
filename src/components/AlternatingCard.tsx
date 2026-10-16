@@ -6,12 +6,12 @@
  * 全场还是一个指针，在这张卡里一行一行往下走。
  *
  * 改错一律低成本、可逆（合并 / 移出 / 拆开 / 换动作都不丢数据，所以不给撤销也不弹确认）：
- *   - 卡头动作名可点：左移 / 右移（只重排待做的组）、做法、备注、移出交替、从本场删除
+ *   - 卡头动作名可点：左移 / 右移（只重排待做的组）、重命名、做法、备注、移出交替、从本场删除
  *   - ⋯：加一个动作（打开同一个添加动作弹层，加进这个组）、拆开
  *   - 卡底按动作分开的「＋ 动作名」：新的组插到轮换里该在的位置
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { SetCapsule } from './SetCapsule';
@@ -48,6 +48,8 @@ interface Props {
   onMoveMember: (exId: string, dir: -1 | 1) => void;
   onRemoveMember: (exId: string) => void;
   onDeleteMember: (exId: string) => void;
+  /** 改名：动作库里找得到这个动作才有（同单卡「⋯」里的重命名），返回 undefined 就不显示 */
+  renameMember?: (exId: string) => (() => void) | undefined;
   onSplit: () => void;
   onAddMember: () => void;
   onSwitchRowExercise: (r: RowRef, toExId: string) => void;
@@ -119,6 +121,7 @@ export const AlternatingCard: React.FC<Props> = ({
   onMoveMember,
   onRemoveMember,
   onDeleteMember,
+  renameMember,
   onSplit,
   onAddMember,
   onSwitchRowExercise,
@@ -368,6 +371,23 @@ export const AlternatingCard: React.FC<Props> = ({
               {isCn ? '右移' : 'Right'} <ChevronRight size={16} />
             </button>
           </div>
+          {(() => {
+            const rename = renameMember?.(memberFor);
+            return rename ? (
+              <button
+                type="button"
+                className={panelBtn}
+                onClick={() => {
+                  setMemberFor(null);
+                  rename();
+                }}
+                data-testid="alt-rename-member"
+              >
+                <Pencil size={16} className="text-accent" />
+                {isCn ? '重命名' : 'Rename'}
+              </button>
+            ) : null;
+          })()}
           <button
             type="button"
             className={panelBtn}

@@ -561,6 +561,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onMoveMember={(exId, dir) => setExs(list => moveGroupMember(list, exId, dir))}
                 onRemoveMember={exId => setExs(list => removeFromGroup(list, exId))}
                 onDeleteMember={exId => onDeleteExerciseFromSession(indexOf(exId))}
+                renameMember={exId => {
+                  const ex = exs.find(e => e.id === exId);
+                  const def = ex ? findExerciseDef(ex.name) : null;
+                  return ex && def ? () => onRenameExercise(def.id, resolveName(ex.name)) : undefined;
+                }}
                 onSplit={() => setExs(list => splitGroup(list, card.group!))}
                 onAddMember={() => onPickerOpenChange(true, null, card.group)}
                 onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to))}
