@@ -159,7 +159,7 @@ export const AlternatingCard: React.FC<Props> = ({
 
   const setOf = (r: RowRef) => byId.get(r.exId)?.sets.find(s => String(s.id) === r.setId);
   const done = rows.filter(r => setOf(r) && !setOf(r)!.ghost).length;
-  const planned = rows.filter(r => setOf(r) && !setOf(r)!.skipped).length;
+  const planned = rows.filter(r => setOf(r)).length;
   const volume = members.reduce((n, ex) => n + ex.sets.reduce((v, s) => (s.ghost ? v : v + setVolumeKg(s, ex)), 0), 0);
   const volText = (() => {
     const v = unit === 'lbs' ? volume * 2.20462 : volume;

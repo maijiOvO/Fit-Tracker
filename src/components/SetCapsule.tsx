@@ -15,6 +15,7 @@ import { useLongPress } from '../hooks/useLongPress';
 import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
+import type { SetUpdate } from '../utils/workbench';
 
 interface SetCapsuleProps {
   set: any;
@@ -171,13 +172,30 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   ) as Record<string, string>;
 
   /**
-   * 组行三种状态（2026-10 指针）：待做（ghost）/ 跳过（ghost + skipped）/ 做完。
+   * 组行两种状态（2026-10 指针；10-15 删了跳过）：待做（ghost）/ 做完。
    * 做完没做完看指针位置和数字墨色；组号平时一律空心细框，选中才实心（用户定：只两种样子）。
    * 点组号交给工作台：一下＝选中 + 指针挪到这一组正下方（刚做完那组再点＝退回）。改值只改值。
    */
   const isGhost = !!set.ghost && !readOnly;
-  const isSkipped = isGhost && !!set.skipped;
-  const update = (updates: Partial<SetLog>) => {
+  /**
+   * 打字改重量：聚焦时记下带符号的 kg，离开时按总差值让后面的组平移一次（workbench.SetUpdate）。
+   * 逐键平移会让后面的组跟着 1、15、150 一路跳，减到 0 以下还会被截掉。
+   */
+  const rowSignedKg = (Number(set.weight) || 0) * rowSign;
+  const typeBaseRef = React.useRef<number | null>(null);
+  const commitTypedWeight = () => {
+    const base = typeBaseRef.current;
+    typeBaseRef.current = null;
+    if (base !== null && base !== rowSignedKg) onUpdate({ followFrom: { kg: base } } as SetUpdate);
+  };
+  const subTypeBaseRef = React.useRef<{ sub: number; kg: number } | null>(null);
+  const commitTypedSubWeight = (subIdx: number, nowKg: number) => {
+    const base = subTypeBaseRef.current;
+    subTypeBaseRef.current = null;
+    if (base && base.sub === subIdx && base.kg !== nowKg) onUpdate({ followFrom: base } as SetUpdate);
+  };
+
+  const update = (updates: SetUpdate) => {
     const keys = isGhost ? touchedKeys(updates) : [];
     if (!keys.length) {
       onUpdate(updates);
@@ -232,7 +250,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const scrubFor = (m: string) =>
     m === 'weight' ? weightScrub : m === 'reps' ? repsScrub : null;
 
-  const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>) => {
+  const handleSubSetUpdate = (subIdx: number, updates: Partial<SubSetLog>, holdFollow = false) => {
     const newSubSets = [...subSets];
     const cur = newSubSets[subIdx];
     newSubSets[subIdx] = {
@@ -241,7 +259,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       // 格子墨色要按格算：哪一格改过，哪一格变实墨
       ...(isGhost ? { touched: { ...(cur.touched || {}), ...Object.fromEntries(Object.keys(updates).filter(k => k === 'weight' || k === 'reps').map(k => [k, true])) } } : {}),
     };
-    update({ subSets: newSubSets });
+    update({ subSets: newSubSets, ...(holdFollow ? { holdFollow } : {}) });
   };
 
   /**
@@ -327,9 +345,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   return (
     <>
       <div
-        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${
-          isSkipped ? ' is-skipped' : ''
-        }${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}`}
+        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}`}
         style={colStyle}
         data-set-idx={setIdx}
         data-set-id={set.id}
@@ -465,14 +481,19 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 placeholder="0"
                 aria-label={unitLabel ? `${m} (${unitLabel})` : m}
                 value={display}
-                onFocus={selectOnFocus}
+                onFocus={e => {
+                  selectOnFocus(e);
+                  if (m === 'weight') typeBaseRef.current = rowSignedKg;
+                }}
+                onBlur={m === 'weight' ? commitTypedWeight : undefined}
                 onKeyDown={focusNextOnEnter}
                 onChange={e => {
                   const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
                   if (m === 'weight') {
                     // 带正负：打负数＝辅助；打正数沿用这一组现在的号（辅助的组改数还是辅助）
                     const v = signed && inputValue >= 0 ? inputValue * rowSign : inputValue;
-                    update(fromDisplay(signed ? v : Math.max(0, v)));
+                    // 打字中途只改这一格，离开输入框时再按总差值带后面（commitTypedWeight）
+                    update({ ...fromDisplay(signed ? v : Math.max(0, v)), holdFollow: true });
                     return;
                   }
                   update({ [m]: inputValue });
@@ -577,10 +598,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             weightDisplay={toDisplay(sub.weight, sign)}
             signed={!!signed}
             edited={isGhost ? sub.touched : undefined}
-            onWeight={v => {
+            onWeight={(v, typed) => {
               const vv = signed && v >= 0 ? v * sign : v;
-              handleSubSetUpdate(ssi, fromDisplay(signed ? vv : Math.max(0, vv)));
+              handleSubSetUpdate(ssi, fromDisplay(signed ? vv : Math.max(0, vv)), typed);
             }}
+            onTypeStart={() => {
+              subTypeBaseRef.current = { sub: ssi, kg: (Number(sub.weight) || 0) * sign };
+            }}
+            onTypeEnd={() => commitTypedSubWeight(ssi, (Number(sub.weight) || 0) * sign)}
             onUpdate={updates => handleSubSetUpdate(ssi, updates)}
             onRemove={() => handleRemoveSubSet(ssi)}
           />
@@ -618,7 +643,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
       {/* −5 / +5：跟着选中的那一组（2026-10 指针；原先跟着休息书签）。整行两颗宽键，出汗的手也按得准。
           右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。 */}
-      {!readOnly && selected && !isSkipped && activeMetrics.includes('weight') && (
+      {!readOnly && selected && activeMetrics.includes('weight') && (
         <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
           <button type="button" onClick={() => bump(-5)} aria-label={isCn ? `重量减 5 ${unit}` : `Weight −5 ${unit}`}>
             −5 <span className="ledger-unit">{unit}</span>
@@ -663,8 +688,11 @@ interface SubSetRowProps {
   signed: boolean;
   /** 待做时改过的格子（变实墨） */
   edited?: SubSetLog['touched'];
-  /** 改重量（显示单位，带符号） */
-  onWeight: (v: number) => void;
+  /** 改重量（显示单位，带符号）；typed＝打字中途，后面的组先不跟 */
+  onWeight: (v: number, typed?: boolean) => void;
+  /** 重量格开始 / 结束打字：结束时按总差值带后面各组的同一档 */
+  onTypeStart: () => void;
+  onTypeEnd: () => void;
   onUpdate: (updates: Partial<SubSetLog>) => void;
   onRemove: () => void;
 }
@@ -690,6 +718,8 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   signed,
   edited,
   onWeight,
+  onTypeStart,
+  onTypeEnd,
   onUpdate,
   onRemove,
 }) => {
@@ -765,7 +795,11 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               enterKeyHint={m === 'weight' ? 'next' : 'done'}
               className="ledger-input ledger-input-sm"
               placeholder="0"
-              onFocus={selectOnFocus}
+              onFocus={e => {
+                selectOnFocus(e);
+                if (m === 'weight') onTypeStart();
+              }}
+              onBlur={m === 'weight' ? onTypeEnd : undefined}
               onKeyDown={focusNextOnEnter}
               aria-label={
                 m === 'weight'
@@ -775,7 +809,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               value={value ? display : ''}
               onChange={e => {
                 const val = e.target.value === '' ? 0 : Number(e.target.value);
-                if (m === 'weight') onWeight(val);
+                if (m === 'weight') onWeight(val, true);
                 else onUpdate({ reps: val });
               }}
             />

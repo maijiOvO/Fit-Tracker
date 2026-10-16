@@ -131,8 +131,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const loadMode = getLoadMode(exercise);
   // 底稿行不计入「M组」——它还不是数据（§12.6）
   const realSetCount = exercise.sets.filter(s => !s.ghost).length;
-  // 分母不算跳过的组：跳过＝这次不做了
-  const plannedCount = exercise.sets.filter(s => !s.skipped).length;
+  // 分母＝这张卡上全部的组（做完 + 待做）
+  const plannedCount = exercise.sets.length;
   const ghostSetCount = plannedCount - realSetCount;
   /**
    * §12.6 进度：realSetCount 一直就是「已做几组」，只是没有分母时它读起来像

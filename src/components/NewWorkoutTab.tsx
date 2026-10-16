@@ -214,7 +214,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       const other = exs.find(e => e.id === b);
       toastUndo(
         isCn ? `和「${other ? resolveName(other.name) : ''}」交替做？` : `Alternate with "${other ? resolveName(other.name) : ''}"?`,
-        () => setExs(list => groupExercises(list, [a, b], { unskip: true })),
+        () => setExs(list => groupExercises(list, [a, b])),
         { undoLabel: isCn ? '交替' : 'Alternate', durationMs: 6000 },
       );
     }
@@ -238,13 +238,19 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         const lastSet = e.sets.length > 0 ? e.sets[e.sets.length - 1] : null;
         // 克隆上一行的值，新行从【待做】开始（第 4 条）：加出来不等于做完了。
         // 力竭是当日这一组的事实，不跟着抄；touched / 跳过 / 先后号同理。
-        // 递减档也一样（addset-clones-drop-set）：子组是当组的事实，照抄过来点了组号，
-        // 没做过的那档就被记进历史和容量；真要再做，长按组号加。
+        // 递减档照抄（2026-10-15 用户定：和普通组一样继承；不做那档就删掉），换新 id、去掉改过标记。
         const newId = `${Date.now()}`;
         const newSet: SetLog = lastSet
           ? (() => {
-              const { subSets: _sub, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, ...base } = lastSet;
-              return { ...base, id: newId, ghost: true };
+              const { subSets, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, ...base } = lastSet;
+              return {
+                ...base,
+                id: newId,
+                ghost: true,
+                ...(subSets?.length
+                  ? { subSets: subSets.map(({ touched: _st, ...sub }, k) => ({ ...sub, id: `${newId}_sub${k}` })) }
+                  : {}),
+              };
             })()
           : { id: newId, weight: 0, reps: 0, ghost: true };
         return { ...e, sets: [...e.sets, newSet] };

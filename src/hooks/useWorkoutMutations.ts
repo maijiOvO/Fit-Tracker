@@ -70,6 +70,8 @@ function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
       id: `${idPrefix}_${j}`,
       weight: s.weight ?? 0,
       reps: s.reps ?? 0,
+      // 带正负的负荷：号跟着抄，否则辅助的组 / 降进辅助的递减档下次会变成负重
+      ...(s.bodyweightMode ? { bodyweightMode: s.bodyweightMode } : {}),
       ...(s.duration ? { duration: s.duration } : {}),
       ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
       ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),
@@ -79,6 +81,7 @@ function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
               id: `${idPrefix}_${j}_sub${k}`,
               weight: sub.weight ?? 0,
               reps: sub.reps ?? 0,
+              ...(sub.bodyweightMode ? { bodyweightMode: sub.bodyweightMode } : {}),
             })),
           }
         : {}),

@@ -1,21 +1,24 @@
 /**
  * 工作台的「做到哪了」与交替组（2026-10，demo：docs/demos/set-pointer-alternating.html）
  *
- * 一条规则：全场一个指针，指针以上＝做完或跳过，以下＝待做。
- *   - 指针不存状态，由组的状态推出来：最后一条「不是待做」的行之后。所以拖指针、点做完、退回、删组之后，
+ * 一条规则：全场一个指针，落在最后一组做完的后面。
+ *   - 指针不存状态，由组的状态推出来：最后一条做完的行之后。所以拖指针、点做完、退回、删组之后，
  *     它自己就落在对的地方；重开工作台（App 被回收、继续这场）也接得上。
- *   - 组的状态：做完（ghost=false）/ 待做（ghost=true）/ 跳过（ghost=true + skipped）。跳过和待做一样不入册。
+ *   - 组的状态只有两种：做完（ghost=false）/ 待做（ghost=true）。待做不入册，结束训练时丢掉 ——
+ *     不想做的组不点就是了（2026-10-15 用户定，删掉了「跳过」）。所以指针上面也可以留着待做组
+ *     （扫过时没填数的、练一半换动作时没做完的），点组号原地补做。
+ *   - 旧数据里的 skipped 标记一律当待做读，做完 / 退回时顺手剥掉。
  *
  * 卡片：单个动作一张卡；交替组（Exercise.altGroup 相同、在数组里挨着）合成一张卡。
  *   - 单个动作的行序＝sets 数组的顺序（点做完时把那一组挪到指针下面，数组就是实际顺序）。
- *   - 交替组的行序：做完 / 跳过的按 seq（实际先后），待做的按轮换，从最后做完那组的下一个动作接着轮。
+ *   - 交替组的行序：做完的按 seq（实际先后），待做的按轮换，从最后做完那组的下一个动作接着轮。
  *
  * 全部是纯函数：输入 exercises，输出新的 exercises。UI（NewWorkoutTab）只管调用和渲染。
  */
-import type { Exercise, SetLog } from '../../types';
+import type { Exercise, SetLog, SubSetLog } from '../../types';
+import { fromSignedKg, signedKg } from './load';
 
-export const isPending = (s: SetLog): boolean => !!s.ghost && !s.skipped;
-export const isSkipped = (s: SetLog): boolean => !!s.ghost && !!s.skipped;
+export const isPending = (s: SetLog): boolean => !!s.ghost;
 
 export interface WorkbenchCard {
   /** 单个动作＝动作 id；交替组＝'g:' + 组 id */
@@ -186,65 +189,38 @@ function moveCardBlock(exs: Exercise[], card: WorkbenchCard, at: (rest: Exercise
 
 export interface DoneResult {
   exs: Exercise[];
-  /** 补做的是另一张卡上跳过的组：提示「和 X 交替做？」（两张都是单个动作时） */
+  /** 补做的是另一张卡上留下的组：提示「和 X 交替做？」（两张都是单个动作时） */
   suggestPair?: { a: string; b: string };
 }
 
-/**
- * 点做完（第二次点已选中的组号）。
- *   - 跳过的组：原地补做（它本来就在指针上面）；补的是别的卡 → 提示交替。
- *   - 指针所在的卡里：这一组挪到指针正下方，记做完。
- *   - 别的卡：当前卡没做的组记跳过，被点的卡整张挪到当前卡下面；一组都还没做（指针在最开头）就挪到最前面。
- */
-export function markSetDone(exs: Exercise[], r: RowRef): DoneResult {
-  const s = findSet(exs, r);
-  if (!s || !s.ghost) return { exs };
-  const seq = nextSeq(exs);
+/** 指针上面留下的待做组原地补做（不挪指针、不挪卡）；补的是别的卡 → 提示交替 */
+function fillInPlace(exs: Exercise[], r: RowRef): DoneResult {
   const cards = buildCards(exs);
-  const flat = flatRows(exs);
-  const P = pointerIndex(exs);
   const rowCard = cards.find(c => c.exIds.includes(r.exId))!;
-  const ptrCard = P > 0 ? cards.find(c => c.key === flat[P - 1].cardKey) ?? null : null;
-
-  if (isSkipped(s)) {
-    const next = patchSet(exs, r, x => asDone(x, seq));
-    const suggest =
-      ptrCard && ptrCard.key !== rowCard.key && !ptrCard.group && !rowCard.group
-        ? { a: rowCard.exIds[0], b: ptrCard.exIds[0] }
-        : undefined;
-    return { exs: next, suggestPair: suggest };
-  }
-
-  let next = exs;
-  if (!ptrCard || ptrCard.key !== rowCard.key) next = bringCardToPointer(exs, rowCard, ptrCard);
-  // 单个动作：这一组挪到它自己已做 / 跳过的组后面（＝指针正下方）
-  if (!rowCard.group) {
-    next = next.map(e => {
-      if (e.id !== r.exId) return e;
-      const sets = e.sets.filter(x => String(x.id) !== r.setId);
-      const at = sets.filter(x => !isPending(x)).length;
-      const target = e.sets.find(x => String(x.id) === r.setId)!;
-      sets.splice(at, 0, target);
-      return { ...e, sets };
-    });
-  }
-  next = patchSet(next, r, x => asDone(x, seq + 100));
-  return { exs: next };
+  const ptrCard = pointerCard(exs);
+  const next = patchSet(exs, r, x => asDone(x, nextSeq(exs)));
+  const suggest =
+    ptrCard && ptrCard.key !== rowCard.key && !ptrCard.group && !rowCard.group
+      ? { a: rowCard.exIds[0], b: ptrCard.exIds[0] }
+      : undefined;
+  return { exs: next, suggestPair: suggest };
 }
 
-/** 当前卡没做的组记跳过，rowCard 整张挪到当前卡下面；还没开始（没有当前卡）就挪到最前面 */
+/** rowCard 整张挪到当前卡下面（当前卡没做的组原样留着待做）；还没开始（没有当前卡）就挪到最前面 */
 function bringCardToPointer(exs: Exercise[], rowCard: WorkbenchCard, ptrCard: WorkbenchCard | null): Exercise[] {
   if (!ptrCard) return moveCardBlock(exs, rowCard, () => 0);
-  const flat = flatRows(exs);
-  const P = pointerIndex(exs);
-  const gap = P - flat.findIndex(x => x.cardKey === ptrCard.key);
-  let next = exs;
-  let sq = nextSeq(exs);
-  for (const lr of cardRows(ptrCard, exs).slice(gap)) {
-    next = patchSet(next, lr, x => (isPending(x) ? { ...x, skipped: true, seq: sq++ } : x));
-  }
   const lastId = ptrCard.exIds[ptrCard.exIds.length - 1];
-  return moveCardBlock(next, rowCard, rest => rest.findIndex(e => e.id === lastId) + 1);
+  return moveCardBlock(exs, rowCard, rest => rest.findIndex(e => e.id === lastId) + 1);
+}
+
+/** 一张卡里前 gap 行：有数的待做组记做完（全零的留着待做） */
+function sweepCard(exs: Exercise[], card: WorkbenchCard, gap: number): Exercise[] {
+  let next = exs;
+  let seq = nextSeq(exs);
+  for (const r of cardRows(card, exs).slice(0, gap)) {
+    next = patchSet(next, r, s => (isPending(s) && setHasValue(s) ? asDone(s, seq++) : s));
+  }
+  return next;
 }
 
 /** 指针此刻所在的卡（它正上方那一行所在的卡）；一组都没做过时为 null */
@@ -264,7 +240,7 @@ function rowSeat(exs: Exercise[], r: RowRef): { card: WorkbenchCard; idx: number
 }
 
 export type TapOutcome =
-  /** 这一组做完，指针落在它正下方（经过的待做组一并做完 / 跳过） */
+  /** 这一组做完（指针落在它正下方，经过的有数的待做组一并做完；或在指针上面原地补做） */
   | 'done'
   /** 刚做完的那组退回待做 */
   | 'revert'
@@ -283,10 +259,10 @@ export interface TapResult extends DoneResult {
 /**
  * 点组号（2026-10-11，用户按真机手感定）：**一下＝选中这一组 + 指针挪到它正下方。**
  * 以前要「先选中、再点一下才做完」，挪指针得精确拖书签（瞄起点、瞄终点两次）；现在一次点击顶掉这两样。
- *   - 待做：指针所在的卡里（或还没开始）→ 像拖指针一样扫下去：经过的待做组做完（全零的记跳过），这一组做完。
- *     别的卡 → 当前卡没做的组记跳过、那张卡整张挪到当前卡下面（还没开始就挪到最前），再在那张卡里扫到这一组。
+ *   - 待做、在指针下面：指针所在的卡里（或还没开始）→ 像拖指针一样扫下去：经过的有数的待做组做完，这一组做完。
+ *     别的卡 → 那张卡整张挪到当前卡下面（还没开始就挪到最前），再在那张卡里扫到这一组。当前卡没做的组原样留着。
  *     全零的组点不实（做完也记不下东西）：只选中，指针不动。
- *   - 跳过：原地补做（它本来就在指针上面）；补的是别的卡 → 提示交替。
+ *   - 待做、在指针上面（扫过时没数、或换卡时留下的）：原地补做；补的是别的卡 → 提示交替。
  *   - 刚做完的那组（指针正上方）：退回待做，值保留 —— 点错了再点一下就撤。
  *   - 更上面的做完组：指针挪回它正下方，后面的组退回待做（值保留）—— 等于把书签往上拖。
  * 选中（组号实心、±5）由 UI 记：不管哪种结果，被点的那组就是选中的。
@@ -294,21 +270,23 @@ export interface TapResult extends DoneResult {
 export function tapSetNum(exs: Exercise[], r: RowRef): TapResult {
   const s = findSet(exs, r);
   if (!s) return { exs, outcome: 'noop' };
-  if (isSkipped(s)) {
-    if (!setHasValue(s)) return { exs, outcome: 'empty' };
-    return { ...markSetDone(exs, r), outcome: 'done' };
-  }
   if (isPending(s)) {
     if (!setHasValue(s)) return { exs, outcome: 'empty' };
-    let next = exs;
+    const at = flatRows(exs).findIndex(x => x.exId === r.exId && x.setId === r.setId);
+    if (at >= 0 && at < pointerIndex(exs)) return { ...fillInPlace(exs, r), outcome: 'done' };
     const ptrCard = pointerCard(exs);
     const rowCard = buildCards(exs).find(c => c.exIds.includes(r.exId))!;
-    if (ptrCard?.key !== rowCard.key && (ptrCard || buildCards(exs)[0].key !== rowCard.key)) {
-      next = bringCardToPointer(exs, rowCard, ptrCard);
+    if (ptrCard?.key === rowCard.key || (!ptrCard && buildCards(exs)[0].key === rowCard.key)) {
+      const seat = rowSeat(exs, r);
+      if (!seat) return { exs, outcome: 'noop' };
+      return { exs: movePointerTo(exs, seat.card.key, seat.idx + 1), outcome: 'done' };
     }
+    // 换卡：那张卡挪到当前卡下面，只在它自己里面扫到这一组。不能用 movePointerTo ——
+    // 它按全场行序扫，会把当前卡剩下、已经填了数的组顺手记成做完
+    const next = bringCardToPointer(exs, rowCard, ptrCard);
     const seat = rowSeat(next, r);
     if (!seat) return { exs, outcome: 'noop' };
-    return { exs: movePointerTo(next, seat.card.key, seat.idx + 1), outcome: 'done' };
+    return { exs: sweepCard(next, seat.card, seat.idx + 1), outcome: 'done' };
   }
   if (isJustDone(exs, r)) return { exs: revertSet(exs, r), outcome: 'revert' };
   const seat = rowSeat(exs, r);
@@ -332,37 +310,140 @@ export function tapSetNumEditing(exs: Exercise[], r: RowRef): TapResult {
   return { exs: patchSet(exs, r, x => asDone(x, nextSeq(exs))), outcome: 'done' };
 }
 
-/** 跟着变的字段：重量、次数各算各的 */
-const FOLLOW_KEYS = ['weight', 'reps'] as const;
+/**
+ * 改值时随 updates 一起传的两个标记（不落进组里）：
+ *   - holdFollow：打字中途。只改这一格，重量先不带后面的组 —— 打 150 会先经过 1、15，
+ *     逐键平移会让后面的组一路跳，减到 0 以下还会被截掉，差值就丢了。
+ *   - followFrom：打完（离开输入框 / 回车）。按「聚焦时的值 → 现在的值」的总差值平移一次。
+ *     sub 是递减档下标，不写＝母组。
+ * 横拖和 ±5 每档都是小步，不带标记，逐档实时跟。
+ */
+export type SetUpdate = Partial<SetLog> & {
+  holdFollow?: boolean;
+  followFrom?: { kg: number; sub?: number };
+};
 
 /**
- * 改一组的值（2026-10-11 用户定）：**后面「待做、这个格子没手动改过、原值和这组改之前一样」的组跟着变。**
- * 做完的组改、待做的组改都触发；重量只带重量，次数只带次数；跟着变的仍是底稿（不记 touched），
- * 所以结束时不当「改过数但没点完成」提醒，之后还会继续跟。上次留下的金字塔（60/65/70）原值不同，不会被压平。
- * 代价：第 1 组改成热身重量会把后面一起带走，把第 2 组改回去，3、4 组又跟着第 2 组回来。
+ * 改一组的值：后面「待做、这个格子没手动改过」的组跟着变。
+ *   - 重量（2026-10-15 用户定）：**保持差值** —— 这组 +5，后面的组都 +5，原值不同的也跟。
+ *     上次留下的金字塔（145/185/185/165）整体平移成 150/190/190/170，结构不被压平。和递减档同一条规则。
+ *     在带符号的数上算（辅助 −10 +5 → −5），普通重量不低于 0。
+ *   - 次数（2026-10-11 用户定）：只跟「原值和这组改之前一样」的组。
+ * 做完的组改、待做的组改都触发；跟着变的仍是底稿（不记 touched），所以结束时不当「改过数但没点完成」提醒，之后还会继续跟。
+ *
+ * 递减档（2026-10-15 用户定：和普通组完全一样）：
+ *   - 改某一组第 j 档的重量 / 次数，后面各组的第 j 档照上面同一套跟（重量保持差值，次数原值相同才跟）。
+ *   - 母组重量变了，它自己的递减档保持差值一起挪（60→55→50 改成 70 → 70→65→60）；档上改过的重量不动。
+ *     跟着变的母组也一样带着自己的递减档挪。
  */
-export function applySetUpdate(exs: Exercise[], r: RowRef, updates: Partial<SetLog>): Exercise[] {
+export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate): Exercise[] {
+  const { holdFollow, followFrom, ...updates } = raw;
   return exs.map(e => {
     if (e.id !== r.exId) return e;
     const i = e.sets.findIndex(s => String(s.id) === r.setId);
     if (i < 0) return e;
     const before = e.sets[i];
-    const sets = e.sets.map((s, k) => (k === i ? { ...s, ...updates } : s));
-    for (const key of FOLLOW_KEYS) {
-      if (!(key in updates)) continue;
-      const oldV = Number(before[key]) || 0;
-      const newV = Number(updates[key]) || 0;
-      if (oldV === newV) continue;
-      for (let k = i + 1; k < sets.length; k++) {
-        const s = sets[k];
-        if (!isPending(s) || s.touched?.[key] || (Number(s[key]) || 0) !== oldV) continue;
-        const patch: Partial<SetLog> = { [key]: updates[key] };
-        // 带正负的负荷：重量跟着走的时候号也跟着（辅助 ⇄ 负重）
-        if (key === 'weight' && 'bodyweightMode' in updates) patch.bodyweightMode = updates.bodyweightMode;
-        sets[k] = { ...s, ...patch };
+    const edited = { ...before, ...updates };
+    const sets = [...e.sets];
+    sets[i] = edited;
+
+    // 打完结算：值已经在打字时写进去了，这里只按总差值带后面
+    if (followFrom) {
+      if (followFrom.sub === undefined) {
+        const shift = signedKg(edited, e) - followFrom.kg;
+        const signed = !!edited.bodyweightMode;
+        sets[i] = shiftSubs(edited, edited, shift, e, signed);
+        followWeight(sets, i, shift, e, signed);
+      } else {
+        const sub = edited.subSets?.[followFrom.sub];
+        if (sub) followSubWeight(sets, i, followFrom.sub, signedKg(sub, e, edited) - followFrom.kg, !!sub.bodyweightMode, e);
       }
+      return { ...e, sets };
     }
+
+    const signed = 'bodyweightMode' in updates;
+    // 重量的变化量（带符号的 kg，跨过 0 也算得对）：后面的组和递减档都平移这么多
+    const shift = 'weight' in updates && !holdFollow ? signedKg(edited, e) - signedKg(before, e) : 0;
+    if (shift) {
+      sets[i] = shiftSubs(edited, before, shift, e, signed);
+      followWeight(sets, i, shift, e, signed);
+    }
+    if ('reps' in updates) followReps(sets, i, e, Number(before.reps) || 0, updates.reps);
+    if (updates.subSets) followSubs(sets, i, before, edited, e, !!holdFollow);
     return { ...e, sets };
+  });
+}
+
+/** 一组（或一档）的重量平移 shift（带符号的 kg）：带正负的负荷连号一起写，普通重量不低于 0 */
+function shiftWeight<T extends SetLog | SubSetLog>(
+  x: T, shift: number, ex: Exercise, signed: boolean, parent?: SetLog,
+): Pick<SetLog, 'weight' | 'bodyweightMode'> {
+  const v = signedKg(x, ex, parent) + shift;
+  return signed || x.bodyweightMode ? fromSignedKg(v) : { weight: Math.max(0, v) };
+}
+
+/** 第 i 组后面的待做、重量没改过的组平移 shift，各自带着递减档 */
+function followWeight(sets: SetLog[], i: number, shift: number, e: Exercise, signed: boolean) {
+  if (!shift) return;
+  for (let k = i + 1; k < sets.length; k++) {
+    const s = sets[k];
+    const why = !s.ghost ? 'done' : s.touched?.weight ? 'touched' : 'followed';
+    if (why !== 'followed') continue;
+    sets[k] = shiftSubs({ ...s, ...shiftWeight(s, shift, e, signed) }, s, shift, e, signed);
+  }
+}
+
+/** 次数：后面待做、没改过、原值和这组改之前一样的组跟着变 */
+function followReps(sets: SetLog[], i: number, e: Exercise, oldV: number, reps: SetLog['reps'] | undefined) {
+  if (oldV === (Number(reps) || 0)) return;
+  for (let k = i + 1; k < sets.length; k++) {
+    const s = sets[k];
+    const why = !s.ghost ? 'done' : s.touched?.reps ? 'touched'
+      : (Number(s.reps) || 0) !== oldV ? 'value-differs' : 'followed';
+    if (why === 'followed') sets[k] = { ...s, reps: reps! };
+  }
+}
+
+/** 母组从 prev 变成 next：没改过重量的递减档平移 shift */
+function shiftSubs(next: SetLog, prev: SetLog, shift: number, ex: Exercise, signed: boolean): SetLog {
+  if (!shift || !next.subSets?.length) return next;
+  const subSets = next.subSets.map(sub =>
+    sub.touched?.weight ? sub : { ...sub, ...shiftWeight(sub, shift, ex, signed, prev) },
+  );
+  return { ...next, subSets };
+}
+
+/** 后面各组的第 j 档：待做、重量没改过的平移 shift */
+function followSubWeight(sets: SetLog[], i: number, j: number, shift: number, signed: boolean, ex: Exercise) {
+  if (!shift) return;
+  for (let k = i + 1; k < sets.length; k++) {
+    const s = sets[k];
+    const sub = s.subSets?.[j];
+    if (!sub || !isPending(s) || sub.touched?.weight) continue;
+    const subSets = [...s.subSets!];
+    subSets[j] = { ...sub, ...shiftWeight(sub, shift, ex, signed, s) };
+    sets[k] = { ...s, subSets };
+  }
+}
+
+/** 第 i 组的递减档从 prev 改成 next：后面各组的同一档照普通组的规则跟。加档 / 删档不跟；hold＝打字中途，重量先不跟 */
+function followSubs(sets: SetLog[], i: number, prev: SetLog, next: SetLog, ex: Exercise, hold: boolean) {
+  const oldSubs = prev.subSets ?? [];
+  const newSubs = next.subSets ?? [];
+  if (oldSubs.length !== newSubs.length) return;
+  newSubs.forEach((nu, j) => {
+    const old = oldSubs[j];
+    if (!hold) followSubWeight(sets, i, j, signedKg(nu, ex, next) - signedKg(old, ex, prev), !!nu.bodyweightMode, ex);
+    const oldReps = Number(old.reps) || 0;
+    if (oldReps === (Number(nu.reps) || 0)) return;
+    for (let k = i + 1; k < sets.length; k++) {
+      const s = sets[k];
+      const sub = s.subSets?.[j];
+      if (!sub || !isPending(s) || sub.touched?.reps || (Number(sub.reps) || 0) !== oldReps) continue;
+      const subSets = [...s.subSets!];
+      subSets[j] = { ...sub, reps: nu.reps };
+      sets[k] = { ...s, subSets };
+    }
   });
 }
 
@@ -383,7 +464,7 @@ export function isJustDone(exs: Exercise[], r: RowRef): boolean {
 }
 
 /**
- * 拖指针到某张卡的第 gap 条缝。往下：经过的待做组记做完（全零的记跳过 —— 没填数的组做完也记不下东西）；
+ * 拖指针到某张卡的第 gap 条缝。往下：经过的待做组记做完（全零的原样留着待做 —— 没填数的组做完也记不下东西）；
  * 往上：经过的组退回待做（值保留）。
  */
 export function movePointerTo(exs: Exercise[], cardKey: string, gap: number): Exercise[] {
@@ -402,9 +483,10 @@ export function movePointerTo(exs: Exercise[], cardKey: string, gap: number): Ex
   let seq = nextSeq(exs);
   if (N > P) {
     for (const r of flat.slice(P, N)) {
-      next = patchSet(next, r, s =>
-        isPending(s) ? (setHasValue(s) ? asDone(s, seq++) : { ...s, skipped: true, seq: seq++ }) : s,
-      );
+      next = patchSet(next, r, s => {
+        if (!isPending(s) || !setHasValue(s)) return s;
+        return asDone(s, seq++);
+      });
     }
   } else if (N < P) {
     for (const r of flat.slice(N, P)) {
@@ -423,9 +505,8 @@ export const newGroupId = () => `alt_${Date.now().toString(36)}${Math.random().t
 
 /**
  * 把几个动作合成一个交替组（已经在组里的沿用那个组）。成员挨着放在最靠前那个的位置，顺序按数组原顺序。
- * unskip：跳过的组恢复待做（「跳回来补做 → 交替？」那条路）。
  */
-export function groupExercises(exs: Exercise[], exIds: string[], opts: { unskip?: boolean } = {}): Exercise[] {
+export function groupExercises(exs: Exercise[], exIds: string[]): Exercise[] {
   const ids = new Set(exIds);
   const existing = exs.find(e => ids.has(e.id) && e.altGroup)?.altGroup;
   const gid = existing ?? newGroupId();
@@ -434,17 +515,7 @@ export function groupExercises(exs: Exercise[], exIds: string[], opts: { unskip?
   const first = exs.findIndex(e => all.has(e.id));
   const members = exs
     .filter(e => all.has(e.id))
-    .map(e => ({
-      ...e,
-      altGroup: gid,
-      sets: opts.unskip
-        ? e.sets.map(s => {
-            if (!isSkipped(s)) return s;
-            const { skipped: _sk, seq: _q, ...rest } = s;
-            return rest;
-          })
-        : e.sets,
-    }));
+    .map(e => ({ ...e, altGroup: gid }));
   const rest = exs.filter(e => !all.has(e.id));
   const at = exs.slice(0, first).filter(e => !all.has(e.id)).length;
   return normalizeGroups([...rest.slice(0, at), ...members, ...rest.slice(at)]);

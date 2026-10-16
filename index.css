@@ -1488,24 +1488,6 @@ button {
   border-color: var(--accent);
   color: var(--text-on-accent);
 }
-/* 跳过：这次不做了 —— 整行淡下去 + 一道删除线（数字那几列），结束训练时丢掉 */
-.ledger-row.is-skipped > :not(:first-child) {
-  opacity: 0.45;
-}
-.ledger-row.is-skipped .set-num {
-  opacity: 0.55;
-}
-.ledger-row.is-skipped::after {
-  content: '';
-  position: absolute;
-  left: calc(12px + var(--strike-l, 44px));
-  right: 92px;
-  top: 55%;
-  height: 1.5px;
-  background: var(--text-tertiary);
-  opacity: 0.7;
-  pointer-events: none;
-}
 /* 带正负的负荷：单位前的 + / − 可点（换号），虚线下划线＝可点的批注 */
 .ledger-unit.marginalia {
   pointer-events: auto;
