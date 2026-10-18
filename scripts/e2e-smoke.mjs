@@ -1874,6 +1874,8 @@ const main = async () => {
     await row0.locator('.set-num').click(); // 再点＝退回
     if (await isInked(row0)) throw new Error('tapping the just-done set did not revert it to to-do');
     if (!(await isSel(row0))) throw new Error('the reverted set should stay selected');
+    // 做完再退回：改过的格子仍认得（否则结束训练时这组被静默丢弃、不提醒）
+    if ((await row0.locator('.ledger-field.is-edited').count()) !== edited) throw new Error('done → revert dropped the is-edited marks');
 
     // ±5：全场只有一处，在选中的那一组（第 1 组，刚退回、仍选中）
     const steps = page.locator('[data-testid="weight-step"]');

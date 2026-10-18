@@ -153,6 +153,19 @@ t('点组号：刚做完的再点＝退回；更上面的做完组再点＝指�
   assert.equal(r.exs[0].sets[1].weight, 50, 'reverted sets keep their values');
 });
 
+t('点组号：改过数的组做完再退回，仍认得改过（结束训练要提醒）；没改过的退回还是底稿', () => {
+  let exs = [ex('A', [[50, 10], [50, 10]])];
+  exs = fill(exs, 'A1', { weight: 55, touched: { weight: true }, subSets: [{ weight: 40, reps: 8, touched: { reps: true } }] });
+  exs = tap(exs, 'A2').exs;
+  assert.equal(read(exs), 'A1[D] A2[D] |');
+  exs = tap(exs, 'A2').exs; // 退回 A2
+  exs = tap(exs, 'A1').exs; // 退回 A1
+  assert.equal(read(exs), '| A1[p] A2[p]');
+  assert.deepEqual(exs[0].sets[0].touched, { weight: true }, 'touched survives done → revert');
+  assert.deepEqual(exs[0].sets[0].subSets[0].touched, { reps: true }, 'drop-set touched survives done → revert');
+  assert.equal(exs[0].sets[1].touched, undefined, 'an untouched draft stays untouched after done → revert');
+});
+
 t('点组号：全零的组点不实（只选中，指针不动）；指针上面留下的组填了数再点＝原地补做', () => {
   let exs = [ex('A', [[50, 10], [0, 0], [50, 10]])];
   exs = tap(exs, 'A1').exs;
