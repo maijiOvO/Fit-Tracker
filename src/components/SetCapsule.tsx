@@ -26,7 +26,7 @@ import { BARBELL_STEP } from '../utils/plates';
  * 「杠铃片」§3：重量格拖一格多少、往哪拖，跟着器材走（交互只有一套，变的只是步长和方向）。
  * 杠铃一格＝最小一对片（kg 2.5 / lbs 5，2026-10-18 用户定）；配重片一格＝一片（默认 5 kg / 10 lbs），竖拖。
  */
-function weightScrubFor(kind: LoadKind | undefined, unit: string): { steps: number[]; axis: 'x' | 'y'; grid?: number } {
+export function weightScrubFor(kind: LoadKind | undefined, unit: string): { steps: number[]; axis: 'x' | 'y'; grid?: number } {
   const u = unit === 'lbs' ? 'lbs' : 'kg';
   if (kind === 'plates') {
     const b = BARBELL_STEP[u];
@@ -496,6 +496,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               }${m === 'weight' && weightFeel.axis === 'y' ? ' is-scrub-y' : ''}${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
                 ['--ledger-chars' as string]: Math.max(display.length, 1),
+                // 整数部分的位数：重量数字按它定位，十位 / 个位钉住不动，小数往右长（2026-10-18 用户定：
+                // 居中对齐时 60 → 62.5 一路左右飘）
+                ['--int-chars' as string]: Math.max(display.split('.')[0].replace('-', '').length, 1),
                 ['--ledger-unit-w' as string]: `${Math.max(20, unitLabel.length * 6.5 + 4)}px`,
               }}
               {...(scrub ? scrub.handlers : {})}
@@ -520,7 +523,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 step="any"
                 inputMode={m === 'reps' ? 'numeric' : 'decimal'}
                 enterKeyHint={activeMetrics.indexOf(m) < activeMetrics.length - 1 ? 'next' : 'done'}
-                className="ledger-input"
+                className={`ledger-input${m === 'weight' ? ' is-int-anchored' : ''}`}
                 placeholder="0"
                 aria-label={unitLabel ? `${m} (${unitLabel})` : m}
                 value={display}

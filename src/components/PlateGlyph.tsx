@@ -222,17 +222,25 @@ export function LoadHero({
   unit,
   isCn,
   pinStep,
+  scrub,
 }: {
   kind: LoadKind;
   value: number;
   unit: PlateUnit;
   isCn: boolean;
   pinStep: number;
+  /** 大图本身也是拖动区（2026-10-18 用户定）：和数字格同一套 useValueScrub，改的是选中那一组 */
+  scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
 }) {
   if (kind === 'plain') return null;
   const cap = loadCaption(kind, value, unit, isCn, pinStep);
   return (
-    <div className={`load-hero is-${kind}`} data-testid="load-hero">
+    <div
+      className={`load-hero is-${kind}${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}${scrub?.scrubbing ? ' is-scrubbing' : ''}`}
+      data-testid="load-hero"
+      {...(scrub ? scrub.handlers : {})}
+    >
+      {scrub?.scrubbing && <span className="load-hero-step" aria-hidden>×{scrub.step}</span>}
       {kind === 'plates' && <BarbellGlyph total={value} unit={unit} />}
       {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} />}
       {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}

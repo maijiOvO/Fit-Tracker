@@ -119,11 +119,11 @@
    （e2e 依赖的 --cols 不变）。2026-10-18 第一版带一截杆，单片时读成「+」号，改成色块条。 */
 .plate-mini {
   position: absolute;
-  left: 50%;
+  /* 和数字的起点对齐（数字按整数位定位，见 .is-int-anchored）：14.25px ≈ 30px × 0.475 一个数字宽 */
+  left: max(0px, calc(50% - var(--ledger-unit-w, 20px) / 2 - var(--int-chars, 2) * 7.125px));
   bottom: 5px;
   display: flex;
   align-items: center;
-  transform: translateX(-50%);
   pointer-events: none;
 }
 .plate-mini-rod { display: none; }
@@ -246,6 +246,39 @@
   width: 6px;
   height: auto;
   background: repeating-linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px 10px);
+}
+
+/* 大图本身也是拖动区（2026-10-18 用户定）：方向顺着重量的摆放方向，和组行重量格同一套 */
+.load-hero.is-draggable {
+  position: relative;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.load-hero.is-draggable.is-axis-y {
+  cursor: ns-resize;
+  touch-action: pan-x;
+}
+.load-hero.is-scrubbing {
+  touch-action: none;
+  background: var(--bg-inset);
+}
+.load-hero-step {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font: 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* 重量数字按整数位定位，不居中（2026-10-18 用户定：居中时 60 → 62.5 拖着一路左右飘）。
+   左缘 = 输入区中线 − 半个整数宽：十位 / 个位钉住，小数往右长；只有位数变了（95 → 100）才挪一次。
+   % 相对格子（label）宽，减掉半个单位宽才是原先居中时的那条中线；ch = 当前字号下一个数字的宽。 */
+.ledger-input.is-int-anchored {
+  text-align: left;
+  padding-left: max(0px, calc(50% - var(--ledger-unit-w, 20px) / 2 - var(--int-chars, 2) * 0.5ch));
 }
 
 /* 标题：得意黑，只用于 ≥20px（作者明说不适合正文与 UI） */

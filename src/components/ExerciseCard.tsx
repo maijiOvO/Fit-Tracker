@@ -13,7 +13,8 @@ import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
-import { SetCapsule, formatWeight } from './SetCapsule';
+import { SetCapsule, formatWeight, weightScrubFor } from './SetCapsule';
+import { useValueScrub } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
@@ -165,11 +166,35 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 顶部器材大图跟着「正在改的那一组」走：选中的那一组在这张卡上才画（全场至多一张卡有）。
    * 其余卡保持紧凑，不然每张卡都多出一截图。
    */
-  const focusSet = selectedSetId ? exercise.sets.find(s => String(s.id) === selectedSetId) : undefined;
+  const focusIdx = selectedSetId ? exercise.sets.findIndex(s => String(s.id) === selectedSetId) : -1;
+  const focusSet = focusIdx >= 0 ? exercise.sets[focusIdx] : undefined;
   const focusValue = focusSet
     ? Number(formatWeight(Number(focusSet.weight) || 0, unit)) *
       (signed && (focusSet.bodyweightMode === 'assisted' || (!focusSet.bodyweightMode && loadMode === 'assisted')) ? -1 : 1)
     : 0;
+  /**
+   * 大图也能拖（2026-10-18 用户定）：步长 / 方向 / 吸附和组行重量格同一份（weightScrubFor），
+   * 改的是选中那一组；写回的口径照 SetCapsule.update：显示单位换回 kg，带正负的按号写 bodyweightMode，
+   * 底稿行记 touched（改值只改值，不描实）。
+   */
+  const heroFeel = weightScrubFor(loadKind, unit);
+  const heroScrub = useValueScrub({
+    value: focusValue,
+    onChange: next => {
+      if (!focusSet) return;
+      const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
+      const updates: Partial<SetLog> = signed
+        ? { weight: kg, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
+        : { weight: kg };
+      if (focusSet.ghost) (updates as any).touched = { ...(focusSet.touched || {}), weight: true };
+      onSetUpdate(exIdx, focusIdx, updates);
+    },
+    steps: heroFeel.steps,
+    axis: heroFeel.axis,
+    grid: heroFeel.grid,
+    disabled: !focusSet,
+    ...(signed ? { min: -9999 } : {}),
+  });
   // 底稿行不计入「M组」——它还不是数据（§12.6）
   const realSetCount = exercise.sets.filter(s => !s.ghost).length;
   // 分母＝这张卡上全部的组（做完 + 待做）
@@ -452,6 +477,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           unit={unit === 'lbs' ? 'lbs' : 'kg'}
           isCn={isCn}
           pinStep={unit === 'lbs' ? 10 : 5}
+          scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
         />
       )}
 
