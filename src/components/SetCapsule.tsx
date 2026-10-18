@@ -249,10 +249,12 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
   /** 显示单位下的带符号重量 ⇄ 存储（kg，非负 + 号） */
   const toDisplay = (kg: number, sign: -1 | 1) => sign * Number(formatWeight(Number(kg) || 0, unit));
-  const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode'> => {
+  // 「杠铃片」：改重量就记下登记时的单位 —— 这一组挂的就是这种片（2026-10-18 用户定）
+  const plateUnitNow: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+  const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode' | 'plateUnit'> => {
     const kg = parseWeight(Math.abs(v), unit);
-    if (!signed) return { weight: kg };
-    return { weight: kg, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
+    if (!signed) return { weight: kg, plateUnit: plateUnitNow };
+    return { weight: kg, plateUnit: plateUnitNow, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
   };
 
   // 重量格横向拖动改值。hook 不能在下面的 map 里调，所以在这里调一次，

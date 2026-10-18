@@ -16,7 +16,12 @@ export type ExerciseCategory = 'STRENGTH' | 'CARDIO' | 'FREE' | 'OTHER';
 
 export interface SetLog {
   id: string;
-  weight: number; 
+  weight: number;
+  /**
+   * 「杠铃片」：登记这组重量时用的单位 = 杆上挂的是 kg 片还是磅片（2026-10-18 用户定：按登记时的单位，
+   * 不按健身房）。之后切显示单位，片子不变，只是换算着标。老数据没有，见 src/utils/plates.ts plateUnitOf。
+   */
+  plateUnit?: 'kg' | 'lbs';
   reps: number;
   /** Duration in seconds (e.g. cardio / timed sets) */
   duration?: number;
@@ -165,6 +170,8 @@ export interface ExerciseVariant {
 
 export interface ExerciseDefinition {
   id: string;
+  /** 「杠铃片」：这个动作用哪根杠（标准 / 女子 / 短杠），每个动作记住自己的。不写 = 标准杠 */
+  bar?: import('./src/utils/plates').BarChoice;
   name: {
     en: string;
     cn: string;

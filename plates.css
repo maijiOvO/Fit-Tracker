@@ -3,12 +3,47 @@
    只动 transform / opacity（「墨与纸」§7.3 合成器安全，仍然有效）。 */
 
 .load-hero {
-  padding: 10px 12px 6px;
   border-bottom: 1px solid var(--divider);
 }
+.load-hero.is-scrubbing .load-hero-drag {
+  background: var(--bg-inset);
+}
+
+/* 拖动区只包图形（2026-10-18 用户定：大图也能拖）；说明栏里有按钮，不在拖动区里 */
+.load-hero-drag {
+  position: relative;
+  padding: 10px 12px 4px;
+}
+.load-hero-drag.is-draggable {
+  cursor: ew-resize;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.load-hero-drag.is-draggable.is-axis-y {
+  cursor: ns-resize;
+  touch-action: pan-x;
+}
+.load-hero.is-scrubbing .load-hero-drag { touch-action: none; }
+.load-hero-step {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font: 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.load-caption-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 2px 12px 8px;
+}
 .load-caption {
-  margin: 4px 0 0;
-  text-align: center;
+  margin: 0;
   font-size: 12px;
   line-height: 1.4;
   color: var(--text-secondary);
@@ -27,17 +62,127 @@
   transform: rotate(45deg) translateY(-1px);
 }
 
-/* 一片：大片（10–25）同直径，靠厚度和印字区分；小片更矮 */
+/* 杠名：可点的批注（虚线下划线），点开选标准 / 女子 / 短杠 */
+.bar-chip {
+  position: relative;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px dashed currentColor;
+}
+.bar-chip::before { content: ''; position: absolute; inset: -12px -6px; }
+.bar-chip:disabled { border-bottom-color: transparent; font-weight: 500; color: var(--text-secondary); }
+.bar-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 12px 10px;
+  justify-content: center;
+}
+.bar-menu > button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--divider);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.bar-menu > button small {
+  font: 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--text-tertiary);
+}
+.bar-menu > button[aria-pressed='true'] {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.bar-short-w {
+  display: flex;
+  align-items: center;
+  background: var(--bg-inset);
+  border-radius: var(--radius-control);
+}
+.bar-short-w button { width: 40px; min-height: 40px; font-size: 18px; color: var(--text-secondary); }
+.bar-short-w b { font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
+
+/* ── 杠铃：真实比例 ─────────────────────────────────────────────
+   --mm = 1 毫米在屏幕上的宽度 = 容器宽 ÷ 杠长（--L，mm）。杠长、握把段、套筒、直径、
+   片子直径 / 厚度全部用 mm 写（数值在 src/utils/plates.ts），比例自然对。
+   ⚠️ cqw 要找祖先容器：容器是外层 .bar-frame，不能把 container-type 写在 .plate-bar 自己身上。 */
+.bar-frame {
+  container-type: inline-size;
+}
+.plate-bar {
+  --mm: calc(100cqw / var(--L));
+  position: relative;
+  height: calc(var(--mm) * 470);
+}
+.bar-shaft {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--mm) * var(--S));
+  height: max(3px, calc(var(--mm) * var(--shaft-dia)));
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, var(--bar-sleeve) 0 2px, var(--bar-rod) 2px 4px);
+}
+/* 一侧：从中线开始往外量；左侧整体镜像，片上的字再镜像回来 */
+.bar-side {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+}
+.bar-side.is-r { left: 50%; }
+.bar-side.is-l { left: 0; transform: scaleX(-1); }
+.bar-collar {
+  position: absolute;
+  left: calc(var(--mm) * var(--S) / 2);
+  top: 50%;
+  width: calc(var(--mm) * 30);
+  height: calc(var(--mm) * 80);
+  transform: translateY(-50%);
+  border-radius: 1px;
+  background: var(--bar-sleeve);
+}
+.bar-sleeve {
+  position: absolute;
+  left: calc(var(--mm) * (var(--S) / 2 + 30));
+  top: 50%;
+  width: calc(var(--mm) * var(--sleeve));
+  height: max(5px, calc(var(--mm) * var(--sleeve-dia)));
+  transform: translateY(-50%);
+  border-radius: 0 2px 2px 0;
+  background: var(--bar-rod);
+}
+.bar-load {
+  position: absolute;
+  left: calc(var(--mm) * (var(--S) / 2 + 31));
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+.bar-side.is-l .plate b { transform: scaleX(-1) rotate(-90deg); }
+
+/* 一片：直径 / 厚度来自 --dia / --thick（mm）。大片同直径，靠厚度和印字区分 */
 .plate {
   flex: none;
   display: grid;
   place-items: center;
+  width: max(2px, calc(var(--mm, 0.15px) * var(--thick)));
+  height: calc(var(--mm, 0.15px) * var(--dia));
   border-radius: 2px;
   box-shadow: inset 0 0 0 1px var(--plate-edge);
   animation: plate-in var(--dur-exit) var(--ease-paper) both;
 }
 .plate b {
-  font: 700 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 9px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--plate-num);
   transform: rotate(-90deg);
   white-space: nowrap;
@@ -69,50 +214,6 @@
   display: flex;
   align-items: center;
   gap: 1px;
-  padding-left: 2px;
-}
-
-/* 杠铃：中间握把，两边对称；左半边整体镜像，片上的字再镜像回来 */
-.plate-bar {
-  position: relative;
-  height: 64px;
-  overflow: hidden;
-}
-.plate-rod {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 6px;
-  margin-top: -3px;
-  border-radius: 2px;
-  background: var(--bar-rod);
-}
-.plate-grip {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 72px;
-  height: 6px;
-  margin: -3px 0 0 -36px;
-  background: repeating-linear-gradient(90deg, var(--bar-sleeve) 0 2px, var(--bar-rod) 2px 4px);
-}
-.plate-half {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-}
-.plate-half.is-r { left: calc(50% + 36px); }
-.plate-half.is-l { right: calc(50% + 36px); transform: scaleX(-1); }
-.plate-half.is-l .plate b { transform: scaleX(-1) rotate(-90deg); }
-.plate-collar {
-  flex: none;
-  width: 7px;
-  height: 20px;
-  border-radius: 1px;
-  background: var(--bar-sleeve);
 }
 
 /* 配重片摞：竖着排，插销插在哪一片就加深那一片 */
@@ -177,7 +278,7 @@
 }
 .db-grip { width: 40px; height: 6px; background: var(--bar-rod); }
 
-/* 带符号负荷：数轴 + 弹力带 / 腰片 */
+/* 带符号负荷：数轴 + 弹力带 / 腰片（腰片也按真实片子直径，--mm 固定一个小比例） */
 .signed-glyph { display: flex; flex-direction: column; gap: 8px; padding: 4px 8px 0; }
 .signed-axis { position: relative; height: 16px; }
 .signed-line { position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--bar-rod); }
@@ -192,10 +293,11 @@
   transform: rotate(45deg);
   transition: left var(--dur-base) var(--ease-paper);
 }
-.signed-load { height: 40px; display: flex; align-items: center; justify-content: center; }
+.signed-load { height: 72px; display: flex; align-items: center; justify-content: center; }
 .signed-band { height: 12px; border-radius: 6px; border: 3px solid var(--text-secondary); }
 .signed-belt { display: flex; align-items: center; gap: 6px; }
 .signed-chain { width: 24px; height: 2px; background: var(--text-tertiary); }
+.belt-frame { --mm: 0.15px; display: flex; align-items: center; }
 
 /* 纪录 = 镁粉：铺白、PB 标签。不借任何片子的颜色（红色已经表示 25 kg） */
 .ledger-row.is-pr {
@@ -227,31 +329,6 @@
   width: 6px;
   height: auto;
   background: repeating-linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px 10px);
-}
-
-/* 大图本身也是拖动区（2026-10-18 用户定）：方向顺着重量的摆放方向，和组行重量格同一套 */
-.load-hero.is-draggable {
-  position: relative;
-  cursor: ew-resize;
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.load-hero.is-draggable.is-axis-y {
-  cursor: ns-resize;
-  touch-action: pan-x;
-}
-.load-hero.is-scrubbing {
-  touch-action: none;
-  background: var(--bg-inset);
-}
-.load-hero-step {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  font: 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  color: var(--text-secondary);
-  pointer-events: none;
 }
 
 /* 重量数字按整数位定位，不居中（2026-10-18 用户定：居中时 60 → 62.5 拖着一路左右飘）。

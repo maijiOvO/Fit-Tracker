@@ -89,6 +89,9 @@ interface ExercisePrefsContextValue {
   /** 这个动作是不是按带正负的负荷记（自重类：辅助负、自重 0、负重正）；设置里没写按默认 */
   signedLoadOf: (exerciseName: string) => boolean;
   setSignedLoad: (exerciseName: string, on: boolean) => void;
+  /** 「杠铃片」：这个动作用哪根杠；库里查不到的动作返回 undefined（= 标准杠） */
+  barOf: (exerciseName: string) => import('../utils/plates').BarChoice | undefined;
+  setBar: (exerciseName: string, bar: import('../utils/plates').BarChoice) => void;
   /** 改一个做法的细分 / 器材（region: '' = 跟动作走；tags: [] = 跟动作走） */
   updateVariant: (exerciseName: string, id: string, patch: Partial<Omit<ExerciseVariant, 'id'>>) => void;
   /**
@@ -1150,6 +1153,21 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [findExerciseDef, writeDefField],
   );
 
+  const barOf = useCallback(
+    (exerciseName: string) => {
+      const def = findExerciseDef(exerciseName);
+      return def ? mergeOverride(def, exerciseOverrides[def.id]).bar : undefined;
+    },
+    [findExerciseDef, exerciseOverrides],
+  );
+  const setBar = useCallback(
+    (exerciseName: string, bar: import('../utils/plates').BarChoice) => {
+      const def = findExerciseDef(exerciseName);
+      if (def) writeDefField(def.id, { bar });
+    },
+    [findExerciseDef, writeDefField],
+  );
+
   const mergeExerciseInto = useCallback(
     (sourceId: string, targetId: string): boolean => {
       const cn = lang === Language.CN;
@@ -1319,6 +1337,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       variantIdOf,
       signedLoadOf,
       setSignedLoad,
+      barOf,
+      setBar,
       updateVariant,
       mergeExerciseInto,
       variantLabel,
@@ -1369,6 +1389,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       variantIdOf,
       signedLoadOf,
       setSignedLoad,
+      barOf,
+      setBar,
       updateVariant,
       mergeExerciseInto,
       variantLabel,

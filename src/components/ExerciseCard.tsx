@@ -23,6 +23,7 @@ import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
 import { useLoadKindOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
+import { plateUnitOf } from '../utils/plates';
 
 /**
  * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。口径照抄结束训练时的 detectPRs 的 weight 一档：
@@ -151,7 +152,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
-  const { variantsOf, variantLabel, findExerciseDef } = useExercisePrefs();
+  const { variantsOf, variantLabel, findExerciseDef, barOf, setBar } = useExercisePrefs();
   const [variantOpen, setVariantOpen] = React.useState(false);
   const variantName = variantLabel(exercise);
   const variantCount = variantsOf(exercise.name).length;
@@ -183,9 +184,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     onChange: next => {
       if (!focusSet) return;
       const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
+      // 改重量就记下登记时的单位（这一组挂的就是这种片），口径同 SetCapsule.fromDisplay
+      const plateUnit: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
       const updates: Partial<SetLog> = signed
-        ? { weight: kg, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
-        : { weight: kg };
+        ? { weight: kg, plateUnit, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
+        : { weight: kg, plateUnit };
       if (focusSet.ghost) (updates as any).touched = { ...(focusSet.touched || {}), weight: true };
       onSetUpdate(exIdx, focusIdx, updates);
     },
@@ -475,6 +478,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           kind={loadKind}
           value={focusValue}
           unit={unit === 'lbs' ? 'lbs' : 'kg'}
+          plateUnit={plateUnitOf(focusSet, unit === 'lbs' ? 'lbs' : 'kg')}
+          bar={barOf(exercise.name)}
+          onBarChange={hasDef ? bar => setBar(exercise.name, bar) : undefined}
           isCn={isCn}
           pinStep={unit === 'lbs' ? 10 : 5}
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
