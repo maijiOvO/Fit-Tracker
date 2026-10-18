@@ -99,6 +99,12 @@ import FirstRunNotice from './src/components/FirstRunNotice';
 import { useResetAccount } from './src/hooks/useResetAccount';
 import { storage } from './services/appStorage';
 import { WorkoutColophon } from './src/components/WorkoutColophon';
+import { createPortal } from 'react-dom';
+
+const NO_ADDED_COUNTS: Record<string, number> = {};
+const LibrarySheet = lazy(() =>
+  import('./src/components/ExercisePickerSheet').then(m => ({ default: m.ExercisePickerSheet })),
+);
 
 // 懒加载 Tab 组件
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
@@ -175,6 +181,13 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   /** 训练页弹层头部入口：标签管理（只管标签词表，不再进全屏动作库） */
 
   // ============== 训练页「添加动作」弹层 ==============
+  /** 首选项「动作库与标签 ›」打开的那一个：只管动作库，一打开就是整理态 */
+  const [librarySheetOpen, setLibrarySheetOpen] = useState(false);
+  /** 第一次打开才挂（懒加载），之后留着，关的时候才有退场动画 */
+  const [libraryMounted, setLibraryMounted] = useState(false);
+  useEffect(() => {
+    if (librarySheetOpen) setLibraryMounted(true);
+  }, [librarySheetOpen]);
   const [pickerSheetOpen, setPickerSheetOpen] = useState(false);
   /** 这次打开弹层要停在的部位栏（选了部位印才有；其余入口一律 null = 沿用筛选记忆） */
   const [pickerFocusPart, setPickerFocusPart] = useState<string | null>(null);
@@ -246,7 +259,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
   // ============== 业务 hooks ==============
-  const { syncStatus, setSyncStatus, performFullSync, loadLocalData } =
+  const { syncStatus, setSyncStatus, lastSyncedAt, performFullSync, loadLocalData } =
     useFitlogSync(resolvedUserId);
 
   const {
@@ -333,6 +346,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       prefs.applyPrefsFromSnapshot(refreshedPrefs);
       if (refreshedPrefs.lang) settingsCtx.setLang(refreshedPrefs.lang as Language);
       if (refreshedPrefs.unit) settingsCtx.setUnit(refreshedPrefs.unit);
+      settingsCtx.reloadAppPrefs();
       authCtx.setUser(
         authCtx.user
           ? { ...authCtx.user, avatarUrl: refreshedPrefs.avatarDataUrl ?? undefined }
@@ -1144,10 +1158,35 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               setShowResetAccountModal={setShowResetAccountModal}
               devMode={devMode}
               onToggleDevMode={envLocked ? undefined : handleToggleDevMode}
+              syncStatus={syncStatus}
+              lastSyncedAt={lastSyncedAt}
+              onSync={syncStatus === 'syncing' || !user || !isRemoteConfigured() ? undefined : () => void performFullSync()}
+              onExportData={handleExportData}
+              onImportData={handleImportData}
+              onOpenLibrary={() => setLibrarySheetOpen(true)}
             />
           </Suspense>
         )}
       </main>
+
+      {libraryMounted && createPortal(
+        <Suspense fallback={null}>
+          <LibrarySheet
+            open={librarySheetOpen}
+            libraryOnly
+            onClose={() => setLibrarySheetOpen(false)}
+            addedCounts={NO_ADDED_COUNTS}
+            sessionAdded={0}
+            onPickExercise={() => false}
+            onCreateCustomExercise={name => planPickerHost.onCreateCustomExercise(name, () => {})}
+            onEditExerciseTags={planPickerHost.onEditExerciseTags}
+            onDeleteExercise={planPickerHost.onDeleteExercise}
+            onOpenNote={planPickerHost.onOpenNote}
+            onOpenMetrics={planPickerHost.onOpenMetrics}
+          />
+        </Suspense>,
+        document.body,
+      )}
 
       <NoteModal
         open={!!noteModalData}

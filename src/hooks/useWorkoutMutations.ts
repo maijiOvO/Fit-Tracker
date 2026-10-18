@@ -12,6 +12,7 @@ import { useScheduleContext } from '../contexts/ScheduleContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
@@ -260,7 +261,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast, toastUndo } = useUiOverlay();
-  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf } = useExercisePrefs();
+  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf, seedMetricsIfUnset } = useExercisePrefs();
 
   const lang = settingsCtx.lang;
   const unit = settingsCtx.unit;
@@ -996,6 +997,13 @@ export function useWorkoutMutations({
        * 指定了做法就找这个做法上次的那几组（重量不通用，不借别的做法的数）。
        */
       const last = findLast(exerciseName, opts.variantId ?? null);
+      /**
+       * 有氧动作第一次加进来（没配置过记录项、哪个做法都没记过）：按首选项「有氧默认记录」定记录项。
+       * 记过的不动 —— 划船机被当器械记成 65×12 的那种必须保持重量 × 次数（审查 cardio-default-metrics）。
+       */
+      if (ex.category === 'CARDIO' && !findLast(exerciseName, null)) {
+        seedMetricsIfUnset(exerciseName, appPrefsNow().cardioMetrics);
+      }
       const newEx = buildExercise(
         exerciseName,
         ex.category || 'STRENGTH',
@@ -1054,7 +1062,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, editingWorkoutId, findLast, isCn, lang, onPersist, resolveName, setCurrentWorkout, toast],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, editingWorkoutId, findLast, isCn, lang, onPersist, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast],
   );
 
   /**

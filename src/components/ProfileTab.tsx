@@ -1,16 +1,12 @@
 import React, { useRef, useState, lazy } from 'react';
 import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
-import { 
-  Camera, ShieldAlert, LogOut, Trash2, Globe, ChevronRight, 
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Sun, Moon, Smartphone,
-  Beaker, Vibrate, Undo2,
+import {
+  Camera, ShieldAlert, Trash2, ChevronRight,
+  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity,
 } from 'lucide-react';
-import { markPrefsUpdated } from '../../services/fitlogRemote';
-import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { useTheme, ThemePreference } from '../hooks/useTheme';
-import { useMotionPreference, MotionPreference } from '../hooks/useMotionPreference';
-import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
-import { undoWorkoutDeletes, setUndoWorkoutDeletes } from '../utils/undoPref';
+import { PrefsSheet } from './PrefsSheet';
+import type { SyncStatus } from '../hooks/useFitlogSync';
+import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { hasDoneSets } from '../contexts/WorkoutContext';
 import { translations } from '../../translations';
@@ -33,7 +29,6 @@ interface ProfileTabProps {
   latestMetrics: Array<{ name: string; value: string; unit: string; date: string }>;
   expandedMetric: string | null;
   onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggleLanguage: () => void;
   onLogout?: () => void;
   onShowWeightInput: () => void;
   onShowMeasureModal: () => void;
@@ -47,6 +42,15 @@ interface ProfileTabProps {
   /** 开发模式隔离开关，仅开发机可见 */
   devMode?: boolean;
   onToggleDevMode?: () => void;
+  onToggleLanguage: () => void;
+  /** 首选项「数据」组 */
+  syncStatus: SyncStatus;
+  lastSyncedAt: number | null;
+  onSync?: () => void;
+  onExportData: () => void;
+  onImportData: () => void;
+  /** 首选项「动作库与标签 ›」：打开只管动作库的弹层（整理态） */
+  onOpenLibrary: () => void;
 }
 
 export const ProfileTab: React.FC<ProfileTabProps> = ({
@@ -58,7 +62,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   latestMetrics,
   expandedMetric,
   onAvatarUpload,
-  onToggleLanguage,
   onLogout,
   onShowWeightInput,
   onShowMeasureModal,
@@ -71,43 +74,18 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   fileInputRef,
   devMode,
   onToggleDevMode,
+  onToggleLanguage,
+  syncStatus,
+  lastSyncedAt,
+  onSync,
+  onExportData,
+  onImportData,
+  onOpenLibrary,
 }) => {
   const { toast } = useUiOverlay();
-  const { preference, setPreference } = useTheme();
-  const themeOptions: { id: ThemePreference; icon: React.ReactNode; label: string }[] = [
-    { id: 'auto', icon: <Smartphone size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '跟随系统' : 'System' },
-    { id: 'light', icon: <Sun size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '浅色' : 'Light' },
-    { id: 'dark', icon: <Moon size={18} strokeWidth={1.75} />, label: lang === Language.CN ? '深色' : 'Dark' },
-  ];
-
-  // §5.6：必须给应用内三态开关。Android 的 prefers-reduced-motion 还映射自
-  // 开发者选项的「动画程序时长缩放 = 关闭」，很多人为了让手机更快关掉了它，
-  // 那会静默关掉全站动效——所以「关」这一档必须能反向覆盖系统。
-  const motion = useMotionPreference();
-  // 标签刻意不叫「跟随系统」——上面的主题开关已经占了那个词，
-  // 同一张卡里两个一模一样的三档开关会让人分不清在调哪个。
-  // 每档都带一行说明：光看「自动 / 保留 / 减弱」三个词猜不出差别（实测反馈）。
-  const motionOptions: { id: MotionPreference; label: string; hint: string }[] = [
-    {
-      id: 'auto',
-      label: lang === Language.CN ? '自动' : 'Auto',
-      hint: lang === Language.CN ? '听系统的' : 'Follow system',
-    },
-    {
-      id: 'off',
-      label: lang === Language.CN ? '保留' : 'Keep',
-      hint: lang === Language.CN ? '始终有动效' : 'Always animate',
-    },
-    {
-      id: 'on',
-      label: lang === Language.CN ? '减弱' : 'Reduce',
-      hint: lang === Language.CN ? '始终减弱' : 'Always reduce',
-    },
-  ];
-
-  // §5.7 第 5 条：安静的健身房里会自己嗡嗡的 App 很讨人嫌
-  const [haptics, setHaptics] = useState(hapticsEnabled);
-  const [undoDeletes, setUndoDeletes] = useState(undoWorkoutDeletes);
+  const isCn = lang === Language.CN;
+  const { unit, appPrefs } = useUserSettingsContext();
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   return (
     <div className="space-y-6 anim-tab-enter">
@@ -364,204 +342,42 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </div>
       </div>
 
-      {/* Settings List */}
-      <div className="ui-card p-5 space-y-4">
-        {/* Theme */}
-        <div className="space-y-2">
-          <p className="ui-section-label px-1">
-            {lang === Language.CN ? '外观' : 'Appearance'}
-          </p>
-          <div className="grid grid-cols-3 gap-2 p-1 bg-inset rounded-control border border-divider">
-            {themeOptions.map(opt => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setPreference(opt.id)}
-                className={`flex flex-col items-center gap-1 py-2.5 rounded-chip text-xs font-medium transition-colors ${
-                  preference === opt.id
-                    ? 'bg-accent text-on-accent'
-                    : 'text-secondary hover:text-primary hover:bg-card-hover'
-                }`}
-              >
-                {opt.icon}
-                <span>{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 动效 §5.6 */}
-        <div className="space-y-2">
-          <p className="ui-section-label px-1">
-            {lang === Language.CN ? '动效' : 'Motion'}
-          </p>
-          <div className="grid grid-cols-3 gap-2 p-1 bg-inset rounded-control border border-divider">
-            {motionOptions.map(opt => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => motion.setPreference(opt.id)}
-                className={`min-h-[48px] py-1.5 rounded-chip transition-colors duration-tap ease-paper ${
-                  motion.preference === opt.id
-                    ? 'bg-accent text-on-accent'
-                    : 'text-secondary hover:text-primary hover:bg-card-hover'
-                }`}
-              >
-                <span className="block text-label font-medium leading-tight">{opt.label}</span>
-                <span
-                  className={`block text-micro leading-tight ${
-                    motion.preference === opt.id ? 'opacity-75' : 'text-tertiary'
-                  }`}
-                >
-                  {opt.hint}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 触觉 §5.7 */}
+      {/* 首选项入口（原设置卡和时间线底部的备份卡都搬进了弹层）。右侧是当前值摘要，是状态不是说明 */}
+      <div className="ui-card">
         <button
           type="button"
-          onClick={() => {
-            const next = !haptics;
-            setHapticsEnabled(next);
-            setHaptics(next);
-            if (next) haptic(H.tap);
-          }}
-          className="w-full min-h-[44px] p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors duration-tap ease-paper"
-          role="switch"
-          aria-checked={haptics}
+          onClick={() => setPrefsOpen(true)}
+          className="w-full p-4 flex justify-between items-center gap-3 rounded-card active:bg-card-hover transition-colors duration-tap ease-paper"
+          data-testid="prefs-entry"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent/10 text-accent rounded-control">
-              <Vibrate size={20} strokeWidth={1.75} />
-            </div>
-            <span className="font-bold text-primary">
-              {lang === Language.CN ? '振动反馈' : 'Haptics'}
+          <span className="font-bold text-primary whitespace-nowrap">{isCn ? '首选项' : 'Preferences'}</span>
+          <span className="flex items-center gap-1.5 min-w-0 text-xs font-medium text-secondary">
+            <span className="truncate">
+              {`±${appPrefs.weightStep} ${unit} · ${isCn ? '递减' : 'drop'} −${appPrefs.dropStep} · ${isCn ? '中文' : 'English'}`}
             </span>
-          </div>
-          <span className={`text-label font-semibold ${haptics ? 'text-accent' : 'text-tertiary'}`}>
-            {haptics
-              ? lang === Language.CN ? '开' : 'On'
-              : lang === Language.CN ? '关' : 'Off'}
+            <ChevronRight size={18} className="text-tertiary flex-shrink-0" />
           </span>
         </button>
-
-        {/* 删组 / 删动作的撤销条（2.6：默认关，单击即删） */}
-        <button
-          type="button"
-          onClick={() => {
-            const next = !undoDeletes;
-            setUndoWorkoutDeletes(next);
-            setUndoDeletes(next);
-          }}
-          className="w-full min-h-[44px] p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors duration-tap ease-paper"
-          role="switch"
-          aria-checked={undoDeletes}
-          data-testid="undo-deletes-toggle"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent/10 text-accent rounded-control">
-              <Undo2 size={20} strokeWidth={1.75} />
-            </div>
-            <span className="font-bold text-primary text-left">
-              {lang === Language.CN ? '删组 / 删动作后可撤销' : 'Undo after deleting a set'}
-            </span>
-          </div>
-          <span className={`text-label font-semibold ${undoDeletes ? 'text-accent' : 'text-tertiary'}`}>
-            {undoDeletes
-              ? lang === Language.CN ? '开' : 'On'
-              : lang === Language.CN ? '关' : 'Off'}
-          </span>
-        </button>
-
-        {/* Language Toggle */}
-        <button 
-          onClick={onToggleLanguage}
-          data-testid="language-toggle"
-          className="w-full p-4 flex justify-between items-center rounded-control hover:bg-inset transition-colors"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-accent/10 text-accent rounded-control">
-              <Globe size={20} />
-            </div>
-            <span className="font-bold text-primary">{translations.languageLabel[lang]}</span>
-          </div>
-          <span className="font-semibold text-secondary text-sm px-3 py-1 bg-card rounded-chip">
-            {lang === Language.CN ? '中文' : 'EN'}
-          </span>
-        </button>
-
-        {/* Logout（单机版可省略） */}
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className="w-full p-4 flex justify-between items-center rounded-card hover:bg-danger/10 transition-colors group mt-4 border-t border-divider"
-          >
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-danger/10 text-danger rounded-control group-hover:opacity-90 group-hover:text-primary transition-colors">
-                <LogOut size={20} />
-              </div>
-              <span className="font-bold text-danger group-hover:text-danger transition-colors">
-                {translations.logout[lang]}
-              </span>
-            </div>
-            <ChevronRight size={18} className="text-tertiary" />
-          </button>
-        )}
-
-        {/* Reset Account */}
-        <button 
-          onClick={() => setShowResetAccountModal(true)} 
-          className="w-full p-4 flex justify-between items-center rounded-card hover:bg-danger/10 transition-colors group border-t border-divider"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-danger/10 text-danger rounded-control group-hover:opacity-90 group-hover:text-primary transition-colors">
-              <Trash2 size={20} />
-            </div>
-            <span className="font-bold text-danger group-hover:text-danger transition-colors">
-              {translations.resetAccount[lang]}
-            </span>
-          </div>
-          <ChevronRight size={18} className="text-tertiary" />
-        </button>
-
-        {/* 数据环境切换（仅未锁定的构建可见：手机 APK / release 包永远不渲染） */}
-        {onToggleDevMode && (
-          <button
-            onClick={onToggleDevMode}
-            className="w-full p-4 flex justify-between items-center rounded-card transition-colors group border-t border-divider"
-          >
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-control transition-colors ${
-                devMode ? 'bg-warning/10 text-warning' : 'bg-card text-secondary'
-              }`}>
-                <Beaker size={20} strokeWidth={1.75} />
-              </div>
-              <div className="text-left">
-                <span className="font-bold text-primary text-sm">
-                  {lang === Language.CN ? '数据环境' : 'Data Environment'}
-                </span>
-                <p className="text-[10px] text-tertiary mt-0.5">
-                  {devMode
-                    ? (lang === Language.CN
-                        ? 'state-dev · FitLogDB-dev · 与真实数据完全隔离'
-                        : 'state-dev · FitLogDB-dev · fully isolated')
-                    : (lang === Language.CN
-                        ? 'state · FitLogDB · 真实用户数据'
-                        : 'state · FitLogDB · real user data')}
-                </p>
-              </div>
-            </div>
-            <span className={`text-xs font-semibold px-3 py-1 rounded-chip shrink-0 ${
-              devMode ? 'bg-warning/15 text-warning' : 'bg-card text-secondary'
-            }`}>
-              {devMode ? (lang === Language.CN ? '开发' : 'Dev') : (lang === Language.CN ? '用户' : 'User')}
-            </span>
-          </button>
-        )}
       </div>
+
+      <PrefsSheet
+        open={prefsOpen}
+        onClose={() => setPrefsOpen(false)}
+        syncStatus={syncStatus}
+        lastSyncedAt={lastSyncedAt}
+        onSync={onSync}
+        onExportData={onExportData}
+        onImportData={onImportData}
+        onOpenLibrary={() => {
+          setPrefsOpen(false);
+          onOpenLibrary();
+        }}
+        onToggleLanguage={onToggleLanguage}
+        onResetAccount={() => setShowResetAccountModal(true)}
+        onLogout={onLogout}
+        devMode={devMode}
+        onToggleDevMode={onToggleDevMode}
+      />
     </div>
   );
 };

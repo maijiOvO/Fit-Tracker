@@ -118,6 +118,8 @@ interface ExercisePrefsContextValue {
   /** ============ Actions ============ */
   toggleMetric: (exerciseName: string, metricKey: string) => void;
   resetMetricsToDefault: (exerciseName: string) => void;
+  /** 这个动作还没配置过记录项才写入（有氧动作第一次加进训练时用首选项「有氧默认记录」） */
+  seedMetricsIfUnset: (exerciseName: string, metrics: string[]) => void;
   toggleStarExercise: (exerciseName: string) => void;
   saveExerciseNote: (name: string, note: string) => void;
   /** region 不传 = 不动细分；'' = 放回未细分。category 不传 = 不动训练类型 */
@@ -526,6 +528,20 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       return updated;
     });
   }, [rawKeysFor]);
+
+  const seedMetricsIfUnset = useCallback(
+    (exerciseName: string, metrics: string[]) => {
+      setExerciseMetricConfigs(prev => {
+        if (rawKeysFor(prev, exerciseName).length || !metrics.length) return prev;
+        const updated = { ...prev, [resolveName(exerciseName)]: [...metrics] };
+        writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
+        storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
+        scheduleDebouncedFitlogPush();
+        return updated;
+      });
+    },
+    [rawKeysFor, resolveName],
+  );
 
   const toggleStarExercise = useCallback((exerciseName: string) => {
     setStarredExercises(prev => {
@@ -1313,6 +1329,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       getActiveMetrics,
       toggleMetric,
       resetMetricsToDefault,
+      seedMetricsIfUnset,
       toggleStarExercise,
       saveExerciseNote,
       saveExerciseTags,
@@ -1362,6 +1379,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       getActiveMetrics,
       toggleMetric,
       resetMetricsToDefault,
+      seedMetricsIfUnset,
       toggleStarExercise,
       saveExerciseNote,
       saveExerciseTags,

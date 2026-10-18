@@ -1008,8 +1008,10 @@ const main = async () => {
 
   await step(page, 'goto-profile', async () => {
     await page.getByRole('button', { name: /我的|Profile/ }).click();
+    // 外观等设置在首选项弹层里（2026-10-18）
+    await page.locator('[data-testid="prefs-entry"]').click();
     await page.getByText(/外观|Appearance/).waitFor({ state: 'visible' });
-    return '我的 tab open';
+    return '我的 tab open, prefs sheet open';
   });
 
   await step(page, 'theme-manual-dark', async () => {
@@ -1033,6 +1035,8 @@ const main = async () => {
     await page.waitForTimeout(150);
     const pref = await page.evaluate(() => localStorage.getItem(lsKey('theme-pref')));
     if (pref !== 'auto') throw new Error('theme-pref not persisted as auto');
+    await page.locator('[data-testid="prefs-sheet-close"]').click();
+    await page.waitForTimeout(350);
     return 'auto persisted';
   });
 
@@ -2104,6 +2108,8 @@ const main = async () => {
           const t = (n.nodeValue || '').trim();
           if (!t || !CJK.test(t)) continue;
           if (n.parentElement && n.parentElement.closest('.font-seal')) continue;
+          // 语言选项里的「中文」是语言名本身（首选项弹层，标了 lang="zh-CN"）
+          if (n.parentElement && n.parentElement.closest('body [lang^="zh"]')) continue;
           hits.push('text:' + t.slice(0, 40));
         }
         for (const el of document.querySelectorAll('[aria-label],[title],[placeholder]')) {
@@ -2118,8 +2124,10 @@ const main = async () => {
     const nav = (re) => page.locator('nav button', { hasText: re }).click();
 
     await nav(/我的|Profile/);
-    await page.locator('[data-testid="language-toggle"]').click();
-    await page.waitForTimeout(300);
+    await page.locator('[data-testid="prefs-entry"]').click();
+    await page.locator('[data-testid="language-toggle"] button[aria-pressed="false"]').click();
+    await page.locator('[data-testid="prefs-sheet-close"]').click();
+    await page.waitForTimeout(350);
 
     // 切完先自证确实在英文下：<html lang> 是跟着语言走的（UserSettingsContext）
     const htmlLang = await page.evaluate(() => document.documentElement.lang);
@@ -2168,8 +2176,10 @@ const main = async () => {
 
     // 复原成中文，后续用例看到的还是原来的界面
     await nav(/我的|Profile/);
-    await page.locator('[data-testid="language-toggle"]').click();
-    await page.waitForTimeout(300);
+    await page.locator('[data-testid="prefs-entry"]').click();
+    await page.locator('[data-testid="language-toggle"] button[aria-pressed="false"]').click();
+    await page.locator('[data-testid="prefs-sheet-close"]').click();
+    await page.waitForTimeout(350);
 
     if (found.length) {
       throw new Error(`${found.length} Chinese string(s) leaked in English mode: ${found.slice(0, 8).join(' | ')}`);

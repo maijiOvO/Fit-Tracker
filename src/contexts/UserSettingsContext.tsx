@@ -6,7 +6,13 @@ import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { storage } from '../../services/appStorage';
 import { isDemo } from '../../services/appEnv';
-import { recordAppPrefs } from '../../services/appPrefs';
+import {
+  AppPrefs,
+  ResolvedAppPrefs,
+  appPrefsNow,
+  invalidateAppPrefsCache,
+  recordAppPrefs,
+} from '../../services/appPrefs';
 
 interface UserSettingsContextType {
   lang: Language;
@@ -21,6 +27,13 @@ interface UserSettingsContextType {
   setUnit: (unit: 'kg' | 'lbs') => void;
   /** 用户切单位：记进 appPrefs（打时间戳）并推送 */
   changeUnit: (unit: 'kg' | 'lbs') => void;
+
+  /** 首选项（带默认值）：±步长、递减每档、有氧默认记录、距离单位、周起始日 */
+  appPrefs: ResolvedAppPrefs;
+  /** 用户改首选项：记进 appPrefs（打时间戳）并推送 */
+  changeAppPrefs: (patch: Omit<AppPrefs, 'unit' | 'lang'>) => void;
+  /** 同步拉回 / 切数据环境之后：按存储里已经合并好的值重读，不打时间戳 */
+  reloadAppPrefs: () => void;
 
   weightEntries: WeightEntry[];
   addWeightEntry: (entry: WeightEntry) => Promise<void>;
@@ -52,6 +65,19 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
     const saved = storage.getItem('fitlog_unit');
     return (saved as 'kg' | 'lbs') || 'kg';
   });
+
+  const [appPrefs, setAppPrefsState] = useState<ResolvedAppPrefs>(appPrefsNow);
+
+  const changeAppPrefs = useCallback((patch: Omit<AppPrefs, 'unit' | 'lang'>) => {
+    recordAppPrefs(patch);
+    setAppPrefsState(appPrefsNow());
+    scheduleDebouncedFitlogPush();
+  }, []);
+
+  const reloadAppPrefs = useCallback(() => {
+    invalidateAppPrefsCache();
+    setAppPrefsState(appPrefsNow());
+  }, []);
 
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
@@ -159,6 +185,9 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
         unit,
         setUnit,
         changeUnit,
+        appPrefs,
+        changeAppPrefs,
+        reloadAppPrefs,
         weightEntries,
         addWeightEntry,
         deleteWeightEntry,

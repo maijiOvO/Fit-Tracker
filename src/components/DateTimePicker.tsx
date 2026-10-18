@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
+import { dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
 import { Modal, ModalFooter } from './Modal';
 
 interface DateTimePickerProps {
@@ -39,14 +40,15 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
   const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
 
   const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (month: number, year: number) => new Date(year, month, 1).getDay();
+  const getFirstDayOfMonth = (month: number, year: number) => dayOfWeekIndex(new Date(year, month, 1));
 
   const days = getDaysInMonth(currentMonth, currentYear);
   const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
-  const weekDays =
+  const weekDays = rotateWeekdays(
     lang === Language.CN
       ? ['日', '一', '二', '三', '四', '五', '六']
-      : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+      : ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'],
+  );
 
   const months =
     lang === Language.CN

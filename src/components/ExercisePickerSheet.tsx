@@ -328,6 +328,11 @@ interface ExercisePickerSheetProps {
    * 弹层里再开的弹窗（新建动作、备注、记录项、改名 = modal-2，改标签 = modal-3）都是后挂的 portal，同层也盖得住。
    */
   layer?: 'sheet' | 'modal-2';
+  /**
+   * 只管动作库（首选项「动作库与标签 ›」打开）：一打开就是整理态，「完成」直接关弹层。
+   * 不加动作，onPickExercise 不会被调到。
+   */
+  libraryOnly?: boolean;
   // ===== 动作面板里打开的弹窗（复用 App 层同一批弹窗） =====
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onDeleteExercise: (id: string) => void;
@@ -344,6 +349,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   focusPart = null,
   targetLabel = null,
   layer = 'sheet',
+  libraryOnly = false,
   addedCounts,
   sessionAdded,
   onPickExercise,
@@ -590,6 +596,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         setEquips(new Set());
       }
       if (resultsRef.current) resultsRef.current.scrollTop = 0;
+      if (libraryOnly) {
+        if (!focusPart) setAxis(a => a ?? { kind: 'part', v: lastArrangePartRef.current });
+        setArranging(true);
+      }
     } else {
       searchInputRef.current?.blur();
       setMenuFor(null);
@@ -837,6 +847,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
 
   const toggleArranging = () => {
+    if (arranging && libraryOnly) {
+      onClose();
+      return;
+    }
     if (arranging) {
       setArranging(false);
       setSpecial(null);

@@ -17,9 +17,13 @@
 import { useCallback, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
+import { scrubFeel, SCRUB_FEEL_PX } from '../utils/scrubFeel';
 
-/** 每跨这么多像素落一档。间距固定，加成全部来自档位本身。 */
-const PX_PER_DETENT = 10;
+/**
+ * 每跨这么多像素落一档（首选项「滑动手感」：细 / 中 / 粗 ＝ 14 / 10 / 7，默认 10）。
+ * 间距固定，加成全部来自档位本身（读的是模块缓存，每次移动取一下不费事）。
+ */
+const pxPerDetent = () => SCRUB_FEEL_PX[scrubFeel()];
 
 /**
  * 速度（px/ms）阈值梯。阈值是按台式机手感定的初值，
@@ -54,10 +58,10 @@ const EMA = 0.7;
  */
 const isResidue = (v: number) => Math.abs(v * 2 - Math.round(v * 2)) > 1e-6;
 
-function tierFor(v: number, steps: number[]): number {
+function tierFor(v: number, steps: number[], scale: number): number {
   let step = steps[0] ?? 1;
   for (let i = 0; i < steps.length && i < VELOCITY_LADDER.length; i++) {
-    if (v >= VELOCITY_LADDER[i]) step = steps[i];
+    if (v >= VELOCITY_LADDER[i] * scale) step = steps[i];
   }
   return step;
 }
@@ -183,7 +187,9 @@ export function useValueScrub({
       if (d.samples.length > 8) d.samples.shift();
 
       d.vs = d.vs * EMA + vel() * (1 - EMA);
-      const nextStep = tierFor(d.vs, stepsKey.split(',').map(Number));
+      const px = pxPerDetent();
+      // 速度阈值按每档宽度同比例缩放：每档越宽，跳档要甩得越快
+      const nextStep = tierFor(d.vs, stepsKey.split(',').map(Number), px / 10);
       if (nextStep !== step) {
         setStep(nextStep);
         haptic(H.longpress); // §5.7 两档：换档＝确认感
@@ -192,7 +198,7 @@ export function useValueScrub({
       d.acc += dx;
       let moved = false;
       let next = valueRef.current;
-      while (Math.abs(d.acc) >= PX_PER_DETENT) {
+      while (Math.abs(d.acc) >= px) {
         const sign = d.acc > 0 ? 1 : -1;
         if (!d.snapped && isResidue(next)) {
           // 切过单位后的 132.28 这种值，第一档先取整（往右 ceil、往左 floor）并吃掉这一档，
@@ -203,7 +209,7 @@ export function useValueScrub({
           next = Math.max(min, Math.round((next + sign * nextStep) * 10) / 10);
         }
         d.snapped = true;
-        d.acc -= sign * PX_PER_DETENT;
+        d.acc -= sign * px;
         moved = true;
       }
       if (moved) {

@@ -2,6 +2,24 @@
  * 动作实例配置（负重/辅助标记、子组配置）相关的纯函数
  */
 import { Exercise } from '../../types';
+import { appPrefsNow } from '../../services/appPrefs';
+
+const KM_TO_MI = 0.621371;
+
+/**
+ * 距离 / 速度：存储固定 km、km/h，显示按首选项「距离单位」换算（和重量单位分开，审查 distance-unit）。
+ * 其它指标原样返回。
+ */
+export function distToDisplay(metric: string, v: number): number {
+  if ((metric === 'distance' || metric === 'speed') && appPrefsNow().distUnit === 'mi') return v * KM_TO_MI;
+  return v;
+}
+
+/** 输入框里打的数（当前距离单位）→ 存储用的 km / km/h */
+export function distFromDisplay(metric: string, v: number): number {
+  if ((metric === 'distance' || metric === 'speed') && appPrefsNow().distUnit === 'mi') return v / KM_TO_MI;
+  return v;
+}
 
 export const DEFAULT_INSTANCE_CONFIG: NonNullable<Exercise['instanceConfig']> = {
   enablePyramid: false,
@@ -75,9 +93,9 @@ export function metricUnitLabel(
     case 'reps':
       return isCn ? '次' : 'reps';
     case 'distance':
-      return unit === 'kg' ? 'km' : 'mi';
+      return appPrefsNow().distUnit === 'mi' ? 'mi' : 'km';
     case 'speed':
-      return unit === 'kg' ? 'km/h' : 'mph';
+      return appPrefsNow().distUnit === 'mi' ? 'mph' : 'km/h';
     default:
       return '';
   }

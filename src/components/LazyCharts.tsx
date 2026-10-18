@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { Language } from '../../types';
 import { KG_TO_LBS } from '../constants';
+import { distToDisplay } from '../utils/exerciseConfig';
 import { translations } from '../../translations';
 import { useTheme } from '../hooks/useTheme';
 
@@ -273,8 +274,7 @@ export function getChartDataFor(
         .map((s: any) => {
           const v = s[key] || 0;
           if (key === 'weight' && u === 'lbs') return v * 2.20462;
-          if (key === 'speed' && u === 'lbs') return v * 0.621371;
-          return v;
+          return distToDisplay(key, v);
         });
       if (values.length === 0) return null;
 

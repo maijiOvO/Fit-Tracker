@@ -5,6 +5,7 @@
  * `npx tsc --noEmit -p .` 就红；补上之后 prefs-check 再查读 / 写 / 合并三处有没有一处漏了它。
  */
 import type { FitlogSyncedPrefs } from '../services/fitlogSnapshotTypes';
+import type { AppPrefs } from '../services/appPrefs';
 
 export const PREFS_SENTINEL = {
   customTags: [{ id: 'CT_sentinel', name: '哨兵标签', category: 'bodyPart' }],
@@ -23,7 +24,15 @@ export const PREFS_SENTINEL = {
   lang: 'en',
   unit: 'lbs',
   avatarDataUrl: 'data:image/jpeg;base64,c2VudGluZWw=',
-  appPrefs: { unit: 'lbs', lang: 'en' },
+  appPrefs: {
+    unit: 'lbs',
+    lang: 'en',
+    weightStep: 2.5,
+    dropStep: 15,
+    cardioMetrics: ['speed', 'reps'],
+    distUnit: 'mi',
+    weekStart: 'sun',
+  } satisfies Required<AppPrefs>,
   appPrefsUpdatedMs: 1700000000005,
 } satisfies Required<FitlogSyncedPrefs>;
 

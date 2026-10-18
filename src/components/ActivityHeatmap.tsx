@@ -15,7 +15,8 @@ import React, { useMemo, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Language } from '../../types';
 import { plural } from '../utils/format';
-import { localYmd } from '../utils/dateUtils';
+import { localYmd, dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
+import { appPrefsNow } from '../../services/appPrefs';
 
 export interface HeatmapDay {
   /** YYYY-MM-DD */
@@ -57,6 +58,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
 }) => {
   const isCn = lang === Language.CN;
   const [expanded, setExpanded] = useState(false);
+  const weekStart = appPrefsNow().weekStart;
 
   const { cells, streak } = useMemo(() => {
     const byDate = new Map<string, HeatmapDay>(days.map(d => [d.date, d]));
@@ -64,11 +66,10 @@ export const ActivityHeatmap: React.FC<Props> = ({
     today.setHours(0, 0, 0, 0);
     const todayKey = ymd(today);
 
-    // 让首行从周一开始：把起点往前推到最近的周一
+    // 让每行从一周的第一天开始（首选项「每周开始于」）：把起点往前推到最近的那一天
     const start = new Date(today);
     start.setDate(start.getDate() - (span - 1));
-    const dow = (start.getDay() + 6) % 7; // 0 = 周一
-    start.setDate(start.getDate() - dow);
+    start.setDate(start.getDate() - dayOfWeekIndex(start));
 
     const out: (HeatmapDay & { level: number; isToday: boolean; future: boolean })[] = [];
     for (let d = new Date(start); d <= today || out.length % 7 !== 0; d.setDate(d.getDate() + 1)) {
@@ -95,9 +96,9 @@ export const ActivityHeatmap: React.FC<Props> = ({
     }
 
     return { cells: out, streak: s };
-  }, [days, span]);
+  }, [days, span, weekStart]);
 
-  const weekdays = isCn ? ['一', '二', '三', '四', '五', '六', '日'] : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const weekdays = rotateWeekdays(isCn ? ['日', '一', '二', '三', '四', '五', '六'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S']);
 
   // 收起时只留最近 collapsedWeeks 行（贴着今天那一端）
   const totalWeeks = Math.ceil(cells.length / 7);

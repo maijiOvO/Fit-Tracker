@@ -5,6 +5,8 @@
 import { useMemo } from 'react';
 import { WorkoutSession, Language } from '../../types';
 import { KG_TO_LBS } from '../constants';
+import { distToDisplay } from '../utils/exerciseConfig';
+import { appPrefsNow } from '../../services/appPrefs';
 
 interface ChartDataPoint {
   date: string;
@@ -30,6 +32,8 @@ export const useChartData = (
   lang: Language,
   resolveName: (name: string) => string
 ): ChartDataPoint[] => {
+  // 距离单位是首选项（模块缓存），改了要让图重算
+  const distUnit = appPrefsNow().distUnit;
   return useMemo(() => {
     if (target === '__WEIGHT__') {
       // 体重数据
@@ -59,8 +63,7 @@ export const useChartData = (
             const v = (s as any)[metricKey || 'weight'] || 0;
             // 单位转换
             if (metricKey === 'weight' && unit === 'lbs') return v * 2.20462;
-            if (metricKey === 'speed' && unit === 'lbs') return v * 0.621371;
-            return v;
+            return distToDisplay(metricKey || 'weight', v);
           });
         if (values.length === 0) return null;
 
@@ -76,7 +79,7 @@ export const useChartData = (
       })
       .filter((d): d is ChartDataPoint => d !== null)
       .sort((a, b) => a.timestamp - b.timestamp);
-  }, [workouts, weightEntries, target, metricKey, unit, lang, resolveName]);
+  }, [workouts, weightEntries, target, metricKey, unit, lang, resolveName, distUnit]);
 };
 
 /**

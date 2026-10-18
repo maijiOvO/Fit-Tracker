@@ -25,6 +25,8 @@ import { translations } from '../../translations';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
+import { dayOfWeekIndex } from '../utils/dateUtils';
+import { appPrefsNow } from '../../services/appPrefs';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
@@ -53,22 +55,25 @@ function realSets(ex: Exercise): Exercise['sets'] {
   return (ex.sets ?? []).filter((s: any) => !s.ghost);
 }
 
-/** ISO 周键：YYYY-Www */
+/**
+ * 周键：YYYY-Www。一周从哪天开始看首选项（默认周一）；周号取这一周里那个周一的 ISO 周号，
+ * 所以周日开头时，周日归到它后面那个周一的周里。
+ */
 function getISOWeekKey(date: Date): { key: string; label: string; start: Date; end: Date } {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const start = new Date(date);
+  start.setDate(start.getDate() - dayOfWeekIndex(start));
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
+  const mon = new Date(start);
+  mon.setDate(mon.getDate() + ((8 - mon.getDay()) % 7)); // 这一周里的周一
+  const d = new Date(Date.UTC(mon.getFullYear(), mon.getMonth(), mon.getDate()));
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   const year = d.getUTCFullYear();
-
-  // 本周一作为 start（按本地时区显示给用户）
-  const start = new Date(date);
-  const offset = (start.getDay() || 7) - 1;
-  start.setDate(start.getDate() - offset);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
 
   return { key: `${year}-W${String(weekNo).padStart(2, '0')}`, label: `W${weekNo}`, start, end };
 }
@@ -532,6 +537,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
+  // 周视图按首选项「每周开始于」分组（模块缓存，改了要重算）
+  const weekStart = appPrefsNow().weekStart;
   const grouped = useMemo(() => {
     const sorted = [...workouts].sort(
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
@@ -551,7 +558,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     return Array.from(map.entries())
       .map(([key, value]) => ({ key, ...value }))
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
-  }, [workouts, granularity, lang]);
+  }, [workouts, granularity, lang, weekStart]);
 
   if (workouts.length === 0) {
     return (

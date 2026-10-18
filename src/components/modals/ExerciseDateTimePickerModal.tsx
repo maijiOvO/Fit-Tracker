@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { Language } from '../../../types';
+import { dayOfWeekIndex, rotateWeekdays } from '../../utils/dateUtils';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
 
@@ -20,7 +21,7 @@ const getDaysInMonth = (month: number, year: number) =>
   new Date(year, month + 1, 0).getDate();
 
 const getFirstDayOfMonth = (month: number, year: number) =>
-  new Date(year, month, 1).getDay();
+  dayOfWeekIndex(new Date(year, month, 1));
 
 const isToday = (date: Date) => {
   const today = new Date();
@@ -140,7 +141,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {(translations.weekdayNames[lang] as unknown as string[]).map((day, idx) => (
+              {rotateWeekdays(translations.weekdayNames[lang] as unknown as string[]).map((day, idx) => (
                 <div
                   key={idx}
                   className="text-center text-xs font-bold text-secondary py-2"

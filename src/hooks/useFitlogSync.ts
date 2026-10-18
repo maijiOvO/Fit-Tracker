@@ -129,6 +129,7 @@ async function migrateLocalData(userId: string): Promise<void> {
 export interface UseFitlogSyncResult {
   syncStatus: SyncStatus;
   setSyncStatus: React.Dispatch<React.SetStateAction<SyncStatus>>;
+  lastSyncedAt: number | null;
   performFullSync: () => Promise<void>;
   loadLocalData: (userId: string) => Promise<void>;
 }
@@ -147,6 +148,8 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
   const { toast } = useUiOverlay();
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  /** 上一次完整同步成功的时刻（首选项「同步」一行显示「已同步 · N 分钟前」）；本次启动还没成功过＝null */
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
   const syncLockRef = useRef<boolean>(false);
   const didInitRef = useRef(false);
 
@@ -172,6 +175,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
       applyPrefsFromSnapshot(p);
       if (p.lang) settingsCtx.setLang(p.lang as Language);
       if (p.unit) settingsCtx.setUnit(p.unit);
+      settingsCtx.reloadAppPrefs();
       if (typeof p.avatarDataUrl === 'string' && p.avatarDataUrl) {
         authCtx.setUser(
           authCtx.user
@@ -229,6 +233,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
       await loadLocalData(resolvedUserId);
       await pushFitlogRemoteSnapshot();
       setSyncStatus('idle');
+      setLastSyncedAt(Date.now());
     } catch (e: any) {
       console.error('Sync Failure:', e?.message || e);
       setSyncStatus('error');
@@ -251,5 +256,5 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
   // 兼容旧逻辑：markPrefsUpdated 不应缺失
   void markPrefsUpdated;
 
-  return { syncStatus, setSyncStatus, performFullSync, loadLocalData };
+  return { syncStatus, setSyncStatus, lastSyncedAt, performFullSync, loadLocalData };
 }

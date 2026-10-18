@@ -13,6 +13,50 @@ import { storage } from './appStorage';
 export interface AppPrefs {
   unit?: 'kg' | 'lbs';
   lang?: string;
+  /** ±步长（当前重量单位下的数），kg / lbs 共用一个数（2026-10-06 用户定） */
+  weightStep?: number;
+  /** 手动加一档递减时每档降多少（当前重量单位下的数），同样 kg / lbs 共用 */
+  dropStep?: number;
+  /** 没配置过、也从没记过的有氧动作默认记哪几项 */
+  cardioMetrics?: string[];
+  /** 距离单位，和重量单位分开。存储固定 km、km/h，显示时换算 */
+  distUnit?: 'km' | 'mi';
+  /** 每周从周一还是周日开始（热力图、时间线周视图、日历） */
+  weekStart?: 'mon' | 'sun';
+}
+
+export const WEIGHT_STEP_OPTIONS = [1, 2.5, 5, 10] as const;
+export const DROP_STEP_OPTIONS = [2.5, 5, 10, 15] as const;
+
+/** 读取方一律经过这里拿默认值，AppPrefs 里只存用户改过的 */
+export const APP_PREF_DEFAULTS = {
+  weightStep: 5,
+  dropStep: 5,
+  cardioMetrics: ['duration', 'distance'],
+  distUnit: 'km',
+  weekStart: 'mon',
+} as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang'>;
+
+export type ResolvedAppPrefs = {
+  weightStep: number;
+  dropStep: number;
+  cardioMetrics: string[];
+  distUnit: 'km' | 'mi';
+  weekStart: 'mon' | 'sun';
+};
+
+export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
+  const num = (v: unknown, d: number) => (typeof v === 'number' && v > 0 ? v : d);
+  return {
+    weightStep: num(p?.weightStep, APP_PREF_DEFAULTS.weightStep),
+    dropStep: num(p?.dropStep, APP_PREF_DEFAULTS.dropStep),
+    cardioMetrics:
+      Array.isArray(p?.cardioMetrics) && p.cardioMetrics.length
+        ? p.cardioMetrics
+        : [...APP_PREF_DEFAULTS.cardioMetrics],
+    distUnit: p?.distUnit === 'mi' ? 'mi' : 'km',
+    weekStart: p?.weekStart === 'sun' ? 'sun' : 'mon',
+  };
 }
 
 const KEY = 'fitlog_app_prefs';
@@ -32,10 +76,27 @@ export function readAppPrefs(): { appPrefs?: AppPrefs; appPrefsUpdatedMs: number
 }
 
 export function writeAppPrefs(appPrefs: AppPrefs | undefined, appPrefsUpdatedMs: number): void {
+  resolvedCache = null;
   if (appPrefs) storage.setItem(KEY, JSON.stringify(appPrefs));
   else storage.removeItem(KEY);
   if (appPrefsUpdatedMs) storage.setItem(TS_KEY, String(appPrefsUpdatedMs));
   else storage.removeItem(TS_KEY);
+}
+
+let resolvedCache: ResolvedAppPrefs | null = null;
+
+/**
+ * 当前生效的首选项（带默认值）。给拿不到 React context 的纯函数用（格式化、单位标签）；
+ * 组件里用 UserSettingsContext 的 appPrefs，改了才会重渲染。
+ */
+export function appPrefsNow(): ResolvedAppPrefs {
+  if (!resolvedCache) resolvedCache = resolveAppPrefs(readAppPrefs().appPrefs);
+  return resolvedCache;
+}
+
+/** 切数据环境后存储换了一套，缓存作废 */
+export function invalidateAppPrefsCache(): void {
+  resolvedCache = null;
 }
 
 /** 用户改了某项首选项：并进对象、打时间戳。推送由调用方排（scheduleDebouncedFitlogPush） */

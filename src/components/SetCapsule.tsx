@@ -7,15 +7,17 @@
  * 网格列宽由父卡片通过 --cols 下发，父行与子组行共用同一个变量，
  * 根治原先「表头 px-2、行 p-3」的 4px 错位。
  */
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Minus } from 'lucide-react';
 import { Language, SubSetLog, SetLog } from '../../types';
-import { ledgerCols, metricUnitLabel, LoadMode } from '../utils/exerciseConfig';
+import { ledgerCols, metricUnitLabel, LoadMode, distToDisplay, distFromDisplay } from '../utils/exerciseConfig';
 import { useLongPress } from '../hooks/useLongPress';
 import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
+import { UserSettingsContext } from '../contexts/UserSettingsContext';
+import { appPrefsNow } from '../../services/appPrefs';
 
 interface SetCapsuleProps {
   set: any;
@@ -131,6 +133,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   onRemoveSub,
 }) => {
   const isCn = lang === Language.CN;
+  // 首选项：±步长、递减每档（当前单位下的数，kg / lbs 共用）。只读历史视图里也拿得到，拿不到用存储里的值
+  const { weightStep, dropStep } = useContext(UserSettingsContext)?.appPrefs ?? appPrefsNow();
   // §11 坑 1：动画跑完必须摘掉入场类，否则它会盖住后续的反馈动画，
   // 且 fill:both 会把 height 钉死在 52px。
   const [entering, setEntering] = useState(isNew);
@@ -265,7 +269,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   /**
    * 加一档子组（组型：递减 / 递增，变体第三层）。
    * 上次练过、带着子组的组，底稿里已经原样抄来了（toGhostSets），不经过这里。
-   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）按当前单位 ∓5（磅就 5 磅，kg 就 5kg），
+   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）按当前单位 ∓「递减每档」（首选项，默认 5），
    * 跟换片的手感一致。上一行若是换算残留（132.28）先取整再走，新档落在整数上。
    * 带正负的负荷在带符号的数上走：+10 → +5 → 0 → −5（递减可以一路降进辅助）。普通重量下限 0。
    * 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
@@ -276,7 +280,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     const shown = toDisplay(prev.weight, prevSign);
     const residue = Math.abs(shown * 2 - Math.round(shown * 2)) > 1e-6;
     const base = residue ? (dir < 0 ? Math.floor(shown) : Math.ceil(shown)) : shown;
-    let next = base + dir * 5;
+    let next = base + dir * dropStep;
     if (!signed) next = Math.max(0, next);
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
@@ -305,7 +309,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     disabled: readOnly,
   });
 
-  /** −5 / +5：按当前单位；普通重量下限 0，带正负的负荷可以跨过 0。换算残留不取整（只有拖动才取整） */
+  /** −步长 / +步长（首选项，默认 5）：按当前单位；普通重量下限 0，带正负的负荷可以跨过 0。换算残留不取整（只有拖动才取整） */
   const bump = (d: number) => {
     haptic(H.tap);
     let next = Math.round((weightDisplay + d) * 100) / 100;
@@ -426,7 +430,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 ? formatWeight(Number(raw) || 0, unit)
                 : raw === 0 || raw === undefined
                   ? '—'
-                  : String(raw);
+                  : String(Math.round(distToDisplay(m, Number(raw)) * 100) / 100);
             return (
               <span key={m} className="ledger-field">
                 <span className="font-mono font-semibold text-data-lg text-primary tabular-nums">
@@ -451,7 +455,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               ? ''
               : m === 'weight'
                 ? formatWeight(Number(raw), unit)
-                : Number(raw).toFixed(2).replace(/\.?0+$/, '');
+                : distToDisplay(m, Number(raw)).toFixed(2).replace(/\.?0+$/, '');
           const unitTap = m === 'weight' && signed && Number(set.weight) > 0;
           return (
             <label
@@ -496,7 +500,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                     update({ ...fromDisplay(signed ? v : Math.max(0, v)), holdFollow: true });
                     return;
                   }
-                  update({ [m]: inputValue });
+                  // 距离 / 速度按首选项的距离单位打，存回 km、km/h
+                  update({ [m]: distFromDisplay(m, inputValue) });
                 }}
               />
               {unitLabel &&
@@ -645,11 +650,11 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。 */}
       {!readOnly && selected && activeMetrics.includes('weight') && (
         <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
-          <button type="button" onClick={() => bump(-5)} aria-label={isCn ? `重量减 5 ${unit}` : `Weight −5 ${unit}`}>
-            −5 <span className="ledger-unit">{unit}</span>
+          <button type="button" onClick={() => bump(-weightStep)} aria-label={isCn ? `重量减 ${weightStep} ${unit}` : `Weight −${weightStep} ${unit}`}>
+            −{weightStep} <span className="ledger-unit">{unit}</span>
           </button>
-          <button type="button" onClick={() => bump(5)} aria-label={isCn ? `重量加 5 ${unit}` : `Weight +5 ${unit}`}>
-            +5 <span className="ledger-unit">{unit}</span>
+          <button type="button" onClick={() => bump(weightStep)} aria-label={isCn ? `重量加 ${weightStep} ${unit}` : `Weight +${weightStep} ${unit}`}>
+            +{weightStep} <span className="ledger-unit">{unit}</span>
           </button>
           <button
             type="button"

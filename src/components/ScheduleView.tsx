@@ -11,6 +11,7 @@ import { useUiOverlay } from '../contexts/UiOverlayContext';
 import ScheduleEditorModal, { type PlanPickerHost } from './ScheduleEditorModal';
 import { formatWeight } from './SetCapsule';
 import { haptic, H } from '../utils/haptics';
+import { dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
 
 /* ── 翻月横滑 §12.9：松手判定与弹层同一套速度投影数学（§5.3） ── */
 /** 横向位移 ≥12px 且横>竖才认定是翻月（同 §12.3 scrub 的 12px 规则） */
@@ -39,7 +40,7 @@ function toLocalISODate(d: Date): string {
 
 function buildMonthGrid(viewMonth: Date): { date: Date; inMonth: boolean }[] {
   const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
-  const startWeekDay = first.getDay(); // 0=Sun
+  const startWeekDay = dayOfWeekIndex(first); // 按首选项「每周开始于」
   const startDate = new Date(first);
   startDate.setDate(first.getDate() - startWeekDay);
 
@@ -212,7 +213,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     }
   };
 
-  const weekDays = lang === Language.CN ? ['日', '一', '二', '三', '四', '五', '六'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDays = rotateWeekdays(lang === Language.CN ? ['日', '一', '二', '三', '四', '五', '六'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
 
   const openNew = () => {
     setEditorTarget(null);

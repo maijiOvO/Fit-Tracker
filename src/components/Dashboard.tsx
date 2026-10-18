@@ -1,7 +1,6 @@
 import React, { lazy, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DateTimePicker } from './DateTimePicker';
 import { SetCapsule } from './SetCapsule';
-import { BackupCard } from './BackupCard';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
   Scale, TrendingUp, History, ChevronDown, ChevronUp,
@@ -597,8 +596,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           setExerciseTimeEdit(null);
         }}
       />
-
-      <BackupCard onExportData={actions.onExportData} onImportData={actions.onImportData} />
 
     </div>
   );

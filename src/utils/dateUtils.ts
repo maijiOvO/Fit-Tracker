@@ -2,6 +2,19 @@
  * 日期时间工具函数
  */
 import { Language } from '../../types';
+import { appPrefsNow } from '../../services/appPrefs';
+
+/** 首选项「每周开始于」：0 = 周日，1 = 周一（默认） */
+export const weekStartDay = (): 0 | 1 => (appPrefsNow().weekStart === 'sun' ? 0 : 1);
+
+/** d 是它那一周的第几天（0 = 一周的第一天，按首选项） */
+export const dayOfWeekIndex = (d: Date): number => (d.getDay() - weekStartDay() + 7) % 7;
+
+/** 把「周日在前」的七个名字按首选项转成一周的顺序 */
+export const rotateWeekdays = <T,>(sunFirst: readonly T[]): T[] => {
+  const s = weekStartDay();
+  return [...sunFirst.slice(s), ...sunFirst.slice(0, s)];
+};
 
 /**
  * 本地日期的 YYYY-MM-DD。按天归组一律用它，别用 toISOString().split('T')[0] ——
@@ -15,9 +28,9 @@ export const getDaysInMonth = (month: number, year: number): number => {
   return new Date(year, month + 1, 0).getDate();
 };
 
-// 获取月份第一天是星期几
+// 月历第一行要空几格（按首选项的周起始日）
 export const getFirstDayOfMonth = (month: number, year: number): number => {
-  return new Date(year, month, 1).getDay();
+  return dayOfWeekIndex(new Date(year, month, 1));
 };
 
 // 判断是否是今天
