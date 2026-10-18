@@ -28,8 +28,6 @@ const config: CapacitorConfig = {
   android: {
     /** 「墨与纸」全部技术里的最高门槛（scroll-driven animations 要 Chrome 115+）。 */
     minWebViewVersion: 115,
-    /** 正式签名包临时接 CDP（读诊断日志用）：只在 CAP_WEBVIEW_DEBUG=1 时打开，平时打出来的包照旧不可调试 */
-    ...(process.env.CAP_WEBVIEW_DEBUG === '1' ? { webContentsDebuggingEnabled: true } : {}),
   },
   ...(liveReload
     ? {

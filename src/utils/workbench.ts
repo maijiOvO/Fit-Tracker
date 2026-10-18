@@ -17,7 +17,6 @@
  */
 import type { Exercise, SetLog, SubSetLog } from '../../types';
 import { fromSignedKg, signedKg } from './load';
-import { followDiag } from './followDiag';
 
 export const isPending = (s: SetLog): boolean => !!s.ghost;
 
@@ -386,29 +385,23 @@ function shiftWeight<T extends SetLog | SubSetLog>(
 /** 第 i 组后面的待做、重量没改过的组平移 shift，各自带着递减档 */
 function followWeight(sets: SetLog[], i: number, shift: number, e: Exercise, signed: boolean) {
   if (!shift) return;
-  const rows: Record<string, unknown>[] = [];
   for (let k = i + 1; k < sets.length; k++) {
     const s = sets[k];
     const why = !s.ghost ? 'done' : s.touched?.weight ? 'touched' : 'followed';
-    rows.push({ no: k + 1, id: s.id, value: s.weight, touched: s.touched, why });
     if (why !== 'followed') continue;
     sets[k] = shiftSubs({ ...s, ...shiftWeight(s, shift, e, signed) }, s, shift, e, signed);
   }
-  followDiag('follow', { ex: e.name, from: i + 1, key: 'weight', shift, rows });
 }
 
 /** 次数：后面待做、没改过、原值和这组改之前一样的组跟着变 */
 function followReps(sets: SetLog[], i: number, e: Exercise, oldV: number, reps: SetLog['reps'] | undefined) {
   if (oldV === (Number(reps) || 0)) return;
-  const rows: Record<string, unknown>[] = [];
   for (let k = i + 1; k < sets.length; k++) {
     const s = sets[k];
     const why = !s.ghost ? 'done' : s.touched?.reps ? 'touched'
       : (Number(s.reps) || 0) !== oldV ? 'value-differs' : 'followed';
-    rows.push({ no: k + 1, id: s.id, value: s.reps, touched: s.touched, why });
     if (why === 'followed') sets[k] = { ...s, reps: reps! };
   }
-  followDiag('follow', { ex: e.name, from: i + 1, key: 'reps', oldV, newV: reps, rows });
 }
 
 /** 母组从 prev 变成 next：没改过重量的递减档平移 shift */
@@ -489,15 +482,12 @@ export function movePointerTo(exs: Exercise[], cardKey: string, gap: number): Ex
   let next = exs;
   let seq = nextSeq(exs);
   if (N > P) {
-    const marked: RowRef[] = [];
     for (const r of flat.slice(P, N)) {
       next = patchSet(next, r, s => {
         if (!isPending(s) || !setHasValue(s)) return s;
-        marked.push(r);
         return asDone(s, seq++);
       });
     }
-    followDiag('pointer-down', { cardKey, gap, marked });
   } else if (N < P) {
     for (const r of flat.slice(N, P)) {
       next = patchSet(next, r, s => {

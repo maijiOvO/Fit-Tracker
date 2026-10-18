@@ -15,7 +15,6 @@ import { useLongPress } from '../hooks/useLongPress';
 import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
-import { followDiag } from '../utils/followDiag';
 import type { SetUpdate } from '../utils/workbench';
 
 interface SetCapsuleProps {
@@ -196,8 +195,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     if (base && base.sub === subIdx && base.kg !== nowKg) onUpdate({ followFrom: base } as SetUpdate);
   };
 
-  const update = (updates: SetUpdate, src: string) => {
-    followDiag('edit', { src, no: setIdx + 1, id: set.id, ghost: !!set.ghost, before: { weight: set.weight, reps: set.reps, touched: set.touched }, updates });
+  const update = (updates: SetUpdate) => {
     const keys = isGhost ? touchedKeys(updates) : [];
     if (!keys.length) {
       onUpdate(updates);
@@ -235,7 +233,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：待做行上横拖只改值、记 touched，不描实
-    onChange: next => update(fromDisplay(next), 'scrub'),
+    onChange: next => update(fromDisplay(next)),
     steps: SCRUB_STEPS_WEIGHT,
     disabled: readOnly,
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
@@ -245,7 +243,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 一次训练里 reps 的动态范围比重量小得多，最高档给到 5 就够跨一整个区间。
   const repsScrub = useValueScrub({
     value: Number(set.reps) || 0,
-    onChange: next => update({ reps: next }, 'scrub'),
+    onChange: next => update({ reps: next }),
     steps: SCRUB_STEPS_REPS,
     disabled: readOnly,
   });
@@ -261,7 +259,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       // 格子墨色要按格算：哪一格改过，哪一格变实墨
       ...(isGhost ? { touched: { ...(cur.touched || {}), ...Object.fromEntries(Object.keys(updates).filter(k => k === 'weight' || k === 'reps').map(k => [k, true])) } } : {}),
     };
-    update({ subSets: newSubSets, ...(holdFollow ? { holdFollow } : {}) }, 'sub-edit');
+    update({ subSets: newSubSets, ...(holdFollow ? { holdFollow } : {}) });
   };
 
   /**
@@ -285,7 +283,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       ...(shown !== 0 || signed ? fromDisplay(next) : { weight: 0 }),
       reps: Number(prev.reps) || 0,
     };
-    update({ subSets: [...subSets, newSubSet] }, 'sub-add');
+    update({ subSets: [...subSets, newSubSet] });
   };
 
   const handleRemoveSubSet = (subIdx: number) => {
@@ -312,14 +310,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     haptic(H.tap);
     let next = Math.round((weightDisplay + d) * 100) / 100;
     if (!signed) next = Math.max(0, next);
-    update(fromDisplay(next), 'bump');
+    update(fromDisplay(next));
   };
 
   /** 换号（点单位前的 + / −）：辅助 ⇄ 负重，绝对值不动 */
   const flipSign = () => {
     if (!signed || !(Number(set.weight) > 0)) return;
     haptic(H.tap);
-    update({ bodyweightMode: rowSign < 0 ? 'weighted' : 'assisted' }, 'flip-sign');
+    update({ bodyweightMode: rowSign < 0 ? 'weighted' : 'assisted' });
   };
 
   /** 子组行的标签：比上一行轻＝递减，重＝递增（按带符号的数比） */
@@ -495,10 +493,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                     // 带正负：打负数＝辅助；打正数沿用这一组现在的号（辅助的组改数还是辅助）
                     const v = signed && inputValue >= 0 ? inputValue * rowSign : inputValue;
                     // 打字中途只改这一格，离开输入框时再按总差值带后面（commitTypedWeight）
-                    update({ ...fromDisplay(signed ? v : Math.max(0, v)), holdFollow: true }, 'type');
+                    update({ ...fromDisplay(signed ? v : Math.max(0, v)), holdFollow: true });
                     return;
                   }
-                  update({ [m]: inputValue }, 'type');
+                  update({ [m]: inputValue });
                 }}
               />
               {unitLabel &&
