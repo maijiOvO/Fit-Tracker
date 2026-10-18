@@ -1,16 +1,32 @@
 /**
  * 训练计划编辑器：新增 / 编辑 一条 ScheduledWorkout
  */
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Library, Plus, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language, ScheduledExercise, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
-import { useScheduleContext } from '../contexts';
+import { useExercisePrefs, useScheduleContext } from '../contexts';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { ExerciseCategory } from '../constants/exercises';
+import { parseWeight } from '../utils/format';
 import Modal from './Modal';
+import { ExercisePickerSheet } from './ExercisePickerSheet';
+import { formatWeight } from './SetCapsule';
 
 type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string };
+
+/**
+ * 计划编辑器里的选动作弹层要用到的 App 层弹窗（和训练页弹层是同一批）。
+ * 新建动作带回调：建好的动作加进计划，不进训练。
+ */
+export interface PlanPickerHost {
+  onCreateCustomExercise: (prefilledName: string | undefined, onCreated: (ex: ExerciseDefinition) => void) => void;
+  onEditExerciseTags: (ex: ExerciseDefinition) => void;
+  onDeleteExercise: (id: string) => void;
+  onOpenNote: (name: string) => void;
+  onOpenMetrics: (name: string) => void;
+}
 
 interface ScheduleEditorModalProps {
   lang: Language;
@@ -19,7 +35,7 @@ interface ScheduleEditorModalProps {
   defaultDate: string;          // 'YYYY-MM-DD'
   editingSchedule: ScheduledWorkout | null;
   onClose: () => void;
-  onOpenLibraryForPicker: (onPick: (ex: ExerciseDefinition) => void) => void;
+  pickerHost: PlanPickerHost;
 }
 
 function makeId(prefix: string): string {
@@ -33,14 +49,21 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
   defaultDate,
   editingSchedule,
   onClose,
-  onOpenLibraryForPicker,
+  pickerHost,
 }) => {
   const { addSchedule, updateSchedule } = useScheduleContext();
+  const { resolveName } = useExercisePrefs();
   const isEdit = !!editingSchedule;
+  const isCn = lang === Language.CN;
 
   const [title, setTitle] = useState<string>(editingSchedule?.title ?? '');
   const [date, setDate] = useState<string>(editingSchedule?.date ?? defaultDate);
-  const [exercises, setExercises] = useState<ScheduledExercise[]>(editingSchedule?.exercises ?? []);
+  // 编辑中的目标重量是当前单位下的数（plan-target-weight-unit：库里存 kg，进来换算、保存时换回去）
+  const [exercises, setExercises] = useState<ScheduledExercise[]>(() =>
+    (editingSchedule?.exercises ?? []).map(e =>
+      e.targetWeight != null ? { ...e, targetWeight: Number(formatWeight(e.targetWeight, unit)) } : e,
+    ),
+  );
   const [notes, setNotes] = useState<string>(editingSchedule?.notes ?? '');
   const [saving, setSaving] = useState(false);
 
@@ -73,15 +96,17 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
     ]);
   };
 
-  const pickFromLibrary = () => {
-    onOpenLibraryForPicker((ex) => {
+  /** 库里的动作加成计划里的一行，返回行 id */
+  const appendFromLibrary = useCallback(
+    (ex: ExerciseDefinition): string => {
+      const id = makeId('sex');
       const cat = (ex.category as ExerciseCategory) || 'STRENGTH';
       const name = ex.name?.[lang] || ex.name?.cn || ex.name?.en || '';
       // 把所选动作的标签信息（部位/器材）携带进来，便于聚合显示
       setExercises(prev => [
         ...prev,
         {
-          id: makeId('sex'),
+          id,
           name,
           category: cat,
           targetSets: 3,
@@ -90,8 +115,63 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
           ...(ex.tags?.length ? { tags: ex.tags } : {}),
         },
       ]);
-    });
+      return id;
+    },
+    [lang],
+  );
+
+  // ===== 选动作弹层（和训练页同一个，plan-picker-legacy-library） =====
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [sessionAdded, setSessionAdded] = useState(0);
+  /** 本次打开里每次点选加出的行 id（按「动作::做法」分组、后进先出）：再点一下＝取消这次添加（同训练页 B2） */
+  const picksRef = useRef<Map<string, string[]>>(new Map());
+
+  const openPicker = () => {
+    picksRef.current = new Map();
+    setSessionAdded(0);
+    setPickerOpen(true);
   };
+
+  const handlePick = useCallback(
+    (ex: ExerciseDefinition, variantId?: string): boolean => {
+      const key = variantId ? `${ex.id}::${variantId}` : ex.id;
+      const stack = picksRef.current.get(key) ?? [];
+      const prev = stack.pop();
+      if (prev) {
+        setExercises(list => list.filter(e => e.id !== prev));
+        picksRef.current.set(key, stack);
+        setSessionAdded(n => Math.max(0, n - 1));
+        return false;
+      }
+      // 计划行不记做法：点做法小卡按动作本身加
+      stack.push(appendFromLibrary(ex));
+      picksRef.current.set(key, stack);
+      setSessionAdded(n => n + 1);
+      return true;
+    },
+    [appendFromLibrary],
+  );
+
+  const handleCreateCustom = useCallback(
+    (prefilledName?: string) => {
+      pickerHost.onCreateCustomExercise(prefilledName, ex => {
+        appendFromLibrary(ex);
+        setSessionAdded(n => n + 1);
+      });
+    },
+    [appendFromLibrary, pickerHost],
+  );
+
+  /** 小写显示名 -> 计划里出现次数（弹层「已添加 ×N」） */
+  const addedCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ex of exercises) {
+      if (!ex.name.trim()) continue;
+      const key = resolveName(ex.name.trim()).toLowerCase();
+      counts[key] = (counts[key] || 0) + 1;
+    }
+    return counts;
+  }, [exercises, resolveName]);
 
   const updateExercise = (id: string, patch: Partial<ScheduledExercise>) => {
     setExercises(prev => prev.map(e => (e.id === id ? { ...e, ...patch } : e)));
@@ -107,7 +187,11 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
     try {
       const now = new Date().toISOString();
       const cleaned = exercises
-        .map(e => ({ ...e, name: e.name.trim() }))
+        .map(e => ({
+          ...e,
+          name: e.name.trim(),
+          ...(e.targetWeight != null ? { targetWeight: parseWeight(e.targetWeight, unit) } : {}),
+        }))
         .filter(e => e.name.length > 0);
       const payload: ScheduledWorkout = {
         id: editingSchedule?.id ?? makeId('sw'),
@@ -132,11 +216,32 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
   };
 
   return (
+    <>
     <Modal
       isOpen
       onClose={onClose}
       title={translations.scheduleEditTitle[lang]}
       size="lg"
+      // 加到 3–4 个动作后保存按钮会被挤出屏：按钮放 footer 常驻，正文区限高自己滚
+      bodyClassName="max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain custom-scrollbar"
+      footer={
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-control border border-divider text-secondary hover:text-primary hover:bg-card-hover transition text-sm"
+          >
+            {isCn ? '取消' : 'Cancel'}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !date}
+            data-testid="schedule-save-btn"
+            className="px-4 py-2 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition disabled:opacity-50"
+          >
+            {saving ? '...' : (isCn ? '保存' : 'Save')}
+          </button>
+        </div>
+      }
     >
       <div className="space-y-4" data-testid="schedule-editor">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -187,7 +292,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
             <span className="text-xs text-secondary">{translations.scheduleExercisesLabel[lang]}</span>
             <div className="flex items-center gap-1.5">
               <button
-                onClick={pickFromLibrary}
+                onClick={openPicker}
                 data-testid="schedule-pick-library"
                 className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-accent text-on-accent hover:opacity-90 active:scale-press-sm transition"
               >
@@ -221,7 +326,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                     onChange={e => updateExercise(ex.id, { name: e.target.value })}
                     placeholder={lang === Language.CN ? '动作名称' : 'Exercise name'}
                     data-testid="schedule-exercise-name"
-                    className="flex-1 px-2.5 py-1.5 rounded-chip bg-inset border border-divider text-primary text-sm focus:outline-none focus:border-accent"
+                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-chip bg-inset border border-divider text-primary text-sm focus:outline-none focus:border-accent"
                   />
                   <select
                     value={ex.category}
@@ -273,6 +378,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                       min={0}
                       step="0.5"
                       value={ex.targetWeight ?? ''}
+                      data-testid="schedule-exercise-weight"
                       onChange={e => updateExercise(ex.id, { targetWeight: e.target.value ? Number(e.target.value) : undefined })}
                       className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono focus:outline-none focus:border-accent"
                     />
@@ -293,24 +399,28 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
           />
         </label>
 
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-control border border-divider text-secondary hover:text-primary hover:bg-card-hover transition text-sm"
-          >
-            {lang === Language.CN ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !date}
-            data-testid="schedule-save-btn"
-            className="px-4 py-2 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition disabled:opacity-50"
-          >
-            {saving ? '...' : (lang === Language.CN ? '保存' : 'Save')}
-          </button>
-        </div>
       </div>
     </Modal>
+
+    {/* 挂到 body：编辑器面板带入场 transform，fixed 的弹层放在里面会被框住；层级 modal-2 压过编辑器 */}
+    {createPortal(
+      <ExercisePickerSheet
+        open={pickerOpen}
+        layer="modal-2"
+        targetLabel={title.trim() || (isCn ? '计划' : 'plan')}
+        onClose={() => setPickerOpen(false)}
+        addedCounts={addedCounts}
+        sessionAdded={sessionAdded}
+        onPickExercise={handlePick}
+        onCreateCustomExercise={handleCreateCustom}
+        onEditExerciseTags={pickerHost.onEditExerciseTags}
+        onDeleteExercise={pickerHost.onDeleteExercise}
+        onOpenNote={pickerHost.onOpenNote}
+        onOpenMetrics={pickerHost.onOpenMetrics}
+      />,
+      document.body,
+    )}
+    </>
   );
 };
 

@@ -12,7 +12,7 @@ export type { ChartDataPoint } from './useChartData';
 export { useTheme, applyThemeFromStorage } from './useTheme';
 export type { ThemePreference, ResolvedTheme } from './useTheme';
 
-export { useFilteredExercises, useExerciseStats } from './useFilteredExercises';
+export { useExerciseStats } from './useFilteredExercises';
 export { useFitlogSync } from './useFitlogSync';
 export type { SyncStatus } from './useFitlogSync';
 export { useWorkoutMutations } from './useWorkoutMutations';

@@ -228,7 +228,8 @@ export interface UseWorkoutMutationsResult {
 
   /** 给计划训练保存后回写日程状态使用，由调用方在 useEffect 中触发 */
   activeScheduleIdRef: React.MutableRefObject<string | null>;
-  markActiveSchedulePending: React.MutableRefObject<boolean>;
+  /** 刚结束的那场按计划练的：哪条计划、哪场训练（App 的 effect 把计划标成完成后清掉） */
+  pendingScheduleCompletion: React.MutableRefObject<{ scheduleId: string; workoutId: string } | null>;
   /** 「继续这场」接回来的训练 id：删光动作时不整场删 */
   resumedWorkoutIdsRef: React.MutableRefObject<Set<string>>;
 
@@ -281,7 +282,7 @@ export function useWorkoutMutations({
    * （App.tsx onDeleteExerciseFromSession）。resumeWorkout 会剥掉 finishedAt，数据上分不出来，只能记在这里。
    */
   const resumedWorkoutIdsRef = useRef<Set<string>>(new Set());
-  const markActiveSchedulePending = useRef(false);
+  const pendingScheduleCompletion = useRef<{ scheduleId: string; workoutId: string } | null>(null);
 
   /**
    * 编辑旧训练：进来时那场的原样（存的是比较键）。工作台上改的是一份深拷贝的草稿，
@@ -416,9 +417,12 @@ export function useWorkoutMutations({
         extraCount: pr.extraCount,
       });
 
+      // 回写要的是刚结束的这一场（plan-session-leaks-schedule-id：原来拿 workouts[0]，可能是别的场），
+      // 计划关联在这里就交出去：哪怕回写时计划已被删，也不会挂到下一场上
       if (scheduleId) {
-        markActiveSchedulePending.current = true;
+        pendingScheduleCompletion.current = { scheduleId, workoutId: finalWorkout.id };
       }
+      activeScheduleIdRef.current = null;
 
       setSaveStatus('saved');
 
@@ -870,6 +874,8 @@ export function useWorkoutMutations({
    * 每场都多一次点 + 一个弹窗。误点结束的补救挪到时间线：刚结束 10 分钟内长按那张卡有「继续这场」。
    */
   const startWorkoutGuarded = useCallback(async (proceed: () => void) => {
+    // 新开的一场和任何计划都无关（plan-session-leaks-schedule-id）
+    activeScheduleIdRef.current = null;
     proceed();
   }, []);
 
@@ -1122,7 +1128,7 @@ export function useWorkoutMutations({
     pendingScrollToPicker,
     setPendingScrollToPicker,
     activeScheduleIdRef,
-    markActiveSchedulePending,
+    pendingScheduleCompletion,
     addExerciseToWorkout,
     resumedWorkoutIdsRef,
   };

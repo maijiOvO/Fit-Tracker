@@ -5,7 +5,6 @@ export { GoalsTab } from './GoalsTab';
 export { ProfileTab } from './ProfileTab';
 export { SetCapsule } from './SetCapsule';
 export { DateTimePicker } from './DateTimePicker';
-export { ExercisePicker } from './ExercisePicker';
 export { EditExerciseTagsModal } from './EditExerciseTagsModal';
 export { TimelineView } from './TimelineView';
 export { NewWorkoutTab } from './NewWorkoutTab';

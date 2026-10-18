@@ -27,6 +27,8 @@ interface AddCustomExerciseModalProps {
   setNewExerciseRegion: (id: string) => void;
   customTags: CustomTag[];
   getTagName: (id: string) => string;
+  /** 建好的动作加到哪：训练页弹层 / 计划编辑器的选动作弹层 */
+  addsTo?: 'workout' | 'plan';
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -46,6 +48,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   setNewExerciseRegion,
   customTags,
   getTagName,
+  addsTo = 'workout',
   onClose,
   onConfirm,
 }) => {
@@ -55,7 +58,11 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
       isOpen={open}
       onClose={onClose}
       title={translations.addCustomExercise[lang]}
-      subtitle={isCn ? '创建后将加入本次训练' : 'Will be added to this workout'}
+      subtitle={
+        addsTo === 'plan'
+          ? isCn ? '创建后将加入计划' : 'Will be added to the plan'
+          : isCn ? '创建后将加入本次训练' : 'Will be added to this workout'
+      }
       size="md"
       layer="modal-2"
       dismissOnScrim={false}

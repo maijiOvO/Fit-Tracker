@@ -323,6 +323,11 @@ interface ExercisePickerSheetProps {
   onCreateCustomExercise: (prefilledName?: string) => void;
   /** 从交替组「加一个动作」打开：头部写「加到 X ⇄ Y」，选的动作加进那个组 */
   targetLabel?: string | null;
+  /**
+   * 层级：训练页是页面上的弹层（sheet）；计划编辑器是弹窗（z-modal），从它里面打开要压过它（modal-2）。
+   * 弹层里再开的弹窗（新建动作、备注、记录项、改名 = modal-2，改标签 = modal-3）都是后挂的 portal，同层也盖得住。
+   */
+  layer?: 'sheet' | 'modal-2';
   // ===== 动作面板里打开的弹窗（复用 App 层同一批弹窗） =====
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onDeleteExercise: (id: string) => void;
@@ -338,6 +343,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   onClose,
   focusPart = null,
   targetLabel = null,
+  layer = 'sheet',
   addedCounts,
   sessionAdded,
   onPickExercise,
@@ -1272,7 +1278,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
   return (
     <div
-      className={`fixed inset-0 z-sheet ${open ? '' : 'pointer-events-none'}`}
+      className={`fixed inset-0 ${layer === 'modal-2' ? 'z-modal-2' : 'z-sheet'} ${open ? '' : 'pointer-events-none'}`}
       aria-hidden={!open}
     >
       {/* 蒙层 */}

@@ -1,9 +1,7 @@
 /**
  * 动作搜索：分词 + 中英双名 + 拼音（全拼/首字母）+ 中文子序列 + 标签名
  *
- * 纯函数模块，被两处共用：
- *   - useFilteredExercises（动作库全屏页 / 计划页选动作）
- *   - useExercisePickerData（训练页底部选动作弹层）
+ * 纯函数模块，给 useExercisePickerData（选动作弹层：训练页、计划编辑器）用。
  *
  * 打分规则（每个 token 取最高命中，token 间 AND，总分为各 token 之和）：
  *   中文名前缀 100 > 中文名包含 82 > 英文名前缀 74 > 英文名包含 66

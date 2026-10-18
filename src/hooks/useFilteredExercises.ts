@@ -1,129 +1,14 @@
 /**
- * 动作库过滤 + 派生数据 hook
- * 输入：搜索词、所选标签、当前分类
- * 输出：过滤后的动作列表 / 最近练过的动作名 / bestLifts（PR）
+ * 动作库派生数据 hook：最近练过的动作名 / bestLifts（PR）/ 热力图
+ * （旧全屏动作库的过滤 useFilteredExercises 随 LibraryModal 一起删了，选动作统一走 ExercisePickerSheet）
  */
 import { useMemo } from 'react';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import {
-  BODY_PARTS,
-  DEFAULT_EXERCISES,
-  EQUIPMENT_TAGS,
-  ExerciseCategory,
-} from '../constants/exercises';
 import { Language } from '../../types';
-import { mergeOverride } from '../utils/exerciseOverride';
 import { localYmd } from '../utils/dateUtils';
-import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 import { signedKg, usesSignedLoad } from '../utils/load';
-
-export interface FilteredExercisesParams {
-  searchQuery: string;
-  selectedTags: string[];
-  activeLibraryCategory: ExerciseCategory | null;
-}
-
-/**
- * 根据 UI 状态过滤动作库
- */
-export function useFilteredExercises({
-  searchQuery,
-  selectedTags,
-  activeLibraryCategory,
-}: FilteredExercisesParams) {
-  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion } = useExercisePrefs();
-  const { lang } = useUserSettingsContext();
-
-  return useMemo(() => {
-    const allBase = [...DEFAULT_EXERCISES, ...customExercises];
-
-    const all = allBase
-      .map(ex => mergeOverride(ex, exerciseOverrides[ex.id]))
-      .filter(ex => !(exerciseOverrides[ex.id] as any)?.hidden)
-      .filter(ex =>
-        activeLibraryCategory === null
-          ? true
-          : (ex.category || 'STRENGTH') === activeLibraryCategory,
-      );
-
-    // 搜索：分词 + 中英双名 + 拼音全拼/首字母 + 中文子序列 + 标签名（见 utils/exerciseSearch）
-    const tokens = tokenize(searchQuery);
-
-    const scored = all
-      .map(ex => {
-        if (!ex.name || !ex.name[lang]) {
-          console.warn('Exercise missing name:', ex);
-          return null;
-        }
-        let score = 1;
-        if (tokens.length > 0) {
-          const tagNames: string[] = [];
-          if (ex.bodyPart) {
-            const n = getTagName(ex.bodyPart);
-            if (n) tagNames.push(n);
-          }
-          for (const t of ex.tags ?? []) {
-            const n = getTagName(t);
-            if (n) tagNames.push(n);
-          }
-          // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
-          tagNames.push(...(ex.aliases ?? []));
-          const rg = effectiveRegion(ex);
-          if (rg) tagNames.push(getTagName(rg));
-          score = scoreEntry(
-            buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames),
-            tokens,
-          );
-          if (score === 0) return null;
-        }
-
-        const selParts = selectedTags.filter(
-          t =>
-            BODY_PARTS.some(bp => bp.toLowerCase() === t.toLowerCase()) ||
-            customTags.some(ct => ct.id === t && ct.category === 'bodyPart'),
-        );
-        const selEquips = selectedTags.filter(
-          t =>
-            EQUIPMENT_TAGS.some(et => et.toLowerCase() === t.toLowerCase()) ||
-            customTags.some(ct => ct.id === t && ct.category === 'equipment'),
-        );
-
-        const matchPart =
-          selParts.length === 0 ||
-          selParts.some(sp => {
-            const bodyPart = ex.bodyPart || '';
-            return sp.toLowerCase() === bodyPart.toLowerCase();
-          });
-
-        const matchEquip =
-          selEquips.length === 0 ||
-          (ex.tags &&
-            Array.isArray(ex.tags) &&
-            ex.tags.some(t =>
-              selEquips.some(se => se.toLowerCase() === (t || '').toLowerCase()),
-            ));
-
-        return matchPart && matchEquip ? { ex, score } : null;
-      })
-      .filter((r): r is { ex: (typeof all)[number]; score: number } => r !== null);
-
-    // 有搜索词时按匹配质量排序；否则保持库内顺序
-    if (tokens.length > 0) scored.sort((a, b) => b.score - a.score);
-    return scored.map(r => r.ex);
-  }, [
-    customExercises,
-    exerciseOverrides,
-    customTags,
-    getTagName,
-    effectiveRegion,
-    activeLibraryCategory,
-    searchQuery,
-    selectedTags,
-    lang,
-  ]);
-}
 
 /**
  * 与训练历史关联的派生数据：最近练过的动作名 + best lifts（PR）

@@ -3,10 +3,11 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Calendar, Target } from 'lucide-react';
-import { ExerciseDefinition, Goal, Language } from '../../types';
+import { Goal, Language } from '../../types';
 import { translations } from '../../translations';
 import GoalsTab from './GoalsTab';
 import ScheduleView from './ScheduleView';
+import type { PlanPickerHost } from './ScheduleEditorModal';
 import { storage } from '../../services/appStorage';
 
 type PlanSubView = 'schedule' | 'goals';
@@ -21,7 +22,8 @@ interface PlanTabProps {
   customTags: { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string }[];
   onStartScheduledSession: (scheduleId: string) => void;
   /** 在编辑器中点击"从动作库选择"时调用，参数是收到所选动作后的回调 */
-  onOpenLibraryForPicker: (onPick: (ex: ExerciseDefinition) => void) => void;
+  /** 计划编辑器选动作弹层用的 App 层弹窗 */
+  planPickerHost: PlanPickerHost;
 }
 
 const PlanTab: React.FC<PlanTabProps> = ({
@@ -31,7 +33,7 @@ const PlanTab: React.FC<PlanTabProps> = ({
   onEditGoal,
   customTags,
   onStartScheduledSession,
-  onOpenLibraryForPicker,
+  planPickerHost,
 }) => {
   const [subView, setSubView] = useState<PlanSubView>(() => {
     if (typeof window === 'undefined') return 'schedule';
@@ -92,7 +94,7 @@ const PlanTab: React.FC<PlanTabProps> = ({
           unit={unit}
           customTags={customTags}
           onStartScheduledSession={onStartScheduledSession}
-          onOpenLibraryForPicker={onOpenLibraryForPicker}
+          pickerHost={planPickerHost}
         />
       ) : (
         <GoalsTab lang={lang} onAddGoal={onAddGoal} onEditGoal={onEditGoal} />

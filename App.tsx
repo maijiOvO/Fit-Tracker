@@ -52,16 +52,15 @@ import { bodyPartTagFor } from './src/components/BodyPartPicker';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
 import { DateTimePicker } from './src/components/DateTimePicker';
 import { EditExerciseTagsModal } from './src/components/EditExerciseTagsModal';
+import type { PlanPickerHost } from './src/components/ScheduleEditorModal';
 import { AppHeader } from './src/components/AppHeader';
 import {
   AddCustomExerciseModal,
   AddGoalModal,
-  AddTagModal,
   DurationPickerModal,
   EditGoalModal,
   ExerciseDateTimePickerModal,
   GymPickerModal,
-  LibraryModal,
   MeasurementModal,
   MetricSettingsModal,
   NoteModal,
@@ -88,7 +87,7 @@ import {
 
 import { useKeyboardScroll } from './src/hooks/useKeyboardScroll';
 import { useTheme } from './src/hooks/useTheme';
-import { useExerciseStats, useFilteredExercises } from './src/hooks/useFilteredExercises';
+import { useExerciseStats } from './src/hooks/useFilteredExercises';
 import { useFitlogSync } from './src/hooks/useFitlogSync';
 import { useWorkoutMutations, type ActiveTab } from './src/hooks/useWorkoutMutations';
 import { useWeightLog } from './src/hooks/useWeightLog';
@@ -169,24 +168,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   }, []);
   useKeyboardScroll(activeTab === 'new');
 
-  // ============== 动作库筛选 UI 状态 ==============
-  const [activeLibraryCategory, setActiveLibraryCategory] =
-    useState<ExerciseCategory | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [isEditingTags, setIsEditingTags] = useState(false);
-  const [showLibrary, setShowLibrary] = useState(false);
-  const libraryPickCallbackRef = useRef<((ex: ExerciseDefinition) => void) | null>(null);
-  const openLibraryForPicker = useCallback(
-    (cb: (ex: ExerciseDefinition) => void) => {
-      libraryPickCallbackRef.current = cb;
-      setActiveLibraryCategory(null);
-      setSelectedTags([]);
-      setSearchQuery('');
-      setShowLibrary(true);
-    },
-    [],
-  );
+  /**
+   * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）。
+   */
+  const createdExerciseTargetRef = useRef<((ex: ExerciseDefinition) => void) | null>(null);
   /** 训练页弹层头部入口：标签管理（只管标签词表，不再进全屏动作库） */
 
   // ============== 训练页「添加动作」弹层 ==============
@@ -203,18 +188,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [flashExerciseId, setFlashExerciseId] = useState<string | null>(null);
   const lastAddedExerciseIdRef = useRef<string | null>(null);
 
-  // ============== Library Modal —— 增加自定义动作 / 自定义标签 ==============
-  const [showAddTagModal, setShowAddTagModal] = useState(false);
-  const [newTagName, setNewTagName] = useState('');
-  const [newTagCategory, setNewTagCategory] = useState<'bodyPart' | 'equipment'>(
-    'bodyPart',
-  );
-
-  const [showRenameModal, setShowRenameModal] = useState(false);
-  const [tagToRename, setTagToRename] = useState<{ id: string; name: string } | null>(
-    null,
-  );
-  const [newTagNameInput, setNewTagNameInput] = useState('');
 
   const [showRenameExerciseModal, setShowRenameExerciseModal] = useState(false);
   const [exerciseToRename, setExerciseToRename] = useState<{
@@ -298,8 +271,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     resumeWorkout,
     pendingScrollToPicker,
     setPendingScrollToPicker,
-    activeScheduleIdRef,
-    markActiveSchedulePending,
+    pendingScheduleCompletion,
     addExerciseToWorkout,
     switchExerciseVariant,
     resumedWorkoutIdsRef,
@@ -398,12 +370,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleResetAccount,
   } = useResetAccount({ setActiveTab, setEditingWorkoutId });
 
-  const filteredExercises = useFilteredExercises({
-    searchQuery,
-    selectedTags,
-    activeLibraryCategory,
-  });
-  const { recentExerciseNames, heatmapData } = useExerciseStats();
+  const { heatmapData } = useExerciseStats();
 
   // ============== 「补加动作」：进入训练页后直接弹出添加动作弹层 ==============
   useEffect(() => {
@@ -423,22 +390,18 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 训练保存后回写关联日程为 completed ==============
   useEffect(() => {
-    if (!markActiveSchedulePending.current) return;
-    const id = activeScheduleIdRef.current;
-    if (!id) return;
-    const target = scheduleCtx.schedules.find(s => s.id === id);
+    const pending = pendingScheduleCompletion.current;
+    if (!pending) return;
+    pendingScheduleCompletion.current = null;
+    const target = scheduleCtx.schedules.find(s => s.id === pending.scheduleId);
     if (!target) return;
-    const lastWorkout = workouts[0];
-    if (!lastWorkout) return;
     void scheduleCtx.updateSchedule({
       ...target,
       status: 'completed',
-      linkedWorkoutId: lastWorkout.id,
+      linkedWorkoutId: pending.workoutId,
       updatedAt: new Date().toISOString(),
     });
-    activeScheduleIdRef.current = null;
-    markActiveSchedulePending.current = false;
-  }, [workouts, scheduleCtx, activeScheduleIdRef, markActiveSchedulePending]);
+  }, [workouts, scheduleCtx, pendingScheduleCompletion]);
 
   // ============== 工作台一变就落盘（编辑旧训练的草稿除外，persistCurrentWorkout 自己认） ==============
   useEffect(() => {
@@ -693,20 +656,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     return currentWorkout.exercises?.[exIdx]?.sets?.[setIdx]?.duration || 0;
   })();
 
-  // ============== Library + AddCustomExercise: pick handler ==============
-  const handlePickFromExercisePicker = useCallback(
-    (ex: ExerciseDefinition) => {
-      if (libraryPickCallbackRef.current) {
-        libraryPickCallbackRef.current(ex);
-        libraryPickCallbackRef.current = null;
-        setShowLibrary(false);
-        return;
-      }
-      addExerciseToWorkout(ex, false);
-    },
-    [addExerciseToWorkout],
-  );
-
   /** C2：这张卡的底稿抄自哪一场、那次做了哪几组（prefillFrom 原来只写不读） */
   const lastSessionFor = useCallback(
     (ex: { name: string; prefillFrom?: string }) => {
@@ -806,16 +755,44 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     return names.length ? names.join(' ⇄ ') : null;
   }, [currentWorkout.exercises, pickerTargetGroup, prefs.resolveName]);
 
+  /** 新建 / 恢复出来的动作：交给计划编辑器（它打开的弹窗），否则加进当前训练 */
+  const deliverCreatedExercise = (ex: ExerciseDefinition) => {
+    const target = createdExerciseTargetRef.current;
+    createdExerciseTargetRef.current = null;
+    if (target) {
+      target(ex);
+      return;
+    }
+    const newId = addExerciseToWorkout(ex, false);
+    if (pickerSheetOpen) {
+      lastAddedExerciseIdRef.current = newId;
+      setSheetSessionAdded(n => n + 1);
+    }
+  };
+
   const openCreateCustomExerciseModal = useCallback(
-    (prefilledName?: string) => {
+    (prefilledName?: string, onCreated?: (ex: ExerciseDefinition) => void) => {
+      createdExerciseTargetRef.current = onCreated ?? null;
       setNewExerciseName(prefilledName?.trim() || '');
       setNewExerciseBodyPart('');
       setNewExerciseTags([]);
       setNewExerciseRegion('');
-      setNewExerciseCategory(activeLibraryCategory || 'STRENGTH');
+      setNewExerciseCategory('STRENGTH');
       setShowAddExerciseModal(true);
     },
-    [activeLibraryCategory],
+    [],
+  );
+
+  /** 计划编辑器里的选动作弹层：弹窗和训练页弹层共用，新建动作改加进计划 */
+  const planPickerHost = useMemo<PlanPickerHost>(
+    () => ({
+      onCreateCustomExercise: (prefilledName, onCreated) => openCreateCustomExerciseModal(prefilledName, onCreated),
+      onEditExerciseTags: ex => setEditExerciseTagsTarget(ex),
+      onDeleteExercise: id => prefs.deleteLibraryExercise(id),
+      onOpenNote: name => setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' }),
+      onOpenMetrics: name => setShowMetricModal({ name }),
+    }),
+    [openCreateCustomExerciseModal, prefs],
   );
 
   // ============== 静音未使用 imports（保留以便未来扩展）==============
@@ -880,46 +857,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         }}
       />
 
-      <AddTagModal
-        open={showAddTagModal}
-        lang={lang}
-        newTagName={newTagName}
-        setNewTagName={setNewTagName}
-        newTagCategory={newTagCategory}
-        setNewTagCategory={setNewTagCategory}
-        onClose={() => setShowAddTagModal(false)}
-        onConfirm={() => {
-          if (!newTagName.trim()) return;
-          const currentCat = activeLibraryCategory || 'STRENGTH';
-          prefs.addCustomTag({
-            id: `ct_${Date.now()}`,
-            name: newTagName.trim(),
-            category: newTagCategory,
-            parentCategory: currentCat,
-          });
-          setShowAddTagModal(false);
-          setNewTagName('');
-        }}
-      />
-
-      <RenameModal
-        open={showRenameModal}
-        lang={lang}
-        title={isCn ? '重命名标签' : 'Rename Tag'}
-        placeholder={tagToRename?.name}
-        value={newTagNameInput}
-        setValue={setNewTagNameInput}
-        onClose={() => setShowRenameModal(false)}
-        onConfirm={() => {
-          if (!tagToRename || !newTagNameInput) return;
-          // 细分在同一部位下重名会被拒（toast 说明），弹窗留着
-          if (!prefs.renameTag(tagToRename.id, newTagNameInput)) return;
-          setShowRenameModal(false);
-          setTagToRename(null);
-          setNewTagNameInput('');
-        }}
-      />
-
       <RenameModal
         open={showRenameExerciseModal}
         lang={lang}
@@ -953,7 +890,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setNewExerciseRegion={setNewExerciseRegion}
         customTags={prefs.customTags}
         getTagName={prefs.getTagName}
-        onClose={() => setShowAddExerciseModal(false)}
+        addsTo={createdExerciseTargetRef.current ? 'plan' : 'workout'}
+        onClose={() => {
+          createdExerciseTargetRef.current = null;
+          setShowAddExerciseModal(false);
+        }}
         onConfirm={() => {
           if (!newExerciseName.trim()) return;
           // 与库里动作的现名 / 曾用名重名就拒绝（第 7 条同一条规矩），弹窗留着改
@@ -962,17 +903,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           if (clash && prefs.exerciseOverrides[clash.id]?.hidden) {
             prefs.restoreLibraryExercise(clash.id);
             const restored = mergeOverride(clash, { ...prefs.exerciseOverrides[clash.id], hidden: false });
-            if (!libraryPickCallbackRef.current) {
-              const newId = addExerciseToWorkout(restored, false);
-              if (pickerSheetOpen) {
-                lastAddedExerciseIdRef.current = newId;
-                setSheetSessionAdded(n => n + 1);
-              }
-            } else {
-              libraryPickCallbackRef.current(restored);
-              libraryPickCallbackRef.current = null;
-              setShowLibrary(false);
-            }
+            deliverCreatedExercise(restored);
             setShowAddExerciseModal(false);
             setNewExerciseName('');
             return;
@@ -1017,17 +948,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           };
           prefs.addCustomExercise(ex);
 
-          if (!libraryPickCallbackRef.current) {
-            const newId = addExerciseToWorkout(ex, false);
-            if (pickerSheetOpen) {
-              lastAddedExerciseIdRef.current = newId;
-              setSheetSessionAdded(n => n + 1);
-            }
-          } else {
-            libraryPickCallbackRef.current(ex);
-            libraryPickCallbackRef.current = null;
-            setShowLibrary(false);
-          }
+          deliverCreatedExercise(ex);
           setShowAddExerciseModal(false);
           setNewExerciseName('');
           setNewExerciseBodyPart('');
@@ -1047,51 +968,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           prefs.saveExerciseTags(exerciseId, bodyPart, tags, region, category);
           setEditExerciseTagsTarget(null);
         }}
-      />
-
-      <LibraryModal
-        open={showLibrary}
-        pickMode={!!libraryPickCallbackRef.current}
-        lang={lang}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeLibraryCategory={activeLibraryCategory}
-        setActiveLibraryCategory={setActiveLibraryCategory}
-        selectedTags={selectedTags}
-        setSelectedTags={setSelectedTags}
-        filteredExercises={filteredExercises}
-        customTags={prefs.customTags}
-        starredExercises={prefs.starredExercises}
-        recentExerciseNames={recentExerciseNames}
-        getTagName={prefs.getTagName}
-        resolveName={prefs.resolveName}
-        isEditingTags={isEditingTags}
-        onToggleEditingTags={() => setIsEditingTags(v => !v)}
-        onClose={() => {
-          libraryPickCallbackRef.current = null;
-          setShowLibrary(false);
-        }}
-        onPickExercise={handlePickFromExercisePicker}
-        onCreateCustomExercise={openCreateCustomExerciseModal}
-        onCreateCustomTag={category => {
-          setNewTagCategory(category);
-          setNewTagName('');
-          setShowAddTagModal(true);
-        }}
-        onEditExerciseTags={ex => setEditExerciseTagsTarget(ex)}
-        onRenameTag={(id, name) => {
-          setTagToRename({ id, name });
-          setNewTagNameInput(name);
-          setShowRenameModal(true);
-        }}
-        onDeleteTag={prefs.deleteTag}
-        onRenameExercise={(id, name) => {
-          setExerciseToRename({ id, name });
-          setNewExerciseNameInput(name);
-          setShowRenameExerciseModal(true);
-        }}
-        onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
-        onToggleStar={prefs.toggleStarExercise}
       />
 
       <AddGoalModal
@@ -1241,7 +1117,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               }}
               customTags={prefs.customTags}
               onStartScheduledSession={handleStartScheduledSession}
-              onOpenLibraryForPicker={openLibraryForPicker}
+              planPickerHost={planPickerHost}
             />
           </Suspense>
         )}

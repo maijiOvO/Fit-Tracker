@@ -21,6 +21,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({ open, lang, data, setData,
       title={isCn ? '动作备注' : 'Exercise Note'}
       subtitle={data?.name}
       size="sm"
+      // 从计划编辑器的选动作弹层（modal-2）里也会打开
+      layer="modal-2"
       dismissOnScrim={false}
       footer={
         <ModalFooter

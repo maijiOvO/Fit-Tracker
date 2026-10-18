@@ -748,6 +748,107 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     return `legacy ${bigDataUrl.length} → ${legacy.len} chars; upload → ${up.len} chars; one copy`;
   });
 
+  // plan-picker-legacy-library / plan-target-weight-unit：计划编辑器选动作走训练页同一个弹层 ——
+  // 压在编辑器上面、连续多选、本次加过的再点＝取消、「已添加」按计划里已有的算、新建动作进计划不进训练；
+  // 目标重量按当前单位（这里 lbs）填、存 kg、开练底稿照填的数；加到 4 个动作保存按钮仍在屏内
+  await step(page, 'seeded-plan-picker-multi-unit', async () => {
+    await page.locator('[data-testid="tab-plan"]').click();
+    await page.locator('[data-testid="plan-subview-schedule"]').click();
+    await page.locator('[data-testid="schedule-add-btn"]').click();
+    await page.locator('[data-testid="schedule-editor"]').waitFor({ state: 'visible' });
+    const planTitle = 'E2E 计划多选';
+    await page.locator('[data-testid="schedule-title-input"]').fill(planTitle);
+    const rows = page.locator('[data-testid="schedule-exercise-row"]');
+
+    await page.locator('[data-testid="schedule-pick-library"]').click();
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const search = sheet.locator('input[type="text"]');
+    await search.waitFor({ state: 'visible', timeout: 3_000 });
+    const z = await page.evaluate(() => {
+      const zOf = el => (el ? Number(getComputedStyle(el).zIndex) : NaN);
+      const sheetRoot = document.querySelector('[data-testid="picker-sheet"]')?.closest('.fixed');
+      const editorRoot = document.querySelector('[data-testid="schedule-editor"]')?.closest('[role="presentation"]');
+      return { sheet: zOf(sheetRoot), editor: zOf(editorRoot) };
+    });
+    if (!(z.sheet > z.editor)) throw new Error(`picker sheet z ${z.sheet} not above plan editor ${z.editor}`);
+
+    const pick = async name => {
+      await search.fill(name);
+      await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: name }).first().click();
+      await page.waitForTimeout(600); // 过 450ms 连点去重
+    };
+    await pick('杠铃平板卧推');
+    await pick('哑铃平板卧推');
+    await pick('哈克深蹲');
+    if ((await rows.count()) !== 3) throw new Error(`3 picks should add 3 plan rows, got ${await rows.count()}`);
+    await pick('哈克深蹲'); // 再点一下＝取消本次添加
+    if ((await rows.count()) !== 2) throw new Error(`tapping 哈克深蹲 again should cancel it, got ${await rows.count()} rows`);
+    const done = page.locator('[data-testid="picker-done"]');
+    if (!/2/.test(await done.innerText())) throw new Error(`done bar should read 本次已加 2, got "${await done.innerText()}"`);
+    await search.fill('杠铃平板卧推');
+    const badge = await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first().innerText();
+    if (!/已添加/.test(badge)) throw new Error(`exercise already in the plan should show 已添加, got "${badge}"`);
+
+    // 从弹层新建：进计划，不进训练（libraryPickCallbackRef 分流删掉之后改成回调）
+    const newName = 'E2E计划新动作';
+    await search.fill(newName);
+    await sheet.getByRole('button', { name: new RegExp(`没找到？创建「${newName}」`) }).click();
+    const dlg = page.locator('[role="dialog"]').filter({ has: page.locator('input') }).last();
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    if (!/加入计划/.test(await dlg.innerText())) throw new Error('create-exercise dialog should say it goes into the plan');
+    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await page.waitForTimeout(400);
+    if ((await rows.count()) !== 3) throw new Error(`created exercise should join the plan, got ${await rows.count()} rows`);
+    if (!(await rows.nth(2).locator('[data-testid="schedule-exercise-name"]').inputValue()).includes(newName)) {
+      throw new Error('third plan row is not the created exercise');
+    }
+    await done.click();
+    await page.waitForTimeout(500);
+    const closed = await page.evaluate(() => !!document.querySelector('[data-testid="picker-sheet"]')?.closest('.pointer-events-none'));
+    if (!closed) throw new Error('完成 did not close the plan picker sheet');
+
+    // 4 个动作：保存按钮还在屏内、没被盖住
+    await page.locator('[data-testid="schedule-add-exercise"]').click();
+    await rows.nth(3).locator('[data-testid="schedule-exercise-name"]').fill('E2E 手填');
+    await rows.nth(0).locator('[data-testid="schedule-exercise-weight"]').fill('135');
+    const save = page.locator('[data-testid="schedule-save-btn"]');
+    const onScreen = await save.evaluate(el => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return r.bottom <= window.innerHeight && r.top >= 0 && !!hit && el.contains(hit);
+    });
+    if (!onScreen) throw new Error('save button is off screen / covered with 4 exercises');
+    await save.click();
+    await page.locator('[data-testid="schedule-editor"]').waitFor({ state: 'detached', timeout: 5_000 });
+
+    const item = page.locator('[data-testid^="schedule-item-"]', { hasText: planTitle }).first();
+    await item.waitFor({ state: 'visible', timeout: 5_000 });
+    const itemText = await item.innerText();
+    if (!/135lbs/.test(itemText)) throw new Error(`plan card should show 135lbs, got "${itemText.replace(/\s+/g, ' ')}"`);
+    const scheduleId = (await item.getAttribute('data-testid')).replace('schedule-item-', '');
+    const saved = await page.evaluate(async id => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      return (snap?.scheduledWorkouts || []).find(s => s.id === id) ?? null;
+    }, scheduleId);
+    const kg = saved?.exercises?.[0]?.targetWeight;
+    if (!(Math.abs(kg - 135 / LBS) < 0.01)) throw new Error(`targetWeight should be stored as kg (${(135 / LBS).toFixed(2)}), got ${kg}`);
+    if (saved.exercises.length !== 4) throw new Error(`plan should keep 4 exercises, got ${saved.exercises.length}`);
+    const workouts = await page.evaluate(async () => (await window.__fitlog.fetchRemote())?.workouts || []);
+    if (workouts.some(w => (w.exercises || []).some(e => e.name === newName))) throw new Error('created exercise leaked into a workout');
+
+    // 开练：底稿重量照计划里填的 135 lbs（原来翻成 297.62）
+    await page.locator(`[data-testid="schedule-start-${scheduleId}"]`).click();
+    await page.waitForTimeout(400);
+    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换
+    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(继续|Continue)$/);
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    const w0 =await page.locator('.ledger-row').first().locator('[data-testid="ledger-field-weight"] input').inputValue();
+    if (Number(w0) !== 135) throw new Error(`prefilled weight should be 135 lbs, got ${w0}`);
+    await backAndDiscard(page);
+    return `z ${z.sheet}>${z.editor} · pick 3 / cancel 1 / create 1 → plan · save on screen · 135lbs ↔ ${kg.toFixed(2)}kg · start prefill 135`;
+  });
+
   await context.close();
 }
 
@@ -968,64 +1069,40 @@ const main = async () => {
   });
 
   await step(page, 'plan-pick-from-library', async () => {
-    // Open library through the editor and append the first available exercise
+    // 计划编辑器选动作走训练页同一个弹层（plan-picker-legacy-library），弹层要压在编辑器上面
     await page.locator('[data-testid="schedule-pick-library"]').click();
-    // Library overlay must sit above the schedule editor.
-    // 以前这里按 `.z-[100]` 类名找 —— 锁死在一个随手 z 值上，而设计规格
-    // 要求的正是干掉这些随手值。现在按 testid 找，并且真的比较计算层级。
-    const lib = page.locator('[data-testid="library-modal"]');
-    await lib.waitFor({ state: 'visible', timeout: 5_000 });
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const search = sheet.locator('input[type="text"]');
+    await search.waitFor({ state: 'visible', timeout: 5_000 });
     const stacking = await page.evaluate(() => {
       const z = el => (el ? Number(getComputedStyle(el).zIndex) : NaN);
-      const libEl = document.querySelector('[data-testid="library-modal"]');
-      const editorEl = document.querySelector('[data-testid="schedule-editor"]');
-      const editorRoot = editorEl && editorEl.closest('[role="presentation"]');
+      const sheetRoot = document.querySelector('[data-testid="picker-sheet"]')?.closest('.fixed');
+      const editorRoot = document.querySelector('[data-testid="schedule-editor"]')?.closest('[role="presentation"]');
       return {
-        lib: z(libEl),
+        sheet: z(sheetRoot),
         editor: z(editorRoot),
         // 同一个父节点才使 z-index 的比较有意义（否则各自在局部层叠上下文里）
-        sameParent: !!libEl && !!editorRoot && libEl.parentElement === editorRoot.parentElement,
+        sameParent: !!sheetRoot && !!editorRoot && sheetRoot.parentElement === editorRoot.parentElement,
       };
     });
-    if (!(stacking.lib > stacking.editor)) {
-      throw new Error(`library z-index ${stacking.lib} not above editor ${stacking.editor}`);
+    if (!(stacking.sheet > stacking.editor)) {
+      throw new Error(`picker sheet z-index ${stacking.sheet} not above editor ${stacking.editor}`);
     }
-    if (!stacking.sameParent) {
-      throw new Error('library and editor are not in the same stacking parent');
-    }
+    if (!stacking.sameParent) throw new Error('picker sheet and editor are not in the same stacking parent');
 
-    // === Sub-check: the sidebar tags should be functional ===
-    // In "all categories" mode (default from plan picker), sidebar should show body parts header.
-    // ExercisePicker 使用 h4 作为部位/器材分区标题（非 h3）
-    await lib.locator('h3, h4', { hasText: /训练部位|Body Parts/ }).first().waitFor({ state: 'visible', timeout: 5_000 });
-    const initialCount = await page.locator('[data-testid="library-exercise-card"]').count();
-    if (initialCount === 0) throw new Error('library showed 0 exercises in "all categories" mode');
-    // Click the first body-part tag in the sidebar and ensure list narrows
-    const firstBodyPartTag = lib
-      .locator('button')
-      .filter({ hasText: /^(胸部|肩部|背部|手臂|腿部|核心|Chest|Shoulder|Back|Arms|Legs|Core)$/ })
-      .first();
-    await firstBodyPartTag.click();
-    await page.waitForTimeout(300);
-    const filteredCount = await page.locator('[data-testid="library-exercise-card"]').count();
-    if (filteredCount === 0 || filteredCount >= initialCount) {
-      throw new Error(
-        `sidebar tag filter not working: initial=${initialCount}, after-click=${filteredCount}`,
-      );
-    }
-
-    // Pick the first remaining exercise
-    await page.locator('[data-testid="library-exercise-card"]').first().click();
-    // Library closes
-    await lib.waitFor({ state: 'detached', timeout: 5_000 });
-    // Editor should still be open and have at least 2 exercise rows
+    const card = sheet.locator('[data-testid="picker-sheet-exercise"]').first();
+    await card.waitFor({ state: 'visible', timeout: 5_000 });
+    await card.click();
+    await page.waitForTimeout(600);
+    await page.locator('[data-testid="picker-done"]').click();
+    await page.waitForTimeout(500);
     const rows = await page.locator('[data-testid="schedule-exercise-row"]').count();
-    if (rows < 2) throw new Error(`expected >= 2 exercise rows after library pick, got ${rows}`);
+    if (rows < 2) throw new Error(`expected >= 2 exercise rows after picking, got ${rows}`);
     // Inferred body parts chip area should now contain at least one entry
     const inferred = page.locator('[data-testid="schedule-inferred-bodyparts"]');
     const hasInferred = await inferred.isVisible().catch(() => false);
     if (!hasInferred) throw new Error('inferred body-parts chip area not visible after pick');
-    return `tag-filter ${initialCount}→${filteredCount}; ${rows} rows; inferred chips ok`;
+    return `z ${stacking.sheet}>${stacking.editor}; ${rows} rows; inferred chips ok`;
   });
 
   await step(page, 'plan-save-schedule', async () => {
@@ -1132,6 +1209,15 @@ const main = async () => {
     }, createdScheduleId);
     if (!verify.ok) throw new Error(`fromSchedule check failed: ${JSON.stringify(verify)}`);
     finishedWorkoutId = verify.workoutId;
+    // plan-session-leaks-schedule-id：计划标完成、关联到刚结束的这一场（原来拿 workouts[0]）
+    const sched = await page.evaluate(async id => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      return (snap?.scheduledWorkouts || []).find(s => s.id === id) ?? null;
+    }, createdScheduleId);
+    if (sched?.status !== 'completed' || sched?.linkedWorkoutId !== verify.workoutId) {
+      throw new Error(`schedule should be completed & linked to ${verify.workoutId}, got ${JSON.stringify({ status: sched?.status, linked: sched?.linkedWorkoutId })}`);
+    }
     return `workout ${verify.workoutId} linked to schedule, persisted to remote`;
   });
 
@@ -1802,12 +1888,12 @@ const main = async () => {
     const newRow = rows.nth(before);
     if (await isInked(newRow)) throw new Error('a freshly added set started as done');
 
-    // 上一组带着递减档（前面的用例加的），「添加组」不能把它抄过来（addset-clones-drop-set）：
-    // 抄过来点了组号，没做过的那档就进了历史和容量
+    // 上一组带着递减档（前面的用例加的），「添加组」照抄过来（a5aa5f3，2026-10-15 用户定：和普通组同一套继承，
+    // 撤回 10-06 审查的 addset-clones-drop-set「不抄」；不做那档就删掉）
     const prevSubs = await page.locator(`[data-set-idx="${before - 1}"] [data-testid="subset-remove"]`).count();
     if (prevSubs < 1) throw new Error('fixture drift: the previous set should carry a drop set here');
     const copiedSubs = await page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`).count();
-    if (copiedSubs !== 0) throw new Error(`添加组 copied ${copiedSubs} drop-set row(s) from the previous set`);
+    if (copiedSubs !== prevSubs) throw new Error(`添加组 should copy the ${prevSubs} drop-set row(s) of the previous set, got ${copiedSubs}`);
 
     // 点下面的组＝指针直接挪到它下方：经过的那组一并做完；再点上面的组＝指针挪回去，后面的退回待做
     // （新加的那组抄了上一组的值、仍待做，正好当第 2 组用；单组卡测不到扫动，所以这里不许跳过）
@@ -1827,7 +1913,8 @@ const main = async () => {
     if (await isInked(row0)) throw new Error('reverting set 1 after the sweep failed');
 
     // A1：点进格子即全选，打字替换旧值；回车跳到同一行的次数格
-    // A2：改了的值带动后面「同值、没动过」的底稿；手动改过的不跟
+    // A2：改了的值带动后面没动过的底稿；手动改过的不跟。
+    // 打字中途只改这一格，回车 / 离开输入框时按总差值结算一次（a5aa5f3：逐键跟会经过 1、15，差值被截掉）
     const w0in = row0.locator('[data-testid="ledger-field-weight"] input');
     const w1in = row1.locator('[data-testid="ledger-field-weight"] input');
     const wBefore = await w0in.inputValue();
@@ -1836,9 +1923,10 @@ const main = async () => {
     await page.waitForTimeout(80); // 全选放在下一帧
     await page.keyboard.type('77');
     if ((await w0in.inputValue()) !== '77') throw new Error(`typing into a draft cell should replace it, got ${await w0in.inputValue()} (was ${wBefore})`);
-    if ((await w1in.inputValue()) !== '77') throw new Error(`same-value draft below did not follow: ${await w1in.inputValue()}`);
-    if ((await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) !== 0) throw new Error('a follower must stay a draft (not is-edited)');
+    if ((await w1in.inputValue()) !== wBefore) throw new Error(`draft below should hold while typing, got ${await w1in.inputValue()}`);
     await page.keyboard.press('Enter');
+    if ((await w1in.inputValue()) !== '77') throw new Error(`same-value draft below did not follow on Enter: ${await w1in.inputValue()}`);
+    if ((await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) !== 0) throw new Error('a follower must stay a draft (not is-edited)');
     const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || '');
     if (!/^reps/.test(focused)) throw new Error(`Enter in the weight cell should focus reps, focused "${focused}"`);
     await page.keyboard.press('Enter'); // 次数格回车收键盘
