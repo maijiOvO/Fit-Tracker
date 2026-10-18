@@ -149,7 +149,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
               aria-label={title}
               onClick={onPickDay ? () => onPickDay(c) : undefined}
               className={`aspect-square rounded-chip ${
-                c.isToday ? 'ring-1 ring-accent' : ''
+                c.isToday ? 'ring-1 ring-accent ring-offset-1 ring-offset-card' : ''
               }`}
               style={{
                 ['--lvl' as string]: c.level,

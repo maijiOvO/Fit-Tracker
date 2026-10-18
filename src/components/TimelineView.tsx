@@ -308,7 +308,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
     <div
       data-testid={`timeline-session-${w.id}`}
       className={`ui-card-interactive relative px-3 py-2.5 transition-ui touch-pan-y ${
-        isExpanded ? 'ring-2 ring-accent/25' : ''
+        isExpanded ? 'ring-2 ring-accent/60' : ''
       }${menuOpen ? ' z-30 shadow-overlay' : ''}`}
       {...pressHandlers}
     >

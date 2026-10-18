@@ -702,10 +702,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       }
     }
     return m;
-  }, [workouts, currentWorkout.id, prefs]);
+    // 只依赖 liftKey：依赖整个 prefs 会让改备注 / 换杠这类无关偏好也触发全历史重算
+  }, [workouts, currentWorkout.id, prefs.liftKey]);
   const bestKgFor = useCallback(
     (ex: { name: string; variantId?: string; variantName?: string }) => bestKgByLift.get(prefs.liftKey(ex).trim()) ?? null,
-    [bestKgByLift, prefs],
+    [bestKgByLift, prefs.liftKey],
   );
 
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============

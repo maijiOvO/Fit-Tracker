@@ -115,18 +115,17 @@ export function convert(v: number, from: PlateUnit, to: PlateUnit): number {
 const near = (v: number, step: number, tol: number) => Math.abs(v / step - Math.round(v / step)) * step < tol;
 
 /**
- * 这一组挂的是哪种片：登记时记下的优先；老数据看重量 ——
- * 换成磅正好落在 2.5 lb 的网格上、而公斤数不在 1.25 kg 网格上，就是磅片。
+ * 这一组挂的是哪种片：登记时记下的优先；老数据看存下来的公斤数「整不整」——
+ * 存储一律是 kg：kg 下打的数（93、62.5）本来就落在 0.25 kg 网格上，lbs 下打的数是换算出来的
+ * 长小数（135 lb = 61.2349… kg）。所以先看公斤数整不整，整就是公斤片；不整、而换成磅落在 2.5 lb 网格上才是磅片。
+ * （第一版反过来先看磅网格，93 kg 这类常见公斤数会被误判成磅片 —— 2026-10-18 审查扫出 19 个。）
  */
 export function plateUnitOf(set: { weight?: number; plateUnit?: PlateUnit } | undefined, fallback: PlateUnit): PlateUnit {
   if (set?.plateUnit === 'kg' || set?.plateUnit === 'lbs') return set.plateUnit;
   const kg = Number(set?.weight) || 0;
   if (kg <= 0) return fallback;
-  const lb = kg / KG_PER_LB;
-  const onLb = near(lb, 2.5, 0.05);
-  const onKg = near(kg, 1.25, 0.02);
-  if (onLb && !onKg) return 'lbs';
-  if (onKg && !onLb) return 'kg';
+  if (near(kg, 0.25, 0.004)) return 'kg';
+  if (near(kg / KG_PER_LB, 2.5, 0.06)) return 'lbs';
   return fallback;
 }
 

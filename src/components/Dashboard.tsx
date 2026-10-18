@@ -204,7 +204,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="space-y-5 anim-tab-enter">
       {/* 进行中的训练（workbench-not-restored）：练到一半出来看一眼，从这里接回去 */}
       {inProgress && (
-        <div className="ui-card flex items-stretch overflow-hidden border-accent/50" data-testid="in-progress">
+        <div className="ui-card flex items-stretch overflow-hidden shadow-[inset_4px_0_0_var(--text-primary)]" data-testid="in-progress">
           <button
             type="button"
             onClick={actions.onResumeWorkout}
@@ -405,7 +405,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           return (
             <div
               key={lift.name}
-              className={`ui-card-interactive p-5 ${isExpanded ? 'ring-2 ring-accent/25' : ''}`}
+              className={`ui-card-interactive p-5 ${isExpanded ? 'ring-2 ring-accent/60' : ''}`}
             >
               <div
                 className="flex justify-between items-center cursor-pointer"

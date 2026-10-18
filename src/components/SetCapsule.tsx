@@ -22,19 +22,23 @@ import type { LoadKind } from '../hooks/useLoadKind';
 import { BARBELL_STEP } from '../utils/plates';
 
 /**
- * 「杠铃片」§3：重量格拖一格多少、往哪拖，跟着器材走（交互只有一套，变的只是步长和方向）。
- * 杠铃一格＝最小一对片（kg 2.5 / lbs 5，2026-10-18 用户定）；配重片一格＝一片（默认 5 kg / 10 lbs），竖拖。
+ * 「杠铃片」§3：拖一格多少、往哪拖，跟着器材走（交互只有一套，变的只是步长和方向）。
+ * 杠铃一格＝最小一对片（kg 2.5 / lbs 5，2026-10-18 用户定）；配重片一格＝一片（默认 5 kg / 10 lbs）。
+ * axis 只给顶部大图用：配重片的大图竖拖。组行的重量格一律横拖 —— 格子竖拖会和页面滚动抢手势
+ * （手指落在格子上往上滑本想滚页面，结果改了重量、后面的底稿也跟着变；2026-10-18 审查后用户定）。
+ * 档位表最高到 4 格（原先 8 格时快甩一下能跳 100 kg 以上）。
  */
 export function weightScrubFor(kind: LoadKind | undefined, unit: string): { steps: number[]; axis: 'x' | 'y'; grid?: number } {
   const u = unit === 'lbs' ? 'lbs' : 'kg';
   if (kind === 'plates') {
     const b = BARBELL_STEP[u];
     // grid：配不出来的重量（62、61.24）第一格先吸到能配出来的那一档
-    return { steps: [b, b * 2, b * 4, b * 8], axis: 'x', grid: b };
+    return { steps: [b, b * 2, b * 4], axis: 'x', grid: b };
   }
   if (kind === 'pin') {
     const b = u === 'kg' ? 5 : 10;
-    return { steps: [b, b * 2, b * 4], axis: 'y' };
+    // grid：37 这种不在片上的数，第一格先吸到 35 / 40，否则插销画的和数字对不上
+    return { steps: [b, b * 2], axis: 'y', grid: b };
   }
   return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
 }
@@ -268,7 +272,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     // 走 update：待做行上横拖只改值、记 touched，不描实
     onChange: next => update(fromDisplay(next)),
     steps: weightFeel.steps,
-    axis: weightFeel.axis,
+    // 组行格子一律横拖（见 weightScrubFor 注释），竖拖只给大图
+    axis: 'x',
     grid: weightFeel.grid,
     disabled: readOnly,
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
@@ -494,12 +499,18 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               data-testid={`ledger-field-${m}`}
               className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
-              }${m === 'weight' && weightFeel.axis === 'y' ? ' is-scrub-y' : ''}${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
+              }${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
                 ['--ledger-chars' as string]: Math.max(display.length, 1),
                 // 整数部分的位数：重量数字按它定位，十位 / 个位钉住不动，小数往右长（2026-10-18 用户定：
                 // 居中对齐时 60 → 62.5 一路左右飘）
                 ['--int-chars' as string]: Math.max(display.split('.')[0].replace('-', '').length, 1),
+                // 收字号用：从中线往右要放下几个数字宽。小数点只有数字宽的约 2/3（Barlow 实测 0.325 vs 0.475 em），
+                // 按整字算会把 102.5 收到 24px，掉到 §0「≥26px」底线以下
+                ['--fit-chars' as string]: (() => {
+                  const int = Math.max(display.split('.')[0].replace('-', '').length, 1);
+                  return Math.max(1, display.length - int / 2 - (display.includes('.') ? 0.32 : 0));
+                })(),
                 ['--ledger-unit-w' as string]: `${Math.max(20, unitLabel.length * 6.5 + 4)}px`,
               }}
               {...(scrub ? scrub.handlers : {})}
@@ -584,17 +595,20 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             }
             className={`w-9 h-11 justify-self-center flex items-center justify-center
               font-display font-semibold leading-none transition-ui active:scale-press-sm
-              ${set.toFailure ? 'text-accent text-[19px]' : 'text-tertiary/35 text-[17px]'}`}
+              ${set.toFailure ? 'text-[17px]' : 'text-tertiary/35 text-[17px]'}`}
           >
-            {isCn ? '竭' : 'F'}
+            {/* 标了力竭＝墨底反白的小方块：换装后强调色是墨，单靠颜色已经和数字分不开（2026-10-18 审查） */}
+            <span className={set.toFailure ? 'w-7 h-7 flex items-center justify-center rounded-chip bg-accent text-on-accent' : ''}>
+              {isCn ? '竭' : 'F'}
+            </span>
           </button>
         ) : set.toFailure ? (
           <span
             className="w-9 justify-self-center flex items-center justify-center
-              font-display font-semibold text-[19px] leading-none text-accent"
+              font-display font-semibold text-[17px] leading-none"
             title={isCn ? '做到力竭' : 'To failure'}
           >
-            {isCn ? '竭' : 'F'}
+            <span className="w-7 h-7 flex items-center justify-center rounded-chip bg-accent text-on-accent">{isCn ? '竭' : 'F'}</span>
           </span>
         ) : (
           <span />

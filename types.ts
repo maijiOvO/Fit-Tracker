@@ -96,6 +96,8 @@ export interface SetLog {
 export interface SubSetLog {
   id: string;
   weight: number;    // 独立的重量设置
+  /** 「杠铃片」：登记时的单位（递减档改重量时和母组一样会写上） */
+  plateUnit?: 'kg' | 'lbs';
   reps: number;      // 独立的次数设置
   restSeconds?: number; // 子组间休息时间（可选）
   note?: string;     // 子组备注（可选）

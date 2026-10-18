@@ -1513,7 +1513,8 @@ button {
 /* 描实 = 墨色过冲（文字版）：从朱砂墨沉回实墨，零位移 */
 @keyframes ink-text {
   from {
-    color: var(--accent-ink);
+    /* 换装后 accent-ink 和实墨几乎同色，描实动画看不出来；从淡墨沉到实墨 */
+    color: var(--text-tertiary);
   }
 }
 .ledger-row.is-inkin .ledger-input,
@@ -1576,7 +1577,7 @@ button {
   height: var(--rest-h);
   border-radius: 0 3px 3px 0;
   background: var(--accent);
-  box-shadow: 0 1px 2px rgba(26, 23, 20, 0.18);
+  box-shadow: 0 1px 2px rgba(22, 24, 27, 0.18);
 }
 /* 骑缝线是 tab 的 flex 兄弟，align-items:center 自己会把它压在缝上。
    绝对定位就得再算一次 top —— 那个坑不值得踩第二遍。 */
@@ -1608,7 +1609,7 @@ button {
   height: var(--rest-h);
   border-radius: 0 3px 3px 0;
   background: var(--accent);
-  box-shadow: 0 2px 8px rgba(26, 23, 20, 0.3);
+  box-shadow: 0 2px 8px rgba(22, 24, 27, 0.3);
 }
 .rest-float-line {
   z-index: 59;
@@ -1697,9 +1698,10 @@ button {
   transform: translate(0, 0) scale(1);
 }
 .seal-fan-item.is-hover {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  border-color: var(--accent-ink);
+  /* 换装后强调色是墨：浅底配墨字的悬停几乎看不出变化，改成实心反白 */
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
   transform: translate(calc(var(--hx) * var(--move)), calc(var(--hy) * var(--move))) scale(1.16);
   transition-duration: var(--dur-tap);
   z-index: 57;
@@ -1750,7 +1752,8 @@ button {
   opacity: 1;
 }
 .seal-fan-label.is-hover {
-  color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 /* 悬停印上方浮出的部位名（纸片小签） */

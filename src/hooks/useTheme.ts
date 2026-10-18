@@ -29,7 +29,7 @@ function resolveTheme(pref: ThemePreference): ResolvedTheme {
 function applyThemeClass(resolved: ResolvedTheme) {
   const root = document.documentElement;
   root.classList.toggle('dark', resolved === 'dark');
-  const color = resolved === 'dark' ? '#14120F' : '#EFE9DC';
+  const color = resolved === 'dark' ? '#121315' : '#E9EAEC';
   let meta = document.querySelector('meta[name="theme-color"][data-dynamic]') as HTMLMetaElement | null;
   if (!meta) {
     meta = document.createElement('meta');

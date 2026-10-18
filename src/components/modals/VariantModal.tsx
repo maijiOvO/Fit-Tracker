@@ -116,7 +116,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
       <div
         key={id || 'std'}
         className={`flex items-stretch rounded-card border overflow-hidden ${
-          on ? 'border-accent bg-accent/5' : 'border-divider bg-card'
+          on ? 'border-accent bg-accent/10' : 'border-divider bg-card'
         }`}
       >
         <button

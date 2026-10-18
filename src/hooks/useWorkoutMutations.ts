@@ -73,6 +73,8 @@ function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
       reps: s.reps ?? 0,
       // 带正负的负荷：号跟着抄，否则辅助的组 / 降进辅助的递减档下次会变成负重
       ...(s.bodyweightMode ? { bodyweightMode: s.bodyweightMode } : {}),
+      // 「杠铃片」：挂的是哪种片跟着抄，否则下一场的底稿又得靠推断（推断不了的会退回显示单位）
+      ...(s.plateUnit ? { plateUnit: s.plateUnit } : {}),
       ...(s.duration ? { duration: s.duration } : {}),
       ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
       ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),

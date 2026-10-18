@@ -56,7 +56,7 @@ export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, va
           on
             ? 'bg-accent text-on-accent shadow-elevated'
             : custom
-              ? 'bg-accent/5 text-accent border border-accent/40'
+              ? 'bg-accent/10 text-accent border border-accent/40'
               : 'bg-card text-secondary hover:bg-card-hover'
         }`}
       >

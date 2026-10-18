@@ -14,7 +14,7 @@
  * 甩得快时「触发的档位更多」和「每档更值钱」是双重加成，
  * 一次甩动就能跨很大范围；而慢下来立刻回到 ×1，末端精调不用切模式。
  */
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
 import { scrubFeel, SCRUB_FEEL_PX } from '../utils/scrubFeel';
@@ -124,6 +124,10 @@ export function useValueScrub({
   const [step, setStep] = useState(steps[0] ?? 1);
   /** 档位表按值比较，别让调用方每次渲染新建的数组把 onPointerMove 的身份打翻 */
   const stepsKey = steps.join(',');
+  // 档位表换了（切单位、换器材）就把当前档复位，否则下一次慢拖的第一下会被当成「换档」震一下
+  useEffect(() => {
+    setStep(Number(stepsKey.split(',')[0]) || 1);
+  }, [stepsKey]);
 
   const drag = useRef<{
     x0: number;
@@ -240,7 +244,7 @@ export function useValueScrub({
         haptic(H.tap); // 每档＝点击感
       }
     },
-    [min, onChange, step, stepsKey, vel, axis],
+    [min, onChange, step, stepsKey, vel, axis, grid],
   );
 
   const end = useCallback(() => {

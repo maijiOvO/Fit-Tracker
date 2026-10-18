@@ -136,16 +136,16 @@ function makeEndLabel(lastIndex: number, color: string, textColor: string, suffi
 function chartPalette(_dark: boolean) {
   const cs = getComputedStyle(document.documentElement);
   const v = (name: string, fallback: string) => cs.getPropertyValue(name).trim() || fallback;
-  const accent = v('--accent', '#B23A28');
+  const accent = v('--accent', '#16181B');
   return {
     accent,
     accentSoft: `color-mix(in srgb, ${accent} 18%, transparent)`,
-    tick: v('--text-tertiary', '#665E53'),
-    axis: v('--divider', '#D9D0BC'),
-    tooltipBg: v('--bg-card', '#FBF8F1'),
-    tooltipBorder: v('--divider', '#D9D0BC'),
-    tooltipText: v('--text-primary', '#1A1714'),
-    tooltipLabel: v('--text-tertiary', '#665E53'),
+    tick: v('--text-tertiary', '#5E636A'),
+    axis: v('--divider', '#D5D8DC'),
+    tooltipBg: v('--bg-card', '#F7F7F8'),
+    tooltipBorder: v('--divider', '#D5D8DC'),
+    tooltipText: v('--text-primary', '#16181B'),
+    tooltipLabel: v('--text-tertiary', '#5E636A'),
   };
 }
 

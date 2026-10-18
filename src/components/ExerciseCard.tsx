@@ -164,10 +164,12 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const loadKind = useLoadKindOf()(exercise, signed);
   const prIdx = prSetIndex(exercise, bestKg, signed);
   /**
-   * 顶部器材大图跟着「正在改的那一组」走：选中的那一组在这张卡上才画（全场至多一张卡有）。
-   * 其余卡保持紧凑，不然每张卡都多出一截图。
+   * 顶部器材大图每张卡都画（2026-10-18 审查后用户定：只画选中那张时，做完一个动作大图跳到下一张卡，
+   * 页面一跳容易点错组）。画哪一组：选中的组在这张卡上就画它，否则画这张卡下一组待做的，都做完了画最后一组。
    */
-  const focusIdx = selectedSetId ? exercise.sets.findIndex(s => String(s.id) === selectedSetId) : -1;
+  const selIdx = selectedSetId ? exercise.sets.findIndex(s => String(s.id) === selectedSetId) : -1;
+  const pendingIdx = exercise.sets.findIndex(s => s.ghost);
+  const focusIdx = selIdx >= 0 ? selIdx : pendingIdx >= 0 ? pendingIdx : exercise.sets.length - 1;
   const focusSet = focusIdx >= 0 ? exercise.sets[focusIdx] : undefined;
   const focusValue = focusSet
     ? Number(formatWeight(Number(focusSet.weight) || 0, unit)) *
@@ -491,7 +493,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         <button
           type="button"
           onClick={() => onToggleNote(exerciseName)}
-          className="w-full text-left px-3 py-2 bg-highlight-soft text-label text-primary flex items-start gap-2"
+          className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
         >
           <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-warning" strokeWidth={1.75} />
           {exerciseNotes[exerciseName]}

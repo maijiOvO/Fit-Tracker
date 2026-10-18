@@ -319,24 +319,17 @@
   pointer-events: none;
 }
 
-/* 竖拖的格子（配重片摞）：竖向手势归自己，横向照旧交给页面 */
-.ledger-field.is-scrubbable.is-scrub-y { touch-action: pan-x; }
-.ledger-field.is-scrubbing.is-scrub-y::before {
-  left: auto;
-  right: -2px;
-  top: 0;
-  bottom: 0;
-  width: 6px;
-  height: auto;
-  background: repeating-linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px 10px);
-}
-
 /* 重量数字按整数位定位，不居中（2026-10-18 用户定：居中时 60 → 62.5 拖着一路左右飘）。
    左缘 = 输入区中线 − 半个整数宽：十位 / 个位钉住，小数往右长；只有位数变了（95 → 100）才挪一次。
    % 相对格子（label）宽，减掉半个单位宽才是原先居中时的那条中线；ch = 当前字号下一个数字的宽。 */
 .ledger-input.is-int-anchored {
   text-align: left;
   padding-left: max(0px, calc(50% - var(--ledger-unit-w, 20px) / 2 - var(--int-chars, 2) * 0.5ch));
+}
+/* 收字号也要按「从中线往右伸多远」算，不能再按整串居中算（审查：102.5 / 154.32 末位被裁掉）：
+   右半边能放 (格宽 − 单位宽) / 2，要放下 --fit-chars 个数字宽（总位数 − 整数位 / 2，小数点按 0.68 个算，见 SetCapsule）。 */
+.ledger-fit .ledger-input.is-int-anchored {
+  font-size: max(11px, min(30px, calc((100cqi - var(--ledger-unit-w, 20px)) / (2 * var(--fit-chars, 2) * 0.475))));
 }
 
 /* 标题：得意黑，只用于 ≥20px（作者明说不适合正文与 UI） */

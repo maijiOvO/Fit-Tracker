@@ -252,7 +252,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   const tabBtn = (active: boolean) =>
     `flex flex-col items-center justify-center gap-1 transition-colors ${
-      active ? 'text-accent' : 'text-tertiary hover:text-secondary'
+      // 换装后强调色是墨，选中 / 未选只剩明度差（< 3:1），再加粗一档
+      active ? 'text-primary font-bold' : 'text-tertiary hover:text-secondary'
     }`;
 
   const fanVisible = fanState !== 'idle';

@@ -199,7 +199,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         className="w-full bg-card border border-divider p-5 rounded-card flex items-center justify-between group active:scale-press-sm transition-ui shadow-lg"
       >
         <div className="flex items-center gap-4">
-          <div className="p-4 bg-accent/20 text-accent rounded-card group-hover:bg-accent group-hover:text-primary transition-colors">
+          <div className="p-4 bg-accent/20 text-accent rounded-card group-hover:bg-accent group-hover:text-on-accent transition-colors">
             <Scale size={24} />
           </div>
           <div className="text-left">
@@ -236,7 +236,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               <div 
                 key={metric.name} 
                 className={`bg-card border border-divider rounded-card transition-ui duration-300 overflow-hidden cursor-pointer
-                  ${isExpanded ? 'col-span-2 ring-1 ring-accent/25 bg-card-hover' : 'col-span-1 active:scale-press-sm hover:bg-card-hover'}`}
+                  ${isExpanded ? 'col-span-2 ring-1 ring-accent/60 bg-card-hover' : 'col-span-1 active:scale-press-sm hover:bg-card-hover'}`}
                 onClick={() => onToggleMetric(isExpanded ? null : metric.name)}
               >
                 <div className="p-4">

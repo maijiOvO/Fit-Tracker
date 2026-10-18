@@ -1186,7 +1186,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               setEquipMenu({ id: '' });
             }}
             aria-label={isCn ? '新建器材' : 'New gear'}
-            className="flex-shrink-0 min-h-[34px] px-2.5 rounded-control flex items-center bg-accent/5 text-accent border border-dashed border-accent/40"
+            className="flex-shrink-0 min-h-[34px] px-2.5 rounded-control flex items-center bg-accent/10 text-accent border border-dashed border-accent/40"
           >
             <Plus size={13} strokeWidth={2.5} />
           </button>
@@ -1214,7 +1214,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       on
         ? 'bg-accent text-on-accent shadow-elevated'
         : custom
-          ? 'bg-accent/5 text-accent border border-dashed border-accent/40'
+          ? 'bg-accent/10 text-accent border border-dashed border-accent/40'
           : 'bg-inset text-secondary'
     }`;
 
@@ -1501,7 +1501,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 setPartMenu({ id: '' });
               }}
               aria-label={isCn ? '新建部位' : 'New part'}
-              className="flex-shrink-0 min-h-[38px] w-[38px] rounded-control flex items-center justify-center bg-accent/5 text-accent border border-dashed border-accent/40"
+              className="flex-shrink-0 min-h-[38px] w-[38px] rounded-control flex items-center justify-center bg-accent/10 text-accent border border-dashed border-accent/40"
               data-testid="arrange-new-part"
             >
               <Plus size={14} strokeWidth={2.5} />

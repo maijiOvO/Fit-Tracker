@@ -3,8 +3,8 @@
   "short_name": "Fit Tracker",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#EFE9DC",
-  "theme_color": "#B23A28",
+  "background_color": "#E9EAEC",
+  "theme_color": "#E9EAEC",
   "icons": [
     {
       "src": "/icons/icon-96.png",
