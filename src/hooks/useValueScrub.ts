@@ -76,6 +76,18 @@ interface Options {
   /** 档位表，默认重量的 1/2/5/10。次数传 SCRUB_STEPS_REPS。 */
   steps?: number[];
   disabled?: boolean;
+  /**
+   * 拖动方向，默认横向。「杠铃片」§3：方向顺着重量的摆放方向 ——
+   * 杠铃片沿杆横排就横拖；配重片一摞竖着排就竖拖，往下 = 插销往下 = 更重。
+   * 竖拖的格子要配 touch-action: pan-x（.is-scrub-y），否则竖向手势先被页面滚动吃掉。
+   */
+  axis?: 'x' | 'y';
+  /**
+   * 吸附网格：第一档先把不在网格上的值吸到网格（往右 ceil、往左 floor）并吃掉这一档。
+   * 不传＝原来的「0.5 的倍数」（只收拾 kg⇄lbs 换算残留）。
+   * 杠铃传最小一对片（kg 2.5 / lbs 5）：62 配不出来，往左拖第一格先到 60，再照常一格 2.5。
+   */
+  grid?: number;
 }
 
 interface Result {
@@ -99,7 +111,15 @@ export function useValueScrub({
   min = 0,
   steps = SCRUB_STEPS_WEIGHT,
   disabled = false,
+  axis = 'x',
+  grid,
 }: Options): Result {
+  const offGrid = (v: number) => (grid ? Math.abs(v / grid - Math.round(v / grid)) > 1e-6 : isResidue(v));
+  const toGrid = (v: number, sign: number) =>
+    grid
+      ? Math.round((sign > 0 ? Math.ceil(v / grid - 1e-9) : Math.floor(v / grid + 1e-9)) * grid * 100) / 100
+      : sign > 0 ? Math.ceil(v) : Math.floor(v);
+  const pos = (e: React.PointerEvent) => (axis === 'y' ? e.clientY : e.clientX);
   const [scrubbing, setScrubbing] = useState(false);
   const [step, setStep] = useState(steps[0] ?? 1);
   /** 档位表按值比较，别让调用方每次渲染新建的数组把 onPointerMove 的身份打翻 */
@@ -149,17 +169,18 @@ export function useValueScrub({
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (disabled) return;
+      const p = pos(e);
       drag.current = {
-        x0: e.clientX,
-        x: e.clientX,
+        x0: p,
+        x: p,
         acc: 0,
         engaged: false,
         vs: 0,
-        samples: [[performance.now(), e.clientX]],
+        samples: [[performance.now(), p]],
         snapped: false,
       };
     },
-    [disabled],
+    [disabled, axis],
   );
 
   const onPointerMove = useCallback(
@@ -168,7 +189,7 @@ export function useValueScrub({
       if (!d) return;
 
       if (!d.engaged) {
-        if (Math.abs(e.clientX - d.x0) < ENGAGE_PX) return;
+        if (Math.abs(pos(e) - d.x0) < ENGAGE_PX) return;
         d.engaged = true;
         setScrubbing(true);
         try {
@@ -181,9 +202,10 @@ export function useValueScrub({
         (document.activeElement as HTMLElement | null)?.blur?.();
       }
 
-      const dx = e.clientX - d.x;
-      d.x = e.clientX;
-      d.samples.push([performance.now(), e.clientX]);
+      const p = pos(e);
+      const dx = p - d.x;
+      d.x = p;
+      d.samples.push([performance.now(), p]);
       if (d.samples.length > 8) d.samples.shift();
 
       d.vs = d.vs * EMA + vel() * (1 - EMA);
@@ -200,11 +222,11 @@ export function useValueScrub({
       let next = valueRef.current;
       while (Math.abs(d.acc) >= px) {
         const sign = d.acc > 0 ? 1 : -1;
-        if (!d.snapped && isResidue(next)) {
+        if (!d.snapped && offGrid(next)) {
           // 切过单位后的 132.28 这种值，第一档先取整（往右 ceil、往左 floor）并吃掉这一档，
           // 之后再照常 ±1/2/5/10 —— 否则会一路拖出 133.28、134.28。
           // 只在拖动时取整：切单位、打字都保留原值。
-          next = Math.max(min, sign > 0 ? Math.ceil(next) : Math.floor(next));
+          next = Math.max(min, toGrid(next, sign));
         } else {
           next = Math.max(min, Math.round((next + sign * nextStep) * 10) / 10);
         }
@@ -218,7 +240,7 @@ export function useValueScrub({
         haptic(H.tap); // 每档＝点击感
       }
     },
-    [min, onChange, step, stepsKey, vel],
+    [min, onChange, step, stepsKey, vel, axis],
   );
 
   const end = useCallback(() => {

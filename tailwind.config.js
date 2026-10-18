@@ -91,14 +91,29 @@ export default {
           4: tok('--chart-4'),
           5: tok('--chart-5'),
         },
+
+        // 杠铃片（只给器材图形用）与镁粉（纪录）
+        plate: {
+          red: tok('--plate-red'),
+          blue: tok('--plate-blue'),
+          yellow: tok('--plate-yellow'),
+          green: tok('--plate-green'),
+          white: tok('--plate-white'),
+          chrome: tok('--plate-chrome'),
+        },
+        chalk: tok('--chalk'),
+        'on-chalk': tok('--text-on-chalk'),
       },
       fontFamily: {
-        // 中文与拉丁共用同一族——latin 也走 SC 族，混排不再是两种气质
+        // 「杠铃片」§2：正文 Noto Sans SC；标题得意黑（只用于 ≥20px）；数字 Barlow Condensed
         sans: ['"Noto Sans SC"', '"CJK Fallback"', 'system-ui', 'sans-serif'],
-        // font-display 沿用旧类名（12 处在用），指向新的衬线刊头族
-        display: ['"Noto Serif SC"', '"Songti SC"', 'SimSun', 'serif'],
-        serif: ['"Noto Serif SC"', '"Songti SC"', 'SimSun', 'serif'],
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        // font-display 沿用旧类名（23 处在用），宋体退役后指向正文族，靠字重出层级
+        display: ['"Noto Sans SC"', '"CJK Fallback"', 'system-ui', 'sans-serif'],
+        serif: ['"Noto Sans SC"', '"CJK Fallback"', 'system-ui', 'sans-serif'],
+        // 大标题：得意黑。作者明说不适合正文与 UI，≥20px 才用
+        title: ['"Smiley Sans"', '"Noto Sans SC"', '"CJK Fallback"', 'sans-serif'],
+        // font-mono 沿用旧类名（40 处在用），指向窄体数字族。比例字体 + tabular-nums，不再用等宽
+        mono: ['"Barlow Condensed"', '"Noto Sans SC"', 'system-ui', 'sans-serif'],
         seal: ['"Ma Shan Zheng"', 'cursive'],
       },
       // 只改令牌值指向，不动 className —— 存量 100 处 rounded-card/control/chip

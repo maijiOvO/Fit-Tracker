@@ -17,9 +17,35 @@ import { SetCapsule, formatWeight } from './SetCapsule';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
-import { setVolumeKg } from '../utils/load';
+import { setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
+import { useLoadKindOf } from '../hooks/useLoadKind';
+import { LoadHero } from './PlateGlyph';
+
+/**
+ * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。口径照抄结束训练时的 detectPRs 的 weight 一档：
+ * 只比单组最重；历史为空不算；提升 < 0.5kg 或 < 1% 不算（带正负的负荷只看绝对提升）。
+ * 一张卡至多标一行：本场最重那组里最早做的那一组。
+ */
+export function prSetIndex(exercise: Exercise, bestKg: number | null | undefined, signed: boolean): number {
+  if (bestKg === null || bestKg === undefined) return -1;
+  let max = -Infinity;
+  let at = -1;
+  exercise.sets.forEach((st, i) => {
+    if (st.ghost) return;
+    const w = signedKg(st, exercise);
+    if (w > max) {
+      max = w;
+      at = i;
+    }
+  });
+  if (at < 0) return -1;
+  const gain = max - bestKg;
+  if (gain < 0.5) return -1;
+  if (!signed && (bestKg <= 0 || gain / bestKg < 0.01)) return -1;
+  return at;
+}
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。
  *  底稿行（ghost）不算 —— 它还不是数据（§12.6）。 */
@@ -76,6 +102,8 @@ interface ExerciseCardProps {
   signed?: boolean;
   /** 刊头「第 N 个」：按卡算（交替组算一张） */
   cardNo?: number;
+  /** 这个动作（同一练法）历史上单组最重的带符号 kg；null＝没有历史（不判纪录）。编辑旧训练时不传 */
+  bestKg?: number | null;
   /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */
   onAlternateWithNext?: () => void;
   /** ⋯ 菜单：加入上面的交替组（上一张不是交替组时不传） */
@@ -115,6 +143,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onNumTap,
   signed = false,
   cardNo,
+  bestKg,
   onAlternateWithNext,
   onJoinGroupAbove,
   dragHandle,
@@ -129,6 +158,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const activeMetrics = getActiveMetrics(exerciseName);
   const hasNote = !!exerciseNotes[exerciseName];
   const loadMode = getLoadMode(exercise);
+  // 「杠铃片」§3：这个动作的重量怎么画、怎么拖
+  const loadKind = useLoadKindOf()(exercise, signed);
+  const prIdx = prSetIndex(exercise, bestKg, signed);
+  /**
+   * 顶部器材大图跟着「正在改的那一组」走：选中的那一组在这张卡上才画（全场至多一张卡有）。
+   * 其余卡保持紧凑，不然每张卡都多出一截图。
+   */
+  const focusSet = selectedSetId ? exercise.sets.find(s => String(s.id) === selectedSetId) : undefined;
+  const focusValue = focusSet
+    ? Number(formatWeight(Number(focusSet.weight) || 0, unit)) *
+      (signed && (focusSet.bodyweightMode === 'assisted' || (!focusSet.bodyweightMode && loadMode === 'assisted')) ? -1 : 1)
+    : 0;
   // 底稿行不计入「M组」——它还不是数据（§12.6）
   const realSetCount = exercise.sets.filter(s => !s.ghost).length;
   // 分母＝这张卡上全部的组（做完 + 待做）
@@ -221,7 +262,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           />
         )}
         <div className="flex items-baseline gap-3">
-          <h3 className="font-display text-h2 text-primary leading-snug flex-1 min-w-0 break-words">
+          <h3 className="title-face text-[24px] text-primary leading-tight flex-1 min-w-0 break-words">
             {exerciseName}
           </h3>
 
@@ -404,6 +445,16 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         )}
       </div>
 
+      {focusSet && activeMetrics.includes('weight') && (
+        <LoadHero
+          kind={loadKind}
+          value={focusValue}
+          unit={unit === 'lbs' ? 'lbs' : 'kg'}
+          isCn={isCn}
+          pinStep={unit === 'lbs' ? 10 : 5}
+        />
+      )}
+
       {hasNote && (
         <button
           type="button"
@@ -459,6 +510,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               onNumTap={onNumTap ? () => onNumTap(String(set.id)) : undefined}
               signed={signed ? { sign: () => (getLoadMode(exercise) === 'assisted' ? -1 : 1) } : undefined}
               onDurationClick={() => handleDurationClick(setIdx)}
+              loadKind={loadKind}
+              isPR={setIdx === prIdx}
             />
             {/* 缝在这一组的整块之后 —— 递减档全都在 SetCapsule 的 fragment 里，
                 所以书签自然落在「递减做完」之后，而不是母行之后。 */}

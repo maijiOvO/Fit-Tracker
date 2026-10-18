@@ -24,28 +24,32 @@
   font-display: optional;
 }
 
-/* 刊头 / 标题。§3 铁律：衬线只用于 ≥17px 且字重 ≥600，所以轴只切 600–700 */
+/* 标题：得意黑（OFL，atelier-anchor）。「杠铃片」§2：只用于 ≥20px，作者明说不适合正文与 UI。
+ *
+ * ⚠️ 和下面的印章体一样用 block，不用 optional：2026-10-18 实测首次加载错过 optional 窗口，
+ * 整个会话的动作名都是黑体（字宽探针：CJK 160 vs 得意黑 128）。标题的意义就是那个字形；
+ * 配合 index.html 的 preload，同源本地文件的「不显示」窗口基本为零。 */
 @font-face {
-  font-family: 'Noto Serif SC';
-  src: url('/fonts/noto-serif-sc.woff2') format('woff2-variations');
-  font-weight: 600 700;
+  font-family: 'Smiley Sans';
+  src: url('/fonts/smiley-sans.woff2') format('woff2');
+  font-weight: 400;
   font-style: normal;
-  font-display: optional;
+  font-display: block;
 }
 
-/* 数据。IBM Plex 是 serif+mono 同族设计，与衬线刊头同源；
-   JetBrains Mono 是 IDE 气质，与纸感冲突，已换掉 */
+/* 数字：Barlow Condensed 600 / 700。比例字体 + tabular-nums 对齐，替换等宽的 IBM Plex Mono
+   （等宽字体当「数据感」装饰是公认的 AI 痕迹，见 docs/design-plates.md §2） */
 @font-face {
-  font-family: 'IBM Plex Mono';
-  src: url('/fonts/plex-mono-500.woff2') format('woff2');
-  font-weight: 500;
+  font-family: 'Barlow Condensed';
+  src: url('/fonts/barlow-condensed-600.woff2') format('woff2');
+  font-weight: 500 600;
   font-style: normal;
   font-display: optional;
 }
 @font-face {
-  font-family: 'IBM Plex Mono';
-  src: url('/fonts/plex-mono-600.woff2') format('woff2');
-  font-weight: 600;
+  font-family: 'Barlow Condensed';
+  src: url('/fonts/barlow-condensed-700.woff2') format('woff2');
+  font-weight: 700;
   font-style: normal;
   font-display: optional;
 }
@@ -93,123 +97,135 @@
    验收条款：任何 accent 底上的文字必须过 4.5:1。
    ───────────────────────────────────────────────────────────── */
 
-/* ── 浅色 · 纸 ── */
+/* ── 浅色 · 水泥地 ──
+   「杠铃片」规格 docs/design-plates.md §1：界面只有灰阶，彩色只给片子。
+   层级规则不变：card 比 base 亮，inset 比 base 暗。 */
 :root {
-  /* 纸 */
-  --bg-base: #EFE9DC;        /* 装订底 / 桌面 */
-  --bg-card: #FBF8F1;        /* 纸，比 base 亮 */
-  --bg-card-hover: #F5F1E7;
-  --bg-inset: #E7E0D0;       /* 压痕，比 base 暗 */
-  --divider: #D9D0BC;
-  --rule-strong: #B9AE97;    /* 刊头粗线 */
+  --bg-base: #E9EAEC;        /* 地面 */
+  --bg-card: #F7F7F8;        /* 卡片 */
+  --bg-card-hover: #F0F1F2;
+  --bg-inset: #DFE1E4;       /* 凹槽 */
+  --divider: #D5D8DC;
+  --rule-strong: #9A9EA5;
 
-  /* 墨 */
-  --text-primary: #1A1714;
-  --text-secondary: #554E45;
-  /* §2 原值 #6F675C 只校过 card（5.25:1），对 --bg-inset 仅 4.24:1 不过 AA。
-     本值：card 6.02 / base 5.27 / inset 4.85 —— 三种底全过。 */
-  --text-tertiary: #665E53;
+  --text-primary: #16181B;
+  --text-secondary: #4F535A;
+  --text-tertiary: #5E636A;  /* card / base / inset 三种底都过 4.5:1 */
 
-  /* 朱砂 / 红笔 */
-  --accent: #B23A28;
-  --accent-soft: #F4E3DD;
-  --accent-ink: #8E2C1D;     /* 按压态 */
-  --text-on-accent: #FDFBF6; /* 5.75:1 on accent —— 用它替代硬编码 text-white */
+  /* 强调色就是墨：主按钮、聚焦、选中都用墨，不另起品牌色（§1）。
+     片子的颜色绝不拿来当强调色。 */
+  --accent: #16181B;
+  --accent-soft: #DCDFE3;
+  --accent-ink: #000000;     /* 按压态 */
+  --text-on-accent: #F7F7F8;
 
-  /* 荧光笔黄，第二情绪色。
-     ⚠ 只作底色：作文字对 card 仅 2.00:1。 */
-  --highlight: #E3A81F;
-  --highlight-soft: #F7EBCB;
-  /* 荧光底在深浅两个主题里都是「亮底」，所以它压不住 --text-primary
-     （深色下 #EDE6D8 压 #D9A648 只有 1.78:1）。与 accent 同构，单开一个 on 色。 */
-  --text-on-highlight: #1A1714;
+  /* 原「荧光笔黄」改为浅灰提示底，不再有第二情绪色 */
+  --highlight: #9A9EA5;
+  --highlight-soft: #E2E4E7;
+  --text-on-highlight: #16181B;
 
-  /* 语义 */
-  --success: #3F6B45;
-  --success-soft: #E2EBDF;
-  /* §2 原值 #A8791B 作正文对 card 仅 3.66:1，而 text-warning 现有 7 处。
-     本值：card 6.00 / base 5.26 / inset 4.84 / soft 5.29。
-     芥黄本身保留在 --chart-3（非文本用途，3:1 即可）。 */
-  --warning: #815709;
-  --warning-soft: #F6E9CC;
-  --danger: #8E2C1D;
-  --danger-soft: #F3DED8;
+  /* 语义：降饱和，和灰阶相容。危险靠形态与位置区分，不靠颜色 */
+  --success: #2F6B45;
+  --success-soft: #DDE8E0;
+  --warning: #7A5A10;
+  --warning-soft: #EFE8D6;
+  --danger: #A3241F;
+  --danger-soft: #F2DCDA;
 
-  /* 图表序列色 —— 同时供动作卡左缘条、历史列表锚点、图表分类三处使用 */
-  --chart-1: #8C4A3C;  /* 棕红 */
-  --chart-2: #3C5A62;  /* 墨青 */
-  --chart-3: #A8791B;  /* 芥黄 */
-  --chart-4: #5A6B4A;  /* 苔绿 */
-  --chart-5: #7A7268;  /* 灰白 */
+  /* 图表：灰阶为主，墨色是主序列 */
+  --chart-1: #16181B;
+  --chart-2: #5E636A;
+  --chart-3: #9A9EA5;
+  --chart-4: #1E5BC6;
+  --chart-5: #C2C6CB;
 
-  /* 遮罩与聚焦 */
-  --scrim: rgba(26, 23, 20, 0.45);
-  /* 聚焦是「描边」不是「光晕」——纸上没有光晕（§5.3）。
-     用法：outline: 2px solid var(--focus-ring); outline-offset: 2px; */
+  /* 杠铃片（§1）：只给器材图形用。kg 25/20/15/10/5/2.5/1.25 → 红蓝黄绿白红铬 */
+  --plate-red: #D9262B;
+  --plate-blue: #1E5BC6;
+  --plate-yellow: #F0B90B;
+  --plate-green: #2F9E4F;
+  --plate-white: #F4F4F1;
+  --plate-chrome: #8C9198;
+  --plate-edge: rgba(22, 24, 27, .28);
+  --plate-num: #FFFFFF;
+  --bar-rod: #A3A8AF;
+  --bar-sleeve: #C2C6CB;
+
+  /* 镁粉：纪录。不借任何片子的颜色 */
+  --chalk: #FFFFFF;
+  --text-on-chalk: #16181B;
+
+  --scrim: rgba(22, 24, 27, 0.42);
   --focus-ring: var(--accent);
 
-  /* 圆角 —— 近直角。全 App 唯一的圆是那枚印章。 */
+  /* 圆角：4px 为主，器材图形本身是扁平矢量 */
   --radius-card: 4px;
-  --radius-control: 3px;
+  --radius-control: 4px;
   --radius-chip: 2px;
-  --radius-sheet: 4px;   /* 弹层顶部 */
-  --radius-stamp: 4px;   /* 印章方印 */
+  --radius-sheet: 8px;
+  --radius-stamp: 4px;
 
   /* 休息标记（§12.13）的几何。demo 里逐个调过的值：docs/demos/rest-marker.html */
-  --rest-h: 18px;     /* 丝带高 */
-  --rest-w: 9px;      /* 丝带宽（往左边距外探出的那截） */
-  --rest-hit: 14px;   /* 热区外扩，凑够 44 触达 */
-  --rest-len: 88px;   /* 骑缝线长 */
+  --rest-h: 18px;
+  --rest-w: 9px;
+  --rest-hit: 14px;
+  --rest-len: 88px;
 
-  /* 阴影 = 接触阴影：极短偏移、几乎不模糊、面积小。
-     ⚠ 阴影只表达海拔，不再兼做选中态。 */
-  --shadow-page: 0 1px 1px rgba(26, 23, 20, .07);
-  --shadow-overlay: 0 2px 6px rgba(26, 23, 20, .10), 0 18px 40px -24px rgba(26, 23, 20, .30);
-  /* 兼容别名：25 处存量 shadow-elevated 在用，先让它们跟随接触阴影，
-     「阴影兼做选中态」的语义解耦留给 P2/P3 扫 className 时做。 */
+  --shadow-page: 0 1px 1px rgba(22, 24, 27, .06);
+  --shadow-overlay: 0 2px 6px rgba(22, 24, 27, .10), 0 18px 40px -24px rgba(22, 24, 27, .30);
   --shadow-elevated: var(--shadow-page);
 }
 
-/* ── 深色 · 夜读牛皮（不做米色反转，独立叙事，暖色不掉） ──
-   §2 只给了 12 个值，以下 14 个为本次推导并逐对验过对比度。 */
+/* ── 深色 · 橡胶地垫（独立设计，不是反色） ── */
 .dark {
-  --bg-base: #14120F;
-  --bg-card: #1E1B16;
-  --bg-card-hover: #26221B;
-  --bg-inset: #0E0C0A;
-  --divider: #332E25;
-  --rule-strong: #4A4232;
+  --bg-base: #121315;
+  --bg-card: #1C1E21;
+  --bg-card-hover: #232529;
+  --bg-inset: #0B0C0D;
+  --divider: #2B2E33;
+  --rule-strong: #4A4E55;
 
-  --text-primary: #EDE6D8;
-  --text-secondary: #B3A992;
-  /* §2 原值 #8A806E 对 card 4.41:1 差一点。本值：card 5.04 / base 5.49 / hover 4.65。 */
-  --text-tertiary: #948A78;
+  --text-primary: #F1F1EE;
+  --text-secondary: #ABAFB6;
+  --text-tertiary: #8E939B;
 
-  --accent: #E0674B;
-  --accent-soft: #351712;
-  /* 深底上「按下 = 更浓的墨」读不出来，按下态改往亮走。on-accent 6.64:1。 */
-  --accent-ink: #ED7A5E;
-  --text-on-accent: #17130F; /* 朱砂底上必须深字，5.47:1 */
+  --accent: #F1F1EE;
+  --accent-soft: #2A2D31;
+  --accent-ink: #FFFFFF;
+  --text-on-accent: #121315;
 
-  --highlight: #D9A648;
-  --highlight-soft: #33280F;
-  --text-on-highlight: #17130F;  /* 8.36:1 on highlight */
+  --highlight: #5E636A;
+  --highlight-soft: #26292D;
+  --text-on-highlight: #F1F1EE;
 
-  --success: #86B27C;        /* 7.09:1 on card */
-  --success-soft: #1B2A1C;
-  --warning: #CE9B3C;        /* 6.85:1 on card */
-  --warning-soft: #2C2314;
-  --danger: #E8776A;         /* 5.95:1 on card */
-  --danger-soft: #331611;
+  --success: #7FBF92;
+  --success-soft: #18261D;
+  --warning: #D2AE5C;
+  --warning-soft: #2A2416;
+  --danger: #EF7A70;
+  --danger-soft: #331714;
 
-  /* 纸色系那五个在深底上最低只有 2.31:1，深色需要自己一套（全部 ≥4.71:1） */
-  --chart-1: #C2705B;
-  --chart-2: #7FA6B0;
-  --chart-3: #C79A3E;
-  --chart-4: #94A97F;
-  --chart-5: #A79C8E;
+  --chart-1: #F1F1EE;
+  --chart-2: #ABAFB6;
+  --chart-3: #6E737B;
+  --chart-4: #3D7BE6;
+  --chart-5: #3A3E44;
 
-  --scrim: rgba(0, 0, 0, .60);
+  --plate-red: #E8443F;
+  --plate-blue: #3D7BE6;
+  --plate-yellow: #F2C230;
+  --plate-green: #3DB463;
+  --plate-white: #E9E9E4;
+  --plate-chrome: #B4B9C1;
+  --plate-edge: rgba(0, 0, 0, .45);
+  --plate-num: #FFFFFF;
+  --bar-rod: #5E636B;
+  --bar-sleeve: #7A7F87;
+
+  --chalk: #F4F4F0;
+  --text-on-chalk: #121315;
+
+  --scrim: rgba(0, 0, 0, .58);
 
   --shadow-page: 0 1px 1px rgba(0, 0, 0, .35);
   --shadow-overlay: 0 2px 6px rgba(0, 0, 0, .45), 0 18px 40px -24px rgba(0, 0, 0, .80);
@@ -432,7 +448,7 @@ button {
 }
 
 .ui-data-xl {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-weight: 600;
   font-size: 40px;
   line-height: 1;
@@ -441,7 +457,7 @@ button {
 }
 
 .ui-data-lg {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-weight: 600;
   font-size: 26px;
   line-height: 1;
@@ -809,9 +825,10 @@ button {
   border: 0;
   outline: none;
   text-align: center;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-weight: 600;
-  font-size: 26px;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font-weight: 700;
+  /* 窄体数字同字号下比等宽字体瘦一圈，30px 才和原先 26px 的分量相当（「杠铃片」§2） */
+  font-size: 30px;
   line-height: 1;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
@@ -837,7 +854,7 @@ button {
    26px 是 §6.1 唯一不可妥协的约束（抬眼 0.3 秒读到重量和次数），所以不能一刀切小：
    常见的「100」「45」必须留在 26px，只有装不下的那几个才让步。
 
-   算式：IBM Plex Mono 的字身宽是 0.6em，字符数由 React 把显示串长度写进
+   算式：Barlow Condensed 600 的 tabular 数字宽 0.475em（2026-10-18 实测；原 IBM Plex Mono 是 0.6em），字符数由 React 把显示串长度写进
    --ledger-chars。100cqi 是这一格的实际宽度 —— 用它而不是写死阈值，
    三指标布局（每列只有 ~74px）才能一起被照顾到，不用再补一套数。
    减 20px 是给内嵌单位（lbs 15.4px）和 2px gap 留的位置。
@@ -853,7 +870,7 @@ button {
    算出来的数字毫无意义，只是碰巧被 .ledger-input-sm 的 20px 盖住了才没露馅。
    ⚠️ 26px 那条兜底要留在上面：不支持容器查询单位的浏览器会整条丢弃本规则。 */
 .ledger-fit .ledger-input {
-  font-size: max(11px, min(26px, calc((100cqi - var(--ledger-unit-w, 20px)) / (var(--ledger-chars, 3) * 0.6))));
+  font-size: max(11px, min(30px, calc((100cqi - var(--ledger-unit-w, 20px)) / (var(--ledger-chars, 3) * 0.475))));
 }
 /* 单位比「lbs」长时（km/h、mph）20px 不够，三指标布局里「11.8」会被 km/h 挤得截掉末位。
    --ledger-unit-w 由 React 按单位串长度给，≤3 个字符时仍是 20px，两指标的老数不变。 */
@@ -861,7 +878,7 @@ button {
 /* 时长格（00:00:00）原先写死 22px：8 个字符 = 106px，三指标布局每列只有 65–83px，
    直接压到隔壁格的数字上。同一套「按格宽收字号」，只是没有单位要让。 */
 .ledger-fit .ledger-fit-text {
-  font-size: max(11px, min(22px, calc(100cqi / (var(--ledger-chars, 8) * 0.6))));
+  font-size: max(11px, min(22px, calc(100cqi / (var(--ledger-chars, 8) * 0.475))));
 }
 
 /* 落笔聚焦 §5.3：底部 2px 朱砂下划线从中心向两端展开。
@@ -930,7 +947,7 @@ button {
   position: absolute;
   top: -3px;
   right: 0;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
@@ -1169,7 +1186,7 @@ button {
 }
 .region-head i {
   flex: none;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-style: normal;
   font-size: 10px;
   font-weight: 600;
@@ -1297,7 +1314,7 @@ button {
   position: absolute;
   right: 4px;
   bottom: 3px;
-  font: 600 10px/1 'IBM Plex Mono', ui-monospace, monospace;
+  font: 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   opacity: 0.8;
 }
 .region-card.is-added {
@@ -1372,7 +1389,7 @@ button {
   color: var(--text-tertiary);
 }
 .region-ulab span {
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-size: 10px;
   font-weight: 600;
 }
@@ -1454,7 +1471,7 @@ button {
   border-radius: var(--radius-control);
   background: var(--bg-inset);
   color: var(--text-secondary);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-weight: 600;
   font-size: 14px;
   line-height: 1;
@@ -1665,7 +1682,7 @@ button {
    Ma Shan Zheng 的拉丁笔画细、字面窄 —— 46px 方框里 C 只占三成宽，显空，
    所以英文不共用那支笔。字号 32、上留 2px 都是照 52px 那版等比量下来的。 */
 .seal-fan-item.is-latin {
-  font-family: 'Noto Serif SC', 'Songti SC', SimSun, serif;
+  font-family: 'Noto Sans SC', 'CJK Fallback', system-ui, sans-serif;
   font-weight: 700;
   font-size: 32px;
   /* 基础类那 1px 上边距是给 Ma Shan Zheng 压字面用的；大写字母全在基线以上，

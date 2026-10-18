@@ -152,18 +152,15 @@ export const WorkoutColophon: React.FC<Props> = ({
         <div className="flex items-start gap-4 mt-10">
           {stamps.map((s, i) => (
             <div key={`${s.kind}-${s.exercise}`} className="flex flex-col items-center">
-              {/* 白文落章。英文刻 PR —— 和 App 里已有的「PR Hub」「By PR」同词，
-                  健身语境下不用解释；两个字母在 64px 方框里也最饱满（NEW 顶边、BEST 更挤）。
-                  中文仍是「破」（破纪录）。刻法（实心朱砂底、字挖成纸色）两种语言都不变，
-                  它和部位印的朱文之别是 §12.1 用来防止稀释签名时刻的那条线。 */}
+              {/* 「杠铃片」§1：纪录＝镁粉。白底墨框的 PB 牌（田径成绩单的写法），中英文同一个牌；
+                  不借任何片子的颜色（红色已经表示 25 kg），也不再用印章字。
+                  落下的动作沿用 anim-stamp-drop：签名时刻的节奏不变，换的只是材料。 */}
               <span
-                className={`anim-stamp-drop flex items-center justify-center w-16 h-16 rounded-stamp bg-accent text-on-accent leading-none ${
-                  isCn ? 'font-seal text-[26px] pt-[2px]' : 'font-display font-bold text-[30px]'
-                }`}
+                className="anim-stamp-drop flex items-center justify-center w-16 h-16 rounded-stamp bg-chalk text-on-chalk border-2 border-on-chalk font-mono font-bold text-[30px] leading-none tracking-[0.04em]"
                 style={{ animationDelay: `${i * 140}ms` }}
                 aria-hidden
               >
-                {isCn ? '破' : 'PR'}
+                PB
               </span>
               <span
                 className="anim-reveal mt-2 text-micro text-secondary text-center max-w-[8rem]"

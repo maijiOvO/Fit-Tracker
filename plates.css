@@ -1,0 +1,256 @@
+/* ── 器材图形 · 「杠铃片」docs/design-plates.md §3 ──────────────────
+   全 App 只有这个文件能用 --plate-*（令牌定义在 index.css）。
+   只动 transform / opacity（「墨与纸」§7.3 合成器安全，仍然有效）。 */
+
+.load-hero {
+  padding: 10px 12px 6px;
+  border-bottom: 1px solid var(--divider);
+}
+.load-caption {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.load-caption.is-warn {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.load-caption.is-warn::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  background: var(--text-primary);
+  transform: rotate(45deg) translateY(-1px);
+}
+
+/* 一片：大片（10–25）同直径，靠厚度和印字区分；小片更矮 */
+.plate {
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--plate-edge);
+  animation: plate-in var(--dur-exit) var(--ease-paper) both;
+}
+.plate b {
+  font: 700 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--plate-num);
+  transform: rotate(-90deg);
+  white-space: nowrap;
+}
+.plate-red { background: var(--plate-red); }
+.plate-blue { background: var(--plate-blue); }
+.plate-yellow { background: var(--plate-yellow); }
+.plate-green { background: var(--plate-green); }
+.plate-white { background: var(--plate-white); }
+.plate-chrome { background: var(--plate-chrome); }
+/* 黄 / 白 / 铬片上的字用深色：这三种是浅片，两个主题下都是 */
+.plate-white b,
+.plate-yellow b,
+.plate-chrome b { color: #16181B; }
+
+/* 上片：从套筒外侧滑进来；拿掉的片往外滑走 */
+@keyframes plate-in {
+  from { transform: translateX(calc(28px * var(--move))); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.plate.is-leaving {
+  animation: plate-out var(--dur-exit) var(--ease-leave) both;
+}
+@keyframes plate-out {
+  from { transform: none; opacity: 1; }
+  to { transform: translateX(calc(28px * var(--move))); opacity: 0; }
+}
+.plate-stack {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding-left: 2px;
+}
+
+/* 杠铃：中间握把，两边对称；左半边整体镜像，片上的字再镜像回来 */
+.plate-bar {
+  position: relative;
+  height: 64px;
+  overflow: hidden;
+}
+.plate-rod {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 2px;
+  background: var(--bar-rod);
+}
+.plate-grip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72px;
+  height: 6px;
+  margin: -3px 0 0 -36px;
+  background: repeating-linear-gradient(90deg, var(--bar-sleeve) 0 2px, var(--bar-rod) 2px 4px);
+}
+.plate-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+.plate-half.is-r { left: calc(50% + 36px); }
+.plate-half.is-l { right: calc(50% + 36px); transform: scaleX(-1); }
+.plate-half.is-l .plate b { transform: scaleX(-1) rotate(-90deg); }
+.plate-collar {
+  flex: none;
+  width: 7px;
+  height: 20px;
+  border-radius: 1px;
+  background: var(--bar-sleeve);
+}
+
+/* 组行迷你配片：重量数字下沿一排色块＝每边挂的片（从里到外），不画杆、不占网格列
+   （e2e 依赖的 --cols 不变）。2026-10-18 第一版带一截杆，单片时读成「+」号，改成色块条。 */
+.plate-mini {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  display: flex;
+  align-items: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.plate-mini-rod { display: none; }
+.plate-mini .plate-stack { gap: 2px; padding-left: 0; }
+.plate-mini .plate {
+  height: 4px !important;
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 0.5px var(--plate-edge);
+}
+
+/* 配重片摞：竖着排，插销插在哪一片就加深那一片 */
+.pin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: min(220px, 70%);
+  margin: 0 auto;
+}
+.pin-slab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 3px;
+}
+.pin-slab em {
+  width: 24px;
+  text-align: right;
+  font: 600 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font-style: normal;
+  color: var(--text-tertiary);
+}
+.pin-slab i {
+  flex: 1;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--bg-inset);
+  transition: background-color var(--dur-tap) var(--ease-ink);
+}
+.pin-slab.is-up i { background: var(--text-tertiary); }
+.pin-slab.is-at i { background: var(--text-primary); }
+.pin-slab.is-at em { color: var(--text-primary); }
+.pin-slab.is-at::after {
+  content: '';
+  position: absolute;
+  right: -16px;
+  top: 50%;
+  width: 14px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+  background: var(--text-primary);
+}
+
+/* 哑铃：不上色，片子的颜色只给杠铃 */
+.db-pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  height: 64px;
+}
+.db-one { display: flex; align-items: center; }
+.db-head {
+  width: 16px;
+  height: 54px;
+  border-radius: 3px;
+  background: var(--text-secondary);
+  transition: transform var(--dur-base) var(--ease-paper);
+}
+.db-grip { width: 40px; height: 6px; background: var(--bar-rod); }
+
+/* 带符号负荷：数轴 + 弹力带 / 腰片 */
+.signed-glyph { display: flex; flex-direction: column; gap: 8px; padding: 4px 8px 0; }
+.signed-axis { position: relative; height: 16px; }
+.signed-line { position: absolute; left: 0; right: 0; top: 7px; height: 2px; background: var(--bar-rod); }
+.signed-zero { position: absolute; left: 50%; top: 1px; width: 2px; height: 14px; margin-left: -1px; background: var(--text-primary); }
+.signed-mark {
+  position: absolute;
+  top: 2px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--text-primary);
+  transform: rotate(45deg);
+  transition: left var(--dur-base) var(--ease-paper);
+}
+.signed-load { height: 40px; display: flex; align-items: center; justify-content: center; }
+.signed-band { height: 12px; border-radius: 6px; border: 3px solid var(--text-secondary); }
+.signed-belt { display: flex; align-items: center; gap: 6px; }
+.signed-chain { width: 24px; height: 2px; background: var(--text-tertiary); }
+
+/* 纪录 = 镁粉：铺白、PB 标签。不借任何片子的颜色（红色已经表示 25 kg） */
+.ledger-row.is-pr {
+  background: var(--chalk);
+}
+.ledger-row.is-pr .ledger-input,
+.ledger-row.is-pr .set-num { color: var(--text-on-chalk); }
+.pb-tag {
+  position: absolute;
+  top: 3px;
+  right: 0;
+  padding: 1px 4px;
+  border: 1.5px solid var(--text-on-chalk);
+  border-radius: 2px;
+  font: 700 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  letter-spacing: .06em;
+  color: var(--text-on-chalk);
+  background: var(--chalk);
+  pointer-events: none;
+}
+
+/* 竖拖的格子（配重片摞）：竖向手势归自己，横向照旧交给页面 */
+.ledger-field.is-scrubbable.is-scrub-y { touch-action: pan-x; }
+.ledger-field.is-scrubbing.is-scrub-y::before {
+  left: auto;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  height: auto;
+  background: repeating-linear-gradient(to bottom, var(--accent) 0 1px, transparent 1px 10px);
+}
+
+/* 标题：得意黑，只用于 ≥20px（作者明说不适合正文与 UI） */
+.title-face {
+  font-family: 'Smiley Sans', 'Noto Sans SC', 'CJK Fallback', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
+}

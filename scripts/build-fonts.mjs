@@ -103,7 +103,8 @@ const FONTS = [
     expectAxis: { tag: 'wght', min: 400, max: 700 },
     full: true,
   },
-  {
+  // 「杠铃片」§2：宋体与 IBM Plex Mono 退役，换得意黑（标题）与 Barlow Condensed（数字）
+  /* {
     file: 'Noto_Serif_SC/NotoSerifSC-VariableFont_wght.ttf',
     out: 'noto-serif-sc.woff2',
     // §3 的字重表写了 500/600/700，但同一节的排印铁律「衬线只用于 ≥17px 且字重 ≥600」
@@ -112,9 +113,11 @@ const FONTS = [
     variationAxes: { wght: { min: 600, max: 700, default: 600 } },
     expectAxis: { tag: 'wght', min: 600, max: 700 },
     full: true,
-  },
-  { file: 'IBM_Plex_Mono/IBMPlexMono-Medium.ttf', out: 'plex-mono-500.woff2', latinOnly: true },
-  { file: 'IBM_Plex_Mono/IBMPlexMono-SemiBold.ttf', out: 'plex-mono-600.woff2', latinOnly: true },
+  }, */
+  // 得意黑只用于 ≥20px 的标题，但标题里会出现用户自建的动作名，所以按全站字符集切
+  { file: 'Smiley_Sans/SmileySans-Oblique.ttf', out: 'smiley-sans.woff2', full: true },
+  { file: 'Barlow_Condensed/BarlowCondensed-SemiBold.ttf', out: 'barlow-condensed-600.woff2', latinOnly: true },
+  { file: 'Barlow_Condensed/BarlowCondensed-Bold.ttf', out: 'barlow-condensed-700.woff2', latinOnly: true },
   { file: 'Ma_Shan_Zheng/MaShanZheng-Regular.ttf', out: 'ma-shan-zheng.woff2', sealOnly: true },
 ];
 

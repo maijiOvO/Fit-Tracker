@@ -19,6 +19,7 @@ import { RestBookmark } from './RestBookmark';
 import { LongPressAffordance } from './LongPressAffordance';
 import { VariantModal } from './modals/VariantModal';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useLoadKindOf } from '../hooks/useLoadKind';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { memberAbbrs, RowRef } from '../utils/workbench';
 import { setVolumeKg } from '../utils/load';
@@ -133,6 +134,8 @@ export const AlternatingCard: React.FC<Props> = ({
 }) => {
   const isCn = lang === Language.CN;
   const { variantLabel } = useExercisePrefs();
+  // 「杠铃片」§3：组行的拖动步长 / 方向和迷你配片跟着各自的器材走（交替组不画顶部大图）
+  const loadKindOf = useLoadKindOf();
   const names = members.map(m => resolveName(m.name));
   const abbrs = memberAbbrs(names);
   const byId = new Map<string, Exercise>(members.map(m => [m.id, m] as [string, Exercise]));
@@ -189,7 +192,7 @@ export const AlternatingCard: React.FC<Props> = ({
           />
         )}
         <div className="flex items-baseline gap-3">
-          <h3 className="font-display text-h2 text-primary leading-snug flex-1 min-w-0 break-words">
+          <h3 className="title-face text-[24px] text-primary leading-tight flex-1 min-w-0 break-words">
             {members.map((m, i) => (
               <React.Fragment key={m.id}>
                 {i > 0 && <span className="text-tertiary font-sans font-medium mx-1">⇄</span>}
@@ -316,6 +319,7 @@ export const AlternatingCard: React.FC<Props> = ({
                 selected={selectedSetId === r.setId}
                 onNumTap={() => onNumTap(r)}
                 signed={isSigned(ex) ? { sign: () => (getLoadMode(ex) === 'assisted' ? -1 : 1) } : undefined}
+                loadKind={loadKindOf(ex, isSigned(ex))}
                 onUpdate={u => onSetUpdate(r, u)}
                 onRemove={() => onRemoveSet(r)}
                 onRemoveSub={sub => onRemoveSubSet(r, sub)}

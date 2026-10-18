@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './plates.css';
 import { pushFitlogRemoteSnapshot, pullAndMergeFitlogRemote } from './services/fitlogRemoteSync';
 import { fetchRemoteSnapshot } from './services/fitlogRemote';
 import { getDataEnv, isEnvLocked, isDemo, isSolo, isOffline, dbName, statePath, storagePrefix } from './services/appEnv';

@@ -18,6 +18,27 @@ import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
+import type { LoadKind } from '../hooks/useLoadKind';
+import { BarbellMini } from './PlateGlyph';
+import { BARBELL_STEP } from '../utils/plates';
+
+/**
+ * 「杠铃片」§3：重量格拖一格多少、往哪拖，跟着器材走（交互只有一套，变的只是步长和方向）。
+ * 杠铃一格＝最小一对片（kg 2.5 / lbs 5，2026-10-18 用户定）；配重片一格＝一片（默认 5 kg / 10 lbs），竖拖。
+ */
+function weightScrubFor(kind: LoadKind | undefined, unit: string): { steps: number[]; axis: 'x' | 'y'; grid?: number } {
+  const u = unit === 'lbs' ? 'lbs' : 'kg';
+  if (kind === 'plates') {
+    const b = BARBELL_STEP[u];
+    // grid：配不出来的重量（62、61.24）第一格先吸到能配出来的那一档
+    return { steps: [b, b * 2, b * 4, b * 8], axis: 'x', grid: b };
+  }
+  if (kind === 'pin') {
+    const b = u === 'kg' ? 5 : 10;
+    return { steps: [b, b * 2, b * 4], axis: 'y' };
+  }
+  return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
+}
 
 interface SetCapsuleProps {
   set: any;
@@ -56,6 +77,10 @@ interface SetCapsuleProps {
   signed?: { sign: (s: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] }) => -1 | 1 };
   /** 删一档递减：交给工作台做（要挂撤销条，撤销必须按最新状态插回去） */
   onRemoveSub?: (subIdx: number) => void;
+  /** 「杠铃片」§3：这个动作的重量怎么画、怎么拖。不传＝纯数字（只读历史视图） */
+  loadKind?: LoadKind;
+  /** 这一组破了历史纪录（单组最重）→ 铺镁粉、标 PB */
+  isPR?: boolean;
 }
 
 /**
@@ -131,6 +156,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   firstCol = 36,
   signed,
   onRemoveSub,
+  loadKind,
+  isPR = false,
 }) => {
   const isCn = lang === Language.CN;
   // 首选项：±步长、递减每档（当前单位下的数，kg / lbs 共用）。只读历史视图里也拿得到，拿不到用存储里的值
@@ -234,11 +261,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 步长按【显示单位】走：kg 里的 1 就是 1kg，lbs 里的 1 就是 1lb，不做换算——
   // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
   const weightDisplay = toDisplay(set.weight, rowSign);
+  const weightFeel = weightScrubFor(loadKind, unit);
   const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：待做行上横拖只改值、记 touched，不描实
     onChange: next => update(fromDisplay(next)),
-    steps: SCRUB_STEPS_WEIGHT,
+    steps: weightFeel.steps,
+    axis: weightFeel.axis,
+    grid: weightFeel.grid,
     disabled: readOnly,
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
     ...(signed ? { min: -9999 } : {}),
@@ -349,7 +379,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   return (
     <>
       <div
-        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}`}
+        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}${isPR && !isGhost ? ' is-pr' : ''}`}
         style={colStyle}
         data-set-idx={setIdx}
         data-set-id={set.id}
@@ -463,7 +493,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               data-testid={`ledger-field-${m}`}
               className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
-              }${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
+              }${m === 'weight' && weightFeel.axis === 'y' ? ' is-scrub-y' : ''}${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
                 ['--ledger-chars' as string]: Math.max(display.length, 1),
                 ['--ledger-unit-w' as string]: `${Math.max(20, unitLabel.length * 6.5 + 4)}px`,
@@ -474,6 +504,15 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               {scrub?.scrubbing && (
                 <span className="scrub-step" aria-hidden>
                   ×{scrub.step}
+                </span>
+              )}
+              {/* 杠铃：数字下沿画这一组每边挂的片（只画外侧一边，不占网格列） */}
+              {m === 'weight' && loadKind === 'plates' && Number(set.weight) > 0 && (
+                <BarbellMini total={Number(formatWeight(Number(set.weight), unit))} unit={unit === 'lbs' ? 'lbs' : 'kg'} />
+              )}
+              {m === 'weight' && isPR && !isGhost && (
+                <span className="pb-tag" aria-label={isCn ? '新纪录' : 'Personal best'}>
+                  PB
                 </span>
               )}
               <input

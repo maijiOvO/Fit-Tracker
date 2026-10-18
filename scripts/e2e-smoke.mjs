@@ -1808,7 +1808,9 @@ const main = async () => {
   });
 
   // 换算残留（不是 0.5 的倍数，如 lbs↔kg 换出来的 61.24）：拖动的第一档先取整并吃掉这一档，
-  // 之后照常 ±1。打字不取整。递减档默认 = 上一行显示值（残留先 floor）−5 当前单位。
+  // 之后照常一档。打字不取整。递减档默认 = 上一行显示值（残留先 floor）−5 当前单位。
+  // 「杠铃片」（2026-10-18）：这里的动作是杠铃，一档 = 最小一对片 2.5 kg，取整也吸到 2.5 的网格
+  // （配不出来的重量第一格先吸到能配的那一档）。所以 61.24 → 62.5，再往左两档 → 60 → 57.5。
   await step(page, 'scrub-weight-residue-and-drop-set', async () => {
     const weight = page.locator('[data-testid="ledger-field-weight"]').first();
     const input = weight.locator('input');
@@ -1835,9 +1837,9 @@ const main = async () => {
       return Number(await input.inputValue());
     };
     const right1 = await slow([14]); // 越过 12px 接管阈值，正好落一档
-    if (right1 !== 62) throw new Error(`61.24 dragged right one detent should ceil to 62, got ${right1}`);
-    const left2 = await slow([-14, -24]); // 两档：62 → 61 → 60（不再是残留，照常 −1）
-    if (left2 !== 60) throw new Error(`62 dragged left two detents should be 60, got ${left2}`);
+    if (right1 !== 62.5) throw new Error(`61.24 dragged right one detent should snap up to 62.5 (barbell grid), got ${right1}`);
+    const left2 = await slow([-14, -24]); // 两档：62.5 → 60 → 57.5（已在网格上，照常 −2.5）
+    if (left2 !== 57.5) throw new Error(`62.5 dragged left two detents should be 57.5, got ${left2}`);
 
     // 回到残留值再加递减档：floor(61.24) − 5 = 56
     await input.fill('61.24');

@@ -114,7 +114,7 @@ function makeEndLabel(lastIndex: number, color: string, textColor: string, suffi
           fill={textColor}
           fontSize={13}
           fontWeight={600}
-          fontFamily="'IBM Plex Mono', ui-monospace, monospace"
+          fontFamily="'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif"
           textAnchor="end"
           transform={`translate(-4, -14)`}
         >

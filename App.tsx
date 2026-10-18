@@ -46,6 +46,7 @@ import { normalizeGroups } from './src/utils/workbench';
 import { undoWorkoutDeletes } from './src/utils/undoPref';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
+import { signedKg } from './src/utils/load';
 
 import TabNavigation from './src/components/TabNavigation';
 import { bodyPartTagFor } from './src/components/BodyPartPicker';
@@ -683,6 +684,30 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     [prefs, workouts],
   );
 
+  /**
+   * 「杠铃片」§1 训练中实时标 PB：每个项目（同一练法，prefs.liftKey）历史上单组最重的带符号 kg。
+   * 口径照 detectPRs：底稿行不算、本场不算（按 id 排除）。
+   */
+  const bestKgByLift = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const w of workouts) {
+      if (w.id === currentWorkout.id) continue;
+      for (const e of w.exercises ?? []) {
+        const key = prefs.liftKey(e).trim();
+        for (const st of e.sets ?? []) {
+          if (st.ghost) continue;
+          const v = signedKg(st, e);
+          if (!m.has(key) || v > (m.get(key) as number)) m.set(key, v);
+        }
+      }
+    }
+    return m;
+  }, [workouts, currentWorkout.id, prefs]);
+  const bestKgFor = useCallback(
+    (ex: { name: string; variantId?: string; variantName?: string }) => bestKgByLift.get(prefs.liftKey(ex).trim()) ?? null,
+    [bestKgByLift, prefs],
+  );
+
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
   /** 本次打开弹层里每次点选建出的卡片 id（按「动作::做法」分组、后进先出）：再点一下＝取消这次添加 */
   const sheetPicksRef = useRef<Map<string, string[][]>>(new Map());
@@ -1070,6 +1095,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             partPrechosenId={partPrechosenId}
             onOpenTimePicker={openTimePicker}
             lastSessionFor={lastSessionFor}
+            bestKgFor={bestKgFor}
             onOpenExerciseTime={exId => {
               const ex = currentWorkout.exercises?.find(e => e.id === exId);
               setShowTimePickerModal({ exerciseId: exId, currentTime: ex?.exerciseTime });

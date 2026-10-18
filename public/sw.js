@@ -7,8 +7,9 @@
  *          真机实测：印章子集在 v5 缓存里停在加入部位印文之前的旧版，
  *          胸肩背腿臂制六字逐字回退成系统黑体，且 FontFace 照样 load 成功、
  *          fonts.check() 照样返回 true —— 三层探针全是假绿。
+ * v6 → v7：「杠铃片」换装，宋体与 IBM Plex Mono 两张字体退役，清掉旧缓存里的死文件。
  */
-const CACHE_NAME = 'fitlog-v6';
+const CACHE_NAME = 'fitlog-v7';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -16,9 +17,9 @@ const APP_SHELL = [
   // 自托管字体：地下室没信号时这几个必须已经在本地，
   // 否则整站中文掉回系统黑体，「墨与纸」当场归零。
   '/fonts/noto-sans-sc.woff2',
-  '/fonts/noto-serif-sc.woff2',
-  '/fonts/plex-mono-500.woff2',
-  '/fonts/plex-mono-600.woff2',
+  '/fonts/smiley-sans.woff2',
+  '/fonts/barlow-condensed-600.woff2',
+  '/fonts/barlow-condensed-700.woff2',
   '/fonts/ma-shan-zheng.woff2',
 ];
 

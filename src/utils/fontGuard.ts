@@ -25,7 +25,7 @@ const DEADLINE_MS = 6000;
  *
  * 探两张而不是一张：
  *  · Noto Sans SC —— 正文，掉了满屏都不对；
- *  · Noto Serif SC —— 刊头，**并且是英文印章的印面**（§12.1 的 C S B L A O / PR）。
+ *  · Barlow Condensed —— 数字（「杠铃片」§2；原先这里探的是已退役的 Noto Serif SC）。
  *    中文印面有硬保证（Ma Shan Zheng 是 font-display: block + 预加载），
  *    英文印面却搭在正文那张 optional 的衬线上 —— 错过窗口就落成系统衬线，
  *    而「印章的全部意义就是那个字形」。实测三张正文字体是一起赢一起输的，
@@ -50,8 +50,9 @@ function bodyFontApplied(): boolean {
   };
   const probe = 'FitLog 0123456789 Wijk';
   const sansOk = Math.abs(mk("'Noto Sans SC'", probe) - mk('system-ui', probe)) > 0.5;
-  const serifOk = Math.abs(mk("'Noto Serif SC'", probe, 700) - mk('serif', probe, 700)) > 0.5;
-  return sansOk && serifOk;
+  // 「杠铃片」：第二张探数字字体 Barlow Condensed —— 组行重量 / 次数全靠它，掉回系统字最显眼
+  const numOk = Math.abs(mk("'Barlow Condensed'", probe, 600) - mk('system-ui', probe, 600)) > 0.5;
+  return sansOk && numOk;
 }
 
 export function installFontGuard(): void {
