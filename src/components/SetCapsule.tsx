@@ -19,7 +19,6 @@ import type { SetUpdate } from '../utils/workbench';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import type { LoadKind } from '../hooks/useLoadKind';
-import { BarbellMini } from './PlateGlyph';
 import { BARBELL_STEP } from '../utils/plates';
 
 /**
@@ -508,10 +507,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 <span className="scrub-step" aria-hidden>
                   ×{scrub.step}
                 </span>
-              )}
-              {/* 杠铃：数字下沿画这一组每边挂的片（只画外侧一边，不占网格列） */}
-              {m === 'weight' && loadKind === 'plates' && Number(set.weight) > 0 && (
-                <BarbellMini total={Number(formatWeight(Number(set.weight), unit))} unit={unit === 'lbs' ? 'lbs' : 'kg'} />
               )}
               {m === 'weight' && isPR && !isGhost && (
                 <span className="pb-tag" aria-label={isCn ? '新纪录' : 'Personal best'}>

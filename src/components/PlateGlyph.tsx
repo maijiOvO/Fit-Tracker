@@ -108,18 +108,6 @@ export function BarbellGlyph({
   );
 }
 
-/** 组行里重量数字下面那条迷你半边杠铃（只画外侧一边） */
-export function BarbellMini({ total, unit, bar }: { total: number; unit: PlateUnit; bar?: number }) {
-  const { perSide } = loadBarbell(total, unit, bar);
-  if (!perSide.length) return null;
-  return (
-    <span className="plate-mini" aria-hidden>
-      <span className="plate-mini-rod" />
-      <AnimatedStack plates={perSide} unit={unit} height={4} thick={11} />
-    </span>
-  );
-}
-
 /* ── 配重片摞（器械 / 龙门架 / 绳索）─────────────────────────── */
 
 export function PinStackGlyph({ value, step }: { value: number; step: number }) {
