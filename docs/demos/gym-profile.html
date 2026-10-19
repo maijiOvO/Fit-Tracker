@@ -6,7 +6,8 @@
 <style>
 /* 示意：照 redesign/plate 分支现在的样子搬（令牌值与 index.css 一致），新的只有：
    训练页顶部的馆名、馆档案弹层、±按钮跟着馆和器材走、⋯ 菜单里的「这个动作单独设一档」、
-   龙门架 / 器械 PB 只和本馆比。标题用站酷庆科黄油体代替得意黑（页面加载不了自托管字体）。 */
+   龙门架 / 器械 PB 只和本馆比、「就近取整」（底稿取整 + 原值角标、打字后的两个就近选项）。
+   标题用站酷庆科黄油体代替得意黑（页面加载不了自托管字体）。 */
 :root{
   --bg:#E9EAEC; --card:#F7F7F8; --inset:#DFE1E4; --ink:#16181B; --ink2:#4F535A; --ink3:#5E636A; --rule:#D5D8DC;
   --rod:#A3A8AF; --sleeve:#C2C6CB; --chalk:#FFFFFF; --scrim:rgba(22,24,27,.42); --on-accent:#F7F7F8;
@@ -84,21 +85,30 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 .dbs{display:flex;justify-content:center;align-items:center;gap:36px;height:60px}
 .db{display:flex;align-items:center}.db i{width:15px;height:50px;border-radius:3px;background:var(--ink2);transition:transform .2s}.db u{width:38px;height:6px;background:var(--rod)}
 .cap{text-align:center;font-size:12px;color:var(--ink2);padding:2px 12px 8px;margin:0}
-.cap.warn{color:var(--ink);font-weight:700}
-.row{display:grid;grid-template-columns:36px 1fr auto;gap:8px;align-items:center;padding:6px 12px;border-top:1px solid var(--rule)}
-.num{width:30px;height:30px;border-radius:4px;background:var(--ink);color:var(--on-accent);display:grid;place-items:center;font:600 12px var(--f-num)}
-.val{font-family:var(--f-num);font-weight:700;display:flex;align-items:baseline;gap:4px}
-.val big{font-size:30px;line-height:1}
+/* 打了一个这个馆挂不出来的数：不报错，给两个就近的能挂的重量 */
+.near{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 12px 10px;flex-wrap:wrap}
+.near span{font-size:12px;color:var(--ink2)}
+.near button{min-height:36px;padding:0 12px;border:1.5px solid var(--ink);border-radius:4px;font:700 16px var(--f-num)}
+.near button small{font:500 11px var(--f-ui);margin-left:3px;color:var(--ink2)}
+.row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;padding:6px 12px;border-top:1px solid var(--rule)}
+.num{width:30px;height:30px;border-radius:4px;border:1.5px solid var(--ink3);color:var(--ink2);display:grid;place-items:center;font:600 12px var(--f-num)}
+.val{display:flex;align-items:baseline;gap:4px;min-width:0;font-family:var(--f-num);font-weight:700}
+.wt{width:3.4em;font:700 30px/1 var(--f-num);color:var(--ink);background:transparent;border:0;border-bottom:1.5px dashed var(--ink3);padding:0 0 2px;font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
+.wt::-webkit-outer-spin-button,.wt::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.wt.ghost{color:var(--ink3)}
 .val small{font-size:12px;color:var(--ink3);font-weight:600;font-family:var(--f-ui)}
 .val .x{color:var(--ink3);font-size:18px;margin:0 2px}
+.val .reps{font-size:30px;line-height:1}
+/* 自动取整过的底稿：角上标原值，点它切回原值 */
+.orig{font:600 11px/1.2 var(--f-num);color:var(--ink2);border:1px dashed var(--ink3);border-radius:2px;padding:3px 5px;white-space:nowrap;letter-spacing:.02em}
 .pb{font:700 10px/1 var(--f-num);letter-spacing:.06em;border:1.5px solid var(--ink);padding:2px 4px;border-radius:2px}
 .steps{display:flex;gap:8px;padding:6px 12px 10px}
 .steps button{flex:1;min-height:44px;border-radius:4px;background:var(--inset);font:600 15px var(--f-num);color:var(--ink2);display:flex;align-items:baseline;justify-content:center;gap:3px}
 .steps button small{font-size:11px;font-family:var(--f-ui);font-weight:500}
 .steps button:active{background:var(--rule)}
-.src{font-size:11px;color:var(--ink3);text-align:center;padding:0 12px 10px;margin-top:-4px}
+.src{font-size:11px;color:var(--ink3);text-align:center;padding:0 12px 10px;margin:-4px 0 0}
 .src b{color:var(--ink2);font-weight:600}
-.pbnote{font-size:11px;color:var(--ink3);padding:0 12px 10px;margin-top:-4px;text-align:center}
+.pbnote{font-size:11px;color:var(--ink3);padding:0 12px 10px;margin:-4px 0 0;text-align:center}
 
 /* 菜单与弹层 */
 .menu{position:absolute;right:8px;top:42px;z-index:3;background:var(--card);border:1px solid var(--rule);border-radius:4px;box-shadow:0 10px 30px -14px rgba(0,0,0,.45);min-width:240px;padding:4px 0}
@@ -156,25 +166,26 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 
   <aside class="notes">
     <h1>健身房器材档案</h1>
-    <p>每个馆设一次「有哪些片子、各类器械一档多重」。训练页的 ±按钮、拖动步长、配片都跟着这场训练所在的馆走，不用再在首选项里手动设「加一档」。手机里的馆和数据都是示例。</p>
+    <p>每个馆设一次「有哪些片子、各类器械一档多重」。训练页的 ±按钮、拖动步长、配片都跟着这场训练所在的馆走，不用再在首选项里手动设「加一档」。手机里的馆和数据都是示例：今天在「国内」练，底稿抄自上一次在 F4L（磅片馆）练的那场。</p>
     <section>
       <h2>可以这样试</h2>
       <ol>
-        <li>点左上角的<b>馆名</b>，在 F4L 和 国内 之间切换：看卧推的 ± 从 <b>5 lb</b> 变成 <b>2.5 kg</b>，杠和片子也换成对应的那套。</li>
-        <li>馆名菜单里点<b>「新的馆…」</b>：第一次去一个馆时设一次档案，存了以后再去就不用设。</li>
-        <li>点卧推、龙门架、器械卡上的 <b>±</b>：每次正好一档。卡片底下写着这一档从哪来。</li>
-        <li>点<b>坐姿腿屈伸</b>右上角的 <b>⋯</b>，给这台器械单独设一档（这个馆里大部分器械 10 lb 一档，它是 5 kg）。</li>
-        <li>右上角切 <b>kg / lb</b>：磅片的馆在 kg 下片子标成换算后的公斤数，档位不变。</li>
+        <li>看卧推：上次在 F4L 练的 <b>140 lb</b>，这里挂不出来，底稿自动取整成最近能挂的 <b>62.5 kg</b>，右边标着 <b>原 140 lb</b>。高位下拉、哑铃同理。</li>
+        <li>点<b>「原 140 lb」</b>：切回原值，这时大图下面给两个就近能挂的重量，点一下就改过去。</li>
+        <li>在卧推的重量格里<b>直接打 63</b>：照原样记，大图下面同样给出 62.5 / 65 两个选项，不报错。</li>
+        <li>点左上角<b>馆名</b>换到 F4L：没动过的底稿跟着换成 F4L 能挂的重量；你打过、点过的不动。</li>
+        <li><b>±按钮</b>每次正好一档，第一下先落到最近能挂的重量上。坐姿腿屈伸的 <b>⋯</b> 里可以单独设一档。</li>
       </ol>
     </section>
     <section>
-      <h2>规则</h2>
+      <h2>就近取整的规则</h2>
       <ul>
-        <li><b>用哪个馆</b>：这场训练标的馆；没标馆用默认档案。新建训练沿用上一场的馆（现在就是这样）。</li>
-        <li><b>最小一档</b>：杠铃 = 最小片 × 2；龙门架 / 器械 / 哑铃 = 档案里设的那一档；自重腰片 = 最小片；纯数字的动作用首选项里的步长兜底。</li>
-        <li><b>单独设一档</b>：按「这个馆 × 这个动作」记，只影响这一个馆。</li>
-        <li><b>片子</b>：标了馆就按馆的片子算，没标馆退回「登记时的单位」（2026-10-18 定）。</li>
-        <li><b>龙门架 / 器械的 PB 只和同一个馆比</b>：各馆配重片实际重量不同，跨馆比没意义。杠铃、哑铃照旧全局比。</li>
+        <li><b>能挂的重量按这个馆实际有的片子算</b>：杠重 + 两边能凑出来的重量。少了某种片，能挂的重量就跟着变，不是简单按步长取整。</li>
+        <li><b>严格取最近</b>，两边一样近才取轻的（2026-10-18 定）。</li>
+        <li><b>只自动改「没人碰过」的底稿</b>：抄来的、跟着平移的、切馆时还没动过的。你打过、拖过、点过的一律不动。</li>
+        <li>取整过的格子标<b>原值</b>，点一下切回。</li>
+        <li><b>手打的数照原样记</b>：大图画最接近的配法，下面给上下两个能挂的重量，点了才改。整页不会出现「配不出」。</li>
+        <li>龙门架 / 器械 / 哑铃同一套规则，取整到这个馆、这台器械的那一档。</li>
       </ul>
     </section>
   </aside>
@@ -191,59 +202,98 @@ var ALL={kg:[25,20,15,10,5,2.5,1.25],lbs:[55,45,35,25,10,5,2.5]};
 var BAR={kg:20,lbs:45};
 var TYPE={plates:'杠铃',cable:'龙门架',machine:'固定器械',dumbbell:'哑铃'};
 
-/* 示例数据：两个馆。F4L 就是你说的那一套 */
-var S={unit:'kg',gym:'F4L',menu:null,
+/* 示例：今天在「国内」，底稿抄自上一次在 F4L（磅片馆）的那场 */
+var S={unit:'kg',gym:'国内',menu:null,
   gyms:{
     'F4L':{plateUnit:'lbs',plates:[45,35,25,10,5,2.5],cable:{v:2.5,u:'kg'},machine:{v:10,u:'lbs'},dumbbell:{v:5,u:'lbs'}},
     '国内':{plateUnit:'kg',plates:[25,20,15,10,5,2.5,1.25],cable:{v:5,u:'kg'},machine:{v:5,u:'kg'},dumbbell:{v:2,u:'kg'}}
   },
-  /* 这个馆 × 这个动作单独设的一档 */
   over:{'F4L|legext':{v:5,u:'kg'}},
   ex:[
-    {id:'bench',name:'杠铃平板卧推',kind:'plates',kg:61.235,reps:8},
-    {id:'lat',name:'高位下拉',kind:'cable',kg:45,reps:10,pbByGym:{'F4L':47.5,'国内':55}},
-    {id:'legext',name:'坐姿腿屈伸',kind:'machine',kg:40,reps:12,pbByGym:{'F4L':40,'国内':50}},
-    {id:'curl',name:'哑铃弯举',kind:'dumbbell',kg:13.608,reps:10}
+    {id:'bench',name:'杠铃平板卧推',kind:'plates',reps:8,set:{src:{v:140,u:'lbs'}}},
+    {id:'lat',name:'高位下拉',kind:'cable',reps:10,set:{src:{v:47.5,u:'kg'}},pbByGym:{'F4L':47.5,'国内':55}},
+    {id:'legext',name:'坐姿腿屈伸',kind:'machine',reps:12,set:{src:{v:40,u:'kg'}},pbByGym:{'F4L':40,'国内':50}},
+    {id:'curl',name:'哑铃弯举',kind:'dumbbell',reps:10,set:{src:{v:30,u:'lbs'}}}
   ]};
+/* set：src = 底稿抄来的原值（器材自己的单位）；kg = 现在的重量；touched = 你打过 / 拖过 / 点过；
+   rounded = 这个数是自动取整出来的（显示原值角标） */
+S.ex.forEach(function(ex){ex.set.kg=conv(ex.set.src.v,ex.set.src.u,'kg');ex.set.touched=false;});
 
 function conv(v,from,to){return from===to?v:(from==='kg'?v/LB:v*LB)}
 function r2(v){return Math.round(v*100)/100}
 function fmt(v){return String(r2(v))}
 function uLab(u){return u==='lbs'?'lb':'kg'}
 function gymP(){return S.gyms[S.gym]}
+function show(kg){return r2(conv(kg,'kg',S.unit))}
 
-/* 最小一档（单位跟着器材本身走） */
+/* 这个馆、这件器材的一档（单位跟着器材本身走） */
 function stepOf(ex){
   var g=gymP(),o=S.over[S.gym+'|'+ex.id];
   if(ex.kind==='plates'){var m=Math.min.apply(null,g.plates);return {v:m*2,u:g.plateUnit,src:'这个馆最小的片 '+fmt(m)+' '+uLab(g.plateUnit)+' × 2'};}
   if(o)return {v:o.v,u:o.u,src:'这个动作单独设的'};
   var s=g[ex.kind];return {v:s.v,u:s.u,src:' '+S.gym+' 的'+TYPE[ex.kind]+'默认'};
 }
-function show(kg){return r2(conv(kg,'kg',S.unit))}
-function load(totalPlate,g){var side=(totalPlate-BAR[g.plateUnit])/2,out=[],r=Math.round(side*1000)/1000;
-  g.plates.slice().sort(function(a,b){return b-a}).forEach(function(p){while(r>=p-0.05){out.push(p);r=Math.round((r-p)*1000)/1000;}});
-  return {per:out,rem:r<0.05?0:r,under:side<-0.05};}
 
-function plateHTML(w,unit){var s=SPEC[unit][w];var light=(s[0]==='white'||s[0]==='yellow'||s[0]==='chrome');
-  var lab=unit===S.unit?String(w):String(Math.round(conv(w,unit,S.unit)*10)/10);
-  return '<i class="pl'+(light?' light':'')+'" style="background:var(--p-'+s[0]+');width:max(2px,calc(var(--mm)*'+s[1]+'));height:calc(var(--mm)*'+s[2]+')">'+(s[2]>=400?'<b>'+lab+'</b>':'')+'</i>';}
-
-function heroHTML(ex){
+/* 杠铃：每边能凑出来的重量（这个馆有的片、每种不限数量），按 0.25 为单位做一次背包，带回溯 */
+function sideTable(g){
+  var Q=4,max=(g.plateUnit==='kg'?250:550)*Q,can=new Int16Array(max+1).fill(-1);can[0]=0;
+  var ps=g.plates.slice().sort(function(a,b){return b-a}).map(function(p){return Math.round(p*Q)});
+  for(var s=1;s<=max;s++){for(var k=0;k<ps.length;k++){var p=ps[k];if(s>=p&&can[s-p]>=0){can[s]=p;break;}}}
+  return {Q:Q,max:max,can:can};
+}
+function sidePlates(t,units){var out=[];while(units>0){var p=t.can[units];out.push(p/t.Q);units-=p;}return out.sort(function(a,b){return b-a});}
+/* 上下两个能挂的重量（器材自己的单位） */
+function bracket(ex,kg){
   var g=gymP();
   if(ex.kind==='plates'){
-    var tot=Math.round(conv(ex.kg,'kg',g.plateUnit)*20)/20,L=load(tot,g),side=L.per.map(function(w){return plateHTML(w,g.plateUnit)}).join('');
+    var u=g.plateUnit,v=conv(kg,'kg',u),bar=BAR[u];
+    if(v<=bar)return {u:u,lo:bar,hi:bar,v:v};
+    var t=sideTable(g),side=(v-bar)/2,su=side*t.Q,lo=Math.floor(su+1e-6),hi=Math.ceil(su-1e-6);
+    while(lo>0&&t.can[lo]<0)lo--; while(hi<t.max&&t.can[hi]<0)hi++;
+    return {u:u,lo:bar+2*lo/t.Q,hi:bar+2*hi/t.Q,v:v};
+  }
+  var st=stepOf(ex),w=conv(kg,'kg',st.u),a=Math.floor(w/st.v+1e-9)*st.v,b=Math.ceil(w/st.v-1e-9)*st.v;
+  return {u:st.u,lo:Math.max(st.v,a),hi:Math.max(st.v,b),v:w};
+}
+function loadable(ex,kg){var b=bracket(ex,kg);return Math.abs(b.v-b.lo)<0.01||Math.abs(b.v-b.hi)<0.01;}
+/* 严格取最近，两边一样近才取轻的 */
+function nearest(ex,kg){var b=bracket(ex,kg);var pick=(b.hi-b.v)<(b.v-b.lo)-1e-9?b.hi:b.lo;return conv(pick,b.u,'kg');}
+
+/* 只自动改没人碰过的底稿 */
+function roundDrafts(){
+  S.ex.forEach(function(ex){var s=ex.set;if(s.touched)return;
+    var base=conv(s.src.v,s.src.u,'kg');
+    if(loadable(ex,base)){s.kg=base;s.rounded=false;}else{s.kg=nearest(ex,base);s.rounded=true;}
+  });
+}
+
+function plateHTML(w,unit){var s=SPEC[unit][w];if(!s)return '';var light=(s[0]==='white'||s[0]==='yellow'||s[0]==='chrome');
+  var lab=unit===S.unit?String(w):String(Math.round(conv(w,unit,S.unit)*10)/10);
+  return '<i class="pl'+(light?' light':'')+'" style="background:var(--p-'+s[0]+');width:max(2px,calc(var(--mm)*'+s[1]+'));height:calc(var(--mm)*'+s[2]+')">'+(s[2]>=400?'<b>'+lab+'</b>':'')+'</i>';}
+function lab1(v,u){return u===S.unit?fmt(v):String(Math.round(conv(v,u,S.unit)*10)/10)}
+
+function heroHTML(ex){
+  var g=gymP(),kg=ex.set.kg,ok=loadable(ex,kg),drawKg=ok?kg:nearest(ex,kg),b=bracket(ex,kg),html='',cap='';
+  if(ex.kind==='plates'){
+    var u=g.plateUnit,v=conv(drawKg,'kg',u),bar=BAR[u],t=sideTable(g),units=Math.max(0,Math.round((v-bar)/2*t.Q)),per=units>0?sidePlates(t,units):[];
+    var side=per.map(function(w){return plateHTML(w,u)}).join('');
     var half=function(c){return '<span class="side '+c+'"><span class="collar"></span><span class="sleeve"></span><span class="load">'+side+'</span></span>'};
-    var lab=L.per.map(function(w){return g.plateUnit===S.unit?String(w):String(Math.round(conv(w,g.plateUnit,S.unit)*10)/10)}).join(' + ');
-    var cap=L.under?'比空杠还轻':L.rem>0?'配不出：每边还差 '+fmt(conv(L.rem,g.plateUnit,S.unit))+' '+uLab(S.unit)+'，这个馆没有更小的片':'每边 '+lab+' '+uLab(S.unit)+(g.plateUnit!==S.unit?'（'+(g.plateUnit==='lbs'?'磅片':'公斤片')+'）':'')+' · 标准杠 '+(g.plateUnit===S.unit?BAR[g.plateUnit]:Math.round(conv(BAR[g.plateUnit],g.plateUnit,S.unit)*10)/10)+' '+uLab(S.unit);
-    return '<div class="hero"><div class="bar"><span class="shaft"></span>'+half('l')+half('r')+'</div></div><p class="cap'+(L.rem>0||L.under?' warn':'')+'">'+cap+'</p>';
+    html='<div class="hero"><div class="bar"><span class="shaft"></span>'+half('l')+half('r')+'</div></div>';
+    cap=(per.length?'每边 '+per.map(function(w){return lab1(w,u)}).join(' + ')+' '+uLab(S.unit):'空杠')+(u!==S.unit?'（'+(u==='lbs'?'磅片':'公斤片')+'）':'')+' · 标准杠 '+lab1(bar,u)+' '+uLab(S.unit);
+  }else if(ex.kind==='cable'||ex.kind==='machine'){
+    var st=stepOf(ex),w=conv(drawKg,'kg',st.u),at=Math.round(w/st.v),n=Math.min(28,Math.max(16,at+3)),every=n>20?4:3,s='';
+    for(var i=1;i<=n;i++)s+='<span class="'+(i<at?'up':i===at?'at':'')+'"><em>'+(i%every===0?lab1(i*st.v,st.u):'')+'</em><i></i></span>';
+    html='<div class="hero"><div class="pin">'+s+'</div></div>';cap='插销插在 '+fmt(show(drawKg))+' '+uLab(S.unit);
+  }else{
+    var sc=0.45+Math.min(drawKg,25)/25*0.55,h='<span class="db"><i style="transform:scale('+(0.6+sc*0.5)+','+sc+')"></i><u></u><i style="transform:scale('+(0.6+sc*0.5)+','+sc+')"></i></span>';
+    html='<div class="hero"><div class="dbs">'+h+h+'</div></div>';cap='每只 '+fmt(show(drawKg))+' '+uLab(S.unit);
   }
-  if(ex.kind==='cable'||ex.kind==='machine'){
-    var st=stepOf(ex),v=conv(ex.kg,'kg',st.u),at=Math.round(v/st.v),n=Math.min(28,Math.max(16,at+3)),every=n>20?4:3,s='';
-    for(var i=1;i<=n;i++)s+='<span class="'+(i<at?'up':i===at?'at':'')+'"><em>'+(i%every===0?fmt(conv(i*st.v,st.u,S.unit)):'')+'</em><i></i></span>';
-    return '<div class="hero"><div class="pin">'+s+'</div></div><p class="cap">插销插在 '+fmt(show(ex.kg))+' '+uLab(S.unit)+'</p>';
-  }
-  var sc=0.45+Math.min(ex.kg,25)/25*0.55,h='<span class="db"><i style="transform:scale('+(0.6+sc*0.5)+','+sc+')"></i><u></u><i style="transform:scale('+(0.6+sc*0.5)+','+sc+')"></i></span>';
-  return '<div class="hero"><div class="dbs">'+h+h+'</div></div><p class="cap">每只 '+fmt(show(ex.kg))+' '+uLab(S.unit)+'</p>';
+  if(ok)return html+'<p class="cap">'+cap+'</p>';
+  // 手打 / 切回原值的数：不报错，大图画最接近的那种，下面给上下两个能挂的重量
+  var lo=conv(b.lo,b.u,'kg'),hi=conv(b.hi,b.u,'kg');
+  return html+'<p class="cap">按 '+fmt(show(kg))+' '+uLab(S.unit)+' 记 · 图上是最接近的配法</p>'+
+    '<div class="near"><span>改成能挂的：</span><button type="button" data-near="'+lo+'" data-i="'+S.ex.indexOf(ex)+'">'+fmt(show(lo))+'<small>'+uLab(S.unit)+'</small></button>'+
+    (Math.abs(hi-lo)>1e-6?'<button type="button" data-near="'+hi+'" data-i="'+S.ex.indexOf(ex)+'">'+fmt(show(hi))+'<small>'+uLab(S.unit)+'</small></button>':'')+'</div>';
 }
 
 function render(){
@@ -251,16 +301,15 @@ function render(){
   document.querySelectorAll('.unit button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.u===S.unit))});
   var html='';
   S.ex.forEach(function(ex,i){
-    // 按钮写器材自己的单位（磅片的馆写 +5 lb），不写换算后的 +2.27 kg —— 以整数的那个单位为准
-    var st=stepOf(ex),stLab=fmt(st.v);
-    var pb='';
-    if(ex.pbByGym){var best=ex.pbByGym[S.gym];pb='<p class="pbnote">PB 只和 '+S.gym+' 比：这里最好 '+fmt(show(best))+' '+uLab(S.unit)+(ex.kg>best+0.01?'，这一组破了':'')+'</p>';}
-    var isPB=ex.pbByGym&&ex.kg>ex.pbByGym[S.gym]+0.01;
+    var st=stepOf(ex),s=ex.set;
+    var pb='',isPB=false;
+    if(ex.pbByGym){var best=ex.pbByGym[S.gym];isPB=s.touched&&s.kg>best+0.01;pb='<p class="pbnote">PB 只和 '+S.gym+' 比：这里最好 '+fmt(show(best))+' '+uLab(S.unit)+'</p>';}
+    var origLab=s.rounded&&!s.touched?'<button type="button" class="orig" data-orig="'+i+'" title="点一下切回原值">原 '+fmt(s.src.v)+' '+uLab(s.src.u)+'</button>':(isPB?'<span class="pb">PB</span>':'<span></span>');
     html+='<article class="card" data-i="'+i+'">'+
       '<div class="ch"><h3>'+ex.name+'<small>'+TYPE[ex.kind]+'</small></h3>'+(ex.kind==='machine'||ex.kind==='cable'?'<button type="button" class="more" data-more="'+i+'" aria-label="动作菜单">⋯</button>':'<span style="width:30px"></span>')+'</div>'+
       heroHTML(ex)+
-      '<div class="row"><span class="num">1</span><span class="val"><big class="tn">'+fmt(show(ex.kg))+'</big><small>'+uLab(S.unit)+'</small><span class="x">×</span><big class="tn">'+ex.reps+'</big></span>'+(isPB?'<span class="pb">PB</span>':'<span></span>')+'</div>'+
-      '<div class="steps"><button type="button" data-step="-1" data-i="'+i+'">−'+stLab+' <small>'+uLab(st.u)+'</small></button><button type="button" data-step="1" data-i="'+i+'">+'+stLab+' <small>'+uLab(st.u)+'</small></button></div>'+
+      '<div class="row"><span class="num">1</span><span class="val"><input class="wt'+(s.touched?'':' ghost')+'" id="wt'+i+'" data-wt="'+i+'" type="number" inputmode="decimal" step="any" value="'+fmt(show(s.kg))+'" aria-label="'+ex.name+' 重量"><small>'+uLab(S.unit)+'</small><span class="x">×</span><span class="reps tn">'+ex.reps+'</span></span>'+origLab+'</div>'+
+      '<div class="steps"><button type="button" data-step="-1" data-i="'+i+'">−'+fmt(st.v)+' <small>'+uLab(st.u)+'</small></button><button type="button" data-step="1" data-i="'+i+'">+'+fmt(st.v)+' <small>'+uLab(st.u)+'</small></button></div>'+
       '<p class="src">一档 = <b>'+fmt(st.v)+' '+uLab(st.u)+'</b> · 来自'+st.src+'</p>'+pb+
       (S.menu===i?menuHTML(ex):'')+
     '</article>';
@@ -268,13 +317,23 @@ function render(){
   $('#view').innerHTML=html;
   document.querySelectorAll('[data-step]').forEach(function(b){b.addEventListener('click',function(){bump(+b.dataset.i,+b.dataset.step)})});
   document.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();S.menu=S.menu===+b.dataset.more?null:+b.dataset.more;render();})});
+  document.querySelectorAll('[data-orig]').forEach(function(b){b.addEventListener('click',function(){var s=S.ex[+b.dataset.orig].set;s.kg=conv(s.src.v,s.src.u,'kg');s.touched=true;s.rounded=false;render();toast('切回原值：照原样记，图下给出就近能挂的两档');})});
+  document.querySelectorAll('[data-near]').forEach(function(b){b.addEventListener('click',function(){var s=S.ex[+b.dataset.i].set;s.kg=+b.dataset.near;s.touched=true;render();})});
+  document.querySelectorAll('[data-wt]').forEach(function(inp){
+    var commit=function(){var v=parseFloat(inp.value);if(!(v>=0))return;var s=S.ex[+inp.dataset.wt].set;s.kg=conv(v,S.unit,'kg');s.touched=true;s.rounded=false;render();};
+    inp.addEventListener('change',commit);
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+    inp.addEventListener('focus',function(){requestAnimationFrame(function(){if(document.activeElement===inp)inp.select()})});
+  });
   bindMenu();
 }
-function bump(i,d){var ex=S.ex[i],st=stepOf(ex);
-  // 先吸到这一档的网格上，再走一档（和拖动的第一格同一个规则）
-  var v=conv(ex.kg,'kg',st.u),g=st.v,cur=v/g,snap=Math.abs(cur-Math.round(cur))>1e-6;
-  var nv=snap?(d>0?Math.ceil(cur):Math.floor(cur))*g:v+d*g;
-  ex.kg=Math.max(0,conv(nv,st.u,'kg'));render();}
+/* ±：第一下先落到最近能挂的重量（往加的方向取上面那档，往减的方向取下面那档），之后每次一档 */
+function bump(i,d){var ex=S.ex[i],s=ex.set,b=bracket(ex,s.kg),u=b.u,next;
+  if(Math.abs(b.v-b.lo)>0.01&&Math.abs(b.v-b.hi)>0.01){next=d>0?b.hi:b.lo;}
+  else{var probe=conv(b.v+d*0.26*(u==='kg'?1:2),u,'kg');var bb=bracket(ex,probe);next=d>0?bb.hi:bb.lo;
+    if(ex.kind==='plates'&&d<0&&b.v<=BAR[u]+1e-6)next=BAR[u];}
+  if(ex.kind!=='plates'){var st=stepOf(ex);next=Math.max(st.v,Math.round((Math.abs(b.v-b.lo)>0.01&&Math.abs(b.v-b.hi)>0.01?next:b.v+d*st.v)/st.v)*st.v);}
+  s.kg=Math.max(0,conv(next,u,'kg'));s.touched=true;s.rounded=false;render();}
 
 function menuHTML(ex){
   var key=S.gym+'|'+ex.id,o=S.over[key],def=gymP()[ex.kind],cur=o||def;
@@ -292,9 +351,10 @@ var OV_STEPS={kg:[1,1.25,2,2.5,5,10],lbs:[2.5,5,10,15,20]};
 function bindMenu(){
   var i=S.menu;if(i===null)return;var ex=S.ex[i],key=S.gym+'|'+ex.id;
   var cur=function(){return S.over[key]||gymP()[ex.kind]};
-  document.querySelectorAll('[data-ov]').forEach(function(b){b.addEventListener('click',function(){var c=cur(),list=OV_STEPS[c.u],k=list.indexOf(c.v);if(k<0)k=0;k=Math.max(0,Math.min(list.length-1,k+ +b.dataset.ov));S.over[key]={v:list[k],u:c.u};render();})});
-  document.querySelectorAll('[data-ou]').forEach(function(b){b.addEventListener('click',function(){var u=b.dataset.ou;S.over[key]={v:u==='kg'?5:10,u:u};render();})});
-  var rs=document.querySelector('[data-reset]');if(rs)rs.addEventListener('click',function(){delete S.over[key];render();});
+  var after=function(){roundDrafts();render();};
+  document.querySelectorAll('[data-ov]').forEach(function(b){b.addEventListener('click',function(){var c=cur(),list=OV_STEPS[c.u],k=list.indexOf(c.v);if(k<0)k=0;k=Math.max(0,Math.min(list.length-1,k+ +b.dataset.ov));S.over[key]={v:list[k],u:c.u};after();})});
+  document.querySelectorAll('[data-ou]').forEach(function(b){b.addEventListener('click',function(){var u=b.dataset.ou;S.over[key]={v:u==='kg'?5:10,u:u};after();})});
+  var rs=document.querySelector('[data-reset]');if(rs)rs.addEventListener('click',function(){delete S.over[key];after();});
 }
 document.addEventListener('click',function(){if(S.menu!==null){S.menu=null;render();}});
 
@@ -308,7 +368,7 @@ $('#gymBtn').addEventListener('click',function(e){e.stopPropagation();
   openSheet('<h3>在哪个馆练</h3><div class="gymlist">'+names.map(function(n){var g=S.gyms[n];return '<button type="button" data-g="'+n+'" aria-current="'+(n===S.gym)+'"><span>'+n+'</span><small>'+(g.plateUnit==='lbs'?'磅片':'公斤片')+' · 龙门架 '+fmt(g.cable.v)+uLab(g.cable.u)+' · 器械 '+fmt(g.machine.v)+uLab(g.machine.u)+'</small></button>'}).join('')+
     '<button type="button" data-new><span>新的馆…</span><small>设一次档案</small></button></div>'+
     '<button type="button" class="mi" data-edit style="min-height:44px;text-align:left;font-size:14px;color:var(--ink2)">改「'+S.gym+'」的档案</button>');
-  sheet.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){S.gym=b.dataset.g;S.menu=null;closeSheet();render();toast('换到 '+S.gym+'：± 和配片都按这个馆的器材算');})});
+  sheet.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){S.gym=b.dataset.g;S.menu=null;roundDrafts();closeSheet();render();toast('换到 '+S.gym+'：没动过的底稿按这个馆能挂的重量取整');})});
   sheet.querySelector('[data-new]').addEventListener('click',function(){profileSheet(null)});
   sheet.querySelector('[data-edit]').addEventListener('click',function(){profileSheet(S.gym)});
 });
@@ -329,13 +389,14 @@ function profileSheet(name){
     sheet.querySelectorAll('[data-inc]').forEach(function(b){b.addEventListener('click',function(){var c=g[b.dataset.inc],list=OV_STEPS[c.u],k=list.indexOf(c.v);if(k<0)k=0;c.v=list[Math.max(0,Math.min(list.length-1,k+ +b.dataset.d))];draw();})});
     sheet.querySelectorAll('[data-incu]').forEach(function(b){b.addEventListener('click',function(){var c=g[b.dataset.incu];c.u=b.dataset.u;c.v=c.u==='kg'?5:10;draw();})});
     $('#gsave').addEventListener('click',function(){var n=(name||nm||'').trim();if(!n){var i2=$('#gname');if(i2){i2.focus();i2.placeholder='先给这个馆起个名字';}return;}
-      S.gyms[n]=g;S.gym=n;S.menu=null;closeSheet();render();toast(name?'「'+n+'」的档案已更新':'已存「'+n+'」，这场训练按它算');});
+      S.gyms[n]=g;S.gym=n;S.menu=null;roundDrafts();closeSheet();render();toast(name?'「'+n+'」的档案已更新':'已存「'+n+'」，这场训练按它算');});
   }
   draw();
 }
 var tt;function toast(t){var el=$('#toast');el.textContent=t;el.classList.remove('hide');clearTimeout(tt);tt=setTimeout(function(){el.classList.add('hide')},2400);}
 document.querySelectorAll('.unit button').forEach(function(b){b.addEventListener('click',function(){S.unit=b.dataset.u;render();})});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(sheet.classList.contains('open'))closeSheet();else if(S.menu!==null){S.menu=null;render();}}});
+roundDrafts();
 render();
 })();
 </script>
