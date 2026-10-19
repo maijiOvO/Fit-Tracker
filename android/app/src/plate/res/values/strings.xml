@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  「杠铃片」新界面试用包：包名 com.myron.fittracker.plate，和旧版并存。
+  桌面名字用来一眼分清新旧两个图标。
+-->
+<resources>
+    <string name="app_name">Fit Tracker · 新版</string>
+    <string name="title_activity_main">Fit Tracker · 新版</string>
+</resources>

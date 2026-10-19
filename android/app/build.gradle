@@ -94,6 +94,15 @@ android {
         solo {
             dimension "distribution"
         }
+        /**
+         * 「杠铃片」新界面的试用包（2026-10-18，只在 redesign/plate 分支上）：
+         * 包名加 .plate 后缀，和手机上正式签名的旧版并存，随时切回旧版；
+         * 同样连 NAS（web 侧 build:release），数据和旧版是同一份。新界面合回 main 时删掉这个变体。
+         */
+        plate {
+            dimension "distribution"
+            applicationIdSuffix ".plate"
+        }
     }
 }
 
