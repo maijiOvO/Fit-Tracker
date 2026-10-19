@@ -3,7 +3,6 @@
 #   .\scripts\deploy-android.ps1            # prod 数据环境（连 NAS 真实数据）
 #   .\scripts\deploy-android.ps1 -Dev       # dev 数据环境（隔离，随便造数据）
 #   .\scripts\deploy-android.ps1 -SkipBuild # 只重装现有 APK，不重新编译
-#   .\scripts\deploy-android.ps1 -Variant plate  # 「杠铃片」新界面试用包，和旧版并存（com.myron.fittracker.plate）
 #
 # 不用连 USB 也能出 APK —— 只是最后那步装不上，脚本会把文件路径告诉你。
 #
@@ -16,7 +15,7 @@
 param(
     [switch]$Dev,
     [switch]$SkipBuild,
-    [ValidateSet('personal', 'plate')]
+    [ValidateSet('personal')]  # solo 的 web 侧要 build:solo，本脚本只打 prod，不接 solo
     [string]$Variant = 'personal'
 )
 
@@ -42,9 +41,9 @@ if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
 Write-Host "[i] JAVA_HOME = $env:JAVA_HOME" -ForegroundColor DarkGray
 
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
-# 有了 personal / solo（/ plate）变体之后 debug 包按变体分目录；原先的 apk\debug\app-debug.apk 已经不存在
+# 有了 personal / solo 变体之后 debug 包按变体分目录；原先的 apk\debug\app-debug.apk 已经不存在
 $apk = "android\app\build\outputs\apk\$Variant\debug\app-$Variant-debug.apk"
-$pkg = if ($Variant -eq 'plate') { 'com.myron.fittracker.plate' } else { 'com.myron.fittracker' }
+$pkg = 'com.myron.fittracker'
 $task = 'assemble' + $Variant.Substring(0, 1).ToUpper() + $Variant.Substring(1) + 'Debug'
 
 if (-not $SkipBuild) {
