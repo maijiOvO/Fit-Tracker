@@ -108,7 +108,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
                   onClick={() => onChangeSignedLoad(on)}
                   aria-pressed={!!signedLoad === on}
                   className={`flex-1 py-2.5 rounded-chip text-xs font-bold transition-colors ${
-                    !!signedLoad === on ? 'bg-accent text-on-accent' : 'text-secondary hover:text-primary'
+                    !!signedLoad === on ? 'seg-on' : 'text-secondary hover:text-primary'
                   }`}
                 >
                   {on ? (isCn ? '辅助 − / 自重 / 负重 +' : 'Assisted − / BW / Weighted +') : isCn ? '普通重量' : 'Plain weight'}

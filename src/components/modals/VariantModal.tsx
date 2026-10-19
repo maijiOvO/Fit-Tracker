@@ -212,7 +212,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
                             aria-pressed={on}
                             onClick={() => updateVariant(exerciseName, v.id, { region: r.id })}
                             className={`min-h-[36px] px-3 rounded-control text-xs font-bold border ${
-                              on ? 'bg-accent border-accent text-on-accent' : 'bg-card border-divider text-secondary'
+                              on ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-divider text-secondary'
                             }`}
                           >
                             {r.id ? getTagName(r.id) : isCn ? '跟动作走' : 'Same as exercise'}
@@ -239,7 +239,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
                           })
                         }
                         className={`min-h-[36px] px-3 rounded-control text-xs font-bold border ${
-                          on ? 'bg-accent border-accent text-on-accent' : 'bg-card border-divider text-secondary'
+                          on ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-divider text-secondary'
                         }`}
                       >
                         {label}

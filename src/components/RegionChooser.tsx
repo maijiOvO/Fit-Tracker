@@ -54,7 +54,7 @@ export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, va
         onClick={() => onChange(id)}
         className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
           on
-            ? 'bg-accent text-on-accent shadow-elevated'
+            ? 'bg-accent-soft text-accent'
             : custom
               ? 'bg-accent/10 text-accent border border-accent/40'
               : 'bg-card text-secondary hover:bg-card-hover'

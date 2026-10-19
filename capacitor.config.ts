@@ -24,7 +24,7 @@ const config: CapacitorConfig = {
    * 取 --bg-base 的浅色值（html / body / #root 三处都画它）。
    * 规格 §7.1 写的是 #FBF8F1，那是 --bg-card；闪屏该对齐的是 base。
    */
-  backgroundColor: '#E9EAEC',
+  backgroundColor: '#FFFFFF',
   android: {
     /** 「墨与纸」全部技术里的最高门槛（scroll-driven animations 要 Chrome 115+）。 */
     minWebViewVersion: 115,

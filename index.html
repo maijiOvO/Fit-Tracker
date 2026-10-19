@@ -7,9 +7,9 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#E9EAEC" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#121315" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#E9EAEC" data-dynamic="true">
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0D1216" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#FFFFFF" data-dynamic="true">
 
     <script>
       (function () {
@@ -21,8 +21,15 @@
         if (demo) pref = 'light';
         var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
+        // 强调色（青 / 玫红），和 useTheme.ts 的 BASE_COLOR 同步
+        var accent = 'teal';
+        try {
+          var a = localStorage.getItem('accent-pref');
+          if (/^(teal|rose|violet|orange|sky)$/.test(a)) accent = a;
+        } catch (_) {}
+        document.documentElement.setAttribute('data-accent', accent);
         var meta = document.querySelector('meta[name="theme-color"][data-dynamic]');
-        if (meta) meta.setAttribute('content', dark ? '#121315' : '#E9EAEC');
+        if (meta) meta.setAttribute('content', dark ? (accent === 'teal' || accent === 'sky' ? '#0D1216' : '#0A0A0C') : '#FFFFFF');
 
         // 动效三态（§5.6）。和主题一样在首帧之前贴上，避免第一帧用错档位。
         var motion = localStorage.getItem('fitlog_reduced_motion');

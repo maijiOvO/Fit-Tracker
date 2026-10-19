@@ -185,7 +185,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
                       if (!on) onAssignRegion(ex, r.id);
                     }}
                     className={`min-h-[38px] px-3 rounded-control text-xs font-bold border transition-colors ${
-                      on ? 'bg-accent border-accent text-on-accent shadow-elevated' : 'bg-card border-divider text-secondary'
+                      on ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-divider text-secondary'
                     }`}
                   >
                     {r.id ? getTagName(r.id) : isCn ? '未细分' : 'Unassigned'}

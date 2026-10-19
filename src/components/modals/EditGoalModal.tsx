@@ -46,7 +46,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
                 type="button"
                 onClick={() => setEditingGoal({ ...editingGoal, type: type as GoalType })}
                 className={`flex-1 min-h-[40px] rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
-                  editingGoal.type === type ? 'bg-accent text-on-accent' : 'text-secondary'
+                  editingGoal.type === type ? 'seg-on' : 'text-secondary'
                 }`}
               >
                 {

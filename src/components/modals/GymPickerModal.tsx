@@ -258,7 +258,7 @@ function GymProfileForm({
   };
 
   const seg = (on: boolean) =>
-    `min-h-[36px] px-3 text-label font-semibold ${on ? 'bg-accent text-on-accent' : 'text-secondary'}`;
+    `min-h-[36px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
   const inc = (key: 'cable' | 'machine' | 'dumbbell', label: string) => (
     <div className="gym-field">
       <span className="text-label text-secondary">{label}</span>

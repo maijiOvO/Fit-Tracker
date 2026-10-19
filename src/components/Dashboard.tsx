@@ -343,7 +343,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClick={() => setView('timeline')}
           className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-ui ${
             view === 'timeline'
-              ? 'bg-accent text-on-accent'
+              ? 'seg-on'
               : 'bg-transparent text-secondary hover:text-primary'
           }`}
         >
@@ -355,7 +355,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           onClick={() => setView('pr')}
           className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-ui ${
             view === 'pr'
-              ? 'bg-accent text-on-accent'
+              ? 'seg-on'
               : 'bg-transparent text-secondary hover:text-primary'
           }`}
         >
@@ -451,7 +451,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                         }
                         className={`px-3 py-1.5 rounded-chip text-xs font-medium transition-colors ${
                           getChartMetric(lift.name, lift.baseName) === m
-                            ? 'bg-accent text-on-accent'
+                            ? 'bg-accent-soft text-accent'
                             : 'bg-inset text-secondary border border-divider'
                         }`}
                       >

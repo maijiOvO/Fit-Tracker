@@ -1212,7 +1212,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const chipCls = (on: boolean, custom = false) =>
     `flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
       on
-        ? 'bg-accent text-on-accent shadow-elevated'
+        ? 'bg-accent-soft text-accent'
         : custom
           ? 'bg-accent/10 text-accent border border-dashed border-accent/40'
           : 'bg-inset text-secondary'
@@ -1272,7 +1272,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             setEquips(next);
           }}
           className={`flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
-            on ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
+            on ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'
           }`}
         >
           {label}
@@ -1360,7 +1360,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             onClick={toggleArranging}
             aria-pressed={arranging}
             className={`ml-auto flex-shrink-0 min-h-[34px] px-3 rounded-control text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              arranging ? 'bg-accent text-on-accent shadow-elevated' : 'bg-inset text-secondary'
+              arranging ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'
             }`}
             data-testid="region-arrange"
           >

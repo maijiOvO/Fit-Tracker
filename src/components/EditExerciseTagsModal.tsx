@@ -102,7 +102,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                 aria-pressed={category === cat}
                 onClick={() => setCategory(cat)}
                 className={`flex-1 min-h-[40px] rounded-control text-xs font-bold transition-ui ${
-                  category === cat ? 'bg-accent text-on-accent' : 'bg-card text-secondary hover:bg-card-hover'
+                  category === cat ? 'bg-accent-soft text-accent' : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >
                 {cat === 'STRENGTH' && translations.strengthTraining[lang]}
@@ -126,7 +126,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
               onClick={() => setBodyPart('')}
               className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui ${
                 bodyPart === ''
-                  ? 'bg-accent text-on-accent'
+                  ? 'bg-accent-soft text-accent'
                   : 'bg-card text-tertiary hover:bg-card-hover'
               }`}
             >
@@ -141,7 +141,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                   onClick={() => setBodyPart(id)}
                   className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui ${
                     bodyPart === id
-                      ? 'bg-accent text-on-accent shadow-elevated'
+                      ? 'bg-accent-soft text-accent'
                       : 'bg-card text-secondary hover:bg-card-hover'
                   }`}
                 >
@@ -190,7 +190,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
                   onClick={() => toggleEquipment(id)}
                   className={`min-h-[40px] px-4 rounded-control text-xs font-bold uppercase tracking-wider transition-ui ${
                     active
-                      ? 'bg-accent text-on-accent shadow-elevated'
+                      ? 'bg-accent-soft text-accent'
                       : 'bg-card text-secondary hover:bg-card-hover'
                   }`}
                 >

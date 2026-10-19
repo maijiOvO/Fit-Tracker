@@ -134,7 +134,7 @@ const GranularityChip: React.FC<GranularityChipProps> = ({ active, icon, label, 
     onClick={onClick}
     className={`flex-1 min-h-[40px] flex items-center justify-center gap-1.5 rounded-control text-xs font-bold transition-ui ${
       active
-        ? 'bg-accent text-on-accent'
+        ? 'seg-on'
         : 'bg-transparent text-secondary hover:text-primary'
     }`}
   >

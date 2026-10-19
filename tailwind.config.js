@@ -33,6 +33,15 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      // `text-accent` 走压深一档的 --accent-text：浅色的青 / 玫红填充色直接当字在白底上不过 4.5:1。
+      // 整组覆盖，所以 soft / ink 要一起写上。
+      textColor: {
+        accent: {
+          DEFAULT: tok('--accent-text'),
+          soft: tok('--accent-soft'),
+          ink: tok('--accent-ink'),
+        },
+      },
       colors: {
         // 纸
         base: tok('--bg-base'),
@@ -49,7 +58,7 @@ export default {
         secondary: tok('--text-secondary'),
         tertiary: tok('--text-tertiary'),
 
-        // 朱砂
+        // 强调色（青 / 玫红，见 index.css）
         accent: {
           DEFAULT: tok('--accent'),
           soft: tok('--accent-soft'),

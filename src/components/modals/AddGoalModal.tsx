@@ -47,7 +47,7 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
               type="button"
               onClick={() => setNewGoal({ ...newGoal, type })}
               className={`flex-1 min-h-[40px] rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
-                newGoal.type === type ? 'bg-accent text-on-accent' : 'text-secondary'
+                newGoal.type === type ? 'seg-on' : 'text-secondary'
               }`}
             >
               {

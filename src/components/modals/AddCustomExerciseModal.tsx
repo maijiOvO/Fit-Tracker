@@ -102,7 +102,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 onClick={() => setNewExerciseCategory(cat)}
                 className={`flex-1 min-h-[40px] rounded-control text-xs font-bold transition-ui ${
                   newExerciseCategory === cat
-                    ? 'bg-accent text-on-accent'
+                    ? 'bg-accent-soft text-accent'
                     : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >
@@ -131,7 +131,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 }
                 className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
                   newExerciseBodyPart === id
-                    ? 'bg-accent text-on-accent shadow-elevated'
+                    ? 'bg-accent-soft text-accent'
                     : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >
@@ -174,7 +174,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
                 }
                 className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
                   newExerciseTags.includes(id)
-                    ? 'bg-accent text-on-accent shadow-elevated'
+                    ? 'bg-accent-soft text-accent'
                     : 'bg-card text-secondary hover:bg-card-hover'
                 }`}
               >

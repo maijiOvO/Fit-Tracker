@@ -15,7 +15,7 @@ import { Check, ChevronRight, Download, Moon, RefreshCw, Smartphone, Sun, Undo2,
 import { Language } from '../../types';
 import { translations } from '../../translations';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { useTheme, ThemePreference } from '../hooks/useTheme';
+import { useTheme, ThemePreference, AccentPreference } from '../hooks/useTheme';
 import { useMotionPreference, MotionPreference } from '../hooks/useMotionPreference';
 import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
 import { scrubFeel, setScrubFeel, ScrubFeel } from '../utils/scrubFeel';
@@ -79,7 +79,7 @@ function Seg<T extends string | number>({
             onClick={() => onPick(o.v)}
             className={`min-h-[40px] py-2 rounded-chip flex flex-col items-center justify-center gap-1 transition-colors duration-tap ease-paper ${
               mono ? 'font-mono text-[13px] font-semibold' : 'text-xs font-medium'
-            } ${on ? 'bg-accent text-on-accent' : 'text-secondary hover:text-primary hover:bg-card-hover'}`}
+            } ${on ? 'seg-on' : 'text-secondary hover:text-primary hover:bg-card-hover'}`}
           >
             {o.icon}
             <span>{o.label}</span>
@@ -300,6 +300,16 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
     { v: 'light', label: t('浅色', 'Light'), icon: <Sun size={18} strokeWidth={1.75} /> },
     { v: 'dark', label: t('深色', 'Dark'), icon: <Moon size={18} strokeWidth={1.75} /> },
   ];
+  // 色点直接用两套的实色值，不走 --accent（那只反映当前选中的一套）
+  const accentDot = (c: string) => <span className="w-[18px] h-[18px] rounded-full" style={{ background: c }} aria-hidden />;
+  const dark = theme.resolved === 'dark';
+  const accentOpts: Opt<AccentPreference>[] = [
+    { v: 'teal', label: t('青', 'Teal'), icon: accentDot(dark ? '#2BE0C0' : '#12B39A') },
+    { v: 'sky', label: t('浅蓝', 'Sky'), icon: accentDot(dark ? '#38BDF8' : '#0EA5E9') },
+    { v: 'violet', label: t('紫', 'Violet'), icon: accentDot(dark ? '#7445F0' : '#7C3AED') },
+    { v: 'rose', label: t('玫红', 'Rose'), icon: accentDot(dark ? '#E0245C' : '#E11D5C') },
+    { v: 'orange', label: t('橙', 'Orange'), icon: accentDot(dark ? '#FF8A3D' : '#F97316') },
+  ];
   // 档名自己说清楚（审查 teaching-text-candidates：删掉每档下面那行说明）
   const motionOpts: Opt<MotionPreference>[] = [
     { v: 'auto', label: t('跟系统', 'System') },
@@ -452,6 +462,9 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
           <Group title={t('显示', 'Display')}>
             <Item label={t('外观', 'Appearance')}>
               <Seg opts={themeOpts} value={theme.preference} onPick={theme.setPreference} />
+            </Item>
+            <Item label={t('强调色', 'Accent')}>
+              <Seg opts={accentOpts} value={theme.accent} onPick={theme.setAccent} testId="prefs-accent" />
             </Item>
             <Item label={t('动效', 'Motion')}>
               <Seg opts={motionOpts} value={motion.preference} onPick={motion.setPreference} />

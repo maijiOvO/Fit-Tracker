@@ -89,40 +89,49 @@
   size-adjust: 100%;
 }
 
-/* ── 「墨与纸」令牌层 ──────────────────────────────────────────────
-   唯一事实来源：docs/design-ink-and-paper.md §2 / §4 / §5.1
+/* ── 颜色令牌层 ──────────────────────────────────────────────────
+   唯一事实来源：docs/design-plates.md §1（动效令牌仍见 docs/design-ink-and-paper.md §5.1）
 
-   层级规则（永不违反）：card 比 base 亮（纸浮在桌面上），
-   inset 比 base 暗（压痕 / 凹槽）。
-   验收条款：任何 accent 底上的文字必须过 4.5:1。
+   层级：深色里 card 比 base 亮；浅色 base 是纯白，card 是白底上的浅灰块。
+   inset 始终比 base 暗（压痕 / 凹槽）。
+   验收条款：任何 accent 底上的文字、以及 --accent-text 在 card / base / soft 上，都必须过 4.5:1。
    ───────────────────────────────────────────────────────────── */
 
-/* ── 浅色 · 水泥地 ──
-   「杠铃片」规格 docs/design-plates.md §1：界面只有灰阶，彩色只给片子。
-   层级规则不变：card 比 base 亮，inset 比 base 暗。 */
+/* ── 浅色 · 白底 ──
+   2026-10-19 改版（docs/design-plates.md §1）：底色纯白，卡片是浅灰块；
+   强调色两套可选（青 / 玫红，<html data-accent>），浅深两种模式共用同一色相。
+   片子的红蓝黄绿白仍然不许拿来当强调色。
+
+   强调色按功能分深浅三档：
+     --accent       实色填充：主操作（开始训练、＋、保存）
+     --accent-soft  淡底：选中态（分段切换、筛选标签），字用 --accent-text
+     --accent-text  压深一档：链接、图标、淡底上的字，card / base / soft 上都过 4.5:1 */
 :root {
-  --bg-base: #E9EAEC;        /* 地面 */
-  --bg-card: #F7F7F8;        /* 卡片 */
-  --bg-card-hover: #F0F1F2;
-  --bg-inset: #DFE1E4;       /* 凹槽 */
-  --divider: #D5D8DC;
-  --rule-strong: #9A9EA5;
+  --bg-base: #FFFFFF;        /* 地面 */
+  --bg-card: #F4F5F7;        /* 卡片：白底上的浅灰块 */
+  --bg-card-hover: #ECEEF1;
+  --bg-inset: #E9EBEF;       /* 凹槽 */
+  --divider: #E3E5E9;
+  --rule-strong: #A3A8B0;
 
-  --text-primary: #16181B;
-  --text-secondary: #4F535A;
-  --text-tertiary: #5E636A;  /* card / base / inset 三种底都过 4.5:1 */
+  --text-primary: #111316;
+  --text-secondary: #4B5058;
+  --text-tertiary: #5C626B;  /* card / base / inset 三种底都过 4.5:1 */
 
-  /* 强调色就是墨：主按钮、聚焦、选中都用墨，不另起品牌色（§1）。
-     片子的颜色绝不拿来当强调色。 */
-  --accent: #16181B;
-  --accent-soft: #DCDFE3;
-  --accent-ink: #000000;     /* 按压态 */
-  --text-on-accent: #F7F7F8;
+  /* 青（默认） */
+  --accent: #12B39A;
+  --accent-soft: #DCF4EF;
+  --accent-ink: #0E9A84;     /* 按压态 */
+  --accent-text: #097464;
+  --text-on-accent: #04211C;
 
-  /* 原「荧光笔黄」改为浅灰提示底，不再有第二情绪色 */
-  --highlight: #9A9EA5;
-  --highlight-soft: #E2E4E7;
-  --text-on-highlight: #16181B;
+  /* 分段切换的选中滑块：靠「凸起」区分，不靠强调色（淡色块叠在灰槽上发脏） */
+  --seg-pill: #FFFFFF;
+  --seg-shadow: 0 1px 2px rgba(17, 19, 22, .10), 0 0 0 0.5px rgba(17, 19, 22, .06);
+
+  --highlight: #A3A8B0;
+  --highlight-soft: #EEF0F3;
+  --text-on-highlight: #111316;
 
   /* 语义：降饱和，和灰阶相容。危险靠形态与位置区分，不靠颜色 */
   --success: #2F6B45;
@@ -132,12 +141,12 @@
   --danger: #A3241F;
   --danger-soft: #F2DCDA;
 
-  /* 图表：灰阶为主，墨色是主序列 */
-  --chart-1: #16181B;
-  --chart-2: #5E636A;
-  --chart-3: #9A9EA5;
+  /* 图表：强调色是主序列，其余灰阶 */
+  --chart-1: var(--accent);
+  --chart-2: #5C626B;
+  --chart-3: #A3A8B0;
   --chart-4: #1E5BC6;
-  --chart-5: #C2C6CB;
+  --chart-5: #C9CDD3;
 
   /* 杠铃片（§1）：只给器材图形用。kg 25/20/15/10/5/2.5/1.25 → 红蓝黄绿白红铬 */
   --plate-red: #D9262B;
@@ -176,27 +185,63 @@
   --shadow-elevated: var(--shadow-page);
 }
 
-/* ── 深色 · 橡胶地垫（独立设计，不是反色） ── */
+/* 浅色 · 其余几套强调色（青是默认，写在上面 :root 里） */
+:root[data-accent='rose'] {
+  --accent: #E11D5C;
+  --accent-soft: #FCE4EC;
+  --accent-ink: #C2154D;
+  --accent-text: #C4134C;
+  --text-on-accent: #FFFFFF;
+}
+:root[data-accent='violet'] {
+  --accent: #7C3AED;
+  --accent-soft: #EDE5FD;
+  --accent-ink: #6D28D9;
+  --accent-text: #6D28D9;
+  --text-on-accent: #FFFFFF;
+}
+:root[data-accent='orange'] {
+  --accent: #F97316;
+  --accent-soft: #FFEDD5;
+  --accent-ink: #EA580C;
+  --accent-text: #C2410C;
+  --text-on-accent: #1F1205;
+}
+/* 浅蓝：偏青的天蓝，和 20 kg 蓝片（#1E5BC6，更深更紫）拉开 */
+:root[data-accent='sky'] {
+  --accent: #0EA5E9;
+  --accent-soft: #E0F2FE;
+  --accent-ink: #0284C7;
+  --accent-text: #0369A1;
+  --text-on-accent: #03202E;
+}
+
+/* ── 深色（独立设计，不是反色）──
+   底色跟着强调色走：青 → 蓝黑底（参考 Whoop），玫红 → 纯黑底（参考 Fitbod）。 */
 .dark {
-  --bg-base: #121315;
-  --bg-card: #1C1E21;
-  --bg-card-hover: #232529;
-  --bg-inset: #0B0C0D;
-  --divider: #2B2E33;
-  --rule-strong: #4A4E55;
+  --bg-base: #0D1216;
+  --bg-card: #172028;
+  --bg-card-hover: #1D2731;
+  --bg-inset: #080B0E;
+  --divider: #25303A;
+  --rule-strong: #3E4B57;
 
-  --text-primary: #F1F1EE;
-  --text-secondary: #ABAFB6;
-  --text-tertiary: #8E939B;
+  --text-primary: #F2F5F7;
+  --text-secondary: #A9B4BE;
+  --text-tertiary: #8693A0;
 
-  --accent: #F1F1EE;
-  --accent-soft: #2A2D31;
-  --accent-ink: #FFFFFF;
-  --text-on-accent: #121315;
+  --accent: #2BE0C0;
+  --accent-soft: #12332F;
+  --accent-ink: #5BF0D6;
+  --accent-text: #2BE0C0;
+  --text-on-accent: #06201C;
 
-  --highlight: #5E636A;
-  --highlight-soft: #26292D;
-  --text-on-highlight: #F1F1EE;
+  --seg-pill: #2A3642;
+  --seg-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+
+  --highlight: #4A5866;
+  --highlight-soft: #1C2630;
+  --text-on-highlight: #F2F5F7;
 
   --success: #7FBF92;
   --success-soft: #18261D;
@@ -205,7 +250,7 @@
   --danger: #EF7A70;
   --danger-soft: #331714;
 
-  --chart-1: #F1F1EE;
+  --chart-1: var(--accent);
   --chart-2: #ABAFB6;
   --chart-3: #6E737B;
   --chart-4: #3D7BE6;
@@ -229,6 +274,59 @@
 
   --shadow-page: 0 1px 1px rgba(0, 0, 0, .35);
   --shadow-overlay: 0 2px 6px rgba(0, 0, 0, .45), 0 18px 40px -24px rgba(0, 0, 0, .80);
+}
+
+/* 深色 · 纯黑底：玫红 / 紫 / 橙共用（参考 Fitbod）。青和浅蓝用上面 .dark 的蓝黑底。
+   这些选择器必须写在 .dark 之后、并带上 .dark —— 否则上面 :root[data-accent=…]
+   （特异性更高）会把浅色的强调色值带进深色。 */
+.dark[data-accent='rose'],
+.dark[data-accent='violet'],
+.dark[data-accent='orange'] {
+  --bg-base: #0A0A0C;
+  --bg-card: #19191D;
+  --bg-card-hover: #202025;
+  --bg-inset: #040405;
+  --divider: #2A2A30;
+  --rule-strong: #45454D;
+
+  --text-primary: #F4F4F6;
+  --text-secondary: #B0B0B8;
+  --text-tertiary: #8E8E98;
+
+  --highlight: #4A4A52;
+  --highlight-soft: #232328;
+  --text-on-highlight: #F4F4F6;
+
+  --seg-pill: #2C2C33;
+  --seg-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+}
+.dark[data-accent='rose'] {
+  --accent: #E0245C;
+  --accent-soft: #3A1420;
+  --accent-ink: #F2386B;
+  --accent-text: #FF6D95;
+  --text-on-accent: #FFFFFF;
+}
+.dark[data-accent='violet'] {
+  --accent: #7445F0;
+  --accent-soft: #271C45;
+  --accent-ink: #8B63FF;
+  --accent-text: #B49CFF;
+  --text-on-accent: #FFFFFF;
+}
+.dark[data-accent='orange'] {
+  --accent: #FF8A3D;
+  --accent-soft: #3A2210;
+  --accent-ink: #FFA061;
+  --accent-text: #FF9F5A;
+  --text-on-accent: #1F1205;
+}
+.dark[data-accent='sky'] {
+  --accent: #38BDF8;
+  --accent-soft: #0C2A3A;
+  --accent-ink: #6CD0FA;
+  --accent-text: #38BDF8;
+  --text-on-accent: #04202E;
 }
 
 /* ── 动效令牌 §5.1（与主题无关） ── */
@@ -373,6 +471,15 @@ button {
 .ui-card-interactive:active {
   transform: scale(0.99);
 }
+
+/* 分段切换（多选一的视图 / 设置切换）的选中项：白色凸起滑块 + 正文色字，只有图标染强调色。
+   筛选标签这类独立摆放的选中态仍用 bg-accent-soft。规格 docs/design-plates.md §1。 */
+.seg-on {
+  background: var(--seg-pill);
+  color: var(--text-primary);
+  box-shadow: var(--seg-shadow);
+}
+.seg-on svg { color: var(--accent-text); }
 
 .ui-btn-primary {
   background-color: var(--accent);
@@ -813,7 +920,7 @@ button {
   padding: 0 12px;
   box-shadow: inset 2px 0 0 var(--divider);
   border-bottom: 1px solid var(--divider);
-  color: var(--accent);
+  color: var(--accent-text);
   text-align: left;
 }
 
@@ -951,7 +1058,7 @@ button {
   font-size: 10px;
   font-weight: 600;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   pointer-events: none;
 }
 
@@ -1232,7 +1339,7 @@ button {
   border-radius: var(--radius-control);
   border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
   background: color-mix(in srgb, var(--accent) 5%, transparent);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .region-gwrap {
   position: relative;
