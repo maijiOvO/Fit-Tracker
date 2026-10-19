@@ -4,8 +4,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=ZCOOL+QingKe+HuangYou&family=Barlow+Condensed:wght@500;600;700&display=swap">
 <style>
-/* 示意：馆档案 + 就近取整 + 「单位就是片子」合进现有工作台逻辑（加动作底稿、加组照抄、改值带动后面、
-   递减档、练法、挂片器械、带符号负荷、只记时间）。样子照 redesign/plate 现状搬；标题用站酷庆科黄油体代替得意黑。 */
+/* 示意：馆档案 + 就近取整 + 「单位就是片子」合进现在 App 的整套工作台交互
+   （src/utils/workbench.ts 的指针 / 点组号 / 扫做完 / 退回 / 交替组，SetCapsule 的拖动 / 打字 / 长按递减 / 删组，
+   useWorkoutMutations 的底稿 / 换做法 / 结束提醒）。样子照 redesign/plate 现状搬；标题用站酷庆科黄油体代替得意黑。 */
 :root{
   --bg:#E9EAEC; --card:#F7F7F8; --inset:#DFE1E4; --ink:#16181B; --ink2:#4F535A; --ink3:#5E636A; --rule:#D5D8DC;
   --rod:#A3A8AF; --sleeve:#C2C6CB; --chalk:#FFFFFF; --scrim:rgba(22,24,27,.42); --on-accent:#F7F7F8;
@@ -28,7 +29,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15p
 button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
 button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .tn{font-variant-numeric:tabular-nums}
-.page{max-width:1160px;margin:0 auto;display:grid;grid-template-columns:390px minmax(0,1fr);gap:40px;align-items:start}
+.page{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:390px minmax(0,1fr);gap:40px;align-items:start}
 @media (max-width:900px){.page{grid-template-columns:minmax(0,1fr)}}
 .notes{display:flex;flex-direction:column;gap:20px;min-width:0}
 .notes h1{margin:0;font-family:var(--f-title);font-weight:400;font-size:40px;line-height:1.05}
@@ -46,16 +47,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 .tbl tr:last-child td{border-bottom:0}
 
 .phone{width:100%;max-width:390px;margin:0 auto;border-radius:38px;padding:9px;background:#0B0B0C;box-shadow:0 30px 60px -30px rgba(0,0,0,.5);position:sticky;top:16px}
-.screen{height:800px;border-radius:30px;overflow:hidden;position:relative;background:var(--bg);display:flex;flex-direction:column}
-@media (max-width:440px){.phone{padding:0;background:transparent;box-shadow:none;border-radius:0;position:static}.screen{border-radius:12px;height:760px;border:1px solid var(--rule)}}
+.screen{height:820px;border-radius:30px;overflow:hidden;position:relative;background:var(--bg);display:flex;flex-direction:column}
+@media (max-width:440px){.phone{padding:0;background:transparent;box-shadow:none;border-radius:0;position:static}.screen{border-radius:12px;height:780px;border:1px solid var(--rule)}}
 .sb{flex:none;height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 24px;font:700 12px var(--f-num)}
-.head{flex:none;display:flex;align-items:center;gap:10px;padding:4px 14px 10px;border-bottom:1px solid var(--rule)}
+.head{flex:none;display:flex;align-items:center;gap:8px;padding:4px 12px 10px;border-bottom:1px solid var(--rule)}
 .ht{flex:1;min-width:0}
 .gym{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink2);min-height:28px;border-bottom:1px dashed currentColor;line-height:1.2}
-.ht b{display:block;font-size:17px}
+.ht b{display:block;font-size:16px}
 .unit{display:inline-flex;background:var(--inset);border-radius:4px;padding:2px}
-.unit button{padding:4px 9px;border-radius:3px;font:600 13px var(--f-num);color:var(--ink2)}
+.unit button{padding:4px 8px;border-radius:3px;font:600 13px var(--f-num);color:var(--ink2)}
 .unit button[aria-pressed="true"]{background:var(--card);color:var(--ink)}
+.end{min-height:36px;padding:0 10px;border-radius:4px;background:var(--ink);color:var(--on-accent);font-size:13px;font-weight:700}
 #view{flex:1;overflow-y:auto;padding:10px 10px 90px;display:flex;flex-direction:column;gap:12px;scrollbar-width:none}
 #view::-webkit-scrollbar{display:none}
 .addbar{position:absolute;left:0;right:0;bottom:0;padding:10px 12px 14px;background:linear-gradient(transparent,var(--bg) 30%);z-index:2}
@@ -65,9 +67,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 .ch{display:flex;align-items:flex-start;gap:8px;padding:12px 12px 8px;border-bottom:1px solid var(--rule)}
 .ch h3{margin:0;flex:1;font-family:var(--f-title);font-weight:400;font-size:23px;line-height:1.05}
 .ch .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;font-family:var(--f-ui);font-size:12px;color:var(--ink3)}
-.ch .var{color:var(--ink);border-bottom:1px dashed currentColor;font-size:12px}
+.ch .var{color:var(--ink);border-bottom:1px dashed currentColor;font-size:12px;min-height:24px}
 .more{width:36px;height:36px;margin:-4px -6px 0 0;display:grid;place-items:center;border-radius:4px;font-size:20px;line-height:1;color:var(--ink2)}
-.hero{padding:8px 12px 2px;container-type:inline-size}
+.hero{padding:8px 12px 2px;container-type:inline-size;touch-action:pan-y;cursor:ew-resize;user-select:none;-webkit-user-select:none}
+.hero.y{touch-action:pan-x;cursor:ns-resize}
+.hero.drag{background:var(--inset)}
 .bar{--L:2200;--mm:calc(100cqw / var(--L));position:relative;height:calc(var(--mm) * 470)}
 .shaft{position:absolute;left:50%;top:50%;width:calc(var(--mm)*1310);height:4px;transform:translate(-50%,-50%);background:repeating-linear-gradient(90deg,var(--sleeve) 0 2px,var(--rod) 2px 4px)}
 .bar.sled .shaft{height:calc(var(--mm)*260);background:var(--inset);border:1px solid var(--rule)}
@@ -96,45 +100,59 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 .near span{font-size:12px;color:var(--ink2)}
 .near button{min-height:34px;padding:0 10px;border:1.5px solid var(--ink);border-radius:4px;font:700 15px var(--f-num)}
 
-.row{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:8px;align-items:center;padding:5px 12px;border-top:1px solid var(--rule);min-height:50px}
-.row.sub{padding-left:30px;min-height:44px;background:linear-gradient(90deg,transparent 22px,var(--rule) 22px 24px,transparent 24px)}
-.num{width:30px;height:30px;border-radius:4px;border:1.5px solid var(--ink3);color:var(--ink2);display:grid;place-items:center;font:600 12px var(--f-num)}
-.row.done .num{background:var(--ink);border-color:var(--ink);color:var(--on-accent)}
+/* 组行：组号 | 重量 | 次数 | 删 */
+.colh{display:grid;grid-template-columns:36px 1fr 1fr 32px;gap:6px;padding:6px 12px 2px;font-size:11px;color:var(--ink3);text-align:center}
+.colh span:first-child{text-align:left}
+.row{display:grid;grid-template-columns:36px 1fr 1fr 32px;gap:6px;align-items:center;padding:4px 12px 12px;border-top:1px solid var(--rule);min-height:56px;position:relative}
+.row.sub{padding-left:24px;min-height:44px;grid-template-columns:24px 1fr 1fr 32px;background:linear-gradient(90deg,transparent 16px,var(--rule) 16px 18px,transparent 18px)}
+.num{width:32px;height:32px;border-radius:4px;border:1.5px solid var(--ink3);color:var(--ink2);display:grid;place-items:center;font:600 13px var(--f-num);touch-action:pan-y;user-select:none;-webkit-user-select:none;position:relative}
+.num small{position:absolute;left:-14px;font:600 11px var(--f-ui);color:var(--ink3)}
+.row.sel .num{background:var(--ink);border-color:var(--ink);color:var(--on-accent)}
+.num.press{box-shadow:0 0 0 3px var(--inset)}
 .row.sub .num{width:22px;height:22px;font-size:11px;border-style:dashed}
-.val{display:flex;align-items:baseline;gap:4px;min-width:0;font-family:var(--f-num);font-weight:700}
-.wt{width:3.3em;font:700 28px/1 var(--f-num);color:var(--ink);background:transparent;border:0;border-bottom:1.5px dashed var(--ink3);padding:0 0 2px;font-variant-numeric:tabular-nums;-moz-appearance:textfield;appearance:textfield}
-.row.sub .wt{font-size:22px}
-.wt::-webkit-outer-spin-button,.wt::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-.row.ghost .wt{color:var(--ink3)}
-.row.ghost.touched .wt{color:var(--ink);border-bottom-style:solid}
-.row.done .wt{border-bottom-color:transparent}
-.val small{font-size:12px;color:var(--ink3);font-weight:600;font-family:var(--f-ui)}
-.val .x{color:var(--ink3);font-size:17px;margin:0 2px}
-.val .reps{font-size:28px;line-height:1}
-.tag{font:600 11px/1.2 var(--f-num);color:var(--ink2);border:1px dashed var(--ink3);border-radius:2px;padding:3px 5px;white-space:nowrap;letter-spacing:.02em}
-.tag.fact{border-style:solid}
-.acts{display:flex;gap:6px;padding:6px 12px 10px;flex-wrap:wrap}
-.acts button{flex:1 1 auto;min-height:42px;padding:0 10px;border-radius:4px;background:var(--inset);font:600 14px var(--f-num);color:var(--ink2);white-space:nowrap}
-.acts button small{font:500 11px var(--f-ui)}
+.cell{position:relative;display:flex;justify-content:center;gap:3px;min-height:44px;align-items:center;touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:ew-resize;border-radius:4px}
+.cell .n{font:700 28px/1 var(--f-num);font-variant-numeric:tabular-nums;color:var(--ink);border-bottom:1.5px dashed transparent;padding-bottom:1px}
+.row.sub .cell .n{font-size:22px}
+.cell small{font:600 11px var(--f-ui);color:var(--ink3);align-self:flex-end;margin-bottom:9px}
+.row.ghost .cell .n{color:var(--ink3);border-bottom-color:var(--ink3)}
+.row.ghost .cell.edited .n{color:var(--ink)}
+.cell.scrub{background:var(--inset)}
+.cell input{width:3.2em;font:700 26px/1 var(--f-num);text-align:center;background:var(--bg);border:0;border-bottom:2px solid var(--ink);color:var(--ink);padding:2px 0;-moz-appearance:textfield;appearance:textfield}
+.cell input::-webkit-outer-spin-button,.cell input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.del{width:32px;height:44px;display:grid;place-items:center;color:var(--ink3);font-size:18px}
+.tag{position:absolute;left:54px;bottom:1px;font:600 10px/1.2 var(--f-num);color:var(--ink3);letter-spacing:.02em;pointer-events:none;white-space:nowrap}
+.tag.fact{color:var(--ink2)}
+.ptr{height:0;position:relative;border-top:2px solid var(--ink);margin:0 12px}
+.ptr::before{content:"";position:absolute;left:-6px;top:-6px;width:10px;height:10px;background:var(--ink);transform:rotate(45deg)}
+.strip{display:flex;gap:6px;padding:4px 12px 8px;border-top:1px solid var(--rule)}
+.strip button{flex:1;min-height:40px;border-radius:4px;background:var(--inset);font:600 14px var(--f-num);color:var(--ink2)}
+.strip button.drop{flex:0 0 auto;padding:0 12px;font:500 13px var(--f-ui)}
+.addset{display:block;margin:6px 12px 10px;width:calc(100% - 24px);min-height:42px;border:1.5px dashed var(--ink3);border-radius:4px;color:var(--ink2);font-size:14px}
 .src{font-size:11px;color:var(--ink3);text-align:center;padding:0 12px 10px;margin:-4px 0 0}
 .src b{color:var(--ink2);font-weight:600}
 
-.menu{position:absolute;right:8px;top:42px;z-index:3;background:var(--card);border:1px solid var(--rule);border-radius:4px;box-shadow:0 10px 30px -14px rgba(0,0,0,.45);min-width:250px;padding:8px 14px 12px;display:flex;flex-direction:column;gap:8px}
-.menu p{margin:0;font-size:12px;color:var(--ink2)}
+.menu{position:absolute;right:8px;top:42px;z-index:3;background:var(--card);border:1px solid var(--rule);border-radius:4px;box-shadow:0 10px 30px -14px rgba(0,0,0,.45);min-width:250px;padding:4px 0}
+.menu .mi{display:flex;width:100%;min-height:44px;align-items:center;padding:0 14px;font-size:14px;text-align:left}
+.menu .sep{height:1px;background:var(--rule);margin:4px 0}
+.menu .ov{padding:6px 14px 10px;display:flex;flex-direction:column;gap:8px}
+.menu .ov p{margin:0;font-size:12px;color:var(--ink2)}
 .stepper{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .stp{display:flex;align-items:center;background:var(--inset);border-radius:4px}
 .stp button{width:38px;height:38px;font-size:18px;color:var(--ink2)}
 .stp b{min-width:44px;text-align:center;font:700 18px var(--f-num)}
-.lnk{min-height:38px;text-align:left;font-size:13px;color:var(--ink2);border-bottom:1px dashed currentColor;align-self:flex-start}
 .scrim{position:absolute;inset:0;background:var(--scrim);z-index:5}
 .sheet{position:absolute;left:0;right:0;bottom:0;max-height:86%;overflow-y:auto;background:var(--card);border-radius:8px 8px 0 0;z-index:6;padding:8px 16px 20px;display:flex;flex-direction:column;gap:10px;transform:translateY(105%);transition:transform .26s cubic-bezier(.2,.8,.2,1)}
 .sheet.open{transform:none}
 .handle{height:20px;display:grid;place-items:center}.handle i{width:40px;height:4px;border-radius:2px;background:var(--ink3)}
 .sheet h3{margin:0;font-family:var(--f-title);font-weight:400;font-size:26px}
+.sheet p{margin:0;color:var(--ink2);font-size:14px}
 .list button{display:flex;justify-content:space-between;gap:10px;align-items:center;width:100%;min-height:52px;border-bottom:1px solid var(--rule);text-align:left}
 .list button small{font-size:12px;color:var(--ink3);font-family:var(--f-num);letter-spacing:.02em;text-align:right}
 .list button[aria-current="true"]{font-weight:700}
-.toast{position:absolute;left:12px;right:12px;bottom:76px;z-index:7;background:var(--ink);color:var(--on-accent);border-radius:4px;padding:10px 14px;font-size:13px;transition:opacity .2s,transform .2s}
+.dlg{display:flex;gap:8px}.dlg button{flex:1;min-height:46px;border-radius:4px;border:1.5px solid var(--ink);font-weight:700}
+.dlg button.pri{background:var(--ink);color:var(--on-accent)}
+.toast{position:absolute;left:12px;right:12px;bottom:76px;z-index:7;background:var(--ink);color:var(--on-accent);border-radius:4px;padding:10px 14px;font-size:13px;display:flex;gap:10px;align-items:center;transition:opacity .2s,transform .2s}
+.toast span{flex:1}.toast button{color:var(--on-accent);font-weight:700;text-decoration:underline;min-height:32px}
 .toast.hide{opacity:0;transform:translateY(8px);pointer-events:none}
 @media (prefers-reduced-motion:reduce){.sheet,.toast{transition:none}}
 </style>
@@ -148,6 +166,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
         <b>练胸背 · 今天</b>
       </div>
       <div class="unit" role="group" aria-label="单位（＝这次用的片子）"><button type="button" data-u="kg">kg</button><button type="button" data-u="lbs">lb</button></div>
+      <button type="button" class="end" id="endBtn">结束</button>
     </div>
     <main id="view"></main>
     <div class="addbar"><button type="button" id="addBtn">＋ 加动作</button></div>
@@ -158,39 +177,37 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 
   <aside class="notes">
     <h1>馆档案 × 工作台</h1>
-    <p>把馆档案、就近取整、「单位就是片子」合进现在 App 里加动作、继承、改值的整套逻辑。手机里是今天在「国内」（公斤片）练，历史上一次在 F4L（磅片）。数据都是示例。点「组号」= 这组做完；点做完的再点 = 退回。</p>
+    <p>现在 App 的整套工作台交互，加上馆档案、就近取整、「单位就是片子」。今天在「国内」（公斤片），历史上一次在 F4L（磅片）。数据都是示例。黑色横线是<b>指针</b>：落在最后一组做完的后面。</p>
     <section>
-      <h2>可以这样试</h2>
-      <ol>
-        <li><b>＋ 加动作</b>：加「杠铃平板卧推」。底稿抄自上一次在 F4L 的 135 / 155 / 155 lb（最后一组带递减 135 lb），按国内的公斤片取整成 62.5 / 70 / 70（递减 62.5），每行标「上次 x lb」。</li>
-        <li>改第 1 组（拖不了，用 ± 或直接打字）：<b>后面没动过的组跟着平移，再各自吸到能挂的重量</b>；打一个 63 试试，后面的组不会被带成 73。</li>
-        <li><b>＋ 加组</b>：照抄最后一组（含递减档）；<b>＋ 递减</b>：比上一档轻「一档」（这个馆、这件器材的一档），不再固定减 5。</li>
-        <li>点卧推名字下面的<b>练法</b>换成「哑铃」：器材变成哑铃，没做的组重新按哑铃的一档取整；做完的组不动。</li>
-        <li>加「史密斯卧推」「倒蹬」：<b>挂片式器械</b>，按杆 / 滑台自重 + 片子算，不再当成配重片插销。⋯ 里设这台的自重。</li>
-        <li>加「辅助引体」「负重臂屈伸」：<b>带符号</b>。辅助按这个馆器械的一档取整；负重按腰片能凑的重量取整。</li>
-        <li>加「平板支撑」：只记时间，没有重量，什么都不取整。</li>
-        <li>右上角切 <b>lb</b> / 换馆：所有<b>没做完</b>的组换到新单位重新取整，<b>做完的组不动</b>（标着它当时的片子）。</li>
-      </ol>
+      <h2>交互（照现有 App）</h2>
+      <ul>
+        <li><b>点组号</b>：待做、在指针下面 → 做完，经过的有数的待做组一并做完（别的卡先整张挪到当前卡下面）；在指针上面 → 原地补做；刚做完的那组 → 退回；更早做完的 → 指针挪回它下面，后面的退回。全零的组只选中。</li>
+        <li><b>选中的组</b>（组号实心）下面出 <b>−一档 / +一档 / 递减</b>。默认选中指针下面第一组待做。</li>
+        <li><b>长按组号</b>（0.5 秒）：加一档递减。</li>
+        <li><b>重量 / 次数格左右拖</b>：每 10px 一档，拖得快一次两档 / 四档；第一下先落到最近能挂的重量。<b>点一下</b>：打字，全选旧值；离开输入框时按总差值带动后面。</li>
+        <li><b>顶部大图也能拖</b>（配重片竖拖），改的是这张卡上选中的组（没选中就是下一组待做）。</li>
+        <li><b>带动后面</b>：重量按差值平移再各自吸到能挂的重量；次数只带动原值相同的组；递减档按同一档位跟着变。做完的、改过这一格的不跟。</li>
+        <li><b>删组</b>：点行尾 −，可撤销。<b>⋯</b>：和下一个动作交替做 / 拆开、这台器械一档多重。</li>
+        <li><b>结束</b>：有「改过数但没点完成」的组会提醒，那些组结束时会丢掉。</li>
+      </ul>
     </section>
     <section>
-      <h2>每条路径怎么处理</h2>
+      <h2>新规则落在哪</h2>
       <div class="tbl"><table>
-        <thead><tr><th>现有路径</th><th>新规则</th></tr></thead>
+        <thead><tr><th>路径</th><th>处理</th></tr></thead>
         <tbody>
-          <tr><td>加动作 · 抄上一次</td><td>抄来的底稿按今天的馆和单位就近取整（严格取最近，等距取轻），每行标「上次 x」。只抄同一个练法；不抄今天这一场自己（现在会）。</td></tr>
-          <tr><td>复制整场 / 计划开练</td><td>同上：落到今天这一场的馆和单位。计划里的目标重量带上单位存，避免 lbs 来回换算漂移。</td></tr>
-          <tr><td>加组（照抄最后一组）</td><td>照抄，不取整：抄的是你刚在这个馆、这个单位下定的数。</td></tr>
-          <tr><td>改值带动后面</td><td>后面没动过的底稿先平移同样的差值，再各自吸到最近能挂的重量。打的那一组本身照原样。</td></tr>
-          <tr><td>± 按钮</td><td>一下＝这个馆这件器材的一档；第一下先落到最近能挂的重量。首选项里的「加一档」只给纯数字的动作兜底。</td></tr>
-          <tr><td>递减档</td><td>默认比上一档轻一档（器材的一档），再吸到能挂的重量；不再固定减 5。</td></tr>
-          <tr><td>换练法</td><td>练法自己的器材标签可能换了画法（杠铃 → 哑铃）：没做的组按新画法重新取整，做完的不动。</td></tr>
-          <tr><td>切单位 / 换馆（你手动点的）</td><td>没做完的组（含改过数的）换到新单位重新取整；做完的组不动，标它当时的片子。</td></tr>
-          <tr><td>同步 / 切开发环境带来的单位变化</td><td>不重新取整：只认你手动点的切换。</td></tr>
-          <tr><td>史密斯 / 倒蹬 / 哈克 / T 杠</td><td>新画法「挂片式器械」：起始重量（杆 / 滑台）+ 片子；起始重量按「这个馆 × 这个动作」在 ⋯ 里设。</td></tr>
-          <tr><td>带符号（辅助 / 负重）</td><td>辅助按这个馆器械的一档取整（看绝对值）；负重按腰片能凑的重量取整。</td></tr>
-          <tr><td>没有重量指标的动作</td><td>不画图、不取整。</td></tr>
-          <tr><td>编辑旧训练</td><td>只读那场的馆和片子画图；不因为今天的单位 / 馆去改它。</td></tr>
-          <tr><td>龙门架 / 器械 PB</td><td>只和同一个馆比（用训练上标的馆）；没标馆的历史单独算一组。</td></tr>
+          <tr><td>加动作 · 抄上一次</td><td>只抄同一个动作的上一次（沿用那次的做法），跳过今天这一场；按今天的馆和单位就近取整（严格取最近，等距取轻），行下标「上次 x」。</td></tr>
+          <tr><td>加组</td><td>照抄最后一组（含递减档），不取整。</td></tr>
+          <tr><td>带动后面</td><td>平移差值后吸到最近能挂的重量；打的那组照原样。</td></tr>
+          <tr><td>± / 递减</td><td>一档＝这个馆这件器材的一档；第一下先落到能挂的重量。</td></tr>
+          <tr><td>拖动（格子 / 大图）</td><td>每档一档；第一下吸附。</td></tr>
+          <tr><td>换做法</td><td>做完 / 改过的不动；没动过的按新做法的上一次重填（器材可能换了）。</td></tr>
+          <tr><td>切单位 / 换馆</td><td>没做完的组换到新单位重新取整（没动过的从「上次」原值重算）；做完的不动，标当时的片子。</td></tr>
+          <tr><td>挂片式器械（史密斯 / 倒蹬…）</td><td>按杠铃算，只算片子的重量，不算杆 / 滑台。</td></tr>
+          <tr><td>多种器材的动作</td><td>拆成同一个动作的不同做法（罗马尼亚硬拉：杠铃 / 哑铃）。</td></tr>
+          <tr><td>带符号</td><td>辅助按器械一档；负重按腰片，一档＝最小那片。</td></tr>
+          <tr><td>交替组</td><td>行序：做完的按先后，待做的轮换；不画大图。重量规则同上，各自按自己的器材。</td></tr>
+          <tr><td>合并到上一场</td><td>时间线菜单里手动点的操作，不会自动发生；不额外处理。</td></tr>
         </tbody>
       </table></div>
     </section>
@@ -209,37 +226,40 @@ var BAR={kg:20,lbs:45};
 var INC={kg:[1,1.25,2,2.5,5,10],lbs:[2.5,5,10,15,20]};
 var KIND={plates:'杠铃',loaded:'挂片式器械',pin:'配重片器械',pair:'哑铃',signed:'自重',none:'只记时间'};
 
-var S={unit:'kg',gym:'国内',menu:null,
+/* 动作库：多种器材的动作拆成做法；挂片式器械按杠铃算、只算片子 */
+var LIB={
+  bench:{name:'杠铃平板卧推',short:'卧',variants:{std:{label:'杠铃',kind:'plates'},db:{label:'哑铃',kind:'pair'}}},
+  rdl:{name:'罗马尼亚硬拉',short:'硬',variants:{bb:{label:'杠铃',kind:'plates'},db:{label:'哑铃',kind:'pair'}}},
+  smith:{name:'史密斯卧推',short:'史',variants:{std:{label:'标准',kind:'loaded'}}},
+  legpress:{name:'倒蹬',short:'蹬',variants:{std:{label:'标准',kind:'loaded'}}},
+  lat:{name:'高位下拉',short:'拉',variants:{std:{label:'标准',kind:'pin',stack:'cable'}}},
+  apull:{name:'辅助引体',short:'引',variants:{std:{label:'标准',kind:'signed',stack:'machine'}}},
+  dip:{name:'负重臂屈伸',short:'屈',variants:{std:{label:'标准',kind:'signed',stack:'machine'}}},
+  plank:{name:'平板支撑',short:'撑',variants:{std:{label:'标准',kind:'none'}}}
+};
+/* 每个动作 × 做法的上一次（都在 F4L，磅片）。负数＝辅助；t＝秒 */
+var HIST={
+  'bench|std':{gym:'F4L',u:'lbs',sets:[{v:135,r:10},{v:155,r:8},{v:155,r:8,subs:[{v:135,r:6}]}]},
+  'bench|db':{gym:'F4L',u:'lbs',sets:[{v:50,r:10},{v:55,r:8},{v:55,r:8}]},
+  'rdl|db':{gym:'F4L',u:'lbs',sets:[{v:40,r:12},{v:45,r:10}]},
+  'rdl|bb':{gym:'F4L',u:'lbs',sets:[{v:185,r:8},{v:205,r:6}]},
+  'smith|std':{gym:'F4L',u:'lbs',sets:[{v:90,r:10},{v:110,r:8}]},
+  'legpress|std':{gym:'F4L',u:'lbs',sets:[{v:270,r:12},{v:320,r:10}]},
+  'lat|std':{gym:'F4L',u:'lbs',sets:[{v:110,r:12},{v:121,r:10}]},
+  'apull|std':{gym:'F4L',u:'lbs',sets:[{v:-50,r:8},{v:-40,r:6}]},
+  'dip|std':{gym:'F4L',u:'lbs',sets:[{v:25,r:8},{v:35,r:6}]},
+  'plank|std':{gym:'F4L',u:'lbs',sets:[{t:60},{t:75}]}
+};
+/* 上一次用的是哪种做法（加动作时沿用那次的做法） */
+var LASTVAR={rdl:'db'};
+
+var S={unit:'kg',gym:'国内',menu:null,picked:null,
   gyms:{
     'F4L':{plateUnit:'lbs',plates:[45,35,25,10,5,2.5],cable:{v:2.5,u:'kg'},machine:{v:10,u:'lbs'},dumbbell:{v:5,u:'lbs'}},
     '国内':{plateUnit:'kg',plates:[25,20,15,10,5,2.5,1.25],cable:{v:5,u:'kg'},machine:{v:5,u:'kg'},dumbbell:{v:2,u:'kg'}}
   },
-  /* 这个馆 × 这个动作：单独的一档 / 挂片器械的起始重量 */
-  over:{},
-  ex:[]};
-
-/* 动作库：练法可以换器材；挂片器械有起始重量（各馆不同，⋯ 里设） */
-var LIB={
-  bench:{name:'杠铃平板卧推',variants:{std:{label:'标准',kind:'plates'},db:{label:'哑铃',kind:'pair'}}},
-  smith:{name:'史密斯卧推',variants:{std:{label:'标准',kind:'loaded',base:{v:15,u:'kg'}}}},
-  legpress:{name:'倒蹬',variants:{std:{label:'标准',kind:'loaded',base:{v:40,u:'kg'}}}},
-  lat:{name:'高位下拉',variants:{std:{label:'标准',kind:'pin',stack:'cable'}}},
-  apull:{name:'辅助引体',variants:{std:{label:'标准',kind:'signed',stack:'machine'}}},
-  dip:{name:'负重臂屈伸',variants:{std:{label:'标准',kind:'signed'}}},
-  plank:{name:'平板支撑',variants:{std:{label:'标准',kind:'none'}}}
-};
-/* 上一次（在 F4L，磅片）：重量按 lb 记。负数＝辅助 */
-var HIST={
-  bench:{gym:'F4L',u:'lbs',variant:'std',sets:[{v:135,r:10},{v:155,r:8},{v:155,r:8,subs:[{v:135,r:6}]}]},
-  smith:{gym:'F4L',u:'lbs',variant:'std',sets:[{v:115,r:10},{v:135,r:8}]},
-  legpress:{gym:'F4L',u:'lbs',variant:'std',sets:[{v:270,r:12},{v:320,r:10}]},
-  lat:{gym:'F4L',u:'lbs',variant:'std',sets:[{v:110,r:12},{v:121,r:10}]},
-  apull:{gym:'F4L',u:'lbs',variant:'std',sets:[{v:-50,r:8},{v:-40,r:6}]},
-  dip:{gym:'F4L',u:'lbs',variant:'std',sets:[{v:25,r:8},{v:35,r:6}]},
-  plank:{gym:'F4L',u:'lbs',variant:'std',sets:[{t:60},{t:75}]},
-  /* 同一个动作的另一种练法有自己的上一次（liftKey 按练法分） */
-  'bench|db':{gym:'F4L',u:'lbs',variant:'db',sets:[{v:50,r:10},{v:55,r:8},{v:55,r:8}]}
-};
+  over:{},ex:[]};
+var uid=0,seqN=0,undo=null;
 
 function conv(v,from,to){return from===to?v:(from==='kg'?v/LB:v*LB)}
 function r2(v){return Math.round(v*100)/100}
@@ -247,15 +267,14 @@ function fmt(v){return String(r2(v))}
 function uLab(u){return u==='lbs'?'lb':'kg'}
 function convInc(c){if(c.u===S.unit)return c;var v=conv(c.v,c.u,S.unit),best=INC[S.unit][0];
   INC[S.unit].forEach(function(x){if(Math.abs(x-v)<Math.abs(best-v))best=x});return {v:best,u:S.unit};}
-/* 单位就是片子：馆档案和当前单位一致就照用，否则按标准片子算、档位换算到最近 */
 function prof(){var g=S.gyms[S.gym];return {plates:g.plateUnit===S.unit?g.plates:ALL[S.unit],cable:convInc(g.cable),machine:convInc(g.machine),dumbbell:convInc(g.dumbbell)};}
-function kindOf(ex){return LIB[ex.id].variants[ex.variant].kind}
+function exOf(id){return S.ex.find(function(e){return e.uid===id})}
 function vdef(ex){return LIB[ex.id].variants[ex.variant]}
-function key(ex){return S.gym+'|'+ex.id+'|'+ex.variant}
-function baseOf(ex){var o=S.over[key(ex)];var b=(o&&o.base)||vdef(ex).base;return r2(conv(b.v,b.u,S.unit));}
-function stackInc(ex){var o=S.over[key(ex)];if(o&&o.inc)return convInc(o.inc).v;var p=prof();return (vdef(ex).stack==='cable'?p.cable:p.machine).v;}
+function kindOf(ex){return vdef(ex).kind}
+function okey(ex){return S.gym+'|'+ex.id+'|'+ex.variant}
+function stackInc(ex){var o=S.over[okey(ex)];if(o)return convInc(o).v;var p=prof();return (vdef(ex).stack==='cable'?p.cable:p.machine).v;}
 
-/* 每边能凑出来的重量：这一套片子、每种不限数量的背包（0.25 为单位），带回溯 */
+/* ── 能挂的重量 ── */
 var tCache={};
 function sideTable(){var pl=prof().plates,k=S.unit+':'+pl.join(',');if(tCache[k])return tCache[k];
   var Q=4,max=(S.unit==='kg'?260:580)*Q,can=new Int16Array(max+1).fill(-1);can[0]=0;
@@ -263,185 +282,228 @@ function sideTable(){var pl=prof().plates,k=S.unit+':'+pl.join(',');if(tCache[k]
   for(var s=1;s<=max;s++)for(var i=0;i<ps.length;i++){if(s>=ps[i]&&can[s-ps[i]]>=0){can[s]=ps[i];break;}}
   return tCache[k]={Q:Q,max:max,can:can};}
 function sidePlates(units){var t=sideTable(),out=[];while(units>0){var p=t.can[units];out.push(p/t.Q);units-=p;}return out.sort(function(a,b){return b-a});}
-/* 上下两个能挂的重量（当前单位，带符号） */
+function sideBracket(side){var t=sideTable(),su=side*t.Q,lo=Math.floor(su+1e-6),hi=Math.ceil(su-1e-6);
+  while(lo>0&&t.can[lo]<0)lo--;while(hi<t.max&&t.can[hi]<0)hi++;return [lo/t.Q,hi/t.Q];}
 function bracket(ex,v){
   var k=kindOf(ex);
-  if(k==='plates'||k==='loaded'){
-    var base=k==='plates'?BAR[S.unit]:baseOf(ex);if(v<=base)return {lo:base,hi:base};
-    var t=sideTable(),su=(v-base)/2*t.Q,lo=Math.floor(su+1e-6),hi=Math.ceil(su-1e-6);
-    while(lo>0&&t.can[lo]<0)lo--;while(hi<t.max&&t.can[hi]<0)hi++;
-    return {lo:base+2*lo/t.Q,hi:base+2*hi/t.Q};
-  }
-  if(k==='signed'&&v>0){var t2=sideTable(),u2=v*t2.Q,a=Math.floor(u2+1e-6),b=Math.ceil(u2-1e-6);
-    while(a>0&&t2.can[a]<0)a--;while(b<t2.max&&t2.can[b]<0)b++;return {lo:a/t2.Q,hi:b/t2.Q};}
+  if(k==='plates'||k==='loaded'){var base=k==='plates'?BAR[S.unit]:0;if(v<=base)return {lo:base,hi:base};var b=sideBracket((v-base)/2);return {lo:base+2*b[0],hi:base+2*b[1]};}
+  if(k==='signed'&&v>0){var c=sideBracket(v);return {lo:c[0],hi:c[1]};}
   var st=k==='pair'?prof().dumbbell.v:stackInc(ex);
-  var lo2=Math.floor(v/st+1e-9)*st,hi2=Math.ceil(v/st-1e-9)*st;
-  if(k==='pair'){lo2=Math.max(st,lo2);hi2=Math.max(st,hi2);}
-  return {lo:r2(lo2),hi:r2(hi2)};
+  var lo=Math.floor(v/st+1e-9)*st,hi=Math.ceil(v/st-1e-9)*st;
+  if(k==='pair'){lo=Math.max(st,lo);hi=Math.max(st,hi);}
+  return {lo:r2(lo),hi:r2(hi)};
 }
-function onGrid(ex,v){var b=bracket(ex,v);return Math.abs(v-b.lo)<0.01||Math.abs(v-b.hi)<0.01}
+function onGrid(ex,v){if(kindOf(ex)==='none')return true;var b=bracket(ex,v);return Math.abs(v-b.lo)<0.01||Math.abs(v-b.hi)<0.01}
 /* 严格取最近，等距取轻 */
 function nearest(ex,v){var b=bracket(ex,v);return (b.hi-v)<(v-b.lo)-1e-9?b.hi:b.lo}
-function snap(ex,v){return kindOf(ex)==='none'?v:(onGrid(ex,v)?r2(v):nearest(ex,v))}
-/* 这件器材的一档（当前单位） */
-function stepOf(ex){var k=kindOf(ex),p=prof();
-  if(k==='plates'||k==='loaded')return {v:Math.min.apply(null,p.plates)*2,src:'这套片子最小的 '+fmt(Math.min.apply(null,p.plates))+' × 2'};
+function snap(ex,v){return onGrid(ex,v)?r2(v):nearest(ex,v)}
+function stepOf(ex,v){var k=kindOf(ex),p=prof();
+  if(k==='plates'||k==='loaded')return {v:Math.min.apply(null,p.plates)*2,src:'这套片子最小的 '+fmt(Math.min.apply(null,p.plates))+' × 2'+(k==='loaded'?'（只算片子）':'')};
   if(k==='pair')return {v:p.dumbbell.v,src:S.gym+' 的哑铃一档'};
-  // 带符号：辅助（负数）挂在辅助器械上，一档＝器械一档；负重挂腰片，一档＝最小那片
-  if(k==='signed'){var cur=ex.sets[focusIdx(ex)].v;return cur<0?{v:stackInc(ex),src:'辅助：'+S.gym+' 器械一档'}:{v:Math.min.apply(null,p.plates),src:'负重：这套片子最小的一片'};}
-  var o=S.over[key(ex)];return {v:stackInc(ex),src:o&&o.inc?'这个动作单独设的':S.gym+' 的'+(vdef(ex).stack==='cable'?'龙门架':'器械')+'一档'};}
+  if(k==='signed')return v<0?{v:stackInc(ex),src:'辅助：'+S.gym+' 器械一档'}:{v:Math.min.apply(null,p.plates),src:'负重：最小的一片'};
+  return {v:stackInc(ex),src:S.over[okey(ex)]?'这台单独设的':S.gym+' 的'+(vdef(ex).stack==='cable'?'龙门架':'器械')+'一档'};}
 
-/* ── 工作台操作（照现有逻辑，加上取整） ── */
-var uid=0;
-function mkSet(v,r,ref,extra){return Object.assign({id:++uid,v:v,r:r,ghost:true,touched:false,ref:ref},extra||{})}
-/* 加动作：抄上一次（同一个练法），落到今天的馆和单位，每行标「上次 x」 */
-function addExercise(id){
-  var h=HIST[id],ex={id:id,variant:h?h.variant:'std',sets:[]};
-  if(h)h.sets.forEach(function(s){
-    if(s.t!==undefined){ex.sets.push(mkSet(0,0,null,{t:s.t}));return;}
-    var ref={v:s.v,u:h.u},set=mkSet(0,s.r,ref,{auto:true});set.v=snap(ex,r2(conv(s.v,h.u,S.unit)));
-    if(s.subs)set.subs=s.subs.map(function(x){var sub=mkSet(0,x.r,{v:x.v,u:h.u},{auto:true});sub.v=snap(ex,r2(conv(x.v,h.u,S.unit)));return sub;});
-    ex.sets.push(set);});
-  else ex.sets.push(mkSet(0,0,null));
-  S.ex.push(ex);render();
-  toast(h?'底稿抄自上一次（'+h.gym+'），按 '+S.gym+' 的'+(S.unit==='lbs'?'磅片':'公斤片')+'取整':'没有上一次，从空组开始');
+/* ── 卡片与指针（照 workbench.ts） ── */
+function cards(){var out=[];S.ex.forEach(function(e){var last=out[out.length-1];if(e.alt&&last&&last.alt===e.alt)last.ids.push(e.uid);else out.push({alt:e.alt||null,ids:[e.uid]});});
+  return out.map(function(c){return c.alt&&c.ids.length<2?{alt:null,ids:c.ids}:c});}
+function cardRows(c){var ms=c.ids.map(exOf);if(!c.alt)return ms[0].sets.map(function(s){return {ex:ms[0],s:s}});
+  var M=ms.length,non=[],qs=ms.map(function(){return []});
+  ms.forEach(function(ex,mi){ex.sets.forEach(function(s,k){if(s.ghost)qs[mi].push({ex:ex,s:s,mi:mi});else non.push({ex:ex,s:s,key:s.seq||k*M+mi,mi:mi});});});
+  non.sort(function(a,b){return a.key-b.key});var last=non[non.length-1],k=last?(last.mi+1)%M:0,pend=[];
+  while(qs.some(function(q){return q.length})){if(qs[k].length)pend.push(qs[k].shift());k=(k+1)%M;}
+  return non.concat(pend);}
+function flat(){var out=[];cards().forEach(function(c,ci){cardRows(c).forEach(function(r){out.push({ex:r.ex,s:r.s,ci:ci})})});return out;}
+function ptrIdx(){var f=flat();for(var i=f.length-1;i>=0;i--)if(!f[i].s.ghost)return i+1;return 0;}
+function nextPending(){var f=flat(),P=ptrIdx();for(var i=P;i<f.length;i++)if(f[i].s.ghost)return f[i].s;return null;}
+function hasVal(s){return s.t>0||Math.abs(s.v)>0||s.r>0||(s.subs||[]).some(function(x){return x.v||x.r})}
+function asDone(s){s.ghost=false;s.seq=++seqN;s.doneUnit=S.unit;s.doneV=s.v;delete s.touched;(s.subs||[]).forEach(function(x){delete x.touched});}
+function revert(s){s.ghost=true;delete s.seq;delete s.doneUnit;}
+function moveTo(N){var f=flat(),P=ptrIdx();if(N>P)f.slice(P,N).forEach(function(r){if(r.s.ghost&&hasVal(r.s))asDone(r.s)});else if(N<P)f.slice(N,P).forEach(function(r){revert(r.s)});}
+function cardOfSet(s){var cs=cards();for(var i=0;i<cs.length;i++){var rows=cardRows(cs[i]);for(var j=0;j<rows.length;j++)if(rows[j].s===s)return {ci:i,idx:j,card:cs[i]};}return null;}
+function ptrCard(){var P=ptrIdx();if(!P)return null;return flat()[P-1].ci;}
+function rowsBefore(ci){var n=0;cards().slice(0,ci).forEach(function(c){n+=cardRows(c).length});return n;}
+function tapNum(s){
+  S.picked=s;
+  if(s.ghost){
+    if(!hasVal(s)){toast('全零的组做完也记不下东西：只选中');render();return;}
+    var f=flat(),at=f.findIndex(function(r){return r.s===s});
+    if(at<ptrIdx()){asDone(s);render();return;}
+    var pc=ptrCard(),seat=cardOfSet(s);
+    if(pc===seat.ci||(pc===null&&seat.ci===0)){moveTo(rowsBefore(seat.ci)+seat.idx+1);render();return;}
+    // 换卡：那张卡整张挪到当前卡下面（还没开始就挪到最前），再在那张卡里扫到这一组
+    var block=seat.card.ids.map(exOf),rest=S.ex.filter(function(e){return block.indexOf(e)<0});
+    var pos=0;if(pc!==null){var pcIds=cards()[pc].ids,lastId=pcIds[pcIds.length-1];pos=rest.findIndex(function(e){return e.uid===lastId})+1;}
+    S.ex=rest.slice(0,pos).concat(block,rest.slice(pos));
+    var seat2=cardOfSet(s);cardRows(seat2.card).slice(0,seat2.idx+1).forEach(function(r){if(r.s.ghost&&hasVal(r.s))asDone(r.s)});
+    render();return;
+  }
+  var P=ptrIdx(),f2=flat();
+  if(P&&f2[P-1].s===s){revert(s);render();return;}
+  var seat3=cardOfSet(s);moveTo(rowsBefore(seat3.ci)+seat3.idx+1);render();
 }
-/* 改一组的值：后面没动过的底稿平移同样的差值，再各自吸到能挂的重量 */
-function setWeight(ex,si,nv,typed){
-  var s=ex.sets[si],d=nv-s.v;s.v=nv;s.touched=true;
-  if(!typed)s.v=snap(ex,s.v);
-  var dd=s.v-(nv-d);
-  for(var j=si+1;j<ex.sets.length;j++){var f=ex.sets[j];if(!f.ghost||f.touched)continue;
-    f.v=snap(ex,r2(f.v+dd));f.auto=false;(f.subs||[]).forEach(function(x){if(!x.touched){x.v=snap(ex,r2(x.v+dd));x.auto=false;}});}
-}
-function focusIdx(ex){var i=ex.sets.findIndex(function(s){return s.ghost});return i<0?ex.sets.length-1:i}
-function bump(ex,d){var i=focusIdx(ex),s=ex.sets[i],k=kindOf(ex);if(k==='none')return;
-  var b=bracket(ex,s.v),nv;
-  if(!onGrid(ex,s.v))nv=d>0?b.hi:b.lo;
-  else{var st=stepOf(ex).v,probe=s.v+d*(st/2);var bb=bracket(ex,probe);nv=d>0?bb.hi:bb.lo;if(Math.abs(nv-s.v)<0.01)nv=r2(s.v+d*st);}
-  s.auto=false;s.check=false;setWeight(ex,i,r2(nv),false);render();}
-function addSet(ex){var last=ex.sets[ex.sets.length-1];
-  // 照抄最后一组（含递减档），不取整：那是你刚在这个馆、这个单位下定的数
-  var c=mkSet(last.v,last.r,last.ref,last.t!==undefined?{t:last.t}:null);if(last.subs)c.subs=last.subs.map(function(x){return mkSet(x.v,x.r,x.ref)});
-  ex.sets.push(c);render();}
-function addDrop(ex){var i=focusIdx(ex),s=ex.sets[i];s.subs=s.subs||[];var prev=s.subs.length?s.subs[s.subs.length-1]:s;
-  var k=kindOf(ex),st=stepOf(ex).v,nv=k==='signed'&&prev.v<=0?prev.v-st:prev.v-st;
-  s.subs.push(mkSet(snap(ex,r2(nv)),prev.r,null));render();toast('递减：比上一档轻一档（'+fmt(st)+' '+uLab(S.unit)+'），落在能挂的重量上');}
-/* 切单位 / 换馆（手动的）：没做完的组都换到新单位重新取整；做完的不动 */
-/* 没动过、也没被带着平移过的底稿（auto）从「上一次」的原值重算：135 lb → 60 kg → 切回 lb 还是 135，
-   不会从取整过的 60 再换算成 130。动过 / 平移过的从当前值换算 */
-function reRound(fromUnit){
-  var one=function(ex,x){x.v=snap(ex,r2(x.auto&&x.ref?conv(x.ref.v,x.ref.u,S.unit):conv(x.v,fromUnit,S.unit)))};
-  S.ex.forEach(function(ex){ex.sets.forEach(function(s){
-    if(!s.ghost)return;if(kindOf(ex)==='none')return;
-    one(ex,s);(s.subs||[]).forEach(function(x){one(ex,x)});});});
-}
-/* 换练法：做完 / 改过的组不动；没动过的底稿按新练法自己的上一次重新填（器材可能换了：杠铃 → 哑铃）。
-   新练法没有上一次就保留原数取整，标「换了练法，确认一下重量」 */
-function switchVariant(ex,v){ex.variant=v;S.menu=null;
-  var h=HIST[ex.id+'|'+v]||(HIST[ex.id]&&HIST[ex.id].variant===v?HIST[ex.id]:null);
-  var keep=ex.sets.filter(function(s){return !s.ghost||s.touched});
-  if(h){var fill=h.sets.slice(keep.length).map(function(x){var st=mkSet(0,x.r,{v:x.v,u:h.u},{auto:true});st.v=snap(ex,r2(conv(x.v,h.u,S.unit)));if(x.subs)st.subs=x.subs.map(function(y){var sb=mkSet(0,y.r,{v:y.v,u:h.u},{auto:true});sb.v=snap(ex,r2(conv(y.v,h.u,S.unit)));return sb;});return st;});
-    ex.sets=keep.concat(fill.length?fill:[]);}
-  else ex.sets.forEach(function(s){if(!s.ghost||s.touched)return;s.v=snap(ex,s.v);s.check=true;(s.subs||[]).forEach(function(x){x.v=snap(ex,x.v)})});
-  if(!ex.sets.length)ex.sets.push(mkSet(0,0,null));
-  render();toast('练法换成「'+vdef(ex).label+'」（'+KIND[kindOf(ex)]+'）：'+(h?'没动过的组按这个练法的上一次重填':'没有这个练法的上一次，原数取整，确认一下')+'；做完的不动');}
+function selected(){var p=S.picked;if(p&&S.ex.some(function(e){return e.sets.indexOf(p)>=0}))return p;return nextPending();}
+function focusOf(ex){var sel=selected();if(sel&&ex.sets.indexOf(sel)>=0)return sel;var g=ex.sets.find(function(s){return s.ghost});return g||ex.sets[ex.sets.length-1];}
+
+/* ── 改值（照 applySetUpdate，再吸附） ── */
+function followW(ex,s,shift){var i=ex.sets.indexOf(s);
+  (s.subs||[]).forEach(function(x){if(!(x.touched&&x.touched.w)){x.v=snap(ex,r2(x.v+shift));x.auto=false;}});
+  for(var k=i+1;k<ex.sets.length;k++){var f=ex.sets[k];if(!f.ghost||(f.touched&&f.touched.w))continue;
+    f.v=snap(ex,r2(f.v+shift));f.auto=false;(f.subs||[]).forEach(function(x){if(!(x.touched&&x.touched.w)){x.v=snap(ex,r2(x.v+shift));x.auto=false;}});}}
+function followR(ex,s,oldR){var i=ex.sets.indexOf(s);for(var k=i+1;k<ex.sets.length;k++){var f=ex.sets[k];if(!f.ghost||(f.touched&&f.touched.r)||f.r!==oldR)continue;f.r=s.r;}}
+function mark(s,f){if(s.ghost){s.touched=s.touched||{};s.touched[f]=true;}s.auto=false;s.check=false;}
+function setW(ex,s,v){var old=s.v;s.v=r2(v);mark(s,'w');if(s.v!==old)followW(ex,s,s.v-old);}
+function setSubW(ex,s,j,v){var old=s.subs[j].v;s.subs[j].v=r2(v);if(s.ghost){s.subs[j].touched=s.subs[j].touched||{};s.subs[j].touched.w=true;}
+  var i=ex.sets.indexOf(s);for(var k=i+1;k<ex.sets.length;k++){var f=ex.sets[k],x=f.subs&&f.subs[j];if(!x||!f.ghost||(x.touched&&x.touched.w))continue;x.v=snap(ex,r2(x.v+(s.subs[j].v-old)));}}
+function stepTo(ex,cur,d,mult,first){var b=bracket(ex,cur),nv;
+  if(first&&!onGrid(ex,cur))nv=d>0?b.hi:b.lo;else{var st=stepOf(ex,cur).v*mult,bb=bracket(ex,cur+d*st-d*0.001);nv=d>0?bb.hi:bb.lo;if(Math.abs(nv-cur)<0.01)nv=cur+d*st;}
+  if(kindOf(ex)!=='signed')nv=Math.max(0,nv);return r2(nv);}
+function bumpW(ex,s,d){if(kindOf(ex)==='none')return;setW(ex,s,stepTo(ex,s.v,d,1,true));}
+function addDrop(ex,s){s.subs=s.subs||[];var prev=s.subs.length?s.subs[s.subs.length-1]:s,st=stepOf(ex,prev.v).v,nv=snap(ex,r2(prev.v-st));
+  if(kindOf(ex)!=='signed')nv=Math.max(0,nv);s.subs.push({id:++uid,v:nv,r:prev.r});render();toast('加一档递减：比上一档轻一档（'+fmt(st)+' '+uLab(S.unit)+'）');}
+
+/* ── 加动作 / 加组 / 换做法 / 切单位 ── */
+function fromHist(ex,h){return h.sets.map(function(x){
+  if(x.t!==undefined)return {id:++uid,v:0,r:0,t:x.t,ghost:true};
+  var s={id:++uid,v:snap(ex,r2(conv(x.v,h.u,S.unit))),r:x.r,ghost:true,ref:{v:x.v,u:h.u},auto:true};
+  if(x.subs)s.subs=x.subs.map(function(y){return {id:++uid,v:snap(ex,r2(conv(y.v,h.u,S.unit))),r:y.r,ref:{v:y.v,u:h.u},auto:true}});return s;});}
+function addExercise(id){var variant=LASTVAR[id]||Object.keys(LIB[id].variants)[0],ex={uid:++uid,id:id,variant:variant,sets:[]};
+  var h=HIST[id+'|'+variant];ex.sets=h?fromHist(ex,h):[{id:++uid,v:0,r:0,ghost:true}];S.ex.push(ex);render();
+  toast(h?'底稿抄自上一次（'+h.gym+' · 做法：'+vdef(ex).label+'），按 '+S.gym+' 的'+(S.unit==='lbs'?'磅片':'公斤片')+'取整':'没有上一次，从空组开始');}
+function addSet(ex){var last=ex.sets[ex.sets.length-1],c={id:++uid,v:last?last.v:0,r:last?last.r:0,ghost:true,ref:last&&last.ref,t:last&&last.t};
+  if(last&&last.subs)c.subs=last.subs.map(function(x){return {id:++uid,v:x.v,r:x.r,ref:x.ref}});ex.sets.push(c);render();}
+function switchVariant(ex){var vs=Object.keys(LIB[ex.id].variants);if(vs.length<2)return;ex.variant=vs[(vs.indexOf(ex.variant)+1)%vs.length];
+  var h=HIST[ex.id+'|'+ex.variant],keep=ex.sets.filter(function(s){return !s.ghost||s.touched});
+  if(h){var fill=fromHist(ex,h).slice(keep.length);ex.sets=keep.concat(fill);}else ex.sets.forEach(function(s){if(!s.ghost||s.touched)return;s.v=snap(ex,s.v);s.check=true;});
+  if(!ex.sets.length)ex.sets.push({id:++uid,v:0,r:0,ghost:true});
+  render();toast('做法换成「'+vdef(ex).label+'」（'+KIND[kindOf(ex)]+'）：'+(h?'没动过的组按这个做法的上一次重填':'没有上一次，原数取整，确认一下')+'；做完 / 改过的不动');}
+function reRound(from){S.ex.forEach(function(ex){if(kindOf(ex)==='none')return;ex.sets.forEach(function(s){if(!s.ghost)return;
+  var one=function(x){x.v=snap(ex,r2(x.auto&&x.ref?conv(x.ref.v,x.ref.u,S.unit):conv(x.v,from,S.unit)))};one(s);(s.subs||[]).forEach(one);});});}
 
 /* ── 画 ── */
 function plateHTML(w){var s=SPEC[S.unit][w];if(!s)return '';var light=(s[0]==='white'||s[0]==='yellow'||s[0]==='chrome');
   return '<i class="pl'+(light?' light':'')+'" style="background:var(--p-'+s[0]+');width:max(2px,calc(var(--mm)*'+s[1]+'));height:calc(var(--mm)*'+s[2]+')">'+(s[2]>=400?'<b>'+w+'</b>':'')+'</i>';}
-function heroHTML(ex){
-  var k=kindOf(ex),s=ex.sets[focusIdx(ex)];if(k==='none')return '';
+function heroHTML(ex){var k=kindOf(ex),s=focusOf(ex);if(k==='none'||!s)return '';
   var v=onGrid(ex,s.v)?s.v:nearest(ex,s.v),html='',cap='';
-  if(k==='plates'||k==='loaded'){
-    var base=k==='plates'?BAR[S.unit]:baseOf(ex),t=sideTable(),units=Math.max(0,Math.round((v-base)/2*t.Q)),per=units>0?sidePlates(units):[];
+  if(k==='plates'||k==='loaded'){var base=k==='plates'?BAR[S.unit]:0,t=sideTable(),units=Math.max(0,Math.round((v-base)/2*t.Q)),per=units>0?sidePlates(units):[];
     var side=per.map(plateHTML).join(''),half=function(c){return '<span class="side '+c+'"><span class="collar"></span><span class="sleeve"></span><span class="load">'+side+'</span></span>'};
-    html='<div class="hero"><div class="bar'+(k==='loaded'?' sled':'')+'"><span class="shaft"></span>'+half('l')+half('r')+'</div></div>';
-    cap=(per.length?'每边 '+per.join(' + ')+' '+uLab(S.unit):'只有'+(k==='plates'?'空杠':'起始重量'))+' · '+(k==='plates'?'标准杠 ':'起始重量 ')+fmt(base)+' '+uLab(S.unit);
-  }else if(k==='pin'){var st=stackInc(ex),at=Math.round(v/st),n=Math.min(28,Math.max(16,at+3)),ev=n>20?4:3,sl='';
-    for(var i=1;i<=n;i++)sl+='<span class="'+(i<at?'up':i===at?'at':'')+'"><em>'+(i%ev===0?fmt(i*st):'')+'</em><i></i></span>';
-    html='<div class="hero"><div class="pin">'+sl+'</div></div>';cap='插销插在 '+fmt(v)+' '+uLab(S.unit);
-  }else if(k==='pair'){var h='<span class="db"><i></i><u></u><i></i></span>';html='<div class="hero"><div class="dbs">'+h+h+'</div></div>';cap='每只 '+fmt(v)+' '+uLab(S.unit);
-  }else{if(v<0){html='<div class="hero"><div class="belt"><span class="band" style="width:'+(30+Math.min(-v,100)*1.2)+'px"></span></div></div>';cap='辅助 '+fmt(-v)+' '+uLab(S.unit)+' · 按器械一档';}
-    else if(v===0){cap='纯自重';}
-    else{var t3=sideTable(),units3=Math.round(v*t3.Q),per3=units3>0?sidePlates(units3):[];html='<div class="hero"><div class="belt"><span class="ch2"></span>'+per3.map(plateHTML).join('')+'</div></div>';cap='腰挂 '+per3.join(' + ')+' '+uLab(S.unit);}}
-  var out=html+'<p class="cap">'+cap+'</p>';
-  if(!onGrid(ex,s.v)){var b=bracket(ex,s.v);out='<div>'+html+'<p class="cap">按 '+fmt(s.v)+' '+uLab(S.unit)+' 记 · 图上是最接近的配法</p><div class="near"><span>改成能挂的：</span><button type="button" data-near="'+b.lo+'">'+fmt(b.lo)+'</button>'+(b.hi!==b.lo?'<button type="button" data-near="'+b.hi+'">'+fmt(b.hi)+'</button>':'')+'</div></div>';}
-  return out;
-}
-function refTag(s){if(!s.ref)return '';var same=s.ref.u===S.unit&&Math.abs(s.ref.v-s.v)<0.01;if(same)return '';
-  return '<span class="tag" title="上一次的重量，只做参考">上次 '+fmt(Math.abs(s.ref.v))+(s.ref.v<0?' 辅助':'')+' '+uLab(s.ref.u)+'</span>';}
-function rowHTML(ex,ei,s,si,sub,pi){
-  var k=kindOf(ex),done=!s.ghost,cls='row'+(sub?' sub':'')+(done?' done':' ghost')+(s.touched?' touched':'');
-  if(k==='none')return '<div class="'+cls+'"><button type="button" class="num" data-tap="'+ei+':'+si+'">'+(si+1)+'</button><span class="val"><span class="reps tn">'+(s.t||0)+'</span><small>秒</small></span><span></span></div>';
-  var shown=done&&s.doneUnit&&s.doneUnit!==S.unit?'<span class="tag fact" title="做完时挂的是这套片子">'+(s.doneUnit==='lbs'?'磅片':'公斤片')+'</span>':s.check&&!done?'<span class="tag">换了练法，确认一下</span>':refTag(s);
-  var signLab=k==='signed'?(s.v<0?' 辅助':s.v>0?' 负重':''):'';
-  return '<div class="'+cls+'"><button type="button" class="num" '+(sub?'disabled':'data-tap="'+ei+':'+si+'"')+' aria-label="第 '+(si+1)+' 组">'+(sub?'↓':si+1)+'</button>'+
-    '<span class="val"><input class="wt" type="number" inputmode="decimal" step="any" '+(done?'readonly ':'')+'data-w="'+ei+':'+si+(sub?':'+pi:'')+'" value="'+fmt(done&&s.doneUnit?conv(s.doneV,s.doneUnit,S.unit):Math.abs(s.v))+'" aria-label="重量"><small>'+uLab(S.unit)+signLab+'</small><span class="x">×</span><span class="reps tn">'+s.r+'</span></span>'+shown+'</div>';
-}
+    html='<div class="bar'+(k==='loaded'?' sled':'')+'"><span class="shaft"></span>'+half('l')+half('r')+'</div>';
+    cap=(per.length?'每边 '+per.join(' + ')+' '+uLab(S.unit):(k==='plates'?'空杠':'还没挂片'))+(k==='plates'?' · 标准杠 '+BAR[S.unit]+' '+uLab(S.unit):' · 只算片子');}
+  else if(k==='pin'){var st=stackInc(ex),at=Math.round(v/st),n=Math.min(28,Math.max(16,at+3)),ev=n>20?4:3,sl='';
+    for(var i=1;i<=n;i++)sl+='<span class="'+(i<at?'up':i===at?'at':'')+'"><em>'+(i%ev===0?fmt(i*st):'')+'</em><i></i></span>';html='<div class="pin">'+sl+'</div>';cap='插销插在 '+fmt(v)+' '+uLab(S.unit);}
+  else if(k==='pair'){var h='<span class="db"><i></i><u></u><i></i></span>';html='<div class="dbs">'+h+h+'</div>';cap='每只 '+fmt(v)+' '+uLab(S.unit);}
+  else{if(v<0){html='<div class="belt"><span class="band" style="width:'+(30+Math.min(-v,100)*1.2)+'px"></span></div>';cap='辅助 '+fmt(-v)+' '+uLab(S.unit);}
+    else if(v===0){html='<div class="belt"></div>';cap='纯自重';}
+    else{var t3=sideTable(),per3=sidePlates(Math.round(v*t3.Q));html='<div class="belt"><span class="ch2"></span>'+per3.map(plateHTML).join('')+'</div>';cap='腰挂 '+per3.join(' + ')+' '+uLab(S.unit);}}
+  var y=k==='pin'?' y':'';var out='<div class="hero'+y+'" data-hero="'+ex.uid+'">'+html+'</div>';
+  if(onGrid(ex,s.v))return out+'<p class="cap">'+cap+'</p>';
+  var b=bracket(ex,s.v);return out+'<p class="cap">按 '+fmt(s.v)+' '+uLab(S.unit)+' 记 · 图上是最接近的配法</p><div class="near"><span>改成能挂的：</span><button type="button" data-near="'+ex.uid+':'+b.lo+'">'+fmt(b.lo)+'</button>'+(b.hi!==b.lo?'<button type="button" data-near="'+ex.uid+':'+b.hi+'">'+fmt(b.hi)+'</button>':'')+'</div>';}
+function tagHTML(s){if(!s.ghost&&s.doneUnit&&s.doneUnit!==S.unit)return '<span class="tag fact">做完时挂的是'+(s.doneUnit==='lbs'?'磅片':'公斤片')+'</span>';
+  if(s.check&&s.ghost)return '<span class="tag">换了做法，确认一下重量</span>';
+  if(s.ref&&!(s.ref.u===S.unit&&Math.abs(s.ref.v-s.v)<0.01))return '<span class="tag">上次 '+fmt(Math.abs(s.ref.v))+(s.ref.v<0?' 辅助':'')+' '+uLab(s.ref.u)+'</span>';return '';}
+function shownV(s){return !s.ghost&&s.doneUnit&&s.doneUnit!==S.unit?conv(s.doneV,s.doneUnit,S.unit):s.v}
+function rowHTML(ex,s,ord,badge){var k=kindOf(ex),sel=selected()===s,cls='row'+(s.ghost?' ghost':' done')+(sel?' sel':'');
+  var wE=s.touched&&s.touched.w?' edited':'',rE=s.touched&&s.touched.r?' edited':'',sign=k==='signed'?(s.v<0?'辅助':s.v>0?'负重':''):'';
+  var wcell=k==='none'?'<span class="cell"><span class="n">'+(s.t||0)+'</span><small>秒</small></span>':'<span class="cell'+wE+'" data-cell="'+ex.uid+':'+s.id+':w"><span class="n">'+fmt(Math.abs(shownV(s)))+'</span><small>'+uLab(S.unit)+(sign?' '+sign:'')+'</small></span>';
+  var rcell=k==='none'?'<span></span>':'<span class="cell'+rE+'" data-cell="'+ex.uid+':'+s.id+':r"><span class="n">'+s.r+'</span><small>次</small></span>';
+  var h='<div class="'+cls+'"><button type="button" class="num" data-num="'+ex.uid+':'+s.id+'" aria-label="第 '+ord+' 组">'+(badge?'<small>'+badge+'</small>':'')+ord+'</button>'+wcell+rcell+'<button type="button" class="del" data-del="'+ex.uid+':'+s.id+'" aria-label="删这一组">−</button>'+tagHTML(s)+'</div>';
+  (s.subs||[]).forEach(function(x,j){h+='<div class="row sub'+(s.ghost?' ghost':' done')+'"><span class="num">↓</span><span class="cell'+(x.touched&&x.touched.w?' edited':'')+'" data-cell="'+ex.uid+':'+s.id+':s'+j+'"><span class="n">'+fmt(Math.abs(x.v))+'</span><small>'+uLab(S.unit)+'</small></span><span class="cell"><span class="n">'+x.r+'</span><small>次</small></span><button type="button" class="del" data-dsub="'+ex.uid+':'+s.id+':'+j+'" aria-label="删这一档">−</button>'+(s.ghost?tagHTML(x):'')+'</div>';});
+  if(sel&&k!=='none'){var st=stepOf(ex,s.v).v;h+='<div class="strip"><button type="button" data-bump="'+ex.uid+':'+s.id+':-1">−'+fmt(st)+' '+uLab(S.unit)+'</button><button type="button" data-bump="'+ex.uid+':'+s.id+':1">+'+fmt(st)+' '+uLab(S.unit)+'</button><button type="button" class="drop" data-drop="'+ex.uid+':'+s.id+'">递减</button></div>';}
+  return h;}
 function render(){
   $('#gymName').textContent=S.gym;
   document.querySelectorAll('.unit button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.u===S.unit))});
-  if(!S.ex.length){$('#view').innerHTML='<p style="margin:40px 12px;color:var(--ink3);text-align:center">还没有动作。点下面的「＋ 加动作」，先加杠铃平板卧推。</p>';return;}
-  var html='';
-  S.ex.forEach(function(ex,ei){
-    var lib=LIB[ex.id],k=kindOf(ex),st=stepOf(ex),vars=Object.keys(lib.variants);
-    var rows='';ex.sets.forEach(function(s,si){rows+=rowHTML(ex,ei,s,si,false);(s.subs||[]).forEach(function(x,pi){rows+=rowHTML(ex,ei,x,si,true,pi)})});
-    var showMore=k==='pin'||k==='loaded'||k==='signed';
-    html+='<article class="card"><div class="ch"><h3>'+lib.name+'<span class="meta"><span>'+KIND[k]+'</span>'+(vars.length>1?'<button type="button" class="var" data-var="'+ei+'">练法：'+vdef(ex).label+'</button>':'')+'</span></h3>'+
-      (showMore?'<button type="button" class="more" data-more="'+ei+'" aria-label="动作菜单">⋯</button>':'<span style="width:30px"></span>')+'</div>'+
-      heroHTML(ex)+rows+
-      (k==='none'?'<div class="acts"><button type="button" data-add="'+ei+'">＋ 加组</button></div>':
-      '<div class="acts"><button type="button" data-b="'+ei+':-1">−'+fmt(st.v)+'</button><button type="button" data-b="'+ei+':1">+'+fmt(st.v)+'</button><button type="button" data-drop="'+ei+'">＋ 递减</button><button type="button" data-add="'+ei+'">＋ 加组</button></div>'+
-      '<p class="src">一档 = <b>'+fmt(st.v)+' '+uLab(S.unit)+'</b> · '+st.src+'</p>')+
-      (S.menu===ei?menuHTML(ex):'')+'</article>';
-  });
-  $('#view').innerHTML=html;
-  bind();
-}
-function menuHTML(ex){var k=kindOf(ex),o=S.over[key(ex)]||{};
-  if(k==='loaded'){var b=baseOf(ex);return '<div class="menu" onclick="event.stopPropagation()"><p>在 <b>'+S.gym+'</b>，这台的起始重量（杆 / 滑台）</p><div class="stepper"><span class="stp"><button type="button" data-base="-1">−</button><b>'+fmt(b)+'</b><button type="button" data-base="1">＋</button></span><span>'+uLab(S.unit)+'</span></div>'+(o.base?'<button type="button" class="lnk" data-rbase>恢复默认</button>':'<p>各馆的杆 / 滑台不一样重，改了只影响这个馆。</p>')+'</div>';}
-  var inc=stackInc(ex);return '<div class="menu" onclick="event.stopPropagation()"><p>在 <b>'+S.gym+'</b>，这台器械一档多重</p><div class="stepper"><span class="stp"><button type="button" data-inc="-1">−</button><b>'+fmt(inc)+'</b><button type="button" data-inc="1">＋</button></span><span>'+uLab(S.unit)+'</span></div>'+(o.inc?'<button type="button" class="lnk" data-rinc>恢复馆默认</button>':'<p>改了只影响这个馆的这一台。</p>')+'</div>';}
+  if(!S.ex.length){$('#view').innerHTML='<p style="margin:40px 12px;color:var(--ink3);text-align:center">还没有动作。点下面的「＋ 加动作」。</p>';return;}
+  var P=ptrIdx(),n=0,html='',cs=cards();
+  cs.forEach(function(c,ci){var ms=c.ids.map(exOf),ex=ms[0],rows=cardRows(c),isG=!!c.alt;
+    var title=isG?ms.map(function(m){return LIB[m.id].name}).join(' ⇄ '):LIB[ex.id].name;
+    var vars=Object.keys(LIB[ex.id].variants),k=kindOf(ex);
+    var head='<div class="ch"><h3>'+title+'<span class="meta">'+(isG?'<span>交替组 · 轮流做</span>':'<span>'+KIND[k]+'</span>'+(vars.length>1?'<button type="button" class="var" data-var="'+ex.uid+'">做法：'+vdef(ex).label+'</button>':''))+'</span></h3><button type="button" class="more" data-more="'+ci+'" aria-label="动作菜单">⋯</button></div>';
+    var body=(isG?'':heroHTML(ex))+(k==='none'&&!isG?'<div class="colh"><span>#</span><span>时间</span><span></span><span></span></div>':'<div class="colh"><span>#</span><span>重量</span><span>次数</span><span></span></div>');
+    // 指针贴在最后一组做完的那一行下面（照 pointerSeam：它属于那一行所在的卡）
+    var counts={};rows.forEach(function(r){counts[r.ex.uid]=(counts[r.ex.uid]||0)+1;body+=rowHTML(r.ex,r.s,counts[r.ex.uid],isG?LIB[r.ex.id].short:'');n++;if(n===P)body+='<div class="ptr" aria-label="指针"></div>';});
+    var fv=(focusOf(ex)||{v:0}).v,st=k==='none'||isG?'':'<p class="src">一档 = <b>'+fmt(stepOf(ex,fv).v)+' '+uLab(S.unit)+'</b> · '+stepOf(ex,fv).src+'</p>';
+    html+='<article class="card">'+head+body+'<button type="button" class="addset" data-add="'+ex.uid+'">＋ 添加组</button>'+st+(S.menu===ci?menuHTML(c,ci):'')+'</article>';});
+  $('#view').innerHTML=html;bind();}
+function menuHTML(c,ci){var ex=exOf(c.ids[0]),k=kindOf(ex),cs=cards(),h='<div class="menu" onclick="event.stopPropagation()">';
+  if(c.alt)h+='<button type="button" class="mi" data-split>拆开交替组</button>';
+  else if(ci<cs.length-1)h+='<button type="button" class="mi" data-alt>和下一个动作交替做</button>';
+  if(!c.alt&&(k==='pin'||k==='signed')){var inc=stackInc(ex);h+='<div class="sep"></div><div class="ov"><p>在 <b>'+S.gym+'</b>，这台器械一档多重</p><div class="stepper"><span class="stp"><button type="button" data-inc="-1">−</button><b>'+fmt(inc)+'</b><button type="button" data-inc="1">＋</button></span><span>'+uLab(S.unit)+'</span></div>'+(S.over[okey(ex)]?'<button type="button" class="mi" data-rinc>恢复馆默认</button>':'<p>改了只影响这个馆的这一台。</p>')+'</div>';}
+  if(h.indexOf('mi')<0&&h.indexOf('ov')<0)h+='<p style="margin:10px 14px;font-size:13px;color:var(--ink2)">（示意里这张卡没有别的选项）</p>';
+  return h+'</div>';}
+
+/* ── 手势：拖动改值（每 10px 一档，快一次两档 / 四档，第一下吸附）、长按组号、点格子打字 ── */
+var drag=null,swallowUntil=0;
+function startScrub(e,el,apply,axis){if(e.button>0)return;var p=axis==='y'?e.clientY:e.clientX;drag={el:el,apply:apply,axis:axis,p0:p,p:p,acc:0,on:false,t:performance.now(),first:true,id:e.pointerId,cls:el.classList.contains('hero')?'drag':'scrub'};}
+document.addEventListener('pointermove',function(e){if(!drag)return;var p=drag.axis==='y'?e.clientY:e.clientX;
+  if(!drag.on){if(Math.abs(p-drag.p0)<12)return;drag.on=true;drag.p=p;drag.t=performance.now();return;}
+  var dt=Math.max(1,performance.now()-drag.t),dp=p-drag.p,vel=Math.abs(dp)/dt,mult=vel>2.5?4:vel>1.2?2:1;drag.p=p;drag.t=performance.now();drag.acc+=dp;
+  var moved=false;while(Math.abs(drag.acc)>=10){var d=drag.acc>0?1:-1;drag.acc-=d*10;drag.apply(d,mult,drag.first);drag.first=false;moved=true;}
+  if(moved){render();var sel=document.querySelector(drag.selector);if(sel)sel.classList.add(drag.cls);}});
+function endDrag(){if(drag&&drag.on){swallowUntil=performance.now()+300;render();}drag=null;}
+document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+var lp=null;
+function findSet(p){var ex=exOf(+p[0]);return {ex:ex,s:ex.sets.find(function(x){return x.id===+p[1]})};}
 function bind(){
-  document.querySelectorAll('[data-b]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.b.split(':');bump(S.ex[+p[0]],+p[1])})});
-  document.querySelectorAll('[data-add]').forEach(function(b){b.addEventListener('click',function(){addSet(S.ex[+b.dataset.add])})});
-  document.querySelectorAll('[data-drop]').forEach(function(b){b.addEventListener('click',function(){addDrop(S.ex[+b.dataset.drop])})});
-  document.querySelectorAll('[data-tap]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.tap.split(':'),ex=S.ex[+p[0]],s=ex.sets[+p[1]];
-    if(s.ghost){s.ghost=false;s.doneUnit=S.unit;s.doneV=s.v;(s.subs||[]).forEach(function(x){x.ghost=false;x.doneUnit=S.unit;x.doneV=x.v})}
-    else{s.ghost=true;s.v=snap(ex,r2(conv(s.doneV,s.doneUnit,S.unit)));delete s.doneUnit;(s.subs||[]).forEach(function(x){x.ghost=true;delete x.doneUnit})}
-    render();})});
-  document.querySelectorAll('[data-w]').forEach(function(inp){inp.addEventListener('change',function(){var p=inp.dataset.w.split(':'),ex=S.ex[+p[0]],s=ex.sets[+p[1]],v=parseFloat(inp.value);if(!(v>=0))return;
-    if(kindOf(ex)==='signed'&&(p[2]!==undefined?s.subs[+p[2]]:s).v<0)v=-v;
-    if(p[2]!==undefined){var x=s.subs[+p[2]];x.v=r2(v);x.touched=true;x.auto=false;}else{s.auto=false;s.check=false;setWeight(ex,+p[1],r2(v),true);}render();});
-    inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});});
-  document.querySelectorAll('[data-near]').forEach(function(b){b.addEventListener('click',function(){var card=b.closest('.card'),ei=[].indexOf.call(document.querySelectorAll('.card'),card),ex=S.ex[ei];setWeight(ex,focusIdx(ex),+b.dataset.near,true);render();})});
-  document.querySelectorAll('[data-var]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var ex=S.ex[+b.dataset.var],vs=Object.keys(LIB[ex.id].variants),n=vs[(vs.indexOf(ex.variant)+1)%vs.length];switchVariant(ex,n);})});
+  document.querySelectorAll('[data-num]').forEach(function(b){var o=findSet(b.dataset.num.split(':'));
+    b.addEventListener('pointerdown',function(){b.classList.add('press');lp=setTimeout(function(){lp='fired';S.picked=o.s;addDrop(o.ex,o.s);},500);});
+    var cancel=function(){b.classList.remove('press');if(lp&&lp!=='fired'){clearTimeout(lp);lp=null;}};
+    b.addEventListener('pointerup',cancel);b.addEventListener('pointerleave',cancel);
+    b.addEventListener('click',function(){if(lp==='fired'){lp=null;return;}tapNum(o.s);});});
+  document.querySelectorAll('[data-cell]').forEach(function(el){var p=el.dataset.cell.split(':'),o=findSet(p),f=p[2];
+    el.addEventListener('pointerdown',function(e){startScrub(e,el,function(d,mult,first){
+      if(f==='r'){var old=o.s.r;o.s.r=Math.max(0,o.s.r+d*mult);mark(o.s,'r');followR(o.ex,o.s,old);return;}
+      if(f==='w')setW(o.ex,o.s,stepTo(o.ex,o.s.v,d,mult,first));else{var j=+f.slice(1);setSubW(o.ex,o.s,j,stepTo(o.ex,o.s.subs[j].v,d,mult,first));}},'x');if(drag)drag.selector='[data-cell="'+el.dataset.cell+'"]';});
+    el.addEventListener('click',function(){if(performance.now()<swallowUntil)return;openInput(el,o.ex,o.s,f);});});
+  document.querySelectorAll('[data-hero]').forEach(function(el){var ex=exOf(+el.dataset.hero);
+    el.addEventListener('pointerdown',function(e){startScrub(e,el,function(d,mult,first){var s=focusOf(ex);setW(ex,s,stepTo(ex,s.v,d,mult,first));},el.classList.contains('y')?'y':'x');if(drag)drag.selector='[data-hero="'+ex.uid+'"]';});});
+  document.querySelectorAll('[data-bump]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.bump.split(':'),o=findSet(p);bumpW(o.ex,o.s,+p[2]);render();})});
+  document.querySelectorAll('[data-drop]').forEach(function(b){b.addEventListener('click',function(){var o=findSet(b.dataset.drop.split(':'));addDrop(o.ex,o.s);})});
+  document.querySelectorAll('[data-add]').forEach(function(b){b.addEventListener('click',function(){addSet(exOf(+b.dataset.add))})});
+  document.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.del.split(':'),ex=exOf(+p[0]),i=ex.sets.findIndex(function(x){return x.id===+p[1]}),s=ex.sets[i];
+    ex.sets.splice(i,1);undo=function(){ex.sets.splice(i,0,s);};if(!ex.sets.length){var ei=S.ex.indexOf(ex);S.ex.splice(ei,1);var u0=undo;undo=function(){S.ex.splice(ei,0,ex);u0();};}
+    render();toast('删了一组',true);})});
+  document.querySelectorAll('[data-dsub]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.dsub.split(':'),o=findSet(p),j=+p[2],x=o.s.subs[j];o.s.subs.splice(j,1);undo=function(){o.s.subs.splice(j,0,x)};render();toast('删了一档递减',true);})});
+  document.querySelectorAll('[data-near]').forEach(function(b){b.addEventListener('click',function(){var p=b.dataset.near.split(':'),ex=exOf(+p[0]);setW(ex,focusOf(ex),+p[1]);render();})});
+  document.querySelectorAll('[data-var]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();switchVariant(exOf(+b.dataset.var))})});
   document.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();S.menu=S.menu===+b.dataset.more?null:+b.dataset.more;render();})});
-  var mi=S.menu;if(mi===null||!S.ex[mi])return;var ex=S.ex[mi],kk=key(ex);
-  var after=function(){S.ex[mi].sets.forEach(function(s){if(s.ghost&&!s.touched)s.v=snap(ex,s.v)});render();};
-  var bb=document.querySelectorAll('[data-base]');bb.forEach(function(b){b.addEventListener('click',function(){var cur=baseOf(ex),step=S.unit==='kg'?2.5:5;S.over[kk]=Object.assign({},S.over[kk],{base:{v:Math.max(0,cur+(+b.dataset.base)*step),u:S.unit}});after();})});
-  var ib=document.querySelectorAll('[data-inc]');ib.forEach(function(b){b.addEventListener('click',function(){var c=stackInc(ex),list=INC[S.unit],k=list.indexOf(c);if(k<0)k=0;k=Math.max(0,Math.min(list.length-1,k+(+b.dataset.inc)));S.over[kk]=Object.assign({},S.over[kk],{inc:{v:list[k],u:S.unit}});after();})});
-  var rb=$('[data-rbase]');if(rb)rb.addEventListener('click',function(){delete S.over[kk].base;after();});
-  var ri=$('[data-rinc]');if(ri)ri.addEventListener('click',function(){delete S.over[kk].inc;after();});
+  var mi=S.menu;if(mi===null)return;var c=cards()[mi];if(!c)return;var ex=exOf(c.ids[0]);
+  var al=$('[data-alt]');if(al)al.addEventListener('click',function(){var nx=exOf(cards()[mi+1].ids[0]),g='g'+(++uid);ex.alt=g;nx.alt=g;S.menu=null;render();toast('和「'+LIB[nx.id].name+'」交替做：待做的轮流排');});
+  var sp=$('[data-split]');if(sp)sp.addEventListener('click',function(){c.ids.forEach(function(id){delete exOf(id).alt});S.menu=null;render();});
+  document.querySelectorAll('[data-inc]').forEach(function(b){b.addEventListener('click',function(){var cur=stackInc(ex),list=INC[S.unit],k=list.indexOf(cur);if(k<0)k=0;k=Math.max(0,Math.min(list.length-1,k+(+b.dataset.inc)));S.over[okey(ex)]={v:list[k],u:S.unit};
+    ex.sets.forEach(function(s){if(s.ghost&&!(s.touched&&s.touched.w))s.v=snap(ex,s.v)});render();})});
+  var ri=$('[data-rinc]');if(ri)ri.addEventListener('click',function(){delete S.over[okey(ex)];ex.sets.forEach(function(s){if(s.ghost&&!(s.touched&&s.touched.w))s.v=snap(ex,s.v)});render();});
 }
+/* 点格子打字：全选旧值；打字中途不带动，离开输入框时按总差值带动一次（holdFollow / followFrom）。打的数照原样记 */
+function openInput(el,ex,s,f){var isSub=f[0]==='s',j=isSub?+f.slice(1):-1,cur=f==='r'?s.r:Math.abs(isSub?s.subs[j].v:s.v);
+  el.innerHTML='<input type="number" inputmode="decimal" step="any" value="'+fmt(cur)+'">';var inp=el.querySelector('input');inp.focus();requestAnimationFrame(function(){if(document.activeElement===inp)inp.select()});
+  var base=f==='r'?s.r:(isSub?s.subs[j].v:s.v),done=false;
+  var commit=function(){if(done)return;done=true;var v=parseFloat(inp.value);if(!(v>=0)){render();return;}
+    if(f==='r'){var old=s.r;s.r=Math.round(v);mark(s,'r');followR(ex,s,old);}
+    else{if(kindOf(ex)==='signed'&&base<0)v=-v;if(isSub)setSubW(ex,s,j,v);else setW(ex,s,v);}
+    render();};
+  inp.addEventListener('blur',commit);inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});}
 document.addEventListener('click',function(){if(S.menu!==null){S.menu=null;render();}});
 
+/* ── 弹层 ── */
 var sheet=$('#sheet'),scrim=$('#scrim');
 function openSheet(h){sheet.innerHTML='<div class="handle"><i></i></div>'+h;scrim.hidden=false;requestAnimationFrame(function(){sheet.classList.add('open')});sheet.setAttribute('aria-hidden','false');}
 function closeSheet(){sheet.classList.remove('open');sheet.setAttribute('aria-hidden','true');setTimeout(function(){scrim.hidden=true},260);}
 scrim.addEventListener('click',closeSheet);
 $('#addBtn').addEventListener('click',function(){
-  openSheet('<h3>加一个动作</h3><div class="list">'+Object.keys(LIB).map(function(id){var h=HIST[id],inW=S.ex.some(function(e){return e.id===id});
-    var last=h?h.sets.map(function(s){return s.t!==undefined?s.t+'s':(s.v<0?'辅助'+(-s.v):s.v)}).join(' / ')+' '+(h.sets[0].t!==undefined?'':uLab(h.u))+' · '+h.gym:'';
-    return '<button type="button" data-pick="'+id+'"><span>'+LIB[id].name+'<br><small style="font-family:var(--f-ui)">'+KIND[LIB[id].variants.std.kind]+'</small></span><small>'+(inW?'已在本次':'上次 '+last)+'</small></button>'}).join('')+'</div>');
-  sheet.querySelectorAll('[data-pick]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.pick;closeSheet();if(S.ex.some(function(e){return e.id===id}))return;addExercise(id);})});
-});
+  openSheet('<h3>加一个动作</h3><div class="list">'+Object.keys(LIB).map(function(id){var v=LASTVAR[id]||Object.keys(LIB[id].variants)[0],h=HIST[id+'|'+v],inW=S.ex.some(function(e){return e.id===id});
+    var last=h?h.sets.map(function(s){return s.t!==undefined?s.t+'s':(s.v<0?'辅助'+(-s.v):s.v)}).join(' / ')+(h.sets[0].t!==undefined?'':' '+uLab(h.u))+' · '+h.gym:'';
+    return '<button type="button" data-pick="'+id+'"><span>'+LIB[id].name+'<br><small style="font-family:var(--f-ui)">'+KIND[LIB[id].variants[v].kind]+(Object.keys(LIB[id].variants).length>1?' · 上次做法：'+LIB[id].variants[v].label:'')+'</small></span><small>'+(inW?'已在本次':'上次 '+last)+'</small></button>'}).join('')+'</div>');
+  sheet.querySelectorAll('[data-pick]').forEach(function(b){b.addEventListener('click',function(){var id=b.dataset.pick;closeSheet();if(S.ex.some(function(e){return e.id===id}))return;addExercise(id);})});});
 $('#gymBtn').addEventListener('click',function(e){e.stopPropagation();
   openSheet('<h3>在哪个馆练</h3><div class="list">'+Object.keys(S.gyms).map(function(n){var g=S.gyms[n];return '<button type="button" data-g="'+n+'" aria-current="'+(n===S.gym)+'"><span>'+n+'</span><small>'+(g.plateUnit==='lbs'?'磅片':'公斤片')+' · 龙门架 '+fmt(g.cable.v)+uLab(g.cable.u)+' · 器械 '+fmt(g.machine.v)+uLab(g.machine.u)+'</small></button>'}).join('')+'</div>');
-  sheet.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){var from=S.unit;S.gym=b.dataset.g;S.unit=S.gyms[S.gym].plateUnit;S.menu=null;reRound(from);closeSheet();render();toast('换到 '+S.gym+'：没做完的组换到'+(S.unit==='lbs'?'磅片':'公斤片')+'重新取整，做完的不动');})});
-});
+  sheet.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){var from=S.unit;S.gym=b.dataset.g;S.unit=S.gyms[S.gym].plateUnit;S.menu=null;reRound(from);closeSheet();render();toast('换到 '+S.gym+'：没做完的组换到'+(S.unit==='lbs'?'磅片':'公斤片')+'重新取整，做完的不动');})});});
 document.querySelectorAll('.unit button').forEach(function(b){b.addEventListener('click',function(){if(S.unit===b.dataset.u)return;var from=S.unit;S.unit=b.dataset.u;S.menu=null;reRound(from);render();toast('这次按'+(S.unit==='lbs'?'磅片':'公斤片')+'算：没做完的组重新取整，做完的不动');})});
-var tt;function toast(t){var el=$('#toast');el.textContent=t;el.classList.remove('hide');clearTimeout(tt);tt=setTimeout(function(){el.classList.add('hide')},2600);}
+$('#endBtn').addEventListener('click',function(){var n=0;S.ex.forEach(function(ex){ex.sets.forEach(function(s){if(s.ghost&&s.touched)n++})});
+  openSheet('<h3>结束训练</h3><p>'+(n?'有 '+n+' 组改过数但没点完成，结束后会丢弃。':'确认结束当前训练吗？没点完成的底稿会丢掉。')+'</p><div class="dlg"><button type="button" id="dBack">'+(n?'返回补点':'取消')+'</button><button type="button" class="pri" id="dEnd">结束训练</button></div>');
+  $('#dBack').addEventListener('click',closeSheet);$('#dEnd').addEventListener('click',function(){var done=0;S.ex.forEach(function(ex){done+=ex.sets.filter(function(s){return !s.ghost}).length});closeSheet();toast('（示意）记下 '+done+' 组做完的；没做完的丢掉');});});
+var tt;function toast(t,withUndo){var el=$('#toast');el.innerHTML='<span>'+t+'</span>'+(withUndo?'<button type="button" id="undoB">撤销</button>':'');el.classList.remove('hide');
+  if(withUndo)$('#undoB').addEventListener('click',function(){if(undo){undo();undo=null;render();}el.classList.add('hide');});
+  clearTimeout(tt);tt=setTimeout(function(){el.classList.add('hide')},withUndo?4000:2600);}
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&sheet.classList.contains('open'))closeSheet();});
 render();
 })();
