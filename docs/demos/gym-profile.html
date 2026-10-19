@@ -166,14 +166,14 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
 
   <aside class="notes">
     <h1>健身房器材档案</h1>
-    <p>每个馆设一次「有哪些片子、各类器械一档多重」。训练页的 ±按钮、拖动步长、配片都跟着这场训练所在的馆走，不用再在首选项里手动设「加一档」。手机里的馆和数据都是示例：今天在「国内」练，底稿抄自上一次在 F4L（磅片馆）练的那场。</p>
+    <p>每个馆设一次「有哪些片子、各类器械一档多重」。训练页的 ±按钮、拖动步长、配片都跟着这场训练所在的馆走，不用再在首选项里手动设「加一档」。<b>你选的单位就是你现在用的片子</b>：切到 lb，数字、档位、配片全按 lb 来，上一次的重量只做参考。手机里的馆和数据都是示例：今天在「国内」练，底稿抄自上一次在 F4L（磅片馆）练的那场。</p>
     <section>
       <h2>可以这样试</h2>
       <ol>
-        <li>看卧推：上次在 F4L 练的 <b>140 lb</b>，这里挂不出来，底稿自动取整成最近能挂的 <b>62.5 kg</b>，右边标着 <b>原 140 lb</b>。高位下拉、哑铃同理。</li>
-        <li>点<b>「原 140 lb」</b>：切回原值，这时大图下面给两个就近能挂的重量，点一下就改过去。</li>
+        <li>看卧推：上次在 F4L 练的 <b>140 lb</b>，这里按公斤片取整成最近能挂的 <b>62.5 kg</b>，右边标着参考 <b>上次 140 lb</b>。高位下拉、哑铃同理。</li>
+        <li>右上角切到 <b>lb</b>：这次按磅片练，卧推变成 <b>140 lb</b>、高位下拉按 10 lb 一档取到 <b>100 lb</b>，±按钮也全是 lb；参考变成「上次 47.5 kg」。</li>
         <li>在卧推的重量格里<b>直接打 63</b>：照原样记，大图下面同样给出 62.5 / 65 两个选项，不报错。</li>
-        <li>点左上角<b>馆名</b>换到 F4L：没动过的底稿跟着换成 F4L 能挂的重量；你打过、点过的不动。</li>
+        <li>点左上角<b>馆名</b>换到 F4L：单位跟着切到 lb（那里是磅片），没动过的底稿按 F4L 能挂的重量取整；你打过、点过的不动。</li>
         <li><b>±按钮</b>每次正好一档，第一下先落到最近能挂的重量上。坐姿腿屈伸的 <b>⋯</b> 里可以单独设一档。</li>
       </ol>
     </section>
@@ -182,8 +182,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-of
       <ul>
         <li><b>能挂的重量按这个馆实际有的片子算</b>：杠重 + 两边能凑出来的重量。少了某种片，能挂的重量就跟着变，不是简单按步长取整。</li>
         <li><b>严格取最近</b>，两边一样近才取轻的（2026-10-18 定）。</li>
-        <li><b>只自动改「没人碰过」的底稿</b>：抄来的、跟着平移的、切馆时还没动过的。你打过、拖过、点过的一律不动。</li>
-        <li>取整过的格子标<b>原值</b>，点一下切回。</li>
+        <li><b>平时只自动改「没人碰过」的底稿</b>：抄来的、跟着平移的。<b>切单位 / 切馆时</b>，所有还没做完的组都换到新单位那套片子上取整（这场里在旧单位下改过的数也一样）；已经做完记下的组不动。</li>
+        <li><b>单位就是片子</b>：选馆会顺带切到那个馆的单位；手动切单位＝这次换一套片子，器械档位换算成最接近的那一档。</li>
+        <li><b>上一次的重量只做参考</b>：单位不同或被取整过，行尾标「上次 62.5 kg」，不参与计算。</li>
         <li><b>手打的数照原样记</b>：大图画最接近的配法，下面给上下两个能挂的重量，点了才改。整页不会出现「配不出」。</li>
         <li>龙门架 / 器械 / 哑铃同一套规则，取整到这个馆、这台器械的那一档。</li>
       </ul>
@@ -223,15 +224,22 @@ function conv(v,from,to){return from===to?v:(from==='kg'?v/LB:v*LB)}
 function r2(v){return Math.round(v*100)/100}
 function fmt(v){return String(r2(v))}
 function uLab(u){return u==='lbs'?'lb':'kg'}
-function gymP(){return S.gyms[S.gym]}
+/* 你选的单位就是你现在用的片子（2026-10-18 用户定）。馆档案和当前单位一致就照用；
+   在公斤片的馆里手动切到 lb（或反过来）＝这次按标准磅片算，器械档位换算成最接近的那一档 */
+var INC={kg:[1,1.25,2,2.5,5,10],lbs:[2.5,5,10,15,20]};
+function convInc(c){if(c.u===S.unit)return c;var v=conv(c.v,c.u,S.unit),best=INC[S.unit][0];
+  INC[S.unit].forEach(function(x){if(Math.abs(x-v)<Math.abs(best-v))best=x});return {v:best,u:S.unit};}
+function gymP(){var g=S.gyms[S.gym];if(g.plateUnit===S.unit)return g;
+  return {plateUnit:S.unit,plates:ALL[S.unit].slice(),cable:g.cable,machine:g.machine,dumbbell:g.dumbbell,converted:true};}
 function show(kg){return r2(conv(kg,'kg',S.unit))}
 
 /* 这个馆、这件器材的一档（单位跟着器材本身走） */
 function stepOf(ex){
   var g=gymP(),o=S.over[S.gym+'|'+ex.id];
   if(ex.kind==='plates'){var m=Math.min.apply(null,g.plates);return {v:m*2,u:g.plateUnit,src:'这个馆最小的片 '+fmt(m)+' '+uLab(g.plateUnit)+' × 2'};}
-  if(o)return {v:o.v,u:o.u,src:'这个动作单独设的'};
-  var s=g[ex.kind];return {v:s.v,u:s.u,src:' '+S.gym+' 的'+TYPE[ex.kind]+'默认'};
+  // 器械档位也统一到当前单位：档案里记的是 2.5 kg 一档、今天用 lb，就按最接近的 5 lb 一档算（单位就是一切）
+  var raw=o||g[ex.kind],c=convInc(raw),note=raw.u!==S.unit?'（档案 '+fmt(raw.v)+' '+uLab(raw.u)+'，按 '+uLab(S.unit)+' 取最近）':'';
+  return {v:c.v,u:c.u,src:(o?'这个动作单独设的':' '+S.gym+' 的'+TYPE[ex.kind]+'默认')+note};
 }
 
 /* 杠铃：每边能凑出来的重量（这个馆有的片、每种不限数量），按 0.25 为单位做一次背包，带回溯 */
@@ -259,11 +267,16 @@ function loadable(ex,kg){var b=bracket(ex,kg);return Math.abs(b.v-b.lo)<0.01||Ma
 /* 严格取最近，两边一样近才取轻的 */
 function nearest(ex,kg){var b=bracket(ex,kg);var pick=(b.hi-b.v)<(b.v-b.lo)-1e-9?b.hi:b.lo;return conv(pick,b.u,'kg');}
 
-/* 只自动改没人碰过的底稿 */
-function roundDrafts(){
-  S.ex.forEach(function(ex){var s=ex.set;if(s.touched)return;
+/* 只自动改没人碰过的底稿：按当前单位这套片子 / 档位取最近能挂的。
+   上一次的重量变成参考（上次 62.5 kg），单位不同或者被取整过才标 */
+function roundDrafts(all){
+  S.ex.forEach(function(ex){var s=ex.set;
+    // 切单位 / 切馆（all）：还没做完的组都换到新单位这套片子上 —— 包括这场里你改过数的，
+    // 那个数只是在旧单位下定的；之后再改就照常。已经做完记下的组（真 App 里）不动
+    if(s.touched){if(all&&!loadable(ex,s.kg))s.kg=nearest(ex,s.kg);return;}
     var base=conv(s.src.v,s.src.u,'kg');
-    if(loadable(ex,base)){s.kg=base;s.rounded=false;}else{s.kg=nearest(ex,base);s.rounded=true;}
+    s.kg=loadable(ex,base)?base:nearest(ex,base);
+    s.ref=s.src.u!==S.unit||Math.abs(s.kg-base)>0.001;
   });
 }
 
@@ -304,7 +317,9 @@ function render(){
     var st=stepOf(ex),s=ex.set;
     var pb='',isPB=false;
     if(ex.pbByGym){var best=ex.pbByGym[S.gym];isPB=s.touched&&s.kg>best+0.01;pb='<p class="pbnote">PB 只和 '+S.gym+' 比：这里最好 '+fmt(show(best))+' '+uLab(S.unit)+'</p>';}
-    var origLab=s.rounded&&!s.touched?'<button type="button" class="orig" data-orig="'+i+'" title="点一下切回原值">原 '+fmt(s.src.v)+' '+uLab(s.src.u)+'</button>':(isPB?'<span class="pb">PB</span>':'<span></span>');
+    // 上次的重量一直留着当参考（改过数也留着），单位不同或数不一样才标；破纪录时 PB 优先
+    var base=conv(s.src.v,s.src.u,'kg'),showRef=s.src.u!==S.unit||Math.abs(s.kg-base)>0.001;
+    var origLab=isPB?'<span class="pb">PB</span>':showRef?'<span class="orig" title="上一次的重量，只做参考">上次 '+fmt(s.src.v)+' '+uLab(s.src.u)+'</span>':'<span></span>';
     html+='<article class="card" data-i="'+i+'">'+
       '<div class="ch"><h3>'+ex.name+'<small>'+TYPE[ex.kind]+'</small></h3>'+(ex.kind==='machine'||ex.kind==='cable'?'<button type="button" class="more" data-more="'+i+'" aria-label="动作菜单">⋯</button>':'<span style="width:30px"></span>')+'</div>'+
       heroHTML(ex)+
@@ -317,10 +332,9 @@ function render(){
   $('#view').innerHTML=html;
   document.querySelectorAll('[data-step]').forEach(function(b){b.addEventListener('click',function(){bump(+b.dataset.i,+b.dataset.step)})});
   document.querySelectorAll('[data-more]').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();S.menu=S.menu===+b.dataset.more?null:+b.dataset.more;render();})});
-  document.querySelectorAll('[data-orig]').forEach(function(b){b.addEventListener('click',function(){var s=S.ex[+b.dataset.orig].set;s.kg=conv(s.src.v,s.src.u,'kg');s.touched=true;s.rounded=false;render();toast('切回原值：照原样记，图下给出就近能挂的两档');})});
   document.querySelectorAll('[data-near]').forEach(function(b){b.addEventListener('click',function(){var s=S.ex[+b.dataset.i].set;s.kg=+b.dataset.near;s.touched=true;render();})});
   document.querySelectorAll('[data-wt]').forEach(function(inp){
-    var commit=function(){var v=parseFloat(inp.value);if(!(v>=0))return;var s=S.ex[+inp.dataset.wt].set;s.kg=conv(v,S.unit,'kg');s.touched=true;s.rounded=false;render();};
+    var commit=function(){var v=parseFloat(inp.value);if(!(v>=0))return;var s=S.ex[+inp.dataset.wt].set;s.kg=conv(v,S.unit,'kg');s.touched=true;render();};
     inp.addEventListener('change',commit);
     inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();inp.blur();}});
     inp.addEventListener('focus',function(){requestAnimationFrame(function(){if(document.activeElement===inp)inp.select()})});
@@ -333,7 +347,7 @@ function bump(i,d){var ex=S.ex[i],s=ex.set,b=bracket(ex,s.kg),u=b.u,next;
   else{var probe=conv(b.v+d*0.26*(u==='kg'?1:2),u,'kg');var bb=bracket(ex,probe);next=d>0?bb.hi:bb.lo;
     if(ex.kind==='plates'&&d<0&&b.v<=BAR[u]+1e-6)next=BAR[u];}
   if(ex.kind!=='plates'){var st=stepOf(ex);next=Math.max(st.v,Math.round((Math.abs(b.v-b.lo)>0.01&&Math.abs(b.v-b.hi)>0.01?next:b.v+d*st.v)/st.v)*st.v);}
-  s.kg=Math.max(0,conv(next,u,'kg'));s.touched=true;s.rounded=false;render();}
+  s.kg=Math.max(0,conv(next,u,'kg'));s.touched=true;render();}
 
 function menuHTML(ex){
   var key=S.gym+'|'+ex.id,o=S.over[key],def=gymP()[ex.kind],cur=o||def;
@@ -368,7 +382,7 @@ $('#gymBtn').addEventListener('click',function(e){e.stopPropagation();
   openSheet('<h3>在哪个馆练</h3><div class="gymlist">'+names.map(function(n){var g=S.gyms[n];return '<button type="button" data-g="'+n+'" aria-current="'+(n===S.gym)+'"><span>'+n+'</span><small>'+(g.plateUnit==='lbs'?'磅片':'公斤片')+' · 龙门架 '+fmt(g.cable.v)+uLab(g.cable.u)+' · 器械 '+fmt(g.machine.v)+uLab(g.machine.u)+'</small></button>'}).join('')+
     '<button type="button" data-new><span>新的馆…</span><small>设一次档案</small></button></div>'+
     '<button type="button" class="mi" data-edit style="min-height:44px;text-align:left;font-size:14px;color:var(--ink2)">改「'+S.gym+'」的档案</button>');
-  sheet.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){S.gym=b.dataset.g;S.menu=null;roundDrafts();closeSheet();render();toast('换到 '+S.gym+'：没动过的底稿按这个馆能挂的重量取整');})});
+  sheet.querySelectorAll('[data-g]').forEach(function(b){b.addEventListener('click',function(){S.gym=b.dataset.g;S.unit=S.gyms[S.gym].plateUnit;S.menu=null;roundDrafts(true);closeSheet();render();toast('换到 '+S.gym+'（'+(S.unit==='lbs'?'磅片':'公斤片')+'）：没动过的底稿按这里能挂的重量取整');})});
   sheet.querySelector('[data-new]').addEventListener('click',function(){profileSheet(null)});
   sheet.querySelector('[data-edit]').addEventListener('click',function(){profileSheet(S.gym)});
 });
@@ -389,13 +403,15 @@ function profileSheet(name){
     sheet.querySelectorAll('[data-inc]').forEach(function(b){b.addEventListener('click',function(){var c=g[b.dataset.inc],list=OV_STEPS[c.u],k=list.indexOf(c.v);if(k<0)k=0;c.v=list[Math.max(0,Math.min(list.length-1,k+ +b.dataset.d))];draw();})});
     sheet.querySelectorAll('[data-incu]').forEach(function(b){b.addEventListener('click',function(){var c=g[b.dataset.incu];c.u=b.dataset.u;c.v=c.u==='kg'?5:10;draw();})});
     $('#gsave').addEventListener('click',function(){var n=(name||nm||'').trim();if(!n){var i2=$('#gname');if(i2){i2.focus();i2.placeholder='先给这个馆起个名字';}return;}
-      S.gyms[n]=g;S.gym=n;S.menu=null;roundDrafts();closeSheet();render();toast(name?'「'+n+'」的档案已更新':'已存「'+n+'」，这场训练按它算');});
+      S.gyms[n]=g;S.gym=n;S.unit=g.plateUnit;S.menu=null;roundDrafts(true);closeSheet();render();toast(name?'「'+n+'」的档案已更新':'已存「'+n+'」，这场训练按它算');});
   }
   draw();
 }
 var tt;function toast(t){var el=$('#toast');el.textContent=t;el.classList.remove('hide');clearTimeout(tt);tt=setTimeout(function(){el.classList.add('hide')},2400);}
-document.querySelectorAll('.unit button').forEach(function(b){b.addEventListener('click',function(){S.unit=b.dataset.u;render();})});
+document.querySelectorAll('.unit button').forEach(function(b){b.addEventListener('click',function(){if(S.unit===b.dataset.u)return;S.unit=b.dataset.u;S.menu=null;roundDrafts(true);render();
+  toast('这次按'+(S.unit==='lbs'?'磅片':'公斤片')+'算：数字、档位、配片都换成 '+uLab(S.unit)+'，上次的重量只做参考');})});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){if(sheet.classList.contains('open'))closeSheet();else if(S.menu!==null){S.menu=null;render();}}});
+S.unit=S.gyms[S.gym].plateUnit;
 roundDrafts();
 render();
 })();
