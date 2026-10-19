@@ -26,6 +26,8 @@ import {
   type PlateUnit,
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
+import type { ExRounder } from '../hooks/useLoadRounder';
+import { sidePlates } from '../utils/loadable';
 
 /* ── 一摞片：按前缀比对做进出动画 ───────────────────────────────── */
 
@@ -176,10 +178,10 @@ export function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit 
 
 /* ── 带符号负荷（自重）：负数画弹力带，正数挂腰片 ──────────────── */
 
-export function SignedGlyph({ value, unit, plateUnit }: { value: number; unit: PlateUnit; plateUnit: PlateUnit }) {
+export function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: number; unit: PlateUnit; plateUnit: PlateUnit; belt?: number[] }) {
   const span = unit === 'kg' ? 40 : 90;
   const pos = 50 + (Math.max(-span, Math.min(span, value)) / span) * 45;
-  const belt = value > 0 ? loadSide(convert(value, unit, plateUnit), plateUnit).perSide : [];
+  const belt = value > 0 ? beltIn ?? loadSide(convert(value, unit, plateUnit), plateUnit).perSide : [];
   return (
     <div className="signed-glyph" aria-hidden>
       <div className="signed-axis">
@@ -217,6 +219,8 @@ export function LoadHero({
   isCn,
   pinStep,
   scrub,
+  rounder,
+  onPick,
 }: {
   kind: LoadKind;
   /** 选中那一组的重量（显示单位，带符号） */
@@ -232,19 +236,26 @@ export function LoadHero({
   pinStep: number;
   /** 大图本身也是拖动区（2026-10-18 用户定）：和数字格同一套 useValueScrub，改的是选中那一组 */
   scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
+  /**
+   * 馆档案取整器（2026-10-18）：图按「这个馆的片子 + 当前单位」画；记的数挂不整时画最接近的配法，
+   * 下面给上下两个能挂的重量（onPick 改成它）。绝不出现「配不出」。不传＝旧画法（标准片、按登记单位）。
+   */
+  rounder?: ExRounder | null;
+  onPick?: (displayValue: number) => void;
 }) {
   const [barOpen, setBarOpen] = useState(false);
   if (kind === 'plain') return null;
+  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen }} />;
 
   const barKind: BarKind = bar?.kind ?? 'standard';
   const barW = barWeight(bar, plateUnit);
   const total = Math.round(convert(value, unit, plateUnit) * 20) / 20;
-  const L = kind === 'plates' ? loadBarbell(total, plateUnit, barW) : null;
+  const L = kind === 'plates' || kind === 'loaded' ? loadBarbell(total, plateUnit, kind === 'loaded' ? 0 : barW) : null;
   const u = unit === 'lbs' ? 'lb' : 'kg';
 
   let caption = '';
   let warn = false;
-  if (kind === 'plates' && L) {
+  if ((kind === 'plates' || kind === 'loaded') && L) {
     const sideTxt = L.perSide.map((w) => plateLabel(w, plateUnit, unit)).join(' + ');
     // 片子和显示单位不一致时点明挂的是哪种片（按 kg 登记的组在 lbs 下看 → 公斤片，反之磅片）
     const mixed =
@@ -256,12 +267,8 @@ export function LoadHero({
     if (L.underBar) {
       caption = isCn ? '比空杠还轻' : 'Lighter than the empty bar';
       warn = true;
-    } else if (L.remainder > 0) {
-      caption = isCn
-        ? `配不出：每边还差 ${plateLabel(L.remainder, plateUnit, unit)} ${u}`
-        : `Can't load: ${plateLabel(L.remainder, plateUnit, unit)} ${u} short per side`;
-      warn = true;
     } else
+      // 挂不整的余数不再报「配不出」（2026-10-18 用户定）：图上是凑得到的那部分，数照原样记
       caption = L.perSide.length
         ? isCn
           ? `每边 ${sideTxt} ${u}${mixed}`
@@ -299,7 +306,7 @@ export function LoadHero({
             ×{scrub.step}
           </span>
         )}
-        {kind === 'plates' && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} />}
+        {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} />}
         {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} />}
         {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={value} unit={unit} plateUnit={plateUnit} />}
@@ -336,6 +343,167 @@ export function LoadHero({
                 {k === 'short'
                   ? `${fmt1(shortW)} ${shortU === 'lbs' ? 'lb' : 'kg'}`
                   : `${plateLabel(barWeight({ kind: k }, plateUnit), plateUnit, unit)} ${u}`}
+              </small>
+            </button>
+          ))}
+          {barKind === 'short' && (
+            <span className="bar-short-w">
+              <button
+                type="button"
+                aria-label={isCn ? '短杠轻一点' : 'Lighter short bar'}
+                onClick={() => onBarChange({ kind: 'short', unit: shortU, weight: Math.max(1, shortW - (shortU === 'kg' ? 0.5 : 1)) })}
+              >
+                −
+              </button>
+              <b>{fmt1(shortW)}</b>
+              <button
+                type="button"
+                aria-label={isCn ? '短杠重一点' : 'Heavier short bar'}
+                onClick={() => onBarChange({ kind: 'short', unit: shortU, weight: shortW + (shortU === 'kg' ? 0.5 : 1) })}
+              >
+                ＋
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 有馆档案时的大图（docs/design-plates.md §3「馆档案」，示意 docs/demos/gym-workbench.html）：
+ *   - 单位就是片子：一律按当前单位、这个馆有的片画（做完时挂的是另一种片，组行上另有标注）
+ *   - 记的数挂不整（手打的 61、换算来的 132.28）：图上画最接近的配法，说明写「按 61 kg 记 · 图上是最接近的配法」，
+ *     再给上下两个能挂的重量，点一下改成它
+ *   - 挂片式器械（史密斯、倒蹬…）照杠铃算，只算片子（没有空杠）
+ */
+function GymHero({
+  kind,
+  value,
+  unit,
+  bar,
+  onBarChange,
+  isCn,
+  scrub,
+  rounder,
+  onPick,
+  barOpen,
+  setBarOpen,
+}: {
+  kind: LoadKind;
+  value: number;
+  unit: PlateUnit;
+  bar?: BarChoice;
+  onBarChange?: (bar: BarChoice) => void;
+  isCn: boolean;
+  scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
+  rounder: ExRounder;
+  onPick?: (displayValue: number) => void;
+  barOpen: boolean;
+  setBarOpen: (f: (o: boolean) => boolean) => void;
+}) {
+  const ctx = rounder.ctx;
+  const u = unit === 'lbs' ? 'lb' : 'kg';
+  const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
+  // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
+  const empty = Math.abs(value) < 1e-9;
+  const onGrid = empty || rounder.loadableD(value);
+  const v = onGrid ? value : rounder.snapD(value);
+  const barKind: BarKind = bar?.kind ?? 'standard';
+  const isBar = kind === 'plates' || kind === 'loaded';
+  const base = kind === 'plates' ? ctx.bar : 0;
+  const perSide = isBar && v > base + 1e-9 ? sidePlates((v - base) / 2, ctx.plates, unit) : [];
+  const belt = kind === 'signed' && v > 0 ? sidePlates(v, ctx.plates, unit) : [];
+  const near = onGrid ? null : rounder.bracketD(value);
+
+  let caption = '';
+  if (isBar) {
+    caption = perSide.length
+      ? isCn ? `每边 ${perSide.map(fmt).join(' + ')} ${u}` : `Per side ${perSide.map(fmt).join(' + ')} ${u}`
+      : kind === 'plates'
+        ? isCn ? '空杠' : 'Empty bar'
+        : isCn ? '还没挂片' : 'No plates yet';
+    if (kind === 'loaded') caption += isCn ? ' · 只算片子' : ' · plates only';
+  } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt(v)} ${u}` : `Pin at ${fmt(v)} ${u}`;
+  else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
+  else if (kind === 'signed') {
+    if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
+    else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';
+    else caption = isCn ? `腰挂 ${belt.map(fmt).join(' + ')} ${u}` : `Belt ${belt.map(fmt).join(' + ')} ${u}`;
+  }
+  if (empty && kind !== 'signed') caption = isCn ? '还没填重量' : 'No weight yet';
+  if (near) {
+    const shown = kind === 'signed' && value < 0 ? `${isCn ? '辅助 ' : 'assisted '}${fmt(-value)}` : fmt(Math.abs(value));
+    caption = isCn ? `按 ${shown} ${u} 记 · 图上是最接近的配法` : `Logged as ${shown} ${u} · drawn as the closest load`;
+  }
+
+  const barName = isCn ? BAR_LABEL[barKind].cn : BAR_LABEL[barKind].en;
+  const barTxt = `${barName} ${fmt(ctx.bar)} ${u}`;
+  const shortU: PlateUnit = bar?.kind === 'short' ? (bar.unit ?? unit) : unit;
+  const shortW = bar?.kind === 'short' ? (bar.weight ?? SHORT_BAR_DEFAULT[shortU]) : SHORT_BAR_DEFAULT[unit];
+  const pick = (k: BarKind) =>
+    onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
+  const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
+
+  return (
+    <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}`} data-testid="load-hero">
+      <div
+        className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
+        {...(scrub ? scrub.handlers : {})}
+      >
+        {scrub?.scrubbing && (
+          <span className="load-hero-step" aria-hidden>
+            ×{fmt(rounder.stepD(v) * scrub.step)}
+          </span>
+        )}
+        {isBar && <BarbellGlyph perSide={perSide} plateUnit={unit} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} />}
+        {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} />}
+        {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
+        {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={unit} belt={belt} />}
+      </div>
+      <div className="load-caption-row">
+        {kind === 'plates' && (
+          <button
+            type="button"
+            className="bar-chip"
+            onClick={() => onBarChange && setBarOpen((o) => !o)}
+            disabled={!onBarChange}
+            aria-expanded={barOpen}
+            data-testid="bar-chip"
+          >
+            {barTxt}
+          </button>
+        )}
+        {caption && <p className="load-caption" data-testid="load-caption">{caption}</p>}
+      </div>
+      {near && onPick && (
+        <div className="load-near" data-testid="load-near">
+          <span>{isCn ? '改成能挂的：' : 'Snap to:'}</span>
+          {[near.lo, ...(near.hi !== near.lo ? [near.hi] : [])].map((n) => (
+            <button key={n} type="button" onClick={() => onPick(n)}>
+              {nearLabel(n)}
+            </button>
+          ))}
+        </div>
+      )}
+      {barOpen && kind === 'plates' && onBarChange && (
+        <div className="bar-menu" role="group" aria-label={isCn ? '这个动作用哪根杠' : 'Bar for this exercise'}>
+          {(['standard', 'women', 'short'] as BarKind[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={barKind === k}
+              onClick={() => {
+                pick(k);
+                if (k !== 'short') setBarOpen(() => false);
+              }}
+            >
+              {isCn ? BAR_LABEL[k].cn : BAR_LABEL[k].en}
+              <small>
+                {k === 'short'
+                  ? `${fmt1(shortW)} ${shortU === 'lbs' ? 'lb' : 'kg'}`
+                  : `${fmt(barWeight({ kind: k }, unit))} ${u}`}
               </small>
             </button>
           ))}

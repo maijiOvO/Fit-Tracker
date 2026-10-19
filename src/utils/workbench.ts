@@ -336,14 +336,38 @@ export type SetUpdate = Partial<SetLog> & {
  *   - 母组重量变了，它自己的递减档保持差值一起挪（60→55→50 改成 70 → 70→65→60）；档上改过的重量不动。
  *     跟着变的母组也一样带着自己的递减档挪。
  */
-export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate): Exercise[] {
+/**
+ * 「杠铃片」馆档案（2026-10-18）：跟着平移的组 / 递减档平移完再吸到最近能挂的重量。
+ * 给的是带符号 kg → 带符号 kg；不传（纯数字的动作、workbench-check）就是原来的纯平移。
+ * 被改的那一组自己照原样（打的数照原样记），只管「被带着动」的。
+ */
+export type SnapFor = (ex: Exercise) => ((kgSigned: number) => number) | null;
+
+export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapFor?: SnapFor): Exercise[] {
   const { holdFollow, followFrom, ...updates } = raw;
   return exs.map(e => {
     if (e.id !== r.exId) return e;
+    const snap = snapFor?.(e) ?? undefined;
     const i = e.sets.findIndex(s => String(s.id) === r.setId);
     if (i < 0) return e;
     const before = e.sets[i];
     const edited = { ...before, ...updates };
+    // 用户改了重量 / 号：这一组不再是「从上一次纯换算来的」—— 切单位时从当前值换，不回到上一次的原值。
+    // 只看 touched 不够：做完会剥掉 touched，退回之后又成了「没改过」（审查 2026-10-18）
+    if ('weight' in updates || 'bodyweightMode' in updates) {
+      edited.draftAuto = false;
+      edited.checkWeight = false;
+    }
+    if (updates.subSets) {
+      // 按 id 比：删掉中间一档后后面的档整体前移，按下标比会把没改过的档误判成改过
+      const old = new Map((before.subSets ?? []).map(o => [o.id, o] as const));
+      edited.subSets = updates.subSets.map(sub => {
+        const o = old.get(sub.id);
+        return o && (o.weight !== sub.weight || o.bodyweightMode !== sub.bodyweightMode)
+          ? { ...sub, draftAuto: false, checkWeight: false }
+          : sub;
+      });
+    }
     const sets = [...e.sets];
     sets[i] = edited;
 
@@ -352,11 +376,11 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate): Exer
       if (followFrom.sub === undefined) {
         const shift = signedKg(edited, e) - followFrom.kg;
         const signed = !!edited.bodyweightMode;
-        sets[i] = shiftSubs(edited, edited, shift, e, signed);
-        followWeight(sets, i, shift, e, signed);
+        sets[i] = shiftSubs(edited, edited, shift, e, signed, snap);
+        followWeight(sets, i, shift, e, signed, snap);
       } else {
         const sub = edited.subSets?.[followFrom.sub];
-        if (sub) followSubWeight(sets, i, followFrom.sub, signedKg(sub, e, edited) - followFrom.kg, !!sub.bodyweightMode, e);
+        if (sub) followSubWeight(sets, i, followFrom.sub, signedKg(sub, e, edited) - followFrom.kg, !!sub.bodyweightMode, e, snap);
       }
       return { ...e, sets };
     }
@@ -365,31 +389,34 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate): Exer
     // 重量的变化量（带符号的 kg，跨过 0 也算得对）：后面的组和递减档都平移这么多
     const shift = 'weight' in updates && !holdFollow ? signedKg(edited, e) - signedKg(before, e) : 0;
     if (shift) {
-      sets[i] = shiftSubs(edited, before, shift, e, signed);
-      followWeight(sets, i, shift, e, signed);
+      sets[i] = shiftSubs(edited, before, shift, e, signed, snap);
+      followWeight(sets, i, shift, e, signed, snap);
     }
     if ('reps' in updates) followReps(sets, i, e, Number(before.reps) || 0, updates.reps);
-    if (updates.subSets) followSubs(sets, i, before, edited, e, !!holdFollow);
+    if (updates.subSets) followSubs(sets, i, before, edited, e, !!holdFollow, snap);
     return { ...e, sets };
   });
 }
 
 /** 一组（或一档）的重量平移 shift（带符号的 kg）：带正负的负荷连号一起写，普通重量不低于 0 */
 function shiftWeight<T extends SetLog | SubSetLog>(
-  x: T, shift: number, ex: Exercise, signed: boolean, parent?: SetLog,
-): Pick<SetLog, 'weight' | 'bodyweightMode'> {
-  const v = signedKg(x, ex, parent) + shift;
-  return signed || x.bodyweightMode ? fromSignedKg(v) : { weight: Math.max(0, v) };
+  x: T, shift: number, ex: Exercise, signed: boolean, parent?: SetLog, snap?: (kg: number) => number,
+): Pick<SetLog, 'weight' | 'bodyweightMode' | 'draftAuto'> {
+  let v = signedKg(x, ex, parent) + shift;
+  // 被带着平移过就不再是「从上一次纯换算来的」：切单位时从当前值重算，不再回到上一次的原值
+  if (snap) v = snap(v);
+  const w = signed || x.bodyweightMode ? fromSignedKg(v) : { weight: Math.max(0, v) };
+  return { ...w, draftAuto: false };
 }
 
 /** 第 i 组后面的待做、重量没改过的组平移 shift，各自带着递减档 */
-function followWeight(sets: SetLog[], i: number, shift: number, e: Exercise, signed: boolean) {
+function followWeight(sets: SetLog[], i: number, shift: number, e: Exercise, signed: boolean, snap?: (kg: number) => number) {
   if (!shift) return;
   for (let k = i + 1; k < sets.length; k++) {
     const s = sets[k];
     const why = !s.ghost ? 'done' : s.touched?.weight ? 'touched' : 'followed';
     if (why !== 'followed') continue;
-    sets[k] = shiftSubs({ ...s, ...shiftWeight(s, shift, e, signed) }, s, shift, e, signed);
+    sets[k] = shiftSubs({ ...s, ...shiftWeight(s, shift, e, signed, undefined, snap) }, s, shift, e, signed, snap);
   }
 }
 
@@ -405,35 +432,35 @@ function followReps(sets: SetLog[], i: number, e: Exercise, oldV: number, reps: 
 }
 
 /** 母组从 prev 变成 next：没改过重量的递减档平移 shift */
-function shiftSubs(next: SetLog, prev: SetLog, shift: number, ex: Exercise, signed: boolean): SetLog {
+function shiftSubs(next: SetLog, prev: SetLog, shift: number, ex: Exercise, signed: boolean, snap?: (kg: number) => number): SetLog {
   if (!shift || !next.subSets?.length) return next;
   const subSets = next.subSets.map(sub =>
-    sub.touched?.weight ? sub : { ...sub, ...shiftWeight(sub, shift, ex, signed, prev) },
+    sub.touched?.weight ? sub : { ...sub, ...shiftWeight(sub, shift, ex, signed, prev, snap) },
   );
   return { ...next, subSets };
 }
 
 /** 后面各组的第 j 档：待做、重量没改过的平移 shift */
-function followSubWeight(sets: SetLog[], i: number, j: number, shift: number, signed: boolean, ex: Exercise) {
+function followSubWeight(sets: SetLog[], i: number, j: number, shift: number, signed: boolean, ex: Exercise, snap?: (kg: number) => number) {
   if (!shift) return;
   for (let k = i + 1; k < sets.length; k++) {
     const s = sets[k];
     const sub = s.subSets?.[j];
     if (!sub || !isPending(s) || sub.touched?.weight) continue;
     const subSets = [...s.subSets!];
-    subSets[j] = { ...sub, ...shiftWeight(sub, shift, ex, signed, s) };
+    subSets[j] = { ...sub, ...shiftWeight(sub, shift, ex, signed, s, snap) };
     sets[k] = { ...s, subSets };
   }
 }
 
 /** 第 i 组的递减档从 prev 改成 next：后面各组的同一档照普通组的规则跟。加档 / 删档不跟；hold＝打字中途，重量先不跟 */
-function followSubs(sets: SetLog[], i: number, prev: SetLog, next: SetLog, ex: Exercise, hold: boolean) {
+function followSubs(sets: SetLog[], i: number, prev: SetLog, next: SetLog, ex: Exercise, hold: boolean, snap?: (kg: number) => number) {
   const oldSubs = prev.subSets ?? [];
   const newSubs = next.subSets ?? [];
   if (oldSubs.length !== newSubs.length) return;
   newSubs.forEach((nu, j) => {
     const old = oldSubs[j];
-    if (!hold) followSubWeight(sets, i, j, signedKg(nu, ex, next) - signedKg(old, ex, prev), !!nu.bodyweightMode, ex);
+    if (!hold) followSubWeight(sets, i, j, signedKg(nu, ex, next) - signedKg(old, ex, prev), !!nu.bodyweightMode, ex, snap);
     const oldReps = Number(old.reps) || 0;
     if (oldReps === (Number(nu.reps) || 0)) return;
     for (let k = i + 1; k < sets.length; k++) {
@@ -585,6 +612,9 @@ export function memberAbbrs(names: string[]): string[] {
 
 /** 结束训练：剥掉工作台标记；只剩一个成员的交替组拆掉 */
 export function stripWorkbenchSet<T extends SetLog>(s: T): T {
-  const { skipped: _sk, seq: _q, ...rest } = s;
-  return rest as T;
+  // prefillRef / draftAuto 只服务工作台上的「上次 x」与切单位重算，不进历史（递减档上的也剥）
+  const { skipped: _sk, seq: _q, prefillRef: _pr, draftAuto: _da, checkWeight: _cw, ...rest } = s;
+  return (rest.subSets?.length
+    ? { ...rest, subSets: rest.subSets.map(({ prefillRef: _spr, draftAuto: _sda, checkWeight: _scw, ...sub }) => sub) }
+    : rest) as T;
 }

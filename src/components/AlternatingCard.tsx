@@ -20,6 +20,7 @@ import { LongPressAffordance } from './LongPressAffordance';
 import { VariantModal } from './modals/VariantModal';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useLoadKindOf } from '../hooks/useLoadKind';
+import { useLoadRounder } from '../hooks/useLoadRounder';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { memberAbbrs, RowRef } from '../utils/workbench';
 import { setVolumeKg } from '../utils/load';
@@ -58,6 +59,8 @@ interface Props {
   onToggleNote: (name: string) => void;
   onOpenMetricModal: (name: string, exId: string) => void;
   onOpenTimePicker: (exId: string, setId: string, seconds: number) => void;
+  /** 这一场训练记的馆：组行的 ± / 拖动 / 递减档按这个馆的档案走（各动作各按各的器材） */
+  gym?: string;
   dragHandle?: {
     handlers: React.DOMAttributes<HTMLElement>;
     pressing: boolean;
@@ -130,9 +133,11 @@ export const AlternatingCard: React.FC<Props> = ({
   onToggleNote,
   onOpenMetricModal,
   onOpenTimePicker,
+  gym,
   dragHandle,
 }) => {
   const isCn = lang === Language.CN;
+  const rounderFor = useLoadRounder();
   const { variantLabel } = useExercisePrefs();
   // 「杠铃片」§3：组行的拖动步长 / 方向和迷你配片跟着各自的器材走（交替组不画顶部大图）
   const loadKindOf = useLoadKindOf();
@@ -320,6 +325,7 @@ export const AlternatingCard: React.FC<Props> = ({
                 onNumTap={() => onNumTap(r)}
                 signed={isSigned(ex) ? { sign: () => (getLoadMode(ex) === 'assisted' ? -1 : 1) } : undefined}
                 loadKind={loadKindOf(ex, isSigned(ex))}
+                rounder={rounderFor(ex, gym)}
                 onUpdate={u => onSetUpdate(r, u)}
                 onRemove={() => onRemoveSet(r)}
                 onRemoveSub={sub => onRemoveSubSet(r, sub)}

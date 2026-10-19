@@ -93,6 +93,11 @@ interface DetectParams {
   unitLabel: string;
   /** 这条记录按带正负的负荷记吗（辅助负、自重 0、负重正）；不传＝都不是 */
   isSigned?: (ex: Exercise) => boolean;
+  /**
+   * 「杠铃片」馆档案：这个动作的纪录只在同一个馆里比（配重片器械、挂片式器械，useGymScopedPR）。
+   * 不传＝都跨馆比（旧行为）。
+   */
+  gymScoped?: (ex: Exercise) => boolean;
 }
 
 export function detectPRs({
@@ -104,6 +109,7 @@ export function detectPRs({
   getActiveMetrics,
   unitLabel,
   isSigned,
+  gymScoped,
 }: DetectParams): PRResult {
   const key = keyOf ?? ((e: { name: string }) => resolveName(e.name));
   // 在改历史，语义混乱，不触发
@@ -115,9 +121,12 @@ export function detectPRs({
     const name = key(ex).trim();
     if (!name) continue;
 
-    // 该动作（同一练法）的历史记录
+    // 该动作（同一练法）的历史记录；器械类只看同一个馆的（没标馆的算一个「馆」）
+    const sameGym = !!gymScoped?.(ex);
     const past = history.flatMap(w =>
-      (w.exercises ?? []).filter(e => key(e).trim() === name && realSets(e).length > 0),
+      sameGym && (w.gym ?? '') !== (session.gym ?? '')
+        ? []
+        : (w.exercises ?? []).filter(e => key(e).trim() === name && realSets(e).length > 0),
     );
     // 历史为空不算 PR
     if (past.length === 0) continue;

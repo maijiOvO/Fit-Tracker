@@ -24,6 +24,9 @@ import { plural } from '../utils/format';
 import { useLoadKindOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
+import { gymOverrideKey, snapUntouched, useLoadRounder, withInc } from '../hooks/useLoadRounder';
+import { useUserSettingsContext } from '../contexts/UserSettingsContext';
+import { INC_CHOICES, profileIn } from '../utils/loadable';
 
 /**
  * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。口径照抄结束训练时的 detectPRs 的 weight 一档：
@@ -110,6 +113,8 @@ interface ExerciseCardProps {
   onAlternateWithNext?: () => void;
   /** ⋯ 菜单：加入上面的交替组（上一张不是交替组时不传） */
   onJoinGroupAbove?: () => void;
+  /** 这一场训练记的馆（WorkoutSession.gym）：± / 拖动 / 取整按这个馆的档案走 */
+  gym?: string;
   /** §12.7 长按刊头拖动排序：由 NewWorkoutTab 的 useCardReorder 下发，摊到刊头行上 */
   dragHandle?: {
     handlers: React.DOMAttributes<HTMLElement>;
@@ -127,6 +132,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   exerciseNotes,
   getActiveMetrics,
   resolveName,
+  onUpdateExercise,
   onDeleteExercise,
   onOpenTimePicker,
   onOpenExerciseTime,
@@ -148,6 +154,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   bestKg,
   onAlternateWithNext,
   onJoinGroupAbove,
+  gym,
   dragHandle,
 }) => {
   const isCn = lang === Language.CN;
@@ -162,6 +169,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const loadMode = getLoadMode(exercise);
   // 「杠铃片」§3：这个动作的重量怎么画、怎么拖
   const loadKind = useLoadKindOf()(exercise, signed);
+  // 馆档案取整器：纯数字的动作（含没有重量这一项的）是 null，组行照旧走首选项的步长
+  const rounder = useLoadRounder()(exercise, gym);
   const prIdx = prSetIndex(exercise, bestKg, signed);
   /**
    * 顶部器材大图每张卡都画（2026-10-18 审查后用户定：只画选中那张时，做完一个动作大图跳到下一张卡，
@@ -180,23 +189,25 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 改的是选中那一组；写回的口径照 SetCapsule.update：显示单位换回 kg，带正负的按号写 bodyweightMode，
    * 底稿行记 touched（改值只改值，不描实）。
    */
-  const heroFeel = weightScrubFor(loadKind, unit);
+  const heroFeel = weightScrubFor(rounder);
+  /** 大图拖动 / 点「改成能挂的」：写回选中（或画着的）那一组 */
+  const writeHero = (next: number) => {
+    if (!focusSet) return;
+    const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
+    // 改重量就记下登记时的单位（这一组挂的就是这种片），口径同 SetCapsule.fromDisplay
+    const plateUnit: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+    const updates: Partial<SetLog> = signed
+      ? { weight: kg, plateUnit, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
+      : { weight: kg, plateUnit };
+    if (focusSet.ghost) (updates as any).touched = { ...(focusSet.touched || {}), weight: true };
+    onSetUpdate(exIdx, focusIdx, updates);
+  };
   const heroScrub = useValueScrub({
     value: focusValue,
-    onChange: next => {
-      if (!focusSet) return;
-      const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
-      // 改重量就记下登记时的单位（这一组挂的就是这种片），口径同 SetCapsule.fromDisplay
-      const plateUnit: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
-      const updates: Partial<SetLog> = signed
-        ? { weight: kg, plateUnit, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
-        : { weight: kg, plateUnit };
-      if (focusSet.ghost) (updates as any).touched = { ...(focusSet.touched || {}), weight: true };
-      onSetUpdate(exIdx, focusIdx, updates);
-    },
+    onChange: writeHero,
     steps: heroFeel.steps,
     axis: heroFeel.axis,
-    grid: heroFeel.grid,
+    stepFn: heroFeel.stepFn,
     disabled: !focusSet,
     ...(signed ? { min: -9999 } : {}),
   });
@@ -271,6 +282,43 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const menuItem =
     'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-body text-primary active:bg-card-hover';
+
+  /**
+   * ⋯「在 X，这台器械一档多重」（2026-10-18 用户定：馆默认一档，个别器械在这里单独调）。
+   * 只给配重片 / 哑铃 / 带正负的辅助：杠铃和挂片器械的一档就是片子，在馆档案里管。
+   * 存 AppPrefs.gymOverrides（键：馆|动作|做法）；没标馆的训练不给（改了也找不到下一次）。
+   * 改完把没做完、没改过的组吸到新的一档上。
+   */
+  const { appPrefs, changeAppPrefs } = useUserSettingsContext();
+  const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'signed')
+    ? gymOverrideKey(gym, rounder.info)
+    : null;
+  const incOverridden = !!(incKey && appPrefs.gymOverrides[incKey]);
+  const setIncOverride = (next: number | null) => {
+    if (!rounder || !incKey) return;
+    haptic(H.tap);
+    const ov = { ...appPrefs.gymOverrides };
+    let inc: number;
+    if (next === null) {
+      delete ov[incKey];
+      const prof = profileIn(gym ? appPrefs.gyms[gym] : undefined, rounder.unit);
+      inc = loadKind === 'pair' ? prof.dumbbell : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
+    } else {
+      ov[incKey] = { v: next, u: rounder.unit };
+      inc = next;
+    }
+    changeAppPrefs({ gymOverrides: ov });
+    onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withInc(rounder, inc)) });
+  };
+  const stepInc = (dir: 1 | -1) => {
+    if (!rounder) return;
+    const list = INC_CHOICES[rounder.unit];
+    const cur = rounder.ctx.inc;
+    // 往上取第一个更大的、往下取最后一个更小的（当前值不在表里也成立）
+    const nextV = dir > 0 ? list.find(x => x > cur + 1e-9) : [...list].reverse().find(x => x < cur - 1e-9);
+    if (nextV !== undefined) setIncOverride(nextV);
+  };
+  const uLab = unit === 'lbs' ? 'lb' : 'kg';
 
   return (
     <div className="ui-card p-0 overflow-visible" style={{ ['--cols' as string]: cols }}>
@@ -397,6 +445,26 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {isCn ? '重命名' : 'Rename'}
                   </button>
                 )}
+                {incKey && rounder && (
+                  <div className="gym-inc border-t border-divider mt-1 px-4 pt-2 pb-2" data-testid="gym-inc">
+                    <p className="text-label text-secondary">
+                      {isCn ? <>在 <b className="text-primary">{gym}</b>，{loadKind === 'pair' ? '哑铃' : loadKind === 'signed' ? '辅助器械' : '这台器械'}一档多重</> : <>At <b className="text-primary">{gym}</b>, one step is</>}
+                    </p>
+                    <div className="gym-inc-stepper">
+                      <button type="button" onClick={() => stepInc(-1)} aria-label={isCn ? '一档轻一点' : 'Smaller step'}>−</button>
+                      <b>{rounder.ctx.inc}</b>
+                      <button type="button" onClick={() => stepInc(1)} aria-label={isCn ? '一档重一点' : 'Bigger step'}>＋</button>
+                      <span>{uLab}</span>
+                    </div>
+                    {incOverridden ? (
+                      <button type="button" className="text-label text-secondary underline min-h-[36px]" onClick={() => setIncOverride(null)}>
+                        {isCn ? '恢复馆默认' : 'Use gym default'}
+                      </button>
+                    ) : (
+                      <p className="text-micro text-tertiary">{isCn ? '改了只影响这个馆的这一台' : 'Only this machine at this gym'}</p>
+                    )}
+                  </div>
+                )}
                 {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险；
                     真正的危险确认在弹窗里做（全宽实心 + 明确文案）。 */}
                 <button
@@ -486,6 +554,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           isCn={isCn}
           pinStep={unit === 'lbs' ? 10 : 5}
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
+          rounder={rounder}
+          onPick={next => {
+            haptic(H.tap);
+            writeHero(next);
+          }}
         />
       )}
 
@@ -545,6 +618,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               signed={signed ? { sign: () => (getLoadMode(exercise) === 'assisted' ? -1 : 1) } : undefined}
               onDurationClick={() => handleDurationClick(setIdx)}
               loadKind={loadKind}
+              rounder={rounder}
               isPR={setIdx === prIdx}
             />
             {/* 缝在这一组的整块之后 —— 递减档全都在 SetCapsule 的 fragment 里，

@@ -88,7 +88,16 @@ interface Options {
    * 杠铃传最小一对片（kg 2.5 / lbs 5）：62 配不出来，往左拖第一格先到 60，再照常一格 2.5。
    */
   grid?: number;
+  /**
+   * 「杠铃片」馆档案：按器材走一下（ExRounder.stepToD）。给了它，steps 就是「一下走几档」的倍数表
+   * （[1, 2, 4]），落点由它决定（第一下先吸到那个方向最近能挂的重量，片子不规则时按能挂的下一个走）；
+   * grid / 残留取整都不再用。不给＝原来的定步长（纯数字的动作）。
+   */
+  stepFn?: (v: number, dir: 1 | -1, mult: number) => number;
 }
+
+/** 给了 stepFn 时的倍数档：慢拖一档、甩起来两档 / 四档 */
+export const SCRUB_MULTS = [1, 2, 4];
 
 interface Result {
   handlers: {
@@ -113,7 +122,11 @@ export function useValueScrub({
   disabled = false,
   axis = 'x',
   grid,
+  stepFn,
 }: Options): Result {
+  // 调用方每次渲染都新建 stepFn：放 ref 里，别让它把 onPointerMove 的身份打翻
+  const stepFnRef = useRef(stepFn);
+  stepFnRef.current = stepFn;
   const offGrid = (v: number) => (grid ? Math.abs(v / grid - Math.round(v / grid)) > 1e-6 : isResidue(v));
   const toGrid = (v: number, sign: number) =>
     grid
@@ -226,7 +239,10 @@ export function useValueScrub({
       let next = valueRef.current;
       while (Math.abs(d.acc) >= px) {
         const sign = d.acc > 0 ? 1 : -1;
-        if (!d.snapped && offGrid(next)) {
+        const fn = stepFnRef.current;
+        if (fn) {
+          next = Math.max(min, fn(next, sign, nextStep));
+        } else if (!d.snapped && offGrid(next)) {
           // 切过单位后的 132.28 这种值，第一档先取整（往右 ceil、往左 floor）并吃掉这一档，
           // 之后再照常 ±1/2/5/10 —— 否则会一路拖出 133.28、134.28。
           // 只在拖动时取整：切单位、打字都保留原值。
@@ -236,7 +252,8 @@ export function useValueScrub({
         }
         d.snapped = true;
         d.acc -= sign * px;
-        moved = true;
+        // 到了下限 / 空杠再往下拖：值没变就不算一档（不震、不回调）
+        if (next !== valueRef.current) moved = true;
       }
       if (moved) {
         valueRef.current = next;

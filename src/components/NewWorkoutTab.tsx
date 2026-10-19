@@ -45,7 +45,7 @@ import {
   tapSetNumEditing,
 } from '../utils/workbench';
 import { usesSignedLoad } from '../utils/load';
-import { undoWorkoutDeletes } from '../utils/undoPref';
+import { useLoadRounder } from '../hooks/useLoadRounder';
 import { haptic, H } from '../utils/haptics';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { BodyPartPicker, isPartTitle, partTitleFor } from './BodyPartPicker';
@@ -161,6 +161,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const { findExerciseDef, signedLoadOf } = useExercisePrefs();
+  const rounderFor = useLoadRounder();
   const { toast, toastUndo } = useUiOverlay();
   const flashTimerRef = useRef<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
@@ -211,7 +212,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
       return;
     }
-    setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(res.exs) }));
+    setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(stampDoneUnit(exs, res.exs)) }));
     if (res.suggestPair) {
       const { a, b } = res.suggestPair;
       const other = exs.find(e => e.id === b);
@@ -223,14 +224,38 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     }
   };
 
+  /**
+   * 「杠铃片」：这一下由待做变成做完的组，记下做完时挂的是哪种片（当前单位）。
+   * 之后切单位，做完的组不动，行下标「做完时挂的是磅片」靠它；下一次抄底稿时「上次 x」的单位也靠它。
+   */
+  const stampDoneUnit = (prev: typeof exs, next: typeof exs) => {
+    const u: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+    const was = new Map<string, boolean>();
+    for (const e of prev) for (const st of e.sets) was.set(`${e.id}|${st.id}`, !!st.ghost);
+    return next.map(e => {
+      let changed = false;
+      const sets = e.sets.map(st => {
+        if (st.ghost || !was.get(`${e.id}|${st.id}`) || !(Number(st.weight) > 0 || st.subSets?.length)) return st;
+        changed = true;
+        return { ...st, plateUnit: u, ...(st.subSets?.length ? { subSets: st.subSets.map(sub => ({ ...sub, plateUnit: u })) } : {}) };
+      });
+      return changed ? { ...e, sets } : e;
+    });
+  };
+
   const movePointer = (cardKey: string, gap: number) => {
-    setCurrentWorkout(w => ({ ...w, exercises: movePointerTo(w.exercises ?? [], cardKey, gap) }));
+    // 拖指针做完的组同样记下做完时挂的片
+    setCurrentWorkout(w => ({ ...w, exercises: stampDoneUnit(w.exercises ?? [], movePointerTo(w.exercises ?? [], cardKey, gap)) }));
     setPickedSetId(null);
   };
 
   /** 更新一组（按 id，交替组和单卡共用）；后面同值、没动过的底稿跟着变（workbench.applySetUpdate） */
   const updateSet = (r: RowRef, updates: Partial<SetLog>) =>
-    setCurrentWorkout(w => ({ ...w, exercises: applySetUpdate(w.exercises ?? [], r, updates) }));
+    setCurrentWorkout(w => ({
+      ...w,
+      // 被带着平移的组 / 递减档按这一场的馆就近取整（docs/design-plates.md §3）；纯数字动作照旧纯平移
+      exercises: applySetUpdate(w.exercises ?? [], r, updates, e => rounderFor(e, w.gym)?.snapKg ?? null),
+    }));
 
   /** 添加组：克隆这个动作最后一组的值，新行从待做开始 */
   const addSetTo = (exId: string) =>
@@ -245,13 +270,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         const newId = `${Date.now()}`;
         const newSet: SetLog = lastSet
           ? (() => {
-              const { subSets, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, ...base } = lastSet;
+              // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」，不是「从上一次纯换算来的」；
+              // 片子单位按现在的（这一组还没做，挂的就是今天的片）
+              const { subSets, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, draftAuto: _da, checkWeight: _cw, prefillRef: _pr, ...base } = lastSet;
+              const pu: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
               return {
                 ...base,
                 id: newId,
                 ghost: true,
+                ...(Number(base.weight) > 0 ? { plateUnit: pu } : {}),
                 ...(subSets?.length
-                  ? { subSets: subSets.map(({ touched: _st, ...sub }, k) => ({ ...sub, id: `${newId}_sub${k}` })) }
+                  ? {
+                      subSets: subSets.map(({ touched: _st, draftAuto: _sda, checkWeight: _scw, prefillRef: _spr, ...sub }, k) => ({
+                        ...sub,
+                        id: `${newId}_sub${k}`,
+                        ...(Number(sub.weight) > 0 ? { plateUnit: pu } : {}),
+                      })),
+                    }
                   : {}),
               };
             })()
@@ -260,12 +295,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       }),
     }));
 
-  /** 删组：单击即删；撤销条看设置（2.6，默认关） */
+  /**
+   * 删组：单击即删，不给撤销（2026-10-18 用户定：删了加回来就行，撤销条一次都没点过，
+   * 原先的「删组 / 删动作后可撤销」开关一起去掉）
+   */
   const removeSet = (r: RowRef) => {
     const ex = exs.find(e => e.id === r.exId);
     const idx = ex?.sets.findIndex(s => String(s.id) === r.setId) ?? -1;
     if (!ex || idx < 0) return;
-    const removed = ex.sets[idx];
     setCurrentWorkout(w => ({
       ...w,
       exercises: (w.exercises ?? []).map(e =>
@@ -273,20 +310,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       ),
     }));
     if (pickedSetId === r.setId) setPickedSetId(null);
-    if (!undoWorkoutDeletes()) return;
-    toastUndo(isCn ? '已删除一组' : 'Set deleted', () => {
-      setCurrentWorkout(w => ({
-        ...w,
-        exercises: (w.exercises ?? []).map(e => {
-          if (e.id !== r.exId || e.sets.some(st => String(st.id) === r.setId)) return e;
-          const sets = [...e.sets];
-          sets.splice(Math.min(idx, sets.length), 0, removed);
-          return { ...e, sets };
-        }),
-      }));
-    });
   };
 
+  /** 删一档递减 / 递增：同删组，单击即删、不给撤销 */
   const removeSubSet = (r: RowRef, subIdx: number) => {
     const set = findSet(exs, r);
     const removed = (set?.subSets ?? [])[subIdx];
@@ -302,15 +328,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       }));
     };
     patchSubs(subs => subs.filter(sb => sb.id !== removed.id));
-    if (!undoWorkoutDeletes()) return;
-    toastUndo(isCn ? '已删除一档' : 'Step deleted', () =>
-      patchSubs(subs => {
-        if (subs.some(sb => sb.id === removed.id)) return subs;
-        const next = [...subs];
-        next.splice(Math.min(subIdx, next.length), 0, removed);
-        return next;
-      }),
-    );
   };
 
   const exerciseCount = exs.length;
@@ -567,6 +584,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onRemoveSet={removeSet}
                 onRemoveSubSet={removeSubSet}
                 onAddSet={addSetTo}
+                gym={currentWorkout.gym}
                 onMoveMember={(exId, dir) => setExs(list => moveGroupMember(list, exId, dir))}
                 onRemoveMember={exId => setExs(list => removeFromGroup(list, exId))}
                 onDeleteMember={exId => onDeleteExerciseFromSession(indexOf(exId))}
@@ -611,6 +629,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               selectedSetId={selectedSetId}
               onNumTap={setId => tapSetNum({ exId: ex.id, setId })}
               signed={isSigned(ex)}
+              gym={currentWorkout.gym}
               onAlternateWithNext={
                 next ? () => setExs(list => groupExercises(list, [ex.id, ...next.exIds])) : undefined
               }

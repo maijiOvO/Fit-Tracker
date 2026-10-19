@@ -22,6 +22,15 @@ export interface SetLog {
    * 不按健身房）。之后切显示单位，片子不变，只是换算着标。老数据没有，见 src/utils/plates.ts plateUnitOf。
    */
   plateUnit?: 'kg' | 'lbs';
+  /**
+   * 工作台专用（入册时剥掉）：底稿抄自上一次时那一组的原值（带符号的 kg）和当时的片子单位。
+   * 只做参考：「上次 135 lb」；切单位 / 换馆时没动过的底稿从它重算，不会越换越漂。
+   */
+  prefillRef?: { kg: number; unit: 'kg' | 'lbs'; /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */ plan?: boolean };
+  /** 工作台专用（入册时剥掉）：这个数完全是从 prefillRef 换算取整来的（没打过、没拖过、没被带着平移过） */
+  draftAuto?: boolean;
+  /** 工作台专用（入册时剥掉）：换了做法、新做法没练过，剩下的底稿是按新器材硬取整的 —— 标「换了做法，确认一下重量」 */
+  checkWeight?: boolean;
   reps: number;
   /** Duration in seconds (e.g. cardio / timed sets) */
   duration?: number;
@@ -98,6 +107,15 @@ export interface SubSetLog {
   weight: number;    // 独立的重量设置
   /** 「杠铃片」：登记时的单位（递减档改重量时和母组一样会写上） */
   plateUnit?: 'kg' | 'lbs';
+  /**
+   * 工作台专用（入册时剥掉）：底稿抄自上一次时那一组的原值（带符号的 kg）和当时的片子单位。
+   * 只做参考：「上次 135 lb」；切单位 / 换馆时没动过的底稿从它重算，不会越换越漂。
+   */
+  prefillRef?: { kg: number; unit: 'kg' | 'lbs'; /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */ plan?: boolean };
+  /** 工作台专用（入册时剥掉）：这个数完全是从 prefillRef 换算取整来的（没打过、没拖过、没被带着平移过） */
+  draftAuto?: boolean;
+  /** 工作台专用（入册时剥掉）：换了做法、新做法没练过，剩下的底稿是按新器材硬取整的 —— 标「换了做法，确认一下重量」 */
+  checkWeight?: boolean;
   reps: number;      // 独立的次数设置
   restSeconds?: number; // 子组间休息时间（可选）
   note?: string;     // 子组备注（可选）

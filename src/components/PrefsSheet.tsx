@@ -18,12 +18,12 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useTheme, ThemePreference } from '../hooks/useTheme';
 import { useMotionPreference, MotionPreference } from '../hooks/useMotionPreference';
 import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
-import { undoWorkoutDeletes, setUndoWorkoutDeletes } from '../utils/undoPref';
 import { scrubFeel, setScrubFeel, ScrubFeel } from '../utils/scrubFeel';
 import { WEIGHT_STEP_OPTIONS, DROP_STEP_OPTIONS } from '../../services/appPrefs';
 import { useRollbackImport } from '../hooks/useImportData';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import type { SyncStatus } from '../hooks/useFitlogSync';
+import { useGymSwitch } from '../hooks/useGymSwitch';
 
 interface PrefsSheetProps {
   open: boolean;
@@ -147,14 +147,15 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   devMode,
   onToggleDevMode,
 }) => {
-  const { lang, unit, changeUnit, appPrefs, changeAppPrefs } = useUserSettingsContext();
+  const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
+  // 手动切单位＝今天换了一套片子：工作台上没做完的组跟着重新取整（useGymSwitch）
+  const { switchUnit } = useGymSwitch();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
   const theme = useTheme();
   const motion = useMotionPreference();
   const [haptics, setHaptics] = useState(hapticsEnabled);
-  const [undoDeletes, setUndoDeletes] = useState(undoWorkoutDeletes);
   const [feel, setFeel] = useState<ScrubFeel>(scrubFeel);
 
   // 撤销上次导入（原 BackupCard）：有副本才出这一行
@@ -391,9 +392,10 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
         >
           <Group title={t('训练', 'Training')}>
             <Item label={t('重量单位', 'Weight unit')}>
-              <Seg mono opts={[{ v: 'kg', label: 'kg' }, { v: 'lbs', label: 'lbs' }]} value={unit} onPick={v => changeUnit(v as 'kg' | 'lbs')} testId="prefs-unit" />
+              <Seg mono opts={[{ v: 'kg', label: 'kg' }, { v: 'lbs', label: 'lbs' }]} value={unit} onPick={v => switchUnit(v as 'kg' | 'lbs')} testId="prefs-unit" />
             </Item>
-            <Item label={t('加减步长', '± step')} aside={unit}>
+            {/* 有器材的动作按馆档案走（选馆弹层里「编辑」）；这两项只管没标器材的动作 */}
+            <Item label={t('没标器材时 ±', '± (no equipment)')} aside={unit}>
               <Seg
                 mono
                 opts={WEIGHT_STEP_OPTIONS.map(v => ({ v: v as number, label: String(v) }))}
@@ -402,7 +404,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 testId="prefs-weight-step"
               />
             </Item>
-            <Item label={t('递减每档', 'Drop per step')} aside={unit}>
+            <Item label={t('没标器材时递减', 'Drop (no equipment)')} aside={unit}>
               <Seg
                 mono
                 opts={DROP_STEP_OPTIONS.map(v => ({ v: v as number, label: String(v) }))}
@@ -425,18 +427,6 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 }}
               />
             </Item>
-            <Row
-              name={t('删组 / 删动作后可撤销', 'Undo after deleting a set')}
-              value={onOff(undoDeletes)}
-              role="switch"
-              checked={undoDeletes}
-              testId="undo-deletes-toggle"
-              onClick={() => {
-                const next = !undoDeletes;
-                setUndoWorkoutDeletes(next);
-                setUndoDeletes(next);
-              }}
-            />
           </Group>
 
           <Group title={t('动作', 'Exercises')}>

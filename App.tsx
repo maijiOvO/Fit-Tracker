@@ -27,13 +27,13 @@ import React, {
   useState,
 } from 'react';
 
-import { ExerciseDefinition, Goal, Language } from './types';
+import { Exercise, ExerciseDefinition, Goal, Language } from './types';
 import { translations } from './translations';
 import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
 import { switchDataEnv } from './services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
-import { recordTombstone, removeTombstone } from './services/fitlogTombstones';
+import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
 import {
@@ -43,7 +43,6 @@ import {
   ExerciseCategory,
 } from './src/constants/exercises';
 import { normalizeGroups } from './src/utils/workbench';
-import { undoWorkoutDeletes } from './src/utils/undoPref';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
 import { signedKg } from './src/utils/load';
@@ -98,6 +97,8 @@ import { useExportData } from './src/hooks/useExportData';
 import { useImportData } from './src/hooks/useImportData';
 import FirstRunNotice from './src/components/FirstRunNotice';
 import { useResetAccount } from './src/hooks/useResetAccount';
+import { useGymSwitch } from './src/hooks/useGymSwitch';
+import { useGymScopedPR } from './src/hooks/useLoadKind';
 import { storage } from './services/appStorage';
 import { WorkoutColophon } from './src/components/WorkoutColophon';
 import { createPortal } from 'react-dom';
@@ -554,9 +555,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     settingsCtx.changeLang(nextLang);
   }, [lang, prefs.customExercises, prefs.exerciseOverrides, selectedPRProject, settingsCtx]);
 
+  // 手动切单位 / 换馆：工作台上没做完的组按新单位 / 新馆的片子重新取整（同步回来的单位不走这里）
+  const { switchUnit, switchGym } = useGymSwitch();
   const handleUnitToggle = useCallback(() => {
-    settingsCtx.changeUnit(unit === 'kg' ? 'lbs' : 'kg');
-  }, [settingsCtx, unit]);
+    switchUnit(unit === 'kg' ? 'lbs' : 'kg');
+  }, [switchUnit, unit]);
 
   // ============== 目标的增 / 改 ==============
   const handleAddGoal = useCallback(async () => {
@@ -688,12 +691,21 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
    * 「杠铃片」§1 训练中实时标 PB：每个项目（同一练法，prefs.liftKey）历史上单组最重的带符号 kg。
    * 口径照 detectPRs：底稿行不算、本场不算（按 id 排除）。
    */
+  // 器械类（配重片、挂片式）的纪录只在同一个馆里比：键带上馆名（口径同 detectPRs.gymScoped）
+  const gymScopedPR = useGymScopedPR();
+  const prKeyOf = useCallback(
+    (e: Exercise, gym: string | undefined) => {
+      const k = prefs.liftKey(e).trim();
+      return gymScopedPR(e) ? `${k}\u0000${gym ?? ''}` : k;
+    },
+    [gymScopedPR, prefs.liftKey],
+  );
   const bestKgByLift = useMemo(() => {
     const m = new Map<string, number>();
     for (const w of workouts) {
       if (w.id === currentWorkout.id) continue;
       for (const e of w.exercises ?? []) {
-        const key = prefs.liftKey(e).trim();
+        const key = prKeyOf(e, w.gym);
         for (const st of e.sets ?? []) {
           if (st.ghost) continue;
           const v = signedKg(st, e);
@@ -703,10 +715,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     }
     return m;
     // 只依赖 liftKey：依赖整个 prefs 会让改备注 / 换杠这类无关偏好也触发全历史重算
-  }, [workouts, currentWorkout.id, prefs.liftKey]);
+  }, [workouts, currentWorkout.id, prKeyOf]);
   const bestKgFor = useCallback(
-    (ex: { name: string; variantId?: string; variantName?: string }) => bestKgByLift.get(prefs.liftKey(ex).trim()) ?? null,
-    [bestKgByLift, prefs.liftKey],
+    (ex: Exercise) => bestKgByLift.get(prKeyOf(ex, currentWorkout.gym)) ?? null,
+    [bestKgByLift, prKeyOf, currentWorkout.gym],
   );
 
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
@@ -1108,14 +1120,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             onChangeDate={() => setShowWorkoutDatePicker(true)}
             onChangeGym={() => setShowGymPicker(true)}
             onDeleteExerciseFromSession={exIdx => {
-              const snapshot = [...(currentWorkout.exercises ?? [])];
-              const removed = snapshot[exIdx];
-              const label = removed ? prefs.resolveName(removed.name) : '';
-              const remaining = snapshot.filter((_, i) => i !== exIdx);
+              const remaining = (currentWorkout.exercises ?? []).filter((_, i) => i !== exIdx);
               /**
                * 新训练删光动作 = 这场不存在了（remove-last-exercise-not-persisted）。
                * 自动落盘以「有动作」为前提，删光后既不写也不删，库里会留下删之前那一版，
-               * 时间线多出一场没练过的训练。这里直接从库里删掉并写墓碑（防拉取复活），撤销时摘掉。
+               * 时间线多出一场没练过的训练。这里直接从库里删掉并写墓碑（防拉取复活）。
                * 编辑旧训练时不这么做：那是在改历史，静默删整场太重，保持原样（库里不变）。
                * 「继续这场」接回来的也不这么做（用户定）：里面有真正练过的组，删光多半是误操作。
                */
@@ -1125,8 +1134,14 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                 !editingWorkoutId &&
                 !!workoutId &&
                 !resumedWorkoutIdsRef.current.has(workoutId);
-              // 删的是交替组成员：组里只剩一个就拆掉（normalize）
-              setCurrentWorkout({ ...currentWorkout, exercises: normalizeGroups(remaining) });
+              // 删的是交替组成员：组里只剩一个就拆掉（normalize）。
+              // 删光且整场删掉了：工作台换一个新 id —— 旧 id 已写墓碑，「删了加回来」接着练的话，
+              // 同一个 id 会在下次同步时被墓碑连库带云一起抹掉（撤销条去掉后这是正常路径，2026-10-18 审查）
+              setCurrentWorkout({
+                ...currentWorkout,
+                ...(dropWhole ? { id: workoutCtx.createNewWorkout().id } : {}),
+                exercises: normalizeGroups(remaining),
+              });
               if (dropWhole) {
                 recordTombstone('workouts', workoutId);
                 void db
@@ -1135,13 +1150,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                   .then(() => scheduleDebouncedFitlogPush())
                   .catch(err => console.error('Drop emptied workout failed:', err));
               }
-              // 撤销条看设置（2.6，默认关）：关着就单击即删
-              if (!undoWorkoutDeletes()) return;
-              toastUndo(isCn ? `已移除 ${label}` : `Removed ${label}`, () => {
-                if (dropWhole) removeTombstone('workouts', workoutId);
-                // 动作回来后自动落盘会把这场重新写回库里
-                setCurrentWorkout({ ...currentWorkout, exercises: snapshot });
-              });
+              // 单击即删，不给撤销（2026-10-18 用户定：删了加回来就行）
             }}
           />
         )}
@@ -1296,11 +1305,36 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         current={currentWorkout?.gym}
         onClose={() => setShowGymPicker(false)}
         onPick={gym => {
-          const next = { ...currentWorkout };
-          if (gym) next.gym = gym;
-          else delete next.gym;
-          setCurrentWorkout(next);
-          workoutCtx.persistCurrentWorkout();
+          // 编辑旧训练时只改那场的馆，不切全局单位（改历史标签不该把各设备的显示单位都翻掉）
+          setCurrentWorkout(switchGym(currentWorkout, gym, undefined, { keepUnit: !!editingWorkoutId }));
+          // 落盘读的是 ref（渲染时才更新）：等这次改动渲染完再写
+          window.setTimeout(() => workoutCtx.persistCurrentWorkout(), 0);
+        }}
+        profiles={settingsCtx.appPrefs.gyms}
+        unit={unit}
+        onSaveProfile={(name, profile, isNew) => {
+          const gyms = { ...settingsCtx.appPrefs.gyms, [name]: profile };
+          settingsCtx.changeAppPrefs({ gyms });
+          // 新的馆＝这场就用它；改的是今天这个馆＝没做完的组按新档案重新取整。别的馆只存档案，不动今天这场
+          const today = isNew || currentWorkout?.gym === name;
+          if (today) {
+            setCurrentWorkout(switchGym(currentWorkout, name, gyms, { keepUnit: !!editingWorkoutId }));
+            window.setTimeout(() => workoutCtx.persistCurrentWorkout(), 0);
+          }
+          toast(
+            isCn
+              ? isNew
+                ? `已存「${name}」，这场训练按它算`
+                : today
+                  ? `「${name}」改好了：没做完的组按新档案重新取整`
+                  : `「${name}」改好了（今天不在这个馆，不影响这场）`
+              : isNew
+                ? `Saved "${name}" — this workout uses it`
+                : today
+                  ? `"${name}" updated — unfinished sets re-rounded`
+                  : `"${name}" updated (not today's gym)`,
+            'success',
+          );
         }}
       />
 

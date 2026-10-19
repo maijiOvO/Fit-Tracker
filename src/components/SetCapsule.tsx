@@ -12,35 +12,32 @@ import { Minus } from 'lucide-react';
 import { Language, SubSetLog, SetLog } from '../../types';
 import { ledgerCols, metricUnitLabel, LoadMode, distToDisplay, distFromDisplay } from '../utils/exerciseConfig';
 import { useLongPress } from '../hooks/useLongPress';
-import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT } from '../hooks/useValueScrub';
+import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT, SCRUB_MULTS } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import type { LoadKind } from '../hooks/useLoadKind';
-import { BARBELL_STEP } from '../utils/plates';
+import type { ExRounder } from '../hooks/useLoadRounder';
 
 /**
- * 「杠铃片」§3：拖一格多少、往哪拖，跟着器材走（交互只有一套，变的只是步长和方向）。
- * 杠铃一格＝最小一对片（kg 2.5 / lbs 5，2026-10-18 用户定）；配重片一格＝一片（默认 5 kg / 10 lbs）。
+ * 「杠铃片」§3 + 馆档案：拖一格多少，跟着「这个馆、这件器材」的一档走（交互只有一套，变的只是落点）。
+ * 杠铃 / 挂片器械一格＝最小一对片；配重片、哑铃一格＝馆档案里的一档（或这个动作单独设的）。
+ * 第一格先吸到那个方向最近能挂的重量（ExRounder.stepToD），之后一格一档，甩起来两档 / 四档。
+ * 纯数字的动作（rounder 为 null）照旧 1/2/5/10。
  * axis 只给顶部大图用：配重片的大图竖拖。组行的重量格一律横拖 —— 格子竖拖会和页面滚动抢手势
  * （手指落在格子上往上滑本想滚页面，结果改了重量、后面的底稿也跟着变；2026-10-18 审查后用户定）。
- * 档位表最高到 4 格（原先 8 格时快甩一下能跳 100 kg 以上）。
  */
-export function weightScrubFor(kind: LoadKind | undefined, unit: string): { steps: number[]; axis: 'x' | 'y'; grid?: number } {
-  const u = unit === 'lbs' ? 'lbs' : 'kg';
-  if (kind === 'plates') {
-    const b = BARBELL_STEP[u];
-    // grid：配不出来的重量（62、61.24）第一格先吸到能配出来的那一档
-    return { steps: [b, b * 2, b * 4], axis: 'x', grid: b };
-  }
-  if (kind === 'pin') {
-    const b = u === 'kg' ? 5 : 10;
-    // grid：37 这种不在片上的数，第一格先吸到 35 / 40，否则插销画的和数字对不上
-    return { steps: [b, b * 2], axis: 'y', grid: b };
-  }
-  return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
+export function weightScrubFor(
+  rounder: ExRounder | null | undefined,
+): { steps: number[]; axis: 'x' | 'y'; stepFn?: (v: number, dir: 1 | -1, mult: number) => number } {
+  if (!rounder) return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
+  return {
+    steps: SCRUB_MULTS,
+    axis: rounder.info.kind === 'pin' ? 'y' : 'x',
+    stepFn: (v, dir, mult) => rounder.stepToD(v, dir, mult),
+  };
 }
 
 interface SetCapsuleProps {
@@ -84,6 +81,11 @@ interface SetCapsuleProps {
   loadKind?: LoadKind;
   /** 这一组破了历史纪录（单组最重）→ 铺镁粉、标 PB */
   isPR?: boolean;
+  /**
+   * 馆档案取整器（useLoadRounder）：± / 拖动 / 加递减档按这个馆这件器材的一档走。
+   * 不传或 null（纯数字的动作、只读历史）＝首选项的步长。
+   */
+  rounder?: ExRounder | null;
 }
 
 /**
@@ -161,6 +163,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   onRemoveSub,
   loadKind,
   isPR = false,
+  rounder,
 }) => {
   const isCn = lang === Language.CN;
   // 首选项：±步长、递减每档（当前单位下的数，kg / lbs 共用）。只读历史视图里也拿得到，拿不到用存储里的值
@@ -266,7 +269,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 步长按【显示单位】走：kg 里的 1 就是 1kg，lbs 里的 1 就是 1lb，不做换算——
   // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
   const weightDisplay = toDisplay(set.weight, rowSign);
-  const weightFeel = weightScrubFor(loadKind, unit);
+  const weightFeel = weightScrubFor(rounder);
   const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：待做行上横拖只改值、记 touched，不描实
@@ -274,7 +277,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     steps: weightFeel.steps,
     // 组行格子一律横拖（见 weightScrubFor 注释），竖拖只给大图
     axis: 'x',
-    grid: weightFeel.grid,
+    stepFn: weightFeel.stepFn,
     disabled: readOnly,
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
     ...(signed ? { min: -9999 } : {}),
@@ -305,8 +308,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   /**
    * 加一档子组（组型：递减 / 递增，变体第三层）。
    * 上次练过、带着子组的组，底稿里已经原样抄来了（toGhostSets），不经过这里。
-   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）按当前单位 ∓「递减每档」（首选项，默认 5），
-   * 跟换片的手感一致。上一行若是换算残留（132.28）先取整再走，新档落在整数上。
+   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）走一档 ——
+   * 有馆档案的器材（rounder）：∓ 这件器材的一档，再吸到最近能挂的（片子不规则时按能挂的下一个走）；
+   * 纯数字的动作：∓「递减每档」（首选项，默认 5），上一行是换算残留（132.28）先取整再走。
    * 带正负的负荷在带符号的数上走：+10 → +5 → 0 → −5（递减可以一路降进辅助）。普通重量下限 0。
    * 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
    */
@@ -314,9 +318,18 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     const prev = subSets.length > 0 ? subSets[subSets.length - 1] : set;
     const prevSign = subSets.length > 0 ? signOf(prev, set) : rowSign;
     const shown = toDisplay(prev.weight, prevSign);
-    const residue = Math.abs(shown * 2 - Math.round(shown * 2)) > 1e-6;
-    const base = residue ? (dir < 0 ? Math.floor(shown) : Math.ceil(shown)) : shown;
-    let next = base + dir * dropStep;
+    let next: number;
+    if (rounder) {
+      next = rounder.snapD(shown + dir * rounder.stepD(shown));
+      // 吸回了原处（空杠再往下、片子太粗）：按「能挂的下一个」走
+      if (Math.abs(next - shown) < 0.01) next = rounder.stepToD(shown, dir);
+      // 已经是最轻的一档（哑铃最小那对、空杠）：不降到 0，和上一档一样，自己再改
+      if (!signed && next <= 0 && shown > 0) next = shown;
+    } else {
+      const residue = Math.abs(shown * 2 - Math.round(shown * 2)) > 1e-6;
+      const base = residue ? (dir < 0 ? Math.floor(shown) : Math.ceil(shown)) : shown;
+      next = base + dir * dropStep;
+    }
     if (!signed) next = Math.max(0, next);
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
@@ -345,10 +358,21 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     disabled: readOnly,
   });
 
-  /** −步长 / +步长（首选项，默认 5）：按当前单位；普通重量下限 0，带正负的负荷可以跨过 0。换算残留不取整（只有拖动才取整） */
-  const bump = (d: number) => {
+  /**
+   * − / +：有馆档案的器材走这个馆这件器材的一档（第一下先吸到那个方向最近能挂的）；
+   * 纯数字的动作走首选项的步长（默认 5），换算残留不取整。普通重量下限 0，带正负的负荷可以跨过 0。
+   */
+  // 标签按方向各算：带正负的在 0 上往下走的是辅助一档、往上走的是最小一片，两边不一样
+  const stepShownFor = (dir: 1 | -1) => {
+    if (!rounder) return weightStep;
+    const moved = Math.abs(rounder.stepToD(weightDisplay, dir) - weightDisplay);
+    return Math.round((rounder.loadableD(weightDisplay) && moved > 0 ? moved : rounder.stepD(weightDisplay) || weightStep) * 100) / 100;
+  };
+  const stepDown = stepShownFor(-1);
+  const stepUp = stepShownFor(1);
+  const bump = (dir: 1 | -1) => {
     haptic(H.tap);
-    let next = Math.round((weightDisplay + d) * 100) / 100;
+    let next = rounder ? rounder.stepToD(weightDisplay, dir) : Math.round((weightDisplay + dir * weightStep) * 100) / 100;
     if (!signed) next = Math.max(0, next);
     update(fromDisplay(next));
   };
@@ -381,6 +405,32 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   }, [set.ghost, readOnly]);
 
   const no = displayNo ?? setIdx + 1;
+
+  /**
+   * 「上次 x」：底稿是从上一次抄来再按今天的馆 / 单位取整的 —— 上一次挂的片子单位不同、或取整改了数，
+   * 就在重量格角上标出上一次的原值（按当时的单位）。只做参考，不参与任何计算。
+   */
+  const refTag = (() => {
+    if (readOnly) return '';
+    // 做完的组不跟着切单位重算（2026-10-18 用户定）：挂的是另一种片就标出来，免得以为那个数是换算残留
+    const curU = unit === 'lbs' ? 'lbs' : 'kg';
+    if (!set.ghost && (set.plateUnit === 'kg' || set.plateUnit === 'lbs') && set.plateUnit !== curU) {
+      return isCn ? (set.plateUnit === 'lbs' ? '做完时挂的是磅片' : '做完时挂的是公斤片') : set.plateUnit === 'lbs' ? 'done on lb plates' : 'done on kg plates';
+    }
+    // 换了做法、新做法没练过：底稿是按新器材硬取整的，提醒确认（改过重量就不再提醒）
+    if (set.ghost && set.checkWeight && !set.touched?.weight) return isCn ? '换了做法，确认一下重量' : 'New variant — check weight';
+    const ref = set.prefillRef as SetLog['prefillRef'];
+    if (!ref || !(Math.abs(ref.kg) > 0)) return '';
+    const inRef = Math.round((ref.unit === 'lbs' ? Math.abs(ref.kg) * 2.20462 : Math.abs(ref.kg)) * 100) / 100;
+    const same = ref.unit === (unit === 'lbs' ? 'lbs' : 'kg') && Math.abs(inRef - Math.abs(weightDisplay)) < 0.01;
+    if (same) return '';
+    const lab = ref.unit === 'lbs' ? 'lb' : 'kg';
+    const assisted = !!signed && ref.kg < 0;
+    const what = ref.plan ? (isCn ? '计划' : 'Plan') : isCn ? '上次' : 'Last';
+    return isCn
+      ? `${what} ${assisted ? '辅助 ' : ''}${inRef} ${lab}`
+      : `${what} ${assisted ? 'assisted ' : ''}${inRef} ${lab}`;
+  })();
 
   return (
     <>
@@ -518,8 +568,12 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               {/* 档位角标只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
               {scrub?.scrubbing && (
                 <span className="scrub-step" aria-hidden>
-                  ×{scrub.step}
+                  {/* 有馆档案时档位表是倍数（1/2/4），角标换成这一下实际走多少 */}
+                  ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
                 </span>
+              )}
+              {m === 'weight' && refTag && !(isPR && !isGhost) && (
+                <span className="ref-tag" data-testid="prefill-ref">{refTag}</span>
               )}
               {m === 'weight' && isPR && !isGhost && (
                 <span className="pb-tag" aria-label={isCn ? '新纪录' : 'Personal best'}>
@@ -655,6 +709,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             label={subLabel(ssi)}
             weightDisplay={toDisplay(sub.weight, sign)}
             signed={!!signed}
+            rounder={rounder}
             edited={isGhost ? sub.touched : undefined}
             onWeight={(v, typed) => {
               const vv = signed && v >= 0 ? v * sign : v;
@@ -703,11 +758,11 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。 */}
       {!readOnly && selected && activeMetrics.includes('weight') && (
         <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
-          <button type="button" onClick={() => bump(-weightStep)} aria-label={isCn ? `重量减 ${weightStep} ${unit}` : `Weight −${weightStep} ${unit}`}>
-            −{weightStep} <span className="ledger-unit">{unit}</span>
+          <button type="button" onClick={() => bump(-1)} aria-label={isCn ? `重量减 ${stepDown} ${unit}` : `Weight −${stepDown} ${unit}`}>
+            −{stepDown} <span className="ledger-unit">{unit}</span>
           </button>
-          <button type="button" onClick={() => bump(weightStep)} aria-label={isCn ? `重量加 ${weightStep} ${unit}` : `Weight +${weightStep} ${unit}`}>
-            +{weightStep} <span className="ledger-unit">{unit}</span>
+          <button type="button" onClick={() => bump(1)} aria-label={isCn ? `重量加 ${stepUp} ${unit}` : `Weight +${stepUp} ${unit}`}>
+            +{stepUp} <span className="ledger-unit">{unit}</span>
           </button>
           <button
             type="button"
@@ -746,6 +801,8 @@ interface SubSetRowProps {
   signed: boolean;
   /** 待做时改过的格子（变实墨） */
   edited?: SubSetLog['touched'];
+  /** 馆档案取整器：拖动按这件器材的一档走（同母组） */
+  rounder?: ExRounder | null;
   /** 改重量（显示单位，带符号）；typed＝打字中途，后面的组先不跟 */
   onWeight: (v: number, typed?: boolean) => void;
   /** 重量格开始 / 结束打字：结束时按总差值带后面各组的同一档 */
@@ -775,16 +832,19 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   weightDisplay,
   signed,
   edited,
+  rounder,
   onWeight,
   onTypeStart,
   onTypeEnd,
   onUpdate,
   onRemove,
 }) => {
+  const subFeel = weightScrubFor(rounder);
   const weightScrub = useValueScrub({
     value: weightDisplay,
     onChange: next => onWeight(next),
-    steps: SCRUB_STEPS_WEIGHT,
+    steps: subFeel.steps,
+    stepFn: subFeel.stepFn,
     disabled: readOnly,
     ...(signed ? { min: -9999 } : {}),
   });
@@ -843,7 +903,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
             {/* 档位角标只在拖动时出现，与母组同 */}
             {scrub.scrubbing && (
               <span className="scrub-step" aria-hidden>
-                ×{scrub.step}
+                ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
               </span>
             )}
             <input

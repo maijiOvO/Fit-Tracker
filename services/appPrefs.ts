@@ -9,6 +9,7 @@
  * 没升级的设备也只认它们），但胜负按这里的时间戳定。
  */
 import { storage } from './appStorage';
+import type { GymProfile, IncSpec } from '../src/utils/loadable';
 
 export interface AppPrefs {
   unit?: 'kg' | 'lbs';
@@ -23,6 +24,13 @@ export interface AppPrefs {
   distUnit?: 'km' | 'mi';
   /** 每周从周一还是周日开始（热力图、时间线周视图、日历） */
   weekStart?: 'mon' | 'sun';
+  /**
+   * 「杠铃片」馆档案（2026-10-18）：馆名 → 有哪些片、龙门架 / 器械 / 哑铃各一档多重。
+   * 馆名就是训练上记的 WorkoutSession.gym（字面量）。整个对象跟 appPrefs 一起同步，不新增同步键。
+   */
+  gyms?: Record<string, GymProfile>;
+  /** 这个馆的这个动作（某个做法）单独设的一档：键「馆名|动作定义 id|做法 id」 */
+  gymOverrides?: Record<string, IncSpec>;
 }
 
 export const WEIGHT_STEP_OPTIONS = [1, 2.5, 5, 10] as const;
@@ -35,6 +43,8 @@ export const APP_PREF_DEFAULTS = {
   cardioMetrics: ['duration', 'distance'],
   distUnit: 'km',
   weekStart: 'mon',
+  gyms: {},
+  gymOverrides: {},
 } as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang'>;
 
 export type ResolvedAppPrefs = {
@@ -43,7 +53,29 @@ export type ResolvedAppPrefs = {
   cardioMetrics: string[];
   distUnit: 'km' | 'mi';
   weekStart: 'mon' | 'sun';
+  gyms: Record<string, GymProfile>;
+  gymOverrides: Record<string, IncSpec>;
 };
+
+const isUnit = (u: unknown): u is 'kg' | 'lbs' => u === 'kg' || u === 'lbs';
+const isInc = (c: unknown): c is IncSpec =>
+  !!c && typeof c === 'object' && typeof (c as IncSpec).v === 'number' && (c as IncSpec).v > 0 && isUnit((c as IncSpec).u);
+/** 同步回来的档案缺字段 / 坏字段时整条丢掉（宁可用默认档位也不要拿 NaN 去取整） */
+function cleanGyms(raw: unknown): Record<string, GymProfile> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, GymProfile> = {};
+  for (const [name, g] of Object.entries(raw as Record<string, any>)) {
+    if (!g || !isUnit(g.plateUnit) || !Array.isArray(g.plates) || !isInc(g.cable) || !isInc(g.machine) || !isInc(g.dumbbell)) continue;
+    const plates = g.plates.filter((p: unknown) => typeof p === 'number' && p > 0);
+    if (!plates.length) continue;
+    out[name] = { plateUnit: g.plateUnit, plates, cable: g.cable, machine: g.machine, dumbbell: g.dumbbell };
+  }
+  return out;
+}
+function cleanOverrides(raw: unknown): Record<string, IncSpec> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([, c]) => isInc(c))) as Record<string, IncSpec>;
+}
 
 export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
   const num = (v: unknown, d: number) => (typeof v === 'number' && v > 0 ? v : d);
@@ -56,6 +88,8 @@ export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
         : [...APP_PREF_DEFAULTS.cardioMetrics],
     distUnit: p?.distUnit === 'mi' ? 'mi' : 'km',
     weekStart: p?.weekStart === 'sun' ? 'sun' : 'mon',
+    gyms: cleanGyms(p?.gyms),
+    gymOverrides: cleanOverrides(p?.gymOverrides),
   };
 }
 
@@ -117,6 +151,14 @@ export function mergeAppPrefs(
 ): { appPrefs?: AppPrefs; appPrefsUpdatedMs: number } {
   if (!local && !remote) return { appPrefs: undefined, appPrefsUpdatedMs: Math.max(localMs, remoteMs) };
   const remoteWins = !!remote && (!local || remoteMs > localMs);
-  const appPrefs = remoteWins ? { ...(local ?? {}), ...remote } : { ...(remote ?? {}), ...local };
+  const appPrefs: AppPrefs = remoteWins ? { ...(local ?? {}), ...remote } : { ...(remote ?? {}), ...local };
+  // 馆档案按馆名合并（同名冲突新的一边赢）：appPrefs 整块按时间戳取一边，另一台设备只是切了下单位，
+  // 就会用它那张旧表把这边新加的馆整张盖掉（2026-10-18 审查）。馆档案界面没有删除，并集不会让删掉的馆复活。
+  // gymOverrides 有「恢复馆默认」（删键），并集会把删掉的复活，所以仍整块取新的一边。
+  if (local?.gyms || remote?.gyms) {
+    const older = remoteWins ? local?.gyms : remote?.gyms;
+    const newer = remoteWins ? remote?.gyms : local?.gyms;
+    appPrefs.gyms = { ...(older ?? {}), ...(newer ?? {}) };
+  }
   return { appPrefs, appPrefsUpdatedMs: Math.max(localMs, remoteMs) };
 }
