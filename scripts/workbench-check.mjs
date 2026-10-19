@@ -19,7 +19,8 @@ const dir = mkdtempSync(join(tmpdir(), 'wb-check-'));
 const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
-    contents: "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts';",
+    contents:
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -219,6 +220,85 @@ t('改值：重量保持差值带后面没动过的待做底稿，次数只带�
   exs = W.applySetUpdate(exs, r(exs), { weight: 40 });
   exs = W.applySetUpdate(exs, W.flatRows(exs)[1], { weight: 60, touched: { weight: true } });
   assert.deepEqual(exs[0].sets.map(s => s.weight), [40, 60, 60]);
+});
+
+t('改值带 snapFor：跟着平移的组和递减档吸到能挂的，被改的那组照原样', () => {
+  const r = exs => W.flatRows(exs)[0];
+  const snap5 = () => kg => Math.round(kg / 5) * 5;
+  let exs = [ex('A', [[60, 8], [62, 8], [60, 8]])];
+  exs[0].sets[0].subSets = [{ id: 'a1s', weight: 50, reps: 6 }];
+  exs[0].sets[1].subSets = [{ id: 'a2s', weight: 52, reps: 6 }];
+  exs = W.applySetUpdate(exs, r(exs), { weight: 63 }, snap5);
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [63, 65, 65], 'edited set keeps 63; followers 63/65 snap to 65');
+  assert.equal(exs[0].sets[0].subSets[0].weight, 55, 'own drop 53 → 55');
+  assert.equal(exs[0].sets[1].subSets[0].weight, 55, "follower's drop 55");
+  assert.ok(exs[0].sets.slice(1).every(s => s.draftAuto === false), 'followed sets are no longer auto drafts');
+  // snapFor 返回 null（纯数字的动作）：照原来纯平移
+  let plain = [ex('A', [[60, 8], [62, 8]])];
+  plain = W.applySetUpdate(plain, r(plain), { weight: 63 }, () => null);
+  assert.deepEqual(plain[0].sets.map(s => s.weight), [63, 65]);
+  plain = [ex('A', [[60, 8], [61, 8]])];
+  plain = W.applySetUpdate(plain, r(plain), { weight: 63 }, () => null);
+  assert.deepEqual(plain[0].sets.map(s => s.weight), [63, 64]);
+});
+
+t('改值清 draftAuto：被改的组；递减档按 id 比，删掉中间一档不误判后面的', () => {
+  const r = exs => W.flatRows(exs)[0];
+  let exs = [ex('A', [[60, 8]])];
+  exs[0].sets[0] = { ...exs[0].sets[0], draftAuto: true, checkWeight: true };
+  const w = W.applySetUpdate(exs, r(exs), { weight: 65 });
+  assert.equal(w[0].sets[0].draftAuto, false);
+  assert.equal(w[0].sets[0].checkWeight, false);
+  assert.equal(W.applySetUpdate(exs, r(exs), { reps: 10 })[0].sets[0].draftAuto, true, 'reps edit keeps draftAuto');
+
+  const subs = [
+    { id: 's1', weight: 50, reps: 6, draftAuto: true },
+    { id: 's2', weight: 40, reps: 6, draftAuto: true },
+  ];
+  exs = [ex('A', [[60, 8]])];
+  exs[0].sets[0].subSets = subs;
+  // 删掉第一档：s2 前移到下标 0，但没改过 → 还是 draftAuto
+  const del = W.applySetUpdate(exs, r(exs), { subSets: [subs[1]] });
+  assert.equal(del[0].sets[0].subSets[0].id, 's2');
+  assert.equal(del[0].sets[0].subSets[0].draftAuto, true);
+  // 改 s1 的重量：只有 s1 清掉
+  const ed = W.applySetUpdate(exs, r(exs), { subSets: [{ ...subs[0], weight: 45 }, subs[1]] });
+  assert.deepEqual(ed[0].sets[0].subSets.map(s => s.draftAuto), [false, true]);
+});
+
+t('loadable：就近取整、等距取轻、不规则片、空杠下限、跨 0、哑铃下限', () => {
+  const L = W.L;
+  const kg = { unit: 'kg', plates: [25, 20, 15, 10, 5, 2.5, 1.25], bar: 20, inc: 5 };
+  // 等距取轻
+  assert.equal(L.nearest('plates', 21.25, kg), 20);
+  assert.equal(L.nearest('plates', 21.3, kg), 22.5);
+  assert.equal(L.nearest('pin', 12.5, kg), 10);
+  assert.equal(L.snap('pin', 12.5, kg), 10);
+  assert.equal(L.snap('plates', 22.5, kg), 22.5, 'loadable stays');
+  assert.equal(L.snap('plain', 12.34, kg), 12.34);
+  // 不规则片 [25, 20]：60 往上一下是 70（不是跳到 100）；65 等距取轻 60
+  const odd = { ...kg, plates: [25, 20] };
+  assert.equal(L.stepTo('plates', 60, 1, 1, odd), 70);
+  assert.equal(L.stepTo('plates', 70, -1, 1, odd), 60);
+  assert.equal(L.nearest('plates', 65, odd), 60);
+  assert.equal(L.isLoadable('plates', 80, odd), false);
+  // 杠铃到空杠为止
+  assert.equal(L.nearest('plates', 10, kg), 20);
+  assert.equal(L.stepTo('plates', 20, -1, 1, kg), 20);
+  assert.equal(L.stepTo('plates', 20, 1, 1, kg), 22.5, 'one step = smallest pair');
+  // 不在格子上：第一下先落到那个方向最近能挂的
+  assert.equal(L.stepTo('plates', 61, 1, 1, kg), 62.5);
+  assert.equal(L.stepTo('plates', 61, -1, 1, kg), 60);
+  // 带正负：辅助按一档、负重按最小片；跨过 0 不出 -0
+  assert.ok(Object.is(L.stepTo('signed', -5, 1, 1, kg), 0));
+  assert.equal(L.stepTo('signed', 0, 1, 1, kg), 1.25);
+  assert.equal(L.stepTo('signed', 0, -1, 1, kg), -5);
+  assert.equal(L.nearest('signed', -7.4, kg), -5);
+  // 哑铃：最轻那一对就是下限
+  const db = { ...kg, inc: 2.5 };
+  assert.equal(L.nearest('pair', 1, db), 2.5);
+  assert.equal(L.stepTo('pair', 2.5, -1, 1, db), 2.5);
+  assert.equal(L.stepTo('pair', 2.5, 1, 1, db), 5);
 });
 
 t('退回只给刚做完的那组', () => {

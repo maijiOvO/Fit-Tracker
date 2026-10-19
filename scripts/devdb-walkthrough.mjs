@@ -1,7 +1,7 @@
 /**
  * 开发库走查：真实数据（本机独立开发库，见 scripts/dev-with-local-db.mjs）+ 真实触摸（CDP），384 宽（用户手机）。
  * 一整场：练胸 → 整理里把自建动作拖进细分 → 加动作（底稿 / ±5）→ 点组号做完 → 长按加递减 → 换练法
- * → 删组撤销 → 改过没点完成 → 结束（确认框点出来）→ 时间线 / PR 分练法 → 读开发库文件核对落盘。
+ * → 删组（不撤销）→ 改过没点完成 → 结束（确认框点出来）→ 时间线 / PR 分练法 → 读开发库文件核对落盘。
  *
  *   node scripts/dev-with-local-db.mjs      # 先起开发库（端口 3100）
  *   node scripts/devdb-walkthrough.mjs      # 截图与日志 → test-artifacts/devdb-walk/
@@ -131,12 +131,13 @@ await page.locator('[data-testid="variant-modal"]').getByRole('button', { name: 
 note('variant mark', await card0.locator('[data-testid="variant-marginalia"]').innerText().catch(() => null));
 note('rows after variant (done rows kept)', await card0.locator('.ledger-row').count());
 
-// 删一组 + 撤销
+// 删一组：单击即删、不弹撤销条（2026-10-18 起）；再加一组补回来，后半场的行号不变
 const cnt = await card0.locator('.ledger-row').count();
 await card0.locator('[data-testid="set-remove"]').last().tap(); await sleep(300);
 note('delete', `${cnt} → ${await card0.locator('.ledger-row').count()}`);
-await page.locator('[data-testid="toast-undo"]').last().tap(); await sleep(300);
-note('undo', await card0.locator('.ledger-row').count());
+note('undo toast (should be 0)', await page.locator('[data-testid="toast-undo"]').count());
+await card0.getByRole('button', { name: /添加组/ }).first().tap(); await sleep(300);
+note('re-added', await card0.locator('.ledger-row').count());
 await shot('bench-mid');
 // ── 后半场 ──
 // 第三组：改次数但不点完成 → 结束时要被点出来
