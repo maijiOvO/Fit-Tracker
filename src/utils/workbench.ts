@@ -161,15 +161,13 @@ function nextSeq(exs: Exercise[]): number {
   return Math.max(Date.now(), max + 1);
 }
 
-/** 做完：剥掉工作台上的待做标记（改过的格子、递减档的改过标记） */
+/**
+ * 做完：剥掉工作台上的待做标记。改过的格子（touched，含递减档的）留着 —— 做完的组上它不显示也不参与跟随，
+ * 只为点错退回待做时还认得「这组改过数」，结束训练照样提醒；入册时 toRecordedExercises 统一剥掉。
+ */
 function asDone(s: SetLog, seq: number): SetLog {
-  const { touched: _t, fromGhost: _fg, skipped: _sk, ...rest } = s;
-  return {
-    ...rest,
-    ghost: false,
-    seq,
-    ...(rest.subSets?.length ? { subSets: rest.subSets.map(({ touched: _st, ...sub }) => sub) } : {}),
-  };
+  const { fromGhost: _fg, skipped: _sk, ...rest } = s;
+  return { ...rest, ghost: false, seq };
 }
 
 function patchSet(exs: Exercise[], r: RowRef, fn: (s: SetLog) => SetLog): Exercise[] {

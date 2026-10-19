@@ -1972,6 +1972,8 @@ const main = async () => {
     await row0.locator('.set-num').click(); // 再点＝退回
     if (await isInked(row0)) throw new Error('tapping the just-done set did not revert it to to-do');
     if (!(await isSel(row0))) throw new Error('the reverted set should stay selected');
+    // 做完再退回：改过的格子仍认得（否则结束训练时这组被静默丢弃、不提醒）
+    if ((await row0.locator('.ledger-field.is-edited').count()) !== edited) throw new Error('done → revert dropped the is-edited marks');
 
     // ±5：全场只有一处，在选中的那一组（第 1 组，刚退回、仍选中）
     const steps = page.locator('[data-testid="weight-step"]');
@@ -2057,13 +2059,20 @@ const main = async () => {
     const subsAfter = await page.locator(`[data-set-idx="0"] [data-testid="subset-remove"]`).count();
     if (subsAfter !== subsBefore + 1) throw new Error(`「递减」button should add one drop step: ${subsBefore} → ${subsAfter}`);
 
-    // 全零的行点不实（只选中，指针不动）
+    // 全零的行点不实（只选中，指针不动）。新组抄来的递减档也有数，得一并删掉才是真全零 ——
+    // 否则点组号会把它连同上面改过的第 1 组一起扫成做完，下面「结束训练」就没有改过没点完成的组可提示
+    const newSubs = page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`);
+    while ((await newSubs.count()) > 0) {
+      await newSubs.first().click();
+      await page.waitForTimeout(150);
+    }
     await newRow.locator('[data-testid="ledger-field-weight"] input').fill('');
     await newRow.locator('[data-testid="ledger-field-reps"] input').fill('');
     await newRow.locator('.set-num').click();
     await page.waitForTimeout(650);
     await newRow.locator('.set-num').click();
     if (await isInked(newRow)) throw new Error('an all-zero set could be marked done');
+    if (await isInked(row0)) throw new Error('tapping an all-zero set moved the pointer (set 1 got swept to done)');
 
     // 删组：单击即删，不弹撤销条（2026-10-18 起训练页删组 / 删动作不给撤销）
     const n = await rows.count();
