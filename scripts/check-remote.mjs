@@ -45,7 +45,7 @@ try {
   }
 } catch (err) {
   console.log(`\n❌ 连接失败: ${err.message}`);
-  console.log('⚠️  个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 请先检查 Tailscale 是否已连接。');
-  console.log('其他可能原因: NAS 离线 / Tailscale Serve 未启动 / API Key 无效');
+  console.log('⚠️  个人服务器在家庭 NAS 上，经 Tailscale Funnel 暴露在公网，不需要本机开 Tailscale —— 先检查本机网络。');
+  console.log('其他可能原因: NAS 或家里网络掉线 / Tailscale Funnel 未启动 / API Key 无效');
   process.exit(1);
 }
