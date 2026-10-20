@@ -39,6 +39,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
     <div className="flex items-center gap-2">
       <button
+        data-testid="header-sync"
         onClick={onSync}
         disabled={syncDisabled}
         className={`p-2 rounded-control border transition-ui active:scale-press-sm ${

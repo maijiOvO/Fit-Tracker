@@ -44,6 +44,11 @@ export const translations: TranslationStrings = {
     en: 'Blocked locally: this build’s data environment does not match the endpoint it tried to reach. Reinstall the build that matches the environment you want.',
     cn: '已在本机拦下：这个包的数据环境与它要访问的端点不符。请改装与目标环境匹配的包。',
   },
+  // 远端快照读到了，但版本号 / 环境烙印对不上：不应用，也不推送去盖它
+  remoteIncompatible: {
+    en: 'The server copy is from an incompatible version or another data environment. Nothing was synced, to avoid overwriting it.',
+    cn: '服务器上的数据版本或数据环境与本机不符，为避免覆盖，这次没有同步。',
+  },
   remoteEnvMismatch: {
     en: 'Rejected by the server (409): data environment does not match the endpoint. The write was refused to protect your data.',
     cn: '服务器拒绝（409）：数据环境与端点不符，写入已被拒绝以保护数据。',

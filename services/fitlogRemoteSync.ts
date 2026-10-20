@@ -1,6 +1,6 @@
 import {
   collectLocalSnapshot,
-  fetchRemoteSnapshot,
+  fetchRemoteSnapshotResult,
   mergeLocalWithRemote,
   putRemoteSnapshot,
   applySnapshotToLocalIndexedDb,
@@ -17,23 +17,43 @@ import { cancelPendingFitlogPush } from './fitlogSyncScheduler';
 let pullLock = false;
 
 /**
+ * 一次拉取的结局。只有 merged / remote-empty 之后推送才是安全的：
+ * failed（没读到远端）和 locked（另一次拉取还在进行、这次根本没拉）时推送，
+ * 等于拿本地去盖一份没合并进来的远端。
+ */
+export type PullOutcome =
+  | { kind: 'merged'; prefs: FitlogSyncedPrefs }
+  | { kind: 'remote-empty' }
+  | { kind: 'failed'; reason: 'unreachable' | 'incompatible' }
+  | { kind: 'locked' }
+  | { kind: 'not-configured' };
+
+/**
  * 从个人服务器拉取并与本地合并写入 IndexedDB；prefs 写入 localStorage。
  */
-export async function pullAndMergeFitlogRemote(): Promise<FitlogSyncedPrefs | null> {
-  if (!isRemoteConfigured() || pullLock) return null;
+export async function pullAndMergeFitlogRemoteDetailed(): Promise<PullOutcome> {
+  if (!isRemoteConfigured()) return { kind: 'not-configured' };
+  if (pullLock) return { kind: 'locked' };
   pullLock = true;
   try {
     await migrateRecordsToSoloUserId();
-    const remote = await fetchRemoteSnapshot();
+    const remote = await fetchRemoteSnapshotResult();
+    if (remote.status === 'empty') return { kind: 'remote-empty' };
+    if (remote.status === 'failed') return { kind: 'failed', reason: remote.reason };
     const local = await collectLocalSnapshot();
-    if (!remote) return null;
-    const merged = mergeLocalWithRemote(local, remote);
+    const merged = mergeLocalWithRemote(local, remote.snapshot);
     writePrefsToLocalStorage(merged.prefs);
     await applySnapshotToLocalIndexedDb(merged);
-    return merged.prefs;
+    return { kind: 'merged', prefs: merged.prefs };
   } finally {
     pullLock = false;
   }
+}
+
+/** 只要合并后的 prefs（没合并成就是 null）的调用方用这个 */
+export async function pullAndMergeFitlogRemote(): Promise<FitlogSyncedPrefs | null> {
+  const r = await pullAndMergeFitlogRemoteDetailed();
+  return r.kind === 'merged' ? r.prefs : null;
 }
 
 export async function pushFitlogRemoteSnapshot(): Promise<void> {

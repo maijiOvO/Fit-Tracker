@@ -206,6 +206,19 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   const DEF_B = { id: '1779420343792', name: { cn: '悍马卧推', en: '悍马卧推' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
   const DEF_C = { id: '1779000000000', name: { cn: 'E2E自建甲', en: 'E2E自建甲' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
 
+  // 体重：30 天基线应取「截止点之前最近的一次」（35 天前 82），不是最早那条（90 天前 90）。
+  // 数组顺序故意打乱，排序靠代码自己。
+  // 不放进初始快照（多了体重行会改变首页布局，牵动前面那些长按菜单的用例），由最后那条体重用例自己注入。
+  const daysAgoIso = d => new Date(Date.now() - d * 86400000).toISOString();
+  const seedWeight = (id, d, kg) => ({ id, userId: 'u_guest', weight: kg, date: daysAgoIso(d), unit: 'kg' });
+  const WEIGHTS = [seedWeight('seed_w90', 90, 90), seedWeight('seed_w1', 1, 80), seedWeight('seed_w35', 35, 82), seedWeight('seed_w20', 20, 81)];
+  // 体重目标建在 lbs 下：当前 / 目标值都按 lbs 存
+  const GOAL_W = {
+    id: 'seed_goal_w', userId: 'u_guest', type: 'weight', category: 'weight', title: 'E2E 减到 170', label: 'E2E 减到 170',
+    targetValue: 170, currentValue: 180, unit: 'lbs', startDate: daysAgoIso(40), dataSource: 'manual',
+    progressHistory: [], isActive: true, createdAt: daysAgoIso(40), updatedAt: daysAgoIso(40),
+  };
+
   const seed = {
     schemaVersion: 2,
     workouts: [W_HEAT, W_DATE, W_DEL, W_NAME],
@@ -241,7 +254,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   });
   const page = await context.newPage();
 
-  const remote = { snapshot: seed, failPuts: false };
+  const remote = { snapshot: seed, failPuts: false, failGets: false, puts: 0 };
   const apiHostPattern = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/api/fitlog/state.*`);
   const escapedApiHost = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/.*`);
   await context.route(escapedApiHost, async route => {
@@ -251,10 +264,12 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await context.route(apiHostPattern, async route => {
     const req = route.request();
     if (req.method() === 'GET') {
+      if (remote.failGets) return route.abort(); // 模拟「拉取没拿到」（NAS 不通）
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(remote.snapshot) });
     }
     if (req.method() === 'PUT') {
       if (remote.failPuts) return route.abort(); // 模拟「推送没送到」（离线 / NAS 不通）
+      remote.puts++;
       try {
         remote.snapshot = JSON.parse(req.postData() || '{}');
       } catch {}
@@ -264,10 +279,13 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   });
 
   const ignoredConsole = ['SW registration failed', 'Failed to load resource', 'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED'];
+  // 某条用例故意制造的报错：只在那条用例期间放行
+  const expectedConsole = new Set();
   page.on('console', msg => {
     if (msg.type() !== 'error') return;
     const text = msg.text();
     if (ignoredConsole.some(s => text.includes(s))) return;
+    if ([...expectedConsole].some(s => text.includes(s))) return;
     report.consoleErrors.push(`[seeded] ${text}`);
     console.log(`    [console.error] ${text}`);
   });
@@ -945,6 +963,66 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await dismissToasts();
     await backAndDiscard(page);
     return `lbs → new ${gymName} (kg plates) → kg · draft ${w0[0]} · typed 60 ×${w1.length} → edit to lb plates → ${w2.join('/')} lbs`;
+  });
+
+  // 30 天体重变化：80 - 82 = -2 kg = -4.4 lbs（旧版取最早那条：80 - 90 → -22.0）
+  // 记一笔新体重后，lbs 体重目标的「当前」要是 lbs 数（旧版直接写 kg）
+  await step(page, 'seeded-weight-30d-and-goal-unit', async () => {
+    // 远端塞进体重 / 目标，重开 App 走启动拉取合并进本地。
+    // 先等上一条留下的防抖推送落地，否则它晚到的 PUT 会把刚塞进去的又盖掉
+    await page.waitForTimeout(1_500);
+    await page.evaluate(() => window.__fitlog.flush());
+    remote.snapshot = { ...remote.snapshot, weightLogs: WEIGHTS, goals: [GOAL_W] };
+    await page.reload({ waitUntil: 'networkidle' });
+    await toDashboard();
+    await page.locator('[data-testid="weight-delta-30d"]').waitFor({ state: 'visible', timeout: 10_000 });
+    const unitNow = await page.evaluate(() => localStorage.getItem(lsKey('fitlog_unit')));
+    if (unitNow !== 'lbs') throw new Error(`precondition: unit should be lbs, got ${unitNow}`);
+    const delta = (await page.locator('[data-testid="weight-delta-30d"]').innerText()).replace(/\s+/g, ' ');
+    if (!/^-4\.4 lbs/.test(delta)) throw new Error(`30d delta should be -4.4 lbs, got "${delta}"`);
+    await page.getByRole('button', { name: '记录体重', exact: true }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.locator('input[type="number"]').fill('176.4');
+    await dlg.getByRole('button', { name: '确定' }).click();
+    await dlg.waitFor({ state: 'hidden', timeout: 3_000 });
+    const goal = await page.evaluate(async () => {
+      await window.__fitlog.flush();
+      const snap = await window.__fitlog.fetchRemote();
+      return (snap?.goals || []).find(g => g.id === 'seed_goal_w') ?? null;
+    });
+    if (!goal) throw new Error('weight goal missing from remote after logging weight');
+    if (goal.currentValue !== 176.4) throw new Error(`goal currentValue should be 176.4 (lbs), got ${goal.currentValue}`);
+    return `delta "${delta}", goal current ${goal.currentValue} ${goal.unit}`;
+  });
+
+  // 手动同步：拉取失败（网络断）时绝不能接着推送 —— 没读到远端就推 = 拿本地盖掉远端。
+  // 先跑一遍拉取正常的，证明这个按钮确实会推（否则「没有 PUT」可能只是按钮没生效）
+  await step(page, 'seeded-sync-skips-push-when-pull-fails', async () => {
+    await page.waitForTimeout(1_500); // 等上一条留下的防抖推送（800ms）落地，免得算进来
+    const sync = page.locator('[data-testid="header-sync"]');
+    const waitIdle = () => page.waitForFunction(() => !document.querySelector('[data-testid="header-sync"]')?.disabled, null, { timeout: 10_000 });
+    let before = remote.puts;
+    await sync.click();
+    await page.waitForTimeout(300);
+    await waitIdle();
+    if (remote.puts <= before) throw new Error('control: sync with a healthy pull did not PUT');
+    remote.failGets = true;
+    expectedConsole.add('push skipped');
+    try {
+      before = remote.puts;
+      await sync.click();
+      await page.waitForTimeout(300);
+      await waitIdle();
+      await page.waitForTimeout(1_000);
+      if (remote.puts !== before) throw new Error(`pull failed but sync still PUT ${remote.puts - before}x`);
+      const cls = (await sync.getAttribute('class')) || '';
+      if (!/bg-danger/.test(cls)) throw new Error('sync button should show the error state after a failed pull');
+    } finally {
+      remote.failGets = false;
+      expectedConsole.delete('push skipped');
+    }
+    await dismissToasts();
+    return 'healthy pull → PUT; failed pull → no PUT, error state';
   });
 
   await context.close();

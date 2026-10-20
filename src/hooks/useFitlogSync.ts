@@ -14,6 +14,7 @@ import {
 } from '../../services/fitlogRemote';
 import {
   pullAndMergeFitlogRemote,
+  pullAndMergeFitlogRemoteDetailed,
   pushFitlogRemoteSnapshot,
 } from '../../services/fitlogRemoteSync';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
@@ -24,6 +25,14 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
+
+/** 拉取没拿到远端，推送因此被跳过（message 只给控制台，UI 按 reason 取文案） */
+class PullFailedError extends Error {
+  constructor(readonly reason: 'unreachable' | 'incompatible') {
+    super(`pull failed (${reason}); push skipped`);
+    this.name = 'PullFailedError';
+  }
+}
 
 /**
  * 对本地训练 / 目标做一次性数据迁移，确保字段齐全
@@ -228,9 +237,18 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     syncLockRef.current = true;
     setSyncStatus('syncing');
     try {
-      const mergedPrefs = await pullAndMergeFitlogRemote();
-      handleSnapshotApply(mergedPrefs ?? readPrefsFromLocalStorage());
+      const pulled = await pullAndMergeFitlogRemoteDetailed();
+      if (pulled.kind === 'locked') {
+        // 启动时那次拉取还没完：这次什么都没拉，更不能推；它落定后数据自然会刷新
+        setSyncStatus('idle');
+        return;
+      }
+      handleSnapshotApply(pulled.kind === 'merged' ? pulled.prefs : readPrefsFromLocalStorage());
       await loadLocalData(resolvedUserId);
+      if (pulled.kind === 'failed') {
+        // 没读到远端就推送 = 拿本地盖掉一份没合并进来的远端（另一台设备的新记录就此丢失）
+        throw new PullFailedError(pulled.reason);
+      }
       await pushFitlogRemoteSnapshot();
       setSyncStatus('idle');
       setLastSyncedAt(Date.now());
@@ -245,6 +263,8 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
           ? translations.remoteForbiddenEndpoint[lang]
           : e instanceof RemoteError && e.kind === 'env-mismatch'
             ? translations.remoteEnvMismatch[lang]
+            : e instanceof PullFailedError && e.reason === 'incompatible'
+              ? translations.remoteIncompatible[lang]
             // 个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 明确提示，避免误判成"服务器挂了"
             : translations.remoteUnreachable[lang];
       toast(String(message), 'error');

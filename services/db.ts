@@ -19,10 +19,25 @@ const REQUIRED_STORES = [
   'backups',
 ] as const;
 
+/**
+ * 事务的终态：oncomplete 才算写进去了；onerror / onabort 都要 reject。
+ * 只挂 request.onerror + oncomplete 时，事务被中止（配额满、约束冲突、连接被 versionchange 关掉）
+ * 不一定走到 request.onerror，promise 就永远悬着 —— 调用方的 await 卡死，也不报错。
+ */
+function txDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction error'));
+    tx.onabort = () => reject(tx.error ?? new DOMException('IndexedDB transaction aborted', 'AbortError'));
+  });
+}
+
 export class FitLogDB {
   private db: IDBDatabase | null = null;
   /** 当前连接对应的库名；与 dbName() 不一致时说明环境切换了，需要重开 */
   private openedAs: string | null = null;
+  /** 进行中的 open：并发的首批读写共用这一个，不各开一条连接 */
+  private opening: Promise<void> | null = null;
 
   private applySchema(db: IDBDatabase): void {
     for (const name of REQUIRED_STORES) {
@@ -54,6 +69,15 @@ export class FitLogDB {
   }
 
   async init(): Promise<void> {
+    if (!this.opening) {
+      this.opening = this.open().finally(() => {
+        this.opening = null;
+      });
+    }
+    return this.opening;
+  }
+
+  private open(): Promise<void> {
     const name = dbName();
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(name, DB_VERSION);
@@ -71,6 +95,8 @@ export class FitLogDB {
 
   /** 数据环境切换后调用：关掉旧库连接，改开新环境对应的库 */
   async reopen(): Promise<void> {
+    // 正在开的那条也要等它落定再关，否则它晚到的 onsuccess 会把旧环境的连接写回 this.db
+    if (this.opening) await this.opening.catch(() => {});
     if (this.db) {
       this.db.close();
       this.db = null;
@@ -80,6 +106,7 @@ export class FitLogDB {
   }
 
   private async getStore(name: string, mode: IDBTransactionMode): Promise<IDBObjectStore> {
+    if (this.opening) await this.opening;
     // 环境切换后若有代码路径漏掉 reopen()，这里兜底，绝不让读写落到另一个环境的库
     if (this.db && this.openedAs !== dbName()) await this.reopen();
     if (!this.db) await this.init();
@@ -100,22 +127,12 @@ export class FitLogDB {
     });
   }
 
-  /**
-   * 写入记录并等待事务完成。
-   * 使用 request.onsuccess + setTimeout(0) 而非 transaction.oncomplete，
-   * 因为某些浏览器中 oncomplete 的触发时机不可靠（可能在后续 readonly 事务之后）。
-   * setTimeout(0) 将 resolve 推迟到下一个 macrotask，
-   * 确保 IndexedDB 写事务已完全提交后再返回。
-   */
+  /** 写入一条并等事务提交（oncomplete）；事务出错或被中止都会 reject */
   async save(storeName: string, item: any): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
-    const transaction = store.transaction;
-    return new Promise((resolve, reject) => {
-      const request = store.put(item);
-      request.onerror = () => reject(request.error);
-      // 使用 transaction.oncomplete 确保事务已物理提交
-      transaction.oncomplete = () => resolve();
-    });
+    const done = txDone(store.transaction);
+    store.put(item);
+    return done;
   }
 
   /** Context 等均名使用 put，与 save 等价 */
@@ -125,23 +142,36 @@ export class FitLogDB {
 
   async delete(storeName: string, id: string): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
-    const transaction = store.transaction;
-    return new Promise((resolve, reject) => {
-      const request = store.delete(id);
-      request.onerror = () => reject(request.error);
-      transaction.oncomplete = () => resolve();
-    });
+    const done = txDone(store.transaction);
+    store.delete(id);
+    return done;
   }
 
   async clear(storeName: string): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
-    return new Promise((resolve, reject) => {
-      const request = store.clear();
-      request.onsuccess = () => {
-        setTimeout(() => resolve(), 0);
-      };
-      request.onerror = () => reject(request.error);
-    });
+    const done = txDone(store.transaction);
+    store.clear();
+    return done;
+  }
+
+  /**
+   * 整表替换：clear + 全部 put 在同一个 readwrite 事务里。
+   * 要么全换成功，要么（任一条失败 → 事务中止）原数据原样保留 —— 不会停在「清空了一半」。
+   */
+  async replaceAll(storeName: string, rows: readonly any[]): Promise<void> {
+    const store = await this.getStore(storeName, 'readwrite');
+    const tx = store.transaction;
+    const done = txDone(tx);
+    try {
+      store.clear();
+      for (const row of rows) store.put(row);
+    } catch (err) {
+      // put 同步抛（比如某行缺 id）不会自动中止事务 —— 不手动 abort，排在前面的 clear 照样提交
+      done.catch(() => {});
+      tx.abort();
+      throw err;
+    }
+    return done;
   }
 }
 
