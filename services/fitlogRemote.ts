@@ -537,10 +537,8 @@ function mergeExerciseDefs(
 }
 
 export async function applySnapshotToLocalIndexedDb(snapshot: FitlogRemoteSnapshot): Promise<void> {
-  const replaceStore = async <T extends { id: string }>(name: string, rows: T[]) => {
-    await db.clear(name);
-    for (const row of rows) await db.save(name, row);
-  };
+  // 每张表一个事务整表替换：中途失败这张表保持原样，不会停在「清空了、只写回一半」
+  const replaceStore = <T extends { id: string }>(name: string, rows: T[]) => db.replaceAll(name, rows);
 
   await replaceStore('workouts', snapshot.workouts);
   await replaceStore('goals', snapshot.goals);
