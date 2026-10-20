@@ -158,7 +158,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   const [haptics, setHaptics] = useState(hapticsEnabled);
   const [feel, setFeel] = useState<ScrubFeel>(scrubFeel);
 
-  // 撤销上次导入（原 BackupCard）：有副本才出这一行
+  // 撤销上次导入：有副本才出这一行
   const rollbackImport = useRollbackImport();
   const [rollback, setRollback] = useState<RollbackInfo | null>(null);
   useEffect(() => {

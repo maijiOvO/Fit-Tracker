@@ -104,16 +104,6 @@ const FONTS = [
     full: true,
   },
   // 「杠铃片」§2：宋体与 IBM Plex Mono 退役，换得意黑（标题）与 Barlow Condensed（数字）
-  /* {
-    file: 'Noto_Serif_SC/NotoSerifSC-VariableFont_wght.ttf',
-    out: 'noto-serif-sc.woff2',
-    // §3 的字重表写了 500/600/700，但同一节的排印铁律「衬线只用于 ≥17px 且字重 ≥600」
-    // 已经排除了 500，全文也没有任何一处具体用到它。
-    // 夹到 600–700 省 105KB（420.9 → 316.2KB），且 600/700 都是真字重不是伪加粗。
-    variationAxes: { wght: { min: 600, max: 700, default: 600 } },
-    expectAxis: { tag: 'wght', min: 600, max: 700 },
-    full: true,
-  }, */
   // 得意黑只用于 ≥20px 的标题，但标题里会出现用户自建的动作名，所以按全站字符集切
   { file: 'Smiley_Sans/SmileySans-Oblique.ttf', out: 'smiley-sans.woff2', full: true },
   { file: 'Barlow_Condensed/BarlowCondensed-SemiBold.ttf', out: 'barlow-condensed-600.woff2', latinOnly: true },
