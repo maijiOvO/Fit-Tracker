@@ -81,6 +81,11 @@ Android Studio 装在非默认路径 `D:\tools\Android_studio\install`。
 - live 包：`npm run dev` 没起，或隧道断了 → `npm run android:live -- -TunnelOnly`
 - 静态包：包里混进了 `server.url`（`CAP_LIVE_RELOAD` 残留），离开数据线必白 → 清变量重打
 
+**日志已经打出「完成。」，命令却一直不返回**
+本次构建新起的 Gradle 守护进程会让外层挂住，包其实已经打好。三个脚本都已在构建前调
+`scripts/gradleDaemon.ps1` 预启动守护进程来避开；又挂了先查是不是谁绕过了它（比如手敲 `gradlew`）。
+别为此杀进程重来，停掉挂着的命令、照样解包核对 APK 即可。
+
 **「手机上就是不更新」**
 先确认现在装的是哪种包。live 被静态包顶掉是最常见的原因，见第 1 节的反模式。
 
