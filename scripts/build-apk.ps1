@@ -104,6 +104,8 @@ if (-not $env:JAVA_HOME -or -not (Test-Path "$env:JAVA_HOME\bin\java.exe")) {
 Write-Host "[i] JAVA_HOME = $env:JAVA_HOME" -ForegroundColor DarkGray
 
 # -- 构建 --------------------------------------------------------
+. "$PSScriptRoot\gradleDaemon.ps1"
+Start-GradleDaemonDetached (Join-Path $repo 'android')
 Push-Location 'android'
 try {
     & '.\gradlew.bat' ":app:$($expect.Task)" --console=plain

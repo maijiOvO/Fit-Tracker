@@ -79,6 +79,8 @@ if (-not $SkipBuild) {
 
     # ── 3. 打 APK ─────────────────────────────────────────
     Write-Host "`n[3/4] gradlew $task..." -ForegroundColor Cyan
+    . "$PSScriptRoot\gradleDaemon.ps1"
+    Start-GradleDaemonDetached (Join-Path $root 'android')
     Push-Location android
     & ".\gradlew.bat" $task --console=plain
     $gradleExit = $LASTEXITCODE

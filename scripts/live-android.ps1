@@ -99,6 +99,8 @@ try {
 
 # ── 打包 ───────────────────────────────────────────────────
 Write-Host "`n[2/3] gradlew assembleDebug..." -ForegroundColor Cyan
+. "$PSScriptRoot\gradleDaemon.ps1"
+Start-GradleDaemonDetached (Join-Path $root 'android')
 Push-Location android
 & ".\gradlew.bat" assembleDebug --console=plain
 $gradleExit = $LASTEXITCODE
