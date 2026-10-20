@@ -173,7 +173,7 @@
   --radius-sheet: 8px;
   --radius-stamp: 4px;
 
-  /* 休息标记（§12.13）的几何。demo 里逐个调过的值：docs/demos/rest-marker.html */
+  /* 休息标记（§12.13）的几何。demo 里逐个调过的值：docs/archive/demos/rest-marker.html */
   --rest-h: 18px;
   --rest-w: 9px;
   --rest-hit: 14px;

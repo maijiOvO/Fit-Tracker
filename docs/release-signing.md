@@ -168,29 +168,29 @@ npm run build:solo; if ($?) { npx cap sync android }; if ($?) { cd android; .\gr
 写成 `app-solo-release.apk#FitTracker-1.0.1.apk`，传上去的资产名仍是 `app-solo-release.apk`
 （2026-09-20 发 v1.0.1 时撞到）。发行用的文件名只能靠**先复制成那个名字再传**。
 
-下面三条先把 `$v` 设成本次的 versionName（与第 1 步一致）：
+下面几条开头都从 `android/app/build.gradle` 读出本次的 versionName 放进 `$v`（第 1 步改过的那个值），不用手填，也就不会忘了改：
 
 ```powershell
-$v = "1.0.1"; Copy-Item "android\app\build\outputs\apk\solo\release\app-solo-release.apk" "$env:TEMP\FitTracker-$v.apk" -Force
+$v = (Select-String -Path android\app\build.gradle -Pattern 'versionName "(.+)"').Matches[0].Groups[1].Value; Copy-Item "android\app\build\outputs\apk\solo\release\app-solo-release.apk" "$env:TEMP\FitTracker-$v.apk" -Force
 ```
 
 还没有这个版本的草稿就新建（`--target` 要**完整** 40 位 SHA，短 SHA 会报
 `Release.target_commitish is invalid`；草稿不建 tag，点发布时才建）：
 
 ```powershell
-$v = "1.0.1"; gh release create "v$v" --repo maijiOvO/Fit-Tracker --draft --title "v$v" --target (git rev-parse HEAD) --notes-file <发行说明.md> "$env:TEMP\FitTracker-$v.apk"
+$v = (Select-String -Path android\app\build.gradle -Pattern 'versionName "(.+)"').Matches[0].Groups[1].Value; gh release create "v$v" --repo maijiOvO/Fit-Tracker --draft --title "v$v" --target (git rev-parse HEAD) --notes-file <发行说明.md> "$env:TEMP\FitTracker-$v.apk"
 ```
 
 草稿已经在、只是换包：先删旧资产，再传新的：
 
 ```powershell
-$v = "1.0.1"; gh release delete-asset "v$v" "FitTracker-$v.apk" --repo maijiOvO/Fit-Tracker --yes; gh release upload "v$v" "$env:TEMP\FitTracker-$v.apk" --repo maijiOvO/Fit-Tracker
+$v = (Select-String -Path android\app\build.gradle -Pattern 'versionName "(.+)"').Matches[0].Groups[1].Value; gh release delete-asset "v$v" "FitTracker-$v.apk" --repo maijiOvO/Fit-Tracker --yes; gh release upload "v$v" "$env:TEMP\FitTracker-$v.apk" --repo maijiOvO/Fit-Tracker
 ```
 
 传完核一眼资产名和 sha256，应与本地 `Get-FileHash` 一致：
 
 ```powershell
-$v = "1.0.1"; gh release view "v$v" --repo maijiOvO/Fit-Tracker --json assets -q '.assets[] | .name + "  " + .digest'
+$v = (Select-String -Path android\app\build.gradle -Pattern 'versionName "(.+)"').Matches[0].Groups[1].Value; gh release view "v$v" --repo maijiOvO/Fit-Tracker --json assets -q '.assets[] | .name + "  " + .digest'
 ```
 
 ### 6. 发布
