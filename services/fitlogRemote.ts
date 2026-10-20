@@ -211,16 +211,36 @@ async function remoteFetch(
   });
 }
 
+/**
+ * 拉取结果要分清三种「没拿到快照」：
+ *   - empty：服务端明确说没有（404）—— 可以放心把本地推上去当初始数据
+ *   - failed：网络断了 / 5xx / 响应读不出来 / 版本或环境对不上 —— 远端可能有数据，只是这次没看到
+ * 两者都折成 null 的话，调用方只能当成「远端是空的」去推送，拿本地盖掉一份它根本没读到的远端。
+ */
+export type RemoteSnapshotResult =
+  | { status: 'ok'; snapshot: FitlogRemoteSnapshot }
+  | { status: 'empty' }
+  | { status: 'failed'; reason: 'unreachable' | 'incompatible' };
+
+/** 只要快照本身、不关心为什么没拿到时用；要决定能不能推送的，用 fetchRemoteSnapshotResult */
 export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null> {
-  if (!isRemoteConfigured()) return null;
+  const r = await fetchRemoteSnapshotResult();
+  return r.status === 'ok' ? r.snapshot : null;
+}
+
+export async function fetchRemoteSnapshotResult(): Promise<RemoteSnapshotResult> {
+  if (!isRemoteConfigured()) return { status: 'empty' };
 
   const path = resolveStatePath();
   try {
     const response = await remoteFetch('GET', path);
-    if (response.status === 404) return null;
+    if (response.status === 404) return { status: 'empty' };
     if (!response.ok) throw await toRemoteError(response, 'GET', path);
     const data = (await response.json()) as FitlogRemoteSnapshot;
-    if (!data || data.schemaVersion !== 2) return null;
+    if (!data || data.schemaVersion !== 2) {
+      console.error(`[fitlog] 远端快照版本不认识（schemaVersion=${data?.schemaVersion}），不应用也不覆盖`);
+      return { status: 'failed', reason: 'incompatible' };
+    }
 
     // 快照自带环境烙印时必须与当前环境一致。
     // 旧快照没有 env 字段 → 放行（向后兼容），一旦服务端开始回写就自动生效。
@@ -228,9 +248,9 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
       console.error(
         `[fitlog] 已拒绝应用快照：快照标记为 ${data.env}，当前环境为 ${getDataEnv()}`,
       );
-      return null;
+      return { status: 'failed', reason: 'incompatible' };
     }
-    return data;
+    return { status: 'ok', snapshot: data };
   } catch (e) {
     // 配置类错误（key 用错端点 / 环境标记写反）必须冒泡出去让用户看见，
     // 静默返回 null 会让 App 表现得像"远端没有数据"，掩盖真正的问题。
@@ -239,7 +259,7 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
       throw e;
     }
     console.warn('[fitlog] fetch remote snapshot failed:', e);
-    return null;
+    return { status: 'failed', reason: 'unreachable' };
   }
 }
 
