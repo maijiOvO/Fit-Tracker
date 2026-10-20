@@ -1,4 +1,3 @@
-import { WorkoutSession, PRRecord, ExerciseDefinition, Goal, WeightEntry } from '../types';
 import { dbName } from './appEnv';
 
 // 库名按数据环境派生：prod = FitLogDB，dev = FitLogDB-dev（见 services/appEnv.ts）。

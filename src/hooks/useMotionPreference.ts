@@ -51,8 +51,3 @@ export function useMotionPreference() {
 
   return { preference, setPreference };
 }
-
-/** 首屏尽早贴上属性，避免第一帧用错档位 */
-export function initMotionPreference() {
-  apply(read());
-}

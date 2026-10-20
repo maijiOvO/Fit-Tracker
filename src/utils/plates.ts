@@ -129,9 +129,6 @@ export function plateUnitOf(set: { weight?: number; plateUnit?: PlateUnit } | un
   return fallback;
 }
 
-/** 杠铃拖动一格：最小一对片的总重（kg 2.5 / lbs 5，2026-10-18 用户定） */
-export const BARBELL_STEP: Record<PlateUnit, number> = { kg: 2.5, lbs: 5 };
-
 /* ── 配片 ─────────────────────────────────────────────────────── */
 
 export interface Loadout {

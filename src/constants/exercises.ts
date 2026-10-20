@@ -253,21 +253,3 @@ export const REGION_OF: Record<string, string> = {
 export const DEFAULT_EXERCISES: ExerciseDefinition[] = BASE_EXERCISES.map(d =>
   REGION_OF[d.id] ? { ...d, region: REGION_OF[d.id] } : d,
 );
-
-/**
- * 获取分类的显示名称
- */
-export const getCategoryName = (category: ExerciseCategory | null, lang: 'cn' | 'en'): string => {
-  const names: Record<ExerciseCategory, { cn: string; en: string }> = {
-    STRENGTH: { cn: '力量训练', en: 'Strength Training' },
-    CARDIO: { cn: '有氧训练', en: 'Cardio Training' },
-    FREE: { cn: '自由训练', en: 'Free Training' },
-    OTHER: { cn: '其他', en: 'Other' },
-  };
-  
-  if (category === null) {
-    return lang === 'cn' ? '全部' : 'All';
-  }
-  
-  return names[category]?.[lang] || category;
-};

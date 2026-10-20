@@ -419,7 +419,7 @@ function followWeight(sets: SetLog[], i: number, shift: number, e: Exercise, sig
 }
 
 /** 次数：后面待做、没改过、原值和这组改之前一样的组跟着变 */
-function followReps(sets: SetLog[], i: number, e: Exercise, oldV: number, reps: SetLog['reps'] | undefined) {
+function followReps(sets: SetLog[], i: number, _e: Exercise, oldV: number, reps: SetLog['reps'] | undefined) {
   if (oldV === (Number(reps) || 0)) return;
   for (let k = i + 1; k < sets.length; k++) {
     const s = sets[k];

@@ -259,7 +259,6 @@ export interface UseWorkoutMutationsResult {
 
 export function useWorkoutMutations({
   setActiveTab,
-  reloadAfterSave,
   getPreviousTab,
   onEnterEditWorkout,
   onPersist,

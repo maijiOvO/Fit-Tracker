@@ -161,7 +161,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   firstCol = 36,
   signed,
   onRemoveSub,
-  loadKind,
   isPR = false,
   rounder,
 }) => {

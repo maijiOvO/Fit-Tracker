@@ -38,7 +38,6 @@ import {
   normalizeGroups,
   pointerSeam,
   removeFromGroup,
-  revertSet,
   RowRef,
   splitGroup,
   tapSetNum as tapSetNumPure,

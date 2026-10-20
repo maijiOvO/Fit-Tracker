@@ -154,7 +154,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const lang = settingsCtx.lang;
   const isCn = lang === Language.CN;
   const unit = settingsCtx.unit;
-  const weightEntries = settingsCtx.weightEntries;
   const measurements = settingsCtx.measurements;
 
   const user = authCtx.user;
@@ -266,11 +265,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const {
     saveStatus,
-    setSaveStatus,
     editingWorkoutId,
     setEditingWorkoutId,
     hasUnsavedChanges,
-    finishWorkout,
     colophon,
     dismissColophon,
     handleFinishWithConfirmation,
@@ -314,7 +311,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     showMeasureModal,
     setShowMeasureModal,
     editingMeasurementId,
-    setEditingMeasurementId,
     measureForm,
     setMeasureForm,
     expandedMetric,

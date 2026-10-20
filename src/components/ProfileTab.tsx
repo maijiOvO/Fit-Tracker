@@ -1,4 +1,4 @@
-import React, { useRef, useState, lazy } from 'react';
+import React, { useState, lazy } from 'react';
 import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import {
   Camera, ShieldAlert, Trash2, ChevronRight,
@@ -10,9 +10,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { User, WorkoutSession, Measurement, Language } from '../../types';
 import { hasDoneSets } from '../contexts/WorkoutContext';
 import { translations } from '../../translations';
-import { db } from '../../services/db';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
-import { storage } from '../../services/appStorage';
 import { plural } from '../utils/format';
 
 // 懒加载 MetricChart（包含 recharts）

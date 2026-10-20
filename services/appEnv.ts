@@ -183,10 +183,3 @@ export function dbName(): string {
 export function statePath(): string {
   return getDataEnv() === 'dev' ? '/api/fitlog/state-dev' : '/api/fitlog/state';
 }
-
-/** 人类可读标签，用于日志与 UI */
-export function envLabel(): string {
-  if (isDemo()) return 'demo';
-  if (isSolo()) return 'solo';
-  return getDataEnv() === 'dev' ? 'dev' : 'prod';
-}
