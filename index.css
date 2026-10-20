@@ -165,7 +165,6 @@
   --text-on-chalk: #16181B;
 
   --scrim: rgba(22, 24, 27, 0.42);
-  --focus-ring: var(--accent);
 
   /* 圆角：4px 为主，器材图形本身是扁平矢量 */
   --radius-card: 4px;
@@ -514,18 +513,6 @@ button {
   transform: scale(0.98);
 }
 
-.ui-btn-ghost {
-  color: var(--text-secondary);
-  font-weight: 500;
-  border-radius: var(--radius-control);
-  padding: 0.5rem 0.75rem;
-  transition: color 150ms ease, background-color 150ms ease;
-}
-.ui-btn-ghost:hover {
-  background-color: var(--bg-card-hover);
-  color: var(--text-primary);
-}
-
 .ui-input {
   width: 100%;
   background-color: var(--bg-inset);
@@ -554,42 +541,12 @@ button {
   color: var(--text-secondary);
 }
 
-.ui-data-xl {
-  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-weight: 600;
-  font-size: 40px;
-  line-height: 1;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.ui-data-lg {
-  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-weight: 600;
-  font-size: 26px;
-  line-height: 1;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--divider);
   border-radius: 10px;
-}
-
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ── 入场原语 §5.2 ────────────────────────────────────────────
@@ -1184,23 +1141,6 @@ button {
 .ledger-row.is-ghost .ledger-field.is-edited .ledger-unit,
 .ledger-subrow.is-ghost .ledger-field.is-edited .ledger-unit {
   opacity: 1;
-}
-
-/* 全零的行点不实：组号左右轻摆一下（位移乘 --move，reduced-motion 下不动，只剩标签） */
-@keyframes set-nope {
-  0%,
-  100% {
-    transform: none;
-  }
-  25% {
-    transform: translateX(calc(-3px * var(--move)));
-  }
-  75% {
-    transform: translateX(calc(3px * var(--move)));
-  }
-}
-.set-num.is-nope {
-  animation: set-nope 240ms var(--ease-ink);
 }
 
 /* ── 部位细分格（2026-10 第三版「A + 栏线」，照 docs/demos/region-board-v3.html）──

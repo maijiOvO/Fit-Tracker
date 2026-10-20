@@ -2,7 +2,7 @@
  * 一键重置账户
  */
 import React, { useCallback, useState } from 'react';
-import { Goal, Language, Measurement, WeightEntry, WorkoutSession } from '../../types';
+import { Goal, Measurement, WeightEntry, WorkoutSession } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
 import { clearTombstones } from '../../services/fitlogTombstones';

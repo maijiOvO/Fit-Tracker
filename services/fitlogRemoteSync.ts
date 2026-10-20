@@ -5,7 +5,6 @@ import {
   putRemoteSnapshot,
   applySnapshotToLocalIndexedDb,
   writePrefsToLocalStorage,
-  readPrefsFromLocalStorage,
   migrateRecordsToSoloUserId,
   isRemoteConfigured,
 } from './fitlogRemote';

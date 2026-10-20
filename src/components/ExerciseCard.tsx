@@ -90,7 +90,7 @@ interface ExerciseCardProps {
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
-  /** 删一档递减（工作台挂撤销条） */
+  /** 删一档递减（单击即删，不给撤销） */
   onRemoveSubSet?: (exIdx: number, setIdx: number, subIdx: number) => void;
   /**
    * 指针（2026-10，原休息书签）落在本动作的第几条缝上（gap=0 是第一组之前，gap=k 是第 k 组之后）。

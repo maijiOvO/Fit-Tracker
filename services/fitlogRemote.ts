@@ -19,7 +19,7 @@ import type {
 } from '../types';
 import { storage } from './appStorage';
 import { mergeAppPrefs, readAppPrefs, writeAppPrefs } from './appPrefs';
-import { getDataEnv, isDemo, isOffline, statePath } from './appEnv';
+import { getDataEnv, isOffline, statePath } from './appEnv';
 
 /**
  * 个人服务器默认地址：家庭 NAS，经 Tailscale Funnel 对外暴露。

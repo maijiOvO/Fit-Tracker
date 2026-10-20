@@ -1,7 +1,6 @@
 /**
  * 日期时间工具函数
  */
-import { Language } from '../../types';
 import { appPrefsNow } from '../../services/appPrefs';
 
 /** 首选项「每周开始于」：0 = 周日，1 = 周一（默认） */
@@ -97,46 +96,4 @@ export const formatTime = (seconds: number): string => {
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
   return `${m}:${s.toString().padStart(2, '0')}`;
-};
-
-// 格式化日期为 YYYY-MM-DD
-export const formatDate = (date: Date | string): string => {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toISOString().split('T')[0];
-};
-
-// 相对时间描述
-export const getRelativeTime = (date: Date | string, lang: Language): string => {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) {
-    return lang === Language.CN ? '今天' : 'Today';
-  } else if (diffDays === 1) {
-    return lang === Language.CN ? '昨天' : 'Yesterday';
-  } else if (diffDays < 7) {
-    return lang === Language.CN ? `${diffDays}天前` : `${diffDays} days ago`;
-  } else if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return lang === Language.CN ? `${weeks}周前` : `${weeks} weeks ago`;
-  } else {
-    return d.toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  }
-};
-
-// 初始化日期时间选择器
-export const initializeDateTimePicker = (currentTime?: string) => {
-  const date = currentTime ? new Date(currentTime) : new Date();
-  return {
-    date,
-    hour: date.getHours(),
-    minute: date.getMinutes(),
-    month: date.getMonth(),
-    year: date.getFullYear()
-  };
 };

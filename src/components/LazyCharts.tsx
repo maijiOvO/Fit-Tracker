@@ -215,22 +215,6 @@ function splitByGym(data: ChartDataPoint[]): { data: ChartDataPoint[]; hasCrossi
   return { data: out, hasCrossing };
 }
 
-interface LazyChartsProps {
-  // 数据
-  workouts: any[];
-  weightEntries: any[];
-  measurements: any[];
-  // 配置
-  lang: Language;
-  unit: 'kg' | 'lbs';
-  // 工具函数
-  resolveName: (name: string) => string;
-  getChartMetric: (name: string) => string;
-  // 图表渲染函数
-  renderTrendChart: (target: string, metricKey?: string) => React.ReactNode;
-  renderMetricChart: (metricName: string) => React.ReactNode;
-}
-
 // getChartDataFor 逻辑（从 App.tsx 提取）
 export function getChartDataFor(
   workouts: any[],
@@ -248,7 +232,7 @@ export function getChartDataFor(
   const u = unit || 'kg';
   const resolver = resolveName || ((n: string) => n);
   const keyFn = keyOf || ((ex: any) => resolver(ex.name));
-  const metricGetter = getChartMetric || ((n: string) => 'weight');
+  const metricGetter = getChartMetric || (() => 'weight');
 
   if (target === '__WEIGHT__') {
     return weightEntries.map(entry => ({

@@ -58,11 +58,6 @@ export function useUiOverlay(): UiOverlayContextValue {
   return ctx;
 }
 
-/** 组件树外使用时的安全降级（测试 / 边缘情况） */
-export function useUiOverlayOptional(): UiOverlayContextValue | null {
-  return useContext(UiOverlayContext);
-}
-
 interface UiOverlayProviderProps {
   lang: Language;
   children: React.ReactNode;

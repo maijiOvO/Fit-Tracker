@@ -21,7 +21,6 @@ import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
 const justEnded = (w: { finishedAt?: string }) =>
   !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
 import { Language, WorkoutSession, Exercise } from '../../types';
-import { translations } from '../../translations';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
@@ -186,7 +185,6 @@ const SessionCard: React.FC<SessionCardProps> = ({
   lang,
   isExpanded,
   onToggleExpand,
-  resolveName,
   renderSetCapsule,
   onEdit,
   onAppend,

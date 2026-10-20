@@ -111,27 +111,9 @@ export const translations: TranslationStrings = {
   goalCustom: { en: 'Custom Goal', cn: '自定义目标' },
   target: { en: 'Target', cn: '目标值' },
   current: { en: 'Current', cn: '当前值' },
-  
-  // 新增：智能目标推荐
-  
-  // 新增：目标类型和类别
-  goalTypeWeight: { en: 'Weight Management', cn: '体重管理' },
-  goalTypeStrength: { en: 'Strength Training', cn: '力量训练' },
-  goalTypeFrequency: { en: 'Training Frequency', cn: '训练频率' },
-  goalTypeBodyMetrics: { en: 'Body Metrics', cn: '身体指标' },
-  goalTypeCustom: { en: 'Custom Goal', cn: '自定义目标' },
-  
-  // 目标类别
-  
-  // 新增：目标设置
-  goalTitle: { en: 'Goal Title', cn: '目标标题' },
-  goalDescription: { en: 'Description (Optional)', cn: '描述（可选）' },
-  
-  // 新增：进度显示
+
   goalsSubtitle: { en: 'Keep pushing your boundaries.', cn: '不断挑战你的极限。' },
   goalLabelPlaceholder: { en: 'Target Weight / Bench Press...', cn: '目标体重 / 卧推重量...' },
-  goalLabelHint: { en: 'Label (e.g. Body Weight, Squat)', cn: '目标名称 (例如：体重、深蹲)' },
-  languageLabel: { en: 'Language', cn: '语言设置' },
   trainingTitlePlaceholder: { en: 'Training Session Title...', cn: '训练名称...' },
   // 训练部位选择（进入训练页、还没有动作时的第一步；选完即作为训练名称）
   pickBodyPartTitle: { en: 'What are you training today?', cn: '今天练哪里' },
@@ -141,26 +123,17 @@ export const translations: TranslationStrings = {
   partLegs: { en: 'Legs', cn: '练腿' },
   partArms: { en: 'Arms', cn: '练手臂' },
   partOther: { en: 'Other', cn: '其他' },
-  goalLabel: { en: 'Goal Tag', cn: '目标名称' },
-  setsCount: { en: 'Sets', cn: '组' },
   bodyPartHeader: { en: 'Body Parts', cn: '训练部位' },
   equipmentHeader: { en: 'Equipment', cn: '使用器材' },
   addCustomTag: { en: 'Add Custom Tag', cn: '添加自定义标签' },
   // ── 场地（§12.11）──
-  gymLabel: { en: 'Gym', cn: '场地' },
   gymPickTitle: { en: 'Where are you training?', cn: '在哪个馆练的' },
-  gymNone: { en: 'Not set', cn: '未标场地' },
   gymClear: { en: 'Clear', cn: '不标场地' },
   gymNewPlaceholder: { en: 'New gym name…', cn: '新场地名称…' },
   gymLastUsed: { en: 'last', cn: '上次' },
-  tagNamePlaceholder: { en: 'Tag Name...', cn: '标签名称...' },
-  tagCategory: { en: 'Category', cn: '所属大类' },
   confirm: { en: 'Confirm', cn: '确定' },
   addCustomExercise: { en: 'Add Custom Exercise', cn: '添加自定义动作' },
   exerciseNamePlaceholder: { en: 'Exercise Name...', cn: '动作名称...' },
-  modeNormal: { en: 'Bodyweight', cn: '标准自重' },
-  modeWeighted: { en: 'Weighted', cn: '负重 (+)' },
-  modeAssisted: { en: 'Assisted', cn: '辅助 (-)' },
   dashboardEmptyTitle: { en: 'Ignite Your Fitness Journey', cn: '开启你的健身征程' },
   dashboardEmptyDesc: { en: 'Log your first workout to see your progress visualized here and track your personal records!', cn: '记录你的第一场训练，在这里见证你的成长趋势并管理个人纪录！' },
   logWeight: { en: 'Log Weight', cn: '记录体重' },
@@ -183,8 +156,6 @@ export const translations: TranslationStrings = {
   addDimension: { cn: '添加维度', en: 'Add Dimension' },
   dimensionPlaceholder: { cn: '维度名称 (如: 分数)', en: 'Metric (e.g. Score)' },
 
-  exportData: { cn: '导出全部数据', en: 'Export All Data' },
-  exportDesc: { cn: '将您的训练记录、体重和设置导出为 JSON 文件备份', en: 'Export your workouts, weight, and settings as a JSON backup' },
   exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
   importData: { cn: '导入备份', en: 'Import Backup' },
   importDesc: {

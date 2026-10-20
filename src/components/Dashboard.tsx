@@ -4,9 +4,9 @@ import { SetCapsule } from './SetCapsule';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2, Star, Calendar,
   Scale, TrendingUp, History, ChevronDown, ChevronUp,
-  Clock, Play
+  Clock
 } from 'lucide-react';
-import { Language, WeightEntry, Exercise } from '../../types';
+import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight, plural } from '../utils/format';
 import { formatSignedLoad } from '../utils/load';
