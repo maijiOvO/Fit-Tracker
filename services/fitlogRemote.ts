@@ -107,13 +107,13 @@ export function markPrefsUpdated(): void {
  *
  * 服务端把 key 绑定到端点、并校验环境标记之后，多了两个语义明确的错误码，
  * 它们和"网络不通"是完全不同的问题，必须分开提示 —— 否则一律显示
- * "请检查 Tailscale"会把配置错误引到完全错误的排查方向上。
+ * "请检查网络"会把配置错误引到完全错误的排查方向上。
  */
 export type RemoteFailureKind =
   | 'forbidden-endpoint'  // 403：这把 key 无权访问该端点
   | 'env-mismatch'        // 409：环境标记与端点不符，服务端拒绝写入
   | 'http'                // 其它非 2xx
-  | 'unreachable'         // 根本没连上（Tailscale 未连 / NAS 离线）
+  | 'unreachable'         // 根本没连上（手机没网 / NAS 或家里网络掉线）
   | 'env-guard';          // 客户端硬守卫拦下：本机环境与目标端点不符
 
 export class RemoteError extends Error {

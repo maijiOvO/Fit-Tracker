@@ -255,7 +255,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     } catch (e: any) {
       console.error('Sync Failure:', e?.message || e);
       setSyncStatus('error');
-      // 403 / 409 是配置问题，不是网络问题。一律提示"检查 Tailscale"
+      // 403 / 409 是配置问题，不是网络问题。一律提示"检查网络"
       // 会把排查方向引到完全错误的地方，所以分开报。
       const lang = settingsCtx.lang;
       const message =
@@ -265,7 +265,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
             ? translations.remoteEnvMismatch[lang]
             : e instanceof PullFailedError && e.reason === 'incompatible'
               ? translations.remoteIncompatible[lang]
-            // 个人服务器在家庭 NAS 上，只有连着 Tailscale 才可达 —— 明确提示，避免误判成"服务器挂了"
+            // 其余都当网络问题：手机没网 / 信号差，或 NAS / 家里网络掉线
             : translations.remoteUnreachable[lang];
       toast(String(message), 'error');
     } finally {
