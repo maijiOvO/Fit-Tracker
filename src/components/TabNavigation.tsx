@@ -261,6 +261,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   return (
     <nav
+      data-chrome="bottom"
       className="fixed bottom-0 inset-x-0 z-nav bg-base/95 border-t border-divider"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >

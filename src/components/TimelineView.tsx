@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -274,6 +274,41 @@ const SessionCard: React.FC<SessionCardProps> = ({
     };
   }, [menuOpen]);
 
+  /**
+   * 菜单默认从卡片右上角往下长；靠近屏幕底部的卡片往下长会钻到底部 tab 栏底下，
+   * 最后一项「删除」点不到。打开时量一次：下方放不下就改成从右下角往上长；
+   * 上方也放不下（卡片矮、菜单高、两头都挤），就仍往下长，把页面滚到露出整份菜单。
+   * 「挡住视线的栏」按 data-chrome="top|bottom" 认（AppHeader / TabNavigation）。
+   */
+  const [menuUp, setMenuUp] = useState(false);
+  useLayoutEffect(() => {
+    if (!menuOpen) {
+      setMenuUp(false);
+      return;
+    }
+    const menu = menuRef.current;
+    const card = menu?.parentElement;
+    if (!menu || !card) return;
+    const GAP = 8;
+    const INSET = 12; // top-3 / bottom-3
+    const edges = (side: 'top' | 'bottom') =>
+      Array.from(document.querySelectorAll<HTMLElement>(`[data-chrome="${side}"]`)).map(el => {
+        const r = el.getBoundingClientRect();
+        return side === 'top' ? r.bottom : r.top;
+      });
+    const bottomLimit = Math.min(window.innerHeight, ...edges('bottom')) - GAP;
+    const topLimit = Math.max(0, ...edges('top')) + GAP;
+    const h = menu.offsetHeight;
+    const c = card.getBoundingClientRect();
+    const downBottom = c.top + INSET + h;
+    if (downBottom <= bottomLimit) return;
+    if (c.bottom - INSET - h >= topLimit) {
+      setMenuUp(true);
+      return;
+    }
+    window.scrollBy({ top: downBottom - bottomLimit });
+  }, [menuOpen]);
+
   const exerciseCount = w.exercises?.length || 0;
   const setCount = w.exercises?.reduce((s, ex) => s + realSets(ex).length, 0) || 0;
   const when = new Date(w.date);
@@ -398,7 +433,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           ref={menuRef}
           role="menu"
           data-testid="timeline-session-menu"
-          className="anim-reveal absolute right-3 top-3 z-20 w-48 py-1 bg-card border border-divider rounded-card shadow-overlay"
+          className={`anim-reveal absolute right-3 ${menuUp ? 'bottom-3' : 'top-3'} z-20 w-48 py-1 bg-card border border-divider rounded-card shadow-overlay`}
         >
           {canResume && (
             <button
