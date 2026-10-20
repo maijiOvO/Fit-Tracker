@@ -414,7 +414,7 @@ export const H = { tap: 8, pick: 12, longpress: 14, threshold: 6,
   规则：**真正需要点的才配拥有边框，纯只读信息不配。**
 - 分组标题：Serif 600 15px + 前置 12px 朱砂短横，去 uppercase/tracking。
 
-> **2026-10 部位细分（第 3 条，demo：`docs/demos/region-board.html` 第三版，用户认可样式）。**
+> **2026-10 部位细分（第 3 条，demo：`docs/archive/demos/region-board.html` 第三版，用户认可样式）。**
 > 选了有细分的部位且没在搜索 → 吸顶细分表头 + 每列小卡（`.region-card`：动作行的窄版，跟部位 / 器材 chip
 > 同一套，灰底无边框；已添加＝朱砂实底；收藏＝名字前实心星）；没归细分的用现有动作行列在「未细分」组。
 > 列内排序 收藏 → 最近 → 其余；超过 5 列横滑；格子里只摆力量动作（有氧 / 自由 / 全身不分细分）。
@@ -422,7 +422,7 @@ export const H = { tap: 8, pick: 12, longpress: 14, threshold: 6,
 > （随部位联动、可就地新建）；标签管理有「细分标签」节（按部位分组，删自建细分走撤销条，动作自然回未细分）。
 > 数据：`ExerciseDefinition.region` + `BODY_REGIONS` / `REGION_OF`（constants）；自建细分 = customTags 里
 > `category:'region'` + `parentPart`；全部放进已有同步容器，不新增 prefs key。
-> **拖到细分**（demo：`docs/demos/region-drag.html` 第二版，用户定：磁吸中、列内虚线落位、要「整理」开关）：
+> **拖到细分**（demo：`docs/archive/demos/region-drag.html` 第二版，用户定：磁吸中、列内虚线落位、要「整理」开关）：
 > 长按小卡 / 未细分动作行满 500ms 浮起后拖进某一列；不动松手仍是管理菜单；长按满前动 >10px＝滚动。
 > 「整理」开着时按下即拖、点卡片不添加。目标列整列亮起、表头反白，虚线落位**跟手指高度**——
 > 列内顺序由用户定（`regionRank`，在某列拖过一次，这一列整列写序号；没排过的接在后面按默认）。
@@ -886,7 +886,7 @@ Pinterest 长按辐射菜单的骨架，加 press-hold-slide 的连贯性。
 淡墨 + 朱砂虚线（§5.3 里「这是抄的，等你确认」那套语言的跨训练推广），
 组号是一枚虚线「未刻的印」。出处写在眉批：「底稿 · 上次 X月X日」。
 
-> **2026-10 改（第 4、2 条，demo：`docs/demos/set-state.html`）—— 组的两种状态。**
+> **2026-10 改（第 4、2 条，demo：`docs/archive/demos/set-state.html`）—— 组的两种状态。**
 > 每行只有**待做**（`ghost`，虚线印）/ **做完**（实心印）。底稿、「添加组」新长出来的行、
 > 新动作的第一行、从计划开练的行，一律从待做开始。
 > - **只有点组号（或点「竭」）才算做完**；改值只改值，不再顺手描实。
@@ -1089,4 +1089,4 @@ e1RM / 图表数值一律不按场地分组：杠铃跨馆一致，而会变的�
   描实会覆盖手动位置 —— 描实是关于「我人在哪」最强的证据，拖动管的是两次描实**之间**。
 - **位置不是数据**：跟滚动位置同级的「此刻」UI 状态，不进 `SetLog`、不落盘、
   离开工作台即弃。换一场训练整个清空。
-- demo：`docs/demos/rest-marker.html`（三个开关 + 六个几何参数，几何值就是从那儿定的）。
+- demo：`docs/archive/demos/rest-marker.html`（三个开关 + 六个几何参数，几何值就是从那儿定的）。

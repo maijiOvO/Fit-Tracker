@@ -10,26 +10,23 @@
 
 ## Screenshots
 
-> Drop your screenshots into `docs/screenshots/` and they will render below. See [`docs/screenshots/README.md`](docs/screenshots/README.md) for what to capture.
-
-| PR Hub | Workout |
-|:---:|:---:|
-| ![PR Hub](docs/screenshots/01-pr-hub.png) | ![Workout](docs/screenshots/02-workout.png) |
-
-| Schedule |  |
-|:---:|:---:|
-| ![Schedule](docs/screenshots/03-schedule.png) |  |
+Not captured yet — try the [live demo](https://fit.myronhub.com) instead.
+[`docs/screenshots/README.md`](docs/screenshots/README.md) lists the shots to take; add them there and link them here.
 
 ---
 
 ## What it does
 
-- **PR Hub** — personal-record tracking across exercises, body parts and equipment.
-- **Workout logger** — sets, reps, sub-sets, pyramid templates.
+- **PR Hub** — personal-record tracking across exercises, body parts and equipment; bodyweight and assisted lifts count as signed loads.
+- **Workout logger** — one pointer runs through the whole session: tap a set number to mark everything up to it done. Drop sets, alternating (superset) pairs, per-exercise variants, and prefill from your last session that follows your edits.
+- **Plates view** — each exercise card draws the bar and plates for the set you're editing; drag the drawing or the number to change the weight. New PRs show live.
+- **Gym profiles** — register the plates and machine increments of each gym you train at; weights snap to what that gym can actually load, and machine PRs only compare within the same gym.
+- **Exercise library** — body parts split into sub-regions, drag exercises between them, rename with alias history, merge duplicates.
 - **Body data** — bodyweight log, measurements, calendar heatmap over time.
 - **Goals** — set training goals; an auto-updater watches your sessions and updates progress.
 - **Schedule** — week / month view, plan future sessions, mark as done / skipped.
 - **Bilingual** — English / 中文 throughout (`translations.ts`).
+- **Themes** — light / dark / follow system, with five accent colours (Settings → Display).
 - **Local-first** — IndexedDB + `fitlog_*` localStorage keys. Works fully offline.
 - **Optional sync** — push/pull a single JSON snapshot to any HTTP server you control.
 
@@ -41,7 +38,7 @@
 | Build | Vite 6 · `tsc --noEmit` typecheck |
 | Mobile | Capacitor 8 (Android) |
 | Storage | IndexedDB (via `services/db.ts`) · localStorage prefs · tombstones for sync-aware deletes |
-| Data viz | `recharts` (lazy-loaded) · `react-calendar-heatmap` |
+| Data viz | `recharts` (lazy-loaded) · hand-rolled activity heatmap |
 | Offline | Service Worker (`sw.js`) + Web App Manifest |
 | Testing | Playwright e2e smoke (`npm run e2e`) |
 
@@ -65,6 +62,9 @@ services/
 
 Charts are lazy-loaded behind `LazyCharts.tsx` so the first-paint bundle stays small.
 
+Visual spec: [`docs/design-plates.md`](docs/design-plates.md) (interaction and WebView constraints still live in
+[`docs/design-ink-and-paper.md`](docs/design-ink-and-paper.md)). Open work: [`docs/TODO.md`](docs/TODO.md).
+
 ## Run locally
 
 **Prerequisites:** Node.js 20+, npm.
@@ -72,7 +72,7 @@ Charts are lazy-loaded behind `LazyCharts.tsx` so the first-paint bundle stays s
 ```bash
 npm install
 cp .env.example .env.local       # then fill in keys you need
-npm run dev                      # http://localhost:5173
+npm run dev                      # http://localhost:3000
 ```
 
 All env keys are **optional** — the app runs fully offline without them. See [`.env.example`](.env.example) for what each one unlocks.
@@ -83,13 +83,14 @@ npm run build                    # dev-env bundle (safe for local preview)
 npm run build:release            # prod-env bundle — the ONLY build fit for the APK
 npm run preview                  # serve the built bundle
 npm run e2e                      # Playwright smoke test (never touches the real backend)
+npm run check:workbench          # pure-function self-checks for the workout pointer model
 npm run check-remote             # server reachability — dev endpoint; add -- --prod for real data
 npm run remote-detail            # dump the remote snapshot — same --prod rule
 ```
 
 ### Android build
 
-See [`RELEASE-GUIDE.md`](RELEASE-GUIDE.md) and [`android-release-build-guide.md`](android-release-build-guide.md).
+Release checklist (signing, versionCode, verifying the APK, uploading to Releases): [`docs/release-signing.md`](docs/release-signing.md).
 
 ## Personal sync API (optional)
 
@@ -139,7 +140,7 @@ native check is rescued by the stamp.
 - `npm run e2e` aborts and fails on any request that escapes to the real backend.
 
 Server-side enforcement (per-endpoint API keys + versioned backups before every
-write) is tracked in [`docs/nas-server-prompt.md`](docs/nas-server-prompt.md).
+write) is specified in [`docs/archive/nas-server-prompt.md`](docs/archive/nas-server-prompt.md).
 
 ### Backend host
 
@@ -171,7 +172,7 @@ people try the app in a browser without touching any real data.
 
 What the flag actually does:
 
-- Starts in the light “ink and paper” theme, including the pre-React first paint. Visitors can switch themes during the session; reloading starts light again. Non-demo builds retain their existing theme preferences.
+- Starts in the light theme, including the pre-React first paint. Visitors can switch themes during the session; reloading starts light again. Non-demo builds retain their existing theme preferences.
 - `isRemoteConfigured()` returns `false`, so every sync path (scheduler, pull, push,
   the sync button) takes its existing no-op branch.
 - `remoteFetch()` — the single exit for all remote I/O — throws outright. This second
@@ -188,7 +189,7 @@ What the flag actually does:
 
 ## Project status
 
-This is a personal project, used daily by the author. Bug reports and PRs welcome. License: [MIT](LICENSE) (add a `LICENSE` file if missing).
+This is a personal project, used daily by the author. Bug reports and PRs welcome. No license file has been added yet.
 
 ---
 
