@@ -32,7 +32,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSync,
   onToggleUnit,
 }) => (
-  <header className="sticky top-0 z-bar bg-base/90 border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
+  <header data-chrome="top" className="sticky top-0 z-bar bg-base/90 border-b border-divider px-6 pb-4 pt-14 md:pt-[calc(env(safe-area-inset-top)+1.5rem)] flex justify-between items-center">
     <h1 className="font-display text-lg font-semibold tracking-tight text-primary">
       {translations.appTitle[lang]}
     </h1>
