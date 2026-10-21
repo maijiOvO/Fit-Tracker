@@ -1,0 +1,86 @@
+/**
+ * 「按动作」历史的显示换算：存储单位 → 显示单位、指标名、一组的写法。
+ * 列表 / 详情 / 趋势图共用，数字长相要一致。
+ */
+import { Language } from '../../types';
+import { translations } from '../../translations';
+import { KG_TO_LBS } from '../constants';
+import { distToDisplay } from './exerciseConfig';
+import { E1RM, type SetRef } from './liftHistory';
+
+/** 80 而不是 80.00；最多一位小数 */
+export function trimNum(v: number): string {
+  return String(Math.round(v * 10) / 10);
+}
+
+const isLoadMetric = (metric: string) => metric === 'weight' || metric === E1RM;
+
+/** 存储单位 → 显示单位的数 */
+export function toDisplay(metric: string, v: number, unit: 'kg' | 'lbs'): number {
+  if (isLoadMetric(metric)) return unit === 'lbs' ? v * KG_TO_LBS : v;
+  return distToDisplay(metric, v);
+}
+
+export function metricLabel(metric: string, lang: Language): string {
+  const isCn = lang === Language.CN;
+  if (metric === E1RM) return isCn ? '估算 1RM' : 'Est. 1RM';
+  const t = translations[metric as keyof typeof translations] as Record<string, string> | undefined;
+  return t?.[lang] || metric.replace('custom_', '');
+}
+
+/** 指标的单位后缀（重量类才有；其余指标的单位随动作设置，这里不猜） */
+export function metricUnit(metric: string, unit: 'kg' | 'lbs'): string {
+  return isLoadMetric(metric) ? unit : '';
+}
+
+/**
+ * 负荷的写法。带号的动作：+10 / −20 / 自重；普通动作：90。
+ */
+export function formatLoad(kg: number, unit: 'kg' | 'lbs', signed: boolean, isCn: boolean): string {
+  const v = trimNum(unit === 'lbs' ? kg * KG_TO_LBS : kg);
+  if (!signed) return v;
+  if (Number(v) === 0) return isCn ? '自重' : 'BW';
+  return kg > 0 ? `+${v}` : `−${v.replace('-', '')}`;
+}
+
+/** 一组：90×3。没有次数就只写重量 */
+export function formatSet(set: SetRef, unit: 'kg' | 'lbs', signed: boolean, isCn: boolean): string {
+  const load = formatLoad(set.kg, unit, signed, isCn);
+  return set.reps > 0 ? `${load}×${set.reps}` : load;
+}
+
+/** 10-14；不是今年的带上年份 */
+export function shortDate(ts: number, isCn: boolean): string {
+  const d = new Date(ts);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  if (isCn) {
+    const md = `${d.getMonth() + 1}月${d.getDate()}日`;
+    return sameYear ? md : `${d.getFullYear()}年${md}`;
+  }
+  return d.toLocaleDateString('en-US', sameYear
+    ? { month: 'short', day: 'numeric' }
+    : { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/** 上次练是多久之前：今天 / 昨天 / 5 天前 / 3 周前 / 2 个月前 */
+export function agoLabel(ts: number, isCn: boolean, now = Date.now()): string {
+  const startOf = (t: number) => {
+    const d = new Date(t);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+  const days = Math.round((startOf(now) - startOf(ts)) / 86400000);
+  if (days <= 0) return isCn ? '今天' : 'today';
+  if (days === 1) return isCn ? '昨天' : 'yesterday';
+  if (days < 14) return isCn ? `${days} 天前` : `${days}d ago`;
+  if (days < 60) {
+    const w = Math.round(days / 7);
+    return isCn ? `${w} 周前` : `${w}w ago`;
+  }
+  if (days < 365) {
+    const m = Math.round(days / 30);
+    return isCn ? `${m} 个月前` : `${m}mo ago`;
+  }
+  const y = Math.floor(days / 365);
+  return isCn ? `${y} 年前` : `${y}y ago`;
+}

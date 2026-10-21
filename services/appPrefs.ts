@@ -31,7 +31,17 @@ export interface AppPrefs {
   gyms?: Record<string, GymProfile>;
   /** 这个馆的这个动作（某个做法）单独设的一档：键「馆名|动作定义 id|做法 id」 */
   gymOverrides?: Record<string, IncSpec>;
+  /**
+   * 「按动作」顶上的特别关注（2026-10-20）：动作的稳定键「定义 id|做法 id」，最多 4 个、按显示顺序。
+   * 没设过（undefined）＝自动取三大项；设成空数组＝用户清空了。存 id 不存名字：改名、切语言都不失效。
+   */
+  featuredLifts?: string[];
+  /** 特别关注按什么算：做过的最重一组，还是估算 1RM（看自己的极限大概在哪） */
+  featuredMode?: 'weight' | 'e1rm';
 }
+
+/** 特别关注最多几个：三大项占 3 个，留 1 个给自己的重点动作 */
+export const MAX_FEATURED = 4;
 
 export const WEIGHT_STEP_OPTIONS = [1, 2.5, 5, 10] as const;
 export const DROP_STEP_OPTIONS = [2.5, 5, 10, 15] as const;
@@ -45,7 +55,8 @@ export const APP_PREF_DEFAULTS = {
   weekStart: 'mon',
   gyms: {},
   gymOverrides: {},
-} as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang'>;
+  featuredMode: 'weight',
+} as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang' | 'featuredLifts'>;
 
 export type ResolvedAppPrefs = {
   weightStep: number;
@@ -55,6 +66,9 @@ export type ResolvedAppPrefs = {
   weekStart: 'mon' | 'sun';
   gyms: Record<string, GymProfile>;
   gymOverrides: Record<string, IncSpec>;
+  /** null＝没设过，用默认（三大项） */
+  featuredLifts: string[] | null;
+  featuredMode: 'weight' | 'e1rm';
 };
 
 const isUnit = (u: unknown): u is 'kg' | 'lbs' => u === 'kg' || u === 'lbs';
@@ -90,6 +104,10 @@ export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
     weekStart: p?.weekStart === 'sun' ? 'sun' : 'mon',
     gyms: cleanGyms(p?.gyms),
     gymOverrides: cleanOverrides(p?.gymOverrides),
+    featuredLifts: Array.isArray(p?.featuredLifts)
+      ? p.featuredLifts.filter((k): k is string => typeof k === 'string').slice(0, MAX_FEATURED)
+      : null,
+    featuredMode: p?.featuredMode === 'e1rm' ? 'e1rm' : 'weight',
   };
 }
 

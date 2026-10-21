@@ -226,6 +226,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   >({});
   // ============== 动作维度 / 备注 弹窗 ==============
   const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number } | null>(null);
+  // 「动作设置」里的名称 / 部位器械：库里有这个动作才能改（合并覆盖层后的定义，显示的是现在的标签）
+  const metricModalDef = useMemo(() => {
+    const def = showMetricModal?.name ? prefs.findExerciseDef(showMetricModal.name) : undefined;
+    return def ? mergeOverride(def, prefs.exerciseOverrides[def.id]) : undefined;
+  }, [showMetricModal?.name, prefs]);
   const [noteModalData, setNoteModalData] = useState<{
     name: string;
     note: string;
@@ -917,6 +922,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           if (!exerciseToRename || !newExerciseNameInput) return;
           // 重名会被拒（toast 说明），弹窗留着让人改
           if (!prefs.renameExercise(exerciseToRename.id, newExerciseNameInput)) return;
+          // 从「动作设置」里改的：设置弹窗还开着，标题换成新名（旧名照样解析得到，这里只是显示）
+          if (showMetricModal) setShowMetricModal({ ...showMetricModal, name: newExerciseNameInput.trim() });
           setShowRenameExerciseModal(false);
           setExerciseToRename(null);
           setNewExerciseNameInput('');
@@ -1245,6 +1252,26 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onChangeSignedLoad={
           showMetricModal?.name && prefs.findExerciseDef(showMetricModal.name)
             ? (on: boolean) => prefs.setSignedLoad(showMetricModal.name, on)
+            : undefined
+        }
+        onRename={
+          metricModalDef
+            ? () => {
+                const name = prefs.resolveName(showMetricModal!.name);
+                setExerciseToRename({ id: metricModalDef.id, name });
+                setNewExerciseNameInput(name);
+                setShowRenameExerciseModal(true);
+              }
+            : undefined
+        }
+        onEditTags={metricModalDef ? () => setEditExerciseTagsTarget(metricModalDef) : undefined}
+        tagSummary={
+          metricModalDef
+            ? [metricModalDef.bodyPart, ...(metricModalDef.tags ?? [])]
+                .filter(Boolean)
+                .map(t => prefs.getTagName(t))
+                .filter(Boolean)
+                .join(' · ')
             : undefined
         }
       />
