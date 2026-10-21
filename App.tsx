@@ -39,9 +39,9 @@ import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 import {
   BODY_PARTS,
   DEFAULT_EXERCISES,
-  EQUIPMENT_TAGS,
   ExerciseCategory,
 } from './src/constants/exercises';
+import { attrsPatch, type Resistance } from './src/utils/exerciseAttrs';
 import { normalizeGroups } from './src/utils/workbench';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
@@ -51,7 +51,7 @@ import TabNavigation from './src/components/TabNavigation';
 import { bodyPartTagFor } from './src/components/BodyPartPicker';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
 import { DateTimePicker } from './src/components/DateTimePicker';
-import { EditExerciseTagsModal } from './src/components/EditExerciseTagsModal';
+import { ExerciseAttrsModal } from './src/components/ExerciseAttrsModal';
 import type { PlanPickerHost } from './src/components/ScheduleEditorModal';
 import { AppHeader } from './src/components/AppHeader';
 import {
@@ -212,7 +212,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
-  const [newExerciseTags, setNewExerciseTags] = useState<string[]>([]);
+  /** 新动作的器材与阻力（resistance 不写 = 跟器材默认） */
+  const [newExerciseEquip, setNewExerciseEquip] = useState<{ equipment: string; resistance?: Resistance }>({ equipment: '' });
   /** 新动作的细分（第 3 条）；'' = 未细分 */
   const [newExerciseRegion, setNewExerciseRegion] = useState('');
   const [newExerciseBodyPart, setNewExerciseBodyPart] = useState<string>('');
@@ -823,7 +824,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       createdExerciseTargetRef.current = onCreated ?? null;
       setNewExerciseName(prefilledName?.trim() || '');
       setNewExerciseBodyPart('');
-      setNewExerciseTags([]);
+      setNewExerciseEquip({ equipment: '' });
       setNewExerciseRegion('');
       setNewExerciseCategory('STRENGTH');
       setShowAddExerciseModal(true);
@@ -845,7 +846,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 静音未使用 imports（保留以便未来扩展）==============
   void BODY_PARTS;
-  void EQUIPMENT_TAGS;
   void translations;
 
   // =========================================================
@@ -932,12 +932,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setNewExerciseCategory={setNewExerciseCategory}
         newExerciseBodyPart={newExerciseBodyPart}
         setNewExerciseBodyPart={setNewExerciseBodyPart}
-        newExerciseTags={newExerciseTags}
-        setNewExerciseTags={setNewExerciseTags}
+        newExerciseEquip={newExerciseEquip}
+        setNewExerciseEquip={setNewExerciseEquip}
         newExerciseRegion={newExerciseRegion}
         setNewExerciseRegion={setNewExerciseRegion}
-        customTags={prefs.customTags}
-        getTagName={prefs.getTagName}
         addsTo={createdExerciseTargetRef.current ? 'plan' : 'workout'}
         onClose={() => {
           createdExerciseTargetRef.current = null;
@@ -970,7 +968,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           }
           const currentCat = newExerciseCategory;
           // 切类前先清理 customTag 的 parentCategory（保持原行为）
-          const selectedTagIds = [...newExerciseTags, newExerciseBodyPart].filter(Boolean);
+          const selectedTagIds = [newExerciseEquip.equipment, newExerciseBodyPart].filter(Boolean);
           prefs.setCustomTags(prevTags => {
             const next = prevTags.map(tag => {
               if (
@@ -990,7 +988,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             id: Date.now().toString(),
             name: { en: newExerciseName.trim(), cn: newExerciseName.trim() },
             bodyPart: newExerciseBodyPart,
-            tags: newExerciseTags,
+            ...attrsPatch(newExerciseEquip.equipment, newExerciseEquip.resistance),
             category: currentCat,
             ...(newExerciseRegion ? { region: newExerciseRegion } : {}),
           };
@@ -1000,20 +998,18 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           setShowAddExerciseModal(false);
           setNewExerciseName('');
           setNewExerciseBodyPart('');
-          setNewExerciseTags([]);
+          setNewExerciseEquip({ equipment: '' });
           setNewExerciseRegion('');
         }}
       />
 
-      <EditExerciseTagsModal
+      <ExerciseAttrsModal
         open={!!editExerciseTagsTarget}
         exercise={editExerciseTagsTarget}
         lang={lang}
-        customTags={prefs.customTags}
-        getTagName={prefs.getTagName}
         onClose={() => setEditExerciseTagsTarget(null)}
-        onSave={(exerciseId, bodyPart, tags, region, category) => {
-          prefs.saveExerciseTags(exerciseId, bodyPart, tags, region, category);
+        onSave={(exerciseId, v) => {
+          prefs.saveExerciseAttrs(exerciseId, v);
           setEditExerciseTagsTarget(null);
         }}
       />

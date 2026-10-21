@@ -14,7 +14,9 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
-import { defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+
+type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell';
 import { PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
 interface GymPickerModalProps {
@@ -230,17 +232,19 @@ function GymProfileForm({
     if (has && p.plates.length <= 1) return;
     setP({ ...p, plates: has ? p.plates.filter(x => x !== w) : [...p.plates, w].sort((a, b) => b - a) });
   };
-  const stepInc = (key: 'cable' | 'machine' | 'dumbbell', d: 1 | -1) => {
-    const c = p[key];
+  // 壶铃一档是后加的，旧档案没有这一项 → 按默认
+  const incOf = (key: IncKey): IncSpec => p[key] ?? DEFAULT_KETTLEBELL_INC[p.plateUnit];
+  const stepInc = (key: IncKey, d: 1 | -1) => {
+    const c = incOf(key);
     const list = INC_CHOICES[c.u];
     let k = list.indexOf(c.v);
     if (k < 0) k = 0;
     setP({ ...p, [key]: { ...c, v: list[Math.max(0, Math.min(list.length - 1, k + d))] } });
   };
-  const setIncUnit = (key: 'cable' | 'machine' | 'dumbbell', u: PlateUnit) => {
-    const c = p[key];
+  const setIncUnit = (key: IncKey, u: PlateUnit) => {
+    const c = incOf(key);
     if (c.u === u) return;
-    const def = defaultProfile(u)[key];
+    const def = defaultProfile(u)[key] ?? DEFAULT_KETTLEBELL_INC[u];
     setP({ ...p, [key]: { u, v: def.v } as IncSpec });
   };
 
@@ -259,16 +263,16 @@ function GymProfileForm({
 
   const seg = (on: boolean) =>
     `min-h-[36px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
-  const inc = (key: 'cable' | 'machine' | 'dumbbell', label: string) => (
+  const inc = (key: IncKey, label: string) => (
     <div className="gym-field">
       <span className="text-label text-secondary">{label}</span>
       <div className="gym-inc-stepper">
         <button type="button" onClick={() => stepInc(key, -1)} aria-label={isCn ? '轻一点' : 'Smaller'}>−</button>
-        <b>{fmt(p[key].v)}</b>
+        <b>{fmt(incOf(key).v)}</b>
         <button type="button" onClick={() => stepInc(key, 1)} aria-label={isCn ? '重一点' : 'Bigger'}>＋</button>
         <span className="gym-seg" role="group">
-          <button type="button" className={seg(p[key].u === 'kg')} aria-pressed={p[key].u === 'kg'} onClick={() => setIncUnit(key, 'kg')}>kg</button>
-          <button type="button" className={seg(p[key].u === 'lbs')} aria-pressed={p[key].u === 'lbs'} onClick={() => setIncUnit(key, 'lbs')}>lb</button>
+          <button type="button" className={seg(incOf(key).u === 'kg')} aria-pressed={incOf(key).u === 'kg'} onClick={() => setIncUnit(key, 'kg')}>kg</button>
+          <button type="button" className={seg(incOf(key).u === 'lbs')} aria-pressed={incOf(key).u === 'lbs'} onClick={() => setIncUnit(key, 'lbs')}>lb</button>
         </span>
       </div>
     </div>
@@ -323,6 +327,7 @@ function GymProfileForm({
       {inc('cable', isCn ? '龙门架 / 绳索一档' : 'Cable step')}
       {inc('machine', isCn ? '固定器械一档（个别不一样的，在那个动作的 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
+      {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
       {err && <p className="text-label text-warning">{err}</p>}
       <button type="button" className="ui-btn-primary w-full min-h-[48px] mt-2" onClick={save} data-testid="gym-profile-save">
         {name ? (isCn ? '存好' : 'Save') : isCn ? '存好，用这个馆' : 'Save and use it'}

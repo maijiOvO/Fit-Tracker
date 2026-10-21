@@ -1,27 +1,26 @@
 /**
  * 「这个动作的重量怎么画、怎么算」—— 「杠铃片」规格 docs/design-plates.md §3 的原型。
  *
- * 训练里的 Exercise 身上不带器材标签（buildExercise 不写 tags），只能回动作库查：
- * 动作定义 + 覆盖层，变体（做法）自己设过器材的以做法为准（[] = 跟随动作）。
+ * 训练里的 Exercise 身上不带器材（buildExercise 不写），只能回动作库查：
+ * 动作定义 + 覆盖层，做法自己设过器材的以做法为准（见 ExercisePrefsContext.attrsOf）。
  * 手打的、库里查不到的动作 → 纯数字。
  *
- * 同一个动作能用几种器材做（罗马尼亚硬拉：杠铃 / 哑铃）→ 拆成同一个动作的不同做法，各自设器材标签
- * （2026-10-18 用户定）；没拆的按下面的优先级取第一个。
+ * 2026-10-20 起由「器材 + 阻力类型」决定（src/utils/exerciseAttrs.ts），不再从多选标签里按优先级猜，
+ * 也不再靠内置挂片器械名单：挂片器械就是「器械 + 杠铃片」。
  */
 import { useCallback } from 'react';
-import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useExercisePrefs, type ExerciseAttrs } from '../contexts/ExercisePrefsContext';
 import { mergeOverride } from '../utils/exerciseOverride';
+import { EQ_BARBELL, EQ_CABLE } from '../utils/exerciseAttrs';
 import type { Exercise } from '../../types';
 import { usesSignedLoad } from '../utils/load';
 
 /**
  * plates：杠铃（杆重 + 两边对称挂片）；loaded：挂片式器械（史密斯 / 倒蹬 / 哈克 / T 杠，按杠铃那样算但只算片子，
- * 2026-10-18 用户定）；pin：配重片插销（器械 / 龙门架）；pair：哑铃；signed：带符号负荷（辅助负 / 负重正）；plain：纯数字。
+ * 2026-10-18 用户定）；pin：配重片插销（器械 / 龙门架）；pair：哑铃；bell：壶铃（单只、按馆的壶铃一档）；
+ * signed：带符号负荷（辅助负 / 负重正）；plain：纯数字（弹力带、不计重）。
  */
-export type LoadKind = 'plates' | 'loaded' | 'pin' | 'pair' | 'signed' | 'plain';
-
-/** 内置动作里的挂片式器械：标签是 tagMachine / tagBarbell，但实际是往上挂片 */
-export const PLATE_LOADED_IDS = new Set(['bp_smith', 'bp_incline_smith', 'ohp_smith', 'leg_press', 'hack_squat', 'tbar_row']);
+export type LoadKind = 'plates' | 'loaded' | 'pin' | 'pair' | 'bell' | 'signed' | 'plain';
 
 export interface LoadInfo {
   kind: LoadKind;
@@ -33,36 +32,38 @@ export interface LoadInfo {
 }
 
 /**
- * 多个器材标签时的取法：带符号负荷最先（自重动作挂了腰片也还是自重），
- * 其余按「挂片器械 > 杠铃 > 配重片 > 哑铃 > 纯数字」取第一个。
+ * 器材 + 阻力 → 画法。带符号负荷最先（自重动作挂了腰片也还是自重）；
+ * 杠铃片挂在杠铃上算杆重，挂在别的器材上（史密斯、倒蹬）只算片子。
  */
-export function loadKindFromTags(tags: readonly string[] | undefined, signed: boolean, defId?: string): LoadKind {
+export function loadKindOf(attrs: ExerciseAttrs, signed: boolean): LoadKind {
   if (signed) return 'signed';
-  if (defId && PLATE_LOADED_IDS.has(defId)) return 'loaded';
-  const t = tags ?? [];
-  if (t.includes('tagBarbell')) return 'plates';
-  if (t.includes('tagMachine') || t.includes('tagCable')) return 'pin';
-  if (t.includes('tagDumbbell')) return 'pair';
-  return 'plain';
+  switch (attrs.resistance) {
+    case 'plates':
+      return attrs.equipment === EQ_BARBELL ? 'plates' : 'loaded';
+    case 'stack':
+      return 'pin';
+    case 'dumbbell':
+      return 'pair';
+    case 'kettlebell':
+      return 'bell';
+    default:
+      return 'plain';
+  }
 }
 
 /** 返回一个查询函数：(训练里的动作, 它是不是带符号负荷) → 画法与算法 */
 export function useLoadInfoOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean) => LoadInfo {
-  const { findExerciseDef, exerciseOverrides, variantsOf, variantIdOf } = useExercisePrefs();
+  const { findExerciseDef, exerciseOverrides, variantIdOf, attrsOf } = useExercisePrefs();
   return useCallback(
     (ex, signed) => {
       const def = findExerciseDef(ex.name);
       const vid = variantIdOf(ex);
       if (!def) return { kind: signed ? 'signed' : 'plain', stack: 'machine', variantId: vid };
-      const merged = mergeOverride(def, exerciseOverrides[def.id]);
-      const vTags = vid ? variantsOf(ex.name).find((v) => v.id === vid)?.tags : undefined;
-      const tags = vTags && vTags.length ? vTags : merged.tags;
-      // 做法自己设了器材标签时，内置的「挂片器械」名单不再作数（那个做法也许是哑铃做的）
-      const kind = loadKindFromTags(tags, signed, vTags && vTags.length ? undefined : def.id);
-      const stack = (tags ?? []).includes('tagCable') ? 'cable' : 'machine';
-      return { kind, stack, defId: def.id, variantId: vid };
+      const attrs = attrsOf(mergeOverride(def, exerciseOverrides[def.id]), vid);
+      const stack = attrs.equipment === EQ_CABLE ? 'cable' : 'machine';
+      return { kind: loadKindOf(attrs, signed), stack, defId: def.id, variantId: vid };
     },
-    [findExerciseDef, exerciseOverrides, variantsOf, variantIdOf],
+    [findExerciseDef, exerciseOverrides, variantIdOf, attrsOf],
   );
 }
 

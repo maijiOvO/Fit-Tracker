@@ -112,7 +112,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
           targetSets: 3,
           targetReps: 10,
           ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
-          ...(ex.tags?.length ? { tags: ex.tags } : {}),
+          ...(ex.equipment ? { tags: [ex.equipment] } : {}),
         },
       ]);
       return id;

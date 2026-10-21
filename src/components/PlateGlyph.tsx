@@ -278,6 +278,7 @@ export function LoadHero({
           : 'Empty bar';
   } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt1(value)} ${u}` : `Pin at ${fmt1(value)} ${u}`;
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt1(value)} ${u}` : `${fmt1(value)} ${u} each`;
+  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt1(value)} ${u}` : `Kettlebell ${fmt1(value)} ${u}`;
   else if (kind === 'signed') {
     if (value < 0) caption = isCn ? `辅助 ${fmt1(-value)} ${u}` : `Assisted ${fmt1(-value)} ${u}`;
     else if (value === 0) caption = isCn ? '纯自重' : 'Bodyweight';
@@ -427,6 +428,7 @@ function GymHero({
     if (kind === 'loaded') caption += isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt(v)} ${u}` : `Pin at ${fmt(v)} ${u}`;
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
+  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt(v)} ${u}` : `Kettlebell ${fmt(v)} ${u}`;
   else if (kind === 'signed') {
     if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
     else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';

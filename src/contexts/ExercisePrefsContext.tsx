@@ -18,8 +18,15 @@ import React, {
 } from 'react';
 import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { translations } from '../../translations';
-import { BODY_PARTS, BODY_REGIONS, DEFAULT_EXERCISES, EQUIPMENT_TAGS } from '../constants/exercises';
+import { BODY_PARTS, BODY_REGIONS, DEFAULT_EXERCISES } from '../constants/exercises';
 import { mergeOverride } from '../utils/exerciseOverride';
+import {
+  BUILTIN_EQUIPMENT,
+  attrsPatch,
+  effectiveResistance,
+  variantAttrs,
+  type Resistance,
+} from '../utils/exerciseAttrs';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
@@ -42,6 +49,15 @@ export interface CustomTag {
   order?: string[];
   /** regionLayout：删掉（隐藏）的系统细分。动作上的引用不动，自然回未细分；恢复即回来 */
   hidden?: string[];
+  /** equipment：这件自建器材的默认阻力（没写 = 不计重）。动作上还能再改 */
+  resistance?: Resistance;
+}
+
+/** 动作（或它的某个做法）此刻生效的器材与阻力 */
+export interface ExerciseAttrs {
+  /** '' = 无器材（含引用的自建器材已被删） */
+  equipment: string;
+  resistance: Resistance;
 }
 
 interface ExercisePrefsContextValue {
@@ -92,8 +108,19 @@ interface ExercisePrefsContextValue {
   /** 「杠铃片」：这个动作用哪根杠；库里查不到的动作返回 undefined（= 标准杠） */
   barOf: (exerciseName: string) => import('../utils/plates').BarChoice | undefined;
   setBar: (exerciseName: string, bar: import('../utils/plates').BarChoice) => void;
-  /** 改一个做法的细分 / 器材（region: '' = 跟动作走；tags: [] = 跟动作走） */
+  /** 改一个做法的细分（'' = 跟动作走） */
   updateVariant: (exerciseName: string, id: string, patch: Partial<Omit<ExerciseVariant, 'id'>>) => void;
+  /** 改一个做法的器材与阻力（equipment '' = 跟动作走） */
+  setVariantAttrs: (exerciseName: string, id: string, equipment: string, resistance?: Resistance) => void;
+  /** 全部器材 id：内置在前、自建在后 */
+  equipmentIds: string[];
+  /**
+   * 动作（已合并覆盖层）或它某个做法此刻生效的器材与阻力：做法写了器材用做法的；
+   * 引用的自建器材已被删 → 无器材；阻力按器材锁定 / 默认补齐。
+   */
+  attrsOf: (ex: ExerciseDefinition, variantId?: string) => ExerciseAttrs;
+  /** 内置做法 name 留空（显示器材名）：把这类空名补成当前语言下的器材名 */
+  withVariantNames: (list: ExerciseVariant[] | undefined) => ExerciseVariant[];
   /**
    * 并入另一个动作（2.5 整理用）：source 变成 target 的一个做法（带着 source 的细分和器材），source 从动作库消失。
    * 历史记录一条不改：source 的名字从此解析到 target、做法按 variantAliases 认；纪录也就并到 target 的那个做法下。
@@ -125,18 +152,23 @@ interface ExercisePrefsContextValue {
   seedMetricsIfUnset: (exerciseName: string, metrics: string[]) => void;
   toggleStarExercise: (exerciseName: string) => void;
   saveExerciseNote: (name: string, note: string) => void;
-  /** region 不传 = 不动细分；'' = 放回未细分。category 不传 = 不动训练类型 */
-  saveExerciseTags: (
+  /** 存动作的属性（属性表「保存」）。region '' = 未细分；resistance 只在器材允许改时生效 */
+  saveExerciseAttrs: (
     exerciseId: string,
-    bodyPart: string,
-    tags: string[],
-    region?: string,
-    category?: ExerciseDefinition['category'],
+    attrs: {
+      bodyPart: string;
+      region: string;
+      category: ExerciseDefinition['category'];
+      equipment: string;
+      resistance?: Resistance;
+    },
   ) => void;
   /** 返回 false = 没改成（同类标签重名：部位之间、器材之间、同一部位的细分之间，已 toast） */
   renameTag: (id: string, newName: string) => boolean;
-  /** 新建自建部位 / 器材，返回新 id；同类重名返回 null（已 toast） */
-  addTag: (category: 'bodyPart' | 'equipment', name: string) => string | null;
+  /** 新建自建部位 / 器材，返回新 id；同类重名返回 null（已 toast）。器材带默认阻力 */
+  addTag: (category: 'bodyPart' | 'equipment', name: string, resistance?: Resistance) => string | null;
+  /** 改自建器材的默认阻力 */
+  setEquipmentResistance: (id: string, resistance: Resistance) => void;
   deleteTag: (id: string) => Promise<void>;
   /** 返回 false = 没改成（重名 / 空名），调用方别关弹窗 */
   renameExercise: (exerciseId: string, newName: string) => boolean;
@@ -187,6 +219,38 @@ const LS_KEYS = {
   exerciseOverrides: 'fitlog_exercise_overrides',
   tagRenameOverrides: 'fitlog_tag_rename_overrides',
 } as const;
+
+/** 本机做过「内置器材做法」迁移的标记（只在本机，不同步：每台设备各自补一次，补过的同名做法不会重复） */
+const ATTRS_MIGRATED_KEY = 'fitlog_attrs_migrated_v1';
+
+/**
+ * 多器材的内置动作拆成了「主器材 + 做法」（2026-10-20）。没给它建过做法的，内置做法直接生效；
+ * 已经在覆盖层里有自己做法表的，内置做法被整张表盖住了 —— 这里补进去一次：
+ * 已有同名做法（用户早就按 10-18 的规则自己拆过「哑铃」）就认它、补上器材，不再加一个。
+ */
+function mergeBuiltinVariants(overrides: Record<string, Partial<ExerciseDefinition>>) {
+  let changed = false;
+  const next = { ...overrides };
+  for (const d of DEFAULT_EXERCISES) {
+    const own = overrides[d.id]?.variants;
+    if (!d.variants?.length || !own) continue;
+    const list = [...own];
+    for (const bv of d.variants) {
+      if (list.some(v => v.id === bv.id)) continue;
+      const t = (translations as Record<string, { cn: string; en: string }>)[bv.equipment ?? ''];
+      const names = t ? [t.cn, t.en] : [];
+      const same = list.findIndex(v => names.includes((v.name || '').trim()));
+      if (same >= 0) {
+        if (!variantAttrs(list[same])) list[same] = { ...list[same], equipment: bv.equipment, tags: [bv.equipment!] };
+      } else {
+        list.push(bv);
+      }
+      changed = true;
+    }
+    next[d.id] = { ...overrides[d.id], variants: list };
+  }
+  return { next, changed };
+}
 
 /** 系统细分 id → 它所在的部位（自建细分看 CustomTag.parentPart） */
 function systemRegionPart(id: string): string | undefined {
@@ -270,9 +334,19 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   );
   const [exerciseOverrides, setExerciseOverrides] = useState<
     Record<string, Partial<ExerciseDefinition>>
-  >(() =>
-    readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {}),
-  );
+  >(() => {
+    const raw = readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {});
+    if (storage.getItem(ATTRS_MIGRATED_KEY)) return raw;
+    const { next, changed } = mergeBuiltinVariants(raw);
+    // 先写数据再落标记：StrictMode 下初始化函数跑两遍，第二遍读到的已经是迁移后的
+    if (changed) {
+      writeJSON(LS_KEYS.exerciseOverrides, next);
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+    }
+    storage.setItem(ATTRS_MIGRATED_KEY, '1');
+    return next;
+  });
   const [tagRenameOverrides, setTagRenameOverrides] = useState<Record<string, string>>(
     () => readJSON<Record<string, string>>(LS_KEYS.tagRenameOverrides, {}),
   );
@@ -340,7 +414,45 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [findExerciseDef, exerciseOverrides, lang],
   );
 
+  const getTagName = useCallback(
+    (tid: string): string => {
+      if (!tid) return '';
+      const lowerId = tid.toLowerCase();
+      if (tagRenameOverrides[tid]) return tagRenameOverrides[tid];
+
+      const customTag = customTags.find(
+        ct => ct.id === tid || ct.id.toLowerCase() === lowerId,
+      );
+      if (customTag) return customTag.name;
+
+      const systemKey = Object.keys(translations).find(k => k.toLowerCase() === lowerId);
+      if (systemKey) {
+        return (translations as any)[systemKey][lang];
+      }
+      if (/^\d{10,13}$/.test(tid)) return '';
+      // 已删除的自建部位 / 器材 / 细分：动作上的引用还在，不能把原始 id「CT_…」露出来
+      if (/^(ct|rg)_/i.test(tid)) return '';
+      return tid;
+    },
+    [customTags, tagRenameOverrides, lang],
+  );
+
+  const withVariantNames = useCallback(
+    (list: ExerciseVariant[] | undefined): ExerciseVariant[] =>
+      (list ?? []).map(v => (v.name ? v : { ...v, name: getTagName(v.equipment ?? '') || v.id })),
+    [getTagName],
+  );
+
   const variantsOf = useCallback(
+    (exerciseName: string): ExerciseVariant[] => {
+      const def = findExerciseDef(exerciseName);
+      if (!def) return [];
+      return withVariantNames(exerciseOverrides[def.id]?.variants ?? def.variants);
+    },
+    [findExerciseDef, exerciseOverrides, withVariantNames],
+  );
+  /** 写回用的原始做法表（内置做法的 name 保持空，别把补出来的器材名写死） */
+  const rawVariantsOf = useCallback(
     (exerciseName: string): ExerciseVariant[] => {
       const def = findExerciseDef(exerciseName);
       if (!def) return [];
@@ -414,27 +526,25 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [resolveName],
   );
 
-  const getTagName = useCallback(
-    (tid: string): string => {
-      if (!tid) return '';
-      const lowerId = tid.toLowerCase();
-      if (tagRenameOverrides[tid]) return tagRenameOverrides[tid];
+  const equipmentIds = useMemo(
+    () => [...BUILTIN_EQUIPMENT, ...customTags.filter(t => t.category === 'equipment').map(t => t.id)],
+    [customTags],
+  );
 
-      const customTag = customTags.find(
-        ct => ct.id === tid || ct.id.toLowerCase() === lowerId,
-      );
-      if (customTag) return customTag.name;
-
-      const systemKey = Object.keys(translations).find(k => k.toLowerCase() === lowerId);
-      if (systemKey) {
-        return (translations as any)[systemKey][lang];
+  const attrsOf = useCallback(
+    (ex: ExerciseDefinition, variantId?: string): ExerciseAttrs => {
+      const v = variantId ? withVariantNames(ex.variants).find(x => x.id === variantId) : undefined;
+      const own = variantAttrs(v);
+      let equipment = own ? own.equipment : ex.equipment ?? '';
+      let resistance = own ? own.resistance : ex.resistance;
+      // 引用的自建器材已被删：当无器材，动作上写的阻力也作废（跟着器材走的）
+      if (equipment && !equipmentIds.some(id => id.toLowerCase() === equipment.toLowerCase())) {
+        equipment = '';
+        resistance = undefined;
       }
-      if (/^\d{10,13}$/.test(tid)) return '';
-      // 已删除的自建部位 / 器材 / 细分：动作上的引用还在，不能把原始 id「CT_…」露出来
-      if (/^(ct|rg)_/i.test(tid)) return '';
-      return tid;
+      return { equipment, resistance: effectiveResistance(equipment, resistance, customTags) };
     },
-    [customTags, tagRenameOverrides, lang],
+    [customTags, equipmentIds, withVariantNames],
   );
 
   // 按显示名查：原先直接拿传进来的名字查原键，中文下设的「跑步机 = 距离/时长/速度」
@@ -574,31 +684,42 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     });
   }, [rawKeysFor, resolveName]);
 
-  const saveExerciseTags = useCallback(
+  const saveExerciseAttrs = useCallback(
     (
       exerciseId: string,
-      bodyPart: string,
-      tags: string[],
-      region?: string,
-      category?: ExerciseDefinition['category'],
+      a: {
+        bodyPart: string;
+        region: string;
+        category: ExerciseDefinition['category'];
+        equipment: string;
+        resistance?: Resistance;
+      },
     ) => {
       const isCustom = customExercises.some(c => c.id === exerciseId);
-      const withRegion = {
-        ...(region === undefined ? {} : { region }),
-        ...(category === undefined ? {} : { category }),
+      const patch = {
+        bodyPart: a.bodyPart,
+        region: a.region,
+        category: a.category,
+        ...attrsPatch(a.equipment, a.resistance),
       };
+      // 写进 JSON 前去掉 undefined 的 resistance（覆盖层上「写过 equipment」本身就表示整组以这一层为准）
+      if (patch.resistance === undefined) delete (patch as Partial<typeof patch>).resistance;
       if (isCustom) {
         setCustomExercises(prev => {
-          const next = prev.map(c =>
-            c.id === exerciseId ? { ...c, bodyPart, tags, ...withRegion } : c,
-          );
+          const next = prev.map(c => {
+            if (c.id !== exerciseId) return c;
+            const n = { ...c, ...patch };
+            if (patch.resistance === undefined) delete n.resistance;
+            return n;
+          });
           writeJSON(LS_KEYS.customExercises, next);
           return next;
         });
       } else {
         setExerciseOverrides(prev => {
-          const current = prev[exerciseId] || {};
-          const next = { ...current, bodyPart, tags, ...withRegion };
+          const current = { ...(prev[exerciseId] || {}) };
+          delete current.resistance;
+          const next = { ...current, ...patch };
           const updated = { ...prev, [exerciseId]: next };
           writeJSON(LS_KEYS.exerciseOverrides, updated);
           return updated;
@@ -613,7 +734,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   /** 同一类标签的全部 id（部位 / 器材：系统 + 自建），查重用 */
   const idsOfKind = useCallback(
     (kind: 'bodyPart' | 'equipment') => [
-      ...(kind === 'bodyPart' ? BODY_PARTS : EQUIPMENT_TAGS),
+      ...(kind === 'bodyPart' ? BODY_PARTS : BUILTIN_EQUIPMENT),
       ...customTags.filter(t => t.category === kind).map(t => t.id),
     ],
     [customTags],
@@ -622,7 +743,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (id: string): 'bodyPart' | 'equipment' | null => {
       const lower = id.toLowerCase();
       if (BODY_PARTS.some(p => p.toLowerCase() === lower)) return 'bodyPart';
-      if (EQUIPMENT_TAGS.some(p => p.toLowerCase() === lower)) return 'equipment';
+      if (BUILTIN_EQUIPMENT.some(p => p.toLowerCase() === lower)) return 'equipment';
       const ct = customTags.find(t => t.id.toLowerCase() === lower);
       return ct && (ct.category === 'bodyPart' || ct.category === 'equipment') ? ct.category : null;
     },
@@ -672,7 +793,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const addTag = useCallback(
-    (category: 'bodyPart' | 'equipment', name: string): string | null => {
+    (category: 'bodyPart' | 'equipment', name: string, resistance?: Resistance): string | null => {
       const n = name.trim();
       if (!n) return null;
       if (idsOfKind(category).some(t => getTagName(t) === n)) {
@@ -680,8 +801,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         return null;
       }
       const id = `ct_${Date.now()}`;
+      const tag: CustomTag = { id, name: n, category, ...(category === 'equipment' && resistance ? { resistance } : {}) };
       setCustomTags(prev => {
-        const next = [...prev, { id, name: n, category }];
+        const next = [...prev, tag];
         writeJSON(LS_KEYS.customTags, next);
         return next;
       });
@@ -691,6 +813,16 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     },
     [dupToast, getTagName, idsOfKind],
   );
+
+  const setEquipmentResistance = useCallback((id: string, resistance: Resistance) => {
+    setCustomTags(prev => {
+      const next = prev.map(t => (t.id === id && t.category === 'equipment' ? { ...t, resistance } : t));
+      writeJSON(LS_KEYS.customTags, next);
+      return next;
+    });
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
+  }, []);
 
   const deleteTag = useCallback(
     async (id: string) => {
@@ -708,7 +840,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
           ? live.filter(d => d.region === id).length
           : tag.category === 'bodyPart'
             ? live.filter(d => (d.bodyPart || '').toLowerCase() === id.toLowerCase()).length
-            : 0;
+            : live.filter(d => (d.equipment || '').toLowerCase() === id.toLowerCase()).length;
       const name = getTagName(id);
       const tagSnapshot = structuredClone(tag);
       const tagIndex = customTags.findIndex(ct => ct.id === id);
@@ -739,7 +871,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
             ? cn
               ? `已删除部位「${name}」${affected ? `，${affected} 个动作回到未分部位` : ''}`
               : `Part deleted${affected ? ` — ${affected} now without a part` : ''}`
-            : cn ? `已删除器材「${name}」` : 'Gear deleted';
+            : cn
+              ? `已删除器材「${name}」${affected ? `，${affected} 个动作改为无器材` : ''}`
+              : `Gear deleted${affected ? ` — ${affected} now without gear` : ''}`;
       toastUndo(msg, () => {
         setCustomTags(prev => {
           const next = prev.filter(ct => ct.id !== id);
@@ -1059,10 +1193,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         return null;
       }
       const id = `v_${Date.now()}`;
-      writeVariants(exerciseName, [...variantsOf(exerciseName), { id, name: n }]);
+      writeVariants(exerciseName, [...rawVariantsOf(exerciseName), { id, name: n }]);
       return id;
     },
-    [findExerciseDef, lang, toast, variantClash, variantsOf, writeVariants],
+    [findExerciseDef, lang, toast, variantClash, rawVariantsOf, writeVariants],
   );
 
   const renameVariant = useCallback(
@@ -1073,17 +1207,17 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         toast(lang === Language.CN ? `已经有「${n}」这个做法了` : `"${n}" already exists`, 'error');
         return false;
       }
-      writeVariants(exerciseName, variantsOf(exerciseName).map(v => (v.id === id ? { ...v, name: n } : v)));
+      writeVariants(exerciseName, rawVariantsOf(exerciseName).map(v => (v.id === id ? { ...v, name: n } : v)));
       return true;
     },
-    [lang, toast, variantClash, variantsOf, writeVariants],
+    [lang, toast, variantClash, rawVariantsOf, writeVariants],
   );
 
   /** 删练法：历史记录里带着当时的名字，照样能显示、照样单独算 PR；撤销放回原位 */
   const removeVariant = useCallback(
     (exerciseName: string, id: string) => {
-      const before = variantsOf(exerciseName);
-      const gone = before.find(v => v.id === id);
+      const before = rawVariantsOf(exerciseName);
+      const gone = variantsOf(exerciseName).find(v => v.id === id);
       if (!gone) return;
       writeVariants(exerciseName, before.filter(v => v.id !== id));
       toastUndo(
@@ -1091,23 +1225,33 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         () => writeVariants(exerciseName, before),
       );
     },
-    [lang, toastUndo, variantsOf, writeVariants],
+    [lang, toastUndo, rawVariantsOf, variantsOf, writeVariants],
   );
 
   const updateVariant = useCallback(
     (exerciseName: string, id: string, patch: Partial<Omit<ExerciseVariant, 'id'>>) => {
       writeVariants(
         exerciseName,
-        variantsOf(exerciseName).map(v => {
+        rawVariantsOf(exerciseName).map(v => {
           if (v.id !== id) return v;
           const next: ExerciseVariant = { ...v, ...patch };
           if (!next.region) delete next.region;
           if (!next.tags?.length) delete next.tags;
+          if (next.resistance === undefined) delete next.resistance;
+          if (!next.equipment) delete next.equipment;
           return next;
         }),
       );
     },
-    [variantsOf, writeVariants],
+    [rawVariantsOf, writeVariants],
+  );
+
+  const setVariantAttrs = useCallback(
+    (exerciseName: string, id: string, equipment: string, resistance?: Resistance) => {
+      // '' = 跟动作走：不留 equipment 键，旧 tags 也清掉（不然旧标签又被换算回来）
+      updateVariant(exerciseName, id, { ...attrsPatch(equipment, resistance), ...(equipment ? {} : { equipment: undefined }) });
+    },
+    [updateVariant],
   );
 
   /** 写动作定义上的一个字段：自建动作写定义本身、内置动作写覆盖层 */
@@ -1138,11 +1282,11 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       if (!def) return false;
       const merged = mergeOverride(def, exerciseOverrides[def.id]);
       if (typeof merged.signedLoad === 'boolean') return merged.signedLoad;
-      // 默认：内置的自重类（自重 / 辅助 / 负重），或带「自重」器材标签的
+      // 默认：内置的自重类（自重 / 辅助 / 负重），或阻力类型是自重的（含「器械 + 自重」：罗马椅、辅助器械）
       const bt = merged.exerciseConfig?.bodyweightType;
-      return (!!bt && bt !== 'none') || (merged.tags ?? []).some(t => (t || '').toLowerCase() === 'tagbodyweight');
+      return (!!bt && bt !== 'none') || attrsOf(merged).resistance === 'bodyweight';
     },
-    [exerciseOverrides, findExerciseDef],
+    [attrsOf, exerciseOverrides, findExerciseDef],
   );
 
   const setSignedLoad = useCallback(
@@ -1183,15 +1327,17 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       // 跟 target 已有的做法重名就直接认那个做法
       const stripped = srcName.split(tgtName).join('').replace(/^[\s·()（）-]+|[\s·()（）-]+$/g, '');
       const vName = stripped || srcName;
-      const existing = (t.variants ?? []).find(v => v.name === vName);
+      const existing = withVariantNames(t.variants).find(v => v.name === vName);
       const vid = existing?.id ?? `v_${Date.now()}`;
       const sameRegionPart = (s.bodyPart || '').toLowerCase() === (t.bodyPart || '').toLowerCase();
       const variant: ExerciseVariant = existing ?? {
         id: vid,
         name: vName,
         ...(sameRegionPart && s.region ? { region: s.region } : {}),
-        ...(s.tags?.length ? { tags: s.tags } : {}),
+        // 器材：source 的跟 target 一样就跟动作走，不一样才写在做法上
+        ...(s.equipment && s.equipment !== t.equipment ? attrsPatch(s.equipment, s.resistance) : {}),
       };
+      if (variant.resistance === undefined) delete variant.resistance;
       // source 认得的全部名字（含曾用名、它自己并进来的旧名）都指向这个做法
       const srcNames = [
         s.name.cn, s.name.en, ...(s.aliases ?? []), ...Object.keys(s.variantAliases ?? {}),
@@ -1223,7 +1369,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       );
       return true;
     },
-    [customExercises, exerciseOverrides, lang, toastUndo, writeDefField],
+    [customExercises, exerciseOverrides, lang, toastUndo, withVariantNames, writeDefField],
   );
 
   const moveRegion = useCallback(
@@ -1340,6 +1486,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       barOf,
       setBar,
       updateVariant,
+      setVariantAttrs,
+      equipmentIds,
+      attrsOf,
+      withVariantNames,
       mergeExerciseInto,
       variantLabel,
       liftKey,
@@ -1352,13 +1502,14 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       seedMetricsIfUnset,
       toggleStarExercise,
       saveExerciseNote,
-      saveExerciseTags,
+      saveExerciseAttrs,
       renameTag,
       deleteTag,
       renameExercise,
       deleteLibraryExercise,
       restoreLibraryExercise,
       addTag,
+      setEquipmentResistance,
       addCustomExercise,
       addCustomTag,
       assignRegion,
@@ -1392,6 +1543,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       barOf,
       setBar,
       updateVariant,
+      setVariantAttrs,
+      equipmentIds,
+      attrsOf,
+      withVariantNames,
       mergeExerciseInto,
       variantLabel,
       liftKey,
@@ -1404,13 +1559,14 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       seedMetricsIfUnset,
       toggleStarExercise,
       saveExerciseNote,
-      saveExerciseTags,
+      saveExerciseAttrs,
       renameTag,
       deleteTag,
       renameExercise,
       deleteLibraryExercise,
       restoreLibraryExercise,
       addTag,
+      setEquipmentResistance,
       addCustomExercise,
       addCustomTag,
       assignRegion,

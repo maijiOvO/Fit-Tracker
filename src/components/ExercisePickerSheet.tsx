@@ -31,13 +31,15 @@ import {
   ArrowDownUp,
   X,
   Zap,
+  Lock,
 } from 'lucide-react';
 import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
-import { useExercisePickerData, PickerAxis, matchAxis } from '../hooks/useExercisePickerData';
+import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf } from '../hooks/useExercisePickerData';
+import { RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, type Resistance } from '../utils/exerciseAttrs';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
 import { useRegionDrag } from '../hooks/useRegionDrag';
@@ -55,7 +57,8 @@ interface PickerRowProps {
   added: number;
   isStarred: boolean;
   partName: string;
-  tagNames: { tag: string; name: string; hit: boolean }[];
+  /** 器材（动作本身在前，做法用到的接在后面）；hit = 被当前器材筛选命中 */
+  gear: { name: string; hit: boolean }[];
   isCn: boolean;
   bindRef: (el: HTMLDivElement | null) => void;
   onPick: () => void;
@@ -72,7 +75,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
   added,
   isStarred,
   partName,
-  tagNames,
+  gear,
   isCn,
   bindRef,
   onPick,
@@ -97,25 +100,19 @@ const PickerRow: React.FC<PickerRowProps> = ({
             </span>
           )}
         </span>
-        <span className="flex flex-wrap gap-1">
-          {partName && (
-            <span className="text-[9px] font-bold uppercase tracking-wide bg-inset px-1.5 py-0.5 rounded-chip text-tertiary">
-              {partName}
-            </span>
-          )}
-          {tagNames.map(({ tag, name, hit }) =>
-            name ? (
-              <span
-                key={tag}
-                className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-chip ${
-                  hit ? 'bg-accent text-on-accent' : 'bg-accent/10 text-accent'
-                }`}
-              >
-                {name}
-              </span>
-            ) : null,
-          )}
-        </span>
+        {/* 属性一行：部位 · 器材（2026-10-20 起不再是一串胶囊）。筛中的器材上强调色 */}
+        {(partName || gear.length > 0) && (
+          <span className="text-xs text-tertiary truncate" data-testid="picker-row-attrs">
+            {partName}
+            {partName && gear.length > 0 && ' · '}
+            {gear.map((g, i) => (
+              <React.Fragment key={g.name}>
+                {i > 0 && ' / '}
+                <span className={g.hit ? 'text-accent font-semibold' : ''}>{g.name}</span>
+              </React.Fragment>
+            ))}
+          </span>
+        )}
         <LongPressAffordance
           active={press.pressing}
           label={isCn ? '管理这个动作' : 'Manage'}
@@ -373,6 +370,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     renameTag,
     addRegionTag,
     addTag,
+    setEquipmentResistance,
+    customTags,
     deleteTag,
     moveRegion,
     removeRegion,
@@ -395,6 +394,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   /** 部位 / 器材面板：{ id }＝改名 / 删除；{ id: '' }＝新建 */
   const [partMenu, setPartMenu] = useState<{ id: string } | null>(null);
   const [equipMenu, setEquipMenu] = useState<{ id: string } | null>(null);
+  /** 新建器材时先选的默认阻力（建好才落盘） */
+  const [newEquipRes, setNewEquipRes] = useState<Resistance>('none');
   /** 动作面板（长按 / 整理态点卡）：存 id，每次渲染从库里取最新的（改名、加星后立刻反映） */
   const [menuFor, setMenuFor] = useState<string | null>(null);
   /** 动作面板里打开的练法（只管理，不切换） */
@@ -886,7 +887,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         added={addedCounts[key] || 0}
         isStarred={isStarredName(displayName)}
         partName={ex.bodyPart ? getTagName(ex.bodyPart) : ''}
-        tagNames={(ex.tags ?? []).slice(0, 3).map(t => ({ tag: t, name: getTagName(t), hit: equips.has((t || '').toLowerCase()) }))}
+        gear={equipmentsOf(ex)
+          .map(t => ({ name: getTagName(t), hit: equips.has(t) }))
+          .filter(g => g.name)}
         isCn={isCn}
         bindRef={bindItemRef(ex.id)}
         onPick={() => {
@@ -1152,6 +1155,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
 
   /** 整理最底下的器材节：一行器材 chip（带使用数），点开器材面板；行尾「＋」新建 */
+  /**
+   * 整理最底下的「器材」：器材表（2026-10-20，原一排胶囊）。一行一件：名字 · 阻力 · 用到它的动作数。
+   * 内置器材的阻力锁定（行内带锁）；点任一行打开器材面板（改名 / 自建的改阻力、删除），末行新建。
+   */
   const renderEquipSection = () => {
     const pool = special === 'none' ? noPart : special === 'del' ? deleted : results.map(r => r.ex);
     return (
@@ -1159,11 +1166,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         <div className="region-ulab">
           <h3>{isCn ? '器材' : 'Gear'}</h3>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="rounded-card border border-divider bg-card divide-y divide-divider overflow-hidden">
           {equipIds.map(id => {
             const label = getTagName(id);
             if (!label) return null;
-            const n = pool.filter(ex => (ex.tags ?? []).some(t => (t || '').toLowerCase() === id.toLowerCase())).length;
+            const n = pool.filter(ex => equipmentsOf(ex).includes(id.toLowerCase())).length;
+            const res = defaultResistance(id, customTags);
+            const locked = !resistanceSelectable(id);
             return (
               <button
                 key={id}
@@ -1172,10 +1181,18 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   dismissToasts();
                   setEquipMenu({ id });
                 }}
-                className="flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 bg-inset text-secondary"
+                className="w-full min-h-[44px] px-3.5 flex items-center gap-3 text-left active:bg-card-hover"
+                data-testid="equip-row"
               >
-                {label}
-                <span className="text-[10px] font-bold tabular-nums text-tertiary">{n}</span>
+                <span className="w-20 flex-shrink-0 truncate text-sm font-semibold text-primary">{label}</span>
+                <span className="flex-1 min-w-0 truncate text-xs text-secondary flex items-center gap-1">
+                  {RESISTANCE_NAMES[res][isCn ? 'cn' : 'en']}
+                  {locked && <Lock size={11} className="flex-shrink-0 text-tertiary" aria-label={isCn ? '随器材' : 'Set by gear'} />}
+                </span>
+                <span className="flex-shrink-0 text-xs tabular-nums text-tertiary">
+                  {n ? (isCn ? `${n} 个动作` : `${n}`) : '—'}
+                </span>
+                <ChevronRight size={15} className="flex-shrink-0 text-tertiary" />
               </button>
             );
           })}
@@ -1183,12 +1200,14 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             type="button"
             onClick={() => {
               dismissToasts();
+              setNewEquipRes('none');
               setEquipMenu({ id: '' });
             }}
             aria-label={isCn ? '新建器材' : 'New gear'}
-            className="flex-shrink-0 min-h-[34px] px-2.5 rounded-control flex items-center bg-accent/10 text-accent border border-dashed border-accent/40"
+            className="w-full min-h-[44px] px-3.5 flex items-center gap-2 text-sm font-bold text-accent active:bg-card-hover"
           >
-            <Plus size={13} strokeWidth={2.5} />
+            <Plus size={14} strokeWidth={2.5} />
+            {isCn ? '新建器材' : 'New gear'}
           </button>
         </div>
       </div>
@@ -1209,16 +1228,21 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     );
   };
 
-  const chipCls = (on: boolean, custom = false) =>
-    `flex-shrink-0 min-h-[38px] px-3.5 rounded-control text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
-      on
-        ? 'bg-accent-soft text-accent'
-        : custom
-          ? 'bg-accent/10 text-accent border border-dashed border-accent/40'
-          : 'bg-inset text-secondary'
+  /**
+   * 部位行是动作库的目录，不是标签（2026-10-20）：文字标签栏，选中的下面一条强调色横线。
+   * 自建部位和内置部位同一个样子。
+   */
+  const tabCls = (on: boolean) =>
+    `relative flex-shrink-0 min-h-[40px] px-3 text-[13px] font-bold whitespace-nowrap flex items-center gap-1 transition-colors ${
+      on ? 'text-accent' : 'text-secondary active:text-primary'
     }`;
+  const tabBar = (on: boolean) =>
+    on ? <span className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full bg-accent" aria-hidden /> : null;
+  const tabCount = (n: number, on: boolean) => (
+    <i className={`not-italic text-[10px] font-semibold tabular-nums ${on ? 'text-accent/70' : 'text-tertiary'}`}>{n}</i>
+  );
 
-  /** 部位 chip（普通态：0 结果的隐藏，已选中的除外；整理态：全部列出） */
+  /** 部位标签（普通态：0 结果的隐藏，已选中的除外；整理态：全部列出） */
   const renderAxisChips = () =>
     axisChips.map(chip => {
       const on = !special && axis !== null && axis.kind === chip.kind && axis.v === chip.v;
@@ -1230,6 +1254,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         <button
           key={chip.kind + chip.v}
           type="button"
+          aria-pressed={on}
           data-on={on ? '1' : undefined}
           onClick={() => {
             if (arranging) {
@@ -1246,13 +1271,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             }
             setAxis(on ? null : { kind: chip.kind, v: chip.v });
           }}
-          className={chipCls(on, chip.custom)}
+          className={tabCls(on)}
         >
           {label}
+          {tabBar(on)}
         </button>
       );
     });
 
+  /** 器材筛选：等宽格（跟属性表的选项格同一个样子），多选，带联动计数，0 的隐藏 */
   const equipChips = () =>
     equipIds.map(id => {
       const n = equipCounts.get(id) ?? 0;
@@ -1264,6 +1291,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         <button
           key={id}
           type="button"
+          aria-pressed={on}
           onClick={() => {
             const next = new Set(equips);
             const key = id.toLowerCase();
@@ -1271,12 +1299,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             else next.add(key);
             setEquips(next);
           }}
-          className={`flex-shrink-0 min-h-[34px] px-3 rounded-control text-[11px] font-bold flex items-center gap-1.5 transition-colors ${
+          className={`min-h-[40px] px-1.5 py-1 rounded-control text-xs font-bold leading-tight flex flex-col items-center justify-center transition-colors ${
             on ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'
           }`}
         >
-          {label}
-          <span className={`text-[10px] font-bold tabular-nums ${on ? 'text-on-accent/75' : 'text-tertiary'}`}>{n}</span>
+          <span className="break-words text-center">{label}</span>
+          <span className={`text-[10px] font-semibold tabular-nums ${on ? 'text-accent/70' : 'text-tertiary'}`}>{n}</span>
         </button>
       );
     });
@@ -1458,64 +1486,70 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           </div>
         )}
 
-        {/* 整理：部位行一行横滑，末尾「未分部位 N · 已删除 N · ＋」 */}
+        {/* 整理：部位目录一行横滑，末尾「未分部位 N · 已删除 N · ＋ 部位」 */}
         {arranging && (
-          <div
-            ref={partScrollRef}
-            className="flex gap-2 px-4 pb-2.5 flex-shrink-0 overflow-x-auto hscroll-bare"
-            data-testid="arrange-parts"
-          >
-            {renderAxisChips()}
-            {noPart.length > 0 && (
+          <div className="mx-4 mb-2.5 flex-shrink-0 border-b border-divider">
+            <div ref={partScrollRef} className="flex overflow-x-auto hscroll-bare -mx-1" data-testid="arrange-parts">
+              {renderAxisChips()}
+              {noPart.length > 0 && (
+                <button
+                  type="button"
+                  aria-pressed={special === 'none'}
+                  data-on={special === 'none' ? '1' : undefined}
+                  onClick={() => setSpecial('none')}
+                  className={tabCls(special === 'none')}
+                  data-testid="arrange-nopart"
+                >
+                  {isCn ? '未分部位' : 'No part'}
+                  {tabCount(noPart.length, special === 'none')}
+                  {tabBar(special === 'none')}
+                </button>
+              )}
+              {deleted.length > 0 && (
+                <button
+                  type="button"
+                  aria-pressed={special === 'del'}
+                  data-on={special === 'del' ? '1' : undefined}
+                  onClick={() => setSpecial('del')}
+                  className={tabCls(special === 'del')}
+                  data-testid="arrange-deleted"
+                >
+                  {isCn ? '已删除' : 'Deleted'}
+                  {tabCount(deleted.length, special === 'del')}
+                  {tabBar(special === 'del')}
+                </button>
+              )}
               <button
                 type="button"
-                data-on={special === 'none' ? '1' : undefined}
-                onClick={() => setSpecial('none')}
-                className={chipCls(special === 'none')}
-                data-testid="arrange-nopart"
+                onClick={() => {
+                  dismissToasts();
+                  setPartMenu({ id: '' });
+                }}
+                aria-label={isCn ? '新建部位' : 'New part'}
+                className="flex-shrink-0 min-h-[40px] px-3 text-[13px] font-bold text-accent flex items-center gap-1 whitespace-nowrap"
+                data-testid="arrange-new-part"
               >
-                {isCn ? '未分部位' : 'No part'}
-                <i className={`not-italic font-mono text-[10px] font-semibold ${special === 'none' ? 'text-on-accent/75' : 'text-tertiary'}`}>
-                  {noPart.length}
-                </i>
+                <Plus size={14} strokeWidth={2.5} />
+                {isCn ? '部位' : 'Part'}
               </button>
-            )}
-            {deleted.length > 0 && (
-              <button
-                type="button"
-                data-on={special === 'del' ? '1' : undefined}
-                onClick={() => setSpecial('del')}
-                className={chipCls(special === 'del')}
-                data-testid="arrange-deleted"
-              >
-                {isCn ? '已删除' : 'Deleted'}
-                <i className={`not-italic font-mono text-[10px] font-semibold ${special === 'del' ? 'text-on-accent/75' : 'text-tertiary'}`}>
-                  {deleted.length}
-                </i>
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => {
-                dismissToasts();
-                setPartMenu({ id: '' });
-              }}
-              aria-label={isCn ? '新建部位' : 'New part'}
-              className="flex-shrink-0 min-h-[38px] w-[38px] rounded-control flex items-center justify-center bg-accent/10 text-accent border border-dashed border-accent/40"
-              data-testid="arrange-new-part"
-            >
-              <Plus size={14} strokeWidth={2.5} />
-            </button>
+            </div>
           </div>
         )}
 
-        {/* 选了部位：筛选收成一行 —— 部位横滑 + 行尾一颗器材 chip（点开才铺器材行） */}
-        {!filtersCollapsed && oneLine && (
+        {/* 普通态筛选：部位目录（全部 + 各部位）一行横滑 + 行尾「器材」，点开铺等宽格（2026-10-20 统一，原两套排法） */}
+        {!filtersCollapsed && !arranging && (
           <>
-            <div className="flex items-center gap-2 px-4 pb-2.5 flex-shrink-0" data-testid="filters-one-line">
-              <div ref={partScrollRef} className="flex-1 min-w-0 flex gap-2 overflow-x-auto hscroll-bare -ml-4 pl-4">
-                <button type="button" onClick={() => setAxis(null)} className={chipCls(false)}>
+            <div className="mx-4 mb-2.5 flex-shrink-0 border-b border-divider flex items-end gap-1" data-testid="filters-one-line">
+              <div ref={partScrollRef} className="flex-1 min-w-0 flex overflow-x-auto hscroll-bare -ml-1">
+                <button
+                  type="button"
+                  aria-pressed={axis === null}
+                  data-on={axis === null ? '1' : undefined}
+                  onClick={() => setAxis(null)}
+                  className={tabCls(axis === null)}
+                >
                   {isCn ? '全部' : 'All'}
+                  {tabBar(axis === null)}
                 </button>
                 {renderAxisChips()}
               </div>
@@ -1523,38 +1557,21 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 type="button"
                 onClick={() => setEquipOpen(v => !v)}
                 aria-expanded={equipOpen}
-                className={`${chipCls(equips.size > 0)} max-w-[120px]`}
+                className={`flex-shrink-0 max-w-[128px] min-h-[40px] pl-2.5 pr-1 text-[13px] font-bold flex items-center gap-1 border-l border-divider ${
+                  equips.size > 0 ? 'text-accent' : 'text-secondary'
+                }`}
                 data-testid="equip-toggle"
               >
                 <span className="truncate">{selectedEquipNames.length ? selectedEquipNames.join(' · ') : isCn ? '器材' : 'Gear'}</span>
                 {equipOpen ? <ChevronUp size={13} className="flex-shrink-0" /> : <ChevronDown size={13} className="flex-shrink-0" />}
               </button>
             </div>
-            {equipOpen && <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0">{equipChips()}</div>}
+            {equipOpen && (
+              <div className="grid grid-cols-4 gap-1.5 px-4 pb-2.5 flex-shrink-0" data-testid="equip-filter">
+                {equipChips()}
+              </div>
+            )}
           </>
-        )}
-
-        {/* 没选部位：部位行（单选，铺开多行，0 结果隐藏） */}
-        {!filtersCollapsed && !arranging && !oneLine && (
-          <div className="flex flex-wrap gap-2 px-4 pb-2.5 flex-shrink-0 items-center">
-            <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
-              {isCn ? '部位' : 'PART'}
-            </span>
-            <button type="button" onClick={() => setAxis(null)} className={chipCls(axis === null)}>
-              {isCn ? '全部' : 'All'}
-            </button>
-            {renderAxisChips()}
-          </div>
-        )}
-
-        {/* 器材行（多选，联动计数，0 隐藏，铺开多行）—— 与部位行用分隔线隔开 */}
-        {!filtersCollapsed && !arranging && !oneLine && (
-          <div className="mx-4 pt-2.5 pb-2.5 flex-shrink-0 border-t border-divider flex flex-wrap gap-2 items-center">
-            <span className="text-[10px] font-bold text-tertiary tracking-wider w-7 flex-shrink-0">
-              {isCn ? '器材' : 'GEAR'}
-            </span>
-            {equipChips()}
-          </div>
         )}
 
         {/* 计数 / 清空（选了部位时不显示：清空就是点「全部」） */}
@@ -1827,9 +1844,43 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             initial={id ? getTagName(id) : ''}
             placeholder={isCn ? '器材名称' : 'Gear name'}
             isCn={isCn}
-            onCommit={name => (id ? renameTag(id, name) : !!addTag('equipment', name))}
+            onCommit={name => (id ? renameTag(id, name) : !!addTag('equipment', name, newEquipRes))}
             onClose={close}
           >
+            {/* 阻力：自建器材（含新建）可选，决定用它的动作默认怎么取整；内置器材只显示 */}
+            {(() => {
+              const selectable = !id || custom;
+              const cur = id ? defaultResistance(id, customTags) : newEquipRes;
+              const resName = (r: Resistance) => RESISTANCE_NAMES[r][isCn ? 'cn' : 'en'];
+              if (!selectable) {
+                return (
+                  <p className="px-2 py-1 text-xs text-tertiary" data-testid="equip-resistance">
+                    {isCn ? '阻力' : 'Load'}：{resName(cur)}
+                    {resistanceSelectable(id) ? (isCn ? '（默认，动作上可改）' : ' (default, per exercise)') : ''}
+                  </p>
+                );
+              }
+              return (
+                <div className="px-1 pt-1 space-y-1.5" data-testid="equip-resistance">
+                  <p className="px-1 text-label text-secondary">{isCn ? '默认阻力' : 'Default load'}</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {RESISTANCES.map(r => (
+                      <button
+                        key={r}
+                        type="button"
+                        aria-pressed={cur === r}
+                        onClick={() => (id ? setEquipmentResistance(id, r) : setNewEquipRes(r))}
+                        className={`min-h-[40px] px-2 rounded-control text-xs font-bold transition-ui ${
+                          cur === r ? 'bg-accent-soft text-accent' : 'bg-card text-secondary active:bg-card-hover'
+                        }`}
+                      >
+                        {resName(r)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             {custom && (
               <button
                 type="button"

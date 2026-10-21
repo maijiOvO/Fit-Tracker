@@ -185,6 +185,11 @@ export interface ExerciseVariant {
   id: string;
   name: string;
   region?: string;
+  /** 做法自己的器材；'' / 不写 = 跟动作走（src/utils/exerciseAttrs.ts） */
+  equipment?: string;
+  /** 做法自己的阻力类型；不写 = 跟器材默认 */
+  resistance?: import('./src/utils/exerciseAttrs').Resistance;
+  /** 旧字段（多选器材）：只读来换算、写时镜像 [equipment] 给旧版 APK */
   tags?: string[];
 }
 
@@ -197,7 +202,15 @@ export interface ExerciseDefinition {
     cn: string;
   };
   bodyPart: string;
-  tags: string[];
+  /**
+   * 器材（单选，2026-10-20 起；原多选 tags）。'' = 无器材。
+   * 内置 / 自建器材 id，见 src/utils/exerciseAttrs.ts。没写的旧数据按 tags 换算（legacyAttrs）。
+   */
+  equipment?: string;
+  /** 阻力类型：重量从哪来、一格多少。不写 = 跟器材默认；只有器械 / 自建器材 / 无器材能改 */
+  resistance?: import('./src/utils/exerciseAttrs').Resistance;
+  /** 旧字段（多选器材标签）：只读来换算，写时镜像 [equipment] 给旧版 APK */
+  tags?: string[];
   /**
    * 曾用名（第 7 条改名）。历史记录里存的是当时的名字，**一律不改写**；
    * 名字解析认「原名 + 曾用名 + 现名」，所以改过几次名，旧记录都还认得回来。
