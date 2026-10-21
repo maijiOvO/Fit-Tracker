@@ -201,6 +201,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [pickerTargetGroup, setPickerTargetGroup] = useState<string | null>(null);
   /** FAB 印谱开练时先存在这里，等进页后 pendingScrollToPicker 那一拍打开弹层时再交出去 */
   const pendingFocusPartRef = useRef<string | null>(null);
+  // 这一场开练时选的部位：给「添加动作」当默认栏。放 ref：打开弹层的回调是稳定的（[] 依赖），直接读会拿到旧闭包
+  const sessionFocusPartRef = useRef<string | null>(null);
+  sessionFocusPartRef.current = currentWorkout?.focusPart ?? null;
   /** §12.4：经由 FAB 印谱选了「制」的训练 id —— 进页不再问部位、聚焦标题 */
   const [partPrechosenId, setPartPrechosenId] = useState<string | null>(null);
   const [sheetSessionAdded, setSheetSessionAdded] = useState(0);
@@ -398,8 +401,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       const timer = setTimeout(() => {
         setSheetSessionAdded(0);
         lastAddedExerciseIdRef.current = null;
-        // 只有 FAB 印谱那条路会留下部位；「补加动作」等其他入口拿到的是 null
-        setPickerFocusPart(pendingFocusPartRef.current);
+        // FAB 印谱那条路留下部位；「补加动作」等其他入口没有 → 退回这一场开练时选的部位
+        setPickerFocusPart(pendingFocusPartRef.current ?? sessionFocusPartRef.current);
         pendingFocusPartRef.current = null;
         setPickerSheetOpen(true);
         setPendingScrollToPicker(false);
@@ -774,7 +777,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const handlePickerSheetOpenChange = useCallback((open: boolean, focusPart?: string | null, targetGroup?: string | null) => {
     if (open) {
-      setPickerFocusPart(focusPart ?? null);
+      // 没指定部位（底部「添加动作」、练到一半再加）→ 停在这一场开练时选的部位
+      setPickerFocusPart(focusPart ?? sessionFocusPartRef.current);
       setPickerTargetGroup(targetGroup ?? null);
       setSheetSessionAdded(0);
       sheetPicksRef.current = new Map();
@@ -1402,7 +1406,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             // 部位印 → 标题已定，进页后 120ms 自动弹动作弹层（复用补加动作的机制）；
             // 「制」 → 不填名，进页聚焦标题（partPrechosenId 抑制页内印谱再问一遍）。
             void startWorkoutGuarded(() => {
-              const w = { ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}) };
+              const focus = partKey !== 'other' ? bodyPartTagFor(partKey) : null;
+              const w = { ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}), ...(focus ? { focusPart: focus } : {}) };
               setCurrentWorkout(w);
               setEditingWorkoutId(null);
               if (partKey === 'other') setPartPrechosenId(w.id);

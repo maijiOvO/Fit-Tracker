@@ -292,6 +292,11 @@ export interface WorkoutSession {
    * 可选字段：新增前的历史记录没有它，合并时天然兼容，不做回填。
    */
   gym?: string;
+  /**
+   * 开练时选的部位（部位 id，如 subBack）：这一场之后每次「添加动作」默认停在这一栏（2026-10-21 用户定）。
+   * 标题会被改名，不能从标题反推；没选部位（「其他」、旧数据、编辑历史）就没有。
+   */
+  focusPart?: string;
   createdAt?: string;
   updatedAt?: string;
   /** 训练实际结束时间（ISO 8601）。为空表示用户尚未手动结束 */

@@ -679,7 +679,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             <BodyPartPicker
               lang={lang}
               onPick={(title, bodyPart) => {
-                setCurrentWorkout({ ...currentWorkout, title });
+                // 记下这一场练的部位：之后每次「添加动作」都默认停在这一栏
+                setCurrentWorkout({ ...currentWorkout, title, ...(bodyPart ? { focusPart: bodyPart } : {}) });
                 setPartChosenFor(currentWorkout.id);
                 // 选完部位的下一步必然是挑动作，别让用户再点一次「添加动作」。
                 // （「其他」不走这条：那条路的下一步是把名字打出来，
