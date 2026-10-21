@@ -1297,16 +1297,22 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const [m1, d1] = await pair();
     if (m1 !== 20 || d1 !== 10) throw new Error(`22 → 16.6 lb on a 10 lb stack should draft 20 → 10 (drop stays lighter), got ${m1} → ${d1}`);
 
+    await card.screenshot({ path: path.join(OUT, 'stack-closed.png') });
     await card.locator('[data-testid="stack-chip"]').click();
     const menu = card.locator('[data-testid="stack-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await card.screenshot({ path: path.join(OUT, 'stack-open.png') });
     await menu.locator('[data-testid="stack-start"]').fill('12.5');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
     await menu.locator('[data-testid="stack-step-dec"]').click();
     await page.waitForTimeout(300);
+    // 方案 A：设置面原地换掉大图；「完成」收回，图和标签回来
+    if (await card.locator('[data-testid="load-hero"] .load-hero-drag').count()) throw new Error('the stack graphic should be replaced by the settings face while open');
+    await menu.locator('[data-testid="stack-done"]').click();
+    await menu.waitFor({ state: 'hidden', timeout: 2_000 });
     const chip = await card.locator('[data-testid="stack-chip"]').innerText();
-    if (!chip.includes('最轻 12.5') || !chip.includes('每格 5')) throw new Error(`stack chip should read 最轻 12.5 · 每格 5: "${chip}"`);
+    if (!chip.includes('12.5 起') || !chip.includes('每格 5')) throw new Error(`stack chip should read 12.5 起 · 每格 5: "${chip}"`);
     const ov = (await readLs('fitlog_app_prefs'))?.gymOverrides?.[`${GD}|press_machine_shoulder|`];
     if (JSON.stringify(ov) !== '{"v":5,"u":"lbs","s":12.5}') throw new Error(`stack override not stored: ${JSON.stringify(ov)}`);
     const [m2, d2] = await pair();
@@ -1334,6 +1340,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await menu.locator('[data-testid="stack-start"]').fill('15');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
+    await menu.locator('[data-testid="stack-done"]').click();
+    await menu.waitFor({ state: 'hidden', timeout: 2_000 });
     const ov15 = (await readLs('fitlog_app_prefs'))?.gymOverrides?.[`${GD}|press_machine_shoulder|`];
     if (ov15?.s !== 15) throw new Error(`an aligned lightest plate (15 on a 5 step) must still be stored: ${JSON.stringify(ov15)}`);
     const seen15 = [];

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配重片刻度入口</title>
+<style>
+:root{
+  --bg:#FFFFFF; --card:#F4F5F7; --inset:#E9EBEF; --rule:#E3E5E9; --rule2:#A3A8B0;
+  --ink:#111316; --ink2:#4B5058; --ink3:#5C626B;
+  --acc:#12B39A; --acc-soft:#DCF4EF; --acc-text:#097464; --on-acc:#04211C;
+  --scrim:rgba(17,19,22,.38);
+  --f-ui:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --f-num:"Barlow Condensed","Noto Sans SC",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1013; --card:#1A1D21; --inset:#24282D; --rule:#2B2F35; --rule2:#5E646C;
+  --ink:#F1F2F3; --ink2:#B4B9C0; --ink3:#9AA0A8; --acc:#2CC9AE; --acc-soft:#123A33; --acc-text:#5FE0C8; --on-acc:#04211C; --scrim:rgba(0,0,0,.55)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-ui);padding:24px 16px 48px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.lead{color:var(--ink2);max-width:880px;margin-bottom:20px}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start}
+.col{width:340px;max-width:100%}
+.col h2{font-size:15px;font-weight:800;margin-bottom:2px}
+.col p.note{color:var(--ink2);font-size:13px;margin-bottom:10px;min-height:60px}
+.phone{position:relative;border:1px solid var(--rule);border-radius:22px;overflow:hidden;background:var(--bg);height:600px}
+.card{margin:12px;background:var(--card);border-radius:14px;overflow:hidden}
+.mast{padding:14px 14px 10px;border-bottom:1.5px solid var(--rule2)}
+.mast b{font-size:22px;font-weight:900;font-style:italic;letter-spacing:.5px}
+.meta{display:flex;justify-content:space-between;font-size:12px;color:var(--ink2);margin-top:4px}
+.meta u{text-decoration:none;border-bottom:1px dashed currentColor}
+.hero{position:relative;padding:12px 14px 8px;min-height:176px}
+.stack{display:flex;flex-direction:column;gap:3px;margin:0 auto;width:78%}
+.slab{position:relative;height:5px;border-radius:1px;background:var(--inset)}
+.slab.up{background:var(--ink2)}
+.slab.at{background:var(--ink);height:6px}
+.slab.at::after{content:"";position:absolute;right:-24px;top:0;width:18px;height:6px;border-radius:3px;background:var(--ink)}
+.slab em{position:absolute;right:calc(100% + 8px);top:50%;transform:translateY(-50%);font:600 11px/1 var(--f-num);color:var(--ink3);font-style:normal;white-space:nowrap}
+.slab.at em{font-size:15px;font-weight:800;color:var(--ink)}
+.cap{text-align:center;font-size:13px;color:var(--ink2);margin-top:8px}
+.cap .old{font-weight:700;color:var(--ink);border-bottom:1px dashed;margin-right:8px}
+.tagrow{display:flex;justify-content:flex-start;margin:-2px 0 8px}
+.tag{position:relative;z-index:1;display:inline-flex;align-items:center;gap:4px;font:600 12px/1 var(--f-ui);color:var(--ink2);
+  padding:6px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--rule);cursor:pointer}
+.tag svg{width:12px;height:12px}
+.tag:active{background:var(--inset)}
+.rows{border-top:1px solid var(--rule)}
+.r{display:grid;grid-template-columns:44px 1fr 1fr 34px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.r .n{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-weight:700;background:var(--acc);color:var(--on-acc)}
+.r .v{font:800 26px/1 var(--f-num);color:var(--ink2)} .r .v small{font:500 12px var(--f-ui);margin-left:6px;color:var(--ink3)}
+.r.sub .v{font-size:20px} .r.sub .lab{font-size:12px;color:var(--ink2)}
+/* 现状的内嵌面板 */
+.inline{padding:6px 14px 10px}
+.inline .ir{display:flex;align-items:center;gap:12px;margin:6px 0;color:var(--ink2);font-size:13px}
+.inline .ir span:first-child{width:60px}
+.inline .box{width:84px;height:46px;border-radius:8px;background:var(--inset);display:grid;place-items:center;font:800 18px var(--f-num);color:var(--ink)}
+/* 方案 A：原地翻面 */
+.face{display:none;padding:12px 14px 10px;min-height:176px}
+.flip .face{display:block} .flip .front{display:none}
+.fhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.fhead b{font-size:14px;font-weight:800}.fhead small{display:block;font-size:11px;color:var(--ink3);font-weight:500}
+.done{min-height:36px;padding:0 14px;border-radius:10px;background:var(--acc);color:var(--on-acc);font-weight:800;border:0;font-size:13px;cursor:pointer}
+.stp{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--rule)}
+.stp .k{font-size:13px;color:var(--ink2)}
+.seg{display:inline-flex;align-items:center;background:var(--bg);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.seg button{width:40px;height:36px;border:0;background:transparent;font-size:18px;color:var(--ink2);cursor:pointer}
+.seg button:active{background:var(--inset)}
+.seg b{min-width:64px;text-align:center;font:800 18px/1 var(--f-num)}
+.seg b small{font:500 11px var(--f-ui);color:var(--ink3);margin-left:3px}
+.mini{display:flex;gap:4px;align-items:flex-end;margin-top:8px;font:600 11px var(--f-num);color:var(--ink3);flex-wrap:wrap}
+.mini i{font-style:normal;padding:2px 6px;border-radius:6px;background:var(--bg);border:1px solid var(--rule)}
+.mini i.first{border-color:var(--acc);color:var(--acc-text);font-weight:800}
+.foot{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--ink3);margin-top:8px}
+.foot button{border:0;background:none;color:var(--acc-text);font-weight:700;font-size:12px;cursor:pointer;min-height:32px}
+/* 方案 B：底部弹层 */
+.scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .18s}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--bg);border-radius:18px 18px 0 0;padding:8px 16px 18px;transform:translateY(105%);transition:transform .22s ease}
+.open .scrim{opacity:1;pointer-events:auto}.open .sheet{transform:none}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--rule2);margin:2px auto 10px}
+.sheet .sbtn{width:100%;min-height:46px;margin-top:12px}
+.bar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;gap:10px}
+.bar div{flex:1;height:44px;border-radius:12px;background:var(--acc);opacity:.9}
+.bar span{width:110px;height:44px;border-radius:12px;background:var(--card)}
+.verdict{margin-top:24px;max-width:880px;color:var(--ink2)}
+.verdict b{color:var(--ink)}
+@media (max-width:420px){.col{width:100%}}
+</style>
+</head>
+<body>
+<h1>配重片刻度：入口放哪、怎么收</h1>
+<p class="lead">同一张「器械推肩」卡（fit4less，最轻 12.5 · 每格 5 lb）。现状把设置面板插在大图和组之间：挤、没有收起、把组列表往下推。两个方案都让<b>「刻度」标签和「插销插在」状态分开</b>，并给出明确的「完成」。点卡上的标签试试。</p>
+
+<div class="row">
+  <div class="col">
+    <h2>现状</h2>
+    <p class="note">标签和状态挤一行；面板插进中间，输入框大而方，和下面的组不是一套；只能再点那行小字关上。</p>
+    <div class="phone"><div class="card" id="c0"></div></div>
+  </div>
+  <div class="col">
+    <h2>方案 A · 大图原地翻成设置面</h2>
+    <p class="note">标签缩成大图上方一枚小药丸（不和刻度挤一行）。点开时<b>大图这一块原地换成设置</b>，高度不变、下面的组不动；右上「完成」收回。改的时候下方小格子实时显示能插的重量。</p>
+    <div class="phone"><div class="card" id="cA"></div></div>
+  </div>
+  <div class="col">
+    <h2>方案 B · 底部弹层</h2>
+    <p class="note">标签同 A。点开从底部弹出一张小单子，和「选动作」「首选项」同一种弹层；大按钮「完成」，点遮罩也能收。</p>
+    <div class="phone" id="pB"><div class="card" id="cB"></div>
+      <div class="bar"><span></span><div></div></div>
+      <div class="scrim" data-close></div>
+      <div class="sheet" id="sB"></div>
+    </div>
+  </div>
+</div>
+
+<p class="verdict"><b>我推荐 A。</b>设置跟着它影响的那张图走，眼睛不用离开大图；页面不跳、不盖住组，也不多一层遮罩。B 的好处是空间大、和全站弹层一致，代价是改刻度时看不到下面的组。两个方案都把「最轻一格」也做成 − / ＋（点数字可以直接打字），和「每格」同一种控件，不再一个方框一个步进器。</p>
+
+<svg width="0" height="0" style="position:absolute"><symbol id="pen" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 20h4L19 9l-4-4L4 16v4z"/></symbol></svg>
+
+<script>
+const S = { start: 12.5, step: 5, cur: 22.5 };
+const STEPS = [1, 2.5, 5, 10, 15, 20];
+const fmt = n => (Math.round(n * 100) / 100).toString();
+function stackHTML(){
+  const at = Math.round((S.cur - S.start) / S.step) + 1, n = Math.max(14, at + 4);
+  let h = '<div class="stack">';
+  for (let i = 1; i <= n; i++){
+    const w = S.start + (i - 1) * S.step;
+    const lab = i === at ? fmt(w) : (i === 1 || (Math.abs(i - at) > 1 && (i - 1) % 3 === 0)) ? fmt(w) : '';
+    h += `<span class="slab${i < at ? ' up' : i === at ? ' at' : ''}"><em>${lab}</em></span>`;
+  }
+  return h + '</div>';
+}
+const rows = () => `<div class="rows">
+  <div class="r"><span class="n">1</span><span class="v">${fmt(S.cur)}<small>lbs</small></span><span class="v">9<small>次</small></span><span>—</span></div>
+  <div class="r sub"><span class="lab">递减</span><span class="v">${fmt(S.start)}<small>lbs</small></span><span class="v">6<small>次</small></span><span>—</span></div></div>`;
+const mast = () => `<div class="mast"><b>器械推肩</b><div class="meta"><span><u>23:23</u>　<u>参考 · 10/18</u></span><span>第1个 · 0/1组</span></div></div>`;
+const tag = () => `<div class="tagrow"><span class="tag" data-open><svg><use href="#pen"/></svg>${fmt(S.start)} 起 · 每格 ${fmt(S.step)} lb</span></div>`;
+const steppers = () => `
+  <div class="stp"><span class="k">最轻一格</span><span class="seg"><button data-d="start,-1">−</button><b>${fmt(S.start)}<small>lb</small></b><button data-d="start,1">＋</button></span></div>
+  <div class="stp"><span class="k">每格</span><span class="seg"><button data-d="step,-1">−</button><b>${fmt(S.step)}<small>lb</small></b><button data-d="step,1">＋</button></span></div>
+  <div class="mini">${Array.from({length:7},(_,i)=>`<i class="${i?'':'first'}">${fmt(S.start+i*S.step)}</i>`).join('')}<span>…</span></div>
+  <div class="foot"><span>只改 fit4less 的这一台</span><button>恢复馆默认</button></div>`;
+
+let open0 = true, openA = false, openB = false;
+function render(){
+  document.getElementById('c0').innerHTML = mast() + `<div class="hero">${stackHTML()}
+    <p class="cap"><span class="old" data-t0>最轻 ${fmt(S.start)} · 每格 ${fmt(S.step)} lb</span>插销插在 ${fmt(S.cur)} lb</p></div>` +
+    (open0 ? `<div class="inline"><div class="ir"><span>最轻一格</span><span class="box">${fmt(S.start)}</span><span>lb</span></div>
+      <div class="ir"><span>每格</span><span class="seg"><button>−</button><b>${fmt(S.step)}</b><button>＋</button></span><span>lb</span></div>
+      <div class="ir">只改这个馆的这一台</div></div>` : '') + rows();
+  document.getElementById('cA').innerHTML = mast() + `<div class="${openA ? 'flip' : ''}">
+    <div class="hero front">${tag()}${stackHTML()}<p class="cap">插销插在 ${fmt(S.cur)} lb</p></div>
+    <div class="face"><div class="fhead"><div><b>这台的刻度</b><small>插销能插的重量</small></div><button class="done" data-closeA>完成</button></div>${steppers()}</div>
+  </div>` + rows();
+  document.getElementById('cB').innerHTML = mast() + `<div class="hero">${tag()}${stackHTML()}<p class="cap">插销插在 ${fmt(S.cur)} lb</p></div>` + rows();
+  document.getElementById('sB').innerHTML = `<div class="grab"></div><div class="fhead"><div><b>这台的刻度</b><small>fit4less · 器械推肩</small></div></div>${steppers()}<button class="done sbtn" data-close>完成</button>`;
+  document.getElementById('pB').classList.toggle('open', openB);
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-open],[data-closeA],[data-close],[data-d],[data-t0]');
+  if (!t) return;
+  if (t.hasAttribute('data-t0')) open0 = !open0;
+  else if (t.hasAttribute('data-open')) { if (t.closest('#cA')) openA = true; else openB = true; }
+  else if (t.hasAttribute('data-closeA')) openA = false;
+  else if (t.hasAttribute('data-close')) openB = false;
+  else {
+    const [k, d] = t.dataset.d.split(','), dir = +d;
+    if (k === 'start') S.start = Math.max(0.5, S.start + dir * 0.5);
+    else { const i = STEPS.indexOf(S.step); S.step = STEPS[Math.min(STEPS.length - 1, Math.max(0, i + dir))]; }
+    S.cur = S.start + Math.max(0, Math.round((S.cur - S.start) / S.step)) * S.step;
+  }
+  render();
+});
+render();
+</script>
+</body>
+</html>

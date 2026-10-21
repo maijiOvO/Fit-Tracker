@@ -667,7 +667,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
           rounder={rounder}
           tare={tareD}
-          stack={incKey && loadKind === 'pin' ? { overridden: incOverridden, onSet: setStack, onReset: () => setIncOverride(null) } : undefined}
+          stack={incKey && gym && loadKind === 'pin' ? { gym, overridden: incOverridden, onSet: setStack, onReset: () => setIncOverride(null) } : undefined}
           onPick={next => {
             haptic(H.tap);
             writeHero(next);

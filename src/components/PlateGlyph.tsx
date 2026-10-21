@@ -141,6 +141,8 @@ export function BarbellGlyph({
 
 /** 大图上改配重片刻度（这个馆这一台）：onSet(每格, 最轻一格)，最轻一格 0＝从 0 起 */
 export interface StackCtl {
+  /** 这场训练的馆：设置面底部「只改 X 的这一台」 */
+  gym: string;
   overridden: boolean;
   onSet: (step: number, start: number) => void;
   onReset: () => void;
@@ -151,16 +153,14 @@ export interface StackCtl {
 export function PinStackGlyph({ value, step, start = 0 }: { value: number; step: number; start?: number }) {
   // 带起始的配重片（12.5 起、每格 5）：第 1 片就是最轻一格，往下每片 +一档
   const s0 = start > 0 ? start : 0;
-  const wAt = (idx: number) => (s0 > 0 ? s0 + (idx - 1) * step : idx * step);
   const at = s0 > 0 ? (value >= s0 - 1e-9 ? Math.round((value - s0) / step) + 1 : 0) : Math.max(0, Math.round(value / step));
   const n = Math.min(30, Math.max(16, at + 3));
-  const every = n > 20 ? 4 : 3;
   return (
     <div className="pin-stack" aria-hidden>
       {Array.from({ length: n }, (_, i) => {
         const idx = i + 1;
-        // 插销那一片永远写确切重量（加粗放大）；它上下两片以内的周期刻度让开，免得字叠在一起
-        const label = idx === at ? fmt1(value) : Math.abs(idx - at) > 2 && idx % every === 0 ? fmt1(wAt(idx)) : '';
+        // 只标插销那一格（2026-10-20 用户定：临近的数字没人看，还会和插销那格的字叠在一起）
+        const label = idx === at ? fmt1(value) : '';
         return (
           <span key={idx} className={`pin-slab${idx < at ? ' is-up' : idx === at ? ' is-at' : ''}`}>
             <em>{label}</em>
@@ -302,7 +302,7 @@ export function LoadHero({
         : isCn
           ? '空杠'
           : 'Empty bar';
-  } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt1(value)} ${u}` : `Pin at ${fmt1(value)} ${u}`;
+  } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt1(value)} ${u}` : `${fmt1(value)} ${u} each`;
   else if (kind === 'signed') {
     if (value < 0) caption = isCn ? `辅助 ${fmt1(-value)} ${u}` : `Assisted ${fmt1(-value)} ${u}`;
@@ -451,7 +451,7 @@ function GymHero({
   const belt = kind === 'signed' && v > 0 ? sidePlates(v, ctx.plates, unit) : [];
   const near = onGrid ? null : rounder.bracketD(value);
 
-  // 最轻一格：填的就是最轻那片的重量；和一档对齐（5 / 10 / 15…）等于没有起始，调用方存 0
+  // 最轻一格：填的就是最轻那片的重量（也是下限）；恰好等于一档时调用方不单独存
   const commitStart = () => {
     if (!stack) return;
     const n = Number.parseFloat(startText.trim().replace(',', '.'));
@@ -462,6 +462,13 @@ function GymHero({
     }
     if (Math.abs(n - cur) < 1e-9) return;
     stack.onSet(ctx.inc, n);
+  };
+  const nudgeStart = (dir: 1 | -1) => {
+    if (!stack) return;
+    const cur = stackStart > 0 ? stackStart : ctx.inc;
+    const next = Math.round((cur + dir * (unit === 'lbs' ? 0.5 : 0.25)) * 100) / 100;
+    if (next <= 0) return;
+    stack.onSet(ctx.inc, next);
   };
   const stepStack = (dir: 1 | -1) => {
     if (!stack) return;
@@ -484,7 +491,7 @@ function GymHero({
         tare !== undefined
           ? isCn ? ` · 加空载共 ${fmt(v + tare)} ${u}` : ` · ${fmt(v + tare)} ${u} with the sled`
           : isCn ? ' · 只算片子' : ' · plates only';
-  } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt(v)} ${u}` : `Pin at ${fmt(v)} ${u}`;
+  } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
   else if (kind === 'signed') {
     if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
@@ -505,96 +512,116 @@ function GymHero({
     onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
   const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
 
+  const faceOpen = stackOpen && kind === 'pin' && !!stack;
+  const lightest = stackStart > 0 ? stackStart : ctx.inc;
+
   return (
-    <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}`} data-testid="load-hero">
-      <div
-        className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
-        {...(scrub ? scrub.handlers : {})}
-      >
-        {scrub?.scrubbing && (
-          <span className="load-hero-step" aria-hidden>
-            ×{fmt(rounder.stepD(v) * scrub.step)}
-          </span>
-        )}
-        {isBar && <BarbellGlyph perSide={perSide} plateUnit={unit} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} />}
-        {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
-        {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
-        {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={unit} belt={belt} />}
-      </div>
-      <div className="load-caption-row">
-        {kind === 'pin' && stack && (
-          <button
-            type="button"
-            className="bar-chip"
-            onClick={() => setStackOpen(o => !o)}
-            aria-expanded={stackOpen}
-            data-testid="stack-chip"
-          >
-            {isCn
-              ? `最轻 ${fmt(stackStart > 0 ? stackStart : ctx.inc)} · 每格 ${fmt(ctx.inc)} ${u}`
-              : `From ${fmt(stackStart > 0 ? stackStart : ctx.inc)} · +${fmt(ctx.inc)} ${u}`}
+    <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}${faceOpen ? ' is-face' : ''}`} data-testid="load-hero">
+      {kind === 'pin' && stack && !faceOpen && (
+        <div className="stack-tagrow">
+          <button type="button" className="stack-tag" onClick={() => setStackOpen(() => true)} aria-expanded={false} data-testid="stack-chip">
+            <svg viewBox="0 0 24 24" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /></svg>
+            {isCn ? `${fmt(lightest)} 起 · 每格 ${fmt(ctx.inc)} ${u}` : `From ${fmt(lightest)} · +${fmt(ctx.inc)} ${u}`}
           </button>
-        )}
-        {kind === 'plates' && (
-          <button
-            type="button"
-            className="bar-chip"
-            onClick={() => onBarChange && setBarOpen((o) => !o)}
-            disabled={!onBarChange}
-            aria-expanded={barOpen}
-            data-testid="bar-chip"
-          >
-            {barTxt}
-          </button>
-        )}
-        {caption && <p className="load-caption" data-testid="load-caption">{caption}</p>}
-      </div>
-      {near && onPick && (
-        <div className="load-near" data-testid="load-near">
-          <span>{isCn ? '改成能挂的：' : 'Snap to:'}</span>
-          {[near.lo, ...(near.hi !== near.lo ? [near.hi] : [])].map((n) => (
-            <button key={n} type="button" onClick={() => onPick(n)}>
-              {nearLabel(n)}
-            </button>
-          ))}
         </div>
       )}
-      {stackOpen && kind === 'pin' && stack && (
-        <div className="bar-menu stack-menu" role="group" aria-label={isCn ? '这台配重片的刻度' : 'This stack'} data-testid="stack-menu">
-          <label className="stack-row">
+      {faceOpen && stack ? (
+        <div className="stack-face" role="group" aria-label={isCn ? '这台的刻度' : 'This stack'} data-testid="stack-menu">
+          <div className="stack-fhead">
+            <div>
+              <b>{isCn ? '这台的刻度' : 'This stack'}</b>
+              <small>{isCn ? '插销能插的重量' : 'Weights the pin can select'}</small>
+            </div>
+            <button type="button" className="stack-done" onClick={() => setStackOpen(() => false)} data-testid="stack-done">
+              {isCn ? '完成' : 'Done'}
+            </button>
+          </div>
+          <div className="stack-stp">
             <span>{isCn ? '最轻一格' : 'Lightest'}</span>
-            <input
-              className="ui-input"
-              inputMode="decimal"
-              value={startText}
-              onChange={e => setStartText(e.target.value)}
-              onBlur={() => commitStart()}
-              onKeyDown={e => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-              }}
-              data-testid="stack-start"
-              aria-label={isCn ? '最轻一格多重' : 'Lightest plate weight'}
-            />
-            <small>{u}</small>
-          </label>
-          <span className="stack-row">
+            <span className="stack-seg">
+              <button type="button" aria-label={isCn ? '最轻一格轻一点' : 'Lighter'} onClick={() => nudgeStart(-1)} data-testid="stack-start-dec">−</button>
+              <input
+                inputMode="decimal"
+                value={startText}
+                onChange={e => setStartText(e.target.value)}
+                onFocus={e => e.target.select()}
+                onBlur={() => commitStart()}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                }}
+                data-testid="stack-start"
+                aria-label={isCn ? '最轻一格多重' : 'Lightest plate weight'}
+              />
+              <small>{u}</small>
+              <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
+            </span>
+          </div>
+          <div className="stack-stp">
             <span>{isCn ? '每格' : 'Step'}</span>
-            <span className="bar-short-w">
+            <span className="stack-seg">
               <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
               <b>{fmt(ctx.inc)}</b>
+              <small>{u}</small>
               <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
             </span>
-            <small>{u}</small>
-          </span>
-          <p className="stack-hint">
-            {isCn ? '只改这个馆的这一台' : 'Only this machine at this gym'}
+          </div>
+          <div className="stack-mini" aria-hidden>
+            {Array.from({ length: 7 }, (_, i) => (
+              <i key={i} className={i === 0 ? 'is-first' : ''}>{fmt(lightest + i * ctx.inc)}</i>
+            ))}
+            <span>…</span>
+          </div>
+          <div className="stack-foot">
+            <span>{isCn ? `只改 ${stack.gym} 的这一台` : `Only this machine at ${stack.gym}`}</span>
             {stack.overridden && (
               <button type="button" onClick={() => stack.onReset()} data-testid="stack-reset">
                 {isCn ? '恢复馆默认' : 'Use gym default'}
               </button>
             )}
-          </p>
+          </div>
         </div>
+      ) : (
+        <>
+          <div
+            className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
+            {...(scrub ? scrub.handlers : {})}
+          >
+            {scrub?.scrubbing && (
+              <span className="load-hero-step" aria-hidden>
+                ×{fmt(rounder.stepD(v) * scrub.step)}
+              </span>
+            )}
+            {isBar && <BarbellGlyph perSide={perSide} plateUnit={unit} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} />}
+            {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
+            {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
+            {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={unit} belt={belt} />}
+          </div>
+          <div className="load-caption-row">
+            {kind === 'plates' && (
+              <button
+                type="button"
+                className="bar-chip"
+                onClick={() => onBarChange && setBarOpen((o) => !o)}
+                disabled={!onBarChange}
+                aria-expanded={barOpen}
+                data-testid="bar-chip"
+              >
+                {barTxt}
+              </button>
+            )}
+            {caption && <p className="load-caption" data-testid="load-caption">{caption}</p>}
+          </div>
+          {near && onPick && (
+            <div className="load-near" data-testid="load-near">
+              <span>{isCn ? '改成能挂的：' : 'Snap to:'}</span>
+              {[near.lo, ...(near.hi !== near.lo ? [near.hi] : [])].map((n) => (
+                <button key={n} type="button" onClick={() => onPick(n)}>
+                  {nearLabel(n)}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
       {barOpen && kind === 'plates' && onBarChange && (
         <div className="bar-menu" role="group" aria-label={isCn ? '这个动作用哪根杠' : 'Bar for this exercise'}>
