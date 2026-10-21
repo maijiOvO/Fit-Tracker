@@ -1244,6 +1244,78 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     return 'pulled tagGym → tagCable (custom + override), rename dropped, ⋯ shows 插销 / 挂片';
   });
 
+  // 配重片起始 + 递减保持方向（2026-10-20 用户报）：
+  // 上次 22 → 递减 16.6 lb，在每格 10 lb 的馆里两档都会吸成 20 —— 递减必须仍然更轻（→ 10）；
+  // 大图上把这台改成「最轻 12.5 · 每格 5」：存进这一台的 gymOverrides，组吸到 22.5 / 12.5
+  await step(page, 'seeded-stack-start-and-drop-order', async () => {
+    await page.waitForTimeout(800);
+    await page.evaluate(() => window.__fitlog.flush());
+    const GD = 'E2E 丁馆';
+    const LB = 0.45359237;
+    const iso = torontoAt(torontoYmd(2), 9, 0).toISOString();
+    const w = {
+      id: 'seed_gym_d', userId: 'u_guest', date: iso, title: 'E2E 丁馆', status: 'completed', finishedAt: iso, updatedAt: iso, gym: GD,
+      exercises: [{ id: 'seed_gym_d_ex', name: '器械推肩', category: 'STRENGTH', sets: [
+        { id: 'seed_gym_d_s0', weight: 22 * LB, reps: 9, subSets: [{ weight: 16.6 * LB, reps: 6 }] },
+      ] }],
+    };
+    const prefs = remote.snapshot.prefs ?? {};
+    remote.snapshot = {
+      ...remote.snapshot,
+      workouts: [...(remote.snapshot.workouts ?? []).filter(x => x.id !== 'seed_gym_d'), w],
+      prefs: {
+        ...prefs,
+        appPrefs: { ...(prefs.appPrefs ?? {}), gyms: { ...(prefs.appPrefs?.gyms ?? {}), [GD]: { plateUnit: 'lbs', plates: [45, 35, 25, 10, 5, 2.5], cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' } } } },
+        appPrefsUpdatedMs: Date.now() + 1000,
+      },
+    };
+    await page.reload({ waitUntil: 'networkidle' });
+    await toDashboard();
+    if (await page.locator('[data-testid="in-progress"]').isVisible().catch(() => false)) {
+      await page.locator('[data-testid="in-progress"] button').first().click();
+    } else {
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    }
+    await page.locator('[data-testid="gym-button"]').waitFor({ state: 'visible', timeout: 5_000 });
+    const picker = page.locator('[data-testid="gym-picker"]');
+    await page.locator('[data-testid="gym-button"]').click();
+    await picker.waitFor({ state: 'visible', timeout: 3_000 });
+    await picker.locator('[data-testid^="gym-option-"]', { hasText: GD }).click();
+    await picker.waitFor({ state: 'hidden', timeout: 3_000 });
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill('器械推肩');
+    await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '器械推肩' }).first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    const card = page.locator('[data-testid="exercise-card"], .ui-card', { has: page.locator('.masthead-rule', { hasText: '器械推肩' }) }).last();
+    const pair = async () => [
+      Number(await card.locator('.ledger-row [data-testid="ledger-field-weight"] input').first().inputValue()),
+      Number(await card.locator('[data-testid="subset-field-weight"] input').first().inputValue()),
+    ];
+    const [m1, d1] = await pair();
+    if (m1 !== 20 || d1 !== 10) throw new Error(`22 → 16.6 lb on a 10 lb stack should draft 20 → 10 (drop stays lighter), got ${m1} → ${d1}`);
+
+    await card.locator('[data-testid="stack-chip"]').click();
+    const menu = card.locator('[data-testid="stack-menu"]');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.locator('[data-testid="stack-start"]').fill('12.5');
+    await menu.locator('[data-testid="stack-start"]').press('Enter');
+    await page.waitForTimeout(300);
+    await menu.locator('[data-testid="stack-step-dec"]').click();
+    await page.waitForTimeout(300);
+    const chip = await card.locator('[data-testid="stack-chip"]').innerText();
+    if (!chip.includes('最轻 12.5') || !chip.includes('每格 5')) throw new Error(`stack chip should read 最轻 12.5 · 每格 5: "${chip}"`);
+    const ov = (await readLs('fitlog_app_prefs'))?.gymOverrides?.[`${GD}|press_machine_shoulder|`];
+    if (JSON.stringify(ov) !== '{"v":5,"u":"lbs","s":12.5}') throw new Error(`stack override not stored: ${JSON.stringify(ov)}`);
+    const [m2, d2] = await pair();
+    if (m2 !== 22.5 || d2 !== 12.5) throw new Error(`on a 12.5 + 5k stack the sets should snap to 22.5 → 12.5, got ${m2} → ${d2}`);
+    if (!(await card.locator('[data-testid="prefill-from"]').innerText()).startsWith('参考')) throw new Error('the eyebrow should read 参考 · …');
+    await backAndDiscard(page);
+    return `22 → 16.6 lb drafts 20 → 10 · stack 12.5 + 5 → 22.5 → 12.5 · override ${JSON.stringify(ov)}`;
+  });
+
   await context.close();
 }
 

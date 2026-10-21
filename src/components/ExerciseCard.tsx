@@ -24,7 +24,7 @@ import { plural } from '../utils/format';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
-import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind } from '../hooks/useLoadRounder';
+import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { INC_CHOICES, profileIn } from '../utils/loadable';
@@ -317,11 +317,25 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             ? prof.kettlebell
             : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
     } else {
-      ov[incKey] = { v: next, u: rounder.unit };
+      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）
+      const s = loadKind === 'pin' && rounder.ctx.start ? rounder.ctx.start : 0;
+      ov[incKey] = { v: next, u: rounder.unit, ...(s > 0 ? { s } : {}) };
       inc = next;
     }
     changeAppPrefs({ gymOverrides: ov });
     onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withInc(rounder, inc)) });
+  };
+  /**
+   * 大图上改「最轻一格 · 每格」（2026-10-20 用户定：从 12.5 起、每格 +5 的龙门架）：存进这一台的 gymOverrides，
+   * 没做完、没改过的组吸到新刻度上。最轻一格和一档对齐（5 / 10…）就等于从 0 起，存 0。
+   */
+  const setStack = (step: number, start: number) => {
+    if (!rounder || !incKey || loadKind !== 'pin') return;
+    haptic(H.tap);
+    const aligned = start <= 0 || Math.abs(start / step - Math.round(start / step)) < 1e-6;
+    const s = aligned ? 0 : Math.round(start * 100) / 100;
+    changeAppPrefs({ gymOverrides: { ...appPrefs.gymOverrides, [incKey]: { v: step, u: rounder.unit, ...(s > 0 ? { s } : {}) } } });
+    onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withStack(rounder, step, s)) });
   };
   const stepInc = (dir: 1 | -1) => {
     if (!rounder) return;
@@ -617,7 +631,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               className="marginalia font-mono text-label text-tertiary tabular-nums"
               data-testid="prefill-from"
             >
-              {isCn ? '底稿' : 'Draft'} ·{' '}
+              {isCn ? '参考' : 'Ref'} ·{' '}
               {prefillElsewhere && (
                 <>
                   {isCn ? '在' : 'at'} <span className="text-accent" data-testid="prefill-gym">{prefillElsewhere}</span>{' '}
@@ -658,6 +672,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
           rounder={rounder}
           tare={tareD}
+          stack={incKey && loadKind === 'pin' ? { overridden: incOverridden, onSet: setStack, onReset: () => setIncOverride(null) } : undefined}
           onPick={next => {
             haptic(H.tap);
             writeHero(next);

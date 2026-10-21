@@ -27,7 +27,7 @@ import {
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { sidePlates } from '../utils/loadable';
+import { INC_CHOICES, sidePlates } from '../utils/loadable';
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
 
@@ -139,10 +139,20 @@ export function BarbellGlyph({
   );
 }
 
-/* ── 配重片摞（器械 / 龙门架 / 绳索）─────────────────────────── */
+/** 大图上改配重片刻度（这个馆这一台）：onSet(每格, 最轻一格)，最轻一格 0＝从 0 起 */
+export interface StackCtl {
+  overridden: boolean;
+  onSet: (step: number, start: number) => void;
+  onReset: () => void;
+}
 
-export function PinStackGlyph({ value, step }: { value: number; step: number }) {
-  const at = Math.max(0, Math.round(value / step));
+/* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
+
+export function PinStackGlyph({ value, step, start = 0 }: { value: number; step: number; start?: number }) {
+  // 带起始的配重片（12.5 起、每格 5）：第 1 片就是最轻一格，往下每片 +一档
+  const s0 = start > 0 ? start : 0;
+  const wAt = (idx: number) => (s0 > 0 ? s0 + (idx - 1) * step : idx * step);
+  const at = s0 > 0 ? (value >= s0 - 1e-9 ? Math.round((value - s0) / step) + 1 : 0) : Math.max(0, Math.round(value / step));
   const n = Math.min(30, Math.max(16, at + 3));
   const every = n > 20 ? 4 : 3;
   return (
@@ -150,7 +160,7 @@ export function PinStackGlyph({ value, step }: { value: number; step: number }) 
       {Array.from({ length: n }, (_, i) => {
         const idx = i + 1;
         // 插销那一片永远写确切重量（加粗放大）；它上下两片以内的周期刻度让开，免得字叠在一起
-        const label = idx === at ? fmt1(value) : Math.abs(idx - at) > 2 && idx % every === 0 ? fmt1(idx * step) : '';
+        const label = idx === at ? fmt1(value) : Math.abs(idx - at) > 2 && idx % every === 0 ? fmt1(wAt(idx)) : '';
         return (
           <span key={idx} className={`pin-slab${idx < at ? ' is-up' : idx === at ? ' is-at' : ''}`}>
             <em>{label}</em>
@@ -232,6 +242,7 @@ export function LoadHero({
   rounder,
   onPick,
   tare,
+  stack,
 }: {
   kind: LoadKind;
   /** 选中那一组的重量（显示单位，带符号） */
@@ -255,10 +266,12 @@ export function LoadHero({
   onPick?: (displayValue: number) => void;
   /** 挂片式器械在这个馆填过的空载（显示单位）：说明栏加「加空载共 x」，只做参考 */
   tare?: number;
+  /** 配重片在这个馆这一台的「最轻一格 · 每格」：说明栏左边可点，就地改（没标馆的训练不传） */
+  stack?: StackCtl;
 }) {
   const [barOpen, setBarOpen] = useState(false);
   if (kind === 'plain') return null;
-  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, tare }} />;
+  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, tare, stack }} />;
 
   const barKind: BarKind = bar?.kind ?? 'standard';
   const barW = barWeight(bar, plateUnit);
@@ -405,6 +418,7 @@ function GymHero({
   barOpen,
   setBarOpen,
   tare,
+  stack,
 }: {
   kind: LoadKind;
   value: number;
@@ -418,8 +432,13 @@ function GymHero({
   barOpen: boolean;
   setBarOpen: (f: (o: boolean) => boolean) => void;
   tare?: number;
+  stack?: StackCtl;
 }) {
   const ctx = rounder.ctx;
+  const [stackOpen, setStackOpen] = useState(false);
+  const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
+  const [startText, setStartText] = useState('');
+  useEffect(() => setStartText(String(stackStart > 0 ? stackStart : ctx.inc)), [stackStart, ctx.inc, stackOpen]);
   const u = unit === 'lbs' ? 'lb' : 'kg';
   const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
   // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
@@ -432,6 +451,26 @@ function GymHero({
   const perSide = isBar && v > base + 1e-9 ? sidePlates((v - base) / 2, ctx.plates, unit) : [];
   const belt = kind === 'signed' && v > 0 ? sidePlates(v, ctx.plates, unit) : [];
   const near = onGrid ? null : rounder.bracketD(value);
+
+  // 最轻一格：填的就是最轻那片的重量；和一档对齐（5 / 10 / 15…）等于没有起始，调用方存 0
+  const commitStart = () => {
+    if (!stack) return;
+    const n = Number.parseFloat(startText.trim().replace(',', '.'));
+    const cur = stackStart > 0 ? stackStart : ctx.inc;
+    if (!Number.isFinite(n) || n <= 0 || n > 500) {
+      setStartText(String(cur));
+      return;
+    }
+    if (Math.abs(n - cur) < 1e-9) return;
+    stack.onSet(ctx.inc, n);
+  };
+  const stepStack = (dir: 1 | -1) => {
+    if (!stack) return;
+    const list = INC_CHOICES[unit];
+    const nextV = dir > 0 ? list.find(x => x > ctx.inc + 1e-9) : [...list].reverse().find(x => x < ctx.inc - 1e-9);
+    if (nextV === undefined) return;
+    stack.onSet(nextV, stackStart);
+  };
 
   let caption = '';
   if (isBar) {
@@ -480,11 +519,24 @@ function GymHero({
           </span>
         )}
         {isBar && <BarbellGlyph perSide={perSide} plateUnit={unit} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} />}
-        {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} />}
+        {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
         {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={unit} belt={belt} />}
       </div>
       <div className="load-caption-row">
+        {kind === 'pin' && stack && (
+          <button
+            type="button"
+            className="bar-chip"
+            onClick={() => setStackOpen(o => !o)}
+            aria-expanded={stackOpen}
+            data-testid="stack-chip"
+          >
+            {isCn
+              ? `最轻 ${fmt(stackStart > 0 ? stackStart : ctx.inc)} · 每格 ${fmt(ctx.inc)} ${u}`
+              : `From ${fmt(stackStart > 0 ? stackStart : ctx.inc)} · +${fmt(ctx.inc)} ${u}`}
+          </button>
+        )}
         {kind === 'plates' && (
           <button
             type="button"
@@ -507,6 +559,43 @@ function GymHero({
               {nearLabel(n)}
             </button>
           ))}
+        </div>
+      )}
+      {stackOpen && kind === 'pin' && stack && (
+        <div className="bar-menu stack-menu" role="group" aria-label={isCn ? '这台配重片的刻度' : 'This stack'} data-testid="stack-menu">
+          <label className="stack-row">
+            <span>{isCn ? '最轻一格' : 'Lightest'}</span>
+            <input
+              className="ui-input"
+              inputMode="decimal"
+              value={startText}
+              onChange={e => setStartText(e.target.value)}
+              onBlur={() => commitStart()}
+              onKeyDown={e => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              data-testid="stack-start"
+              aria-label={isCn ? '最轻一格多重' : 'Lightest plate weight'}
+            />
+            <small>{u}</small>
+          </label>
+          <span className="stack-row">
+            <span>{isCn ? '每格' : 'Step'}</span>
+            <span className="bar-short-w">
+              <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
+              <b>{fmt(ctx.inc)}</b>
+              <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
+            </span>
+            <small>{u}</small>
+          </span>
+          <p className="stack-hint">
+            {isCn ? '只改这个馆的这一台' : 'Only this machine at this gym'}
+            {stack.overridden && (
+              <button type="button" onClick={() => stack.onReset()} data-testid="stack-reset">
+                {isCn ? '恢复馆默认' : 'Use gym default'}
+              </button>
+            )}
+          </p>
         </div>
       )}
       {barOpen && kind === 'plates' && onBarChange && (

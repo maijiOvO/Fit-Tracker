@@ -15,6 +15,11 @@ import { KG_PER_LB, PLATE_SPECS, type PlateUnit } from './plates';
 export interface IncSpec {
   v: number;
   u: PlateUnit;
+  /**
+   * 配重片的起始（最轻一格，和 v 同单位）：有的龙门架从 12.5 lb 起、每格 +5，能插的是 12.5 / 17.5 / 22.5…
+   * 没有或 0＝从 0 起（一档的整数倍）。只对配重片（插销）生效（2026-10-20 用户定）。
+   */
+  s?: number;
 }
 
 /** 一个馆的器材档案（存 AppPrefs.gyms[馆名]） */
@@ -60,6 +65,12 @@ export function incIn(c: IncSpec, unit: PlateUnit): number {
   return INC_CHOICES[unit].reduce((best, x) => (Math.abs(x - v) < Math.abs(best - v) ? x : best), INC_CHOICES[unit][0]);
 }
 
+/** 起始换到当前单位：同单位照用；换单位按实际重量换算（这摞配重片本身没变），保留到 0.05 */
+export function startIn(c: IncSpec | undefined, unit: PlateUnit): number {
+  if (!c?.s || c.s <= 0) return 0;
+  return Math.round(convert(c.s, c.u, unit) * 20) / 20;
+}
+
 /** 当前单位下实际用的那一套：档案和单位一致就照用，不一致按标准片、档位换算到最近（这次换了一套片子） */
 export interface LoadCtx {
   unit: PlateUnit;
@@ -69,12 +80,22 @@ export interface LoadCtx {
   bar: number;
   /** 这件器材的一档（配重片 / 哑铃 / 辅助），按 kind 选好了 */
   inc: number;
+  /** 配重片的起始（最轻一格，当前单位）；0 / 没有＝一档的整数倍 */
+  start?: number;
 }
 
 export function profileIn(
   profile: GymProfile | undefined,
   unit: PlateUnit,
-): { plates: number[]; cable: number; machine: number; dumbbell: number; kettlebell: number } {
+): {
+  plates: number[];
+  cable: number;
+  machine: number;
+  dumbbell: number;
+  kettlebell: number;
+  cableStart: number;
+  machineStart: number;
+} {
   const p = profile ?? defaultProfile(unit);
   return {
     plates: p.plateUnit === unit && p.plates.length ? [...p.plates].sort((a, b) => b - a) : PLATE_SPECS[unit].map(s => s.w),
@@ -82,6 +103,8 @@ export function profileIn(
     machine: incIn(p.machine, unit),
     dumbbell: incIn(p.dumbbell, unit),
     kettlebell: incIn(p.kettlebell ?? DEFAULT_KETTLEBELL_INC[p.plateUnit], unit),
+    cableStart: startIn(p.cable, unit),
+    machineStart: startIn(p.machine, unit),
   };
 }
 
@@ -156,6 +179,16 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
     return { lo: r2(a), hi: r2(b) };
   }
   const st = ctx.inc > 0 ? ctx.inc : 1;
+  // 配重片带起始：能插的是 start、start + 一档、…；比最轻一格还轻的（手打的 5）只能往上吸到最轻一格
+  const s0 = kind === 'pin' && ctx.start && ctx.start > 0 ? ctx.start : 0;
+  if (s0 > 0) {
+    if (v <= 1e-9) return { lo: 0, hi: 0 };
+    if (v < s0 - 1e-9) return { lo: r2(s0), hi: r2(s0) };
+    return {
+      lo: r2(s0 + Math.floor((v - s0) / st + 1e-9) * st),
+      hi: r2(s0 + Math.ceil((v - s0) / st - 1e-9) * st),
+    };
+  }
   let lo = Math.floor(v / st + 1e-9) * st;
   let hi = Math.ceil(v / st - 1e-9) * st;
   if (kind === 'pair' || kind === 'bell') {

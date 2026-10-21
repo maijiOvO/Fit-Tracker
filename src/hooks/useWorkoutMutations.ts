@@ -737,7 +737,7 @@ export function useWorkoutMutations({
       setEditingWorkoutId(null);
       setActiveTab('new');
       toast(
-        isCn ? '已铺成底稿——点组号照抄' : 'Copied as drafts — tap a set number to confirm',
+        isCn ? '已按这场填好参考——点组号照抄' : 'Filled in as reference — tap a set number to confirm',
         'info',
       );
     },
