@@ -382,7 +382,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </div>
           )}
           <div className="flex items-center gap-2 min-w-0">
-            <h4 className="font-bold text-primary truncate">
+            {/* data-user-text：存下来的标题是数据（默认标题按结束时的语言生成），不随界面语言变 */}
+            <h4 className="font-bold text-primary truncate" data-user-text={w.title ? '' : undefined}>
               {w.title || (isCN ? '未命名训练' : 'Untitled')}
             </h4>
             {w.fromSchedule && (
