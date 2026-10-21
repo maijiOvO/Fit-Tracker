@@ -11,7 +11,7 @@ import react from '@vitejs/plugin-react';
  *
  * 演示构建单独戳成 'demo'：它既不是 dev 也不是 prod，
  * 万一 demo 的 dist 留在目录里被拿去打 APK，闸门要能一眼看出不对
- * —— 戳成 dev 的话 `deploy-android.ps1 -Dev` 会把它放行。
+ * —— 混成 dev 就分不清它和普通 `npm run build` 的产物了。
  */
 function emitBuildEnv(resolved: string, demo: boolean, solo: boolean) {
   return {

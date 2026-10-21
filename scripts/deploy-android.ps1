@@ -1,8 +1,12 @@
 ﻿# 一键：构建 → 同步 → 打 APK → 装到手机
 #
 #   .\scripts\deploy-android.ps1            # prod 数据环境（连 NAS 真实数据）
-#   .\scripts\deploy-android.ps1 -Dev       # dev 数据环境（隔离，随便造数据）
 #   .\scripts\deploy-android.ps1 -SkipBuild # 只重装现有 APK，不重新编译
+#
+# 没有 dev 包。原生 App 运行时一律锁 prod（services/appEnv.ts 的 isEnvLocked()），
+# 构建戳写 dev 也没用 —— 以前的 -Dev 打出来的包装上手机照样连 NAS 真实 state。
+# 要在手机上造假数据，用不联网的 solo 测试包（android-build 技能第 5 节末）。
+# -Dev 参数留着只为报错拦住旧习惯。
 #
 # 不用连 USB 也能出 APK —— 只是最后那步装不上，脚本会把文件路径告诉你。
 #
@@ -13,13 +17,22 @@
 #    本脚本只在你要一个【离开数据线也能用】的包时才需要。
 
 param(
-    [switch]$Dev,
+    [switch]$Dev,  # 已废弃，传了就报错，见文件头
     [switch]$SkipBuild,
     [ValidateSet('personal')]  # solo 的 web 侧要 build:solo，本脚本只打 prod，不接 solo
     [string]$Variant = 'personal'
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ($Dev) {
+    Write-Host "[X] -Dev 已删除：它打出的包装到手机上照样是 prod、照样读写 NAS 真实数据。" -ForegroundColor Red
+    Write-Host "    原生 App 运行时一律锁 prod（services/appEnv.ts 的 isEnvLocked()），构建戳管不到。" -ForegroundColor Yellow
+    Write-Host "    要在手机上造假数据 / 做破坏性验证，用不联网的 solo 测试包：" -ForegroundColor Yellow
+    Write-Host "    FITLOG_TEST_PKG=1 + build:solo + assembleSoloDebug，见 .claude/skills/android-build/SKILL.md 第 5 节末。" -ForegroundColor Cyan
+    exit 1
+}
+
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
@@ -48,12 +61,13 @@ $task = 'assemble' + $Variant.Substring(0, 1).ToUpper() + $Variant.Substring(1) 
 
 if (-not $SkipBuild) {
     # ── 1. 构建 web 产物 ──────────────────────────────────
-    $mode = if ($Dev) { 'dev' } else { 'prod' }
+    $mode = 'prod'
     Write-Host "`n[1/4] 构建 web 产物（$mode 数据环境）..." -ForegroundColor Cyan
-    if ($Dev) { npm run build } else { npm run build:release }
+    npm run build:release
     if ($LASTEXITCODE -ne 0) { Write-Host "[X] web 构建失败" -ForegroundColor Red; exit 1 }
 
-    # 环境戳闸门：dev 包装到手机上会去读写 state-dev，看不到自己的记录
+    # 环境戳闸门：确认 dist 是 release 构建，不是 dist 里残留的 dev / demo / solo 产物。
+    # （运行时手机本来就锁 prod；这道闸门管的是 release 才有的构建期配置别漏掉。）
     $stamp = (Get-Content "dist\fitlog-build-env.json" -Raw | ConvertFrom-Json).env
     if ($stamp -ne $mode) {
         Write-Host "[X] 环境戳是 '$stamp'，期望 '$mode' —— 构建链路有问题，停。" -ForegroundColor Red

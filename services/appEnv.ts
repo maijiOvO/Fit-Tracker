@@ -12,6 +12,11 @@
  *   3. 其余（dev server / vite preview / 任意浏览器）→ 可切换，默认 dev
  *
  * 1 和 2 互为保险：APK 忘了烙印由 1 兜底，Capacitor 注入失败由 2 兜底。
+ *
+ * 所以**没有「dev 数据环境的手机包」**：1 不看构建戳，戳成 dev 的 APK 照样是 prod。
+ * 曾经的 `deploy-android.ps1 -Dev` 就栽在这里 —— 戳是 dev，装上去连的是 NAS 真实 state。
+ * 不给 1 开「戳成 dev 就放行」的口子：那等于让手机端的隔离重新取决于打包时有没有传对参数。
+ * 手机上造假数据用不联网的 solo 测试包（android-build 技能第 5 节）。
  */
 
 export type DataEnv = 'dev' | 'prod';
