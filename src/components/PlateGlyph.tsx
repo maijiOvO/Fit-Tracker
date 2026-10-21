@@ -462,8 +462,9 @@ function GymHero({
   const nudgeStart = (dir: 1 | -1) => {
     if (!stack) return;
     const cur = stackStart > 0 ? stackStart : ctx.inc;
-    const next = Math.round((cur + dir * (unit === 'lbs' ? 0.5 : 0.25)) * 100) / 100;
-    if (next <= 0) return;
+    // 最轻一格的颗粒度 kg / lb 都是 0.5（2026-10-21 用户定：用不着更细）
+    const next = Math.round((cur + dir * 0.5) * 100) / 100;
+    if (next < 0.5) return;
     stack.onSet(ctx.inc, next);
   };
   const stepStack = (dir: 1 | -1) => {
@@ -540,8 +541,8 @@ function GymHero({
               <ScrubNumber
                 value={lightest}
                 onCommit={n => n !== null && n > 0 && Math.abs(n - lightest) > 1e-9 && stack.onSet(ctx.inc, n)}
-                min={unit === 'lbs' ? 0.5 : 0.25}
-                steps={unit === 'lbs' ? [0.5, 1, 2.5, 5] : [0.25, 0.5, 1.25, 2.5]}
+                min={0.5}
+                steps={[0.5, 1, 2.5, 5]}
                 testId="stack-start"
                 ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
               />
