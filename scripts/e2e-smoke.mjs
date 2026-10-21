@@ -1102,43 +1102,62 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     if (!lastLine.includes(`上次在 ${GB}`)) throw new Error(`expanded line should say 上次在 ${GB}: "${lastLine}"`);
     await page.locator('[data-testid="prefill-from"]').click();
 
-    // A2：回乙馆，⋯ 里把这台改成挂片 → 记进 gymKinds；23 按挂片（每边 11.25 / 12.5）取到 22.5；一档多重不再出现
+    // A2：回乙馆，大图上方小药丸 → 「这台器械」里改成挂片（2026-10-21 起这些设置不在 ⋯ 菜单里了）
     await pickGym(GB);
     if ((await weights()).join() !== '23') throw new Error('back at the gym with history the draft should be 23 again');
-    await page.getByRole('button', { name: '动作菜单' }).first().click();
-    const menu = page.getByRole('menu');
-    await menu.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
-    if ((await menu.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('library kind (pin) should be selected by default');
-    if (!(await menu.locator('[data-testid="gym-inc"]').count())) throw new Error('pin machine should offer the per-machine step');
-    await menu.locator('[data-testid="gym-kind-loaded"]').click();
+    const face = page.locator('[data-testid="stack-menu"]');
+    const openFace = async () => {
+      if (!(await face.isVisible())) await page.locator('[data-testid="stack-chip"]').first().click();
+      await face.waitFor({ state: 'visible', timeout: 3_000 });
+    };
+    const closeFace = async () => {
+      await face.locator('[data-testid="stack-done"]').click();
+      await face.waitFor({ state: 'hidden', timeout: 2_000 });
+    };
+    await openFace();
+    await face.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await face.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('library kind (pin) should be selected by default');
+    if (!(await face.locator('[data-testid="stack-step"]').count())) throw new Error('pin machine should offer the per-machine step');
+    await face.locator('[data-testid="gym-kind-loaded"]').click();
     await page.waitForTimeout(300);
     const kinds = (await readLs('fitlog_app_prefs'))?.gymKinds;
     if (kinds?.[`${GB}|press_machine_shoulder|`] !== 'loaded') throw new Error(`gymKinds not stored: ${JSON.stringify(kinds)}`);
     const wK = await weights();
     if (wK.join() !== '22.5') throw new Error(`plate-loaded at ${GB}: 23 should re-round to 22.5, got ${JSON.stringify(wK)}`);
-    if (await menu.locator('[data-testid="gym-inc"]').count()) throw new Error('plate-loaded machine should not show the per-machine step');
+    if (await face.locator('[data-testid="stack-step"]').count()) throw new Error('plate-loaded machine should not show the per-machine step');
     // 空载：填 30 → 记进 gymTares（带单位），大图说明「加空载共 52.5 kg」，记录照旧 22.5；清空 → 墓碑，回到「只算片子」
-    const tare = menu.locator('[data-testid="gym-tare"]');
+    const tare = face.locator('[data-testid="gym-tare"]');
     await tare.fill('30');
     await tare.press('Enter');
     await page.waitForTimeout(300);
     const tares = (await readLs('fitlog_app_prefs'))?.gymTares;
     if (JSON.stringify(tares?.[`${GB}|press_machine_shoulder|`]) !== '{"v":30,"u":"kg"}') throw new Error(`gymTares not stored: ${JSON.stringify(tares)}`);
+    await closeFace();
     if (!(await page.getByText('加空载共 52.5 kg').count())) throw new Error('hero caption should add the sled: 加空载共 52.5 kg');
+    if (!(await page.locator('[data-testid="stack-chip"]').first().innerText()).includes('空载 30')) throw new Error('the pill should read 挂片 · 空载 30 kg');
     if ((await weights()).join() !== '22.5') throw new Error(`the sled must not change the logged weight, got ${JSON.stringify(await weights())}`);
+    await openFace();
     await tare.fill('');
     await tare.press('Enter');
     await page.waitForTimeout(300);
     if ((await readLs('fitlog_app_prefs'))?.gymTares?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error('clearing the sled should leave a tombstone');
+    await closeFace();
     if (!(await page.getByText(/只算片子/).count())) throw new Error('without a sled the caption should say 只算片子 again');
     // 改回插销 → 写墓碑（和动作库一样），再改成挂片留着
-    await menu.locator('[data-testid="gym-kind-pin"]').click();
+    await openFace();
+    await face.locator('[data-testid="gym-kind-pin"]').click();
     await page.waitForTimeout(300);
     const kinds2 = (await readLs('fitlog_app_prefs'))?.gymKinds;
     if (kinds2?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error(`back to the library kind should leave a tombstone: ${JSON.stringify(kinds2)}`);
-    await menu.locator('[data-testid="gym-kind-loaded"]').click();
+    await face.locator('[data-testid="gym-kind-loaded"]').click();
     await page.waitForTimeout(200);
+    await closeFace();
 
+    // ⋯ 菜单只留对动作的操作：不再有插销 / 挂片、一档、空载
+    await page.getByRole('button', { name: '动作菜单' }).first().click();
+    const menu = page.getByRole('menu');
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    if (await menu.locator('[data-testid="gym-kind"], [data-testid="gym-tare"], [data-testid="gym-inc-value"]').count()) throw new Error('the ⋯ menu should no longer carry machine settings');
     // B：⋯ 加备注 → 两栏；卡上本馆的在前
     await menu.getByRole('menuitem', { name: /加备注|编辑备注/ }).click();
     const dlg = page.getByRole('dialog');
@@ -1233,15 +1252,16 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: NAME }).first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
     await page.waitForTimeout(400);
-    // 接回来的那一场里可能还有别的动作：按名字找这张卡的 ⋯
-    await page.locator('.masthead-rule', { hasText: NAME }).getByRole('button', { name: '动作菜单' }).click();
-    const menu = page.getByRole('menu');
-    await menu.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
-    if ((await menu.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('a cable exercise should default to pin');
-    await page.keyboard.press('Escape');
+    // 接回来的那一场里可能还有别的动作：按名字找这张卡，点大图上方的小药丸
+    const gcard = page.locator('.ui-card', { has: page.locator('.masthead-rule', { hasText: NAME }) }).last();
+    await gcard.locator('[data-testid="stack-chip"]').click();
+    const gface = gcard.locator('[data-testid="stack-menu"]');
+    await gface.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await gface.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('a cable exercise should default to pin');
+    await gface.locator('[data-testid="stack-done"]').click();
     await page.waitForTimeout(200);
     await backAndDiscard(page);
-    return 'pulled tagGym → tagCable (custom + override), rename dropped, ⋯ shows 插销 / 挂片';
+    return 'pulled tagGym → tagCable (custom + override), rename dropped, machine face shows 插销 / 挂片';
   });
 
   // 配重片起始 + 递减保持方向（2026-10-20 用户报）：

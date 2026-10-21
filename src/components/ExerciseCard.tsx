@@ -27,8 +27,7 @@ import { plateUnitOf } from '../utils/plates';
 import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { INC_CHOICES, profileIn } from '../utils/loadable';
-import { ScrubNumber, listStepFn } from './ScrubNumber';
+import { profileIn } from '../utils/loadable';
 
 
 /**
@@ -339,15 +338,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     changeAppPrefs({ gymOverrides: { ...appPrefs.gymOverrides, [incKey]: { v: step, u: rounder.unit, ...(s > 0 ? { s } : {}) } } });
     onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withStack(rounder, step, s)) });
   };
-  const stepInc = (dir: 1 | -1) => {
-    if (!rounder) return;
-    const list = INC_CHOICES[rounder.unit];
-    const cur = rounder.ctx.inc;
-    // 往上取第一个更大的、往下取最后一个更小的（当前值不在表里也成立）
-    const nextV = dir > 0 ? list.find(x => x > cur + 1e-9) : [...list].reverse().find(x => x < cur - 1e-9);
-    if (nextV !== undefined) setIncOverride(nextV);
-  };
-  const uLab = unit === 'lbs' ? 'lb' : 'kg';
 
   /**
    * ⋯「在 X，这台是 插销 / 挂片」（design-plates.md「换馆重量」A2）：库里是配重片或挂片式器械的动作才给。
@@ -504,79 +494,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {isCn ? '重命名' : 'Rename'}
                   </button>
                 )}
-                {kindKey && (
-                  <div className="gym-inc border-t border-divider mt-1 px-4 pt-2 pb-2" data-testid="gym-kind">
-                    <p className="text-label text-secondary">
-                      {isCn ? <>在 <b className="text-primary">{gym}</b>，这台是</> : <>At <b className="text-primary">{gym}</b>, this one is</>}
-                    </p>
-                    <span className="gym-seg mt-1" role="group">
-                      {(['pin', 'loaded'] as const).map(k => (
-                        <button
-                          key={k}
-                          type="button"
-                          className={`min-h-[36px] px-3 text-label font-semibold ${loadKind === k ? 'seg-on' : 'text-secondary'}`}
-                          aria-pressed={loadKind === k}
-                          onClick={() => setGymKind(k)}
-                          data-testid={`gym-kind-${k}`}
-                        >
-                          {k === 'pin' ? (isCn ? '插销' : 'Pin stack') : isCn ? '挂片' : 'Plate-loaded'}
-                        </button>
-                      ))}
-                    </span>
-                    {tareKey && (
-                      <label className="mt-2 flex items-center gap-2 text-label text-secondary">
-                        <span className="shrink-0 whitespace-nowrap">{isCn ? '空载' : 'Sled'}</span>
-                        <ScrubNumber
-                          value={tareD ?? null}
-                          onCommit={saveTare}
-                          allowEmpty
-                          min={-500}
-                          max={500}
-                          steps={rounder?.unit === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
-                          placeholder={isCn ? '不知道' : '?'}
-                          ariaLabel={isCn ? '空载重量' : 'Sled weight'}
-                          testId="gym-tare"
-                          fill
-                          className="ui-input flex-1 min-w-0 min-h-[36px] py-1"
-                        />
-                        <span className="shrink-0">{uLab}</span>
-                      </label>
-                    )}
-                    {tareKey && (
-                      <p className="text-micro text-tertiary mt-1">
-                        {isCn ? '器械上标了就填，只做参考，记录照旧只算片子' : 'For reference only; logs stay plates-only'}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {incKey && rounder && (
-                  <div className="gym-inc border-t border-divider mt-1 px-4 pt-2 pb-2" data-testid="gym-inc">
-                    <p className="text-label text-secondary">
-                      {isCn ? <>在 <b className="text-primary">{gym}</b>，{loadKind === 'pair' ? '哑铃' : loadKind === 'bell' ? '壶铃' : loadKind === 'signed' ? '辅助器械' : '这台器械'}一档多重</> : <>At <b className="text-primary">{gym}</b>, one step is</>}
-                    </p>
-                    <div className="gym-inc-stepper">
-                      <button type="button" onClick={() => stepInc(-1)} aria-label={isCn ? '一档轻一点' : 'Smaller step'}>−</button>
-                      <ScrubNumber
-                        value={rounder.ctx.inc}
-                        onCommit={n => n !== null && n > 0 && Math.abs(n - rounder.ctx.inc) > 1e-9 && setIncOverride(n)}
-                        min={0.25}
-                        stepFn={listStepFn(INC_CHOICES[rounder.unit])}
-                        steps={[1, 2, 4]}
-                        testId="gym-inc-value"
-                        ariaLabel={isCn ? '一档多重' : 'Step'}
-                      />
-                      <button type="button" onClick={() => stepInc(1)} aria-label={isCn ? '一档重一点' : 'Bigger step'}>＋</button>
-                      <span>{uLab}</span>
-                    </div>
-                    {incOverridden ? (
-                      <button type="button" className="text-label text-secondary underline min-h-[36px]" onClick={() => setIncOverride(null)}>
-                        {isCn ? '恢复馆默认' : 'Use gym default'}
-                      </button>
-                    ) : (
-                      <p className="text-micro text-tertiary">{isCn ? '改了只影响这个馆的这一台' : 'Only this machine at this gym'}</p>
-                    )}
-                  </div>
-                )}
                 {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险；
                     真正的危险确认在弹窗里做（全宽实心 + 明确文案）。 */}
                 <button
@@ -677,7 +594,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
           rounder={rounder}
           tare={tareD}
-          stack={incKey && gym && loadKind === 'pin' ? { gym, overridden: incOverridden, onSet: setStack, onReset: () => setIncOverride(null) } : undefined}
+          machine={
+            gym && rounder && (kindKey || incKey)
+              ? {
+                  gym,
+                  canSwitch: !!kindKey,
+                  onKind: setGymKind,
+                  onStack: incKey && loadKind === 'pin' ? setStack : undefined,
+                  inc: incKey ? { overridden: incOverridden, onSet: n => setIncOverride(n), onReset: () => setIncOverride(null) } : undefined,
+                  tare: tareKey ? { value: tareD ?? null, onSet: saveTare } : undefined,
+                }
+              : undefined
+          }
           onPick={next => {
             haptic(H.tap);
             writeHero(next);

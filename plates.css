@@ -522,3 +522,5 @@
 .bar-short-w .scrub-num.is-scrubbing input { border-bottom-style: solid; color: var(--accent-text); }
 /* 刻度设置面的数字也按整数位钉住（.stack-seg input 原来右对齐，12 ⇄ 12.5 时整数位会跳） */
 .stack-seg .scrub-num input { text-align: left; font-variant-numeric: tabular-nums; }
+.stack-note { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.stack-stp .gym-seg { flex-shrink: 0; }
