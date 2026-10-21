@@ -3,6 +3,7 @@ import { Scale } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
+import { ScrubNumber } from '../ScrubNumber';
 
 interface WeightInputModalProps {
   open: boolean;
@@ -46,15 +47,19 @@ export const WeightInputModal: React.FC<WeightInputModalProps> = ({
       {/* 体重是「数据」，走 data-md 等宽而不是普通输入框字号（§3） */}
       <label className="ledger-field justify-start gap-3 px-4 py-3 bg-inset border border-divider rounded-control">
         <Scale size={20} strokeWidth={1.75} className="text-tertiary flex-shrink-0 self-center" />
-        <input
-          type="number"
-          step="0.1"
-          inputMode="decimal"
-          className="ledger-input text-left flex-1"
-          value={weightInputValue}
-          onChange={e => setWeightInputValue(e.target.value)}
+        <ScrubNumber
+          value={weightInputValue.trim() === '' || !Number.isFinite(Number(weightInputValue)) ? null : Number(weightInputValue)}
+          onCommit={n => setWeightInputValue(n === null ? '' : String(n))}
+          allowEmpty
+          live
+          decimals={1}
+          steps={[0.1, 0.5, 1, 5]}
           placeholder="0.0"
           autoFocus
+          ariaLabel={unit}
+          fill
+          className="flex-1"
+          inputClassName="ledger-input text-left"
         />
         <span className="ledger-unit self-center">{unit}</span>
       </label>

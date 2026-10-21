@@ -2,6 +2,7 @@ import React from 'react';
 import { Goal, Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
+import { ScrubNumber } from '../ScrubNumber';
 
 interface AddGoalModalProps {
   open: boolean;
@@ -65,21 +66,31 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
           placeholder={translations.goalLabelPlaceholder[lang]}
         />
         <div className="grid grid-cols-2 gap-3">
-          <input
-            type="number"
-            inputMode="decimal"
+          <ScrubNumber
+            value={newGoal.currentValue ? Number(newGoal.currentValue) : null}
+            onCommit={n => setNewGoal({ ...newGoal, currentValue: n ?? 0 })}
+            allowEmpty
+            live
+            min={-1e6}
+            max={1e6}
+            steps={[1, 5, 10, 50]}
+            placeholder={String(translations.current[lang])}
+            ariaLabel={String(translations.current[lang])}
+            fill
             className="ui-input"
-            placeholder={translations.current[lang]}
-            value={newGoal.currentValue || ''}
-            onChange={e => setNewGoal({ ...newGoal, currentValue: Number(e.target.value) })}
           />
-          <input
-            type="number"
-            inputMode="decimal"
+          <ScrubNumber
+            value={newGoal.targetValue ? Number(newGoal.targetValue) : null}
+            onCommit={n => setNewGoal({ ...newGoal, targetValue: n ?? 0 })}
+            allowEmpty
+            live
+            min={-1e6}
+            max={1e6}
+            steps={[1, 5, 10, 50]}
+            placeholder={String(translations.target[lang])}
+            ariaLabel={String(translations.target[lang])}
+            fill
             className="ui-input"
-            placeholder={translations.target[lang]}
-            value={newGoal.targetValue || ''}
-            onChange={e => setNewGoal({ ...newGoal, targetValue: Number(e.target.value) })}
           />
         </div>
       </div>

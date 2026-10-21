@@ -501,3 +501,21 @@
   font-weight: 400;
   letter-spacing: 0;
 }
+
+/* 步进器中间的数换成 ScrubNumber 后保持原来的粗体数字（一档、短杠、刻度设置面） */
+.gym-inc-stepper .scrub-num input,
+.bar-short-w .scrub-num input {
+  font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  text-align: center;
+  color: var(--text-primary);
+}
+/* 上面 .stack-seg input 清了边框：把 ScrubNumber「下面虚线＝能拖」的提示补回来 */
+.stack-seg .scrub-num input,
+.gym-inc-stepper .scrub-num input,
+.bar-short-w .scrub-num input {
+  border-bottom: 1px dashed var(--accent);
+  padding-bottom: 1px;
+}
+.stack-seg .scrub-num.is-scrubbing input,
+.gym-inc-stepper .scrub-num.is-scrubbing input,
+.bar-short-w .scrub-num.is-scrubbing input { border-bottom-style: solid; color: var(--accent-text); }

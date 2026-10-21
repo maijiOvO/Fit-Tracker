@@ -12,6 +12,7 @@ import { ExerciseCategory } from '../constants/exercises';
 import { parseWeight } from '../utils/format';
 import Modal from './Modal';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
+import { ScrubNumber } from './ScrubNumber';
 import { formatWeight } from './SetCapsule';
 
 type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string };
@@ -351,36 +352,50 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                 <div className="grid grid-cols-3 gap-2">
                   <label className="block">
                     <span className="text-[10px] text-tertiary">{translations.scheduleTargetSets[lang]}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={ex.targetSets ?? ''}
-                      onChange={e => updateExercise(ex.id, { targetSets: e.target.value ? Number(e.target.value) : undefined })}
-                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono focus:outline-none focus:border-accent"
+                    <ScrubNumber
+                      value={ex.targetSets ?? null}
+                      onCommit={n => updateExercise(ex.id, { targetSets: n ?? undefined })}
+                      allowEmpty
+                      live
+                      steps={[1, 2, 5]}
+                      decimals={0}
+                      inputMode="numeric"
+                      ariaLabel="targetSets"
+                      fill
+                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono"
                     />
                   </label>
                   <label className="block">
                     <span className="text-[10px] text-tertiary">{translations.scheduleTargetReps[lang]}</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={ex.targetReps ?? ''}
-                      onChange={e => updateExercise(ex.id, { targetReps: e.target.value ? Number(e.target.value) : undefined })}
-                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono focus:outline-none focus:border-accent"
+                    <ScrubNumber
+                      value={ex.targetReps ?? null}
+                      onCommit={n => updateExercise(ex.id, { targetReps: n ?? undefined })}
+                      allowEmpty
+                      live
+                      steps={[1, 2, 5]}
+                      decimals={0}
+                      inputMode="numeric"
+                      ariaLabel="targetReps"
+                      fill
+                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono"
                     />
                   </label>
                   <label className="block">
                     <span className="text-[10px] text-tertiary">
                       {translations.scheduleTargetWeight[lang]} ({unit})
                     </span>
-                    <input
-                      type="number"
-                      min={0}
-                      step="0.5"
-                      value={ex.targetWeight ?? ''}
-                      data-testid="schedule-exercise-weight"
-                      onChange={e => updateExercise(ex.id, { targetWeight: e.target.value ? Number(e.target.value) : undefined })}
-                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono focus:outline-none focus:border-accent"
+                    <ScrubNumber
+                      value={ex.targetWeight ?? null}
+                      onCommit={n => updateExercise(ex.id, { targetWeight: n ?? undefined })}
+                      allowEmpty
+                      live
+                      steps={[0.5, 1, 2.5, 5]}
+                      decimals={2}
+                      inputMode="decimal"
+                      ariaLabel="targetWeight"
+                      testId="schedule-exercise-weight"
+                      fill
+                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono"
                     />
                   </label>
                 </div>

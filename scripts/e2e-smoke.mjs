@@ -988,7 +988,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     if (!/^-4\.4 lbs/.test(delta)) throw new Error(`30d delta should be -4.4 lbs, got "${delta}"`);
     await page.getByRole('button', { name: '记录体重', exact: true }).click();
     const dlg = page.getByRole('dialog');
-    await dlg.locator('input[type="number"]').fill('176.4');
+    await dlg.locator('.scrub-num input').fill('176.4');
     await dlg.getByRole('button', { name: '确定' }).click();
     await dlg.waitFor({ state: 'hidden', timeout: 3_000 });
     const goal = await page.evaluate(async () => {
@@ -1305,7 +1305,31 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await menu.locator('[data-testid="stack-start"]').fill('12.5');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
-    await menu.locator('[data-testid="stack-step-dec"]').click();
+    // 全站数值都能横划（ScrubNumber，2026-10-21 用户定）：最轻一格往右划变重、往左划回来
+    const swipe = async (testId, dx) => {
+      const bx = await menu.locator(`[data-testid="${testId}-scrub"]`).boundingBox();
+      await page.mouse.move(bx.x + bx.width / 2, bx.y + bx.height / 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 8; i++) await page.mouse.move(bx.x + bx.width / 2 + (dx * i) / 8, bx.y + bx.height / 2, { steps: 2 });
+      await page.mouse.up();
+      await page.waitForTimeout(300);
+      return Number(await menu.locator(`[data-testid="${testId}"]`).inputValue());
+    };
+    const up = await swipe('stack-start', 60);
+    if (!(up > 12.5)) throw new Error(`swiping 最轻一格 right should raise it above 12.5, got ${up}`);
+    const back = await swipe('stack-start', -60);
+    if (!(back < up)) throw new Error(`swiping 最轻一格 left should lower it again (${up} → ${back})`);
+    await menu.locator('[data-testid="stack-start"]').fill('12.5');
+    await menu.locator('[data-testid="stack-start"]').press('Enter');
+    await page.waitForTimeout(300);
+    // 每格沿档位表走（10 → 5）：往左划一下
+    const stepAfter = await swipe('stack-step', -20);
+    if (!(stepAfter < 10 && [1, 2.5, 5].includes(stepAfter))) throw new Error(`swiping 每格 left should walk down the lb list (10 → 5 → 2.5…), got ${stepAfter}`);
+    // 回到每格 5（后面按 12.5 + 5 的刻度断言）：真点一下再打字 —— 横划热区不能把「点一下进输入」吃掉
+    await menu.locator('[data-testid="stack-step"]').click();
+    await page.keyboard.press('Control+A');
+    await page.keyboard.type('5');
+    await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
     // 方案 A：设置面原地换掉大图；「完成」收回，图和标签回来
     if (await card.locator('[data-testid="load-hero"] .load-hero-drag').count()) throw new Error('the stack graphic should be replaced by the settings face while open');

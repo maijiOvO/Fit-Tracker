@@ -2,6 +2,7 @@ import React from 'react';
 import { Goal, GoalType, Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
+import { ScrubNumber } from '../ScrubNumber';
 
 interface EditGoalModalProps {
   open: boolean;
@@ -68,21 +69,31 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
           />
 
           <div className="grid grid-cols-2 gap-3">
-            <input
-              type="number"
-              inputMode="decimal"
+            <ScrubNumber
+              value={editingGoal.currentValue ? Number(editingGoal.currentValue) : null}
+              onCommit={n => setEditingGoal({ ...editingGoal, currentValue: n ?? 0 })}
+              allowEmpty
+              live
+              min={-1e6}
+              max={1e6}
+              steps={[1, 5, 10, 50]}
+              placeholder={String(translations.current[lang])}
+              ariaLabel={String(translations.current[lang])}
+              fill
               className="ui-input"
-              placeholder={translations.current[lang]}
-              value={editingGoal.currentValue || ''}
-              onChange={e => setEditingGoal({ ...editingGoal, currentValue: Number(e.target.value) })}
             />
-            <input
-              type="number"
-              inputMode="decimal"
+            <ScrubNumber
+              value={editingGoal.targetValue ? Number(editingGoal.targetValue) : null}
+              onCommit={n => setEditingGoal({ ...editingGoal, targetValue: n ?? 0 })}
+              allowEmpty
+              live
+              min={-1e6}
+              max={1e6}
+              steps={[1, 5, 10, 50]}
+              placeholder={String(translations.target[lang])}
+              ariaLabel={String(translations.target[lang])}
+              fill
               className="ui-input"
-              placeholder={translations.target[lang]}
-              value={editingGoal.targetValue || ''}
-              onChange={e => setEditingGoal({ ...editingGoal, targetValue: Number(e.target.value) })}
             />
           </div>
 

@@ -8,6 +8,7 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { secondsToHMS } from '../../utils/format';
 import { Modal, ModalFooter } from '../Modal';
+import { ScrubNumber } from '../ScrubNumber';
 
 interface DurationPickerModalProps {
   open: boolean;
@@ -72,26 +73,20 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
               </button>
 
               <div className="flex flex-col items-center">
-                <input
-                  type="number"
-                  inputMode="numeric"
+                <ScrubNumber
+                  value={tempHMS[col.key]}
+                  onCommit={n => setTempHMS(p => ({ ...p, [col.key]: Math.floor(n ?? 0) }))}
+                  live
                   min={0}
                   max={col.max}
+                  steps={[1, 5, 10]}
+                  decimals={0}
+                  pad={2}
+                  inputMode="numeric"
                   enterKeyHint={col.key === 's' ? 'done' : 'next'}
-                  className="w-16 bg-transparent text-center text-4xl font-semibold text-primary tabular-nums outline-none focus:text-accent"
-                  aria-label={col.label}
-                  data-testid={`duration-${col.key}`}
-                  value={tempHMS[col.key].toString().padStart(2, '0')}
-                  onFocus={e => {
-                    const el = e.currentTarget;
-                    requestAnimationFrame(() => {
-                      if (document.activeElement === el) el.select();
-                    });
-                  }}
-                  onChange={e => {
-                    const n = Math.max(0, Math.min(col.max, Math.floor(Number(e.target.value) || 0)));
-                    setTempHMS(p => ({ ...p, [col.key]: n }));
-                  }}
+                  inputClassName="w-16 text-center text-4xl font-semibold text-primary tabular-nums focus:text-accent"
+                  ariaLabel={col.label}
+                  testId={`duration-${col.key}`}
                   onKeyDown={e => {
                     if (e.key !== 'Enter') return;
                     e.preventDefault();

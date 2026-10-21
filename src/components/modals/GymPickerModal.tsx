@@ -15,6 +15,8 @@ import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
 import { DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { ScrubNumber, listStepFn } from '../ScrubNumber';
+
 import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
 type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell';
@@ -289,7 +291,15 @@ function GymProfileForm({
       <span className="text-label text-secondary">{label}</span>
       <div className="gym-inc-stepper">
         <button type="button" onClick={() => stepInc(key, -1)} aria-label={isCn ? '轻一点' : 'Smaller'}>−</button>
-        <b>{fmt(incOf(key).v)}</b>
+        <ScrubNumber
+          value={incOf(key).v}
+          onCommit={n => n !== null && n > 0 && setP({ ...p, [key]: { ...incOf(key), v: n } })}
+          min={0.25}
+          stepFn={listStepFn(INC_CHOICES[incOf(key).u])}
+          steps={[1, 2, 4]}
+          testId={`gym-inc-${key}`}
+          ariaLabel={label}
+        />
         <button type="button" onClick={() => stepInc(key, 1)} aria-label={isCn ? '重一点' : 'Bigger'}>＋</button>
         <span className="gym-seg" role="group">
           <button type="button" className={seg(incOf(key).u === 'kg')} aria-pressed={incOf(key).u === 'kg'} onClick={() => setIncUnit(key, 'kg')}>kg</button>
@@ -366,15 +376,19 @@ function GymProfileForm({
           {isCn ? '加一种片（八角片、自带的微调片…）' : 'Add a plate (odd sizes, your own micro plates…)'}
         </span>
         <div className="flex items-center gap-2">
-          <input
-            className="ui-input w-24"
-            inputMode="decimal"
-            value={cw}
-            onChange={e => setCw(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addCustom()}
+          <ScrubNumber
+            value={cw.trim() === '' || !Number.isFinite(Number.parseFloat(cw)) ? null : Number.parseFloat(cw)}
+            onCommit={n => setCw(n === null ? '' : String(n))}
+            allowEmpty
+            live
+            min={0.05}
+            max={200}
+            steps={cu === 'kg' ? [0.25, 0.5, 1, 2.5] : [0.5, 1, 2.5, 5]}
             placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
-            aria-label={isCn ? '这片多重' : 'Plate weight'}
-            data-testid="gym-custom-weight"
+            ariaLabel={isCn ? '这片多重' : 'Plate weight'}
+            testId="gym-custom-weight"
+            fill
+            className="ui-input w-24"
           />
           <span className="gym-seg" role="group" aria-label={isCn ? '这片自己的单位' : 'This plate is in'}>
             <button type="button" className={seg(cu === 'kg')} aria-pressed={cu === 'kg'} onClick={() => setCu('kg')}>kg</button>

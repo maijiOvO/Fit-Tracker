@@ -28,6 +28,8 @@ import {
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
 import { INC_CHOICES, sidePlates } from '../utils/loadable';
+import { ScrubNumber, listStepFn } from './ScrubNumber';
+
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
 
@@ -382,7 +384,14 @@ export function LoadHero({
               >
                 −
               </button>
-              <b>{fmt1(shortW)}</b>
+              <ScrubNumber
+                value={shortW}
+                onCommit={n => n !== null && n >= 1 && onBarChange({ kind: 'short', unit: shortU, weight: n })}
+                min={1}
+                steps={shortU === 'kg' ? [0.5, 1, 2.5] : [1, 2, 5]}
+                ariaLabel={isCn ? '短杠多重' : 'Short bar weight'}
+                inputClassName="bar-short-num"
+              />
               <button
                 type="button"
                 aria-label={isCn ? '短杠重一点' : 'Heavier short bar'}
@@ -437,8 +446,6 @@ function GymHero({
   const ctx = rounder.ctx;
   const [stackOpen, setStackOpen] = useState(false);
   const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
-  const [startText, setStartText] = useState('');
-  useEffect(() => setStartText(String(stackStart > 0 ? stackStart : ctx.inc)), [stackStart, ctx.inc, stackOpen]);
   const u = unit === 'lbs' ? 'lb' : 'kg';
   const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
   // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
@@ -452,18 +459,6 @@ function GymHero({
   const belt = kind === 'signed' && v > 0 ? sidePlates(v, ctx.plates, unit) : [];
   const near = onGrid ? null : rounder.bracketD(value);
 
-  // 最轻一格：填的就是最轻那片的重量（也是下限）；恰好等于一档时调用方不单独存
-  const commitStart = () => {
-    if (!stack) return;
-    const n = Number.parseFloat(startText.trim().replace(',', '.'));
-    const cur = stackStart > 0 ? stackStart : ctx.inc;
-    if (!Number.isFinite(n) || n <= 0 || n > 500) {
-      setStartText(String(cur));
-      return;
-    }
-    if (Math.abs(n - cur) < 1e-9) return;
-    stack.onSet(ctx.inc, n);
-  };
   const nudgeStart = (dir: 1 | -1) => {
     if (!stack) return;
     const cur = stackStart > 0 ? stackStart : ctx.inc;
@@ -542,17 +537,13 @@ function GymHero({
             <span>{isCn ? '最轻一格' : 'Lightest'}</span>
             <span className="stack-seg">
               <button type="button" aria-label={isCn ? '最轻一格轻一点' : 'Lighter'} onClick={() => nudgeStart(-1)} data-testid="stack-start-dec">−</button>
-              <input
-                inputMode="decimal"
-                value={startText}
-                onChange={e => setStartText(e.target.value)}
-                onFocus={e => e.target.select()}
-                onBlur={() => commitStart()}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                }}
-                data-testid="stack-start"
-                aria-label={isCn ? '最轻一格多重' : 'Lightest plate weight'}
+              <ScrubNumber
+                value={lightest}
+                onCommit={n => n !== null && n > 0 && Math.abs(n - lightest) > 1e-9 && stack.onSet(ctx.inc, n)}
+                min={unit === 'lbs' ? 0.5 : 0.25}
+                steps={unit === 'lbs' ? [0.5, 1, 2.5, 5] : [0.25, 0.5, 1.25, 2.5]}
+                testId="stack-start"
+                ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
               />
               <small>{u}</small>
               <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
@@ -562,7 +553,15 @@ function GymHero({
             <span>{isCn ? '每格' : 'Step'}</span>
             <span className="stack-seg">
               <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
-              <b>{fmt(ctx.inc)}</b>
+              <ScrubNumber
+                value={ctx.inc}
+                onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && stack.onSet(n, stackStart)}
+                min={0.25}
+                stepFn={listStepFn(INC_CHOICES[unit])}
+                steps={[1, 2, 4]}
+                testId="stack-step"
+                ariaLabel={isCn ? '每格多重' : 'Step'}
+              />
               <small>{u}</small>
               <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
             </span>
@@ -654,7 +653,14 @@ function GymHero({
               >
                 −
               </button>
-              <b>{fmt1(shortW)}</b>
+              <ScrubNumber
+                value={shortW}
+                onCommit={n => n !== null && n >= 1 && onBarChange({ kind: 'short', unit: shortU, weight: n })}
+                min={1}
+                steps={shortU === 'kg' ? [0.5, 1, 2.5] : [1, 2, 5]}
+                ariaLabel={isCn ? '短杠多重' : 'Short bar weight'}
+                inputClassName="bar-short-num"
+              />
               <button
                 type="button"
                 aria-label={isCn ? '短杠重一点' : 'Heavier short bar'}

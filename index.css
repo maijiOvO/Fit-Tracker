@@ -1825,3 +1825,22 @@ button {
   z-index: 30;
   box-shadow: var(--shadow-overlay);
 }
+
+/* ScrubNumber（全站「调一个数」）：数字下一条虚线＝能左右横划改值，点一下打字 */
+.scrub-num {
+  display: inline-flex; align-items: baseline; gap: 3px;
+  /* 热区四周各扩几像素：排版不变，窄数字也好按 */
+  padding: 6px 8px; margin: -6px -8px;
+  touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none;
+}
+.scrub-num.is-fill { display: flex; width: 100%; }
+.scrub-num input {
+  min-width: 0; background: transparent; border: 0; outline: none; padding: 0 0 1px;
+  font: inherit; color: inherit; text-align: inherit; cursor: ew-resize;
+  border-bottom: 1px dashed var(--accent);
+}
+.scrub-num.is-fill input { width: 100%; }
+.scrub-num input:focus { cursor: text; border-bottom-style: solid; }
+.scrub-num.is-scrubbing input { border-bottom-style: solid; color: var(--accent-text); }
+.scrub-num.is-disabled { cursor: default; }
+.scrub-num.is-disabled input { border-bottom-color: transparent; }

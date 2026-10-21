@@ -28,6 +28,8 @@ import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind, withS
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { INC_CHOICES, profileIn } from '../utils/loadable';
+import { ScrubNumber, listStepFn } from './ScrubNumber';
+
 
 /**
  * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。口径照抄结束训练时的 detectPRs 的 weight 一档：
@@ -361,18 +363,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const tareD = tareSpec && rounder
     ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * 2.20462 : tareSpec.v / 2.20462) * 10) / 10
     : undefined;
-  const [tareText, setTareText] = useState('');
-  useEffect(() => setTareText(tareD === undefined ? '' : String(tareD)), [tareD, menuOpen]);
-  const commitTare = () => {
+  // 空载：横划 / 打字都行；清空＝不知道（墓碑）
+  const saveTare = (n: number | null) => {
     if (!tareKey || !rounder) return;
-    const t = tareText.trim().replace(',', '.');
-    const n = Number.parseFloat(t);
-    if (t === '') {
+    if (n === null) {
       if (tareSpec) changeAppPrefs(keyedPatch('gymTares', tareKey, ''));
-      return;
-    }
-    if (!Number.isFinite(n) || Math.abs(n) > 500) {
-      setTareText(tareD === undefined ? '' : String(tareD));
       return;
     }
     if (n !== tareD) changeAppPrefs(keyedPatch('gymTares', tareKey, { v: n, u: rounder.unit }));
@@ -531,16 +526,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {tareKey && (
                       <label className="mt-2 flex items-center gap-2 text-label text-secondary">
                         <span className="shrink-0 whitespace-nowrap">{isCn ? '空载' : 'Sled'}</span>
-                        <input
-                          className="ui-input flex-1 min-w-0 min-h-[36px] py-1"
-                          inputMode="decimal"
-                          value={tareText}
-                          onChange={e => setTareText(e.target.value)}
-                          onBlur={commitTare}
-                          onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                        <ScrubNumber
+                          value={tareD ?? null}
+                          onCommit={saveTare}
+                          allowEmpty
+                          min={-500}
+                          max={500}
+                          steps={rounder?.unit === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
                           placeholder={isCn ? '不知道' : '?'}
-                          aria-label={isCn ? '空载重量' : 'Sled weight'}
-                          data-testid="gym-tare"
+                          ariaLabel={isCn ? '空载重量' : 'Sled weight'}
+                          testId="gym-tare"
+                          fill
+                          className="ui-input flex-1 min-w-0 min-h-[36px] py-1"
                         />
                         <span className="shrink-0">{uLab}</span>
                       </label>
@@ -559,7 +556,15 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     </p>
                     <div className="gym-inc-stepper">
                       <button type="button" onClick={() => stepInc(-1)} aria-label={isCn ? '一档轻一点' : 'Smaller step'}>−</button>
-                      <b>{rounder.ctx.inc}</b>
+                      <ScrubNumber
+                        value={rounder.ctx.inc}
+                        onCommit={n => n !== null && n > 0 && Math.abs(n - rounder.ctx.inc) > 1e-9 && setIncOverride(n)}
+                        min={0.25}
+                        stepFn={listStepFn(INC_CHOICES[rounder.unit])}
+                        steps={[1, 2, 4]}
+                        testId="gym-inc-value"
+                        ariaLabel={isCn ? '一档多重' : 'Step'}
+                      />
                       <button type="button" onClick={() => stepInc(1)} aria-label={isCn ? '一档重一点' : 'Bigger step'}>＋</button>
                       <span>{uLab}</span>
                     </div>

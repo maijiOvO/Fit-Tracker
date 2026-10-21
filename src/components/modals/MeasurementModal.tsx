@@ -3,6 +3,7 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import type { MeasurementForm } from '../../hooks/useMeasurementLog';
 import { Modal, ModalFooter } from '../Modal';
+import { ScrubNumber } from '../ScrubNumber';
 
 interface MeasurementModalProps {
   open: boolean;
@@ -61,13 +62,17 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <span className={label}>{isCn ? '数值' : 'Value'}</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              className="ui-input"
-              value={measureForm.value}
-              onChange={e => setMeasureForm({ ...measureForm, value: e.target.value })}
+            <ScrubNumber
+              value={String(measureForm.value ?? '').trim() === '' || !Number.isFinite(Number(measureForm.value)) ? null : Number(measureForm.value)}
+              onCommit={n => setMeasureForm({ ...measureForm, value: n === null ? '' : String(n) })}
+              allowEmpty
+              live
+              decimals={1}
+              steps={[0.1, 0.5, 1, 5]}
               placeholder="0.0"
+              ariaLabel={isCn ? '数值' : 'Value'}
+              fill
+              className="ui-input"
             />
           </div>
           <div>
