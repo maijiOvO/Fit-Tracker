@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, Columns3, Sparkles, Filter } from 'lucide-react';
 import { ExerciseCategory, ExerciseDefinition, Language } from '../../types';
 import { translations } from '../../translations';
-import { BODY_PARTS, EQUIPMENT_TAGS } from '../constants/exercises';
+import { BODY_PARTS, equipmentTagsFor } from '../constants/exercises';
 import { Modal, ModalFooter } from './Modal';
 import { RegionChooser, hasRegionSection } from './RegionChooser';
 
@@ -55,7 +55,7 @@ export const EditExerciseTagsModal: React.FC<EditExerciseTagsModalProps> = ({
     ...customTags.filter(ct => ct.category === 'bodyPart').map(ct => ct.id),
   ];
   const equipmentIds = [
-    ...EQUIPMENT_TAGS,
+    ...equipmentTagsFor(category),
     ...customTags.filter(ct => ct.category === 'equipment').map(ct => ct.id),
   ];
 

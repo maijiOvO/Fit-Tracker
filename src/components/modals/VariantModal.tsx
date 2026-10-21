@@ -14,7 +14,7 @@
 import React, { useState } from 'react';
 import { Check, ChevronDown, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { Language } from '../../../types';
-import { EQUIPMENT_TAGS } from '../../constants/exercises';
+import { equipmentTagsFor } from '../../constants/exercises';
 import { mergeOverride } from '../../utils/exerciseOverride';
 import { Modal } from '../Modal';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
@@ -68,7 +68,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
   const merged = def ? mergeOverride(def, exerciseOverrides[def.id]) : undefined;
   const part = merged && (merged.category || 'STRENGTH') === 'STRENGTH' ? effectivePart(merged) : '';
   const regs = part ? regionsOf(part) : [];
-  const equipIds = [...EQUIPMENT_TAGS, ...customTags.filter(t => t.category === 'equipment').map(t => t.id)];
+  const equipIds = [...equipmentTagsFor(merged?.category), ...customTags.filter(t => t.category === 'equipment').map(t => t.id)];
 
   const isCn = lang === Language.CN;
   const variants = variantsOf(exerciseName);

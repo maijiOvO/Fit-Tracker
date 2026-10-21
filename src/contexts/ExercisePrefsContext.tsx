@@ -20,6 +20,7 @@ import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { translations } from '../../translations';
 import { BODY_PARTS, BODY_REGIONS, DEFAULT_EXERCISES, EQUIPMENT_TAGS } from '../constants/exercises';
 import { mergeOverride } from '../utils/exerciseOverride';
+import { migrateCableTags } from '../utils/cableTagMigration';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
@@ -242,9 +243,30 @@ function sanitizeMetricConfigs(
   return { cleaned, mutated };
 }
 
+/**
+ * 本机偏好里「健身房器材」→ 龙门架的纠正，启动时做一次（cableTagMigration.ts）。
+ * 只写回本机、不推进时间戳：内容和远端迁移后一致，谁先同步都一样。
+ */
+let cableTagsMigrated = false;
+function migrateLocalCableTagsOnce(): void {
+  if (cableTagsMigrated) return;
+  cableTagsMigrated = true;
+  const before = {
+    customExercises: readJSON<ExerciseDefinition[]>(LS_KEYS.customExercises, []),
+    exerciseOverrides: readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {}),
+    tagRenameOverrides: readJSON<Record<string, string>>(LS_KEYS.tagRenameOverrides, {}),
+  };
+  const after = migrateCableTags(before);
+  if (after === before) return;
+  if (after.customExercises !== before.customExercises) writeJSON(LS_KEYS.customExercises, after.customExercises);
+  if (after.exerciseOverrides !== before.exerciseOverrides) writeJSON(LS_KEYS.exerciseOverrides, after.exerciseOverrides);
+  if (after.tagRenameOverrides !== before.tagRenameOverrides) writeJSON(LS_KEYS.tagRenameOverrides, after.tagRenameOverrides);
+}
+
 export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  migrateLocalCableTagsOnce();
   const { lang } = useUserSettingsContext();
   const { toast, toastUndo } = useUiOverlay();
 
@@ -1274,7 +1296,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [countInRegion, deleteTag, getTagName, lang, layoutOf, restoreRegion, toastUndo, writeLayout],
   );
 
-  const applyPrefsFromSnapshot = useCallback((p: FitlogSyncedPrefs) => {
+  const applyPrefsFromSnapshot = useCallback((raw: FitlogSyncedPrefs) => {
+    const p = migrateCableTags(raw);
     setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
     setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
     setExerciseNotes(

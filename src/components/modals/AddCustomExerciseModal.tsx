@@ -4,7 +4,7 @@ import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
 import {
   BODY_PARTS,
-  EQUIPMENT_TAGS,
+  equipmentTagsFor,
   ExerciseCategory,
 } from '../../constants/exercises';
 import type { CustomTag } from '../../contexts/ExercisePrefsContext';
@@ -160,7 +160,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
           </label>
           <div className="flex flex-wrap gap-2">
             {[
-              ...EQUIPMENT_TAGS,
+              ...equipmentTagsFor(newExerciseCategory),
               ...customTags.filter(ct => ct.category === 'equipment').map(t => t.id),
             ].map(id => (
               <button

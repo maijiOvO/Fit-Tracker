@@ -101,7 +101,7 @@ export const translations: TranslationStrings = {
   tagDumbbell: { en: 'Dumbbell', cn: '哑铃' },
   tagBodyweight: { en: 'Bodyweight', cn: '自重' },
   tagMachine: { en: 'Machine', cn: '固定器械' },
-  tagCable: { en: 'Cable', cn: '绳索' },
+  tagCable: { en: 'Cable Machine', cn: '龙门架' },
   createAccount: { en: "Create One", cn: "去注册" },
   prManagement: { en: 'PR Management', cn: '纪录管理' },
   setGoal: { en: 'Add Goal', cn: '添加目标' },

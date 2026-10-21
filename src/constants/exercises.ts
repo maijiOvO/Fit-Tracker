@@ -20,6 +20,14 @@ export const EQUIPMENT_TAGS = [
 ];
 
 /**
+ * 编辑 / 新建动作时可选的器材。「健身房器材」只留给有氧器械（跑步机、单车），力量动作不给选：
+ * 它不在负荷判断里，标了它的力量动作会被当成纯数字（2026-10-20，见 utils/cableTagMigration.ts）。
+ */
+export function equipmentTagsFor(category: string | undefined): string[] {
+  return !category || category === 'STRENGTH' ? EQUIPMENT_TAGS.filter(t => t !== 'tagGym') : EQUIPMENT_TAGS;
+}
+
+/**
  * 标准维度列表
  */
 export const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'speed'];

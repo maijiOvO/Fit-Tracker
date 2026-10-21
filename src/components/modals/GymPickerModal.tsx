@@ -394,7 +394,7 @@ function GymProfileForm({
           </p>
         )}
       </div>
-      {inc('cable', isCn ? '龙门架 / 绳索一档' : 'Cable step')}
+      {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
       {inc('machine', isCn ? '固定器械一档（个别不一样的，在那个动作的 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {err && <p className="text-label text-warning">{err}</p>}

@@ -1180,6 +1180,70 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     return `${GA} 40 → ${GB} ${wB} → ${GC} ${wC} (from ${GB}) · ${GB} plate-loaded ${wK} · notes "${note.replace(/\s+/g, ' ')}" · ${GA} plates +20.4`;
   });
 
+  // 「健身房器材」→ 龙门架（2026-10-20，utils/cableTagMigration.ts）：真实数据里自建的龙门架动作和改过器材的内置龙门架动作
+  // 都标成了 tagGym（用户把它改名叫「龙门架」），负荷判断不认，馆档案整套失效。远端还是旧标签时，拉下来就要纠正，
+  // 而且动作卡 ⋯ 里要出现「这台是 插销 / 挂片」（之前缺的就是这个）。
+  await step(page, 'seeded-gym-tag-becomes-cable', async () => {
+    await page.waitForTimeout(1_000);
+    await page.evaluate(() => window.__fitlog.flush());
+    const NAME = 'E2E 龙门架下压';
+    const prefs = remote.snapshot.prefs ?? {};
+    remote.snapshot = {
+      ...remote.snapshot,
+      prefs: {
+        ...prefs,
+        customExercises: [
+          ...(prefs.customExercises ?? []).filter(d => d.id !== 'e2e_gym_tag'),
+          { id: 'e2e_gym_tag', name: { cn: NAME, en: NAME }, bodyPart: 'subArms', tags: ['tagGym'], category: 'STRENGTH' },
+        ],
+        exerciseOverrides: { ...(prefs.exerciseOverrides ?? {}), face_pull_cable: { tags: ['tagGym'] } },
+        tagRenameOverrides: { ...(prefs.tagRenameOverrides ?? {}), tagGym: '龙门架' },
+        prefsLastUpdateMs: Date.now() + 1000,
+      },
+    };
+    await page.reload({ waitUntil: 'networkidle' });
+    await toDashboard();
+    await page.waitForTimeout(800);
+    const defs = (await readLs('fitlog_custom_exercises')) || [];
+    const mine = defs.find(d => d.id === 'e2e_gym_tag');
+    if (JSON.stringify(mine?.tags) !== '["tagCable"]') throw new Error(`custom tagGym should become tagCable after pull: ${JSON.stringify(mine?.tags)}`);
+    const ovr = (await readLs('fitlog_exercise_overrides')) || {};
+    if (JSON.stringify(ovr.face_pull_cable?.tags) !== '["tagCable"]') throw new Error(`override tagGym should become tagCable: ${JSON.stringify(ovr.face_pull_cable)}`);
+    const renames = (await readLs('fitlog_tag_rename_overrides')) || {};
+    if ('tagGym' in renames) throw new Error(`the 龙门架 rename on tagGym should be dropped: ${JSON.stringify(renames)}`);
+    // 跑步机这类有氧的 tagGym 不动（内置定义没被覆盖，迁移也不会给它写覆盖）
+    if (ovr.run_tread) throw new Error(`cardio treadmill should not get an override: ${JSON.stringify(ovr.run_tread)}`);
+
+    // 上一条用例可能留下一场进行中的：接回去在那一场里加，最后照样放弃，不留记录
+    if (await page.locator('[data-testid="in-progress"]').isVisible().catch(() => false)) {
+      await page.locator('[data-testid="in-progress"] button').first().click();
+    } else {
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    }
+    await page.locator('[data-testid="gym-button"]').waitFor({ state: 'visible', timeout: 5_000 });
+    const picker = page.locator('[data-testid="gym-picker"]');
+    await page.locator('[data-testid="gym-button"]').click();
+    await picker.waitFor({ state: 'visible', timeout: 3_000 });
+    await picker.locator('[data-testid^="gym-option-"]', { hasText: 'E2E 甲馆' }).click();
+    await picker.waitFor({ state: 'hidden', timeout: 3_000 });
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill(NAME);
+    await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: NAME }).first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    // 接回来的那一场里可能还有别的动作：按名字找这张卡的 ⋯
+    await page.locator('.masthead-rule', { hasText: NAME }).getByRole('button', { name: '动作菜单' }).click();
+    const menu = page.getByRole('menu');
+    await menu.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await menu.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('a cable exercise should default to pin');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await backAndDiscard(page);
+    return 'pulled tagGym → tagCable (custom + override), rename dropped, ⋯ shows 插销 / 挂片';
+  });
+
   await context.close();
 }
 
