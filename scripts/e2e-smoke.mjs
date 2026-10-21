@@ -2689,12 +2689,12 @@ const main = async () => {
     await modal.getByRole('button', { name: /删除 宽握·暂停/ }).click();
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/已删除做法「宽握·暂停」/.test(t)) throw new Error(`no undo toast for variant delete: ${t}`);
+    // 点 toast 以外的地方＝点了 X：关弹窗这一下同时收掉撤销条，关闭照常生效
     await modal.getByRole('button', { name: /^(关闭|Close)$/ }).first().click();
     await modal.waitFor({ state: 'detached', timeout: 3_000 });
-    const dismiss = page.locator('[data-testid="toast"] [aria-label="dismiss"]');
-    while (await dismiss.count()) await dismiss.first().click({ timeout: 1_000 }).catch(() => {});
+    if (await page.locator('[data-testid="toast"]').count()) throw new Error('tapping outside did not dismiss the toast');
     if (await mark.count()) throw new Error('marginalia should disappear once the exercise has no variants');
-    return 'create via quick chip → marginalia; rename; back to standard; delete → undo toast';
+    return 'create via quick chip → marginalia; rename; back to standard; delete → undo toast; tap outside dismisses';
   });
 
   // workbench-not-restored：按返回只离开页面，工作台留着 —— 首页「进行中」+ FAB「回到训练」，点了接回原样；

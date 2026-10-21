@@ -6,6 +6,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
 } from 'react';
@@ -80,6 +81,20 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
   }, []);
 
   const dismissToasts = useCallback(() => setToasts([]), []);
+
+  // Tap anywhere outside the stack = tap X on every toast. Capture phase and no
+  // preventDefault, so the tap still reaches whatever is underneath.
+  const stackRef = useRef<HTMLDivElement>(null);
+  const hasToasts = toasts.length > 0;
+  useEffect(() => {
+    if (!hasToasts) return;
+    const onDown = (e: PointerEvent) => {
+      if (stackRef.current?.contains(e.target as Node)) return;
+      setToasts([]);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, [hasToasts]);
 
   const toast = useCallback((message: string, variant: ToastVariant = 'info') => {
     const id = `toast-${++toastIdRef.current}`;
@@ -180,6 +195,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
 
       {/* Toast 栈 */}
       <div
+        ref={stackRef}
         className="fixed bottom-20 left-0 right-0 z-toast flex flex-col items-center gap-2 px-4 pointer-events-none"
         aria-live="polite"
       >
@@ -187,6 +203,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
           <div
             key={item.id}
             data-testid="toast"
+            onClick={() => dismissToast(item.id)}
             className={`pointer-events-auto relative overflow-hidden w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
           >
             {item.variant === 'success' && (
@@ -200,7 +217,10 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
               <button
                 type="button"
                 data-testid="toast-undo"
-                onClick={() => handleUndo(item)}
+                onClick={e => {
+                  e.stopPropagation();
+                  void handleUndo(item);
+                }}
                 className="flex-shrink-0 px-3 py-1.5 rounded-control bg-accent text-on-accent text-xs font-bold active:scale-press-sm"
               >
                 {item.undoLabel}
