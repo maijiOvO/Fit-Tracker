@@ -477,7 +477,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           >
             <CopyPlus size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
-            <span className="text-[10px] text-tertiary">{isCN ? '底稿' : 'Draft'}</span>
+            <span className="text-[10px] text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
           </button>
           {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。
               和删除一样走「先执行 + 撤销」——手滑点到它，撤销条就在下面。 */}

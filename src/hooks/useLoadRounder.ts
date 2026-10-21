@@ -18,6 +18,7 @@ import {
   incIn,
   isLoadable,
   profileIn,
+  startIn,
   snap,
   stepOf,
   stepTo,
@@ -83,11 +84,14 @@ export function useLoadRounder(): RounderFor {
       const okey = gymOverrideKey(gym, info);
       const ov = okey ? overrides[okey] : undefined;
       const stackInc = ov ? incIn(ov, u) : info.stack === 'cable' ? prof.cable : prof.machine;
+      // 配重片的起始（最轻一格）：这台单独设过就用这台的，否则馆的默认（2026-10-20）
+      const stackStart = ov ? startIn(ov, u) : info.stack === 'cable' ? prof.cableStart : prof.machineStart;
       const ctx: LoadCtx = {
         unit: u,
         plates: prof.plates,
         bar: barWeight(barOf(ex.name), u),
         inc: info.kind === 'pair' ? (ov ? incIn(ov, u) : prof.dumbbell) : stackInc,
+        start: info.kind === 'pin' ? stackStart : 0,
       };
       return makeRounder(info, u, ctx, signed);
     },
@@ -122,9 +126,14 @@ export function withKind(r: ExRounder, kind: LoadInfo['kind']): ExRounder {
   return makeRounder({ ...r.info, kind }, r.unit, r.ctx, r.signed);
 }
 
-/** 同一个取整器换一档（⋯ 里改「这台器械一档多重」那一刻，档案还没刷新） */
+/** 同一个取整器换一档（⋯ 里改「这台器械一档多重」那一刻，档案还没刷新）；起始照旧 */
 export function withInc(r: ExRounder, inc: number): ExRounder {
   return makeRounder(r.info, r.unit, { ...r.ctx, inc }, r.signed);
+}
+
+/** 同一个取整器换一档和起始（大图上改「最轻一格 · 每格」那一刻） */
+export function withStack(r: ExRounder, inc: number, start: number): ExRounder {
+  return makeRounder(r.info, r.unit, { ...r.ctx, inc, start }, r.signed);
 }
 
 /* ── 组级工具（纯函数，给工作台 / 底稿 / 切单位用） ── */
@@ -139,6 +148,44 @@ function writeKg<T extends W>(x: T, kg: number, signed: boolean): T {
 }
 
 /**
+ * 递减 / 递增档取整后保持方向（2026-10-20 用户报：22 → 16.6 lb 的递减，切到 kg 后两档都吸成同一个数）。
+ * 原来比上一档轻的（递减），取整后必须仍然更轻；吸到和上一档一样或反了，就往原方向挪到紧挨着的那一格。
+ * 原值和上一档一样的、改过的（touched）不管；已经到最轻 / 最重挪不动的照原样。
+ * orig：取整前的带符号 kg（和 subs 一一对应），parentOrig / parentKg：母组取整前后的带符号 kg。
+ */
+function keepSubOrder(
+  subs: SubSetLog[],
+  orig: number[],
+  parentOrig: number,
+  parentKg: number,
+  ex: Exercise,
+  parent: SetLog,
+  r: ExRounder,
+): SubSetLog[] {
+  let prevOrig = parentOrig;
+  let prevKg = parentKg;
+  return subs.map((sub, i) => {
+    const o = orig[i];
+    let kg = signedKg(sub, ex, parent);
+    const dir = o < prevOrig - 1e-6 ? -1 : o > prevOrig + 1e-6 ? 1 : 0;
+    const ok = dir === 0 || (dir < 0 ? kg < prevKg - 1e-6 : kg > prevKg + 1e-6);
+    let out = sub;
+    if (!ok && !sub.touched?.weight) {
+      const prevD = r.toD(prevKg);
+      const b = r.bracketD(prevD + dir * 0.001);
+      const cand = dir < 0 ? b.lo : b.hi;
+      if (dir < 0 ? cand < prevD - 1e-6 : cand > prevD + 1e-6) {
+        kg = r.fromD(cand);
+        out = writeKg(sub, kg, r.signed);
+      }
+    }
+    prevOrig = o;
+    prevKg = kg;
+    return out;
+  });
+}
+
+/**
  * 底稿取整：从上一次铺下来的组，按今天的馆和单位就近取整，记下 prefillRef（参考）和 draftAuto。
  * 上一次那组挂的片：组上记的 plateUnit，没记（旧数据）按重量推断。
  */
@@ -150,10 +197,12 @@ export function roundPrefill(sets: SetLog[], ex: Exercise, r: ExRounder | null):
     const ref = { kg, unit: plateUnitOf(s, r.unit) };
     const next: SetLog = { ...writeKg(s, r.snapKg(kg), r.signed), prefillRef: ref, draftAuto: true, plateUnit: r.unit };
     if (s.subSets?.length) {
-      next.subSets = s.subSets.map(sub => {
-        const skg = signedKg(sub, ex, s);
+      const orig = s.subSets.map(sub => signedKg(sub, ex, s));
+      const subs = s.subSets.map((sub, i) => {
+        const skg = orig[i];
         return { ...writeKg(sub, r.snapKg(skg), r.signed), prefillRef: { kg: skg, unit: ref.unit }, draftAuto: true, plateUnit: r.unit } as SubSetLog;
       });
+      next.subSets = keepSubOrder(subs, orig, kg, signedKg(next, ex), ex, next, r);
     }
     return next;
   });
@@ -172,10 +221,9 @@ export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null
     const base = s.draftAuto && s.prefillRef && !s.touched?.weight ? s.prefillRef.kg : signedKg(s, ex);
     const next: SetLog = { ...writeKg(s, r.snapKg(base), r.signed), plateUnit: r.unit };
     if (s.subSets?.length) {
-      next.subSets = s.subSets.map(sub => {
-        const sb = sub.draftAuto && sub.prefillRef && !sub.touched?.weight ? sub.prefillRef.kg : signedKg(sub, ex, s);
-        return { ...writeKg(sub, r.snapKg(sb), r.signed), plateUnit: r.unit };
-      });
+      const orig = s.subSets.map(sub => (sub.draftAuto && sub.prefillRef && !sub.touched?.weight ? sub.prefillRef.kg : signedKg(sub, ex, s)));
+      const subs = s.subSets.map((sub, i) => ({ ...writeKg(sub, r.snapKg(orig[i]), r.signed), plateUnit: r.unit }));
+      next.subSets = keepSubOrder(subs, orig, base, signedKg(next, ex), ex, next, r);
     }
     return next;
   });
@@ -192,9 +240,11 @@ export function snapUntouched(sets: SetLog[], ex: Exercise, r: ExRounder | null)
     // 改过的那组也要新对象：下面会给它换 subSets，不能写进上一份 state
     const next: SetLog = s.touched?.weight ? { ...s } : { ...writeKg(s, r.snapKg(signedKg(s, ex)), r.signed), plateUnit: r.unit };
     if (s.subSets?.length) {
-      next.subSets = s.subSets.map(sub =>
-        sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(signedKg(sub, ex, s)), r.signed), plateUnit: r.unit },
+      const orig = s.subSets.map(sub => signedKg(sub, ex, s));
+      const subs = s.subSets.map((sub, i) =>
+        sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(orig[i]), r.signed), plateUnit: r.unit },
       );
+      next.subSets = keepSubOrder(subs, orig, signedKg(s, ex), signedKg(next, ex), ex, next, r);
     }
     return next;
   });
