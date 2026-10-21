@@ -24,6 +24,7 @@ import { useRollbackImport } from '../hooks/useImportData';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { useGymSwitch } from '../hooks/useGymSwitch';
+import { DataSafetySection } from './data/DataSafetySection';
 
 interface PrefsSheetProps {
   open: boolean;
@@ -506,9 +507,11 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
           <Group title={t('数据', 'Data')}>
             <Row name={t('同步', 'Sync')} value={syncValue} onClick={onSync} testId="prefs-sync" />
             <Rule />
+            <DataSafetySection />
+            <Rule />
             <button type="button" onClick={onExportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
               <Download size={18} strokeWidth={1.75} className="text-accent" />
-              {t('立即导出备份', 'Export backup')}
+              {t('导出完整备份（JSON）', 'Export full backup (JSON)')}
             </button>
             <button type="button" onClick={onImportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
               <Upload size={18} strokeWidth={1.75} className="text-accent" />

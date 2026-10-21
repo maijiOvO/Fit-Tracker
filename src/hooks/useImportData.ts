@@ -23,11 +23,11 @@ import type { ExportStatus } from './useExportData';
  * 用户取消时 change 事件不会触发，靠 window focus 兜底 resolve(null)，
  * 否则调用方会永远停在 await 上（界面不卡，但状态永远转不回 idle）。
  */
-function pickJsonFile(): Promise<File | null> {
+export function pickFile(accept: string): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'application/json,.json';
+    input.accept = accept;
     input.style.display = 'none';
     let settled = false;
     const finish = (f: File | null): void => {
@@ -58,7 +58,7 @@ export function useImportData(
     const lang = settingsCtx.lang;
     const isCn = lang === Language.CN;
 
-    const file = await pickJsonFile();
+    const file = await pickFile('application/json,.json');
     if (!file) return;
 
     let parsed;

@@ -17,6 +17,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
+import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 
 const TrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.TrendChart })));
 
@@ -194,6 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <PlusCircle size={22} strokeWidth={1.75} />
           {translations.newWorkout[lang]}
         </button>
+        <RestoreFromBackupLink />
       </div>
     );
   }

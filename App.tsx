@@ -96,6 +96,7 @@ import { useAvatarUpload } from './src/hooks/useAvatarUpload';
 import { useExportData } from './src/hooks/useExportData';
 import { useImportData } from './src/hooks/useImportData';
 import FirstRunNotice from './src/components/FirstRunNotice';
+import { DataSafetyHost } from './src/components/data/DataSafetyHost';
 import { useResetAccount } from './src/hooks/useResetAccount';
 import { useGymSwitch } from './src/hooks/useGymSwitch';
 import { useGymScopedPR } from './src/hooks/useLoadKind';
@@ -135,6 +136,8 @@ const AppWithAuth: React.FC<AppWithAuthProps> = props => {
       <ExercisePrefsProvider>
         {/* 只在 solo 发行版渲染；自用版里这个组件直接返回 null */}
         <FirstRunNotice />
+        {/* 自动备份、重装恢复、CSV 导入的弹窗与后台时机 */}
+        <DataSafetyHost />
         <AppWithAuthShell {...props} />
       </ExercisePrefsProvider>
     </UiOverlayProvider>
