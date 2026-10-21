@@ -1025,6 +1025,141 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     return 'healthy pull → PUT; failed pull → no PUT, error state';
   });
 
+  // 换馆重量（2026-10-20，design-plates.md「换馆重量」）：
+  // A 底稿本馆优先、本馆没练过退回别馆并写明在哪个馆、换馆时没动过的卡重新挑来源；
+  // A2 这台在这个馆是插销还是挂片；B 两层备注；D 自定义片按馆的单位存
+  await step(page, 'seeded-gym-weight-per-gym', async () => {
+    await page.waitForTimeout(1_500);
+    await page.evaluate(() => window.__fitlog.flush());
+    const GA = 'E2E 甲馆', GB = 'E2E 乙馆', GC = 'E2E 丙馆';
+    const kgGym = machine => ({ plateUnit: 'kg', plates: [25, 20, 15, 10, 5, 2.5, 1.25], cable: { v: 5, u: 'kg' }, machine: { v: machine, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } });
+    const at = (id, days, gym, w) => ({ ...seedWorkout(id, torontoAt(torontoYmd(days), 9, 0), `E2E ${gym}`, '器械推肩', [[w, 10]]), gym });
+    const prefs = remote.snapshot.prefs ?? {};
+    remote.snapshot = {
+      ...remote.snapshot,
+      // 乙馆的更近（1 天前），甲馆的更早：今天在甲馆要抄甲馆的 40，不是最近那次的 23
+      workouts: [...(remote.snapshot.workouts ?? []), at('seed_gym_a', 3, GA, 40), at('seed_gym_b', 1, GB, 23)],
+      prefs: {
+        ...prefs,
+        appPrefs: { ...(prefs.appPrefs ?? {}), gyms: { ...(prefs.appPrefs?.gyms ?? {}), [GA]: kgGym(5), [GB]: kgGym(1), [GC]: kgGym(5) } },
+        appPrefsUpdatedMs: Date.now() + 1000,
+      },
+    };
+    await page.reload({ waitUntil: 'networkidle' });
+    await toDashboard();
+    // 上一条用例留下了一场进行中的（同步用例里加的动作）：先放弃，从空的一场开始
+    if (await page.locator('[data-testid="in-progress"]').isVisible().catch(() => false)) {
+      await page.locator('[data-testid="in-progress-end"]').click();
+      await clickAppConfirm(page, /^(放弃|Discard)$/);
+      await page.waitForTimeout(300);
+    }
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    const picker = page.locator('[data-testid="gym-picker"]');
+    const pickGym = async name => {
+      await page.locator('[data-testid="gym-button"]').click();
+      await picker.waitFor({ state: 'visible', timeout: 3_000 });
+      await picker.locator('[data-testid^="gym-option-"]', { hasText: name }).click();
+      await picker.waitFor({ state: 'hidden', timeout: 3_000 });
+      await page.waitForTimeout(300);
+    };
+    const weights = () => page.locator('.ledger-row [data-testid="ledger-field-weight"] input').evaluateAll(els => els.map(e => Number(e.value)));
+    const eyebrow = () => page.locator('[data-testid="prefill-from"]').innerText();
+    const prefillGym = async () => ((await page.locator('[data-testid="prefill-gym"]').count()) ? page.locator('[data-testid="prefill-gym"]').innerText() : null);
+
+    // A：今天在甲馆 → 抄甲馆的 40；眉批不写馆
+    await pickGym(GA);
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill('器械推肩');
+    await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '器械推肩' }).first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    const wA = await weights();
+    if (wA.join() !== '40') throw new Error(`at ${GA} the draft should copy ${GA}'s 40, got ${JSON.stringify(wA)} (eyebrow "${await eyebrow()}")`);
+    if (await prefillGym()) throw new Error(`same-gym draft should not name a gym, got "${await prefillGym()}"`);
+
+    // 换到乙馆：卡上全是没动过的底稿 → 按乙馆重新挑，23（乙馆一档 1 kg，挂得出）
+    await pickGym(GB);
+    const wB = await weights();
+    if (wB.join() !== '23') throw new Error(`switching to ${GB} should re-pick ${GB}'s 23, got ${JSON.stringify(wB)}`);
+    if (await prefillGym()) throw new Error(`after switching to ${GB} the eyebrow should not name a gym, got "${await prefillGym()}"`);
+
+    // 丙馆没练过 → 退回最近一次（乙馆），眉批写明「在 乙馆」；点开那行写「上次在 乙馆」
+    await pickGym(GC);
+    const wC = await weights();
+    if (wC.join() !== '25') throw new Error(`${GC} (5 kg step) should fall back to ${GB}'s 23 rounded to 25, got ${JSON.stringify(wC)}`);
+    if ((await prefillGym()) !== GB) throw new Error(`fallback draft should say it came from ${GB}, got "${await prefillGym()}" / "${await eyebrow()}"`);
+    await page.locator('[data-testid="prefill-from"]').click();
+    const lastLine = await page.locator('[data-testid="prefill-last"]').innerText();
+    if (!lastLine.includes(`上次在 ${GB}`)) throw new Error(`expanded line should say 上次在 ${GB}: "${lastLine}"`);
+    await page.locator('[data-testid="prefill-from"]').click();
+
+    // A2：回乙馆，⋯ 里把这台改成挂片 → 记进 gymKinds；23 按挂片（每边 11.25 / 12.5）取到 22.5；一档多重不再出现
+    await pickGym(GB);
+    if ((await weights()).join() !== '23') throw new Error('back at the gym with history the draft should be 23 again');
+    await page.getByRole('button', { name: '动作菜单' }).first().click();
+    const menu = page.getByRole('menu');
+    await menu.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await menu.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('library kind (pin) should be selected by default');
+    if (!(await menu.locator('[data-testid="gym-inc"]').count())) throw new Error('pin machine should offer the per-machine step');
+    await menu.locator('[data-testid="gym-kind-loaded"]').click();
+    await page.waitForTimeout(300);
+    const kinds = (await readLs('fitlog_app_prefs'))?.gymKinds;
+    if (kinds?.[`${GB}|press_machine_shoulder|`] !== 'loaded') throw new Error(`gymKinds not stored: ${JSON.stringify(kinds)}`);
+    const wK = await weights();
+    if (wK.join() !== '22.5') throw new Error(`plate-loaded at ${GB}: 23 should re-round to 22.5, got ${JSON.stringify(wK)}`);
+    if (await menu.locator('[data-testid="gym-inc"]').count()) throw new Error('plate-loaded machine should not show the per-machine step');
+    // 改回插销 → 写墓碑（和动作库一样），再改成挂片留着
+    await menu.locator('[data-testid="gym-kind-pin"]').click();
+    await page.waitForTimeout(300);
+    const kinds2 = (await readLs('fitlog_app_prefs'))?.gymKinds;
+    if (kinds2?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error(`back to the library kind should leave a tombstone: ${JSON.stringify(kinds2)}`);
+    await menu.locator('[data-testid="gym-kind-loaded"]').click();
+    await page.waitForTimeout(200);
+
+    // B：⋯ 加备注 → 两栏；卡上本馆的在前
+    await menu.getByRole('menuitem', { name: /加备注|编辑备注/ }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.locator('[data-testid="note-gym"]').fill('凳子 3');
+    await dlg.locator('[data-testid="note-general"]').fill('慢放');
+    await dlg.getByRole('button', { name: '确定' }).click();
+    await dlg.waitFor({ state: 'hidden', timeout: 3_000 });
+    const note = await page.locator('[data-testid="exercise-note"]').innerText();
+    if (!/凳子 3[\s\S]*慢放/.test(note)) throw new Error(`card should show the gym note first, then the general one: "${note}"`);
+    const ap = await readLs('fitlog_app_prefs');
+    if (ap?.gymNotes?.[`${GB}|press_machine_shoulder|`] !== '凳子 3') throw new Error(`gym note not stored: ${JSON.stringify(ap?.gymNotes)}`);
+    const general = await readLs('fitlog_exercise_notes');
+    if (general?.['器械推肩'] !== '慢放') throw new Error(`general note not stored: ${JSON.stringify(general)}`);
+    // 换到甲馆：本馆备注不跟过去，通用的还在；甲馆这台照旧是插销（改的只是乙馆）
+    await pickGym(GA);
+    const noteA = await page.locator('[data-testid="exercise-note"]').innerText();
+    if (/凳子/.test(noteA) || !/慢放/.test(noteA)) throw new Error(`at ${GA} only the general note should show: "${noteA}"`);
+    if ((await weights()).join() !== '40') throw new Error(`at ${GA} (still pin) the draft should be 40, got ${JSON.stringify(await weights())}`);
+
+    // D：编辑甲馆，加一片 45 lb → 按馆的单位存 20.4
+    await page.locator('[data-testid="gym-button"]').click();
+    await picker.waitFor({ state: 'visible', timeout: 3_000 });
+    const idx = await picker.locator('[data-testid^="gym-option-"]').evaluateAll((els, n) => els.findIndex(e => e.textContent.includes(n)), GA);
+    await page.locator(`[data-testid="gym-edit-${idx}"]`).click();
+    const form = page.locator('[data-testid="gym-profile-form"]');
+    await form.waitFor({ state: 'visible', timeout: 3_000 });
+    await form.locator('[data-testid="gym-custom-weight"]').fill('45');
+    await form.locator('[data-testid="gym-custom-unit-lbs"]').click();
+    const conv = await form.locator('[data-testid="gym-custom-converted"]').innerText();
+    if (!conv.includes('20.4')) throw new Error(`45 lb in a kg gym should read = 20.4 kg: "${conv}"`);
+    await form.locator('[data-testid="gym-custom-add"]').click();
+    await form.locator('[data-testid="gym-plate-custom-20.4"]').waitFor({ state: 'visible', timeout: 2_000 });
+    await page.locator('[data-testid="gym-profile-save"]').click();
+    await form.waitFor({ state: 'detached', timeout: 3_000 });
+    const platesA = (await readLs('fitlog_app_prefs'))?.gyms?.[GA]?.plates ?? [];
+    if (!platesA.includes(20.4)) throw new Error(`custom plate not stored in the gym profile: ${JSON.stringify(platesA)}`);
+    await dismissToasts();
+    await backAndDiscard(page);
+    return `${GA} 40 → ${GB} ${wB} → ${GC} ${wC} (from ${GB}) · ${GB} plate-loaded ${wK} · notes "${note.replace(/\s+/g, ' ')}" · ${GA} plates +20.4`;
+  });
+
   await context.close();
 }
 

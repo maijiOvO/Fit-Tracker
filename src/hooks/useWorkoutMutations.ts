@@ -21,6 +21,7 @@ import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
+import { findLastIn } from '../utils/prefillSource';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
@@ -67,7 +68,7 @@ function defaultWorkoutTitle(isCn: boolean, now: Date = new Date()): string {
  * 添加单个动作（底稿预填）和整场复制共用这一份，两处的语义必须是同一套：
  * §12.6 说的就是「不发明新机制」。
  */
-function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
+export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
   return (sets ?? [])
     .filter(s => !s.ghost)
     .map((s, j) => ({
@@ -719,6 +720,8 @@ export function useWorkoutMutations({
           ...(ex.variantId ? { variantId: ex.variantId, variantName: ex.variantName } : {}),
           exerciseTime: new Date().toISOString(),
           ...(src.date ? { prefillFrom: src.date } : {}),
+          // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
+          ...(src.date && src.gym ? { prefillGym: src.gym } : {}),
           ...(ex.instanceConfig ? { instanceConfig: { ...ex.instanceConfig } } : {}),
           ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
         }))
@@ -910,22 +913,13 @@ export function useWorkoutMutations({
     proceed();
   }, []);
 
-  /** 这个动作（某个做法）最近一次练过的那一条，连同那一场 */
+  /**
+   * 这个动作（某个做法）最近一次练过的那一条，连同那一场。
+   * preferGym：先找这个馆的，没有再退回任意馆（design-plates.md「换馆重量」A）。
+   */
   const findLast = useCallback(
-    (exerciseName: string, variantId?: string | null, skipWorkoutId?: string) => {
-      const target = resolveName(exerciseName);
-      if (!target) return null;
-      for (const w of workouts) {
-        if (skipWorkoutId && w.id === skipWorkoutId) continue;
-        for (const we of w.exercises) {
-          if (resolveName(we.name) !== target) continue;
-          if (variantId !== null && variantId !== undefined && (variantIdOf(we) || undefined) !== (variantId || undefined)) continue;
-          if (!we.sets?.some(s => !s.ghost)) continue;
-          return { ex: we, workout: w };
-        }
-      }
-      return null;
-    },
+    (exerciseName: string, variantId?: string | null, skipWorkoutId?: string, preferGym?: string) =>
+      findLastIn(workouts, resolveName, variantIdOf, exerciseName, variantId, skipWorkoutId, preferGym),
     [resolveName, variantIdOf, workouts],
   );
 
@@ -1036,7 +1030,8 @@ export function useWorkoutMutations({
        * 指定了做法就找这个做法上次的那几组（重量不通用，不借别的做法的数）。
        */
       // 跳过今天这一场自己：工作台上的这场也存在 workouts 里，不能把今天刚做的抄成今天的底稿
-      const last = findLast(exerciseName, opts.variantId ?? null, currentWorkout.id || undefined);
+      // 同一个馆的上一次优先（器械的数各馆不通用）；本馆没练过才抄别的馆的，眉批写明在哪个馆
+      const last = findLast(exerciseName, opts.variantId ?? null, currentWorkout.id || undefined, currentWorkout.gym);
       /**
        * 有氧动作第一次加进来（没配置过记录项、哪个做法都没记过）：按首选项「有氧默认记录」定记录项。
        * 记过的不动 —— 划船机被当器械记成 65×12 的那种必须保持重量 × 次数（审查 cardio-default-metrics）。
@@ -1102,7 +1097,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast],
   );
 
   /**
@@ -1134,16 +1129,19 @@ export function useWorkoutMutations({
         const r = rounderFor(nextEx, p.gym);
         let sets = ex.sets;
         let prefillFrom: string | undefined = ex.prefillFrom;
-        const hit = findLast(ex.name, variantId ?? '', p.id);
+        let prefillGym: string | undefined = ex.prefillGym;
+        const hit = findLast(ex.name, variantId ?? '', p.id, p.gym);
         const stamp = Date.now();
         if (hit) {
           const fill = roundPrefill(toGhostSets(hit.ex.sets, `${stamp}`), nextEx, r).slice(kept.length);
           sets = [...kept, ...fill];
           if (!sets.length) sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = hit.workout.date;
+          prefillGym = hit.workout.gym;
         } else if (!kept.length) {
           sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = undefined;
+          prefillGym = undefined;
         } else if (r) {
           sets = ex.sets.map(st => {
             if (isKept(st)) return st;
@@ -1164,11 +1162,12 @@ export function useWorkoutMutations({
             };
           });
         }
-        const { variantId: _v, variantName: _n, prefillFrom: _pf, ...rest } = ex;
+        const { variantId: _v, variantName: _n, prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
         const next: Exercise = {
           ...rest,
           ...(variantId ? { variantId, variantName } : {}),
           ...(prefillFrom ? { prefillFrom } : {}),
+          ...(prefillFrom && prefillGym ? { prefillGym } : {}),
           sets,
         };
         const copy = [...exs];

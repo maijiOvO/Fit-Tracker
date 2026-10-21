@@ -19,7 +19,8 @@ import { RestBookmark } from './RestBookmark';
 import { LongPressAffordance } from './LongPressAffordance';
 import { VariantModal } from './modals/VariantModal';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { useLoadKindOf } from '../hooks/useLoadKind';
+import { gymMachineKey, useLoadInfoOf } from '../hooks/useLoadKind';
+import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useLoadRounder } from '../hooks/useLoadRounder';
 import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { memberAbbrs, RowRef } from '../utils/workbench';
@@ -56,7 +57,7 @@ interface Props {
   onAddMember: () => void;
   onSwitchRowExercise: (r: RowRef, toExId: string) => void;
   onSwitchVariant: (exId: string, variantId: string | undefined, name?: string) => void;
-  onToggleNote: (name: string) => void;
+  onToggleNote: (name: string, gymKey?: string) => void;
   onOpenMetricModal: (name: string, exId: string) => void;
   onOpenTimePicker: (exId: string, setId: string, seconds: number) => void;
   /** 这一场训练记的馆：组行的 ± / 拖动 / 递减档按这个馆的档案走（各动作各按各的器材） */
@@ -140,7 +141,15 @@ export const AlternatingCard: React.FC<Props> = ({
   const rounderFor = useLoadRounder();
   const { variantLabel } = useExercisePrefs();
   // 「杠铃片」§3：组行的拖动步长 / 方向和迷你配片跟着各自的器材走（交替组不画顶部大图）
-  const loadKindOf = useLoadKindOf();
+  const loadInfoOf = useLoadInfoOf();
+  const loadKindOf = (ex: Exercise, signed: boolean) => loadInfoOf(ex, signed, gym).kind;
+  // 本馆备注（「换馆重量」B）：每个成员按自己的「馆|动作|做法」取
+  const { appPrefs } = useUserSettingsContext();
+  const gymKeyOf = (ex: Exercise) => gymMachineKey(gym, loadInfoOf(ex, isSigned(ex), gym)) ?? undefined;
+  const gymNoteOf = (ex: Exercise) => {
+    const k = gymKeyOf(ex);
+    return k ? appPrefs.gymNotes[k] : undefined;
+  };
   const names = members.map(m => resolveName(m.name));
   const abbrs = memberAbbrs(names);
   const byId = new Map<string, Exercise>(members.map(m => [m.id, m] as [string, Exercise]));
@@ -177,7 +186,7 @@ export const AlternatingCard: React.FC<Props> = ({
   })();
 
   const counter = new Map<string, number>();
-  const notes = members.filter(m => exerciseNotes[resolveName(m.name)]);
+  const notes = members.filter(m => exerciseNotes[resolveName(m.name)] || gymNoteOf(m));
   const menuItem =
     'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-body text-primary active:bg-card-hover';
   const memberEx = memberFor ? byId.get(memberFor) : undefined;
@@ -274,12 +283,13 @@ export const AlternatingCard: React.FC<Props> = ({
         <button
           key={m.id}
           type="button"
-          onClick={() => onToggleNote(resolveName(m.name))}
+          onClick={() => onToggleNote(resolveName(m.name), gymKeyOf(m))}
           className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
         >
           <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-warning" strokeWidth={1.75} />
           <span>
-            <b className="font-semibold">{abbrs[idx(m.id)]}</b> · {exerciseNotes[resolveName(m.name)]}
+            <b className="font-semibold">{abbrs[idx(m.id)]}</b> ·{' '}
+            {[gymNoteOf(m) ? `${gym} · ${gymNoteOf(m)}` : '', exerciseNotes[resolveName(m.name)] ?? ''].filter(Boolean).join(' / ')}
           </span>
         </button>
       ))}
@@ -415,7 +425,7 @@ export const AlternatingCard: React.FC<Props> = ({
             className={panelBtn}
             onClick={() => {
               setMemberFor(null);
-              onToggleNote(resolveName(memberEx.name));
+              onToggleNote(resolveName(memberEx.name), gymKeyOf(memberEx));
             }}
           >
             <StickyNote size={16} className="text-accent" />

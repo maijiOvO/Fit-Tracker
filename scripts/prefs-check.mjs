@@ -136,4 +136,30 @@ t('recordAppPrefs：并进已有对象、打新时间戳', () => {
   assert.ok(r.appPrefsUpdatedMs > 5);
 });
 
+t('器械形式 / 本馆备注按键合并：另一台设备只是后切了单位，不会用旧表盖掉这边新设的', () => {
+  const local = { unit: 'kg', gymKinds: { 'A|leg_press|': 'pin' }, gymNotes: { 'A|leg_press|': '凳子 3' } };
+  const remote = { unit: 'lbs', gymNotes: { 'B|leg_press|': '挂钩 5' } };
+  const m = P.mergeAppPrefs(local, 100, remote, 200);
+  assert.equal(m.appPrefs.unit, 'lbs');
+  assert.deepEqual(m.appPrefs.gymKinds, { 'A|leg_press|': 'pin' });
+  assert.deepEqual(m.appPrefs.gymNotes, { 'A|leg_press|': '凳子 3', 'B|leg_press|': '挂钩 5' });
+});
+
+t('器械形式 / 本馆备注删除写墓碑：新的一边删了，旧的一边的值不复活；读出来当作没有', () => {
+  const older = { gymKinds: { 'A|x|': 'loaded' }, gymNotes: { 'A|x|': '旧备注' } };
+  const newer = { gymKinds: { 'A|x|': '' }, gymNotes: { 'A|x|': '' } };
+  const m = P.mergeAppPrefs(newer, 300, older, 100);
+  assert.deepEqual(m.appPrefs.gymKinds, { 'A|x|': '' });
+  const r = P.resolveAppPrefs(m.appPrefs);
+  assert.deepEqual(r.gymKinds, {});
+  assert.deepEqual(r.gymNotes, {});
+});
+
+t('keyedPatch：在存储里的原表上改（保留墓碑）；原来没有的键删除时不写墓碑', () => {
+  P.writeAppPrefs({ gymNotes: { 'A|x|': '', 'A|y|': '留着' } }, 5);
+  assert.deepEqual(P.keyedPatch('gymNotes', 'A|z|', '新的'), { gymNotes: { 'A|x|': '', 'A|y|': '留着', 'A|z|': '新的' } });
+  assert.deepEqual(P.keyedPatch('gymNotes', 'B|q|', ''), { gymNotes: { 'A|x|': '', 'A|y|': '留着' } });
+  assert.deepEqual(P.keyedPatch('gymNotes', 'A|y|', ''), { gymNotes: { 'A|x|': '', 'A|y|': '' } });
+});
+
 console.log(`== ${n} passed ==`);

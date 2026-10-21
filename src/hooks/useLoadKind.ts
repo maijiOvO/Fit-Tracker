@@ -10,6 +10,7 @@
  */
 import { useCallback } from 'react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { mergeOverride } from '../utils/exerciseOverride';
 import type { Exercise } from '../../types';
 import { usesSignedLoad } from '../utils/load';
@@ -30,6 +31,22 @@ export interface LoadInfo {
   /** 动作定义 id + 做法 id：馆里单独设一档时的键 */
   defId?: string;
   variantId?: string;
+  /**
+   * 动作库给的形式（没按馆改之前）。kind 是这个馆实际用的：库里是插销 / 挂片的，
+   * 可以在某个馆改成另一种（AppPrefs.gymKinds，design-plates.md「换馆重量」A2）。
+   */
+  libKind: LoadKind;
+}
+
+/** 这个馆、这个动作（某个做法）的键：gymOverrides / gymKinds / gymNotes 共用 */
+export function gymMachineKey(gym: string | undefined, info: { defId?: string; variantId?: string }): string | null {
+  if (!gym || !info.defId) return null;
+  return `${gym}|${info.defId}|${info.variantId ?? ''}`;
+}
+
+/** 能在馆里改「插销 / 挂片」的形式 */
+export function gymSwitchableKind(kind: LoadKind): kind is 'pin' | 'loaded' {
+  return kind === 'pin' || kind === 'loaded';
 }
 
 /**
@@ -46,30 +63,39 @@ export function loadKindFromTags(tags: readonly string[] | undefined, signed: bo
   return 'plain';
 }
 
-/** 返回一个查询函数：(训练里的动作, 它是不是带符号负荷) → 画法与算法 */
-export function useLoadInfoOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean) => LoadInfo {
+/**
+ * 返回一个查询函数：(训练里的动作, 它是不是带符号负荷, 这场的馆) → 画法与算法。
+ * 传了馆：库里是插销 / 挂片的动作按这个馆记住的形式走（gymKinds）；不传就是动作库的形式。
+ */
+export function useLoadInfoOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean, gym?: string) => LoadInfo {
   const { findExerciseDef, exerciseOverrides, variantsOf, variantIdOf } = useExercisePrefs();
+  const gymKinds = useUserSettingsContext().appPrefs.gymKinds;
   return useCallback(
-    (ex, signed) => {
+    (ex, signed, gym) => {
       const def = findExerciseDef(ex.name);
       const vid = variantIdOf(ex);
-      if (!def) return { kind: signed ? 'signed' : 'plain', stack: 'machine', variantId: vid };
+      if (!def) {
+        const k: LoadKind = signed ? 'signed' : 'plain';
+        return { kind: k, libKind: k, stack: 'machine', variantId: vid };
+      }
       const merged = mergeOverride(def, exerciseOverrides[def.id]);
       const vTags = vid ? variantsOf(ex.name).find((v) => v.id === vid)?.tags : undefined;
       const tags = vTags && vTags.length ? vTags : merged.tags;
       // 做法自己设了器材标签时，内置的「挂片器械」名单不再作数（那个做法也许是哑铃做的）
-      const kind = loadKindFromTags(tags, signed, vTags && vTags.length ? undefined : def.id);
+      const libKind = loadKindFromTags(tags, signed, vTags && vTags.length ? undefined : def.id);
       const stack = (tags ?? []).includes('tagCable') ? 'cable' : 'machine';
-      return { kind, stack, defId: def.id, variantId: vid };
+      const key = gymSwitchableKind(libKind) ? gymMachineKey(gym, { defId: def.id, variantId: vid }) : null;
+      const kind = (key && gymKinds[key]) || libKind;
+      return { kind, libKind, stack, defId: def.id, variantId: vid };
     },
-    [findExerciseDef, exerciseOverrides, variantsOf, variantIdOf],
+    [findExerciseDef, exerciseOverrides, variantsOf, variantIdOf, gymKinds],
   );
 }
 
 /** 只要画法 */
-export function useLoadKindOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean) => LoadKind {
+export function useLoadKindOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean, gym?: string) => LoadKind {
   const infoOf = useLoadInfoOf();
-  return useCallback((ex, signed) => infoOf(ex, signed).kind, [infoOf]);
+  return useCallback((ex, signed, gym) => infoOf(ex, signed, gym).kind, [infoOf]);
 }
 
 /**
@@ -81,7 +107,7 @@ export function gymScopedKind(kind: LoadKind): boolean {
   return kind === 'pin' || kind === 'loaded';
 }
 
-/** (动作) => 这个动作的纪录要不要只在同一个馆里比 */
+/** (动作) => 这个动作的纪录要不要只在同一个馆里比（按馆改形式只在插销 / 挂片之间换，两者都按馆比，所以不用传馆） */
 export function useGymScopedPR(): (ex: Exercise) => boolean {
   const kindOf = useLoadKindOf();
   const { signedLoadOf } = useExercisePrefs();

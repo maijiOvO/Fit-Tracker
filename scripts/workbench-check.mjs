@@ -378,4 +378,19 @@ t('交替组成员简称：从后往前找别人没有的字', () => {
   assert.deepEqual(W.memberAbbrs(['器械推胸', '器械推胸']), ['A', 'B']);
 });
 
+t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调片都按原值参与取整和配片', () => {
+  const L = W.L;
+  // kg 馆里只有一对 45 lb 片（存 20.4）+ 标准小片：20 杠 + 2×20.4 = 60.8 能挂，不能被当成 20.5 算成 61
+  const ctx = { unit: 'kg', plates: [20.4, 5, 2.5, 1.25], bar: 20, inc: 5 };
+  assert.ok(L.isLoadable('plates', 60.8, ctx));
+  assert.ok(!L.isLoadable('plates', 61, ctx));
+  assert.deepEqual(L.sidePlates(20.4, ctx.plates, 'kg'), [20.4]);
+  assert.equal(L.snap('plates', 61, ctx), 60.8);
+  // 馆里没有 1.25、自带 0.5 kg 微调片：一次加 1 kg（每边 0.5），不是一对 2.5 的 5 kg
+  const micro = { unit: 'kg', plates: [20, 10, 5, 2.5, 0.5], bar: 20, inc: 5 };
+  assert.equal(L.stepTo('plates', 60, 1, 1, micro), 61);
+  // lb 馆的 51 lb 八角片：挂片式器械只算片子，两片 = 102
+  assert.ok(L.isLoadable('loaded', 102, { unit: 'lbs', plates: [51, 45, 25], bar: 45, inc: 10 }));
+});
+
 console.log(`== ${n} passed ==`);
