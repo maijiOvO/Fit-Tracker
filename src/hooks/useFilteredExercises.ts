@@ -1,22 +1,19 @@
 /**
- * 动作库派生数据 hook：最近练过的动作名 / bestLifts（PR）/ 热力图
+ * 动作库派生数据 hook：最近练过的动作名 / 热力图
+ * （「按动作」的纪录与逐场数据在 utils/liftHistory 的 buildLiftSummaries）
  * （旧全屏动作库的过滤 useFilteredExercises 随 LibraryModal 一起删了，选动作统一走 ExercisePickerSheet）
  */
 import { useMemo } from 'react';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { Language } from '../../types';
 import { localYmd } from '../utils/dateUtils';
-import { signedKg, usesSignedLoad } from '../utils/load';
 
 /**
- * 与训练历史关联的派生数据：最近练过的动作名 + best lifts（PR）
+ * 与训练历史关联的派生数据：最近练过的动作名 + 热力图
  */
 export function useExerciseStats() {
   const { workouts } = useWorkoutContext();
-  const { resolveName, liftKey, starredExercises, exerciseOverrides, signedLoadOf } = useExercisePrefs();
-  const { lang } = useUserSettingsContext();
+  const { resolveName } = useExercisePrefs();
 
   const recentExerciseNames = useMemo(() => {
     const names: string[] = [];
@@ -37,40 +34,6 @@ export function useExerciseStats() {
     }
     return names;
   }, [workouts, resolveName]);
-
-  const bestLifts = useMemo(() => {
-    const liftsMap: Record<string, { weight: number; originalName: string; baseName: string; signed: boolean }> = {};
-    workouts.forEach(session =>
-      (session.exercises ?? []).forEach(ex => {
-        // 底稿行不算数据（§12.6）：未收尾的草稿里可能带着 ghost 行，别让它顶进 PR
-        // 带正负的负荷（自重类）按带符号的数比：辅助 −20 比 −30 好，自重 0、负重为正（原先自重动作永远是 0.0）
-        const signed = usesSignedLoad(ex, signedLoadOf(ex.name));
-        const realSets = (ex.sets ?? []).filter(s => !s.ghost);
-        const weights = realSets.map(s => (signed ? signedKg(s, ex) : s.weight || 0));
-        if (!weights.length) return;
-        const w = Math.max(...weights);
-        // 按显示名聚合：改过名的动作，旧名下的记录和新名下的是同一个动作，
-        // 原先按存的原名分组会在 PR 列表里裂成两行（旧名那行还显示成新名）。
-        // 练法（第 8 条）各占一行：「高位下拉（宽握）」和「高位下拉」是两个纪录
-        const originalName = liftKey(ex);
-        if (!liftsMap[originalName] || w > liftsMap[originalName].weight) {
-          liftsMap[originalName] = { weight: w, originalName, baseName: resolveName(ex.name), signed };
-        } else if (signed) {
-          liftsMap[originalName].signed = true;
-        }
-      }),
-    );
-
-    return Object.entries(liftsMap)
-      .map(([key, { weight, baseName, signed }]) => ({ name: key, key, weight, baseName, signed }))
-      .sort((a, b) => {
-        // 收藏按动作，不分练法
-        const starA = starredExercises[a.baseName] || 0;
-        const starB = starredExercises[b.baseName] || 0;
-        if (starA !== starB) return starB - starA;
-        return a.name.localeCompare(b.name, lang === Language.CN ? 'zh-Hans-CN' : 'en');
-      });
-  }, [workouts, lang, exerciseOverrides, starredExercises, resolveName, liftKey, signedLoadOf]);
 
   /**
    * 训练日历热力图数据。
@@ -116,5 +79,5 @@ export function useExerciseStats() {
       .filter(item => item.sessions > 0 && /^\d{4}-\d{2}-\d{2}$/.test(item.date));
   }, [workouts]);
 
-  return { recentExerciseNames, bestLifts, heatmapData };
+  return { recentExerciseNames, heatmapData };
 }
