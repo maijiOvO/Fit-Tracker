@@ -36,6 +36,11 @@ export const PREFS_SENTINEL = {
       哨兵馆: { plateUnit: 'lbs', plates: [45, 25, 2.5], cable: { v: 2.5, u: 'kg' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' } },
     },
     gymOverrides: { '哨兵馆|EX_sentinel|': { v: 5, u: 'kg' } },
+    gymKinds: { '哨兵馆|EX_sentinel|': 'loaded' },
+    gymNotes: { '哨兵馆|EX_sentinel|': '哨兵本馆备注' },
+    gymTares: { '哨兵馆|EX_sentinel|': { v: -7.5, u: 'lbs' } },
+    featuredLifts: ['EX_sentinel|', 'EX_sentinel|V_sentinel'],
+    featuredMode: 'e1rm',
   } satisfies Required<AppPrefs>,
   appPrefsUpdatedMs: 1700000000005,
 } satisfies Required<FitlogSyncedPrefs>;

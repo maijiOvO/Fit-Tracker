@@ -68,6 +68,8 @@ import {
   ResetAccountModal,
   WeightInputModal,
 } from './src/components/modals';
+import type { NoteModalData } from './src/components/modals/NoteModal';
+import { keyedPatch } from './services/appPrefs';
 
 import {
   AuthProvider,
@@ -229,10 +231,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   >({});
   // ============== 动作维度 / 备注 弹窗 ==============
   const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number } | null>(null);
-  const [noteModalData, setNoteModalData] = useState<{
-    name: string;
-    note: string;
-  } | null>(null);
+  // 「动作设置」里的名称 / 部位器械：库里有这个动作才能改（合并覆盖层后的定义，显示的是现在的标签）
+  const metricModalDef = useMemo(() => {
+    const def = showMetricModal?.name ? prefs.findExerciseDef(showMetricModal.name) : undefined;
+    return def ? mergeOverride(def, prefs.exerciseOverrides[def.id]) : undefined;
+  }, [showMetricModal?.name, prefs]);
+  const [noteModalData, setNoteModalData] = useState<NoteModalData | null>(null);
 
   // ============== 编辑动作标签 / 单组时长 / 单条动作时间 弹窗 ==============
   const [editExerciseTagsTarget, setEditExerciseTagsTarget] =
@@ -920,6 +924,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           if (!exerciseToRename || !newExerciseNameInput) return;
           // 重名会被拒（toast 说明），弹窗留着让人改
           if (!prefs.renameExercise(exerciseToRename.id, newExerciseNameInput)) return;
+          // 从「动作设置」里改的：设置弹窗还开着，标题换成新名（旧名照样解析得到，这里只是显示）
+          if (showMetricModal) setShowMetricModal({ ...showMetricModal, name: newExerciseNameInput.trim() });
           setShowRenameExerciseModal(false);
           setExerciseToRename(null);
           setNewExerciseNameInput('');
@@ -1112,8 +1118,15 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               const ex = currentWorkout.exercises?.find(e => e.id === exId);
               setShowTimePickerModal({ exerciseId: exId, currentTime: ex?.exerciseTime });
             }}
-            onToggleNote={name =>
-              setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })
+            onToggleNote={(name, gymKey) =>
+              setNoteModalData({
+                name,
+                note: prefs.exerciseNotes[name] || '',
+                // 标了馆的训练：多一栏本馆备注（「换馆重量」B）
+                ...(gymKey && currentWorkout.gym
+                  ? { gym: currentWorkout.gym, gymKey, gymNote: settingsCtx.appPrefs.gymNotes[gymKey] ?? '' }
+                  : {}),
+              })
             }
             onOpenMetricModal={(name, exIdx) => setShowMetricModal({ name, exIdx })}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
@@ -1232,6 +1245,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onSave={() => {
           if (!noteModalData) return;
           prefs.saveExerciseNote(noteModalData.name, noteModalData.note);
+          if (noteModalData.gymKey) {
+            const g = (noteModalData.gymNote ?? '').trim() ? noteModalData.gymNote! : '';
+            if (g !== (settingsCtx.appPrefs.gymNotes[noteModalData.gymKey] ?? '')) {
+              settingsCtx.changeAppPrefs(keyedPatch('gymNotes', noteModalData.gymKey, g));
+            }
+          }
           setNoteModalData(null);
         }}
       />
@@ -1248,6 +1267,26 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onChangeSignedLoad={
           showMetricModal?.name && prefs.findExerciseDef(showMetricModal.name)
             ? (on: boolean) => prefs.setSignedLoad(showMetricModal.name, on)
+            : undefined
+        }
+        onRename={
+          metricModalDef
+            ? () => {
+                const name = prefs.resolveName(showMetricModal!.name);
+                setExerciseToRename({ id: metricModalDef.id, name });
+                setNewExerciseNameInput(name);
+                setShowRenameExerciseModal(true);
+              }
+            : undefined
+        }
+        onEditTags={metricModalDef ? () => setEditExerciseTagsTarget(metricModalDef) : undefined}
+        tagSummary={
+          metricModalDef
+            ? [metricModalDef.bodyPart, ...(metricModalDef.tags ?? [])]
+                .filter(Boolean)
+                .map(t => prefs.getTagName(t))
+                .filter(Boolean)
+                .join(' · ')
             : undefined
         }
       />

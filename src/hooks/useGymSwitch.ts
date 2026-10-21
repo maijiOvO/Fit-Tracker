@@ -7,29 +7,56 @@
  *
  * 只有用户亲手的这几下走这里。同步拉回来的单位、开发 / 生产切换带来的单位变化
  * 直接改 UserSettingsContext，不经过这里 —— 不能因为另一台设备切了单位就把今天的底稿改掉。
+ *
+ * 换馆还要重新挑底稿来源（2026-10-20「换馆重量」A）：全是没动过底稿的卡按新馆找上一次（本馆优先），
+ * 挑出来的不是现在这一场就重铺；有做完 / 改过的组的卡只重新取整。
  */
 import { useCallback } from 'react';
-import type { WorkoutSession } from '../../types';
+import type { Exercise, WorkoutSession } from '../../types';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { reRoundPending, useLoadRounder } from './useLoadRounder';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { reRoundPending, roundPrefill, useLoadRounder } from './useLoadRounder';
+import { toGhostSets } from './useWorkoutMutations';
+import { findLastIn, isPristineDraftCard } from '../utils/prefillSource';
 import type { GymProfile } from '../utils/loadable';
 import type { PlateUnit } from '../utils/plates';
 
 export function useGymSwitch() {
-  const { setCurrentWorkout, persistCurrentWorkout } = useWorkoutContext();
+  const { workouts, setCurrentWorkout, persistCurrentWorkout } = useWorkoutContext();
   const { unit, changeUnit, appPrefs } = useUserSettingsContext();
+  const { resolveName, variantIdOf } = useExercisePrefs();
   const rounderFor = useLoadRounder();
 
   const reRound = useCallback(
-    (w: WorkoutSession, gym: string | undefined, u: PlateUnit, gyms?: Record<string, GymProfile>): WorkoutSession => ({
+    (
+      w: WorkoutSession,
+      gym: string | undefined,
+      u: PlateUnit,
+      gyms?: Record<string, GymProfile>,
+      repick = false,
+    ): WorkoutSession => ({
       ...w,
-      exercises: (w.exercises ?? []).map(e => {
-        const sets = reRoundPending(e.sets ?? [], e, rounderFor(e, gym, u, gyms));
+      exercises: (w.exercises ?? []).map((e, i) => {
+        const r = rounderFor(e, gym, u, gyms);
+        if (repick && isPristineDraftCard(e.sets)) {
+          const hit = findLastIn(workouts, resolveName, variantIdOf, e.name, variantIdOf(e) ?? '', w.id, gym);
+          if (hit && hit.workout.date !== e.prefillFrom) {
+            const { prefillGym: _pg, ...rest } = e;
+            const sets = roundPrefill(toGhostSets(hit.ex.sets, `${Date.now()}_${i}`), e, r);
+            return {
+              ...rest,
+              sets,
+              prefillFrom: hit.workout.date,
+              ...(hit.workout.gym ? { prefillGym: hit.workout.gym } : {}),
+            } as Exercise;
+          }
+        }
+        const sets = reRoundPending(e.sets ?? [], e, r);
         return sets === e.sets ? e : { ...e, sets };
       }),
     }),
-    [rounderFor],
+    [rounderFor, workouts, resolveName, variantIdOf],
   );
 
   /** 手动切单位（训练页头上的 kg / lbs、首选项里的单位） */
@@ -64,7 +91,8 @@ export function useGymSwitch() {
       const next = { ...w };
       if (gym) next.gym = gym;
       else delete next.gym;
-      return reRound(next, gym, u, gyms);
+      // 换了馆才重新挑底稿来源；只是改了今天这个馆的档案（同一个馆）就只重新取整
+      return reRound(next, gym, u, gyms, gym !== w.gym);
     },
     [appPrefs.gyms, changeUnit, reRound, unit],
   );

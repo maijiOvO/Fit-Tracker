@@ -73,9 +73,10 @@ export function profileIn(profile: GymProfile | undefined, unit: PlateUnit): { p
   };
 }
 
-/* ── 每边能凑出来的重量：这一套片、每种不限数量的背包（0.25 为单位），带回溯 ── */
+/* ── 每边能凑出来的重量：这一套片、每种不限数量的背包（0.05 为单位），带回溯 ── */
 
-const Q = 4;
+// 0.05：自定义片按馆的单位存、四舍五入到 0.05（kg 馆里的 45 lb 片 = 20.4），0.25 的格子会把它当成 20.5（2026-10-20）
+const Q = 20;
 const tables = new Map<string, Int16Array>();
 function sideTable(plates: number[], unit: PlateUnit): Int16Array {
   const key = `${unit}:${plates.join(',')}`;

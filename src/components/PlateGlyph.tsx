@@ -29,6 +29,8 @@ import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
 import { sidePlates } from '../utils/loadable';
 
+const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
+
 /* ── 一摞片：按前缀比对做进出动画 ───────────────────────────────── */
 
 interface StackItem {
@@ -72,8 +74,10 @@ function AnimatedStack({
     return () => window.clearTimeout(t);
   }, [items]);
 
+  const live = items.filter((i) => !i.leaving).length;
   return (
-    <span className="plate-stack">
+    // --n：套筒上平分宽度用（片多时每片收窄，不挤出套筒）；6 片以上字号降一档
+    <span className="plate-stack" style={{ ['--n' as string]: Math.max(1, live) }} data-crowded={live >= 6 ? '' : undefined}>
       {items.map((i) => {
         const s = plateSpec(plateUnit, i.w);
         if (!s) return null;
@@ -83,7 +87,8 @@ function AnimatedStack({
             className={`plate plate-${s.token}${i.leaving ? ' is-leaving' : ''}`}
             style={{ ['--thick' as string]: s.thick, ['--dia' as string]: s.dia }}
           >
-            {numbers && s.dia >= 400 && <b>{plateLabel(i.w, plateUnit, display)}</b>}
+            {/* 每片都印（2026-10-20 用户定）：以前只有 450 mm 的大片印字，小片要对着说明栏猜 */}
+            {numbers && <b>{plateLabel(i.w, plateUnit, display)}</b>}
           </i>
         );
       })}
@@ -144,9 +149,11 @@ export function PinStackGlyph({ value, step }: { value: number; step: number }) 
     <div className="pin-stack" aria-hidden>
       {Array.from({ length: n }, (_, i) => {
         const idx = i + 1;
+        // 插销那一片永远写确切重量（加粗放大）；它上下两片以内的周期刻度让开，免得字叠在一起
+        const label = idx === at ? fmt1(value) : Math.abs(idx - at) > 2 && idx % every === 0 ? fmt1(idx * step) : '';
         return (
           <span key={idx} className={`pin-slab${idx < at ? ' is-up' : idx === at ? ' is-at' : ''}`}>
-            <em>{idx % every === 0 ? idx * step : ''}</em>
+            <em>{label}</em>
             <i />
           </span>
         );
@@ -161,10 +168,11 @@ export function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit 
   const max = unit === 'kg' ? 50 : 110;
   const s = 0.45 + (Math.min(Math.max(value, 0), max) / max) * 0.55;
   const head = <span className="db-head" style={{ transform: `scale(${0.6 + s * 0.5}, ${s})` }} />;
+  // 每只的重量印在两头之间、握把上方（真哑铃的数字也在铃头上，这里头太窄，放握把上更好读）
   const one = (
     <span className="db-one">
       {head}
-      <span className="db-grip" />
+      <span className="db-grip">{value > 0 && <b className="db-num">{fmt1(value)}</b>}</span>
       {head}
     </span>
   );
@@ -188,6 +196,10 @@ export function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: n
         <span className="signed-line" />
         <span className="signed-zero" />
         <span className="signed-mark" style={{ left: `${pos}%` }} />
+        {/* 菱形上方写这一组的数：辅助 −20 / 自重 0 / 负重 +12.5 */}
+        <b className="signed-num" style={{ left: `${pos}%` }}>
+          {value > 0 ? `+${fmt1(value)}` : value < 0 ? `−${fmt1(-value)}` : '0'}
+        </b>
       </div>
       <div className="signed-load">
         {value < 0 ? (
@@ -196,7 +208,7 @@ export function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: n
           <span className="signed-belt">
             <span className="signed-chain" />
             <span className="belt-frame">
-              <AnimatedStack plates={belt} plateUnit={plateUnit} display={unit} />
+              <AnimatedStack plates={belt} plateUnit={plateUnit} display={unit} numbers />
             </span>
           </span>
         ) : null}
@@ -206,8 +218,6 @@ export function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: n
 }
 
 /* ── 一张卡顶部的器材图 + 说明 ────────────────────────────────── */
-
-const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
 
 export function LoadHero({
   kind,
@@ -221,6 +231,7 @@ export function LoadHero({
   scrub,
   rounder,
   onPick,
+  tare,
 }: {
   kind: LoadKind;
   /** 选中那一组的重量（显示单位，带符号） */
@@ -242,10 +253,12 @@ export function LoadHero({
    */
   rounder?: ExRounder | null;
   onPick?: (displayValue: number) => void;
+  /** 挂片式器械在这个馆填过的空载（显示单位）：说明栏加「加空载共 x」，只做参考 */
+  tare?: number;
 }) {
   const [barOpen, setBarOpen] = useState(false);
   if (kind === 'plain') return null;
-  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen }} />;
+  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, tare }} />;
 
   const barKind: BarKind = bar?.kind ?? 'standard';
   const barW = barWeight(bar, plateUnit);
@@ -390,6 +403,7 @@ function GymHero({
   onPick,
   barOpen,
   setBarOpen,
+  tare,
 }: {
   kind: LoadKind;
   value: number;
@@ -402,6 +416,7 @@ function GymHero({
   onPick?: (displayValue: number) => void;
   barOpen: boolean;
   setBarOpen: (f: (o: boolean) => boolean) => void;
+  tare?: number;
 }) {
   const ctx = rounder.ctx;
   const u = unit === 'lbs' ? 'lb' : 'kg';
@@ -424,7 +439,12 @@ function GymHero({
       : kind === 'plates'
         ? isCn ? '空杠' : 'Empty bar'
         : isCn ? '还没挂片' : 'No plates yet';
-    if (kind === 'loaded') caption += isCn ? ' · 只算片子' : ' · plates only';
+    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）
+    if (kind === 'loaded')
+      caption +=
+        tare !== undefined
+          ? isCn ? ` · 加空载共 ${fmt(v + tare)} ${u}` : ` · ${fmt(v + tare)} ${u} with the sled`
+          : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt(v)} ${u}` : `Pin at ${fmt(v)} ${u}`;
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
   else if (kind === 'signed') {

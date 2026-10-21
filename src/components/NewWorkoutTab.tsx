@@ -77,7 +77,7 @@ export interface NewWorkoutTabProps {
   lastSessionFor?: (ex: Exercise) => { date: string; sets: SetLog[] } | null;
   /** 「杠铃片」§1：这个动作（同一练法）历史单组最重的带符号 kg，训练中实时标 PB 用；null＝没有历史 */
   bestKgFor?: (ex: Exercise) => number | null;
-  onToggleNote: (name: string) => void;
+  onToggleNote: (name: string, gymKey?: string) => void;
   /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
   onOpenMetricModal: (name: string, exIdx?: number) => void;
   onDeleteExerciseFromSession: (exIdx: number) => void;
