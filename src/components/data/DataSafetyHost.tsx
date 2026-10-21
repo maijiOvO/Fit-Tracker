@@ -109,14 +109,14 @@ export const DataSafetyHost: React.FC = () => {
           </div>
           <p>
             {t(
-              '选一个文件夹，之后每次练完自动在里面存一份完整备份。卸载 App 文件也还在，重装后点两下就能恢复。',
-              'Pick a folder and a full backup is saved there after every workout. The files survive uninstalling; after reinstalling, restore in two taps.',
+              '选一个文件夹，每次练完自动备份到这里。卸载后文件仍在，重装可恢复。',
+              'Pick a folder; every workout is backed up there. Files survive uninstalling and restore after reinstalling.',
             )}
           </p>
           <p>
             {t(
-              '系统窗口会打开在「文档」，直接点「使用此文件夹」就行，App 会在里面建 fitlog 文件夹。',
-              'The system window opens in Documents — just tap "Use this folder"; the app creates a fitlog folder inside.',
+              '系统窗口打开后，直接点「使用此文件夹」即可。',
+              'In the system window, just tap "Use this folder".',
             )}
           </p>
         </div>

@@ -79,13 +79,13 @@ export function useImportData(
       : `Backup has ${counts.workouts} workouts, ${counts.weightLogs} weight entries, ${counts.goals} goals, ${counts.scheduledWorkouts} scheduled.`;
     const legacyNote = parsed.legacy
       ? isCn
-        ? '\n\n这是旧版导出的文件，里面没有 PR 和训练计划 —— 这两项会保留你现在的数据，不会被清空。'
-        : '\n\nThis is an old-format export with no PRs or schedule — those will be kept as they are now.'
+        ? '\n\n旧版文件不含 PR 和训练计划，这两项保留现有数据。'
+        : '\n\nOld-format file: current PRs and schedule are kept.'
       : '';
     // 确认弹窗是纯文本渲染（UiOverlayContext 里就是 <p>{message}</p>），
     // markdown 的 ** 会原样显示给用户。强调只能靠措辞，不能靠标记。
     const warning = isCn
-      ? '\n\n当前数据会被整个替换掉，不是合并。导入前会自动存一份可撤销的副本。'
+      ? '\n\n当前数据将被整体替换（不是合并），导入前自动存可撤销副本。'
       : '\n\nThis replaces your current data entirely — it does not merge. An undoable copy is saved first.';
 
     const go = await confirm({
@@ -118,8 +118,8 @@ export function useRollbackImport(): () => Promise<void> {
     const go = await confirm({
       title: isCn ? '撤销上次导入？' : 'Undo last import?',
       message: isCn
-        ? '恢复到那次导入之前的状态。撤销只能用一次。'
-        : 'Restore the state from before that import. This can only be used once.',
+        ? '恢复到导入前的状态，仅能撤销一次。'
+        : 'Restore the state before that import. Works only once.',
       confirmLabel: isCn ? '撤销' : 'Undo',
       danger: true,
     });

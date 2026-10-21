@@ -655,7 +655,7 @@ function GymHero({
                   <small>{u}</small>
                 </span>
               </div>
-              <p className="stack-note">{isCn ? '滑台 / 杠自重，器械上标了就填。只做参考，记录照旧只算片子' : 'Sled / bar weight if marked. Reference only; logs stay plates-only'}</p>
+              <p className="stack-note">{isCn ? '滑台 / 杠自重，仅作参考，不计入记录' : 'Sled / bar weight. Reference only, not logged'}</p>
             </>
           )}
           {(kind === 'pair' || kind === 'bell' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}

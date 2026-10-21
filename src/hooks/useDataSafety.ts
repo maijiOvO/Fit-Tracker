@@ -35,9 +35,9 @@ export function openDataFlow(flow: DataFlow): void {
 export function backupErrorText(code: BackupErrorCode, isCn: boolean): string {
   switch (code) {
     case 'no-access':
-      return isCn ? '没有文件夹权限了（可能在系统设置里被收回），请重新选择' : 'Folder access was lost — choose it again';
+      return isCn ? '文件夹权限已失效，请重新选择' : 'Folder access was lost — choose it again';
     case 'verify-failed':
-      return isCn ? '写进去的内容读回来对不上，这份备份不可用' : 'The written file did not read back correctly';
+      return isCn ? '备份校验失败，这份备份不可用' : 'The written file did not read back correctly';
     case 'no-folder':
       return isCn ? '还没有选备份文件夹' : 'No backup folder chosen';
     case 'unsupported':
@@ -70,7 +70,7 @@ export function useReportBackup(): (o: BackupOutcome) => void {
         toast(
           o.shrinkWarning
             ? isCn
-              ? `已备份（${o.workouts} 次训练）。比上次少了很多，旧备份都保留着`
+              ? `已备份 ${o.workouts} 次训练，比上次少很多，旧备份已保留`
               : `Backed up (${o.workouts} workouts). Much fewer than last time — older backups kept`
             : isCn
               ? `已备份并核对：${o.workouts} 次训练`
@@ -149,7 +149,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
       });
       const name = csvFileName(isCn);
       const ok = isCn ? `已导出 ${rows} 组（${done.length} 次训练）` : `Exported ${rows} sets (${done.length} workouts)`;
-      const aiHint = isCn ? '。想让 AI 帮你分析，把这个文件直接发给它就行' : '. To get AI analysis, just hand this file to your AI';
+      const aiHint = isCn ? '，可直接发给 AI 分析' : ' — ready for AI analysis';
       try {
         if (target === 'folder') {
           const folder = getBackupFolder();
