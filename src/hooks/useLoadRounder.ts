@@ -11,7 +11,7 @@ import { useCallback } from 'react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import type { Exercise, SetLog, SubSetLog } from '../../types';
-import { useLoadInfoOf, type LoadInfo } from './useLoadKind';
+import { gymMachineKey, useLoadInfoOf, type LoadInfo } from './useLoadKind';
 import { barWeight, plateUnitOf, type PlateUnit } from '../utils/plates';
 import {
   bracket,
@@ -48,8 +48,7 @@ export interface ExRounder {
 }
 
 export function gymOverrideKey(gym: string | undefined, info: Pick<LoadInfo, 'defId' | 'variantId'>): string | null {
-  if (!gym || !info.defId) return null;
-  return `${gym}|${info.defId}|${info.variantId ?? ''}`;
+  return gymMachineKey(gym, info);
 }
 
 /**
@@ -77,7 +76,8 @@ export function useLoadRounder(): RounderFor {
       if (!getActiveMetrics(resolveName(ex.name)).includes('weight')) return null;
       const u: PlateUnit = (unitOverride ?? unit) === 'lbs' ? 'lbs' : 'kg';
       const signed = usesSignedLoad(ex, signedLoadOf(ex.name));
-      const info = infoOf(ex, signed);
+      // 带上馆：这台器械在这个馆是插销还是挂片（gymKinds）
+      const info = infoOf(ex, signed, gym);
       if (info.kind === 'plain') return null;
       const prof = profileIn(gym ? (gymsOverride ?? gyms)[gym] : undefined, u);
       const okey = gymOverrideKey(gym, info);
@@ -120,6 +120,11 @@ export function makeRounder(info: LoadInfo, u: PlateUnit, ctx: LoadCtx, signed: 
     // 0 不取整：空着的组（没填数）不能被吸成一根空杠 20 kg / 一档 5 kg
     snapKg: kg => (Math.abs(kg) < 1e-9 ? 0 : fromD(snap(k, toD(kg), ctx))),
   };
+}
+
+/** 同一个取整器换形式（⋯ 里改「这台是插销 / 挂片」那一刻，档案还没刷新）：片子和一档 ctx 里都有 */
+export function withKind(r: ExRounder, kind: LoadInfo['kind']): ExRounder {
+  return makeRounder({ ...r.info, kind }, r.unit, r.ctx, r.signed);
 }
 
 /** 同一个取整器换一档（⋯ 里改「这台器械一档多重」那一刻，档案还没刷新） */

@@ -10,7 +10,19 @@
  * 不然用定义的。合并结果一律带 equipment（'' = 无器材），读处不用再管旧 tags。
  */
 import type { ExerciseDefinition } from '../../types';
-import { layerAttrs } from './exerciseAttrs';
+import { translations } from '../../translations';
+import { combineVariants, layerAttrs } from './exerciseAttrs';
+
+/** 内置器材的中英文名（认「用户早先自己建的同名做法」用） */
+export function equipmentNames(id: string): string[] {
+  const t = (translations as Record<string, { cn: string; en: string } | undefined>)[id];
+  return t ? [t.cn, t.en] : [];
+}
+
+/** 动作的做法表：覆盖层的 + 读时合并进来的内置做法（见 combineVariants） */
+export function mergedVariants(ex: ExerciseDefinition, over: Partial<ExerciseDefinition> | undefined) {
+  return combineVariants(ex.variants, over?.variants, over?.removedVariants, equipmentNames);
+}
 
 export function mergeOverride(
   ex: ExerciseDefinition,
@@ -23,11 +35,13 @@ export function mergeOverride(
       : { ...ex, equipment: attrs.equipment, resistance: attrs.resistance };
   }
   const aliases = [...(ex.aliases ?? []), ...(over.aliases ?? [])];
+  const variants = mergedVariants(ex, over);
   return {
     ...ex,
     ...over,
     name: { ...ex.name, ...(over.name ?? {}) },
     ...(aliases.length ? { aliases: [...new Set(aliases)] } : {}),
+    ...(variants ? { variants } : {}),
     equipment: attrs.equipment,
     resistance: attrs.resistance,
   } as ExerciseDefinition;

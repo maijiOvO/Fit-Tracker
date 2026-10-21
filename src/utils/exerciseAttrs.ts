@@ -134,6 +134,41 @@ export function variantAttrs(v: ExerciseVariant | undefined): { equipment: strin
   return null;
 }
 
+/**
+ * 动作的做法表 = 覆盖层 / 自建定义里写的 + 内置做法（读时合并，不写迁移）。
+ *
+ * 多器材的内置动作拆出了内置做法（罗马尼亚硬拉 · 哑铃）。用户给内置动作建过做法时，覆盖层里那张表
+ * 会把定义上的整张盖住，所以这里补回来：
+ * - 覆盖层里已有同 id 的：用覆盖层的（改过名 / 细分）
+ * - 已有同名做法（早先按 10-18 的规则自己拆过「哑铃」）：认它，没设器材的补上内置的器材，不再加一个
+ * - 用户删掉过的（removed 里有）：不补
+ * 不写迁移，是因为迁移要么推进时间戳（偏好落后的设备会把旧内容当新的推上去），要么每台设备各自写，
+ * 读时合并两头都没有这些问题（同 cableTagMigration.ts 的取舍）。
+ */
+export function combineVariants(
+  builtin: ExerciseVariant[] | undefined,
+  own: ExerciseVariant[] | undefined,
+  removed: readonly string[] | undefined,
+  nameOf: (equipment: string) => string[],
+): ExerciseVariant[] | undefined {
+  if (!own) return builtin;
+  if (!builtin?.length) return own;
+  let list = own;
+  for (const b of builtin) {
+    if (list.some(v => v.id === b.id) || removed?.includes(b.id)) continue;
+    const names = nameOf(b.equipment ?? '');
+    const same = list.findIndex(v => names.includes((v.name || '').trim()));
+    if (same >= 0) {
+      if (!variantAttrs(list[same])) {
+        list = list.map((v, i) => (i === same ? { ...v, equipment: b.equipment } : v));
+      }
+      continue;
+    }
+    list = [...list, b];
+  }
+  return list;
+}
+
 /** 写入用：新字段 + 给旧版 APK 的镜像 */
 export function attrsPatch(equipment: string, resistance: Resistance | undefined) {
   return {

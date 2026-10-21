@@ -88,7 +88,7 @@ async function clickAppConfirm(page, labelRe) {
 }
 
 /**
- * 离开工作台并放弃这场（一组都没做完时）。
+ * 离开工作台并结束这场：一组都没做完＝放弃；有改过数的组＝按做完入册。
  * workbench-not-restored 之后按返回只离开页面、工作台原样留着（首页顶上「进行中」、FAB 变「回到训练」）；
  * 原来靠「返回即清空」给后续用例复位的地方，改成首页「进行中 → 结束 → 放弃」。
  */
@@ -106,8 +106,14 @@ async function backAndDiscard(page) {
   }
   if (await row.isVisible().catch(() => false)) {
     await page.locator('[data-testid="in-progress-end"]').click();
-    await clickAppConfirm(page, /^(放弃|Discard)$/);
+    // 一组都没做完 → 「放弃」；有改过数没点完成的组 → 它们按做完入册（2026-10-20），弹的是「结束训练」
+    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End Workout)$/);
     await page.waitForTimeout(300);
+    const colo = page.locator('[data-testid="workout-colophon"]');
+    if (await colo.isVisible().catch(() => false)) {
+      await colo.click();
+      await page.waitForTimeout(400);
+    }
   }
 }
 
@@ -1023,6 +1029,219 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     }
     await dismissToasts();
     return 'healthy pull → PUT; failed pull → no PUT, error state';
+  });
+
+  // 换馆重量（2026-10-20，design-plates.md「换馆重量」）：
+  // A 底稿本馆优先、本馆没练过退回别馆并写明在哪个馆、换馆时没动过的卡重新挑来源；
+  // A2 这台在这个馆是插销还是挂片；B 两层备注；D 自定义片按馆的单位存
+  await step(page, 'seeded-gym-weight-per-gym', async () => {
+    await page.waitForTimeout(1_500);
+    await page.evaluate(() => window.__fitlog.flush());
+    const GA = 'E2E 甲馆', GB = 'E2E 乙馆', GC = 'E2E 丙馆';
+    const kgGym = machine => ({ plateUnit: 'kg', plates: [25, 20, 15, 10, 5, 2.5, 1.25], cable: { v: 5, u: 'kg' }, machine: { v: machine, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } });
+    const at = (id, days, gym, w) => ({ ...seedWorkout(id, torontoAt(torontoYmd(days), 9, 0), `E2E ${gym}`, '器械推肩', [[w, 10]]), gym });
+    const prefs = remote.snapshot.prefs ?? {};
+    remote.snapshot = {
+      ...remote.snapshot,
+      // 乙馆的更近（1 天前），甲馆的更早：今天在甲馆要抄甲馆的 40，不是最近那次的 23
+      workouts: [...(remote.snapshot.workouts ?? []), at('seed_gym_a', 3, GA, 40), at('seed_gym_b', 1, GB, 23)],
+      prefs: {
+        ...prefs,
+        appPrefs: { ...(prefs.appPrefs ?? {}), gyms: { ...(prefs.appPrefs?.gyms ?? {}), [GA]: kgGym(5), [GB]: kgGym(1), [GC]: kgGym(5) } },
+        appPrefsUpdatedMs: Date.now() + 1000,
+      },
+    };
+    await page.reload({ waitUntil: 'networkidle' });
+    await toDashboard();
+    // 上一条用例留下了一场进行中的（同步用例里加的动作）：先放弃，从空的一场开始
+    if (await page.locator('[data-testid="in-progress"]').isVisible().catch(() => false)) {
+      await page.locator('[data-testid="in-progress-end"]').click();
+      await clickAppConfirm(page, /^(放弃|Discard)$/);
+      await page.waitForTimeout(300);
+    }
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    const picker = page.locator('[data-testid="gym-picker"]');
+    const pickGym = async name => {
+      await page.locator('[data-testid="gym-button"]').click();
+      await picker.waitFor({ state: 'visible', timeout: 3_000 });
+      await picker.locator('[data-testid^="gym-option-"]', { hasText: name }).click();
+      await picker.waitFor({ state: 'hidden', timeout: 3_000 });
+      await page.waitForTimeout(300);
+    };
+    const weights = () => page.locator('.ledger-row [data-testid="ledger-field-weight"] input').evaluateAll(els => els.map(e => Number(e.value)));
+    const eyebrow = () => page.locator('[data-testid="prefill-from"]').innerText();
+    const prefillGym = async () => ((await page.locator('[data-testid="prefill-gym"]').count()) ? page.locator('[data-testid="prefill-gym"]').innerText() : null);
+
+    // A：今天在甲馆 → 抄甲馆的 40；眉批不写馆
+    await pickGym(GA);
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill('器械推肩');
+    await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '器械推肩' }).first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    const wA = await weights();
+    if (wA.join() !== '40') throw new Error(`at ${GA} the draft should copy ${GA}'s 40, got ${JSON.stringify(wA)} (eyebrow "${await eyebrow()}")`);
+    if (await prefillGym()) throw new Error(`same-gym draft should not name a gym, got "${await prefillGym()}"`);
+
+    // 换到乙馆：卡上全是没动过的底稿 → 按乙馆重新挑，23（乙馆一档 1 kg，挂得出）
+    await pickGym(GB);
+    const wB = await weights();
+    if (wB.join() !== '23') throw new Error(`switching to ${GB} should re-pick ${GB}'s 23, got ${JSON.stringify(wB)}`);
+    if (await prefillGym()) throw new Error(`after switching to ${GB} the eyebrow should not name a gym, got "${await prefillGym()}"`);
+
+    // 丙馆没练过 → 退回最近一次（乙馆），眉批写明「在 乙馆」；点开那行写「上次在 乙馆」
+    await pickGym(GC);
+    const wC = await weights();
+    if (wC.join() !== '25') throw new Error(`${GC} (5 kg step) should fall back to ${GB}'s 23 rounded to 25, got ${JSON.stringify(wC)}`);
+    if ((await prefillGym()) !== GB) throw new Error(`fallback draft should say it came from ${GB}, got "${await prefillGym()}" / "${await eyebrow()}"`);
+    await page.locator('[data-testid="prefill-from"]').click();
+    const lastLine = await page.locator('[data-testid="prefill-last"]').innerText();
+    if (!lastLine.includes(`上次在 ${GB}`)) throw new Error(`expanded line should say 上次在 ${GB}: "${lastLine}"`);
+    await page.locator('[data-testid="prefill-from"]').click();
+
+    // A2：回乙馆，⋯ 里把这台改成挂片 → 记进 gymKinds；23 按挂片（每边 11.25 / 12.5）取到 22.5；一档多重不再出现
+    await pickGym(GB);
+    if ((await weights()).join() !== '23') throw new Error('back at the gym with history the draft should be 23 again');
+    await page.getByRole('button', { name: '动作菜单' }).first().click();
+    const menu = page.getByRole('menu');
+    await menu.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await menu.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('library kind (pin) should be selected by default');
+    if (!(await menu.locator('[data-testid="gym-inc"]').count())) throw new Error('pin machine should offer the per-machine step');
+    await menu.locator('[data-testid="gym-kind-loaded"]').click();
+    await page.waitForTimeout(300);
+    const kinds = (await readLs('fitlog_app_prefs'))?.gymKinds;
+    if (kinds?.[`${GB}|press_machine_shoulder|`] !== 'loaded') throw new Error(`gymKinds not stored: ${JSON.stringify(kinds)}`);
+    const wK = await weights();
+    if (wK.join() !== '22.5') throw new Error(`plate-loaded at ${GB}: 23 should re-round to 22.5, got ${JSON.stringify(wK)}`);
+    if (await menu.locator('[data-testid="gym-inc"]').count()) throw new Error('plate-loaded machine should not show the per-machine step');
+    // 空载：填 30 → 记进 gymTares（带单位），大图说明「加空载共 52.5 kg」，记录照旧 22.5；清空 → 墓碑，回到「只算片子」
+    const tare = menu.locator('[data-testid="gym-tare"]');
+    await tare.fill('30');
+    await tare.press('Enter');
+    await page.waitForTimeout(300);
+    const tares = (await readLs('fitlog_app_prefs'))?.gymTares;
+    if (JSON.stringify(tares?.[`${GB}|press_machine_shoulder|`]) !== '{"v":30,"u":"kg"}') throw new Error(`gymTares not stored: ${JSON.stringify(tares)}`);
+    if (!(await page.getByText('加空载共 52.5 kg').count())) throw new Error('hero caption should add the sled: 加空载共 52.5 kg');
+    if ((await weights()).join() !== '22.5') throw new Error(`the sled must not change the logged weight, got ${JSON.stringify(await weights())}`);
+    await tare.fill('');
+    await tare.press('Enter');
+    await page.waitForTimeout(300);
+    if ((await readLs('fitlog_app_prefs'))?.gymTares?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error('clearing the sled should leave a tombstone');
+    if (!(await page.getByText(/只算片子/).count())) throw new Error('without a sled the caption should say 只算片子 again');
+    // 改回插销 → 写墓碑（和动作库一样），再改成挂片留着
+    await menu.locator('[data-testid="gym-kind-pin"]').click();
+    await page.waitForTimeout(300);
+    const kinds2 = (await readLs('fitlog_app_prefs'))?.gymKinds;
+    if (kinds2?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error(`back to the library kind should leave a tombstone: ${JSON.stringify(kinds2)}`);
+    await menu.locator('[data-testid="gym-kind-loaded"]').click();
+    await page.waitForTimeout(200);
+
+    // B：⋯ 加备注 → 两栏；卡上本馆的在前
+    await menu.getByRole('menuitem', { name: /加备注|编辑备注/ }).click();
+    const dlg = page.getByRole('dialog');
+    await dlg.locator('[data-testid="note-gym"]').fill('凳子 3');
+    await dlg.locator('[data-testid="note-general"]').fill('慢放');
+    await dlg.getByRole('button', { name: '确定' }).click();
+    await dlg.waitFor({ state: 'hidden', timeout: 3_000 });
+    const note = await page.locator('[data-testid="exercise-note"]').innerText();
+    if (!/凳子 3[\s\S]*慢放/.test(note)) throw new Error(`card should show the gym note first, then the general one: "${note}"`);
+    const ap = await readLs('fitlog_app_prefs');
+    if (ap?.gymNotes?.[`${GB}|press_machine_shoulder|`] !== '凳子 3') throw new Error(`gym note not stored: ${JSON.stringify(ap?.gymNotes)}`);
+    const general = await readLs('fitlog_exercise_notes');
+    if (general?.['器械推肩'] !== '慢放') throw new Error(`general note not stored: ${JSON.stringify(general)}`);
+    // 换到甲馆：本馆备注不跟过去，通用的还在；甲馆这台照旧是插销（改的只是乙馆）
+    await pickGym(GA);
+    const noteA = await page.locator('[data-testid="exercise-note"]').innerText();
+    if (/凳子/.test(noteA) || !/慢放/.test(noteA)) throw new Error(`at ${GA} only the general note should show: "${noteA}"`);
+    if ((await weights()).join() !== '40') throw new Error(`at ${GA} (still pin) the draft should be 40, got ${JSON.stringify(await weights())}`);
+
+    // D：编辑甲馆，加一片 45 lb → 按馆的单位存 20.4
+    await page.locator('[data-testid="gym-button"]').click();
+    await picker.waitFor({ state: 'visible', timeout: 3_000 });
+    const idx = await picker.locator('[data-testid^="gym-option-"]').evaluateAll((els, n) => els.findIndex(e => e.textContent.includes(n)), GA);
+    await page.locator(`[data-testid="gym-edit-${idx}"]`).click();
+    const form = page.locator('[data-testid="gym-profile-form"]');
+    await form.waitFor({ state: 'visible', timeout: 3_000 });
+    await form.locator('[data-testid="gym-custom-weight"]').fill('45');
+    await form.locator('[data-testid="gym-custom-unit-lbs"]').click();
+    const conv = await form.locator('[data-testid="gym-custom-converted"]').innerText();
+    if (!conv.includes('20.4')) throw new Error(`45 lb in a kg gym should read = 20.4 kg: "${conv}"`);
+    await form.locator('[data-testid="gym-custom-add"]').click();
+    await form.locator('[data-testid="gym-plate-custom-20.4"]').waitFor({ state: 'visible', timeout: 2_000 });
+    await page.locator('[data-testid="gym-profile-save"]').click();
+    await form.waitFor({ state: 'detached', timeout: 3_000 });
+    const platesA = (await readLs('fitlog_app_prefs'))?.gyms?.[GA]?.plates ?? [];
+    if (!platesA.includes(20.4)) throw new Error(`custom plate not stored in the gym profile: ${JSON.stringify(platesA)}`);
+    await dismissToasts();
+    await backAndDiscard(page);
+    return `${GA} 40 → ${GB} ${wB} → ${GC} ${wC} (from ${GB}) · ${GB} plate-loaded ${wK} · notes "${note.replace(/\s+/g, ' ')}" · ${GA} plates +20.4`;
+  });
+
+  // 「健身房器材」→ 龙门架（2026-10-20，utils/cableTagMigration.ts）：真实数据里自建的龙门架动作和改过器材的内置龙门架动作
+  // 都标成了 tagGym（用户把它改名叫「龙门架」），负荷判断不认，馆档案整套失效。远端还是旧标签时，拉下来就要纠正，
+  // 而且动作卡 ⋯ 里要出现「这台是 插销 / 挂片」（之前缺的就是这个）。
+  await step(page, 'seeded-gym-tag-becomes-cable', async () => {
+    await page.waitForTimeout(1_000);
+    await page.evaluate(() => window.__fitlog.flush());
+    const NAME = 'E2E 龙门架下压';
+    const prefs = remote.snapshot.prefs ?? {};
+    remote.snapshot = {
+      ...remote.snapshot,
+      prefs: {
+        ...prefs,
+        customExercises: [
+          ...(prefs.customExercises ?? []).filter(d => d.id !== 'e2e_gym_tag'),
+          { id: 'e2e_gym_tag', name: { cn: NAME, en: NAME }, bodyPart: 'subArms', tags: ['tagGym'], category: 'STRENGTH' },
+        ],
+        exerciseOverrides: { ...(prefs.exerciseOverrides ?? {}), face_pull_cable: { tags: ['tagGym'] } },
+        tagRenameOverrides: { ...(prefs.tagRenameOverrides ?? {}), tagGym: '龙门架' },
+        prefsLastUpdateMs: Date.now() + 1000,
+      },
+    };
+    await page.reload({ waitUntil: 'networkidle' });
+    await toDashboard();
+    await page.waitForTimeout(800);
+    const defs = (await readLs('fitlog_custom_exercises')) || [];
+    const mine = defs.find(d => d.id === 'e2e_gym_tag');
+    if (JSON.stringify(mine?.tags) !== '["tagCable"]') throw new Error(`custom tagGym should become tagCable after pull: ${JSON.stringify(mine?.tags)}`);
+    const ovr = (await readLs('fitlog_exercise_overrides')) || {};
+    if (JSON.stringify(ovr.face_pull_cable?.tags) !== '["tagCable"]') throw new Error(`override tagGym should become tagCable: ${JSON.stringify(ovr.face_pull_cable)}`);
+    const renames = (await readLs('fitlog_tag_rename_overrides')) || {};
+    if ('tagGym' in renames) throw new Error(`the 龙门架 rename on tagGym should be dropped: ${JSON.stringify(renames)}`);
+    // 跑步机这类有氧的 tagGym 不动（内置定义没被覆盖，迁移也不会给它写覆盖）
+    if (ovr.run_tread) throw new Error(`cardio treadmill should not get an override: ${JSON.stringify(ovr.run_tread)}`);
+
+    // 上一条用例可能留下一场进行中的：接回去在那一场里加，最后照样放弃，不留记录
+    if (await page.locator('[data-testid="in-progress"]').isVisible().catch(() => false)) {
+      await page.locator('[data-testid="in-progress"] button').first().click();
+    } else {
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    }
+    await page.locator('[data-testid="gym-button"]').waitFor({ state: 'visible', timeout: 5_000 });
+    const picker = page.locator('[data-testid="gym-picker"]');
+    await page.locator('[data-testid="gym-button"]').click();
+    await picker.waitFor({ state: 'visible', timeout: 3_000 });
+    await picker.locator('[data-testid^="gym-option-"]', { hasText: 'E2E 甲馆' }).click();
+    await picker.waitFor({ state: 'hidden', timeout: 3_000 });
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill(NAME);
+    await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: NAME }).first().click();
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.waitForTimeout(400);
+    // 接回来的那一场里可能还有别的动作：按名字找这张卡的 ⋯
+    await page.locator('.masthead-rule', { hasText: NAME }).getByRole('button', { name: '动作菜单' }).click();
+    const menu = page.getByRole('menu');
+    await menu.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await menu.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('a cable exercise should default to pin');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await backAndDiscard(page);
+    return 'pulled tagGym → tagCable (custom + override), rename dropped, ⋯ shows 插销 / 挂片';
   });
 
   await context.close();
@@ -2225,15 +2444,15 @@ const main = async () => {
     if ((await rows.count()) !== n - 1) throw new Error('single tap did not delete the set');
     if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('deleting a set still shows an undo toast');
 
-    // 结束训练：改过没点完成的组要点出来，「取消」换成「返回补点」
+    // 结束训练：改过没点完成的组按做完入册（2026-10-20），确认框不再提「没点完成」、也没有「返回补点」
     await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
     const dlg = page.locator('[role="dialog"]');
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
     const text = await dlg.innerText();
-    if (!/改过数但没点完成/.test(text)) throw new Error(`end confirm does not mention edited-but-not-done sets: ${text}`);
-    await dlg.getByRole('button', { name: /^返回补点$/ }).click();
+    if (/没点完成|返回补点/.test(text)) throw new Error(`end confirm still nags about edited-but-not-done sets: ${text}`);
+    await dlg.getByRole('button', { name: /^(取消|Cancel)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
-    return `toggle ok · sweep down/up · type replaces + follow · drop btn · new row to-do · all-zero refused · + ${w0}→${w1} · delete (no undo) · end warns`;
+    return `toggle ok · sweep down/up · type replaces + follow · drop btn · new row to-do · all-zero refused · + ${w0}→${w1} · delete (no undo) · end does not nag`;
   });
 
   // 第 7 条：训练卡 ⋯ → 重命名。改的是动作库里的名字，卡片立刻显示新名；
@@ -2366,6 +2585,8 @@ const main = async () => {
           if (n.parentElement && n.parentElement.closest('.font-seal')) continue;
           // 语言选项里的「中文」是语言名本身（首选项弹层，标了 lang="zh-CN"）
           if (n.parentElement && n.parentElement.closest('body [lang^="zh"]')) continue;
+          // 训练标题是用户数据（默认标题按结束时的语言生成，比如「训练 2026/10/20」），不是界面文案
+          if (n.parentElement && n.parentElement.closest('[data-user-text]')) continue;
           hits.push('text:' + t.slice(0, 40));
         }
         for (const el of document.querySelectorAll('[aria-label],[title],[placeholder]')) {
@@ -2449,14 +2670,15 @@ const main = async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     await page.waitForTimeout(300);
     // 接回的是「最近结束的那一场」：前面的用例可能又结束过别的场次（并入上一场那条会造一场），按快照现查
-    const resumeId = await page.evaluate(async () => {
+    const resumeTarget = await page.evaluate(async () => {
       await window.__fitlog.flush();
       const snap = await window.__fitlog.fetchRemote();
       const done = ((snap && snap.workouts) || []).filter(w => w.finishedAt);
       done.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
-      return done[0]?.id ?? null;
+      return done[0] ? { id: done[0].id } : null;
     });
-    if (!resumeId) throw new Error('fixture drift: no finished workout to resume');
+    if (!resumeTarget) throw new Error('fixture drift: no finished workout to resume');
+    const resumeId = resumeTarget.id;
     // 2026-10-11：「继续这场」在时间线长按菜单里（刚结束 10 分钟内才有），FAB 不再问
     const rcard = page.locator(`[data-testid="timeline-session-${resumeId}"]`);
     if (!(await rcard.isVisible().catch(() => false))) {
@@ -2479,9 +2701,10 @@ const main = async () => {
     await resumeItem.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
 
-    // 接回来的是那一场【本身】：动作还在
+    // 接回来的是那一场【本身】：动作还在（工作台上有组）。不写死动作名 ——
+    // 前面的用例结束过哪一场取决于流程（2026-10-20 起改过数没点完成的那场也会入册）
     const hasExercise = await page
-      .locator('text=E2E Bench Press')
+      .locator('[data-testid="ledger-field-weight"]')
       .first()
       .isVisible()
       .catch(() => false);

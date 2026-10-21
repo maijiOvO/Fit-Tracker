@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Plus } from 'lucide-react';
+import { Check, ChevronRight, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
@@ -20,6 +20,14 @@ interface MetricSettingsModalProps {
    */
   signedLoad?: boolean;
   onChangeSignedLoad?: (on: boolean) => void;
+  /**
+   * 名称、部位与器械：练的时候发现动作建错了（比如「提踵」其实是杠铃动作），在这里就能改，
+   * 不用退出去翻动作库。打开的是动作库里同一个改名 / 改标签弹窗。动作不在库里时不传，不显示这一节。
+   */
+  onRename?: () => void;
+  onEditTags?: () => void;
+  /** 「小腿 · 杠铃」这样的一行摘要 */
+  tagSummary?: string;
 }
 
 export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
@@ -32,6 +40,9 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   onClose,
   signedLoad,
   onChangeSignedLoad,
+  onRename,
+  onEditTags,
+  tagSummary,
 }) => {
   const [newCustomDimension, setNewCustomDimension] = useState('');
   const isCn = lang === Language.CN;
@@ -41,7 +52,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
     <Modal
       isOpen={open && !!exerciseName}
       onClose={onClose}
-      title={translations.manageMetrics[lang]}
+      title={isCn ? '动作设置' : 'Exercise settings'}
       subtitle={exerciseName || undefined}
       size="sm"
       layer="modal-2"
@@ -66,6 +77,35 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
       }
     >
       <div>
+        {(onRename || onEditTags) && (
+          <div className="mb-6 rounded-card border border-divider divide-y divide-divider" data-testid="exercise-identity">
+            {onRename && (
+              <button
+                type="button"
+                onClick={onRename}
+                className="w-full min-h-[52px] px-4 flex items-center gap-3 text-left active:bg-card-hover"
+                data-testid="settings-rename"
+              >
+                <span className="text-label text-secondary w-16 flex-shrink-0">{isCn ? '名称' : 'Name'}</span>
+                <span className="flex-1 min-w-0 truncate font-semibold text-primary">{exerciseName}</span>
+                <ChevronRight size={16} className="text-tertiary flex-shrink-0" />
+              </button>
+            )}
+            {onEditTags && (
+              <button
+                type="button"
+                onClick={onEditTags}
+                className="w-full min-h-[52px] px-4 flex items-center gap-3 text-left active:bg-card-hover"
+                data-testid="settings-edit-tags"
+              >
+                <span className="text-label text-secondary w-16 flex-shrink-0">{isCn ? '部位器械' : 'Tags'}</span>
+                <span className="flex-1 min-w-0 truncate text-primary">{tagSummary || (isCn ? '未设置' : 'None')}</span>
+                <ChevronRight size={16} className="text-tertiary flex-shrink-0" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 原来是 10px——低于 §3 的 11px 下限 */}
         <p className="text-label font-medium text-secondary mb-3">
           {isCn ? '选择要记录的维度' : 'Select metrics to track'}

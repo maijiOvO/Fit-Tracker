@@ -15,9 +15,9 @@ import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
 import { DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
 type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell';
-import { PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
 interface GymPickerModalProps {
   open: boolean;
@@ -224,7 +224,9 @@ function GymProfileForm({
 
   const setUnit = (u: PlateUnit) => {
     if (p.plateUnit === u) return;
+    // 自定义片是按原单位存的，换了一套片子就一起清掉（design-plates.md「换馆重量」D）
     setP({ ...p, plateUnit: u, plates: PLATE_SPECS[u].map(s => s.w) });
+    setCu(u);
   };
   const togglePlate = (w: number) => {
     const has = p.plates.includes(w);
@@ -232,6 +234,25 @@ function GymProfileForm({
     if (has && p.plates.length <= 1) return;
     setP({ ...p, plates: has ? p.plates.filter(x => x !== w) : [...p.plates, w].sort((a, b) => b - a) });
   };
+  /**
+   * 自定义片（2026-10-20 用户定，方案 A）：一律按馆的单位存，四舍五入到 0.05；
+   * 片子自己是另一种单位（kg 馆里的 45 lb 片）就在这里换算好（= 20.4 kg），不做 kg / lb 混挂。
+   */
+  const [cw, setCw] = useState('');
+  const [cu, setCu] = useState<PlateUnit>(initial.plateUnit);
+  const cwNum = Number.parseFloat(cw.replace(',', '.'));
+  const customIn = (() => {
+    if (!(cwNum > 0)) return null;
+    const v = cu === p.plateUnit ? cwNum : cu === 'lbs' ? cwNum * KG_PER_LB : cwNum / KG_PER_LB;
+    const r = Math.round(v * 20) / 20;
+    return r > 0 && r <= 100 ? r : null;
+  })();
+  const addCustom = () => {
+    if (customIn === null) return;
+    if (!p.plates.includes(customIn)) setP({ ...p, plates: [...p.plates, customIn].sort((a, b) => b - a) });
+    setCw('');
+  };
+  const customPlates = p.plates.filter(w => !isStandardPlate(p.plateUnit, w));
   // 壶铃一档是后加的，旧档案没有这一项 → 按默认
   const incOf = (key: IncKey): IncSpec => p[key] ?? DEFAULT_KETTLEBELL_INC[p.plateUnit];
   const stepInc = (key: IncKey, d: 1 | -1) => {
@@ -322,9 +343,62 @@ function GymProfileForm({
               {fmt(s.w)}
             </button>
           ))}
+          {customPlates.map(w => {
+            const sp = plateSpec(p.plateUnit, w);
+            return (
+              <button
+                key={`c${w}`}
+                type="button"
+                aria-pressed
+                onClick={() => togglePlate(w)}
+                aria-label={isCn ? `删掉自定义片 ${fmt(w)}` : `Remove custom plate ${fmt(w)}`}
+                data-testid={`gym-plate-custom-${w}`}
+              >
+                {sp && <i className={`plate-${sp.token}`} style={{ height: sp.dia >= 400 ? 22 : 14 }} />}
+                {fmt(w)} ×
+              </button>
+            );
+          })}
         </div>
       </div>
-      {inc('cable', isCn ? '龙门架 / 绳索一档' : 'Cable step')}
+      <div className="gym-field">
+        <span className="text-label text-secondary">
+          {isCn ? '加一种片（八角片、自带的微调片…）' : 'Add a plate (odd sizes, your own micro plates…)'}
+        </span>
+        <div className="flex items-center gap-2">
+          <input
+            className="ui-input w-24"
+            inputMode="decimal"
+            value={cw}
+            onChange={e => setCw(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addCustom()}
+            placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
+            aria-label={isCn ? '这片多重' : 'Plate weight'}
+            data-testid="gym-custom-weight"
+          />
+          <span className="gym-seg" role="group" aria-label={isCn ? '这片自己的单位' : 'This plate is in'}>
+            <button type="button" className={seg(cu === 'kg')} aria-pressed={cu === 'kg'} onClick={() => setCu('kg')}>kg</button>
+            <button type="button" className={seg(cu === 'lbs')} aria-pressed={cu === 'lbs'} onClick={() => setCu('lbs')} data-testid="gym-custom-unit-lbs">lb</button>
+          </span>
+          <button
+            type="button"
+            disabled={customIn === null}
+            onClick={addCustom}
+            className="min-h-[36px] px-3 text-label font-semibold text-accent disabled:text-tertiary"
+            data-testid="gym-custom-add"
+          >
+            {isCn ? '加上' : 'Add'}
+          </button>
+        </div>
+        {customIn !== null && cu !== p.plateUnit && (
+          <p className="text-micro text-tertiary" data-testid="gym-custom-converted">
+            {isCn
+              ? `按这个馆的单位记：= ${fmt(customIn)} ${p.plateUnit === 'kg' ? 'kg' : 'lb'}`
+              : `Saved in this gym's unit: = ${fmt(customIn)} ${p.plateUnit === 'kg' ? 'kg' : 'lb'}`}
+          </p>
+        )}
+      </div>
+      {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
       {inc('machine', isCn ? '固定器械一档（个别不一样的，在那个动作的 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}

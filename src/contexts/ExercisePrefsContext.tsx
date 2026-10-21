@@ -19,7 +19,7 @@ import React, {
 import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { translations } from '../../translations';
 import { BODY_PARTS, BODY_REGIONS, DEFAULT_EXERCISES } from '../constants/exercises';
-import { mergeOverride } from '../utils/exerciseOverride';
+import { mergeOverride, mergedVariants } from '../utils/exerciseOverride';
 import {
   BUILTIN_EQUIPMENT,
   attrsPatch,
@@ -27,6 +27,7 @@ import {
   variantAttrs,
   type Resistance,
 } from '../utils/exerciseAttrs';
+import { migrateCableTags } from '../utils/cableTagMigration';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
@@ -220,38 +221,6 @@ const LS_KEYS = {
   tagRenameOverrides: 'fitlog_tag_rename_overrides',
 } as const;
 
-/** 本机做过「内置器材做法」迁移的标记（只在本机，不同步：每台设备各自补一次，补过的同名做法不会重复） */
-const ATTRS_MIGRATED_KEY = 'fitlog_attrs_migrated_v1';
-
-/**
- * 多器材的内置动作拆成了「主器材 + 做法」（2026-10-20）。没给它建过做法的，内置做法直接生效；
- * 已经在覆盖层里有自己做法表的，内置做法被整张表盖住了 —— 这里补进去一次：
- * 已有同名做法（用户早就按 10-18 的规则自己拆过「哑铃」）就认它、补上器材，不再加一个。
- */
-function mergeBuiltinVariants(overrides: Record<string, Partial<ExerciseDefinition>>) {
-  let changed = false;
-  const next = { ...overrides };
-  for (const d of DEFAULT_EXERCISES) {
-    const own = overrides[d.id]?.variants;
-    if (!d.variants?.length || !own) continue;
-    const list = [...own];
-    for (const bv of d.variants) {
-      if (list.some(v => v.id === bv.id)) continue;
-      const t = (translations as Record<string, { cn: string; en: string }>)[bv.equipment ?? ''];
-      const names = t ? [t.cn, t.en] : [];
-      const same = list.findIndex(v => names.includes((v.name || '').trim()));
-      if (same >= 0) {
-        if (!variantAttrs(list[same])) list[same] = { ...list[same], equipment: bv.equipment, tags: [bv.equipment!] };
-      } else {
-        list.push(bv);
-      }
-      changed = true;
-    }
-    next[d.id] = { ...overrides[d.id], variants: list };
-  }
-  return { next, changed };
-}
-
 /** 系统细分 id → 它所在的部位（自建细分看 CustomTag.parentPart） */
 function systemRegionPart(id: string): string | undefined {
   return Object.keys(BODY_REGIONS).find(p => BODY_REGIONS[p].includes(id));
@@ -306,9 +275,30 @@ function sanitizeMetricConfigs(
   return { cleaned, mutated };
 }
 
+/**
+ * 本机偏好里「健身房器材」→ 龙门架的纠正，启动时做一次（cableTagMigration.ts）。
+ * 只写回本机、不推进时间戳：内容和远端迁移后一致，谁先同步都一样。
+ */
+let cableTagsMigrated = false;
+function migrateLocalCableTagsOnce(): void {
+  if (cableTagsMigrated) return;
+  cableTagsMigrated = true;
+  const before = {
+    customExercises: readJSON<ExerciseDefinition[]>(LS_KEYS.customExercises, []),
+    exerciseOverrides: readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {}),
+    tagRenameOverrides: readJSON<Record<string, string>>(LS_KEYS.tagRenameOverrides, {}),
+  };
+  const after = migrateCableTags(before);
+  if (after === before) return;
+  if (after.customExercises !== before.customExercises) writeJSON(LS_KEYS.customExercises, after.customExercises);
+  if (after.exerciseOverrides !== before.exerciseOverrides) writeJSON(LS_KEYS.exerciseOverrides, after.exerciseOverrides);
+  if (after.tagRenameOverrides !== before.tagRenameOverrides) writeJSON(LS_KEYS.tagRenameOverrides, after.tagRenameOverrides);
+}
+
 export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  migrateLocalCableTagsOnce();
   const { lang } = useUserSettingsContext();
   const { toast, toastUndo } = useUiOverlay();
 
@@ -334,19 +324,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   );
   const [exerciseOverrides, setExerciseOverrides] = useState<
     Record<string, Partial<ExerciseDefinition>>
-  >(() => {
-    const raw = readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {});
-    if (storage.getItem(ATTRS_MIGRATED_KEY)) return raw;
-    const { next, changed } = mergeBuiltinVariants(raw);
-    // 先写数据再落标记：StrictMode 下初始化函数跑两遍，第二遍读到的已经是迁移后的
-    if (changed) {
-      writeJSON(LS_KEYS.exerciseOverrides, next);
-      markPrefsUpdated();
-      scheduleDebouncedFitlogPush();
-    }
-    storage.setItem(ATTRS_MIGRATED_KEY, '1');
-    return next;
-  });
+  >(() =>
+    readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {}),
+  );
   const [tagRenameOverrides, setTagRenameOverrides] = useState<Record<string, string>>(
     () => readJSON<Record<string, string>>(LS_KEYS.tagRenameOverrides, {}),
   );
@@ -447,7 +427,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (exerciseName: string): ExerciseVariant[] => {
       const def = findExerciseDef(exerciseName);
       if (!def) return [];
-      return withVariantNames(exerciseOverrides[def.id]?.variants ?? def.variants);
+      return withVariantNames(mergedVariants(def, exerciseOverrides[def.id]));
     },
     [findExerciseDef, exerciseOverrides, withVariantNames],
   );
@@ -456,7 +436,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (exerciseName: string): ExerciseVariant[] => {
       const def = findExerciseDef(exerciseName);
       if (!def) return [];
-      return exerciseOverrides[def.id]?.variants ?? def.variants ?? [];
+      return mergedVariants(def, exerciseOverrides[def.id]) ?? [];
     },
     [findExerciseDef, exerciseOverrides],
   );
@@ -1163,8 +1143,13 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
           return list;
         });
       } else {
+        // 内置做法不在这张表里 = 用户删掉了：记下来，读时合并就不再补回（combineVariants）
+        const removed = (def.variants ?? []).map(v => v.id).filter(id => !next.some(v => v.id === id));
         setExerciseOverrides(prev => {
-          const updated = { ...prev, [def.id]: { ...(prev[def.id] || {}), variants: next } };
+          const cur: Partial<ExerciseDefinition> = { ...(prev[def.id] || {}), variants: next };
+          if (removed.length) cur.removedVariants = removed;
+          else delete cur.removedVariants;
+          const updated = { ...prev, [def.id]: cur };
           writeJSON(LS_KEYS.exerciseOverrides, updated);
           return updated;
         });
@@ -1420,7 +1405,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [countInRegion, deleteTag, getTagName, lang, layoutOf, restoreRegion, toastUndo, writeLayout],
   );
 
-  const applyPrefsFromSnapshot = useCallback((p: FitlogSyncedPrefs) => {
+  const applyPrefsFromSnapshot = useCallback((raw: FitlogSyncedPrefs) => {
+    const p = migrateCableTags(raw);
     setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
     setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
     setExerciseNotes(

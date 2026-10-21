@@ -13,6 +13,7 @@ export const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'sub
 
 // 器材与阻力类型的定义在 src/utils/exerciseAttrs.ts（BUILTIN_EQUIPMENT 等）。
 // 多器材的内置动作（2026-10-20 前是多选标签）拆成「主器材 + 做法」：做法 name 留空，显示时取器材名。
+// 「健身房器材」（tagGym）随场地标签一起退役；力量动作上旧的 tagGym 先由 utils/cableTagMigration.ts 迁成龙门架。
 
 /**
  * 标准维度列表

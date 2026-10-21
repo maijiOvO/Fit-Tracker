@@ -1,7 +1,7 @@
 /**
  * 开发库走查：真实数据（本机独立开发库，见 scripts/dev-with-local-db.mjs）+ 真实触摸（CDP），384 宽（用户手机）。
  * 一整场：练胸 → 整理里把自建动作拖进细分 → 加动作（底稿 / ±5）→ 点组号做完 → 长按加递减 → 换练法
- * → 删组（不撤销）→ 改过没点完成 → 结束（确认框点出来）→ 时间线 / PR 分练法 → 读开发库文件核对落盘。
+ * → 删组（不撤销）→ 改过没点完成 → 结束（按做完入册）→ 时间线 / PR 分练法 → 读开发库文件核对落盘。
  *
  *   node scripts/dev-with-local-db.mjs      # 先起开发库（端口 3100）
  *   node scripts/devdb-walkthrough.mjs      # 截图与日志 → test-artifacts/devdb-walk/
@@ -140,7 +140,7 @@ await card0.getByRole('button', { name: /添加组/ }).first().tap(); await slee
 note('re-added', await card0.locator('.ledger-row').count());
 await shot('bench-mid');
 // ── 后半场 ──
-// 第三组：改次数但不点完成 → 结束时要被点出来
+// 第三组：改次数但不点完成 → 结束时按做完入册（2026-10-20 起不再提醒「返回补点」）
 const r2 = card0.locator('.ledger-row').nth(2);
 await r2.locator('[data-testid="ledger-field-reps"] input').fill('9'); await sleep(200);
 note('row2 edited stays to-do', (await r2.getAttribute('class')).includes('is-ghost'));
@@ -154,7 +154,7 @@ const colo = page.locator('[data-testid="workout-colophon"]');
 if (await colo.isVisible().catch(() => false)) { note('colophon', (await colo.innerText()).replace(/\n+/g, ' / ')); await shot('colophon'); await colo.tap(); await sleep(800); }
 note('timeline first', (await page.locator('[data-testid^="timeline-session-"]').first().innerText()).replace(/\n+/g, ' / '));
 await shot('timeline-after');
-await page.getByRole('button', { name: /按动作 PR/ }).tap(); await sleep(500);
+await page.getByRole('button', { name: /按动作/ }).tap(); await sleep(500);
 const prText = await page.locator('main').innerText();
 note('PR has 宽握 row', /上斜哑铃卧推（宽握）/.test(prText));
 note('PR has standard row', /上斜哑铃卧推\n/.test(prText));

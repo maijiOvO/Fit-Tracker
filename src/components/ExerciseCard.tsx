@@ -21,10 +21,11 @@ import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
 import { setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
-import { useLoadKindOf } from '../hooks/useLoadKind';
+import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
-import { gymOverrideKey, snapUntouched, useLoadRounder, withInc } from '../hooks/useLoadRounder';
+import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind } from '../hooks/useLoadRounder';
+import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { INC_CHOICES, profileIn } from '../utils/loadable';
 
@@ -81,7 +82,8 @@ interface ExerciseCardProps {
   onOpenExerciseTime?: () => void;
   /** 底稿抄自哪一场（C2，2026-10-11）：卡头「底稿 · 10/4」，点开在卡内看那次的几组，不用离开工作台 */
   lastSession?: { date: string; sets: SetLog[] } | null;
-  onToggleNote: (name: string) => void;
+  /** 打开备注弹窗；gymKey：这个馆这个动作的键（标了馆的训练才有），弹窗多一栏本馆备注 */
+  onToggleNote: (name: string, gymKey?: string) => void;
   onOpenMetricModal: (name: string) => void;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   onRename?: () => void;
@@ -165,10 +167,15 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const variantCount = variantsOf(exercise.name).length;
   const hasDef = !!findExerciseDef(exercise.name);
   const activeMetrics = getActiveMetrics(exerciseName);
-  const hasNote = !!exerciseNotes[exerciseName];
   const loadMode = getLoadMode(exercise);
-  // 「杠铃片」§3：这个动作的重量怎么画、怎么拖
-  const loadKind = useLoadKindOf()(exercise, signed);
+  // 「杠铃片」§3：这个动作的重量怎么画、怎么拖（带上馆：这台在这个馆是插销还是挂片）
+  const loadInfo = useLoadInfoOf()(exercise, signed, gym);
+  const loadKind = loadInfo.kind;
+  // 两层备注（design-plates.md「换馆重量」B）：通用（按动作名）+ 本馆（馆|动作|做法），本馆的在前
+  const { appPrefs, changeAppPrefs } = useUserSettingsContext();
+  const gymKey = gymMachineKey(gym, loadInfo);
+  const gymNote = gymKey ? appPrefs.gymNotes[gymKey] : undefined;
+  const hasNote = !!exerciseNotes[exerciseName] || !!gymNote;
   // 馆档案取整器：纯数字的动作（含没有重量这一项的）是 null，组行照旧走首选项的步长
   const rounder = useLoadRounder()(exercise, gym);
   const prIdx = prSetIndex(exercise, bestKg, signed);
@@ -272,6 +279,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     : '';
   const lastDate = lastSession ? new Date(lastSession.date) : null;
   const lastDateLabel = lastDate ? `${lastDate.getMonth() + 1}/${lastDate.getDate()}` : '';
+  // 底稿抄自另一个馆（本馆没练过才会这样，design-plates.md「换馆重量」A）：眉批写明在哪个馆
+  const prefillElsewhere = !!exercise.prefillGym && exercise.prefillGym !== gym ? exercise.prefillGym : null;
 
   const handleDurationClick = (setIdx: number) => {
     onOpenTimePicker(exIdx, setIdx, exercise.sets[setIdx].duration || 0);
@@ -289,7 +298,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 存 AppPrefs.gymOverrides（键：馆|动作|做法）；没标馆的训练不给（改了也找不到下一次）。
    * 改完把没做完、没改过的组吸到新的一档上。
    */
-  const { appPrefs, changeAppPrefs } = useUserSettingsContext();
   const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'signed')
     ? gymOverrideKey(gym, rounder.info)
     : null;
@@ -324,6 +332,43 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     if (nextV !== undefined) setIncOverride(nextV);
   };
   const uLab = unit === 'lbs' ? 'lb' : 'kg';
+
+  /**
+   * ⋯「在 X，这台是 插销 / 挂片」（design-plates.md「换馆重量」A2）：库里是配重片或挂片式器械的动作才给。
+   * 和动作库一样就写墓碑（恢复动作库），不一样就记住；没做完、没改过的组按新形式重新取整。
+   */
+  const kindKey = rounder && gymSwitchableKind(loadInfo.libKind) ? gymKey : null;
+  /**
+   * 挂片时多一行「空载」（滑台 / 史密斯杠自重）：器械上标了就填，不知道就空着。
+   * 存 appPrefs.gymTares（带单位），只进大图说明，不改记录。
+   */
+  const tareKey = kindKey && loadKind === 'loaded' ? kindKey : null;
+  const tareSpec = tareKey ? appPrefs.gymTares[tareKey] : undefined;
+  const tareD = tareSpec && rounder
+    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * 2.20462 : tareSpec.v / 2.20462) * 10) / 10
+    : undefined;
+  const [tareText, setTareText] = useState('');
+  useEffect(() => setTareText(tareD === undefined ? '' : String(tareD)), [tareD, menuOpen]);
+  const commitTare = () => {
+    if (!tareKey || !rounder) return;
+    const t = tareText.trim().replace(',', '.');
+    const n = Number.parseFloat(t);
+    if (t === '') {
+      if (tareSpec) changeAppPrefs(keyedPatch('gymTares', tareKey, ''));
+      return;
+    }
+    if (!Number.isFinite(n) || Math.abs(n) > 500) {
+      setTareText(tareD === undefined ? '' : String(tareD));
+      return;
+    }
+    if (n !== tareD) changeAppPrefs(keyedPatch('gymTares', tareKey, { v: n, u: rounder.unit }));
+  };
+  const setGymKind = (k: 'pin' | 'loaded') => {
+    if (!rounder || !kindKey || k === loadKind) return;
+    haptic(H.tap);
+    changeAppPrefs(keyedPatch('gymKinds', kindKey, k === loadInfo.libKind ? '' : k));
+    onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withKind(rounder, k)) });
+  };
 
   return (
     <div className="ui-card p-0 overflow-visible" style={{ ['--cols' as string]: cols }}>
@@ -375,7 +420,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   className={menuItem}
                   onClick={() => {
                     setMenuOpen(false);
-                    onToggleNote(exerciseName);
+                    onToggleNote(exerciseName, gymKey ?? undefined);
                   }}
                 >
                   <StickyNote size={16} strokeWidth={1.75} className="text-tertiary" />
@@ -449,6 +494,49 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     <Pencil size={16} strokeWidth={1.75} className="text-tertiary" />
                     {isCn ? '重命名' : 'Rename'}
                   </button>
+                )}
+                {kindKey && (
+                  <div className="gym-inc border-t border-divider mt-1 px-4 pt-2 pb-2" data-testid="gym-kind">
+                    <p className="text-label text-secondary">
+                      {isCn ? <>在 <b className="text-primary">{gym}</b>，这台是</> : <>At <b className="text-primary">{gym}</b>, this one is</>}
+                    </p>
+                    <span className="gym-seg mt-1" role="group">
+                      {(['pin', 'loaded'] as const).map(k => (
+                        <button
+                          key={k}
+                          type="button"
+                          className={`min-h-[36px] px-3 text-label font-semibold ${loadKind === k ? 'seg-on' : 'text-secondary'}`}
+                          aria-pressed={loadKind === k}
+                          onClick={() => setGymKind(k)}
+                          data-testid={`gym-kind-${k}`}
+                        >
+                          {k === 'pin' ? (isCn ? '插销' : 'Pin stack') : isCn ? '挂片' : 'Plate-loaded'}
+                        </button>
+                      ))}
+                    </span>
+                    {tareKey && (
+                      <label className="mt-2 flex items-center gap-2 text-label text-secondary">
+                        <span className="shrink-0 whitespace-nowrap">{isCn ? '空载' : 'Sled'}</span>
+                        <input
+                          className="ui-input flex-1 min-w-0 min-h-[36px] py-1"
+                          inputMode="decimal"
+                          value={tareText}
+                          onChange={e => setTareText(e.target.value)}
+                          onBlur={commitTare}
+                          onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                          placeholder={isCn ? '不知道' : '?'}
+                          aria-label={isCn ? '空载重量' : 'Sled weight'}
+                          data-testid="gym-tare"
+                        />
+                        <span className="shrink-0">{uLab}</span>
+                      </label>
+                    )}
+                    {tareKey && (
+                      <p className="text-micro text-tertiary mt-1">
+                        {isCn ? '器械上标了就填，只做参考，记录照旧只算片子' : 'For reference only; logs stay plates-only'}
+                      </p>
+                    )}
+                  </div>
                 )}
                 {incKey && rounder && (
                   <div className="gym-inc border-t border-divider mt-1 px-4 pt-2 pb-2" data-testid="gym-inc">
@@ -529,7 +617,13 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               className="marginalia font-mono text-label text-tertiary tabular-nums"
               data-testid="prefill-from"
             >
-              {isCn ? '底稿' : 'Draft'} · {lastDateLabel}
+              {isCn ? '底稿' : 'Draft'} ·{' '}
+              {prefillElsewhere && (
+                <>
+                  {isCn ? '在' : 'at'} <span className="text-accent" data-testid="prefill-gym">{prefillElsewhere}</span>{' '}
+                </>
+              )}
+              {lastDateLabel}
             </button>
           )}
           <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
@@ -543,7 +637,10 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         </div>
         {lastSession && lastOpen && (
           <p className="mt-1.5 font-mono text-label text-secondary tabular-nums break-words" data-testid="prefill-last">
-            {isCn ? `上次 ${lastDateLabel}` : `Last ${lastDateLabel}`} · {lastLine} {unit}
+            {prefillElsewhere
+              ? isCn ? `上次在 ${prefillElsewhere} ${lastDateLabel}` : `Last at ${prefillElsewhere} ${lastDateLabel}`
+              : isCn ? `上次 ${lastDateLabel}` : `Last ${lastDateLabel}`}{' '}
+            · {lastLine} {unit}
           </p>
         )}
       </div>
@@ -560,6 +657,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           pinStep={unit === 'lbs' ? 10 : 5}
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
           rounder={rounder}
+          tare={tareD}
           onPick={next => {
             haptic(H.tap);
             writeHero(next);
@@ -570,11 +668,19 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
       {hasNote && (
         <button
           type="button"
-          onClick={() => onToggleNote(exerciseName)}
+          onClick={() => onToggleNote(exerciseName, gymKey ?? undefined)}
           className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
+          data-testid="exercise-note"
         >
           <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-warning" strokeWidth={1.75} />
-          {exerciseNotes[exerciseName]}
+          <span className="min-w-0 break-words">
+            {gymNote && (
+              <span className="block" data-testid="exercise-gym-note">
+                <b className="font-semibold">{gym}</b> · {gymNote}
+              </span>
+            )}
+            {exerciseNotes[exerciseName] && <span className="block">{exerciseNotes[exerciseName]}</span>}
+          </span>
         </button>
       )}
 

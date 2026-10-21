@@ -101,7 +101,7 @@ export const translations: TranslationStrings = {
   tagDumbbell: { en: 'Dumbbell', cn: '哑铃' },
   tagBodyweight: { en: 'Bodyweight', cn: '自重' },
   tagMachine: { en: 'Machine', cn: '固定器械' },
-  tagCable: { en: 'Cable', cn: '绳索' },
+  tagCable: { en: 'Cable Machine', cn: '龙门架' },
   tagKettlebell: { en: 'Kettlebell', cn: '壶铃' },
   tagBand: { en: 'Band', cn: '弹力带' },
   createAccount: { en: "Create One", cn: "去注册" },

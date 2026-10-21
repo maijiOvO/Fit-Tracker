@@ -49,8 +49,21 @@ export const PLATE_SPECS: Record<PlateUnit, PlateSpec[]> = {
   ],
 };
 
+/**
+ * 一片的画法。标准表里没有的重量（馆档案里的自定义片：51 lb 八角片、0.5 kg 微调片）
+ * 借最接近的那档标准片的颜色和尺寸，w 是它自己的重量（片上的字照写它）。
+ */
 export function plateSpec(unit: PlateUnit, w: number): PlateSpec | undefined {
-  return PLATE_SPECS[unit].find((p) => p.w === w);
+  const list = PLATE_SPECS[unit];
+  const hit = list.find((p) => p.w === w);
+  if (hit || !(w > 0)) return hit;
+  const near = list.reduce((b, p) => (Math.abs(p.w - w) < Math.abs(b.w - w) ? p : b), list[0]);
+  return { ...near, w };
+}
+
+/** 是不是标准表里的片（馆档案里区分标准片和自定义片） */
+export function isStandardPlate(unit: PlateUnit, w: number): boolean {
+  return PLATE_SPECS[unit].some((p) => p.w === w);
 }
 
 /* ── 杠子 ─────────────────────────────────────────────────────── */
