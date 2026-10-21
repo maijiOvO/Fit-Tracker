@@ -18,7 +18,6 @@
     "check:prefs": "node scripts/prefs-check.mjs",
     "validate": "npm run typecheck && npm run build",
     "android": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1",
-    "android:dev": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1 -Dev",
     "android:reinstall": "powershell -ExecutionPolicy Bypass -File scripts/deploy-android.ps1 -SkipBuild",
     "android:live": "powershell -ExecutionPolicy Bypass -File scripts/live-android.ps1",
     "apk:solo": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1 -Flavor solo",
