@@ -231,7 +231,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
             return (
               <div className="rounded-card border border-divider bg-card p-2 space-y-1.5" data-testid="merge-panel">
                 <div className="px-1 text-xs font-medium text-tertiary">
-                  {isCn ? `把「${name}」并进哪个动作？它会成为那个动作的一个做法，历史和纪录一起过去` : `Merge "${name}" into which exercise? It becomes a variant; history follows.`}
+                  {isCn ? `把「${name}」并入哪个动作？它会成为该动作的一个做法，历史和纪录一并带过去` : `Merge "${name}" into which exercise? It becomes a variant; history follows.`}
                 </div>
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />

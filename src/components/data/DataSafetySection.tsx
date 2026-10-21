@@ -89,7 +89,7 @@ export const DataSafetySection: React.FC = () => {
             )}
             {folder && status.shrinkWarning && !errNewer && (
               <p className="text-xs text-danger">
-                {t('这次备份的训练次数比上次少很多，旧备份都保留着', 'Far fewer workouts than last time — older backups kept')}
+                {t('训练次数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept')}
               </p>
             )}
           </div>
@@ -114,8 +114,8 @@ export const DataSafetySection: React.FC = () => {
           </Btn>
           <p className="text-[10px] text-tertiary leading-relaxed px-1">
             {t(
-              '也可以选 SD 卡，或者被坚果云 / Syncthing 同步的文件夹 —— App 不联网也能做到云端备份。',
-              'You can also pick an SD card, or a folder synced by Syncthing / a cloud drive app — cloud backup without this app going online.',
+              '也可选 SD 卡，或坚果云 / Syncthing 同步的文件夹来做云端备份。',
+              'Or pick an SD card, or a folder synced by Syncthing / a cloud drive, for cloud backup.',
             )}
           </p>
         </>
@@ -132,7 +132,7 @@ export const DataSafetySection: React.FC = () => {
         )}
       </div>
       <p className="text-[10px] text-tertiary leading-relaxed px-1 -mt-1">
-        {t('一行一组，Excel 直接打开；也可以交给 AI 分析。', 'One row per set; opens in Excel. Hand it to an AI for analysis.')}
+        {t('一行一组，可用 Excel 打开或交给 AI 分析。', 'One row per set; for Excel or AI analysis.')}
       </p>
       <Btn onClick={() => openDataFlow('import-csv')} icon={ic(Upload)} testId="import-csv">
         {t('从 Strong / Hevy 导入', 'Import from Strong / Hevy')}

@@ -141,7 +141,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
           {asking ? (
             <div className="space-y-3">
               <p className="text-primary font-medium" data-testid="import-unit-ask">
-                {t('这份文件没有写单位，请确认每个动作当时用的是 kg 还是 lb', 'This file has no units — confirm kg or lb for each exercise')}
+                {t('文件没写单位，请确认每个动作是 kg 还是 lb', 'This file has no units — confirm kg or lb for each exercise')}
               </p>
               <div className="flex items-center justify-between">
                 <span>{t('全部设为', 'Set all to')}</span>
@@ -188,7 +188,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
           )}
           <p className="text-xs text-tertiary">
             {t(
-              '现有记录不会动。对错了的动作，之后可以在动作库里用「并入另一个动作」合过去。导入前会存一份可撤销的副本。',
+              '不影响现有记录，导入前自动存可撤销副本。对错的动作可在动作库「并入另一个动作」。',
               'Existing records stay as they are. Mismatched exercises can be merged later in the library. An undoable copy is saved first.',
             )}
           </p>

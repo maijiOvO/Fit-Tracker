@@ -207,9 +207,9 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         </Suspense>
         <p className="text-[11px] text-tertiary mt-1 leading-snug">
           {isCn
-            ? '实线是历史最好 · 圆点是每场最好的一组 · 实心点那天破了纪录'
+            ? '线：历史最好 · 点：每场最好 · 实心：破纪录'
             : 'Line: all-time best · Dots: best set each session · Filled: new record'}
-          {metric === E1RM && (isCn ? ' · 估算 1RM 只看 12 次以内的组' : ' · Est. 1RM uses sets of ≤12 reps')}
+          {metric === E1RM && (isCn ? ' · 仅算 12 次以内' : ' · Est. 1RM uses sets of ≤12 reps')}
         </p>
       </div>
 

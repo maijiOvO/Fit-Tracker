@@ -138,13 +138,13 @@ export const translations: TranslationStrings = {
   addCustomExercise: { en: 'Add Custom Exercise', cn: '添加自定义动作' },
   exerciseNamePlaceholder: { en: 'Exercise Name...', cn: '动作名称...' },
   dashboardEmptyTitle: { en: 'Ignite Your Fitness Journey', cn: '开启你的健身征程' },
-  dashboardEmptyDesc: { en: 'Log your first workout to see your progress visualized here and track your personal records!', cn: '记录你的第一场训练，在这里见证你的成长趋势并管理个人纪录！' },
+  dashboardEmptyDesc: { en: 'Log your first workout to see trends and records here', cn: '练完第一场，这里会显示趋势和个人纪录' },
   logWeight: { en: 'Log Weight', cn: '记录体重' },
   weightTrend: { en: 'Weight Trend', cn: '体重趋势' },
   // 在 translations.ts 中添加
   guestWarningTitle: { cn: '访客模式 (仅本地存储)', en: 'Guest Mode (Local Only)' },
   guestWarningDesc: { 
-  cn: '数据仅保存在当前设备。为了防止数据丢失并支持跨设备同步，请注册正式账号。', 
+  cn: '数据仅存本机。注册账号可防丢失、跨设备同步。', 
   en: 'Data is only saved on this device. To prevent data loss and sync across devices, please register.' 
 },
   strengthTraining: { cn: '力量训练', en: 'Strength' },
@@ -162,7 +162,7 @@ export const translations: TranslationStrings = {
   exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
   importData: { cn: '导入备份', en: 'Import Backup' },
   importDesc: {
-    cn: '从导出的 JSON 文件恢复。当前数据会被完全替换，导入前会自动存一份可撤销的副本',
+    cn: '从 JSON 文件恢复，当前数据将被替换（导入前自动存可撤销副本）',
     en: 'Restore from an exported JSON file. Current data is replaced; an undoable copy is saved first',
   },
   undoImport: { cn: '撤销上次导入', en: 'Undo last import' },

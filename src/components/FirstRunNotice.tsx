@@ -73,18 +73,18 @@ export const FirstRunNotice: React.FC = () => {
 
         <p>
           {isCn
-            ? '这个应用没有账号，也没有联网权限 —— 你可以在系统的应用权限页里自己核实。所有训练记录都存在这台手机上。'
-            : 'No account, and no network permission — you can verify that in the system app-permissions page. Everything you log stays on this phone.'}
+            ? '没有账号、没有联网权限（可在系统权限页核实），记录只存在这台手机上。'
+            : 'No account, no network permission (check system app permissions). Your logs stay on this phone.'}
         </p>
         <p className="text-primary font-medium">
           {isCn
-            ? '这也意味着：卸载应用、或者换一台手机，数据不会自己跟过去。'
-            : 'Which also means: uninstalling the app, or switching phones, will not carry your data over.'}
+            ? '卸载或换手机，数据不会跟过去。'
+            : 'Uninstalling or switching phones will not carry your data over.'}
         </p>
         <p>
           {isCn
-            ? '所以第一次练完会请你选一个备份文件夹：之后每次练完自动存一份，卸载也不丢，重装后点两下就能恢复。也可以随时在首选项里导出 CSV，Excel 直接打开。'
-            : 'So after your first workout you will be asked to pick a backup folder: a backup is saved there after every workout, survives uninstalling, and restores in two taps. You can also export a CSV for Excel any time in Preferences.'}
+            ? '所以第一次练完会请你选一个备份文件夹，之后每次练完自动备份，重装后可恢复。也可在首选项导出 CSV。'
+            : 'So after your first workout you will pick a backup folder; every workout is backed up there and can be restored after reinstalling. CSV export is in Preferences.'}
         </p>
       </div>
     </Modal>
