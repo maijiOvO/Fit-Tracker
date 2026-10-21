@@ -322,13 +322,13 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
   /**
    * 大图上改「最轻一格 · 每格」（2026-10-20 用户定：从 12.5 起、每格 +5 的龙门架）：存进这一台的 gymOverrides，
-   * 没做完、没改过的组吸到新刻度上。最轻一格和一档对齐（5 / 10…）就等于从 0 起，存 0。
+   * 没做完、没改过的组吸到新刻度上。最轻一格也是下限：和一档对齐（每格 5、最轻 15）照样要存，
+   * 只有恰好等于一档（没设时的默认）才不存。
    */
   const setStack = (step: number, start: number) => {
     if (!rounder || !incKey || loadKind !== 'pin') return;
     haptic(H.tap);
-    const aligned = start <= 0 || Math.abs(start / step - Math.round(start / step)) < 1e-6;
-    const s = aligned ? 0 : Math.round(start * 100) / 100;
+    const s = start <= 0 || Math.abs(start - step) < 1e-9 ? 0 : Math.round(start * 100) / 100;
     changeAppPrefs({ gymOverrides: { ...appPrefs.gymOverrides, [incKey]: { v: step, u: rounder.unit, ...(s > 0 ? { s } : {}) } } });
     onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withStack(rounder, step, s)) });
   };

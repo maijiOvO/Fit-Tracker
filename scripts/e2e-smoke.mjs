@@ -1312,6 +1312,42 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const [m2, d2] = await pair();
     if (m2 !== 22.5 || d2 !== 12.5) throw new Error(`on a 12.5 + 5k stack the sets should snap to 22.5 → 12.5, got ${m2} → ${d2}`);
     if (!(await card.locator('[data-testid="prefill-from"]').innerText()).startsWith('参考')) throw new Error('the eyebrow should read 参考 · …');
+    // 拖大图往轻的方向拖一大段：不能轻过最轻一格（用户报：改了最轻一格还能拖到更轻）
+    const drag = card.locator('[data-testid="load-hero"] .load-hero-drag');
+    const box = await drag.boundingBox();
+    const seen = [];
+    for (const dy of [-1, 1]) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      for (let i = 1; i <= 30; i++) {
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + dy * i * 12, { steps: 2 });
+        seen.push(Number(await card.locator('.ledger-row [data-testid="ledger-field-weight"] input').first().inputValue()));
+      }
+      await page.mouse.up();
+      await page.waitForTimeout(400);
+    }
+    const low = Math.min(...seen);
+    if (low < 12.5) throw new Error(`dragging the stack went below the lightest plate 12.5: reached ${low} (seen ${[...new Set(seen)].join(',')})`);
+    // 最轻一格和每格对齐（每格 5、最轻 15）：照样是下限（之前当成「没起始」存 0，就能拖到 15 以下 —— 用户报的正是这个）
+    if (!(await menu.isVisible())) await card.locator('[data-testid="stack-chip"]').click();
+    await menu.waitFor({ state: 'visible', timeout: 3_000 });
+    await menu.locator('[data-testid="stack-start"]').fill('15');
+    await menu.locator('[data-testid="stack-start"]').press('Enter');
+    await page.waitForTimeout(300);
+    const ov15 = (await readLs('fitlog_app_prefs'))?.gymOverrides?.[`${GD}|press_machine_shoulder|`];
+    if (ov15?.s !== 15) throw new Error(`an aligned lightest plate (15 on a 5 step) must still be stored: ${JSON.stringify(ov15)}`);
+    const seen15 = [];
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    for (const dy of [-1, 1]) {
+      for (let i = 1; i <= 30; i++) {
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + dy * i * 12, { steps: 2 });
+        seen15.push(Number(await card.locator('.ledger-row [data-testid="ledger-field-weight"] input').first().inputValue()));
+      }
+    }
+    await page.mouse.up();
+    const low15 = Math.min(...seen15);
+    if (low15 < 15) throw new Error(`with the lightest plate at 15 the stack must not drag below 15: reached ${low15}`);
     await backAndDiscard(page);
     return `22 → 16.6 lb drafts 20 → 10 · stack 12.5 + 5 → 22.5 → 12.5 · override ${JSON.stringify(ov)}`;
   });
