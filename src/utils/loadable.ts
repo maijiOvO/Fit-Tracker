@@ -179,8 +179,9 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
     return { lo: r2(a), hi: r2(b) };
   }
   const st = ctx.inc > 0 ? ctx.inc : 1;
-  // 配重片带起始：能插的是 start、start + 一档、…；比最轻一格还轻的（手打的 5）只能往上吸到最轻一格
-  const s0 = kind === 'pin' && ctx.start && ctx.start > 0 ? ctx.start : 0;
+  // 配重片：能插的是 最轻一格、+一档、…；最轻一格也是下限（拖 / ± / 取整都到不了更轻），没设就是一档本身。
+  // 比最轻一格还轻的（手打的 5）照原样记，取整往上吸到最轻一格；0 是「还没填」，不吸
+  const s0 = kind === 'pin' ? (ctx.start && ctx.start > 0 ? ctx.start : st) : 0;
   if (s0 > 0) {
     if (v <= 1e-9) return { lo: 0, hi: 0 };
     if (v < s0 - 1e-9) return { lo: r2(s0), hi: r2(s0) };
