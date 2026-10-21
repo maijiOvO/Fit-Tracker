@@ -14,7 +14,8 @@
 import React, { useState } from 'react';
 import { Check, ChevronDown, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { Language } from '../../../types';
-import { equipmentTagsFor } from '../../constants/exercises';
+import { ExerciseAttrFields } from '../ExerciseAttrFields';
+import { variantAttrs } from '../../utils/exerciseAttrs';
 import { mergeOverride } from '../../utils/exerciseOverride';
 import { Modal } from '../Modal';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
@@ -55,8 +56,9 @@ export const VariantModal: React.FC<VariantModalProps> = ({
     effectivePart,
     regionsOf,
     getTagName,
-    customTags,
     updateVariant,
+    setVariantAttrs,
+    attrsOf,
   } = useExercisePrefs();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
@@ -68,7 +70,8 @@ export const VariantModal: React.FC<VariantModalProps> = ({
   const merged = def ? mergeOverride(def, exerciseOverrides[def.id]) : undefined;
   const part = merged && (merged.category || 'STRENGTH') === 'STRENGTH' ? effectivePart(merged) : '';
   const regs = part ? regionsOf(part) : [];
-  const equipIds = [...equipmentTagsFor(merged?.category), ...customTags.filter(t => t.category === 'equipment').map(t => t.id)];
+  // 做法跟动作走时显示的器材与阻力
+  const inherited = merged ? attrsOf(merged) : { equipment: '', resistance: 'none' as const };
 
   const isCn = lang === Language.CN;
   const variants = variantsOf(exerciseName);
@@ -138,7 +141,8 @@ export const VariantModal: React.FC<VariantModalProps> = ({
           <span className={id ? '' : 'text-secondary'}>{name}</span>
           {id && (() => {
             const v = variants.find(x => x.id === id);
-            const bits = [v?.region ? getTagName(v.region) : '', ...(v?.tags ?? []).map(getTagName)].filter(Boolean);
+            const own = v?.equipment || (v?.tags?.length && merged ? attrsOf(merged, v.id).equipment : '');
+            const bits = [v?.region ? getTagName(v.region) : '', own ? getTagName(own) : ''].filter(b => b && b !== name);
             return bits.length ? <span className="ml-auto text-xs font-medium text-tertiary truncate">{bits.join(' · ')}</span> : null;
           })()}
         </button>
@@ -198,55 +202,29 @@ export const VariantModal: React.FC<VariantModalProps> = ({
           <React.Fragment key={v.id}>
             {row(v.id, v.name)}
             {manage && expanded === v.id && (
-              <div className="pl-2 pb-1 space-y-2" data-testid="variant-tags">
-                {regs.length > 0 && (
-                  <>
-                    <div className="text-[10px] font-bold tracking-[0.2em] text-secondary">{isCn ? '细分' : 'REGION'}</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {[{ id: '' }, ...regs].map(r => {
-                        const on = (v.region ?? '') === r.id;
-                        return (
-                          <button
-                            key={r.id || 'none'}
-                            type="button"
-                            aria-pressed={on}
-                            onClick={() => updateVariant(exerciseName, v.id, { region: r.id })}
-                            className={`min-h-[36px] px-3 rounded-control text-xs font-bold border ${
-                              on ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-divider text-secondary'
-                            }`}
-                          >
-                            {r.id ? getTagName(r.id) : isCn ? '跟动作走' : 'Same as exercise'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-                <div className="text-[10px] font-bold tracking-[0.2em] text-secondary">{isCn ? '器材' : 'GEAR'}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {equipIds.map(t => {
-                    const label = getTagName(t);
-                    if (!label) return null;
-                    const on = (v.tags ?? []).includes(t);
-                    return (
-                      <button
-                        key={t}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() =>
-                          updateVariant(exerciseName, v.id, {
-                            tags: on ? (v.tags ?? []).filter(x => x !== t) : [...(v.tags ?? []), t],
-                          })
+              <div className="pl-2 pb-1" data-testid="variant-tags">
+                {(() => {
+                  const own = variantAttrs(v);
+                  return (
+                    <ExerciseAttrFields
+                      lang={lang}
+                      variant={{ inherited, regions: regs.map(r => r.id) }}
+                      value={{
+                        category: merged?.category || 'STRENGTH',
+                        bodyPart: part,
+                        region: v.region ?? '',
+                        equipment: own?.equipment ?? '',
+                        resistance: own?.resistance,
+                      }}
+                      onChange={nv => {
+                        if (nv.region !== (v.region ?? '')) updateVariant(exerciseName, v.id, { region: nv.region });
+                        if (nv.equipment !== (own?.equipment ?? '') || nv.resistance !== own?.resistance) {
+                          setVariantAttrs(exerciseName, v.id, nv.equipment, nv.resistance);
                         }
-                        className={`min-h-[36px] px-3 rounded-control text-xs font-bold border ${
-                          on ? 'bg-accent-soft border-accent text-accent' : 'bg-card border-divider text-secondary'
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                      }}
+                    />
+                  );
+                })()}
               </div>
             )}
           </React.Fragment>

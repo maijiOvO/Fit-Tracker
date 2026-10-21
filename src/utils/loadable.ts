@@ -30,19 +30,27 @@ export interface GymProfile {
   cable: IncSpec;
   machine: IncSpec;
   dumbbell: IncSpec;
+  /** 壶铃一档（2026-10-20 加）：旧档案没有这一项，按默认 */
+  kettlebell?: IncSpec;
 }
 
-/** 器械 / 哑铃一档能选的值（档案表单的 − / ＋ 走这张表；换单位时也取它里面最接近的） */
+/** 器械 / 哑铃 / 壶铃一档能选的值（档案表单的 − / ＋ 走这张表；换单位时也取它里面最接近的） */
 export const INC_CHOICES: Record<PlateUnit, number[]> = {
-  kg: [0.5, 1, 1.25, 2, 2.5, 5, 10],
+  kg: [0.5, 1, 1.25, 2, 2.5, 4, 5, 10],
   lbs: [1, 2.5, 5, 10, 15, 20],
+};
+
+/** 壶铃常见是 8 / 12 / 16 / 20 / 24 kg 一档 4 kg；磅的壶铃多是 5 lb 一档 */
+export const DEFAULT_KETTLEBELL_INC: Record<PlateUnit, IncSpec> = {
+  kg: { v: 4, u: 'kg' },
+  lbs: { v: 5, u: 'lbs' },
 };
 
 /** 没设过档案的馆（或没标馆）：标准片 + 常见档位 */
 export function defaultProfile(unit: PlateUnit): GymProfile {
   return unit === 'kg'
-    ? { plateUnit: 'kg', plates: PLATE_SPECS.kg.map(p => p.w), cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } }
-    : { plateUnit: 'lbs', plates: PLATE_SPECS.lbs.map(p => p.w), cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' } };
+    ? { plateUnit: 'kg', plates: PLATE_SPECS.kg.map(p => p.w), cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' }, kettlebell: DEFAULT_KETTLEBELL_INC.kg }
+    : { plateUnit: 'lbs', plates: PLATE_SPECS.lbs.map(p => p.w), cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' }, kettlebell: DEFAULT_KETTLEBELL_INC.lbs };
 }
 
 function convert(v: number, from: PlateUnit, to: PlateUnit): number {
@@ -79,13 +87,22 @@ export interface LoadCtx {
 export function profileIn(
   profile: GymProfile | undefined,
   unit: PlateUnit,
-): { plates: number[]; cable: number; machine: number; dumbbell: number; cableStart: number; machineStart: number } {
+): {
+  plates: number[];
+  cable: number;
+  machine: number;
+  dumbbell: number;
+  kettlebell: number;
+  cableStart: number;
+  machineStart: number;
+} {
   const p = profile ?? defaultProfile(unit);
   return {
     plates: p.plateUnit === unit && p.plates.length ? [...p.plates].sort((a, b) => b - a) : PLATE_SPECS[unit].map(s => s.w),
     cable: incIn(p.cable, unit),
     machine: incIn(p.machine, unit),
     dumbbell: incIn(p.dumbbell, unit),
+    kettlebell: incIn(p.kettlebell ?? DEFAULT_KETTLEBELL_INC[p.plateUnit], unit),
     cableStart: startIn(p.cable, unit),
     machineStart: startIn(p.machine, unit),
   };
@@ -175,7 +192,7 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
   }
   let lo = Math.floor(v / st + 1e-9) * st;
   let hi = Math.ceil(v / st - 1e-9) * st;
-  if (kind === 'pair') {
+  if (kind === 'pair' || kind === 'bell') {
     lo = Math.max(st, lo);
     hi = Math.max(st, hi);
   }
@@ -203,7 +220,7 @@ export function snap(kind: LoadKind, v: number, ctx: LoadCtx): number {
 export function stepOf(kind: LoadKind, v: number, ctx: LoadCtx): number | null {
   if (kind === 'plates' || kind === 'loaded') return Math.min(...ctx.plates) * 2;
   if (kind === 'signed') return v < 0 ? ctx.inc : Math.min(...ctx.plates);
-  if (kind === 'pin' || kind === 'pair') return ctx.inc;
+  if (kind === 'pin' || kind === 'pair' || kind === 'bell') return ctx.inc;
   return null;
 }
 

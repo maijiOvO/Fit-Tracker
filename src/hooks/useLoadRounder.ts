@@ -90,7 +90,12 @@ export function useLoadRounder(): RounderFor {
         unit: u,
         plates: prof.plates,
         bar: barWeight(barOf(ex.name), u),
-        inc: info.kind === 'pair' ? (ov ? incIn(ov, u) : prof.dumbbell) : stackInc,
+        inc:
+          info.kind === 'pair'
+            ? ov ? incIn(ov, u) : prof.dumbbell
+            : info.kind === 'bell'
+              ? ov ? incIn(ov, u) : prof.kettlebell
+              : stackInc,
         start: info.kind === 'pin' ? stackStart : 0,
       };
       return makeRounder(info, u, ctx, signed);

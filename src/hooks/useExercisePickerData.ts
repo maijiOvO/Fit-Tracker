@@ -10,7 +10,8 @@
 import { useMemo } from 'react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { DEFAULT_EXERCISES, EQUIPMENT_TAGS } from '../constants/exercises';
+import { DEFAULT_EXERCISES } from '../constants/exercises';
+import { variantAttrs } from '../utils/exerciseAttrs';
 import { ExerciseDefinition } from '../../types';
 import { mergeOverride } from '../utils/exerciseOverride';
 import {
@@ -35,9 +36,23 @@ export function matchAxis(ex: ExerciseDefinition, axis: PickerAxis): boolean {
   return (ex.category || 'STRENGTH') === axis.v;
 }
 
+/**
+ * 动作用到的全部器材（小写）：动作本身 + 各做法自己设的。
+ * 筛「哑铃」时罗马尼亚硬拉也该出来 —— 它的哑铃做法就是哑铃做的。
+ */
+export function equipmentsOf(ex: ExerciseDefinition): string[] {
+  const out = new Set<string>();
+  if (ex.equipment) out.add(ex.equipment.toLowerCase());
+  for (const v of ex.variants ?? []) {
+    const a = variantAttrs(v);
+    if (a?.equipment) out.add(a.equipment.toLowerCase());
+  }
+  return [...out];
+}
+
 function matchEquips(ex: ExerciseDefinition, equips: ReadonlySet<string>): boolean {
   if (equips.size === 0) return true;
-  return (ex.tags ?? []).some(t => equips.has((t || '').toLowerCase()));
+  return equipmentsOf(ex).some(t => equips.has(t));
 }
 
 export function useExercisePickerData({
@@ -50,16 +65,29 @@ export function useExercisePickerData({
   /** 已选器材 tag id 集合（小写） */
   equips: ReadonlySet<string>;
 }) {
-  const { customExercises, exerciseOverrides, customTags, getTagName, effectiveRegion, effectivePart, regionsOf } =
-    useExercisePrefs();
+  const {
+    customExercises,
+    exerciseOverrides,
+    customTags,
+    getTagName,
+    effectiveRegion,
+    effectivePart,
+    regionsOf,
+    equipmentIds,
+    withVariantNames,
+  } = useExercisePrefs();
   const { lang } = useUserSettingsContext();
 
   /** 覆盖合并后的完整动作库（含已删除＝隐藏的） */
   const library = useMemo(() => {
     return [...DEFAULT_EXERCISES, ...customExercises]
-      .map(ex => mergeOverride(ex, exerciseOverrides[ex.id]))
+      .map(ex => {
+        const m = mergeOverride(ex, exerciseOverrides[ex.id]);
+        // 内置做法 name 留空（显示器材名）：卡片、搜索都拿得到名字
+        return m.variants?.some(v => !v.name) ? { ...m, variants: withVariantNames(m.variants) } : m;
+      })
       .filter(ex => ex.name && ex.name[lang]);
-  }, [customExercises, exerciseOverrides, lang]);
+  }, [customExercises, exerciseOverrides, lang, withVariantNames]);
   const merged = useMemo(() => library.filter(ex => !ex.hidden), [library]);
   const byId = useMemo(() => new Map(library.map(ex => [ex.id, ex])), [library]);
   /** 整理的「已删除」托盘（并入了别的动作的不算：它已经是那个动作的一个做法） */
@@ -79,7 +107,7 @@ export function useExercisePickerData({
         const n = getTagName(ex.bodyPart);
         if (n) tagNames.push(n);
       }
-      for (const t of ex.tags ?? []) {
+      for (const t of equipmentsOf(ex)) {
         const n = getTagName(t);
         if (n) tagNames.push(n);
       }
@@ -126,14 +154,8 @@ export function useExercisePickerData({
     [scored, axis, equips, searching, boardPart],
   );
 
-  /** 器材 chip 候选：系统器材 + 自定义器材标签 */
-  const equipIds = useMemo(
-    () => [
-      ...EQUIPMENT_TAGS,
-      ...customTags.filter(t => t.category === 'equipment').map(t => t.id),
-    ],
-    [customTags],
-  );
+  /** 器材 chip 候选：内置器材 + 自建器材 */
+  const equipIds = equipmentIds;
 
   /** 部位轴候选：系统部位在组件侧引入（BODY_PARTS），这里只补自定义部位标签 */
   const customPartIds = useMemo(
@@ -151,8 +173,8 @@ export function useExercisePickerData({
     // 口径跟结果一致：搜索时不按部位算；细分格里只算力量动作
     for (const { ex } of scored) {
       if (!inScope(ex)) continue;
-      for (const t of ex.tags ?? []) {
-        const id = lowerToId.get((t || '').toLowerCase());
+      for (const t of equipmentsOf(ex)) {
+        const id = lowerToId.get(t);
         if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
       }
     }

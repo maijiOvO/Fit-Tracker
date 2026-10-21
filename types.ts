@@ -184,6 +184,11 @@ export interface ExerciseVariant {
   id: string;
   name: string;
   region?: string;
+  /** 做法自己的器材；'' / 不写 = 跟动作走（src/utils/exerciseAttrs.ts） */
+  equipment?: string;
+  /** 做法自己的阻力类型；不写 = 跟器材默认 */
+  resistance?: import('./src/utils/exerciseAttrs').Resistance;
+  /** 旧字段（多选器材）：只读来换算、写时镜像 [equipment] 给旧版 APK */
   tags?: string[];
 }
 
@@ -196,7 +201,15 @@ export interface ExerciseDefinition {
     cn: string;
   };
   bodyPart: string;
-  tags: string[];
+  /**
+   * 器材（单选，2026-10-20 起；原多选 tags）。'' = 无器材。
+   * 内置 / 自建器材 id，见 src/utils/exerciseAttrs.ts。没写的旧数据按 tags 换算（legacyAttrs）。
+   */
+  equipment?: string;
+  /** 阻力类型：重量从哪来、一格多少。不写 = 跟器材默认；只有器械 / 自建器材 / 无器材能改 */
+  resistance?: import('./src/utils/exerciseAttrs').Resistance;
+  /** 旧字段（多选器材标签）：只读来换算，写时镜像 [equipment] 给旧版 APK */
+  tags?: string[];
   /**
    * 曾用名（第 7 条改名）。历史记录里存的是当时的名字，**一律不改写**；
    * 名字解析认「原名 + 曾用名 + 现名」，所以改过几次名，旧记录都还认得回来。
@@ -219,6 +232,8 @@ export interface ExerciseDefinition {
    * 底稿预填、PR、PR 列表、趋势图按「动作 + 练法」分开；备注与动作设置按动作共享。
    */
   variants?: ExerciseVariant[];
+  /** 用户删掉的内置做法 id（只写覆盖层）：读时合并内置做法时跳过它们（utils/exerciseAttrs.combineVariants） */
+  removedVariants?: string[];
   /**
    * 带正负的负荷（2026-10 变体第二层）：自重类动作的重量记成一条数轴 —— 辅助为负、自重 0、负重为正，
    * 从辅助一路练到负重是连续的，纪录按带符号的数比。不写＝按默认（内置自重类 / 带「自重」器材标签的开）。

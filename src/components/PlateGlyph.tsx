@@ -304,6 +304,7 @@ export function LoadHero({
           : 'Empty bar';
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt1(value)} ${u}` : `${fmt1(value)} ${u} each`;
+  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt1(value)} ${u}` : `Kettlebell ${fmt1(value)} ${u}`;
   else if (kind === 'signed') {
     if (value < 0) caption = isCn ? `辅助 ${fmt1(-value)} ${u}` : `Assisted ${fmt1(-value)} ${u}`;
     else if (value === 0) caption = isCn ? '纯自重' : 'Bodyweight';
@@ -493,6 +494,7 @@ function GymHero({
           : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
+  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt(v)} ${u}` : `Kettlebell ${fmt(v)} ${u}`;
   else if (kind === 'signed') {
     if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
     else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';

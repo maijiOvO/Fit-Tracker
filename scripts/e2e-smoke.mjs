@@ -2226,6 +2226,8 @@ const main = async () => {
     const dlg = page.locator('[role="dialog"]').filter({ hasText: /部位与器材/ });
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
     if ((await dlg.getByRole('button', { name: /力量训练/ }).getAttribute('aria-pressed')) !== 'true') throw new Error('category row missing in 部位与器材');
+    // 属性表：点开「部位」那一行才出选项（2026-10-20）
+    await dlg.locator('[data-attr="part"] > button').click();
     await dlg.getByRole('button', { name: /^E2E部位$/ }).click();
     await dlg.getByRole('button', { name: /^(保存|Save)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
@@ -2252,7 +2254,9 @@ const main = async () => {
     await sheet.locator('[data-testid="picker-region-card"]', { hasText: '宽距俯卧撑' }).click();
     await menu.getByRole('button', { name: /部位与器材/ }).click();
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    await dlg.locator('[data-attr="part"] > button').click();
     await dlg.getByRole('button', { name: /^胸部$/ }).click();
+    await dlg.locator('[data-attr="region"] > button').click();
     await dlg.getByRole('button', { name: /^外轮廓$/ }).click();
     await dlg.getByRole('button', { name: /^(保存|Save)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
@@ -2265,6 +2269,68 @@ const main = async () => {
     if (!(await names('外轮廓')).includes('宽距俯卧撑')) throw new Error('cleanup: 宽距俯卧撑 not back in 外轮廓');
     await sheet.locator('[data-testid="region-arrange"]').click();
     return 'delete = hide + undo, restore from 已删除; custom part new / move into / delete → 未分部位 / undo';
+  });
+
+  // 动作属性（2026-10-20）：器材单选；阻力随器材锁定（杠铃 → 杠铃片），固定器械可在配重片 / 杠铃片之间选；
+  // 保存后再打开还在；内置做法（罗马尼亚硬拉 · 哑铃）名字取自器材
+  await step(page, 'exercise-attrs-gear-and-load', async () => {
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    const { cardIn } = regionHelpers(sheet);
+    const menu = page.locator('[data-testid="row-action-menu"]');
+    const parts = sheet.locator('[data-testid="arrange-parts"]');
+    const goPart = async name => {
+      const chip = parts.getByRole('button', { name: new RegExp(`^${name}$`) });
+      if ((await chip.getAttribute('data-on')) !== '1') await chip.click();
+    };
+    const dlg = page.locator('[data-testid="exercise-attrs-modal"]');
+    const row = k => dlg.locator(`[data-attr="${k}"] > button`);
+    const openAttrs = async (col, name) => {
+      await (await cardIn(col, name)).click();
+      await menu.getByRole('button', { name: /部位与器材/ }).click();
+      await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    };
+    const save = async () => {
+      await dlg.getByRole('button', { name: /^(保存|Save)$/ }).click();
+      await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    };
+    await sheet.locator('[data-testid="region-arrange"]').click();
+    await goPart('胸部');
+
+    await openAttrs('中胸', '器械推胸');
+    if (!/固定器械/.test(await row('equipment').innerText())) throw new Error('器械推胸 gear is not 固定器械');
+    if (!/配重片/.test(await row('resistance').innerText())) throw new Error('器械推胸 load is not 配重片');
+    if (await row('resistance').isDisabled()) throw new Error('machine load should be selectable');
+    // 换成杠铃：阻力跟着变成杠铃片并锁定
+    await row('equipment').click();
+    await dlg.getByRole('button', { name: /^杠铃$/ }).click();
+    if (!/杠铃片/.test(await row('resistance').innerText())) throw new Error('barbell did not set load to 杠铃片');
+    if (!(await row('resistance').isDisabled())) throw new Error('barbell load should be locked');
+    // 换回固定器械，挑「杠铃片」（挂片式器械）并保存
+    await row('equipment').click();
+    await dlg.getByRole('button', { name: /^固定器械$/ }).click();
+    if (!/配重片/.test(await row('resistance').innerText())) throw new Error('back to machine did not reset load to 配重片');
+    await row('resistance').click();
+    await dlg.getByRole('button', { name: /^杠铃片$/ }).click();
+    await save();
+    await openAttrs('中胸', '器械推胸');
+    if (!/杠铃片/.test(await row('resistance').innerText())) throw new Error('machine + 杠铃片 did not persist');
+    // 收尾：改回配重片
+    await row('resistance').click();
+    await dlg.getByRole('button', { name: /^配重片$/ }).click();
+    await save();
+
+    // 多器材的内置动作拆成了做法：罗马尼亚硬拉 · 哑铃
+    await goPart('腿部');
+    await (await cardIn('腘绳', '罗马尼亚硬拉')).click();
+    await menu.getByRole('button', { name: /^做法/ }).click();
+    const vm = page.locator('[data-testid="variant-modal"]');
+    await vm.waitFor({ state: 'visible', timeout: 3_000 });
+    const opts = await vm.locator('[data-testid="variant-option"]').allInnerTexts();
+    if (!opts.some(t => /哑铃/.test(t))) throw new Error(`罗马尼亚硬拉 has no 哑铃 variant: ${opts.join(' | ')}`);
+    await vm.getByRole('button', { name: /关闭|Close/ }).first().click();
+    await vm.waitFor({ state: 'detached', timeout: 3_000 });
+    await sheet.locator('[data-testid="region-arrange"]').click();
+    return 'machine load selectable, barbell locks 杠铃片, machine+杠铃片 persists; 罗马尼亚硬拉 has 哑铃 variant';
   });
 
   await step(page, 'close-library', async () => {

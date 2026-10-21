@@ -2,13 +2,9 @@ import React from 'react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
-import {
-  BODY_PARTS,
-  equipmentTagsFor,
-  ExerciseCategory,
-} from '../../constants/exercises';
-import type { CustomTag } from '../../contexts/ExercisePrefsContext';
-import { RegionChooser, hasRegionSection } from '../RegionChooser';
+import { ExerciseCategory } from '../../constants/exercises';
+import type { Resistance } from '../../utils/exerciseAttrs';
+import { ExerciseAttrFields } from '../ExerciseAttrFields';
 
 interface AddCustomExerciseModalProps {
   open: boolean;
@@ -19,19 +15,19 @@ interface AddCustomExerciseModalProps {
   setNewExerciseCategory: (cat: ExerciseCategory) => void;
   newExerciseBodyPart: string;
   setNewExerciseBodyPart: (s: string) => void;
-  newExerciseTags: string[];
-  setNewExerciseTags: React.Dispatch<React.SetStateAction<string[]>>;
+  /** 器材与阻力（2026-10-20 起单选；resistance 不写 = 跟器材默认） */
+  newExerciseEquip: { equipment: string; resistance?: Resistance };
+  setNewExerciseEquip: (v: { equipment: string; resistance?: Resistance }) => void;
   /** 细分（第 3 条）；'' = 未细分 */
   newExerciseRegion: string;
   setNewExerciseRegion: (id: string) => void;
-  customTags: CustomTag[];
-  getTagName: (id: string) => string;
   /** 建好的动作加到哪：训练页弹层 / 计划编辑器的选动作弹层 */
   addsTo?: 'workout' | 'plan';
   onClose: () => void;
   onConfirm: () => void;
 }
 
+/** 新建动作：名字 + 跟「部位与器材」同一张属性表 */
 export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   open,
   lang,
@@ -41,12 +37,10 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   setNewExerciseCategory,
   newExerciseBodyPart,
   setNewExerciseBodyPart,
-  newExerciseTags,
-  setNewExerciseTags,
+  newExerciseEquip,
+  setNewExerciseEquip,
   newExerciseRegion,
   setNewExerciseRegion,
-  customTags,
-  getTagName,
   addsTo = 'workout',
   onClose,
   onConfirm,
@@ -75,114 +69,36 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
         />
       }
     >
+      <div className="space-y-2">
+        <label className="text-[10px] font-semibold text-secondary px-1">
+          {isCn ? '动作名称' : 'Exercise Name'}
+        </label>
+        <input
+          className="w-full bg-card border border-divider rounded-card py-4 px-6 text-primary outline-none focus:ring-2 focus:ring-accent transition-ui min-h-[48px]"
+          value={newExerciseName}
+          onChange={e => setNewExerciseName(e.target.value)}
+          placeholder={translations.exerciseNamePlaceholder[lang]}
+          autoFocus
+        />
+      </div>
 
-        <div className="space-y-2">
-          <label className="text-[10px] font-semibold text-secondary px-1">
-            {isCn ? '动作名称' : 'Exercise Name'}
-          </label>
-          <input
-            className="w-full bg-card border border-divider rounded-card py-4 px-6 text-primary outline-none focus:ring-2 focus:ring-accent transition-ui min-h-[48px]"
-            value={newExerciseName}
-            onChange={e => setNewExerciseName(e.target.value)}
-            placeholder={translations.exerciseNamePlaceholder[lang]}
-            autoFocus
-          />
-        </div>
-
-        <div>
-          <label className="text-[10px] font-semibold text-secondary px-1 mb-2 block">
-            {isCn ? '训练类型' : 'Category'}
-          </label>
-          <div className="flex gap-2">
-            {(['STRENGTH', 'CARDIO', 'FREE'] as ExerciseCategory[]).map(cat => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setNewExerciseCategory(cat)}
-                className={`flex-1 min-h-[40px] rounded-control text-xs font-bold transition-ui ${
-                  newExerciseCategory === cat
-                    ? 'bg-accent-soft text-accent'
-                    : 'bg-card text-secondary hover:bg-card-hover'
-                }`}
-              >
-                {cat === 'STRENGTH' && translations.strengthTraining[lang]}
-                {cat === 'CARDIO' && translations.cardioTraining[lang]}
-                {cat === 'FREE' && translations.freeTraining[lang]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <label className="text-[10px] font-semibold text-secondary px-1 mb-2 block">
-            {translations.bodyPartHeader[lang]} · {isCn ? '单选' : 'single'}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ...BODY_PARTS,
-              ...customTags.filter(ct => ct.category === 'bodyPart').map(t => t.id),
-            ].map(id => (
-              <button
-                key={id}
-                type="button"
-                onClick={() =>
-                  setNewExerciseBodyPart(newExerciseBodyPart === id ? '' : id)
-                }
-                className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
-                  newExerciseBodyPart === id
-                    ? 'bg-accent-soft text-accent'
-                    : 'bg-card text-secondary hover:bg-card-hover'
-                }`}
-              >
-                {getTagName(id)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {hasRegionSection(newExerciseBodyPart, newExerciseCategory) && (
-          <div>
-            <label className="text-[10px] font-semibold text-secondary px-1 mb-2 block">
-              {isCn ? '细分' : 'Region'} · {isCn ? '单选' : 'single'}
-            </label>
-            <RegionChooser
-              part={newExerciseBodyPart}
-              category={newExerciseCategory}
-              value={newExerciseRegion}
-              onChange={setNewExerciseRegion}
-              lang={lang}
-            />
-          </div>
-        )}
-        <div>
-          <label className="text-[10px] font-semibold text-secondary px-1 mb-2 block">
-            {translations.equipmentHeader[lang]} · {isCn ? '多选' : 'multi'}
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              ...equipmentTagsFor(newExerciseCategory),
-              ...customTags.filter(ct => ct.category === 'equipment').map(t => t.id),
-            ].map(id => (
-              <button
-                key={id}
-                type="button"
-                onClick={() =>
-                  setNewExerciseTags(p =>
-                    p.includes(id) ? p.filter(x => x !== id) : [...p, id],
-                  )
-                }
-                className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui ${
-                  newExerciseTags.includes(id)
-                    ? 'bg-accent-soft text-accent'
-                    : 'bg-card text-secondary hover:bg-card-hover'
-                }`}
-              >
-                {getTagName(id)}
-              </button>
-            ))}
-          </div>
-        </div>
-
+      <ExerciseAttrFields
+        lang={lang}
+        testId="new-exercise-attrs"
+        value={{
+          category: newExerciseCategory,
+          bodyPart: newExerciseBodyPart,
+          region: newExerciseRegion,
+          equipment: newExerciseEquip.equipment,
+          resistance: newExerciseEquip.resistance,
+        }}
+        onChange={v => {
+          if (v.category !== newExerciseCategory) setNewExerciseCategory(v.category);
+          if (v.bodyPart !== newExerciseBodyPart) setNewExerciseBodyPart(v.bodyPart);
+          if (v.region !== newExerciseRegion) setNewExerciseRegion(v.region);
+          setNewExerciseEquip({ equipment: v.equipment, resistance: v.resistance });
+        }}
+      />
     </Modal>
   );
 };

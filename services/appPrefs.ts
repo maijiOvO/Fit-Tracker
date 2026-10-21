@@ -103,7 +103,15 @@ function cleanGyms(raw: unknown): Record<string, GymProfile> {
     if (!g || !isUnit(g.plateUnit) || !Array.isArray(g.plates) || !isInc(g.cable) || !isInc(g.machine) || !isInc(g.dumbbell)) continue;
     const plates = g.plates.filter((p: unknown) => typeof p === 'number' && p > 0);
     if (!plates.length) continue;
-    out[name] = { plateUnit: g.plateUnit, plates, cable: g.cable, machine: g.machine, dumbbell: g.dumbbell };
+    out[name] = {
+      plateUnit: g.plateUnit,
+      plates,
+      cable: g.cable,
+      machine: g.machine,
+      dumbbell: g.dumbbell,
+      // 壶铃一档是后加的：旧档案没有，坏了也只丢这一项
+      ...(isInc(g.kettlebell) ? { kettlebell: g.kettlebell } : {}),
+    };
   }
   return out;
 }

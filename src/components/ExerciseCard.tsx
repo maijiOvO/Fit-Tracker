@@ -298,7 +298,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 存 AppPrefs.gymOverrides（键：馆|动作|做法）；没标馆的训练不给（改了也找不到下一次）。
    * 改完把没做完、没改过的组吸到新的一档上。
    */
-  const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'signed')
+  const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'signed')
     ? gymOverrideKey(gym, rounder.info)
     : null;
   const incOverridden = !!(incKey && appPrefs.gymOverrides[incKey]);
@@ -310,7 +310,12 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     if (next === null) {
       delete ov[incKey];
       const prof = profileIn(gym ? appPrefs.gyms[gym] : undefined, rounder.unit);
-      inc = loadKind === 'pair' ? prof.dumbbell : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
+      inc =
+        loadKind === 'pair'
+          ? prof.dumbbell
+          : loadKind === 'bell'
+            ? prof.kettlebell
+            : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
     } else {
       // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）
       const s = loadKind === 'pin' && rounder.ctx.start ? rounder.ctx.start : 0;
@@ -550,7 +555,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                 {incKey && rounder && (
                   <div className="gym-inc border-t border-divider mt-1 px-4 pt-2 pb-2" data-testid="gym-inc">
                     <p className="text-label text-secondary">
-                      {isCn ? <>在 <b className="text-primary">{gym}</b>，{loadKind === 'pair' ? '哑铃' : loadKind === 'signed' ? '辅助器械' : '这台器械'}一档多重</> : <>At <b className="text-primary">{gym}</b>, one step is</>}
+                      {isCn ? <>在 <b className="text-primary">{gym}</b>，{loadKind === 'pair' ? '哑铃' : loadKind === 'bell' ? '壶铃' : loadKind === 'signed' ? '辅助器械' : '这台器械'}一档多重</> : <>At <b className="text-primary">{gym}</b>, one step is</>}
                     </p>
                     <div className="gym-inc-stepper">
                       <button type="button" onClick={() => stepInc(-1)} aria-label={isCn ? '一档轻一点' : 'Smaller step'}>−</button>
