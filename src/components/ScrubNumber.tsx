@@ -88,6 +88,17 @@ export function ScrubNumber({
   }, [shown]);
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v));
+  /**
+   * 定宽，不跟着字数变（2026-10-21 用户报：12 ⇄ 12.5 来回切时框的左半边一直跳）：
+   * 宽度＝整数位数 + 小数位预留（「.5」两格），数字左对齐、等宽数字 —— 整数位钉住不动，
+   * 「.5」只在预留的位置出现 / 消失。和组行重量格「按整数位定位」是同一个办法（c96020b）。
+   */
+  const intDigits = Math.max(
+    pad,
+    value === null ? 1 : String(Math.trunc(Math.abs(value))).length + (value < 0 ? 1 : 0),
+    value === null ? (placeholder ?? '').length - (decimals > 0 ? 2 : 0) : 0,
+  );
+  const fixedCh = Math.max(2, intDigits + (decimals > 0 ? 2 : 0)) + 0.4;
   const scrub = useValueScrub({
     value: value ?? Math.max(min, 0),
     onChange: next => {
@@ -129,7 +140,7 @@ export function ScrubNumber({
     >
       <input
         className={inputClassName}
-        style={fill ? undefined : { width: `${Math.max(2, (text || placeholder || '').length) + 0.6}ch` }}
+        style={fill ? undefined : { width: `${fixedCh}ch` }}
         inputMode={inputMode}
         value={text}
         placeholder={placeholder}

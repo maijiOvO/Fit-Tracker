@@ -1836,7 +1836,8 @@ button {
 .scrub-num.is-fill { display: flex; width: 100%; }
 .scrub-num input {
   min-width: 0; background: transparent; border: 0; outline: none; padding: 0 0 1px;
-  font: inherit; color: inherit; text-align: inherit; cursor: ew-resize;
+  font: inherit; color: inherit; text-align: left; cursor: ew-resize;
+  font-variant-numeric: tabular-nums;
   border-bottom: 1px dashed var(--accent);
 }
 .scrub-num.is-fill input { width: 100%; }

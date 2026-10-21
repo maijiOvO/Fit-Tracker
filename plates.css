@@ -506,7 +506,8 @@
 .gym-inc-stepper .scrub-num input,
 .bar-short-w .scrub-num input {
   font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
   color: var(--text-primary);
 }
 /* 上面 .stack-seg input 清了边框：把 ScrubNumber「下面虚线＝能拖」的提示补回来 */
@@ -519,3 +520,5 @@
 .stack-seg .scrub-num.is-scrubbing input,
 .gym-inc-stepper .scrub-num.is-scrubbing input,
 .bar-short-w .scrub-num.is-scrubbing input { border-bottom-style: solid; color: var(--accent-text); }
+/* 刻度设置面的数字也按整数位钉住（.stack-seg input 原来右对齐，12 ⇄ 12.5 时整数位会跳） */
+.stack-seg .scrub-num input { text-align: left; font-variant-numeric: tabular-nums; }
