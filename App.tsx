@@ -68,6 +68,8 @@ import {
   ResetAccountModal,
   WeightInputModal,
 } from './src/components/modals';
+import type { NoteModalData } from './src/components/modals/NoteModal';
+import { keyedPatch } from './services/appPrefs';
 
 import {
   AuthProvider,
@@ -231,10 +233,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     const def = showMetricModal?.name ? prefs.findExerciseDef(showMetricModal.name) : undefined;
     return def ? mergeOverride(def, prefs.exerciseOverrides[def.id]) : undefined;
   }, [showMetricModal?.name, prefs]);
-  const [noteModalData, setNoteModalData] = useState<{
-    name: string;
-    note: string;
-  } | null>(null);
+  const [noteModalData, setNoteModalData] = useState<NoteModalData | null>(null);
 
   // ============== 编辑动作标签 / 单组时长 / 单条动作时间 弹窗 ==============
   const [editExerciseTagsTarget, setEditExerciseTagsTarget] =
@@ -1116,8 +1115,15 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               const ex = currentWorkout.exercises?.find(e => e.id === exId);
               setShowTimePickerModal({ exerciseId: exId, currentTime: ex?.exerciseTime });
             }}
-            onToggleNote={name =>
-              setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' })
+            onToggleNote={(name, gymKey) =>
+              setNoteModalData({
+                name,
+                note: prefs.exerciseNotes[name] || '',
+                // 标了馆的训练：多一栏本馆备注（「换馆重量」B）
+                ...(gymKey && currentWorkout.gym
+                  ? { gym: currentWorkout.gym, gymKey, gymNote: settingsCtx.appPrefs.gymNotes[gymKey] ?? '' }
+                  : {}),
+              })
             }
             onOpenMetricModal={(name, exIdx) => setShowMetricModal({ name, exIdx })}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
@@ -1236,6 +1242,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onSave={() => {
           if (!noteModalData) return;
           prefs.saveExerciseNote(noteModalData.name, noteModalData.note);
+          if (noteModalData.gymKey) {
+            const g = (noteModalData.gymNote ?? '').trim() ? noteModalData.gymNote! : '';
+            if (g !== (settingsCtx.appPrefs.gymNotes[noteModalData.gymKey] ?? '')) {
+              settingsCtx.changeAppPrefs(keyedPatch('gymNotes', noteModalData.gymKey, g));
+            }
+          }
           setNoteModalData(null);
         }}
       />

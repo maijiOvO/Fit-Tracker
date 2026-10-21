@@ -32,6 +32,18 @@ export interface AppPrefs {
   /** 这个馆的这个动作（某个做法）单独设的一档：键「馆名|动作定义 id|做法 id」 */
   gymOverrides?: Record<string, IncSpec>;
   /**
+   * 这个馆的这台器械是插销还是挂片（2026-10-20，design-plates.md「换馆重量」A2）：键同 gymOverrides。
+   * 只存和动作库不同的；'' 是「恢复动作库」的墓碑（按键合并时要靠它压住另一边的旧值）。
+   */
+  gymKinds?: Record<string, GymKind | ''>;
+  /** 本馆备注（B）：键同 gymOverrides；'' 是清空的墓碑 */
+  gymNotes?: Record<string, string>;
+  /**
+   * 挂片式器械的空载重量（滑台 / 史密斯杠，2026-10-20）：键同 gymOverrides，带单位；'' 是清空的墓碑。
+   * 只做参考（大图说明「加空载共 x」），不进记录、纪录、容量、取整。可以是 0 或负数（带配重平衡的史密斯）。
+   */
+  gymTares?: Record<string, IncSpec | ''>;
+  /**
    * 「按动作」顶上的特别关注（2026-10-20）：动作的稳定键「定义 id|做法 id」，最多 4 个、按显示顺序。
    * 没设过（undefined）＝自动取三大项；设成空数组＝用户清空了。存 id 不存名字：改名、切语言都不失效。
    */
@@ -39,6 +51,8 @@ export interface AppPrefs {
   /** 特别关注按什么算：做过的最重一组，还是估算 1RM（看自己的极限大概在哪） */
   featuredMode?: 'weight' | 'e1rm';
 }
+
+export type GymKind = 'pin' | 'loaded';
 
 /** 特别关注最多几个：三大项占 3 个，留 1 个给自己的重点动作 */
 export const MAX_FEATURED = 4;
@@ -55,6 +69,9 @@ export const APP_PREF_DEFAULTS = {
   weekStart: 'mon',
   gyms: {},
   gymOverrides: {},
+  gymKinds: {},
+  gymNotes: {},
+  gymTares: {},
   featuredMode: 'weight',
 } as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang' | 'featuredLifts'>;
 
@@ -66,6 +83,10 @@ export type ResolvedAppPrefs = {
   weekStart: 'mon' | 'sun';
   gyms: Record<string, GymProfile>;
   gymOverrides: Record<string, IncSpec>;
+  /** 墓碑已滤掉 */
+  gymKinds: Record<string, GymKind>;
+  gymNotes: Record<string, string>;
+  gymTares: Record<string, IncSpec>;
   /** null＝没设过，用默认（三大项） */
   featuredLifts: string[] | null;
   featuredMode: 'weight' | 'e1rm';
@@ -91,6 +112,16 @@ function cleanOverrides(raw: unknown): Record<string, IncSpec> {
   return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([, c]) => isInc(c))) as Record<string, IncSpec>;
 }
 
+/** 按键表：只留合法值，墓碑 '' 当作没有 */
+function cleanKeyed<T>(raw: unknown, ok: (v: unknown) => v is T): Record<string, T> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([, v]) => v !== '' && ok(v))) as Record<string, T>;
+}
+const isGymKind = (v: unknown): v is GymKind => v === 'pin' || v === 'loaded';
+const isText = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
+const isTare = (c: unknown): c is IncSpec =>
+  !!c && typeof c === 'object' && Number.isFinite((c as IncSpec).v) && Math.abs((c as IncSpec).v) <= 500 && isUnit((c as IncSpec).u);
+
 export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
   const num = (v: unknown, d: number) => (typeof v === 'number' && v > 0 ? v : d);
   return {
@@ -104,6 +135,9 @@ export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
     weekStart: p?.weekStart === 'sun' ? 'sun' : 'mon',
     gyms: cleanGyms(p?.gyms),
     gymOverrides: cleanOverrides(p?.gymOverrides),
+    gymKinds: cleanKeyed(p?.gymKinds, isGymKind),
+    gymNotes: cleanKeyed(p?.gymNotes, isText),
+    gymTares: cleanKeyed(p?.gymTares, isTare),
     featuredLifts: Array.isArray(p?.featuredLifts)
       ? p.featuredLifts.filter((k): k is string => typeof k === 'string').slice(0, MAX_FEATURED)
       : null,
@@ -151,6 +185,22 @@ export function invalidateAppPrefsCache(): void {
   resolvedCache = null;
 }
 
+/**
+ * 改按键表（gymKinds / gymNotes）里的一条：在**存储里的原表**上改（保留墓碑），value 为 '' 表示删除。
+ * 原来没有这个键、又要删 → 不写墓碑（另一边也没有）。返回给 changeAppPrefs 的补丁。
+ */
+export function keyedPatch<F extends 'gymKinds' | 'gymNotes' | 'gymTares'>(
+  field: F,
+  key: string,
+  value: string | IncSpec,
+): Pick<AppPrefs, F> {
+  const raw = (readAppPrefs().appPrefs?.[field] ?? {}) as Record<string, unknown>;
+  const next = { ...raw };
+  if (value === '' && !(key in raw)) return { [field]: next } as Pick<AppPrefs, F>;
+  next[key] = value;
+  return { [field]: next } as Pick<AppPrefs, F>;
+}
+
 /** 用户改了某项首选项：并进对象、打时间戳。推送由调用方排（scheduleDebouncedFitlogPush） */
 export function recordAppPrefs(patch: AppPrefs): void {
   const { appPrefs } = readAppPrefs();
@@ -177,6 +227,13 @@ export function mergeAppPrefs(
     const older = remoteWins ? local?.gyms : remote?.gyms;
     const newer = remoteWins ? remote?.gyms : local?.gyms;
     appPrefs.gyms = { ...(older ?? {}), ...(newer ?? {}) };
+  }
+  // 器械形式、本馆备注、空载同理按键合并（2026-10-20）；它们有删除，删除写成墓碑 ''，按键比时照样压住旧的一边
+  for (const f of ['gymKinds', 'gymNotes', 'gymTares'] as const) {
+    if (!local?.[f] && !remote?.[f]) continue;
+    const older = remoteWins ? local?.[f] : remote?.[f];
+    const newer = remoteWins ? remote?.[f] : local?.[f];
+    (appPrefs as Record<string, unknown>)[f] = { ...(older ?? {}), ...(newer ?? {}) };
   }
   return { appPrefs, appPrefsUpdatedMs: Math.max(localMs, remoteMs) };
 }
