@@ -22,10 +22,15 @@ description: 把 fitlog 装到安卓手机上验证 —— 选路（静态包 / 
 | 调界面，想改代码手机上秒刷 | `npm run android:live`（另一个终端得跑着 `npm run dev`） |
 | 拔插过数据线，live 不刷新了 | `npm run android:live -- -TunnelOnly` |
 | APK 没变，只想重装一遍 | `npm run android:reinstall` |
-| 要造假数据 / 不想碰真实记录 | `npm run android:dev` |
+| 要造假数据 / 不想碰真实记录 | **单机版测试包**，见第 5 节末「独立测试包」（`android:dev` 做不到，见下） |
 
-`npm run android` 打的是 **prod 数据环境**的静态包，连 NAS 真实数据。`android:dev` 读写隔离的
-`state-dev`，装到手机上看不到自己的训练记录 —— 这是设计如此，不是 bug。
+`npm run android` 打的是 **prod 数据环境**的静态包，连 NAS 真实数据。
+
+⚠️ **`android:dev` 装到手机上照样是 prod、照样连真实 NAS。** 构建戳是 dev，但运行时
+`services/appEnv.ts` 的 `isEnvLocked()` 对任何原生 App 都返回 true（2026-08-27 起），
+`getDataEnv()` 直接给 prod，`window.__fitlog.env()` 读出来是 `{ env: 'prod', locked: true }`。
+2026-10-20 备份验证时据此往「dev 包」里灌了 4 场假训练，差一点推进真实数据（及时 force-stop，NAS 核对未污染）。
+**要在手机上造假数据，只能用没有 INTERNET 权限的 solo 测试包。**
 
 用户的手机常年插着 USB 线，随时可以装机验证。
 
@@ -134,6 +139,18 @@ cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain
 ```
 
 这是**验证专用的例外**——要发出去的包仍然只走 `npm run apk:solo`（闸门都在那条路上）。
+
+**独立测试包（不顶掉正式 App）**：设环境变量 `FITLOG_TEST_PKG=1` 再打 debug 包，applicationId 变成
+`com.myron.fittracker.backuptest`，和正式 App 并存、数据完全分开 —— 卸载重装、灌假数据都碰不到真实记录。
+配 solo 用（无联网权限，不会和 NAS 同步）：
+
+```powershell
+$env:FITLOG_TEST_PKG = '1'; npm run build:solo; if ($?) { npx cap sync android }; if ($?) { cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain }
+```
+
+验完 `adb uninstall com.myron.fittracker.backuptest`，并删掉它在公共目录留下的文件。
+小米手机每次 USB 安装都要在手机上点「继续安装」，没人点会报 `INSTALL_FAILED_USER_RESTRICTED`。
+worktree 里打包还要先从主仓拷 `android/local.properties`（否则 `SDK location not found`）。
 装它会顶掉正式签名的 personal 包（签名不一致，先 `adb uninstall com.myron.fittracker`），
 验完记得按清单第 7 步装回去。
 

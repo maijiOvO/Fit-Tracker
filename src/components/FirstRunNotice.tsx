@@ -16,6 +16,8 @@ import { Modal } from './Modal';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { isSolo } from '../../services/appEnv';
 import { storage } from '../../services/appStorage';
+import { folderSupported } from '../../services/fitlogFolder';
+import { openDataFlow } from '../hooks/useDataSafety';
 
 const SEEN_KEY = 'fitlog_first_run_notice_seen';
 
@@ -42,9 +44,24 @@ export const FirstRunNotice: React.FC = () => {
       dismissOnScrim={false}
       title={isCn ? '你的数据在你手里' : 'Your data stays with you'}
       footer={
-        <button onClick={dismiss} className="ui-btn-primary w-full py-3.5">
-          {isCn ? '知道了' : 'Got it'}
-        </button>
+        <div className="space-y-2">
+          <button onClick={dismiss} className="ui-btn-primary w-full py-3.5">
+            {isCn ? '知道了' : 'Got it'}
+          </button>
+          {/* 重装后第一眼看到的就是这个弹窗：恢复入口放这里，省得用户以为记录没了 */}
+          {folderSupported() && (
+            <button
+              onClick={() => {
+                dismiss();
+                openDataFlow('restore');
+              }}
+              className="w-full py-2 text-secondary text-sm"
+              data-testid="first-run-restore"
+            >
+              {isCn ? '以前用过 fitlog？从备份恢复' : 'Used fitlog before? Restore from backup'}
+            </button>
+          )}
+        </div>
       }
     >
       <div className="space-y-4 text-sm leading-relaxed text-secondary">
@@ -66,8 +83,8 @@ export const FirstRunNotice: React.FC = () => {
         </p>
         <p>
           {isCn
-            ? '所以请偶尔去「个人记录」页底部导出一份备份，存到文件或网盘。换手机时在同一张卡片上导入回来就行。'
-            : 'So export a backup now and then — the card at the bottom of the Records tab. Import it back on your new phone from the same card.'}
+            ? '所以第一次练完会请你选一个备份文件夹：之后每次练完自动存一份，卸载也不丢，重装后点两下就能恢复。也可以随时在首选项里导出 CSV，Excel 直接打开。'
+            : 'So after your first workout you will be asked to pick a backup folder: a backup is saved there after every workout, survives uninstalling, and restores in two taps. You can also export a CSV for Excel any time in Preferences.'}
         </p>
       </div>
     </Modal>

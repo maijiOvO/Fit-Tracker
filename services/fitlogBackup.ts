@@ -25,6 +25,7 @@ import type { FitlogRemoteSnapshot, FitlogSyncedPrefs } from './fitlogSnapshotTy
 import {
   applySnapshotToLocalIndexedDb,
   collectLocalSnapshot,
+  mergeLocalWithRemote,
   readPrefsFromLocalStorage,
   writePrefsToLocalStorage,
 } from './fitlogRemote';
@@ -201,6 +202,78 @@ export async function applyBackup(parsed: ParsedBackup): Promise<void> {
 
   writePrefsToLocalStorage(next.prefs);
   await applySnapshotToLocalIndexedDb(next);
+}
+
+/**
+ * 合并式恢复：和服务端同步同一套规则（按 id 取较新 + 墓碑过滤），删过的不会被旧备份捞回来。
+ *
+ * **只对新格式（v2，带墓碑）可用。** 旧格式没有墓碑，按 id 合并会把用户删掉的训练捞回来，
+ * 而且界面上看不出来 —— 那种文件只能走 applyBackup 覆盖。调用方按 parsed.legacy 决定给不给这个选项。
+ */
+export async function mergeBackup(parsed: ParsedBackup): Promise<void> {
+  if (parsed.legacy) throw new Error('legacy-cannot-merge');
+  const current = await collectLocalSnapshot();
+  await db.save(ROLLBACK_STORE, {
+    id: ROLLBACK_ID,
+    createdAt: new Date().toISOString(),
+    snapshot: current,
+  });
+  const merged = mergeLocalWithRemote(current, parsed.snapshot);
+  writePrefsToLocalStorage(merged.prefs);
+  await applySnapshotToLocalIndexedDb(merged);
+}
+
+/**
+ * 把外来记录（Strong / Hevy 导入）加进现有数据：只新增 / 覆盖同 id 的训练和新建的自定义动作，别的不动。
+ * 和覆盖恢复一样先存回滚槽，「撤销上次导入」能撤回。
+ *
+ * 同一份文件再导一次 id 相同（见 fitlogCsvImport 的 hash），只是覆盖那几条；
+ * 用户之前删过的导入训练，这次是明确要再导进来 —— 从墓碑里摘掉，否则下一次同步又会把它过滤掉。
+ */
+export async function addImportedRecords(input: {
+  workouts: WorkoutSession[];
+  newDefs: ExerciseDefinition[];
+  metricSeeds: Record<string, string[]>;
+}): Promise<void> {
+  const current = await collectLocalSnapshot();
+  await db.save(ROLLBACK_STORE, {
+    id: ROLLBACK_ID,
+    createdAt: new Date().toISOString(),
+    snapshot: current,
+  });
+
+  const incoming = new Set(input.workouts.map(w => w.id));
+  const knownDefs = new Set(current.prefs.customExercises.map(d => d.id));
+  const metrics = { ...current.prefs.exerciseMetricConfigs };
+  for (const [name, m] of Object.entries(input.metricSeeds)) if (!metrics[name]) metrics[name] = m;
+  const now = Date.now();
+  const tomb = current.tombstones ?? {};
+
+  const next: FitlogRemoteSnapshot = {
+    ...current,
+    workouts: [...current.workouts.filter(w => !incoming.has(w.id)), ...input.workouts],
+    prefs: {
+      ...current.prefs,
+      customExercises: [...input.newDefs.filter(d => !knownDefs.has(d.id)), ...current.prefs.customExercises],
+      exerciseMetricConfigs: metrics,
+      prefsLastUpdateMs: now,
+      metricsLastUpdateMs: now,
+    },
+    tombstones: {
+      ...tomb,
+      workouts: (tomb.workouts ?? []).filter(id => !incoming.has(id)),
+      customExerciseDefs: (tomb.customExerciseDefs ?? []).filter(id => !input.newDefs.some(d => d.id === id)),
+    },
+  };
+  writePrefsToLocalStorage(next.prefs);
+  await applySnapshotToLocalIndexedDb(next);
+}
+
+/** 摘要用：备份里最后一次训练的日期（ISO），没有训练返回 null */
+export function lastWorkoutDate(parsed: ParsedBackup): string | null {
+  let m: string | null = null;
+  for (const w of parsed.snapshot.workouts) if (w?.date && (!m || w.date > m)) m = w.date;
+  return m;
 }
 
 // ============ 回滚 ============

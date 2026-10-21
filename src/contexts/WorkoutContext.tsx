@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { WorkoutSession } from '../../types';
 import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
+import { scheduleAutoBackup } from '../../services/fitlogAutoBackup';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { lastUsedGym } from '../utils/gyms';
 
@@ -189,6 +190,8 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
       // 刷新列表，确保 Timeline 立即反映
       await refreshFromDb();
       scheduleDebouncedFitlogPush();
+      // 选过备份文件夹的话，5 秒后写一份完整快照进去（卸载也不丢）
+      scheduleAutoBackup('workout-finished');
     } catch (err) {
       console.error('[WorkoutContext] 结束训练保存失败:', err);
       throw err;

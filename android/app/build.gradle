@@ -59,6 +59,17 @@ android {
     }
 
     buildTypes {
+        /**
+         * 验证专用的独立测试包：环境变量 FITLOG_TEST_PKG=1 时，debug 包的 applicationId 变成
+         * com.myron.fittracker.backuptest，和手机上的正式 App 并存、数据完全分开。
+         * 用来真机验「卸载重装后从备份恢复」—— 卸载的是测试包，碰不到用户的真实记录。
+         * 平时不设这个变量，行为不变。
+         */
+        debug {
+            if (System.getenv('FITLOG_TEST_PKG') == '1') {
+                applicationIdSuffix '.backuptest'
+            }
+        }
         release {
             if (hasSigning) {
                 signingConfig signingConfigs.release
