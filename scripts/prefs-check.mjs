@@ -155,6 +155,13 @@ t('器械形式 / 本馆备注删除写墓碑：新的一边删了，旧的一�
   assert.deepEqual(r.gymNotes, {});
 });
 
+t('空载按键合并、可以是 0 / 负数；坏值（NaN、没单位）读的时候丢掉', () => {
+  const m = P.mergeAppPrefs({ gymTares: { 'A|leg_press|': { v: 34, u: 'kg' } } }, 100, { unit: 'kg', gymTares: { 'B|smith|': { v: -7.5, u: 'lbs' } } }, 200);
+  assert.deepEqual(m.appPrefs.gymTares, { 'A|leg_press|': { v: 34, u: 'kg' }, 'B|smith|': { v: -7.5, u: 'lbs' } });
+  const r = P.resolveAppPrefs({ gymTares: { a: { v: 0, u: 'kg' }, b: '', c: { v: NaN, u: 'kg' }, d: { v: 5 } } });
+  assert.deepEqual(r.gymTares, { a: { v: 0, u: 'kg' } });
+});
+
 t('keyedPatch：在存储里的原表上改（保留墓碑）；原来没有的键删除时不写墓碑', () => {
   P.writeAppPrefs({ gymNotes: { 'A|x|': '', 'A|y|': '留着' } }, 5);
   assert.deepEqual(P.keyedPatch('gymNotes', 'A|z|', '新的'), { gymNotes: { 'A|x|': '', 'A|y|': '留着', 'A|z|': '新的' } });

@@ -221,6 +221,7 @@ export function LoadHero({
   scrub,
   rounder,
   onPick,
+  tare,
 }: {
   kind: LoadKind;
   /** 选中那一组的重量（显示单位，带符号） */
@@ -242,10 +243,12 @@ export function LoadHero({
    */
   rounder?: ExRounder | null;
   onPick?: (displayValue: number) => void;
+  /** 挂片式器械在这个馆填过的空载（显示单位）：说明栏加「加空载共 x」，只做参考 */
+  tare?: number;
 }) {
   const [barOpen, setBarOpen] = useState(false);
   if (kind === 'plain') return null;
-  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen }} />;
+  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, tare }} />;
 
   const barKind: BarKind = bar?.kind ?? 'standard';
   const barW = barWeight(bar, plateUnit);
@@ -390,6 +393,7 @@ function GymHero({
   onPick,
   barOpen,
   setBarOpen,
+  tare,
 }: {
   kind: LoadKind;
   value: number;
@@ -402,6 +406,7 @@ function GymHero({
   onPick?: (displayValue: number) => void;
   barOpen: boolean;
   setBarOpen: (f: (o: boolean) => boolean) => void;
+  tare?: number;
 }) {
   const ctx = rounder.ctx;
   const u = unit === 'lbs' ? 'lb' : 'kg';
@@ -424,7 +429,12 @@ function GymHero({
       : kind === 'plates'
         ? isCn ? '空杠' : 'Empty bar'
         : isCn ? '还没挂片' : 'No plates yet';
-    if (kind === 'loaded') caption += isCn ? ' · 只算片子' : ' · plates only';
+    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）
+    if (kind === 'loaded')
+      caption +=
+        tare !== undefined
+          ? isCn ? ` · 加空载共 ${fmt(v + tare)} ${u}` : ` · ${fmt(v + tare)} ${u} with the sled`
+          : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = isCn ? `插销插在 ${fmt(v)} ${u}` : `Pin at ${fmt(v)} ${u}`;
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
   else if (kind === 'signed') {

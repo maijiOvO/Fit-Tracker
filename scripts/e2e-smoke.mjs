@@ -1111,6 +1111,20 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const wK = await weights();
     if (wK.join() !== '22.5') throw new Error(`plate-loaded at ${GB}: 23 should re-round to 22.5, got ${JSON.stringify(wK)}`);
     if (await menu.locator('[data-testid="gym-inc"]').count()) throw new Error('plate-loaded machine should not show the per-machine step');
+    // 空载：填 30 → 记进 gymTares（带单位），大图说明「加空载共 52.5 kg」，记录照旧 22.5；清空 → 墓碑，回到「只算片子」
+    const tare = menu.locator('[data-testid="gym-tare"]');
+    await tare.fill('30');
+    await tare.press('Enter');
+    await page.waitForTimeout(300);
+    const tares = (await readLs('fitlog_app_prefs'))?.gymTares;
+    if (JSON.stringify(tares?.[`${GB}|press_machine_shoulder|`]) !== '{"v":30,"u":"kg"}') throw new Error(`gymTares not stored: ${JSON.stringify(tares)}`);
+    if (!(await page.getByText('加空载共 52.5 kg').count())) throw new Error('hero caption should add the sled: 加空载共 52.5 kg');
+    if ((await weights()).join() !== '22.5') throw new Error(`the sled must not change the logged weight, got ${JSON.stringify(await weights())}`);
+    await tare.fill('');
+    await tare.press('Enter');
+    await page.waitForTimeout(300);
+    if ((await readLs('fitlog_app_prefs'))?.gymTares?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error('clearing the sled should leave a tombstone');
+    if (!(await page.getByText(/只算片子/).count())) throw new Error('without a sled the caption should say 只算片子 again');
     // 改回插销 → 写墓碑（和动作库一样），再改成挂片留着
     await menu.locator('[data-testid="gym-kind-pin"]').click();
     await page.waitForTimeout(300);

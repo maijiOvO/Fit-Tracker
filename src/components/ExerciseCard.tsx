@@ -333,6 +333,31 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 和动作库一样就写墓碑（恢复动作库），不一样就记住；没做完、没改过的组按新形式重新取整。
    */
   const kindKey = rounder && gymSwitchableKind(loadInfo.libKind) ? gymKey : null;
+  /**
+   * 挂片时多一行「空载」（滑台 / 史密斯杠自重）：器械上标了就填，不知道就空着。
+   * 存 appPrefs.gymTares（带单位），只进大图说明，不改记录。
+   */
+  const tareKey = kindKey && loadKind === 'loaded' ? kindKey : null;
+  const tareSpec = tareKey ? appPrefs.gymTares[tareKey] : undefined;
+  const tareD = tareSpec && rounder
+    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * 2.20462 : tareSpec.v / 2.20462) * 10) / 10
+    : undefined;
+  const [tareText, setTareText] = useState('');
+  useEffect(() => setTareText(tareD === undefined ? '' : String(tareD)), [tareD, menuOpen]);
+  const commitTare = () => {
+    if (!tareKey || !rounder) return;
+    const t = tareText.trim().replace(',', '.');
+    const n = Number.parseFloat(t);
+    if (t === '') {
+      if (tareSpec) changeAppPrefs(keyedPatch('gymTares', tareKey, ''));
+      return;
+    }
+    if (!Number.isFinite(n) || Math.abs(n) > 500) {
+      setTareText(tareD === undefined ? '' : String(tareD));
+      return;
+    }
+    if (n !== tareD) changeAppPrefs(keyedPatch('gymTares', tareKey, { v: n, u: rounder.unit }));
+  };
   const setGymKind = (k: 'pin' | 'loaded') => {
     if (!rounder || !kindKey || k === loadKind) return;
     haptic(H.tap);
@@ -484,6 +509,28 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                         </button>
                       ))}
                     </span>
+                    {tareKey && (
+                      <label className="mt-2 flex items-center gap-2 text-label text-secondary">
+                        <span className="shrink-0 whitespace-nowrap">{isCn ? '空载' : 'Sled'}</span>
+                        <input
+                          className="ui-input flex-1 min-w-0 min-h-[36px] py-1"
+                          inputMode="decimal"
+                          value={tareText}
+                          onChange={e => setTareText(e.target.value)}
+                          onBlur={commitTare}
+                          onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                          placeholder={isCn ? '不知道' : '?'}
+                          aria-label={isCn ? '空载重量' : 'Sled weight'}
+                          data-testid="gym-tare"
+                        />
+                        <span className="shrink-0">{uLab}</span>
+                      </label>
+                    )}
+                    {tareKey && (
+                      <p className="text-micro text-tertiary mt-1">
+                        {isCn ? '器械上标了就填，只做参考，记录照旧只算片子' : 'For reference only; logs stay plates-only'}
+                      </p>
+                    )}
                   </div>
                 )}
                 {incKey && rounder && (
@@ -605,6 +652,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           pinStep={unit === 'lbs' ? 10 : 5}
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
           rounder={rounder}
+          tare={tareD}
           onPick={next => {
             haptic(H.tap);
             writeHero(next);
