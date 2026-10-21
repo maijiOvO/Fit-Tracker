@@ -39,6 +39,8 @@ export const PREFS_SENTINEL = {
     gymKinds: { '哨兵馆|EX_sentinel|': 'loaded' },
     gymNotes: { '哨兵馆|EX_sentinel|': '哨兵本馆备注' },
     gymTares: { '哨兵馆|EX_sentinel|': { v: -7.5, u: 'lbs' } },
+    featuredLifts: ['EX_sentinel|', 'EX_sentinel|V_sentinel'],
+    featuredMode: 'e1rm',
   } satisfies Required<AppPrefs>,
   appPrefsUpdatedMs: 1700000000005,
 } satisfies Required<FitlogSyncedPrefs>;

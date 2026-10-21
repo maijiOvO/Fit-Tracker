@@ -88,7 +88,7 @@ async function clickAppConfirm(page, labelRe) {
 }
 
 /**
- * 离开工作台并放弃这场（一组都没做完时）。
+ * 离开工作台并结束这场：一组都没做完＝放弃；有改过数的组＝按做完入册。
  * workbench-not-restored 之后按返回只离开页面、工作台原样留着（首页顶上「进行中」、FAB 变「回到训练」）；
  * 原来靠「返回即清空」给后续用例复位的地方，改成首页「进行中 → 结束 → 放弃」。
  */
@@ -106,8 +106,14 @@ async function backAndDiscard(page) {
   }
   if (await row.isVisible().catch(() => false)) {
     await page.locator('[data-testid="in-progress-end"]').click();
-    await clickAppConfirm(page, /^(放弃|Discard)$/);
+    // 一组都没做完 → 「放弃」；有改过数没点完成的组 → 它们按做完入册（2026-10-20），弹的是「结束训练」
+    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End Workout)$/);
     await page.waitForTimeout(300);
+    const colo = page.locator('[data-testid="workout-colophon"]');
+    if (await colo.isVisible().catch(() => false)) {
+      await colo.click();
+      await page.waitForTimeout(400);
+    }
   }
 }
 
@@ -2308,15 +2314,15 @@ const main = async () => {
     if ((await rows.count()) !== n - 1) throw new Error('single tap did not delete the set');
     if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('deleting a set still shows an undo toast');
 
-    // 结束训练：改过没点完成的组要点出来，「取消」换成「返回补点」
+    // 结束训练：改过没点完成的组按做完入册（2026-10-20），确认框不再提「没点完成」、也没有「返回补点」
     await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
     const dlg = page.locator('[role="dialog"]');
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
     const text = await dlg.innerText();
-    if (!/改过数但没点完成/.test(text)) throw new Error(`end confirm does not mention edited-but-not-done sets: ${text}`);
-    await dlg.getByRole('button', { name: /^返回补点$/ }).click();
+    if (/没点完成|返回补点/.test(text)) throw new Error(`end confirm still nags about edited-but-not-done sets: ${text}`);
+    await dlg.getByRole('button', { name: /^(取消|Cancel)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
-    return `toggle ok · sweep down/up · type replaces + follow · drop btn · new row to-do · all-zero refused · + ${w0}→${w1} · delete (no undo) · end warns`;
+    return `toggle ok · sweep down/up · type replaces + follow · drop btn · new row to-do · all-zero refused · + ${w0}→${w1} · delete (no undo) · end does not nag`;
   });
 
   // 第 7 条：训练卡 ⋯ → 重命名。改的是动作库里的名字，卡片立刻显示新名；
@@ -2449,6 +2455,8 @@ const main = async () => {
           if (n.parentElement && n.parentElement.closest('.font-seal')) continue;
           // 语言选项里的「中文」是语言名本身（首选项弹层，标了 lang="zh-CN"）
           if (n.parentElement && n.parentElement.closest('body [lang^="zh"]')) continue;
+          // 训练标题是用户数据（默认标题按结束时的语言生成，比如「训练 2026/10/20」），不是界面文案
+          if (n.parentElement && n.parentElement.closest('[data-user-text]')) continue;
           hits.push('text:' + t.slice(0, 40));
         }
         for (const el of document.querySelectorAll('[aria-label],[title],[placeholder]')) {
@@ -2532,14 +2540,15 @@ const main = async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     await page.waitForTimeout(300);
     // 接回的是「最近结束的那一场」：前面的用例可能又结束过别的场次（并入上一场那条会造一场），按快照现查
-    const resumeId = await page.evaluate(async () => {
+    const resumeTarget = await page.evaluate(async () => {
       await window.__fitlog.flush();
       const snap = await window.__fitlog.fetchRemote();
       const done = ((snap && snap.workouts) || []).filter(w => w.finishedAt);
       done.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
-      return done[0]?.id ?? null;
+      return done[0] ? { id: done[0].id } : null;
     });
-    if (!resumeId) throw new Error('fixture drift: no finished workout to resume');
+    if (!resumeTarget) throw new Error('fixture drift: no finished workout to resume');
+    const resumeId = resumeTarget.id;
     // 2026-10-11：「继续这场」在时间线长按菜单里（刚结束 10 分钟内才有），FAB 不再问
     const rcard = page.locator(`[data-testid="timeline-session-${resumeId}"]`);
     if (!(await rcard.isVisible().catch(() => false))) {
@@ -2562,9 +2571,10 @@ const main = async () => {
     await resumeItem.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
 
-    // 接回来的是那一场【本身】：动作还在
+    // 接回来的是那一场【本身】：动作还在（工作台上有组）。不写死动作名 ——
+    // 前面的用例结束过哪一场取决于流程（2026-10-20 起改过数没点完成的那场也会入册）
     const hasExercise = await page
-      .locator('text=E2E Bench Press')
+      .locator('[data-testid="ledger-field-weight"]')
       .first()
       .isVisible()
       .catch(() => false);

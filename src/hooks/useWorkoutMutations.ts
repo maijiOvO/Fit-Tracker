@@ -100,7 +100,10 @@ export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLo
 
 /**
  * 入册的样子（§12.6 红线：底稿永远不会静默变成数据）。
- * 剥掉所有仍是 ghost 的行（待做和跳过都是 ghost：跳过＝这次没做）；整动作只剩底稿的，连动作一起丢；
+ * 剥掉没动过的 ghost 行（抄来的底稿＝这次没做）；整动作只剩底稿的，连动作一起丢。
+ * 改过数的待做组（touched）算做完入册（2026-10-20 用户定）：点「结束训练」「保存修改」就说明练完了，
+ * 手动填过数的那组是做了的，没必要再弹「有 N 组没点完成，返回补点」。没动过的底稿照旧不入册 ——
+ * 那条红线防的是「抄来的数」冒充数据，用户亲手填的数不在此列。
  * prefillFrom / prefillGym 只服务工作台眉批；fromGhost（已停写）、touched、seq 都是工作台上的标记，不跟进历史。
  * 结束训练、保存修改、判「编辑态改没改」共用这一份。
  */
@@ -112,9 +115,9 @@ function toRecordedExercises(exercises: Exercise[] | undefined): Exercise[] {
         return {
           ...rest,
           sets: (ex.sets ?? [])
-            .filter(s => !s.ghost)
+            .filter(s => !s.ghost || isTouchedGhost(s))
             .map(s => {
-              const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet(s);
+              const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet({ ...s, ghost: false });
               return set.subSets?.length
                 ? { ...set, subSets: set.subSets.map(({ touched: _st, ...sub }) => sub) }
                 : set;
@@ -125,13 +128,14 @@ function toRecordedExercises(exercises: Exercise[] | undefined): Exercise[] {
   );
 }
 
-/** 改过数但没点完成的组（第 4 条）：还是底稿，结束 / 保存时会丢，所以要点出来 */
-function countTouchedGhosts(exercises: Exercise[] | undefined): number {
+/** 改过数但没点完成的组（第 4 条）：结束 / 保存时按做完入册（见 toRecordedExercises） */
+function isTouchedGhost(s: SetLog): boolean {
   const touched = (t: Record<string, boolean | undefined> | undefined) => Object.values(t ?? {}).some(Boolean);
-  return (exercises ?? []).reduce(
-    (n, ex) => n + (ex.sets ?? []).filter(s => s.ghost && (touched(s.touched) || (s.subSets ?? []).some(sub => touched(sub.touched)))).length,
-    0,
-  );
+  return !!s.ghost && (touched(s.touched) || (s.subSets ?? []).some(sub => touched(sub.touched)));
+}
+
+function countTouchedGhosts(exercises: Exercise[] | undefined): number {
+  return (exercises ?? []).reduce((n, ex) => n + (ex.sets ?? []).filter(isTouchedGhost).length, 0);
 }
 
 /** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
@@ -314,7 +318,7 @@ export function useWorkoutMutations({
   const hasUnsavedChanges = useMemo(() => {
     const orig = editOriginalRef.current;
     if (!editingWorkoutId || !orig || orig.id !== currentWorkout.id) return false;
-    // 改过数没点完成的底稿行也算：它们不进库，但不问一句就随返回丢掉不对
+    // 改过数没点完成的行入册时算做完（toRecordedExercises），editKey 已经认得它；这里再兜一道，别让「改了数」显示成没改
     return editKey(currentWorkout) !== orig.key || countTouchedGhosts(currentWorkout.exercises) > 0;
   }, [currentWorkout, editingWorkoutId]);
 
@@ -472,43 +476,22 @@ export function useWorkoutMutations({
   ]);
 
   const handleFinishWithConfirmation = useCallback(async () => {
-    /**
-     * 改过数但没点完成的组（第 4 条）：改值不再顺手描实，这种行结束时照规矩丢弃 ——
-     * 那是一次不可逆后果，所以要点出来，并把「取消」换成「返回补点」。
-     * 没动过的底稿行静默丢弃，不提（那本来就是「没做」）。
-     */
-    const touchedCount = countTouchedGhosts(currentWorkout.exercises);
-    const warn = touchedCount
-      ? isCn
-        ? `\n\n有 ${touchedCount} 组改过数但没点完成，结束后会丢弃。`
-        : `\n\n${touchedCount} edited ${touchedCount === 1 ? 'set was' : 'sets were'} never marked done and will be discarded.`
-      : '';
-    const backLabel = touchedCount ? { cancelLabel: isCn ? '返回补点' : 'Go back' } : {};
+    // 改过数但没点完成的组按做完入册（toRecordedExercises），这里不再提醒「返回补点」（2026-10-20 用户定：
+    // 点结束 / 保存就是练完了）。没动过的底稿行静默不入册，本来就是「没做」。
 
-    // 编辑旧训练：「保存修改」不用确认，只有「改过数没点完成」那种会丢东西的才问
+    // 编辑旧训练：「保存修改」不用确认
     if (editingWorkoutId) {
       if (!hasUnsavedChanges) return;
-      if (touchedCount) {
-        const ok = await confirm({
-          message: isCn
-            ? `有 ${touchedCount} 组改过数但没点完成，保存后会丢弃。`
-            : `${touchedCount} edited ${touchedCount === 1 ? 'set was' : 'sets were'} never marked done and will be discarded.`,
-          confirmLabel: isCn ? '保存修改' : 'Save changes',
-          ...backLabel,
-        });
-        if (!ok) return;
-      }
       await finishWorkout();
       return;
     }
 
-    // 一组都没做完：直接问要不要放弃这场（不留空场在库里），别先问「确认结束」再说「底稿不入册」
-    if (!editingWorkoutId && !hasDoneSets(currentWorkout)) {
+    // 一组都没做完（改过数的也算做了）：直接问要不要放弃这场（不留空场在库里）
+    if (!hasDoneSets(currentWorkout) && countTouchedGhosts(currentWorkout.exercises) === 0) {
       const ok = await confirm({
-        message: (isCn ? '还没有做完任何一组。放弃这场训练？' : 'No sets done yet. Discard this workout?') + warn,
+        message: isCn ? '还没有做完任何一组。放弃这场训练？' : 'No sets done yet. Discard this workout?',
         confirmLabel: isCn ? '放弃' : 'Discard',
         cancelLabel: isCn ? '接着练' : 'Keep going',
-        ...backLabel,
         danger: true,
       });
       if (ok) await discardCurrentWorkout();
@@ -517,12 +500,11 @@ export function useWorkoutMutations({
 
     const ok = await confirm({
       // 2026-10-11：去掉「当前单位设置」「将被添加到历史记录」两行 —— 都是常识，每场都读一遍是噪音
-      message: isCn ? `确认结束当前训练吗？${warn}` : `Confirm ending this workout?${warn}`,
+      message: isCn ? '确认结束当前训练吗？' : 'Confirm ending this workout?',
       confirmLabel: isCn ? '结束训练' : 'End Workout',
-      ...backLabel,
     });
     if (ok) await finishWorkout();
-  }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn, unit]);
+  }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean }) => {
