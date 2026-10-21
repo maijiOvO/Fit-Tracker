@@ -30,8 +30,8 @@ export const translations: TranslationStrings = {
   // 个人服务器在家庭 NAS 上，经 Tailscale Funnel 暴露到公网 —— 手机不用开 Tailscale。
   // 连不上通常是手机没网 / 信号差，或 NAS / 家里网络掉线，别把人引去查 Tailscale
   remoteUnreachable: {
-    en: 'Cannot reach the personal server. Check your network connection; if it persists, the home server may be offline.',
-    cn: '无法连接个人服务器，请检查网络；一直连不上的话，可能是家里的服务器掉线了。',
+    en: "Can't reach the server",
+    cn: '连不上服务器',
   },
   // 服务端把 API key 绑定到端点后新增的两个错误码。它们是配置问题，
   // 不是网络问题 —— 提示必须和 remoteUnreachable 区分开。
