@@ -17,7 +17,7 @@ import { normalizeGym } from '../../utils/gyms';
 import { DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
 
-import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
+import { DEFAULT_PLATES, isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
 type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell';
 
@@ -227,7 +227,7 @@ function GymProfileForm({
   const setUnit = (u: PlateUnit) => {
     if (p.plateUnit === u) return;
     // 自定义片是按原单位存的，换了一套片子就一起清掉（design-plates.md「换馆重量」D）
-    setP({ ...p, plateUnit: u, plates: PLATE_SPECS[u].map(s => s.w) });
+    setP({ ...p, plateUnit: u, plates: [...DEFAULT_PLATES[u]] });
     setCu(u);
   };
   const togglePlate = (w: number) => {

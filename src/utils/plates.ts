@@ -50,6 +50,16 @@ export const PLATE_SPECS: Record<PlateUnit, PlateSpec[]> = {
 };
 
 /**
+ * 没设过档案的馆默认勾上的片（2026-10-21 用户定）：kg 2.5–20、lb 2.5–45。
+ * 1.25 / 25 kg、55 lb 不常见，留在 PLATE_SPECS 里，馆档案里勾上才用。
+ * 默认没有 1.25，kg 杠铃一次加一对 2.5 ＝ 5 kg。
+ */
+export const DEFAULT_PLATES: Record<PlateUnit, number[]> = {
+  kg: [20, 15, 10, 5, 2.5],
+  lbs: [45, 35, 25, 10, 5, 2.5],
+};
+
+/**
  * 一片的画法。标准表里没有的重量（馆档案里的自定义片：51 lb 八角片、0.5 kg 微调片）
  * 借最接近的那档标准片的颜色和尺寸，w 是它自己的重量（片上的字照写它）。
  */

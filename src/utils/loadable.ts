@@ -10,7 +10,7 @@
  * 全部是纯函数：值一律是「显示单位下带符号的数」，调用方负责 kg ⇄ 显示单位换算。
  */
 import type { LoadKind } from '../hooks/useLoadKind';
-import { KG_PER_LB, PLATE_SPECS, type PlateUnit } from './plates';
+import { DEFAULT_PLATES, KG_PER_LB, type PlateUnit } from './plates';
 
 export interface IncSpec {
   v: number;
@@ -46,11 +46,11 @@ export const DEFAULT_KETTLEBELL_INC: Record<PlateUnit, IncSpec> = {
   lbs: { v: 5, u: 'lbs' },
 };
 
-/** 没设过档案的馆（或没标馆）：标准片 + 常见档位 */
+/** 没设过档案的馆（或没标馆）：常用的标准片（DEFAULT_PLATES）+ 常见档位 */
 export function defaultProfile(unit: PlateUnit): GymProfile {
   return unit === 'kg'
-    ? { plateUnit: 'kg', plates: PLATE_SPECS.kg.map(p => p.w), cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' }, kettlebell: DEFAULT_KETTLEBELL_INC.kg }
-    : { plateUnit: 'lbs', plates: PLATE_SPECS.lbs.map(p => p.w), cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' }, kettlebell: DEFAULT_KETTLEBELL_INC.lbs };
+    ? { plateUnit: 'kg', plates: [...DEFAULT_PLATES.kg], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' }, kettlebell: DEFAULT_KETTLEBELL_INC.kg }
+    : { plateUnit: 'lbs', plates: [...DEFAULT_PLATES.lbs], cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' }, kettlebell: DEFAULT_KETTLEBELL_INC.lbs };
 }
 
 function convert(v: number, from: PlateUnit, to: PlateUnit): number {
@@ -98,7 +98,7 @@ export function profileIn(
 } {
   const p = profile ?? defaultProfile(unit);
   return {
-    plates: p.plateUnit === unit && p.plates.length ? [...p.plates].sort((a, b) => b - a) : PLATE_SPECS[unit].map(s => s.w),
+    plates: p.plateUnit === unit && p.plates.length ? [...p.plates].sort((a, b) => b - a) : [...DEFAULT_PLATES[unit]],
     cable: incIn(p.cable, unit),
     machine: incIn(p.machine, unit),
     dumbbell: incIn(p.dumbbell, unit),
