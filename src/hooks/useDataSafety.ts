@@ -180,7 +180,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
       } catch (e) {
         console.error('CSV export failed:', e);
         const msg = e instanceof FolderError ? backupErrorText(e.code === 'no-access' ? 'no-access' : 'write-failed', isCn) : '';
-        toast((isCn ? '导出失败' : 'Export failed') + (msg ? `：${msg}` : ''), 'error');
+        toast((isCn ? '导出失败' : 'Export failed') + (msg ? (isCn ? `：${msg}` : `: ${msg}`) : ''), 'error');
       }
     },
     [effectiveRegions, exerciseOverrides, findExerciseDef, getTagName, isCn, lang, resolveName, toast, unit, workouts],

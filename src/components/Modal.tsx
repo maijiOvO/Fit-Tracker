@@ -28,6 +28,7 @@ import { X } from 'lucide-react';
 import { useDismissAnimation } from '../hooks/useDismissAnimation';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { Language } from '../../types';
+import { useBackClose } from '../hooks/useBackClose';
 
 export type ModalVariant = 'center' | 'sheet' | 'full';
 /** z 轴层级。语义常量见 tailwind.config.js 的 zIndex。 */
@@ -90,6 +91,9 @@ export const Modal: React.FC<ModalProps> = ({
   // 关闭按钮的 aria-label 得跟着语言走。Modal 是原语，脱离 Provider 也应当能渲染，
   // 所以这里用裸 useContext 兜中文，而不是会抛错的 useUserSettingsContext。
   const isCn = useContext(UserSettingsContext)?.lang !== Language.EN;
+
+  // 安卓返回键先关最上面这一层（审查 B11）
+  useBackClose(isOpen, onClose);
 
   // Esc 关闭。移动端用不上，但桌面调试时省事，且是无障碍基本盘。
   useEffect(() => {

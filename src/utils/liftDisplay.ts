@@ -5,7 +5,7 @@
 import { Language } from '../../types';
 import { translations } from '../../translations';
 import { KG_TO_LBS } from '../constants';
-import { distToDisplay } from './exerciseConfig';
+import { distToDisplay, metricUnitLabel } from './exerciseConfig';
 import { E1RM, type SetRef } from './liftHistory';
 
 /** 80 而不是 80.00；最多一位小数 */
@@ -28,9 +28,34 @@ export function metricLabel(metric: string, lang: Language): string {
   return t?.[lang] || metric.replace('custom_', '');
 }
 
-/** 指标的单位后缀（重量类才有；其余指标的单位随动作设置，这里不猜） */
+/**
+ * 指标的单位后缀：重量类跟重量单位；距离 / 速度跟首选项的距离单位（审查 B9：原来有氧的历史不写单位）；
+ * 时长写成时:分:秒，不带后缀；其余（次数、自定义）不写
+ */
 export function metricUnit(metric: string, unit: 'kg' | 'lbs'): string {
-  return isLoadMetric(metric) ? unit : '';
+  if (isLoadMetric(metric)) return unit;
+  if (metric === 'distance' || metric === 'speed') return metricUnitLabel(metric, unit, false);
+  return '';
+}
+
+/** 秒 → 1:05:30 / 25:00（时长指标的显示） */
+export function clockOf(sec: number): string {
+  const t = Math.max(0, Math.round(sec));
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
+/** 已经换成显示单位的数怎么写：时长写成时:分:秒，其余最多一位小数 */
+export function formatShown(metric: string, v: number): string {
+  return metric === 'duration' ? clockOf(v) : trimNum(v);
+}
+
+/** 存储单位的一个指标值 → 显示（换单位 + 写法） */
+export function formatMetric(metric: string, v: number, unit: 'kg' | 'lbs'): string {
+  return formatShown(metric, toDisplay(metric, v, unit));
 }
 
 /**

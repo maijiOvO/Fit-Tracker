@@ -1393,8 +1393,13 @@ button {
   background: var(--bg-card);
   box-shadow: var(--shadow-page), inset 0 0 0 1px var(--divider);
   color: var(--text-primary);
-  /* 按下即拖，不让浏览器先把它当成滚动 */
-  touch-action: none;
+  /* 按住一下才拖（useRegionDrag HOLD_MS）：直接划交给浏览器滚，拿起来之后由 touchmove 拦住 */
+  touch-action: pan-x pan-y;
+}
+/* 按够了、还没动：微微浮起，告诉手指「拿起来了」 */
+.is-arranging .region-card.is-armed {
+  transform: scale(1.04);
+  transition: transform 120ms var(--ease-paper, ease-out);
 }
 .is-arranging .region-card.is-added {
   background: var(--accent);

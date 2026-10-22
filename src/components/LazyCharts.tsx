@@ -12,7 +12,7 @@ import {
 import { Language } from '../../types';
 import { KG_TO_LBS } from '../constants';
 import { type ChartRange, type LiftSummary, rangeStart, trendPoints } from '../utils/liftHistory';
-import { formatSet, metricLabel, metricUnit, toDisplay, trimNum as trim1 } from '../utils/liftDisplay';
+import { formatSet, formatShown, metricLabel, metricUnit, toDisplay, trimNum as trim1 } from '../utils/liftDisplay';
 import { useTheme } from '../hooks/useTheme';
 
 /** 数值智能去零：80 而不是 80.00（§6.5） */
@@ -226,7 +226,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
           <YAxis
             domain={yAxis.domain}
             ticks={yAxis.ticks}
-            tickFormatter={tickNum}
+            tickFormatter={metric === 'duration' ? (v: number) => formatShown('duration', v) : tickNum}
             fontSize={11}
             tick={{ fill: p.tick }}
             axisLine={false}
@@ -245,7 +245,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
                     {pt.pr && <span style={{ color: p.accent, fontWeight: 700, marginLeft: 6 }}>PR</span>}
                   </div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {metricLabel(metric, lang)} {trim1(pt.val)}{suffix && ` ${suffix}`}
+                    {metricLabel(metric, lang)} {formatShown(metric, pt.val)}{suffix && ` ${suffix}`}
                   </div>
                   {pt.set && pt.set.reps > 0 && (
                     <div style={{ color: p.tooltipLabel }}>{formatSet(pt.set, unit, lift.signed, isCn)}</div>

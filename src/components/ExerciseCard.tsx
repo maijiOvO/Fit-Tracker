@@ -24,34 +24,29 @@ import { plural } from '../utils/format';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
-import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind, withStack } from '../hooks/useLoadRounder';
+import { gymOverrideKey, oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { profileIn } from '../utils/loadable';
+import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
 
+
+/** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法 + 今天的馆 */
+export interface PRPool {
+  rule: PRRule;
+  history: PRSet[];
+  gym?: string;
+}
 
 /**
- * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。口径照抄结束训练时的 detectPRs 的 weight 一档：
- * 只比单组最重；历史为空不算；提升 < 0.5kg 或 < 1% 不算（带正负的负荷只看绝对提升）。
- * 一张卡至多标一行：本场最重那组里最早做的那一组。
+ * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。和结束训练的 PB 牌、历史纪录点同一份口径（utils/prRecords）：
+ * 最大重量 / 估算 1RM / 次数纪录 / 单组容量，挑最硬的那一种；历史为空不算；器械只比同一个馆。
+ * 一张卡至多标一行：破了那项纪录的那一组。
  */
-export function prSetIndex(exercise: Exercise, bestKg: number | null | undefined, signed: boolean): number {
-  if (bestKg === null || bestKg === undefined) return -1;
-  let max = -Infinity;
-  let at = -1;
-  exercise.sets.forEach((st, i) => {
-    if (st.ghost) return;
-    const w = signedKg(st, exercise);
-    if (w > max) {
-      max = w;
-      at = i;
-    }
-  });
-  if (at < 0) return -1;
-  const gain = max - bestKg;
-  if (gain < 0.5) return -1;
-  if (!signed && (bestKg <= 0 || gain / bestKg < 0.01)) return -1;
-  return at;
+export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
+  if (!pool) return -1;
+  const top = findRecords(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.gym)[0];
+  return top?.at ?? -1;
 }
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。
@@ -111,7 +106,8 @@ interface ExerciseCardProps {
   /** 刊头「第 N 个」：按卡算（交替组算一张） */
   cardNo?: number;
   /** 这个动作（同一练法）历史上单组最重的带符号 kg；null＝没有历史（不判纪录）。编辑旧训练时不传 */
-  bestKg?: number | null;
+  /** 训练中标 PB（编辑旧训练不传） */
+  prPool?: PRPool | null;
   /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */
   onAlternateWithNext?: () => void;
   /** ⋯ 菜单：加入上面的交替组（上一张不是交替组时不传） */
@@ -154,7 +150,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onNumTap,
   signed = false,
   cardNo,
-  bestKg,
+  prPool,
   onAlternateWithNext,
   onJoinGroupAbove,
   gym,
@@ -179,7 +175,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const hasNote = !!exerciseNotes[exerciseName] || !!gymNote;
   // 馆档案取整器：纯数字的动作（含没有重量这一项的）是 null，组行照旧走首选项的步长
   const rounder = useLoadRounder()(exercise, gym);
-  const prIdx = prSetIndex(exercise, bestKg, signed);
+  const prIdx = prSetIndex(exercise, prPool);
   /**
    * 顶部器材大图每张卡都画（2026-10-18 审查后用户定：只画选中那张时，做完一个动作大图跳到下一张卡，
    * 页面一跳容易点错组）。画哪一组：选中的组在这张卡上就画它，否则画这张卡下一组待做的，都做完了画最后一组。
@@ -202,8 +198,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const writeHero = (next: number) => {
     if (!focusSet) return;
     const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
-    // 改重量就记下登记时的单位（这一组挂的就是这种片），口径同 SetCapsule.fromDisplay
-    const plateUnit: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+    // 改重量就记下这一组挂的是哪种片：这个馆的片子（审查 A8），纯数字的动作按显示单位；口径同 SetCapsule.fromDisplay
+    const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
     const updates: Partial<SetLog> = signed
       ? { weight: kg, plateUnit, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
       : { weight: kg, plateUnit };
@@ -269,11 +265,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   }, [menuOpen]);
 
   const [lastOpen, setLastOpen] = useState(false);
+  // 带正负的动作带上号（辅助 −30、负重 +10），否则辅助和负重读起来一样（审查 C）
+  const lastW = (x: SetLog | NonNullable<SetLog['subSets']>[number], parent?: SetLog) => {
+    if (!signed) return formatWeight(Number(x.weight) || 0, unit);
+    const kg = signedKg(x, exercise, parent);
+    return `${kg < 0 ? '−' : kg > 0 ? '+' : ''}${formatWeight(Math.abs(kg), unit)}`;
+  };
   const lastLine = lastSession
     ? lastSession.sets
         .map(s => {
-          const w = formatWeight(Number(s.weight) || 0, unit);
-          const sub = s.subSets?.length ? `→${s.subSets.map(x => formatWeight(Number(x.weight) || 0, unit)).join('→')}` : '';
+          const w = lastW(s);
+          const sub = s.subSets?.length ? `→${s.subSets.map(x => lastW(x, s)).join('→')}` : '';
           return `${w}${sub}×${Number(s.reps) || 0}`;
         })
         .join('、')
@@ -320,9 +322,14 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               ? prof.fixedBar
               : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
     } else {
-      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）；
-      // 没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变
-      const s = loadKind === 'pin' ? (rounder.ctx.start && rounder.ctx.start > 0 ? rounder.ctx.start : rounder.ctx.inc) : 0;
+      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉；这一台原来存的最轻一格单位一样就原样留着
+      // （按 ctx 里换算过的值写回会越存越漂），没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变
+      const prev = appPrefs.gymOverrides[incKey];
+      const s = loadKind === 'pin'
+        ? prev?.s && prev.s > 0 && prev.u === rounder.unit
+          ? prev.s
+          : rounder.ctx.start && rounder.ctx.start > 0 ? rounder.ctx.start : rounder.ctx.inc
+        : 0;
       ov[incKey] = { v: next, u: rounder.unit, ...(s > 0 ? { s } : {}) };
       inc = next;
     }
@@ -364,6 +371,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
       return;
     }
     if (n !== tareD) changeAppPrefs(keyedPatch('gymTares', tareKey, { v: n, u: rounder.unit }));
+  };
+  /** 单边挂片（T 杠、地雷架）：存这一台的 gymOverrides（键 + '|one'），没做完、没改过的组按新算法重新取整 */
+  const sideKey = kindKey && loadKind === 'loaded' ? oneSideKey(kindKey) : null;
+  const setOneSide = (on: boolean) => {
+    if (!rounder || !sideKey) return;
+    haptic(H.tap);
+    const ov = { ...appPrefs.gymOverrides };
+    if (on) ov[sideKey] = { v: 1, u: rounder.unit };
+    else delete ov[sideKey];
+    changeAppPrefs({ gymOverrides: ov });
+    onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withOneSide(rounder, on)) });
   };
   const setGymKind = (k: 'pin' | 'loaded') => {
     if (!rounder || !kindKey || k === loadKind) return;
@@ -497,8 +515,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {isCn ? '重命名' : 'Rename'}
                   </button>
                 )}
-                {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险；
-                    真正的危险确认在弹窗里做（全宽实心 + 明确文案）。 */}
+                {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险。单击即删、不弹确认；
+                    已经有做完的组时删完给一条撤销（App.tsx onDeleteExerciseFromSession），全是底稿的删了加回来就行。 */}
                 <button
                   type="button"
                   role="menuitem"
@@ -606,6 +624,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   onStack: incKey && loadKind === 'pin' ? setStack : undefined,
                   inc: incKey ? { overridden: incOverridden, onSet: n => setIncOverride(n), onReset: () => setIncOverride(null) } : undefined,
                   tare: tareKey ? { value: tareD ?? null, onSet: saveTare } : undefined,
+                  oneSide: sideKey ? { on: !!rounder.ctx.oneSide, onSet: setOneSide } : undefined,
                 }
               : undefined
           }

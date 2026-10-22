@@ -12,6 +12,7 @@ import React, {
 import { X, Check, AlertCircle } from 'lucide-react';
 import { Language } from '../../types';
 import { Modal, ModalFooter } from '../components/Modal';
+import { useBackClose } from '../hooks/useBackClose';
 
 export type ToastVariant = 'success' | 'error' | 'info';
 
@@ -127,6 +128,8 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
       return null;
     });
   }, []);
+  // 安卓返回键＝取消（确认框总在最上面）
+  useBackClose(!!confirmState, () => closeConfirm(false));
 
   const handleUndo = async (item: ToastItem) => {
     dismissToast(item.id);

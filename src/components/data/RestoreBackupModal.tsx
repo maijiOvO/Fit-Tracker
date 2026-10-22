@@ -36,7 +36,8 @@ import {
   parseAutoBackupName,
   setBackupFolder,
 } from '../../../services/fitlogAutoBackup';
-import { setFlash } from './flash';
+import { overwriteFailedText, overwriteNote, setFlash } from './flash';
+import { blockBack } from '../../hooks/useBackClose';
 
 interface Entry {
   file: FolderFile;
@@ -192,21 +193,24 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       if (!go) return;
     }
     setPhase({ kind: 'applying' });
+    // 写数据的这段时间返回键不理（审查 B11）：写到一半把页面关了只会更糟
+    blockBack(true);
     try {
-      if (mode === 'merge') await mergeBackup(parsed);
-      else await applyBackup(parsed);
+      const pushed = mode === 'merge' ? await mergeBackup(parsed) : await applyBackup(parsed);
       // 授权刚拿到：这个文件夹顺手设成备份文件夹，重载后补一份备份
       setBackupFolder(folder);
       markBackupPending();
       setFlash(
-        t(`已恢复：${parsed.counts.workouts} 次训练`, `Restored: ${parsed.counts.workouts} workouts`),
+        t(`已恢复：${parsed.counts.workouts} 次训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn),
         'success',
       );
       window.location.reload();
     } catch (e) {
       console.error('Restore failed:', e);
-      toast(t('恢复失败，数据未改动', 'Restore failed, nothing changed'), 'error');
+      toast(overwriteFailedText(e, isCn, { cn: '恢复', en: 'Restore' }), 'error');
       setPhase({ kind: 'ready' });
+    } finally {
+      blockBack(false);
     }
   };
 

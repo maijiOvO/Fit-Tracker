@@ -5,7 +5,7 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { storage } from '../../services/appStorage';
-import { isDemo } from '../../services/appEnv';
+import { isDemo, isSolo } from '../../services/appEnv';
 import {
   AppPrefs,
   ResolvedAppPrefs,
@@ -58,7 +58,13 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
     const saved = storage.getItem('fitlog_lang');
     if (saved === Language.EN || saved === Language.CN) return saved;
     // Public demo (fit.myronhub.com) faces an international audience: default to English.
-    return isDemo() ? Language.EN : Language.CN;
+    if (isDemo()) return Language.EN;
+    // 单机发行版给别人装：第一次打开按系统语言（中文系统中文，其余英文，审查 C）；自用版照旧默认中文
+    if (isSolo()) {
+      const nav = typeof navigator !== 'undefined' ? navigator.language || '' : '';
+      return /^zh/i.test(nav) ? Language.CN : Language.EN;
+    }
+    return Language.CN;
   });
 
   const [unit, setUnitState] = useState<'kg' | 'lbs'>(() => {

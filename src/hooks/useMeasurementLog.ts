@@ -37,6 +37,7 @@ export interface UseMeasurementLogResult {
   handleDeleteMeasurement: (e: React.MouseEvent, id: string) => Promise<void>;
   triggerEditMeasurement: (item: Measurement) => void;
   openAddMeasurementEntry: (presetName?: string) => void;
+  closeMeasureModal: () => void;
 }
 
 export function useMeasurementLog(): UseMeasurementLogResult {
@@ -74,13 +75,15 @@ export function useMeasurementLog(): UseMeasurementLogResult {
   }, [measurements]);
 
   const handleSaveMeasurement = useCallback(async () => {
-    if (!measureForm.name || !measureForm.value || !user) {
+    const name = measureForm.name.trim();
+    if (!name || !measureForm.value || !user) {
       toast(isCn ? '请填写完整信息' : 'Please fill in all fields', 'error');
       return;
     }
 
     try {
-      let dateToUse = new Date().toISOString();
+      const now = new Date().toISOString();
+      let dateToUse = now;
       if (editingMeasurementId) {
         const existing = measurements.find(m => m.id === editingMeasurementId);
         if (existing) dateToUse = existing.date;
@@ -89,10 +92,12 @@ export function useMeasurementLog(): UseMeasurementLogResult {
       const entry: Measurement = {
         id: editingMeasurementId || Date.now().toString(),
         userId: user.id,
-        name: measureForm.name,
+        // 名字去掉首尾空格：「腰围 」和「腰围」原来会成两个指标
+        name,
         value: parseFloat(measureForm.value.toString()),
-        unit: measureForm.unit,
+        unit: measureForm.unit.trim(),
         date: dateToUse,
+        updatedAt: now,
       };
 
       await db.save('custom_metrics', entry);
@@ -131,10 +136,24 @@ export function useMeasurementLog(): UseMeasurementLogResult {
     setShowMeasureModal(true);
   }, []);
 
-  const openAddMeasurementEntry = useCallback((presetName?: string) => {
+  /**
+   * 新记一条（审查 A18）：一律清掉「正在改哪一条」——原来「改 → 取消 → 新记」会以编辑态打开、保存时把那一条覆盖掉。
+   * 单位预填这个指标最近一条用的（腰围记 cm 的下次还是 cm）；没指定指标就沿用上一次表单的单位
+   */
+  const openAddMeasurementEntry = useCallback(
+    (presetName?: string) => {
+      setEditingMeasurementId(null);
+      const latest = presetName ? latestMetrics.find(m => m.name === presetName) : undefined;
+      setMeasureForm(f => ({ name: presetName || '', value: '', unit: latest?.unit ?? (presetName ? '' : f.unit) }));
+      setShowMeasureModal(true);
+    },
+    [latestMetrics],
+  );
+
+  /** 关弹窗：编辑态一起清掉，下次打开不会还挂着那一条 */
+  const closeMeasureModal = useCallback(() => {
+    setShowMeasureModal(false);
     setEditingMeasurementId(null);
-    setMeasureForm({ name: presetName || '', value: '', unit: '' });
-    setShowMeasureModal(true);
   }, []);
 
   return {
@@ -151,5 +170,6 @@ export function useMeasurementLog(): UseMeasurementLogResult {
     handleDeleteMeasurement,
     triggerEditMeasurement,
     openAddMeasurementEntry,
+    closeMeasureModal,
   };
 }

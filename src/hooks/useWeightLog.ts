@@ -62,6 +62,7 @@ export function useWeightLog(
       weight: parseWeightToKg(w),
       date: dateToUse,
       unit,
+      updatedAt: new Date().toISOString(),
     };
     await db.save('weightLogs', entry);
 

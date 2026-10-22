@@ -23,7 +23,7 @@ import {
   WorkoutSession,
 } from '../../types';
 import { translations } from '../../translations';
-import { ExerciseCard } from './ExerciseCard';
+import { ExerciseCard, type PRPool } from './ExerciseCard';
 import { AlternatingCard } from './AlternatingCard';
 import {
   applySetUpdate,
@@ -77,7 +77,8 @@ export interface NewWorkoutTabProps {
   /** 底稿抄自哪一场（C2）：给卡头「底稿 · 10/4」用 */
   lastSessionFor?: (ex: Exercise) => { date: string; sets: SetLog[] } | null;
   /** 「杠铃片」§1：这个动作（同一练法）历史单组最重的带符号 kg，训练中实时标 PB 用；null＝没有历史 */
-  bestKgFor?: (ex: Exercise) => number | null;
+  /** 训练中标 PB 用：这个动作以前做完的组 + 比法（utils/prRecords） */
+  prPoolFor?: (ex: Exercise) => PRPool;
   onToggleNote: (name: string, gymKey?: string) => void;
   /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
   onOpenMetricModal: (name: string, exIdx?: number) => void;
@@ -103,7 +104,7 @@ export interface NewWorkoutTabProps {
   /** 本次弹层会话累计添加数 */
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
-  onCreateCustomExercise: (prefilled?: string) => void;
+  onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string }) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onRenameExercise: (id: string, currentName: string) => void;
@@ -137,7 +138,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onOpenTimePicker,
   onOpenExerciseTime,
   lastSessionFor,
-  bestKgFor,
+  prPoolFor,
   onToggleNote,
   onOpenMetricModal,
   onDeleteExerciseFromSession,
@@ -205,7 +206,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     const res = editingWorkoutId ? tapSetNumEditing(exs, r) : tapSetNumPure(exs, r);
     if (res.outcome === 'noop') return;
     haptic(H.tap);
-    setPickedSetId(r.setId);
+    // 做完的那一下选中交给默认（指针下面那一组待做）：留在刚做完的组上，大图 / ± 改的就是做完的组，
+    // 后面没动过的组还会跟着平移（审查 A1）
+    setPickedSetId(res.outcome === 'done' ? null : r.setId);
     if (res.outcome === 'select') return;
     if (res.outcome === 'empty') {
       // 全零的组点不实：一组什么都没填，做完也记不下任何东西
@@ -225,19 +228,22 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   };
 
   /**
-   * 「杠铃片」：这一下由待做变成做完的组，记下做完时挂的是哪种片（当前单位）。
+   * 「杠铃片」：这一下由待做变成做完的组，记下做完时挂的是哪种片 —— 这个馆的片子单位（审查 A8：原来记显示单位，
+   * 显示 lb 的 kg 馆会被记成磅片）。纯数字的动作没有片子：已经记过的照留，没记过的按显示单位。
    * 之后切单位，做完的组不动，行下标「做完时挂的是磅片」靠它；下一次抄底稿时「上次 x」的单位也靠它。
    */
   const stampDoneUnit = (prev: typeof exs, next: typeof exs) => {
-    const u: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+    const shown: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
     const was = new Map<string, boolean>();
     for (const e of prev) for (const st of e.sets) was.set(`${e.id}|${st.id}`, !!st.ghost);
     return next.map(e => {
       let changed = false;
+      const gu = rounderFor(e, currentWorkout.gym)?.unit;
       const sets = e.sets.map(st => {
         if (st.ghost || !was.get(`${e.id}|${st.id}`) || !(Number(st.weight) > 0 || st.subSets?.length)) return st;
         changed = true;
-        return { ...st, plateUnit: u, ...(st.subSets?.length ? { subSets: st.subSets.map(sub => ({ ...sub, plateUnit: u })) } : {}) };
+        const u = gu ?? st.plateUnit ?? shown;
+        return { ...st, plateUnit: u, ...(st.subSets?.length ? { subSets: st.subSets.map(sub => ({ ...sub, plateUnit: gu ?? sub.plateUnit ?? u })) } : {}) };
       });
       return changed ? { ...e, sets } : e;
     });
@@ -268,16 +274,18 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         // 力竭是当日这一组的事实，不跟着抄；touched / 跳过 / 先后号同理。
         // 递减档照抄（2026-10-15 用户定：和普通组一样继承；不做那档就删掉），换新 id、去掉改过标记。
         const newId = `${Date.now()}`;
+        // 编辑旧训练时加的组是补记做过的（审查 B3）：直接按做完入册，不用再点一下组号；新训练照旧从待做开始
+        const asDone = !!editingWorkoutId;
         const newSet: SetLog = lastSet
           ? (() => {
               // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」，不是「从上一次纯换算来的」；
-              // 片子单位按现在的（这一组还没做，挂的就是今天的片）
+              // 片子单位按这个馆的片子（这一组还没做，挂的就是今天的片）
               const { subSets, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, draftAuto: _da, checkWeight: _cw, prefillRef: _pr, ...base } = lastSet;
-              const pu: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+              const pu: SetLog['plateUnit'] = rounderFor(e, w.gym)?.unit ?? (unit === 'lbs' ? 'lbs' : 'kg');
               return {
                 ...base,
                 id: newId,
-                ghost: true,
+                ghost: !asDone,
                 ...(Number(base.weight) > 0 ? { plateUnit: pu } : {}),
                 ...(subSets?.length
                   ? {
@@ -290,7 +298,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   : {}),
               };
             })()
-          : { id: newId, weight: 0, reps: 0, ghost: true };
+          : { id: newId, weight: 0, reps: 0, ghost: !asDone };
         return { ...e, sets: [...e.sets, newSet] };
       }),
     }));
@@ -601,7 +609,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 }}
                 onSplit={() => setExs(list => splitGroup(list, card.group!))}
                 onAddMember={() => onPickerOpenChange(true, null, card.group)}
-                onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to))}
+                onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to, isSigned))}
                 onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
                 onToggleNote={onToggleNote}
                 onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId))}
@@ -655,7 +663,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onOpenExerciseTime={onOpenExerciseTime ? () => onOpenExerciseTime(ex.id) : undefined}
               lastSession={lastSessionFor ? lastSessionFor(ex) : null}
               // 编辑旧训练不判纪录（和结束训练时的 detectPRs 同一口径）
-              bestKg={!editingWorkoutId && bestKgFor ? bestKgFor(ex) : null}
+              prPool={!editingWorkoutId && prPoolFor ? prPoolFor(ex) : null}
               onToggleNote={onToggleNote}
               onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
               onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
@@ -746,10 +754,16 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
         onPartChange={bodyPart => {
-          // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改
+          // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改。
+          // 只在还一个动作都没加的时候（审查 A14）：加了胸的动作再去背那一栏找一个，是在找动作，不是改主意；
+          // 标题和「添加动作默认停的那一栏」（focusPart）一起改，两者不打架
           const label = partTitleFor(bodyPart, lang);
           if (!label) return;
-          setCurrentWorkout(w => (w.title && w.title !== label && isPartTitle(w.title, lang) ? { ...w, title: label } : w));
+          setCurrentWorkout(w =>
+            (w.exercises?.length ?? 0) > 0 || !w.title || w.title === label || !isPartTitle(w.title, lang)
+              ? w
+              : { ...w, title: label, focusPart: bodyPart },
+          );
         }}
         onCreateCustomExercise={onCreateCustomExercise}
         onEditExerciseTags={onEditExerciseTags}

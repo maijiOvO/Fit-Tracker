@@ -2,21 +2,15 @@
  * 一键重置账户
  */
 import React, { useCallback, useState } from 'react';
-import { Goal, Measurement, WeightEntry, WorkoutSession } from '../../types';
 import { translations } from '../../translations';
-import { db } from '../../services/db';
-import { clearTombstones } from '../../services/fitlogTombstones';
-import {
-  isRemoteConfigured,
-} from '../../services/fitlogRemote';
-import { pushFitlogRemoteSnapshot } from '../../services/fitlogRemoteSync';
+import { collectLocalSnapshot } from '../../services/fitlogRemote';
+import { overwriteLocal } from '../../services/fitlogBackup';
+import type { FitlogRemoteSnapshot } from '../../services/fitlogSnapshotTypes';
+import { setFlash } from '../components/data/flash';
+import { blockBack } from './useBackClose';
 import { useAuthContext } from '../contexts/AuthContext';
-import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
-import { storage } from '../../services/appStorage';
 
 export interface UseResetAccountResult {
   showResetAccountModal: boolean;
@@ -37,10 +31,7 @@ export function useResetAccount({
   setEditingWorkoutId,
 }: UseResetAccountParams): UseResetAccountResult {
   const authCtx = useAuthContext();
-  const workoutCtx = useWorkoutContext();
-  const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
-  const prefs = useExercisePrefs();
   const { toast } = useUiOverlay();
 
   const [showResetAccountModal, setShowResetAccountModal] = useState(false);
@@ -55,70 +46,66 @@ export function useResetAccount({
     const lang = settingsCtx.lang;
 
     try {
-      console.log('开始重置本地数据...');
-
-      const allWorkouts = await db.getAll<WorkoutSession>('workouts');
-      for (const w of allWorkouts.filter(w => w.userId === user.id)) {
-        await db.delete('workouts', w.id);
-      }
-      const allGoals = await db.getAll<Goal>('goals');
-      for (const g of allGoals.filter(g => g.userId === user.id)) {
-        await db.delete('goals', g.id);
-      }
-      const allWeights = await db.getAll<WeightEntry>('weightLogs');
-      for (const w of allWeights.filter(w => w.userId === user.id)) {
-        await db.delete('weightLogs', w.id);
-      }
-      const allMeasurements = await db.getAll<Measurement>('custom_metrics');
-      for (const m of allMeasurements.filter(m => m.userId === user.id)) {
-        await db.delete('custom_metrics', m.id);
-      }
-
-      console.log('清除本地存储...');
-      storage.removeItem('fitlog_avatar_data_url');
-      clearTombstones();
-
-      console.log('重置内存状态...');
-      await Promise.all([
-        workoutCtx.refreshFromDb(),
-        goalsCtx.refreshFromDb(),
-        settingsCtx.reloadFromIndexedDb(),
-      ]);
-
-      prefs.resetAllPrefs();
-      workoutCtx.setCurrentWorkout(workoutCtx.createNewWorkout());
-      setEditingWorkoutId(null);
-
-      if (isRemoteConfigured()) {
-        try {
-          await pushFitlogRemoteSnapshot();
-        } catch (e) {
-          console.warn('远端清空快照上传失败:', e);
-        }
-      }
+      /**
+       * 2026-10-22（审查 A24）：和恢复备份走同一条整份改写的路（overwriteLocal）——
+       *   - 删掉的每一条都记墓碑（原来是清空墓碑：下次启动拉取会把服务器上的全部合并回来，重置白做）
+       *   - 训练计划、馆档案等首选项（appPrefs）一起清掉，只留语言和单位
+       *   - 以本机为准推上去；推不上去如实说，联网后自动补推（不会先拉回旧数据）
+       */
+      const before = await collectLocalSnapshot();
+      const keepApp = before.prefs.appPrefs;
+      const empty: FitlogRemoteSnapshot = {
+        schemaVersion: 2,
+        clientExportedAt: new Date().toISOString(),
+        workouts: [],
+        goals: [],
+        weightLogs: [],
+        customMetrics: [],
+        prs: [],
+        scheduledWorkouts: [],
+        customExerciseDefsFromDb: [],
+        prefs: {
+          customTags: [],
+          customExercises: [],
+          exerciseNotes: {},
+          starredExercises: {},
+          exerciseMetricConfigs: {},
+          tagRenameOverrides: {},
+          exerciseOverrides: {},
+          starredLastUpdateMs: 0,
+          metricsLastUpdateMs: 0,
+          prefsLastUpdateMs: 0,
+          lang: before.prefs.lang,
+          unit: before.prefs.unit,
+          avatarDataUrl: null,
+          appPrefs: { ...(keepApp?.lang ? { lang: keepApp.lang } : {}), ...(keepApp?.unit ? { unit: keepApp.unit } : {}) },
+        },
+      };
+      blockBack(true);
+      const pushed = await overwriteLocal(empty, before).finally(() => blockBack(false));
 
       setShowResetAccountModal(false);
       setResetConfirmText('');
-      toast(String(translations.resetSuccess[lang]), 'success');
+      setEditingWorkoutId(null);
       setActiveTab('dashboard');
-
-      console.log('账户重置完成');
+      setFlash(
+        String(translations.resetSuccess[lang]) +
+          (pushed === 'failed'
+            ? lang === 'cn'
+              ? '（服务器暂时没连上，还没清空；联网后会自动补推）'
+              : ' (server unreachable — it is not cleared yet; it will sync once online)'
+            : ''),
+        pushed === 'failed' ? 'info' : 'success',
+      );
+      // 各个 context 都是启动时从存储水化的：重载一次最干净（同恢复备份）
+      window.location.reload();
     } catch (error) {
       console.error('重置账户失败:', error);
       toast(String(translations.resetError[settingsCtx.lang]), 'error');
     } finally {
       setIsResetting(false);
     }
-  }, [
-    authCtx.user,
-    goalsCtx,
-    prefs,
-    setActiveTab,
-    setEditingWorkoutId,
-    settingsCtx,
-    toast,
-    workoutCtx,
-  ]);
+  }, [authCtx.user, setActiveTab, setEditingWorkoutId, settingsCtx, toast]);
 
   return {
     showResetAccountModal,

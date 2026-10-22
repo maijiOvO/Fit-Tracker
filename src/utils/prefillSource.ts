@@ -3,6 +3,8 @@
  *
  * 同一个动作（同一做法）先找今天这个馆最近一次练过的；本馆没练过才退回任意馆最近一次。
  * 今天没标馆 → 照旧取最近一次（不分馆）。
+ * 只有器械类（配重片 / 挂片，gymScopedKind）才按馆优先：杠铃、哑铃是真重量，别的馆上一次练的照样是最新的数
+ * （审查 A11：原来一律本馆优先，会抄回本馆几个月前的旧数）。preferGym 由调用方按这条传。
  * 加动作（useWorkoutMutations.findLast）、换做法、换馆重新挑底稿（useGymSwitch）共用这一份。
  */
 import type { Exercise, SetLog, WorkoutSession } from '../../types';
@@ -24,12 +26,16 @@ export function findLastIn(
   variantId?: string | null,
   skipWorkoutId?: string,
   preferGym?: string,
+  /** 只找这个时间之前的（给旧训练补加动作：底稿不能抄自那一场之后练的） */
+  before?: string,
 ): LastHit | null {
   const target = resolveName(exerciseName);
   if (!target) return null;
+  const beforeMs = before ? new Date(before).getTime() : NaN;
   let fallback: LastHit | null = null;
   for (const w of workouts) {
     if (skipWorkoutId && w.id === skipWorkoutId) continue;
+    if (Number.isFinite(beforeMs) && !(new Date(w.date).getTime() < beforeMs)) continue;
     // 已经有退路了，别的馆的就不用再看
     if (fallback && w.gym !== preferGym) continue;
     for (const we of w.exercises) {

@@ -1,19 +1,17 @@
 /**
- * PR 检测 —— 规格 §9
+ * PR 检测 —— 规格 §9。判定口径在 utils/prRecords（和训练中的 PB 标、历史纪录点同一份）。
  *
- * useExerciseStats.bestLifts 早就算了「历史最大单组重量」，但保存流程从来不调用它，
- * 所以这个 App 至今没有「破纪录」这个概念。这里补上。
- *
- * ⚠️ 判定口径必须写死，否则仪式会贬值。每一条都有理由，别随手放宽：
+ * 这里管的是刊末页上牌的那几条规矩：
  *   - 历史为空不算 PR —— 否则第一次训练全是 PR，签名时刻当场作废
  *   - 编辑旧训练不触发 —— 在改历史，语义混乱
- *   - 阈值 0.5kg 或 1% —— 挡住 kg⇄lbs 换算的浮点噪声反复触发
- *   - 最多 2 枚印 —— 满屏印章就不是签名时刻了
+ *   - 每个动作只上一种纪录（最大重量 > 估算 1RM > 次数纪录 > 单组容量）
+ *   - 最多 2 枚牌，再多合成「另 N 项刷新」—— 满屏印章就不是签名时刻了
  */
 import { WorkoutSession, Exercise } from '../../types';
-import { setVolumeKg, signedKg } from './load';
+import { setVolumeKg } from './load';
+import { RECORD_PRIORITY, findRecords, prSetsOf, type PRSet, type RecordKind } from './prRecords';
 
-export type PRKind = 'weight' | 'volume' | 'reps';
+export type PRKind = RecordKind;
 
 export interface PRHit {
   kind: PRKind;
@@ -24,6 +22,8 @@ export interface PRHit {
   /** 提升幅度，用于排序取最大者 */
   delta: number;
   unitLabel: string;
+  /** 次数纪录：在多重的时候（带符号 kg；辅助为负） */
+  atKg?: number;
 }
 
 export interface PRResult {
@@ -33,41 +33,9 @@ export interface PRResult {
   extraCount: number;
 }
 
-/**
- * §9 阈值：提升 < 0.5kg 或 < 1% 不算。
- * signed：带正负的负荷（辅助 −30 → −20 也是进步），起点可以是 0 或负数，只看绝对提升。
- */
-function passesThreshold(prev: number, next: number, signed = false): boolean {
-  const abs = next - prev;
-  if (signed) return abs >= 0.5;
-  if (prev <= 0) return false;
-  if (abs < 0.5) return false;
-  if (abs / prev < 0.01) return false;
-  return true;
-}
-
-/**
- * 底稿行不是事实（§12.6），不能参与任何纪录判定。
- *
- * session 侧进来时已经被 finishWorkout 剥干净了，但 history 侧是原始
- * workouts —— 里面可能躺着没结束就被放弃的草稿，那些草稿是带 ghost 行
- * 落盘的。不滤的话，一场从没发生过的训练会把 prevV 抬高，反过来把之后
- * 一次真实的容量 PR 压掉。bestLifts / ExerciseCard / TimelineView 早就
- * 在滤了，这里补齐口径。
- */
+/** 底稿行不是事实（§12.6），不能参与任何纪录判定（history 里可能躺着没结束就被放弃的草稿） */
 function realSets(ex: Exercise): any[] {
   return (ex.sets ?? []).filter((s: any) => !s.ghost);
-}
-
-/** 单组最重：带正负的负荷按带符号的数比（辅助为负） */
-function maxSetWeight(ex: Exercise): number {
-  const ws = realSets(ex).map((s: any) => signedKg(s, ex));
-  return ws.length ? Math.max(...ws) : 0;
-}
-
-function maxSetReps(ex: Exercise): number {
-  const rs = realSets(ex).map((s: any) => s.reps || 0);
-  return rs.length ? Math.max(...rs) : 0;
 }
 
 /** 单次训练里这个动作的总容量 Σ(weight × reps)，含子组；辅助的那部分不算 */
@@ -88,15 +56,12 @@ interface DetectParams {
    * 印上写的也是它（「高位下拉（宽握）」）。
    */
   keyOf?: (ex: { name: string; variantId?: string; variantName?: string }) => string;
-  /** 判断自重类动作：activeMetrics 不含 weight 时才启用 reps 口径 */
+  /** 没有重量这一项的（自重类）按最多次数比 */
   getActiveMetrics: (name: string) => string[];
   unitLabel: string;
   /** 这条记录按带正负的负荷记吗（辅助负、自重 0、负重正）；不传＝都不是 */
   isSigned?: (ex: Exercise) => boolean;
-  /**
-   * 「杠铃片」馆档案：这个动作的纪录只在同一个馆里比（配重片器械、挂片式器械，useGymScopedPR）。
-   * 不传＝都跨馆比（旧行为）。
-   */
+  /** 器械类（配重片 / 挂片）的纪录只在同一个馆里比（useGymScopedPR）；不传＝都跨馆比 */
   gymScoped?: (ex: Exercise) => boolean;
 }
 
@@ -120,52 +85,38 @@ export function detectPRs({
   for (const ex of session.exercises ?? []) {
     const name = key(ex).trim();
     if (!name) continue;
-
-    // 该动作（同一练法）的历史记录；器械类只看同一个馆的（没标馆的算一个「馆」）
-    const sameGym = !!gymScoped?.(ex);
-    const past = history.flatMap(w =>
-      sameGym && (w.gym ?? '') !== (session.gym ?? '')
-        ? []
-        : (w.exercises ?? []).filter(e => key(e).trim() === name && realSets(e).length > 0),
+    const signed = !!isSigned?.(ex);
+    const rule = {
+      // 动作设置按动作共享，不分练法
+      tracksWeight: getActiveMetrics(resolveName(ex.name)).includes('weight'),
+      signed,
+      machine: !!gymScoped?.(ex),
+    };
+    const past: PRSet[] = history.flatMap(w =>
+      (w.exercises ?? []).filter(e => key(e).trim() === name).flatMap(e => prSetsOf(e, w.gym, signed)),
     );
-    // 历史为空不算 PR
-    if (past.length === 0) continue;
-
-    // 动作设置按动作共享，不分练法
-    const metrics = getActiveMetrics(resolveName(ex.name));
-    const tracksWeight = metrics.includes('weight');
-
-    if (tracksWeight) {
-      // weight：该动作历史 max(sets.weight)，本次更大
-      const prevW = Math.max(...past.map(maxSetWeight));
-      const nextW = maxSetWeight(ex);
-      const signed = !!isSigned?.(ex);
-      if (passesThreshold(prevW, nextW, signed)) {
-        hits.push({ kind: 'weight', exercise: name, prev: prevW, next: nextW, delta: nextW - prevW, unitLabel });
-        continue; // §9：同时命中时 weight 优先于 volume（更硬）
-      }
-
-      // volume：该动作单次训练总容量，本次更大
-      const prevV = Math.max(...past.map(exerciseVolume));
-      const nextV = exerciseVolume(ex);
-      if (passesThreshold(prevV, nextV)) {
-        hits.push({ kind: 'volume', exercise: name, prev: prevV, next: nextV, delta: nextV - prevV, unitLabel });
-      }
-    } else {
-      // reps：仅当 activeMetrics 不含 weight（自重类）时启用
-      const prevR = Math.max(...past.map(maxSetReps));
-      const nextR = maxSetReps(ex);
-      if (passesThreshold(prevR, nextR)) {
-        hits.push({ kind: 'reps', exercise: name, prev: prevR, next: nextR, delta: nextR - prevR, unitLabel: '' });
-      }
-    }
+    const top = findRecords(rule, past, prSetsOf(ex, session.gym, signed), session.gym)[0];
+    if (!top) continue;
+    hits.push({
+      kind: top.kind,
+      exercise: name,
+      prev: top.prev,
+      next: top.next,
+      delta: top.next - top.prev,
+      unitLabel: top.kind === 'reps' && !rule.tracksWeight ? '' : unitLabel,
+      ...(top.atKg !== undefined ? { atKg: top.atKg } : {}),
+    });
   }
 
   if (hits.length === 0) return { stamps: [], extraCount: 0 };
 
-  // §9 数量上限：最多 2 枚印；>2 时第一枚取提升幅度最大者，
-  // 第二枚合并为「另 N 项刷新」。
-  const sorted = [...hits].sort((a, b) => b.delta / Math.max(b.prev, 1) - a.delta / Math.max(a.prev, 1));
+  // §9 数量上限：最多 2 枚印。先按纪录的硬度（最大重量最硬），同一种按提升幅度；
+  // >2 时第一枚取最前面那个，第二枚合并为「另 N 项刷新」。
+  const sorted = [...hits].sort(
+    (a, b) =>
+      RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind) ||
+      b.delta / Math.max(Math.abs(b.prev), 1) - a.delta / Math.max(Math.abs(a.prev), 1),
+  );
   if (sorted.length <= 2) return { stamps: sorted, extraCount: 0 };
   return { stamps: [sorted[0]], extraCount: sorted.length - 1 };
 }
@@ -180,7 +131,7 @@ export function stampsInUnit(stamps: PRHit[], unit: 'kg' | 'lbs', kgToLbs: numbe
   if (unit === 'kg') return stamps;
   return stamps.map(s =>
     s.kind === 'reps'
-      ? s
+      ? s.atKg !== undefined ? { ...s, atKg: s.atKg * kgToLbs } : s
       : { ...s, prev: s.prev * kgToLbs, next: s.next * kgToLbs, delta: s.delta * kgToLbs },
   );
 }

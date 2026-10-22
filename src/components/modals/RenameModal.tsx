@@ -54,6 +54,15 @@ export const RenameModal: React.FC<RenameModalProps> = ({
         onChange={e => setValue(e.target.value)}
         placeholder={placeholder}
         autoFocus
+        // 改名多半是整个换掉：一进来全选；回车＝确定（审查 B8）
+        onFocus={e => e.currentTarget.select()}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && value.trim()) {
+            e.preventDefault();
+            onConfirm();
+          }
+        }}
+        enterKeyHint="done"
       />
     </Modal>
   );

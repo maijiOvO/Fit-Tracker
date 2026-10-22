@@ -14,6 +14,7 @@ import { DEFAULT_EXERCISES } from '../constants/exercises';
 import { regionList, variantAttrs } from '../utils/exerciseAttrs';
 import { ExerciseDefinition } from '../../types';
 import { mergeOverride } from '../utils/exerciseOverride';
+import { translations } from '../../translations';
 import {
   ExerciseSearchEntry,
   buildSearchEntry,
@@ -26,6 +27,10 @@ export type PickerAxis = { kind: 'part' | 'cat'; v: string } | null;
 export interface ScoredExercise {
   ex: ExerciseDefinition;
   score: number;
+  /**
+   * 搜的是某个做法的名字（「宽握」，或并进来的旧名）、动作名本身对不上：点它就加这个做法，不加标准（审查 A13）
+   */
+  variant?: { id: string; name: string };
 }
 
 export function matchAxis(ex: ExerciseDefinition, axis: PickerAxis): boolean {
@@ -101,16 +106,16 @@ export function useExercisePickerData({
   /** 搜索索引（名字/拼音/标签名），随库或标签名变化重建 */
   const index = useMemo(() => {
     const m = new Map<string, ExerciseSearchEntry>();
+    // 系统部位 / 器材 / 细分两种语言的名字都能搜（英文界面搜「胸」、中文界面搜 chest 都找得到）
+    const namesOf = (tid: string): string[] => {
+      const key = Object.keys(translations).find(k => k.toLowerCase() === tid.toLowerCase());
+      const t = key ? (translations as Record<string, { en: unknown; cn: unknown }>)[key] : null;
+      return [getTagName(tid), ...(t ? [t.en, t.cn] : [])].filter((n): n is string => typeof n === 'string' && !!n);
+    };
     for (const ex of merged) {
       const tagNames: string[] = [];
-      if (ex.bodyPart) {
-        const n = getTagName(ex.bodyPart);
-        if (n) tagNames.push(n);
-      }
-      for (const t of equipmentsOf(ex)) {
-        const n = getTagName(t);
-        if (n) tagNames.push(n);
-      }
+      if (ex.bodyPart) tagNames.push(...namesOf(ex.bodyPart));
+      for (const t of equipmentsOf(ex)) tagNames.push(...namesOf(t));
       // 曾用名也能搜到（搜「杠铃上斜卧推」找得到改名后的「上斜杠铃卧推」）
       tagNames.push(...(ex.aliases ?? []));
       // 做法名也能搜到（搜「宽握」出高位下拉），并进来的旧名同理
@@ -119,10 +124,7 @@ export function useExercisePickerData({
       // 细分名也能搜到（搜「上胸」出整列）：次要细分也算（搜「臀」出深蹲，2026-10-21），做法的细分也算
       const rgs = new Set(effectiveRegions(ex));
       for (const v of ex.variants ?? []) for (const r of regionList(v)) rgs.add(r);
-      for (const r of rgs) {
-        const n = getTagName(r);
-        if (n) tagNames.push(n);
-      }
+      for (const r of rgs) tagNames.push(...namesOf(r));
       m.set(ex.id, buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames));
     }
     return m;
@@ -133,9 +135,23 @@ export function useExercisePickerData({
   /** 只做搜索匹配（不含轴/器材），供结果与两个联动计数共用 */
   const scored = useMemo<ScoredExercise[]>(() => {
     return merged
-      .map(ex => {
+      .map((ex): ScoredExercise => {
         const entry = index.get(ex.id);
-        return { ex, score: entry ? scoreEntry(entry, tokens) : 0 };
+        const score = entry ? scoreEntry(entry, tokens) : 0;
+        if (!score || !tokens.length) return { ex, score };
+        // 动作名（中英、曾用名）本身就对得上：照旧是这个动作；对不上、是做法名对上的：带上那个做法
+        const names = [ex.name.cn ?? '', ex.name.en ?? '', ...(ex.aliases ?? [])];
+        if (names.some(n => scoreEntry(buildSearchEntry(n, n, []), tokens) > 0)) return { ex, score };
+        const hit = (ex.variants ?? []).find(
+          v => v.name && scoreEntry(buildSearchEntry(`${ex.name.cn ?? ''}${v.name}`, `${ex.name.en ?? ''} ${v.name}`, [v.name]), tokens) > 0,
+        );
+        if (hit) return { ex, score, variant: { id: hit.id, name: hit.name } };
+        // 并进来的旧名 → 它变成的那个做法
+        for (const [alias, vid] of Object.entries(ex.variantAliases ?? {})) {
+          const v = (ex.variants ?? []).find(x => x.id === vid);
+          if (v && scoreEntry(buildSearchEntry(alias, alias, []), tokens) > 0) return { ex, score, variant: { id: v.id, name: v.name } };
+        }
+        return { ex, score };
       })
       .filter(r => r.score > 0);
   }, [merged, index, tokens]);

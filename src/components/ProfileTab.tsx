@@ -44,6 +44,10 @@ interface ProfileTabProps {
   /** 首选项「数据」组 */
   syncStatus: SyncStatus;
   lastSyncedAt: number | null;
+  /** 推送这一头：有改动没推 / 推送失败 / 都推上去了 */
+  pushState?: 'synced' | 'pending' | 'failed';
+  /** 导出 / 导入在忙（自己的状态，不借同步的） */
+  dataBusy?: boolean;
   onSync?: () => void;
   onExportData: () => void;
   onImportData: () => void;
@@ -75,6 +79,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onToggleLanguage,
   syncStatus,
   lastSyncedAt,
+  pushState,
+  dataBusy,
   onSync,
   onExportData,
   onImportData,
@@ -363,6 +369,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         onClose={() => setPrefsOpen(false)}
         syncStatus={syncStatus}
         lastSyncedAt={lastSyncedAt}
+        pushState={pushState}
+        dataBusy={dataBusy}
         onSync={onSync}
         onExportData={onExportData}
         onImportData={onImportData}

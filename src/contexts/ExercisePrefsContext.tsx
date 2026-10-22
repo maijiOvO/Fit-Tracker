@@ -37,6 +37,7 @@ import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
 import { useUiOverlay } from './UiOverlayContext';
 import { useUserSettingsContext } from './UserSettingsContext';
 import { storage } from '../../services/appStorage';
+import { appPrefsNow } from '../../services/appPrefs';
 
 export interface CustomTag {
   id: string;
@@ -587,10 +588,20 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [customTags],
   );
 
+  /**
+   * 没配置过记录项时的默认：有氧按首选项「有氧默认记录」（时长 + 距离），其余重量 × 次数（审查 A17：
+   * 原来一律重量 × 次数，有氧点「重置默认」、第一次加之前改一项、全关掉，都会变成重量 × 次数）
+   */
+  const defaultMetricsFor = useCallback(
+    (exerciseName: string): string[] =>
+      findExerciseDef(exerciseName)?.category === 'CARDIO' ? [...appPrefsNow().cardioMetrics] : ['weight', 'reps'],
+    [findExerciseDef],
+  );
+
   const getActiveMetrics = useCallback(
     (exerciseName: string): string[] =>
-      exerciseMetricConfigs[resolveName(exerciseName)] || ['weight', 'reps'],
-    [exerciseMetricConfigs, resolveName],
+      exerciseMetricConfigs[resolveName(exerciseName)] || defaultMetricsFor(exerciseName),
+    [exerciseMetricConfigs, resolveName, defaultMetricsFor],
   );
 
   /** ====================== Actions ====================== */
@@ -600,7 +611,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       setExerciseMetricConfigs(prev => {
         // 写回这个动作原来就有的那个键（可能是旧名 / 另一语言名），没有才用显示名新开
         const key = rawKeysFor(prev, exerciseName)[0] ?? resolveName(exerciseName);
-        const current = prev[key] || ['weight', 'reps'];
+        const current = prev[key] || defaultMetricsFor(exerciseName);
         const normalizedCurrent = current.map(m => m.trim());
         const normalizedKey = metricKey.trim();
         const isCurrentlySelected = normalizedCurrent.includes(normalizedKey);
@@ -612,7 +623,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         } else {
           next = [...current, metricKey];
         }
-        if (next.length === 0) next = ['reps'];
+        // 全关掉了：留一项（有氧留时长，其余留次数），不然这一行什么都记不了
+        if (next.length === 0) next = [defaultMetricsFor(exerciseName).includes('duration') ? 'duration' : 'reps'];
         const cleanNext = next.map(m => m.trim()).filter(m => m.length > 0);
         const updated = { ...prev, [key]: cleanNext };
         writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
@@ -621,7 +633,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         return updated;
       });
     },
-    [rawKeysFor, resolveName],
+    [rawKeysFor, resolveName, defaultMetricsFor],
   );
 
   const resetMetricsToDefault = useCallback((exerciseName: string) => {

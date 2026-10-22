@@ -17,6 +17,8 @@ import {
   rollbackImport,
 } from '../../services/fitlogBackup';
 import type { ExportStatus } from './useExportData';
+import { overwriteFailedText, overwriteNote, setFlash } from '../components/data/flash';
+import { blockBack } from './useBackClose';
 
 /**
  * 打开系统文件选择器。
@@ -98,38 +100,54 @@ export function useImportData(
 
     try {
       setSyncStatus('syncing');
-      await applyBackup(parsed);
+      blockBack(true);
+      const pushed = await applyBackup(parsed).finally(() => blockBack(false));
+      const note = overwriteNote(pushed, isCn);
+      if (note) setFlash((isCn ? '已恢复' : 'Restored') + note, 'info');
       // 所有 context 都是启动时从存储水化的，只能靠重载让它们看到新数据
       window.location.reload();
     } catch (error) {
       console.error('Import failed:', error);
-      toast(isCn ? '导入失败，数据未改动' : 'Import failed, nothing changed', 'error');
+      toast(overwriteFailedText(error, isCn, { cn: '导入', en: 'Import' }), 'error');
       setSyncStatus('error');
     }
   }, [confirm, setSyncStatus, settingsCtx, toast]);
 }
 
-export function useRollbackImport(): () => Promise<void> {
+/** newer：导入之后新记的训练数（撤销会一起丢掉，确认框里要说，审查 A25） */
+export function useRollbackImport(): (newer?: number) => Promise<void> {
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
 
-  return useCallback(async () => {
+  return useCallback(async (newer = 0) => {
     const isCn = settingsCtx.lang === Language.CN;
     const go = await confirm({
       title: isCn ? '撤销上次导入？' : 'Undo last import?',
-      message: isCn
-        ? '恢复到导入前的状态，仅能撤销一次。'
-        : 'Restore the state before that import. Works only once.',
+      message:
+        (isCn ? '恢复到导入前的状态，仅能撤销一次。' : 'Restore the state before that import. Works only once.') +
+        (newer > 0
+          ? isCn
+            ? `\n\n导入之后新记的 ${newer} 场训练也会一起丢掉。`
+            : `\n\nThe ${newer} workout${newer > 1 ? 's' : ''} logged since the import will be lost too.`
+          : ''),
       confirmLabel: isCn ? '撤销' : 'Undo',
       danger: true,
     });
     if (!go) return;
     try {
-      await rollbackImport();
+      blockBack(true);
+      const pushed = await rollbackImport().finally(() => blockBack(false));
+      const note = overwriteNote(pushed, isCn);
+      if (note) setFlash((isCn ? '已撤销导入' : 'Import undone') + note, 'info');
       window.location.reload();
     } catch (error) {
       console.error('Rollback failed:', error);
-      toast(isCn ? '撤销失败' : 'Undo failed', 'error');
+      toast(
+        error instanceof Error && error.message === 'no-rollback'
+          ? isCn ? '导入前的副本已过期（只留 7 天）' : 'The pre-import copy has expired (kept 7 days)'
+          : overwriteFailedText(error, isCn, { cn: '撤销', en: 'Undo' }),
+        'error',
+      );
     }
   }, [confirm, settingsCtx, toast]);
 }

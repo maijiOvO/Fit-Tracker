@@ -21,7 +21,8 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
-import { weightBaseline } from '../utils/weightSummary';
+import { weightBaseline, weightDelta } from '../utils/weightSummary';
+import { useGymScopedPR } from '../hooks/useLoadKind';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -38,7 +39,7 @@ export interface DashboardActions {
   onResumeWorkout: () => void;
   /** 结束进行中的训练（一组都没做完时＝问要不要放弃） */
   onEndInProgress: () => void;
-  onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
+  onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
   onDeleteWorkout: (
     workoutId: string,
@@ -82,6 +83,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const dateLocale = isCn ? 'zh-CN' : 'en-US';
   const { workouts: allWorkouts, currentWorkout } = useWorkoutContext();
   const prefs = useExercisePrefs();
+  // 器械类纪录只在同一个馆里比（和刊末页同一口径，utils/prRecords）
+  const gymScoped = useGymScopedPR();
   /**
    * 进行中的那场（工作台里有动作、还没结束）：顶上单独一行，不进时间线。
    * 一组都没做完的空场（练到一半放弃留下的「N 动作 0 组」）也不进时间线 —— 它不是数据。
@@ -107,8 +110,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         resolveName: prefs.resolveName,
         signedLoadOf: ex => usesSignedLoad(ex, prefs.signedLoadOf(ex.name)),
         getActiveMetrics: prefs.getActiveMetrics,
+        gymScoped,
       }),
-    [workouts, prefs],
+    [workouts, prefs, gymScoped],
   );
   const openLift =
     selectedPRProject && selectedPRProject !== '__WEIGHT__'
@@ -180,11 +184,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   const weightSummary = useMemo(() => {
     const s = weightBaseline(weightEntries);
     if (!s) return null;
-    const delta = s.latest.weight - s.baseline.weight;
-    const sign = delta > 0 ? '+' : '';
+    const d = weightDelta(weightEntries, unit);
     return {
       value: formatWeight(s.latest.weight, unit),
-      delta: s.count >= 2 ? `${sign}${formatWeight(delta, unit)}` : null,
+      delta: d?.text ?? null,
+      days: d?.days ?? 30,
     };
   }, [weightEntries, unit]);
 
@@ -268,7 +272,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               >
                 {weightSummary.delta} {unit}
                 <span className="text-tertiary font-normal ml-0.5">
-                  {lang === Language.CN ? '· 30天' : '· 30d'}
+                  {lang === Language.CN ? `· ${weightSummary.days}天` : `· ${weightSummary.days}d`}
                 </span>
               </span>
             )}
@@ -444,10 +448,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         renderSetCapsule={renderSetCapsule}
         formatExerciseTime={formatExerciseTime}
         onEditExerciseTime={(workoutId, exerciseId, initial) => setExerciseTimeEdit({ workoutId, exerciseId, initial })}
-        onEditWorkout={id => {
-          setSelectedPRProject(null);
-          actions.onEditWorkout(id);
-        }}
+        // 详情不关（审查 B5）：改完回到首页，详情还开着、停在原处；编辑页滚到这个动作
+        onEditWorkout={(id, exerciseId) => actions.onEditWorkout(id, exerciseId ? { focusExerciseId: exerciseId } : undefined)}
         onDeleteRecord={(e, workoutId, exerciseId, date) =>
           actions.onDeleteExerciseRecord(e, workoutId, exerciseId, openLift?.baseName ?? '', date)
         }

@@ -4,7 +4,7 @@
  * 以前在列表里原地展开，图下面的「历史」还要再点开一次，每场是一整排组胶囊外加常驻的编辑 / 删除按钮。
  * 现在逐场一行（日期 · 这场最好的一组 · 组数 · 破纪录打 PR），点一行才展开全部组和操作。
  */
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Edit2, Trash2 } from 'lucide-react';
 import { Modal } from './Modal';
 import { Language } from '../../types';
@@ -18,7 +18,7 @@ import {
   sessionMetric,
   sessionMetricSet,
 } from '../utils/liftHistory';
-import { formatLoad, formatSet, metricLabel, metricUnit, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { formatLoad, formatMetric, formatSet, metricLabel, metricUnit, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { plural } from '../utils/format';
 import { storage } from '../../services/appStorage';
 
@@ -41,6 +41,12 @@ function savedRange(): ChartRange | null {
 const autoRange = (lift: LiftSummary): ChartRange =>
   Date.now() - lift.sessions[0].ts > 183 * 86400000 ? '6m' : 'all';
 
+/**
+ * 点「编辑这场」进编辑、改完回来（审查 B5）：详情接着开着，展开的那一场、滚到哪儿都和走之前一样。
+ * 首页（连同这张详情）在训练页时是卸掉的，状态只能记在模块里；用一次就清。
+ */
+let resumeAt: { key: string; expanded: string | null; scrollTop: number } | null = null;
+
 interface LiftDetailSheetProps {
   lift: LiftSummary | null;
   onClose: () => void;
@@ -52,7 +58,8 @@ interface LiftDetailSheetProps {
   renderSetCapsule: (s: any, exerciseName: string, ex: unknown, idx: number) => React.ReactNode;
   formatExerciseTime: (iso: string, lang: 'cn' | 'en') => { time: string };
   onEditExerciseTime: (workoutId: string, exerciseId: string, initial: Date) => void;
-  onEditWorkout: (workoutId: string) => void;
+  /** exerciseId：编辑页打开后滚到这个动作 */
+  onEditWorkout: (workoutId: string, exerciseId?: string) => void;
   onDeleteRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string, date: string) => void;
 }
 
@@ -79,6 +86,23 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
   const [chosenRange, setChosenRange] = useState<ChartRange | null>(savedRange);
   const [expanded, setExpanded] = useState<string | null>(null);
   useEffect(() => setExpanded(null), [lift?.key]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const scroller = () => bodyRef.current?.parentElement ?? null;
+  // 从编辑回来：接着展开那一场、滚回原处（在上面那个清空之后跑）
+  useEffect(() => {
+    if (!lift || resumeAt?.key !== lift.key) return;
+    setExpanded(resumeAt.expanded);
+  }, [lift?.key]);
+  useLayoutEffect(() => {
+    if (!lift || resumeAt?.key !== lift.key || expanded !== resumeAt.expanded) return;
+    const top = resumeAt.scrollTop;
+    resumeAt = null;
+    // 图表是懒加载的，高度晚一拍才定：等两帧再滚
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = scroller();
+      if (el) el.scrollTop = top;
+    }));
+  }, [lift?.key, expanded]);
 
   const chooseRange = (r: ChartRange) => {
     setChosenRange(r);
@@ -129,7 +153,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         const v = sessionMetric(s, m);
         if (v != null && (!best || v > best.v)) best = { v, ts: s.ts };
       }
-      if (best) cards.push({ label: metricLabel(m, lang), value: trimNum(toDisplay(m, best.v, unit)), sub: shortDate(best.ts, isCn) });
+      if (best) cards.push({ label: metricLabel(m, lang), value: formatMetric(m, best.v, unit), unit: metricUnit(m, unit) || undefined, sub: shortDate(best.ts, isCn) });
     }
   }
 
@@ -139,7 +163,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
     const set = sessionMetricSet(s, metric) ?? (l.hasWeight ? s.top : null);
     if (set) return formatSet(set, unit, l.signed, isCn);
     const v = sessionMetric(s, metric);
-    return v == null ? '—' : `${trimNum(toDisplay(metric, v, unit))}${metricUnit(metric, unit) && ` ${unit}`}`;
+    return v == null ? '—' : `${formatMetric(metric, v, unit)}${metricUnit(metric, unit) && ` ${metricUnit(metric, unit)}`}`;
   };
 
   return (
@@ -154,6 +178,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
       bodyClassName="flex-1 min-h-0 overflow-y-auto custom-scrollbar pb-8"
       testId="lift-detail"
     >
+      <div ref={bodyRef} className="contents" />
       {cards.length > 0 && (
         <div className={`grid gap-2 ${cards.length >= 3 ? 'grid-cols-3' : cards.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {cards.map(c => (
@@ -275,7 +300,10 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => onEditWorkout(s.workoutId)}
+                      onClick={() => {
+                        resumeAt = { key: l.key, expanded, scrollTop: scroller()?.scrollTop ?? 0 };
+                        onEditWorkout(s.workoutId, s.exerciseId);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-control bg-inset text-sm font-medium text-primary"
                     >
                       <Edit2 size={14} strokeWidth={1.75} />

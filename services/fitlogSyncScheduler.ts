@@ -1,4 +1,4 @@
-import { pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
+import { markPushDirty, markPushFailed, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
 import { isRemoteConfigured, RemoteError } from './fitlogRemote';
 
 let t: ReturnType<typeof setTimeout> | undefined;
@@ -8,6 +8,7 @@ function notifyPushFailed(err: unknown): void {
   const detail = err instanceof Error ? err.message : String(err ?? '');
   const kind = err instanceof RemoteError ? err.kind : 'unreachable';
   console.warn('[fitlog] background push failed:', err);
+  markPushFailed();
   if (typeof window !== 'undefined') {
     window.dispatchEvent(
       new CustomEvent('fitlog:push-failed', { detail: { message: detail, kind } }),
@@ -56,6 +57,8 @@ export function cancelPendingFitlogPush(): void {
 /** 远端写入防抖；未配置 API 时为 no-op */
 export function scheduleDebouncedFitlogPush(delayMs = 800): void {
   if (!isRemoteConfigured()) return;
+  // 先在本机记下「有改动没推」：定时器没等到（App 被杀、切后台被冻结）下次启动 / 回到前台照样补推
+  markPushDirty();
   if (t) clearTimeout(t);
   t = setTimeout(() => {
     t = undefined;

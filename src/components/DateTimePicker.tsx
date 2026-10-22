@@ -2,7 +2,7 @@
  * 日期时间选择器组件
  */
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
 import { dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
@@ -105,8 +105,10 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
                 } else setCurrentMonth(currentMonth - 1);
               }}
               className="p-2 hover:bg-inset rounded-control transition-colors"
+              aria-label={lang === Language.CN ? '上个月' : 'Previous month'}
             >
-              <ChevronDown size={20} className="text-secondary" />
+              {/* 换月是左右，不是上下（审查 B13） */}
+              <ChevronLeft size={20} className="text-secondary" />
             </button>
             <span className="font-semibold text-primary">
               {currentYear} {months[currentMonth]}
@@ -119,8 +121,9 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
                 } else setCurrentMonth(currentMonth + 1);
               }}
               className="p-2 hover:bg-inset rounded-control transition-colors"
+              aria-label={lang === Language.CN ? '下个月' : 'Next month'}
             >
-              <ChevronUp size={20} className="text-secondary" />
+              <ChevronRight size={20} className="text-secondary" />
             </button>
           </div>
 
@@ -187,7 +190,8 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
 
           <div className="flex flex-col items-center space-y-2">
             <button
-              onClick={() => setSelectedMinute((selectedMinute + 5) % 60)}
+              // 吸到 5 分钟的格子上走（原来 3 分往下减出 -2，审查 B13）
+              onClick={() => setSelectedMinute((Math.floor(selectedMinute / 5) * 5 + 5) % 60)}
               className="p-2 hover:bg-inset rounded-control"
             >
               <ChevronUp size={20} className="text-secondary" />
@@ -199,7 +203,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
               <div className="text-xs text-tertiary">{translations.minute[lang]}</div>
             </div>
             <button
-              onClick={() => setSelectedMinute(selectedMinute === 0 ? 55 : selectedMinute - 5)}
+              onClick={() => setSelectedMinute((Math.ceil(selectedMinute / 5) * 5 + 55) % 60)}
               className="p-2 hover:bg-inset rounded-control"
             >
               <ChevronDown size={20} className="text-secondary" />

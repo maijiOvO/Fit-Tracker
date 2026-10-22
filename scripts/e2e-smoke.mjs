@@ -173,6 +173,27 @@ async function clickAppConfirm(page, labelRe) {
  * workbench-not-restored 之后按返回只离开页面、工作台原样留着（首页顶上「进行中」、FAB 变「回到训练」）；
  * 原来靠「返回即清空」给后续用例复位的地方，改成首页「进行中 → 结束 → 放弃」。
  */
+/**
+ * 开练先选馆（2026-10-21 起；计划开练 / 复制为今天 2026-10-22 起也先选）：点了开练的那一下之后，
+ * 弹「这场在哪个馆练」就选第一个；一个馆都没有时直接是「新的馆」表单，起个名存好（就在这个馆开）。
+ * 没弹（接回进行中的那场之类）就什么都不做。等到选馆弹层关掉、新建页出来才返回。
+ */
+async function pickStartGym(page, name = 'E2E Gym') {
+  const ready = page.locator('text=/新建训练|New Workout/');
+  const picker = page.locator('[data-testid="gym-picker"]');
+  const form = page.locator('[data-testid="gym-profile-form"]');
+  await ready.or(picker).or(form).first().waitFor({ timeout: 5_000 });
+  if (await form.isVisible().catch(() => false)) {
+    await page.locator('[data-testid="gym-profile-name"]').fill(name);
+    await page.locator('[data-testid="gym-profile-save"]').click();
+    await form.waitFor({ state: 'detached', timeout: 3_000 });
+  } else if (await picker.isVisible().catch(() => false)) {
+    await picker.locator('[data-testid^="gym-option-"]').first().click();
+  }
+  await picker.waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
+  await ready.first().waitFor({ timeout: 5_000 });
+}
+
 async function backAndDiscard(page) {
   await page.getByLabel(/^返回$|^Back$/).first().click();
   // 离开训练页＝底栏回来；弹了确认框的话停在训练页、底栏不回来
@@ -761,6 +782,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await step(page, 'seeded-library-delete-hides', async () => {
     const before = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     // 弹层滑入不用等：fill / click 自己等元素可用、位置稳定
     await page.locator('[data-testid="open-picker-sheet"]').click();
@@ -851,6 +873,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // pr-stamp-kg-labeled-lbs：lbs 下历史最大 185，这次 200 → 印章写 185 → 200（不是 kg 的 83.9 → 90.7）
   await step(page, 'seeded-pr-stamp-in-display-unit', async () => {
     await sessionMenu(W_HEAT.id, /复制为今天的训练|Copy to today/);
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const row0 = page.locator('.ledger-row').first();
     await row0.locator('[data-testid="ledger-field-weight"] input').fill('200');
@@ -905,6 +928,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // B1 / B2 / C2（2026-10-11）：弹层底部「完成」；本次打开里加过的再点一下＝取消；卡头「底稿 · M/D」点开看上次的几组
   await step(page, 'seeded-picker-toggle-done-bar-prefill', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     // 问了的话是模态框：下面的点击会被遮罩挡住而超时，不会悄悄过去
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('starting a workout must not ask about the last one any more');
@@ -958,6 +982,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // hidden-builtin-name-locked：删掉的动作名字不再被永久占着 —— 用同一个名字新建＝把它恢复出来（历史还挂在它身上）
   await step(page, 'seeded-create-restores-deleted', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+    await pickStartGym(page);
     // 进了新建页，或者先问了一句（旧版会问「新开一场？」）：哪个先出来处理哪个
     await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(新开一场|Start new)$/);
@@ -1152,7 +1177,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const item = page.locator('[data-testid^="schedule-item-"]', { hasText: planTitle }).first();
     await item.waitFor({ state: 'visible', timeout: 5_000 });
     const itemText = await item.innerText();
-    if (!/137lbs/.test(itemText)) throw new Error(`plan card should show 137lbs, got "${itemText.replace(/\s+/g, ' ')}"`);
+    if (!/137 ?lbs?(?![a-z])/.test(itemText)) throw new Error(`plan card should show 137 lb, got "${itemText.replace(/\s+/g, ' ')}"`);
     const scheduleId = (await item.getAttribute('data-testid')).replace('schedule-item-', '');
     const saved = await page.evaluate(async id => {
       await window.__fitlog.flush();
@@ -1168,9 +1193,12 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     // 开练：底稿按今天的馆就近取整（「杠铃片」2026-10-18）：137 lb 杠铃 → 135（45 杆 + 每边 45；140 更远），
     // 行下标「计划 137 lb」。原来的 bug 是把 lb 当 kg 再换一次（135 → 297.62）
     await page.locator(`[data-testid="schedule-start-${scheduleId}"]`).click();
-    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换。哪个先出来处理哪个
-    await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
-    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(继续|Continue)$/);
+    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换（在选馆之前）。哪个先出来处理哪个
+    const replace = page.getByRole('button', { name: /^(继续|Continue)$/ });
+    await replace.or(page.locator('[data-testid="gym-picker"]')).or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
+    // 点了「继续」选馆弹层马上接着出来（也是 dialog），不能等 dialog 消失
+    if (await replace.isVisible().catch(() => false)) await replace.click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const w0 =await page.locator('.ledger-row').first().locator('[data-testid="ledger-field-weight"] input').inputValue();
     if (Number(w0) !== 135) throw new Error(`plan 137 lb should start snapped to 135 lbs, got ${w0}`);
@@ -1185,6 +1213,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await step(page, 'seeded-gym-profile-new-and-edit', async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const unitNow = async () => (await page.locator('[data-testid="unit-toggle"]').innerText()).trim();
     // 前面的用例把单位切成了 kg：先切回 lbs，好看出存公斤片的馆会把单位切过来
@@ -1237,7 +1266,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const w1 = await weights();
     if (!w1.every(w => w === 60)) throw new Error(`typing 60 should carry the drafts below, got ${JSON.stringify(w1)}`);
 
-    // 编辑今天这个馆：换成磅片 → 单位切 lbs，60 kg (132.28 lb) 就近取到 130（130 差 2.28、135 差 2.72）
+    // 编辑今天这个馆：换成磅片 → 单位切 lbs。手打的第 1 组照原样（60 kg = 132.28 lb，审查 A10：不重新取整手打的数），
+    // 被带着跟成 60 的后两组就近取到 130（130 差 2.28、135 差 2.72）
     await page.locator('[data-testid="gym-button"]').click();
     await picker.waitFor({ state: 'visible', timeout: 3_000 });
     const idx = await picker.locator('[data-testid^="gym-option-"]').evaluateAll((els, n) => els.findIndex(e => e.textContent.includes(n)), gymName);
@@ -1245,15 +1275,16 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     if (!/公斤片/.test(await picker.locator(`[data-testid="gym-option-${idx}"]`).innerText())) throw new Error('gym row should show its plate unit');
     await page.locator(`[data-testid="gym-edit-${idx}"]`).click();
     await form.waitFor({ state: 'visible', timeout: 3_000 });
-    if (await page.locator('[data-testid="gym-profile-name"]').count()) throw new Error('editing an existing gym should not ask for a name');
+    // 2026-10-21 起馆可以改名（62ff67c）：编辑时名字栏在，预填原名
+    if ((await page.locator('[data-testid="gym-profile-name"]').inputValue()) !== gymName) throw new Error('editing an existing gym should prefill its name');
     await form.getByRole('button', { name: /^磅片$/ }).click();
     await page.locator('[data-testid="gym-profile-save"]').click();
     await form.waitFor({ state: 'detached', timeout: 3_000 });
     // 存档案 → 切单位 → 重新取整：等单位切过来、组重新取整（正向，等不到就超时、照样断言）
-    await until(async () => (await unitNow()) === 'lbs' && (await weights()).every(w => w !== 60), 'the unit switch + re-round after saving lb plates').catch(() => {});
+    await until(async () => (await unitNow()) === 'lbs' && (await weights()).slice(1).every(w => w === 130), 'the unit switch + re-round after saving lb plates').catch(() => {});
     if ((await unitNow()) !== 'lbs') throw new Error(`saving today's gym with lb plates should switch to lbs, got ${await unitNow()}`);
     const w2 = await weights();
-    if (!w2.every(w => w === 130)) throw new Error(`pending sets should re-round onto lb plates (60 kg → 130 lb), got ${JSON.stringify(w2)}`);
+    if (w2[0] !== 132.28 || !w2.slice(1).every(w => w === 130)) throw new Error(`typed set stays 132.28 lb, followed sets re-round onto lb plates (130), got ${JSON.stringify(w2)}`);
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/没做完的组按新档案重新取整/.test(t)) throw new Error(`edit-today toast: ${t}`);
     await dismissToasts();
@@ -1351,6 +1382,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await inProgress.waitFor({ state: 'detached', timeout: 3_000 });
     }
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const picker = page.locator('[data-testid="gym-picker"]');
     const pickGym = async name => {
@@ -1529,6 +1561,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await page.locator('[data-testid="in-progress"] button').first().click();
     } else {
       await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
     }
     await page.locator('[data-testid="gym-button"]').waitFor({ state: 'visible', timeout: 5_000 });
     const picker = page.locator('[data-testid="gym-picker"]');
@@ -1584,6 +1617,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await page.locator('[data-testid="in-progress"] button').first().click();
     } else {
       await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
     }
     await page.locator('[data-testid="gym-button"]').waitFor({ state: 'visible', timeout: 5_000 });
     const picker = page.locator('[data-testid="gym-picker"]');
@@ -1631,8 +1665,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await menu.locator('[data-testid="stack-start"]').fill('12.5');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
-    // 每格沿档位表走（10 → 5）：往左划一下
-    const stepAfter = await swipe('stack-step', -20);
+    // 每格沿档位表走（10 → 5）：往左划一档＝走够 20px 接管、再走 10–20px（接管之前的那段不算档；8 步一步 5px，越过 20 的那一步在 20 上）
+    const stepAfter = await swipe('stack-step', -40);
     if (!(stepAfter < 10 && [1, 2.5, 5].includes(stepAfter))) throw new Error(`swiping 每格 left should walk down the lb list (10 → 5 → 2.5…), got ${stepAfter}`);
     // 回到每格 5（后面按 12.5 + 5 的刻度断言）：真点一下再打字 —— 横划热区不能把「点一下进输入」吃掉
     await menu.locator('[data-testid="stack-step"]').click();
@@ -2016,6 +2050,7 @@ const main = async () => {
   await step(page, 'plan-start-from-schedule', async () => {
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     // The prefilled exercise name should be visible somewhere in the workout view
     const has = await page.locator('text=E2E Bench Press').first().isVisible().catch(() => false);
@@ -2034,6 +2069,7 @@ const main = async () => {
     await page.locator('[data-testid="plan-subview-schedule"]').click();
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
+    await pickStartGym(page);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     // 计划里的组是待做（第 4 条）：填个次数、点组号才算做完，否则「底稿不入册」结束不了
     const firstRow = page.locator('.ledger-row').first();
@@ -2209,6 +2245,7 @@ const main = async () => {
       await m0.waitFor({ state: 'visible', timeout: 3_000 });
       await page.waitForTimeout(400);
       await m0.getByRole('menuitem').filter({ hasText: /复制为今天的训练|Copy to today/ }).click();
+      await pickStartGym(page);
       await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
       await page.locator('.ledger-row .set-num').first().click(); // 默认选中指针下那组：一下就做完
       await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
@@ -2259,6 +2296,7 @@ const main = async () => {
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
     await page.waitForTimeout(400); // 同上：静默期
     await menu.getByRole('menuitem').filter({ hasText: /复制为今天的训练|Copy to today/ }).click();
+    await pickStartGym(page);
 
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const hasExercise = await page.locator('text=E2E Bench Press').first().isVisible().catch(() => false);
@@ -2282,6 +2320,7 @@ const main = async () => {
 
   await step(page, 'open-workout-via-fab', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+    await pickStartGym(page);
     // 2026-10-11：刚结束过一场也不再问「继续刚才那场？」，直接进新建页（接回走时间线长按菜单）
     // 问了还是进了，哪个先出来等哪个（原来固定等 400ms）
     await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
@@ -2426,13 +2465,16 @@ const main = async () => {
     await menu.getByRole('button', { name: /^取消$/ }).click();
     await menu.waitFor({ state: 'detached', timeout: 3_000 });
 
-    // 2) 整理：按住即拖，同列把最后一张拖到最上面；撤销条撤回
+    // 2) 整理：按住一下（≥ 150ms，审查 B6）再拖，同列把最后一张拖到最上面；撤销条撤回。
+    //    没按够就动＝在滑列表，卡片不动（原来按下即拖，格子里划不动）
     await sheet.locator('[data-testid="region-arrange"]').click();
     const mid = await names('中胸');
     const first = await (await col('中胸')).first().boundingBox();
     const midCol = await col('中胸');
     const last = midCol.filter({ hasText: mid[mid.length - 1] });
-    await drag(last, first.x + first.width / 2, first.y + 4, 60);
+    await drag(last, first.x + first.width / 2, first.y + 4, 30);
+    if ((await names('中胸'))[0] === mid[mid.length - 1]) throw new Error('a quick swipe in arrange mode should not pick the card up');
+    await drag(last, first.x + first.width / 2, first.y + 4, 220);
     const midAfter = await names('中胸');
     if (midAfter[0] !== mid[mid.length - 1]) throw new Error(`arrange reorder failed: ${mid.join('|')} → ${midAfter.join('|')}`);
     const t = await page.locator('[data-testid="toast"]').last().innerText();
@@ -2637,11 +2679,11 @@ const main = async () => {
     if (!/固定器械/.test(await row('equipment').innerText())) throw new Error('器械推胸 gear is not 固定器械');
     if (!/配重片/.test(await row('resistance').innerText())) throw new Error('器械推胸 load is not 配重片');
     if (await row('resistance').isDisabled()) throw new Error('machine load should be selectable');
-    // 换成杠铃：阻力跟着变成杠铃片并锁定
+    // 换成杠铃：阻力跟着变成杠铃片；2026-10-21 起杠铃可在「杠铃片 / 固定杠铃」之间选（38d1f6f），不再锁定
     await row('equipment').click();
     await dlg.getByRole('button', { name: /^杠铃$/ }).click();
     if (!/杠铃片/.test(await row('resistance').innerText())) throw new Error('barbell did not set load to 杠铃片');
-    if (!(await row('resistance').isDisabled())) throw new Error('barbell load should be locked');
+    if (await row('resistance').isDisabled()) throw new Error('barbell load should be selectable (plates / fixed bar)');
     // 换回固定器械，挑「杠铃片」（挂片式器械）并保存
     await row('equipment').click();
     await dlg.getByRole('button', { name: /^固定器械$/ }).click();
@@ -2667,7 +2709,7 @@ const main = async () => {
     await vm.getByRole('button', { name: /关闭|Close/ }).first().click();
     await vm.waitFor({ state: 'detached', timeout: 3_000 });
     await sheet.locator('[data-testid="region-arrange"]').click();
-    return 'machine load selectable, barbell locks 杠铃片, machine+杠铃片 persists; 罗马尼亚硬拉 has 哑铃 variant';
+    return 'machine load selectable, barbell defaults to 杠铃片 (selectable), machine+杠铃片 persists; 罗马尼亚硬拉 has 哑铃 variant';
   });
 
   await step(page, 'close-library', async () => {
@@ -2723,8 +2765,10 @@ const main = async () => {
 
   // 换算残留（不是 0.5 的倍数，如 lbs↔kg 换出来的 61.24）：拖动的第一档先取整并吃掉这一档，
   // 之后照常一档。打字不取整。递减档默认 = 上一行 − 这件器材的一档，再就近取整（等距取轻）。
-  // 「杠铃片」（2026-10-18）：这里的动作是杠铃，一档 = 最小一对片 2.5 kg，取整也吸到 2.5 的网格
-  // （配不出来的重量第一格先吸到能配的那一档）。所以 61.24 → 62.5，再往左两档 → 60 → 57.5。
+  // 「杠铃片」（2026-10-18）：这里的动作是杠铃，一档 = 最小一对片；默认片 2026-10-21 起没有 1.25（最小一对 = 5 kg），
+  // 取整吸到 5 的网格（配不出来的重量第一格先吸到能配的那一档）。
+  // 横划接管阈值 20px（scrubFeel.ENGAGE_PX），接管那一刻从当前位置起算、之后每 10px 一档（2026-10-22 修：原来接管就连走两档）：
+  // 61.24 →（右一档）65；再往左两档 → 60 → 55。
   await step(page, 'scrub-weight-residue-and-drop-set', async () => {
     const weight = page.locator('[data-testid="ledger-field-weight"]').first();
     const input = weight.locator('input');
@@ -2750,12 +2794,12 @@ const main = async () => {
       await page.waitForTimeout(350);
       return Number(await input.inputValue());
     };
-    const right1 = await slow([14]); // 越过 12px 接管阈值，正好落一档
-    if (right1 !== 62.5) throw new Error(`61.24 dragged right one detent should snap up to 62.5 (barbell grid), got ${right1}`);
-    const left2 = await slow([-14, -24]); // 两档：62.5 → 60 → 57.5（已在网格上，照常 −2.5）
-    if (left2 !== 57.5) throw new Error(`62.5 dragged left two detents should be 57.5, got ${left2}`);
+    const right1 = await slow([22, 32]); // 22px 接管（不算档），再 10px 正好落一档：第一档先吸到网格
+    if (right1 !== 65) throw new Error(`61.24 dragged right one detent should snap up to 65 (barbell grid), got ${right1}`);
+    const left2 = await slow([-22, -32, -42]); // 接管后两档：65 → 60 → 55（已在网格上，照常 −5）
+    if (left2 !== 55) throw new Error(`65 dragged left two detents should be 55, got ${left2}`);
 
-    // 回到残留值再加递减档：61.24 − 2.5 = 58.74 → 就近取整（57.5 差 1.24、60 差 1.26）= 57.5
+    // 回到残留值再加递减档：61.24 − 5 = 56.24 → 就近取整（55 差 1.24、60 差 3.76）= 55
     await input.fill('61.24');
     const num = page.locator('.ledger-row .set-num').first();
     const nb = await num.boundingBox();
@@ -2766,7 +2810,7 @@ const main = async () => {
     const sub = page.locator('[data-testid="subset-field-weight"] input').first();
     await sub.waitFor({ state: 'visible', timeout: 3_000 });
     const subW = Number(await sub.inputValue());
-    if (subW !== 57.5) throw new Error(`drop set default should be snap(61.24 − 2.5) = 57.5, got ${subW}`);
+    if (subW !== 55) throw new Error(`drop set default should be snap(61.24 − 5) = 55, got ${subW}`);
     return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
@@ -2785,7 +2829,8 @@ const main = async () => {
     if (!(await isSel(row0))) throw new Error('the set under the pointer is not selected by default');
     await row0.locator('.set-num').click();
     if (!(await isInked(row0))) throw new Error('tapping the set number did not mark it done');
-    if (!(await isSel(row0))) throw new Error('the set just done should stay selected (solid number)');
+    // 做完的那一下选中交给默认（下一组待做，审查 A1）：留在刚做完的组上，大图 / ± 改的就是做完的组
+    if (await isSel(row0)) throw new Error('the set just done should hand the selection to the next to-do set');
     // 原来每次连点前等 650ms「过长按吞 click 的窗口」。组号上唯一的时间窗是 SetCapsule.onSetNumClick：
     // 长按加递减「达成后」600ms 内的那一次 click 被吞、吞完作废。这几下之间没有长按，窗口不存在，不用等
     await row0.locator('.set-num').click(); // 再点＝退回
@@ -2799,14 +2844,14 @@ const main = async () => {
     if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
     const w = row0.locator('[data-testid="ledger-field-weight"] input');
     const w0 = Number(await w.inputValue());
-    // 「杠铃片」：一档 = 这件器材的一档（杠铃 = 最小一对片 2.5 kg）；不在格子上的第一下先吸到上面能挂的
+    // 「杠铃片」：一档 = 这件器材的一档（杠铃 = 最小一对片，默认片里是 2.5 × 2 = 5 kg）；不在格子上的第一下先吸到上面能挂的
     const plus = steps.getByRole('button', { name: /重量加|Weight \+/ });
     const plusLabel = (await plus.getAttribute('aria-label')) || '';
-    if (!/2\.5 kg/.test(plusLabel)) throw new Error(`barbell + should step by the smallest pair (2.5 kg), label "${plusLabel}"`);
+    if (!/(^|\D)5 kg/.test(plusLabel)) throw new Error(`barbell + should step by the smallest pair (5 kg), label "${plusLabel}"`);
     await plus.click();
     const w1 = Number(await w.inputValue());
-    const onGrid = Math.abs(((w0 - 20) / 2.5) - Math.round((w0 - 20) / 2.5)) < 1e-6;
-    const want = onGrid ? w0 + 2.5 : 20 + Math.ceil((w0 - 20) / 2.5) * 2.5;
+    const onGrid = Math.abs(((w0 - 20) / 5) - Math.round((w0 - 20) / 5)) < 1e-6;
+    const want = onGrid ? w0 + 5 : 20 + Math.ceil((w0 - 20) / 5) * 5;
     if (Math.abs(w1 - want) > 0.011) throw new Error(`+ went ${w0} → ${w1}, want ${want}`);
     if (await isInked(row0)) throw new Error('+ marked the row done');
 
@@ -2832,7 +2877,8 @@ const main = async () => {
     const row1 = card0Rows.nth(1);
     await row1.locator('.set-num').click();
     if (!(await isInked(row0)) || !(await isInked(row1))) throw new Error('tapping set 2 should mark sets 1 and 2 done');
-    if (!(await isSel(row1)) || (await isSel(row0))) throw new Error('after tapping set 2 only set 2 should be selected');
+    // 做完那一下选中交给下一组待做（审查 A1）：做完的两组都不再选中
+    if ((await isSel(row1)) || (await isSel(row0))) throw new Error('after tapping set 2 the selection should move on to the next to-do set');
     await row0.locator('.set-num').click();
     if (!(await isInked(row0)) || (await isInked(row1))) throw new Error('tapping set 1 should move the pointer back: set 2 reverts');
     if (!(await isSel(row0))) throw new Error('set 1 should be selected after moving the pointer back');
@@ -2852,9 +2898,9 @@ const main = async () => {
     if ((await w0in.inputValue()) !== '77') throw new Error(`typing into a draft cell should replace it, got ${await w0in.inputValue()} (was ${wBefore})`);
     if ((await w1in.inputValue()) !== wBefore) throw new Error(`draft below should hold while typing, got ${await w1in.inputValue()}`);
     await page.keyboard.press('Enter');
-    // 「杠铃片」：打的数照原样（77），被带着动的吸到最近能挂的（杠铃 2.5 一档：77.5）
+    // 「杠铃片」：打的数照原样（77），被带着动的吸到最近能挂的（默认片下杠铃一档 5 kg：77 → 75）
     if ((await w0in.inputValue()) !== '77') throw new Error(`a typed weight must stay as typed, got ${await w0in.inputValue()}`);
-    if ((await w1in.inputValue()) !== '77.5') throw new Error(`same-value draft below should follow and snap to 77.5 on Enter: ${await w1in.inputValue()}`);
+    if ((await w1in.inputValue()) !== '75') throw new Error(`same-value draft below should follow and snap to 75 on Enter: ${await w1in.inputValue()}`);
     if ((await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) !== 0) throw new Error('a follower must stay a draft (not is-edited)');
     const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || '');
     if (!/^reps/.test(focused)) throw new Error(`Enter in the weight cell should focus reps, focused "${focused}"`);
@@ -3086,6 +3132,7 @@ const main = async () => {
     // 前面的用例刚结束过一场，10 分钟内点开始会先问「继续刚才那场？」——
     // 这里要的是干净的新建页，所以选「新开一场」。
     await page.getByRole('button', { name: /开始训练|Start workout/i }).click();
+    await pickStartGym(page);
     const resumeDlg = page.locator('[role="dialog"]');
     await resumeDlg.or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
     if (await resumeDlg.isVisible().catch(() => false)) {
