@@ -169,8 +169,8 @@ export interface UseWorkoutMutationsParams {
   reloadAfterSave: () => Promise<void>;
   /** 返回当前的 previousTab（用于「返回」按钮回到来源页） */
   getPreviousTab: () => ActiveTab;
-  /** 进入「编辑历史训练」时的副作用钩子（用于清理 Dashboard 上的 PR 高亮等） */
-  onEnterEditWorkout?: () => void;
+  /** 进入「编辑历史训练」时的副作用钩子；focusExerciseId：从纪录详情进来的，编辑页滚到这个动作 */
+  onEnterEditWorkout?: (focusExerciseId?: string) => void;
   /** 触发 persist（由 App.tsx 注入，避免循环依赖） */
   onPersist?: () => void;
 }
@@ -208,7 +208,7 @@ export interface UseWorkoutMutationsResult {
 
   handleEditWorkout: (
     workoutId: string,
-    options?: { scrollToPicker?: boolean },
+    options?: { scrollToPicker?: boolean; focusExerciseId?: string },
   ) => void;
   handleAddExerciseToPastWorkout: (workoutId: string) => void;
   handleNewWorkoutBack: () => Promise<void>;
@@ -539,7 +539,7 @@ export function useWorkoutMutations({
   }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
 
   const handleEditWorkout = useCallback(
-    (workoutId: string, options?: { scrollToPicker?: boolean }) => {
+    (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => {
       const workoutToEdit = workouts.find(w => w.id === workoutId);
       if (workoutToEdit) {
         // 工作台上还有进行中的一场：它已经落过盘，退出编辑时 restoreInProgress 会接回来；说一声，别让人以为丢了
@@ -552,7 +552,7 @@ export function useWorkoutMutations({
         setCurrentWorkout(structuredClone(workoutToEdit));
         setEditingWorkoutId(workoutId);
         setActiveTab('new');
-        onEnterEditWorkout?.();
+        onEnterEditWorkout?.(options?.focusExerciseId);
         if (options?.scrollToPicker) {
           setPendingScrollToPicker(true);
         }

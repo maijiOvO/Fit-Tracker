@@ -39,7 +39,7 @@ export interface DashboardActions {
   onResumeWorkout: () => void;
   /** 结束进行中的训练（一组都没做完时＝问要不要放弃） */
   onEndInProgress: () => void;
-  onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean }) => void;
+  onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
   onDeleteWorkout: (
     workoutId: string,
@@ -448,10 +448,8 @@ const Dashboard: React.FC<DashboardProps> = ({
         renderSetCapsule={renderSetCapsule}
         formatExerciseTime={formatExerciseTime}
         onEditExerciseTime={(workoutId, exerciseId, initial) => setExerciseTimeEdit({ workoutId, exerciseId, initial })}
-        onEditWorkout={id => {
-          setSelectedPRProject(null);
-          actions.onEditWorkout(id);
-        }}
+        // 详情不关（审查 B5）：改完回到首页，详情还开着、停在原处；编辑页滚到这个动作
+        onEditWorkout={(id, exerciseId) => actions.onEditWorkout(id, exerciseId ? { focusExerciseId: exerciseId } : undefined)}
         onDeleteRecord={(e, workoutId, exerciseId, date) =>
           actions.onDeleteExerciseRecord(e, workoutId, exerciseId, openLift?.baseName ?? '', date)
         }

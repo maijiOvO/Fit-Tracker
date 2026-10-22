@@ -308,7 +308,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     setActiveTab,
     reloadAfterSave: () => loadLocalData(resolvedUserId),
     getPreviousTab: () => previousTab,
-    onEnterEditWorkout: () => setSelectedPRProject(null),
+    // 从纪录详情点进来的：详情留着（回来接着看），编辑页滚到那个动作（审查 B5）
+    onEnterEditWorkout: focusId => {
+      if (focusId) window.setTimeout(() => setFlashExerciseId(focusId), 150);
+    },
     onPersist: () => workoutCtx.persistCurrentWorkout(),
   });
 

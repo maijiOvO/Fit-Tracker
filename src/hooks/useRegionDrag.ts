@@ -4,7 +4,8 @@
  * 只在「整理」里生效（2026-10-06 用户定：普通态长按只出动作面板，不能拖；整理是低频需求，所有整理的事都在这里）。
  *
  * 手势：
- *   - 按住即拖：按下就接管，手指一动（> 6px）浮起；不动松手＝普通点击（弹层据此打开动作面板）。
+ *   - 按住一下再拖（审查 B6，原来按下即拖、整理时格子里划不动）：按住约 150 ms（震一下、卡片微微浮起）后手指一动（> 6px）浮起；
+ *     没按够就划＝滚动（交给浏览器）；不动松手＝普通点击（弹层据此打开动作面板）。
  *   - 拖拽中：手指下那一列（两条栏线之间）整列亮起 + 表头反白；列里虚线落位跟着手指高度走
  *     （放第几个就是第几个）；浮卡被吸向落位（磁吸「中」）；跨列震一下。拖到「未细分」那一片＝放回未细分。
  *     靠近列表上下缘自动滚；横滑时（细分多于 4 个 / 英文）靠近左右缘自动横滚。
@@ -26,6 +27,8 @@ import type React from 'react';
 import { haptic, H } from '../utils/haptics';
 
 const START_PX = 6;
+/** 按住多久才算拿起来（短于它就动＝在滑动列表） */
+const HOLD_MS = 150;
 const EDGE_PX = 56;
 /** 磁吸强度「中」（demo 里定的）：离落位 160px 内，越近吸得越多，最多吸过去一半 */
 const MAGNET = 0.5;
@@ -53,6 +56,9 @@ interface Gesture {
   x: number;
   y: number;
   dragging: boolean;
+  /** 按下的时刻：按够 HOLD_MS 才算拿起来 */
+  t0: number;
+  armTimer?: number;
   raf?: number;
   floater?: HTMLDivElement;
   grabX: number;
@@ -103,6 +109,8 @@ export function useRegionDrag(opts: Options): void {
     const end = (keepFloater = false, keepSource = false) => {
       if (!g) return;
       if (g.raf) cancelAnimationFrame(g.raf);
+      if (g.armTimer) window.clearTimeout(g.armTimer);
+      g.el.classList.remove('is-armed');
       // 原卡片的淡化留到浮卡落定：命令式加的 class，React 复用节点时不会替我们清，落定时手动摘
       if (!keepSource) g.el.classList.remove('is-drag-source');
       if (!keepFloater) g.floater?.remove();
@@ -138,17 +146,27 @@ export function useRegionDrag(opts: Options): void {
         x: ev.clientX,
         y: ev.clientY,
         dragging: false,
+        t0: performance.now(),
         grabX: 0,
         grabY: 0,
         fromCol,
         fromIdx: fromCol ? colCards(fromCol).indexOf(el) : -1,
       };
       o.current.activeRef.current = true;
+      // 按够了：震一下、卡片浮起一点，告诉手指「拿起来了」
+      const cur = g;
+      cur.armTimer = window.setTimeout(() => {
+        if (g !== cur || cur.dragging) return;
+        cur.el.classList.add('is-armed');
+        haptic(H.tap);
+      }, HOLD_MS);
     };
 
-    // 按下即接管：拦住滚动与弹层下拉（非被动才拦得住）
+    const held = () => !!g && (g.dragging || performance.now() - g.t0 >= HOLD_MS);
+
+    // 拿起来之后接管：拦住滚动与弹层下拉（非被动才拦得住）；没按够之前放行，列表照常滚
     const onTouchMove = (ev: TouchEvent) => {
-      if (g) ev.preventDefault();
+      if (held()) ev.preventDefault();
     };
 
     const place = (x: number, y: number) => {
@@ -332,6 +350,11 @@ export function useRegionDrag(opts: Options): void {
       g.y = ev.clientY;
       if (!g.dragging) {
         if (Math.hypot(g.x - g.x0, g.y - g.y0) <= START_PX) return;
+        // 没按够就动了：是在滑列表，放手让它滚
+        if (!held()) {
+          end();
+          return;
+        }
         startDrag();
       }
       moveDrag();

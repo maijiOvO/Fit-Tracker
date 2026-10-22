@@ -13,6 +13,7 @@ import {
   CalendarClock,
   CalendarSearch,
   MapPin,
+  MoreHorizontal,
   Play,
 } from 'lucide-react';
 import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
@@ -101,9 +102,11 @@ function getGroupInfo(
     const em = end.getMonth() + 1;
     const ed = end.getDate();
     const weekNum = parseInt(key.split('W')[1], 10);
+    // 年份跟周号走（ISO 周年）：12/30 – 1/5 那一周是下一年的第 1 周，原来写成「上一年 · 第 1 周」（审查 C）
+    const isoYear = key.slice(0, 4);
     const label = isCN
-      ? `${start.getFullYear()}年 · 第${weekNum}周 (${sm}/${sd} - ${em}/${ed})`
-      : `${start.getFullYear()} · Week ${weekNum} (${sm}/${sd} - ${em}/${ed})`;
+      ? `${isoYear}年 · 第${weekNum}周 (${sm}/${sd} - ${em}/${ed})`
+      : `${isoYear} · Week ${weekNum} (${sm}/${sd} - ${em}/${ed})`;
     return { key, label, sortKey: key };
   }
   if (granularity === 'month') {
@@ -536,6 +539,23 @@ const SessionCard: React.FC<SessionCardProps> = ({
               {isCN ? '这场训练还没有动作' : 'No exercises yet'}
             </div>
           )}
+          {/* 看得见的入口（审查 B4）：长按出菜单没人知道，展开之后给一颗按钮，开的是同一个菜单 */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => {
+                e.stopPropagation();
+                setMenuOpen(true);
+              }}
+              className="min-h-[40px] px-3 inline-flex items-center gap-1.5 rounded-control text-label font-semibold text-secondary active:bg-card-hover"
+              aria-label={isCN ? '更多操作' : 'More actions'}
+              data-testid="timeline-more"
+            >
+              <MoreHorizontal size={16} strokeWidth={2} />
+              {isCN ? '更多' : 'More'}
+            </button>
+          </div>
         </div>
       )}
     </div>
