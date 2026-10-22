@@ -39,16 +39,29 @@ export function setScrubFeel(v: ScrubFeel): void {
  * 原来是 12，翻页时手指从重量格上滑过去还是常被认成横划改了值（2026-10-21 用户反馈），抬到 20。
  */
 export const ENGAGE_PX = 20;
-/** 沿拖动方向的位移要超过垂直方向的这么多倍才算拖动；否则是在翻页，放手给页面滚 */
-export const AXIS_DOMINANCE = 1.5;
+/**
+ * 沿拖动方向的位移要大于另一方向才算拖动；否则是在翻页，放手给页面滚。
+ * 原来要 1.5 倍：拇指斜着划时浏览器因为 touch-action 不滚页面，这边又不认是拖动，这一下什么都不发生（2026-10-21 放宽）。
+ */
+export const AXIS_DOMINANCE = 1;
 
 /**
  * 按下后还没起拖时，看位移决定：再等等 / 起拖 / 放手（这一下是翻页，不归这一格管）。
  * along＝沿拖动方向的位移，across＝垂直方向的位移（都是相对按下点）。
  */
 export function scrubEngage(along: number, across: number): 'wait' | 'engage' | 'release' {
+  // 竖拖（配重片大图）时 along 是竖向、across 是横向，同一条规则
   const a = Math.abs(along);
   const c = Math.abs(across);
   if (Math.max(a, c) < ENGAGE_PX) return 'wait';
   return a > AXIS_DOMINANCE * c ? 'engage' : 'release';
+}
+
+/**
+ * 大图往哪个方向拖：跟重量的摆放方向走——配重片一摞竖着排就竖拖（往下＝插销往下＝更重），其余横拖。
+ * 2026-10-21 一度把配重片也改成横拖防误触，真机上用户按直觉竖着滑没反应（报成「新动作调不了重量」），
+ * 用户纠正后改回：误触靠起拖距离（ENGAGE_PX）和「上次 x」一键改回兜底，不改主手势。组行的格子一律横拖。
+ */
+export function heroScrubAxis(kind: string | undefined): 'x' | 'y' {
+  return kind === 'pin' ? 'y' : 'x';
 }

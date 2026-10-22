@@ -68,7 +68,7 @@ interface Options {
   steps?: number[];
   disabled?: boolean;
   /**
-   * 拖动方向，默认横向（2026-10-21 起全站都横拖，配重片的大图也是：竖拖和页面滚动抢手势）。
+   * 拖动方向，默认横向。配重片的大图竖拖（纵向排布就竖着滑，heroScrubAxis）；组行格子一律横拖。
    * 竖拖的格子要配 touch-action: pan-x（.is-axis-y），否则竖向手势先被页面滚动吃掉。
    */
   axis?: 'x' | 'y';

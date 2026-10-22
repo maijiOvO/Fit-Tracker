@@ -401,14 +401,25 @@ t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调�
   assert.ok(L.isLoadable('loaded', 102, { unit: 'lbs', plates: [51, 45, 25], bar: 45, inc: 10 }));
 });
 
-t('横划起拖：走够 20px 且顺着拖动方向；斜着 / 竖着划放手给页面滚', () => {
+t('起拖：走够 20px 且顺着拖动方向的位移大于另一方向；斜着划也认，偏另一方向才放手', () => {
   const S = W.S;
   assert.equal(S.scrubEngage(12, 0), 'wait'); // 原来 12 就起拖，手滑一下就改了重量
   assert.equal(S.scrubEngage(19, 5), 'wait');
   assert.equal(S.scrubEngage(20, 0), 'engage');
-  assert.equal(S.scrubEngage(-24, 10), 'engage'); // 24 > 1.5×10
-  assert.equal(S.scrubEngage(24, 16), 'release'); // 斜着划：24 ≤ 1.5×16
+  assert.equal(S.scrubEngage(-24, 10), 'engage');
+  assert.equal(S.scrubEngage(24, 16), 'engage'); // 拇指斜着划（曾经按 1.5 倍判成放手，这一下什么都不发生）
+  assert.equal(S.scrubEngage(22, 21), 'engage');
+  assert.equal(S.scrubEngage(20, 20), 'release'); // 正 45° 不归这一格
   assert.equal(S.scrubEngage(4, 30), 'release'); // 翻页
+  // 竖拖（配重片大图）：along＝竖向，同一条规则
+  assert.equal(S.scrubEngage(30, 8), 'engage');
+  assert.equal(S.scrubEngage(8, 30), 'release');
+});
+
+t('大图拖动方向：配重片竖拖，其余横拖（用户纠正：纵向排布就竖着滑）', () => {
+  const S = W.S;
+  assert.equal(S.heroScrubAxis('pin'), 'y');
+  for (const k of ['plates', 'loaded', 'pair', 'bell', 'fixed', 'signed', undefined]) assert.equal(S.heroScrubAxis(k), 'x', String(k));
 });
 
 t('配重片：最轻一格钉住后改每格，起点不跟着变', () => {
