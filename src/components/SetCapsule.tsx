@@ -16,6 +16,7 @@ import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT, SCRUB_MULTS } from
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
+import { fromSignedKg } from '../utils/load';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import type { LoadKind } from '../hooks/useLoadKind';
@@ -407,29 +408,51 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
   /**
    * 「上次 x」：底稿是从上一次抄来再按今天的馆 / 单位取整的 —— 上一次挂的片子单位不同、或取整改了数，
-   * 就在重量格角上标出上一次的原值（按当时的单位）。只做参考，不参与任何计算。
+   * 就在重量格角上标出上一次的原值（按当时的单位）。
+   *
+   * 一键恢复（2026-10-21 用户定）：这一组现在的重量和默认值（上一次的重量按今天的馆取整，计划的就是计划目标）
+   * 不一样时，它变成按钮，点一下改回默认值——横划误触改了重量不用再自己拖回去。走正常的改值路径，
+   * 被带着一起变的后面几组也跟着回来。第一次练（没有 prefillRef）就没有这个标。
    */
-  const refTag = (() => {
-    if (readOnly) return '';
+  const refTag = ((): { text: string; restoreKg?: number } => {
+    const none = { text: '' };
+    if (readOnly) return none;
     // 做完的组不跟着切单位重算（2026-10-18 用户定）：挂的是另一种片就标出来，免得以为那个数是换算残留
     const curU = unit === 'lbs' ? 'lbs' : 'kg';
     if (!set.ghost && (set.plateUnit === 'kg' || set.plateUnit === 'lbs') && set.plateUnit !== curU) {
-      return isCn ? (set.plateUnit === 'lbs' ? '做完时挂的是磅片' : '做完时挂的是公斤片') : set.plateUnit === 'lbs' ? 'done on lb plates' : 'done on kg plates';
+      return { text: isCn ? (set.plateUnit === 'lbs' ? '做完时挂的是磅片' : '做完时挂的是公斤片') : set.plateUnit === 'lbs' ? 'done on lb plates' : 'done on kg plates' };
     }
     // 换了做法、新做法没练过：底稿是按新器材硬取整的，提醒确认（改过重量就不再提醒）
-    if (set.ghost && set.checkWeight && !set.touched?.weight) return isCn ? '换了做法，确认一下重量' : 'New variant — check weight';
+    if (set.ghost && set.checkWeight && !set.touched?.weight) return { text: isCn ? '换了做法，确认一下重量' : 'New variant — check weight' };
     const ref = set.prefillRef as SetLog['prefillRef'];
-    if (!ref || !(Math.abs(ref.kg) > 0)) return '';
+    if (!ref || !(Math.abs(ref.kg) > 0)) return none;
     const inRef = Math.round((ref.unit === 'lbs' ? Math.abs(ref.kg) * 2.20462 : Math.abs(ref.kg)) * 100) / 100;
-    const same = ref.unit === (unit === 'lbs' ? 'lbs' : 'kg') && Math.abs(inRef - Math.abs(weightDisplay)) < 0.01;
-    if (same) return '';
     const lab = ref.unit === 'lbs' ? 'lb' : 'kg';
     const assisted = !!signed && ref.kg < 0;
     const what = ref.plan ? (isCn ? '计划' : 'Plan') : isCn ? '上次' : 'Last';
-    return isCn
+    const text = isCn
       ? `${what} ${assisted ? '辅助 ' : ''}${inRef} ${lab}`
       : `${what} ${assisted ? 'assisted ' : ''}${inRef} ${lab}`;
+    // 默认值：上一次的重量按今天的馆 / 单位取整（底稿当初就是这么来的）；按显示单位比，换算的零头不算改过
+    const defKg = rounder ? rounder.snapKg(ref.kg) : ref.kg;
+    const moved = Math.abs(toDisplay(Math.abs(defKg), defKg < 0 ? -1 : 1) - toDisplay(Number(set.weight) || 0, rowSign)) >= 0.01;
+    if (moved) return { text, restoreKg: defKg };
+    const same = ref.unit === (unit === 'lbs' ? 'lbs' : 'kg') && Math.abs(inRef - Math.abs(weightDisplay)) < 0.01;
+    return same ? none : { text };
   })();
+  /** 点「上次 x」改回默认值：待做的组顺手把「改过重量」也撤掉（回到底稿，之后照常被前面带着走） */
+  const restoreRef = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const kg = refTag.restoreKg;
+    if (kg === undefined) return;
+    haptic(H.tap);
+    const w = signed ? fromSignedKg(kg) : { weight: Math.abs(kg) };
+    if (isGhost && set.touched?.weight) {
+      const { weight: _w, bodyweightMode: _b, ...touched } = set.touched as Record<string, boolean>;
+      onUpdate({ ...w, touched } as SetUpdate);
+    } else onUpdate(w as SetUpdate);
+  };
 
   return (
     <>
@@ -571,8 +594,27 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                   ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
                 </span>
               )}
-              {m === 'weight' && refTag && !(isPR && !isGhost) && (
-                <span className="ref-tag" data-testid="prefill-ref">{refTag}</span>
+              {m === 'weight' && refTag.text && !(isPR && !isGhost) && (
+                refTag.restoreKg !== undefined ? (
+                  <button
+                    type="button"
+                    className="ref-tag is-restore"
+                    data-testid="prefill-ref"
+                    // 别让按下这一下被当成横划的起点，也别让 label 把焦点转给输入框
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={restoreRef}
+                    aria-label={
+                      isCn
+                        ? `改回 ${formatWeight(Math.abs(refTag.restoreKg), unit)} ${unit === 'lbs' ? 'lb' : 'kg'}`
+                        : `Restore ${formatWeight(Math.abs(refTag.restoreKg), unit)} ${unit === 'lbs' ? 'lb' : 'kg'}`
+                    }
+                  >
+                    <span aria-hidden>↺ </span>
+                    {refTag.text}
+                  </button>
+                ) : (
+                  <span className="ref-tag" data-testid="prefill-ref">{refTag.text}</span>
+                )
               )}
               {m === 'weight' && isPR && !isGhost && (
                 <span className="pb-tag" aria-label={isCn ? '新纪录' : 'Personal best'}>

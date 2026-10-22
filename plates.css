@@ -484,6 +484,19 @@
   white-space: nowrap;
   pointer-events: none;
 }
+/* 现在的重量和默认值不一样：变成「点一下改回去」的按钮。字照旧小，点的范围往四周扩开 */
+.ref-tag.is-restore {
+  bottom: -16px;
+  left: -6px;
+  padding: 6px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ref-tag.is-restore:active { opacity: .6; }
 .pb-tag {
   position: absolute;
   top: 3px;
