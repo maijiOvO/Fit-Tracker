@@ -1,5 +1,17 @@
 // End-to-end smoke test that simulates a real user session.
-// Runs against the running dev server at http://localhost:3000.
+// Runs against the running dev server at http://localhost:3000 (E2E_BASE 改地址).
+//
+// ── 跑法 ──────────────────────────────────────────────────────────────────────
+//   node scripts/e2e-smoke.mjs                         整套：主流程 → 带夹具的场景 ∥ 备份（e2e-backup.mjs 的用例，同一个浏览器、各自的 context）
+//   E2E_ONLY=seeded-gym node scripts/e2e-smoke.mjs     名字前缀，逗号分隔多个
+//   E2E_ONLY=/^region-(drag|layout)/ node ...          /正则/（可带 flags）
+//   E2E_ONLY=set-state-gestures node ...               选中的步骤会连同它的前置（递归）一起跑，启动时打印跑哪些
+//   E2E_SKIP_BACKUP=1                                  不跑备份那套（默认整套跑时一起跑）
+//   E2E_BASE=http://localhost:3100                     在 worktree 里必须指向 worktree 自己起的 dev server
+// 依赖表在下面的 MAIN_STEPS / SEEDED_STEPS（备份的在 e2e-backup.mjs 的 BACKUP_STEPS），规则见 scripts/e2e-plan.mjs。
+// 一套里一个步骤都没选中就整套不起。没在表里声明的步骤名会直接报错。
+// 每步耗时收尾时打印（最慢 10 步），也写进 test-artifacts/report.json。
+// 手感 / 观感类的检查不在这里，见 docs/manual-check.md（真机手测清单）。
 //
 // Coverage:
 //  1. Cold load (clean storage) — no console errors, no page errors
@@ -20,6 +32,8 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { parseOnly, planSuite, enterStep, describeSelection, printSlowest } from './e2e-plan.mjs';
+import { BACKUP_STEPS, runBackup } from './e2e-backup.mjs';
 
 /** 从 .env.local 读一个变量；文件不存在就返回空串（CI 上没有这个文件）。 */
 function readEnvLocal(name) {
@@ -67,6 +81,73 @@ async function shoot(page, name) {
   return file;
 }
 
+/**
+ * 轮询到 fn() 为真，超时抛错。只用来等「终将成立的正向条件」（PUT 落地、存储写完、元素出现），等完照样断言 ——
+ * 条件不成立就超时报错，不会变成永远绿。「不该发生」的断言不能这么等（一进来就成立），那种要等它的起因先发生。
+ */
+/** 超时过的条件等待（有些调用点 catch 掉、交给后面的断言报错）：收尾时列出来，白等的地方一眼可见 */
+const UNTIL_TIMEOUTS = [];
+async function until(fn, what, timeout = 5_000, interval = 40) {
+  const t0 = Date.now();
+  for (;;) {
+    const v = await fn();
+    if (v) return v;
+    if (Date.now() - t0 > timeout) {
+      UNTIL_TIMEOUTS.push(what);
+      throw new Error(`timed out after ${timeout}ms waiting for ${what}`);
+    }
+    await new Promise(r => setTimeout(r, interval));
+  }
+}
+
+/**
+ * 等页面过三帧：这一次提交的 effect 跑完、effect 里 setState 引起的重渲染也画完。
+ * 替换「点完等 300ms 再读界面」那类等渲染的 sleep（约 50ms）；读的东西要是异步写（存储、网络），用 until。
+ */
+const settle = page => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
+
+/**
+ * 等整页 DOM 安静下来：隔 100ms 采样两次 body.innerHTML 长度一样（最多 3 s）。
+ * 给「扫整屏」的断言用（英文扫雷）：只等某个元素出现不够 —— 别处还没画出来，漏翻的字就扫不到，变成假绿。
+ */
+async function domQuiet(page) {
+  let prev = -1;
+  for (let i = 0; i < 30; i++) {
+    const len = await page.evaluate(() => document.body.innerHTML.length);
+    if (len === prev) return;
+    prev = len;
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+
+/** 等元素位置稳定（scrollIntoView 可能是平滑滚动）：连续两次取到的框一样 */
+async function stableBox(loc) {
+  let prev = await loc.boundingBox();
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 40));
+    const box = await loc.boundingBox();
+    if (box && prev && box.x === prev.x && box.y === prev.y && box.height === prev.height) return box;
+    prev = box;
+  }
+  return prev;
+}
+
+/**
+ * 长按：真实阈值 500ms（useLongPress：120 静默 + 380 进度线），按 550 留 50ms 余量。
+ * 注意 400ms 是删除确认的时长，不是长按阈值。
+ */
+const HOLD_MS = 550;
+
+/**
+ * 动作弹层的连点去重：同一张卡 450ms 内再点不算（ExercisePickerSheet）。这是业务上的时间判定，
+ * 不能省 —— 只把「固定等 600ms」改成「从上一次点击算起凑够 470ms」，中间做的读取 / 断言不白等。
+ */
+const PICK_DEDUPE_MS = 470;
+async function paceFrom(t0, ms) {
+  const left = t0 + ms - Date.now();
+  if (left > 0) await new Promise(r => setTimeout(r, left));
+}
+
 /** UiOverlayProvider 自定义确认框（非 window.confirm） */
 async function acceptAppConfirm(page) {
   const dlg = page.locator('[role="dialog"]');
@@ -94,38 +175,179 @@ async function clickAppConfirm(page, labelRe) {
  */
 async function backAndDiscard(page) {
   await page.getByLabel(/^返回$|^Back$/).first().click();
-  await page.waitForTimeout(300);
+  // 离开训练页＝底栏回来；弹了确认框的话停在训练页、底栏不回来
+  await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
   if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) {
     throw new Error('back from an in-progress workout should not ask anything any more');
   }
   const row = page.locator('[data-testid="in-progress"]');
+  const rowShows = () => row.waitFor({ state: 'visible', timeout: 1_000 }).then(() => true, () => false);
   // 返回落在来源页（比如计划页）时，「进行中」那一行在首页：去首页找
-  if (!(await row.isVisible().catch(() => false))) {
+  if ((await page.locator('[data-testid="plan-subview-schedule"]').isVisible().catch(() => false)) || !(await rowShows())) {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
-    await page.waitForTimeout(400);
   }
-  if (await row.isVisible().catch(() => false)) {
+  if (await rowShows()) {
     await page.locator('[data-testid="in-progress-end"]').click();
     // 一组都没做完 → 「放弃」；有改过数没点完成的组 → 它们按做完入册（2026-10-20），弹的是「结束训练」
+    const dlg = page.locator('[role="dialog"]');
+    await dlg.waitFor({ state: 'visible', timeout: 5_000 });
+    const btn = dlg.locator('button').filter({ hasText: /^(放弃|Discard|结束训练|End Workout)$/ }).last();
+    const finishing = /结束训练|End Workout/.test(await btn.innerText());
+    await btn.click();
+    await dlg.waitFor({ state: 'detached', timeout: 5_000 });
+    await row.waitFor({ state: 'detached', timeout: 3_000 });
+    // 按做完入册的会出刊末页（结束落库之后才弹）：等它出来再点掉
+    if (finishing) await dismissColophon(page);
+  }
+}
+
+async function dismissColophon(page) {
+  const colo = page.locator('[data-testid="workout-colophon"]');
+  await colo.waitFor({ state: 'visible', timeout: 5_000 });
+  await colo.click();
+  await colo.waitFor({ state: 'detached', timeout: 3_000 });
+}
+
+/**
+ * 复位到首页：E2E_ONLY 跳过了中间的步骤时，在 home 步骤前调用（见 e2e-plan.mjs）。整套跑时不会触发。
+ * 收掉刊末页 / 弹层 / 首选项，离开训练页并放弃进行中的那场，回到首页。
+ */
+async function resetHome(page) {
+  await page.emulateMedia({ colorScheme: 'light' });
+  const colo = page.locator('[data-testid="workout-colophon"]');
+  if (await colo.isVisible().catch(() => false)) await colo.click();
+  const dlg = page.locator('[role="dialog"]');
+  if (await dlg.isVisible().catch(() => false)) {
+    await page.keyboard.press('Escape');
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
+  }
+  // 弹层常驻挂载、关了只是移出屏幕：按「在不在视口里、能不能点」判断
+  const onScreen = sel =>
+    page.evaluate(s => {
+      const el = document.querySelector(s);
+      if (!el || el.closest('.pointer-events-none')) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.bottom > 0 && r.top < innerHeight;
+    }, sel);
+  for (const sel of ['[data-testid="picker-sheet-close"]', '[data-testid="prefs-sheet-close"]']) {
+    if (await onScreen(sel)) await page.locator(sel).click();
+  }
+  if (await page.locator('[data-testid="ledger-field-weight"], [data-testid="open-picker-sheet"]').first().isVisible().catch(() => false)) {
+    await backAndDiscard(page);
+  }
+  await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+  const row = page.locator('[data-testid="in-progress"]');
+  if (await row.isVisible().catch(() => false)) {
+    await page.locator('[data-testid="in-progress-end"]').click();
     await clickAppConfirm(page, /^(放弃|Discard|结束训练|End Workout)$/);
-    await page.waitForTimeout(300);
-    const colo = page.locator('[data-testid="workout-colophon"]');
-    if (await colo.isVisible().catch(() => false)) {
-      await colo.click();
-      await page.waitForTimeout(400);
-    }
+    if (await colo.isVisible().catch(() => false)) await colo.click();
   }
 }
 
 /**
- * E2E_ONLY=<前缀,前缀…>：只跑名字以其中之一开头的步骤（如 E2E_ONLY=seeded 只跑带夹具的场景，调试用）。
- * 主流程的步骤前后依赖，只能整段跳过，不能挑着跑。
+ * 步骤依赖表（规则见 scripts/e2e-plan.mjs）。[名字, 直接前置?（省略＝上一步）, { home }?]
+ * 主流程是一条从空库走到底的长链，但不是每步都依赖上一步：这里只写真正要的前置，
+ * 「指定一步」时就只跑它和它的前置。隐藏的共享状态写在旁边。
  */
-const ONLY = (process.env.E2E_ONLY || '').split(',').filter(Boolean);
+const H = { home: true };
+const MAIN_STEPS = [
+  ['cold-load', []],
+  ['no-blank-screen', ['cold-load']],
+  ['bottom-nav-visible', ['cold-load']],
+  ['theme-system-dark', ['cold-load']],
+  ['theme-system-light', ['theme-system-dark']],
+  ['goto-profile', ['cold-load'], H],
+  ['theme-manual-dark', ['goto-profile']],
+  // 要从深色切回来才看得出「切到浅色」生效了（单跑时本来就是浅色，断言恒真）
+  ['theme-manual-light', ['theme-manual-dark']],
+  ['theme-back-to-auto', ['goto-profile']],
+  ['goto-plan', ['cold-load'], H],
+  ['plan-open-editor', ['goto-plan']],
+  ['plan-fill-editor'],
+  ['plan-pick-from-library'],
+  ['plan-save-schedule'],
+  ['plan-remote-save', ['plan-save-schedule']],
+  ['plan-start-from-schedule', ['plan-save-schedule']],
+  // 落下的那场训练是后面时间线用例的靶子（finishedWorkoutId）
+  ['plan-finish-from-schedule', ['plan-save-schedule']],
+  ['plan-switch-to-goals', ['goto-plan'], H],
+  ['timeline-no-inline-buttons', ['plan-finish-from-schedule'], H],
+  ['timeline-longpress-menu', ['timeline-no-inline-buttons']],
+  ['timeline-delete-is-undoable', ['timeline-longpress-menu']],
+  // 时间线只剩一张卡时会自己复制一场、做一组再结束（兜底分支）——这一场又成了 resume-recent-workout 的靶子
+  ['timeline-merge-into-previous', ['timeline-no-inline-buttons'], H],
+  ['timeline-copy-to-today', ['timeline-no-inline-buttons'], H],
+  ['open-workout-via-fab', ['cold-load'], H],
+  ['rest-timer-hidden-on-empty', ['open-workout-via-fab']],
+  ['browse-library', ['open-workout-via-fab']],
+  // 细分格的几步各自收尾、把格子复原，互不依赖
+  ['region-assign-via-panel', ['browse-library']],
+  ['region-longpress-ghost-click', ['browse-library']],
+  ['region-drag', ['browse-library']],
+  ['region-layout-edit', ['browse-library']],
+  ['region-arrange-library', ['browse-library']],
+  ['exercise-attrs-gear-and-load', ['browse-library']],
+  ['close-library', ['browse-library']],
+  // 关掉弹层后加的第一个动作是杠铃（后面按 2.5 kg 一档断言）
+  ['scrub-reps-cell', ['close-library']],
+  // 改过第 1 组的重量 / 次数、长按加了一档递减 —— set-state-gestures 要这些
+  ['scrub-weight-residue-and-drop-set', ['scrub-reps-cell']],
+  ['set-state-gestures', ['scrub-weight-residue-and-drop-set']],
+  ['rename-exercise-from-card', ['scrub-reps-cell']],
+  ['exercise-variant', ['scrub-reps-cell']],
+  ['back-to-tab-from-workout', ['scrub-reps-cell']],
+  ['unit-toggle', ['cold-load'], H],
+  ['english-mode-no-chinese', ['cold-load'], H],
+  // 接回「最近结束的那一场」（10 分钟内）：至少要有计划那场
+  ['resume-recent-workout', ['plan-finish-from-schedule'], H],
+  ['no-real-backend-calls', [], { always: true }],
+];
+
+/** 带夹具的场景：都只要 seeded-load 的种子和 mock 远端；三条接着上一条往下走的另外写明 */
+const SEEDED_STEPS = [
+  ['seeded-load', []],
+  ['seeded-heatmap-local-day', ['seeded-load'], H],
+  ['seeded-timeline-set-numbers', ['seeded-load'], H],
+  ['seeded-name-collision-stable', ['seeded-load'], H],
+  ['seeded-datepicker-initial', ['seeded-load'], H],
+  ['seeded-edit-history-draft', ['seeded-load'], H],
+  ['seeded-delete-tombstone-undo', ['seeded-load'], H],
+  ['seeded-delete-survives-failed-push', ['seeded-load'], H],
+  ['seeded-library-delete-hides', ['seeded-load'], H],
+  // 接着上一条：已经在空的新训练里
+  ['seeded-remove-last-exercise-drops-workout', ['seeded-library-delete-hides']],
+  ['seeded-pr-stamp-in-display-unit', ['seeded-load'], H],
+  // 接着上一条：刚结束的那场（复制自 W_HEAT，200 lbs 做完一组）
+  ['seeded-resumed-emptied-keeps-workout', ['seeded-pr-stamp-in-display-unit']],
+  ['seeded-picker-toggle-done-bar-prefill', ['seeded-load'], H],
+  ['seeded-create-restores-deleted', ['seeded-load'], H],
+  ['seeded-unit-survives-stale-remote', ['seeded-load'], H],
+  ['seeded-avatar-small-single-copy', ['seeded-load'], H],
+  ['seeded-plan-picker-multi-unit', ['seeded-load'], H],
+  ['seeded-gym-profile-new-and-edit', ['seeded-load'], H],
+  ['seeded-weight-30d-and-goal-unit', ['seeded-load'], H],
+  ['seeded-sync-skips-push-when-pull-fails', ['seeded-load'], H],
+  ['seeded-gym-weight-per-gym', ['seeded-load'], H],
+  // 要上一条塞进去的「E2E 甲馆」
+  ['seeded-gym-tag-becomes-cable', ['seeded-gym-weight-per-gym']],
+  ['seeded-stack-start-and-drop-order', ['seeded-load'], H],
+];
+
+const ONLY = parseOnly(process.env.E2E_ONLY);
+const MAIN_PLAN = planSuite('主流程', MAIN_STEPS, ONLY);
+const SEEDED_PLAN = planSuite('带夹具', SEEDED_STEPS, ONLY);
+const BACKUP_PLAN = planSuite('备份', BACKUP_STEPS, process.env.E2E_SKIP_BACKUP ? parseOnly('/^$/') : ONLY);
+/** 步骤名 → 所属的套件 */
+const PLAN_OF = new Map();
+for (const p of [MAIN_PLAN, SEEDED_PLAN]) for (const n of p.names) PLAN_OF.set(n, p);
+const timings = new Map([[MAIN_PLAN, []], [SEEDED_PLAN, []]]);
 
 async function step(page, name, fn) {
-  if (ONLY.length && !ONLY.some(p => name.startsWith(p))) return;
+  const plan = PLAN_OF.get(name);
+  if (!plan) throw new Error(`step "${name}" is not declared in MAIN_STEPS / SEEDED_STEPS — 先在依赖表里声明`);
+  if (!(await enterStep(plan, name, () => resetHome(page)))) return;
   process.stdout.write(`▶ ${name}\n`);
+  const t0 = Date.now();
   try {
     const detail = await fn();
     logStep(name, 'pass', detail);
@@ -134,6 +356,10 @@ async function step(page, name, fn) {
     logStep(name, 'fail', err.message);
     await shoot(page, 'FAIL-' + name.replace(/[^a-z0-9]+/gi, '_').toLowerCase());
     throw err;
+  } finally {
+    const ms = Date.now() - t0;
+    timings.get(plan).push({ name, ms });
+    report.steps.at(-1).ms = ms;
   }
 }
 
@@ -260,7 +486,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   });
   const page = await context.newPage();
 
-  const remote = { snapshot: seed, failPuts: false, failGets: false, puts: 0 };
+  // gets / puts / putAttempts：等「拉取 / 推送真的发生了」用（putAttempts 连被拒的也算）
+  const remote = { snapshot: seed, failPuts: false, failGets: false, gets: 0, puts: 0, putAttempts: 0 };
   const apiHostPattern = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/api/fitlog/state.*`);
   const escapedApiHost = new RegExp(`^${escapeRe(API_BASE)}(:\\d+)?/.*`);
   await context.route(escapedApiHost, async route => {
@@ -270,10 +497,12 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await context.route(apiHostPattern, async route => {
     const req = route.request();
     if (req.method() === 'GET') {
+      remote.gets++;
       if (remote.failGets) return route.abort(); // 模拟「拉取没拿到」（NAS 不通）
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(remote.snapshot) });
     }
     if (req.method() === 'PUT') {
+      remote.putAttempts++; // 送没送到都算：等「推送试过了」用
       if (remote.failPuts) return route.abort(); // 模拟「推送没送到」（离线 / NAS 不通）
       remote.puts++;
       try {
@@ -316,21 +545,48 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   });
 
   const card = id => page.locator(`[data-testid="timeline-session-${id}"]`);
+  // 种子里的 W_HEAT 全程都在：它出现＝首页（时间线）画好了
   const toDashboard = async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
-    await page.waitForTimeout(300);
+    await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 5_000 });
+  };
+  /**
+   * 重开 App：reload 之后等启动流程（拉取合并 → 应用 prefs → 重读本地库）走完 ——
+   * useFitlogSync 在最后给 <html> 打 data-fitlog-boot="done"（原来是 networkidle + 再死等 500–1000ms）。
+   * 不能拿「时间线卡片出来了」当信号：WorkoutContext 挂载时先从本地库读一遍，卡片比拉取合并早（实测踩过：
+   * 卡片出来就点「开始训练」，合并晚到把工作台重置了；更糟的是「重开后单位没翻回去」这类否定断言会在合并之前判，假绿）。
+   */
+  /**
+   * 让同步安静下来：取消排队中的防抖推送，再立刻推一次（等这次 PUT 落地）。之后不会再有晚到的 PUT
+   * 盖掉接下来往远端塞的夹具、也不会被算进 PUT 计数。原来是死等 1–1.5 s 让防抖（800ms）自己落地。
+   * 走 window.__fitlog.cancelPendingPush（index.tsx）：从测试里 import 调度器模块不行 —— HMR 之后 App 用的是
+   * fitlogSyncScheduler.ts?t=… 那个实例，按裸 URL import 拿到的是另一个，取消不了 App 的定时器（实测踩过）。
+   */
+  const quiesce = () =>
+    page.evaluate(async () => {
+      window.__fitlog.cancelPendingPush();
+      await window.__fitlog.flush();
+    });
+  const relaunch = async () => {
+    // networkidle 不能省：启动标记之后还有一段异步在动界面，标记一出来就点「开始训练」会被吞掉（单跑
+    // seeded-gym-weight-per-gym 稳定复现；networkidle 的 500ms 静默期能等过去，根因还没查，见交付记录）
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
+    await settle(page); // 重读本地库之后的那次渲染
+    await toDashboard();
   };
   const longPress = async loc => {
     // 先居中：上一条用例留下的滚动位置可能让卡片贴在吸顶页头底下，按下去落在页头上
     await loc.evaluate(el => el.scrollIntoView({ block: 'center' }));
-    await page.waitForTimeout(250);
-    const box = await loc.boundingBox();
+    const box = await stableBox(loc);
     await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 30));
     await page.mouse.down();
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(HOLD_MS);
     await page.mouse.up();
   };
   const sessionMenu = async (id, itemRe) => {
+    // E2E_ONLY 单挑一步时可能不在首页
+    if (!(await card(id).isVisible().catch(() => false))) await toDashboard();
     await longPress(card(id));
     const menu = page.locator('[data-testid="timeline-session-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
@@ -361,7 +617,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // heatmap-utc-day：昨晚 21:15 练的要亮在昨天那格，不是今天（UTC 日期）那格
   await step(page, 'seeded-heatmap-local-day', async () => {
     await page.locator('nav button', { hasText: /我的|Profile/ }).click();
-    await page.waitForTimeout(400);
+    // 等热力图的格子画出来（读的是格子上的档位，不是格子在不在）
+    await page.locator(`button[aria-label^="${torontoYmd(0)} "]`).waitFor({ state: 'attached', timeout: 5_000 });
     const level = ymd =>
       page.evaluate(d => {
         const el = document.querySelector(`button[aria-label^="${d} "]`);
@@ -406,14 +663,15 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const dlg = page.locator('[role="dialog"]');
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
     await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    // 「确定」在同一个处理函数里写日期、关弹窗：弹窗没了时「已修改」该亮早就亮了，不用再等
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
-    await page.waitForTimeout(300);
     // 编辑态改的是草稿、不落库：日期被挪了的话这里会亮「已修改」（库里倒是不变，所以光看库测不到）
     if (await page.locator('[data-testid="edit-dirty"]').count()) {
       throw new Error('confirming the untouched picker changed the workout date (edit shows 已修改)');
     }
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
-    await page.waitForTimeout(300);
+    // 没改过＝直接离开编辑页；问了什么的话编辑页还在（被弹窗盖着）
+    await page.waitForSelector('text=/编辑训练|Edit Workout/', { state: 'detached', timeout: 3_000 }).catch(() => {});
     if (await dlg.isVisible().catch(() => false)) throw new Error('back from an unchanged edit asked something');
     const w = await remoteWorkout(W_DATE.id);
     const local = await page.evaluate(iso => {
@@ -447,7 +705,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
 
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
     await clickAppConfirm(page, /^(放弃修改|Discard)$/);
-    await page.waitForTimeout(300);
+    // 放弃＝关掉编辑页；要是错把草稿写了库，也是在关页之前写的
+    await page.waitForSelector('text=/编辑训练|Edit Workout/', { state: 'detached', timeout: 3_000 });
     if ((await repsInDb()) !== 10) throw new Error(`「放弃修改」kept the edit (reps=${await repsInDb()})`);
 
     await openEdit();
@@ -482,14 +741,15 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // workout-delete-no-tombstone（二）：推送没送到时删一场，重开 App 拉取旧快照，它不能回来
   await step(page, 'seeded-delete-survives-failed-push', async () => {
     remote.failPuts = true;
+    const attempts0 = remote.putAttempts;
     await sessionMenu(W_DEL.id, /删除|Delete/);
     await card(W_DEL.id).waitFor({ state: 'detached', timeout: 3_000 });
-    await page.waitForTimeout(5_600); // 撤销条到期
+    // 删除和墓碑是当场写的（不等撤销条到期）；等删除之后那次防抖推送真的试过、被拒（原来死等撤销条到期 5.6 s）
+    await until(() => remote.putAttempts > attempts0, 'the debounced push after the delete to be attempted', 8_000);
     const stillRemote = (remote.snapshot.workouts || []).some(w => w.id === W_DEL.id);
     if (!stillRemote) throw new Error('fixture drift: the server copy should still have the deleted workout');
-    await page.reload({ waitUntil: 'networkidle' });
-    await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 10_000 });
-    await page.waitForTimeout(500);
+    // 重开：卡片画出来时拉取合并已经落定（见 relaunch）
+    await relaunch();
     remote.failPuts = false;
     if (await card(W_DEL.id).count()) throw new Error('deleted workout came back after reload — 推送失败时被拉取复活');
     await dismissToasts();
@@ -502,8 +762,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const before = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    // 弹层滑入不用等：fill / click 自己等元素可用、位置稳定
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     const sheet = page.locator('[data-testid="picker-sheet"]');
     await sheet.locator('input[type="text"]').fill('E2E自建甲');
     const row = sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: 'E2E自建甲' }).first();
@@ -512,20 +772,21 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const menu = page.locator('[data-testid="row-action-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
     await menu.getByRole('button', { name: /从动作库删除|Delete from library/ }).click();
-    await page.waitForTimeout(300);
+    // 删掉之后出撤销条（同一个处理函数里先写覆盖层、再弹条）；要是弹的是确认框，就没有撤销条
+    await page.locator('[data-testid="toast-undo"]').last().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('library delete asked for confirmation');
     const mid = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
     if (mid.join(',') !== before.join(',')) throw new Error(`delete removed the custom definition: ${before.join(',')} → ${mid.join(',')}`);
     if (!(await readLs('fitlog_exercise_overrides'))?.[DEF_C.id]?.hidden) throw new Error('delete did not mark it hidden');
     if (await row.isVisible().catch(() => false)) throw new Error('hidden exercise still listed');
     await page.locator('[data-testid="toast-undo"]').last().click();
-    await page.waitForTimeout(300);
+    // 撤销：动作回到列表里（界面结果），再看存储
+    await row.waitFor({ state: 'visible', timeout: 3_000 });
     if ((await readLs('fitlog_exercise_overrides'))?.[DEF_C.id]?.hidden) throw new Error('undo did not unhide');
     const after = ((await readLs('fitlog_custom_exercises')) || []).map(d => d.id);
     if (after.join(',') !== before.join(',')) throw new Error(`undo changed custom order: ${before.join(',')} → ${after.join(',')}`);
     await sheet.locator('input[type="text"]').fill('');
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
     await dismissToasts();
     return `hidden + undo, definition and order kept: ${after.join(',')}`;
   });
@@ -534,10 +795,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await step(page, 'seeded-remove-last-exercise-drops-workout', async () => {
     // 接着上一条：已经在空的新训练里
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     await page.locator('[data-testid="picker-sheet-exercise"]').first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
     const exCard = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
     await exCard.waitFor({ state: 'visible', timeout: 3_000 });
     const t0 = await workoutTombstones();
@@ -545,10 +804,13 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await exCard.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
       await exCard.getByRole('menuitem', { name: /删除动作|Delete exercise/ }).click();
       await exCard.waitFor({ state: 'detached', timeout: 3_000 });
-      await page.waitForTimeout(300);
     };
     await removeIt();
-    const t1 = await workoutTombstones();
+    // 墓碑在删光之后写（下面断言恰好一条）：等它出现，超时就是没写
+    const t1 = await until(async () => {
+      const t = await workoutTombstones();
+      return t.length > t0.length && t;
+    }, 'emptying a new workout to write a workout tombstone').catch(() => workoutTombstones());
     const added = t1.filter(x => !t0.includes(x));
     if (added.length !== 1) throw new Error(`emptying a new workout should tombstone it, got ${JSON.stringify(added)}`);
     const wid = added[0];
@@ -562,19 +824,22 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       });
     const ids0 = await remoteIds();
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     await page.locator('[data-testid="picker-sheet-exercise"]').first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
     await exCard.waitFor({ state: 'visible', timeout: 3_000 });
-    await page.waitForTimeout(800);
+    // 工作台落本地库是异步的：等远端（flush 之后）出现一条新的，再判它对不对（原来死等 800ms）
+    const fresh = await until(async () => {
+      const f = (await remoteIds()).filter(id => !ids0.includes(id));
+      return f.length && f;
+    }, 'the re-added workout to persist').catch(() => []);
     const tomb = await workoutTombstones();
-    const fresh = (await remoteIds()).filter(id => !ids0.includes(id));
     if (fresh.length !== 1 || fresh[0] === wid || tomb.includes(fresh[0])) {
       throw new Error(`re-adding after emptying should persist under a new id, got ${JSON.stringify(fresh)} (old ${wid})`);
     }
     await removeIt();
     await page.getByLabel(/^返回$|^Back$/).first().click();
-    await page.waitForTimeout(400);
+    // 离开＝底栏回来；问了什么就先确认
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await acceptAppConfirm(page);
     await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 5_000 });
     if (await card(wid).count()) throw new Error('emptied workout still shows on the timeline');
@@ -611,25 +876,25 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       return done[0] ? { id: done[0].id, n: done[0].exercises.length } : null;
     });
     if (!latest) throw new Error('fixture drift: no finished workout to resume');
-    const colo = page.locator('[data-testid="workout-colophon"]');
-    if (await colo.isVisible().catch(() => false)) await colo.click();
-    await page.waitForTimeout(500);
+    if (await page.locator('[data-testid="workout-colophon"]').isVisible().catch(() => false)) await dismissColophon(page);
     // 2026-10-11：开新一场不再弹「继续刚才那场？」；接回刚结束的那场走时间线长按菜单「继续这场」
     await sessionMenu(latest.id, /继续这场|Resume/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const t0 = await workoutTombstones();
     const cards = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') });
-    while (await cards.count()) {
+    for (let n = await cards.count(); n > 0; n--) {
       const c = cards.first();
       await c.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
       await c.getByRole('menuitem', { name: /删除动作|Delete exercise/ }).click();
-      await page.waitForTimeout(400);
+      await until(async () => (await cards.count()) === n - 1, `exercise card #${n} to go away`);
     }
+    // 「不该写墓碑」是否定断言，等不到它的结果：删光之后留一个和原来一样的窗口（原来每删一张等 400ms）
+    await page.waitForTimeout(400);
     const added = (await workoutTombstones()).filter(x => !t0.includes(x));
     if (added.length) throw new Error(`emptying a resumed workout tombstoned ${JSON.stringify(added)} — 整场被删`);
-    await page.waitForTimeout(5_600); // 撤销条到期
+    // 原来这里还死等 5.6 s「撤销条到期」：训练页删动作 2026-10-18 起就不出撤销条了，等的东西不存在
     await page.getByLabel(/^返回$|^Back$/).first().click();
-    await page.waitForTimeout(400);
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await acceptAppConfirm(page);
     await card(latest.id).waitFor({ state: 'visible', timeout: 5_000 });
     const w = await remoteWorkout(latest.id);
@@ -641,7 +906,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await step(page, 'seeded-picker-toggle-done-bar-prefill', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
-    await page.waitForTimeout(300);
+    // 问了的话是模态框：下面的点击会被遮罩挡住而超时，不会悄悄过去
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('starting a workout must not ask about the last one any more');
     await page.locator('[data-testid="body-part-chest"]').click();
     const sheet = page.locator('[data-testid="picker-sheet"]');
@@ -652,23 +917,31 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await row.waitFor({ state: 'visible', timeout: 3_000 });
     const cards = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') });
     await row.click();
-    await page.waitForTimeout(600); // 过 450ms 连点去重
+    let tapAt = Date.now();
+    await until(async () => (await cards.count()) >= 1, 'the tap to add a card').catch(() => {});
     if ((await cards.count()) !== 1) throw new Error(`one tap should add one card, got ${await cards.count()}`);
     const done = page.locator('[data-testid="picker-done"]');
     if (!/1/.test(await done.innerText())) throw new Error(`done bar should read 本次已加 1, got "${await done.innerText()}"`);
+    await paceFrom(tapAt, PICK_DEDUPE_MS);
+    // 等过了去重窗口再数一次：一下加出两张（比如 pointerup + click 各算一次）这时也该露出来了
+    if ((await cards.count()) !== 1) throw new Error(`one tap should add one card, got ${await cards.count()} after ${PICK_DEDUPE_MS}ms`);
     await row.click(); // 再点一下＝取消本次添加
-    await page.waitForTimeout(600);
+    tapAt = Date.now();
+    await until(async () => (await cards.count()) === 0, 'the second tap to cancel the add').catch(() => {});
     if ((await cards.count()) !== 0) throw new Error(`tapping the same card again should cancel the add, got ${await cards.count()} card(s)`);
     if (/1/.test(await done.innerText())) throw new Error('done bar should drop the count after cancelling');
+    await paceFrom(tapAt, PICK_DEDUPE_MS);
+    if ((await cards.count()) !== 0) throw new Error(`cancel did not stick: ${await cards.count()} card(s) after ${PICK_DEDUPE_MS}ms`);
     await row.click();
-    await page.waitForTimeout(600);
+    await until(async () => (await cards.count()) === 1, 'the third tap to add again');
     await done.click(); // 底部「完成」关弹层
-    await page.waitForTimeout(500);
     // 弹层常驻挂载、关了只是移出屏幕 + pointer-events-none，isVisible 看不出来，查类名
-    const closed = await page.evaluate(() => {
-      const el = document.querySelector('[data-testid="picker-sheet"]');
-      return !!el && !!el.closest('.pointer-events-none');
-    });
+    const sheetClosed = () =>
+      page.evaluate(() => {
+        const el = document.querySelector('[data-testid="picker-sheet"]');
+        return !!el && !!el.closest('.pointer-events-none');
+      });
+    const closed = await until(sheetClosed, 'the sheet to close').catch(() => false);
     if (!closed) throw new Error('bottom 完成 did not close the sheet');
     // C2：底稿抄自上次 → 卡头「底稿 · M/D」，点开看那次的几组
     const pf = page.locator('[data-testid="prefill-from"]').first();
@@ -685,11 +958,11 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // hidden-builtin-name-locked：删掉的动作名字不再被永久占着 —— 用同一个名字新建＝把它恢复出来（历史还挂在它身上）
   await step(page, 'seeded-create-restores-deleted', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
-    await page.waitForTimeout(500);
+    // 进了新建页，或者先问了一句（旧版会问「新开一场？」）：哪个先出来处理哪个
+    await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(新开一场|Start new)$/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     const sheet = page.locator('[data-testid="picker-sheet"]');
     const search = sheet.locator('input[type="text"]');
     await search.fill('E2E自建甲');
@@ -706,7 +979,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const dlg = page.locator('[role="dialog"]').filter({ has: page.locator('input') }).last();
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
     await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
-    await page.waitForTimeout(400);
+    // 建好＝弹窗关掉；被拒的话弹窗留着、出「已经有」的提示
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
     const toasts = await page.locator('[data-testid="toast"]').allInnerTexts();
     if (toasts.some(t => /已经有/.test(t))) throw new Error(`create was refused: ${toasts.join(' / ')}`);
     if ((await readLs('fitlog_exercise_overrides'))?.[DEF_C.id]?.hidden) throw new Error('create with a deleted name did not restore it');
@@ -718,7 +992,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // unit-lang-sync-revert：另一台设备后改过 prefs（远端整块时间戳更新），本机切单位后推送没送到、App 重开 ——
   // 拉取合并时单位不能被远端的旧值翻回去（原先切单位不打时间戳，整块 prefs 远端新就连单位一起赢）
   await step(page, 'seeded-unit-survives-stale-remote', async () => {
-    await page.goto(BASE, { waitUntil: 'networkidle' });
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
     const btn = page.locator('[data-testid="header-unit-toggle"]');
     await btn.waitFor({ state: 'visible', timeout: 10_000 });
     const before = (await btn.innerText()).trim().toLowerCase();
@@ -727,13 +1002,14 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       prefs: { ...remote.snapshot.prefs, unit: before, prefsLastUpdateMs: Date.now() + 60_000 },
     };
     remote.failPuts = true;
+    const attempts0 = remote.putAttempts;
     await btn.click();
     const after = (await btn.innerText()).trim().toLowerCase();
     if (after === before) throw new Error('unit toggle did nothing');
-    await page.waitForTimeout(1_500); // 防抖推送（这次送不到）
-    await page.reload({ waitUntil: 'networkidle' });
-    await btn.waitFor({ state: 'visible', timeout: 10_000 });
-    await page.waitForTimeout(800);
+    // 防抖推送（这次送不到）：等它真的试过、被拒（原来死等 1.5 s）
+    await until(() => remote.putAttempts > attempts0, 'the debounced push after the unit switch to be attempted');
+    // 重开：卡片画出来时启动拉取合并已经落定，单位要翻回去的话此刻已经翻了（原来再死等 800ms）
+    await relaunch();
     const reopened = (await btn.innerText()).trim().toLowerCase();
     remote.failPuts = false;
     if (reopened !== after) throw new Error(`unit flipped back to ${reopened} after relaunch (switched ${before} → ${after})`);
@@ -767,17 +1043,25 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       const u = JSON.parse(localStorage.getItem(lsKey('fitlog_current_user')) || '{}');
       localStorage.setItem(lsKey('fitlog_current_user'), JSON.stringify({ ...u, avatarUrl: url }));
     }, bigDataUrl);
-    await page.reload({ waitUntil: 'networkidle' });
-    await page.waitForTimeout(1_000);
-    const legacy = await avatarState();
+    await relaunch();
+    // 启动时缩旧图是异步的（解码 + 画布）：等存储里换成 JPEG，超时就是没缩
+    const legacy = await until(async () => {
+      const s = await avatarState();
+      return s.jpeg && s;
+    }, 'the legacy avatar to be re-encoded on start').catch(() => avatarState());
     if (!legacy.jpeg || legacy.len > 80_000) throw new Error(`legacy avatar not shrunk on start: ${JSON.stringify(legacy)} (was ${bigDataUrl.length} chars)`);
     if (legacy.userHasAvatar) throw new Error('fitlog_current_user still carries a second avatar copy');
 
     // 新上传
     await page.locator('nav button', { hasText: /^我的$|^Profile$/ }).click();
+    // 先清掉存的那份，好看出这次上传写了什么（上传的和上面是同一张图，缩出来一样，不清看不出变化）
+    await page.evaluate(() => localStorage.removeItem(lsKey('fitlog_avatar_data_url')));
     await page.locator('input[type="file"][accept="image/*"]').setInputFiles({ name: 'big.png', mimeType: 'image/png', buffer: png });
-    await page.waitForTimeout(1_000);
-    const up = await avatarState();
+    // 上传后缩图是异步的：等存储里有了这次写的，超时就是没写（原来死等 1 s）
+    const up = await until(async () => {
+      const s = await avatarState();
+      return s.len > 0 && s;
+    }, 'the uploaded avatar to be stored').catch(() => avatarState());
     if (!up.jpeg || up.len > 80_000) throw new Error(`uploaded avatar not shrunk: ${JSON.stringify(up)}`);
     if (up.userHasAvatar) throw new Error('upload wrote a second avatar copy into fitlog_current_user');
     const shown = await page.locator('img[alt="Avatar"]').getAttribute('src');
@@ -809,10 +1093,15 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     });
     if (!(z.sheet > z.editor)) throw new Error(`picker sheet z ${z.sheet} not above plan editor ${z.editor}`);
 
+    // 连点去重只管同一张卡：换一个动作不用等；同一个再点（＝取消）要凑够 450ms。点完等计划行数变了再往下
+    let last = { name: '', at: 0 };
     const pick = async name => {
+      const n0 = await rows.count();
+      if (name === last.name) await paceFrom(last.at, PICK_DEDUPE_MS);
       await search.fill(name);
       await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: name }).first().click();
-      await page.waitForTimeout(600); // 过 450ms 连点去重
+      last = { name, at: Date.now() };
+      await until(async () => (await rows.count()) !== n0, `picking ${name} to change the plan rows`).catch(() => {});
     };
     await pick('杠铃平板卧推');
     await pick('哑铃平板卧推');
@@ -834,14 +1123,16 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
     if (!/加入计划/.test(await dlg.innerText())) throw new Error('create-exercise dialog should say it goes into the plan');
     await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
-    await page.waitForTimeout(400);
+    await until(async () => (await rows.count()) === 3, 'the created exercise to join the plan').catch(() => {});
     if ((await rows.count()) !== 3) throw new Error(`created exercise should join the plan, got ${await rows.count()} rows`);
     if (!(await rows.nth(2).locator('[data-testid="schedule-exercise-name"]').inputValue()).includes(newName)) {
       throw new Error('third plan row is not the created exercise');
     }
     await done.click();
-    await page.waitForTimeout(500);
-    const closed = await page.evaluate(() => !!document.querySelector('[data-testid="picker-sheet"]')?.closest('.pointer-events-none'));
+    const closed = await until(
+      () => page.evaluate(() => !!document.querySelector('[data-testid="picker-sheet"]')?.closest('.pointer-events-none')),
+      'the plan picker sheet to close',
+    ).catch(() => false);
     if (!closed) throw new Error('完成 did not close the plan picker sheet');
 
     // 4 个动作：保存按钮还在屏内、没被盖住
@@ -877,8 +1168,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     // 开练：底稿按今天的馆就近取整（「杠铃片」2026-10-18）：137 lb 杠铃 → 135（45 杆 + 每边 45；140 更远），
     // 行下标「计划 137 lb」。原来的 bug 是把 lb 当 kg 再换一次（135 → 297.62）
     await page.locator(`[data-testid="schedule-start-${scheduleId}"]`).click();
-    await page.waitForTimeout(400);
-    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换
+    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换。哪个先出来处理哪个
+    await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(继续|Continue)$/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const w0 =await page.locator('.ledger-row').first().locator('[data-testid="ledger-field-weight"] input').inputValue();
@@ -893,7 +1184,6 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // 每行「编辑」改档案。改的是今天这个馆、片子换成磅片 → 显示单位跟着切 lbs，没做完的组按新片子就近取整
   await step(page, 'seeded-gym-profile-new-and-edit', async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
-    await page.waitForTimeout(300);
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const unitNow = async () => (await page.locator('[data-testid="unit-toggle"]').innerText()).trim();
@@ -924,16 +1214,15 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
 
     // 加杠铃卧推（底稿抄上一次的），凑够 3 组；底稿在公斤片上能挂（20 杆 + 一对对 1.25）
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     const sheet = page.locator('[data-testid="picker-sheet"]');
     await sheet.locator('input[type="text"]').fill('杠铃平板卧推');
     await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
     const weights = () => page.locator('.ledger-row [data-testid="ledger-field-weight"] input').evaluateAll(els => els.map(e => Number(e.value)));
-    while ((await weights()).length < 3) {
+    await page.locator('.ledger-row').first().waitFor({ state: 'visible', timeout: 3_000 });
+    for (let n = (await weights()).length; n < 3; n++) {
       await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
-      await page.waitForTimeout(300);
+      await until(async () => (await weights()).length > n, 'the added set row');
     }
     const w0 = await weights();
     const onKgGrid = v => v >= 20 && Math.abs((v - 20) / 2.5 - Math.round((v - 20) / 2.5)) < 1e-6;
@@ -960,7 +1249,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await form.getByRole('button', { name: /^磅片$/ }).click();
     await page.locator('[data-testid="gym-profile-save"]').click();
     await form.waitFor({ state: 'detached', timeout: 3_000 });
-    await page.waitForTimeout(300);
+    // 存档案 → 切单位 → 重新取整：等单位切过来、组重新取整（正向，等不到就超时、照样断言）
+    await until(async () => (await unitNow()) === 'lbs' && (await weights()).every(w => w !== 60), 'the unit switch + re-round after saving lb plates').catch(() => {});
     if ((await unitNow()) !== 'lbs') throw new Error(`saving today's gym with lb plates should switch to lbs, got ${await unitNow()}`);
     const w2 = await weights();
     if (!w2.every(w => w === 130)) throw new Error(`pending sets should re-round onto lb plates (60 kg → 130 lb), got ${JSON.stringify(w2)}`);
@@ -975,12 +1265,10 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // 记一笔新体重后，lbs 体重目标的「当前」要是 lbs 数（旧版直接写 kg）
   await step(page, 'seeded-weight-30d-and-goal-unit', async () => {
     // 远端塞进体重 / 目标，重开 App 走启动拉取合并进本地。
-    // 先等上一条留下的防抖推送落地，否则它晚到的 PUT 会把刚塞进去的又盖掉
-    await page.waitForTimeout(1_500);
-    await page.evaluate(() => window.__fitlog.flush());
+    // 先让上一条留下的防抖推送作废（quiesce），否则它晚到的 PUT 会把刚塞进去的又盖掉
+    await quiesce();
     remote.snapshot = { ...remote.snapshot, weightLogs: WEIGHTS, goals: [GOAL_W] };
-    await page.reload({ waitUntil: 'networkidle' });
-    await toDashboard();
+    await relaunch();
     await page.locator('[data-testid="weight-delta-30d"]').waitFor({ state: 'visible', timeout: 10_000 });
     const unitNow = await page.evaluate(() => localStorage.getItem(lsKey('fitlog_unit')));
     if (unitNow !== 'lbs') throw new Error(`precondition: unit should be lbs, got ${unitNow}`);
@@ -1004,21 +1292,25 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // 手动同步：拉取失败（网络断）时绝不能接着推送 —— 没读到远端就推 = 拿本地盖掉远端。
   // 先跑一遍拉取正常的，证明这个按钮确实会推（否则「没有 PUT」可能只是按钮没生效）
   await step(page, 'seeded-sync-skips-push-when-pull-fails', async () => {
-    await page.waitForTimeout(1_500); // 等上一条留下的防抖推送（800ms）落地，免得算进来
+    await quiesce(); // 上一条留下的防抖推送作废，免得算进来（原来死等 1.5 s）
     const sync = page.locator('[data-testid="header-sync"]');
     const waitIdle = () => page.waitForFunction(() => !document.querySelector('[data-testid="header-sync"]')?.disabled, null, { timeout: 10_000 });
     let before = remote.puts;
     await sync.click();
-    await page.waitForTimeout(300);
+    // 健康的同步：拉 → 推。等推送落地（正向；等不到就超时，下面照样断言）
+    await until(() => remote.puts > before, 'the healthy sync to PUT').catch(() => {});
     await waitIdle();
     if (remote.puts <= before) throw new Error('control: sync with a healthy pull did not PUT');
     remote.failGets = true;
     expectedConsole.add('push skipped');
     try {
       before = remote.puts;
+      const gets0 = remote.gets;
       await sync.click();
-      await page.waitForTimeout(300);
+      // 这次拉取被拒之后才轮到「推不推」：先等拉取真的发出去了，再等按钮回到空闲
+      await until(() => remote.gets > gets0, 'the sync to attempt a pull');
       await waitIdle();
+      // 「不该推」是否定断言：拉取失败后留 1 s 看有没有补推（和原来一样）
       await page.waitForTimeout(1_000);
       if (remote.puts !== before) throw new Error(`pull failed but sync still PUT ${remote.puts - before}x`);
       const cls = (await sync.getAttribute('class')) || '';
@@ -1035,8 +1327,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // A 底稿本馆优先、本馆没练过退回别馆并写明在哪个馆、换馆时没动过的卡重新挑来源；
   // A2 这台在这个馆是插销还是挂片；B 两层备注；D 自定义片按馆的单位存
   await step(page, 'seeded-gym-weight-per-gym', async () => {
-    await page.waitForTimeout(1_500);
-    await page.evaluate(() => window.__fitlog.flush());
+    await quiesce();
     const GA = 'E2E 甲馆', GB = 'E2E 乙馆', GC = 'E2E 丙馆';
     const kgGym = machine => ({ plateUnit: 'kg', plates: [25, 20, 15, 10, 5, 2.5, 1.25], cable: { v: 5, u: 'kg' }, machine: { v: machine, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } });
     const at = (id, days, gym, w) => ({ ...seedWorkout(id, torontoAt(torontoYmd(days), 9, 0), `E2E ${gym}`, '器械推肩', [[w, 10]]), gym });
@@ -1051,13 +1342,13 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
         appPrefsUpdatedMs: Date.now() + 1000,
       },
     };
-    await page.reload({ waitUntil: 'networkidle' });
-    await toDashboard();
+    await relaunch();
     // 上一条用例留下了一场进行中的（同步用例里加的动作）：先放弃，从空的一场开始
-    if (await page.locator('[data-testid="in-progress"]').isVisible().catch(() => false)) {
+    const inProgress = page.locator('[data-testid="in-progress"]');
+    if (await inProgress.isVisible().catch(() => false)) {
       await page.locator('[data-testid="in-progress-end"]').click();
       await clickAppConfirm(page, /^(放弃|Discard)$/);
-      await page.waitForTimeout(300);
+      await inProgress.waitFor({ state: 'detached', timeout: 3_000 });
     }
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
@@ -1067,7 +1358,9 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await picker.waitFor({ state: 'visible', timeout: 3_000 });
       await picker.locator('[data-testid^="gym-option-"]', { hasText: name }).click();
       await picker.waitFor({ state: 'hidden', timeout: 3_000 });
-      await page.waitForTimeout(300);
+      // 换馆后卡上的底稿按新馆重挑 / 重新取整（effect 里做）：等它画完再读
+      await until(async () => (await page.locator('[data-testid="gym-button"]').innerText()).includes(name), `today's gym to read ${name}`);
+      await settle(page);
     };
     const weights = () => page.locator('.ledger-row [data-testid="ledger-field-weight"] input').evaluateAll(els => els.map(e => Number(e.value)));
     const eyebrow = () => page.locator('[data-testid="prefill-from"]').innerText();
@@ -1076,12 +1369,12 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     // A：今天在甲馆 → 抄甲馆的 40；眉批不写馆
     await pickGym(GA);
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     const sheet = page.locator('[data-testid="picker-sheet"]');
     await sheet.locator('input[type="text"]').fill('器械推肩');
     await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '器械推肩' }).first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
+    await page.locator('.ledger-row').first().waitFor({ state: 'visible', timeout: 3_000 });
+    await settle(page);
     const wA = await weights();
     if (wA.join() !== '40') throw new Error(`at ${GA} the draft should copy ${GA}'s 40, got ${JSON.stringify(wA)} (eyebrow "${await eyebrow()}")`);
     if (await prefillGym()) throw new Error(`same-gym draft should not name a gym, got "${await prefillGym()}"`);
@@ -1119,7 +1412,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     if ((await face.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('library kind (pin) should be selected by default');
     if (!(await face.locator('[data-testid="stack-step"]').count())) throw new Error('pin machine should offer the per-machine step');
     await face.locator('[data-testid="gym-kind-loaded"]').click();
-    await page.waitForTimeout(300);
+    await settle(page);
     const kinds = (await readLs('fitlog_app_prefs'))?.gymKinds;
     if (kinds?.[`${GB}|press_machine_shoulder|`] !== 'loaded') throw new Error(`gymKinds not stored: ${JSON.stringify(kinds)}`);
     const wK = await weights();
@@ -1129,7 +1422,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const tare = face.locator('[data-testid="gym-tare"]');
     await tare.fill('30');
     await tare.press('Enter');
-    await page.waitForTimeout(300);
+    await settle(page);
     const tares = (await readLs('fitlog_app_prefs'))?.gymTares;
     if (JSON.stringify(tares?.[`${GB}|press_machine_shoulder|`]) !== '{"v":30,"u":"kg"}') throw new Error(`gymTares not stored: ${JSON.stringify(tares)}`);
     await closeFace();
@@ -1139,18 +1432,18 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await openFace();
     await tare.fill('');
     await tare.press('Enter');
-    await page.waitForTimeout(300);
+    await settle(page);
     if ((await readLs('fitlog_app_prefs'))?.gymTares?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error('clearing the sled should leave a tombstone');
     await closeFace();
     if (!(await page.getByText(/只算片子/).count())) throw new Error('without a sled the caption should say 只算片子 again');
     // 改回插销 → 写墓碑（和动作库一样），再改成挂片留着
     await openFace();
     await face.locator('[data-testid="gym-kind-pin"]').click();
-    await page.waitForTimeout(300);
+    await settle(page);
     const kinds2 = (await readLs('fitlog_app_prefs'))?.gymKinds;
     if (kinds2?.[`${GB}|press_machine_shoulder|`] !== '') throw new Error(`back to the library kind should leave a tombstone: ${JSON.stringify(kinds2)}`);
     await face.locator('[data-testid="gym-kind-loaded"]').click();
-    await page.waitForTimeout(200);
+    await settle(page);
     await closeFace();
 
     // ⋯ 菜单只留对动作的操作：不再有插销 / 挂片、一档、空载
@@ -1203,8 +1496,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   // 都标成了 tagGym（用户把它改名叫「龙门架」），负荷判断不认，馆档案整套失效。远端还是旧标签时，拉下来就要纠正，
   // 而且动作卡 ⋯ 里要出现「这台是 插销 / 挂片」（之前缺的就是这个）。
   await step(page, 'seeded-gym-tag-becomes-cable', async () => {
-    await page.waitForTimeout(1_000);
-    await page.evaluate(() => window.__fitlog.flush());
+    await quiesce();
     const NAME = 'E2E 龙门架下压';
     const prefs = remote.snapshot.prefs ?? {};
     remote.snapshot = {
@@ -1220,9 +1512,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
         prefsLastUpdateMs: Date.now() + 1000,
       },
     };
-    await page.reload({ waitUntil: 'networkidle' });
-    await toDashboard();
-    await page.waitForTimeout(800);
+    // 迁移在启动拉取合并时做，卡片画出来时已经落定（原来再死等 800ms）
+    await relaunch();
     const defs = (await readLs('fitlog_custom_exercises')) || [];
     const mine = defs.find(d => d.id === 'e2e_gym_tag');
     if (JSON.stringify(mine?.tags) !== '["tagCable"]') throw new Error(`custom tagGym should become tagCable after pull: ${JSON.stringify(mine?.tags)}`);
@@ -1246,12 +1537,10 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await picker.locator('[data-testid^="gym-option-"]', { hasText: 'E2E 甲馆' }).click();
     await picker.waitFor({ state: 'hidden', timeout: 3_000 });
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     const sheet = page.locator('[data-testid="picker-sheet"]');
     await sheet.locator('input[type="text"]').fill(NAME);
     await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: NAME }).first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
     // 接回来的那一场里可能还有别的动作：按名字找这张卡，点大图上方的小药丸
     const gcard = page.locator('.ui-card', { has: page.locator('.masthead-rule', { hasText: NAME }) }).last();
     await gcard.locator('[data-testid="stack-chip"]').click();
@@ -1259,7 +1548,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await gface.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
     if ((await gface.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('a cable exercise should default to pin');
     await gface.locator('[data-testid="stack-done"]').click();
-    await page.waitForTimeout(200);
+    await gface.waitFor({ state: 'hidden', timeout: 2_000 });
     await backAndDiscard(page);
     return 'pulled tagGym → tagCable (custom + override), rename dropped, machine face shows 插销 / 挂片';
   });
@@ -1407,8 +1696,10 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
   await context.close();
 }
 
+const T0 = Date.now();
 const main = async () => {
   console.log(`\n== e2e smoke against ${BASE} ==\n`);
+  describeSelection([MAIN_PLAN, SEEDED_PLAN, BACKUP_PLAN], ONLY);
 
   // E2E_CHROMIUM：本机装的 Playwright 浏览器版本和 node_modules 里的对不上时，指向已有的那份可执行文件
   const browser = await chromium.launch({ headless: true, executablePath: process.env.E2E_CHROMIUM || undefined });
@@ -1569,7 +1860,7 @@ const main = async () => {
 
   await step(page, 'theme-manual-dark', async () => {
     await page.getByRole('button', { name: /^深色$|^Dark$/ }).click();
-    await page.waitForTimeout(200);
+    await settle(page); // 主题类名在 effect 里加
     const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
     if (!isDark) throw new Error('manual dark did not apply');
     return 'manual dark works';
@@ -1577,7 +1868,7 @@ const main = async () => {
 
   await step(page, 'theme-manual-light', async () => {
     await page.getByRole('button', { name: /^浅色$|^Light$/ }).click();
-    await page.waitForTimeout(200);
+    await settle(page);
     const isDark = await page.evaluate(() => document.documentElement.classList.contains('dark'));
     if (isDark) throw new Error('manual light did not apply');
     return 'manual light works';
@@ -1585,17 +1876,16 @@ const main = async () => {
 
   await step(page, 'theme-back-to-auto', async () => {
     await page.getByRole('button', { name: /跟随系统|System/ }).click();
-    await page.waitForTimeout(150);
+    await settle(page);
     const pref = await page.evaluate(() => localStorage.getItem(lsKey('theme-pref')));
     if (pref !== 'auto') throw new Error('theme-pref not persisted as auto');
+    // 弹层退场时下一次点击会等遮罩让开（Playwright 的点击自己会等「能收到点击」）
     await page.locator('[data-testid="prefs-sheet-close"]').click();
-    await page.waitForTimeout(350);
     return 'auto persisted';
   });
 
   await step(page, 'goto-plan', async () => {
     await page.locator('nav button', { hasText: /训练计划|Plan/ }).click();
-    await page.waitForTimeout(400);
     // Default sub-view should be Schedule
     const scheduleTab = page.locator('[data-testid="plan-subview-schedule"]');
     await scheduleTab.waitFor({ state: 'visible' });
@@ -1649,11 +1939,14 @@ const main = async () => {
 
     const card = sheet.locator('[data-testid="picker-sheet-exercise"]').first();
     await card.waitFor({ state: 'visible', timeout: 5_000 });
+    const rowsLoc = page.locator('[data-testid="schedule-exercise-row"]');
+    const rows0 = await rowsLoc.count();
     await card.click();
-    await page.waitForTimeout(600);
+    // 点一下加一行（「完成」不是同一张卡，不受 450ms 去重影响）：等行数变了再关
+    await until(async () => (await rowsLoc.count()) > rows0, 'the picked exercise to join the plan editor').catch(() => {});
     await page.locator('[data-testid="picker-done"]').click();
-    await page.waitForTimeout(500);
-    const rows = await page.locator('[data-testid="schedule-exercise-row"]').count();
+    await settle(page);
+    const rows = await rowsLoc.count();
     if (rows < 2) throw new Error(`expected >= 2 exercise rows after picking, got ${rows}`);
     // Inferred body parts chip area should now contain at least one entry
     const inferred = page.locator('[data-testid="schedule-inferred-bodyparts"]');
@@ -1738,9 +2031,7 @@ const main = async () => {
   await step(page, 'plan-finish-from-schedule', async () => {
     // Re-enter Plan tab and start the session again
     await page.locator('[data-testid="tab-plan"]').click();
-    await page.waitForTimeout(300);
     await page.locator('[data-testid="plan-subview-schedule"]').click();
-    await page.waitForTimeout(200);
     const startBtn = page.locator(`[data-testid="schedule-start-${createdScheduleId}"]`);
     await startBtn.click();
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
@@ -1752,8 +2043,8 @@ const main = async () => {
     // 按钮文案是动态的（结束训练/结束中/已结束/失败），所以不能用 ^...$ 精确匹配。
     await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
     await acceptAppConfirm(page);
-    // After finishing it goes back to dashboard within 2s
-    await page.waitForTimeout(2500);
+    // 结束 → 落库 → 刊末页（约 1.9 s 后自己收）：等它出来、点掉（原来死等 2.5 s 让它自己收）
+    await dismissColophon(page);
 
     // Force a remote push then GET, verify the schedule linkage survived the round-trip
     const verify = await page.evaluate(async (id) => {
@@ -1781,18 +2072,11 @@ const main = async () => {
   await step(page, 'plan-switch-to-goals', async () => {
     // After plan-finish-from-schedule we landed back on dashboard — return to Plan first
     await page.locator('[data-testid="tab-plan"]').click();
-    await page.waitForTimeout(300);
     await page.locator('[data-testid="plan-subview-goals"]').click();
-    await page.waitForTimeout(200);
+    await settle(page);
     const selected = await page.locator('[data-testid="plan-subview-goals"]').getAttribute('aria-selected');
     if (selected !== 'true') throw new Error('goals sub-view not active');
     return 'goals sub-view active';
-  });
-
-  await step(page, 'goto-dashboard', async () => {
-    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
-    await page.waitForTimeout(400);
-    return 'dashboard tab open';
   });
 
   // ── 时间线操作层（§12.8）──────────────────────────────────────
@@ -1801,6 +2085,8 @@ const main = async () => {
   // 按钮被删掉时 e2e 依然全绿，正说明这块是盲区。
   await step(page, 'timeline-no-inline-buttons', async () => {
     if (!finishedWorkoutId) throw new Error('no finished workout to inspect');
+    // 原 goto-dashboard（只导航、没有断言）并进这里
+    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     const card = page.locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`);
     await card.waitFor({ state: 'visible', timeout: 5_000 });
     // 卡面上不该再有任何按钮：低频操作全部收进长按菜单
@@ -1818,10 +2104,11 @@ const main = async () => {
     // 刻意按在【菜单将要出现的那一片】（右上角）——菜单是在手指底下长出来的，
     // 松手那一下的 click 正好落在第一个菜单项上。真机上就是这样一松手
     // 直接进了「编辑这次训练」。按卡片正中间是测不出这个的。
-    // 长按 500ms 达成（120ms 静默 + 380ms 进度线），这里按满 750ms 留余量。
+    // 长按 500ms 达成（120ms 静默 + 380ms 进度线），按 HOLD_MS（550）留余量。
+    // 松手离达成只有 50ms，比原来按 750 时更贴近「一达成就松手」，菜单项的静默期更要挡得住。
     await page.mouse.move(box.x + box.width - 60, box.y + 32);
     await page.mouse.down();
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(HOLD_MS);
     await page.mouse.up();
 
     const menu = page.locator('[data-testid="timeline-session-menu"]');
@@ -1859,8 +2146,12 @@ const main = async () => {
     if (covered) throw new Error('menu delete item is covered by a sibling card — 菜单被盖住了，点不到');
     await deleteItem.click();
 
-    // 通则 3：破坏性操作用「先执行 + 撤销」，不再弹确认框
-    await page.waitForTimeout(400);
+    // 通则 3：破坏性操作用「先执行 + 撤销」，不再弹确认框。卡片消失或弹出确认框，哪个先来等哪个
+    const cardLoc = page.locator(`[data-testid="timeline-session-${finishedWorkoutId}"]`);
+    await until(
+      async () => (await page.locator('[role="dialog"]').count()) > 0 || (await cardLoc.count()) === 0,
+      'the delete to either remove the card or ask',
+    ).catch(() => {});
     const dialogs = await page.locator('[role="dialog"]').count();
     if (dialogs !== 0) throw new Error('delete still opens a confirm dialog — §12.5 通则 3 要求先执行 + 撤销');
 
@@ -1886,7 +2177,8 @@ const main = async () => {
     if (!line.ok) throw new Error(`toast countdown line: ${line.reason}`);
     if (line.duration !== 5000) throw new Error(`countdown duration ${line.duration}ms != toast 停留时长 5000ms`);
     if (line.easing !== 'linear') throw new Error(`countdown easing is ${line.easing}, must be linear`);
-    await page.waitForTimeout(700);
+    // 线性 5 s：过 250ms 就该缩到 0.95 左右，看得出在走（原来等 700ms）
+    await page.waitForTimeout(250);
     const shrunk = await page.evaluate(() => {
       const el = document.querySelector('[data-testid="toast-countdown"]');
       const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
@@ -1911,7 +2203,7 @@ const main = async () => {
       const b0 = await cards.first().boundingBox();
       await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
       await page.mouse.down();
-      await page.waitForTimeout(750);
+      await page.waitForTimeout(HOLD_MS);
       await page.mouse.up();
       const m0 = page.locator('[data-testid="timeline-session-menu"]');
       await m0.waitFor({ state: 'visible', timeout: 3_000 });
@@ -1921,10 +2213,9 @@ const main = async () => {
       await page.locator('.ledger-row .set-num').first().click(); // 默认选中指针下那组：一下就做完
       await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
       await acceptAppConfirm(page);
-      await page.waitForTimeout(2500);
-      const colo = page.locator('[data-testid="workout-colophon"]');
-      if (await colo.isVisible().catch(() => false)) await colo.click();
-      await page.waitForTimeout(500);
+      // 做完一组再结束 → 刊末页：等它出来、点掉（原来死等 2.5 s + 0.5 s）
+      await dismissColophon(page);
+      await until(async () => (await cards.count()) >= 2, 'the copied session to show on the timeline').catch(() => {});
       before = await cards.count();
     }
     if (before < 2) throw new Error(`need >= 2 sessions to test merge, got ${before}`);
@@ -1933,7 +2224,7 @@ const main = async () => {
     const box = await first.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(HOLD_MS);
     await page.mouse.up();
 
     const menu = page.locator('[data-testid="timeline-session-menu"]');
@@ -1961,7 +2252,7 @@ const main = async () => {
     const box = await card.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.mouse.down();
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(HOLD_MS);
     await page.mouse.up();
 
     const menu = page.locator('[data-testid="timeline-session-menu"]');
@@ -1992,7 +2283,8 @@ const main = async () => {
   await step(page, 'open-workout-via-fab', async () => {
     await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
     // 2026-10-11：刚结束过一场也不再问「继续刚才那场？」，直接进新建页（接回走时间线长按菜单）
-    await page.waitForTimeout(400);
+    // 问了还是进了，哪个先出来等哪个（原来固定等 400ms）
+    await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('FAB must not ask about the just-finished workout any more');
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     return 'no resume prompt, new-workout view shown';
@@ -2017,7 +2309,7 @@ const main = async () => {
       .evaluate(el => el.className.includes('translate-y-0'))
       .catch(() => false);
     if (!alreadyOpen) await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400); // 弹层滑入动画
+    // 弹层滑入动画不用等：点击自己会等按钮位置稳定、能收到点击
     await sheet.getByRole('button', { name: /^(胸部|Chest)$/ }).first().click();
     // 第 3 条：选了有细分的部位 → 细分格（表头一排 + 每列小卡），不再是一长串动作行
     const cards = page.locator('[data-testid="picker-region-card"]');
@@ -2044,7 +2336,7 @@ const main = async () => {
         els.sort((a, b) => Number(a.dataset.r) - Number(b.dataset.r)).map(e => e.innerText.replace(/\s+/g, '')),
       ));
     const cardIn = async (name, ex) => (await col(name)).filter({ hasText: ex });
-    const hold = async (loc, ms = 750) => {
+    const hold = async (loc, ms = HOLD_MS) => {
       const b = await loc.boundingBox();
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
       await page.mouse.down();
@@ -2067,16 +2359,17 @@ const main = async () => {
     // 长按满 500ms 时面板已经弹出（手指还按着）
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
     await page.mouse.up();
-    await page.waitForTimeout(200);
+    // 松手补发的 click 在 up 里同步派发：要是被算成「添加」，过三帧也画出来了
+    await settle(page);
     if ((await sheet.locator('.region-card.is-added').count()) !== addedBefore) throw new Error('long-press added the exercise');
     await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '上胸' }).click();
-    await page.waitForTimeout(300);
+    await settle(page);
     if (!(await names('上胸')).includes('杠铃平板卧推')) throw new Error(`assign via panel failed: 上胸 = ${(await names('上胸')).join('|')}`);
     // 放回中胸，别给后面的用例留状态
     await hold(await cardIn('上胸', '杠铃平板卧推'));
     await page.mouse.up();
     await menu.locator('[data-testid="menu-region-chips"]').getByRole('button', { name: '中胸' }).click();
-    await page.waitForTimeout(300);
+    await settle(page);
     if (!(await names('中胸')).includes('杠铃平板卧推')) throw new Error('could not move it back to 中胸');
     await clearToasts();
     return 'long-press → panel (no add), region chip moves the card and back';
@@ -2093,7 +2386,7 @@ const main = async () => {
     const del = menu.getByRole('button', { name: /从动作库删除/ });
     await del.evaluate(el => el.click()); // 合成 click，没有 pointerdown＝松手补发的那一下
     await page.mouse.up();
-    await page.waitForTimeout(300);
+    await settle(page); // 被当成真点击的话，删除和提示条在这三帧里就画出来了
     const toasts = await page.locator('[data-testid="toast"]').allInnerTexts();
     if (toasts.some(t => /已从动作库删除/.test(t))) throw new Error('ghost click after long-press deleted the exercise');
     if (!(await menu.isVisible())) throw new Error('ghost click closed the panel');
@@ -2126,7 +2419,7 @@ const main = async () => {
 
     // 1) 普通态：长按满后拖向上胸 —— 卡片不动，弹出的是动作面板
     const top = await (await col('上胸')).first().boundingBox();
-    await drag(await cardIn('中胸', '杠铃平板卧推'), top.x + top.width / 2, top.y + 4, 650);
+    await drag(await cardIn('中胸', '杠铃平板卧推'), top.x + top.width / 2, top.y + 4, HOLD_MS);
     if ((await names('上胸')).includes('杠铃平板卧推')) throw new Error('long-press drag still moves cards in normal mode');
     if (!(await names('中胸')).includes('杠铃平板卧推')) throw new Error('card left 中胸');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
@@ -2145,7 +2438,7 @@ const main = async () => {
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/已调整顺序/.test(t)) throw new Error(`no undo toast after reorder: ${t}`);
     await page.locator('[data-testid="toast-undo"]').last().click();
-    await page.waitForTimeout(300);
+    await settle(page);
     if ((await names('中胸')).join('|') !== mid.join('|')) throw new Error('undo did not restore the order');
     await clearToasts();
 
@@ -2241,7 +2534,7 @@ const main = async () => {
     // 删除 → 已删除 → 恢复
     await (await cardIn('外轮廓', '宽距杠铃卧推')).click();
     await menu.getByRole('button', { name: /从动作库删除/ }).click();
-    await page.waitForTimeout(300);
+    await settle(page);
     if (await page.locator('[role="dialog"]').filter({ hasText: /确定/ }).count()) throw new Error('library delete still asks for confirmation');
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/已从动作库删除「宽距杠铃卧推」/.test(t)) throw new Error(`delete toast: ${t}`);
@@ -2251,7 +2544,7 @@ const main = async () => {
     const del = sheet.locator('.region-card.is-deleted', { hasText: '宽距杠铃卧推' });
     await del.waitFor({ state: 'visible', timeout: 3_000 });
     await del.click();
-    await page.waitForTimeout(300);
+    await settle(page);
     await goPart('胸部');
     if (!(await names('外轮廓')).includes('宽距杠铃卧推')) throw new Error('restore from 已删除 did not bring it back');
     await clearToasts();
@@ -2280,7 +2573,7 @@ const main = async () => {
     // 再点一次已选中的部位＝部位面板 → 删除：不弹确认，动作落到「未分部位」
     await parts.getByRole('button', { name: /^E2E部位$/ }).click();
     await pm.getByRole('button', { name: /删除这个部位/ }).click();
-    await page.waitForTimeout(300);
+    await settle(page);
     if (await page.locator('[role="dialog"]').filter({ hasText: /确定/ }).count()) throw new Error('deleting a part asks for confirmation');
     const pt = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/已删除部位「E2E部位」，1 个动作回到未分部位/.test(pt)) throw new Error(`part delete toast: ${pt}`);
@@ -2289,7 +2582,7 @@ const main = async () => {
     if (/CT_/i.test(await sheet.innerText())) throw new Error('raw custom-part id leaked into the UI');
     // 撤销：部位回来，动作也回去
     await page.locator('[data-testid="toast-undo"]').last().click();
-    await page.waitForTimeout(300);
+    await settle(page);
     await goPart('E2E部位');
     await sheet.locator('[data-testid="picker-region-card"]', { hasText: '宽距俯卧撑' }).waitFor({ timeout: 3_000 });
     await clearToasts();
@@ -2307,7 +2600,7 @@ const main = async () => {
     await goPart('E2E部位');
     await parts.getByRole('button', { name: /^E2E部位$/ }).click();
     await pm.getByRole('button', { name: /删除这个部位/ }).click();
-    await page.waitForTimeout(300);
+    await settle(page);
     await clearToasts();
     await goPart('胸部');
     if (!(await names('外轮廓')).includes('宽距俯卧撑')) throw new Error('cleanup: 宽距俯卧撑 not back in 外轮廓');
@@ -2388,7 +2681,11 @@ const main = async () => {
     const oneLine = page.locator('[data-testid="filters-one-line"]');
     if (await oneLine.isVisible().catch(() => false)) await oneLine.getByRole('button', { name: /^(全部|All)$/ }).click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
+    const closed = await until(
+      () => page.evaluate(() => !!document.querySelector('[data-testid="picker-sheet"]')?.closest('.pointer-events-none')),
+      'the picker sheet to close',
+    ).catch(() => false);
+    if (!closed) throw new Error('picker-sheet-close did not close the sheet');
     return 'picker sheet closed';
   });
 
@@ -2397,10 +2694,8 @@ const main = async () => {
   await step(page, 'scrub-reps-cell', async () => {
     // 先真的加一个动作进来，账本行才存在
     await page.locator('[data-testid="open-picker-sheet"]').click();
-    await page.waitForTimeout(400);
     await page.locator('[data-testid="picker-sheet-exercise"]').first().click();
     await page.locator('[data-testid="picker-sheet-close"]').click();
-    await page.waitForTimeout(400);
 
     const reps = page.locator('[data-testid="ledger-field-reps"]').first();
     await reps.waitFor({ state: 'visible', timeout: 5_000 });
@@ -2466,7 +2761,7 @@ const main = async () => {
     const nb = await num.boundingBox();
     await page.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2);
     await page.mouse.down();
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(HOLD_MS);
     await page.mouse.up();
     const sub = page.locator('[data-testid="subset-field-weight"] input').first();
     await sub.waitFor({ state: 'visible', timeout: 3_000 });
@@ -2491,7 +2786,8 @@ const main = async () => {
     await row0.locator('.set-num').click();
     if (!(await isInked(row0))) throw new Error('tapping the set number did not mark it done');
     if (!(await isSel(row0))) throw new Error('the set just done should stay selected (solid number)');
-    await page.waitForTimeout(650); // 过长按吞 click 的窗口之外，正常连点
+    // 原来每次连点前等 650ms「过长按吞 click 的窗口」。组号上唯一的时间窗是 SetCapsule.onSetNumClick：
+    // 长按加递减「达成后」600ms 内的那一次 click 被吞、吞完作废。这几下之间没有长按，窗口不存在，不用等
     await row0.locator('.set-num').click(); // 再点＝退回
     if (await isInked(row0)) throw new Error('tapping the just-done set did not revert it to to-do');
     if (!(await isSel(row0))) throw new Error('the reverted set should stay selected');
@@ -2517,7 +2813,8 @@ const main = async () => {
     // 添加组：新行从待做开始
     const before = await rows.count();
     await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
-    await page.waitForTimeout(300);
+    await until(async () => (await rows.count()) > before, 'the added set row');
+    await settle(page);
     const newRow = rows.nth(before);
     if (await isInked(newRow)) throw new Error('a freshly added set started as done');
 
@@ -2533,15 +2830,12 @@ const main = async () => {
     const card0Rows = page.locator('[data-ledger-paper]').first().locator('.ledger-row');
     if ((await card0Rows.count()) < 2) throw new Error('fixture drift: the first card needs >= 2 sets to test the sweep');
     const row1 = card0Rows.nth(1);
-    await page.waitForTimeout(650);
     await row1.locator('.set-num').click();
     if (!(await isInked(row0)) || !(await isInked(row1))) throw new Error('tapping set 2 should mark sets 1 and 2 done');
     if (!(await isSel(row1)) || (await isSel(row0))) throw new Error('after tapping set 2 only set 2 should be selected');
-    await page.waitForTimeout(650);
     await row0.locator('.set-num').click();
     if (!(await isInked(row0)) || (await isInked(row1))) throw new Error('tapping set 1 should move the pointer back: set 2 reverts');
     if (!(await isSel(row0))) throw new Error('set 1 should be selected after moving the pointer back');
-    await page.waitForTimeout(650);
     await row0.locator('.set-num').click(); // 刚做完的再点＝退回，回到全待做
     if (await isInked(row0)) throw new Error('reverting set 1 after the sweep failed');
 
@@ -2578,21 +2872,20 @@ const main = async () => {
     // A3：选中行的 ±5 条右端「递减」一次点击加一档
     const subsBefore = await page.locator(`[data-set-idx="0"] [data-testid="subset-remove"]`).count();
     await page.locator('[data-testid="add-drop-set"]').click();
-    await page.waitForTimeout(200);
+    await settle(page);
     const subsAfter = await page.locator(`[data-set-idx="0"] [data-testid="subset-remove"]`).count();
     if (subsAfter !== subsBefore + 1) throw new Error(`「递减」button should add one drop step: ${subsBefore} → ${subsAfter}`);
 
     // 全零的行点不实（只选中，指针不动）。新组抄来的递减档也有数，得一并删掉才是真全零 ——
     // 否则点组号会把它连同上面改过的第 1 组一起扫成做完，下面「结束训练」就没有改过没点完成的组可提示
     const newSubs = page.locator(`[data-set-idx="${before}"] [data-testid="subset-remove"]`);
-    while ((await newSubs.count()) > 0) {
+    for (let k = await newSubs.count(); k > 0; k--) {
       await newSubs.first().click();
-      await page.waitForTimeout(150);
+      await until(async () => (await newSubs.count()) < k, 'the drop-set row to go away');
     }
     await newRow.locator('[data-testid="ledger-field-weight"] input').fill('');
     await newRow.locator('[data-testid="ledger-field-reps"] input').fill('');
     await newRow.locator('.set-num').click();
-    await page.waitForTimeout(650);
     await newRow.locator('.set-num').click();
     if (await isInked(newRow)) throw new Error('an all-zero set could be marked done');
     if (await isInked(row0)) throw new Error('tapping an all-zero set moved the pointer (set 1 got swept to done)');
@@ -2600,7 +2893,7 @@ const main = async () => {
     // 删组：单击即删，不弹撤销条（2026-10-18 起训练页删组 / 删动作不给撤销）
     const n = await rows.count();
     await rows.nth(n - 1).locator('[data-testid="set-remove"]').click();
-    await page.waitForTimeout(200);
+    await until(async () => (await rows.count()) === n - 1, 'the set row to be removed').catch(() => {});
     if ((await rows.count()) !== n - 1) throw new Error('single tap did not delete the set');
     if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('deleting a set still shows an undo toast');
 
@@ -2634,7 +2927,11 @@ const main = async () => {
     const other = before === '哑铃平板卧推' ? '杠铃平板卧推' : '哑铃平板卧推';
     await dlg.locator('input').fill(other);
     await dlg.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }).click();
-    await page.waitForTimeout(300);
+    // 拒绝＝出「已经是另一个动作的名字」的提示、弹窗留着；接受＝弹窗关掉。哪个先发生等哪个，再判
+    await until(
+      async () => (await page.locator('[data-testid="toast"]', { hasText: /已经是另一个动作的名字|already used by another exercise/ }).count()) > 0 || !(await dlg.isVisible()),
+      'the rename to be rejected or accepted',
+    ).catch(() => {});
     if (!(await dlg.isVisible())) throw new Error(`renaming to another exercise's name "${other}" was accepted`);
     await dlg.getByRole('button', { name: /^(取消|Cancel)$/ }).click();
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
@@ -2701,7 +2998,8 @@ const main = async () => {
   // 一组都没做 →「结束」＝放弃这场（不留空场在时间线里）
   await step(page, 'back-to-tab-from-workout', async () => {
     await page.getByLabel(/^返回$|^Back$/).first().click();
-    await page.waitForTimeout(300);
+    // 离开训练页＝底栏回来；问了的话停在训练页
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('back still asks for confirmation');
     const navVisible = await page.locator('nav').first().isVisible();
     if (!navVisible) throw new Error('bottom nav should reappear after back');
@@ -2719,7 +3017,7 @@ const main = async () => {
     await btn.waitFor({ state: 'visible' });
     const before = (await btn.textContent())?.trim();
     await btn.click();
-    await page.waitForTimeout(200);
+    await settle(page);
     const after = (await btn.textContent())?.trim();
     if (before === after) throw new Error(`unit did not toggle (${before} -> ${after})`);
     return `${before} -> ${after}`;
@@ -2764,7 +3062,7 @@ const main = async () => {
     await page.locator('[data-testid="prefs-entry"]').click();
     await page.locator('[data-testid="language-toggle"] button[aria-pressed="false"]').click();
     await page.locator('[data-testid="prefs-sheet-close"]').click();
-    await page.waitForTimeout(350);
+    await domQuiet(page);
 
     // 切完先自证确实在英文下：<html lang> 是跟着语言走的（UserSettingsContext）
     const htmlLang = await page.evaluate(() => document.documentElement.lang);
@@ -2779,7 +3077,7 @@ const main = async () => {
     for (const [name, re] of screens) {
       if (re) {
         await nav(re);
-        await page.waitForTimeout(300);
+        await domQuiet(page); // 整屏画完再扫（原来固定等 300ms）
       }
       for (const hit of await sweep()) found.push(`${name} → ${hit}`);
     }
@@ -2788,12 +3086,13 @@ const main = async () => {
     // 前面的用例刚结束过一场，10 分钟内点开始会先问「继续刚才那场？」——
     // 这里要的是干净的新建页，所以选「新开一场」。
     await page.getByRole('button', { name: /开始训练|Start workout/i }).click();
-    await page.waitForTimeout(400);
     const resumeDlg = page.locator('[role="dialog"]');
+    await resumeDlg.or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
     if (await resumeDlg.isVisible().catch(() => false)) {
       await clickAppConfirm(page, /^新开一场$|^Start new$/);
-      await page.waitForTimeout(400);
     }
+    await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
+    await domQuiet(page);
     for (const hit of await sweep()) found.push(`new-workout → ${hit}`);
 
     // 遮罩退场有动画，DOM 还在的那几帧里点谁都会被 scrim 吞掉（点击会一直重试到超时）。
@@ -2804,11 +3103,10 @@ const main = async () => {
     // 用 aria-label 定位而不是可及名：部位印那一格的可及名也是 Back（背），
     // getByRole 会同时命中两个而报 strict mode violation。那一格没有 aria-label。
     await page.getByLabel(/^返回$|^Back$/).first().click();
-    await page.waitForTimeout(400);
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
     // 空训练直接返回不会弹确认；真弹了（有内容）就确认离开，别把后面的用例卡住
     if (await resumeDlg.isVisible().catch(() => false)) {
       await acceptAppConfirm(page);
-      await page.waitForTimeout(300);
     }
 
     // 复原成中文，后续用例看到的还是原来的界面
@@ -2816,7 +3114,8 @@ const main = async () => {
     await page.locator('[data-testid="prefs-entry"]').click();
     await page.locator('[data-testid="language-toggle"] button[aria-pressed="false"]').click();
     await page.locator('[data-testid="prefs-sheet-close"]').click();
-    await page.waitForTimeout(350);
+    await settle(page); // <html lang> 在 effect 里改
+    if ((await page.evaluate(() => document.documentElement.lang)) === 'en') throw new Error('could not switch the language back to Chinese');
 
     if (found.length) {
       throw new Error(`${found.length} Chinese string(s) leaked in English mode: ${found.slice(0, 8).join(' | ')}`);
@@ -2828,7 +3127,7 @@ const main = async () => {
   // 放在最后，因为它会把一条记录的 finishedAt 清掉，改变后续用例看到的数据。
   await step(page, 'resume-recent-workout', async () => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
-    await page.waitForTimeout(300);
+    await settle(page);
     // 接回的是「最近结束的那一场」：前面的用例可能又结束过别的场次（并入上一场那条会造一场），按快照现查
     const resumeTarget = await page.evaluate(async () => {
       await window.__fitlog.flush();
@@ -2843,15 +3142,14 @@ const main = async () => {
     const rcard = page.locator(`[data-testid="timeline-session-${resumeId}"]`);
     if (!(await rcard.isVisible().catch(() => false))) {
       await page.getByRole('button', { name: /按时间|Timeline/ }).first().click();
-      await page.waitForTimeout(400);
+      await rcard.waitFor({ state: 'visible', timeout: 3_000 });
     }
     // 居中：贴顶会被吸顶的页头盖住，按下去落在页头上
     await rcard.evaluate(el => el.scrollIntoView({ block: 'center' }));
-    await page.waitForTimeout(300);
-    const rbox = await rcard.boundingBox();
+    const rbox = await stableBox(rcard);
     await page.mouse.move(rbox.x + rbox.width / 2, rbox.y + rbox.height / 2);
     await page.mouse.down();
-    await page.waitForTimeout(750);
+    await page.waitForTimeout(HOLD_MS);
     await page.mouse.up();
     const rmenu = page.locator('[data-testid="timeline-session-menu"]');
     await rmenu.waitFor({ state: 'visible', timeout: 3_000 });
@@ -2883,9 +3181,14 @@ const main = async () => {
     return `resumed same record (${check.total} workouts), finishedAt cleared`;
   });
 
-  await seededScenarios(browser, { escapedRemoteCalls });
-
-  await step(page, 'final-screenshot', async () => 'done');
+  // 带夹具的场景和备份那套各开各的 context、互不相干：并行跑（主流程里有对时序敏感的拖动手势，不和它并行）
+  const [, backup] = await Promise.all([
+    SEEDED_PLAN.run.size ? seededScenarios(browser, { escapedRemoteCalls }) : null,
+    runBackup(browser, BACKUP_PLAN),
+  ]);
+  report.backup = backup.results;
+  if (backup.failed) report.steps.push({ name: 'backup', status: 'fail', detail: backup.results.find(r => r.status === 'fail')?.detail });
+  for (const e of backup.pageErrors) report.pageErrors.push(`[backup] ${e}`);
 
   // 数据隔离断言：e2e 全程不得有任何请求真的打到后端
   await step(page, 'no-real-backend-calls', async () => {
@@ -2902,9 +3205,15 @@ const main = async () => {
   await browser.close();
 
   const failed = report.steps.filter(s => s.status === 'fail');
-  console.log(`\n== summary: ${report.steps.length - failed.length}/${report.steps.length} passed ==`);
+  const bPass = backup.results.filter(r => r.status === 'pass').length;
+  console.log(`\n== summary: ${report.steps.length - failed.length}/${report.steps.length} passed · backup ${bPass}/${backup.results.length} ==`);
   console.log(`   console.error count: ${report.consoleErrors.length}`);
   console.log(`   page errors: ${report.pageErrors.length}`);
+  console.log(`   wall clock: ${((Date.now() - T0) / 1000).toFixed(1)}s`);
+  if (UNTIL_TIMEOUTS.length) console.log(`   条件等待超时 ${UNTIL_TIMEOUTS.length} 次（白等了）：${UNTIL_TIMEOUTS.join(' | ')}`);
+  printSlowest('主流程', timings.get(MAIN_PLAN));
+  printSlowest('带夹具', timings.get(SEEDED_PLAN));
+  printSlowest('备份', backup.timings);
   if (failed.length || report.consoleErrors.length || report.pageErrors.length) {
     process.exit(1);
   }
