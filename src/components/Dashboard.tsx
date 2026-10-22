@@ -22,6 +22,7 @@ import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 import { weightBaseline, weightDelta } from '../utils/weightSummary';
+import { useGymScopedPR } from '../hooks/useLoadKind';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -82,6 +83,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   const dateLocale = isCn ? 'zh-CN' : 'en-US';
   const { workouts: allWorkouts, currentWorkout } = useWorkoutContext();
   const prefs = useExercisePrefs();
+  // 器械类纪录只在同一个馆里比（和刊末页同一口径，utils/prRecords）
+  const gymScoped = useGymScopedPR();
   /**
    * 进行中的那场（工作台里有动作、还没结束）：顶上单独一行，不进时间线。
    * 一组都没做完的空场（练到一半放弃留下的「N 动作 0 组」）也不进时间线 —— 它不是数据。
@@ -107,8 +110,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         resolveName: prefs.resolveName,
         signedLoadOf: ex => usesSignedLoad(ex, prefs.signedLoadOf(ex.name)),
         getActiveMetrics: prefs.getActiveMetrics,
+        gymScoped,
       }),
-    [workouts, prefs],
+    [workouts, prefs, gymScoped],
   );
   const openLift =
     selectedPRProject && selectedPRProject !== '__WEIGHT__'

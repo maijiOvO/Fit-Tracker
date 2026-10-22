@@ -8,18 +8,13 @@
  */
 import type { Exercise, WorkoutSession } from '../../types';
 import { signedKg } from './load';
+import { e1rmOf, findRecords, prSetsOf, type PRSet, type RecordKind } from './prRecords';
 
 /** 估算 1RM 的伪指标键。不在 activeMetrics 里，只在图表 / 纪录里出现 */
 export const E1RM = 'e1rm';
 
-/** 超过这个次数的组不估 1RM：Epley 在高次数段偏差太大，估出来的数没有参考价值 */
-const E1RM_MAX_REPS = 12;
-
-/** Epley：w × (1 + r/30)；1 次就是本身 */
-export function estimate1RM(weightKg: number, reps: number): number | null {
-  if (!(weightKg > 0) || !(reps >= 1) || reps > E1RM_MAX_REPS) return null;
-  return reps === 1 ? weightKg : weightKg * (1 + reps / 30);
-}
+/** Epley，≤ 10 次才估（和纪录同一份，见 utils/prRecords） */
+export const estimate1RM = e1rmOf;
 
 export interface SetRef {
   /** 带符号的 kg（辅助为负）；不带号的动作就是 weight */
@@ -45,6 +40,10 @@ export interface LiftSession {
   e1rm: (SetRef & { value: number }) | null;
   /** 次数最多的一组（同次数取更重的） */
   mostReps: SetRef | null;
+  /** 这一场破了哪几种纪录（utils/prRecords，和刊末页的 PB 牌同一口径）；第一次练 / 这个馆第一次练的器械没有 */
+  records: RecordKind[];
+  /** 这个动作按带正负的负荷比 */
+  signed: boolean;
 }
 
 export interface LiftRecord {
@@ -123,6 +122,8 @@ function buildSession(w: WorkoutSession, ex: Exercise, signed: boolean): LiftSes
     top,
     e1rm,
     mostReps,
+    records: [],
+    signed,
   };
 }
 
@@ -147,6 +148,8 @@ interface BuildParams {
   resolveName: (name: string) => string;
   signedLoadOf: (ex: Exercise) => boolean;
   getActiveMetrics: (baseName: string) => string[];
+  /** 器械类（配重片 / 挂片）的纪录只在同一个馆里比（useGymScopedPR）；不传＝都跨馆 */
+  gymScoped?: (ex: Exercise) => boolean;
 }
 
 /** 全部动作的逐场数据；未排序 */
@@ -157,6 +160,7 @@ export function buildLiftSummaries({
   resolveName,
   signedLoadOf,
   getActiveMetrics,
+  gymScoped,
 }: BuildParams): LiftSummary[] {
   const map = new Map<string, LiftSummary>();
   for (const w of workouts) {
@@ -195,6 +199,14 @@ export function buildLiftSummaries({
     if (!lift.sessions.length) continue;
     lift.sessions.sort((a, b) => a.ts - b.ts);
     lift.lastTs = lift.sessions[lift.sessions.length - 1].ts;
+    // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）
+    const rule = { tracksWeight: lift.hasWeight, signed: lift.signed, machine: !!gymScoped?.(lift.sessions[0].exercise) };
+    const hist: PRSet[] = [];
+    for (const s of lift.sessions) {
+      const cur = prSetsOf(s.exercise, s.gym, lift.signed);
+      s.records = findRecords(rule, hist, cur, s.gym).map(h => h.kind);
+      hist.push(...cur);
+    }
     lift.loaded = lift.sessions.some(s => s.sets.some((set: any) =>
       (lift.signed ? signedKg(set, s.exercise) : Number(set.weight) || 0) !== 0));
     lift.best = {
@@ -236,11 +248,23 @@ export interface TrendPoint {
   val: number | null;
   /** 截至这一场的历史最好（阶梯线） */
   best: number;
-  /** 这一场刷新了纪录（第一场不算 —— 和 prDetect 同口径：历史为空不算 PR） */
+  /** 这一场刷新了纪录（utils/prRecords 同口径：历史为空不算 PR，器械只比同一个馆） */
   pr: boolean;
   set?: SetRef | null;
   gym?: string;
   workoutId?: string;
+}
+
+/**
+ * 这一场在这个指标上算不算破纪录：重量 / 估算 1RM / 次数指标按 utils/prRecords 判出来的那几种
+ * （和刊末页、训练中的 PB 标一个口径，分馆也一样）；带号动作的重量图上，少用辅助的次数纪录也算（数往上走了）。
+ * 其余指标（时长、距离…）照旧按数比。
+ */
+function isRecordOn(s: LiftSession, metric: string, rose: boolean): boolean {
+  if (metric === 'weight') return s.records.includes('weight') || (s.signed && rose && s.records.includes('reps'));
+  if (metric === E1RM) return s.records.includes('e1rm');
+  if (metric === 'reps') return s.records.includes('reps');
+  return rose;
 }
 
 /** 逐场的值 + 阶梯纪录线。阈值很小，只挡浮点噪声 */
@@ -251,7 +275,7 @@ export function trendPoints(sessions: LiftSession[], metric: string): TrendPoint
   for (const s of sessions) {
     const v = sessionMetric(s, metric);
     if (v == null) continue;
-    const pr = seen && v > best + 1e-6;
+    const pr = seen && isRecordOn(s, metric, v > best + 1e-6);
     if (v > best) best = v;
     out.push({ ts: s.ts, val: v, best, pr, set: sessionMetricSet(s, metric), gym: s.gym, workoutId: s.workoutId });
     seen = true;

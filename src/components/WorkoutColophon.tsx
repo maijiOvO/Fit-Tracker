@@ -37,10 +37,18 @@ interface Props {
 }
 
 const KIND_LABEL: Record<PRHit['kind'], { cn: string; en: string }> = {
-  weight: { cn: '重量', en: 'Weight' },
-  volume: { cn: '容量', en: 'Volume' },
-  reps: { cn: '次数', en: 'Reps' },
+  weight: { cn: '最大重量', en: 'Heaviest' },
+  e1rm: { cn: '估算 1RM', en: 'Est. 1RM' },
+  volume: { cn: '单组容量', en: 'Set volume' },
+  reps: { cn: '次', en: 'reps' },
 };
+
+/** 次数纪录在多重的时候做的：「· 60 kg」，辅助的写「· 辅助 30 kg」 */
+function atLoad(s: PRHit, isCn: boolean): string {
+  if (s.atKg === undefined || s.atKg === 0) return s.atKg === 0 ? (isCn ? ' · 自重' : ' · bodyweight') : '';
+  const w = trim(Math.abs(s.atKg));
+  return s.atKg < 0 ? (isCn ? ` · 辅助 ${w} ${s.unitLabel}` : ` · assisted ${w} ${s.unitLabel}`) : ` · ${w} ${s.unitLabel}`;
+}
 
 function trim(n: number): string {
   return String(Number(n.toFixed(1)));
@@ -173,7 +181,7 @@ export const WorkoutColophon: React.FC<Props> = ({
                   {trim(s.prev)} → {trim(s.next)}
                 </span>{' '}
                 {KIND_LABEL[s.kind][isCn ? 'cn' : 'en']}
-                {s.unitLabel ? ` ${s.unitLabel}` : ''}
+                {s.kind === 'reps' ? atLoad(s, isCn) : s.unitLabel ? ` ${s.unitLabel}` : ''}
               </span>
             </div>
           ))}

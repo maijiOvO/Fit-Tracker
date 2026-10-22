@@ -46,7 +46,9 @@ import { attrsPatch, regionsPatch, type Resistance } from './src/utils/exerciseA
 import { applySetUpdate, normalizeGroups } from './src/utils/workbench';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
-import { signedKg } from './src/utils/load';
+import { usesSignedLoad } from './src/utils/load';
+import { prSetsOf } from './src/utils/prRecords';
+import type { PRPool } from './src/components/ExerciseCard';
 
 import TabNavigation from './src/components/TabNavigation';
 import { bodyPartTagFor } from './src/components/BodyPartPicker';
@@ -740,37 +742,39 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   );
 
   /**
-   * 「杠铃片」§1 训练中实时标 PB：每个项目（同一练法，prefs.liftKey）历史上单组最重的带符号 kg。
-   * 口径照 detectPRs：底稿行不算、本场不算（按 id 排除）。
+   * 「杠铃片」§1 训练中实时标 PB：每个项目（同一练法，prefs.liftKey）以前做完的每一组（带上那场的馆）。
+   * 比法在 utils/prRecords（和结束训练的 PB 牌、历史纪录点同一份）：底稿行不算、本场不算（按 id 排除）。
    */
-  // 器械类（配重片、挂片式）的纪录只在同一个馆里比：键带上馆名（口径同 detectPRs.gymScoped）
   const gymScopedPR = useGymScopedPR();
-  const prKeyOf = useCallback(
-    (e: Exercise, gym: string | undefined) => {
-      const k = prefs.liftKey(e).trim();
-      return gymScopedPR(e) ? `${k}\u0000${gym ?? ''}` : k;
-    },
-    [gymScopedPR, prefs.liftKey],
-  );
-  const bestKgByLift = useMemo(() => {
-    const m = new Map<string, number>();
+  const isSignedEx = useCallback((e: Exercise) => usesSignedLoad(e, prefs.signedLoadOf(e.name)), [prefs.signedLoadOf]);
+  const prHistoryByLift = useMemo(() => {
+    const out = new Map<string, { ex: Exercise; gym?: string }[]>();
     for (const w of workouts) {
       if (w.id === currentWorkout.id) continue;
       for (const e of w.exercises ?? []) {
-        const key = prKeyOf(e, w.gym);
-        for (const st of e.sets ?? []) {
-          if (st.ghost) continue;
-          const v = signedKg(st, e);
-          if (!m.has(key) || v > (m.get(key) as number)) m.set(key, v);
-        }
+        const key = prefs.liftKey(e).trim();
+        if (!out.has(key)) out.set(key, []);
+        out.get(key)!.push({ ex: e, gym: w.gym });
       }
     }
-    return m;
+    return out;
     // 只依赖 liftKey：依赖整个 prefs 会让改备注 / 换杠这类无关偏好也触发全历史重算
-  }, [workouts, currentWorkout.id, prKeyOf]);
-  const bestKgFor = useCallback(
-    (ex: Exercise) => bestKgByLift.get(prKeyOf(ex, currentWorkout.gym)) ?? null,
-    [bestKgByLift, prKeyOf, currentWorkout.gym],
+  }, [workouts, currentWorkout.id, prefs.liftKey]);
+  const prPoolFor = useCallback(
+    (ex: Exercise): PRPool => {
+      const signed = isSignedEx(ex);
+      const past = prHistoryByLift.get(prefs.liftKey(ex).trim()) ?? [];
+      return {
+        rule: {
+          tracksWeight: prefs.getActiveMetrics(prefs.resolveName(ex.name)).includes('weight'),
+          signed,
+          machine: gymScopedPR(ex),
+        },
+        history: past.flatMap(p => prSetsOf(p.ex, p.gym, signed)),
+        gym: currentWorkout.gym,
+      };
+    },
+    [prHistoryByLift, isSignedEx, prefs.liftKey, prefs.getActiveMetrics, prefs.resolveName, gymScopedPR, currentWorkout.gym],
   );
 
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
@@ -1162,7 +1166,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             partPrechosenId={partPrechosenId}
             onOpenTimePicker={openTimePicker}
             lastSessionFor={lastSessionFor}
-            bestKgFor={bestKgFor}
+            prPoolFor={prPoolFor}
             onOpenExerciseTime={exId => {
               const ex = currentWorkout.exercises?.find(e => e.id === exId);
               setShowTimePickerModal({ exerciseId: exId, currentTime: ex?.exerciseTime });

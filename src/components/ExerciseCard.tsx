@@ -28,30 +28,25 @@ import { gymOverrideKey, oneSideKey, snapUntouched, useLoadRounder, withInc, wit
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { profileIn } from '../utils/loadable';
+import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
 
+
+/** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法 + 今天的馆 */
+export interface PRPool {
+  rule: PRRule;
+  history: PRSet[];
+  gym?: string;
+}
 
 /**
- * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。口径照抄结束训练时的 detectPRs 的 weight 一档：
- * 只比单组最重；历史为空不算；提升 < 0.5kg 或 < 1% 不算（带正负的负荷只看绝对提升）。
- * 一张卡至多标一行：本场最重那组里最早做的那一组。
+ * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。和结束训练的 PB 牌、历史纪录点同一份口径（utils/prRecords）：
+ * 最大重量 / 估算 1RM / 次数纪录 / 单组容量，挑最硬的那一种；历史为空不算；器械只比同一个馆。
+ * 一张卡至多标一行：破了那项纪录的那一组。
  */
-export function prSetIndex(exercise: Exercise, bestKg: number | null | undefined, signed: boolean): number {
-  if (bestKg === null || bestKg === undefined) return -1;
-  let max = -Infinity;
-  let at = -1;
-  exercise.sets.forEach((st, i) => {
-    if (st.ghost) return;
-    const w = signedKg(st, exercise);
-    if (w > max) {
-      max = w;
-      at = i;
-    }
-  });
-  if (at < 0) return -1;
-  const gain = max - bestKg;
-  if (gain < 0.5) return -1;
-  if (!signed && (bestKg <= 0 || gain / bestKg < 0.01)) return -1;
-  return at;
+export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
+  if (!pool) return -1;
+  const top = findRecords(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.gym)[0];
+  return top?.at ?? -1;
 }
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。
@@ -111,7 +106,8 @@ interface ExerciseCardProps {
   /** 刊头「第 N 个」：按卡算（交替组算一张） */
   cardNo?: number;
   /** 这个动作（同一练法）历史上单组最重的带符号 kg；null＝没有历史（不判纪录）。编辑旧训练时不传 */
-  bestKg?: number | null;
+  /** 训练中标 PB（编辑旧训练不传） */
+  prPool?: PRPool | null;
   /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */
   onAlternateWithNext?: () => void;
   /** ⋯ 菜单：加入上面的交替组（上一张不是交替组时不传） */
@@ -154,7 +150,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onNumTap,
   signed = false,
   cardNo,
-  bestKg,
+  prPool,
   onAlternateWithNext,
   onJoinGroupAbove,
   gym,
@@ -179,7 +175,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const hasNote = !!exerciseNotes[exerciseName] || !!gymNote;
   // 馆档案取整器：纯数字的动作（含没有重量这一项的）是 null，组行照旧走首选项的步长
   const rounder = useLoadRounder()(exercise, gym);
-  const prIdx = prSetIndex(exercise, bestKg, signed);
+  const prIdx = prSetIndex(exercise, prPool);
   /**
    * 顶部器材大图每张卡都画（2026-10-18 审查后用户定：只画选中那张时，做完一个动作大图跳到下一张卡，
    * 页面一跳容易点错组）。画哪一组：选中的组在这张卡上就画它，否则画这张卡下一组待做的，都做完了画最后一组。
