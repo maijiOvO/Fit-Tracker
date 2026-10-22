@@ -317,7 +317,8 @@ interface ExercisePickerSheetProps {
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
   /** 普通态里换了部位 chip（部位标签，如 subChest）：训练名没手动改过时跟着改 */
   onPartChange?: (bodyPart: string) => void;
-  onCreateCustomExercise: (prefilledName?: string) => void;
+  /** preset：弹层眼下停的部位 / 有氧栏（「新动作」照它预填，审查 A16） */
+  onCreateCustomExercise: (prefilledName?: string, preset?: { bodyPart?: string; category?: string }) => void;
   /** 从交替组「加一个动作」打开：头部写「加到 X ⇄ Y」，选的动作加进那个组 */
   targetLabel?: string | null;
   /**
@@ -701,6 +702,14 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     return { starredGroup: starred, recentGroup: dedupedRecent, otherGroup: other, flatGroup: [], rank };
   }, [q, results, starredExercises, recentExerciseNames, resolveName, lang]);
 
+  /** 「新动作」按眼下停的那一栏预填：部位栏 → 这个部位；有氧 / 自由栏 → 那一类 */
+  const createPreset = () =>
+    axis?.kind === 'part' ? { bodyPart: axis.v } : axis?.kind === 'cat' ? { category: axis.v } : undefined;
+  /** 搜索时每个结果命中的做法（做法名对上、动作名对不上的那些） */
+  const variantHitOf = useMemo(
+    () => new Map(results.filter(r => r.variant).map(r => [r.ex.id, r.variant!] as const)),
+    [results],
+  );
   const totalCount = results.length;
   const searchHere = axis ? flatGroup.filter(ex => matchAxis(ex, axis)) : flatGroup;
   const searchRest = axis ? flatGroup.filter(ex => !matchAxis(ex, axis)) : [];
@@ -878,29 +887,32 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
   // 提成真组件而不是 renderRow 函数：长按要用 useLongPress，而 hook 不能写在 .map() 的回调里。
   const renderRow = (ex: ExerciseDefinition) => {
-    const displayName = resolveName(ex.name[lang]);
-    const key = displayName.toLowerCase();
+    const baseName = resolveName(ex.name[lang]);
+    // 搜的是做法名（「宽握」）：这一行就是那个做法，点它加的也是那个做法（审查 A13）
+    const vh = q ? variantHitOf.get(ex.id) : undefined;
+    const displayName = vh ? `${baseName} · ${vh.name}` : baseName;
+    const key = baseName.toLowerCase();
     return (
       <PickerRow
         key={ex.id}
         displayName={displayName}
-        added={addedCounts[key] || 0}
-        isStarred={isStarredName(displayName)}
+        added={(vh ? addedCounts[`${key}::${vh.id}`] : addedCounts[key]) || 0}
+        isStarred={isStarredName(baseName)}
         partName={ex.bodyPart ? getTagName(ex.bodyPart) : ''}
         gear={equipmentsOf(ex)
           .map(t => ({ name: getTagName(t), hit: equips.has(t) }))
           .filter(g => g.name)}
         isCn={isCn}
-        bindRef={bindItemRef(ex.id)}
+        bindRef={bindItemRef(vh ? `${ex.id}::${vh.id}` : ex.id)}
         onPick={() => {
           if (swallowed()) return;
-          handlePick(ex);
+          handlePick(ex, vh?.id);
         }}
         onLongPress={() => {
           suppressClickRef.current = performance.now(); // 松手后的 click 不再当作「添加」
           openActionPanel(ex.id);
         }}
-        onToggleStar={() => toggleStarExercise(displayName)}
+        onToggleStar={() => toggleStarExercise(baseName)}
       />
     );
   };
@@ -1269,7 +1281,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               if (resultsRef.current) resultsRef.current.scrollTop = 0;
               return;
             }
-            setAxis(on ? null : { kind: chip.kind, v: chip.v });
+            // 再点一下已选中的部位什么都不做（审查 B7）：原来会取消筛选、整个列表一跳，多半是手滑
+            if (on) return;
+            setAxis({ kind: chip.kind, v: chip.v });
           }}
           className={tabCls(on)}
         >
@@ -1446,7 +1460,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => onCreateCustomExercise(q || undefined)}
+              onClick={() => onCreateCustomExercise(q || undefined, createPreset())}
               className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform"
             >
               <Plus size={14} strokeWidth={2.5} />
@@ -1663,7 +1677,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           {!arranging && q && !hasExactMatch && (
             <button
               type="button"
-              onClick={() => onCreateCustomExercise(q)}
+              onClick={() => onCreateCustomExercise(q, createPreset())}
               className="w-full min-h-[46px] mt-3 border border-dashed border-divider rounded-card text-accent text-sm font-bold flex items-center justify-center gap-2 active:bg-card-hover transition-colors"
             >
               <Plus size={15} strokeWidth={2.5} />

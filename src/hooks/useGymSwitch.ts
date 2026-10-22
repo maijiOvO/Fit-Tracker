@@ -21,6 +21,7 @@ import { reRoundPending, roundPrefill, useLoadRounder } from './useLoadRounder';
 import { toGhostSets } from './useWorkoutMutations';
 import { findLastIn, isPristineDraftCard } from '../utils/prefillSource';
 import type { GymProfile } from '../utils/loadable';
+import { useGymScopedPR } from './useLoadKind';
 import type { PlateUnit } from '../utils/plates';
 
 export function useGymSwitch() {
@@ -28,6 +29,7 @@ export function useGymSwitch() {
   const { unit, changeUnit, appPrefs } = useUserSettingsContext();
   const { resolveName, variantIdOf } = useExercisePrefs();
   const rounderFor = useLoadRounder();
+  const gymScoped = useGymScopedPR();
 
   const reRound = useCallback(
     (
@@ -41,7 +43,8 @@ export function useGymSwitch() {
       exercises: (w.exercises ?? []).map((e, i) => {
         const r = rounderFor(e, gym, u, gyms);
         if (repick && isPristineDraftCard(e.sets)) {
-          const hit = findLastIn(workouts, resolveName, variantIdOf, e.name, variantIdOf(e) ?? '', w.id, gym);
+          // 本馆优先只给器械类（审查 A11）；别的器材不按馆重挑，最近一次就是最近一次
+          const hit = gymScoped(e) ? findLastIn(workouts, resolveName, variantIdOf, e.name, variantIdOf(e) ?? '', w.id, gym) : null;
           if (hit && hit.workout.date !== e.prefillFrom) {
             const { prefillGym: _pg, ...rest } = e;
             const sets = roundPrefill(toGhostSets(hit.ex.sets, `${Date.now()}_${i}`), e, r);
@@ -57,7 +60,7 @@ export function useGymSwitch() {
         return sets === e.sets ? e : { ...e, sets };
       }),
     }),
-    [rounderFor, workouts, resolveName, variantIdOf],
+    [rounderFor, workouts, resolveName, variantIdOf, gymScoped],
   );
 
   /** 手动切单位（训练页头上的 kg / lbs、首选项里的单位）：只换显示，不动记录、不重新取整 */

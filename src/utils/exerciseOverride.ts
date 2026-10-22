@@ -36,9 +36,18 @@ export function mergeOverride(
   }
   const aliases = [...(ex.aliases ?? []), ...(over.aliases ?? [])];
   const variants = mergedVariants(ex, over);
+  /**
+   * 旧覆盖层（多选细分之前写的）只有 region、没有 regions：那是「主细分换成这个」。
+   * 直接展开会留着定义的 regions，定义原来的主细分就混成了次要细分（审查 A15）：去掉它，次要的照留。
+   */
+  const legacyRegion =
+    over.region !== undefined && over.regions === undefined && ex.region && over.region !== ex.region
+      ? { regions: (ex.regions ?? []).filter(r => r !== ex.region) }
+      : {};
   return {
     ...ex,
     ...over,
+    ...legacyRegion,
     name: { ...ex.name, ...(over.name ?? {}) },
     ...(aliases.length ? { aliases: [...new Set(aliases)] } : {}),
     ...(variants ? { variants } : {}),

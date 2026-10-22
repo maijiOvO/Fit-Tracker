@@ -392,6 +392,8 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
       followWeight(sets, i, shift, e, signed, snap);
     }
     if ('reps' in updates) followReps(sets, i, e, Number(before.reps) || 0, updates.reps);
+    // 时长（有氧 / 计时组）照次数的规矩跟：后面待做、没改过、原值一样的组跟着变（审查 A5）
+    if ('duration' in updates) followDuration(sets, i, Number(before.duration) || 0, Number(updates.duration) || 0);
     if (updates.subSets) followSubs(sets, i, before, edited, e, !!holdFollow, snap);
     return { ...e, sets };
   });
@@ -427,6 +429,16 @@ function followReps(sets: SetLog[], i: number, _e: Exercise, oldV: number, reps:
     const why = !s.ghost ? 'done' : s.touched?.reps ? 'touched'
       : (Number(s.reps) || 0) !== oldV ? 'value-differs' : 'followed';
     if (why === 'followed') sets[k] = { ...s, reps: reps! };
+  }
+}
+
+/** 时长：同次数，后面待做、没改过、原值和这组改之前一样的组跟着变 */
+function followDuration(sets: SetLog[], i: number, oldV: number, v: number) {
+  if (oldV === v) return;
+  for (let k = i + 1; k < sets.length; k++) {
+    const s = sets[k];
+    if (!s.ghost || s.touched?.duration || (Number(s.duration) || 0) !== oldV) continue;
+    sets[k] = { ...s, duration: v };
   }
 }
 
@@ -588,14 +600,35 @@ export function splitGroup(exs: Exercise[], gid: string): Exercise[] {
   return [...rest.slice(0, at), ...ordered, ...rest.slice(at)];
 }
 
-/** 这一组改记到组里另一个动作名下（值原样带过去） */
-export function moveSetToExercise(exs: Exercise[], r: RowRef, toExId: string): Exercise[] {
+/**
+ * 这一组改记到组里另一个动作名下（值原样带过去）。
+ * 带过去的只是这一组的数（审查 A7）：「上次 x」参考、从上一次纯换算来的标记是原来那个动作的，剥掉；
+ * 号按目标动作的口径重写（目标不按带正负记：辅助的组变成 0、负重的照重量记；目标按带正负记：带符号的数原样）。
+ * isSigned：目标动作按不按带正负记（不传＝不改号，workbench-check 用）。
+ */
+export function moveSetToExercise(exs: Exercise[], r: RowRef, toExId: string, isSigned?: (ex: Exercise) => boolean): Exercise[] {
   if (r.exId === toExId) return exs;
   const s = findSet(exs, r);
-  if (!s) return exs;
+  const from = exs.find(e => e.id === r.exId);
+  const to = exs.find(e => e.id === toExId);
+  if (!s || !from || !to) return exs;
+  const { prefillRef: _pr, draftAuto: _da, checkWeight: _cw, ...rest } = s;
+  let moved: SetLog = rest;
+  if (isSigned) {
+    const fix = <T extends SetLog | SubSetLog>(x: T, parent?: SetLog): T => {
+      const kg = signedKg(x, from, parent);
+      if (isSigned(to)) return { ...x, ...fromSignedKg(kg) };
+      const { bodyweightMode: _bm, ...plain } = x;
+      return { ...plain, weight: Math.max(0, kg) } as T;
+    };
+    moved = { ...fix(moved), ...(moved.subSets?.length ? { subSets: moved.subSets.map(sub => fix(sub, s)) } : {}) };
+  }
+  if (moved.subSets?.length) {
+    moved = { ...moved, subSets: moved.subSets.map(({ prefillRef: _spr, draftAuto: _sda, checkWeight: _scw, ...sub }) => sub) };
+  }
   return exs.map(e => {
     if (e.id === r.exId) return { ...e, sets: e.sets.filter(x => String(x.id) !== r.setId) };
-    if (e.id === toExId) return { ...e, sets: [...e.sets, s] };
+    if (e.id === toExId) return { ...e, sets: [...e.sets, moved] };
     return e;
   });
 }

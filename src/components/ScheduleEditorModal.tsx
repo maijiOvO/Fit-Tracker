@@ -22,7 +22,11 @@ type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment';
  * 新建动作带回调：建好的动作加进计划，不进训练。
  */
 export interface PlanPickerHost {
-  onCreateCustomExercise: (prefilledName: string | undefined, onCreated: (ex: ExerciseDefinition) => void) => void;
+  onCreateCustomExercise: (
+    prefilledName: string | undefined,
+    onCreated: (ex: ExerciseDefinition) => void,
+    preset?: { bodyPart?: string; category?: string },
+  ) => void;
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onDeleteExercise: (id: string) => void;
   onOpenNote: (name: string) => void;
@@ -154,11 +158,11 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
   );
 
   const handleCreateCustom = useCallback(
-    (prefilledName?: string) => {
+    (prefilledName?: string, preset?: { bodyPart?: string; category?: string }) => {
       pickerHost.onCreateCustomExercise(prefilledName, ex => {
         appendFromLibrary(ex);
         setSessionAdded(n => n + 1);
-      });
+      }, preset);
     },
     [appendFromLibrary, pickerHost],
   );

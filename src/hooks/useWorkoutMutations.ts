@@ -22,8 +22,11 @@ import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
 import { findLastIn } from '../utils/prefillSource';
+import type { GymProfile } from '../utils/loadable';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+/** 选好馆之后铺出新的一场（gyms：刚存的馆档案，context 还没刷新） */
+export type StartMaker = (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession;
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
 
 /**
@@ -215,8 +218,11 @@ export interface UseWorkoutMutationsResult {
   ) => Promise<void>;
   /** §12.8 菜单项「并入上一场」：把这场的动作追加到紧邻的前一场，本场删除，可撤销 */
   handleMergeIntoPrevious: (workoutId: string) => Promise<void>;
-  /** §12.8 菜单项「复制为今天的训练」：整场结构铺成底稿进工作台（§12.6 语义） */
-  handleCopyWorkoutToToday: (workoutId: string) => Promise<void>;
+  /**
+   * §12.8 菜单项「复制为今天的训练」：整场结构铺成底稿进工作台（§12.6 语义）。
+   * 只做检查和确认，返回「选好馆之后怎么铺这一场」；App 交给 startAtGym（先选馆，审查 A12）。null＝不开。
+   */
+  handleCopyWorkoutToToday: (workoutId: string) => Promise<StartMaker | null>;
   handleDeleteExerciseRecord: (
     e: React.MouseEvent,
     workoutId: string,
@@ -225,7 +231,8 @@ export interface UseWorkoutMutationsResult {
     date: string,
   ) => Promise<void>;
 
-  handleStartScheduledSession: (scheduleId: string) => void | Promise<void>;
+  /** 从计划开练：同上，返回选好馆之后怎么铺这一场（App 交给 startAtGym）；null＝不开 */
+  handleStartScheduledSession: (scheduleId: string) => Promise<StartMaker | null>;
 
   /**
    * 开新训练前的防误结束拆场闸门（FAB / 案头两个入口共用）。
@@ -272,7 +279,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast, toastUndo } = useUiOverlay();
-  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf, seedMetricsIfUnset } = useExercisePrefs();
+  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef } = useExercisePrefs();
   /** 「杠铃片」馆档案：底稿按今天的馆和单位就近取整（docs/design-plates.md §3） */
   const rounderFor = useLoadRounder();
   const gymScoped = useGymScopedPR();
@@ -395,7 +402,8 @@ export function useWorkoutMutations({
         return;
       }
 
-      const scheduleId = activeScheduleIdRef.current;
+      // 计划关联：开练时记在这场上的 fromSchedule 为准（App 被回收后接回来的也认得），ref 兜旧数据
+      const scheduleId = currentWorkout.fromSchedule?.scheduleId ?? activeScheduleIdRef.current;
       const finalWorkout: WorkoutSession = {
         ...currentWorkout,
         exercises: cleanedExercises,
@@ -669,6 +677,83 @@ export function useWorkoutMutations({
   );
 
   /**
+   * 这个动作（某个做法）最近一次练过的那一条，连同那一场。
+   * preferGym：先找这个馆的，没有再退回任意馆（design-plates.md「换馆重量」A）。
+   */
+  const findLast = useCallback(
+    (exerciseName: string, variantId?: string | null, skipWorkoutId?: string, preferGym?: string, before?: string) =>
+      findLastIn(workouts, resolveName, variantIdOf, exerciseName, variantId, skipWorkoutId, preferGym, before),
+    [resolveName, variantIdOf, workouts],
+  );
+  /** 本馆优先只给器械类（配重片 / 挂片）：真重量的器材抄最近一次，哪个馆都一样（审查 A11） */
+  const preferGymFor = useCallback(
+    (name: string, variantId: string | undefined, gym: string | undefined) =>
+      gym && gymScoped({ id: '', name, category: 'STRENGTH', sets: [], ...(variantId ? { variantId } : {}) } as Exercise) ? gym : undefined,
+    [gymScoped],
+  );
+
+  /** 按一条历史铺一张新卡（底稿 §12.6）；没练过就是一行空的待做 */
+  const buildExercise = useCallback(
+    (
+      name: string,
+      category: string,
+      last: { ex: Exercise; workout: WorkoutSession } | null,
+      exerciseTime: string,
+      defConfig?: any,
+      variant?: { id: string; name?: string },
+      /** 按哪个馆取整（默认今天这一场的馆）；gyms：刚存的馆档案（选馆开练那一刻 context 还没刷新） */
+      gym: string | undefined = gymNow,
+      gyms?: Record<string, GymProfile>,
+    ): Exercise => {
+      const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const rawGhosts = last?.ex.sets?.length ? toGhostSets(last.ex.sets, stamp) : null;
+      const vid = variant ? variant.id : last ? variantIdOf(last.ex) : undefined;
+      const vname = variant
+        ? variant.name || variantsOf(name).find(v => v.id === variant.id)?.name
+        : last?.ex.variantName || (vid ? variantsOf(name).find(v => v.id === vid)?.name : undefined);
+      const instanceConfig = last?.ex.instanceConfig
+        ? { ...last.ex.instanceConfig }
+        : {
+            // 递增递减组不再默认开启（旧逻辑把库里 supportsPyramid 当成了默认启用）
+            enablePyramid: false,
+            pyramidMode: 'decreasing',
+            // 只保留负重/辅助两个有语义的标记；'bodyweight' 折叠为标准
+            bodyweightMode:
+              defConfig?.bodyweightType === 'weighted' || defConfig?.bodyweightType === 'assisted'
+                ? defConfig.bodyweightType
+                : 'none',
+            autoCalculateSubSets: false,
+          };
+      // 「杠铃片」：底稿按今天的馆和单位就近取整，记下上一次的原值当参考（递减档一起）
+      const ghostSets = rawGhosts
+        ? roundPrefill(
+            rawGhosts,
+            { id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}) } as Exercise,
+            rounderFor({ id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}) } as Exercise, gym, undefined, gyms),
+          )
+        : null;
+      return {
+        id: `exercise_${stamp}`,
+        name,
+        category: category || 'STRENGTH',
+        // 做法沿用上次：底稿就是从那次抄的，两者必须是同一种做法
+        ...(vid ? { variantId: vid, ...(vname ? { variantName: vname } : {}) } : {}),
+        sets:
+          ghostSets && ghostSets.length > 0
+            ? ghostSets
+            : // 没练过的新动作：第一行空着、从待做开始（第 4 条），点组号才算做完
+              [{ id: `${stamp}_0`, weight: 0, reps: 0, ghost: true }],
+        ...(ghostSets && ghostSets.length > 0 && last?.workout.date ? { prefillFrom: last.workout.date } : {}),
+        // §12.11：记下底稿来源那一场的场地，**无条件记**。
+        ...(ghostSets && ghostSets.length > 0 && last?.workout.gym ? { prefillGym: last.workout.gym } : {}),
+        exerciseTime,
+        instanceConfig,
+      } as Exercise;
+    },
+    [variantIdOf, variantsOf, rounderFor, gymNow],
+  );
+
+  /**
    * 复制为今天的训练（§12.8 菜单项）—— 「上次那套，再来一遍」。
    *
    * 不发明新机制：动作与组数结构照抄，但每一组都以底稿铺下去
@@ -677,43 +762,12 @@ export function useWorkoutMutations({
    * 复制永远不会替用户上报他没做的事。
    */
   const handleCopyWorkoutToToday = useCallback(
-    async (workoutId: string) => {
+    async (workoutId: string): Promise<StartMaker | null> => {
       const src = workouts.find(x => x.id === workoutId);
-      if (!src) return;
-
-      const stamp = Date.now();
-      // 交替组跟着复制，换新的组 id（同一个旧 id 映射到同一个新 id）
-      const groupMap = new Map<string, string>();
-      const regroup = (g?: string) => {
-        if (!g) return undefined;
-        if (!groupMap.has(g)) groupMap.set(g, newGroupId());
-        return groupMap.get(g);
-      };
-      // 复制到今天：按今天这一场的馆（新建训练沿用上一次去的馆）和当前单位取整
-      const targetGym = workoutCtx.createNewWorkout().gym;
-      const exercises: Exercise[] = normalizeGroups((src.exercises || [])
-        .map((ex, i) => ({
-          id: `exercise_${stamp}_${i}`,
-          name: ex.name,
-          category: ex.category,
-          ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
-          tags: ex.tags ?? [],
-          sets: toGhostSets(ex.sets, `${stamp}_${i}`),
-          ...(ex.variantId ? { variantId: ex.variantId, variantName: ex.variantName } : {}),
-          exerciseTime: new Date().toISOString(),
-          ...(src.date ? { prefillFrom: src.date } : {}),
-          // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
-          ...(src.date && src.gym ? { prefillGym: src.gym } : {}),
-          ...(ex.instanceConfig ? { instanceConfig: { ...ex.instanceConfig } } : {}),
-          ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
-        }))
-        .map(e => ({ ...e, sets: roundPrefill(e.sets, e as Exercise, rounderFor(e as Exercise, targetGym)) }))
-        // 来源里只剩底稿的动作（未收尾的草稿）没有可抄的事实，整个动作丢掉
-        .filter(ex => ex.sets.length > 0));
-
-      if (exercises.length === 0) {
+      if (!src) return null;
+      if (!(src.exercises ?? []).some(ex => (ex.sets ?? []).some(s => !s.ghost))) {
         toast(isCn ? '这场没有可复制的组' : 'Nothing to copy from this workout', 'info');
-        return;
+        return null;
       }
 
       // 工作台里还有没结束的一场时，复制会把它从工作台上顶掉 —— 这个没有撤销，先问一句。
@@ -724,24 +778,50 @@ export function useWorkoutMutations({
             : 'Copying replaces the unfinished workout on the bench (it is saved; edit it from the timeline).',
           confirmLabel: isCn ? '继续复制' : 'Copy anyway',
         });
-        if (!ok) return;
+        if (!ok) return null;
       }
 
-      activeScheduleIdRef.current = null;
-      setCurrentWorkout({
-        ...workoutCtx.createNewWorkout(),
-        title: src.title || '',
-        tags: src.tags ?? [],
-        exercises,
-      });
-      setEditingWorkoutId(null);
-      setActiveTab('new');
-      toast(
-        isCn ? '已按这场填好参考——点组号照抄' : 'Filled in as reference — tap a set number to confirm',
-        'info',
-      );
+      // 和 FAB 一样先选馆（App 的 startAtGym），选好再按那个馆取整铺底稿
+      return (gym, gyms) => {
+        const stamp = Date.now();
+        // 交替组跟着复制，换新的组 id（同一个旧 id 映射到同一个新 id）
+        const groupMap = new Map<string, string>();
+        const regroup = (g?: string) => {
+          if (!g) return undefined;
+          if (!groupMap.has(g)) groupMap.set(g, newGroupId());
+          return groupMap.get(g);
+        };
+        const base = workoutCtx.createNewWorkout();
+        const targetGym = gym ?? base.gym;
+        const exercises: Exercise[] = normalizeGroups((src.exercises || [])
+          .map((ex, i) => ({
+            id: `exercise_${stamp}_${i}`,
+            name: ex.name,
+            category: ex.category,
+            ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
+            tags: ex.tags ?? [],
+            sets: toGhostSets(ex.sets, `${stamp}_${i}`),
+            ...(ex.variantId ? { variantId: ex.variantId, variantName: ex.variantName } : {}),
+            exerciseTime: new Date().toISOString(),
+            ...(src.date ? { prefillFrom: src.date } : {}),
+            // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
+            ...(src.date && src.gym ? { prefillGym: src.gym } : {}),
+            ...(ex.instanceConfig ? { instanceConfig: { ...ex.instanceConfig } } : {}),
+            ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
+          }))
+          .map(e => ({ ...e, sets: roundPrefill(e.sets, e as Exercise, rounderFor(e as Exercise, targetGym, undefined, gyms)) }))
+          // 来源里只剩底稿的动作（未收尾的草稿）没有可抄的事实，整个动作丢掉
+          .filter(ex => ex.sets.length > 0));
+        return {
+          ...base,
+          ...(targetGym ? { gym: targetGym } : {}),
+          title: src.title || '',
+          tags: src.tags ?? [],
+          exercises,
+        };
+      };
     },
-    [confirm, currentWorkout.exercises, isCn, rounderFor, setActiveTab, setCurrentWorkout, toast, workoutCtx, workouts],
+    [confirm, currentWorkout.exercises, isCn, rounderFor, toast, workoutCtx, workouts],
   );
 
   const handleDeleteExerciseRecord = useCallback(
@@ -804,9 +884,9 @@ export function useWorkoutMutations({
   );
 
   const handleStartScheduledSession = useCallback(
-    async (scheduleId: string) => {
+    async (scheduleId: string): Promise<StartMaker | null> => {
       const target = scheduleCtx.schedules.find(s => s.id === scheduleId);
-      if (!target) return;
+      if (!target) return null;
       // 进行中的训练现在会一直留在工作台（不再按返回就清空），从计划开练会顶掉它：先问一句（同「复制为今天」）
       if (!editingWorkoutId && (currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
@@ -815,52 +895,82 @@ export function useWorkoutMutations({
             : 'Starting the plan replaces the unfinished workout on the bench (it is saved; edit it from the timeline).',
           confirmLabel: isCn ? '继续' : 'Continue',
         });
-        if (!ok) return;
+        if (!ok) return null;
       }
-      activeScheduleIdRef.current = scheduleId;
-      const empty = workoutCtx.createNewWorkout();
-      // 计划里的目标重量也按今天的馆和单位就近取整；记一份 plan 参考（标「计划 x」，切单位从它重算，不会越换越漂）
-      const planSet = (e: Exercise, kg: number, id: string, reps: number): SetLog => {
-        const base: SetLog = { id, weight: kg, reps, ghost: true };
-        const r = rounderFor(e, empty.gym);
-        if (!r || !(kg > 0)) return base;
+      /**
+       * 和 FAB 一样先选馆（App 的 startAtGym），选好再铺（审查 A12）。每个动作和手动添加走同一条路（buildExercise）：
+       * 上一次的底稿、动作设置里的自重类型、有氧第一次加的默认记录项、上次交替做的照样排成交替组；
+       * 计划写了的才盖上去（组数、次数、目标重量），没写的就是上一次的样子。
+       * fromSchedule 开练时就记在这场上：App 被回收、接回来再结束，计划照样标完成。
+       */
+      return (gym, gyms) => {
+        const empty = workoutCtx.createNewWorkout();
+        const g = gym ?? empty.gym;
+        const now = new Date().toISOString();
+        const built = (target.exercises || []).map((pe, i) => {
+          const def = findExerciseDef(pe.name);
+          const category = pe.category || def?.category || 'STRENGTH';
+          const last = findLast(pe.name, null, undefined, preferGymFor(pe.name, undefined, g));
+          if (category === 'CARDIO' && !last) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
+          const ex = buildExercise(pe.name, category, last, now, def?.exerciseConfig, undefined, g, gyms);
+          const r = rounderFor(ex, g, undefined, gyms);
+          // 计划里的目标重量也按这个馆就近取整；记一份 plan 参考（标「计划 x」，切单位从它重算，不会越换越漂）
+          const planWeight = (kg: number): Partial<SetLog> =>
+            r
+              ? {
+                  weight: Math.abs(r.snapKg(kg)),
+                  plateUnit: r.unit,
+                  prefillRef: { kg, unit: plateUnitOf({ weight: kg }, r.unit), plan: true },
+                  draftAuto: true,
+                }
+              : { weight: kg };
+          const n = pe.targetSets && pe.targetSets > 0 ? pe.targetSets : ex.sets.length;
+          // 计划里的组是「打算做的」，不是做完的：一律待做（第 4 条），点组号才入册
+          const sets = Array.from({ length: n }, (_, j): SetLog => {
+            const src = ex.sets[Math.min(j, ex.sets.length - 1)];
+            const id = `${ex.id}_p${j}`;
+            let row: SetLog = {
+              ...src,
+              id,
+              ghost: true,
+              ...(src.subSets?.length ? { subSets: src.subSets.map((sub, k) => ({ ...sub, id: `${id}_sub${k}` })) } : {}),
+            };
+            if (pe.targetReps && pe.targetReps > 0) row = { ...row, reps: pe.targetReps };
+            if (pe.targetWeight && pe.targetWeight > 0) row = { ...row, ...planWeight(pe.targetWeight) };
+            return row;
+          });
+          return {
+            ex: {
+              ...ex,
+              id: `${ex.id}_${i}`,
+              ...(pe.bodyPart ? { bodyPart: pe.bodyPart } : {}),
+              tags: pe.tags ?? [],
+              sets,
+            } as Exercise,
+            group: last?.ex.altGroup ? `${last.workout.id}|${last.ex.altGroup}` : undefined,
+          };
+        });
+        // 上次交替做的几个动作这次计划里都有：照样排成交替组（只有一个的不成组）
+        const count = new Map<string, number>();
+        for (const b of built) if (b.group) count.set(b.group, (count.get(b.group) ?? 0) + 1);
+        const ids = new Map<string, string>();
+        const exercises = built.map(b => {
+          if (!b.group || (count.get(b.group) ?? 0) < 2) return b.ex;
+          if (!ids.has(b.group)) ids.set(b.group, newGroupId());
+          return { ...b.ex, altGroup: ids.get(b.group) };
+        });
         return {
-          ...base,
-          weight: Math.abs(r.snapKg(kg)),
-          plateUnit: r.unit,
-          prefillRef: { kg, unit: plateUnitOf({ weight: kg }, r.unit), plan: true },
-          draftAuto: true,
+          ...empty,
+          ...(g ? { gym: g } : {}),
+          title: target.title || (isCn ? '计划训练' : 'Planned session'),
+          tags: target.bodyParts ?? [],
+          notes: target.notes || '',
+          fromSchedule: { scheduleId },
+          exercises: normalizeGroups(exercises),
         };
       };
-      const prefilled: WorkoutSession = {
-        ...empty,
-        title: target.title || (isCn ? '计划训练' : 'Planned session'),
-        tags: target.bodyParts ?? [],
-        notes: target.notes || '',
-        exercises: (target.exercises || []).map((ex, i) => ({
-          id: `${Date.now()}_${i}`,
-          name: ex.name,
-          category: ex.category,
-          bodyPart: ex.bodyPart,
-          // 计划里的组是「打算做的」，不是做完的：一律待做（第 4 条），点组号才入册
-          sets: Array.from({ length: Math.max(1, ex.targetSets ?? 1) }, (_, j) =>
-            planSet(
-              { id: '', name: ex.name, category: ex.category, sets: [] } as Exercise,
-              ex.targetWeight ?? 0,
-              `${Date.now()}_${i}_${j}`,
-              ex.targetReps ?? 0,
-            ),
-          ),
-          tags: ex.tags ?? [],
-        })),
-      };
-      setCurrentWorkout(prefilled);
-      setEditingWorkoutId(null);
-      setActiveTab('new');
-      // 立即落盘
-      onPersist?.();
     },
-    [confirm, currentWorkout.exercises, editingWorkoutId, isCn, onPersist, rounderFor, scheduleCtx.schedules, setActiveTab, setCurrentWorkout, workoutCtx],
+    [buildExercise, confirm, currentWorkout.exercises, editingWorkoutId, findExerciseDef, findLast, isCn, preferGymFor, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx],
   );
 
   /**
@@ -894,74 +1004,6 @@ export function useWorkoutMutations({
     activeScheduleIdRef.current = null;
     proceed();
   }, []);
-
-  /**
-   * 这个动作（某个做法）最近一次练过的那一条，连同那一场。
-   * preferGym：先找这个馆的，没有再退回任意馆（design-plates.md「换馆重量」A）。
-   */
-  const findLast = useCallback(
-    (exerciseName: string, variantId?: string | null, skipWorkoutId?: string, preferGym?: string) =>
-      findLastIn(workouts, resolveName, variantIdOf, exerciseName, variantId, skipWorkoutId, preferGym),
-    [resolveName, variantIdOf, workouts],
-  );
-
-  /** 按一条历史铺一张新卡（底稿 §12.6）；没练过就是一行空的待做 */
-  const buildExercise = useCallback(
-    (
-      name: string,
-      category: string,
-      last: { ex: Exercise; workout: WorkoutSession } | null,
-      exerciseTime: string,
-      defConfig?: any,
-      variant?: { id: string; name?: string },
-    ): Exercise => {
-      const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const rawGhosts = last?.ex.sets?.length ? toGhostSets(last.ex.sets, stamp) : null;
-      const vid = variant ? variant.id : last ? variantIdOf(last.ex) : undefined;
-      const vname = variant
-        ? variant.name || variantsOf(name).find(v => v.id === variant.id)?.name
-        : last?.ex.variantName || (vid ? variantsOf(name).find(v => v.id === vid)?.name : undefined);
-      const instanceConfig = last?.ex.instanceConfig
-        ? { ...last.ex.instanceConfig }
-        : {
-            // 递增递减组不再默认开启（旧逻辑把库里 supportsPyramid 当成了默认启用）
-            enablePyramid: false,
-            pyramidMode: 'decreasing',
-            // 只保留负重/辅助两个有语义的标记；'bodyweight' 折叠为标准
-            bodyweightMode:
-              defConfig?.bodyweightType === 'weighted' || defConfig?.bodyweightType === 'assisted'
-                ? defConfig.bodyweightType
-                : 'none',
-            autoCalculateSubSets: false,
-          };
-      // 「杠铃片」：底稿按今天的馆和单位就近取整，记下上一次的原值当参考（递减档一起）
-      const ghostSets = rawGhosts
-        ? roundPrefill(
-            rawGhosts,
-            { id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}) } as Exercise,
-            rounderFor({ id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}) } as Exercise, gymNow),
-          )
-        : null;
-      return {
-        id: `exercise_${stamp}`,
-        name,
-        category: category || 'STRENGTH',
-        // 做法沿用上次：底稿就是从那次抄的，两者必须是同一种做法
-        ...(vid ? { variantId: vid, ...(vname ? { variantName: vname } : {}) } : {}),
-        sets:
-          ghostSets && ghostSets.length > 0
-            ? ghostSets
-            : // 没练过的新动作：第一行空着、从待做开始（第 4 条），点组号才算做完
-              [{ id: `${stamp}_0`, weight: 0, reps: 0, ghost: true }],
-        ...(ghostSets && ghostSets.length > 0 && last?.workout.date ? { prefillFrom: last.workout.date } : {}),
-        // §12.11：记下底稿来源那一场的场地，**无条件记**。
-        ...(ghostSets && ghostSets.length > 0 && last?.workout.gym ? { prefillGym: last.workout.gym } : {}),
-        exerciseTime,
-        instanceConfig,
-      } as Exercise;
-    },
-    [variantIdOf, variantsOf, rounderFor, gymNow],
-  );
 
   const addExerciseToWorkout = useCallback(
     (
@@ -1013,12 +1055,20 @@ export function useWorkoutMutations({
        */
       // 跳过今天这一场自己：工作台上的这场也存在 workouts 里，不能把今天刚做的抄成今天的底稿
       // 同一个馆的上一次优先（器械的数各馆不通用）；本馆没练过才抄别的馆的，眉批写明在哪个馆
-      const last = findLast(exerciseName, opts.variantId ?? null, currentWorkout.id || undefined, currentWorkout.gym);
+      // 给旧训练补加动作：只抄那一场之前练的（之后的数那天还没有）
+      const before = editingWorkoutId ? currentWorkout.date : undefined;
+      const last = findLast(
+        exerciseName,
+        opts.variantId ?? null,
+        currentWorkout.id || undefined,
+        preferGymFor(exerciseName, opts.variantId, currentWorkout.gym),
+        before,
+      );
       /**
        * 有氧动作第一次加进来（没配置过记录项、哪个做法都没记过）：按首选项「有氧默认记录」定记录项。
        * 记过的不动 —— 划船机被当器械记成 65×12 的那种必须保持重量 × 次数（审查 cardio-default-metrics）。
        */
-      if (ex.category === 'CARDIO' && !findLast(exerciseName, null, currentWorkout.id || undefined)) {
+      if (ex.category === 'CARDIO' && !findLast(exerciseName, null, currentWorkout.id || undefined, undefined, before)) {
         seedMetricsIfUnset(exerciseName, appPrefsNow().cardioMetrics);
       }
       const newEx = buildExercise(
@@ -1079,7 +1129,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast],
   );
 
   /**
@@ -1112,11 +1162,19 @@ export function useWorkoutMutations({
         let sets = ex.sets;
         let prefillFrom: string | undefined = ex.prefillFrom;
         let prefillGym: string | undefined = ex.prefillGym;
-        const hit = findLast(ex.name, variantId ?? '', p.id, p.gym);
+        const hit = findLast(
+          ex.name,
+          variantId ?? '',
+          p.id,
+          preferGymFor(ex.name, variantId, p.gym),
+          editingWorkoutId ? p.date : undefined,
+        );
         const stamp = Date.now();
         if (hit) {
-          const fill = roundPrefill(toGhostSets(hit.ex.sets, `${stamp}`), nextEx, r).slice(kept.length);
-          sets = [...kept, ...fill];
+          // 做完 / 改过的组留在原来的位置（审查 A6：原来全挪到最前面），其余位置换成新做法上一次同位置的那组，多出来的接在后面
+          const fill = roundPrefill(toGhostSets(hit.ex.sets, `${stamp}`), nextEx, r);
+          sets = ex.sets.flatMap((st, i) => (isKept(st) ? [st] : fill[i] ? [fill[i]] : []));
+          sets.push(...fill.slice(ex.sets.length));
           if (!sets.length) sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = hit.workout.date;
           prefillGym = hit.workout.gym;
@@ -1158,7 +1216,7 @@ export function useWorkoutMutations({
       });
       onPersist?.();
     },
-    [findLast, onPersist, rounderFor, setCurrentWorkout, variantIdOf, variantsOf],
+    [editingWorkoutId, findLast, onPersist, preferGymFor, rounderFor, setCurrentWorkout, variantIdOf, variantsOf],
   );
 
   return {

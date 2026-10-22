@@ -8,6 +8,10 @@
  *   > 拼音全拼前缀 62 > 全拼包含 56 > 首字母前缀 54 > 首字母包含 48
  *   > 中文子序列 42（如「杠铃卧推」命中「杠铃平板卧推」）
  *   > 标签/部位名包含 30（如「胸」带出所有胸部动作）
+ *
+ * 英文不计空格 / 连字符 / 间隔号（2026-10-22，审查 C）：pushup 找得到 Push-ups、pull up 找得到 Pull-up；
+ * 复数 s 可有可无（dips → Chest Dip）；词首字母也认（bss → Bulgarian Split Squat），
+ * 再加几条健身房里的通用缩写（rdl、ohp…，ABBR）。归一化后的命中排在英文名包含之后（60 / 58）。
  */
 import { pinyin } from 'pinyin-pro';
 
@@ -22,7 +26,24 @@ export interface ExerciseSearchEntry {
   pyi: string;
   /** 标签/部位候选：显示名 + 各自拼音全拼/首字母（全小写） */
   tagCandidates: string[];
+  /** 英文名去掉空格 / 连字符 / 间隔号（pushups） */
+  enFlat: string;
+  /** 英文名每个词的首字母（bss），带上缩写表展开（rdl / ohp） */
+  enInitials: string[];
 }
+
+/** 搜索里不算数的分隔：空格、连字符、间隔号、下划线 */
+export const flatSearch = (s: string) => s.toLowerCase().replace(/[\s\-‐–—·・_]/g, '');
+
+/** 常见缩写 → 英文名里要出现的词（都小写、按词首字母对不上的那几个） */
+const ABBR: Record<string, string> = {
+  rdl: 'romanian deadlift',
+  sldl: 'stiff leg deadlift',
+  ohp: 'overhead press',
+  db: 'dumbbell',
+  bb: 'barbell',
+  kb: 'kettlebell',
+};
 
 const CJK_RE = /[一-鿿]/;
 
@@ -58,12 +79,18 @@ export function buildSearchEntry(nameCn: string, nameEn: string, tagNames: strin
     if (tp.py && tp.py !== lower) tagCandidates.push(tp.py);
     if (tp.pyi && tp.pyi !== lower) tagCandidates.push(tp.pyi);
   }
+  const en = (nameEn || '').toLowerCase();
+  const words = en.split(/[\s\-‐–—·・_/()]+/).filter(Boolean);
+  const initials = words.map(w => w[0]).join('');
+  const abbrs = Object.entries(ABBR).filter(([, full]) => en.includes(full)).map(([a]) => a);
   return {
     cn: (nameCn || '').toLowerCase(),
-    en: (nameEn || '').toLowerCase(),
+    en,
     py,
     pyi,
     tagCandidates,
+    enFlat: flatSearch(en),
+    enInitials: initials.length >= 2 ? [initials, ...abbrs] : abbrs,
   };
 }
 
@@ -87,6 +114,13 @@ function scoreToken(entry: ExerciseSearchEntry, tok: string): number {
   if (entry.cn.includes(tok)) return 82;
   if (entry.en.startsWith(tok)) return 74;
   if (entry.en.includes(tok)) return 66;
+  const flat = flatSearch(tok);
+  if (flat && !CJK_RE.test(flat)) {
+    // 复数可有可无：dips 找 Chest Dip
+    const sing = flat.length > 3 && flat.endsWith('s') ? flat.slice(0, -1) : flat;
+    if (entry.enFlat && (entry.enFlat.includes(flat) || entry.enFlat.includes(sing))) return 60;
+    if ((entry.enInitials ?? []).some(x => x.startsWith(flat))) return 58;
+  }
   if (entry.py && entry.py.startsWith(tok)) return 62;
   if (entry.py && entry.py.includes(tok)) return 56;
   if (entry.pyi && entry.pyi.startsWith(tok)) return 54;

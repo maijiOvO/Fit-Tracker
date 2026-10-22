@@ -103,7 +103,7 @@ export interface NewWorkoutTabProps {
   /** 本次弹层会话累计添加数 */
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
-  onCreateCustomExercise: (prefilled?: string) => void;
+  onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string }) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onRenameExercise: (id: string, currentName: string) => void;
@@ -608,7 +608,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 }}
                 onSplit={() => setExs(list => splitGroup(list, card.group!))}
                 onAddMember={() => onPickerOpenChange(true, null, card.group)}
-                onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to))}
+                onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to, isSigned))}
                 onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
                 onToggleNote={onToggleNote}
                 onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId))}
@@ -753,10 +753,16 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
         onPartChange={bodyPart => {
-          // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改
+          // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改。
+          // 只在还一个动作都没加的时候（审查 A14）：加了胸的动作再去背那一栏找一个，是在找动作，不是改主意；
+          // 标题和「添加动作默认停的那一栏」（focusPart）一起改，两者不打架
           const label = partTitleFor(bodyPart, lang);
           if (!label) return;
-          setCurrentWorkout(w => (w.title && w.title !== label && isPartTitle(w.title, lang) ? { ...w, title: label } : w));
+          setCurrentWorkout(w =>
+            (w.exercises?.length ?? 0) > 0 || !w.title || w.title === label || !isPartTitle(w.title, lang)
+              ? w
+              : { ...w, title: label, focusPart: bodyPart },
+          );
         }}
         onCreateCustomExercise={onCreateCustomExercise}
         onEditExerciseTags={onEditExerciseTags}

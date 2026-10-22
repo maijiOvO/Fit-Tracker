@@ -43,7 +43,7 @@ import {
   ExerciseCategory,
 } from './src/constants/exercises';
 import { attrsPatch, regionsPatch, type Resistance } from './src/utils/exerciseAttrs';
-import { normalizeGroups } from './src/utils/workbench';
+import { applySetUpdate, normalizeGroups } from './src/utils/workbench';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
 import { signedKg } from './src/utils/load';
@@ -70,7 +70,7 @@ import {
   WeightInputModal,
 } from './src/components/modals';
 import type { NoteModalData } from './src/components/modals/NoteModal';
-import { gymSavePatch, keyedPatch } from './services/appPrefs';
+import { appPrefsNow, gymSavePatch, keyedPatch } from './services/appPrefs';
 
 import {
   AuthProvider,
@@ -288,9 +288,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleNewWorkoutBack,
     handleDeleteWorkout,
     handleMergeIntoPrevious,
-    handleCopyWorkoutToToday,
+    handleCopyWorkoutToToday: prepareCopyToToday,
     handleDeleteExerciseRecord,
-    handleStartScheduledSession,
+    handleStartScheduledSession: prepareScheduledSession,
     startWorkoutGuarded,
     resumeWorkout,
     pendingScrollToPicker,
@@ -299,6 +299,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     addExerciseToWorkout,
     switchExerciseVariant,
     resumedWorkoutIdsRef,
+    activeScheduleIdRef,
   } = useWorkoutMutations({
     setActiveTab,
     reloadAfterSave: () => loadLocalData(resolvedUserId),
@@ -311,15 +312,16 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
    * 开练先选馆（2026-10-21 用户定）：点开练先弹「这场在哪个馆练」，选了 / 新建了馆才真正开这一场，
    * 一个馆都没有就直接是「新的馆」表单。关掉＝这次不开练。
    * gymStart 是选好馆之后要跑的那一下；switchGym 在下面才拿到，经 ref 读（这里的闭包在点击时才执行）。
+   * make 拿到选的馆：计划开练、复制为今天按这个馆铺底稿（FAB 新建的空场不用）。
    */
   const [gymStart, setGymStart] = useState<((gym: string | undefined, gyms?: Record<string, GymProfile>) => void) | null>(null);
   const switchGymRef = useRef<((w: WorkoutSession, gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession) | null>(null);
   const startAtGym = useCallback(
-    (make: () => WorkoutSession, after?: (w: WorkoutSession) => void) =>
+    (make: (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession, after?: (w: WorkoutSession) => void) =>
       setGymStart(() => (gym: string | undefined, gyms?: Record<string, GymProfile>) => {
         void startWorkoutGuarded(() => {
-          const base = make();
-          // 按这个馆的片子切单位（设过档案的馆）；这一场还没有动作，不用重新取整
+          const base = make(gym, gyms);
+          // 按这个馆的片子切单位（设过档案的馆）；底稿已经按这个馆铺好了，同一个馆不会重挑
           const w = gym && switchGymRef.current ? switchGymRef.current(base, gym, gyms) : base;
           setCurrentWorkout(w);
           setEditingWorkoutId(null);
@@ -328,6 +330,29 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         });
       }),
     [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab],
+  );
+
+  /** 复制为今天 / 从计划开练：先检查、确认，再和 FAB 一样先选馆（审查 A12） */
+  const handleCopyWorkoutToToday = useCallback(
+    async (workoutId: string) => {
+      const make = await prepareCopyToToday(workoutId);
+      if (!make) return;
+      startAtGym(make, () =>
+        toast(isCn ? '已按这场填好参考——点组号照抄' : 'Filled in as reference — tap a set number to confirm', 'info'),
+      );
+    },
+    [isCn, prepareCopyToToday, startAtGym, toast],
+  );
+  const handleStartScheduledSession = useCallback(
+    async (scheduleId: string) => {
+      const make = await prepareScheduledSession(scheduleId);
+      if (!make) return;
+      // 计划关联同时记在 ref（旧口径）和这一场的 fromSchedule 上（make 里写的）
+      startAtGym(make, () => {
+        activeScheduleIdRef.current = scheduleId;
+      });
+    },
+    [activeScheduleIdRef, prepareScheduledSession, startAtGym],
   );
 
   const {
@@ -647,10 +672,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   // ============== 维度 Modal: 重置默认 ==============
   const handleResetMetricsToDefault = useCallback(async () => {
     if (!showMetricModal) return;
+    const cardio = prefs.findExerciseDef(showMetricModal.name)?.category === 'CARDIO';
     const ok = await confirm({
       message: isCn
-        ? `重置「${showMetricModal.name}」的配置？默认只记重量和次数。`
-        : `Reset "${showMetricModal.name}" to default settings?\nDefault tracks weight and reps only.`,
+        ? `重置「${showMetricModal.name}」的配置？${cardio ? '默认按首选项里的有氧默认记录。' : '默认只记重量和次数。'}`
+        : `Reset "${showMetricModal.name}" to default settings?\n${cardio ? 'Default follows your cardio defaults in Preferences.' : 'Default tracks weight and reps only.'}`,
     });
     if (ok) prefs.resetMetricsToDefault(showMetricModal.name);
   }, [confirm, isCn, prefs, showMetricModal]);
@@ -678,21 +704,16 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       setShowTimePicker(null);
       return;
     }
-    const exs = [...currentWorkout.exercises];
-    exs[exIdx] = {
-      ...exs[exIdx],
-      sets: exs[exIdx].sets.map((set, idx) =>
-        // 改值只改值（第 4 条）：待做行上确认时长只记 touched，不描实
-        idx === setIdx
-          ? {
-              ...set,
-              duration: totalSeconds,
-              ...(set.ghost ? { touched: { ...(set.touched ?? {}), duration: true } } : {}),
-            }
-          : set,
-      ),
-    };
-    setCurrentWorkout({ ...currentWorkout, exercises: exs });
+    // 改值只改值（第 4 条）：待做行上确认时长只记 touched，不描实。
+    // 走和重量 / 次数同一条改值路径：后面没动过、原值一样的待做组跟着变（审查 A5）
+    const set = targetExercise.sets[setIdx];
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: applySetUpdate(currentWorkout.exercises, { exId: targetExercise.id, setId: String(set.id) }, {
+        duration: totalSeconds,
+        ...(set.ghost ? { touched: { ...(set.touched ?? {}), duration: true } } : {}),
+      }),
+    });
     setShowTimePicker(null);
   };
 
@@ -852,14 +873,16 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     }
   };
 
+  /** preset：弹层眼下停的部位 / 有氧栏，新动作照它预填（审查 A16：原来一律清空成力量、无部位） */
   const openCreateCustomExerciseModal = useCallback(
-    (prefilledName?: string, onCreated?: (ex: ExerciseDefinition) => void) => {
+    (prefilledName?: string, onCreated?: (ex: ExerciseDefinition) => void, preset?: { bodyPart?: string; category?: string }) => {
       createdExerciseTargetRef.current = onCreated ?? null;
       setNewExerciseName(prefilledName?.trim() || '');
-      setNewExerciseBodyPart('');
+      setNewExerciseBodyPart(preset?.bodyPart ?? '');
       setNewExerciseEquip({ equipment: '' });
       setNewExerciseRegions([]);
-      setNewExerciseCategory('STRENGTH');
+      const cat = preset?.category;
+      setNewExerciseCategory(cat === 'CARDIO' || cat === 'FREE' || cat === 'OTHER' ? cat : 'STRENGTH');
       setShowAddExerciseModal(true);
     },
     [],
@@ -868,7 +891,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   /** 计划编辑器里的选动作弹层：弹窗和训练页弹层共用，新建动作改加进计划 */
   const planPickerHost = useMemo<PlanPickerHost>(
     () => ({
-      onCreateCustomExercise: (prefilledName, onCreated) => openCreateCustomExerciseModal(prefilledName, onCreated),
+      onCreateCustomExercise: (prefilledName, onCreated, preset) => openCreateCustomExerciseModal(prefilledName, onCreated, preset),
       onEditExerciseTags: ex => setEditExerciseTagsTarget(ex),
       onDeleteExercise: id => prefs.deleteLibraryExercise(id),
       onOpenNote: name => setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' }),
@@ -1028,6 +1051,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             ...(newExerciseRegions.length ? regionsPatch(newExerciseRegions) : {}),
           };
           prefs.addCustomExercise(ex);
+          // 有氧：记录项按首选项「有氧默认记录」先定好（不然交给计划的、动作库里看的都还是重量 × 次数）
+          if (currentCat === 'CARDIO') prefs.seedMetricsIfUnset(ex.name.cn, appPrefsNow().cardioMetrics);
 
           deliverCreatedExercise(ex);
           setShowAddExerciseModal(false);
@@ -1121,7 +1146,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             addedCounts={sheetAddedCounts}
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
-            onCreateCustomExercise={openCreateCustomExerciseModal}
+            onCreateCustomExercise={(name, preset) => openCreateCustomExerciseModal(name, undefined, preset)}
             onEditExerciseTags={ex => setEditExerciseTagsTarget(ex)}
             onRenameExercise={(id, name) => {
               setExerciseToRename({ id, name });
@@ -1265,7 +1290,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             addedCounts={NO_ADDED_COUNTS}
             sessionAdded={0}
             onPickExercise={() => false}
-            onCreateCustomExercise={name => planPickerHost.onCreateCustomExercise(name, () => {})}
+            onCreateCustomExercise={(name, preset) => planPickerHost.onCreateCustomExercise(name, () => {}, preset)}
             onEditExerciseTags={planPickerHost.onEditExerciseTags}
             onDeleteExercise={planPickerHost.onDeleteExercise}
             onOpenNote={planPickerHost.onOpenNote}

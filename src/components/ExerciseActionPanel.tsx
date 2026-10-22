@@ -20,6 +20,7 @@ import { FileText, GitMerge, ListChecks, Pencil, Search, Shuffle, Star, Tags, Tr
 import { ExerciseDefinition, Language } from '../../types';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 
 interface Props {
   ex: ExerciseDefinition;
@@ -218,15 +219,20 @@ export const ExerciseActionPanel: React.FC<Props> = ({
           </button>
         ) : (
           (() => {
-            // 同部位的排前面；搜名字（中英、曾用名）
-            const q = mergeQ.trim().toLowerCase();
+            // 同部位的排前面；搜名字（中英、曾用名）——和添加动作的搜索同一套打分（拼音、pushup 这类写法都认，审查 C）
+            const tokens = tokenize(mergeQ);
             const myPart = (part || '').toLowerCase();
             const list = library
               .filter(d => d.id !== ex.id)
-              .filter(d => {
-                if (!q) return (d.bodyPart || '').toLowerCase() === myPart;
-                return [d.name.cn, d.name.en, ...(d.aliases ?? [])].some(n => (n || '').toLowerCase().includes(q));
-              })
+              .map(d => ({
+                d,
+                score: tokens.length
+                  ? scoreEntry(buildSearchEntry(d.name.cn ?? '', d.name.en ?? '', d.aliases ?? []), tokens)
+                  : (d.bodyPart || '').toLowerCase() === myPart ? 1 : 0,
+              }))
+              .filter(r => r.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .map(r => r.d)
               .slice(0, 12);
             return (
               <div className="rounded-card border border-divider bg-card p-2 space-y-1.5" data-testid="merge-panel">
