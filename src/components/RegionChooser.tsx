@@ -71,7 +71,11 @@ export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, va
         type="button"
         aria-pressed={on}
         disabled={disabled}
-        onClick={() => onChange(id ? toggleRegion(current, id, own) : [])}
+        onClick={() => {
+          // 第一次点之后就把「其他部位」开着还是收着定下来：别因为刚好清空了别的部位的细分就自己收起
+          if (showOthers === null) setShowOthers(othersOpen);
+          onChange(id ? toggleRegion(current, id, own) : []);
+        }}
         className={`min-h-[40px] px-4 rounded-control text-xs font-bold transition-ui flex items-center gap-1.5 ${
           on
             ? 'bg-accent-soft text-accent'
