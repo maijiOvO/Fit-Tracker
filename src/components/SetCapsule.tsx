@@ -466,15 +466,16 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         }}
       >
         {/* 组号：36×36 胶囊。点 = 选中，选中的再点 = 做完（指针移到它下面）；
-            长按 = 加一档递减（达成后吞掉松手那次 click）。交替组在前面加一个动作简称。 */}
-        <span className="flex items-center gap-1 min-w-0">
+            长按 = 加一档递减（达成后吞掉松手那次 click）。
+            交替组在组号上方叠一行动作简称（「卧推」「飞鸟」，2026-10-21 起一个词；原来一个字、放在组号左边） */}
+        <span className={badge ? 'flex flex-col items-center min-w-0' : 'flex items-center gap-1 min-w-0'}>
           {badge && (
             <button
               type="button"
               onClick={badge.onClick}
               title={badge.title}
               aria-label={badge.title}
-              className="marginalia flex-none min-w-[16px] text-center text-label font-semibold text-secondary"
+              className="set-badge marginalia"
               data-testid="set-badge"
             >
               {badge.label}

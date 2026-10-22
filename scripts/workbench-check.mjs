@@ -373,9 +373,17 @@ t('带正负的负荷：号按组、没写按动作实例；辅助不算容量',
   );
 });
 
-t('交替组成员简称：从后往前找别人没有的字', () => {
-  assert.deepEqual(W.memberAbbrs(['内收', '髋外展']), ['收', '展']);
+t('交替组成员简称：从后往前找别人没有的词，中文 ≤2 字、英文 ≤5 字母', () => {
+  assert.deepEqual(W.memberAbbrs(['哑铃卧推', '哑铃飞鸟']), ['卧推', '飞鸟']);
+  assert.deepEqual(W.memberAbbrs(['上斜哑铃卧推', '平板哑铃卧推']), ['上斜', '平板']);
+  assert.deepEqual(W.memberAbbrs(['内收', '髋外展']), ['内收', '外展']);
+  assert.deepEqual(W.memberAbbrs(['引体向上', '双杠臂屈伸']), ['引体', '臂屈']);
+  assert.deepEqual(W.memberAbbrs(['杠铃弯举', '绳索下压', '哑铃侧平举']), ['弯举', '下压', '侧平']);
   assert.deepEqual(W.memberAbbrs(['器械推胸', '器械推胸']), ['A', 'B']);
+  assert.deepEqual(W.memberAbbrs(['甲乙丙', '甲乙丁']), ['乙丙', '乙丁']); // 词表外的长段：前两个字撞了取末两个字
+  assert.deepEqual(W.memberAbbrs(['Dumbbell Bench Press', 'Dumbbell Fly']), ['Press', 'Fly']);
+  assert.deepEqual(W.memberAbbrs(['Lat Pulldown', 'Seated Cable Row']), ['Pull.', 'Row']);
+  assert.deepEqual(W.memberAbbrs(['Leg Extension', 'Leg Extensions']), ['A', 'B']); // 截短后撞了
 });
 
 t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调片都按原值参与取整和配片', () => {

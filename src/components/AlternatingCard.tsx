@@ -104,6 +104,9 @@ const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; c
   </div>
 );
 
+/** 交替组组行的首列宽（简称叠在组号上方） */
+const ALT_FIRST_COL = 44;
+
 export const AlternatingCard: React.FC<Props> = ({
   cardKey,
   cardNo,
@@ -172,7 +175,8 @@ export const AlternatingCard: React.FC<Props> = ({
 
   // 表头按第一个成员的记录项（成员记录项不同时各行自己按自己的列宽排）
   const headMetrics = getActiveMetrics(names[0] ?? '');
-  const cols = ledgerCols(headMetrics.length, 58);
+  // 首列：简称叠在组号上方，44px 放得下两个字 / 五个字母（原来简称在左边，要 58px）
+  const cols = ledgerCols(headMetrics.length, ALT_FIRST_COL);
 
   const setOf = (r: RowRef) => byId.get(r.exId)?.sets.find(s => String(s.id) === r.setId);
   const done = rows.filter(r => setOf(r) && !setOf(r)!.ghost).length;
@@ -325,7 +329,7 @@ export const AlternatingCard: React.FC<Props> = ({
                 loadMode={getLoadMode(ex)}
                 unit={unit}
                 lang={lang}
-                firstCol={58}
+                firstCol={ALT_FIRST_COL}
                 badge={{
                   label: abbrs[idx(r.exId)],
                   title: isCn ? `${exName} · 改记到别的动作` : `${exName} · move to another exercise`,
@@ -483,7 +487,7 @@ export const AlternatingCard: React.FC<Props> = ({
                   if (!on) onSwitchRowExercise(r, m.id);
                 }}
               >
-                <span className="w-5 text-center text-secondary">{abbrs[i]}</span>
+                <span className="min-w-[2.5rem] text-center text-secondary">{abbrs[i]}</span>
                 {names[i]}
                 {on && <span className="ml-auto text-xs font-semibold text-tertiary">{isCn ? '当前' : 'Current'}</span>}
               </button>

@@ -497,6 +497,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 .ref-tag.is-restore:active { opacity: .6; }
+/* 交替组的动作简称：叠在组号上方一行小字，点它改记到别的动作；点的范围往左右扩到整列 */
+.set-badge {
+  display: block;
+  max-width: 44px;
+  margin: -4px -6px 1px;
+  padding: 3px 6px 0;
+  font: 600 10px/1.1 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
 .pb-tag {
   position: absolute;
   top: 3px;
