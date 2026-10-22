@@ -147,7 +147,7 @@ const BASE_EXERCISES: ExerciseDefinition[] = [
  * 部位细分（第 3 条）：每个部位下面再分一层，添加动作弹层按细分分列摆动作。
  * 名字走 translations（getTagName），用户可改名（tagRenameOverrides）；
  * 自建细分是 customTags 里 category='region' 的标签，parentPart 指向部位。
- * 全身 / 有氧 / 自由不分细分。一个动作只落一列。
+ * 全身 / 有氧 / 自由不分细分。一个动作只落一列（主细分）；次要细分见 REGIONS_ALSO。
  */
 export const BODY_REGIONS: Record<string, string[]> = {
   // 每个部位第一列是「热身」（2.4，2026-10-06 用户定：热身动作放进各部位的细分，不再单开自建部位）
@@ -243,9 +243,58 @@ export const REGION_OF: Record<string, string> = {
 };
 
 /**
- * 默认动作库：基础定义 + 细分。
+ * 复合动作的次要细分（2026-10-21 细分改多选）：同一部位下这个动作也明显练到的地方，接在主细分后面。
+ * 只能是同一部位的细分（深蹲练臀可以写，卧推练三头不行——三头在手臂部位下）。
+ * 添加动作的细分格里动作只出现在主细分那一列，次要的能搜到（搜「臀」出深蹲）。
+ */
+export const REGIONS_ALSO: Record<string, string[]> = {
+  // 胸
+  bp_barbell: ['chestLower'],
+  bp_dumbbell: ['chestLower'],
+  bp_smith: ['chestLower'],
+  pushup: ['chestLower'],
+  bp_incline_barbell: ['chestMid'],
+  bp_incline_dumbbell: ['chestMid'],
+  bp_incline_smith: ['chestMid'],
+  bp_decline_barbell: ['chestMid'],
+  bp_decline_dumbbell: ['chestMid'],
+  bp_wide_barbell: ['chestMid'],
+  // 肩：推举都带中束
+  ohp_barbell: ['shSide'],
+  ohp_dumbbell: ['shSide'],
+  ohp_smith: ['shSide'],
+  press_machine_shoulder: ['shSide'],
+  arnold_press: ['shSide'],
+  upright_row: ['shFront'],
+  // 背
+  dl_barbell: ['backTraps', 'backMid'],
+  pu_weighted: ['backMid'],
+  lat_pulldown: ['backMid'],
+  single_arm_db_row: ['backMid'],
+  row_barbell: ['backLats', 'backLower'],
+  row_seated_cable: ['backLats'],
+  tbar_row: ['backLats'],
+  // 腿
+  sq_barbell: ['legGlute', 'legAdd'],
+  goblet_squat: ['legGlute'],
+  leg_press: ['legGlute'],
+  hack_squat: ['legGlute'],
+  romanian_deadlift: ['legGlute'],
+  lunge_dumbbell: ['legQuad'],
+  bulgarian_split: ['legQuad'],
+  hip_thrust: ['legHam'],
+  // 手臂
+  cu_hammer: ['armFore'],
+  reverse_curl: ['armBi'],
+};
+
+/**
+ * 默认动作库：基础定义 + 细分（主细分 region，带次要细分的再写 regions）。
  * 改内置动作的名字时，旧名必须进 aliases（见 BASE_EXERCISES 上方说明）。
  */
-export const DEFAULT_EXERCISES: ExerciseDefinition[] = BASE_EXERCISES.map(d =>
-  REGION_OF[d.id] ? { ...d, region: REGION_OF[d.id] } : d,
-);
+export const DEFAULT_EXERCISES: ExerciseDefinition[] = BASE_EXERCISES.map(d => {
+  const r = REGION_OF[d.id];
+  if (!r) return d;
+  const also = REGIONS_ALSO[d.id];
+  return also ? { ...d, region: r, regions: [r, ...also] } : { ...d, region: r };
+});

@@ -183,7 +183,10 @@ export interface Exercise {
 export interface ExerciseVariant {
   id: string;
   name: string;
+  /** 主细分（细分格里只摆在这一列）；不写＝跟动作走 */
   region?: string;
+  /** 全部细分（多选，2026-10-21），主细分在前；读法同 ExerciseDefinition.regions */
+  regions?: string[];
   /** 做法自己的器材；'' / 不写 = 跟动作走（src/utils/exerciseAttrs.ts） */
   equipment?: string;
   /** 做法自己的阻力类型；不写 = 跟器材默认 */
@@ -222,6 +225,13 @@ export interface ExerciseDefinition {
    * 不属于当前部位就当「未细分」（部位改过的情况）。'' = 明确放回未细分（覆盖层用）。
    */
   region?: string;
+  /**
+   * 全部细分（2026-10-21 起多选：深蹲练股四也练臀），主细分在前。region 仍是主细分、照旧单独存：
+   * 旧版 APK、拖到细分都只认它。读的时候主细分以 region 为准，这里别的几个当次要细分
+   * （添加动作的细分格里只出现在主细分那一列，次要的能搜到）。没有 region＝未细分，这里不单独生效。
+   * 见 src/utils/exerciseAttrs.ts regionList。
+   */
+  regions?: string[];
   /**
    * 细分列里的手动顺序（拖到细分，2026-10）。用户在某一列拖过一次，这一列每个动作都写上序号；
    * 没有序号的接在后面按默认（收藏 → 最近 → 其余）。

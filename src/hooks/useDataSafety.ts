@@ -11,6 +11,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { mergeOverride } from '../utils/exerciseOverride';
 import {
   BACKUP_STATUS_EVENT,
   backupNow,
@@ -126,7 +127,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
   const { lang, unit } = useUserSettingsContext();
   const { toast } = useUiOverlay();
   const { workouts } = useWorkoutContext();
-  const { resolveName, findExerciseDef, getTagName } = useExercisePrefs();
+  const { resolveName, findExerciseDef, getTagName, effectiveRegions, exerciseOverrides } = useExercisePrefs();
   const isCn = lang === Language.CN;
 
   return useCallback(
@@ -144,6 +145,10 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
           if (!bp) return '';
           const tr = (translations as unknown as Record<string, Record<string, string> | undefined>)[bp];
           return tr?.[lang] ?? getTagName(bp) ?? '';
+        },
+        regionsOf: name => {
+          const def = findExerciseDef(name);
+          return def ? effectiveRegions(mergeOverride(def, exerciseOverrides[def.id])).map(getTagName).filter(Boolean).join(' / ') : '';
         },
         fallbackUnit: unit,
       });
@@ -178,6 +183,6 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
         toast((isCn ? '导出失败' : 'Export failed') + (msg ? `：${msg}` : ''), 'error');
       }
     },
-    [findExerciseDef, getTagName, isCn, lang, resolveName, toast, unit, workouts],
+    [effectiveRegions, exerciseOverrides, findExerciseDef, getTagName, isCn, lang, resolveName, toast, unit, workouts],
   );
 }

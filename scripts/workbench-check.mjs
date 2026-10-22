@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -443,6 +443,36 @@ t('默认片：kg 2.5–20、lb 2.5–45，kg 杠铃一下 5 kg', () => {
   assert.deepEqual(L.defaultProfile('lbs').plates, [45, 35, 25, 10, 5, 2.5]);
   const p = L.profileIn(undefined, 'kg');
   assert.equal(L.stepOf('plates', 60, { unit: 'kg', plates: p.plates, bar: 20, inc: 5 }), 5);
+});
+
+t('细分多选：region 是主细分，regions 补次要的；拖到别的列换主细分', () => {
+  const A = W.A;
+  assert.deepEqual(A.regionList({ region: 'legQuad', regions: ['legQuad', 'legGlute'] }), ['legQuad', 'legGlute']);
+  assert.deepEqual(A.regionList({ region: 'legGlute', regions: ['legQuad', 'legGlute'] }), ['legGlute', 'legQuad']); // 旧版 APK 只改了 region
+  assert.deepEqual(A.regionList({ region: '', regions: ['legQuad'] }), []); // 没有主细分＝未细分
+  assert.deepEqual(A.regionList({ region: 'legHam' }), ['legHam']); // 旧数据
+  assert.deepEqual(A.regionsPatch(['a', 'b', 'a', '']), { region: 'a', regions: ['a', 'b'] });
+  assert.deepEqual(A.regionsPatch([]), { region: '', regions: [] });
+  assert.deepEqual(A.movePrimary(['legQuad', 'legGlute'], 'legGlute'), ['legGlute', 'legQuad']);
+  assert.deepEqual(A.movePrimary(['legQuad', 'legGlute'], 'legHam'), ['legHam', 'legGlute']); // 拖走＝不在原来那列
+  assert.deepEqual(A.movePrimary(['legQuad'], ''), []);
+  assert.deepEqual(A.toggleRegion(['a'], 'b'), ['a', 'b']);
+  assert.deepEqual(A.toggleRegion(['a', 'b'], 'a'), ['b']); // 去掉主细分，下一个顶上
+  assert.deepEqual(A.toggleRegion(['a'], 'a'), ['a']); // 最后一个去不掉
+});
+
+t('内置复合动作的次要细分都在同一部位下、主细分在前', () => {
+  const X = W.X;
+  let multi = 0;
+  for (const d of X.DEFAULT_EXERCISES) {
+    if (!d.regions) continue;
+    multi++;
+    assert.equal(d.regions[0], d.region, d.id);
+    for (const r of d.regions) assert.ok(X.BODY_REGIONS[d.bodyPart].includes(r), `${d.id}: ${r} 不在 ${d.bodyPart} 下`);
+    assert.equal(new Set(d.regions).size, d.regions.length, d.id);
+  }
+  for (const id of Object.keys(X.REGIONS_ALSO)) assert.ok(X.REGION_OF[id], `${id} 没有主细分`);
+  assert.ok(multi >= 30, `只有 ${multi} 个动作带次要细分`);
 });
 
 console.log(`== ${n} passed ==`);

@@ -41,7 +41,7 @@ import {
   DEFAULT_EXERCISES,
   ExerciseCategory,
 } from './src/constants/exercises';
-import { attrsPatch, type Resistance } from './src/utils/exerciseAttrs';
+import { attrsPatch, regionsPatch, type Resistance } from './src/utils/exerciseAttrs';
 import { normalizeGroups } from './src/utils/workbench';
 import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
@@ -223,7 +223,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   /** 新动作的器材与阻力（resistance 不写 = 跟器材默认） */
   const [newExerciseEquip, setNewExerciseEquip] = useState<{ equipment: string; resistance?: Resistance }>({ equipment: '' });
   /** 新动作的细分（第 3 条）；'' = 未细分 */
-  const [newExerciseRegion, setNewExerciseRegion] = useState('');
+  const [newExerciseRegions, setNewExerciseRegions] = useState<string[]>([]);
   const [newExerciseBodyPart, setNewExerciseBodyPart] = useState<string>('');
   const [newExerciseCategory, setNewExerciseCategory] =
     useState<ExerciseCategory>('STRENGTH');
@@ -836,7 +836,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       setNewExerciseName(prefilledName?.trim() || '');
       setNewExerciseBodyPart('');
       setNewExerciseEquip({ equipment: '' });
-      setNewExerciseRegion('');
+      setNewExerciseRegions([]);
       setNewExerciseCategory('STRENGTH');
       setShowAddExerciseModal(true);
     },
@@ -947,8 +947,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setNewExerciseBodyPart={setNewExerciseBodyPart}
         newExerciseEquip={newExerciseEquip}
         setNewExerciseEquip={setNewExerciseEquip}
-        newExerciseRegion={newExerciseRegion}
-        setNewExerciseRegion={setNewExerciseRegion}
+        newExerciseRegions={newExerciseRegions}
+        setNewExerciseRegions={setNewExerciseRegions}
         addsTo={createdExerciseTargetRef.current ? 'plan' : 'workout'}
         onClose={() => {
           createdExerciseTargetRef.current = null;
@@ -1003,7 +1003,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             bodyPart: newExerciseBodyPart,
             ...attrsPatch(newExerciseEquip.equipment, newExerciseEquip.resistance),
             category: currentCat,
-            ...(newExerciseRegion ? { region: newExerciseRegion } : {}),
+            ...(newExerciseRegions.length ? regionsPatch(newExerciseRegions) : {}),
           };
           prefs.addCustomExercise(ex);
 
@@ -1012,7 +1012,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           setNewExerciseName('');
           setNewExerciseBodyPart('');
           setNewExerciseEquip({ equipment: '' });
-          setNewExerciseRegion('');
+          setNewExerciseRegions([]);
         }}
       />
 

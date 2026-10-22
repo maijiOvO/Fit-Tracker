@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { Check, ChevronDown, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { Language } from '../../../types';
 import { ExerciseAttrFields } from '../ExerciseAttrFields';
-import { variantAttrs } from '../../utils/exerciseAttrs';
+import { regionList, regionsPatch, variantAttrs } from '../../utils/exerciseAttrs';
 import { mergeOverride } from '../../utils/exerciseOverride';
 import { Modal } from '../Modal';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
@@ -142,7 +142,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
           {id && (() => {
             const v = variants.find(x => x.id === id);
             const own = v?.equipment || (v?.tags?.length && merged ? attrsOf(merged, v.id).equipment : '');
-            const bits = [v?.region ? getTagName(v.region) : '', own ? getTagName(own) : ''].filter(b => b && b !== name);
+            const bits = [...regionList(v).map(getTagName), own ? getTagName(own) : ''].filter(b => b && b !== name);
             return bits.length ? <span className="ml-auto text-xs font-medium text-tertiary truncate">{bits.join(' · ')}</span> : null;
           })()}
         </button>
@@ -212,12 +212,12 @@ export const VariantModal: React.FC<VariantModalProps> = ({
                       value={{
                         category: merged?.category || 'STRENGTH',
                         bodyPart: part,
-                        region: v.region ?? '',
+                        regions: regionList(v),
                         equipment: own?.equipment ?? '',
                         resistance: own?.resistance,
                       }}
                       onChange={nv => {
-                        if (nv.region !== (v.region ?? '')) updateVariant(exerciseName, v.id, { region: nv.region });
+                        if (nv.regions.join('|') !== regionList(v).join('|')) updateVariant(exerciseName, v.id, regionsPatch(nv.regions));
                         if (nv.equipment !== (own?.equipment ?? '') || nv.resistance !== own?.resistance) {
                           setVariantAttrs(exerciseName, v.id, nv.equipment, nv.resistance);
                         }

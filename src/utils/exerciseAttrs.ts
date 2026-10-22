@@ -180,6 +180,40 @@ export function combineVariants(
   return list;
 }
 
+/* ── 细分（2026-10-21 起多选）── */
+
+/**
+ * 一个动作 / 做法的全部细分，主细分在前。主细分以 region 为准（旧字段，拖到细分只改它），
+ * regions 里别的当次要细分；没有 region 就是未细分。
+ */
+export function regionList(x: { region?: string; regions?: string[] } | undefined): string[] {
+  const p = x?.region;
+  if (!p) return [];
+  return [p, ...new Set((x.regions ?? []).filter(r => r && r !== p))];
+}
+
+/** 细分选择器里点一下：没选的加上（接在后面，第一个就是主细分），选着的去掉；最后一个去不掉 */
+export function toggleRegion(list: readonly string[], id: string): string[] {
+  if (!list.includes(id)) return [...list, id];
+  return list.length > 1 ? list.filter(r => r !== id) : [...list];
+}
+
+/** 写入用：主细分 + 全部（空表＝未细分） */
+export function regionsPatch(list: readonly string[]): { region: string; regions: string[] } {
+  const l = [...new Set(list.filter(Boolean))];
+  return { region: l[0] ?? '', regions: l };
+}
+
+/**
+ * 拖到另一列（换主细分）：原来就是次要细分的提到最前；不是的顶替原来的主细分（拖走＝不在那一列了），
+ * 次要的留着。拖回未细分＝全清。
+ */
+export function movePrimary(list: readonly string[], target: string): string[] {
+  if (!target) return [];
+  if (list.includes(target)) return [target, ...list.filter(r => r !== target)];
+  return [target, ...list.slice(1)];
+}
+
 /** 写入用：新字段 + 给旧版 APK 的镜像 */
 export function attrsPatch(equipment: string, resistance: Resistance | undefined) {
   return {
