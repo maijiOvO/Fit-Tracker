@@ -131,7 +131,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
         >
           <span className="font-semibold text-primary">{isCn ? '特别关注' : 'Spotlight'}</span>
           <span className="mx-2">·</span>
-          {isCn ? '挑几个最在乎的动作，放在这里看成绩' : 'Pick the lifts you care about most'}
+          {isCn ? '挑几个动作放这里看成绩' : 'Pick the lifts you care about most'}
         </button>
         <FeaturedEditor
           open={editing}
@@ -270,8 +270,8 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
       {mode === 'e1rm' && (
         <p className="text-[11px] text-tertiary leading-snug border-t border-divider py-2.5">
           {isCn
-            ? '估算 1RM＝重量 ×（1 + 次数 / 30），只看 12 次以内的组。是推算出来的上限，不是真测过的。'
-            : 'Est. 1RM = weight × (1 + reps / 30), using sets of 12 reps or fewer. An estimate, not a tested max.'}
+            ? '估算 1RM＝重量 ×（1 + 次数 / 30），仅算 12 次以内的组，非实测'
+            : 'Est. 1RM = weight × (1 + reps / 30), sets of ≤12 reps; not a tested max'}
         </p>
       )}
 
@@ -331,7 +331,7 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
       variant="sheet"
       size="full"
       title={isCn ? '特别关注' : 'Spotlight'}
-      subtitle={isCn ? `最多 ${MAX_FEATURED} 个，按勾选的顺序排列` : `Up to ${MAX_FEATURED}, shown in the order you pick`}
+      subtitle={isCn ? `最多 ${MAX_FEATURED} 个，按勾选顺序` : `Up to ${MAX_FEATURED}, in pick order`}
       className="max-h-[85dvh] flex flex-col"
       bodyClassName="flex-1 min-h-0 overflow-y-auto custom-scrollbar"
       testId="featured-editor"

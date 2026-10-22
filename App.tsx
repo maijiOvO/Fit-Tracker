@@ -627,7 +627,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     if (!showMetricModal) return;
     const ok = await confirm({
       message: isCn
-        ? `确定要重置「${showMetricModal.name}」的配置到默认状态吗？\n默认只记录重量和次数。`
+        ? `重置「${showMetricModal.name}」的配置？默认只记重量和次数。`
         : `Reset "${showMetricModal.name}" to default settings?\nDefault tracks weight and reps only.`,
     });
     if (ok) prefs.resetMetricsToDefault(showMetricModal.name);

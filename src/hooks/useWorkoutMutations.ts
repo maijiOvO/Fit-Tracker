@@ -372,7 +372,7 @@ export function useWorkoutMutations({
         setSaveStatus('idle');
         // 一组都没做完：没有可入册的东西。编辑旧训练时只提示；新训练问一句要不要放弃这场（不留空场在库里）
         if (editingWorkoutId) {
-          toast(isCn ? '一组都不剩了，存不了；要删整场去时间线里删' : 'No sets left to save — delete the whole workout from the timeline', 'info');
+          toast(isCn ? '没有组可保存；删整场请去时间线' : 'No sets left to save — delete the whole workout from the timeline', 'info');
           return;
         }
         const ok = await confirm({
@@ -720,8 +720,8 @@ export function useWorkoutMutations({
       if ((currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
           message: isCn
-            ? '工作台里还有一场没结束的训练，复制会把它替换掉。\n\n（它已经存过，之后可以从时间线里接着编辑。）'
-            : 'There is an unfinished workout on the bench; copying replaces it.\n\n(It is already saved — you can keep editing it from the timeline.)',
+            ? '工作台里有未结束的训练，复制会替换它（已保存，可在时间线继续编辑）。'
+            : 'Copying replaces the unfinished workout on the bench (it is saved; edit it from the timeline).',
           confirmLabel: isCn ? '继续复制' : 'Copy anyway',
         });
         if (!ok) return;
@@ -811,8 +811,8 @@ export function useWorkoutMutations({
       if (!editingWorkoutId && (currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
           message: isCn
-            ? '工作台里还有一场没结束的训练，从计划开始会把它替换掉。\n\n（它已经存过，之后可以从时间线里接着编辑。）'
-            : 'There is an unfinished workout on the bench; starting the plan replaces it.\n\n(It is already saved — you can keep editing it from the timeline.)',
+            ? '工作台里有未结束的训练，从计划开始会替换它（已保存，可在时间线继续编辑）。'
+            : 'Starting the plan replaces the unfinished workout on the bench (it is saved; edit it from the timeline).',
           confirmLabel: isCn ? '继续' : 'Continue',
         });
         if (!ok) return;

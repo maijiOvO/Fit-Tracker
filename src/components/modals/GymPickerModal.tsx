@@ -278,7 +278,7 @@ function GymProfileForm({
       return;
     }
     if (!name && taken.includes(n)) {
-      setErr(isCn ? `已经有叫「${n}」的馆了，回列表点它的「编辑」` : `"${n}" already exists — edit it from the list`);
+      setErr(isCn ? `已有「${n}」，请回列表编辑它` : `"${n}" already exists — edit it from the list`);
       return;
     }
     onSave(n, p);
@@ -413,7 +413,7 @@ function GymProfileForm({
         )}
       </div>
       {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
-      {inc('machine', isCn ? '固定器械一档（个别不一样的，在那个动作的 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
+      {inc('machine', isCn ? '固定器械一档（个别动作在 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
       {err && <p className="text-label text-warning">{err}</p>}

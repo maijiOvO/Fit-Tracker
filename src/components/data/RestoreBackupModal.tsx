@@ -183,7 +183,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       const go = await confirm({
         title: t('用备份覆盖当前数据？', 'Replace current data?'),
         message: t(
-          `现在的 ${workouts.length} 次训练会被整个换成备份里的样子。恢复前会存一份可撤销的副本。`,
+          `现有 ${workouts.length} 次训练将被备份整体替换，恢复前自动存可撤销副本。`,
           `Your current ${workouts.length} workouts will be replaced. An undoable copy is saved first.`,
         ),
         confirmLabel: t('覆盖恢复', 'Replace'),
@@ -268,7 +268,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
               </p>
               {cur.dev && <p className="text-danger text-xs">{t('这是测试数据环境的备份', 'This is a dev-environment backup')}</p>}
               {parsed.legacy && (
-                <p className="text-xs">{t('旧版导出的文件：没有 PR 和训练计划，这两项保留现有的。', 'Old-format file: PRs and schedule are kept as they are.')}</p>
+                <p className="text-xs">{t('旧版文件不含 PR 和训练计划，这两项保留现有数据。', 'Old-format file: PRs and schedule are kept as they are.')}</p>
               )}
             </div>
 
