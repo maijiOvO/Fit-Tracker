@@ -434,8 +434,11 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       ? `${what} ${assisted ? '辅助 ' : ''}${inRef} ${lab}`
       : `${what} ${assisted ? 'assisted ' : ''}${inRef} ${lab}`;
     // 默认值：上一次的重量按今天的馆 / 单位取整（底稿当初就是这么来的）；按显示单位比，换算的零头不算改过
+    // 还是上一次的原重量（切过单位：60 kg 显示成 132.28 lb，没取整）也不算改过——那是同一个重量
     const defKg = rounder ? rounder.snapKg(ref.kg) : ref.kg;
-    const moved = Math.abs(toDisplay(Math.abs(defKg), defKg < 0 ? -1 : 1) - toDisplay(Number(set.weight) || 0, rowSign)) >= 0.01;
+    const curD = toDisplay(Number(set.weight) || 0, rowSign);
+    const offBy = (kg: number) => Math.abs(toDisplay(Math.abs(kg), kg < 0 ? -1 : 1) - curD) >= 0.01;
+    const moved = offBy(defKg) && offBy(ref.kg);
     if (moved) return { text, restoreKg: defKg };
     const same = ref.unit === (unit === 'lbs' ? 'lbs' : 'kg') && Math.abs(inRef - Math.abs(weightDisplay)) < 0.01;
     return same ? none : { text };
