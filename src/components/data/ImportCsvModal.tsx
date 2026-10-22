@@ -25,6 +25,7 @@ import { markBackupPending } from '../../../services/fitlogAutoBackup';
 import { DEFAULT_EXERCISES } from '../../constants/exercises';
 import { FITLOG_SOLO_USER_ID } from '../../../services/fitlogSolo';
 import { overwriteFailedText, overwriteNote, setFlash } from './flash';
+import { blockBack } from '../../hooks/useBackClose';
 
 export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang, unit } = useUserSettingsContext();
@@ -90,7 +91,8 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
         defs,
         findByName: findExerciseDef,
       });
-      const pushed = await addImportedRecords(r);
+      blockBack(true);
+      const pushed = await addImportedRecords(r).finally(() => blockBack(false));
       markBackupPending();
       setFlash(
         t(`已导入 ${r.workouts.length} 次训练（${r.sets} 组）`, `Imported ${r.workouts.length} workouts (${r.sets} sets)`) + overwriteNote(pushed, isCn),

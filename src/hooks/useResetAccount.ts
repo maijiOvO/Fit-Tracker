@@ -7,6 +7,7 @@ import { collectLocalSnapshot } from '../../services/fitlogRemote';
 import { overwriteLocal } from '../../services/fitlogBackup';
 import type { FitlogRemoteSnapshot } from '../../services/fitlogSnapshotTypes';
 import { setFlash } from '../components/data/flash';
+import { blockBack } from './useBackClose';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -80,7 +81,8 @@ export function useResetAccount({
           appPrefs: { ...(keepApp?.lang ? { lang: keepApp.lang } : {}), ...(keepApp?.unit ? { unit: keepApp.unit } : {}) },
         },
       };
-      const pushed = await overwriteLocal(empty, before);
+      blockBack(true);
+      const pushed = await overwriteLocal(empty, before).finally(() => blockBack(false));
 
       setShowResetAccountModal(false);
       setResetConfirmText('');

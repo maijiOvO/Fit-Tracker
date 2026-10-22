@@ -18,6 +18,7 @@ import {
 } from '../../services/fitlogBackup';
 import type { ExportStatus } from './useExportData';
 import { overwriteFailedText, overwriteNote, setFlash } from '../components/data/flash';
+import { blockBack } from './useBackClose';
 
 /**
  * 打开系统文件选择器。
@@ -99,7 +100,8 @@ export function useImportData(
 
     try {
       setSyncStatus('syncing');
-      const pushed = await applyBackup(parsed);
+      blockBack(true);
+      const pushed = await applyBackup(parsed).finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
       if (note) setFlash((isCn ? '已恢复' : 'Restored') + note, 'info');
       // 所有 context 都是启动时从存储水化的，只能靠重载让它们看到新数据
@@ -133,7 +135,8 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
     });
     if (!go) return;
     try {
-      const pushed = await rollbackImport();
+      blockBack(true);
+      const pushed = await rollbackImport().finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
       if (note) setFlash((isCn ? '已撤销导入' : 'Import undone') + note, 'info');
       window.location.reload();

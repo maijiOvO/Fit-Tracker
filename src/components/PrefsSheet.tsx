@@ -26,6 +26,7 @@ import type { SyncStatus } from '../hooks/useFitlogSync';
 import { isRemoteConfigured } from '../../services/fitlogRemote';
 import { useGymSwitch } from '../hooks/useGymSwitch';
 import { DataSafetySection } from './data/DataSafetySection';
+import { useBackClose } from '../hooks/useBackClose';
 
 interface PrefsSheetProps {
   open: boolean;
@@ -154,6 +155,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   onToggleDevMode,
 }) => {
   const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
+  // 安卓返回键关首选项（审查 B11）
+  useBackClose(open, onClose);
   // 手动切单位只换显示：存的 kg 一个不动，工作台上的组也不重新取整（useGymSwitch，2026-10-21 起）
   const { switchUnit } = useGymSwitch();
   const isCn = lang === Language.CN;

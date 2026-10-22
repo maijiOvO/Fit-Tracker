@@ -49,6 +49,7 @@ import { segmentName } from '../utils/nameSegments';
 import { LongPressAffordance } from './LongPressAffordance';
 import { ExerciseActionPanel } from './ExerciseActionPanel';
 import { VariantModal } from './modals/VariantModal';
+import { useBackClose } from '../hooks/useBackClose';
 
 const NO_EQUIPS: ReadonlySet<string> = new Set();
 
@@ -427,6 +428,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     useExercisePickerData({ query: arranging ? '' : query, axis, equips: arranging ? NO_EQUIPS : equips });
 
   const inset = useKeyboardInset(open);
+  // 安卓返回键关弹层（审查 B11）
+  useBackClose(open, onClose);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const partScrollRef = useRef<HTMLDivElement | null>(null);

@@ -37,6 +37,7 @@ import {
   setBackupFolder,
 } from '../../../services/fitlogAutoBackup';
 import { overwriteFailedText, overwriteNote, setFlash } from './flash';
+import { blockBack } from '../../hooks/useBackClose';
 
 interface Entry {
   file: FolderFile;
@@ -192,6 +193,8 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       if (!go) return;
     }
     setPhase({ kind: 'applying' });
+    // 写数据的这段时间返回键不理（审查 B11）：写到一半把页面关了只会更糟
+    blockBack(true);
     try {
       const pushed = mode === 'merge' ? await mergeBackup(parsed) : await applyBackup(parsed);
       // 授权刚拿到：这个文件夹顺手设成备份文件夹，重载后补一份备份
@@ -206,6 +209,8 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       console.error('Restore failed:', e);
       toast(overwriteFailedText(e, isCn, { cn: '恢复', en: 'Restore' }), 'error');
       setPhase({ kind: 'ready' });
+    } finally {
+      blockBack(false);
     }
   };
 

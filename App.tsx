@@ -108,6 +108,9 @@ import { useGymScopedPR } from './src/hooks/useLoadKind';
 import { storage } from './services/appStorage';
 import { WorkoutColophon } from './src/components/WorkoutColophon';
 import { createPortal } from 'react-dom';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { closeTopLayer, isBackBlocked } from './src/hooks/useBackClose';
 
 const NO_ADDED_COUNTS: Record<string, number> = {};
 const LibrarySheet = lazy(() =>
@@ -450,6 +453,41 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   } = useResetAccount({ setActiveTab, setEditingWorkoutId });
 
   const { heatmapData } = useExerciseStats();
+
+  /**
+   * 安卓返回键（审查 B11）：先关最上面那一层（useBackClose 登记的弹窗 / 弹层 / 确认框）；
+   * 没有了：在训练页＝和页头「返回」同一下（进行中的训练原样留在工作台，编辑旧训练有改动先问）；
+   * 在别的页＝回首页；已经在首页＝收到后台（不退出，进行中的训练不丢）。恢复 / 导入正在写数据时不理。
+   */
+  const backRef = useRef<() => void>(() => {});
+  backRef.current = () => {
+    if (activeTab === 'new') {
+      void handleNewWorkoutBack();
+      return;
+    }
+    if (activeTab !== 'dashboard') {
+      setActiveTab('dashboard');
+      return;
+    }
+    void CapApp.minimizeApp();
+  };
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    let sub: PluginListenerHandle | undefined;
+    let gone = false;
+    void CapApp.addListener('backButton', () => {
+      if (isBackBlocked()) return;
+      if (closeTopLayer()) return;
+      backRef.current();
+    }).then(h => {
+      if (gone) void h.remove();
+      else sub = h;
+    });
+    return () => {
+      gone = true;
+      void sub?.remove();
+    };
+  }, []);
 
   // ============== 「补加动作」：进入训练页后直接弹出添加动作弹层 ==============
   useEffect(() => {

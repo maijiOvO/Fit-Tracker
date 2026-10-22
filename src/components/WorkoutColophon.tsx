@@ -17,6 +17,7 @@ import { PRHit } from '../utils/prDetect';
 import { useCountUp } from '../hooks/useCountUp';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
+import { useBackClose } from '../hooks/useBackClose';
 
 interface Props {
   open: boolean;
@@ -100,6 +101,9 @@ export const WorkoutColophon: React.FC<Props> = ({
     const t = window.setTimeout(onDone, 1900);
     return () => window.clearTimeout(t);
   }, [open, hasPR, onDone]);
+
+  // 安卓返回键＝收起这页（审查 B11）
+  useBackClose(open, onDone);
 
   if (!open) return null;
 
