@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -391,6 +391,25 @@ t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调�
   assert.equal(L.stepTo('plates', 60, 1, 1, micro), 61);
   // lb 馆的 51 lb 八角片：挂片式器械只算片子，两片 = 102
   assert.ok(L.isLoadable('loaded', 102, { unit: 'lbs', plates: [51, 45, 25], bar: 45, inc: 10 }));
+});
+
+t('横划起拖：走够 20px 且顺着拖动方向；斜着 / 竖着划放手给页面滚', () => {
+  const S = W.S;
+  assert.equal(S.scrubEngage(12, 0), 'wait'); // 原来 12 就起拖，手滑一下就改了重量
+  assert.equal(S.scrubEngage(19, 5), 'wait');
+  assert.equal(S.scrubEngage(20, 0), 'engage');
+  assert.equal(S.scrubEngage(-24, 10), 'engage'); // 24 > 1.5×10
+  assert.equal(S.scrubEngage(24, 16), 'release'); // 斜着划：24 ≤ 1.5×16
+  assert.equal(S.scrubEngage(4, 30), 'release'); // 翻页
+});
+
+t('配重片：最轻一格钉住后改每格，起点不跟着变', () => {
+  const L = W.L;
+  // 没设最轻一格：下限就是一档（5 → 5、10、15…）
+  assert.deepEqual(L.bracket('pin', 7, { unit: 'kg', plates: [], bar: 0, inc: 5 }), { lo: 5, hi: 10 });
+  // 每格从 5 改成 2.5、最轻一格按显示的 5 存下（ExerciseCard.setStack 存 s=5）：5、7.5、10…
+  assert.deepEqual(L.bracket('pin', 6, { unit: 'kg', plates: [], bar: 0, inc: 2.5, start: 5 }), { lo: 5, hi: 7.5 });
+  assert.deepEqual(L.bracket('pin', 3, { unit: 'kg', plates: [], bar: 0, inc: 2.5, start: 5 }), { lo: 5, hi: 5 });
 });
 
 console.log(`== ${n} passed ==`);

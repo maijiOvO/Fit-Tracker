@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
-import { scrubFeel, SCRUB_FEEL_PX } from '../utils/scrubFeel';
+import { scrubFeel, scrubEngage, SCRUB_FEEL_PX } from '../utils/scrubFeel';
 
 /**
  * 每跨这么多像素落一档（首选项「滑动手感」：细 / 中 / 粗 ＝ 14 / 10 / 7，默认 10）。
@@ -39,15 +39,6 @@ const VELOCITY_LADDER = [0, 0.55, 1.3, 2.5];
 export const SCRUB_STEPS_WEIGHT = [1, 2, 5, 10];
 /** 次数格的档位表：一次训练里 reps 的动态范围比重量小得多，×10 没有用武之地 */
 export const SCRUB_STEPS_REPS = [1, 2, 5];
-
-/**
- * 横向位移超过这个距离才认定「这是一次拖动」。
- *
- * 取 12 而不是常见的 6：这个热区同时也是输入框的点击区，
- * 而出汗手滑时一次「点」很容易带出 6px 位移 —— 误判成 scrub
- * 的代价是把重量改错，比多拖两像素贵得多。
- */
-const ENGAGE_PX = 12;
 
 /** 速度平滑系数。不平滑的话档位会在阈值边界反复横跳。 */
 const EMA = 0.7;
@@ -77,9 +68,8 @@ interface Options {
   steps?: number[];
   disabled?: boolean;
   /**
-   * 拖动方向，默认横向。「杠铃片」§3：方向顺着重量的摆放方向 ——
-   * 杠铃片沿杆横排就横拖；配重片一摞竖着排就竖拖，往下 = 插销往下 = 更重。
-   * 竖拖的格子要配 touch-action: pan-x（.is-scrub-y），否则竖向手势先被页面滚动吃掉。
+   * 拖动方向，默认横向（2026-10-21 起全站都横拖，配重片的大图也是：竖拖和页面滚动抢手势）。
+   * 竖拖的格子要配 touch-action: pan-x（.is-axis-y），否则竖向手势先被页面滚动吃掉。
    */
   axis?: 'x' | 'y';
   /**
@@ -133,6 +123,7 @@ export function useValueScrub({
       ? Math.round((sign > 0 ? Math.ceil(v / grid - 1e-9) : Math.floor(v / grid + 1e-9)) * grid * 100) / 100
       : sign > 0 ? Math.ceil(v) : Math.floor(v);
   const pos = (e: React.PointerEvent) => (axis === 'y' ? e.clientY : e.clientX);
+  const cross = (e: React.PointerEvent) => (axis === 'y' ? e.clientX : e.clientY);
   const [scrubbing, setScrubbing] = useState(false);
   const [step, setStep] = useState(steps[0] ?? 1);
   /** 档位表按值比较，别让调用方每次渲染新建的数组把 onPointerMove 的身份打翻 */
@@ -144,6 +135,8 @@ export function useValueScrub({
 
   const drag = useRef<{
     x0: number;
+    /** 按下点在垂直方向的坐标：用来判断这一下是不是在翻页 */
+    c0: number;
     x: number;
     acc: number;
     engaged: boolean;
@@ -189,6 +182,7 @@ export function useValueScrub({
       const p = pos(e);
       drag.current = {
         x0: p,
+        c0: cross(e),
         x: p,
         acc: 0,
         engaged: false,
@@ -206,7 +200,13 @@ export function useValueScrub({
       if (!d) return;
 
       if (!d.engaged) {
-        if (Math.abs(pos(e) - d.x0) < ENGAGE_PX) return;
+        // 起拖要走够 ENGAGE_PX，且明显顺着拖动方向；斜着 / 竖着划是在翻页，这一下放手不管了
+        const go = scrubEngage(pos(e) - d.x0, cross(e) - d.c0);
+        if (go === 'wait') return;
+        if (go === 'release') {
+          drag.current = null;
+          return;
+        }
         d.engaged = true;
         setScrubbing(true);
         try {

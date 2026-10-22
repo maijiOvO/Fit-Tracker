@@ -26,8 +26,8 @@ import type { ExRounder } from '../hooks/useLoadRounder';
  * 杠铃 / 挂片器械一格＝最小一对片；配重片、哑铃一格＝馆档案里的一档（或这个动作单独设的）。
  * 第一格先吸到那个方向最近能挂的重量（ExRounder.stepToD），之后一格一档，甩起来两档 / 四档。
  * 纯数字的动作（rounder 为 null）照旧 1/2/5/10。
- * axis 只给顶部大图用：配重片的大图竖拖。组行的重量格一律横拖 —— 格子竖拖会和页面滚动抢手势
- * （手指落在格子上往上滑本想滚页面，结果改了重量、后面的底稿也跟着变；2026-10-18 审查后用户定）。
+ * 一律横拖，配重片的大图也是（2026-10-21 用户定）：竖拖会和页面滚动抢手势
+ * （手指落在上面往上滑本想滚页面，结果改了重量、后面的底稿也跟着变；组行的格子 2026-10-18 先改了横拖）。
  */
 export function weightScrubFor(
   rounder: ExRounder | null | undefined,
@@ -35,7 +35,7 @@ export function weightScrubFor(
   if (!rounder) return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
   return {
     steps: SCRUB_MULTS,
-    axis: rounder.info.kind === 'pin' ? 'y' : 'x',
+    axis: 'x',
     stepFn: (v, dir, mult) => rounder.stepToD(v, dir, mult),
   };
 }
@@ -274,7 +274,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     // 走 update：待做行上横拖只改值、记 touched，不描实
     onChange: next => update(fromDisplay(next)),
     steps: weightFeel.steps,
-    // 组行格子一律横拖（见 weightScrubFor 注释），竖拖只给大图
+    // 一律横拖（见 weightScrubFor 注释）
     axis: 'x',
     stepFn: weightFeel.stepFn,
     disabled: readOnly,
