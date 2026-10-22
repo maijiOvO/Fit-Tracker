@@ -232,7 +232,8 @@ export function movePrimary(list: readonly string[], target: string): string[] {
 export function attrsPatch(equipment: string, resistance: Resistance | undefined) {
   return {
     equipment,
-    resistance: resistanceSelectable(equipment) ? resistance : undefined,
+    // 锁定的器材不存；能选的也只存这件器材选得到的（杠铃只有杠铃片 / 固定杠铃）
+    resistance: resistanceSelectable(equipment) && (!resistance || resistanceChoices(equipment).includes(resistance)) ? resistance : undefined,
     tags: equipment ? [equipment] : [],
   };
 }

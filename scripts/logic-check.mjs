@@ -211,15 +211,20 @@ t('递减档保持方向：递增档（比上一档重）吸到同一格时往�
 });
 
 // ── 动作属性：器材 ⇄ 阻力联动（exercise-attrs-gear-and-load 那条 e2e 的规则）────
-t('动作属性：固定器械默认配重片、可改成杠铃片；杠铃锁定杠铃片；写入时锁定的器材不存阻力', () => {
+t('动作属性：固定器械默认配重片、可改成杠铃片；杠铃只在杠铃片 / 固定杠铃之间选；写入时选不到的阻力不存', () => {
   const { A } = L;
   assert.equal(A.defaultResistance(A.EQ_MACHINE, []), 'stack');
   assert.ok(A.resistanceSelectable(A.EQ_MACHINE));
   assert.equal(A.effectiveResistance(A.EQ_MACHINE, 'plates', []), 'plates');
   assert.equal(A.effectiveResistance(A.EQ_MACHINE, undefined, []), 'stack');
-  assert.ok(!A.resistanceSelectable(A.EQ_BARBELL));
-  assert.equal(A.effectiveResistance(A.EQ_BARBELL, 'stack', []), 'plates', 'barbell load is locked to plates');
+  // 2026-10-21 起杠铃可选「固定杠铃」（原来锁定杠铃片）：只在这两种之间选，别的阻力读写都不认
+  assert.ok(A.resistanceSelectable(A.EQ_BARBELL));
+  assert.deepEqual(A.resistanceChoices(A.EQ_BARBELL), ['plates', 'fixedBar']);
+  assert.equal(A.effectiveResistance(A.EQ_BARBELL, 'stack', []), 'plates', 'barbell cannot be a weight stack');
+  assert.equal(A.effectiveResistance(A.EQ_BARBELL, 'fixedBar', []), 'fixedBar');
   assert.deepEqual(A.attrsPatch(A.EQ_BARBELL, 'stack'), { equipment: A.EQ_BARBELL, resistance: undefined, tags: [A.EQ_BARBELL] });
+  assert.deepEqual(A.attrsPatch(A.EQ_BARBELL, 'fixedBar'), { equipment: A.EQ_BARBELL, resistance: 'fixedBar', tags: [A.EQ_BARBELL] });
+  assert.deepEqual(A.attrsPatch(A.EQ_DUMBBELL, 'stack'), { equipment: A.EQ_DUMBBELL, resistance: undefined, tags: [A.EQ_DUMBBELL] });
   assert.deepEqual(A.attrsPatch(A.EQ_MACHINE, 'plates'), { equipment: A.EQ_MACHINE, resistance: 'plates', tags: [A.EQ_MACHINE] });
   // 自建器材：看它自己设的阻力，没设按不计重；可以在动作上改
   const defs = [{ id: 'myRack', category: 'equipment', resistance: 'plates' }];
