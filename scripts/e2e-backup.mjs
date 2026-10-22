@@ -9,33 +9,33 @@
 // 每条盯的是状态（mock 里的文件、库里的条数和重量），不只是提示文案：
 // 「提示备份成功」本身就是这个项目踩过的假信号。
 //
-// 跑法：E2E_BASE=http://localhost:3200 node scripts/e2e-backup.mjs（默认 http://localhost:3000）
+// 跑法：
+//   整套 e2e（npm run e2e / node scripts/e2e-smoke.mjs）里已经包含这一套：和带夹具的场景并行，共用一个浏览器、各开各的 context。
+//   单独跑：E2E_BASE=http://localhost:3100 node scripts/e2e-backup.mjs（默认 http://localhost:3000），E2E_ONLY 同样适用。
+// 这一套是一条链：每步接着上一步留下的文件夹 / 库，挑一步跑会带上它前面的所有步骤（BACKUP_STEPS）。
 
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
+import { parseOnly, planSuite, enterStep, describeSelection, printSlowest } from './e2e-plan.mjs';
 
 const BASE = (process.env.E2E_BASE || 'http://localhost:3000').replace(/\/$/, '');
 const OUT = path.resolve('test-artifacts', 'backup');
-fs.mkdirSync(OUT, { recursive: true });
 
-const results = [];
-let failed = false;
-async function step(page, name, fn) {
-  process.stdout.write(`▶ ${name}\n`);
-  try {
-    const detail = await fn();
-    results.push({ name, status: 'pass', detail });
-    console.log(`  ✓ ${name}${detail ? ' — ' + detail : ''}`);
-    await page.screenshot({ path: path.join(OUT, `${String(results.length).padStart(2, '0')}-${name}.png`) });
-  } catch (err) {
-    failed = true;
-    results.push({ name, status: 'fail', detail: err.message });
-    console.log(`  ✗ ${name} — ${err.message}`);
-    await page.screenshot({ path: path.join(OUT, `FAIL-${name}.png`) }).catch(() => {});
-    throw err;
-  }
-}
+/** 依赖表：一条链（规则见 e2e-plan.mjs） */
+export const BACKUP_STEPS = [
+  ['pure-retention', []],
+  ['seed-and-setup-prompt'],
+  ['status-in-prefs'],
+  ['verify-failure-not-success'],
+  ['retention-in-folder'],
+  ['csv-to-folder'],
+  ['uninstall-then-restore'],
+  ['merge-respects-tombstones'],
+  ['strong-import-asks-units'],
+  ['strong-reimport-no-dup-and-hevy-unit'],
+];
 
 const iso = daysAgo => new Date(Date.now() - daysAgo * 86400000).toISOString();
 function seedWorkout(id, daysAgo, title, exName, sets) {
@@ -109,9 +109,39 @@ async function reloadAndSettle(page) {
   await installHelpers(page);
 }
 
-const main = async () => {
-  console.log(`\n== e2e backup against ${BASE} ==\n`);
-  const browser = await chromium.launch({ headless: true, executablePath: process.env.E2E_CHROMIUM || undefined });
+/**
+ * 在给定的浏览器里开一个新 context 跑这一套。plan.run 为空就什么都不做。
+ * 返回 { results, pageErrors, failed, timings }；不关浏览器、不退出进程。
+ */
+export async function runBackup(browser, plan) {
+  const results = [];
+  const timings = [];
+  let failed = false;
+  if (!plan.run.size) return { results, pageErrors: [], failed, timings };
+  fs.mkdirSync(OUT, { recursive: true });
+  // 和别的套件并行时日志会交错：每行带上 [backup]
+  const log = s => console.log(`[backup] ${s}`);
+  async function step(page, name, fn) {
+    if (!(await enterStep(plan, name))) return;
+    log(`▶ ${name}`);
+    const t0 = Date.now();
+    try {
+      const detail = await fn();
+      results.push({ name, status: 'pass', detail });
+      log(`  ✓ ${name}${detail ? ' — ' + detail : ''}`);
+      await page.screenshot({ path: path.join(OUT, `${String(results.length).padStart(2, '0')}-${name}.png`) });
+    } catch (err) {
+      failed = true;
+      results.push({ name, status: 'fail', detail: err.message });
+      log(`  ✗ ${name} — ${err.message}`);
+      await page.screenshot({ path: path.join(OUT, `FAIL-${name}.png`) }).catch(() => {});
+      throw err;
+    } finally {
+      timings.push({ name, ms: Date.now() - t0 });
+      results.at(-1).ms = timings.at(-1).ms;
+    }
+  }
+
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'zh-CN', timezoneId: 'America/Toronto' });
   // 只放行本机 dev server：e2e 不该碰任何真实后端
   await context.route('**/*', route => {
@@ -204,14 +234,14 @@ const main = async () => {
     await step(page, 'verify-failure-not-success', async () => {
       await page.evaluate(() => window.__t.fault('corrupt-write'));
       await backupAndWait(page);
-      await waitToast(page, /备份失败：写进去的内容读回来对不上/);
+      await waitToast(page, /备份失败：备份校验失败/);
       const s = await page.locator('[data-testid="backup-status"]').innerText();
       if (!/上次备份失败/.test(s)) throw new Error(`status after corrupt write: ${s}`);
       const n = await page.evaluate(() => Object.keys(window.__t.fs()).length);
       if (n !== 1) throw new Error(`corrupt file should have been removed, folder has ${n}`);
       await page.evaluate(() => window.__t.fault('deny'));
       await backupAndWait(page);
-      await waitToast(page, /备份失败：没有文件夹权限/);
+      await waitToast(page, /备份失败：文件夹权限已失效/);
       if (!/重新选择/.test(await page.locator('[data-testid="backup-change-folder"]').innerText())) throw new Error('no-access should offer 重新选择');
       await page.evaluate(() => window.__t.fault(''));
       await backupAndWait(page);
@@ -393,16 +423,28 @@ const main = async () => {
       return `count stable at ${mid}; hevy ${w.weight.toFixed(2)} kg`;
     });
 
-    if (pageErrors.length) throw new Error(`page errors: ${pageErrors.join(' | ')}`);
   } catch {
     // step 已经记过
   } finally {
     fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify({ base: BASE, results, pageErrors }, null, 2));
-    await browser.close();
+    await context.close();
   }
+  return { results, pageErrors, failed, timings };
+}
+
+/** 单独跑：自己起浏览器 */
+async function main() {
+  console.log(`\n== e2e backup against ${BASE} ==\n`);
+  const only = parseOnly(process.env.E2E_ONLY);
+  const plan = planSuite('备份', BACKUP_STEPS, only);
+  describeSelection([plan], only);
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.E2E_CHROMIUM || undefined });
+  const { results, pageErrors, failed, timings } = await runBackup(browser, plan);
+  await browser.close();
   const pass = results.filter(r => r.status === 'pass').length;
   console.log(`\n${pass}/${results.length} passed${failed ? ' — FAILED' : ''}${pageErrors.length ? ` · page errors: ${pageErrors.length}` : ''}\n`);
+  printSlowest('备份', timings);
   process.exit(failed || pageErrors.length ? 1 : 0);
-};
+}
 
-main();
+if (import.meta.url === pathToFileURL(process.argv[1]).href) main();

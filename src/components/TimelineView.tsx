@@ -217,7 +217,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
    * 就长出来了，而手指可以再压半秒才抬 —— 按菜单出现起算的话，
    * 按得久一点就直接绕过了这道闸门。
    */
-  const armedAt = useRef(0);
+  const armedAt = useRef(-Infinity);
   const MENU_ARM_MS = 350;
   const swallowingClick = () => performance.now() - armedAt.current < MENU_ARM_MS;
 

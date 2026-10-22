@@ -245,11 +245,11 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   };
 
   /** 长按加递减达成后，松手带出的那次 click 不能再被读成「点组号」 */
-  const longPressAtRef = React.useRef(0);
+  const longPressAtRef = React.useRef(-Infinity);
   const onSetNumClick = () => {
     // 只吞松手带出的那一次：吞完立即作废，否则紧跟着的一次正常点击也会被吃掉
     if (performance.now() - longPressAtRef.current < 600) {
-      longPressAtRef.current = 0;
+      longPressAtRef.current = -Infinity;
       return;
     }
     onNumTap?.();

@@ -6,6 +6,7 @@ import './index.css';
 import './plates.css';
 import { pushFitlogRemoteSnapshot, pullAndMergeFitlogRemote } from './services/fitlogRemoteSync';
 import { fetchRemoteSnapshot } from './services/fitlogRemote';
+import { cancelPendingFitlogPush } from './services/fitlogSyncScheduler';
 import { getDataEnv, isEnvLocked, isDemo, isSolo, isOffline, dbName, statePath, storagePrefix } from './services/appEnv';
 import {
   applyBackup,
@@ -48,6 +49,8 @@ if (typeof window !== 'undefined' && !isOffline()) {
   (window as any).__fitlog = {
     env: () => ({ env: getDataEnv(), locked: isEnvLocked(), db: dbName(), path: statePath() }),
     flush: () => pushFitlogRemoteSnapshot(),
+    // 作废排队中的防抖推送：e2e 往 mock 远端塞夹具前先调它 + flush，免得晚到的 PUT 把夹具盖掉
+    cancelPendingPush: () => cancelPendingFitlogPush(),
     pull: () => pullAndMergeFitlogRemote(),
     fetchRemote: () => fetchRemoteSnapshot(),
     // 备份链路的探针。导出/导入/回滚都绕不开文件选择器与下载，

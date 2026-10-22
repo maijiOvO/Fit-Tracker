@@ -21,6 +21,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
+import { weightBaseline } from '../utils/weightSummary';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -177,22 +178,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   } | null>(null);
 
   const weightSummary = useMemo(() => {
-    if (weightEntries.length === 0) return null;
-    const sorted = [...weightEntries].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-    const latest = sorted[0];
-    const cutoff = Date.now() - 30 * 86400000;
-    // sorted 是新→旧：第一条落在截止点之前的，就是「30 天前那一刻」最近的一次称重。
-    // 都在 30 天内就退到最早一条。
-    const baseline =
-      sorted.find(e => new Date(e.date).getTime() <= cutoff)
-      ?? sorted[sorted.length - 1];
-    const delta = latest.weight - baseline.weight;
+    const s = weightBaseline(weightEntries);
+    if (!s) return null;
+    const delta = s.latest.weight - s.baseline.weight;
     const sign = delta > 0 ? '+' : '';
     return {
-      value: formatWeight(latest.weight, unit),
-      delta: sorted.length >= 2 ? `${sign}${formatWeight(delta, unit)}` : null,
+      value: formatWeight(s.latest.weight, unit),
+      delta: s.count >= 2 ? `${sign}${formatWeight(delta, unit)}` : null,
     };
   }, [weightEntries, unit]);
 

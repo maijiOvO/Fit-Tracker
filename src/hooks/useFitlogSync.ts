@@ -216,6 +216,10 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
         await loadLocalData(resolvedUserId);
       } catch (e) {
         console.error('[fitlog] 应用初始化失败:', e);
+      } finally {
+        // 启动流程（拉取合并 → 应用 prefs → 重读本地库）走完的标记，给 e2e 等「重开 App 落定了」用。
+        // 不能拿「时间线卡片出来了」当信号：WorkoutContext 挂载时自己先从本地库读一遍，卡片比拉取合并早
+        document.documentElement.dataset.fitlogBoot = 'done';
       }
     };
     void initApp();
