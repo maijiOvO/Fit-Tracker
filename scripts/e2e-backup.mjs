@@ -234,14 +234,14 @@ export async function runBackup(browser, plan) {
     await step(page, 'verify-failure-not-success', async () => {
       await page.evaluate(() => window.__t.fault('corrupt-write'));
       await backupAndWait(page);
-      await waitToast(page, /备份失败：写进去的内容读回来对不上/);
+      await waitToast(page, /备份失败：备份校验失败/);
       const s = await page.locator('[data-testid="backup-status"]').innerText();
       if (!/上次备份失败/.test(s)) throw new Error(`status after corrupt write: ${s}`);
       const n = await page.evaluate(() => Object.keys(window.__t.fs()).length);
       if (n !== 1) throw new Error(`corrupt file should have been removed, folder has ${n}`);
       await page.evaluate(() => window.__t.fault('deny'));
       await backupAndWait(page);
-      await waitToast(page, /备份失败：没有文件夹权限/);
+      await waitToast(page, /备份失败：文件夹权限已失效/);
       if (!/重新选择/.test(await page.locator('[data-testid="backup-change-folder"]').innerText())) throw new Error('no-access should offer 重新选择');
       await page.evaluate(() => window.__t.fault(''));
       await backupAndWait(page);
