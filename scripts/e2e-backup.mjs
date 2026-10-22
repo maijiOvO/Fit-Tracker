@@ -308,7 +308,7 @@ export async function runBackup(browser, plan) {
       if (!csv.text.startsWith('﻿日期,开始时间,训练')) throw new Error('csv must start with BOM + 中文表头');
       const lines = csv.text.replace(/^﻿/, '').trim().split('\r\n');
       if (lines.length !== SEED_SETS + 1) throw new Error(`csv has ${lines.length - 1} rows, want ${SEED_SETS}`);
-      if (!lines.some(l => /杠铃平板卧推,,胸部,1,正式,100,kg,100,5/.test(l))) throw new Error(`bench row missing:\n${lines.slice(0, 4).join('\n')}`);
+      if (!lines.some(l => /杠铃平板卧推,,胸部,[^,]*,1,正式,100,kg,100,5/.test(l))) throw new Error(`bench row missing:\n${lines.slice(0, 4).join('\n')}`);
       return `${csv.name} · ${lines.length - 1} rows`;
     });
 

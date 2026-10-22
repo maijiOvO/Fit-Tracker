@@ -178,7 +178,7 @@ async function clickAppConfirm(page, labelRe) {
  * 弹「这场在哪个馆练」就选第一个；一个馆都没有时直接是「新的馆」表单，起个名存好（就在这个馆开）。
  * 没弹（接回进行中的那场之类）就什么都不做。等到选馆弹层关掉、新建页出来才返回。
  */
-async function pickStartGym(page, name = 'E2E 默认馆') {
+async function pickStartGym(page, name = 'E2E Gym') {
   const ready = page.locator('text=/新建训练|New Workout/');
   const picker = page.locator('[data-testid="gym-picker"]');
   const form = page.locator('[data-testid="gym-profile-form"]');
@@ -1177,7 +1177,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const item = page.locator('[data-testid^="schedule-item-"]', { hasText: planTitle }).first();
     await item.waitFor({ state: 'visible', timeout: 5_000 });
     const itemText = await item.innerText();
-    if (!/137lbs/.test(itemText)) throw new Error(`plan card should show 137lbs, got "${itemText.replace(/\s+/g, ' ')}"`);
+    if (!/137 ?lbs?(?![a-z])/.test(itemText)) throw new Error(`plan card should show 137 lb, got "${itemText.replace(/\s+/g, ' ')}"`);
     const scheduleId = (await item.getAttribute('data-testid')).replace('schedule-item-', '');
     const saved = await page.evaluate(async id => {
       await window.__fitlog.flush();
@@ -1193,10 +1193,12 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     // 开练：底稿按今天的馆就近取整（「杠铃片」2026-10-18）：137 lb 杠铃 → 135（45 杆 + 每边 45；140 更远），
     // 行下标「计划 137 lb」。原来的 bug 是把 lb 当 kg 再换一次（135 → 297.62）
     await page.locator(`[data-testid="schedule-start-${scheduleId}"]`).click();
+    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换（在选馆之前）。哪个先出来处理哪个
+    const replace = page.getByRole('button', { name: /^(继续|Continue)$/ });
+    await replace.or(page.locator('[data-testid="gym-picker"]')).or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
+    // 点了「继续」选馆弹层马上接着出来（也是 dialog），不能等 dialog 消失
+    if (await replace.isVisible().catch(() => false)) await replace.click();
     await pickStartGym(page);
-    // 前面的用例可能在工作台留了一场进行中的：从计划开练会先问要不要替换。哪个先出来处理哪个
-    await page.locator('[role="dialog"]').or(page.locator('text=/新建训练|New Workout/')).first().waitFor({ timeout: 5_000 });
-    if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(继续|Continue)$/);
     await page.waitForSelector('text=/新建训练|New Workout/', { timeout: 5_000 });
     const w0 =await page.locator('.ledger-row').first().locator('[data-testid="ledger-field-weight"] input').inputValue();
     if (Number(w0) !== 135) throw new Error(`plan 137 lb should start snapped to 135 lbs, got ${w0}`);
@@ -1264,7 +1266,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const w1 = await weights();
     if (!w1.every(w => w === 60)) throw new Error(`typing 60 should carry the drafts below, got ${JSON.stringify(w1)}`);
 
-    // 编辑今天这个馆：换成磅片 → 单位切 lbs，60 kg (132.28 lb) 就近取到 130（130 差 2.28、135 差 2.72）
+    // 编辑今天这个馆：换成磅片 → 单位切 lbs。手打的第 1 组照原样（60 kg = 132.28 lb，审查 A10：不重新取整手打的数），
+    // 被带着跟成 60 的后两组就近取到 130（130 差 2.28、135 差 2.72）
     await page.locator('[data-testid="gym-button"]').click();
     await picker.waitFor({ state: 'visible', timeout: 3_000 });
     const idx = await picker.locator('[data-testid^="gym-option-"]').evaluateAll((els, n) => els.findIndex(e => e.textContent.includes(n)), gymName);
@@ -1272,15 +1275,16 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     if (!/公斤片/.test(await picker.locator(`[data-testid="gym-option-${idx}"]`).innerText())) throw new Error('gym row should show its plate unit');
     await page.locator(`[data-testid="gym-edit-${idx}"]`).click();
     await form.waitFor({ state: 'visible', timeout: 3_000 });
-    if (await page.locator('[data-testid="gym-profile-name"]').count()) throw new Error('editing an existing gym should not ask for a name');
+    // 2026-10-21 起馆可以改名（62ff67c）：编辑时名字栏在，预填原名
+    if ((await page.locator('[data-testid="gym-profile-name"]').inputValue()) !== gymName) throw new Error('editing an existing gym should prefill its name');
     await form.getByRole('button', { name: /^磅片$/ }).click();
     await page.locator('[data-testid="gym-profile-save"]').click();
     await form.waitFor({ state: 'detached', timeout: 3_000 });
     // 存档案 → 切单位 → 重新取整：等单位切过来、组重新取整（正向，等不到就超时、照样断言）
-    await until(async () => (await unitNow()) === 'lbs' && (await weights()).every(w => w !== 60), 'the unit switch + re-round after saving lb plates').catch(() => {});
+    await until(async () => (await unitNow()) === 'lbs' && (await weights()).slice(1).every(w => w === 130), 'the unit switch + re-round after saving lb plates').catch(() => {});
     if ((await unitNow()) !== 'lbs') throw new Error(`saving today's gym with lb plates should switch to lbs, got ${await unitNow()}`);
     const w2 = await weights();
-    if (!w2.every(w => w === 130)) throw new Error(`pending sets should re-round onto lb plates (60 kg → 130 lb), got ${JSON.stringify(w2)}`);
+    if (w2[0] !== 132.28 || !w2.slice(1).every(w => w === 130)) throw new Error(`typed set stays 132.28 lb, followed sets re-round onto lb plates (130), got ${JSON.stringify(w2)}`);
     const t = await page.locator('[data-testid="toast"]').last().innerText();
     if (!/没做完的组按新档案重新取整/.test(t)) throw new Error(`edit-today toast: ${t}`);
     await dismissToasts();
@@ -1649,7 +1653,12 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       const bx = await menu.locator(`[data-testid="${testId}-scrub"]`).boundingBox();
       await page.mouse.move(bx.x + bx.width / 2, bx.y + bx.height / 2);
       await page.mouse.down();
-      for (let i = 1; i <= 8; i++) await page.mouse.move(bx.x + bx.width / 2 + (dx * i) / 8, bx.y + bx.height / 2, { steps: 2 });
+      // 按下先停一下、每步隔开：一下子甩完会被算成猛甩，接管阈值（20px）前后的那几步也走不出档
+      await page.waitForTimeout(80);
+      for (let i = 1; i <= 8; i++) {
+        await page.mouse.move(bx.x + bx.width / 2 + (dx * i) / 8, bx.y + bx.height / 2, { steps: 2 });
+        await page.waitForTimeout(40);
+      }
       await page.mouse.up();
       await page.waitForTimeout(300);
       return Number(await menu.locator(`[data-testid="${testId}"]`).inputValue());
