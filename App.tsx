@@ -27,7 +27,8 @@ import React, {
   useState,
 } from 'react';
 
-import { Exercise, ExerciseDefinition, Goal, Language } from './types';
+import { Exercise, ExerciseDefinition, Goal, Language, type WorkoutSession } from './types';
+import type { GymProfile } from './src/utils/loadable';
 import { translations } from './translations';
 import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
@@ -306,6 +307,29 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     onPersist: () => workoutCtx.persistCurrentWorkout(),
   });
 
+  /**
+   * 开练先选馆（2026-10-21 用户定）：点开练先弹「这场在哪个馆练」，选了 / 新建了馆才真正开这一场，
+   * 一个馆都没有就直接是「新的馆」表单。关掉＝这次不开练。
+   * gymStart 是选好馆之后要跑的那一下；switchGym 在下面才拿到，经 ref 读（这里的闭包在点击时才执行）。
+   */
+  const [gymStart, setGymStart] = useState<((gym: string | undefined, gyms?: Record<string, GymProfile>) => void) | null>(null);
+  const switchGymRef = useRef<((w: WorkoutSession, gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession) | null>(null);
+  const startAtGym = useCallback(
+    (make: () => WorkoutSession, after?: (w: WorkoutSession) => void) =>
+      setGymStart(() => (gym: string | undefined, gyms?: Record<string, GymProfile>) => {
+        void startWorkoutGuarded(() => {
+          const base = make();
+          // 按这个馆的片子切单位（设过档案的馆）；这一场还没有动作，不用重新取整
+          const w = gym && switchGymRef.current ? switchGymRef.current(base, gym, gyms) : base;
+          setCurrentWorkout(w);
+          setEditingWorkoutId(null);
+          setActiveTab('new');
+          after?.(w);
+        });
+      }),
+    [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab],
+  );
+
   const {
     showWeightInput,
     setShowWeightInput,
@@ -490,12 +514,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           setActiveTab('new');
           return;
         }
-        void startWorkoutGuarded(() => {
-          // 和 FAB 同一条路：新建一个带 id / startTime 的对象，别复用上一个 currentWorkout
-          setCurrentWorkout(workoutCtx.createNewWorkout());
-          setEditingWorkoutId(null);
-          setActiveTab('new');
-        });
+        // 和 FAB 同一条路：先选馆，再新建一个带 id / startTime 的对象，别复用上一个 currentWorkout
+        startAtGym(() => workoutCtx.createNewWorkout());
       },
       onResumeFinishedWorkout: (id: string) => {
         const w = workouts.find(x => x.id === id);
@@ -529,6 +549,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       handleExportData,
       handleImportData,
       startWorkoutGuarded,
+      startAtGym,
       resumeWorkout,
       workouts,
       setCurrentWorkout,
@@ -564,6 +585,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // 手动切单位 / 换馆：工作台上没做完的组按新单位 / 新馆的片子重新取整（同步回来的单位不走这里）
   const { switchUnit, switchGym } = useGymSwitch();
+  switchGymRef.current = switchGym;
   const handleUnitToggle = useCallback(() => {
     switchUnit(unit === 'kg' ? 'lbs' : 'kg');
   }, [switchUnit, unit]);
@@ -1337,12 +1359,20 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
       {/* ============== 场地选择器（§12.11）============== */}
       <GymPickerModal
-        open={showGymPicker}
+        open={showGymPicker || !!gymStart}
+        startMode={!!gymStart}
         lang={lang}
         options={gymOptions}
-        current={currentWorkout?.gym}
-        onClose={() => setShowGymPicker(false)}
+        current={gymStart ? undefined : currentWorkout?.gym}
+        onClose={() => {
+          setShowGymPicker(false);
+          setGymStart(null);
+        }}
         onPick={gym => {
+          if (gymStart) {
+            gymStart(gym);
+            return;
+          }
           // 编辑旧训练时只改那场的馆，不切全局单位（改历史标签不该把各设备的显示单位都翻掉）
           setCurrentWorkout(switchGym(currentWorkout, gym, undefined, { keepUnit: !!editingWorkoutId }));
           // 落盘读的是 ref（渲染时才更新）：等这次改动渲染完再写
@@ -1353,6 +1383,13 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onSaveProfile={(name, profile, isNew) => {
           const gyms = { ...settingsCtx.appPrefs.gyms, [name]: profile };
           settingsCtx.changeAppPrefs({ gyms });
+          // 开练前选馆：新建或改完哪个馆，就在这个馆开这一场（存完弹层会关，不开就等于白选了）。
+          // gyms 是刚存的，context 还没刷新
+          if (gymStart) {
+            gymStart(name, gyms);
+            toast(isCn ? `已存「${name}」，这场按它算` : `Saved "${name}" — this workout uses it`, 'success');
+            return;
+          }
           // 新的馆＝这场就用它；改的是今天这个馆＝没做完的组按新档案重新取整。别的馆只存档案，不动今天这场
           const today = isNew || currentWorkout?.gym === name;
           if (today) {
@@ -1388,14 +1425,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               setActiveTab('new');
               return;
             }
-            // 10 分钟内刚结束过一场就先问「是不是刚才那场」（防误结束拆场）
-            void startWorkoutGuarded(() => {
-              setCurrentWorkout(workoutCtx.createNewWorkout());
-              setEditingWorkoutId(null);
-              setActiveTab('new');
-              // 进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
-              // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
-            });
+            // 先选馆再开练（startAtGym）。进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
+            // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
+            startAtGym(() => workoutCtx.createNewWorkout());
           }}
           onStartWorkoutWithPart={(partKey, title) => {
             if (inProgress) {
@@ -1405,19 +1437,19 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             // §12.4 印谱扇开：一笔完成「开练 + 选部位」。
             // 部位印 → 标题已定，进页后 120ms 自动弹动作弹层（复用补加动作的机制）；
             // 「制」 → 不填名，进页聚焦标题（partPrechosenId 抑制页内印谱再问一遍）。
-            void startWorkoutGuarded(() => {
-              const focus = partKey !== 'other' ? bodyPartTagFor(partKey) : null;
-              const w = { ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}), ...(focus ? { focusPart: focus } : {}) };
-              setCurrentWorkout(w);
-              setEditingWorkoutId(null);
-              if (partKey === 'other') setPartPrechosenId(w.id);
-              setActiveTab('new');
-              if (partKey !== 'other') {
-                // 选的是「胸」印 → 弹层打开时直接停在胸部那一栏
-                pendingFocusPartRef.current = bodyPartTagFor(partKey);
-                setPendingScrollToPicker(true);
-              }
-            });
+            // 同样先选馆，选好再开
+            const focus = partKey !== 'other' ? bodyPartTagFor(partKey) : null;
+            startAtGym(
+              () => ({ ...workoutCtx.createNewWorkout(), ...(title ? { title } : {}), ...(focus ? { focusPart: focus } : {}) }),
+              w => {
+                if (partKey === 'other') setPartPrechosenId(w.id);
+                if (partKey !== 'other') {
+                  // 选的是「胸」印 → 弹层打开时直接停在胸部那一栏
+                  pendingFocusPartRef.current = bodyPartTagFor(partKey);
+                  setPendingScrollToPicker(true);
+                }
+              },
+            );
           }}
         />
       )}

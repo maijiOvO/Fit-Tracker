@@ -7,6 +7,9 @@
  * 每个馆一行「编辑」：这个馆用公斤片还是磅片、有哪些片、龙门架 / 器械 / 哑铃一档多重。
  * 可以反复进（2026-10-18 用户定）。底部「新的馆…」：起名 + 填档案，存好就用这个馆。
  * 已有的馆不改名：馆名记在每一场历史训练上，改名会和历史对不上。
+ *
+ * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
+ * 一个馆都没有就直接进「新的馆」表单（新用户不用先去别处设馆）。关掉＝这次不开练。
  */
 import React, { useEffect, useState } from 'react';
 import { Check, MapPin, Plus } from 'lucide-react';
@@ -39,6 +42,8 @@ interface GymPickerModalProps {
   unit?: string;
   /** 存档案。isNew：新的馆（存好就用它） */
   onSaveProfile?: (name: string, profile: GymProfile, isNew: boolean) => void;
+  /** 开练前选馆：标题改问「这场在哪个馆练」，没有馆就直接开「新的馆」表单，表单关掉就整个关掉 */
+  startMode?: boolean;
 }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
@@ -53,17 +58,22 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   profiles = {},
   unit = 'kg',
   onSaveProfile,
+  startMode = false,
 }) => {
   const isCn = lang === Language.CN;
   const [draft, setDraft] = useState('');
   /** 正在编辑的馆：null＝列表；''＝新的馆 */
   const [editing, setEditing] = useState<string | null>(null);
 
+  /** 开练时一个馆都没有：直接进新建表单，表单就是整个弹层（关表单＝不开练） */
+  const noGyms = options.length === 0 && Object.keys(profiles).length === 0;
+  const formOnly = startMode && noGyms && !!onSaveProfile;
+
   // 每次打开都从空输入开始，免得上次没提交的半截名字残留
   useEffect(() => {
     if (open) {
       setDraft('');
-      setEditing(null);
+      setEditing(formOnly ? '' : null);
     }
   }, [open]);
 
@@ -84,8 +94,8 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
     return (
       <Modal
         isOpen={open}
-        // 点背景 / 关闭＝回馆列表，不把没存的改动连同整个弹层一起丢掉
-        onClose={() => setEditing(null)}
+        // 点背景 / 关闭＝回馆列表，不把没存的改动连同整个弹层一起丢掉；开练时一个馆都没有就没有列表可回，整个关掉
+        onClose={() => (formOnly ? onClose() : setEditing(null))}
         title={editing ? (isCn ? `「${editing}」的器材` : `${editing} · equipment`) : isCn ? '新的馆' : 'New gym'}
         size="sm"
         variant="sheet"
@@ -97,7 +107,8 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
           name={editing}
           initial={profiles[editing] ?? defaultProfile(unit === 'lbs' ? 'lbs' : 'kg')}
           taken={allGyms}
-          onBack={() => setEditing(null)}
+          onBack={() => (formOnly ? onClose() : setEditing(null))}
+          starting={formOnly}
           onSave={(name, p) => {
             onSaveProfile(name, p, !editing);
             onClose();
@@ -111,7 +122,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
     <Modal
       isOpen={open}
       onClose={onClose}
-      title={translations.gymPickTitle[lang] as string}
+      title={startMode ? (isCn ? '这场在哪个馆练？' : 'Where are you training?') : (translations.gymPickTitle[lang] as string)}
       size="sm"
       variant="sheet"
       layer="modal-2"
@@ -213,6 +224,7 @@ function GymProfileForm({
   taken,
   onBack,
   onSave,
+  starting = false,
 }: {
   isCn: boolean;
   /** ''＝新的馆（要起名） */
@@ -221,6 +233,8 @@ function GymProfileForm({
   taken: string[];
   onBack: () => void;
   onSave: (name: string, p: GymProfile) => void;
+  /** 开练前一个馆都没有、直接进的这张表：存好就开练，退出就是这次先不练 */
+  starting?: boolean;
 }) {
   const [p, setP] = useState<GymProfile>(() => JSON.parse(JSON.stringify(initial)));
   const [nm, setNm] = useState(name);
@@ -424,10 +438,10 @@ function GymProfileForm({
       {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}
       {err && <p className="text-label text-warning">{err}</p>}
       <button type="button" className="ui-btn-primary w-full min-h-[48px] mt-2" onClick={save} data-testid="gym-profile-save">
-        {name ? (isCn ? '存好' : 'Save') : isCn ? '存好，用这个馆' : 'Save and use it'}
+        {name ? (isCn ? '存好' : 'Save') : starting ? (isCn ? '存好，开练' : 'Save and start') : isCn ? '存好，用这个馆' : 'Save and use it'}
       </button>
       <button type="button" className="w-full min-h-[44px] text-label text-secondary" onClick={onBack}>
-        {isCn ? '← 回到馆列表' : '← Back to gyms'}
+        {starting ? (isCn ? '先不练了' : 'Not now') : isCn ? '← 回到馆列表' : '← Back to gyms'}
       </button>
     </div>
   );
