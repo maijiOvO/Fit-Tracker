@@ -379,6 +379,13 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     update(fromDisplay(next));
   };
 
+  /** 次数 ±1（走同一条改值路径：后面原值一样、没改过的待做组跟着变） */
+  const bumpReps = (dir: 1 | -1) => {
+    haptic(H.tap);
+    const next = Math.max(0, (Number(set.reps) || 0) + dir);
+    if (next !== (Number(set.reps) || 0)) update({ reps: next });
+  };
+
   /** 换号（点单位前的 + / −）：辅助 ⇄ 负重，绝对值不动 */
   const flipSign = () => {
     if (!signed || !(Number(set.weight) > 0)) return;
@@ -803,27 +810,44 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
       )}
 
       {/* −5 / +5：跟着选中的那一组（2026-10 指针；原先跟着休息书签）。整行两颗宽键，出汗的手也按得准。
-          右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。 */}
-      {!readOnly && selected && activeMetrics.includes('weight') && (
+          右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。
+          次数 −1 / +1（审查 B2）：差一两次是最常见的改法，不用再去横划次数格。 */}
+      {!readOnly && selected && (activeMetrics.includes('weight') || activeMetrics.includes('reps')) && (
         <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
-          <button type="button" onClick={() => bump(-1)} aria-label={isCn ? `重量减 ${stepDown} ${unit}` : `Weight −${stepDown} ${unit}`}>
-            −{stepDown} <span className="ledger-unit">{unit}</span>
-          </button>
-          <button type="button" onClick={() => bump(1)} aria-label={isCn ? `重量加 ${stepUp} ${unit}` : `Weight +${stepUp} ${unit}`}>
-            +{stepUp} <span className="ledger-unit">{unit}</span>
-          </button>
-          <button
-            type="button"
-            className="ledger-step-drop"
-            onClick={() => {
-              haptic(H.tap);
-              handleAddSubSet(-1);
-            }}
-            aria-label={isCn ? '加一档递减' : 'Add a drop set'}
-            data-testid="add-drop-set"
-          >
-            {isCn ? '递减' : 'Drop'}
-          </button>
+          {activeMetrics.includes('weight') && (
+            <>
+              <button type="button" onClick={() => bump(-1)} aria-label={isCn ? `重量减 ${stepDown} ${unit}` : `Weight −${stepDown} ${unit}`}>
+                −{stepDown} <span className="ledger-unit">{unit}</span>
+              </button>
+              <button type="button" onClick={() => bump(1)} aria-label={isCn ? `重量加 ${stepUp} ${unit}` : `Weight +${stepUp} ${unit}`}>
+                +{stepUp} <span className="ledger-unit">{unit}</span>
+              </button>
+            </>
+          )}
+          {activeMetrics.includes('reps') && (
+            <>
+              <button type="button" onClick={() => bumpReps(-1)} aria-label={isCn ? '次数减 1' : 'Reps −1'} data-testid="reps-dec">
+                −1 <span className="ledger-unit">{isCn ? '次' : 'rep'}</span>
+              </button>
+              <button type="button" onClick={() => bumpReps(1)} aria-label={isCn ? '次数加 1' : 'Reps +1'} data-testid="reps-inc">
+                +1 <span className="ledger-unit">{isCn ? '次' : 'rep'}</span>
+              </button>
+            </>
+          )}
+          {activeMetrics.includes('weight') && (
+            <button
+              type="button"
+              className="ledger-step-drop"
+              onClick={() => {
+                haptic(H.tap);
+                handleAddSubSet(-1);
+              }}
+              aria-label={isCn ? '加一档递减' : 'Add a drop set'}
+              data-testid="add-drop-set"
+            >
+              {isCn ? '递减' : 'Drop'}
+            </button>
+          )}
         </div>
       )}
     </>

@@ -12,7 +12,7 @@ import { localYmd } from '../utils/dateUtils';
  * 与训练历史关联的派生数据：最近练过的动作名 + 热力图
  */
 export function useExerciseStats() {
-  const { workouts } = useWorkoutContext();
+  const { workouts, currentWorkout } = useWorkoutContext();
   const { resolveName } = useExercisePrefs();
 
   const recentExerciseNames = useMemo(() => {
@@ -49,6 +49,8 @@ export function useExerciseStats() {
     workouts.forEach((w, index) => {
       try {
         if (!w || typeof w !== 'object') return;
+        // 还在练的那一场不算（审查 B10）：练到一半格子先亮了、连续周数先涨了，结束前一放弃又掉回去
+        if (w.id === currentWorkout.id && !w.finishedAt && w.status !== 'completed') return;
         if (!w.date || typeof w.date !== 'string') return;
         const d = new Date(w.date);
         if (isNaN(d.getTime())) return;
@@ -77,7 +79,7 @@ export function useExerciseStats() {
     return Array.from(map.entries())
       .map(([date, v]) => ({ date, sets: v.sets, sessions: v.sessions }))
       .filter(item => item.sessions > 0 && /^\d{4}-\d{2}-\d{2}$/.test(item.date));
-  }, [workouts]);
+  }, [workouts, currentWorkout.id]);
 
   return { recentExerciseNames, heatmapData };
 }

@@ -9,7 +9,7 @@ import React, { useMemo, useState } from 'react';
 import { Search, Star, X } from 'lucide-react';
 import { Language } from '../../types';
 import { E1RM, type LiftSummary, chartMetricsFor, sessionMetric } from '../utils/liftHistory';
-import { agoLabel, formatSet, metricUnit, toDisplay, trimNum } from '../utils/liftDisplay';
+import { agoLabel, formatMetric, formatSet, metricUnit } from '../utils/liftDisplay';
 
 /** 动作多到要翻屏时才出搜索框 */
 const SEARCH_THRESHOLD = 8;
@@ -91,7 +91,7 @@ export const LiftList: React.FC<LiftListProps> = ({
         } else {
           const m = metric === E1RM ? 'weight' : metric;
           const best = Math.max(...lift.sessions.map(s => sessionMetric(s, m) ?? -Infinity));
-          headline = Number.isFinite(best) ? trimNum(toDisplay(m, best, unit)) : '—';
+          headline = Number.isFinite(best) ? formatMetric(m, best, unit) : '—';
         }
         const headUnit = lift.hasWeight && lift.best.weight
           ? (lift.signed && Math.round(lift.best.weight.value * 10) === 0 ? '' : unit)

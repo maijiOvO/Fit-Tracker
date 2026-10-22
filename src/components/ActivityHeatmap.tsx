@@ -86,13 +86,22 @@ export const ActivityHeatmap: React.FC<Props> = ({
       if (d > today && out.length % 7 === 0) break;
     }
 
-    // 连续天数：从今天（或昨天，今天还没练不算断）往回数
+    // 连续周数（审查 B10：按天数，休息一天就断，一周练三次的人永远是 1）：
+    // 每周（按「每周开始于」）至少练过一次就算这周没断；这周还没练不算断，从上周往回数
+    const weekOf = (d: Date) => {
+      const w = new Date(d);
+      w.setHours(0, 0, 0, 0);
+      w.setDate(w.getDate() - dayOfWeekIndex(w));
+      return ymd(w);
+    };
+    const weeks = new Set(days.filter(d => d.sessions > 0).map(d => weekOf(new Date(`${d.date}T12:00:00`))));
     let s = 0;
     const cursor = new Date(today);
-    if (!byDate.get(ymd(cursor))) cursor.setDate(cursor.getDate() - 1);
-    while (byDate.get(ymd(cursor))) {
+    cursor.setDate(cursor.getDate() - dayOfWeekIndex(cursor));
+    if (!weeks.has(ymd(cursor))) cursor.setDate(cursor.getDate() - 7);
+    while (weeks.has(ymd(cursor))) {
       s += 1;
-      cursor.setDate(cursor.getDate() - 1);
+      cursor.setDate(cursor.getDate() - 7);
     }
 
     return { cells: out, streak: s };
@@ -119,7 +128,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
           <span className="font-mono font-semibold text-data-md text-primary tabular-nums align-baseline">
             {streak}
           </span>{' '}
-          {isCn ? '天' : 'd'}
+          {isCn ? '周' : 'wk'}
         </span>
         <span className="text-tertiary">
           {isCn ? `近 ${shownWeeks} 周` : `Last ${shownWeeks}w`} · {activeDays}{' '}

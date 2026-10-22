@@ -18,7 +18,7 @@ import {
   sessionMetric,
   sessionMetricSet,
 } from '../utils/liftHistory';
-import { formatLoad, formatSet, metricLabel, metricUnit, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { formatLoad, formatMetric, formatSet, metricLabel, metricUnit, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { plural } from '../utils/format';
 import { storage } from '../../services/appStorage';
 
@@ -129,7 +129,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         const v = sessionMetric(s, m);
         if (v != null && (!best || v > best.v)) best = { v, ts: s.ts };
       }
-      if (best) cards.push({ label: metricLabel(m, lang), value: trimNum(toDisplay(m, best.v, unit)), sub: shortDate(best.ts, isCn) });
+      if (best) cards.push({ label: metricLabel(m, lang), value: formatMetric(m, best.v, unit), unit: metricUnit(m, unit) || undefined, sub: shortDate(best.ts, isCn) });
     }
   }
 
@@ -139,7 +139,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
     const set = sessionMetricSet(s, metric) ?? (l.hasWeight ? s.top : null);
     if (set) return formatSet(set, unit, l.signed, isCn);
     const v = sessionMetric(s, metric);
-    return v == null ? '—' : `${trimNum(toDisplay(metric, v, unit))}${metricUnit(metric, unit) && ` ${unit}`}`;
+    return v == null ? '—' : `${formatMetric(metric, v, unit)}${metricUnit(metric, unit) && ` ${metricUnit(metric, unit)}`}`;
   };
 
   return (
