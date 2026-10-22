@@ -23,6 +23,7 @@ import { WEIGHT_STEP_OPTIONS, DROP_STEP_OPTIONS } from '../../services/appPrefs'
 import { useRollbackImport } from '../hooks/useImportData';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import type { SyncStatus } from '../hooks/useFitlogSync';
+import { isRemoteConfigured } from '../../services/fitlogRemote';
 import { useGymSwitch } from '../hooks/useGymSwitch';
 import { DataSafetySection } from './data/DataSafetySection';
 
@@ -30,6 +31,8 @@ interface PrefsSheetProps {
   open: boolean;
   onClose: () => void;
   syncStatus: SyncStatus;
+  pushState?: 'synced' | 'pending' | 'failed';
+  dataBusy?: boolean;
   /** 本次启动里上一次完整同步成功的时刻 */
   lastSyncedAt: number | null;
   /** 没配远端 / 正在同步时为 undefined */
@@ -137,6 +140,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   open,
   onClose,
   syncStatus,
+  pushState = 'synced',
+  dataBusy = false,
   lastSyncedAt,
   onSync,
   onExportData,
@@ -149,7 +154,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   onToggleDevMode,
 }) => {
   const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
-  // 手动切单位＝今天换了一套片子：工作台上没做完的组跟着重新取整（useGymSwitch）
+  // 手动切单位只换显示：存的 kg 一个不动，工作台上的组也不重新取整（useGymSwitch，2026-10-21 起）
   const { switchUnit } = useGymSwitch();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
@@ -344,10 +349,16 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
         <RefreshCw size={14} className="animate-spin" />
         {t('同步中', 'Syncing')}
       </span>
-    ) : syncStatus === 'error' ? (
+    ) : syncStatus === 'error' || pushState === 'failed' ? (
       <span className="text-label font-semibold text-danger flex items-center gap-1.5 whitespace-nowrap">
         <AlertCircle size={14} />
-        {t('同步失败', 'Sync failed')}
+        {t('同步失败 · 只在本机', 'Sync failed · on this device only')}
+      </span>
+    ) : pushState === 'pending' ? (
+      // 有改动还没推上去（审查 B12：原来只要没报错就写「已同步」）
+      <span className="text-label font-semibold text-tertiary flex items-center gap-1.5 whitespace-nowrap">
+        <RefreshCw size={14} />
+        {t('待同步', 'Pending')}
       </span>
     ) : (
       <span className="text-label font-semibold text-success flex items-center gap-1.5 whitespace-nowrap">
@@ -505,15 +516,20 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
           </Group>
 
           <Group title={t('数据', 'Data')}>
-            <Row name={t('同步', 'Sync')} value={syncValue} onClick={onSync} testId="prefs-sync" />
-            <Rule />
+            {/* 没有服务器（单机版 / 演示版）就没有同步这回事：整行不出（审查 B12） */}
+            {isRemoteConfigured() && (
+              <>
+                <Row name={t('同步', 'Sync')} value={syncValue} onClick={onSync} testId="prefs-sync" />
+                <Rule />
+              </>
+            )}
             <DataSafetySection />
             <Rule />
-            <button type="button" onClick={onExportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
+            <button type="button" onClick={onExportData} disabled={dataBusy} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5 disabled:opacity-50">
               <Download size={18} strokeWidth={1.75} className="text-accent" />
               {t('导出完整备份（JSON）', 'Export full backup (JSON)')}
             </button>
-            <button type="button" onClick={onImportData} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5">
+            <button type="button" onClick={onImportData} disabled={dataBusy} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5 disabled:opacity-50">
               <Upload size={18} strokeWidth={1.75} className="text-accent" />
               {translations.importData[lang]}
             </button>
@@ -522,7 +538,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
               <>
                 <button
                   type="button"
-                  onClick={() => { void rollbackImport(); }}
+                  onClick={() => { void rollbackImport(rollback.newer); }}
                   className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3"
                 >
                   <Undo2 size={18} strokeWidth={1.75} className="text-accent" />
@@ -530,8 +546,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 </button>
                 <p className="text-[10px] text-tertiary text-center -mt-2">
                   {t(
-                    `导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]}`,
-                    `Pre-import copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]}`,
+                    `导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
+                    `Pre-import copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
                   )}
                 </p>
               </>

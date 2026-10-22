@@ -272,8 +272,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
   // ============== 业务 hooks ==============
-  const { syncStatus, setSyncStatus, lastSyncedAt, performFullSync, loadLocalData } =
+  const { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData } =
     useFitlogSync(resolvedUserId);
+  /** 导出 / 导入在忙：自己一个状态，不再借同步的（原来导出时首选项那一行会显示「同步中」，审查 B12） */
+  const [dataBusy, setDataBusy] = useState<'idle' | 'syncing' | 'error'>('idle');
 
   const {
     saveStatus,
@@ -383,8 +385,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   } = useMeasurementLog();
 
   const { fileInputRef, handleAvatarUpload } = useAvatarUpload();
-  const handleExportData = useExportData(setSyncStatus);
-  const handleImportData = useImportData(setSyncStatus);
+  const handleExportData = useExportData(setDataBusy);
+  const handleImportData = useImportData(setDataBusy);
 
   // ============== 数据环境切换（dev ⇄ prod，运行时，无需重启）==============
   // 本地存储已按环境分区（IndexedDB 分库 + localStorage 前缀），
@@ -503,12 +505,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         toast(String(translations.remoteEnvGuard[lang]), 'error');
         return;
       }
-      // message 是服务端／网络的原始诊断（英文或 HTTP 文本）。空的时候别留个孤零零的冒号。
-      const tail = message ? (isCn ? `：${message}` : `: ${message}`) : '';
+      // message 是服务端／网络的原始诊断（英文或 HTTP 文本、整串 URL）：只进控制台，不贴给人看（审查 C）
+      if (message) console.warn('[fitlog] push failed:', message);
       toast(
         isCn
-          ? `云端同步失败${tail}。数据仅保存在本地。`
-          : `Sync failed${tail}. Data saved locally only.`,
+          ? '云端同步失败，改动先存在本机，联网后会自动补推'
+          : 'Sync failed — changes are kept on this device and will sync once online',
         'error',
       );
     };
@@ -1272,6 +1274,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               onToggleDevMode={envLocked ? undefined : handleToggleDevMode}
               syncStatus={syncStatus}
               lastSyncedAt={lastSyncedAt}
+              pushState={pushState}
+              dataBusy={dataBusy === 'syncing'}
               onSync={syncStatus === 'syncing' || !user || !isRemoteConfigured() ? undefined : () => void performFullSync()}
               onExportData={handleExportData}
               onImportData={handleImportData}

@@ -234,7 +234,8 @@ export async function fetchRemoteSnapshotResult(): Promise<RemoteSnapshotResult>
 
   const path = resolveStatePath();
   try {
-    const response = await remoteFetch('GET', path);
+    // 20 秒超时（审查 A26）：NAS / 隧道挂住时 GET 一直不回，启动拉取和之后每次推送前的拉取都会被它卡死
+    const response = await remoteFetch('GET', path, undefined, 20000);
     if (response.status === 404) return { status: 'empty' };
     if (!response.ok) throw await toRemoteError(response, 'GET', path);
     const data = (await response.json()) as FitlogRemoteSnapshot;

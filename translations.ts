@@ -131,7 +131,7 @@ export const translations: TranslationStrings = {
   addCustomTag: { en: 'Add Custom Tag', cn: '添加自定义标签' },
   // ── 场地（§12.11）──
   gymPickTitle: { en: 'Where are you training?', cn: '在哪个馆练的' },
-  gymClear: { en: 'Clear', cn: '不标场地' },
+  gymClear: { en: 'No gym', cn: '不标场地' },
   gymNewPlaceholder: { en: 'New gym name…', cn: '新场地名称…' },
   gymLastUsed: { en: 'last', cn: '上次' },
   confirm: { en: 'Confirm', cn: '确定' },

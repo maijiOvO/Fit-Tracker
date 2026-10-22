@@ -24,7 +24,7 @@ import { addImportedRecords } from '../../../services/fitlogBackup';
 import { markBackupPending } from '../../../services/fitlogAutoBackup';
 import { DEFAULT_EXERCISES } from '../../constants/exercises';
 import { FITLOG_SOLO_USER_ID } from '../../../services/fitlogSolo';
-import { setFlash } from './flash';
+import { overwriteFailedText, overwriteNote, setFlash } from './flash';
 
 export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang, unit } = useUserSettingsContext();
@@ -90,16 +90,16 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
         defs,
         findByName: findExerciseDef,
       });
-      await addImportedRecords(r);
+      const pushed = await addImportedRecords(r);
       markBackupPending();
       setFlash(
-        t(`已导入 ${r.workouts.length} 次训练（${r.sets} 组）`, `Imported ${r.workouts.length} workouts (${r.sets} sets)`),
+        t(`已导入 ${r.workouts.length} 次训练（${r.sets} 组）`, `Imported ${r.workouts.length} workouts (${r.sets} sets)`) + overwriteNote(pushed, isCn),
         'success',
       );
       window.location.reload();
     } catch (e) {
       console.error('CSV import failed:', e);
-      toast(t('导入失败，数据未改动', 'Import failed, nothing changed'), 'error');
+      toast(overwriteFailedText(e, isCn, { cn: '导入', en: 'Import' }), 'error');
       setBusy(false);
     }
   };

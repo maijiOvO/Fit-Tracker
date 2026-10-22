@@ -13,10 +13,14 @@ import {
   RemoteError,
 } from '../../services/fitlogRemote';
 import {
-  pullAndMergeFitlogRemote,
+  currentSyncState,
+  isLocalAuthoritative,
+  isPushDirty,
   pullAndMergeFitlogRemoteDetailed,
   pushFitlogRemoteSnapshot,
+  type SyncState,
 } from '../../services/fitlogRemoteSync';
+import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useGoalsContext } from '../contexts/GoalsContext';
@@ -139,6 +143,8 @@ export interface UseFitlogSyncResult {
   syncStatus: SyncStatus;
   setSyncStatus: React.Dispatch<React.SetStateAction<SyncStatus>>;
   lastSyncedAt: number | null;
+  /** 推送这一头的实况：有改动没推上去 / 最近一次推送失败 / 都推上去了（首选项「同步」一行，审查 B12） */
+  pushState: SyncState;
   performFullSync: () => Promise<void>;
   loadLocalData: (userId: string) => Promise<void>;
 }
@@ -159,6 +165,17 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   /** 上一次完整同步成功的时刻（首选项「同步」一行显示「已同步 · N 分钟前」）；本次启动还没成功过＝null */
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
+  const [pushState, setPushState] = useState<SyncState>(() => currentSyncState().state);
+  // 推送 / 拉取在服务层，状态经事件送过来；成功的那一刻就是「已同步」的时间（启动拉取成功也算，审查 B12）
+  useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ state: SyncState; at: number | null }>).detail;
+      setPushState(d.state);
+      if (d.state === 'synced' && d.at) setLastSyncedAt(d.at);
+    };
+    window.addEventListener('fitlog:sync-state', on);
+    return () => window.removeEventListener('fitlog:sync-state', on);
+  }, []);
   const syncLockRef = useRef<boolean>(false);
   const didInitRef = useRef(false);
 
@@ -206,10 +223,21 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
         await db.init();
         await migrateRecordsToSoloUserId();
         if (isRemoteConfigured()) {
-          try {
-            await pullAndMergeFitlogRemote();
-          } catch (e) {
-            console.warn('[fitlog] 启动时远端拉取失败，继续使用本地数据:', e);
+          if (isLocalAuthoritative()) {
+            // 上次恢复 / 导入 / 重置之后还没推上去：先推本机这一份，不拉（拉了会把服务器上的旧数据合并回来，审查 A23）
+            try {
+              await pushFitlogRemoteSnapshot();
+            } catch (e) {
+              console.warn('[fitlog] 启动时补推失败，之后回到前台 / 联网再试:', e);
+            }
+          } else {
+            try {
+              await pullAndMergeFitlogRemoteDetailed();
+            } catch (e) {
+              console.warn('[fitlog] 启动时远端拉取失败，继续使用本地数据:', e);
+            }
+            // 上次有改动没推上去（推送失败、App 被杀）：补推。拉取失败的话推送前会再拉一次，不会盖掉服务器
+            if (isPushDirty()) scheduleDebouncedFitlogPush(0);
           }
         }
         handleSnapshotApply(readPrefsFromLocalStorage());
@@ -226,6 +254,27 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /**
+   * 回到前台 / 联网时补推没推上去的改动（审查 A26）；推送前补拉进来了东西，界面重读本地库。
+   */
+  useEffect(() => {
+    const retry = () => {
+      if (document.visibilityState === 'visible' && isRemoteConfigured() && isPushDirty()) scheduleDebouncedFitlogPush(0);
+    };
+    const onPulled = () => {
+      handleSnapshotApply(readPrefsFromLocalStorage());
+      void loadLocalData(resolvedUserId);
+    };
+    document.addEventListener('visibilitychange', retry);
+    window.addEventListener('online', retry);
+    window.addEventListener('fitlog:pulled', onPulled);
+    return () => {
+      document.removeEventListener('visibilitychange', retry);
+      window.removeEventListener('online', retry);
+      window.removeEventListener('fitlog:pulled', onPulled);
+    };
+  }, [handleSnapshotApply, loadLocalData, resolvedUserId]);
+
   const performFullSync = useCallback(async () => {
     if (!isRemoteConfigured()) {
       const lang = settingsCtx.lang;
@@ -241,6 +290,13 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     syncLockRef.current = true;
     setSyncStatus('syncing');
     try {
+      // 刚恢复 / 导入 / 重置过、还没推上去：只推不拉（同启动）
+      if (isLocalAuthoritative()) {
+        await pushFitlogRemoteSnapshot();
+        setSyncStatus('idle');
+        setLastSyncedAt(Date.now());
+        return;
+      }
       const pulled = await pullAndMergeFitlogRemoteDetailed();
       if (pulled.kind === 'locked') {
         // 启动时那次拉取还没完：这次什么都没拉，更不能推；它落定后数据自然会刷新
@@ -280,5 +336,5 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
   // 兼容旧逻辑：markPrefsUpdated 不应缺失
   void markPrefsUpdated;
 
-  return { syncStatus, setSyncStatus, lastSyncedAt, performFullSync, loadLocalData };
+  return { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData };
 }
