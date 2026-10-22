@@ -53,3 +53,6 @@
   另有一条 `FITLOG_API_KEY_DEV`：这是服务端（`docs/archive/nas-server-prompt.md`）的变量名，客户端只认 `VITE_API_KEY_DEV`，仓库里也没有脚本读它。
   如果本意是给开发端点配 key，要改名成 `VITE_API_KEY_DEV`，否则开发环境会回落到生产 key、失去服务端的端点隔离。
   文件不进仓库，只能在本机改。
+- **横划接管那一下连走两档**（2026-10-22 跑 e2e 时发现，没改）：`scrubFeel.ENGAGE_PX` 从 12 改成 20 之后比每档宽度（中档 10px）还宽，
+  `useValueScrub` 接管时把起点到现在的整段位移都算进去，第一次接管就走两档（杠铃 61.24 一划变 70，不是 65）。
+  要改的话是接管那一刻只记一档（或从阈值处起算）；动的是手感，等用户在真机上确认。e2e 的 `scrub-weight-residue-and-drop-set` 按现状写的。

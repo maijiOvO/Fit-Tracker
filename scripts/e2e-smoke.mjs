@@ -2675,11 +2675,11 @@ const main = async () => {
     if (!/固定器械/.test(await row('equipment').innerText())) throw new Error('器械推胸 gear is not 固定器械');
     if (!/配重片/.test(await row('resistance').innerText())) throw new Error('器械推胸 load is not 配重片');
     if (await row('resistance').isDisabled()) throw new Error('machine load should be selectable');
-    // 换成杠铃：阻力跟着变成杠铃片并锁定
+    // 换成杠铃：阻力跟着变成杠铃片；2026-10-21 起杠铃可在「杠铃片 / 固定杠铃」之间选（38d1f6f），不再锁定
     await row('equipment').click();
     await dlg.getByRole('button', { name: /^杠铃$/ }).click();
     if (!/杠铃片/.test(await row('resistance').innerText())) throw new Error('barbell did not set load to 杠铃片');
-    if (!(await row('resistance').isDisabled())) throw new Error('barbell load should be locked');
+    if (await row('resistance').isDisabled()) throw new Error('barbell load should be selectable (plates / fixed bar)');
     // 换回固定器械，挑「杠铃片」（挂片式器械）并保存
     await row('equipment').click();
     await dlg.getByRole('button', { name: /^固定器械$/ }).click();
@@ -2705,7 +2705,7 @@ const main = async () => {
     await vm.getByRole('button', { name: /关闭|Close/ }).first().click();
     await vm.waitFor({ state: 'detached', timeout: 3_000 });
     await sheet.locator('[data-testid="region-arrange"]').click();
-    return 'machine load selectable, barbell locks 杠铃片, machine+杠铃片 persists; 罗马尼亚硬拉 has 哑铃 variant';
+    return 'machine load selectable, barbell defaults to 杠铃片 (selectable), machine+杠铃片 persists; 罗马尼亚硬拉 has 哑铃 variant';
   });
 
   await step(page, 'close-library', async () => {
@@ -2761,8 +2761,10 @@ const main = async () => {
 
   // 换算残留（不是 0.5 的倍数，如 lbs↔kg 换出来的 61.24）：拖动的第一档先取整并吃掉这一档，
   // 之后照常一档。打字不取整。递减档默认 = 上一行 − 这件器材的一档，再就近取整（等距取轻）。
-  // 「杠铃片」（2026-10-18）：这里的动作是杠铃，一档 = 最小一对片 2.5 kg，取整也吸到 2.5 的网格
-  // （配不出来的重量第一格先吸到能配的那一档）。所以 61.24 → 62.5，再往左两档 → 60 → 57.5。
+  // 「杠铃片」（2026-10-18）：这里的动作是杠铃，一档 = 最小一对片；默认片 2026-10-21 起没有 1.25（最小一对 = 5 kg），
+  // 取整吸到 5 的网格（配不出来的重量第一格先吸到能配的那一档）。
+  // ⚠️ 横划接管阈值 20px（scrubFeel.ENGAGE_PX）比每档 10px 宽，接管那一下会连走两档（docs/TODO.md 记着，没改手感）：
+  // 61.24 →（右，接管）65 → 70；再往左：接管两档 70 → 65 → 60，再一档 → 55。
   await step(page, 'scrub-weight-residue-and-drop-set', async () => {
     const weight = page.locator('[data-testid="ledger-field-weight"]').first();
     const input = weight.locator('input');
@@ -2788,12 +2790,12 @@ const main = async () => {
       await page.waitForTimeout(350);
       return Number(await input.inputValue());
     };
-    const right1 = await slow([14]); // 越过 12px 接管阈值，正好落一档
-    if (right1 !== 62.5) throw new Error(`61.24 dragged right one detent should snap up to 62.5 (barbell grid), got ${right1}`);
-    const left2 = await slow([-14, -24]); // 两档：62.5 → 60 → 57.5（已在网格上，照常 −2.5）
-    if (left2 !== 57.5) throw new Error(`62.5 dragged left two detents should be 57.5, got ${left2}`);
+    const right1 = await slow([22]); // 越过 20px 接管阈值：第一档先吸到网格（65），同一下再走一档
+    if (right1 !== 70) throw new Error(`61.24 dragged right past the engage threshold should snap up to 65 then step to 70 (barbell grid), got ${right1}`);
+    const left2 = await slow([-22, -32]); // 接管两档 + 一档：70 → 65 → 60 → 55（已在网格上，照常 −5）
+    if (left2 !== 55) throw new Error(`70 dragged left three detents should be 55, got ${left2}`);
 
-    // 回到残留值再加递减档：61.24 − 2.5 = 58.74 → 就近取整（57.5 差 1.24、60 差 1.26）= 57.5
+    // 回到残留值再加递减档：61.24 − 5 = 56.24 → 就近取整（55 差 1.24、60 差 3.76）= 55
     await input.fill('61.24');
     const num = page.locator('.ledger-row .set-num').first();
     const nb = await num.boundingBox();
@@ -2804,7 +2806,7 @@ const main = async () => {
     const sub = page.locator('[data-testid="subset-field-weight"] input').first();
     await sub.waitFor({ state: 'visible', timeout: 3_000 });
     const subW = Number(await sub.inputValue());
-    if (subW !== 57.5) throw new Error(`drop set default should be snap(61.24 − 2.5) = 57.5, got ${subW}`);
+    if (subW !== 55) throw new Error(`drop set default should be snap(61.24 − 5) = 55, got ${subW}`);
     return `61.24 →(right) ${right1} →(left×2) ${left2}; drop set ${subW}`;
   });
 
@@ -2823,7 +2825,8 @@ const main = async () => {
     if (!(await isSel(row0))) throw new Error('the set under the pointer is not selected by default');
     await row0.locator('.set-num').click();
     if (!(await isInked(row0))) throw new Error('tapping the set number did not mark it done');
-    if (!(await isSel(row0))) throw new Error('the set just done should stay selected (solid number)');
+    // 做完的那一下选中交给默认（下一组待做，审查 A1）：留在刚做完的组上，大图 / ± 改的就是做完的组
+    if (await isSel(row0)) throw new Error('the set just done should hand the selection to the next to-do set');
     // 原来每次连点前等 650ms「过长按吞 click 的窗口」。组号上唯一的时间窗是 SetCapsule.onSetNumClick：
     // 长按加递减「达成后」600ms 内的那一次 click 被吞、吞完作废。这几下之间没有长按，窗口不存在，不用等
     await row0.locator('.set-num').click(); // 再点＝退回
@@ -2837,14 +2840,14 @@ const main = async () => {
     if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
     const w = row0.locator('[data-testid="ledger-field-weight"] input');
     const w0 = Number(await w.inputValue());
-    // 「杠铃片」：一档 = 这件器材的一档（杠铃 = 最小一对片 2.5 kg）；不在格子上的第一下先吸到上面能挂的
+    // 「杠铃片」：一档 = 这件器材的一档（杠铃 = 最小一对片，默认片里是 2.5 × 2 = 5 kg）；不在格子上的第一下先吸到上面能挂的
     const plus = steps.getByRole('button', { name: /重量加|Weight \+/ });
     const plusLabel = (await plus.getAttribute('aria-label')) || '';
-    if (!/2\.5 kg/.test(plusLabel)) throw new Error(`barbell + should step by the smallest pair (2.5 kg), label "${plusLabel}"`);
+    if (!/(^|\D)5 kg/.test(plusLabel)) throw new Error(`barbell + should step by the smallest pair (5 kg), label "${plusLabel}"`);
     await plus.click();
     const w1 = Number(await w.inputValue());
-    const onGrid = Math.abs(((w0 - 20) / 2.5) - Math.round((w0 - 20) / 2.5)) < 1e-6;
-    const want = onGrid ? w0 + 2.5 : 20 + Math.ceil((w0 - 20) / 2.5) * 2.5;
+    const onGrid = Math.abs(((w0 - 20) / 5) - Math.round((w0 - 20) / 5)) < 1e-6;
+    const want = onGrid ? w0 + 5 : 20 + Math.ceil((w0 - 20) / 5) * 5;
     if (Math.abs(w1 - want) > 0.011) throw new Error(`+ went ${w0} → ${w1}, want ${want}`);
     if (await isInked(row0)) throw new Error('+ marked the row done');
 
@@ -2870,7 +2873,8 @@ const main = async () => {
     const row1 = card0Rows.nth(1);
     await row1.locator('.set-num').click();
     if (!(await isInked(row0)) || !(await isInked(row1))) throw new Error('tapping set 2 should mark sets 1 and 2 done');
-    if (!(await isSel(row1)) || (await isSel(row0))) throw new Error('after tapping set 2 only set 2 should be selected');
+    // 做完那一下选中交给下一组待做（审查 A1）：做完的两组都不再选中
+    if ((await isSel(row1)) || (await isSel(row0))) throw new Error('after tapping set 2 the selection should move on to the next to-do set');
     await row0.locator('.set-num').click();
     if (!(await isInked(row0)) || (await isInked(row1))) throw new Error('tapping set 1 should move the pointer back: set 2 reverts');
     if (!(await isSel(row0))) throw new Error('set 1 should be selected after moving the pointer back');
@@ -2890,9 +2894,9 @@ const main = async () => {
     if ((await w0in.inputValue()) !== '77') throw new Error(`typing into a draft cell should replace it, got ${await w0in.inputValue()} (was ${wBefore})`);
     if ((await w1in.inputValue()) !== wBefore) throw new Error(`draft below should hold while typing, got ${await w1in.inputValue()}`);
     await page.keyboard.press('Enter');
-    // 「杠铃片」：打的数照原样（77），被带着动的吸到最近能挂的（杠铃 2.5 一档：77.5）
+    // 「杠铃片」：打的数照原样（77），被带着动的吸到最近能挂的（默认片下杠铃一档 5 kg：77 → 75）
     if ((await w0in.inputValue()) !== '77') throw new Error(`a typed weight must stay as typed, got ${await w0in.inputValue()}`);
-    if ((await w1in.inputValue()) !== '77.5') throw new Error(`same-value draft below should follow and snap to 77.5 on Enter: ${await w1in.inputValue()}`);
+    if ((await w1in.inputValue()) !== '75') throw new Error(`same-value draft below should follow and snap to 75 on Enter: ${await w1in.inputValue()}`);
     if ((await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) !== 0) throw new Error('a follower must stay a draft (not is-edited)');
     const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || '');
     if (!/^reps/.test(focused)) throw new Error(`Enter in the weight cell should focus reps, focused "${focused}"`);
