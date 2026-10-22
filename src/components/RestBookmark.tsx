@@ -44,7 +44,7 @@ const DRAG_TOL = 6;
  * 那几个位置永远不会有人停。所以一组的缝只取整块（母行 + 全部递减档 +
  * 「再加一档」）的下边缘。
  */
-function scanSeams(): Seam[] {
+function scanSeams(isCn: boolean): Seam[] {
   const out: Seam[] = [];
   document.querySelectorAll<HTMLElement>('[data-ledger-paper]').forEach(paper => {
     const exId = paper.dataset.ledgerPaper || '';
@@ -54,8 +54,18 @@ function scanSeams(): Seam[] {
     if (!rows.length) return;
 
     const total = rows.reduce((m, el) => Math.max(m, Number(el.dataset.setIdx) + 1), 0);
+    /**
+     * 一组的叫法照组行上显示的号（审查 C：交替组里第 3 行显示的是「卧推 2」，原来说明写「第 3 组」）：
+     * 交替组「卧推 2」，单个动作「第 2 组 / Set 2」
+     */
+    const nameOf = (si: number) => {
+      const el = rows.find(r => Number(r.dataset.setIdx) === si && r.dataset.setNo);
+      const no = el?.dataset.setNo ?? String(si + 1);
+      const badge = el?.dataset.setBadge;
+      return badge ? `${badge} ${no}` : isCn ? `第 ${no} 组` : `Set ${no}`;
+    };
     out.push({ exId, gap: 0, vy: box.top, left: box.left, width: box.width,
-               label: `${name} · 第 1 组之前` });
+               label: isCn ? `${name} · ${nameOf(0)}之前` : `${name} · before ${nameOf(0)}` });
 
     for (let si = 0; si < total; si++) {
       const parts = rows.filter(el => Number(el.dataset.setIdx) === si);
@@ -64,8 +74,8 @@ function scanSeams(): Seam[] {
       out.push({
         exId, gap: si + 1, vy: bottom, left: box.left, width: box.width,
         label: si + 1 === total
-          ? `${name} · 第 ${total} 组之后`
-          : `${name} · 第 ${si + 1} 组 ↔ 第 ${si + 2} 组`,
+          ? isCn ? `${name} · ${nameOf(si)}之后` : `${name} · after ${nameOf(si)}`
+          : `${name} · ${nameOf(si)} ↔ ${nameOf(si + 1)}`,
       });
     }
   });
@@ -91,7 +101,7 @@ export const RestBookmark: React.FC<Props> = ({ lang, onMove }) => {
       /* 没有活动指针就算了 */
     }
 
-    const seams = scanSeams();
+    const seams = scanSeams(isCn);
     const startY = e.clientY;
     const baseVY = seam.getBoundingClientRect().top;
     let moved = false;

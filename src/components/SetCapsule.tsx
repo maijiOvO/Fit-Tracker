@@ -474,6 +474,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         style={colStyle}
         data-set-idx={setIdx}
         data-set-id={set.id}
+        // 休息书签的说明按组号写：交替组里是「卧推 2」这种（组行显示的那个号，不是第几行）
+        data-set-no={no}
+        data-set-badge={badge?.label ?? ''}
         onAnimationEnd={e => {
           if (e.animationName === 'row-in') setEntering(false);
         }}

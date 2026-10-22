@@ -16,15 +16,27 @@
         // Vite substitutes this flag in demo builds. The demo starts fresh and
         // light even when the system or another FitLog environment is dark.
         var demo = '%VITE_FITLOG_DEMO%' === 'true';
+        // 主题 / 强调色存在按环境分区的 key 里（services/appEnv.ts storagePrefix：demo: / solo: / dev: / 无前缀），
+        // 这里照抄同一套判断，否则单机版 / 开发环境每次启动先按默认色画一帧再跳（审查 C）
+        var solo = '%VITE_FITLOG_SOLO%' === 'true';
+        var prefix = demo ? 'demo:' : solo ? 'solo:' : '';
+        try {
+          var cap = window.Capacitor;
+          var nativeApp = !!(cap && (typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : cap.isNative));
+          if (!demo && !solo && !nativeApp && '%VITE_FITLOG_ENV%' !== 'prod') {
+            var dm = localStorage.getItem('fitlog_dev_mode');
+            if (dm !== null ? dm === 'true' : '%VITE_FITLOG_DEV_MODE%' !== 'false') prefix = 'dev:';
+          }
+        } catch (_) {}
         var pref = 'auto';
-        try { pref = localStorage.getItem('theme-pref') || 'auto'; } catch (_) {}
+        try { pref = localStorage.getItem(prefix + 'theme-pref') || 'auto'; } catch (_) {}
         if (demo) pref = 'light';
         var dark = pref === 'dark' || (pref === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         if (dark) document.documentElement.classList.add('dark');
         // 强调色（青 / 玫红），和 useTheme.ts 的 BASE_COLOR 同步
         var accent = 'teal';
         try {
-          var a = localStorage.getItem('accent-pref');
+          var a = localStorage.getItem(prefix + 'accent-pref');
           if (/^(teal|rose|violet|orange|sky)$/.test(a)) accent = a;
         } catch (_) {}
         document.documentElement.setAttribute('data-accent', accent);

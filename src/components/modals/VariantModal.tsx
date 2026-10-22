@@ -63,6 +63,15 @@ export const VariantModal: React.FC<VariantModalProps> = ({
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // 弹窗常驻挂着：换一个动作 / 重新打开时清掉上一回没提交的输入、展开、改名（审查 C：原来会串到下一个动作上）
+  const [shownFor, setShownFor] = useState<string | null>(null);
+  const openKey = open ? exerciseName : null;
+  if (openKey !== shownFor) {
+    setShownFor(openKey);
+    setDraft('');
+    setEditing(null);
+    setExpanded(null);
+  }
   if (!open) return null;
 
   // 做法的细分只能在这个动作所在的部位里选（有氧 / 自由不分细分）

@@ -277,10 +277,8 @@ function GymProfileForm({
   const incOf = (key: IncKey): IncSpec => p[key] ?? LATE_INC[key]![p.plateUnit];
   const stepInc = (key: IncKey, d: 1 | -1) => {
     const c = incOf(key);
-    const list = INC_CHOICES[c.u];
-    let k = list.indexOf(c.v);
-    if (k < 0) k = 0;
-    setP({ ...p, [key]: { ...c, v: list[Math.max(0, Math.min(list.length - 1, k + d))] } });
+    // 打过表外的数（3）：按大小走到表里紧挨着的那一格（审查 C：原来从表头算起，3 点 ＋ 跳成 1）
+    setP({ ...p, [key]: { ...c, v: listStepFn(INC_CHOICES[c.u])(c.v, d, 1) } });
   };
   const setIncUnit = (key: IncKey, u: PlateUnit) => {
     const c = incOf(key);
