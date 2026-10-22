@@ -318,8 +318,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
             ? prof.kettlebell
             : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
     } else {
-      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）
-      const s = loadKind === 'pin' && rounder.ctx.start ? rounder.ctx.start : 0;
+      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）；
+      // 没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变
+      const s = loadKind === 'pin' ? (rounder.ctx.start && rounder.ctx.start > 0 ? rounder.ctx.start : rounder.ctx.inc) : 0;
       ov[incKey] = { v: next, u: rounder.unit, ...(s > 0 ? { s } : {}) };
       inc = next;
     }
@@ -328,13 +329,13 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   };
   /**
    * 大图上改「最轻一格 · 每格」（2026-10-20 用户定：从 12.5 起、每格 +5 的龙门架）：存进这一台的 gymOverrides，
-   * 没做完、没改过的组吸到新刻度上。最轻一格也是下限：和一档对齐（每格 5、最轻 15）照样要存，
-   * 只有恰好等于一档（没设时的默认）才不存。
+   * 没做完、没改过的组吸到新刻度上。最轻一格也是下限：和一档对齐（每格 5、最轻 15）照样要存；
+   * 恰好等于一档也要存——不存就读回成「没设」＝跟着每格走，改每格时最轻一格会被拖着变（2026-10-21 修）。
    */
   const setStack = (step: number, start: number) => {
     if (!rounder || !incKey || loadKind !== 'pin') return;
     haptic(H.tap);
-    const s = start <= 0 || Math.abs(start - step) < 1e-9 ? 0 : Math.round(start * 100) / 100;
+    const s = start > 0 ? Math.round(start * 100) / 100 : 0;
     changeAppPrefs({ gymOverrides: { ...appPrefs.gymOverrides, [incKey]: { v: step, u: rounder.unit, ...(s > 0 ? { s } : {}) } } });
     onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withStack(rounder, step, s)) });
   };

@@ -481,7 +481,8 @@ function GymHero({
     const list = INC_CHOICES[unit];
     const nextV = dir > 0 ? list.find(x => x > ctx.inc + 1e-9) : [...list].reverse().find(x => x < ctx.inc - 1e-9);
     if (nextV === undefined) return;
-    machine.onStack(nextV, stackStart);
+    // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
+    machine.onStack(nextV, stackStart > 0 ? stackStart : ctx.inc);
   };
 
   let caption = '';
@@ -617,7 +618,7 @@ function GymHero({
                   <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
                   <ScrubNumber
                     value={ctx.inc}
-                    onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, stackStart)}
+                    onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, lightest)}
                     min={0.25}
                     stepFn={listStepFn(INC_CHOICES[unit])}
                     steps={[1, 2, 4]}
