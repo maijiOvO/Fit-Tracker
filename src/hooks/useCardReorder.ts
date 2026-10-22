@@ -1,16 +1,20 @@
 /**
  * 长按拖动排序 —— §12.7
  *
- * 用在训练页的动作卡列表上：长按刊头行 500ms，这页稿纸「离桌」，
- * 拖到新位置插入；兄弟卡实时让位，靠近视口上下缘自动滚页。
+ * 用在训练页的动作卡列表上：长按刊头行 500ms 抬起，屏上浮出一条「位置条」——
+ * 每张卡（交替组整张算一张）一行、固定行距，手指上下挪一行就换一个位置，松手落定。
+ *
+ * 为什么不再拖卡本身（2026-10-21 用户定）：原来按「被拖卡的中心越过谁的原始中心」换位，
+ * 交替组那种很高的卡要拖过大半屏才换得动一格。现在目标位置只看手指离位置条顶的距离：
+ * 一行 PITCH_PX，跟卡多高无关；位置条把 N 个位置画出来，拖到哪一格一眼看得到。
  *
  * 三条铁律（都踩过对应的坑）：
  *  1. 热区保持 touch-action: pan-y —— 长按满之前手指移动超过容差就取消手势、
  *     把滚动还给浏览器（commit 3df41f6：热区 touch-none 会吃掉纵向滚动）。
  *     只有抬起成功【之后】才用非被动 touchmove 拦截页面滚动。
- *  2. pointercancel 必须完整复位（§12.3 粘滞布尔的教训）：清 timer、清位移，
- *     不能把半悬的卡片或吃掉下一次点按的状态留在后面。
- *  3. 位置计算统一放进 rAF：滚动与拖动共用一帧，避免 move 回调里的抖动。
+ *  2. pointercancel 必须完整复位（§12.3 粘滞布尔的教训）：清 timer、清状态，
+ *     不能把半悬的位置条或吃掉下一次点按的状态留在后面。
+ *  3. 指针捕获在热区上：位置条本身 pointer-events: none，move / up 照旧落回热区。
  *
  * 自解释沿用全站长按语言：120ms 静默 + 进度线 + 标签（LongPressAffordance），
  * 短按闪一次「按住拖动排序」把手势教给用户。
@@ -24,12 +28,26 @@ import { haptic, H } from '../utils/haptics';
 const HOLD_MS = 500;
 /** 长按满之前移动超过它 = 用户想滚动，取消手势 */
 const CANCEL_PX = 10;
-/** 视口上下缘的自动滚动区高度 */
-const EDGE_PX = 80;
-/** 自动滚动的每帧最大速度（越贴边越快） */
-const EDGE_SPEED = 9;
-/** 量不到间距时的兜底（NewWorkoutTab 的 space-y-6 = 24px） */
-const GAP_FALLBACK = 24;
+/** 位置条的行距：手指挪这么多换一个位置 */
+export const PITCH_PX = 40;
+/** 位置条离视口上下缘至少留这么多 */
+const EDGE_PX = 16;
+
+/** 第 0 行中心在 top 处、行距 pitch 时，手指 y 对应的位置（夹在 0…n-1） */
+export function slotAt(y: number, top: number, n: number, pitch = PITCH_PX): number {
+  return Math.max(0, Math.min(n - 1, Math.round((y - top) / pitch)));
+}
+
+/**
+ * 抬起时第 0 行中心放哪：被拖那张卡的那一行正好在手指下；整条放不下时往视口里推
+ *（推过之后手指不在那一行上，第一下挪动会就近落到手指下那一格——位置条整个都看得见更要紧）。
+ */
+export function stripTopFor(y: number, idx: number, n: number, vh: number, pitch = PITCH_PX): number {
+  const top = y - idx * pitch;
+  const min = EDGE_PX + pitch / 2;
+  const max = vh - EDGE_PX - pitch / 2 - (n - 1) * pitch;
+  return max < min ? min : Math.max(min, Math.min(max, top));
+}
 
 export interface CardReorderHandle {
   onPointerDown: (e: React.PointerEvent) => void;
@@ -37,6 +55,15 @@ export interface CardReorderHandle {
   onPointerUp: (e: React.PointerEvent) => void;
   onPointerCancel: (e: React.PointerEvent) => void;
   onContextMenu: (e: React.SyntheticEvent) => void;
+}
+
+/** 正在拖：位置条画法要的全部 */
+export interface ReorderStripState {
+  from: number;
+  to: number;
+  /** 第 0 行中心离视口顶多远（px） */
+  top: number;
+  n: number;
 }
 
 interface Options {
@@ -48,13 +75,15 @@ interface Options {
 }
 
 interface Result {
-  /** 注册每张卡的外层元素 */
+  /** 注册每张卡的外层元素（落定后把挪过的那张卷进视口） */
   itemRef: (i: number) => (el: HTMLElement | null) => void;
   /** 摊到第 i 张卡的拖动热区（刊头行）上 */
   handleProps: (i: number) => CardReorderHandle;
   pressingIdx: number | null;
   hintingIdx: number | null;
   draggingIdx: number | null;
+  /** 拖动中的位置条；没在拖时 null */
+  strip: ReorderStripState | null;
   /** 进度线时长，直接喂 LongPressAffordance */
   drawMs: number;
 }
@@ -63,7 +92,7 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
   const els = useRef<(HTMLElement | null)[]>([]);
   const [pressingIdx, setPressingIdx] = useState<number | null>(null);
   const [hintingIdx, setHintingIdx] = useState<number | null>(null);
-  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const [strip, setStrip] = useState<ReorderStripState | null>(null);
 
   const pressRef = useRef<{
     idx: number;
@@ -73,19 +102,7 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
     el: HTMLElement;
     timer: number;
   } | null>(null);
-  const dragRef = useRef<{
-    idx: number;
-    pid: number;
-    y0: number;
-    scroll0: number;
-    tops: number[];
-    heights: number[];
-    gap: number;
-    shifts: number[];
-    lastY: number;
-    raf: number;
-    settling: boolean;
-  } | null>(null);
+  const dragRef = useRef<{ pid: number; from: number; to: number; top: number; n: number } | null>(null);
   const hintTimerRef = useRef<number | null>(null);
 
   const countRef = useRef(count);
@@ -96,20 +113,11 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
   /** 抬起之后才拦页面滚动 —— 长按满之前绝不碰滚动 */
   useEffect(() => {
     const block = (e: TouchEvent) => {
-      if (dragRef.current && !dragRef.current.settling) e.preventDefault();
+      if (dragRef.current) e.preventDefault();
     };
     window.addEventListener('touchmove', block, { passive: false });
     return () => window.removeEventListener('touchmove', block);
   }, []);
-
-  const clearTransforms = () => {
-    for (const el of els.current) {
-      if (el) {
-        el.style.transition = '';
-        el.style.transform = '';
-      }
-    }
-  };
 
   const clearPress = useCallback(() => {
     if (pressRef.current) {
@@ -119,45 +127,6 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
     setPressingIdx(null);
   }, []);
 
-  const tick = useCallback(() => {
-    const d = dragRef.current;
-    if (!d || d.settling) return;
-    const n = countRef.current;
-
-    // 边缘自动滚：越贴边越快
-    const vh = window.innerHeight;
-    if (d.lastY < EDGE_PX) window.scrollBy(0, -EDGE_SPEED * (1 - d.lastY / EDGE_PX));
-    else if (d.lastY > vh - EDGE_PX)
-      window.scrollBy(0, EDGE_SPEED * (1 - (vh - d.lastY) / EDGE_PX));
-
-    // 卡片跟手 = 手指位移 + 滚动位移
-    const dy = d.lastY - d.y0 + (window.scrollY - d.scroll0);
-    const active = els.current[d.idx];
-    if (active) active.style.transform = `translateY(${dy}px) scale(1.015)`;
-
-    // 兄弟卡让位：被拖卡中心越过谁的原始中心，谁就移一格
-    const origCenter = d.tops[d.idx] + d.heights[d.idx] / 2;
-    const center = origCenter + dy;
-    const step = d.heights[d.idx] + d.gap;
-    for (let i = 0; i < n; i++) {
-      if (i === d.idx) continue;
-      const centerI = d.tops[i] + d.heights[i] / 2;
-      let shift = 0;
-      if (centerI > origCenter && center > centerI) shift = -step;
-      if (centerI < origCenter && center < centerI) shift = step;
-      if (shift !== d.shifts[i]) {
-        d.shifts[i] = shift;
-        const sib = els.current[i];
-        if (sib) {
-          sib.style.transition = 'transform var(--dur-base) var(--ease-paper)';
-          sib.style.transform = shift ? `translateY(${shift}px)` : '';
-        }
-        haptic(H.tap); // 每次换位一记「点击感」
-      }
-    }
-    d.raf = requestAnimationFrame(tick);
-  }, []);
-
   const lift = useCallback(() => {
     const p = pressRef.current;
     if (!p) return;
@@ -165,91 +134,48 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
     setPressingIdx(null);
 
     const n = countRef.current;
-    const items = els.current.slice(0, n);
-    if (items.length < 2 || items.some(el => !el)) return;
-
-    const rects = items.map(el => el!.getBoundingClientRect());
-    const tops = rects.map(r => r.top + window.scrollY);
-    const heights = rects.map(r => r.height);
-    const gap =
-      items.length > 1 ? Math.max(0, tops[1] - (tops[0] + heights[0])) : GAP_FALLBACK;
-
-    dragRef.current = {
-      idx: p.idx,
-      pid: p.pid,
-      y0: p.y0,
-      scroll0: window.scrollY,
-      tops,
-      heights,
-      gap,
-      shifts: new Array(n).fill(0),
-      lastY: p.y0,
-      raf: 0,
-      settling: false,
-    };
+    if (n < 2) return;
+    const top = stripTopFor(p.y0, p.idx, n, window.innerHeight);
+    dragRef.current = { pid: p.pid, from: p.idx, to: p.idx, top, n };
     try {
       p.el.setPointerCapture(p.pid);
     } catch {
       /* 合成事件没有真指针 */
     }
-    setDraggingIdx(p.idx);
+    setStrip({ from: p.idx, to: p.idx, top, n });
     haptic(H.longpress);
-    tick();
-  }, [tick]);
+  }, []);
+
+  const moveTo = useCallback((y: number) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const to = slotAt(y, d.top, d.n);
+    if (to === d.to) return;
+    d.to = to;
+    setStrip({ from: d.from, to, top: d.top, n: d.n });
+    haptic(H.tap); // 每换一格一记「点击感」
+  }, []);
 
   const settle = useCallback(() => {
     const d = dragRef.current;
-    if (!d || d.settling) return;
-    d.settling = true;
-    cancelAnimationFrame(d.raf);
-
-    const from = d.idx;
-    const origCenter = d.tops[from] + d.heights[from] / 2;
-    let down = 0;
-    let up = 0;
-    let targetDy = 0;
-    for (let i = 0; i < countRef.current; i++) {
-      if (i === from) continue;
-      const centerI = d.tops[i] + d.heights[i] / 2;
-      if (centerI > origCenter && d.shifts[i] < 0) {
-        down++;
-        targetDy += d.heights[i] + d.gap;
-      }
-      if (centerI < origCenter && d.shifts[i] > 0) {
-        up++;
-        targetDy -= d.heights[i] + d.gap;
-      }
+    if (!d) return;
+    dragRef.current = null;
+    setStrip(null);
+    const { from, to } = d;
+    if (to !== from) {
+      onReorderRef.current(from, to);
+      // 等重排渲染完，把挪过去的那张卷进视口（不然拖到最后一格，人还停在原来那屏）
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => els.current[to]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })),
+      );
     }
-    const to = from + down - up;
-
-    const finish = () => {
-      dragRef.current = null;
-      setDraggingIdx(null);
-      // 先改数据再清位移：React 18 同一批次里重排 DOM 与清 transform
-      // 会在同一次绘制前生效，视觉上无缝接管
-      if (to !== from) onReorderRef.current(from, to);
-      clearTransforms();
-      haptic(H.pick);
-    };
-
-    const active = els.current[from];
-    if (active) {
-      // 落定：滑进让出来的槽位（兄弟卡已经在那套位置上了）
-      active.style.transition = 'transform var(--dur-base) var(--ease-paper)';
-      active.style.transform = `translateY(${targetDy}px) scale(1)`;
-      window.setTimeout(finish, 240);
-    } else {
-      finish();
-    }
+    haptic(H.pick);
   }, []);
 
   const abort = useCallback(() => {
-    const d = dragRef.current;
-    if (!d) return;
-    cancelAnimationFrame(d.raf);
+    if (!dragRef.current) return;
     dragRef.current = null;
-    setDraggingIdx(null);
-    clearTransforms();
+    setStrip(null);
   }, []);
 
   // 卸载复位
@@ -294,7 +220,7 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
           return;
         }
         const d = dragRef.current;
-        if (d && e.pointerId === d.pid && !d.settling) d.lastY = e.clientY;
+        if (d && e.pointerId === d.pid) moveTo(e.clientY);
       },
       onPointerUp: e => {
         const p = pressRef.current;
@@ -320,7 +246,7 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
       },
       onContextMenu: e => e.preventDefault(),
     }),
-    [abort, clearPress, disabled, lift, settle],
+    [abort, clearPress, disabled, lift, moveTo, settle],
   );
 
   return {
@@ -328,7 +254,8 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
     handleProps,
     pressingIdx,
     hintingIdx,
-    draggingIdx,
+    draggingIdx: strip ? strip.from : null,
+    strip,
     drawMs: HOLD_MS - LONGPRESS_DELAY_MS,
   };
 }
