@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
-import { scrubFeel, scrubEngage, SCRUB_FEEL_PX } from '../utils/scrubFeel';
+import { scrubFeel, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
 
 /**
  * 每跨这么多像素落一档（首选项「滑动手感」：细 / 中 / 粗 ＝ 14 / 10 / 7，默认 10）。
@@ -190,6 +190,15 @@ export function useValueScrub({
         samples: [[performance.now(), p]],
         snapped: false,
       };
+      // 鼠标：按下就捕获（2026-10-22）。窄的数字框（50px 上下）里，鼠标走够 20px 接管之前就移出了框，
+      // 之后的 move 不再送到这里，横划改不了数。触屏的指针自带隐式捕获，不受影响
+      if (e.pointerType === 'mouse') {
+        try {
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        } catch {
+          /* noop */
+        }
+      }
     },
     [disabled, axis],
   );
@@ -199,15 +208,17 @@ export function useValueScrub({
       const d = drag.current;
       if (!d) return;
 
-      if (!d.engaged) {
-        // 起拖要走够 ENGAGE_PX，且明显顺着拖动方向；斜着 / 竖着划是在翻页，这一下放手不管了
-        const go = scrubEngage(pos(e) - d.x0, cross(e) - d.c0);
-        if (go === 'wait') return;
-        if (go === 'release') {
-          drag.current = null;
-          return;
-        }
-        d.engaged = true;
+      const px = pxPerDetent();
+      // 计步交给 trackScrub：接管那一刻从当前位置起算，之前走过的那段不算档（scrubFeel.trackScrub）
+      const wasEngaged = d.engaged;
+      const r = trackScrub(d, pos(e), cross(e), px);
+      if (r.go === 'wait') return;
+      if (r.go === 'release') {
+        // 斜着 / 竖着划是在翻页，这一下放手不管了
+        drag.current = null;
+        return;
+      }
+      if (!wasEngaged) {
         setScrubbing(true);
         try {
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -218,15 +229,13 @@ export function useValueScrub({
         // 既挡视线又会因为 visualViewport 变化让行跳一下。
         (document.activeElement as HTMLElement | null)?.blur?.();
       }
+      Object.assign(d, r.t);
 
       const p = pos(e);
-      const dx = p - d.x;
-      d.x = p;
       d.samples.push([performance.now(), p]);
       if (d.samples.length > 8) d.samples.shift();
 
       d.vs = d.vs * EMA + vel() * (1 - EMA);
-      const px = pxPerDetent();
       // 速度阈值按每档宽度同比例缩放：每档越宽，跳档要甩得越快
       const nextStep = tierFor(d.vs, stepsKey.split(',').map(Number), px / 10);
       if (nextStep !== step) {
@@ -234,11 +243,9 @@ export function useValueScrub({
         haptic(H.longpress); // §5.7 两档：换档＝确认感
       }
 
-      d.acc += dx;
       let moved = false;
       let next = valueRef.current;
-      while (Math.abs(d.acc) >= px) {
-        const sign = d.acc > 0 ? 1 : -1;
+      for (const sign of r.detents) {
         const fn = stepFnRef.current;
         if (fn) {
           next = Math.max(min, fn(next, sign, nextStep));
@@ -251,7 +258,6 @@ export function useValueScrub({
           next = Math.max(min, Math.round((next + sign * nextStep) * 10) / 10);
         }
         d.snapped = true;
-        d.acc -= sign * px;
         // 到了下限 / 空杠再往下拖：值没变就不算一档（不震、不回调）
         if (next !== valueRef.current) moved = true;
       }

@@ -48,6 +48,7 @@ await build({
       "export { buildLiftSummaries, trendPoints } from './src/utils/liftHistory.ts';",
       "export { moveSetToExercise } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
+      "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -470,6 +471,37 @@ t('覆盖层合并：旧覆盖层只改了主细分，定义原来的主细分�
   assert.deepEqual(m.regions, ['legGlute']);
   const m2 = L.mergeOverride(def, { region: 'legHam', regions: ['legHam', 'legQuad'] });
   assert.deepEqual(m2.regions, ['legHam', 'legQuad'], 'new-style override keeps its own list');
+});
+
+// ── 横划计步：接管那一刻从当前位置起算（2026-10-22，原来接管那一下就连走两档）─────────────
+t('横划：走够 20px 才接管、接管那一下不算档；之后每 10px 一档；斜着划放手；竖拖（配重片大图）同一套', () => {
+  const px = 10;
+  const start = { x0: 100, c0: 50, x: 100, acc: 0, engaged: false };
+  const run = moves => {
+    let tr = start;
+    const out = [];
+    for (const [p, c] of moves) {
+      const r = L.trackScrub(tr, p, c, px);
+      if (r.go === 'release') return { released: true, out };
+      tr = r.t;
+      out.push(...r.detents);
+    }
+    return { released: false, out, tr };
+  };
+  assert.equal(L.ENGAGE_PX, 20);
+  // 一下拖 22px：原来 22 / 10 = 两档，现在只接管、不走档
+  assert.deepEqual(run([[122, 50]]).out, []);
+  // 接着再走 10px：一档
+  assert.deepEqual(run([[122, 50], [132, 50]]).out, [1]);
+  // 手指的真实样子（每次 4px）：在 20 接管，之后 30、40 各一档，48 还差 2px
+  const slow = Array.from({ length: 12 }, (_, i) => [100 + (i + 1) * 4, 50]);
+  assert.deepEqual(run(slow).out, [1, 1]);
+  // 往回拖：负方向
+  assert.deepEqual(run([[78, 50], [68, 50], [58, 50]]).out, [-1, -1]);
+  // 没过阈值：不接管
+  assert.equal(run([[115, 50]]).tr.engaged, false);
+  // 斜着划（垂直方向更多）：放手
+  assert.equal(run([[110, 75]]).released, true);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

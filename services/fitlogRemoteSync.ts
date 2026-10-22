@@ -41,7 +41,10 @@ export function currentSyncState(): { state: SyncState; at: number | null } {
 
 function setSyncState(state: SyncState, at: number | null = syncState?.at ?? null): void {
   syncState = { state, at };
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('fitlog:sync-state', { detail: syncState }));
+  // 异步派发：markPushDirty 会从别的组件的 setState 更新函数里（渲染中）被调到，同步派发让 App 在别人渲染时 setState，
+  // React 报「Cannot update a component while rendering a different component」（2026-10-22 e2e 抓到）
+  const detail = syncState;
+  if (typeof window !== 'undefined') queueMicrotask(() => window.dispatchEvent(new CustomEvent('fitlog:sync-state', { detail })));
 }
 
 export function isPushDirty(): boolean {

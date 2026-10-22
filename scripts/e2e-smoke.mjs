@@ -1653,12 +1653,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       const bx = await menu.locator(`[data-testid="${testId}-scrub"]`).boundingBox();
       await page.mouse.move(bx.x + bx.width / 2, bx.y + bx.height / 2);
       await page.mouse.down();
-      // 按下先停一下、每步隔开：一下子甩完会被算成猛甩，接管阈值（20px）前后的那几步也走不出档
-      await page.waitForTimeout(80);
-      for (let i = 1; i <= 8; i++) {
-        await page.mouse.move(bx.x + bx.width / 2 + (dx * i) / 8, bx.y + bx.height / 2, { steps: 2 });
-        await page.waitForTimeout(40);
-      }
+      for (let i = 1; i <= 8; i++) await page.mouse.move(bx.x + bx.width / 2 + (dx * i) / 8, bx.y + bx.height / 2, { steps: 2 });
       await page.mouse.up();
       await page.waitForTimeout(300);
       return Number(await menu.locator(`[data-testid="${testId}"]`).inputValue());
@@ -1670,8 +1665,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await menu.locator('[data-testid="stack-start"]').fill('12.5');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
-    // 每格沿档位表走（10 → 5）：往左划一下
-    const stepAfter = await swipe('stack-step', -20);
+    // 每格沿档位表走（10 → 5）：往左划一档＝走够 20px 接管、再走 10–20px（接管之前的那段不算档；8 步一步 5px，越过 20 的那一步在 20 上）
+    const stepAfter = await swipe('stack-step', -40);
     if (!(stepAfter < 10 && [1, 2.5, 5].includes(stepAfter))) throw new Error(`swiping 每格 left should walk down the lb list (10 → 5 → 2.5…), got ${stepAfter}`);
     // 回到每格 5（后面按 12.5 + 5 的刻度断言）：真点一下再打字 —— 横划热区不能把「点一下进输入」吃掉
     await menu.locator('[data-testid="stack-step"]').click();
@@ -2772,8 +2767,8 @@ const main = async () => {
   // 之后照常一档。打字不取整。递减档默认 = 上一行 − 这件器材的一档，再就近取整（等距取轻）。
   // 「杠铃片」（2026-10-18）：这里的动作是杠铃，一档 = 最小一对片；默认片 2026-10-21 起没有 1.25（最小一对 = 5 kg），
   // 取整吸到 5 的网格（配不出来的重量第一格先吸到能配的那一档）。
-  // ⚠️ 横划接管阈值 20px（scrubFeel.ENGAGE_PX）比每档 10px 宽，接管那一下会连走两档（docs/TODO.md 记着，没改手感）：
-  // 61.24 →（右，接管）65 → 70；再往左：接管两档 70 → 65 → 60，再一档 → 55。
+  // 横划接管阈值 20px（scrubFeel.ENGAGE_PX），接管那一刻从当前位置起算、之后每 10px 一档（2026-10-22 修：原来接管就连走两档）：
+  // 61.24 →（右一档）65；再往左两档 → 60 → 55。
   await step(page, 'scrub-weight-residue-and-drop-set', async () => {
     const weight = page.locator('[data-testid="ledger-field-weight"]').first();
     const input = weight.locator('input');
@@ -2799,10 +2794,10 @@ const main = async () => {
       await page.waitForTimeout(350);
       return Number(await input.inputValue());
     };
-    const right1 = await slow([22]); // 越过 20px 接管阈值：第一档先吸到网格（65），同一下再走一档
-    if (right1 !== 70) throw new Error(`61.24 dragged right past the engage threshold should snap up to 65 then step to 70 (barbell grid), got ${right1}`);
-    const left2 = await slow([-22, -32]); // 接管两档 + 一档：70 → 65 → 60 → 55（已在网格上，照常 −5）
-    if (left2 !== 55) throw new Error(`70 dragged left three detents should be 55, got ${left2}`);
+    const right1 = await slow([22, 32]); // 22px 接管（不算档），再 10px 正好落一档：第一档先吸到网格
+    if (right1 !== 65) throw new Error(`61.24 dragged right one detent should snap up to 65 (barbell grid), got ${right1}`);
+    const left2 = await slow([-22, -32, -42]); // 接管后两档：65 → 60 → 55（已在网格上，照常 −5）
+    if (left2 !== 55) throw new Error(`65 dragged left two detents should be 55, got ${left2}`);
 
     // 回到残留值再加递减档：61.24 − 5 = 56.24 → 就近取整（55 差 1.24、60 差 3.76）= 55
     await input.fill('61.24');

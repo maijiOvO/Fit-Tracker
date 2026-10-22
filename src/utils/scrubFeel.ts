@@ -65,3 +65,42 @@ export function scrubEngage(along: number, across: number): 'wait' | 'engage' | 
 export function heroScrubAxis(kind: string | undefined): 'x' | 'y' {
   return kind === 'pin' ? 'y' : 'x';
 }
+
+/** 一次拖动的计步状态（useValueScrub 的 drag 里的那几项） */
+export interface ScrubTrack {
+  /** 按下点（沿拖动方向 / 垂直方向） */
+  x0: number;
+  c0: number;
+  /** 上一次计步到的位置 */
+  x: number;
+  /** 还没凑够一档的位移 */
+  acc: number;
+  engaged: boolean;
+}
+
+/**
+ * 手指挪到 p（沿拖动方向）/ c（垂直方向）：还没起拖就按 scrubEngage 判；起拖那一刻**从当前位置开始计步**，
+ * 之前走过的那段只用来判「这是一次拖动」，不算档（2026-10-22：ENGAGE_PX 20 比每档 10px 宽，原来把按下点到接管点的
+ * 整段都算进去，第一次接管就连走两档——杠铃 61.24 一划直接到 70）。之后每走够 px 一档，返回这一下走的各档方向。
+ * 纯函数：useValueScrub 和 logic-check 共用。
+ */
+export function trackScrub(
+  t: ScrubTrack,
+  p: number,
+  c: number,
+  px: number,
+): { t: ScrubTrack; go: 'wait' | 'release' | 'move'; detents: (1 | -1)[] } {
+  if (!t.engaged) {
+    const go = scrubEngage(p - t.x0, c - t.c0);
+    if (go !== 'engage') return { t, go, detents: [] };
+    return { t: { ...t, engaged: true, x: p, acc: 0 }, go: 'move', detents: [] };
+  }
+  let acc = t.acc + (p - t.x);
+  const detents: (1 | -1)[] = [];
+  while (Math.abs(acc) >= px) {
+    const sign = acc > 0 ? 1 : -1;
+    detents.push(sign);
+    acc -= sign * px;
+  }
+  return { t: { ...t, x: p, acc }, go: 'move', detents };
+}
