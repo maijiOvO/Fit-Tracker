@@ -103,11 +103,15 @@ export const Modal: React.FC<ModalProps> = ({
 
   const isSheet = variant === 'sheet';
   const isFull = variant === 'full';
+  // 调用方自己定了高度（成绩详情 92dvh、特别关注 85dvh）就用它的，不再叠一条 max-h 打架
+  const capSheet = isSheet && !/(^|\s)(max-)?h-/.test(className);
 
   const panelShell = isFull
     ? 'relative w-full h-full bg-base flex flex-col'
     : `relative w-full ${sizeStyles[size]} bg-card border border-divider shadow-overlay ${
-        isSheet ? 'rounded-t-sheet border-b-0' : 'rounded-card'
+        // 底部弹层封顶 88dvh、里面自己滚：内容比屏幕高时（新建馆的档案表）原来整块往上长，
+        // 标题和第一行（馆名）顶出屏幕、压到状态栏底下，滚也滚不回来（2026-10-21 真机）
+        isSheet ? `rounded-t-sheet border-b-0 flex flex-col${capSheet ? ' max-h-[88dvh]' : ''}` : 'rounded-card'
       }`;
   const panelAnim = leaving
     ? isFull
@@ -149,7 +153,7 @@ export const Modal: React.FC<ModalProps> = ({
         style={isSheet ? { paddingBottom: 'env(safe-area-inset-bottom)' } : undefined}
       >
         {isSheet && (
-          <div className="pt-2.5 pb-1 flex justify-center" aria-hidden>
+          <div className="pt-2.5 pb-1 flex justify-center flex-none" aria-hidden>
             <span className="w-9 h-1 rounded-chip bg-divider" />
           </div>
         )}
@@ -158,7 +162,7 @@ export const Modal: React.FC<ModalProps> = ({
           <div
             className={`flex justify-between gap-3 px-5 ${
               isSheet
-                ? 'items-start pt-1'
+                ? 'items-start pt-1 flex-none'
                 : isFull
                   ? 'items-center py-3 border-b border-divider flex-shrink-0'
                   : 'items-start pt-5'
@@ -187,13 +191,15 @@ export const Modal: React.FC<ModalProps> = ({
           className={
             isFull
               ? `flex-1 overflow-y-auto custom-scrollbar px-4 pt-4 pb-10 ${bodyClassName}`
-              : `px-5 ${title || showCloseButton ? 'pt-4' : 'pt-5'} ${footer ? '' : 'pb-5'} ${bodyClassName}`
+              : `px-5 ${title || showCloseButton ? 'pt-4' : 'pt-5'} ${footer ? '' : 'pb-5'} ${
+                  isSheet ? 'min-h-0 overflow-y-auto overscroll-contain custom-scrollbar' : ''
+                } ${bodyClassName}`
           }
         >
           {children}
         </div>
 
-        {footer && <div className="px-5 pt-4 pb-5">{footer}</div>}
+        {footer && <div className="px-5 pt-4 pb-5 flex-none">{footer}</div>}
       </div>
     </div>,
     document.body,

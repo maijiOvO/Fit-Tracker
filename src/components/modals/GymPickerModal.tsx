@@ -377,22 +377,25 @@ function GymProfileForm({
         <span className="text-label text-secondary">
           {isCn ? '加一种片（八角片、自带的微调片…）' : 'Add a plate (odd sizes, your own micro plates…)'}
         </span>
+        {/* 输入框吃剩下的宽度，单位和「加上」按自己的宽度排（原来 fill 的输入框占满整行，lb 被裁、「加上」竖成两行） */}
         <div className="flex items-center gap-2">
-          <ScrubNumber
-            value={cw.trim() === '' || !Number.isFinite(Number.parseFloat(cw)) ? null : Number.parseFloat(cw)}
-            onCommit={n => setCw(n === null ? '' : String(n))}
-            allowEmpty
-            live
-            min={0.05}
-            max={200}
-            steps={cu === 'kg' ? [0.25, 0.5, 1, 2.5] : [0.5, 1, 2.5, 5]}
-            placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
-            ariaLabel={isCn ? '这片多重' : 'Plate weight'}
-            testId="gym-custom-weight"
-            fill
-            className="ui-input w-24"
-          />
-          <span className="gym-seg" role="group" aria-label={isCn ? '这片自己的单位' : 'This plate is in'}>
+          <div className="flex-1 min-w-0 pl-2">
+            <ScrubNumber
+              value={cw.trim() === '' || !Number.isFinite(Number.parseFloat(cw)) ? null : Number.parseFloat(cw)}
+              onCommit={n => setCw(n === null ? '' : String(n))}
+              allowEmpty
+              live
+              min={0.05}
+              max={200}
+              steps={cu === 'kg' ? [0.25, 0.5, 1, 2.5] : [0.5, 1, 2.5, 5]}
+              placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
+              ariaLabel={isCn ? '这片多重' : 'Plate weight'}
+              testId="gym-custom-weight"
+              fill
+              className="ui-input"
+            />
+          </div>
+          <span className="gym-seg flex-none" role="group" aria-label={isCn ? '这片自己的单位' : 'This plate is in'}>
             <button type="button" className={seg(cu === 'kg')} aria-pressed={cu === 'kg'} onClick={() => setCu('kg')}>kg</button>
             <button type="button" className={seg(cu === 'lbs')} aria-pressed={cu === 'lbs'} onClick={() => setCu('lbs')} data-testid="gym-custom-unit-lbs">lb</button>
           </span>
@@ -400,7 +403,7 @@ function GymProfileForm({
             type="button"
             disabled={customIn === null}
             onClick={addCustom}
-            className="min-h-[36px] px-3 text-label font-semibold text-accent disabled:text-tertiary"
+            className="flex-none min-h-[36px] px-3 whitespace-nowrap text-label font-semibold text-accent disabled:text-tertiary"
             data-testid="gym-custom-add"
           >
             {isCn ? '加上' : 'Add'}
