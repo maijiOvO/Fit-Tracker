@@ -6,7 +6,9 @@
  *
  * 每个馆一行「编辑」：这个馆用公斤片还是磅片、有哪些片、龙门架 / 器械 / 哑铃一档多重。
  * 可以反复进（2026-10-18 用户定）。底部「新的馆…」：起名 + 填档案，存好就用这个馆。
- * 已有的馆不改名：馆名记在每一场历史训练上，改名会和历史对不上。
+ * 已有的馆可以改名（2026-10-21 用户要的）：馆名记在每一场历史训练和这个馆每台器械的设置上，
+ * 改名时一起改（App 的 onSaveProfile + services/appPrefs.ts renameGymIn），按馆比的纪录照样连得上。
+ * 改成已有的另一个馆的名字直接拦下，不做合并。没有删除（2026-10-21 用户定：正式版不做）。
  *
  * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
  * 一个馆都没有就直接进「新的馆」表单（新用户不用先去别处设馆）。关掉＝这次不开练。
@@ -40,8 +42,8 @@ interface GymPickerModalProps {
   profiles?: Record<string, GymProfile>;
   /** 新显示单位：新建档案默认用它的片 */
   unit?: string;
-  /** 存档案。isNew：新的馆（存好就用它） */
-  onSaveProfile?: (name: string, profile: GymProfile, isNew: boolean) => void;
+  /** 存档案。isNew：新的馆（存好就用它）；renamedFrom：这次把它从这个名字改了过来 */
+  onSaveProfile?: (name: string, profile: GymProfile, isNew: boolean, renamedFrom?: string) => void;
   /** 开练前选馆：标题改问「这场在哪个馆练」，没有馆就直接开「新的馆」表单，表单关掉就整个关掉 */
   startMode?: boolean;
 }
@@ -110,7 +112,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
           onBack={() => (formOnly ? onClose() : setEditing(null))}
           starting={formOnly}
           onSave={(name, p) => {
-            onSaveProfile(name, p, !editing);
+            onSaveProfile(name, p, !editing, editing && name !== editing ? editing : undefined);
             onClose();
           }}
         />
@@ -288,13 +290,18 @@ function GymProfileForm({
   };
 
   const save = () => {
-    const n = name || normalizeGym(nm);
+    const n = normalizeGym(nm);
     if (!n) {
       setErr(isCn ? '先给这个馆起个名字' : 'Give this gym a name first');
       return;
     }
-    if (!name && taken.includes(n)) {
-      setErr(isCn ? `已有「${n}」，请回列表编辑它` : `"${n}" already exists — edit it from the list`);
+    // 新建撞上已有的馆、改名改成另一个已有的馆：都拦下（不做合并）
+    if (n !== name && taken.includes(n)) {
+      setErr(
+        name
+          ? isCn ? `已有「${n}」，换个名字` : `"${n}" already exists — pick another name`
+          : isCn ? `已有「${n}」，请回列表编辑它` : `"${n}" already exists — edit it from the list`,
+      );
       return;
     }
     onSave(n, p);
@@ -327,22 +334,21 @@ function GymProfileForm({
 
   return (
     <div className="gym-form" data-testid="gym-profile-form">
-      {!name && (
-        <label className="gym-field">
-          <span className="text-label text-secondary">{isCn ? '馆名' : 'Name'}</span>
-          <input
-            className="ui-input"
-            value={nm}
-            onChange={e => {
-              setNm(e.target.value);
-              setErr('');
-            }}
-            placeholder={isCn ? '比如：公司楼下' : 'e.g. Office gym'}
-            autoComplete="off"
-            data-testid="gym-profile-name"
-          />
-        </label>
-      )}
+      {/* 编辑已有的馆也能改名：历史训练和器械设置上的馆名一起改 */}
+      <label className="gym-field">
+        <span className="text-label text-secondary">{isCn ? '馆名' : 'Name'}</span>
+        <input
+          className="ui-input"
+          value={nm}
+          onChange={e => {
+            setNm(e.target.value);
+            setErr('');
+          }}
+          placeholder={isCn ? '比如：公司楼下' : 'e.g. Office gym'}
+          autoComplete="off"
+          data-testid="gym-profile-name"
+        />
+      </label>
       <div className="gym-field">
         <span className="text-label text-secondary">{isCn ? '片子' : 'Plates'}</span>
         <span className="gym-seg" role="group">

@@ -70,7 +70,7 @@ import {
   WeightInputModal,
 } from './src/components/modals';
 import type { NoteModalData } from './src/components/modals/NoteModal';
-import { keyedPatch } from './services/appPrefs';
+import { gymSavePatch, keyedPatch } from './services/appPrefs';
 
 import {
   AuthProvider,
@@ -1380,22 +1380,40 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         }}
         profiles={settingsCtx.appPrefs.gyms}
         unit={unit}
-        onSaveProfile={(name, profile, isNew) => {
+        onSaveProfile={(name, profile, isNew, renamedFrom) => {
+          // 在存储里的原表上改（保留改名墓碑）；改名时这个馆每台器械的设置一起挪到新名字
+          settingsCtx.changeAppPrefs(gymSavePatch(name, profile, renamedFrom));
+          // 给 switchGym 用的洗过的馆表（context 还没刷新）
           const gyms = { ...settingsCtx.appPrefs.gyms, [name]: profile };
-          settingsCtx.changeAppPrefs({ gyms });
+          if (renamedFrom) {
+            delete gyms[renamedFrom];
+            // 历史训练上的馆名一起改：按馆找底稿、按馆比纪录都认馆名，不改就和新名字对不上
+            const stamp = new Date().toISOString();
+            const hits = workouts.filter(w => w.gym === renamedFrom);
+            for (const w of hits) void workoutCtx.updateWorkout({ ...w, gym: name, updatedAt: stamp });
+            toast(
+              isCn
+                ? `已改名为「${name}」${hits.length ? `，${hits.length} 场训练一起改了` : ''}`
+                : `Renamed to "${name}"${hits.length ? ` — ${hits.length} workouts updated` : ''}`,
+              'success',
+            );
+          }
           // 开练前选馆：新建或改完哪个馆，就在这个馆开这一场（存完弹层会关，不开就等于白选了）。
           // gyms 是刚存的，context 还没刷新
           if (gymStart) {
             gymStart(name, gyms);
-            toast(isCn ? `已存「${name}」，这场按它算` : `Saved "${name}" — this workout uses it`, 'success');
+            if (!renamedFrom) toast(isCn ? `已存「${name}」，这场按它算` : `Saved "${name}" — this workout uses it`, 'success');
             return;
           }
           // 新的馆＝这场就用它；改的是今天这个馆＝没做完的组按新档案重新取整。别的馆只存档案，不动今天这场
-          const today = isNew || currentWorkout?.gym === name;
+          const today = isNew || currentWorkout?.gym === name || (!!renamedFrom && currentWorkout?.gym === renamedFrom);
           if (today) {
-            setCurrentWorkout(switchGym(currentWorkout, name, gyms, { keepUnit: !!editingWorkoutId }));
+            // 今天这场在被改名的馆：先换成新名字再交给 switchGym（同一个馆，不按「换馆」重挑底稿，只按新档案重新取整）
+            const base = renamedFrom && currentWorkout.gym === renamedFrom ? { ...currentWorkout, gym: name } : currentWorkout;
+            setCurrentWorkout(switchGym(base, name, gyms, { keepUnit: !!editingWorkoutId }));
             window.setTimeout(() => workoutCtx.persistCurrentWorkout(), 0);
           }
+          if (renamedFrom) return;
           toast(
             isCn
               ? isNew

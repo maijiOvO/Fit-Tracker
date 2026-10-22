@@ -28,7 +28,8 @@ export interface AppPrefs {
    * 「杠铃片」馆档案（2026-10-18）：馆名 → 有哪些片、龙门架 / 器械 / 哑铃各一档多重。
    * 馆名就是训练上记的 WorkoutSession.gym（字面量）。整个对象跟 appPrefs 一起同步，不新增同步键。
    */
-  gyms?: Record<string, GymProfile>;
+  /** 馆档案；'' 是改名留下的墓碑（按馆名合并时压住另一台设备上的旧名，读的时候丢掉） */
+  gyms?: Record<string, GymProfile | ''>;
   /** 这个馆的这个动作（某个做法）单独设的一档：键「馆名|动作定义 id|做法 id」 */
   gymOverrides?: Record<string, IncSpec>;
   /**
@@ -210,6 +211,49 @@ export function keyedPatch<F extends 'gymKinds' | 'gymNotes' | 'gymTares'>(
   return { [field]: next } as Pick<AppPrefs, F>;
 }
 
+/**
+ * 存一个馆的档案（renamedFrom：这次顺手把它从这个名字改过来，2026-10-21 用户要的改名）。
+ * 在**存储里的原表**上改：上下文里的馆表是洗过的、没有墓碑，拿它整张写回会把墓碑冲掉。
+ * 改名时：档案挪到新名字、旧名字留墓碑 ''；这个馆每台器械的设置（键 `馆|动作|做法`）一起挪到新名字，
+ * 一档多重整块取新的一边、直接改键；器械形式 / 本馆备注 / 空载按键合并，旧键写墓碑压住另一台设备上的旧值。
+ * 纯函数（raw 由调用方给），prefs-check 直接测；历史训练上的馆名由调用方另改。
+ */
+export function renameGymIn(
+  raw: AppPrefs | undefined,
+  name: string,
+  profile: GymProfile,
+  renamedFrom?: string,
+): Pick<AppPrefs, 'gyms'> & Partial<Pick<AppPrefs, 'gymOverrides' | 'gymKinds' | 'gymNotes' | 'gymTares'>> {
+  const gyms: Record<string, GymProfile | ''> = { ...(raw?.gyms ?? {}), [name]: profile };
+  if (!renamedFrom || renamedFrom === name) return { gyms };
+  gyms[renamedFrom] = '';
+  const pre = `${renamedFrom}|`;
+  const moved = (k: string) => `${name}|${k.slice(pre.length)}`;
+  const overrides: Record<string, IncSpec> = {};
+  for (const [k, v] of Object.entries(raw?.gymOverrides ?? {})) overrides[k.startsWith(pre) ? moved(k) : k] = v;
+  const rekey = <T,>(src: Record<string, T | ''> | undefined) => {
+    const out: Record<string, T | ''> = { ...(src ?? {}) };
+    for (const [k, v] of Object.entries(src ?? {})) {
+      if (!k.startsWith(pre)) continue;
+      out[k] = '';
+      if (v !== '') out[moved(k)] = v;
+    }
+    return out;
+  };
+  return {
+    gyms,
+    gymOverrides: overrides,
+    gymKinds: rekey(raw?.gymKinds) as AppPrefs['gymKinds'],
+    gymNotes: rekey(raw?.gymNotes) as AppPrefs['gymNotes'],
+    gymTares: rekey(raw?.gymTares) as AppPrefs['gymTares'],
+  };
+}
+
+/** 存一个馆的档案（可带改名）：读存储里的原表，返回给 changeAppPrefs 的补丁 */
+export function gymSavePatch(name: string, profile: GymProfile, renamedFrom?: string) {
+  return renameGymIn(readAppPrefs().appPrefs, name, profile, renamedFrom);
+}
+
 /** 用户改了某项首选项：并进对象、打时间戳。推送由调用方排（scheduleDebouncedFitlogPush） */
 export function recordAppPrefs(patch: AppPrefs): void {
   const { appPrefs } = readAppPrefs();
@@ -230,7 +274,8 @@ export function mergeAppPrefs(
   const remoteWins = !!remote && (!local || remoteMs > localMs);
   const appPrefs: AppPrefs = remoteWins ? { ...(local ?? {}), ...remote } : { ...(remote ?? {}), ...local };
   // 馆档案按馆名合并（同名冲突新的一边赢）：appPrefs 整块按时间戳取一边，另一台设备只是切了下单位，
-  // 就会用它那张旧表把这边新加的馆整张盖掉（2026-10-18 审查）。馆档案界面没有删除，并集不会让删掉的馆复活。
+  // 就会用它那张旧表把这边新加的馆整张盖掉（2026-10-18 审查）。馆档案没有删除；改名在旧名字上留墓碑 ''，
+  // 新的一边带着墓碑就压住另一边的旧档案（读的时候 cleanGyms 丢掉 ''）。
   // gymOverrides 有「恢复馆默认」（删键），并集会把删掉的复活，所以仍整块取新的一边。
   if (local?.gyms || remote?.gyms) {
     const older = remoteWins ? local?.gyms : remote?.gyms;
