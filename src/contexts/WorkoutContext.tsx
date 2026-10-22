@@ -5,6 +5,7 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { scheduleAutoBackup } from '../../services/fitlogAutoBackup';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { lastUsedGym } from '../utils/gyms';
+import { storage } from '../../services/appStorage';
 
 /** 「进行中」能接回来的时限：超过这么久没动过的未结束训练不再自动接回（早期没有 finishedAt 字段的旧记录也靠它挡掉） */
 const IN_PROGRESS_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -14,16 +15,29 @@ export function hasDoneSets(w: Pick<WorkoutSession, 'exercises'>): boolean {
   return (w.exercises ?? []).some(ex => (ex.sets ?? []).some(s => !s.ghost));
 }
 
+/** 工作台上那一场的 id（每次自动落盘时记下）：接回进行中的训练只认它，或者真是刚开的（见 findInProgress） */
+const ACTIVE_WORKOUT_KEY = 'fitlog_active_workout';
+const readActiveId = () => storage.getItem(ACTIVE_WORKOUT_KEY);
+const markActive = (id: string) => {
+  if (readActiveId() !== id) storage.setItem(ACTIVE_WORKOUT_KEY, id);
+};
+
 /**
  * 库里最近一场「进行中」的训练：没结束、有动作、12 小时内动过。
  * 练到一半按返回 / App 被系统回收 / 刷新之后，靠它把这场接回工作台（workbench-not-restored）。
+ *
+ * 只看 updatedAt 不够：早期没有 finishedAt 的旧记录，编辑 / 馆改名一下 updatedAt 就新了，会被当成进行中接回来
+ * （2026-10-21 审查）。所以还得是工作台上落过盘的那一场（activeId；「继续这场」接回来的旧训练也走这条），
+ * 或者开练时间本身就在 12 小时内（旧版本升级上来、还没记过 activeId 的那一场）。
  */
-export function findInProgress(list: WorkoutSession[]): WorkoutSession | null {
+export function findInProgress(list: WorkoutSession[], activeId: string | null = null): WorkoutSession | null {
   const now = Date.now();
   const ts = (w: WorkoutSession) => new Date(w.updatedAt || w.startTime || w.date).getTime() || 0;
+  const started = (w: WorkoutSession) => new Date(w.startTime || w.createdAt || w.date).getTime() || 0;
   return (
     list
       .filter(w => !w.finishedAt && w.status !== 'completed' && (w.exercises?.length ?? 0) > 0 && now - ts(w) < IN_PROGRESS_MAX_AGE_MS)
+      .filter(w => w.id === activeId || now - started(w) < IN_PROGRESS_MAX_AGE_MS)
       .sort((a, b) => ts(b) - ts(a))[0] ?? null
   );
 }
@@ -128,7 +142,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   const restoreInProgress = useCallback(async () => {
     if ((currentWorkoutRef.current.exercises?.length ?? 0) > 0) return;
     try {
-      const hit = findInProgress(await db.getAll<WorkoutSession>('workouts'));
+      const hit = findInProgress(await db.getAll<WorkoutSession>('workouts'), readActiveId());
       if (hit && (currentWorkoutRef.current.exercises?.length ?? 0) === 0) setCurrentWorkout(hit);
     } catch (err) {
       console.error('[WorkoutContext] 接回进行中的训练失败:', err);
@@ -145,6 +159,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
       if (document.hidden) {
         const w = currentWorkoutRef.current;
         if (shouldAutoPersist(w)) {
+          markActive(w.id);
           // 同步落盘（fire-and-forget，页面隐藏时不阻塞）
           void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
         }
@@ -159,6 +174,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     const handlePageHide = () => {
       const w = currentWorkoutRef.current;
       if (shouldAutoPersist(w)) {
+        markActive(w.id);
         // pagehide 时同步落盘（使用 sendBeacon 类似的同步方式）
         const req = db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
         // 不能 await，但至少发出请求
@@ -175,6 +191,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   const persistCurrentWorkout = useCallback(() => {
     const w = currentWorkoutRef.current;
     if (!shouldAutoPersist(w)) return;
+    markActive(w.id);
     void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
   }, []);
 

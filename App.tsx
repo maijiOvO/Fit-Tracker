@@ -34,7 +34,7 @@ import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
 import { switchDataEnv } from './services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
-import { recordTombstone } from './services/fitlogTombstones';
+import { recordTombstone, removeTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
 import {
@@ -1184,7 +1184,24 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                   .then(() => scheduleDebouncedFitlogPush())
                   .catch(err => console.error('Drop emptied workout failed:', err));
               }
-              // 单击即删，不给撤销（2026-10-18 用户定：删了加回来就行）
+              // 全是底稿的单击即删、不给撤销（2026-10-18 用户定：删了加回来就行）。
+              // 已经做完过组的给撤销：误点一下丢的是真练过的数，加回来也找不回（审查 A2）
+              const removed = (currentWorkout.exercises ?? [])[exIdx];
+              if (removed && removed.sets.some(st => !st.ghost)) {
+                toastUndo(
+                  isCn ? `已删除「${prefs.resolveName(removed.name)}」` : `Deleted "${prefs.resolveName(removed.name)}"`,
+                  () => {
+                    if (dropWhole) removeTombstone('workouts', workoutId);
+                    setCurrentWorkout(w => {
+                      const list = [...(w.exercises ?? [])];
+                      list.splice(Math.min(exIdx, list.length), 0, removed);
+                      // 整场被删掉、工作台还空着：换回原来的 id（墓碑已摘），落盘时写回那一场
+                      return { ...w, ...(dropWhole && !(w.exercises ?? []).length ? { id: workoutId } : {}), exercises: normalizeGroups(list) };
+                    });
+                  },
+                  { undoLabel: isCn ? '撤销' : 'Undo', durationMs: 6000 },
+                );
+              }
             }}
           />
         )}
@@ -1388,9 +1405,25 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           if (renamedFrom) {
             delete gyms[renamedFrom];
             // 历史训练上的馆名一起改：按馆找底稿、按馆比纪录都认馆名，不改就和新名字对不上
+            // 直接写库、不走 updateWorkout：那个会拿库里的旧副本顶掉工作台上进行中的那场（审查 A3）。
+            // 工作台上那场（进行中的或编辑草稿）由下面 switchGym 换名字，进行中的那场随它落盘
             const stamp = new Date().toISOString();
             const hits = workouts.filter(w => w.gym === renamedFrom);
-            for (const w of hits) void workoutCtx.updateWorkout({ ...w, gym: name, updatedAt: stamp });
+            const liveId = !editingWorkoutId ? currentWorkout?.id : undefined;
+            void Promise.all(
+              hits.filter(w => w.id !== liveId).map(w => db.save('workouts', { ...w, gym: name, updatedAt: stamp })),
+            )
+              .then(() => workoutCtx.refreshFromDb())
+              .then(() => scheduleDebouncedFitlogPush())
+              .catch(err => console.error('Rename gym on workouts failed:', err));
+            // 底稿眉批「在 X」记的也是馆名
+            const renamePrefill = (w: WorkoutSession): WorkoutSession => ({
+              ...w,
+              exercises: (w.exercises ?? []).map(e => (e.prefillGym === renamedFrom ? { ...e, prefillGym: name } : e)),
+            });
+            if ((currentWorkout.exercises ?? []).some(e => e.prefillGym === renamedFrom)) {
+              setCurrentWorkout(w => renamePrefill(w));
+            }
             toast(
               isCn
                 ? `已改名为「${name}」${hits.length ? `，${hits.length} 场训练一起改了` : ''}`
@@ -1410,7 +1443,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
           if (today) {
             // 今天这场在被改名的馆：先换成新名字再交给 switchGym（同一个馆，不按「换馆」重挑底稿，只按新档案重新取整）
             const base = renamedFrom && currentWorkout.gym === renamedFrom ? { ...currentWorkout, gym: name } : currentWorkout;
-            setCurrentWorkout(switchGym(base, name, gyms, { keepUnit: !!editingWorkoutId }));
+            setCurrentWorkout(switchGym(
+              renamedFrom ? { ...base, exercises: (base.exercises ?? []).map(e => (e.prefillGym === renamedFrom ? { ...e, prefillGym: name } : e)) } : base,
+              name, gyms, { keepUnit: !!editingWorkoutId },
+            ));
             window.setTimeout(() => workoutCtx.persistCurrentWorkout(), 0);
           }
           if (renamedFrom) return;
