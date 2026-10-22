@@ -1830,7 +1830,7 @@ button {
   position: fixed;
   inset: 0;
   z-index: 190;
-  background: color-mix(in srgb, var(--bg-base) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-base) 80%, transparent);
   pointer-events: none;
   animation: ink-fade var(--dur-tap) var(--ease-ink) both;
 }
@@ -1840,8 +1840,13 @@ button {
   right: 16px;
   margin: 0 auto;
   max-width: 480px;
-  padding: 0;
+  /* 自己一块实底：压在卡片上也读得清；上下不留白，第 0 行中心才对得上 top */
+  padding: 0 4px;
   list-style: none;
+  background: var(--bg-base);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-overlay);
 }
 .reorder-strip li {
   height: var(--pitch);
