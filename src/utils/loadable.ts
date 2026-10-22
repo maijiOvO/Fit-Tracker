@@ -2,12 +2,13 @@
  * 「能挂的重量」与就近取整 —— docs/design-plates.md §3「馆档案」。
  *
  * 三条规则（2026-10-18 用户定，示意：docs/demos/gym-workbench.html）：
- *   1. 你选的单位就是你现在用的片子：所有数（片子、器械一档、±、拖动、取整）都在显示单位下算。
+ *   1. 片子按这个馆的单位算（2026-10-22 起；原来按显示单位，显示 lb 的 kg 馆会按磅片取整，审查 A9）：
+ *      格子都在馆的片子单位下，显示单位只是换算着标（useLoadRounder 负责换算）。
  *   2. 自动生成的重量（底稿、带动后面、递减默认、切单位 / 换馆）严格取最近能挂的重量，等距取轻。
  *      手打的数照原样记。
  *   3. 一档 = 这个馆、这件器材的一档（馆档案）；个别器械在动作 ⋯ 里单独设（gymOverrides）。
  *
- * 全部是纯函数：值一律是「显示单位下带符号的数」，调用方负责 kg ⇄ 显示单位换算。
+ * 全部是纯函数：值一律是「ctx.unit（馆的片子单位）下带符号的数」，调用方负责换算。
  */
 import type { LoadKind } from '../hooks/useLoadKind';
 import { DEFAULT_PLATES, KG_PER_LB, type PlateUnit } from './plates';
@@ -90,6 +91,11 @@ export interface LoadCtx {
   inc: number;
   /** 配重片的起始（最轻一格，当前单位）；0 / 没有＝一档的整数倍 */
   start?: number;
+  /**
+   * 单边挂片（T 杠划船、地雷架、单边的挂片器械，2026-10-22 用户定）：只有一边能挂，总重＝底座 + 一边，
+   * 一档＝最小的一片（不 ×2）。只对挂片式器械（loaded）生效，存这一台的 gymOverrides（键 + '|one'）。
+   */
+  oneSide?: boolean;
 }
 
 export function profileIn(
@@ -180,8 +186,9 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
   if (kind === 'plates' || kind === 'loaded') {
     const base = kind === 'plates' ? ctx.bar : 0;
     if (v <= base) return { lo: base, hi: base };
-    const [a, b] = sideBracket((v - base) / 2, ctx.plates, ctx.unit);
-    return { lo: r2(base + 2 * a), hi: r2(base + 2 * b) };
+    const sides = kind === 'loaded' && ctx.oneSide ? 1 : 2;
+    const [a, b] = sideBracket((v - base) / sides, ctx.plates, ctx.unit);
+    return { lo: r2(base + sides * a), hi: r2(base + sides * b) };
   }
   if (kind === 'signed' && v > 0) {
     // 负重：腰上挂一摞片（一边）
@@ -228,7 +235,7 @@ export function snap(kind: LoadKind, v: number, ctx: LoadCtx): number {
 
 /** 这件器材的一档（当前单位）。纯数字的动作返回 null：调用方用首选项的步长兜底 */
 export function stepOf(kind: LoadKind, v: number, ctx: LoadCtx): number | null {
-  if (kind === 'plates' || kind === 'loaded') return Math.min(...ctx.plates) * 2;
+  if (kind === 'plates' || kind === 'loaded') return Math.min(...ctx.plates) * (kind === 'loaded' && ctx.oneSide ? 1 : 2);
   if (kind === 'signed') return v < 0 ? ctx.inc : Math.min(...ctx.plates);
   if (kind === 'pin' || kind === 'pair' || kind === 'bell' || kind === 'fixed') return ctx.inc;
   return null;

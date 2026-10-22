@@ -24,7 +24,7 @@ import { plural } from '../utils/format';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
-import { gymOverrideKey, snapUntouched, useLoadRounder, withInc, withKind, withStack } from '../hooks/useLoadRounder';
+import { gymOverrideKey, oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { profileIn } from '../utils/loadable';
@@ -202,8 +202,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const writeHero = (next: number) => {
     if (!focusSet) return;
     const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
-    // 改重量就记下登记时的单位（这一组挂的就是这种片），口径同 SetCapsule.fromDisplay
-    const plateUnit: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+    // 改重量就记下这一组挂的是哪种片：这个馆的片子（审查 A8），纯数字的动作按显示单位；口径同 SetCapsule.fromDisplay
+    const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
     const updates: Partial<SetLog> = signed
       ? { weight: kg, plateUnit, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
       : { weight: kg, plateUnit };
@@ -269,11 +269,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   }, [menuOpen]);
 
   const [lastOpen, setLastOpen] = useState(false);
+  // 带正负的动作带上号（辅助 −30、负重 +10），否则辅助和负重读起来一样（审查 C）
+  const lastW = (x: SetLog | NonNullable<SetLog['subSets']>[number], parent?: SetLog) => {
+    if (!signed) return formatWeight(Number(x.weight) || 0, unit);
+    const kg = signedKg(x, exercise, parent);
+    return `${kg < 0 ? '−' : kg > 0 ? '+' : ''}${formatWeight(Math.abs(kg), unit)}`;
+  };
   const lastLine = lastSession
     ? lastSession.sets
         .map(s => {
-          const w = formatWeight(Number(s.weight) || 0, unit);
-          const sub = s.subSets?.length ? `→${s.subSets.map(x => formatWeight(Number(x.weight) || 0, unit)).join('→')}` : '';
+          const w = lastW(s);
+          const sub = s.subSets?.length ? `→${s.subSets.map(x => lastW(x, s)).join('→')}` : '';
           return `${w}${sub}×${Number(s.reps) || 0}`;
         })
         .join('、')
@@ -320,9 +326,14 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               ? prof.fixedBar
               : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
     } else {
-      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）；
-      // 没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变
-      const s = loadKind === 'pin' ? (rounder.ctx.start && rounder.ctx.start > 0 ? rounder.ctx.start : rounder.ctx.inc) : 0;
+      // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉；这一台原来存的最轻一格单位一样就原样留着
+      // （按 ctx 里换算过的值写回会越存越漂），没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变
+      const prev = appPrefs.gymOverrides[incKey];
+      const s = loadKind === 'pin'
+        ? prev?.s && prev.s > 0 && prev.u === rounder.unit
+          ? prev.s
+          : rounder.ctx.start && rounder.ctx.start > 0 ? rounder.ctx.start : rounder.ctx.inc
+        : 0;
       ov[incKey] = { v: next, u: rounder.unit, ...(s > 0 ? { s } : {}) };
       inc = next;
     }
@@ -364,6 +375,17 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
       return;
     }
     if (n !== tareD) changeAppPrefs(keyedPatch('gymTares', tareKey, { v: n, u: rounder.unit }));
+  };
+  /** 单边挂片（T 杠、地雷架）：存这一台的 gymOverrides（键 + '|one'），没做完、没改过的组按新算法重新取整 */
+  const sideKey = kindKey && loadKind === 'loaded' ? oneSideKey(kindKey) : null;
+  const setOneSide = (on: boolean) => {
+    if (!rounder || !sideKey) return;
+    haptic(H.tap);
+    const ov = { ...appPrefs.gymOverrides };
+    if (on) ov[sideKey] = { v: 1, u: rounder.unit };
+    else delete ov[sideKey];
+    changeAppPrefs({ gymOverrides: ov });
+    onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withOneSide(rounder, on)) });
   };
   const setGymKind = (k: 'pin' | 'loaded') => {
     if (!rounder || !kindKey || k === loadKind) return;
@@ -497,8 +519,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {isCn ? '重命名' : 'Rename'}
                   </button>
                 )}
-                {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险；
-                    真正的危险确认在弹窗里做（全宽实心 + 明确文案）。 */}
+                {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险。单击即删、不弹确认；
+                    已经有做完的组时删完给一条撤销（App.tsx onDeleteExerciseFromSession），全是底稿的删了加回来就行。 */}
                 <button
                   type="button"
                   role="menuitem"
@@ -606,6 +628,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   onStack: incKey && loadKind === 'pin' ? setStack : undefined,
                   inc: incKey ? { overridden: incOverridden, onSet: n => setIncOverride(n), onReset: () => setIncOverride(null) } : undefined,
                   tare: tareKey ? { value: tareD ?? null, onSet: saveTare } : undefined,
+                  oneSide: sideKey ? { on: !!rounder.ctx.oneSide, onSet: setOneSide } : undefined,
                 }
               : undefined
           }

@@ -257,8 +257,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
   /** 显示单位下的带符号重量 ⇄ 存储（kg，非负 + 号） */
   const toDisplay = (kg: number, sign: -1 | 1) => sign * Number(formatWeight(Number(kg) || 0, unit));
-  // 「杠铃片」：改重量就记下登记时的单位 —— 这一组挂的就是这种片（2026-10-18 用户定）
-  const plateUnitNow: SetLog['plateUnit'] = unit === 'lbs' ? 'lbs' : 'kg';
+  // 「杠铃片」：改重量就记下这一组挂的是哪种片 —— 有馆档案的器材按这个馆的片子（审查 A8；显示单位只是换算着看），
+  // 纯数字的动作按显示单位
+  const plateUnitNow: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
   const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode' | 'plateUnit'> => {
     const kg = parseWeight(Math.abs(v), unit);
     if (!signed) return { weight: kg, plateUnit: plateUnitNow };
@@ -440,7 +441,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     const curD = toDisplay(Number(set.weight) || 0, rowSign);
     const offBy = (kg: number) => Math.abs(toDisplay(Math.abs(kg), kg < 0 ? -1 : 1) - curD) >= 0.01;
     const moved = offBy(defKg) && offBy(ref.kg);
-    if (moved) return { text, restoreKg: defKg };
+    // 一键改回只给待做的组（审查 B1）：做完的组改回去等于改历史，那里的「上次」只做参考
+    if (moved) return set.ghost ? { text, restoreKg: defKg } : { text };
     const same = ref.unit === (unit === 'lbs' ? 'lbs' : 'kg') && Math.abs(inRef - Math.abs(weightDisplay)) < 0.01;
     return same ? none : { text };
   })();

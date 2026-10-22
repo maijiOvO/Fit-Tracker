@@ -105,11 +105,14 @@ export function BarbellGlyph({
   plateUnit,
   display,
   kind,
+  oneSide,
 }: {
   perSide: number[];
   plateUnit: PlateUnit;
   display: PlateUnit;
   kind: BarKind;
+  /** 单边挂片：左边的套筒空着 */
+  oneSide?: boolean;
 }) {
   const g = BAR_GEOMETRY[kind];
   const half = (side: 'l' | 'r') => (
@@ -117,7 +120,7 @@ export function BarbellGlyph({
       <span className="bar-collar" />
       <span className="bar-sleeve" />
       <span className="bar-load">
-        <AnimatedStack plates={perSide} plateUnit={plateUnit} display={display} numbers />
+        <AnimatedStack plates={oneSide && side === 'l' ? [] : perSide} plateUnit={plateUnit} display={display} numbers />
       </span>
     </span>
   );
@@ -155,8 +158,10 @@ export interface MachineCtl {
   onStack?: (step: number, start: number) => void;
   /** 一档（配重片 / 哑铃 / 壶铃 / 辅助）：恢复馆默认用 */
   inc?: { overridden: boolean; onSet: (n: number) => void; onReset: () => void };
-  /** 挂片式器械的空载（显示单位；null＝不知道） */
+  /** 挂片式器械的空载（馆的片子单位；null＝不知道） */
   tare?: { value: number | null; onSet: (n: number | null) => void };
+  /** 挂片式器械只有一边能挂（T 杠、地雷架）：总重＝一边的片 */
+  oneSide?: { on: boolean; onSet: (on: boolean) => void };
 }
 
 /* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
@@ -474,17 +479,28 @@ function GymHero({
   const [stackOpen, setStackOpen] = useState(false);
   const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
   const u = unit === 'lbs' ? 'lb' : 'kg';
+  /**
+   * 这个馆的片子单位（审查 A9）：片子、空杠、器械一档、配重片刻度都按它（那台器械上印的就是它）；
+   * 记的数、说明里的总重按显示单位。两者不一样时，说明里点明挂的是哪种片
+   */
+  const gu = rounder.unit;
+  const gl = gu === 'lbs' ? 'lb' : 'kg';
+  const toG = (d: number) => (gu === unit ? d : Math.round(convert(d, unit, gu) * 100) / 100);
   const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
   // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
   const empty = Math.abs(value) < 1e-9;
   const onGrid = empty || rounder.loadableD(value);
   const v = onGrid ? value : rounder.snapD(value);
+  const vG = toG(v);
   const barKind: BarKind = bar?.kind ?? 'standard';
   const isBar = kind === 'plates' || kind === 'loaded';
+  const oneSide = kind === 'loaded' && !!ctx.oneSide;
   const base = kind === 'plates' ? ctx.bar : 0;
-  const perSide = isBar && v > base + 1e-9 ? sidePlates((v - base) / 2, ctx.plates, unit) : [];
-  const belt = kind === 'signed' && v > 0 ? sidePlates(v, ctx.plates, unit) : [];
+  const perSide = isBar && vG > base + 1e-9 ? sidePlates((vG - base) / (oneSide ? 1 : 2), ctx.plates, gu) : [];
+  const belt = kind === 'signed' && vG > 0 ? sidePlates(vG, ctx.plates, gu) : [];
   const near = onGrid ? null : rounder.bracketD(value);
+  const plateTxt = (ps: number[]) => ps.map(w => plateLabel(w, gu, unit)).join(' + ');
+  const mixed = gu !== unit ? (isCn ? (gu === 'lbs' ? '（磅片）' : '（公斤片）') : gu === 'lbs' ? ' (lb plates)' : ' (kg plates)') : '';
 
   const nudgeStart = (dir: 1 | -1) => {
     if (!machine?.onStack) return;
@@ -496,7 +512,7 @@ function GymHero({
   };
   const stepStack = (dir: 1 | -1) => {
     if (!machine?.onStack) return;
-    const list = INC_CHOICES[unit];
+    const list = INC_CHOICES[gu];
     const nextV = dir > 0 ? list.find(x => x > ctx.inc + 1e-9) : [...list].reverse().find(x => x < ctx.inc - 1e-9);
     if (nextV === undefined) return;
     // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
@@ -506,15 +522,17 @@ function GymHero({
   let caption = '';
   if (isBar) {
     caption = perSide.length
-      ? isCn ? `每边 ${perSide.map(fmt).join(' + ')} ${u}` : `Per side ${perSide.map(fmt).join(' + ')} ${u}`
+      ? oneSide
+        ? isCn ? `单边 ${plateTxt(perSide)} ${u}${mixed}` : `One side ${plateTxt(perSide)} ${u}${mixed}`
+        : isCn ? `每边 ${plateTxt(perSide)} ${u}${mixed}` : `Per side ${plateTxt(perSide)} ${u}${mixed}`
       : kind === 'plates'
         ? isCn ? '空杠' : 'Empty bar'
         : isCn ? '还没挂片' : 'No plates yet';
-    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）
+    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）。空载按馆的片子单位记
     if (kind === 'loaded')
       caption +=
         tare !== undefined
-          ? isCn ? ` · 加空载共 ${fmt(v + tare)} ${u}` : ` · ${fmt(v + tare)} ${u} with the sled`
+          ? isCn ? ` · 加空载共 ${fmt(vG + tare)} ${gl}` : ` · ${fmt(vG + tare)} ${gl} with the sled`
           : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
@@ -524,7 +542,7 @@ function GymHero({
   else if (kind === 'signed') {
     if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
     else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';
-    else caption = isCn ? `腰挂 ${belt.map(fmt).join(' + ')} ${u}` : `Belt ${belt.map(fmt).join(' + ')} ${u}`;
+    else caption = isCn ? `腰挂 ${plateTxt(belt)} ${u}${mixed}` : `Belt ${plateTxt(belt)} ${u}${mixed}`;
   }
   if (empty && kind !== 'signed') caption = isCn ? '还没填重量' : 'No weight yet';
   if (near) {
@@ -533,9 +551,9 @@ function GymHero({
   }
 
   const barName = isCn ? BAR_LABEL[barKind].cn : BAR_LABEL[barKind].en;
-  const barTxt = `${barName} ${fmt(ctx.bar)} ${u}`;
-  const shortU: PlateUnit = bar?.kind === 'short' ? (bar.unit ?? unit) : unit;
-  const shortW = bar?.kind === 'short' ? (bar.weight ?? SHORT_BAR_DEFAULT[shortU]) : SHORT_BAR_DEFAULT[unit];
+  const barTxt = `${barName} ${plateLabel(ctx.bar, gu, unit)} ${u}`;
+  const shortU: PlateUnit = bar?.kind === 'short' ? (bar.unit ?? gu) : gu;
+  const shortW = bar?.kind === 'short' ? (bar.weight ?? SHORT_BAR_DEFAULT[shortU]) : SHORT_BAR_DEFAULT[gu];
   const pick = (k: BarKind) =>
     onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
   const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
@@ -551,29 +569,30 @@ function GymHero({
   const pillText = !machine
     ? ''
     : kind === 'pin'
-      ? isCn ? `${fmt(lightest)} 起 · 每格 ${fmt(ctx.inc)} ${u}` : `From ${fmt(lightest)} · +${fmt(ctx.inc)} ${u}`
+      ? isCn ? `${fmt(lightest)} 起 · 每格 ${fmt(ctx.inc)} ${gl}` : `From ${fmt(lightest)} · +${fmt(ctx.inc)} ${gl}`
       : kind === 'loaded'
-        ? machine.tare?.value != null
-          ? isCn ? `挂片 · 空载 ${fmt(machine.tare.value)} ${u}` : `Plate-loaded · sled ${fmt(machine.tare.value)} ${u}`
-          : isCn ? '挂片 · 空载没填' : 'Plate-loaded · sled unknown'
-        : isCn ? `${incName} · 每档 ${fmt(ctx.inc)} ${u}` : `${incName} · +${fmt(ctx.inc)} ${u}`;
+        ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
+          (machine.tare?.value != null
+            ? isCn ? ` · 空载 ${fmt(machine.tare.value)} ${gl}` : ` · sled ${fmt(machine.tare.value)} ${gl}`
+            : isCn ? ' · 空载没填' : ' · sled unknown')
+        : isCn ? `${incName} · 每档 ${fmt(ctx.inc)} ${gl}` : `${incName} · +${fmt(ctx.inc)} ${gl}`;
   const incRow = (label: string) =>
     machine?.inc && (
       <div className="stack-stp">
         <span>{label}</span>
         <span className="stack-seg">
-          <button type="button" aria-label={isCn ? '一档轻一点' : 'Smaller step'} onClick={() => { const n = listStepFn(INC_CHOICES[unit])(ctx.inc, -1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-dec">−</button>
+          <button type="button" aria-label={isCn ? '一档轻一点' : 'Smaller step'} onClick={() => { const n = listStepFn(INC_CHOICES[gu])(ctx.inc, -1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-dec">−</button>
           <ScrubNumber
             value={ctx.inc}
             onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.inc!.onSet(n)}
             min={0.25}
-            stepFn={listStepFn(INC_CHOICES[unit])}
+            stepFn={listStepFn(INC_CHOICES[gu])}
             steps={[1, 2, 4]}
             testId="gym-inc-value"
             ariaLabel={label}
           />
-          <small>{u}</small>
-          <button type="button" aria-label={isCn ? '一档重一点' : 'Bigger step'} onClick={() => { const n = listStepFn(INC_CHOICES[unit])(ctx.inc, 1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-inc">＋</button>
+          <small>{gl}</small>
+          <button type="button" aria-label={isCn ? '一档重一点' : 'Bigger step'} onClick={() => { const n = listStepFn(INC_CHOICES[gu])(ctx.inc, 1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-inc">＋</button>
         </span>
       </div>
     );
@@ -632,7 +651,7 @@ function GymHero({
                     testId="stack-start"
                     ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
                   />
-                  <small>{u}</small>
+                  <small>{gl}</small>
                   <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
                 </span>
               </div>
@@ -644,12 +663,12 @@ function GymHero({
                     value={ctx.inc}
                     onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, lightest)}
                     min={0.25}
-                    stepFn={listStepFn(INC_CHOICES[unit])}
+                    stepFn={listStepFn(INC_CHOICES[gu])}
                     steps={[1, 2, 4]}
                     testId="stack-step"
                     ariaLabel={isCn ? '每格多重' : 'Step'}
                   />
-                  <small>{u}</small>
+                  <small>{gl}</small>
                   <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
                 </span>
               </div>
@@ -660,6 +679,25 @@ function GymHero({
                 <span>…</span>
               </div>
             </>
+          )}
+          {kind === 'loaded' && machine.oneSide && (
+            <div className="stack-stp">
+              <span>{isCn ? '挂片' : 'Sides'}</span>
+              <span className="gym-seg" role="group" data-testid="gym-one-side">
+                {([false, true] as const).map(on => (
+                  <button
+                    key={String(on)}
+                    type="button"
+                    className={`min-h-[36px] px-3 text-label font-semibold ${oneSide === on ? 'seg-on' : 'text-secondary'}`}
+                    aria-pressed={oneSide === on}
+                    onClick={() => oneSide !== on && machine.oneSide!.onSet(on)}
+                    data-testid={on ? 'gym-one-side-on' : 'gym-one-side-off'}
+                  >
+                    {on ? (isCn ? '单边' : 'One side') : isCn ? '两边' : 'Both sides'}
+                  </button>
+                ))}
+              </span>
+            </div>
           )}
           {kind === 'loaded' && machine.tare && (
             <>
@@ -672,12 +710,12 @@ function GymHero({
                     allowEmpty
                     min={-500}
                     max={500}
-                    steps={unit === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
+                    steps={gu === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
                     placeholder={isCn ? '不知道' : '?'}
                     testId="gym-tare"
                     ariaLabel={isCn ? '空载重量' : 'Sled weight'}
                   />
-                  <small>{u}</small>
+                  <small>{gl}</small>
                 </span>
               </div>
               <p className="stack-note">{isCn ? '滑台 / 杠自重，仅作参考，不计入记录' : 'Sled / bar weight. Reference only, not logged'}</p>
@@ -704,11 +742,11 @@ function GymHero({
                 ×{fmt(rounder.stepD(v) * scrub.step)}
               </span>
             )}
-            {isBar && <BarbellGlyph perSide={perSide} plateUnit={unit} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} />}
-            {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
+            {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} />}
+            {kind === 'pin' && <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
             {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
             {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
-            {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={unit} belt={belt} />}
+            {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
           </div>
           <div className="load-caption-row">
             {kind === 'plates' && (
@@ -753,7 +791,7 @@ function GymHero({
               <small>
                 {k === 'short'
                   ? `${fmt1(shortW)} ${shortU === 'lbs' ? 'lb' : 'kg'}`
-                  : `${fmt(barWeight({ kind: k }, unit))} ${u}`}
+                  : `${plateLabel(barWeight({ kind: k }, gu), gu, unit)} ${u}`}
               </small>
             </button>
           ))}

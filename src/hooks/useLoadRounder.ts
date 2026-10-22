@@ -1,5 +1,6 @@
 /**
- * 按「今天这个馆 + 当前单位」给一个动作取整 —— docs/design-plates.md §3「馆档案」。
+ * 按「今天这个馆的片子」给一个动作取整 —— docs/design-plates.md §3「馆档案」。
+ * 格子按馆的片子单位算，进出按显示单位换算（2026-10-22，审查 A9）。
  *
  * 把馆档案（AppPrefs.gyms）、这个馆这个动作单独设的一档（gymOverrides）、这个动作用的杠（barOf）、
  * 画法（useLoadInfoOf）、带符号负荷、有没有重量这一项，收成一个按动作取用的取整器。
@@ -32,7 +33,10 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 
 export interface ExRounder {
   info: LoadInfo;
+  /** 这个馆的片子单位（ctx 里的数都按它）；没标馆 / 没设过档案＝显示单位 */
   unit: PlateUnit;
+  /** 显示单位：…D 那几个函数的进出都按它 */
+  display: PlateUnit;
   ctx: LoadCtx;
   signed: boolean;
   /** 带符号的 kg ⇄ 显示值 */
@@ -75,12 +79,15 @@ export function useLoadRounder(): RounderFor {
   return useCallback(
     (ex, gym, unitOverride, gymsOverride) => {
       if (!getActiveMetrics(resolveName(ex.name)).includes('weight')) return null;
-      const u: PlateUnit = (unitOverride ?? unit) === 'lbs' ? 'lbs' : 'kg';
+      const du: PlateUnit = (unitOverride ?? unit) === 'lbs' ? 'lbs' : 'kg';
       const signed = usesSignedLoad(ex, signedLoadOf(ex.name));
       // 带上馆：这台器械在这个馆是插销还是挂片（gymKinds）
       const info = infoOf(ex, signed, gym);
       if (info.kind === 'plain') return null;
-      const prof = profileIn(gym ? (gymsOverride ?? gyms)[gym] : undefined, u);
+      // 格子按这个馆的片子单位算（显示 lb 的 kg 馆，± / 取整照样落在这个馆挂得出的重量上，审查 A9）
+      const profile = gym ? (gymsOverride ?? gyms)[gym] : undefined;
+      const u: PlateUnit = profile?.plateUnit ?? du;
+      const prof = profileIn(profile, u);
       const okey = gymOverrideKey(gym, info);
       const ov = okey ? overrides[okey] : undefined;
       const stackInc = ov ? incIn(ov, u) : info.stack === 'cable' ? prof.cable : prof.machine;
@@ -99,48 +106,71 @@ export function useLoadRounder(): RounderFor {
                 ? ov ? incIn(ov, u) : prof.fixedBar
                 : stackInc,
         start: info.kind === 'pin' ? stackStart : 0,
+        ...(info.kind === 'loaded' && okey && overrides[oneSideKey(okey)] ? { oneSide: true } : {}),
       };
-      return makeRounder(info, u, ctx, signed);
+      return makeRounder(info, u, ctx, signed, du);
     },
     [unit, gyms, overrides, barOf, signedLoadOf, getActiveMetrics, resolveName, infoOf],
   );
 }
 
-/** 按画法 / 单位 / 这套片和一档造一个取整器（换一档时 withInc 也用它） */
-export function makeRounder(info: LoadInfo, u: PlateUnit, ctx: LoadCtx, signed: boolean): ExRounder {
-  const toD = (kg: number) => r2(u === 'lbs' ? kg * K : kg);
-  const fromD = (d: number) => (u === 'lbs' ? d / K : d);
+/** 单边挂片的开关存在这一台的 gymOverrides 里，键是这一台的键 + '|one'（值 { v: 1 }，删键＝两边挂） */
+export const oneSideKey = (machineKey: string) => `${machineKey}|one`;
+
+/**
+ * 按画法 / 片子单位 / 这套片和一档造一个取整器（换一档时 withInc 也用它）。
+ * u：馆的片子单位（ctx 按它）；du：显示单位。两者不同时，…D 进来先换成片子单位算，出去再换回显示单位。
+ */
+export function makeRounder(info: LoadInfo, u: PlateUnit, ctx: LoadCtx, signed: boolean, du: PlateUnit = u): ExRounder {
+  const toD = (kg: number) => r2(du === 'lbs' ? kg * K : kg);
+  const fromD = (d: number) => (du === 'lbs' ? d / K : d);
+  const toG = (kg: number) => (u === 'lbs' ? kg * K : kg);
+  const fromG = (g: number) => (u === 'lbs' ? g / K : g);
+  const d2g = (d: number) => (du === u ? d : toG(fromD(d)));
+  const g2d = (g: number) => (du === u ? g : toD(fromG(g)));
   const k = info.kind;
   return {
     info,
     unit: u,
+    display: du,
     ctx,
     signed,
     toD,
     fromD,
-    snapD: d => snap(k, d, ctx),
-    loadableD: d => isLoadable(k, d, ctx),
-    stepD: d => stepOf(k, d, ctx) ?? 0,
-    stepToD: (d, dir, mult = 1) => stepTo(k, d, dir, mult, ctx),
-    bracketD: d => bracket(k, d, ctx),
+    snapD: d => g2d(snap(k, d2g(d), ctx)),
+    loadableD: d => isLoadable(k, d2g(d), ctx),
+    stepD: d => {
+      const st = stepOf(k, d2g(d), ctx) ?? 0;
+      return du === u ? st : r2(du === 'lbs' ? st * K : st / K);
+    },
+    stepToD: (d, dir, mult = 1) => g2d(stepTo(k, d2g(d), dir, mult, ctx)),
+    bracketD: d => {
+      const b = bracket(k, d2g(d), ctx);
+      return { lo: g2d(b.lo), hi: g2d(b.hi) };
+    },
     // 0 不取整：空着的组（没填数）不能被吸成一根空杠 20 kg / 一档 5 kg
-    snapKg: kg => (Math.abs(kg) < 1e-9 ? 0 : fromD(snap(k, toD(kg), ctx))),
+    snapKg: kg => (Math.abs(kg) < 1e-9 ? 0 : fromG(snap(k, toG(kg), ctx))),
   };
 }
 
 /** 同一个取整器换形式（⋯ 里改「这台是插销 / 挂片」那一刻，档案还没刷新）：片子和一档 ctx 里都有 */
 export function withKind(r: ExRounder, kind: LoadInfo['kind']): ExRounder {
-  return makeRounder({ ...r.info, kind }, r.unit, r.ctx, r.signed);
+  return makeRounder({ ...r.info, kind }, r.unit, r.ctx, r.signed, r.display);
 }
 
 /** 同一个取整器换一档（⋯ 里改「这台器械一档多重」那一刻，档案还没刷新）；起始照旧 */
 export function withInc(r: ExRounder, inc: number): ExRounder {
-  return makeRounder(r.info, r.unit, { ...r.ctx, inc }, r.signed);
+  return makeRounder(r.info, r.unit, { ...r.ctx, inc }, r.signed, r.display);
 }
 
 /** 同一个取整器换一档和起始（大图上改「最轻一格 · 每格」那一刻） */
 export function withStack(r: ExRounder, inc: number, start: number): ExRounder {
-  return makeRounder(r.info, r.unit, { ...r.ctx, inc, start }, r.signed);
+  return makeRounder(r.info, r.unit, { ...r.ctx, inc, start }, r.signed, r.display);
+}
+
+/** 同一个取整器开 / 关单边挂片（大图上拨「单边」那一刻，档案还没刷新） */
+export function withOneSide(r: ExRounder, oneSide: boolean): ExRounder {
+  return makeRounder(r.info, r.unit, { ...r.ctx, oneSide }, r.signed, r.display);
 }
 
 /* ── 组级工具（纯函数，给工作台 / 底稿 / 切单位用） ── */
@@ -218,18 +248,19 @@ export function roundPrefill(sets: SetLog[], ex: Exercise, r: ExRounder | null):
 /**
  * 切单位 / 换馆（用户手动的）：没做完的组都换到新单位那套片子上取整 ——
  * 没动过的底稿（draftAuto）从上一次的原值重算（135 lb → 60 kg → 再切回还是 135，不会越换越漂），
- * 其余（改过的、平移过的）从当前值换算。做完的组不动（2026-10-18 用户定）。
+ * 被带着平移过的从当前值换算；手打过的照原样（2026-10-22）。做完的组不动（2026-10-18 用户定）。
  */
 export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null): SetLog[] {
   if (!r || !sets) return sets;
   return sets.map(s => {
     if (!s.ghost) return s;
-    // 改过这一格（打字 / ± / 拖动 / 点了能挂的两档）就不再是纯换算来的：从当前值换，不能拿上一次的原值盖掉
+    // 没动过的底稿从上一次的原值重算，被带着平移过的从当前值换
     const base = s.draftAuto && s.prefillRef && !s.touched?.weight ? s.prefillRef.kg : signedKg(s, ex);
-    const next: SetLog = { ...writeKg(s, r.snapKg(base), r.signed), plateUnit: r.unit };
+    // 手打过这一格的照原样记、不重新取整（口径同 snapUntouched，审查 A10）
+    const next: SetLog = s.touched?.weight ? { ...s } : { ...writeKg(s, r.snapKg(base), r.signed), plateUnit: r.unit };
     if (s.subSets?.length) {
       const orig = s.subSets.map(sub => (sub.draftAuto && sub.prefillRef && !sub.touched?.weight ? sub.prefillRef.kg : signedKg(sub, ex, s)));
-      const subs = s.subSets.map((sub, i) => ({ ...writeKg(sub, r.snapKg(orig[i]), r.signed), plateUnit: r.unit }));
+      const subs = s.subSets.map((sub, i) => (sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(orig[i]), r.signed), plateUnit: r.unit }));
       next.subSets = keepSubOrder(subs, orig, base, signedKg(next, ex), ex, next, r);
     }
     return next;
