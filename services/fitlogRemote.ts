@@ -291,12 +291,13 @@ function goalUpdatedMs(g: Goal): number {
   return new Date(g.updatedAt || g.createdAt || 0).getTime();
 }
 
+/** 改过的记录带 updatedAt（2026-10-22 起，审查 A26）：改了数的那份赢，不再按记录日期比（改一下永远和原来一样新） */
 function weightUpdatedMs(w: WeightEntry): number {
-  return new Date(w.date).getTime();
+  return new Date(w.updatedAt || w.date).getTime();
 }
 
 function metricUpdatedMs(m: Measurement): number {
-  return new Date((m.createdAt || m.date) ?? m.date).getTime();
+  return new Date(m.updatedAt || m.createdAt || m.date).getTime();
 }
 
 function prUpdatedMs(p: PRRecord): number {

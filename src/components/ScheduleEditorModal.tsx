@@ -63,10 +63,12 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
 
   const [title, setTitle] = useState<string>(editingSchedule?.title ?? '');
   const [date, setDate] = useState<string>(editingSchedule?.date ?? defaultDate);
-  // 编辑中的目标重量是当前单位下的数（plan-target-weight-unit：库里存 kg，进来换算、保存时换回去）
+  // 编辑中的目标重量是当前单位下的数（plan-target-weight-unit：库里存 kg，进来换算、保存时换回去）。
+  // 换算到一位小数（60 kg 显示 132.3 lb，不是 132.28）；没改过的保存时原样写回 kg，来回存不会越存越漂（审查 C）
+  const shownWeight = (kg: number) => Math.round(Number(formatWeight(kg, unit)) * 10) / 10;
   const [exercises, setExercises] = useState<ScheduledExercise[]>(() =>
     (editingSchedule?.exercises ?? []).map(e =>
-      e.targetWeight != null ? { ...e, targetWeight: Number(formatWeight(e.targetWeight, unit)) } : e,
+      e.targetWeight != null ? { ...e, targetWeight: shownWeight(e.targetWeight) } : e,
     ),
   );
   const [notes, setNotes] = useState<string>(editingSchedule?.notes ?? '');
@@ -191,11 +193,16 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
     setSaving(true);
     try {
       const now = new Date().toISOString();
+      const origKg = new Map<string, number | undefined>((editingSchedule?.exercises ?? []).map(e => [e.id, e.targetWeight]));
+      const toKg = (id: string, shown: number) => {
+        const o = origKg.get(id);
+        return o != null && shownWeight(o) === shown ? o : parseWeight(shown, unit);
+      };
       const cleaned = exercises
         .map(e => ({
           ...e,
           name: e.name.trim(),
-          ...(e.targetWeight != null ? { targetWeight: parseWeight(e.targetWeight, unit) } : {}),
+          ...(e.targetWeight != null ? { targetWeight: toKg(e.id, e.targetWeight) } : {}),
         }))
         .filter(e => e.name.length > 0);
       const payload: ScheduledWorkout = {
@@ -207,7 +214,9 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
         bodyParts: inferredBodyParts,
         exercises: cleaned,
         notes: notes.trim() || undefined,
-        status: editingSchedule?.status ?? 'planned',
+        // 跳过的计划改了日期＝改天再练（审查 A21）：回到「计划中」
+        status:
+          editingSchedule?.status === 'skipped' && date !== editingSchedule.date ? 'planned' : (editingSchedule?.status ?? 'planned'),
         linkedWorkoutId: editingSchedule?.linkedWorkoutId,
         createdAt: editingSchedule?.createdAt ?? now,
         updatedAt: now,

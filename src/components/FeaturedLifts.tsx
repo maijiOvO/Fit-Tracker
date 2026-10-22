@@ -303,10 +303,10 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
   const isCn = lang === Language.CN;
   const [draft, setDraft] = useState<string[]>(ids);
   const [lastOpen, setLastOpen] = useState(false);
-  // 每次打开都从当前值起草
+  // 每次打开都从当前值起草。只留还在的项目（审查 A19）：删掉 / 没练过的动作 id 占着名额，界面上看不见、又勾不掉，「满了」加不进新的
   if (open && !lastOpen) {
     setLastOpen(true);
-    setDraft(ids);
+    setDraft(ids.filter(id => lifts.some(l => l.stableId === id)));
   } else if (!open && lastOpen) {
     setLastOpen(false);
   }

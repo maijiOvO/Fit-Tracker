@@ -324,6 +324,8 @@ export interface Measurement {
   unit: string;
   date: string;
   createdAt?: string;
+  /** 最后一次改动（同步合并按它比；旧记录没有，退回 createdAt / date） */
+  updatedAt?: string;
 }
 
 export interface WeightEntry {
@@ -333,6 +335,8 @@ export interface WeightEntry {
   date: string;
   unit: 'kg' | 'lbs';
   createdAt?: string;
+  /** 最后一次改动（同步合并按它比；旧记录没有，退回 date） */
+  updatedAt?: string;
 }
 
 export type GoalType = 'weight' | 'strength' | 'frequency' | 'bodyMetrics' | 'custom';

@@ -21,7 +21,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
-import { weightBaseline } from '../utils/weightSummary';
+import { weightBaseline, weightDelta } from '../utils/weightSummary';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -180,11 +180,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   const weightSummary = useMemo(() => {
     const s = weightBaseline(weightEntries);
     if (!s) return null;
-    const delta = s.latest.weight - s.baseline.weight;
-    const sign = delta > 0 ? '+' : '';
+    const d = weightDelta(weightEntries, unit);
     return {
       value: formatWeight(s.latest.weight, unit),
-      delta: s.count >= 2 ? `${sign}${formatWeight(delta, unit)}` : null,
+      delta: d?.text ?? null,
+      days: d?.days ?? 30,
     };
   }, [weightEntries, unit]);
 
@@ -268,7 +268,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               >
                 {weightSummary.delta} {unit}
                 <span className="text-tertiary font-normal ml-0.5">
-                  {lang === Language.CN ? '· 30天' : '· 30d'}
+                  {lang === Language.CN ? `· ${weightSummary.days}天` : `· ${weightSummary.days}d`}
                 </span>
               </span>
             )}

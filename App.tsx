@@ -369,7 +369,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   const {
     showMeasureModal,
-    setShowMeasureModal,
     editingMeasurementId,
     measureForm,
     setMeasureForm,
@@ -380,6 +379,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     handleDeleteMeasurement,
     triggerEditMeasurement,
     openAddMeasurementEntry,
+    closeMeasureModal,
   } = useMeasurementLog();
 
   const { fileInputRef, handleAvatarUpload } = useAvatarUpload();
@@ -930,7 +930,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         editingMeasurementId={editingMeasurementId}
         measureForm={measureForm}
         setMeasureForm={setMeasureForm}
-        onClose={() => setShowMeasureModal(false)}
+        onClose={closeMeasureModal}
         onSubmit={handleSaveMeasurement}
       />
 
@@ -1262,7 +1262,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               onAvatarUpload={handleAvatarUpload}
               onToggleLanguage={handleToggleLanguage}
               onShowWeightInput={() => setShowWeightInput(true)}
-              onShowMeasureModal={() => setShowMeasureModal(true)}
+              onShowMeasureModal={() => openAddMeasurementEntry()}
               onToggleMetric={name => setExpandedMetric(name)}
               onEditMeasurement={m => triggerEditMeasurement(m)}
               onDeleteMeasurement={(e, id) => handleDeleteMeasurement(e, id)}

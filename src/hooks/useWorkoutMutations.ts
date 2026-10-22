@@ -309,6 +309,30 @@ export function useWorkoutMutations({
   const pendingScheduleCompletion = useRef<{ scheduleId: string; workoutId: string } | null>(null);
 
   /**
+   * 删掉的这场训练完成过计划：计划退回「计划中」（审查 A21：原来计划还标着完成、指着一场不存在的训练）。
+   * relinkTo：这场是并进了别的训练（并入上一场），计划改指那一场、照旧算完成。返回撤销用的还原。
+   */
+  const unlinkPlanOf = useCallback(
+    (workoutId: string, relinkTo?: string): (() => void) | null => {
+      const hits = scheduleCtx.schedules.filter(s => s.linkedWorkoutId === workoutId);
+      if (!hits.length) return null;
+      const stamp = new Date().toISOString();
+      for (const s of hits) {
+        void scheduleCtx.updateSchedule(
+          relinkTo
+            ? { ...s, linkedWorkoutId: relinkTo, updatedAt: stamp }
+            : { ...s, status: 'planned', linkedWorkoutId: undefined, updatedAt: stamp },
+        );
+      }
+      return () => {
+        const again = new Date().toISOString();
+        for (const s of hits) void scheduleCtx.updateSchedule({ ...s, updatedAt: again });
+      };
+    },
+    [scheduleCtx],
+  );
+
+  /**
    * 编辑旧训练：进来时那场的原样（存的是比较键）。工作台上改的是一份深拷贝的草稿，
    * 库里只在「保存修改」时写（edit-history-cannot-discard）；返回时「放弃修改」就是什么都不写。
    * 深拷贝是因为工作台有些改动仍是原地写对象（set-update-mutates-shared-objects），浅拷贝会连 workouts 里的原场次一起改掉。
@@ -592,9 +616,11 @@ export function useWorkoutMutations({
         // 推送没落地时，下次启动的拉取会把这场原样合并回来。撤销时摘掉（下面 removeTombstone）。
         // deleteWorkout 里的推送是防抖的，这一行同步执行，赶得上同一次推送。
         recordTombstone('workouts', workoutId);
+        const restorePlan = unlinkPlanOf(workoutId);
         toastUndo(isCn ? '已删除训练' : 'Workout deleted', async () => {
           await db.save('workouts', snapshot);
           removeTombstone('workouts', workoutId);
+          restorePlan?.();
           await refreshFromDb();
           scheduleDebouncedFitlogPush();
         });
@@ -603,7 +629,7 @@ export function useWorkoutMutations({
         toast(isCn ? '删除失败' : 'Delete failed', 'error');
       }
     },
-    [confirm, deleteWorkout, isCn, refreshFromDb, toast, toastUndo, workouts],
+    [confirm, deleteWorkout, isCn, refreshFromDb, toast, toastUndo, unlinkPlanOf, workouts],
   );
 
   /**
@@ -622,8 +648,9 @@ export function useWorkoutMutations({
     async (workoutId: string) => {
       const w = workouts.find(x => x.id === workoutId);
       if (!w) return;
+      // 只并进真正练过的场次（审查 A20）：时间线上藏起来的 0 组空壳不算「上一场」
       const prev = workouts
-        .filter(x => x.id !== workoutId && new Date(x.date).getTime() < new Date(w.date).getTime())
+        .filter(x => x.id !== workoutId && hasDoneSets(x) && new Date(x.date).getTime() < new Date(w.date).getTime())
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
       if (!prev) {
         toast(isCn ? '前面没有训练可并入' : 'No earlier workout to merge into', 'info');
@@ -654,6 +681,7 @@ export function useWorkoutMutations({
         await db.save('workouts', merged);
         await db.delete('workouts', workoutId);
         recordTombstone('workouts', workoutId);
+        const restorePlan = unlinkPlanOf(workoutId, prev.id);
         await refreshFromDb();
         scheduleDebouncedFitlogPush();
 
@@ -664,6 +692,7 @@ export function useWorkoutMutations({
             await db.save('workouts', prevSnapshot);
             await db.save('workouts', selfSnapshot);
             removeTombstone('workouts', workoutId);
+            restorePlan?.();
             await refreshFromDb();
             scheduleDebouncedFitlogPush();
           },
@@ -673,7 +702,7 @@ export function useWorkoutMutations({
         toast(isCn ? '并入失败' : 'Merge failed', 'error');
       }
     },
-    [isCn, refreshFromDb, toast, toastUndo, workouts],
+    [isCn, refreshFromDb, toast, toastUndo, unlinkPlanOf, workouts],
   );
 
   /**
@@ -853,9 +882,11 @@ export function useWorkoutMutations({
         const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
         const deletedWholeWorkout = updatedExercises.length === 0;
 
+        let restorePlan: (() => void) | null = null;
         if (deletedWholeWorkout) {
           await db.delete('workouts', workoutId);
           recordTombstone('workouts', workoutId);
+          restorePlan = unlinkPlanOf(workoutId);
         } else {
           await db.save('workouts', {
             ...workout,
@@ -871,6 +902,7 @@ export function useWorkoutMutations({
           async () => {
             await db.save('workouts', snapshot);
             if (deletedWholeWorkout) removeTombstone('workouts', workoutId);
+            restorePlan?.();
             await refreshFromDb();
             scheduleDebouncedFitlogPush();
           },
@@ -880,7 +912,7 @@ export function useWorkoutMutations({
         toast(isCn ? '删除失败，请重试' : 'Delete failed, please try again', 'error');
       }
     },
-    [confirm, isCn, refreshFromDb, toast, toastUndo],
+    [confirm, isCn, refreshFromDb, toast, toastUndo, unlinkPlanOf],
   );
 
   const handleStartScheduledSession = useCallback(

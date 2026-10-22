@@ -2,7 +2,7 @@
  * 训练计划 -> 日程：月历 + 当日详情
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Play, Trash2, Edit2, CalendarClock, Ban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Play, Trash2, Edit2, CalendarClock, Ban, RotateCcw } from 'lucide-react';
 import { Language, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
 import { useScheduleContext } from '../contexts';
@@ -425,7 +425,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                         <span className="font-mono tabular-nums text-secondary text-xs">
                           {ex.targetSets ? `${ex.targetSets}×` : ''}
                           {ex.targetReps ?? ''}
-                          {ex.targetWeight ? ` · ${formatWeight(ex.targetWeight, unit)}${unit}` : ''}
+                          {ex.targetWeight ? ` · ${Math.round(Number(formatWeight(ex.targetWeight, unit)) * 10) / 10}${unit === 'lbs' ? 'lb' : 'kg'}` : ''}
                         </span>
                       </li>
                     ))}
@@ -450,6 +450,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                     >
                       <Ban size={14} strokeWidth={1.75} />
                       {translations.scheduleMarkSkipped[lang]}
+                    </button>
+                  </div>
+                )}
+                {/* 跳过的计划能改回来（审查 A21：原来标了跳过就只剩删除） */}
+                {s.status === 'skipped' && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => void updateSchedule({ ...s, status: 'planned', updatedAt: new Date().toISOString() })}
+                      data-testid={`schedule-unskip-${s.id}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-sm hover:text-primary hover:bg-card-hover transition"
+                    >
+                      <RotateCcw size={14} strokeWidth={1.75} />
+                      {lang === Language.CN ? '改回计划中' : 'Back to planned'}
                     </button>
                   </div>
                 )}
