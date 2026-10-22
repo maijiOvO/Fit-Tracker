@@ -20,6 +20,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import {
   RESISTANCES,
   RESISTANCE_NAMES,
+  resistanceChoices,
   defaultResistance,
   effectiveResistance,
   resistanceSelectable,
@@ -268,7 +269,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
           locked: resLocked,
           body: (
             <div className="grid grid-cols-3 gap-1.5">
-              {RESISTANCES.map(r =>
+              {resistanceChoices(eqForRes).map(r =>
                 option(r, resName(r), resNow === r, () =>
                   // 选回器材默认的就不写（以后器材默认改了跟着走）
                   set({ resistance: r === defaultResistance(eqForRes, customTags) ? undefined : r }),

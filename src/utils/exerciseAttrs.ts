@@ -3,8 +3,9 @@
  *
  * - 器材（equipment）：拿什么练。内置一套 + 自建（customTags 里 category='equipment'）。'' = 无器材。
  * - 阻力（resistance）：重量从哪来，决定「一格多少、画什么」（馆档案的颗粒度）。固定枚举，不能自建。
- *   大多数器材自带阻力（杠铃 → 杠铃片、龙门架 → 配重片…），锁定不让改；
- *   只有「固定器械」、自建器材、无器材要选（器械分配重片 / 挂片两种）。
+ *   大多数器材自带阻力（哑铃 → 哑铃、龙门架 → 配重片…），锁定不让改；
+ *   「固定器械」、自建器材、无器材要选（器械分配重片 / 挂片两种）；
+ *   杠铃在「杠铃片」和「固定杠铃」（焊死的成品杠，2026-10-21 用户定）之间选。
  *   动作上 resistance 不写 = 跟器材的默认。
  *
  * 旧数据只有 tags: string[]（多选、混着场地标签）。读的时候按 legacyAttrs 换算，画法与换算前一致；
@@ -12,13 +13,14 @@
  */
 import type { ExerciseDefinition, ExerciseVariant } from '../../types';
 
-export type Resistance = 'plates' | 'dumbbell' | 'kettlebell' | 'stack' | 'bodyweight' | 'band' | 'none';
+export type Resistance = 'plates' | 'fixedBar' | 'dumbbell' | 'kettlebell' | 'stack' | 'bodyweight' | 'band' | 'none';
 
 /** 阻力类型，按选项顺序 */
-export const RESISTANCES: Resistance[] = ['plates', 'stack', 'dumbbell', 'kettlebell', 'bodyweight', 'band', 'none'];
+export const RESISTANCES: Resistance[] = ['plates', 'fixedBar', 'stack', 'dumbbell', 'kettlebell', 'bodyweight', 'band', 'none'];
 
 export const RESISTANCE_NAMES: Record<Resistance, { cn: string; en: string }> = {
   plates: { cn: '杠铃片', en: 'Plates' },
+  fixedBar: { cn: '固定杠铃', en: 'Fixed barbell' },
   stack: { cn: '配重片', en: 'Weight stack' },
   dumbbell: { cn: '哑铃', en: 'Dumbbell' },
   kettlebell: { cn: '壶铃', en: 'Kettlebell' },
@@ -62,10 +64,18 @@ function builtinId(id: string): string | undefined {
   return BUILTIN_EQUIPMENT.find(b => lc(b) === l);
 }
 
-/** 阻力能不能在动作上改：固定器械、自建器材、无器材可以；其余器材锁定 */
+/** 阻力能不能在动作上改：固定器械、杠铃、自建器材、无器材可以；其余器材锁定 */
 export function resistanceSelectable(equipment: string): boolean {
   const b = builtinId(equipment);
-  return !b || b === EQ_MACHINE;
+  return !b || b === EQ_MACHINE || b === EQ_BARBELL;
+}
+
+/** 杠铃只在「挂片 / 固定杠铃」之间选：焊死的成品杠也是杠铃，没有别的阻力 */
+const BARBELL_CHOICES: Resistance[] = ['plates', 'fixedBar'];
+
+/** 这件器材在动作上能选的阻力（按选项顺序） */
+export function resistanceChoices(equipment: string): Resistance[] {
+  return builtinId(equipment) === EQ_BARBELL ? BARBELL_CHOICES : RESISTANCES;
 }
 
 /** 器材的默认阻力。自建器材看它自己设的，没设 / 已删 → 不计重 */
@@ -84,6 +94,7 @@ export function effectiveResistance(
   defs: EquipmentDefs,
 ): Resistance {
   if (!resistanceSelectable(equipment)) return defaultResistance(equipment, defs);
+  if (resistance && !resistanceChoices(equipment).includes(resistance)) return defaultResistance(equipment, defs);
   return resistance ?? defaultResistance(equipment, defs);
 }
 

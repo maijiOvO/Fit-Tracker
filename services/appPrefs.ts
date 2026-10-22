@@ -111,6 +111,7 @@ function cleanGyms(raw: unknown): Record<string, GymProfile> {
       dumbbell: g.dumbbell,
       // 壶铃一档是后加的：旧档案没有，坏了也只丢这一项
       ...(isInc(g.kettlebell) ? { kettlebell: g.kettlebell } : {}),
+      ...(isInc(g.fixedBar) ? { fixedBar: g.fixedBar } : {}),
     };
   }
   return out;

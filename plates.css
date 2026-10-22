@@ -420,6 +420,22 @@
   white-space: nowrap;
 }
 
+/* 固定杠铃：一根成品杠，两头焊死，不上色（同哑铃） */
+.fb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+}
+.fb-head {
+  width: 14px;
+  height: 50px;
+  border-radius: 3px;
+  background: var(--text-secondary);
+  transition: transform var(--dur-base) var(--ease-paper);
+}
+.fb-shaft { position: relative; width: min(200px, 56vw); height: 6px; background: var(--bar-rod); }
+
 /* 带符号负荷：数轴 + 弹力带 / 腰片（腰片也按真实片子直径，--mm 固定一个小比例） */
 .signed-glyph { display: flex; flex-direction: column; gap: 8px; padding: 20px 8px 0; }
 .signed-num {

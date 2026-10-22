@@ -295,11 +295,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   /**
    * ⋯「在 X，这台器械一档多重」（2026-10-18 用户定：馆默认一档，个别器械在这里单独调）。
-   * 只给配重片 / 哑铃 / 带正负的辅助：杠铃和挂片器械的一档就是片子，在馆档案里管。
+   * 只给配重片 / 哑铃 / 壶铃 / 固定杠铃 / 带正负的辅助：杠铃和挂片器械的一档就是片子，在馆档案里管。
    * 存 AppPrefs.gymOverrides（键：馆|动作|做法）；没标馆的训练不给（改了也找不到下一次）。
    * 改完把没做完、没改过的组吸到新的一档上。
    */
-  const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'signed')
+  const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'fixed' || loadKind === 'signed')
     ? gymOverrideKey(gym, rounder.info)
     : null;
   const incOverridden = !!(incKey && appPrefs.gymOverrides[incKey]);
@@ -316,7 +316,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           ? prof.dumbbell
           : loadKind === 'bell'
             ? prof.kettlebell
-            : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
+            : loadKind === 'fixed'
+              ? prof.fixedBar
+              : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
     } else {
       // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉（当前单位下的值）；
       // 没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变

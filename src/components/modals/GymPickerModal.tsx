@@ -14,12 +14,14 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
-import { DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
 
 import { DEFAULT_PLATES, isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
-type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell';
+type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell' | 'fixedBar';
+/** 后加的档（旧档案没有这一项）按各自的默认 */
+const LATE_INC: Partial<Record<IncKey, Record<PlateUnit, IncSpec>>> = { kettlebell: DEFAULT_KETTLEBELL_INC, fixedBar: DEFAULT_FIXED_BAR_INC };
 
 interface GymPickerModalProps {
   open: boolean;
@@ -255,8 +257,8 @@ function GymProfileForm({
     setCw('');
   };
   const customPlates = p.plates.filter(w => !isStandardPlate(p.plateUnit, w));
-  // 壶铃一档是后加的，旧档案没有这一项 → 按默认
-  const incOf = (key: IncKey): IncSpec => p[key] ?? DEFAULT_KETTLEBELL_INC[p.plateUnit];
+  // 壶铃 / 固定杠铃一档是后加的，旧档案没有这一项 → 按默认
+  const incOf = (key: IncKey): IncSpec => p[key] ?? LATE_INC[key]![p.plateUnit];
   const stepInc = (key: IncKey, d: 1 | -1) => {
     const c = incOf(key);
     const list = INC_CHOICES[c.u];
@@ -267,7 +269,7 @@ function GymProfileForm({
   const setIncUnit = (key: IncKey, u: PlateUnit) => {
     const c = incOf(key);
     if (c.u === u) return;
-    const def = defaultProfile(u)[key] ?? DEFAULT_KETTLEBELL_INC[u];
+    const def = defaultProfile(u)[key] ?? LATE_INC[key]![u];
     setP({ ...p, [key]: { u, v: def.v } as IncSpec });
   };
 
@@ -416,6 +418,7 @@ function GymProfileForm({
       {inc('machine', isCn ? '固定器械一档（个别动作在 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
+      {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}
       {err && <p className="text-label text-warning">{err}</p>}
       <button type="button" className="ui-btn-primary w-full min-h-[48px] mt-2" onClick={save} data-testid="gym-profile-save">
         {name ? (isCn ? '存好' : 'Save') : isCn ? '存好，用这个馆' : 'Save and use it'}

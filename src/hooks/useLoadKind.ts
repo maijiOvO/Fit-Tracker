@@ -19,9 +19,10 @@ import { usesSignedLoad } from '../utils/load';
 /**
  * plates：杠铃（杆重 + 两边对称挂片）；loaded：挂片式器械（史密斯 / 倒蹬 / 哈克 / T 杠，按杠铃那样算但只算片子，
  * 2026-10-18 用户定）；pin：配重片插销（器械 / 龙门架）；pair：哑铃；bell：壶铃（单只、按馆的壶铃一档）；
+ * fixed：固定杠铃（焊死的成品杠，一根一个总重、按馆的固定杠铃一档，2026-10-21 用户定）；
  * signed：带符号负荷（辅助负 / 负重正）；plain：纯数字（弹力带、不计重）。
  */
-export type LoadKind = 'plates' | 'loaded' | 'pin' | 'pair' | 'bell' | 'signed' | 'plain';
+export type LoadKind = 'plates' | 'loaded' | 'pin' | 'pair' | 'bell' | 'fixed' | 'signed' | 'plain';
 
 export interface LoadInfo {
   kind: LoadKind;
@@ -57,6 +58,8 @@ export function loadKindOf(attrs: ExerciseAttrs, signed: boolean): LoadKind {
   switch (attrs.resistance) {
     case 'plates':
       return attrs.equipment === EQ_BARBELL ? 'plates' : 'loaded';
+    case 'fixedBar':
+      return 'fixed';
     case 'stack':
       return 'pin';
     case 'dumbbell':
@@ -103,7 +106,7 @@ export function useLoadKindOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, sign
 /**
  * 纪录只在同一个馆里比的器材（2026-10-18 用户定）：配重片器械 / 龙门架、挂片式器械 ——
  * 每个馆的器械杠杆、配重片标称都不一样，A 馆的 60 和 B 馆的 60 不是同一个重量。
- * 杠铃、哑铃、带正负的负荷是真重量，跨馆照常比。
+ * 杠铃、固定杠铃、哑铃、带正负的负荷是真重量，跨馆照常比（固定杠铃同哑铃：标的就是这根的总重）。
  */
 export function gymScopedKind(kind: LoadKind): boolean {
   return kind === 'pin' || kind === 'loaded';

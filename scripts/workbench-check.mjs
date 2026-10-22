@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -410,6 +410,31 @@ t('配重片：最轻一格钉住后改每格，起点不跟着变', () => {
   // 每格从 5 改成 2.5、最轻一格按显示的 5 存下（ExerciseCard.setStack 存 s=5）：5、7.5、10…
   assert.deepEqual(L.bracket('pin', 6, { unit: 'kg', plates: [], bar: 0, inc: 2.5, start: 5 }), { lo: 5, hi: 7.5 });
   assert.deepEqual(L.bracket('pin', 3, { unit: 'kg', plates: [], bar: 0, inc: 2.5, start: 5 }), { lo: 5, hi: 5 });
+});
+
+t('固定杠铃：杠铃上能选，一根一个总重、按馆的一档走，没有杆重和配片', () => {
+  const { A, L } = W;
+  assert.deepEqual(A.resistanceChoices('tagBarbell'), ['plates', 'fixedBar']);
+  assert.equal(A.effectiveResistance('tagBarbell', undefined, []), 'plates');
+  assert.equal(A.effectiveResistance('tagBarbell', 'fixedBar', []), 'fixedBar');
+  assert.equal(A.effectiveResistance('tagBarbell', 'stack', []), 'plates'); // 杠铃选不了配重片
+  assert.equal(A.effectiveResistance('tagDumbbell', 'fixedBar', []), 'dumbbell'); // 哑铃锁定
+  assert.equal(L.profileIn(undefined, 'kg').fixedBar, 2.5);
+  assert.equal(L.profileIn(undefined, 'lbs').fixedBar, 5);
+  assert.equal(L.profileIn({ ...L.defaultProfile('kg'), fixedBar: undefined }, 'kg').fixedBar, 2.5); // 旧档案没有这一项
+  const ctx = { unit: 'kg', plates: [20, 2.5], bar: 20, inc: 2.5 };
+  assert.equal(L.snap('fixed', 31, ctx), 30); // 不算杆重、不按片子凑
+  assert.equal(L.stepTo('fixed', 30, 1, 1, ctx), 32.5);
+  assert.equal(L.stepTo('fixed', 2.5, -1, 1, ctx), 2.5); // 最轻一根就是一档
+  assert.equal(L.stepOf('fixed', 30, ctx), 2.5);
+});
+
+t('默认片：kg 2.5–20、lb 2.5–45，kg 杠铃一下 5 kg', () => {
+  const L = W.L;
+  assert.deepEqual(L.defaultProfile('kg').plates, [20, 15, 10, 5, 2.5]);
+  assert.deepEqual(L.defaultProfile('lbs').plates, [45, 35, 25, 10, 5, 2.5]);
+  const p = L.profileIn(undefined, 'kg');
+  assert.equal(L.stepOf('plates', 60, { unit: 'kg', plates: p.plates, bar: 20, inc: 5 }), 5);
 });
 
 console.log(`== ${n} passed ==`);

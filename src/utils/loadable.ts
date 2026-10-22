@@ -32,6 +32,8 @@ export interface GymProfile {
   dumbbell: IncSpec;
   /** 壶铃一档（2026-10-20 加）：旧档案没有这一项，按默认 */
   kettlebell?: IncSpec;
+  /** 固定杠铃（成品杠）一档（2026-10-21 加）：旧档案没有这一项，按默认 */
+  fixedBar?: IncSpec;
 }
 
 /** 器械 / 哑铃 / 壶铃一档能选的值（档案表单的 − / ＋ 走这张表；换单位时也取它里面最接近的） */
@@ -46,11 +48,17 @@ export const DEFAULT_KETTLEBELL_INC: Record<PlateUnit, IncSpec> = {
   lbs: { v: 5, u: 'lbs' },
 };
 
+/** 固定杠铃常见 10 / 12.5 / 15… kg 一档 2.5；磅的多是 5 lb 一档 */
+export const DEFAULT_FIXED_BAR_INC: Record<PlateUnit, IncSpec> = {
+  kg: { v: 2.5, u: 'kg' },
+  lbs: { v: 5, u: 'lbs' },
+};
+
 /** 没设过档案的馆（或没标馆）：常用的标准片（DEFAULT_PLATES）+ 常见档位 */
 export function defaultProfile(unit: PlateUnit): GymProfile {
   return unit === 'kg'
-    ? { plateUnit: 'kg', plates: [...DEFAULT_PLATES.kg], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' }, kettlebell: DEFAULT_KETTLEBELL_INC.kg }
-    : { plateUnit: 'lbs', plates: [...DEFAULT_PLATES.lbs], cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' }, kettlebell: DEFAULT_KETTLEBELL_INC.lbs };
+    ? { plateUnit: 'kg', plates: [...DEFAULT_PLATES.kg], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' }, kettlebell: DEFAULT_KETTLEBELL_INC.kg, fixedBar: DEFAULT_FIXED_BAR_INC.kg }
+    : { plateUnit: 'lbs', plates: [...DEFAULT_PLATES.lbs], cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' }, kettlebell: DEFAULT_KETTLEBELL_INC.lbs, fixedBar: DEFAULT_FIXED_BAR_INC.lbs };
 }
 
 function convert(v: number, from: PlateUnit, to: PlateUnit): number {
@@ -93,6 +101,7 @@ export function profileIn(
   machine: number;
   dumbbell: number;
   kettlebell: number;
+  fixedBar: number;
   cableStart: number;
   machineStart: number;
 } {
@@ -103,6 +112,7 @@ export function profileIn(
     machine: incIn(p.machine, unit),
     dumbbell: incIn(p.dumbbell, unit),
     kettlebell: incIn(p.kettlebell ?? DEFAULT_KETTLEBELL_INC[p.plateUnit], unit),
+    fixedBar: incIn(p.fixedBar ?? DEFAULT_FIXED_BAR_INC[p.plateUnit], unit),
     cableStart: startIn(p.cable, unit),
     machineStart: startIn(p.machine, unit),
   };
@@ -192,7 +202,7 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
   }
   let lo = Math.floor(v / st + 1e-9) * st;
   let hi = Math.ceil(v / st - 1e-9) * st;
-  if (kind === 'pair' || kind === 'bell') {
+  if (kind === 'pair' || kind === 'bell' || kind === 'fixed') {
     lo = Math.max(st, lo);
     hi = Math.max(st, hi);
   }
@@ -220,7 +230,7 @@ export function snap(kind: LoadKind, v: number, ctx: LoadCtx): number {
 export function stepOf(kind: LoadKind, v: number, ctx: LoadCtx): number | null {
   if (kind === 'plates' || kind === 'loaded') return Math.min(...ctx.plates) * 2;
   if (kind === 'signed') return v < 0 ? ctx.inc : Math.min(...ctx.plates);
-  if (kind === 'pin' || kind === 'pair' || kind === 'bell') return ctx.inc;
+  if (kind === 'pin' || kind === 'pair' || kind === 'bell' || kind === 'fixed') return ctx.inc;
   return null;
 }
 
