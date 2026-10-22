@@ -23,6 +23,8 @@ description: 把 fitlog 装到安卓手机上验证 —— 选路（静态包 / 
 | 拔插过数据线，live 不刷新了 | `npm run android:live -- -TunnelOnly` |
 | APK 没变，只想重装一遍 | `npm run android:reinstall` |
 | 要造假数据 / 不想碰真实记录 | **单机版测试包**，见第 5 节末「独立测试包」（已没有 `android:dev`，见下） |
+| 手机上是正式签名包，想真机试一个分支 | **同上，单机版测试包**，和正式版并存；别卸正式版去装 `npm run android` 的 debug 包 |
+| 改动合进 main 了，装进正式 App | `npm run build:release; npx cap sync android; npm run apk:personal`，再 `adb install -r` 覆盖，不卸载 |
 
 `npm run android` 打的是 **prod 数据环境**的静态包，连 NAS 真实数据。
 
@@ -80,7 +82,9 @@ Android Studio 装在非默认路径 `D:\tools\Android_studio\install`。
 
 **`INSTALL_FAILED_UPDATE_INCOMPATIBLE`**
 签名不一致：手机上那个包不是这台机器的 debug keystore 打的。
-卸载重装是**安全的**：`& $adb uninstall com.myron.fittracker`，然后重跑装机命令。
+**先看手机上是不是正式签名的 personal 包**（2.1.0 起常态如此）：是的话**别卸**，试分支改打单机版测试包（第 1 节选路表）。
+卸载会丢没同步上去的本地改动，试完还得把正式版装回去。2026-10-21 在这里提议卸载，被用户纠正。
+只有手机上是**别台机器打的 debug 包**时，卸载重装才是安全的：`& $adb uninstall com.myron.fittracker`，然后重跑装机命令。
 训练记录在 NAS 上，`src/hooks/useFitlogSync.ts` 启动时自动拉远端，`mergeByIdPreferNewer`
 是并集合并、空本地删不掉远端。只丢三个本地设置：主题偏好、振动开关、动效档位。
 （换一台机器构建会再次撞到这堵墙，同样处理。）
