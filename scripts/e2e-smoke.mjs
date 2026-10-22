@@ -568,9 +568,9 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await window.__fitlog.flush();
     });
   const relaunch = async () => {
-    // networkidle 不能省：启动标记之后还有一段异步在动界面，标记一出来就点「开始训练」会被吞掉（单跑
-    // seeded-gym-weight-per-gym 稳定复现；networkidle 的 500ms 静默期能等过去，根因还没查，见交付记录）
-    await page.reload({ waitUntil: 'networkidle' });
+    // 不用 networkidle：曾经「标记一出来就点『开始训练』被吞」不是启动没落定，是 FAB 吞点击的时间戳
+    // 初值为 0，页面加载后前 400ms 的点击全被当成手势残余（已改 -Infinity，见 TabNavigation）
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
     await settle(page); // 重读本地库之后的那次渲染
     await toDashboard();

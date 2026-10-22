@@ -160,7 +160,7 @@ export function useValueScrub({
    * 这个 true 就会一直挂着，把用户【下一次】正常点击吃掉，
    * 表现为「点重量没反应」，而且极难复现。时间戳会自己过期。
    */
-  const scrubEndedAt = useRef(0);
+  const scrubEndedAt = useRef(-Infinity);
   const SWALLOW_MS = 300;
   /** 拖动期间 value 会连续变化，用 ref 拿最新值，避免闭包读到旧的 */
   const valueRef = useRef(value);
@@ -285,7 +285,7 @@ export function useValueScrub({
       onDragStart: (e: React.DragEvent) => e.preventDefault(),
       onClickCapture: (e: React.MouseEvent) => {
         if (performance.now() - scrubEndedAt.current > SWALLOW_MS) return;
-        scrubEndedAt.current = 0;
+        scrubEndedAt.current = -Infinity;
         e.preventDefault();
         e.stopPropagation();
       },

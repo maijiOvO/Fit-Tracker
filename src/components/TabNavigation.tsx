@@ -94,8 +94,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const downTRef = useRef(0);
   const openTimerRef = useRef<number | null>(null);
   const staggerTimersRef = useRef<number[]>([]);
-  /** 吞掉手势后的原生 click。时间戳而不是布尔（§12.3 粘滞布尔的教训）。 */
-  const suppressClickAtRef = useRef(0);
+  /**
+   * 吞掉手势后的原生 click。时间戳而不是布尔（§12.3 粘滞布尔的教训）。
+   * 「没武装」必须是 -Infinity 不能是 0：performance.now() 从页面加载起算，初值 0 会把加载后
+   * 前 400ms 内的点击全当成手势残余吞掉（e2e 重开后立刻点「＋」稳定中招）。
+   */
+  const suppressClickAtRef = useRef(-Infinity);
 
   const clearStagger = () => {
     for (const t of staggerTimersRef.current) window.clearTimeout(t);
@@ -244,7 +248,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
   const onFabClickCapture = (e: React.MouseEvent) => {
     if (performance.now() - suppressClickAtRef.current < 400) {
-      suppressClickAtRef.current = 0;
+      suppressClickAtRef.current = -Infinity;
       e.preventDefault();
       e.stopPropagation();
     }

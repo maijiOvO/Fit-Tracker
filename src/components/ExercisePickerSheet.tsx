@@ -438,7 +438,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
    * 用时间戳不用布尔：面板一弹出就盖在手指下面，那次 click 往往根本落不到卡上，
    * 布尔立起来就没人清 —— 用完长按之后的下一次正常点选会被吃掉（§12.5 粘滞布尔）。
    */
-  const suppressClickRef = useRef(0);
+  const suppressClickRef = useRef(-Infinity);
   const sheetRef = useRef<HTMLElement | null>(null);
   const dragRef = useRef<{ startY: number; y: number } | null>(null);
 
@@ -841,7 +841,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
   const swallowed = () => {
     if (performance.now() - suppressClickRef.current < 450) {
-      suppressClickRef.current = 0;
+      suppressClickRef.current = -Infinity;
       return true;
     }
     return false;
