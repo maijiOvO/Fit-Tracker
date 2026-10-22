@@ -243,49 +243,60 @@ export const REGION_OF: Record<string, string> = {
 };
 
 /**
- * 复合动作的次要细分（2026-10-21 细分改多选）：同一部位下这个动作也明显练到的地方，接在主细分后面。
- * 只能是同一部位的细分（深蹲练臀可以写，卧推练三头不行——三头在手臂部位下）。
- * 添加动作的细分格里动作只出现在主细分那一列，次要的能搜到（搜「臀」出深蹲）。
+ * 复合动作的次要细分（2026-10-21 细分改多选）：这个动作也明显练到的地方，接在主细分后面。
+ * 可以跨部位（2026-10-21 用户定：硬拉要能同时是下背、臀、腿后侧；卧推带三头和前束）。
+ * 添加动作的细分格里动作只出现在主细分那一列（主细分＝自己部位的，见 REGION_OF），次要的能搜到（搜「臀」出硬拉）。
  */
 export const REGIONS_ALSO: Record<string, string[]> = {
-  // 胸
-  bp_barbell: ['chestLower'],
-  bp_dumbbell: ['chestLower'],
-  bp_smith: ['chestLower'],
-  pushup: ['chestLower'],
-  bp_incline_barbell: ['chestMid'],
-  bp_incline_dumbbell: ['chestMid'],
-  bp_incline_smith: ['chestMid'],
-  bp_decline_barbell: ['chestMid'],
-  bp_decline_dumbbell: ['chestMid'],
-  bp_wide_barbell: ['chestMid'],
-  // 肩：推举都带中束
-  ohp_barbell: ['shSide'],
-  ohp_dumbbell: ['shSide'],
-  ohp_smith: ['shSide'],
-  press_machine_shoulder: ['shSide'],
-  arnold_press: ['shSide'],
-  upright_row: ['shFront'],
-  // 背
-  dl_barbell: ['backTraps', 'backMid'],
-  pu_weighted: ['backMid'],
-  lat_pulldown: ['backMid'],
-  single_arm_db_row: ['backMid'],
-  row_barbell: ['backLats', 'backLower'],
-  row_seated_cable: ['backLats'],
-  tbar_row: ['backLats'],
+  // 胸：推的都带三头、前束
+  bp_barbell: ['chestLower', 'armTri', 'shFront'],
+  bp_dumbbell: ['chestLower', 'armTri', 'shFront'],
+  bp_smith: ['chestLower', 'armTri', 'shFront'],
+  bp_wide_barbell: ['chestMid', 'shFront'],
+  bp_incline_barbell: ['chestMid', 'shFront', 'armTri'],
+  bp_incline_dumbbell: ['chestMid', 'shFront', 'armTri'],
+  bp_incline_smith: ['chestMid', 'shFront', 'armTri'],
+  bp_decline_barbell: ['chestMid', 'armTri'],
+  bp_decline_dumbbell: ['chestMid', 'armTri'],
+  press_machine_chest: ['armTri', 'shFront'],
+  press_squeeze_db: ['armTri'],
+  pushup: ['chestLower', 'armTri', 'shFront', 'coreStab'],
+  pushup_wide: ['chestMid', 'shFront'],
+  chest_dip: ['armTri', 'shFront'],
+  // 肩：推举带中束、三头
+  ohp_barbell: ['shSide', 'armTri', 'coreStab'],
+  ohp_dumbbell: ['shSide', 'armTri'],
+  ohp_smith: ['shSide', 'armTri'],
+  press_machine_shoulder: ['shSide', 'armTri'],
+  arnold_press: ['shSide', 'armTri'],
+  upright_row: ['shFront', 'backTraps'],
+  face_pull_cable: ['backMid', 'backTraps'],
+  rear_fly_db: ['backMid'],
+  rear_fly_cable: ['backMid'],
+  // 背：拉的都带二头，划船再带后束
+  dl_barbell: ['legGlute', 'legHam', 'backTraps'],
+  pu_weighted: ['backMid', 'armBi'],
+  lat_pulldown: ['backMid', 'armBi'],
+  single_arm_db_row: ['backMid', 'armBi', 'shRear'],
+  row_barbell: ['backLats', 'shRear', 'armBi', 'backLower'],
+  row_seated_cable: ['backLats', 'shRear', 'armBi'],
+  tbar_row: ['backLats', 'shRear', 'armBi'],
+  hyperextension: ['legGlute', 'legHam'],
   // 腿
-  sq_barbell: ['legGlute', 'legAdd'],
-  goblet_squat: ['legGlute'],
-  leg_press: ['legGlute'],
+  sq_barbell: ['legGlute', 'legAdd', 'backLower'],
+  goblet_squat: ['legGlute', 'legAdd'],
+  leg_press: ['legGlute', 'legAdd'],
   hack_squat: ['legGlute'],
-  romanian_deadlift: ['legGlute'],
-  lunge_dumbbell: ['legQuad'],
-  bulgarian_split: ['legQuad'],
+  romanian_deadlift: ['legGlute', 'backLower'],
+  lunge_dumbbell: ['legQuad', 'legAdd'],
+  bulgarian_split: ['legQuad', 'legAdd'],
   hip_thrust: ['legHam'],
+  glute_kickback_cable: ['legHam'],
   // 手臂
+  close_grip_bench: ['chestMid', 'shFront'],
   cu_hammer: ['armFore'],
   reverse_curl: ['armBi'],
+  farmer_walk: ['backTraps', 'coreStab'],
 };
 
 /**

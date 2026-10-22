@@ -180,11 +180,13 @@ export function combineVariants(
   return list;
 }
 
-/* ── 细分（2026-10-21 起多选）── */
+/* ── 细分（2026-10-21 起多选，次要细分可以跨部位）── */
 
 /**
  * 一个动作 / 做法的全部细分，主细分在前。主细分以 region 为准（旧字段，拖到细分只改它），
  * regions 里别的当次要细分；没有 region 就是未细分。
+ * 主细分属于动作自己的部位（决定细分格里摆在哪一列）；次要细分可以是别的部位的
+ * （硬拉：下背 + 臀 + 腿后侧，2026-10-21 用户定）。
  */
 export function regionList(x: { region?: string; regions?: string[] } | undefined): string[] {
   const p = x?.region;
@@ -192,10 +194,22 @@ export function regionList(x: { region?: string; regions?: string[] } | undefine
   return [p, ...new Set((x.regions ?? []).filter(r => r && r !== p))];
 }
 
-/** 细分选择器里点一下：没选的加上（接在后面，第一个就是主细分），选着的去掉；最后一个去不掉 */
-export function toggleRegion(list: readonly string[], id: string): string[] {
-  if (!list.includes(id)) return [...list, id];
-  return list.length > 1 ? list.filter(r => r !== id) : [...list];
+/**
+ * 细分选择器里点一下：没选的加上，选着的去掉。own＝动作自己部位下的细分（不传＝全算自己的）。
+ * - 自己部位的永远排在别的部位前面，所以第一个（主细分）一定是自己部位的
+ * - 还没选自己部位的细分时，别的部位的点不上（没有主细分，次要的挂不住）
+ * - 自己部位的最后一个去不掉（要清空点「未细分」，别的部位的一起清）
+ */
+export function toggleRegion(list: readonly string[], id: string, own?: readonly string[]): string[] {
+  const isOwn = (r: string) => !own || own.includes(r);
+  const mine = list.filter(isOwn);
+  const other = list.filter(r => !isOwn(r));
+  if (!list.includes(id)) {
+    if (isOwn(id)) return [...mine, id, ...other];
+    return mine.length ? [...mine, ...other, id] : [...list];
+  }
+  if (isOwn(id) && mine.length <= 1) return [...list];
+  return list.filter(r => r !== id);
 }
 
 /** 写入用：主细分 + 全部（空表＝未细分） */

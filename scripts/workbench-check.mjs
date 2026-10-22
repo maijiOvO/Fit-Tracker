@@ -461,18 +461,33 @@ t('细分多选：region 是主细分，regions 补次要的；拖到别的列�
   assert.deepEqual(A.toggleRegion(['a'], 'a'), ['a']); // 最后一个去不掉
 });
 
-t('内置复合动作的次要细分都在同一部位下、主细分在前', () => {
+t('内置复合动作：主细分是自己部位的，次要细分可以跨部位但都得是存在的细分', () => {
   const X = W.X;
+  const all = new Set(Object.values(X.BODY_REGIONS).flat());
   let multi = 0;
   for (const d of X.DEFAULT_EXERCISES) {
     if (!d.regions) continue;
     multi++;
     assert.equal(d.regions[0], d.region, d.id);
-    for (const r of d.regions) assert.ok(X.BODY_REGIONS[d.bodyPart].includes(r), `${d.id}: ${r} 不在 ${d.bodyPart} 下`);
+    assert.ok(X.BODY_REGIONS[d.bodyPart].includes(d.region), `${d.id}: 主细分 ${d.region} 不在 ${d.bodyPart} 下`);
+    for (const r of d.regions) assert.ok(all.has(r), `${d.id}: 没有 ${r} 这个细分`);
     assert.equal(new Set(d.regions).size, d.regions.length, d.id);
   }
   for (const id of Object.keys(X.REGIONS_ALSO)) assert.ok(X.REGION_OF[id], `${id} 没有主细分`);
-  assert.ok(multi >= 30, `只有 ${multi} 个动作带次要细分`);
+  assert.ok(multi >= 40, `只有 ${multi} 个动作带次要细分`);
+  const dl = X.DEFAULT_EXERCISES.find(d => d.id === 'dl_barbell');
+  assert.deepEqual(dl.regions.slice(0, 3), ['backLower', 'legGlute', 'legHam']); // 用户点名：下背 + 臀 + 腿后侧
+});
+
+t('跨部位多选：自己部位的排前面，主细分永远是自己部位的', () => {
+  const A = W.A;
+  const own = ['backLats', 'backLower'];
+  assert.deepEqual(A.toggleRegion([], 'legGlute', own), []); // 还没主细分，别的部位的挂不上
+  assert.deepEqual(A.toggleRegion(['backLower'], 'legGlute', own), ['backLower', 'legGlute']);
+  assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'backLats', own), ['backLower', 'backLats', 'legGlute']);
+  assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'backLower', own), ['backLower', 'legGlute']); // 自己部位的最后一个去不掉
+  assert.deepEqual(A.toggleRegion(['backLower', 'backLats', 'legGlute'], 'backLower', own), ['backLats', 'legGlute']);
+  assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'legGlute', own), ['backLower']);
 });
 
 console.log(`== ${n} passed ==`);

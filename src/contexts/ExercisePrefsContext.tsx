@@ -141,7 +141,7 @@ interface ExercisePrefsContextValue {
   hiddenRegionsOf: (part: string) => string[];
   /** 动作（已合并覆盖层）此刻落在哪一列（主细分）；不分细分 / 未细分 / 细分不属于当前部位 → null */
   effectiveRegion: (ex: ExerciseDefinition) => string | null;
-  /** 动作的全部细分（主细分在前，只留属于当前部位的）；主细分不成立＝未细分，返回 [] */
+  /** 动作的全部细分（主细分在前；次要的可以是别的部位的，删掉的不算）；主细分不成立＝未细分，返回 [] */
   effectiveRegions: (ex: ExerciseDefinition) => string[];
   /**
    * 动作此刻属于哪个部位：系统部位 / 还在的自建部位原样返回；部位为空、或自建部位已被删 → ''（「未分部位」）。
@@ -563,9 +563,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (ex: ExerciseDefinition): string[] => {
       // 有氧 / 自由不分细分（跑步机挂在腿部、划船机挂在背部，不能混进细分列）
       if ((ex.category || 'STRENGTH') !== 'STRENGTH' || !ex.region) return [];
-      const ok = new Set(regionsOf(ex.bodyPart).map(r => r.id));
       // 主细分被删了（或部位换了）就算未细分，次要的不顶上来：删细分的撤销条说的是「回到未细分」
-      if (!ok.has(ex.region)) return [];
+      if (!regionsOf(ex.bodyPart).some(r => r.id === ex.region)) return [];
+      // 次要细分可以是别的部位的（2026-10-21 用户定）：哪个部位下还在就算，删掉的才丢
+      const ok = new Set(BODY_PARTS.flatMap(p => regionsOf(p).map(r => r.id)));
       return regionList(ex).filter(r => ok.has(r));
     },
     [regionsOf],
