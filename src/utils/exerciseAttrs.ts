@@ -3,8 +3,9 @@
  *
  * - 器材（equipment）：拿什么练。内置一套 + 自建（customTags 里 category='equipment'）。'' = 无器材。
  * - 阻力（resistance）：重量从哪来，决定「一格多少、画什么」（馆档案的颗粒度）。固定枚举，不能自建。
- *   大多数器材自带阻力（杠铃 → 杠铃片、龙门架 → 配重片…），锁定不让改；
- *   只有「固定器械」、自建器材、无器材要选（器械分配重片 / 挂片两种）。
+ *   大多数器材自带阻力（哑铃 → 哑铃、龙门架 → 配重片…），锁定不让改；
+ *   「固定器械」、自建器材、无器材要选（器械分配重片 / 挂片两种）；
+ *   杠铃在「杠铃片」和「固定杠铃」（焊死的成品杠，2026-10-21 用户定）之间选。
  *   动作上 resistance 不写 = 跟器材的默认。
  *
  * 旧数据只有 tags: string[]（多选、混着场地标签）。读的时候按 legacyAttrs 换算，画法与换算前一致；
@@ -12,13 +13,14 @@
  */
 import type { ExerciseDefinition, ExerciseVariant } from '../../types';
 
-export type Resistance = 'plates' | 'dumbbell' | 'kettlebell' | 'stack' | 'bodyweight' | 'band' | 'none';
+export type Resistance = 'plates' | 'fixedBar' | 'dumbbell' | 'kettlebell' | 'stack' | 'bodyweight' | 'band' | 'none';
 
 /** 阻力类型，按选项顺序 */
-export const RESISTANCES: Resistance[] = ['plates', 'stack', 'dumbbell', 'kettlebell', 'bodyweight', 'band', 'none'];
+export const RESISTANCES: Resistance[] = ['plates', 'fixedBar', 'stack', 'dumbbell', 'kettlebell', 'bodyweight', 'band', 'none'];
 
 export const RESISTANCE_NAMES: Record<Resistance, { cn: string; en: string }> = {
   plates: { cn: '杠铃片', en: 'Plates' },
+  fixedBar: { cn: '固定杠铃', en: 'Fixed barbell' },
   stack: { cn: '配重片', en: 'Weight stack' },
   dumbbell: { cn: '哑铃', en: 'Dumbbell' },
   kettlebell: { cn: '壶铃', en: 'Kettlebell' },
@@ -62,10 +64,18 @@ function builtinId(id: string): string | undefined {
   return BUILTIN_EQUIPMENT.find(b => lc(b) === l);
 }
 
-/** 阻力能不能在动作上改：固定器械、自建器材、无器材可以；其余器材锁定 */
+/** 阻力能不能在动作上改：固定器械、杠铃、自建器材、无器材可以；其余器材锁定 */
 export function resistanceSelectable(equipment: string): boolean {
   const b = builtinId(equipment);
-  return !b || b === EQ_MACHINE;
+  return !b || b === EQ_MACHINE || b === EQ_BARBELL;
+}
+
+/** 杠铃只在「挂片 / 固定杠铃」之间选：焊死的成品杠也是杠铃，没有别的阻力 */
+const BARBELL_CHOICES: Resistance[] = ['plates', 'fixedBar'];
+
+/** 这件器材在动作上能选的阻力（按选项顺序） */
+export function resistanceChoices(equipment: string): Resistance[] {
+  return builtinId(equipment) === EQ_BARBELL ? BARBELL_CHOICES : RESISTANCES;
 }
 
 /** 器材的默认阻力。自建器材看它自己设的，没设 / 已删 → 不计重 */
@@ -84,6 +94,7 @@ export function effectiveResistance(
   defs: EquipmentDefs,
 ): Resistance {
   if (!resistanceSelectable(equipment)) return defaultResistance(equipment, defs);
+  if (resistance && !resistanceChoices(equipment).includes(resistance)) return defaultResistance(equipment, defs);
   return resistance ?? defaultResistance(equipment, defs);
 }
 
@@ -167,6 +178,54 @@ export function combineVariants(
     list = [...list, b];
   }
   return list;
+}
+
+/* ── 细分（2026-10-21 起多选，次要细分可以跨部位）── */
+
+/**
+ * 一个动作 / 做法的全部细分，主细分在前。主细分以 region 为准（旧字段，拖到细分只改它），
+ * regions 里别的当次要细分；没有 region 就是未细分。
+ * 主细分属于动作自己的部位（决定细分格里摆在哪一列）；次要细分可以是别的部位的
+ * （硬拉：下背 + 臀 + 腿后侧，2026-10-21 用户定）。
+ */
+export function regionList(x: { region?: string; regions?: string[] } | undefined): string[] {
+  const p = x?.region;
+  if (!p) return [];
+  return [p, ...new Set((x.regions ?? []).filter(r => r && r !== p))];
+}
+
+/**
+ * 细分选择器里点一下：没选的加上，选着的去掉。own＝动作自己部位下的细分（不传＝全算自己的）。
+ * - 自己部位的永远排在别的部位前面，所以第一个（主细分）一定是自己部位的
+ * - 还没选自己部位的细分时，别的部位的点不上（没有主细分，次要的挂不住）
+ * - 自己部位的最后一个去不掉（要清空点「未细分」，别的部位的一起清）
+ */
+export function toggleRegion(list: readonly string[], id: string, own?: readonly string[]): string[] {
+  const isOwn = (r: string) => !own || own.includes(r);
+  const mine = list.filter(isOwn);
+  const other = list.filter(r => !isOwn(r));
+  if (!list.includes(id)) {
+    if (isOwn(id)) return [...mine, id, ...other];
+    return mine.length ? [...mine, ...other, id] : [...list];
+  }
+  if (isOwn(id) && mine.length <= 1) return [...list];
+  return list.filter(r => r !== id);
+}
+
+/** 写入用：主细分 + 全部（空表＝未细分） */
+export function regionsPatch(list: readonly string[]): { region: string; regions: string[] } {
+  const l = [...new Set(list.filter(Boolean))];
+  return { region: l[0] ?? '', regions: l };
+}
+
+/**
+ * 拖到另一列（换主细分）：原来就是次要细分的提到最前；不是的顶替原来的主细分（拖走＝不在那一列了），
+ * 次要的留着。拖回未细分＝全清。
+ */
+export function movePrimary(list: readonly string[], target: string): string[] {
+  if (!target) return [];
+  if (list.includes(target)) return [target, ...list.filter(r => r !== target)];
+  return [target, ...list.slice(1)];
 }
 
 /** 写入用：新字段 + 给旧版 APK 的镜像 */

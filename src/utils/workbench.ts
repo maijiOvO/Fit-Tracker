@@ -17,6 +17,7 @@
  */
 import type { Exercise, SetLog, SubSetLog } from '../../types';
 import { fromSignedKg, signedKg } from './load';
+import { segmentName } from './nameSegments';
 
 export const isPending = (s: SetLog): boolean => !!s.ghost;
 
@@ -599,13 +600,47 @@ export function moveSetToExercise(exs: Exercise[], r: RowRef, toExId: string): E
   });
 }
 
-/** 交替组每个成员的简称：从后往前找第一个别的成员名字里没有的字；找不到用 A / B / C */
+/** 英文名里不拿来当简称的虚词 */
+const ABBR_STOP = new Set(['the', 'a', 'an', 'with', 'on', 'of', 'and', 'to', 'in', 'at', 'for']);
+/**
+ * 一个词 / 段能压成的简称，先好的后差的：中文最多两个字（引体向上 → 引体；词表外的长段再试末两个字），
+ * 英文 ≤5 个字母照写，长的取前 4 个加点
+ */
+const clipAbbr = (w: string): string[] => {
+  if (!/\p{Script=Han}/u.test(w)) return [w.length <= 5 ? w : `${w.slice(0, 4)}.`];
+  const cs = [...w];
+  return cs.length <= 2 ? [w] : [cs.slice(0, 2).join(''), cs.slice(-2).join('')];
+};
+/** 名字切成词：中文按动作词表（nameSegments），英文按空格 / 连字符 */
+function abbrWords(name: string): string[] {
+  const clean = name.replace(/[（）()·]/g, ' ').trim();
+  if (/\p{Script=Han}/u.test(clean)) return clean.split(/\s+/).flatMap(segmentName).filter(Boolean);
+  return clean.split(/[\s\-/]+/).filter(w => w && !ABBR_STOP.has(w.toLowerCase()));
+}
+
+/**
+ * 交替组每个成员的简称（2026-10-21 用户定：一个字认不出是哪个，改成一个词）：
+ * 按词从后往前找第一个别的成员名字里没有的词（哑铃卧推 / 哑铃飞鸟 → 卧推 / 飞鸟；
+ * 上斜哑铃卧推 / 平板哑铃卧推 → 上斜 / 平板；Dumbbell Bench Press / Dumbbell Fly → Press / Fly）。
+ * 词都一样（词表外的自建名）退回原来的「别人没有的一个字」；还撞就 A / B / C。
+ */
 export function memberAbbrs(names: string[]): string[] {
-  return names.map((n, i) => {
-    const others = names.filter((_, j) => j !== i).join('');
-    const chars = [...n.replace(/[（）()\s·]/g, '')].reverse();
-    return chars.find(ch => !others.includes(ch)) ?? String.fromCharCode(65 + (i % 26));
+  const words = names.map(abbrWords);
+  const lower = (w: string) => w.toLowerCase();
+  // 每个成员的候选，先好的后差的：别人没有的词（从后往前）压成的简称，再是别人没有的一个字
+  const cands = names.map((n, i) => {
+    const others = new Set(words.filter((_, j) => j !== i).flat().map(lower));
+    const own = [...words[i]].reverse().filter(x => !others.has(lower(x))).flatMap(clipAbbr);
+    const otherChars = names.filter((_, j) => j !== i).join('');
+    const ch = [...n.replace(/[（）()\s·]/g, '')].reverse().find(c => !otherChars.includes(c));
+    return ch ? [...own, ch] : own;
   });
+  // 截短后和别人的候选撞了（甲乙丙 / 甲乙丁 都压成「甲乙」）就往后换；都撞或一个都没有用字母
+  const picked = cands.map((cs, i) => {
+    const taken = new Set(cands.filter((_, j) => j !== i).flat().map(lower));
+    return cs.find(c => !taken.has(lower(c))) ?? '';
+  });
+  return picked.map((a, i) => a || String.fromCharCode(65 + (i % 26)));
 }
 
 /** 结束训练：剥掉工作台标记；只剩一个成员的交替组拆掉 */

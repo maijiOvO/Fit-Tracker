@@ -6,7 +6,12 @@
  *
  * 每个馆一行「编辑」：这个馆用公斤片还是磅片、有哪些片、龙门架 / 器械 / 哑铃一档多重。
  * 可以反复进（2026-10-18 用户定）。底部「新的馆…」：起名 + 填档案，存好就用这个馆。
- * 已有的馆不改名：馆名记在每一场历史训练上，改名会和历史对不上。
+ * 已有的馆可以改名（2026-10-21 用户要的）：馆名记在每一场历史训练和这个馆每台器械的设置上，
+ * 改名时一起改（App 的 onSaveProfile + services/appPrefs.ts renameGymIn），按馆比的纪录照样连得上。
+ * 改成已有的另一个馆的名字直接拦下，不做合并。没有删除（2026-10-21 用户定：正式版不做）。
+ *
+ * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
+ * 一个馆都没有就直接进「新的馆」表单（新用户不用先去别处设馆）。关掉＝这次不开练。
  */
 import React, { useEffect, useState } from 'react';
 import { Check, MapPin, Plus } from 'lucide-react';
@@ -14,12 +19,14 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
-import { DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
 
-import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
+import { DEFAULT_PLATES, isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
-type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell';
+type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell' | 'fixedBar';
+/** 后加的档（旧档案没有这一项）按各自的默认 */
+const LATE_INC: Partial<Record<IncKey, Record<PlateUnit, IncSpec>>> = { kettlebell: DEFAULT_KETTLEBELL_INC, fixedBar: DEFAULT_FIXED_BAR_INC };
 
 interface GymPickerModalProps {
   open: boolean;
@@ -35,8 +42,10 @@ interface GymPickerModalProps {
   profiles?: Record<string, GymProfile>;
   /** 新显示单位：新建档案默认用它的片 */
   unit?: string;
-  /** 存档案。isNew：新的馆（存好就用它） */
-  onSaveProfile?: (name: string, profile: GymProfile, isNew: boolean) => void;
+  /** 存档案。isNew：新的馆（存好就用它）；renamedFrom：这次把它从这个名字改了过来 */
+  onSaveProfile?: (name: string, profile: GymProfile, isNew: boolean, renamedFrom?: string) => void;
+  /** 开练前选馆：标题改问「这场在哪个馆练」，没有馆就直接开「新的馆」表单，表单关掉就整个关掉 */
+  startMode?: boolean;
 }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
@@ -51,17 +60,22 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   profiles = {},
   unit = 'kg',
   onSaveProfile,
+  startMode = false,
 }) => {
   const isCn = lang === Language.CN;
   const [draft, setDraft] = useState('');
   /** 正在编辑的馆：null＝列表；''＝新的馆 */
   const [editing, setEditing] = useState<string | null>(null);
 
+  /** 开练时一个馆都没有：直接进新建表单，表单就是整个弹层（关表单＝不开练） */
+  const noGyms = options.length === 0 && Object.keys(profiles).length === 0;
+  const formOnly = startMode && noGyms && !!onSaveProfile;
+
   // 每次打开都从空输入开始，免得上次没提交的半截名字残留
   useEffect(() => {
     if (open) {
       setDraft('');
-      setEditing(null);
+      setEditing(formOnly ? '' : null);
     }
   }, [open]);
 
@@ -82,8 +96,8 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
     return (
       <Modal
         isOpen={open}
-        // 点背景 / 关闭＝回馆列表，不把没存的改动连同整个弹层一起丢掉
-        onClose={() => setEditing(null)}
+        // 点背景 / 关闭＝回馆列表，不把没存的改动连同整个弹层一起丢掉；开练时一个馆都没有就没有列表可回，整个关掉
+        onClose={() => (formOnly ? onClose() : setEditing(null))}
         title={editing ? (isCn ? `「${editing}」的器材` : `${editing} · equipment`) : isCn ? '新的馆' : 'New gym'}
         size="sm"
         variant="sheet"
@@ -95,9 +109,10 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
           name={editing}
           initial={profiles[editing] ?? defaultProfile(unit === 'lbs' ? 'lbs' : 'kg')}
           taken={allGyms}
-          onBack={() => setEditing(null)}
+          onBack={() => (formOnly ? onClose() : setEditing(null))}
+          starting={formOnly}
           onSave={(name, p) => {
-            onSaveProfile(name, p, !editing);
+            onSaveProfile(name, p, !editing, editing && name !== editing ? editing : undefined);
             onClose();
           }}
         />
@@ -109,7 +124,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
     <Modal
       isOpen={open}
       onClose={onClose}
-      title={translations.gymPickTitle[lang] as string}
+      title={startMode ? (isCn ? '这场在哪个馆练？' : 'Where are you training?') : (translations.gymPickTitle[lang] as string)}
       size="sm"
       variant="sheet"
       layer="modal-2"
@@ -211,6 +226,7 @@ function GymProfileForm({
   taken,
   onBack,
   onSave,
+  starting = false,
 }: {
   isCn: boolean;
   /** ''＝新的馆（要起名） */
@@ -219,6 +235,8 @@ function GymProfileForm({
   taken: string[];
   onBack: () => void;
   onSave: (name: string, p: GymProfile) => void;
+  /** 开练前一个馆都没有、直接进的这张表：存好就开练，退出就是这次先不练 */
+  starting?: boolean;
 }) {
   const [p, setP] = useState<GymProfile>(() => JSON.parse(JSON.stringify(initial)));
   const [nm, setNm] = useState(name);
@@ -227,7 +245,7 @@ function GymProfileForm({
   const setUnit = (u: PlateUnit) => {
     if (p.plateUnit === u) return;
     // 自定义片是按原单位存的，换了一套片子就一起清掉（design-plates.md「换馆重量」D）
-    setP({ ...p, plateUnit: u, plates: PLATE_SPECS[u].map(s => s.w) });
+    setP({ ...p, plateUnit: u, plates: [...DEFAULT_PLATES[u]] });
     setCu(u);
   };
   const togglePlate = (w: number) => {
@@ -255,8 +273,8 @@ function GymProfileForm({
     setCw('');
   };
   const customPlates = p.plates.filter(w => !isStandardPlate(p.plateUnit, w));
-  // 壶铃一档是后加的，旧档案没有这一项 → 按默认
-  const incOf = (key: IncKey): IncSpec => p[key] ?? DEFAULT_KETTLEBELL_INC[p.plateUnit];
+  // 壶铃 / 固定杠铃一档是后加的，旧档案没有这一项 → 按默认
+  const incOf = (key: IncKey): IncSpec => p[key] ?? LATE_INC[key]![p.plateUnit];
   const stepInc = (key: IncKey, d: 1 | -1) => {
     const c = incOf(key);
     const list = INC_CHOICES[c.u];
@@ -267,18 +285,23 @@ function GymProfileForm({
   const setIncUnit = (key: IncKey, u: PlateUnit) => {
     const c = incOf(key);
     if (c.u === u) return;
-    const def = defaultProfile(u)[key] ?? DEFAULT_KETTLEBELL_INC[u];
+    const def = defaultProfile(u)[key] ?? LATE_INC[key]![u];
     setP({ ...p, [key]: { u, v: def.v } as IncSpec });
   };
 
   const save = () => {
-    const n = name || normalizeGym(nm);
+    const n = normalizeGym(nm);
     if (!n) {
       setErr(isCn ? '先给这个馆起个名字' : 'Give this gym a name first');
       return;
     }
-    if (!name && taken.includes(n)) {
-      setErr(isCn ? `已有「${n}」，请回列表编辑它` : `"${n}" already exists — edit it from the list`);
+    // 新建撞上已有的馆、改名改成另一个已有的馆：都拦下（不做合并）
+    if (n !== name && taken.includes(n)) {
+      setErr(
+        name
+          ? isCn ? `已有「${n}」，换个名字` : `"${n}" already exists — pick another name`
+          : isCn ? `已有「${n}」，请回列表编辑它` : `"${n}" already exists — edit it from the list`,
+      );
       return;
     }
     onSave(n, p);
@@ -311,22 +334,21 @@ function GymProfileForm({
 
   return (
     <div className="gym-form" data-testid="gym-profile-form">
-      {!name && (
-        <label className="gym-field">
-          <span className="text-label text-secondary">{isCn ? '馆名' : 'Name'}</span>
-          <input
-            className="ui-input"
-            value={nm}
-            onChange={e => {
-              setNm(e.target.value);
-              setErr('');
-            }}
-            placeholder={isCn ? '比如：公司楼下' : 'e.g. Office gym'}
-            autoComplete="off"
-            data-testid="gym-profile-name"
-          />
-        </label>
-      )}
+      {/* 编辑已有的馆也能改名：历史训练和器械设置上的馆名一起改 */}
+      <label className="gym-field">
+        <span className="text-label text-secondary">{isCn ? '馆名' : 'Name'}</span>
+        <input
+          className="ui-input"
+          value={nm}
+          onChange={e => {
+            setNm(e.target.value);
+            setErr('');
+          }}
+          placeholder={isCn ? '比如：公司楼下' : 'e.g. Office gym'}
+          autoComplete="off"
+          data-testid="gym-profile-name"
+        />
+      </label>
       <div className="gym-field">
         <span className="text-label text-secondary">{isCn ? '片子' : 'Plates'}</span>
         <span className="gym-seg" role="group">
@@ -375,22 +397,25 @@ function GymProfileForm({
         <span className="text-label text-secondary">
           {isCn ? '加一种片（八角片、自带的微调片…）' : 'Add a plate (odd sizes, your own micro plates…)'}
         </span>
+        {/* 输入框吃剩下的宽度，单位和「加上」按自己的宽度排（原来 fill 的输入框占满整行，lb 被裁、「加上」竖成两行） */}
         <div className="flex items-center gap-2">
-          <ScrubNumber
-            value={cw.trim() === '' || !Number.isFinite(Number.parseFloat(cw)) ? null : Number.parseFloat(cw)}
-            onCommit={n => setCw(n === null ? '' : String(n))}
-            allowEmpty
-            live
-            min={0.05}
-            max={200}
-            steps={cu === 'kg' ? [0.25, 0.5, 1, 2.5] : [0.5, 1, 2.5, 5]}
-            placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
-            ariaLabel={isCn ? '这片多重' : 'Plate weight'}
-            testId="gym-custom-weight"
-            fill
-            className="ui-input w-24"
-          />
-          <span className="gym-seg" role="group" aria-label={isCn ? '这片自己的单位' : 'This plate is in'}>
+          <div className="flex-1 min-w-0 pl-2">
+            <ScrubNumber
+              value={cw.trim() === '' || !Number.isFinite(Number.parseFloat(cw)) ? null : Number.parseFloat(cw)}
+              onCommit={n => setCw(n === null ? '' : String(n))}
+              allowEmpty
+              live
+              min={0.05}
+              max={200}
+              steps={cu === 'kg' ? [0.25, 0.5, 1, 2.5] : [0.5, 1, 2.5, 5]}
+              placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
+              ariaLabel={isCn ? '这片多重' : 'Plate weight'}
+              testId="gym-custom-weight"
+              fill
+              className="ui-input"
+            />
+          </div>
+          <span className="gym-seg flex-none" role="group" aria-label={isCn ? '这片自己的单位' : 'This plate is in'}>
             <button type="button" className={seg(cu === 'kg')} aria-pressed={cu === 'kg'} onClick={() => setCu('kg')}>kg</button>
             <button type="button" className={seg(cu === 'lbs')} aria-pressed={cu === 'lbs'} onClick={() => setCu('lbs')} data-testid="gym-custom-unit-lbs">lb</button>
           </span>
@@ -398,7 +423,7 @@ function GymProfileForm({
             type="button"
             disabled={customIn === null}
             onClick={addCustom}
-            className="min-h-[36px] px-3 text-label font-semibold text-accent disabled:text-tertiary"
+            className="flex-none min-h-[36px] px-3 whitespace-nowrap text-label font-semibold text-accent disabled:text-tertiary"
             data-testid="gym-custom-add"
           >
             {isCn ? '加上' : 'Add'}
@@ -416,12 +441,13 @@ function GymProfileForm({
       {inc('machine', isCn ? '固定器械一档（个别动作在 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
+      {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}
       {err && <p className="text-label text-warning">{err}</p>}
       <button type="button" className="ui-btn-primary w-full min-h-[48px] mt-2" onClick={save} data-testid="gym-profile-save">
-        {name ? (isCn ? '存好' : 'Save') : isCn ? '存好，用这个馆' : 'Save and use it'}
+        {name ? (isCn ? '存好' : 'Save') : starting ? (isCn ? '存好，开练' : 'Save and start') : isCn ? '存好，用这个馆' : 'Save and use it'}
       </button>
       <button type="button" className="w-full min-h-[44px] text-label text-secondary" onClick={onBack}>
-        {isCn ? '← 回到馆列表' : '← Back to gyms'}
+        {starting ? (isCn ? '先不练了' : 'Not now') : isCn ? '← 回到馆列表' : '← Back to gyms'}
       </button>
     </div>
   );

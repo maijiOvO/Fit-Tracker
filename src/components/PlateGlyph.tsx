@@ -205,6 +205,21 @@ export function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit 
   );
 }
 
+/* ── 固定杠铃：一根焊死的成品杠，头的大小随重量，总重印在杆中间 ─────── */
+
+export function FixedBarGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
+  const max = unit === 'kg' ? 50 : 110;
+  const s = 0.45 + (Math.min(Math.max(value, 0), max) / max) * 0.55;
+  const head = <span className="fb-head" style={{ transform: `scale(${0.6 + s * 0.5}, ${s})` }} />;
+  return (
+    <div className="fb-bar" aria-hidden>
+      {head}
+      <span className="fb-shaft">{value > 0 && <b className="db-num">{fmt1(value)}</b>}</span>
+      {head}
+    </div>
+  );
+}
+
 /* ── 带符号负荷（自重）：负数画弹力带，正数挂腰片 ──────────────── */
 
 export function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: number; unit: PlateUnit; plateUnit: PlateUnit; belt?: number[] }) {
@@ -316,6 +331,8 @@ export function LoadHero({
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt1(value)} ${u}` : `${fmt1(value)} ${u} each`;
   else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt1(value)} ${u}` : `Kettlebell ${fmt1(value)} ${u}`;
+  // 固定杠铃是一根的总重，不写「每只」
+  else if (kind === 'fixed') caption = isCn ? `固定杠铃 ${fmt1(value)} ${u}` : `Fixed barbell ${fmt1(value)} ${u}`;
   else if (kind === 'signed') {
     if (value < 0) caption = isCn ? `辅助 ${fmt1(-value)} ${u}` : `Assisted ${fmt1(-value)} ${u}`;
     else if (value === 0) caption = isCn ? '纯自重' : 'Bodyweight';
@@ -347,6 +364,7 @@ export function LoadHero({
         {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} />}
         {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} />}
         {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}
+        {kind === 'fixed' && <FixedBarGlyph value={value} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={value} unit={unit} plateUnit={plateUnit} />}
       </div>
       <div className="load-caption-row">
@@ -481,7 +499,8 @@ function GymHero({
     const list = INC_CHOICES[unit];
     const nextV = dir > 0 ? list.find(x => x > ctx.inc + 1e-9) : [...list].reverse().find(x => x < ctx.inc - 1e-9);
     if (nextV === undefined) return;
-    machine.onStack(nextV, stackStart);
+    // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
+    machine.onStack(nextV, stackStart > 0 ? stackStart : ctx.inc);
   };
 
   let caption = '';
@@ -500,6 +519,8 @@ function GymHero({
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
   else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt(v)} ${u}` : `Kettlebell ${fmt(v)} ${u}`;
+  // 固定杠铃是一根的总重，不写「每只」
+  else if (kind === 'fixed') caption = isCn ? `固定杠铃 ${fmt(v)} ${u}` : `Fixed barbell ${fmt(v)} ${u}`;
   else if (kind === 'signed') {
     if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
     else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';
@@ -520,9 +541,13 @@ function GymHero({
   const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
 
   const lightest = stackStart > 0 ? stackStart : ctx.inc;
-  const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'signed');
+  const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
   const faceOpen = stackOpen && hasMachine;
-  const incName = kind === 'pair' ? (isCn ? '哑铃' : 'Dumbbells') : kind === 'bell' ? (isCn ? '壶铃' : 'Kettlebells') : isCn ? '辅助' : 'Assist';
+  const incName =
+    kind === 'pair' ? (isCn ? '哑铃' : 'Dumbbells')
+    : kind === 'bell' ? (isCn ? '壶铃' : 'Kettlebells')
+    : kind === 'fixed' ? (isCn ? '固定杠铃' : 'Fixed bars')
+    : isCn ? '辅助' : 'Assist';
   const pillText = !machine
     ? ''
     : kind === 'pin'
@@ -617,7 +642,7 @@ function GymHero({
                   <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
                   <ScrubNumber
                     value={ctx.inc}
-                    onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, stackStart)}
+                    onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, lightest)}
                     min={0.25}
                     stepFn={listStepFn(INC_CHOICES[unit])}
                     steps={[1, 2, 4]}
@@ -658,7 +683,7 @@ function GymHero({
               <p className="stack-note">{isCn ? '滑台 / 杠自重，仅作参考，不计入记录' : 'Sled / bar weight. Reference only, not logged'}</p>
             </>
           )}
-          {(kind === 'pair' || kind === 'bell' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}
+          {(kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}
           {machine.inc?.overridden && (
             <div className="stack-foot">
               <span />
@@ -682,6 +707,7 @@ function GymHero({
             {isBar && <BarbellGlyph perSide={perSide} plateUnit={unit} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} />}
             {kind === 'pin' && <PinStackGlyph value={v} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
             {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
+            {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
             {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={unit} belt={belt} />}
           </div>
           <div className="load-caption-row">

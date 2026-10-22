@@ -24,6 +24,9 @@ import {
   BUILTIN_EQUIPMENT,
   attrsPatch,
   effectiveResistance,
+  movePrimary,
+  regionList,
+  regionsPatch,
   variantAttrs,
   type Resistance,
 } from '../utils/exerciseAttrs';
@@ -136,8 +139,10 @@ interface ExercisePrefsContextValue {
   liftKey: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /** 部位下被删掉（隐藏）的系统细分，可恢复 */
   hiddenRegionsOf: (part: string) => string[];
-  /** 动作（已合并覆盖层）此刻落在哪一列；不分细分 / 未细分 / 细分不属于当前部位 → null */
+  /** 动作（已合并覆盖层）此刻落在哪一列（主细分）；不分细分 / 未细分 / 细分不属于当前部位 → null */
   effectiveRegion: (ex: ExerciseDefinition) => string | null;
+  /** 动作的全部细分（主细分在前；次要的可以是别的部位的，删掉的不算）；主细分不成立＝未细分，返回 [] */
+  effectiveRegions: (ex: ExerciseDefinition) => string[];
   /**
    * 动作此刻属于哪个部位：系统部位 / 还在的自建部位原样返回；部位为空、或自建部位已被删 → ''（「未分部位」）。
    * 删自建部位不改写动作上的引用，撤销把标签放回来，动作也就回去了（同细分的做法）。
@@ -153,12 +158,12 @@ interface ExercisePrefsContextValue {
   seedMetricsIfUnset: (exerciseName: string, metrics: string[]) => void;
   toggleStarExercise: (exerciseName: string) => void;
   saveExerciseNote: (name: string, note: string) => void;
-  /** 存动作的属性（属性表「保存」）。region '' = 未细分；resistance 只在器材允许改时生效 */
+  /** 存动作的属性（属性表「保存」）。regions 主细分在前、[] = 未细分；resistance 只在器材允许改时生效 */
   saveExerciseAttrs: (
     exerciseId: string,
     attrs: {
       bodyPart: string;
-      region: string;
+      regions: string[];
       category: ExerciseDefinition['category'];
       equipment: string;
       resistance?: Resistance;
@@ -554,13 +559,21 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [layoutOf],
   );
 
-  const effectiveRegion = useCallback(
-    (ex: ExerciseDefinition): string | null => {
+  const effectiveRegions = useCallback(
+    (ex: ExerciseDefinition): string[] => {
       // 有氧 / 自由不分细分（跑步机挂在腿部、划船机挂在背部，不能混进细分列）
-      if ((ex.category || 'STRENGTH') !== 'STRENGTH' || !ex.region) return null;
-      return regionsOf(ex.bodyPart).some(r => r.id === ex.region) ? ex.region : null;
+      if ((ex.category || 'STRENGTH') !== 'STRENGTH' || !ex.region) return [];
+      // 主细分被删了（或部位换了）就算未细分，次要的不顶上来：删细分的撤销条说的是「回到未细分」
+      if (!regionsOf(ex.bodyPart).some(r => r.id === ex.region)) return [];
+      // 次要细分可以是别的部位的（2026-10-21 用户定）：哪个部位下还在就算，删掉的才丢
+      const ok = new Set(BODY_PARTS.flatMap(p => regionsOf(p).map(r => r.id)));
+      return regionList(ex).filter(r => ok.has(r));
     },
     [regionsOf],
+  );
+  const effectiveRegion = useCallback(
+    (ex: ExerciseDefinition): string | null => effectiveRegions(ex)[0] ?? null,
+    [effectiveRegions],
   );
 
   const effectivePart = useCallback(
@@ -669,7 +682,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       exerciseId: string,
       a: {
         bodyPart: string;
-        region: string;
+        regions: string[];
         category: ExerciseDefinition['category'];
         equipment: string;
         resistance?: Resistance;
@@ -678,7 +691,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       const isCustom = customExercises.some(c => c.id === exerciseId);
       const patch = {
         bodyPart: a.bodyPart,
-        region: a.region,
+        // 全部细分照写（只有一个也写）：内置动作带着次要细分，覆盖层要能把它们盖掉
+        ...regionsPatch(a.regions),
         category: a.category,
         ...attrsPatch(a.equipment, a.resistance),
       };
@@ -1034,18 +1048,35 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     scheduleDebouncedFitlogPush();
   }, []);
 
+  /**
+   * 拖到 / 归到另一列＝换主细分（movePrimary：原来是次要细分的提上来，不是的顶替原来的主细分）。
+   * base 是要写的那一层（自建定义 / 覆盖层），内置动作的次要细分从定义上补进来算。
+   */
+  const regionMove = useCallback(
+    (id: string, base: Partial<ExerciseDefinition>, target: string) => {
+      const def = DEFAULT_EXERCISES.find(d => d.id === id);
+      const cur = regionList({
+        region: base.region !== undefined ? base.region : def?.region,
+        regions: base.regions !== undefined ? base.regions : def?.regions,
+      });
+      return regionsPatch(movePrimary(cur, target));
+    },
+    [],
+  );
+
   /** 归到细分：自建动作写进定义本身，内置动作写进覆盖层（已有同步容器，不新增 prefs key） */
   const assignRegion = useCallback(
     (exerciseId: string, regionId: string) => {
       if (customExercises.some(c => c.id === exerciseId)) {
         setCustomExercises(prev => {
-          const next = prev.map(c => (c.id === exerciseId ? { ...c, region: regionId } : c));
+          const next = prev.map(c => (c.id === exerciseId ? { ...c, ...regionMove(c.id, c, regionId) } : c));
           writeJSON(LS_KEYS.customExercises, next);
           return next;
         });
       } else {
         setExerciseOverrides(prev => {
-          const updated = { ...prev, [exerciseId]: { ...(prev[exerciseId] || {}), region: regionId } };
+          const base = prev[exerciseId] || {};
+          const updated = { ...prev, [exerciseId]: { ...base, ...regionMove(exerciseId, base, regionId) } };
           writeJSON(LS_KEYS.exerciseOverrides, updated);
           return updated;
         });
@@ -1053,7 +1084,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
     },
-    [customExercises],
+    [customExercises, regionMove],
   );
 
   const applyRegionLayout = useCallback(
@@ -1061,9 +1092,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       if (!changes.length) return;
       const byId = new Map(changes.map(c => [c.id, c]));
       const customIds = new Set(customExercises.map(c => c.id));
-      const put = <T extends Partial<ExerciseDefinition>>(base: T, ch: { region: string; regionRank?: number }): T => {
+      const put = <T extends Partial<ExerciseDefinition>>(base: T, ch: { id: string; region: string; regionRank?: number }): T => {
         const { regionRank: _old, ...rest } = base;
-        return { ...rest, region: ch.region, ...(ch.regionRank != null ? { regionRank: ch.regionRank } : {}) } as T;
+        return { ...rest, ...regionMove(ch.id, base, ch.region), ...(ch.regionRank != null ? { regionRank: ch.regionRank } : {}) } as T;
       };
       if (changes.some(c => customIds.has(c.id))) {
         setCustomExercises(prev => {
@@ -1083,7 +1114,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
     },
-    [customExercises],
+    [customExercises, regionMove],
   );
 
   /** 写某个部位的细分布局（upsert 那一条 regionLayout） */
@@ -1220,7 +1251,11 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         rawVariantsOf(exerciseName).map(v => {
           if (v.id !== id) return v;
           const next: ExerciseVariant = { ...v, ...patch };
+          // 只给了主细分（拖到另一列）：按换主细分算，次要的留着
+          if ('region' in patch && !('regions' in patch)) Object.assign(next, regionsPatch(movePrimary(regionList(v), patch.region ?? '')));
           if (!next.region) delete next.region;
+          // 做法只有一个细分就不写 regions（内置做法没有次要细分要盖）
+          if (!next.region || (next.regions?.length ?? 0) < 2) delete next.regions;
           if (!next.tags?.length) delete next.tags;
           if (next.resistance === undefined) delete next.resistance;
           if (!next.equipment) delete next.equipment;
@@ -1318,7 +1353,9 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       const variant: ExerciseVariant = existing ?? {
         id: vid,
         name: vName,
-        ...(sameRegionPart && s.region ? { region: s.region } : {}),
+        ...(sameRegionPart && s.region
+          ? regionList(s).length > 1 ? regionsPatch(regionList(s)) : { region: s.region }
+          : {}),
         // 器材：source 的跟 target 一样就跟动作走，不一样才写在做法上
         ...(s.equipment && s.equipment !== t.equipment ? attrsPatch(s.equipment, s.resistance) : {}),
       };
@@ -1480,6 +1517,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       variantLabel,
       liftKey,
       effectiveRegion,
+      effectiveRegions,
       effectivePart,
       getTagName,
       getActiveMetrics,
@@ -1537,6 +1575,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       variantLabel,
       liftKey,
       effectiveRegion,
+      effectiveRegions,
       effectivePart,
       getTagName,
       getActiveMetrics,

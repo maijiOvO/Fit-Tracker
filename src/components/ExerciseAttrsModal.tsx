@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
+import { regionList } from '../utils/exerciseAttrs';
 import { Modal, ModalFooter } from './Modal';
 import { hasRegionSection } from './RegionChooser';
 import { ExerciseAttrFields, type AttrValue } from './ExerciseAttrFields';
@@ -22,7 +23,7 @@ interface ExerciseAttrsModalProps {
 const fromDef = (ex: ExerciseDefinition): AttrValue => ({
   category: ex.category || 'STRENGTH',
   bodyPart: ex.bodyPart || '',
-  region: ex.region || '',
+  regions: regionList(ex),
   equipment: ex.equipment ?? '',
   resistance: ex.resistance,
 });
@@ -56,7 +57,7 @@ export const ExerciseAttrsModal: React.FC<ExerciseAttrsModalProps> = ({ open, ex
           onCancel={onClose}
           onConfirm={() => {
             // 部位换了、细分没跟着选：存成未细分（细分只认当前部位下的）
-            onSave(exercise.id, { ...value, region: hasRegionSection(value.bodyPart, value.category) ? value.region : '' });
+            onSave(exercise.id, { ...value, regions: hasRegionSection(value.bodyPart, value.category) ? value.regions : [] });
             onClose();
           }}
           confirmIcon={<Check size={16} strokeWidth={2.5} />}

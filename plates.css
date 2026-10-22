@@ -420,6 +420,22 @@
   white-space: nowrap;
 }
 
+/* 固定杠铃：一根成品杠，两头焊死，不上色（同哑铃） */
+.fb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px;
+}
+.fb-head {
+  width: 14px;
+  height: 50px;
+  border-radius: 3px;
+  background: var(--text-secondary);
+  transition: transform var(--dur-base) var(--ease-paper);
+}
+.fb-shaft { position: relative; width: min(200px, 56vw); height: 6px; background: var(--bar-rod); }
+
 /* 带符号负荷：数轴 + 弹力带 / 腰片（腰片也按真实片子直径，--mm 固定一个小比例） */
 .signed-glyph { display: flex; flex-direction: column; gap: 8px; padding: 20px 8px 0; }
 .signed-num {
@@ -467,6 +483,27 @@
   color: var(--text-tertiary);
   white-space: nowrap;
   pointer-events: none;
+}
+/* 现在的重量和默认值不一样：变成「点一下改回去」的按钮。字照旧小，点的范围往四周扩开 */
+.ref-tag.is-restore {
+  bottom: -16px;
+  left: -6px;
+  padding: 6px;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ref-tag.is-restore:active { opacity: .6; }
+/* 交替组的动作简称：叠在组号上方一行小字（两个字 / 五个字母，memberAbbrs 保证不更长），点它改记到别的动作 */
+.set-badge {
+  display: block;
+  margin-bottom: 2px;
+  font: 600 10px/1.3 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--text-secondary);
+  white-space: nowrap;
 }
 .pb-tag {
   position: absolute;

@@ -147,7 +147,7 @@ const BASE_EXERCISES: ExerciseDefinition[] = [
  * 部位细分（第 3 条）：每个部位下面再分一层，添加动作弹层按细分分列摆动作。
  * 名字走 translations（getTagName），用户可改名（tagRenameOverrides）；
  * 自建细分是 customTags 里 category='region' 的标签，parentPart 指向部位。
- * 全身 / 有氧 / 自由不分细分。一个动作只落一列。
+ * 全身 / 有氧 / 自由不分细分。一个动作只落一列（主细分）；次要细分见 REGIONS_ALSO。
  */
 export const BODY_REGIONS: Record<string, string[]> = {
   // 每个部位第一列是「热身」（2.4，2026-10-06 用户定：热身动作放进各部位的细分，不再单开自建部位）
@@ -243,9 +243,69 @@ export const REGION_OF: Record<string, string> = {
 };
 
 /**
- * 默认动作库：基础定义 + 细分。
+ * 复合动作的次要细分（2026-10-21 细分改多选）：这个动作也明显练到的地方，接在主细分后面。
+ * 可以跨部位（2026-10-21 用户定：硬拉要能同时是下背、臀、腿后侧；卧推带三头和前束）。
+ * 添加动作的细分格里动作只出现在主细分那一列（主细分＝自己部位的，见 REGION_OF），次要的能搜到（搜「臀」出硬拉）。
+ */
+export const REGIONS_ALSO: Record<string, string[]> = {
+  // 胸：推的都带三头、前束
+  bp_barbell: ['chestLower', 'armTri', 'shFront'],
+  bp_dumbbell: ['chestLower', 'armTri', 'shFront'],
+  bp_smith: ['chestLower', 'armTri', 'shFront'],
+  bp_wide_barbell: ['chestMid', 'shFront'],
+  bp_incline_barbell: ['chestMid', 'shFront', 'armTri'],
+  bp_incline_dumbbell: ['chestMid', 'shFront', 'armTri'],
+  bp_incline_smith: ['chestMid', 'shFront', 'armTri'],
+  bp_decline_barbell: ['chestMid', 'armTri'],
+  bp_decline_dumbbell: ['chestMid', 'armTri'],
+  press_machine_chest: ['armTri', 'shFront'],
+  press_squeeze_db: ['armTri'],
+  pushup: ['chestLower', 'armTri', 'shFront', 'coreStab'],
+  pushup_wide: ['chestMid', 'shFront'],
+  chest_dip: ['armTri', 'shFront'],
+  // 肩：推举带中束、三头
+  ohp_barbell: ['shSide', 'armTri', 'coreStab'],
+  ohp_dumbbell: ['shSide', 'armTri'],
+  ohp_smith: ['shSide', 'armTri'],
+  press_machine_shoulder: ['shSide', 'armTri'],
+  arnold_press: ['shSide', 'armTri'],
+  upright_row: ['shFront', 'backTraps'],
+  face_pull_cable: ['backMid', 'backTraps'],
+  rear_fly_db: ['backMid'],
+  rear_fly_cable: ['backMid'],
+  // 背：拉的都带二头，划船再带后束
+  dl_barbell: ['legGlute', 'legHam', 'backTraps'],
+  pu_weighted: ['backMid', 'armBi'],
+  lat_pulldown: ['backMid', 'armBi'],
+  single_arm_db_row: ['backMid', 'armBi', 'shRear'],
+  row_barbell: ['backLats', 'shRear', 'armBi', 'backLower'],
+  row_seated_cable: ['backLats', 'shRear', 'armBi'],
+  tbar_row: ['backLats', 'shRear', 'armBi'],
+  hyperextension: ['legGlute', 'legHam'],
+  // 腿
+  sq_barbell: ['legGlute', 'legAdd', 'backLower'],
+  goblet_squat: ['legGlute', 'legAdd'],
+  leg_press: ['legGlute', 'legAdd'],
+  hack_squat: ['legGlute'],
+  romanian_deadlift: ['legGlute', 'backLower'],
+  lunge_dumbbell: ['legQuad', 'legAdd'],
+  bulgarian_split: ['legQuad', 'legAdd'],
+  hip_thrust: ['legHam'],
+  glute_kickback_cable: ['legHam'],
+  // 手臂
+  close_grip_bench: ['chestMid', 'shFront'],
+  cu_hammer: ['armFore'],
+  reverse_curl: ['armBi'],
+  farmer_walk: ['backTraps', 'coreStab'],
+};
+
+/**
+ * 默认动作库：基础定义 + 细分（主细分 region，带次要细分的再写 regions）。
  * 改内置动作的名字时，旧名必须进 aliases（见 BASE_EXERCISES 上方说明）。
  */
-export const DEFAULT_EXERCISES: ExerciseDefinition[] = BASE_EXERCISES.map(d =>
-  REGION_OF[d.id] ? { ...d, region: REGION_OF[d.id] } : d,
-);
+export const DEFAULT_EXERCISES: ExerciseDefinition[] = BASE_EXERCISES.map(d => {
+  const r = REGION_OF[d.id];
+  if (!r) return d;
+  const also = REGIONS_ALSO[d.id];
+  return also ? { ...d, region: r, regions: [r, ...also] } : { ...d, region: r };
+});

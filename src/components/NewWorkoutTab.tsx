@@ -49,6 +49,7 @@ import { haptic, H } from '../utils/haptics';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { BodyPartPicker, isPartTitle, partTitleFor } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
+import { ReorderStrip } from './ReorderStrip';
 import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -533,6 +534,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 拖动排序时浮出的位置条：每张卡一行（交替组一行写全部成员） */}
+      <ReorderStrip
+        strip={reorder.strip}
+        labels={cards.map(c => c.exIds.map(id => resolveName(exs.find(e => e.id === id)?.name ?? '')).join(' ⇄ '))}
+      />
 
       {/* 动作卡列表；底部为常驻添加栏预留空间 */}
       <div className="space-y-6 pb-32">

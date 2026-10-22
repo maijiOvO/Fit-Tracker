@@ -11,7 +11,7 @@ import { useMemo } from 'react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { DEFAULT_EXERCISES } from '../constants/exercises';
-import { variantAttrs } from '../utils/exerciseAttrs';
+import { regionList, variantAttrs } from '../utils/exerciseAttrs';
 import { ExerciseDefinition } from '../../types';
 import { mergeOverride } from '../utils/exerciseOverride';
 import {
@@ -70,7 +70,7 @@ export function useExercisePickerData({
     exerciseOverrides,
     customTags,
     getTagName,
-    effectiveRegion,
+    effectiveRegions,
     effectivePart,
     regionsOf,
     equipmentIds,
@@ -116,13 +116,17 @@ export function useExercisePickerData({
       // 做法名也能搜到（搜「宽握」出高位下拉），并进来的旧名同理
       for (const v of ex.variants ?? []) tagNames.push(v.name);
       tagNames.push(...Object.keys(ex.variantAliases ?? {}));
-      // 细分名也能搜到（搜「上胸」出整列）
-      const rg = effectiveRegion(ex);
-      if (rg) tagNames.push(getTagName(rg));
+      // 细分名也能搜到（搜「上胸」出整列）：次要细分也算（搜「臀」出深蹲，2026-10-21），做法的细分也算
+      const rgs = new Set(effectiveRegions(ex));
+      for (const v of ex.variants ?? []) for (const r of regionList(v)) rgs.add(r);
+      for (const r of rgs) {
+        const n = getTagName(r);
+        if (n) tagNames.push(n);
+      }
       m.set(ex.id, buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames));
     }
     return m;
-  }, [merged, getTagName, effectiveRegion]);
+  }, [merged, getTagName, effectiveRegions]);
 
   const tokens = useMemo(() => tokenize(query), [query]);
 

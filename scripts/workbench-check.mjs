@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -373,9 +373,17 @@ t('带正负的负荷：号按组、没写按动作实例；辅助不算容量',
   );
 });
 
-t('交替组成员简称：从后往前找别人没有的字', () => {
-  assert.deepEqual(W.memberAbbrs(['内收', '髋外展']), ['收', '展']);
+t('交替组成员简称：从后往前找别人没有的词，中文 ≤2 字、英文 ≤5 字母', () => {
+  assert.deepEqual(W.memberAbbrs(['哑铃卧推', '哑铃飞鸟']), ['卧推', '飞鸟']);
+  assert.deepEqual(W.memberAbbrs(['上斜哑铃卧推', '平板哑铃卧推']), ['上斜', '平板']);
+  assert.deepEqual(W.memberAbbrs(['内收', '髋外展']), ['内收', '外展']);
+  assert.deepEqual(W.memberAbbrs(['引体向上', '双杠臂屈伸']), ['引体', '臂屈']);
+  assert.deepEqual(W.memberAbbrs(['杠铃弯举', '绳索下压', '哑铃侧平举']), ['弯举', '下压', '侧平']);
   assert.deepEqual(W.memberAbbrs(['器械推胸', '器械推胸']), ['A', 'B']);
+  assert.deepEqual(W.memberAbbrs(['甲乙丙', '甲乙丁']), ['乙丙', '乙丁']); // 词表外的长段：前两个字撞了取末两个字
+  assert.deepEqual(W.memberAbbrs(['Dumbbell Bench Press', 'Dumbbell Fly']), ['Press', 'Fly']);
+  assert.deepEqual(W.memberAbbrs(['Lat Pulldown', 'Seated Cable Row']), ['Pull.', 'Row']);
+  assert.deepEqual(W.memberAbbrs(['Leg Extension', 'Leg Extensions']), ['A', 'B']); // 截短后撞了
 });
 
 t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调片都按原值参与取整和配片', () => {
@@ -391,6 +399,106 @@ t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调�
   assert.equal(L.stepTo('plates', 60, 1, 1, micro), 61);
   // lb 馆的 51 lb 八角片：挂片式器械只算片子，两片 = 102
   assert.ok(L.isLoadable('loaded', 102, { unit: 'lbs', plates: [51, 45, 25], bar: 45, inc: 10 }));
+});
+
+t('起拖：走够 20px 且顺着拖动方向的位移大于另一方向；斜着划也认，偏另一方向才放手', () => {
+  const S = W.S;
+  assert.equal(S.scrubEngage(12, 0), 'wait'); // 原来 12 就起拖，手滑一下就改了重量
+  assert.equal(S.scrubEngage(19, 5), 'wait');
+  assert.equal(S.scrubEngage(20, 0), 'engage');
+  assert.equal(S.scrubEngage(-24, 10), 'engage');
+  assert.equal(S.scrubEngage(24, 16), 'engage'); // 拇指斜着划（曾经按 1.5 倍判成放手，这一下什么都不发生）
+  assert.equal(S.scrubEngage(22, 21), 'engage');
+  assert.equal(S.scrubEngage(20, 20), 'release'); // 正 45° 不归这一格
+  assert.equal(S.scrubEngage(4, 30), 'release'); // 翻页
+  // 竖拖（配重片大图）：along＝竖向，同一条规则
+  assert.equal(S.scrubEngage(30, 8), 'engage');
+  assert.equal(S.scrubEngage(8, 30), 'release');
+});
+
+t('大图拖动方向：配重片竖拖，其余横拖（用户纠正：纵向排布就竖着滑）', () => {
+  const S = W.S;
+  assert.equal(S.heroScrubAxis('pin'), 'y');
+  for (const k of ['plates', 'loaded', 'pair', 'bell', 'fixed', 'signed', undefined]) assert.equal(S.heroScrubAxis(k), 'x', String(k));
+});
+
+t('配重片：最轻一格钉住后改每格，起点不跟着变', () => {
+  const L = W.L;
+  // 没设最轻一格：下限就是一档（5 → 5、10、15…）
+  assert.deepEqual(L.bracket('pin', 7, { unit: 'kg', plates: [], bar: 0, inc: 5 }), { lo: 5, hi: 10 });
+  // 每格从 5 改成 2.5、最轻一格按显示的 5 存下（ExerciseCard.setStack 存 s=5）：5、7.5、10…
+  assert.deepEqual(L.bracket('pin', 6, { unit: 'kg', plates: [], bar: 0, inc: 2.5, start: 5 }), { lo: 5, hi: 7.5 });
+  assert.deepEqual(L.bracket('pin', 3, { unit: 'kg', plates: [], bar: 0, inc: 2.5, start: 5 }), { lo: 5, hi: 5 });
+});
+
+t('固定杠铃：杠铃上能选，一根一个总重、按馆的一档走，没有杆重和配片', () => {
+  const { A, L } = W;
+  assert.deepEqual(A.resistanceChoices('tagBarbell'), ['plates', 'fixedBar']);
+  assert.equal(A.effectiveResistance('tagBarbell', undefined, []), 'plates');
+  assert.equal(A.effectiveResistance('tagBarbell', 'fixedBar', []), 'fixedBar');
+  assert.equal(A.effectiveResistance('tagBarbell', 'stack', []), 'plates'); // 杠铃选不了配重片
+  assert.equal(A.effectiveResistance('tagDumbbell', 'fixedBar', []), 'dumbbell'); // 哑铃锁定
+  assert.equal(L.profileIn(undefined, 'kg').fixedBar, 2.5);
+  assert.equal(L.profileIn(undefined, 'lbs').fixedBar, 5);
+  assert.equal(L.profileIn({ ...L.defaultProfile('kg'), fixedBar: undefined }, 'kg').fixedBar, 2.5); // 旧档案没有这一项
+  const ctx = { unit: 'kg', plates: [20, 2.5], bar: 20, inc: 2.5 };
+  assert.equal(L.snap('fixed', 31, ctx), 30); // 不算杆重、不按片子凑
+  assert.equal(L.stepTo('fixed', 30, 1, 1, ctx), 32.5);
+  assert.equal(L.stepTo('fixed', 2.5, -1, 1, ctx), 2.5); // 最轻一根就是一档
+  assert.equal(L.stepOf('fixed', 30, ctx), 2.5);
+});
+
+t('默认片：kg 2.5–20、lb 2.5–45，kg 杠铃一下 5 kg', () => {
+  const L = W.L;
+  assert.deepEqual(L.defaultProfile('kg').plates, [20, 15, 10, 5, 2.5]);
+  assert.deepEqual(L.defaultProfile('lbs').plates, [45, 35, 25, 10, 5, 2.5]);
+  const p = L.profileIn(undefined, 'kg');
+  assert.equal(L.stepOf('plates', 60, { unit: 'kg', plates: p.plates, bar: 20, inc: 5 }), 5);
+});
+
+t('细分多选：region 是主细分，regions 补次要的；拖到别的列换主细分', () => {
+  const A = W.A;
+  assert.deepEqual(A.regionList({ region: 'legQuad', regions: ['legQuad', 'legGlute'] }), ['legQuad', 'legGlute']);
+  assert.deepEqual(A.regionList({ region: 'legGlute', regions: ['legQuad', 'legGlute'] }), ['legGlute', 'legQuad']); // 旧版 APK 只改了 region
+  assert.deepEqual(A.regionList({ region: '', regions: ['legQuad'] }), []); // 没有主细分＝未细分
+  assert.deepEqual(A.regionList({ region: 'legHam' }), ['legHam']); // 旧数据
+  assert.deepEqual(A.regionsPatch(['a', 'b', 'a', '']), { region: 'a', regions: ['a', 'b'] });
+  assert.deepEqual(A.regionsPatch([]), { region: '', regions: [] });
+  assert.deepEqual(A.movePrimary(['legQuad', 'legGlute'], 'legGlute'), ['legGlute', 'legQuad']);
+  assert.deepEqual(A.movePrimary(['legQuad', 'legGlute'], 'legHam'), ['legHam', 'legGlute']); // 拖走＝不在原来那列
+  assert.deepEqual(A.movePrimary(['legQuad'], ''), []);
+  assert.deepEqual(A.toggleRegion(['a'], 'b'), ['a', 'b']);
+  assert.deepEqual(A.toggleRegion(['a', 'b'], 'a'), ['b']); // 去掉主细分，下一个顶上
+  assert.deepEqual(A.toggleRegion(['a'], 'a'), ['a']); // 最后一个去不掉
+});
+
+t('内置复合动作：主细分是自己部位的，次要细分可以跨部位但都得是存在的细分', () => {
+  const X = W.X;
+  const all = new Set(Object.values(X.BODY_REGIONS).flat());
+  let multi = 0;
+  for (const d of X.DEFAULT_EXERCISES) {
+    if (!d.regions) continue;
+    multi++;
+    assert.equal(d.regions[0], d.region, d.id);
+    assert.ok(X.BODY_REGIONS[d.bodyPart].includes(d.region), `${d.id}: 主细分 ${d.region} 不在 ${d.bodyPart} 下`);
+    for (const r of d.regions) assert.ok(all.has(r), `${d.id}: 没有 ${r} 这个细分`);
+    assert.equal(new Set(d.regions).size, d.regions.length, d.id);
+  }
+  for (const id of Object.keys(X.REGIONS_ALSO)) assert.ok(X.REGION_OF[id], `${id} 没有主细分`);
+  assert.ok(multi >= 40, `只有 ${multi} 个动作带次要细分`);
+  const dl = X.DEFAULT_EXERCISES.find(d => d.id === 'dl_barbell');
+  assert.deepEqual(dl.regions.slice(0, 3), ['backLower', 'legGlute', 'legHam']); // 用户点名：下背 + 臀 + 腿后侧
+});
+
+t('跨部位多选：自己部位的排前面，主细分永远是自己部位的', () => {
+  const A = W.A;
+  const own = ['backLats', 'backLower'];
+  assert.deepEqual(A.toggleRegion([], 'legGlute', own), []); // 还没主细分，别的部位的挂不上
+  assert.deepEqual(A.toggleRegion(['backLower'], 'legGlute', own), ['backLower', 'legGlute']);
+  assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'backLats', own), ['backLower', 'backLats', 'legGlute']);
+  assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'backLower', own), ['backLower', 'legGlute']); // 自己部位的最后一个去不掉
+  assert.deepEqual(A.toggleRegion(['backLower', 'backLats', 'legGlute'], 'backLower', own), ['backLats', 'legGlute']);
+  assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'legGlute', own), ['backLower']);
 });
 
 console.log(`== ${n} passed ==`);

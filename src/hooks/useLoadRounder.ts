@@ -95,7 +95,9 @@ export function useLoadRounder(): RounderFor {
             ? ov ? incIn(ov, u) : prof.dumbbell
             : info.kind === 'bell'
               ? ov ? incIn(ov, u) : prof.kettlebell
-              : stackInc,
+              : info.kind === 'fixed'
+                ? ov ? incIn(ov, u) : prof.fixedBar
+                : stackInc,
         start: info.kind === 'pin' ? stackStart : 0,
       };
       return makeRounder(info, u, ctx, signed);

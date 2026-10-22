@@ -169,4 +169,44 @@ t('keyedPatch：在存储里的原表上改（保留墓碑）；原来没有的�
   assert.deepEqual(P.keyedPatch('gymNotes', 'A|y|', ''), { gymNotes: { 'A|x|': '', 'A|y|': '' } });
 });
 
+t('馆改名：档案挪到新名字、旧名留墓碑；这个馆每台器械的设置一起挪，别的馆不动', () => {
+  const prof = { plateUnit: 'kg', plates: [20, 10, 5, 2.5], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } };
+  const raw = {
+    gyms: { 楼下: prof, 江边: prof },
+    gymOverrides: { '楼下|lat_pulldown|': { v: 5, u: 'kg', s: 12.5 }, '江边|lat_pulldown|': { v: 10, u: 'kg' } },
+    gymKinds: { '楼下|leg_press|': 'pin', '楼下|smith|': '' },
+    gymNotes: { '楼下|leg_press|': '凳子 3', '江边|leg_press|': '挂钩 5' },
+    gymTares: { '楼下|leg_press|': { v: 30, u: 'kg' } },
+  };
+  const p = P.renameGymIn(raw, '公司楼下', prof, '楼下');
+  assert.deepEqual(Object.keys(p.gyms).sort(), ['公司楼下', '楼下', '江边'].sort());
+  assert.equal(p.gyms['楼下'], '');
+  assert.deepEqual(p.gymOverrides, { '公司楼下|lat_pulldown|': { v: 5, u: 'kg', s: 12.5 }, '江边|lat_pulldown|': { v: 10, u: 'kg' } });
+  assert.deepEqual(p.gymKinds, { '楼下|leg_press|': '', '楼下|smith|': '', '公司楼下|leg_press|': 'pin' });
+  assert.deepEqual(p.gymNotes, { '楼下|leg_press|': '', '公司楼下|leg_press|': '凳子 3', '江边|leg_press|': '挂钩 5' });
+  assert.deepEqual(p.gymTares, { '楼下|leg_press|': '', '公司楼下|leg_press|': { v: 30, u: 'kg' } });
+  // 读出来：旧名字没了
+  const r = P.resolveAppPrefs({ ...raw, ...p });
+  assert.deepEqual(Object.keys(r.gyms).sort(), ['公司楼下', '江边'].sort());
+  assert.deepEqual(Object.keys(r.gymNotes).sort(), ['公司楼下|leg_press|', '江边|leg_press|'].sort());
+  // 不改名＝只存档案
+  assert.deepEqual(Object.keys(P.renameGymIn(raw, '楼下', prof)), ['gyms']);
+});
+
+t('馆改名同步：新的一边带墓碑，另一台设备上的旧名档案不复活', () => {
+  const prof = { plateUnit: 'kg', plates: [20], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } };
+  const older = { gyms: { 楼下: prof } };
+  const newer = { gyms: { 楼下: '', 公司楼下: prof } };
+  for (const [a, am, b, bm] of [[newer, 300, older, 100], [older, 100, newer, 300]]) {
+    const m = P.mergeAppPrefs(a, am, b, bm);
+    assert.deepEqual(Object.keys(P.resolveAppPrefs(m.appPrefs).gyms), ['公司楼下']);
+  }
+});
+
+t('gymSavePatch 读存储里的原表：之后再存别的馆，改名墓碑还在', () => {
+  const prof = { plateUnit: 'kg', plates: [20], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } };
+  P.writeAppPrefs({ gyms: { 楼下: '', 公司楼下: prof } }, 7);
+  assert.deepEqual(P.gymSavePatch('江边', prof).gyms, { 楼下: '', 公司楼下: prof, 江边: prof });
+});
+
 console.log(`== ${n} passed ==`);

@@ -20,6 +20,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import {
   RESISTANCES,
   RESISTANCE_NAMES,
+  resistanceChoices,
   defaultResistance,
   effectiveResistance,
   resistanceSelectable,
@@ -30,7 +31,8 @@ import { RegionChooser, hasRegionSection } from './RegionChooser';
 export interface AttrValue {
   category: ExerciseCategory;
   bodyPart: string;
-  region: string;
+  /** 细分，主细分在前（2026-10-21 起多选）；[] = 未细分 / 做法里＝跟动作走 */
+  regions: string[];
   /** 做法模式下 '' = 跟动作走；动作模式下 '' = 无器材 */
   equipment: string;
   resistance?: Resistance;
@@ -162,11 +164,11 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
           row('part', isCn ? '部位' : 'Part', value.bodyPart ? getTagName(value.bodyPart) : '', {
             body: (
               <div className="grid grid-cols-3 gap-1.5">
-                {option('', isCn ? '无' : 'None', !value.bodyPart, () => set({ bodyPart: '', region: '' }))}
+                {option('', isCn ? '无' : 'None', !value.bodyPart, () => set({ bodyPart: '', regions: [] }))}
                 {partIds.map(id => {
                   const n = getTagName(id);
                   return n
-                    ? option(id, n, value.bodyPart === id, () => set({ bodyPart: id, region: id === value.bodyPart ? value.region : '' }), !BODY_PARTS.includes(id))
+                    ? option(id, n, value.bodyPart === id, () => set({ bodyPart: id, regions: id === value.bodyPart ? value.regions : [] }), !BODY_PARTS.includes(id))
                     : null;
                 })}
               </div>
@@ -174,25 +176,26 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
           })}
 
         {showRegion &&
-          row('region', isCn ? '细分' : 'Region', value.region ? getTagName(value.region) : isCn ? (variant ? '跟动作走' : '未细分') : variant ? 'Same as exercise' : 'Unassigned', {
-            body: variant ? (
-              <div className="grid grid-cols-3 gap-1.5">
-                {option('', isCn ? '跟动作走' : 'Same as exercise', !value.region, () => set({ region: '' }))}
-                {variant.regions.map(id => option(id, getTagName(id), value.region === id, () => set({ region: id })))}
-              </div>
-            ) : (
-              <RegionChooser
-                part={value.bodyPart}
-                category={value.category}
-                value={value.region}
-                onChange={r => {
-                  set({ region: r });
-                  setOpen(null);
-                }}
-                lang={lang}
-              />
-            ),
-          })}
+          row(
+            'region',
+            isCn ? '细分' : 'Region',
+            value.regions.length
+              ? value.regions.map(getTagName).join(isCn ? '、' : ', ')
+              : isCn ? (variant ? '跟动作走' : '未细分') : variant ? 'Same as exercise' : 'Unassigned',
+            {
+              // 多选：点了不收起，选完点行头收
+              body: (
+                <RegionChooser
+                  part={value.bodyPart}
+                  category={value.category}
+                  value={value.regions}
+                  onChange={rs => set({ regions: rs })}
+                  lang={lang}
+                  variantOptions={variant?.regions}
+                />
+              ),
+            },
+          )}
 
         {row('equipment', isCn ? '器材' : 'Gear', equipLabel, {
           body: (
@@ -268,7 +271,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
           locked: resLocked,
           body: (
             <div className="grid grid-cols-3 gap-1.5">
-              {RESISTANCES.map(r =>
+              {resistanceChoices(eqForRes).map(r =>
                 option(r, resName(r), resNow === r, () =>
                   // 选回器材默认的就不写（以后器材默认改了跟着走）
                   set({ resistance: r === defaultResistance(eqForRes, customTags) ? undefined : r }),

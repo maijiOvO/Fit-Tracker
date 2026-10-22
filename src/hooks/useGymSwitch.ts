@@ -1,8 +1,9 @@
 /**
  * 手动切单位 / 换馆 / 改今天这个馆的档案 —— docs/design-plates.md §3「馆档案」。
  *
- * 「单位就是片子」（2026-10-18 用户定）：用户自己切到 lbs，就是今天挂的是磅片 ——
- * 工作台上没做完的组全部换到新单位那套片子上重新取整（reRoundPending）；做完的不动。
+ * 切单位＝纯换算（2026-10-21 用户定，原来 10-18 是「单位就是片子」、切了就重新取整）：
+ * 存的 kg 一个不动，只换显示单位，60 kg 就显示 132.28 lb。之后横划 / ± / 手改的那一组才按新单位的档位走（取整器照旧）。
+ * 换馆才是换了一套片子：没做完的组按新馆的片子 / 档位重新取整（reRoundPending）；做完的不动。
  * 选一个设过档案的馆，单位跟着切到那个馆的片子单位。
  *
  * 只有用户亲手的这几下走这里。同步拉回来的单位、开发 / 生产切换带来的单位变化
@@ -23,7 +24,7 @@ import type { GymProfile } from '../utils/loadable';
 import type { PlateUnit } from '../utils/plates';
 
 export function useGymSwitch() {
-  const { workouts, setCurrentWorkout, persistCurrentWorkout } = useWorkoutContext();
+  const { workouts } = useWorkoutContext();
   const { unit, changeUnit, appPrefs } = useUserSettingsContext();
   const { resolveName, variantIdOf } = useExercisePrefs();
   const rounderFor = useLoadRounder();
@@ -59,16 +60,13 @@ export function useGymSwitch() {
     [rounderFor, workouts, resolveName, variantIdOf],
   );
 
-  /** 手动切单位（训练页头上的 kg / lbs、首选项里的单位） */
+  /** 手动切单位（训练页头上的 kg / lbs、首选项里的单位）：只换显示，不动记录、不重新取整 */
   const switchUnit = useCallback(
     (next: PlateUnit) => {
       if (next === (unit === 'lbs' ? 'lbs' : 'kg')) return;
       changeUnit(next);
-      setCurrentWorkout(w => reRound(w, w.gym, next));
-      // 落盘读的是 ref（渲染时才更新）：等这次改动渲染完再写
-      window.setTimeout(() => persistCurrentWorkout(), 0);
     },
-    [changeUnit, persistCurrentWorkout, reRound, setCurrentWorkout, unit],
+    [changeUnit, unit],
   );
 
   /**

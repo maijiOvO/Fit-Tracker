@@ -1825,6 +1825,55 @@ button {
   z-index: 30;
   box-shadow: var(--shadow-overlay);
 }
+/* 位置条（2026-10-21）：一行一张卡、固定行距，手指挪一行换一个位置；纯展示，手势在刊头热区上 */
+.reorder-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+  background: color-mix(in srgb, var(--bg-base) 80%, transparent);
+  pointer-events: none;
+  animation: ink-fade var(--dur-tap) var(--ease-ink) both;
+}
+.reorder-strip {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  margin: 0 auto;
+  max-width: 480px;
+  /* 自己一块实底：压在卡片上也读得清；上下不留白，第 0 行中心才对得上 top */
+  padding: 0 4px;
+  list-style: none;
+  background: var(--bg-base);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-overlay);
+}
+.reorder-strip li {
+  height: var(--pitch);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-radius: var(--radius-control);
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+.reorder-strip li.is-moving {
+  background: var(--bg-card);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text-primary);
+  font-weight: 600;
+  outline: 1.5px solid var(--accent);
+}
+.reorder-no {
+  flex: none;
+  width: 20px;
+  text-align: right;
+  font: 600 13px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--text-tertiary);
+}
+.reorder-strip li.is-moving .reorder-no { color: var(--accent-text); }
+.reorder-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ScrubNumber（全站「调一个数」）：数字下一条虚线＝能左右横划改值，点一下打字 */
 .scrub-num {

@@ -19,8 +19,9 @@ interface AddCustomExerciseModalProps {
   newExerciseEquip: { equipment: string; resistance?: Resistance };
   setNewExerciseEquip: (v: { equipment: string; resistance?: Resistance }) => void;
   /** 细分（第 3 条）；'' = 未细分 */
-  newExerciseRegion: string;
-  setNewExerciseRegion: (id: string) => void;
+  /** 细分，主细分在前；[] = 未细分 */
+  newExerciseRegions: string[];
+  setNewExerciseRegions: (ids: string[]) => void;
   /** 建好的动作加到哪：训练页弹层 / 计划编辑器的选动作弹层 */
   addsTo?: 'workout' | 'plan';
   onClose: () => void;
@@ -39,8 +40,8 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   setNewExerciseBodyPart,
   newExerciseEquip,
   setNewExerciseEquip,
-  newExerciseRegion,
-  setNewExerciseRegion,
+  newExerciseRegions,
+  setNewExerciseRegions,
   addsTo = 'workout',
   onClose,
   onConfirm,
@@ -88,14 +89,14 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
         value={{
           category: newExerciseCategory,
           bodyPart: newExerciseBodyPart,
-          region: newExerciseRegion,
+          regions: newExerciseRegions,
           equipment: newExerciseEquip.equipment,
           resistance: newExerciseEquip.resistance,
         }}
         onChange={v => {
           if (v.category !== newExerciseCategory) setNewExerciseCategory(v.category);
           if (v.bodyPart !== newExerciseBodyPart) setNewExerciseBodyPart(v.bodyPart);
-          if (v.region !== newExerciseRegion) setNewExerciseRegion(v.region);
+          if (v.regions.join('|') !== newExerciseRegions.join('|')) setNewExerciseRegions(v.regions);
           setNewExerciseEquip({ equipment: v.equipment, resistance: v.resistance });
         }}
       />

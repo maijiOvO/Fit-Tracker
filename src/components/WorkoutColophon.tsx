@@ -85,10 +85,11 @@ export const WorkoutColophon: React.FC<Props> = ({
     }
   }, [open, hasPR]);
 
-  // 自动收尾：非 PR 约 880ms，PR 约 1420ms（都可以提前点掉）
+  // 自动收尾只给非 PR：约 1900ms 后自己收（可以提前点掉）。
+  // PR 那天留在这页，等用户点任意处才收——破纪录值得多看一眼。
   useEffect(() => {
-    if (!open) return;
-    const t = window.setTimeout(onDone, hasPR ? 2600 : 1900);
+    if (!open || hasPR) return;
+    const t = window.setTimeout(onDone, 1900);
     return () => window.clearTimeout(t);
   }, [open, hasPR, onDone]);
 
