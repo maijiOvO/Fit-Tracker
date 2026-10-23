@@ -82,7 +82,7 @@ function getGroupInfo(
   date: Date,
   granularity: TimelineGranularity,
   lang: Language,
-): { key: string; label: string; sortKey: string } {
+): { key: string; label: string; sortKey: string; sub?: string } {
   const isCN = lang === Language.CN;
   if (granularity === 'day') {
     const y = date.getFullYear();
@@ -104,10 +104,10 @@ function getGroupInfo(
     const weekNum = parseInt(key.split('W')[1], 10);
     // 年份跟周号走（ISO 周年）：12/30 – 1/5 那一周是下一年的第 1 周，原来写成「上一年 · 第 1 周」（审查 C）
     const isoYear = key.slice(0, 4);
-    const label = isCN
-      ? `${isoYear}年 · 第${weekNum}周 (${sm}/${sd} - ${em}/${ed})`
-      : `${isoYear} · Week ${weekNum} (${sm}/${sd} - ${em}/${ed})`;
-    return { key, label, sortKey: key };
+    // 日期范围拆成副行：原来整串「2026年 · 第41周 (10/5 - 10/11)」挤在一行，
+    // 375 宽下把右边「2 场 · 16 动作 · 47 组」压成每项两行（2026-10-22）
+    const label = isCN ? `${isoYear}年 · 第${weekNum}周` : `${isoYear} · Week ${weekNum}`;
+    return { key, label, sortKey: key, sub: `${sm}/${sd} – ${em}/${ed}` };
   }
   if (granularity === 'month') {
     const y = date.getFullYear();
@@ -607,13 +607,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     );
     const map = new Map<
       string,
-      { label: string; sortKey: string; workouts: WorkoutSession[] }
+      { label: string; sub?: string; sortKey: string; workouts: WorkoutSession[] }
     >();
     for (const w of sorted) {
       if (!w.date) continue;
       const info = getGroupInfo(new Date(w.date), granularity, lang);
       if (!map.has(info.key)) {
-        map.set(info.key, { label: info.label, sortKey: info.sortKey, workouts: [] });
+        map.set(info.key, { label: info.label, sub: info.sub, sortKey: info.sortKey, workouts: [] });
       }
       map.get(info.key)!.workouts.push(w);
     }
@@ -749,11 +749,17 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               onClick={() => toggleGroup(group.key)}
               className="w-full flex items-center justify-between px-1 py-2 group"
             >
-              <div className="flex items-center gap-2">
-                <CalendarSearch size={14} className="text-accent" strokeWidth={2} />
-                <h3 className="text-sm font-bold text-primary">{group.label}</h3>
+              <div className="flex items-center gap-2 min-w-0 text-left">
+                <CalendarSearch size={14} className="flex-none text-accent" strokeWidth={2} />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-primary truncate">{group.label}</h3>
+                  {group.sub && (
+                    <div className="text-micro text-tertiary font-medium tabular-nums">{group.sub}</div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2.5 text-micro text-tertiary font-medium">
+              {/* 统计不许折行：被挤时让标题截断，不让「16 动作」拆成两行 */}
+              <div className="flex-none whitespace-nowrap flex items-center gap-2.5 text-micro text-tertiary font-medium">
                 <span>
                   {group.workouts.length} {isCN ? '场' : 'sess.'}
                 </span>
