@@ -115,7 +115,7 @@ export interface NewWorkoutTabProps {
   flashExerciseId: string | null;
   onFlashDone: () => void;
   /**
-   * §12.4：经由 FAB 印谱手势选了「制」（自己命名）的那次训练 id。
+   * §12.4：经由 FAB 印谱手势选了「⋯」（其他，自己命名）的那次训练 id。
    * 命中时不再问「今天练哪里」，并把焦点交给标题输入框。
    */
   partPrechosenId?: string | null;
@@ -357,7 +357,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     partPrechosenId !== currentWorkout.id;
 
   /**
-   * FAB 印谱选了「制」进来：部位已在手势里选过，这里只剩把名字写出来。
+   * FAB 印谱选了「⋯」（其他）进来：部位已在手势里选过，这里只剩把名字写出来。
    * 延后一拍聚焦（同 onPickOther 的理由：等重排结束，否则移动端键盘弹不出来）。
    */
   const focusedForRef = useRef<string | null>(null);

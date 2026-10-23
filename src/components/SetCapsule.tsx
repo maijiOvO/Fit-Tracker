@@ -691,7 +691,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
         {/* 力竭：可见开关，不做隐藏手势。只标力竭，不顺带算做完（2026-10 指针：做完只看指针）。
             再点一次取消。§5.7 两档触感：标记＝确认感，取消＝点击感。
-            字形用 font-display（Noto Serif SC）而不是 font-seal：印章字体的子集没有「竭」，
+            字形用正文字体（原来的印章体子集里没有「竭」，印章体已于 2026-10-22 退役），
             而且印章字体留给印章本身，别稀释掉 PR 那一处仪式。 */}
         {!readOnly ? (
           <button

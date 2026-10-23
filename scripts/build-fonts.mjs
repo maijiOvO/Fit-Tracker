@@ -38,21 +38,7 @@ const BASE =
   // 全角数字与字母偶尔会从旧数据里漏进来
   '０１２３４５６７８９';
 
-/**
- * 印章 / 手写批注专用。Ma Shan Zheng 只切这几个字，别把全站文案喂给它。
- *
- * 两组：
- *   PR 与刊末页的落章 —— 记破新纪录今天多住了一点
- *   训练部位的朱文印   —— 胸肩背腿臂制（BodyPartPicker）
- *
- * ⚠️ 加中文字到印章里必须同时改这里并重跑 npm run build:fonts。
- *    dev server 不会自动重建子集，漏了这步字会静默掉回系统字体。
- *
- * ⚠️ 英文版的印面（部位印 C S B L A O、落章 PR）走的是 Noto Serif SC，不是这支笔 ——
- *    Ma Shan Zheng 的拉丁笔画细、字面窄，在方印里显空（见 design 文档 §12.1）。
- *    所以【不要】把字母加进 SEAL_CHARS：加了也没人用，只是白占体积。
- */
-const SEAL_CHARS = '记破新纪录今天多住了一点' + '胸肩背腿臂制';
+// Ma Shan Zheng（印章体）2026-10-22 退役：部位印改正文粗体方印（「杠铃片」阶段二），不再切印章子集。
 
 const SCAN_EXT = new Set(['.ts', '.tsx', '.html']);
 const SCAN_DIRS = ['src', 'services'];
@@ -108,7 +94,6 @@ const FONTS = [
   { file: 'Smiley_Sans/SmileySans-Oblique.ttf', out: 'smiley-sans.woff2', full: true },
   { file: 'Barlow_Condensed/BarlowCondensed-SemiBold.ttf', out: 'barlow-condensed-600.woff2', latinOnly: true },
   { file: 'Barlow_Condensed/BarlowCondensed-Bold.ttf', out: 'barlow-condensed-700.woff2', latinOnly: true },
-  { file: 'Ma_Shan_Zheng/MaShanZheng-Regular.ttf', out: 'ma-shan-zheng.woff2', sealOnly: true },
 ];
 
 /* ── 3. 校验：轴有没有活下来 ─────────────────────────────────── */
@@ -188,7 +173,7 @@ async function main() {
 
   for (const f of FONTS) {
     const src = readFileSync(join(SRC_DIR, f.file));
-    const text = f.latinOnly ? BASE : f.sealOnly ? BASE.slice(0, 95) + SEAL_CHARS : charset;
+    const text = f.latinOnly ? BASE : charset;
     const opts = f.variationAxes ? { variationAxes: f.variationAxes } : {};
 
     if (f.expectAxis) {

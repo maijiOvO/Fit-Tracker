@@ -420,6 +420,39 @@
   white-space: nowrap;
 }
 
+/* 热力图镁粉点：破纪录那天格子中间一颗白点，描一圈深线（镁粉白在浅色格子上要看得见） */
+.heat-pr::after,
+.heat-pr-dot {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chalk);
+  box-shadow: 0 0 0 1px var(--text-on-chalk);
+}
+.heat-pr::after { position: absolute; inset: 0; margin: auto; }
+.heat-pr-dot { display: inline-block; }
+
+/* 上片里程碑：镁粉牌（同刊末页 PB 牌），横排可滑 */
+.milestone-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.milestone {
+  flex: none;
+  min-width: 120px;
+  padding: 8px 10px;
+  border-radius: var(--radius-card);
+  background: var(--chalk);
+  border: 1px solid var(--text-on-chalk);
+  color: var(--text-on-chalk);
+}
+.milestone b { display: block; margin: 4px 0 2px; font-size: var(--fs-h2); font-weight: 700; line-height: 1.2; }
+/* 镁粉牌深浅主题都是白底，副字用定值的深灰（浅色的二级字色），跟主题走会在深色下变浅、看不清 */
+.milestone small { display: block; font-size: var(--fs-micro); color: #43474E; }
+
+/* 小号配片（MiniPlates）：计划卡、里程碑用。一侧从里到外，高按直径比例，片宽 4px */
+.mini-plates { display: inline-flex; align-items: center; gap: 1px; height: 16px; vertical-align: middle; }
+.mini-plates .mini-rod { width: 8px; height: 3px; background: var(--bar-rod); }
+.mini-plates i { display: block; width: 4px; border-radius: 1px; box-shadow: inset 0 0 0 0.5px var(--plate-edge); }
+
 /* 壶铃：提手 + 铃身，从底边往上缩放（大小随重量），不上色（同哑铃）。数字不缩，钉在铃身底部 */
 .kb-wrap {
   position: relative;

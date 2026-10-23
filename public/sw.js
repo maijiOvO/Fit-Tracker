@@ -8,8 +8,9 @@
  *          胸肩背腿臂制六字逐字回退成系统黑体，且 FontFace 照样 load 成功、
  *          fonts.check() 照样返回 true —— 三层探针全是假绿。
  * v6 → v7：「杠铃片」换装，宋体与 IBM Plex Mono 两张字体退役，清掉旧缓存里的死文件。
+ * v7 → v8：部位印改正文粗体方印，Ma Shan Zheng 退役（「杠铃片」阶段二），同上清掉死文件。
  */
-const CACHE_NAME = 'fitlog-v7';
+const CACHE_NAME = 'fitlog-v8';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -20,7 +21,6 @@ const APP_SHELL = [
   '/fonts/smiley-sans.woff2',
   '/fonts/barlow-condensed-600.woff2',
   '/fonts/barlow-condensed-700.woff2',
-  '/fonts/ma-shan-zheng.woff2',
 ];
 
 self.addEventListener('install', (event) => {

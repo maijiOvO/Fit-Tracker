@@ -18,7 +18,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // 文件 → 允许的手写字号。只给图形用。
 const ALLOW = {
-  'src/components/BodyPartPicker.tsx': ['text-[36px]'], // 英文界面的部位印章字母
+
 };
 
 const files = [join(ROOT, 'App.tsx')];

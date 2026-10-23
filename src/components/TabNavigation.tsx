@@ -7,7 +7,7 @@
  * 可玩的调参 demo 在 docs/demos/fab-seal-fan.html。
  */
 import React, { useCallback, useRef, useState } from 'react';
-import { BarChart2, CalendarDays, User as UserIcon, Plus, Play } from 'lucide-react';
+import { BarChart2, CalendarDays, User as UserIcon, Plus, Play, MoreHorizontal } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
 import { FAN_PARTS, type BodyPartKey } from './BodyPartPicker';
@@ -22,7 +22,7 @@ interface TabNavigationProps {
   onStartWorkout?: () => void;
   /** 有进行中的训练：FAB 是「回到训练」（不扇开印谱，点了直接回工作台） */
   resume?: boolean;
-  /** §12.4：印谱扇开选中某枚印。title=训练名（「制」为 null，进页后写名字） */
+  /** §12.4：印谱扇开选中某枚印。title=训练名（「⋯」其他为 null，进页后写名字） */
   onStartWorkoutWithPart?: (partKey: BodyPartKey, title: string | null) => void;
 }
 
@@ -284,7 +284,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           <button
             key={s.key}
             type="button"
-            className={`seal-fan-item ${s.latin ? 'is-latin' : 'font-seal'}${
+            className={`seal-fan-item${s.latin ? ' is-latin' : ''}${
               s.dashed ? ' is-dashed' : ''
             }${
               i < inCount ? ' is-in' : ''
@@ -306,7 +306,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
               if (fanState === 'tapmode' && committing === null) commit(i, seals);
             }}
           >
-            {s.seal}
+            {/* 「其他」画「⋯」图标：原来刻「制」，别人看不懂（2026-10-22） */}
+            {s.key === 'other' ? <MoreHorizontal size={24} strokeWidth={2.5} /> : s.seal}
           </button>
         ))}
 

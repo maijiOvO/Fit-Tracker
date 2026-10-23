@@ -35,6 +35,8 @@ interface Props {
   /** 收起时显示几周。「我的」页面里整张图太占纵向高度，默认只留 5 行。 */
   collapsedWeeks?: number;
   onPickDay?: (day: HeatmapDay) => void;
+  /** 破了纪录的日子（本地日期 YYYY-MM-DD）：格子中间画一颗镁粉白点（「杠铃片」阶段二，纪录 = 镁粉） */
+  prDays?: Set<string>;
 }
 
 /** 0 / 1-8 / 9-16 / 17-24 / 25+ —— 一档约等于两个动作的量 */
@@ -55,6 +57,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
   span = 91,
   collapsedWeeks = 5,
   onPickDay,
+  prDays,
 }) => {
   const isCn = lang === Language.CN;
   const [expanded, setExpanded] = useState(false);
@@ -147,9 +150,10 @@ export const ActivityHeatmap: React.FC<Props> = ({
       <div className="grid grid-cols-7 gap-1">
         {shown.map(c => {
           if (c.future) return <span key={c.date} />;
+          const isPr = !!prDays?.has(c.date);
           const title = `${c.date} · ${c.sets} ${isCn ? '组' : plural(c.sets, 'set')}${
             c.sessions > 1 ? ` · ${c.sessions} ${isCn ? '场' : plural(c.sessions, 'session')}` : ''
-          }`;
+          }${isPr ? (isCn ? ' · 破纪录' : ' · PR') : ''}`;
           return (
             <button
               key={c.date}
@@ -157,7 +161,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
               title={title}
               aria-label={title}
               onClick={onPickDay ? () => onPickDay(c) : undefined}
-              className={`aspect-square rounded-chip ${
+              className={`relative aspect-square rounded-chip${isPr ? ' heat-pr' : ''} ${
                 c.isToday ? 'ring-1 ring-accent ring-offset-1 ring-offset-card' : ''
               }`}
               style={{
@@ -205,6 +209,12 @@ export const ActivityHeatmap: React.FC<Props> = ({
           />
         ))}
         <span>{isCn ? '多' : 'More'}</span>
+        {prDays && prDays.size > 0 && (
+          <span className="ml-2 inline-flex items-center gap-1">
+            <span className="heat-pr-dot" aria-hidden />
+            {isCn ? '破纪录' : 'PR'}
+          </span>
+        )}
       </div>
     </div>
   );
