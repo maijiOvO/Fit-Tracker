@@ -1201,12 +1201,24 @@ button {
 .region-headwrap::-webkit-scrollbar {
   display: none;
 }
+/* 表头下只留一道细线：原来深线 + 阴影双线，再加上栏线，一屏三套线像没排好的表格（2026-10-23 界面审查） */
 .region-heads {
   position: relative;
   padding: 12px 0 6px;
   background: var(--bg-base);
-  border-bottom: 1px solid var(--rule-strong);
-  box-shadow: 0 3px 0 -2px var(--divider);
+  border-bottom: 1px solid var(--divider);
+}
+/* 横滑时右缘渐隐＝后面还有列（原来是第五列露一条边，像溢出）。末尾有 16px 内边距，滚到头最后一列不被淡掉 */
+.region-board.is-scroll .region-headwrap,
+.region-board.is-scroll .region-bscroll,
+.hscroll-fade {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+/* 整理时表头行末的「＋」挂在右侧留白里，不能被淡掉 */
+.is-arranging .region-board.is-scroll .region-headwrap {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 .region-board.is-scroll .region-heads {
   width: max-content;
@@ -1218,7 +1230,7 @@ button {
   align-items: baseline;
   gap: 4px;
   min-width: 0;
-  padding-left: 5px;
+  padding-left: 6px; /* 和卡片里的字同一条起点 */
   white-space: nowrap;
   text-align: left;
   border-radius: var(--radius-control);
@@ -1290,12 +1302,17 @@ button {
   row-gap: 4px;
   align-items: stretch;
 }
+/* 栏线只在整理时画（那时列是落点，要看清边界）；选动作时列与列靠留白分开 */
 .region-rule {
   position: absolute;
   z-index: 0;
+  display: none;
   width: 1px;
   background: var(--divider);
   pointer-events: none;
+}
+.is-arranging .region-rule {
+  display: block;
 }
 .region-heads .region-rule {
   top: 6px;
@@ -1326,14 +1343,15 @@ button {
   align-items: center;
   min-width: 0;
   min-height: 44px;
-  padding: 6px 4px 6px 5px;
+  padding: 6px;
   text-align: left;
   background: var(--bg-inset);
   border-radius: var(--radius-control);
   font-size: var(--fs-label);
   line-height: 1.3;
-  font-weight: 700;
-  color: var(--text-secondary);
+  /* 常规字重：粗体留给表头和选中的部位，一屏二十多张粗体卡是一堵字墙（2026-10-23 界面审查） */
+  font-weight: 500;
+  color: var(--text-primary);
   /* 名字按词断行：词间插了零宽空格（nameSegments），词内不断；词表外的长名字兜底逐字断 */
   word-break: keep-all;
   overflow-wrap: anywhere;
@@ -1346,15 +1364,38 @@ button {
   background: color-mix(in srgb, var(--text-primary) 8%, var(--bg-inset));
 }
 .region-card-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+/* 剪影跟字同一行（不单占一格）：卡只有 ~80px 宽，单占一格字就只剩 45px、一词一行 */
+.region-card-title {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+/* 做法名：名字下一行小灰字 */
+.region-card-sub {
+  font-size: var(--fs-micro);
+  color: var(--text-tertiary);
+}
+.region-card.is-added .region-card-sub { color: inherit; opacity: 0.8; }
+/* 空列（选动作时）：一行淡字，和卡片同高同起点 */
+.region-none {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-left: 6px;
+  font-size: var(--fs-label);
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
 .region-card-star {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 3px;
+  right: 3px;
   line-height: 0;
   color: var(--accent-text); /* 收藏是选中态，不是警告（2026-10-22 界面审查） */
 }
@@ -1387,7 +1428,7 @@ button {
 .eq-plate::before { left: 4px; top: 0; width: 4px; height: 10px; }
 .eq-plate::after { left: 9px; top: 2px; width: 3px; height: 6px; }
 /* 配重片：一摞 */
-.eq-stack { width: 9px; background: repeating-linear-gradient(currentColor 0 2px, transparent 2px 3px); border-radius: 1px; }
+.eq-stack { width: 9px; margin: 0 6px 0 3px; background: repeating-linear-gradient(currentColor 0 2px, transparent 2px 3px); border-radius: 1px; }
 .region-card-x {
   position: absolute;
   right: 4px;
@@ -1407,7 +1448,6 @@ button {
 .region-card.is-un {
   background: transparent;
   box-shadow: inset 0 0 0 1px var(--divider);
-  font-weight: 600;
 }
 .region-card.is-un.is-added {
   background: var(--accent);
@@ -1450,7 +1490,6 @@ button {
   box-shadow: none;
   border: 1px dashed var(--divider);
   color: var(--text-tertiary);
-  font-weight: 600;
 }
 .is-en .region-card {
   font-size: var(--fs-label);
