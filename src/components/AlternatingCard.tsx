@@ -22,7 +22,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { gymMachineKey, useLoadInfoOf } from '../hooks/useLoadKind';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useLoadRounder } from '../hooks/useLoadRounder';
-import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
+import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
 import { memberAbbrs, RowRef } from '../utils/workbench';
 import { setVolumeKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
@@ -71,7 +71,7 @@ interface Props {
 }
 
 const panelBtn =
-  'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors disabled:opacity-40';
+  'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-small font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors disabled:opacity-40';
 
 /** 底部面板（同添加动作弹层里的动作面板：bg-inset + 全宽 bg-card 描边按钮） */
 const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; cancel: string; children: React.ReactNode; testId?: string }> = ({
@@ -88,7 +88,7 @@ const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; c
       style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
       onClick={e => e.stopPropagation()}
     >
-      <p className="px-2 pb-1 text-sm font-semibold text-primary">
+      <p className="px-2 pb-1 text-small font-semibold text-primary">
         {title}
         {subtitle && <span className="block text-xs font-medium text-tertiary">{subtitle}</span>}
       </p>
@@ -96,7 +96,7 @@ const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; c
       <button
         type="button"
         onClick={onClose}
-        className="w-full min-h-[48px] px-4 rounded-card text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+        className="w-full min-h-[48px] px-4 rounded-card text-small font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
       >
         {cancel}
       </button>
@@ -290,7 +290,7 @@ export const AlternatingCard: React.FC<Props> = ({
           onClick={() => onToggleNote(resolveName(m.name), gymKeyOf(m))}
           className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
         >
-          <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-warning" strokeWidth={1.75} />
+          <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-tertiary" strokeWidth={1.75} />
           <span>
             <b className="font-semibold">{abbrs[idx(m.id)]}</b> ·{' '}
             {[gymNoteOf(m) ? `${gym} · ${gymNoteOf(m)}` : '', exerciseNotes[resolveName(m.name)] ?? ''].filter(Boolean).join(' / ')}
@@ -300,11 +300,19 @@ export const AlternatingCard: React.FC<Props> = ({
 
       <div className="grid items-center px-3 pt-2.5 pb-1 text-micro font-medium text-tertiary" style={{ gridTemplateColumns: cols }}>
         <span>#</span>
-        {headMetrics.map(m => (
-          <span key={m} className="text-center">
-            {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
-          </span>
-        ))}
+        {headMetrics.map(m => {
+          // 列名让出单位宽，落在数字正上方（同 ExerciseCard 表头）
+          const u = metricUnitLabel(m, unit, isCn);
+          return (
+            <span
+              key={m}
+              className="text-center"
+              style={u ? { paddingRight: `${Math.max(20, u.length * 6.5 + 4)}px` } : undefined}
+            >
+              {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
+            </span>
+          );
+        })}
         <span className="text-center">{isCn ? '竭' : 'F'}</span>
         <span />
       </div>
@@ -464,7 +472,7 @@ export const AlternatingCard: React.FC<Props> = ({
               setMemberFor(null);
               onDeleteMember(memberFor);
             }}
-            className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
+            className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-small font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
           >
             <Trash2 size={16} />
             {isCn ? '从本场删除' : 'Remove from this workout'}

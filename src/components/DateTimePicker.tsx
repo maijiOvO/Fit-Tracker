@@ -149,7 +149,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
                   <button
                     key={day}
                     onClick={() => setSelectedDate(new Date(currentYear, currentMonth, day))}
-                    className={`p-2 text-sm font-mono font-medium rounded-control transition-colors tabular-nums ${
+                    className={`p-2 text-small font-mono font-medium rounded-control transition-colors tabular-nums ${
                       isSelected(day)
                         ? 'bg-accent text-on-accent'
                         : isToday(day)

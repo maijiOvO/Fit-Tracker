@@ -505,7 +505,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             onClick={onSave}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length) || (!!editingWorkoutId && !hasUnsavedChanges)}
             data-testid="finish-button"
-            className={`min-h-[44px] px-4 rounded-card font-bold text-sm flex-shrink-0 flex items-center gap-2 transition-ui active:scale-press-sm ${
+            className={`min-h-[44px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
@@ -715,7 +715,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             />
           ) : (
             <div className="bg-inset border border-dashed border-divider rounded-card p-10 text-center space-y-2">
-              <p className="text-sm text-secondary font-semibold">
+              <p className="text-small text-secondary font-semibold">
                 {isCn ? '还没有动作' : 'No exercises yet'}
               </p>
               <p className="text-xs text-tertiary">

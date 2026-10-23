@@ -83,7 +83,7 @@ function Seg<T extends string | number>({
             aria-pressed={on}
             onClick={() => onPick(o.v)}
             className={`min-h-[40px] py-2 rounded-chip flex flex-col items-center justify-center gap-1 transition-colors duration-tap ease-paper ${
-              mono ? 'font-mono text-sm font-semibold' : 'text-xs font-medium'
+              mono ? 'font-mono text-small font-semibold' : 'text-xs font-medium'
             } ${on ? 'seg-on' : 'text-secondary hover:text-primary hover:bg-card-hover'}`}
           >
             {o.icon}

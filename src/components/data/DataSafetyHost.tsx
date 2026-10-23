@@ -95,13 +95,13 @@ export const DataSafetyHost: React.FC = () => {
               <FolderOpen size={18} strokeWidth={1.75} />
               {t('选择文件夹', 'Choose folder')}
             </button>
-            <button type="button" className="w-full py-2 text-secondary text-sm" onClick={closeSetup} data-testid="backup-setup-later">
+            <button type="button" className="w-full py-2 text-secondary text-small" onClick={closeSetup} data-testid="backup-setup-later">
               {t('以后再说', 'Not now')}
             </button>
           </div>
         }
       >
-        <div className="space-y-3 text-sm leading-relaxed text-secondary">
+        <div className="space-y-3 text-small leading-relaxed text-secondary">
           <div className="flex justify-center">
             <div className="p-3 bg-accent-soft text-accent rounded-control">
               <ShieldCheck size={26} strokeWidth={1.75} />

@@ -38,7 +38,7 @@ interface Props {
 }
 
 const btn =
-  'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-sm font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors';
+  'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-small font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors';
 
 export const ExerciseActionPanel: React.FC<Props> = ({
   ex,
@@ -125,7 +125,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => setDraft(name)}
-              className="flex-1 min-w-0 text-left text-sm font-semibold text-primary cursor-text"
+              className="flex-1 min-w-0 text-left text-small font-semibold text-primary cursor-text"
               data-testid="action-panel-name"
             >
               {name}
@@ -161,10 +161,10 @@ export const ExerciseActionPanel: React.FC<Props> = ({
             onClick={() => toggleStarExercise(name)}
             aria-pressed={starred}
             aria-label={isCn ? '收藏' : 'Star'}
-            className="w-11 h-11 -mt-2 -mr-2 -mb-1 flex-shrink-0 flex items-center justify-center rounded-control text-warning"
+            className="w-11 h-11 -mt-2 -mr-2 -mb-1 flex-shrink-0 flex items-center justify-center rounded-control text-accent"
             data-testid="action-panel-star"
           >
-            <Star size={20} strokeWidth={2} className={starred ? 'fill-warning' : ''} />
+            <Star size={20} strokeWidth={2} className={starred ? 'fill-current' : ''} />
           </button>
         </div>
 
@@ -256,7 +256,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
                     onClick={() => {
                       if (mergeExerciseInto(ex.id, d.id)) onClose();
                     }}
-                    className="w-full min-h-[44px] px-3 rounded-control text-left text-sm font-semibold text-primary active:bg-card-hover flex items-center gap-2"
+                    className="w-full min-h-[44px] px-3 rounded-control text-left text-small font-semibold text-primary active:bg-card-hover flex items-center gap-2"
                     data-testid="merge-target"
                   >
                     {resolveName(d.name[lang])}
@@ -279,7 +279,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={then(() => onDelete(ex.id))}
-          className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-sm font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
+          className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-small font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
         >
           <Trash2 size={16} />
           {isCn ? '从动作库删除' : 'Delete from library'}
@@ -287,7 +287,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
         <button
           type="button"
           onClick={onClose}
-          className="w-full min-h-[48px] px-4 rounded-card text-sm font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+          className="w-full min-h-[48px] px-4 rounded-card text-small font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
         >
           {isCn ? '取消' : 'Cancel'}
         </button>

@@ -22,7 +22,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
       <div className="flex justify-between items-center">
         <div>
           <h2 className="font-display text-display-sm text-primary">{translations.goals[lang]}</h2>
-          <p className="text-secondary text-sm mt-1">{translations.goalsSubtitle[lang]}</p>
+          <p className="text-secondary text-small mt-1">{translations.goalsSubtitle[lang]}</p>
         </div>
         <button
           onClick={onAddGoal}

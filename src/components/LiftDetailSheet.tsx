@@ -253,12 +253,12 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                 className="w-full flex items-center gap-3 py-3 text-left active:opacity-70"
                 aria-expanded={open}
               >
-                <span className="w-[88px] flex-shrink-0 text-sm text-secondary tabular-nums">{shortDate(s.ts, isCn)}</span>
+                <span className="w-[88px] flex-shrink-0 text-small text-secondary tabular-nums">{shortDate(s.ts, isCn)}</span>
                 <span className="flex-1 min-w-0 font-mono font-semibold text-primary tabular-nums truncate">
                   {rowSummary(s)}
                 </span>
                 {isPr && (
-                  <span className="text-micro font-bold px-1.5 py-0.5 rounded-chip bg-warning/15 text-warning">PR</span>
+                  <span className="text-micro font-bold px-1.5 py-0.5 rounded-chip bg-chalk text-on-chalk border border-on-chalk">PR</span>
                 )}
                 <span className="text-xs text-tertiary tabular-nums whitespace-nowrap">
                   {s.sets.length} {isCn ? '组' : plural(s.sets.length, 'set')}
@@ -304,7 +304,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                         resumeAt = { key: l.key, expanded, scrollTop: scroller()?.scrollTop ?? 0 };
                         onEditWorkout(s.workoutId, s.exerciseId);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-control bg-inset text-sm font-medium text-primary"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-control bg-inset text-small font-medium text-primary"
                     >
                       <Edit2 size={14} strokeWidth={1.75} />
                       {isCn ? '编辑这场' : 'Edit workout'}
@@ -312,7 +312,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                     <button
                       type="button"
                       onClick={e => onDeleteRecord(e, s.workoutId, s.exerciseId, s.date)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-control text-sm font-medium text-danger"
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-control text-small font-medium text-danger"
                     >
                       <Trash2 size={14} strokeWidth={1.75} />
                       {isCn ? '删除这条' : 'Delete entry'}

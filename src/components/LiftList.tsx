@@ -60,7 +60,7 @@ export const LiftList: React.FC<LiftListProps> = ({
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder={isCn ? '搜索动作' : 'Search exercises'}
-            className="w-full h-10 pl-9 pr-9 rounded-control bg-inset text-sm text-primary placeholder:text-tertiary outline-none"
+            className="w-full h-10 pl-9 pr-9 rounded-control bg-inset text-small text-primary placeholder:text-tertiary outline-none"
             data-testid="lift-search"
           />
           {query && (
@@ -77,7 +77,7 @@ export const LiftList: React.FC<LiftListProps> = ({
       )}
 
       {shown.length === 0 && (
-        <p className="py-6 text-center text-sm text-tertiary">{isCn ? '没有匹配的动作' : 'No matching exercises'}</p>
+        <p className="py-6 text-center text-small text-tertiary">{isCn ? '没有匹配的动作' : 'No matching exercises'}</p>
       )}
 
       {shown.map(lift => {
@@ -106,7 +106,7 @@ export const LiftList: React.FC<LiftListProps> = ({
             <button
               type="button"
               onClick={() => onToggleStar(lift.baseName)}
-              className={`-ml-2 w-9 h-12 flex-shrink-0 flex items-center justify-center ${isStarred ? 'text-warning' : 'text-tertiary opacity-50'}`}
+              className={`-ml-2 w-9 h-12 flex-shrink-0 flex items-center justify-center ${isStarred ? 'text-accent' : 'text-tertiary'}`}
               aria-label={isCn ? (isStarred ? '取消收藏' : '收藏') : isStarred ? 'Unstar' : 'Star'}
             >
               <Star size={16} fill={isStarred ? 'currentColor' : 'none'} strokeWidth={1.75} />

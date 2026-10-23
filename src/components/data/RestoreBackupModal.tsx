@@ -227,7 +227,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       title={t('从备份恢复', 'Restore from backup')}
       testId="restore-modal"
     >
-      <div className="space-y-4 text-sm text-secondary leading-relaxed">
+      <div className="space-y-4 text-small text-secondary leading-relaxed">
         {(phase.kind === 'loading' || phase.kind === 'picking' || phase.kind === 'applying') && (
           <p className="flex items-center gap-2 py-6 justify-center">
             <RefreshCw size={16} className="animate-spin" />

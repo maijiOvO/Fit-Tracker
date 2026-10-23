@@ -242,7 +242,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
         <div className="flex items-center justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-control border border-divider text-secondary hover:text-primary hover:bg-card-hover transition text-sm"
+            className="px-4 py-2 rounded-control border border-divider text-secondary hover:text-primary hover:bg-card-hover transition text-small"
           >
             {isCn ? '取消' : 'Cancel'}
           </button>
@@ -250,7 +250,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
             onClick={handleSave}
             disabled={saving || !date}
             data-testid="schedule-save-btn"
-            className="px-4 py-2 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition disabled:opacity-50"
+            className="px-4 py-2 rounded-control bg-accent text-on-accent text-small font-medium hover:opacity-90 active:scale-press-sm transition disabled:opacity-50"
           >
             {saving ? '...' : (isCn ? '保存' : 'Save')}
           </button>
@@ -266,7 +266,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
               value={title}
               onChange={e => setTitle(e.target.value)}
               data-testid="schedule-title-input"
-              className="mt-1 w-full px-3 py-2 rounded-control bg-inset border border-divider text-primary text-sm focus:outline-none focus:border-accent"
+              className="mt-1 w-full px-3 py-2 rounded-control bg-inset border border-divider text-primary text-small focus:outline-none focus:border-accent"
               placeholder={lang === Language.CN ? '如：上肢日' : 'e.g. Upper body day'}
             />
           </label>
@@ -277,7 +277,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
               value={date}
               onChange={e => setDate(e.target.value)}
               data-testid="schedule-date-input"
-              className="mt-1 w-full px-3 py-2 rounded-control bg-inset border border-divider text-primary text-sm focus:outline-none focus:border-accent font-mono"
+              className="mt-1 w-full px-3 py-2 rounded-control bg-inset border border-divider text-primary text-small focus:outline-none focus:border-accent font-mono"
             />
           </label>
         </div>
@@ -340,7 +340,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                     onChange={e => updateExercise(ex.id, { name: e.target.value })}
                     placeholder={lang === Language.CN ? '动作名称' : 'Exercise name'}
                     data-testid="schedule-exercise-name"
-                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-chip bg-inset border border-divider text-primary text-sm focus:outline-none focus:border-accent"
+                    className="flex-1 min-w-0 px-2.5 py-1.5 rounded-chip bg-inset border border-divider text-primary text-small focus:outline-none focus:border-accent"
                   />
                   <select
                     value={ex.category}
@@ -375,7 +375,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                       inputMode="numeric"
                       ariaLabel="targetSets"
                       fill
-                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono"
+                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-small font-mono"
                     />
                   </label>
                   <label className="block">
@@ -390,7 +390,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                       inputMode="numeric"
                       ariaLabel="targetReps"
                       fill
-                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono"
+                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-small font-mono"
                     />
                   </label>
                   <label className="block">
@@ -408,7 +408,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                       ariaLabel="targetWeight"
                       testId="schedule-exercise-weight"
                       fill
-                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-sm font-mono"
+                      className="mt-0.5 w-full px-2 py-1 rounded-chip bg-inset border border-divider text-primary text-small font-mono"
                     />
                   </label>
                 </div>
@@ -423,7 +423,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
             value={notes}
             onChange={e => setNotes(e.target.value)}
             rows={2}
-            className="mt-1 w-full px-3 py-2 rounded-control bg-inset border border-divider text-primary text-sm focus:outline-none focus:border-accent resize-none"
+            className="mt-1 w-full px-3 py-2 rounded-control bg-inset border border-divider text-primary text-small focus:outline-none focus:border-accent resize-none"
           />
         </label>
 

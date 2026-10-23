@@ -139,7 +139,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
       }
     >
       {plan && (
-        <div className="space-y-4 text-sm text-secondary">
+        <div className="space-y-4 text-small text-secondary">
           {asking ? (
             <div className="space-y-3">
               <p className="text-primary font-medium" data-testid="import-unit-ask">

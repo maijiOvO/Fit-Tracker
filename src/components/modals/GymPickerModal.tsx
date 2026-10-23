@@ -88,7 +88,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   const isNew = !!draftGym && !options.some(o => o === draftGym);
 
   const row =
-    'w-full min-h-[48px] px-4 flex items-center gap-3 text-left text-sm active:bg-card-hover transition-colors duration-tap ease-paper';
+    'w-full min-h-[48px] px-4 flex items-center gap-3 text-left text-small active:bg-card-hover transition-colors duration-tap ease-paper';
 
   const allGyms = [...options, ...Object.keys(profiles).filter(g => !options.includes(g))];
 
@@ -203,7 +203,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
               type="button"
               disabled={!isNew}
               onClick={() => draftGym && commit(draftGym)}
-              className={`min-h-[44px] px-3 rounded-card flex-shrink-0 flex items-center gap-1 text-sm font-bold transition-ui active:scale-press-sm ${
+              className={`min-h-[44px] px-3 rounded-card flex-shrink-0 flex items-center gap-1 text-small font-bold transition-ui active:scale-press-sm ${
                 isNew ? 'bg-accent text-on-accent' : 'bg-card/40 text-tertiary cursor-not-allowed'
               }`}
               aria-label={isCn ? '添加场地' : 'Add gym'}

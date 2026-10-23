@@ -346,7 +346,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
       {/* 当日详情 */}
       <div className="space-y-2" data-testid="day-detail-panel">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-secondary text-sm">
+          <div className="flex items-center gap-2 text-secondary text-small">
             <CalendarClock size={16} strokeWidth={1.75} />
             <span className="font-mono">{selectedDate}</span>
           </div>
@@ -354,7 +354,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
             onClick={openNew}
             data-testid="schedule-add-btn"
             // 次要样式：实心强调色留给日历上的选中日、计划卡的「开始」和右下角「开练」（2026-10-22 界面审查：一屏一个主操作）
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-btn text-primary border border-divider text-sm font-medium active:scale-press-sm transition [&>svg]:text-accent"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-btn text-primary border border-divider text-small font-medium active:scale-press-sm transition [&>svg]:text-accent"
           >
             <Plus size={16} strokeWidth={2} />
             {translations.scheduleAdd[lang]}
@@ -362,7 +362,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
         </div>
 
         {daySchedules.length === 0 ? (
-          <div className="ui-card p-6 text-center text-tertiary text-sm">
+          <div className="ui-card p-6 text-center text-tertiary text-small">
             {translations.scheduleEmptyDay[lang]}
           </div>
         ) : (
@@ -420,7 +420,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                     {s.exercises.map(ex => (
                       <li
                         key={ex.id}
-                        className="flex items-center justify-between text-sm border border-divider rounded-chip px-3 py-2"
+                        className="flex items-center justify-between text-small border border-divider rounded-chip px-3 py-2"
                       >
                         <span className="text-primary truncate">{resolveName(ex.name)}</span>
                         <span className="font-mono tabular-nums text-secondary text-xs">
@@ -440,14 +440,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                     <button
                       onClick={() => onStartScheduledSession(s.id)}
                       data-testid={`schedule-start-${s.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-small font-medium hover:opacity-90 active:scale-press-sm transition"
                     >
                       <Play size={14} strokeWidth={2} />
                       {translations.scheduleStartSession[lang]}
                     </button>
                     <button
                       onClick={() => markSkipped(s)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-sm hover:text-primary hover:bg-card-hover transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-small hover:text-primary hover:bg-card-hover transition"
                     >
                       <Ban size={14} strokeWidth={1.75} />
                       {translations.scheduleMarkSkipped[lang]}
@@ -460,7 +460,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                     <button
                       onClick={() => void updateSchedule({ ...s, status: 'planned', updatedAt: new Date().toISOString() })}
                       data-testid={`schedule-unskip-${s.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-sm hover:text-primary hover:bg-card-hover transition"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-small hover:text-primary hover:bg-card-hover transition"
                     >
                       <RotateCcw size={14} strokeWidth={1.75} />
                       {lang === Language.CN ? '改回计划中' : 'Back to planned'}
