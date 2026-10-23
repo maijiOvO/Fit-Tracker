@@ -115,8 +115,11 @@
   --rule-strong: #A3A8B0;
 
   --text-primary: #111316;
-  --text-secondary: #4B5058;
-  --text-tertiary: #5C626B;  /* card / base / inset 三种底都过 4.5:1 */
+  /* 二级 / 三级原来是 #4B5058 / #5C626B，L* 只差 7，看上去是同一种灰（2026-10-22 界面审查）。
+     两头一起拉：二级压深、三级提亮，L* 30 / 44，差 14，和深色两套（差约 12.5）同档。
+     三级的上限卡在 inset 底和紫 / 玫红的 accent-soft 底上：都过 4.5:1（最紧 4.60） */
+  --text-secondary: #43474E;
+  --text-tertiary: #626872;
 
   /* 青（默认） */
   --accent: #12B39A;

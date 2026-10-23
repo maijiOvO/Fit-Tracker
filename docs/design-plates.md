@@ -51,7 +51,7 @@
 | `--bg-card` | `#F4F5F7` | 卡片是白底上的浅灰块（**比 base 暗**，旧规则「card 比 base 亮」在浅色作废） |
 | `--bg-inset` | `#E9EBEF` | |
 | `--divider` | `#E3E5E9` | |
-| `--text-primary / secondary / tertiary` | `#111316` / `#4B5058` / `#5C626B` | tertiary 在三种底上都过 4.5:1 |
+| `--text-primary / secondary / tertiary` | `#111316` / `#43474E` / `#626872` | L* 6 / 30 / 44，层级差和深色两套同档；tertiary 在 base / card / inset 和五套 accent-soft 上都过 4.5:1（2026-10-22 从 `#4B5058` / `#5C626B` 拉开，原来只差 7） |
 
 深色底跟着强调色走：
 
