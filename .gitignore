@@ -72,3 +72,6 @@ android/app/release/
 
 # 本机独立开发库（scripts/dev-with-local-db.mjs），种子是生产快照的拷贝，含个人数据
 .dev-data/
+
+# 竞品调研时另存的网页（Reddit 帖子 + 附带脚本，26 MB），只留本地
+investigations/
