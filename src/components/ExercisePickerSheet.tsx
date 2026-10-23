@@ -1464,7 +1464,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={() => onCreateCustomExercise(q || undefined, createPreset())}
-              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform"
+              // 次要样式：弹层的主操作是底部「完成」（2026-10-22 界面审查：一屏一个主操作）
+              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-inset text-primary border border-divider text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform [&>svg]:text-accent"
             >
               <Plus size={14} strokeWidth={2.5} />
               {isCn ? '新动作' : 'New'}

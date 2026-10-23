@@ -515,7 +515,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                     ? 'bg-danger text-on-accent'
                     : !(currentWorkout.exercises?.length) || (editingWorkoutId && !hasUnsavedChanges)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
-                      : 'bg-accent text-on-accent hover:opacity-90'
+                      : editingWorkoutId
+                        ? 'bg-accent text-on-accent hover:opacity-90'
+                        // 训练中的「结束训练」用次要样式：这一屏的主操作是底部「添加动作」，
+                        // 两个实心按钮一上一下抢眼，结束反而比继续练更显眼（2026-10-22 界面审查）
+                        : 'bg-inset text-primary border border-divider [&>svg]:text-accent'
             }`}
           >
             {saveStatus === 'saving' ? (

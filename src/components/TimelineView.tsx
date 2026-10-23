@@ -642,7 +642,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   return (
     <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
       {/* 颛粒度切换 */}
-      <div className="ui-card p-1.5 flex items-center gap-1">
+      {/* 灰槽，不是卡：上面「按时间 / 按动作」已经是页内标签，这里是它下面的一层筛选（2026-10-22） */}
+      <div className="bg-inset rounded-control p-1 flex items-center gap-1">
         <GranularityChip
           active={granularity === 'day'}
           icon={<Calendar size={13} strokeWidth={2} />}

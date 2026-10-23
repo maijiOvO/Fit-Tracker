@@ -283,7 +283,8 @@ const Dashboard: React.FC<DashboardProps> = ({
               e.stopPropagation();
               actions.onLogWeight();
             }}
-            className="w-10 h-10 flex items-center justify-center bg-accent text-on-accent rounded-control active:scale-press-sm"
+            // 次要样式：首页的实心按钮只留右下角的「开练」（2026-10-22 界面审查：一屏一个主操作）
+            className="w-10 h-10 flex items-center justify-center bg-inset text-accent border border-divider rounded-control active:scale-press-sm"
             aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
           >
             <Plus size={18} strokeWidth={2} />
@@ -364,15 +365,19 @@ const Dashboard: React.FC<DashboardProps> = ({
         )}
       </div>
 
-      {/* 视图切换：按时间 / 按动作 PR */}
-      <div className="ui-card p-1.5 flex items-center gap-1">
+      {/* 视图切换：按时间 / 按动作 PR。
+          做成页内标签（底下一条线、选中项下划线），不再是一张卡里的分段切换：
+          原来这里和下面的天 / 周 / 月 / 年是两张一模一样的灰卡，列表前先叠三块卡，
+          两层切换也看不出谁管谁（2026-10-22 界面审查：卡片套卡片）。 */}
+      <div className="flex items-stretch border-b border-divider">
         <button
           type="button"
           onClick={() => setView('timeline')}
-          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-ui ${
+          aria-pressed={view === 'timeline'}
+          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-sm font-bold transition-ui ${
             view === 'timeline'
-              ? 'seg-on'
-              : 'bg-transparent text-secondary hover:text-primary'
+              ? 'border-accent text-primary [&>svg]:text-accent'
+              : 'border-transparent text-tertiary hover:text-primary'
           }`}
         >
           <Clock size={14} strokeWidth={2} />
@@ -381,10 +386,11 @@ const Dashboard: React.FC<DashboardProps> = ({
         <button
           type="button"
           onClick={() => setView('pr')}
-          className={`flex-1 min-h-[42px] flex items-center justify-center gap-2 rounded-control text-sm font-bold transition-ui ${
+          aria-pressed={view === 'pr'}
+          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-sm font-bold transition-ui ${
             view === 'pr'
-              ? 'seg-on'
-              : 'bg-transparent text-secondary hover:text-primary'
+              ? 'border-accent text-primary [&>svg]:text-accent'
+              : 'border-transparent text-tertiary hover:text-primary'
           }`}
         >
           <Trophy size={14} strokeWidth={2} />

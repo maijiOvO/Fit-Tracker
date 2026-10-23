@@ -353,7 +353,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
           <button
             onClick={openNew}
             data-testid="schedule-add-btn"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition"
+            // 次要样式：实心强调色留给日历上的选中日、计划卡的「开始」和右下角「开练」（2026-10-22 界面审查：一屏一个主操作）
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-inset text-primary border border-divider text-sm font-medium hover:bg-card-hover active:scale-press-sm transition [&>svg]:text-accent"
           >
             <Plus size={16} strokeWidth={2} />
             {translations.scheduleAdd[lang]}
