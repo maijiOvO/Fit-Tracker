@@ -22,7 +22,6 @@ import {
   CircleDashed,
   Filter,
   History,
-  Move,
   Plus,
   RotateCcw,
   Search,
@@ -139,6 +138,8 @@ const PickerRow: React.FC<PickerRowProps> = ({
 interface RegionCardProps {
   id: string;
   displayName: string;
+  /** 做法名（「上斜」）：名字下面另起一行小灰字，不跟名字挤在一起断行 */
+  sub?: string;
   added: number;
   isStarred: boolean;
   /** 额外 class：is-un（未细分）/ is-tap（只能点）/ is-deleted（已删除） */
@@ -180,6 +181,7 @@ const equipIconOf = ({ equipment, resistance: r }: { equipment: string; resistan
 const RegionCard: React.FC<RegionCardProps> = ({
   id,
   displayName,
+  sub,
   added,
   isStarred,
   variant = '',
@@ -207,13 +209,16 @@ const RegionCard: React.FC<RegionCardProps> = ({
       {...(cell ? { 'data-r': cell.r, 'data-ci': cell.ci } : {})}
     >
       <span className="region-card-name">
-        {equip && <i className={`eq-ico eq-${equip}`} aria-hidden />}
-        {segs.map((s, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && <wbr />}
-            {s}
-          </React.Fragment>
-        ))}
+        <span className="region-card-title">
+          {equip && <i className={`eq-ico eq-${equip}`} aria-hidden />}
+          {segs.map((s, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <wbr />}
+              {s}
+            </React.Fragment>
+          ))}
+        </span>
+        {sub && <span className="region-card-sub">{sub}</span>}
       </span>
       {isStarred && (
         <span className="region-card-star" aria-hidden>
@@ -957,7 +962,6 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   ) => {
     const baseName = resolveName(ex.name[lang]);
     const v = opts.variant;
-    const displayName = v ? `${baseName}·${v.name}` : baseName;
     const key = baseName.toLowerCase();
     const id = v ? `${ex.id}::${v.id}` : ex.id;
     const added = opts.isDeleted ? 0 : v ? addedCounts[`${key}::${v.id}`] || 0 : addedCounts[key] || 0;
@@ -965,7 +969,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       <RegionCard
         key={id}
         id={id}
-        displayName={displayName}
+        displayName={baseName}
+        sub={v?.name}
         added={added}
         isStarred={!opts.isDeleted && !v && isStarredName(baseName)}
         variant={`${opts.variantCls ?? ''}${v ? ' is-variant' : ''}`.trim()}
@@ -1132,7 +1137,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   const col = by.get(r.id)!;
                   const vcol = vby.get(r.id)!;
                   if (!col.length && !vcol.length) {
-                    // 正常态空列不画占位（表头下留白就整齐）；整理时是「可以放进来」的虚线落位
+                    // 整理时是「可以放进来」的虚线落位；正常态一行淡字「暂无」——整列白着像没加载出来（2026-10-23 界面审查）
                     return arranging ? (
                       <div
                         key={r.id}
@@ -1141,7 +1146,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                         data-ci={ci + 1}
                         aria-hidden
                       />
-                    ) : null;
+                    ) : (
+                      <div key={r.id} className="region-none" style={{ gridColumn: ci + 1, gridRow: 1 }}>
+                        {isCn ? '暂无' : 'None'}
+                      </div>
+                    );
                   }
                   return [
                     ...col.map((ex, ri) => renderCard(ex, { cell: { col: r.id, ci: ci + 1, r: ri + 1 } })),
@@ -1279,8 +1288,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
    * 自建部位和内置部位同一个样子。
    */
   const tabCls = (on: boolean) =>
-    `relative flex-shrink-0 min-h-[40px] px-3 text-small font-bold whitespace-nowrap flex items-center gap-1 transition-colors ${
-      on ? 'text-accent' : 'text-secondary active:text-primary'
+    `relative flex-shrink-0 min-h-[40px] px-3 text-small whitespace-nowrap flex items-center gap-1 transition-colors ${
+      on ? 'text-accent font-bold' : 'text-secondary font-medium active:text-primary'
     }`;
   const tabBar = (on: boolean) =>
     on ? <span className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full bg-accent" aria-hidden /> : null;
@@ -1435,12 +1444,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             type="button"
             onClick={toggleArranging}
             aria-pressed={arranging}
-            className={`ml-auto flex-shrink-0 min-h-[34px] px-3 rounded-control text-xs font-bold flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-              arranging ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'
+            // 次要操作：主色纯文字，不跟搜索框、动作卡共用一种灰块（2026-10-23 界面审查）；整理中＝淡底表示「开着」
+            className={`ml-auto flex-shrink-0 min-h-[44px] px-2.5 rounded-control text-small font-semibold text-accent flex items-center whitespace-nowrap transition-colors active:bg-accent-soft ${
+              arranging ? 'bg-accent-soft' : ''
             }`}
             data-testid="region-arrange"
           >
-            <Move size={14} strokeWidth={2} />
             {arranging ? (isCn ? '完成' : 'Done') : isCn ? '整理' : 'Arrange'}
           </button>
           {!arranging && (
@@ -1474,7 +1483,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 }}
                 enterKeyHint="search"
                 autoComplete="off"
-                className="w-full min-h-[46px] bg-inset border border-divider rounded-card pl-10 pr-10 text-small text-primary outline-none focus:border-accent transition-colors placeholder:text-tertiary"
+                className="w-full min-h-[46px] bg-base border border-rule/50 rounded-card pl-10 pr-10 text-small text-primary outline-none focus:border-accent transition-colors placeholder:text-tertiary"
                 placeholder={isCn ? '名称 / 拼音 / 首字母 / 部位…' : 'Name / initials / body part…'}
                 aria-label={isCn ? '搜索动作' : 'Search exercises'}
               />
@@ -1496,7 +1505,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               type="button"
               onClick={() => onCreateCustomExercise(q || undefined, createPreset())}
               // 次要样式：弹层的主操作是底部「完成」（2026-10-22 界面审查：一屏一个主操作）
-              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-btn text-primary border border-divider text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform [&>svg]:text-accent"
+              // 白底主色描边：一眼是按钮，又不跟底部「完成」的实底抢（搜索框白底灰框、动作卡灰底，三样各不相同）
+              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-base text-accent border border-accent/40 text-small font-semibold flex items-center gap-1 active:bg-accent-soft transition-colors"
             >
               <Plus size={14} strokeWidth={2.5} />
               {isCn ? '新动作' : 'New'}
@@ -1538,7 +1548,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         {/* 整理：部位目录一行横滑，末尾「未分部位 N · 已删除 N · ＋ 部位」 */}
         {arranging && (
           <div className="mx-4 mb-2.5 flex-shrink-0 border-b border-divider">
-            <div ref={partScrollRef} className="flex overflow-x-auto hscroll-bare -mx-1" data-testid="arrange-parts">
+            <div ref={partScrollRef} className="flex overflow-x-auto hscroll-bare hscroll-fade -mx-1" data-testid="arrange-parts">
               {renderAxisChips()}
               {noPart.length > 0 && (
                 <button
@@ -1581,6 +1591,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 <Plus size={14} strokeWidth={2.5} />
                 {isCn ? '部位' : 'Part'}
               </button>
+              <span className="flex-shrink-0 w-6" aria-hidden />
             </div>
           </div>
         )}
@@ -1589,7 +1600,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         {!filtersCollapsed && !arranging && (
           <>
             <div className="mx-4 mb-2.5 flex-shrink-0 border-b border-divider flex items-end gap-1" data-testid="filters-one-line">
-              <div ref={partScrollRef} className="flex-1 min-w-0 flex overflow-x-auto hscroll-bare -ml-1">
+              {/* 右缘渐隐提示还能横滑；原来一道竖线把最后一个部位切成半个字（2026-10-23 界面审查） */}
+              <div ref={partScrollRef} className="flex-1 min-w-0 flex overflow-x-auto hscroll-bare hscroll-fade -ml-1">
                 <button
                   type="button"
                   aria-pressed={axis === null}
@@ -1601,13 +1613,15 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   {tabBar(axis === null)}
                 </button>
                 {renderAxisChips()}
+                {/* 末尾留一段，滚到头时最后一个部位不落在渐隐里 */}
+                <span className="flex-shrink-0 w-6" aria-hidden />
               </div>
               <button
                 type="button"
                 onClick={() => setEquipOpen(v => !v)}
                 aria-expanded={equipOpen}
-                className={`flex-shrink-0 max-w-[128px] min-h-[40px] pl-2.5 pr-1 text-small font-bold flex items-center gap-1 border-l border-divider ${
-                  equips.size > 0 ? 'text-accent' : 'text-secondary'
+                className={`flex-shrink-0 max-w-[128px] min-h-[40px] pl-2 pr-1 text-small flex items-center gap-1 ${
+                  equips.size > 0 ? 'text-accent font-bold' : 'text-secondary font-medium'
                 }`}
                 data-testid="equip-toggle"
               >
