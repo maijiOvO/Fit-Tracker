@@ -141,7 +141,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
             pick(id, id ? name : undefined);
           }}
           aria-pressed={on}
-          className="flex-1 min-w-0 min-h-[48px] px-4 flex items-center gap-2.5 text-left text-sm font-bold text-primary active:bg-card-hover"
+          className="flex-1 min-w-0 min-h-[48px] px-4 flex items-center gap-2.5 text-left text-small font-bold text-primary active:bg-card-hover"
           data-testid="variant-option"
         >
           <span className={`w-4 flex-shrink-0 ${on ? 'text-accent' : 'text-transparent'}`}>

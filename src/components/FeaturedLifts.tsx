@@ -126,7 +126,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="ui-card w-full px-4 py-3 text-left text-sm text-secondary active:opacity-70"
+          className="ui-card w-full px-4 py-3 text-left text-small text-secondary active:opacity-70"
           data-testid="featured-empty"
         >
           <span className="font-semibold text-primary">{isCn ? '特别关注' : 'Spotlight'}</span>
@@ -178,7 +178,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
         <div className="pt-1 pb-3" data-testid="featured-total">
           <div className="flex items-baseline gap-2">
             <span className="font-mono font-bold text-3xl leading-none text-primary tabular-nums">{toUnit(total.now)}</span>
-            <span className="text-sm text-secondary">
+            <span className="text-small text-secondary">
               {unit} · {mode === 'e1rm' ? (isCn ? '三项 1RM 总和' : 'Big 3 est. 1RM total') : isCn ? '三项总和' : 'Big 3 total'}
             </span>
           </div>
@@ -223,7 +223,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
             data-testid="featured-card"
           >
             <span className="flex-1 min-w-0">
-              <span className="block text-sm text-secondary truncate">{lift.key}</span>
+              <span className="block text-small text-secondary truncate">{lift.key}</span>
               <span className="flex items-baseline gap-1">
                 <span className="font-mono font-bold text-2xl leading-tight text-primary tabular-nums">{big}</span>
                 <span className="text-xs text-secondary">{bigSuffix}</span>
@@ -242,7 +242,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
                 )}
               </span>
               {stats.lastPrTs != null && (
-                <span className={`flex items-center gap-1 text-micro mt-1 ${hot ? 'text-warning font-semibold' : 'text-tertiary'}`}>
+                <span className={`flex items-center gap-1 text-micro mt-1 ${hot ? 'text-accent font-semibold' : 'text-tertiary'}`}>
                   {hot && <Flame size={12} strokeWidth={2} />}
                   {hot
                     ? isCn
@@ -340,7 +340,7 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
           <button
             type="button"
             onClick={() => setDraft(BIG_THREE.filter(id => lifts.some(l => l.stableId === id)))}
-            className="flex-1 min-h-[44px] rounded-control bg-inset text-sm font-semibold text-secondary"
+            className="flex-1 min-h-[44px] rounded-control bg-inset text-small font-semibold text-secondary"
           >
             {isCn ? '恢复三大项' : 'Reset to Big 3'}
           </button>
@@ -350,7 +350,7 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
               onSave(draft);
               onClose();
             }}
-            className="flex-1 min-h-[44px] ui-btn-primary text-sm"
+            className="flex-1 min-h-[44px] ui-btn-primary text-small"
             data-testid="featured-save"
           >
             {isCn ? '保存' : 'Save'}
@@ -378,7 +378,7 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
             </span>
             <span className="flex-1 min-w-0 truncate text-primary">{l.key}</span>
             {l.best.weight?.set && l.hasWeight && (
-              <span className="font-mono text-sm text-tertiary tabular-nums">
+              <span className="font-mono text-small text-tertiary tabular-nums">
                 {formatSet(l.best.weight.set, unit, l.signed, isCn)}
               </span>
             )}

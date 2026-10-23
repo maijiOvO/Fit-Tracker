@@ -168,7 +168,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             <ShieldAlert size={24} />
           </div>
           <div className="flex flex-col gap-1">
-            <h4 className="text-sm font-semibold text-warning uppercase tracking-wide">
+            <h4 className="text-small font-semibold text-warning uppercase tracking-wide">
               {translations.guestWarningTitle[lang]}
             </h4>
             <p className="text-micro font-bold text-warning leading-relaxed">
@@ -197,25 +197,19 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </div>
       </div>
 
-      {/* Log Weight Button */}
-      <button 
-        onClick={onShowWeightInput} 
-        className="w-full bg-card border border-divider p-5 rounded-card flex items-center justify-between group active:scale-press-sm transition-ui shadow-lg"
+      {/* 记一笔体重：首页体重卡 ＋ 的快捷入口。以前是全站唯一带大阴影（shadow-lg）的卡，
+          还配大图标块和大写字距的副标题，比页面上任何东西都抢眼；改成和其它卡同一层的普通一行（2026-10-22 界面审查） */}
+      <button
+        onClick={onShowWeightInput}
+        className="ui-card-interactive w-full px-4 min-h-[56px] flex items-center justify-between gap-3"
       >
-        <div className="flex items-center gap-4">
-          <div className="p-4 bg-accent/20 text-accent rounded-card group-hover:bg-accent group-hover:text-on-accent transition-colors">
-            <Scale size={24} />
-          </div>
-          <div className="text-left">
-            <h3 className="font-semibold text-xl text-primary">{translations.logWeight[lang]}</h3>
-            <p className="text-xs text-secondary font-bold uppercase tracking-wider">
-              {lang === Language.CN ? '记录当前数据' : 'Track Progress'}
-            </p>
-          </div>
-        </div>
-        <div className="bg-inset p-3 rounded-control text-secondary group-hover:text-accent transition-colors">
-          <Plus size={20} />
-        </div>
+        <span className="flex items-center gap-3 text-small font-bold text-primary">
+          <Scale size={18} strokeWidth={2} className="text-accent" />
+          {translations.logWeight[lang]}
+        </span>
+        <span className="w-10 h-10 flex items-center justify-center rounded-control bg-btn border border-divider text-accent">
+          <Plus size={18} strokeWidth={2} />
+        </span>
       </button>
 
       {/* Body Metrics Section */}
@@ -286,7 +280,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                             <div key={historyItem.id} className="flex justify-between items-center bg-inset/30 p-3 rounded-control border border-divider group">
                               <div className="flex items-center gap-3">
                                 <div className="flex flex-col">
-                                  <span className="text-sm font-bold text-primary">
+                                  <span className="text-small font-bold text-primary">
                                     {historyItem.value} <span className="text-micro font-normal text-secondary uppercase">{historyItem.unit}</span>
                                   </span>
                                   <span className="text-micro font-normal text-tertiary">

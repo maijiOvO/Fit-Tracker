@@ -163,7 +163,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
               className={`${TILE} text-primary hover:border-accent`}
             >
               <Seal char={seal} latin={latin} isCn={isCn} />
-              <span className="text-sm font-semibold">{label}</span>
+              <span className="text-small font-semibold">{label}</span>
             </button>
           );
         })}
@@ -176,7 +176,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           className={`${TILE} text-secondary hover:border-accent hover:text-accent`}
         >
           <Seal char="制" latin="O" isCn={isCn} dashed />
-          <span className="text-sm font-semibold">{translations.partOther[lang]}</span>
+          <span className="text-small font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>
     </section>

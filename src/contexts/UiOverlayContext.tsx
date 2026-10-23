@@ -190,7 +190,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
           <div
             key={item.id}
             data-testid="toast"
-            className={`pointer-events-auto relative overflow-hidden w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-sm font-medium anim-toast ${variantStyles[item.variant]}`}
+            className={`pointer-events-auto relative overflow-hidden w-full max-w-md flex items-center gap-3 px-4 py-3 rounded-card border shadow-lg text-small font-medium anim-toast ${variantStyles[item.variant]}`}
           >
             {item.variant === 'success' && (
               <Check size={18} className="text-success flex-shrink-0" strokeWidth={2.5} />

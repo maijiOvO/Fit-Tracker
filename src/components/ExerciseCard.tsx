@@ -17,7 +17,7 @@ import { SetCapsule, formatWeight, weightScrubFor } from './SetCapsule';
 import { useValueScrub } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
-import { getLoadMode, ledgerCols } from '../utils/exerciseConfig';
+import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
 import { setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
@@ -642,7 +642,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
           data-testid="exercise-note"
         >
-          <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-warning" strokeWidth={1.75} />
+          <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-tertiary" strokeWidth={1.75} />
           <span className="min-w-0 break-words">
             {gymNote && (
               <span className="block" data-testid="exercise-gym-note">
@@ -660,11 +660,20 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         style={{ gridTemplateColumns: cols }}
       >
         <span>#</span>
-        {activeMetrics.map(m => (
-          <span key={m} className="text-center">
-            {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
-          </span>
-        ))}
+        {activeMetrics.map(m => {
+          // 行里数字右边挂着单位，数字居中在「列宽 − 单位宽」里；表头右边让出同样的单位宽，
+          // 列名才落在数字正上方。以前整列居中，和数字错开约半个单位宽（2026-10-22 界面审查）
+          const u = metricUnitLabel(m, unit, isCn, loadMode);
+          return (
+            <span
+              key={m}
+              className="text-center"
+              style={u ? { paddingRight: `${Math.max(20, u.length * 6.5 + 4)}px` } : undefined}
+            >
+              {translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '')}
+            </span>
+          );
+        })}
         {/* 力竭列的表头。给它一个列名而不是留空——这一列是全行唯一
             没有数字、也没有图标语义的控件，不写字就没人知道那个「竭」能点。 */}
         <span className="text-center">{isCn ? '竭' : 'F'}</span>

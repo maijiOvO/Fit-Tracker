@@ -169,7 +169,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                     <button
                       key={day}
                       onClick={() => setSelectedDate(date)}
-                      className={`h-10 rounded-chip text-sm font-bold transition-ui ${
+                      className={`h-10 rounded-chip text-small font-bold transition-ui ${
                         isSelected
                           ? 'bg-accent text-on-accent shadow-elevated'
                           : isTodayDate
@@ -193,7 +193,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 setCurrentMonth(today.getMonth());
                 setCurrentYear(today.getFullYear());
               }}
-              className="flex-1 px-4 py-2 bg-card border border-divider rounded-control text-sm font-bold hover:bg-card-hover transition-colors"
+              className="flex-1 px-4 py-2 bg-card border border-divider rounded-control text-small font-bold hover:bg-card-hover transition-colors"
             >
               {translations.today[lang]}
             </button>
@@ -205,7 +205,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 setCurrentMonth(yesterday.getMonth());
                 setCurrentYear(yesterday.getFullYear());
               }}
-              className="flex-1 px-4 py-2 bg-card border border-divider rounded-control text-sm font-bold hover:bg-card-hover transition-colors"
+              className="flex-1 px-4 py-2 bg-card border border-divider rounded-control text-small font-bold hover:bg-card-hover transition-colors"
             >
               {translations.yesterday[lang]}
             </button>

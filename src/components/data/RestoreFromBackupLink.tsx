@@ -19,7 +19,7 @@ export const RestoreFromBackupLink: React.FC = () => {
       type="button"
       onClick={() => openDataFlow('restore')}
       data-testid="empty-restore"
-      className="mt-6 flex items-center gap-2 text-secondary text-sm py-2 px-3 rounded-control active:bg-inset"
+      className="mt-6 flex items-center gap-2 text-secondary text-small py-2 px-3 rounded-control active:bg-inset"
     >
       <History size={16} strokeWidth={1.75} className="text-accent" />
       {isCn ? '以前用过 fitlog？从备份恢复' : 'Used fitlog before? Restore from backup'}

@@ -550,14 +550,16 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
           if (readOnly) {
             const raw = set[m as keyof SetLog];
+            // 只读（历史）保留 1 位：换算出来的 41.89 / 308.65 读起来乱；编辑态仍保留 2 位，换算来回不丢数。
+            // 数字靠右：同一列的个位、单位各自排成一条竖线，不再随位数左右跳（2026-10-22 界面审查）
             const display =
               m === 'weight'
-                ? formatWeight(Number(raw) || 0, unit)
+                ? (Math.round(Number(formatWeight(Number(raw) || 0, unit)) * 10) / 10).toString()
                 : raw === 0 || raw === undefined
                   ? '—'
                   : String(Math.round(distToDisplay(m, Number(raw)) * 100) / 100);
             return (
-              <span key={m} className="ledger-field">
+              <span key={m} className="ledger-field" style={{ justifyContent: 'flex-end' }}>
                 <span className="font-mono font-semibold text-data-lg text-primary tabular-nums">
                   {display}
                 </span>

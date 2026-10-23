@@ -42,7 +42,7 @@ const Btn: React.FC<{ onClick: () => void; icon: React.ReactNode; children: Reac
     type="button"
     onClick={onClick}
     data-testid={testId}
-    className="ui-btn-secondary flex-1 w-full min-w-0 flex items-center justify-center gap-2 py-3 text-sm"
+    className="ui-btn-secondary flex-1 w-full min-w-0 flex items-center justify-center gap-2 py-3 text-small"
   >
     {icon}
     <span className="truncate">{children}</span>

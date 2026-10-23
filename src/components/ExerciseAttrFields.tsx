@@ -121,7 +121,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
         className="w-full min-h-[48px] px-3.5 flex items-center gap-3 text-left active:bg-card-hover disabled:active:bg-transparent"
       >
         <span className="w-14 flex-shrink-0 text-label text-secondary">{label}</span>
-        <span className={`flex-1 min-w-0 truncate text-sm font-semibold ${shown ? 'text-primary' : 'text-tertiary'}`}>
+        <span className={`flex-1 min-w-0 truncate text-small font-semibold ${shown ? 'text-primary' : 'text-tertiary'}`}>
           {shown || (isCn ? '未设置' : 'Not set')}
         </span>
         {opts.locked ? (

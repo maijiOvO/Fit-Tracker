@@ -55,7 +55,7 @@ export const FirstRunNotice: React.FC = () => {
                 dismiss();
                 openDataFlow('restore');
               }}
-              className="w-full py-2 text-secondary text-sm"
+              className="w-full py-2 text-secondary text-small"
               data-testid="first-run-restore"
             >
               {isCn ? '以前用过 fitlog？从备份恢复' : 'Used fitlog before? Restore from backup'}
@@ -64,7 +64,7 @@ export const FirstRunNotice: React.FC = () => {
         </div>
       }
     >
-      <div className="space-y-4 text-sm leading-relaxed text-secondary">
+      <div className="space-y-4 text-small leading-relaxed text-secondary">
         <div className="flex justify-center">
           <div className="p-3 bg-accent-soft text-accent rounded-control">
             <ShieldCheck size={26} strokeWidth={1.75} />

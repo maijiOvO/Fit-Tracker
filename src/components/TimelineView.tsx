@@ -320,9 +320,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
     day: 'numeric',
     weekday: 'short',
   });
+  // 24 小时制：日期柱只有 40px，英文的「06:09 PM」会折成两行把每张卡撑高（2026-10-22 界面审查）。中文本来就是 24 小时制
   const timeStr = when.toLocaleTimeString(isCN ? 'zh-CN' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   });
   const weekdayStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
 
@@ -338,7 +340,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
     .join(' · ');
 
   const menuItem =
-    'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-sm text-primary active:bg-card-hover';
+    'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-small text-primary active:bg-card-hover';
 
   return (
     <div
@@ -417,13 +419,13 @@ const SessionCard: React.FC<SessionCardProps> = ({
         <div className="flex-none flex items-center gap-1.5">
           <div className="text-right text-micro font-normal text-tertiary leading-[1.45]">
             <div>
-              <span className="font-mono font-bold text-sm text-secondary tabular-nums">
+              <span className="font-mono font-bold text-small text-secondary tabular-nums">
                 {exerciseCount}
               </span>{' '}
               {isCN ? '动作' : 'ex.'}
             </div>
             <div>
-              <span className="font-mono font-bold text-sm text-secondary tabular-nums">
+              <span className="font-mono font-bold text-small text-secondary tabular-nums">
                 {setCount}
               </span>{' '}
               {isCN ? '组' : plural(setCount, 'set')}
@@ -435,7 +437,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
         </div>
 
         {preview && (
-          <div className="col-span-2 min-w-0 text-sm text-secondary truncate">{preview}</div>
+          <div className="col-span-2 min-w-0 text-small text-secondary truncate">{preview}</div>
         )}
       </div>
 
@@ -527,7 +529,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             return (
               <div key={`${ex.id}-${idx}`} className="bg-inset/60 p-3 rounded-control space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-primary truncate">
+                  <span className="font-semibold text-small text-primary truncate">
                     {liftKey(ex)}
                   </span>
                   <span className="text-micro font-normal text-tertiary bg-card px-2 py-0.5 rounded-chip">
@@ -535,7 +537,9 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   </span>
                 </div>
                 {sets.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
+                  // 一组一整行：以前是胶囊时代的 flex-wrap，每行按内容收窄（254 / 218px 各不相同），
+                  // 同一个动作里 41.89 和 132.28 的列宽不一样，数字和单位对不齐（2026-10-22 界面审查）
+                  <div className="flex flex-col gap-1.5 [&>*]:w-full">
                     {sets.map((s, i) => renderSetCapsule(s, ex.name, ex, i))}
                   </div>
                 )}
@@ -624,7 +628,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   if (workouts.length === 0) {
     return (
-      <div className="ui-card p-8 text-center text-secondary text-sm">
+      <div className="ui-card p-8 text-center text-secondary text-small">
         {isCN ? '还没有训练记录' : 'No workouts yet'}
       </div>
     );
@@ -753,7 +757,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               <div className="flex items-center gap-2 min-w-0 text-left">
                 <CalendarSearch size={14} className="flex-none text-accent" strokeWidth={2} />
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-primary truncate">{group.label}</h3>
+                  <h3 className="text-small font-bold text-primary truncate">{group.label}</h3>
                   {group.sub && (
                     <div className="text-micro text-tertiary font-medium tabular-nums">{group.sub}</div>
                   )}

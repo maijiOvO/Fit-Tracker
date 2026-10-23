@@ -47,26 +47,23 @@ const PlanTab: React.FC<PlanTabProps> = ({
 
   return (
     <div className="space-y-5 anim-tab-enter">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-display-sm text-primary">
-          {translations.trainingPlan[lang]}
-        </h2>
-      </div>
-
+      {/* 不再有页面大标题：顶栏是整个 App 的刊名，首页 / 我的都没有页标题，只有这里多一个「训练计划」，
+          和顶栏叠成两个标题（2026-10-22 界面审查）。底部导航已经标着当前页。
+          日程 / 目标和首页「按时间 / 按动作」是同一种页内视图切换，做成同样的下划线标签。 */}
       <div
         role="tablist"
         aria-label={translations.scheduleViewSwitch[lang]}
-        className="grid grid-cols-2 gap-1 p-1 bg-inset rounded-control border border-divider"
+        className="flex items-stretch border-b border-divider"
       >
         <button
           role="tab"
           aria-selected={subView === 'schedule'}
           onClick={() => setSubView('schedule')}
           data-testid="plan-subview-schedule"
-          className={`flex items-center justify-center gap-2 py-2.5 rounded-chip text-sm font-medium transition-colors ${
+          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
             subView === 'schedule'
-              ? 'seg-on'
-              : 'text-secondary hover:text-primary hover:bg-card-hover'
+              ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
+              : 'border-transparent text-tertiary hover:text-primary'
           }`}
         >
           <Calendar size={16} strokeWidth={1.75} />
@@ -77,10 +74,10 @@ const PlanTab: React.FC<PlanTabProps> = ({
           aria-selected={subView === 'goals'}
           onClick={() => setSubView('goals')}
           data-testid="plan-subview-goals"
-          className={`flex items-center justify-center gap-2 py-2.5 rounded-chip text-sm font-medium transition-colors ${
+          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
             subView === 'goals'
-              ? 'seg-on'
-              : 'text-secondary hover:text-primary hover:bg-card-hover'
+              ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
+              : 'border-transparent text-tertiary hover:text-primary'
           }`}
         >
           <Target size={16} strokeWidth={1.75} />

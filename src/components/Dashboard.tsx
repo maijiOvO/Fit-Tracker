@@ -238,12 +238,12 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </span>
               </span>
             </span>
-            <span className="text-sm font-bold text-accent whitespace-nowrap">{isCn ? '回到训练 ›' : 'Resume ›'}</span>
+            <span className="text-small font-bold text-accent whitespace-nowrap">{isCn ? '回到训练 ›' : 'Resume ›'}</span>
           </button>
           <button
             type="button"
             onClick={actions.onEndInProgress}
-            className="px-4 border-l border-divider text-sm font-semibold text-secondary active:bg-card-hover whitespace-nowrap"
+            className="px-4 border-l border-divider text-small font-semibold text-secondary active:bg-card-hover whitespace-nowrap"
             data-testid="in-progress-end"
           >
             {isCn ? '结束' : 'End'}
@@ -344,7 +344,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     >
                       <Trash2 size={12} strokeWidth={1.75} />
                     </button>
-                    <span className="font-mono font-medium text-sm text-primary tabular-nums ml-1">
+                    <span className="font-mono font-medium text-small text-primary tabular-nums ml-1">
                       {formatWeight(entry.weight, unit)}
                       <span className="text-tertiary text-xs ml-1">{unit}</span>
                     </span>
@@ -374,7 +374,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           type="button"
           onClick={() => setView('timeline')}
           aria-pressed={view === 'timeline'}
-          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-sm font-bold transition-ui ${
+          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
             view === 'timeline'
               ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
               : 'border-transparent text-tertiary hover:text-primary'
@@ -387,7 +387,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           type="button"
           onClick={() => setView('pr')}
           aria-pressed={view === 'pr'}
-          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-sm font-bold transition-ui ${
+          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
             view === 'pr'
               ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
               : 'border-transparent text-tertiary hover:text-primary'

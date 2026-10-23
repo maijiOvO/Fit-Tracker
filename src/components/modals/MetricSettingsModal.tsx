@@ -164,7 +164,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
 
         <div className="flex gap-2 mb-8">
           <input
-            className="flex-1 bg-base border border-divider rounded-control px-4 py-3 text-sm text-primary outline-none focus:border-accent"
+            className="flex-1 bg-base border border-divider rounded-control px-4 py-3 text-small text-primary outline-none focus:border-accent"
             placeholder={translations.dimensionPlaceholder[lang]}
             value={newCustomDimension}
             onChange={e => setNewCustomDimension(e.target.value)}

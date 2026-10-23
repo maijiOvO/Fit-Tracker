@@ -170,9 +170,9 @@ export default {
       label: ['var(--fs-label)', { lineHeight: '1.4', fontWeight: '500' }],
       micro: ['var(--fs-micro)', { lineHeight: '1.4', fontWeight: '500' }],
       'display-sm': ['var(--fs-data-md)', { lineHeight: '1.1', fontWeight: '600' }],
-      // Tailwind 的旧名（两百多处在用）只保留名字，值落到阶梯上；不带字重，和原来一样。
+      // Tailwind 的旧名只保留名字，值落到阶梯上；不带字重，和原来一样。
+      // 和令牌完全等价的已合并（text-sm → text-small，2026-10-22）；下面这些行高 / 字重和对应令牌不同，换名会改样式，先留着。
       xs: ['var(--fs-label)', { lineHeight: '16px' }],      // 12
-      sm: ['var(--fs-small)', { lineHeight: '20px' }],      // 14
       base: ['var(--fs-body)', { lineHeight: '22px' }],     // 16 → 15
       lg: ['var(--fs-h2)', { lineHeight: '24px' }],         // 18 → 17
       xl: ['var(--fs-data-md)', { lineHeight: '28px' }],    // 20 → 22
