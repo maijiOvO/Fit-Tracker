@@ -63,7 +63,10 @@ const RAW_API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_BASE_URL;
  * 未配置 VITE_API_KEY_DEV 时回落到 VITE_API_KEY，保证升级过程中不中断。
  */
 const PROD_API_KEY = import.meta.env.VITE_API_KEY || '';
-const DEV_API_KEY = import.meta.env.VITE_API_KEY_DEV || PROD_API_KEY;
+// 只在 `vite` 开发模式读 dev key：MODE 是构建期常量，release / solo / demo 构建里这一支整段被剔除，
+// dev key 不会进 APK（原生 App 本来就锁 prod，见 appEnv.isEnvLocked）。
+const DEV_API_KEY =
+  (import.meta.env.MODE === 'development' ? import.meta.env.VITE_API_KEY_DEV : undefined) || PROD_API_KEY;
 
 /**
  * 当前数据环境对应的凭据。
