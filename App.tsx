@@ -922,12 +922,13 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   /** preset：弹层眼下停的部位 / 有氧栏，新动作照它预填（审查 A16：原来一律清空成力量、无部位） */
   const openCreateCustomExerciseModal = useCallback(
-    (prefilledName?: string, onCreated?: (ex: ExerciseDefinition) => void, preset?: { bodyPart?: string; category?: string }) => {
+    (prefilledName?: string, onCreated?: (ex: ExerciseDefinition) => void, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => {
       createdExerciseTargetRef.current = onCreated ?? null;
       setNewExerciseName(prefilledName?.trim() || '');
       setNewExerciseBodyPart(preset?.bodyPart ?? '');
       setNewExerciseEquip({ equipment: '' });
-      setNewExerciseRegions([]);
+      // 细分：从选动作弹层某一列的「在这一列新建动作」进来时带上那一列（new-ex-no-part-prefill）
+      setNewExerciseRegions(preset?.regions ?? []);
       const cat = preset?.category;
       setNewExerciseCategory(cat === 'CARDIO' || cat === 'FREE' || cat === 'OTHER' ? cat : 'STRENGTH');
       setShowAddExerciseModal(true);

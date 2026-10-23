@@ -420,6 +420,46 @@
   white-space: nowrap;
 }
 
+/* 壶铃：提手 + 铃身，从底边往上缩放（大小随重量），不上色（同哑铃）。数字不缩，钉在铃身底部 */
+.kb-wrap {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 64px;
+}
+.kb-shape {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-origin: 50% 100%;
+  transition: transform var(--dur-base) var(--ease-paper);
+}
+.kb-handle {
+  width: 34px;
+  height: 22px;
+  margin-bottom: -9px;
+  border: 6px solid var(--text-secondary);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+}
+.kb-body {
+  width: 50px;
+  height: 46px;
+  border-radius: 50% 50% 44% 44%;
+  background: var(--text-secondary);
+}
+.kb-num {
+  position: absolute;
+  left: 50%;
+  bottom: 9px;
+  transform: translateX(-50%);
+  font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  color: var(--bg-base);
+  white-space: nowrap;
+}
+
 /* 固定杠铃：一根成品杠，两头焊死，不上色（同哑铃） */
 .fb-bar {
   display: flex;

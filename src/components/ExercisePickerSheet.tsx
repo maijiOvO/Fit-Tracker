@@ -319,7 +319,7 @@ interface ExercisePickerSheetProps {
   /** 普通态里换了部位 chip（部位标签，如 subChest）：训练名没手动改过时跟着改 */
   onPartChange?: (bodyPart: string) => void;
   /** preset：弹层眼下停的部位 / 有氧栏（「新动作」照它预填，审查 A16） */
-  onCreateCustomExercise: (prefilledName?: string, preset?: { bodyPart?: string; category?: string }) => void;
+  onCreateCustomExercise: (prefilledName?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => void;
   /** 从交替组「加一个动作」打开：头部写「加到 X ⇄ Y」，选的动作加进那个组 */
   targetLabel?: string | null;
   /**
@@ -1749,6 +1749,20 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                     {isCn ? '右移' : 'Move right'} <ChevronRight size={16} className="text-accent" />
                   </button>
                 </div>
+                {/* new-ex-no-part-prefill：顶上的「新动作」不知道你想放进哪一列（细分是整版并排的几列），
+                    在这一列的菜单里建，就带上部位和这个细分 */}
+                <button
+                  type="button"
+                  className={panelBtn}
+                  data-testid="region-new-exercise"
+                  onClick={() => {
+                    close();
+                    onCreateCustomExercise(undefined, { bodyPart: part, regions: [id] });
+                  }}
+                >
+                  <Plus size={16} className="text-accent" />
+                  {isCn ? '在这一列新建动作' : 'New exercise here'}
+                </button>
                 <button
                   type="button"
                   className={panelBtn}

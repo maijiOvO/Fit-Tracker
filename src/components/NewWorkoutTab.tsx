@@ -104,7 +104,7 @@ export interface NewWorkoutTabProps {
   /** 本次弹层会话累计添加数 */
   sessionAdded: number;
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
-  onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string }) => void;
+  onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onRenameExercise: (id: string, currentName: string) => void;

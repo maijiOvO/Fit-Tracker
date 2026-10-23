@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>「杠铃片」阶段二方向</title>
+<!--
+  docs/design-plates.md §4 阶段二剩下的五项，每项 2–3 个方向并排，供用户挑。
+  壶铃图形规格清楚，已直接落地（PlateGlyph.KettlebellGlyph），不在这里。
+  色彩 / 字体令牌抄自 index.css（浅色 · 青）。静态示意，不接数据。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Ma+Shan+Zheng&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-base:#FFFFFF; --bg-card:#F4F5F7; --bg-inset:#E9EBEF; --bg-btn:#E9EBEF; --divider:#E3E5E9; --rule-strong:#A3A8B0;
+    --text-primary:#111316; --text-secondary:#43474E; --text-tertiary:#626872;
+    --accent:#12B39A; --accent-soft:#DCF4EF; --accent-text:#097464; --text-on-accent:#04211C;
+    --plate-red:#D9262B; --plate-blue:#1E5BC6; --plate-yellow:#F0B90B; --plate-green:#2F9E4F; --plate-white:#F4F4F1;
+    --plate-chrome:#8C9198; --plate-edge:rgba(22,24,27,.28); --bar-rod:#A3A8AF;
+    --chalk:#FFFFFF; --text-on-chalk:#16181B;
+    --num:'Barlow Condensed','Noto Sans SC',system-ui,sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#E6E8EC; color:var(--text-primary);
+    font:15px/1.6 'Noto Sans SC','PingFang SC','Microsoft YaHei',system-ui,sans-serif; }
+  .wrap { max-width:1180px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .lede { color:var(--text-secondary); margin:0 0 24px; max-width:720px; }
+  section { background:var(--bg-base); border:1px solid var(--divider); border-radius:8px; padding:20px; margin-bottom:20px; }
+  section > h2 { font-size:17px; margin:0 0 4px; }
+  section > p { color:var(--text-secondary); margin:0 0 16px; font-size:14px; max-width:760px; }
+  .opts { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  .opt { border:1px solid var(--divider); border-radius:6px; padding:12px; }
+  .opt h3 { font-size:14px; margin:0 0 8px; display:flex; gap:8px; align-items:center; }
+  .opt h3 .tag { font-size:11px; font-weight:700; padding:1px 6px; border-radius:2px; background:var(--accent-soft); color:var(--accent-text); }
+  .opt .note { font-size:12px; color:var(--text-tertiary); margin:10px 0 0; line-height:1.5; }
+  .phone { width:100%; max-width:343px; background:var(--bg-base); }
+
+  /* 小配片：一侧从里到外，片高按真实直径比例 */
+  .mini { display:inline-flex; align-items:center; gap:1px; height:18px; vertical-align:middle; }
+  .mini .rod { width:10px; height:3px; background:var(--bar-rod); }
+  .mini i { display:block; width:4px; border-radius:1px; box-shadow:inset 0 0 0 .5px var(--plate-edge); }
+  .p25 { background:var(--plate-red); height:18px; } .p20 { background:var(--plate-blue); height:18px; }
+  .p15 { background:var(--plate-yellow); height:18px; } .p10 { background:var(--plate-green); height:18px; }
+  .p5 { background:var(--plate-white); height:11px; } .p25s { background:var(--plate-red); height:8px; } .pch { background:var(--plate-chrome); height:7px; }
+
+  /* 时间线卡 */
+  .tl { background:var(--bg-card); border:1px solid var(--divider); border-radius:4px; padding:10px 12px; display:grid; grid-template-columns:40px 1fr auto; column-gap:12px; row-gap:4px; align-items:center; margin-bottom:8px; }
+  .tl .d { grid-row:span 2; text-align:center; line-height:1.2; }
+  .tl .d b { display:block; font:700 22px/1 var(--num); }
+  .tl .d span { font-size:11px; color:var(--text-tertiary); display:block; }
+  .tl .t { font-weight:700; display:flex; gap:8px; align-items:center; }
+  .tl .gym { font-size:11px; font-weight:400; color:var(--text-tertiary); background:var(--bg-inset); padding:1px 6px; border-radius:2px; }
+  .tl .c { text-align:right; font-size:11px; color:var(--text-tertiary); line-height:1.45; }
+  .tl .c b { font:700 14px var(--num); color:var(--text-secondary); }
+  .tl .s { grid-column:span 2; font-size:14px; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tl .s .mini { margin-left:6px; }
+  .tl .best { display:flex; align-items:center; gap:6px; font:700 13px var(--num); color:var(--text-secondary); }
+
+  /* 选动作格子 */
+  .board { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+  .tile { background:var(--bg-inset); border-radius:4px; padding:8px; font-size:13px; font-weight:700; color:var(--text-secondary); min-height:48px; position:relative; }
+  .tile.on { background:var(--accent); color:var(--text-on-accent); }
+  .ico { display:inline-block; vertical-align:-2px; margin-right:4px; }
+  .ico-bar { width:16px; height:10px; background:linear-gradient(var(--text-tertiary),var(--text-tertiary)) center/16px 2px no-repeat; position:relative; }
+  .ico-bar::before,.ico-bar::after { content:''; position:absolute; top:0; width:3px; height:10px; background:var(--text-tertiary); border-radius:1px; }
+  .ico-bar::before { left:2px; } .ico-bar::after { right:2px; }
+  .ico-db { width:14px; height:8px; background:linear-gradient(var(--text-tertiary),var(--text-tertiary)) center/14px 2px no-repeat; position:relative; }
+  .ico-db::before,.ico-db::after { content:''; position:absolute; top:1px; width:4px; height:6px; background:var(--text-tertiary); border-radius:1px; }
+  .ico-db::before { left:0; } .ico-db::after { right:0; }
+  .ico-stack { width:8px; height:11px; background:repeating-linear-gradient(var(--text-tertiary) 0 2px, transparent 2px 3px); border-radius:1px; }
+  .tile.on .ico-bar,.tile.on .ico-db { filter:brightness(0); opacity:.6; }
+  .tile .corner { position:absolute; right:6px; top:6px; }
+
+  /* 计划卡 */
+  .plan { background:var(--bg-card); border:1px solid var(--divider); border-radius:4px; padding:12px; }
+  .plan h4 { margin:0 0 8px; font-size:15px; }
+  .plan li { list-style:none; display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px solid var(--divider); font-size:14px; }
+  .plan ul { margin:0; padding:0; }
+  .plan .tw { font:700 14px var(--num); color:var(--text-secondary); display:flex; gap:8px; align-items:center; }
+  .plan .need { font-size:12px; color:var(--text-tertiary); margin-top:8px; }
+
+  /* 里程碑 + 热力图 */
+  .ms { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .ms .m { flex:none; width:128px; background:var(--chalk); border:1px solid var(--text-on-chalk); border-radius:4px; padding:8px; }
+  .ms .m b { display:block; font:700 20px/1 var(--num); color:var(--text-on-chalk); margin:6px 0 2px; }
+  .ms .m span { font-size:11px; color:var(--text-tertiary); }
+  .heat { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-top:12px; }
+  .heat i { aspect-ratio:1; border-radius:2px; background:var(--bg-inset); position:relative; }
+  .heat i.l1 { background:#9FDDD2; } .heat i.l2 { background:#4CC5B0; } .heat i.l3 { background:var(--accent); }
+  .heat i.pr::after { content:''; position:absolute; inset:0; margin:auto; width:7px; height:7px; border-radius:50%; background:var(--chalk); box-shadow:0 0 0 1px var(--text-on-chalk); }
+  .legend { font-size:11px; color:var(--text-tertiary); margin-top:6px; display:flex; gap:12px; align-items:center; }
+  .legend .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--chalk); box-shadow:0 0 0 1px var(--text-on-chalk); margin-right:4px; vertical-align:middle; }
+
+  /* 印章扇 */
+  .fan { display:flex; gap:10px; justify-content:center; padding:16px 0 4px; flex-wrap:wrap; }
+  .seal { width:46px; height:46px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:var(--bg-card); }
+  .seal.callig { border:2.5px solid var(--accent); color:var(--accent-text); font:27px/1 'Ma Shan Zheng',cursive; padding-top:1px; }
+  .seal.block { border:2px solid var(--text-primary); color:var(--text-primary); font-weight:900; font-size:20px; }
+  .seal.pill { width:auto; height:36px; padding:0 14px; border-radius:18px; background:var(--bg-btn); border:1px solid var(--divider); font-size:14px; font-weight:700; color:var(--text-primary); }
+  .seal.pill.on { background:var(--accent); color:var(--text-on-accent); border-color:var(--accent); }
+  .rec { font-size:12px; color:var(--accent-text); font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>「杠铃片」阶段二 · 方向对比</h1>
+  <p class="lede">design-plates §4 剩下的五项。规范里只有清单、没有画法，这页给每项 2–3 个方向，挑完我再按选中的落地。
+    壶铃图形规格清楚（单只定重、剪影随重量变大、不上色），已经直接做进训练页的器材大图了，不在这页。
+    <span class="rec">「建议」</span>是我的倾向，理由写在每个方向下面。</p>
+
+  <!-- 1 -->
+  <section>
+    <h2>1 · 记录时间线的器材缩略图</h2>
+    <p>注意：2026-10-18 在组行里画过一排迷你配片，你看过觉得多余、删掉了。时间线上加图会不会重蹈覆辙，是这一项的关键。</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>A · 不加（现状）<span class="tag">建议</span></h3>
+        <div class="phone">
+          <div class="tl"><div class="d"><b>21</b><span>周三</span><span>18:09</span></div>
+            <div class="t">练手臂 <span class="gym">fit4less</span></div>
+            <div class="c"><b>7</b> 动作<br><b>20</b> 组</div>
+            <div class="s">杠铃弯举 · 单手三头绳索臂屈伸 · 坐姿哑铃弯举</div></div>
+        </div>
+        <p class="note">列表是用来找「哪天练了什么」的，动作名已经回答了。配片在训练页的大图里已经有，再画一遍只是重复。</p>
+      </div>
+      <div class="opt">
+        <h3>B · 右下角画当天最重一组的配片</h3>
+        <div class="phone">
+          <div class="tl"><div class="d"><b>3</b><span>周六</span><span>14:33</span></div>
+            <div class="t">练腿 <span class="gym">fit4less</span></div>
+            <div class="c"><b>6</b> 动作<br><b>24</b> 组</div>
+            <div class="s" style="display:flex;justify-content:space-between;gap:8px"><span style="overflow:hidden;text-overflow:ellipsis">深蹲 · 提踵 · 坐姿蹬腿</span>
+              <span class="best"><span class="mini"><span class="rod"></span><i class="p20"></i><i class="p20"></i><i class="p5"></i></span>100</span></div></div>
+        </div>
+        <p class="note">一眼看出「这天挂了几片蓝」。代价：摘要被挤短；没有杠铃动作的那天（练臂、有氧）这一格是空的，卡和卡不齐。</p>
+      </div>
+      <div class="opt">
+        <h3>C · 只在展开后的动作标题旁画</h3>
+        <div class="phone">
+          <div class="plan" style="padding:10px 12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-weight:700">深蹲
+              <span class="best" style="display:flex;gap:6px;align-items:center;font:700 13px var(--num);color:var(--text-secondary)"><span class="mini"><span class="rod"></span><i class="p20"></i><i class="p20"></i><i class="p5"></i></span>最重 100 kg</span></div>
+            <div style="font:700 22px var(--num);margin-top:6px">100<small style="font-size:11px;color:var(--text-tertiary)"> kg</small> &nbsp;8<small style="font-size:11px;color:var(--text-tertiary)"> 次</small></div>
+          </div>
+        </div>
+        <p class="note">列表保持干净，点开看细节时才出现。和训练页大图是同一套语言，打扰最小；但收合时完全看不到。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section>
+    <h2>2 · 选动作弹层里的器材图标</h2>
+    <p>现在格子里只有动作名。同一列里「杠铃深蹲 / 哑铃深蹲 / 史密斯深蹲」靠读字区分。</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>A · 不加（现状）</h3>
+        <div class="board">
+          <div class="tile on">深蹲</div><div class="tile">高杯深蹲</div><div class="tile">倒蹬/腿举</div>
+          <div class="tile">腿屈伸</div><div class="tile">哈克深蹲</div><div class="tile">保加利亚分腿蹲</div>
+        </div>
+        <p class="note">最干净。名字本来就常带器材（「哑铃箭步蹲」），图标有时是重复信息。</p>
+      </div>
+      <div class="opt">
+        <h3>B · 名字前一个小器材剪影 <span class="tag">建议</span></h3>
+        <div class="board">
+          <div class="tile on"><span class="ico ico-bar"></span>深蹲</div><div class="tile"><span class="ico ico-db"></span>高杯深蹲</div><div class="tile"><span class="ico ico-stack"></span>倒蹬/腿举</div>
+          <div class="tile"><span class="ico ico-stack"></span>腿屈伸</div><div class="tile"><span class="ico ico-bar"></span>哈克深蹲</div><div class="tile"><span class="ico ico-db"></span>保加利亚分腿蹲</div>
+        </div>
+        <p class="note">剪影和训练页大图同形（杠铃 = 两片、哑铃 = 两头、配重片 = 一摞），灰色不上色、不抢名字。扫一眼就分得出器材，格子不变高。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section>
+    <h2>3 · 计划页</h2>
+    <p>计划卡现在每个动作写「3×10 · 60kg」。</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>A · 不加（现状）</h3>
+        <div class="plan"><h4>周四 · 练胸</h4><ul>
+          <li>杠铃平板卧推 <span class="tw">3×8 · 80kg</span></li>
+          <li>上斜哑铃卧推 <span class="tw">3×10 · 24kg</span></li></ul></div>
+      </div>
+      <div class="opt">
+        <h3>B · 杠铃目标旁画配片，卡底写「要准备的片」<span class="tag">建议</span></h3>
+        <div class="plan"><h4>周四 · 练胸</h4><ul>
+          <li>杠铃平板卧推 <span class="tw"><span class="mini"><span class="rod"></span><i class="p25"></i><i class="p5"></i></span>3×8 · 80kg</span></li>
+          <li>上斜哑铃卧推 <span class="tw">3×10 · 24kg</span></li></ul>
+          <div class="need">每边：一片红（25）+ 一片白（5）</div></div>
+        <p class="note">计划是「去之前想好挂什么」，正好是片子语言最有用的地方。只给杠铃 / 挂片器械画，哑铃、配重片照旧写数字。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section>
+    <h2>4 · 「我的」：上片里程碑、热力图镁粉点</h2>
+    <p>镁粉白 = 纪录（规范：纪录不借片子的颜色）。</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>A · 里程碑横排 + 热力图镁粉点 <span class="tag">建议</span></h3>
+        <div class="ms">
+          <div class="m"><span>深蹲 · 第一次</span><b>两片蓝</b><span class="mini"><span class="rod"></span><i class="p20"></i><i class="p20"></i></span><br><span>9 月 21 日</span></div>
+          <div class="m"><span>卧推 · 第一次</span><b>一片蓝</b><span class="mini"><span class="rod"></span><i class="p20"></i></span><br><span>10 月 3 日</span></div>
+          <div class="m"><span>硬拉 · 第一次</span><b>一片红</b><span class="mini"><span class="rod"></span><i class="p25"></i></span><br><span>8 月 30 日</span></div>
+        </div>
+        <div class="heat">
+          <i></i><i class="l2"></i><i class="l3 pr"></i><i></i><i></i><i class="l2"></i><i></i>
+          <i class="l1"></i><i></i><i class="l2"></i><i class="l3"></i><i></i><i class="l2 pr"></i><i></i>
+        </div>
+        <div class="legend"><span><span class="dot"></span>当天破了纪录</span><span>颜色深浅 = 练了多少组</span></div>
+        <p class="note">里程碑按「每边第一次挂上某种整片」算（一片蓝、两片蓝、一片红…），三大项各取最新一枚。热力图格子中间的白点是破纪录那天。</p>
+      </div>
+      <div class="opt">
+        <h3>B · 只加热力图镁粉点，不做里程碑</h3>
+        <div class="heat">
+          <i></i><i class="l2"></i><i class="l3 pr"></i><i></i><i></i><i class="l2"></i><i></i>
+          <i class="l1"></i><i></i><i class="l2"></i><i class="l3"></i><i></i><i class="l2 pr"></i><i></i>
+        </div>
+        <div class="legend"><span><span class="dot"></span>当天破了纪录</span></div>
+        <p class="note">改动最小。「按动作」里已经有纪录，里程碑算是第三处展示成就，怕重复就只做点。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section>
+    <h2>5 · 底部「开练」的部位印章扇</h2>
+    <p>长按底部开练按钮弹出的扇形部位印。现在是马善政书法字，是全站唯一还在用这个字体的地方（规范定了阶段二退役）。</p>
+    <div class="opts">
+      <div class="opt">
+        <h3>A · 现状：书法印</h3>
+        <div class="fan"><span class="seal callig">胸</span><span class="seal callig">肩</span><span class="seal callig">背</span><span class="seal callig">腿</span><span class="seal callig">臂</span></div>
+        <p class="note">有个性，但和「杠铃片」这套几何、器物的语言不搭；字体子集还要单独打包。</p>
+      </div>
+      <div class="opt">
+        <h3>B · 正文粗体方印 <span class="tag">建议</span></h3>
+        <div class="fan"><span class="seal block">胸</span><span class="seal block">肩</span><span class="seal block">背</span><span class="seal block">腿</span><span class="seal block">臂</span></div>
+        <p class="note">保留「印」的形状和扇形手势，只把字换成正文字体最粗的一档、黑框。退掉书法字体，少打包一个字体文件。</p>
+      </div>
+      <div class="opt">
+        <h3>C · 去掉印，改成文字胶囊</h3>
+        <div class="fan"><span class="seal pill on">胸</span><span class="seal pill">肩</span><span class="seal pill">背</span><span class="seal pill">腿</span><span class="seal pill">臂</span></div>
+        <p class="note">最朴素、和筛选标签同一种样子。但扇形展开时胶囊不如方印好认，手势的仪式感也没了。</p>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>
