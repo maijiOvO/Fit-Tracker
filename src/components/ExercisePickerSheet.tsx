@@ -39,7 +39,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf } from '../hooks/useExercisePickerData';
-import { RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, type Resistance } from '../utils/exerciseAttrs';
+import { EQ_BARBELL, RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, type Resistance } from '../utils/exerciseAttrs';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
 import { useRegionDrag } from '../hooks/useRegionDrag';
@@ -165,10 +165,17 @@ interface RegionCardProps {
  * 器材小剪影（「杠铃片」阶段二，2026-10-22）：和训练页大图同形 —— 杠铃＝杆＋两片、哑铃＝两头、
  * 壶铃＝提手＋铃身、配重片＝一摞。灰色不上色，不抢名字；同一列里杠铃深蹲 / 哑铃深蹲扫一眼就分得开。
  * 自重 / 弹力带 / 不计重不画（没有器材可画）。
+ * 杠铃片挂在杠铃上画杠铃；挂在别的器材上（悍马、倒蹬、史密斯这类挂片器械）画「挂片」——
+ * 一开始按阻力一律画成杠铃，悍马卧推这种固定器械也出现杠铃图标（2026-10-22 用户指出）。
  */
-type EquipIcon = 'bar' | 'db' | 'kb' | 'stack';
-const equipIconOf = (r: Resistance): EquipIcon | undefined =>
-  r === 'plates' || r === 'fixedBar' ? 'bar' : r === 'dumbbell' ? 'db' : r === 'kettlebell' ? 'kb' : r === 'stack' ? 'stack' : undefined;
+type EquipIcon = 'bar' | 'plate' | 'db' | 'kb' | 'stack';
+const equipIconOf = ({ equipment, resistance: r }: { equipment: string; resistance: Resistance }): EquipIcon | undefined =>
+  r === 'plates' ? (equipment.toLowerCase() === EQ_BARBELL.toLowerCase() ? 'bar' : 'plate')
+  : r === 'fixedBar' ? 'bar'
+  : r === 'dumbbell' ? 'db'
+  : r === 'kettlebell' ? 'kb'
+  : r === 'stack' ? 'stack'
+  : undefined;
 
 const RegionCard: React.FC<RegionCardProps> = ({
   id,
@@ -959,7 +966,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         added={added}
         isStarred={!opts.isDeleted && !v && isStarredName(baseName)}
         variant={`${opts.variantCls ?? ''}${v ? ' is-variant' : ''}`.trim()}
-        equip={equipIconOf(attrsOf(ex, v?.id).resistance)}
+        equip={equipIconOf(attrsOf(ex, v?.id))}
         cell={opts.cell}
         unassigned={opts.unassigned}
         longPress={!arranging}

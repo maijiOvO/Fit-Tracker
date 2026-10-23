@@ -106,6 +106,7 @@ export function BarbellGlyph({
   display,
   kind,
   oneSide,
+  machine,
 }: {
   perSide: number[];
   plateUnit: PlateUnit;
@@ -113,11 +114,16 @@ export function BarbellGlyph({
   kind: BarKind;
   /** 单边挂片：左边的套筒空着 */
   oneSide?: boolean;
+  /**
+   * 挂片器械（悍马、倒蹬、史密斯这类）：中间画一块机身、两边伸出挂片杆，不画横穿的杠子和卡箍。
+   * 原来和杠铃同一张图，用户看着就是一根杠铃（2026-10-22）。杆长、片子比例照旧按标准杠的尺寸。
+   */
+  machine?: boolean;
 }) {
   const g = BAR_GEOMETRY[kind];
   const half = (side: 'l' | 'r') => (
     <span className={`bar-side is-${side}`}>
-      <span className="bar-collar" />
+      {!machine && <span className="bar-collar" />}
       <span className="bar-sleeve" />
       <span className="bar-load">
         <AnimatedStack plates={oneSide && side === 'l' ? [] : perSide} plateUnit={plateUnit} display={display} numbers />
@@ -127,7 +133,7 @@ export function BarbellGlyph({
   return (
     <div className="bar-frame" aria-hidden>
       <div
-        className="plate-bar"
+        className={`plate-bar${machine ? ' is-machine' : ''}`}
         style={{
           ['--L' as string]: g.length,
           ['--S' as string]: g.shaft,
@@ -136,7 +142,7 @@ export function BarbellGlyph({
           ['--sleeve-dia' as string]: g.sleeveDia,
         }}
       >
-        <span className="bar-shaft" />
+        {machine ? <span className="bar-machine" /> : <span className="bar-shaft" />}
         {half('l')}
         {half('r')}
       </div>
@@ -384,7 +390,7 @@ export function LoadHero({
             ×{scrub.step}
           </span>
         )}
-        {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} />}
+        {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} machine={kind === 'loaded'} />}
         {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} />}
         {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}
         {kind === 'bell' && <KettlebellGlyph value={value} unit={unit} />}
@@ -551,7 +557,7 @@ function GymHero({
     if (kind === 'loaded')
       caption +=
         tare !== undefined
-          ? isCn ? ` · 加空载共 ${fmt(vG + tare)} ${gl}` : ` · ${fmt(vG + tare)} ${gl} with the sled`
+          ? isCn ? ` · 连器械共 ${fmt(vG + tare)} ${gl}` : ` · ${fmt(vG + tare)} ${gl} with the machine`
           : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
@@ -592,8 +598,8 @@ function GymHero({
       : kind === 'loaded'
         ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
           (machine.tare?.value != null
-            ? isCn ? ` · 空载 ${fmt(machine.tare.value)} ${gl}` : ` · sled ${fmt(machine.tare.value)} ${gl}`
-            : isCn ? ' · 空载没填' : ' · sled unknown')
+            ? isCn ? ` · 器械自重 ${fmt(machine.tare.value)} ${gl}` : ` · machine ${fmt(machine.tare.value)} ${gl}`
+            : isCn ? ' · 自重没填' : ' · weight unknown')
         : isCn ? `${incName} · 每档 ${fmt(ctx.inc)} ${gl}` : `${incName} · +${fmt(ctx.inc)} ${gl}`;
   const incRow = (label: string) =>
     machine?.inc && (
@@ -645,7 +651,7 @@ function GymHero({
                   <button
                     key={k}
                     type="button"
-                    className={`min-h-[36px] px-3 text-label font-semibold ${kind === k ? 'seg-on' : 'text-secondary'}`}
+                    className={`min-h-[36px] px-3 text-small font-semibold ${kind === k ? 'seg-on' : 'text-secondary'}`}
                     aria-pressed={kind === k}
                     onClick={() => machine.onKind(k)}
                     data-testid={`gym-kind-${k}`}
@@ -707,7 +713,7 @@ function GymHero({
                   <button
                     key={String(on)}
                     type="button"
-                    className={`min-h-[36px] px-3 text-label font-semibold ${oneSide === on ? 'seg-on' : 'text-secondary'}`}
+                    className={`min-h-[36px] px-3 text-small font-semibold ${oneSide === on ? 'seg-on' : 'text-secondary'}`}
                     aria-pressed={oneSide === on}
                     onClick={() => oneSide !== on && machine.oneSide!.onSet(on)}
                     data-testid={on ? 'gym-one-side-on' : 'gym-one-side-off'}
@@ -721,7 +727,8 @@ function GymHero({
           {kind === 'loaded' && machine.tare && (
             <>
               <div className="stack-stp">
-                <span>{isCn ? '空载' : 'Sled'}</span>
+                {/* 原来叫「空载」、占位「不知道」：行话看不懂，占位字还被 18px 数字字体截成「不矢」（2026-10-22 用户指出） */}
+                <span>{isCn ? '器械自重' : 'Machine weight'}</span>
                 <span className="stack-seg">
                   <ScrubNumber
                     value={machine.tare.value}
@@ -730,14 +737,18 @@ function GymHero({
                     min={-500}
                     max={500}
                     steps={gu === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
-                    placeholder={isCn ? '不知道' : '?'}
+                    placeholder="—"
                     testId="gym-tare"
-                    ariaLabel={isCn ? '空载重量' : 'Sled weight'}
+                    ariaLabel={isCn ? '器械自重' : 'Machine weight'}
                   />
                   <small>{gl}</small>
                 </span>
               </div>
-              <p className="stack-note">{isCn ? '滑台 / 杠自重，仅作参考，不计入记录' : 'Sled / bar weight. Reference only, not logged'}</p>
+              <p className="stack-note">
+                {isCn
+                  ? '不挂片时这台器械本身多重（倒蹬的滑台、史密斯的杠）。填了只在上面说明里加一句「连器械共多少」，记录照旧只算片子；不知道就空着。'
+                  : 'What the machine weighs with no plates (leg-press sled, Smith bar). Only adds a "with the machine" total to the caption; the log still counts plates only. Leave empty if unsure.'}
+              </p>
             </>
           )}
           {(kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}
@@ -761,7 +772,7 @@ function GymHero({
                 ×{fmt(rounder.stepD(v) * scrub.step)}
               </span>
             )}
-            {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} />}
+            {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
             {kind === 'pin' && <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
             {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
             {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}

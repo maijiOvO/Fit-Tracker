@@ -1382,6 +1382,10 @@ button {
 /* 壶铃：提手 + 铃身 */
 .eq-kb::before { left: 3px; top: 0; width: 8px; height: 5px; background: none; border: 2px solid currentColor; border-bottom: 0; border-radius: 4px 4px 0 0; box-sizing: border-box; }
 .eq-kb::after { left: 2px; top: 3px; width: 10px; height: 7px; border-radius: 50%; }
+/* 挂片器械（悍马、倒蹬、史密斯）：一根短挂杆 + 一大一小两片，没有横穿的杠子，和杠铃分得开 */
+.eq-plate { background: linear-gradient(currentColor, currentColor) 0 50% / 4px 2px no-repeat; }
+.eq-plate::before { left: 4px; top: 0; width: 4px; height: 10px; }
+.eq-plate::after { left: 9px; top: 2px; width: 3px; height: 6px; }
 /* 配重片：一摞 */
 .eq-stack { width: 9px; background: repeating-linear-gradient(currentColor 0 2px, transparent 2px 3px); border-radius: 1px; }
 .region-card-x {

@@ -1458,8 +1458,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const tares = (await readLs('fitlog_app_prefs'))?.gymTares;
     if (JSON.stringify(tares?.[`${GB}|press_machine_shoulder|`]) !== '{"v":30,"u":"kg"}') throw new Error(`gymTares not stored: ${JSON.stringify(tares)}`);
     await closeFace();
-    if (!(await page.getByText('加空载共 52.5 kg').count())) throw new Error('hero caption should add the sled: 加空载共 52.5 kg');
-    if (!(await page.locator('[data-testid="stack-chip"]').first().innerText()).includes('空载 30')) throw new Error('the pill should read 挂片 · 空载 30 kg');
+    if (!(await page.getByText('连器械共 52.5 kg').count())) throw new Error('hero caption should add the machine weight: 连器械共 52.5 kg');
+    if (!(await page.locator('[data-testid="stack-chip"]').first().innerText()).includes('器械自重 30')) throw new Error('the pill should read 挂片 · 器械自重 30 kg');
     if ((await weights()).join() !== '22.5') throw new Error(`the sled must not change the logged weight, got ${JSON.stringify(await weights())}`);
     await openFace();
     await tare.fill('');
