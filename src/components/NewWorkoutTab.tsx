@@ -673,6 +673,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onToggleNote={onToggleNote}
               onOpenMetricModal={(name, focus) => onOpenMetricModal(name, exIdx, focus)}
               settingsSlot={metricSlot?.exIdx === exIdx ? metricSlot.el : null}
+              onToggleUnit={onToggleUnit}
               onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
               onRename={(() => {
                 const def = findExerciseDef(ex.name);

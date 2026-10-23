@@ -84,6 +84,8 @@ interface ExerciseCardProps {
   onOpenMetricModal: (name: string, focus?: 'gym') => void;
   /** 动作设置弹窗开着、且开的正是这一张卡时，弹窗里「在 X」那一段的挂载点；这台器械的设置行 portal 进去 */
   settingsSlot?: HTMLElement | null;
+  /** 切 kg / lb：弹窗里「在 X」那一段自带一个开关 */
+  onToggleUnit?: () => void;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   onRename?: () => void;
   /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
@@ -142,6 +144,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onToggleNote,
   onOpenMetricModal,
   settingsSlot,
+  onToggleUnit,
   onRename,
   onSwitchVariant,
   onSetUpdate,
@@ -626,6 +629,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   canSwitch: !!kindKey,
                   libKind: kindKey ? (loadInfo.libKind as 'pin' | 'loaded') : undefined,
                   slot: settingsSlot,
+                  onToggleUnit,
                   onOpen: () => onOpenMetricModal(exerciseName, 'gym'),
                   onKind: setGymKind,
                   onStack: incKey && loadKind === 'pin' ? setStack : undefined,
