@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, ChevronRight, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
@@ -28,6 +28,13 @@ interface MetricSettingsModalProps {
   onEditTags?: () => void;
   /** 「小腿 · 杠铃」这样的一行摘要 */
   tagSummary?: string;
+  /**
+   * 2026-10-22 合并入口：训练里打开时，弹窗末尾留一段「在 X · 只改这一台」，
+   * 那张卡把这台器械的设置行 portal 进来（状态都在卡上）。没有器械设置的动作这段是空的，不显示。
+   */
+  gymSlotRef?: (el: HTMLElement | null) => void;
+  /** 从大图的小药丸进来：打开后滚到那一段 */
+  focusGym?: boolean;
 }
 
 export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
@@ -43,14 +50,29 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   onRename,
   onEditTags,
   tagSummary,
+  gymSlotRef,
+  focusGym,
 }) => {
   const [newCustomDimension, setNewCustomDimension] = useState('');
   const isCn = lang === Language.CN;
   const activeMetrics = exerciseName ? getActiveMetrics(exerciseName) : [];
+  const slotEl = useRef<HTMLDivElement | null>(null);
+  const isOpen = open && !!exerciseName;
+  useEffect(() => {
+    if (!isOpen || !focusGym) return;
+    // 卡片拿到挂载点后下一轮才渲染进来，弹窗还在进场动画里（滚了也被吞），所以等内容到了、动画过了再滚
+    let tries = 0;
+    let t = window.setTimeout(function tick() {
+      const el = slotEl.current;
+      if (el?.childElementCount) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      else if (++tries < 10) t = window.setTimeout(tick, 60);
+    }, 260);
+    return () => window.clearTimeout(t);
+  }, [isOpen, focusGym]);
 
   return (
     <Modal
-      isOpen={open && !!exerciseName}
+      isOpen={isOpen}
       onClose={onClose}
       title={isCn ? '动作设置' : 'Exercise settings'}
       subtitle={exerciseName || undefined}
@@ -69,6 +91,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
+            data-testid="metric-modal-done"
             className="flex-[2] min-h-[52px] rounded-control bg-accent text-on-accent font-semibold transition-opacity duration-tap ease-paper"
           >
             {translations.confirm[lang]}
@@ -76,7 +99,12 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
         </div>
       }
     >
-      <div>
+      <div className="metric-modal">
+        {/* 下面有「在 X」那一段时才出现，两段对照着看 */}
+        <p className="metric-scope-head">
+          <b>{isCn ? '这个动作' : 'This exercise'}</b>
+          <small>{isCn ? '所有馆通用' : 'Every gym'}</small>
+        </p>
         {(onRename || onEditTags) && (
           <div className="mb-6 rounded-card border border-divider divide-y divide-divider" data-testid="exercise-identity">
             {onRename && (
@@ -181,6 +209,13 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
           </button>
         </div>
 
+        <div
+          className="metric-gym-slot"
+          ref={el => {
+            slotEl.current = el;
+            gymSlotRef?.(el);
+          }}
+        />
       </div>
     </Modal>
   );

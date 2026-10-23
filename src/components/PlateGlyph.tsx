@@ -11,6 +11,7 @@
  * 共同的内层片不动（AnimatedStack 按前缀比对）。只动 transform / opacity。
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BAR_GEOMETRY,
   BAR_LABEL,
@@ -168,6 +169,14 @@ export interface MachineCtl {
   tare?: { value: number | null; onSet: (n: number | null) => void };
   /** 挂片式器械只有一边能挂（T 杠、地雷架）：总重＝一边的片 */
   oneSide?: { on: boolean; onSet: (on: boolean) => void };
+  /** 动作库里的形式（所有馆的默认）：「加重方式」行写明这一台是跟着它，还是改过 */
+  libKind?: 'pin' | 'loaded';
+  /**
+   * 2026-10-22 合并入口：这几行设置渲染进「动作设置」弹窗里「在 X」那一段（React portal），
+   * 小药丸改成打开那个弹窗。不传（交替组等）就照旧在大图位置原地展开。
+   */
+  slot?: HTMLElement | null;
+  onOpen?: () => void;
 }
 
 /* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
@@ -585,7 +594,8 @@ function GymHero({
 
   const lightest = stackStart > 0 ? stackStart : ctx.inc;
   const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
-  const faceOpen = stackOpen && hasMachine;
+  // 有弹窗位置（slot）时不在原地展开：设置行渲染进「动作设置」里
+  const faceOpen = stackOpen && hasMachine && !machine?.slot;
   const incName =
     kind === 'pair' ? (isCn ? '哑铃' : 'Dumbbells')
     : kind === 'bell' ? (isCn ? '壶铃' : 'Kettlebells')
@@ -622,11 +632,152 @@ function GymHero({
       </div>
     );
 
+  /** 「这台器械」的设置行：原地展开（交替组等）和渲染进「动作设置」弹窗（slot）共用一份 */
+  const faceRows = machine && (
+    <>
+      {machine.canSwitch && (
+        <div className="stack-stp">
+          {/* 写明和动作设置（所有馆的默认）的关系：两层说的是同一件事，以前看不出这一台改没改过（2026-10-22） */}
+          <span>
+            {isCn ? '加重方式' : 'Loading'}
+            {machine.libKind && (
+              <small className="block text-label text-tertiary" data-testid="gym-kind-lib">
+                {kind === machine.libKind
+                  ? isCn ? '跟动作设置一样' : 'Same as the exercise'
+                  : isCn
+                    ? `这一台改过，动作设置是${machine.libKind === 'pin' ? '插销' : '挂片'}`
+                    : `Changed here; the exercise says ${machine.libKind === 'pin' ? 'pin stack' : 'plate-loaded'}`}
+              </small>
+            )}
+          </span>
+          <span className="gym-seg" role="group" data-testid="gym-kind">
+            {(['pin', 'loaded'] as const).map(k => (
+              <button
+                key={k}
+                type="button"
+                className={`min-h-[36px] px-3 text-small font-semibold ${kind === k ? 'seg-on' : 'text-secondary'}`}
+                aria-pressed={kind === k}
+                onClick={() => machine.onKind(k)}
+                data-testid={`gym-kind-${k}`}
+              >
+                {k === 'pin' ? (isCn ? '插销' : 'Pin stack') : isCn ? '挂片' : 'Plate-loaded'}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      {kind === 'pin' && machine.onStack && (
+        <>
+          <div className="stack-stp">
+            <span>{isCn ? '最轻一格' : 'Lightest'}</span>
+            <span className="stack-seg">
+              <button type="button" aria-label={isCn ? '最轻一格轻一点' : 'Lighter'} onClick={() => nudgeStart(-1)} data-testid="stack-start-dec">−</button>
+              <ScrubNumber
+                value={lightest}
+                onCommit={n => n !== null && n > 0 && Math.abs(n - lightest) > 1e-9 && machine.onStack!(ctx.inc, n)}
+                min={0.5}
+                steps={[0.5, 1, 2.5, 5]}
+                testId="stack-start"
+                ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
+              />
+              <small>{gl}</small>
+              <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
+            </span>
+          </div>
+          <div className="stack-stp">
+            <span>{isCn ? '每格' : 'Step'}</span>
+            <span className="stack-seg">
+              <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
+              <ScrubNumber
+                value={ctx.inc}
+                onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, lightest)}
+                min={0.25}
+                stepFn={listStepFn(INC_CHOICES[gu])}
+                steps={[1, 2, 4]}
+                testId="stack-step"
+                ariaLabel={isCn ? '每格多重' : 'Step'}
+              />
+              <small>{gl}</small>
+              <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
+            </span>
+          </div>
+          <div className="stack-mini" aria-hidden>
+            {Array.from({ length: 7 }, (_, i) => (
+              <i key={i} className={i === 0 ? 'is-first' : ''}>{fmt(lightest + i * ctx.inc)}</i>
+            ))}
+            <span>…</span>
+          </div>
+        </>
+      )}
+      {kind === 'loaded' && machine.oneSide && (
+        <div className="stack-stp">
+          <span>{isCn ? '挂片' : 'Sides'}</span>
+          <span className="gym-seg" role="group" data-testid="gym-one-side">
+            {([false, true] as const).map(on => (
+              <button
+                key={String(on)}
+                type="button"
+                className={`min-h-[36px] px-3 text-small font-semibold ${oneSide === on ? 'seg-on' : 'text-secondary'}`}
+                aria-pressed={oneSide === on}
+                onClick={() => oneSide !== on && machine.oneSide!.onSet(on)}
+                data-testid={on ? 'gym-one-side-on' : 'gym-one-side-off'}
+              >
+                {on ? (isCn ? '单边' : 'One side') : isCn ? '两边' : 'Both sides'}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
+      {kind === 'loaded' && machine.tare && (
+        <>
+          <div className="stack-stp">
+            {/* 原来叫「空载」、占位「不知道」：行话看不懂，占位字还被 18px 数字字体截成「不矢」（2026-10-22 用户指出） */}
+            <span>{isCn ? '器械自重' : 'Machine weight'}</span>
+            <span className="stack-seg">
+              <ScrubNumber
+                value={machine.tare.value}
+                onCommit={machine.tare.onSet}
+                allowEmpty
+                min={-500}
+                max={500}
+                steps={gu === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
+                placeholder="—"
+                testId="gym-tare"
+                ariaLabel={isCn ? '器械自重' : 'Machine weight'}
+              />
+              <small>{gl}</small>
+            </span>
+          </div>
+          <p className="stack-note">
+            {isCn
+              ? '不挂片时这台器械本身多重（倒蹬的滑台、史密斯的杠）。填了只在上面说明里加一句「连器械共多少」，记录照旧只算片子；不知道就空着。'
+              : 'What the machine weighs with no plates (leg-press sled, Smith bar). Only adds a "with the machine" total to the caption; the log still counts plates only. Leave empty if unsure.'}
+          </p>
+        </>
+      )}
+      {(kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}
+      {machine.inc?.overridden && (
+        <div className="stack-foot">
+          <span />
+          <button type="button" onClick={() => machine.inc!.onReset()} data-testid="stack-reset">
+            {isCn ? '恢复馆默认' : 'Use gym default'}
+          </button>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}${faceOpen ? ' is-face' : ''}`} data-testid="load-hero">
       {hasMachine && !faceOpen && (
         <div className="stack-tagrow">
-          <button type="button" className="stack-tag" onClick={() => setStackOpen(() => true)} aria-expanded={false} data-testid="stack-chip">
+          <button
+            type="button"
+            className="stack-tag"
+            onClick={() => (machine?.onOpen ? machine.onOpen() : setStackOpen(() => true))}
+            aria-expanded={false}
+            data-testid="stack-chip"
+          >
             <svg viewBox="0 0 24 24" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /></svg>
             {pillText}
           </button>
@@ -643,126 +794,22 @@ function GymHero({
               {isCn ? '完成' : 'Done'}
             </button>
           </div>
-          {machine.canSwitch && (
-            <div className="stack-stp">
-              <span>{isCn ? '加重方式' : 'Loading'}</span>
-              <span className="gym-seg" role="group" data-testid="gym-kind">
-                {(['pin', 'loaded'] as const).map(k => (
-                  <button
-                    key={k}
-                    type="button"
-                    className={`min-h-[36px] px-3 text-small font-semibold ${kind === k ? 'seg-on' : 'text-secondary'}`}
-                    aria-pressed={kind === k}
-                    onClick={() => machine.onKind(k)}
-                    data-testid={`gym-kind-${k}`}
-                  >
-                    {k === 'pin' ? (isCn ? '插销' : 'Pin stack') : isCn ? '挂片' : 'Plate-loaded'}
-                  </button>
-                ))}
-              </span>
-            </div>
-          )}
-          {kind === 'pin' && machine.onStack && (
-            <>
-              <div className="stack-stp">
-                <span>{isCn ? '最轻一格' : 'Lightest'}</span>
-                <span className="stack-seg">
-                  <button type="button" aria-label={isCn ? '最轻一格轻一点' : 'Lighter'} onClick={() => nudgeStart(-1)} data-testid="stack-start-dec">−</button>
-                  <ScrubNumber
-                    value={lightest}
-                    onCommit={n => n !== null && n > 0 && Math.abs(n - lightest) > 1e-9 && machine.onStack!(ctx.inc, n)}
-                    min={0.5}
-                    steps={[0.5, 1, 2.5, 5]}
-                    testId="stack-start"
-                    ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
-                  />
-                  <small>{gl}</small>
-                  <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
-                </span>
-              </div>
-              <div className="stack-stp">
-                <span>{isCn ? '每格' : 'Step'}</span>
-                <span className="stack-seg">
-                  <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
-                  <ScrubNumber
-                    value={ctx.inc}
-                    onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, lightest)}
-                    min={0.25}
-                    stepFn={listStepFn(INC_CHOICES[gu])}
-                    steps={[1, 2, 4]}
-                    testId="stack-step"
-                    ariaLabel={isCn ? '每格多重' : 'Step'}
-                  />
-                  <small>{gl}</small>
-                  <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
-                </span>
-              </div>
-              <div className="stack-mini" aria-hidden>
-                {Array.from({ length: 7 }, (_, i) => (
-                  <i key={i} className={i === 0 ? 'is-first' : ''}>{fmt(lightest + i * ctx.inc)}</i>
-                ))}
-                <span>…</span>
-              </div>
-            </>
-          )}
-          {kind === 'loaded' && machine.oneSide && (
-            <div className="stack-stp">
-              <span>{isCn ? '挂片' : 'Sides'}</span>
-              <span className="gym-seg" role="group" data-testid="gym-one-side">
-                {([false, true] as const).map(on => (
-                  <button
-                    key={String(on)}
-                    type="button"
-                    className={`min-h-[36px] px-3 text-small font-semibold ${oneSide === on ? 'seg-on' : 'text-secondary'}`}
-                    aria-pressed={oneSide === on}
-                    onClick={() => oneSide !== on && machine.oneSide!.onSet(on)}
-                    data-testid={on ? 'gym-one-side-on' : 'gym-one-side-off'}
-                  >
-                    {on ? (isCn ? '单边' : 'One side') : isCn ? '两边' : 'Both sides'}
-                  </button>
-                ))}
-              </span>
-            </div>
-          )}
-          {kind === 'loaded' && machine.tare && (
-            <>
-              <div className="stack-stp">
-                {/* 原来叫「空载」、占位「不知道」：行话看不懂，占位字还被 18px 数字字体截成「不矢」（2026-10-22 用户指出） */}
-                <span>{isCn ? '器械自重' : 'Machine weight'}</span>
-                <span className="stack-seg">
-                  <ScrubNumber
-                    value={machine.tare.value}
-                    onCommit={machine.tare.onSet}
-                    allowEmpty
-                    min={-500}
-                    max={500}
-                    steps={gu === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
-                    placeholder="—"
-                    testId="gym-tare"
-                    ariaLabel={isCn ? '器械自重' : 'Machine weight'}
-                  />
-                  <small>{gl}</small>
-                </span>
-              </div>
-              <p className="stack-note">
-                {isCn
-                  ? '不挂片时这台器械本身多重（倒蹬的滑台、史密斯的杠）。填了只在上面说明里加一句「连器械共多少」，记录照旧只算片子；不知道就空着。'
-                  : 'What the machine weighs with no plates (leg-press sled, Smith bar). Only adds a "with the machine" total to the caption; the log still counts plates only. Leave empty if unsure.'}
-              </p>
-            </>
-          )}
-          {(kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}
-          {machine.inc?.overridden && (
-            <div className="stack-foot">
-              <span />
-              <button type="button" onClick={() => machine.inc!.onReset()} data-testid="stack-reset">
-                {isCn ? '恢复馆默认' : 'Use gym default'}
-              </button>
-            </div>
-          )}
+          {faceRows}
         </div>
       ) : (
         <>
+          {/* 合并入口：设置行渲染进「动作设置」弹窗的「在 X」一段（状态还在这张卡上，所以用 portal） */}
+          {hasMachine && machine?.slot &&
+            createPortal(
+              <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
+                <div className="sheet-sec-head">
+                  <b>{isCn ? `在 ${machine.gym}` : `At ${machine.gym}`}</b>
+                  <small>{isCn ? '只改这个馆的这一台' : 'Only this machine at this gym'}</small>
+                </div>
+                {faceRows}
+              </div>,
+              machine.slot,
+            )}
           <div
             className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
             {...(scrub ? scrub.handlers : {})}

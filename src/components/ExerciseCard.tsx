@@ -80,7 +80,10 @@ interface ExerciseCardProps {
   lastSession?: { date: string; sets: SetLog[] } | null;
   /** 打开备注弹窗；gymKey：这个馆这个动作的键（标了馆的训练才有），弹窗多一栏本馆备注 */
   onToggleNote: (name: string, gymKey?: string) => void;
-  onOpenMetricModal: (name: string) => void;
+  /** focus 'gym'：打开后滚到「在 X · 只改这一台」那一段（大图上的小药丸进来） */
+  onOpenMetricModal: (name: string, focus?: 'gym') => void;
+  /** 动作设置弹窗开着、且开的正是这一张卡时，弹窗里「在 X」那一段的挂载点；这台器械的设置行 portal 进去 */
+  settingsSlot?: HTMLElement | null;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   onRename?: () => void;
   /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
@@ -138,6 +141,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   lastSession = null,
   onToggleNote,
   onOpenMetricModal,
+  settingsSlot,
   onRename,
   onSwitchVariant,
   onSetUpdate,
@@ -620,6 +624,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               ? {
                   gym,
                   canSwitch: !!kindKey,
+                  libKind: kindKey ? (loadInfo.libKind as 'pin' | 'loaded') : undefined,
+                  slot: settingsSlot,
+                  onOpen: () => onOpenMetricModal(exerciseName, 'gym'),
                   onKind: setGymKind,
                   onStack: incKey && loadKind === 'pin' ? setStack : undefined,
                   inc: incKey ? { overridden: incOverridden, onSet: n => setIncOverride(n), onReset: () => setIncOverride(null) } : undefined,

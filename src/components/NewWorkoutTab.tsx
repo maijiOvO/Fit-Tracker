@@ -81,7 +81,9 @@ export interface NewWorkoutTabProps {
   prPoolFor?: (ex: Exercise) => PRPool;
   onToggleNote: (name: string, gymKey?: string) => void;
   /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
-  onOpenMetricModal: (name: string, exIdx?: number) => void;
+  onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym') => void;
+  /** 动作设置弹窗里「在 X」一段的挂载点，交给弹窗所属的那张卡 */
+  metricSlot?: { exIdx: number; el: HTMLElement | null } | null;
   onDeleteExerciseFromSession: (exIdx: number) => void;
   /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
   onChangeDate?: () => void;
@@ -141,6 +143,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   prPoolFor,
   onToggleNote,
   onOpenMetricModal,
+  metricSlot,
   onDeleteExerciseFromSession,
   onChangeDate,
   onChangeGym,
@@ -668,7 +671,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               // 编辑旧训练不判纪录（和结束训练时的 detectPRs 同一口径）
               prPool={!editingWorkoutId && prPoolFor ? prPoolFor(ex) : null}
               onToggleNote={onToggleNote}
-              onOpenMetricModal={name => onOpenMetricModal(name, exIdx)}
+              onOpenMetricModal={(name, focus) => onOpenMetricModal(name, exIdx, focus)}
+              settingsSlot={metricSlot?.exIdx === exIdx ? metricSlot.el : null}
               onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
               onRename={(() => {
                 const def = findExerciseDef(ex.name);
@@ -750,6 +754,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       {/* 添加动作弹层（常驻挂载，open 控制显隐 → 筛选记忆） */}
       <ExercisePickerSheet
         open={pickerOpen}
+        gym={currentWorkout.gym}
         focusPart={pickerFocusPart}
         targetLabel={pickerTargetLabel}
         onClose={() => onPickerOpenChange(false)}

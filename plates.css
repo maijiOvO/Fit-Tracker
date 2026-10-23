@@ -230,6 +230,16 @@
 .stack-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-foot button { min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
 
+/* 合并入口（2026-10-22）：「动作设置」弹窗分两段——「这个动作 · 所有馆通用」和「在 X · 只改这一台」。
+   第二段由卡片 portal 进 .metric-gym-slot；没有器械设置时它是空的，第一段的标题也就不出现（单段不必分）。 */
+.metric-scope-head, .sheet-sec-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; padding: 0 4px; }
+.metric-scope-head b, .sheet-sec-head b { font-size: var(--fs-body); font-weight: 700; color: var(--text-primary); }
+.metric-scope-head small, .sheet-sec-head small { font-size: var(--fs-label); color: var(--text-tertiary); }
+.metric-scope-head { display: none; }
+.metric-modal:has(.metric-gym-slot:not(:empty)) .metric-scope-head { display: flex; }
+.metric-gym-slot:not(:empty) { margin-top: 4px; padding-top: 20px; border-top: 1px solid var(--rule-strong, var(--divider)); scroll-margin-top: 8px; }
+.stack-face.is-sheet { padding: 0 4px; min-height: 0; }
+
 /* ── 杠铃：真实比例 ─────────────────────────────────────────────
    --mm = 1 毫米在屏幕上的宽度 = 容器宽 ÷ 杠长（--L，mm）。杠长、握把段、套筒、直径、
    片子直径 / 厚度全部用 mm 写（数值在 src/utils/plates.ts），比例自然对。

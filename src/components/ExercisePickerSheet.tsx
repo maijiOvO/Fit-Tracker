@@ -322,6 +322,8 @@ const dangerBtn =
 
 interface ExercisePickerSheetProps {
   open: boolean;
+  /** 这场标的馆：插销 / 挂片的器械在这个馆改过形式（gymKinds）的，小图标跟着这个馆画 */
+  gym?: string;
   onClose: () => void;
   /**
    * 这次打开要直接停在哪个部位（BODY_PARTS 的 id，如 'subChest'）。
@@ -378,6 +380,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   onDeleteExercise,
   onOpenNote,
   onOpenMetrics,
+  gym,
 }) => {
   const {
     starredExercises,
@@ -403,7 +406,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     attrsOf,
   } = useExercisePrefs();
   const { toast, toastUndo, dismissToasts } = useUiOverlay();
-  const { lang } = useUserSettingsContext();
+  const { lang, appPrefs } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
 
@@ -966,7 +969,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         added={added}
         isStarred={!opts.isDeleted && !v && isStarredName(baseName)}
         variant={`${opts.variantCls ?? ''}${v ? ' is-variant' : ''}`.trim()}
-        equip={equipIconOf(attrsOf(ex, v?.id))}
+        equip={(() => {
+          const icon = equipIconOf(attrsOf(ex, v?.id));
+          // 2026-10-22：悍马卧推在动作库里是插销，在 fit4less 改成了挂片，图标原来还画成插销
+          if (!gym || (icon !== 'stack' && icon !== 'plate')) return icon;
+          const k = appPrefs.gymKinds[`${gym}|${ex.id}|${v?.id ?? ''}`];
+          return k === 'pin' ? 'stack' : k === 'loaded' ? 'plate' : icon;
+        })()}
         cell={opts.cell}
         unassigned={opts.unassigned}
         longPress={!arranging}
