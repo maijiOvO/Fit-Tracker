@@ -324,14 +324,27 @@ export function mergeByIdPreferNewer<T extends { id: string }>(
   return [...map.values()];
 }
 
-/** 与原 performFullSync 中 prefs 段落等价的 starred / metric 合并 */
-function pickObject<T extends Record<string, unknown>>(local: T, remote: T, localWins: boolean): T {
-  return localWins ? ({ ...remote, ...local } as T) : ({ ...local, ...remote } as T);
+/**
+ * 备注 / 标签 / 自建动作 / 覆盖层共用一个时间戳（prefsLastUpdateMs），所以整块取一边（prefs-deleted-keys-resurrect）。
+ *
+ * 原先取并集：对象是 {...输方, ...赢方}，数组赢方为空时回落到输方。删除在并集里表达不出来 ——
+ * 离线清掉的备注、删掉的最后一个自建标签，推送没落地时，下次拉取又被输方那份带回来。
+ *
+ * 只有本机从没打过时间戳（新装、本地存储被清）才退回并集、远端优先：那时本机的空不是「删光了」，
+ * 是「还没有」，整块取本机会把服务器上的数据冲掉。
+ * 代价：两台设备都离线改过 prefs 时，输的那边新加的键会丢（单人主要在一台手机上用，取这个）。
+ */
+function pickObject<T extends Record<string, unknown>>(local: T, remote: T, localWins: boolean, union: boolean): T {
+  if (union) return localWins ? ({ ...remote, ...local } as T) : ({ ...local, ...remote } as T);
+  return localWins ? local : remote;
 }
 
-function pickArray<T>(local: T[], remote: T[], localWins: boolean): T[] {
-  if (localWins) return local.length ? local : remote;
-  return remote.length ? remote : local;
+function pickArray<T>(local: T[], remote: T[], localWins: boolean, union: boolean): T[] {
+  if (union) {
+    if (localWins) return local.length ? local : remote;
+    return remote.length ? remote : local;
+  }
+  return localWins ? local : remote;
 }
 
 export function mergeFitlogPrefs(
@@ -363,6 +376,8 @@ export function mergeFitlogPrefs(
   const localPrefsTs = localLs.prefsLastUpdateMs ?? 0;
   const remotePrefsTs = remote.prefsLastUpdateMs ?? 0;
   const localWins = localPrefsTs >= remotePrefsTs;
+  // 本机从没打过时间戳：退回并集（见 pickObject 上面的注释）。localWins 此时只在远端也是 0 时成立
+  const union = localPrefsTs === 0;
 
   // 单位 / 语言按 appPrefs 自己的时间戳定胜负（unit-lang-sync-revert）；两边都还没有 appPrefs 时退回整块的旧口径
   const app = mergeAppPrefs(
@@ -373,12 +388,13 @@ export function mergeFitlogPrefs(
   );
 
   return {
-    customTags: pickArray(localLs.customTags ?? [], remote.customTags ?? [], localWins),
-    customExercises: pickArray(localLs.customExercises ?? [], remote.customExercises ?? [], localWins),
+    customTags: pickArray(localLs.customTags ?? [], remote.customTags ?? [], localWins, union),
+    customExercises: pickArray(localLs.customExercises ?? [], remote.customExercises ?? [], localWins, union),
     exerciseNotes: pickObject(
       (localLs.exerciseNotes ?? {}) as Record<string, string>,
       (remote.exerciseNotes ?? {}) as Record<string, string>,
       localWins,
+      union,
     ),
     starredExercises: finalStarred,
     exerciseMetricConfigs: finalMetricConfigs,
@@ -386,20 +402,25 @@ export function mergeFitlogPrefs(
       (localLs.tagRenameOverrides ?? {}) as Record<string, string>,
       (remote.tagRenameOverrides ?? {}) as Record<string, string>,
       localWins,
+      union,
     ),
     exerciseOverrides: pickObject(
       (localLs.exerciseOverrides ?? {}) as Record<string, Partial<ExerciseDefinition>>,
       (remote.exerciseOverrides ?? {}) as Record<string, Partial<ExerciseDefinition>>,
       localWins,
+      union,
     ),
     starredLastUpdateMs: Math.max(localStarTs, remoteStarTs),
     metricsLastUpdateMs: Math.max(localMetTs, remoteMetTs),
     prefsLastUpdateMs: Math.max(localPrefsTs, remotePrefsTs),
     lang: app.appPrefs?.lang ?? (localWins ? (localLs.lang ?? remote.lang) : (remote.lang ?? localLs.lang)),
     unit: app.appPrefs?.unit ?? (localWins ? (localLs.unit ?? remote.unit) : (remote.unit ?? localLs.unit)),
-    avatarDataUrl: localWins
-      ? (localLs.avatarDataUrl ?? remote.avatarDataUrl)
-      : (remote.avatarDataUrl ?? localLs.avatarDataUrl),
+    // 头像同理：本机删了头像（null）不再回落取远端那张
+    avatarDataUrl: union
+      ? (localWins
+        ? (localLs.avatarDataUrl ?? remote.avatarDataUrl)
+        : (remote.avatarDataUrl ?? localLs.avatarDataUrl))
+      : (localWins ? localLs.avatarDataUrl : remote.avatarDataUrl),
     appPrefs: app.appPrefs,
     appPrefsUpdatedMs: app.appPrefsUpdatedMs,
   };

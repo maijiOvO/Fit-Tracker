@@ -209,4 +209,39 @@ t('gymSavePatch 读存储里的原表：之后再存别的馆，改名墓碑还�
   assert.deepEqual(P.gymSavePatch('江边', prof).gyms, { 楼下: '', 公司楼下: prof, 江边: prof });
 });
 
+// prefs-deleted-keys-resurrect：备注 / 标签 / 覆盖层整块取时间戳新的一边，删掉的不再被并集带回来
+t('本机离线清掉一条备注（本机新）：远端的旧备注不复活', () => {
+  const local = { ...empty(), prefsLastUpdateMs: 900, exerciseNotes: {} };
+  const remote = { ...empty(), prefsLastUpdateMs: 500, exerciseNotes: { 龙门架夹胸: '下胸，单边重量' } };
+  assert.deepEqual(P.mergeFitlogPrefs(local, remote).exerciseNotes, {});
+});
+
+t('本机删掉最后一个自建标签（空数组、本机新）：不回落取远端那组', () => {
+  const tag = { id: 't1', name: { cn: '激活背阔', en: 'Lat activation' }, category: 'bodyPart' };
+  const local = { ...empty(), prefsLastUpdateMs: 900, customTags: [], tagRenameOverrides: {} };
+  const remote = { ...empty(), prefsLastUpdateMs: 500, customTags: [tag], tagRenameOverrides: { t1: '背阔' } };
+  const m = P.mergeFitlogPrefs(local, remote);
+  assert.deepEqual(m.customTags, []);
+  assert.deepEqual(m.tagRenameOverrides, {});
+});
+
+t('远端新：整块用远端的，本机多出来的旧覆盖层不混进去', () => {
+  const local = { ...empty(), prefsLastUpdateMs: 100, exerciseOverrides: { a: { hidden: true } } };
+  const remote = { ...empty(), prefsLastUpdateMs: 700, exerciseOverrides: { b: { hidden: true } } };
+  assert.deepEqual(P.mergeFitlogPrefs(local, remote).exerciseOverrides, { b: { hidden: true } });
+});
+
+t('本机删了头像（本机新）：不回落取远端那张', () => {
+  const local = { ...empty(), prefsLastUpdateMs: 900, avatarDataUrl: null };
+  const remote = { ...empty(), prefsLastUpdateMs: 500, avatarDataUrl: 'data:image/png;base64,AAAA' };
+  assert.equal(P.mergeFitlogPrefs(local, remote).avatarDataUrl, null);
+});
+
+t('本机从没打过时间戳（新装 / 存储被清）：仍取并集，空的本机不冲掉远端', () => {
+  const remote = { ...empty(), prefsLastUpdateMs: 0, exerciseNotes: { 深蹲: '宽站距' }, customTags: [{ id: 't1' }] };
+  const m = P.mergeFitlogPrefs(empty(), remote);
+  assert.deepEqual(m.exerciseNotes, { 深蹲: '宽站距' });
+  assert.deepEqual(m.customTags, [{ id: 't1' }]);
+});
+
 console.log(`== ${n} passed ==`);

@@ -76,7 +76,12 @@ export function useWeightLog(
         // 目标的当前 / 目标值按建目标时的单位（g.unit）存、原样显示，体重记录却一律存 kg ——
         // 写回前要换成目标自己的单位，否则 lbs 用户看到的「当前」是公斤数。
         const inGoalUnit = g.unit === 'lbs' ? weightKg * KG_TO_LBS : weightKg;
-        const updatedGoal = { ...g, currentValue: Math.round(inGoalUnit * 10) / 10 };
+        // 打 updatedAt：同步按它比新旧（goalUpdatedMs），不打的话另一台设备上的旧值和这份一样「新」
+        const updatedGoal = {
+          ...g,
+          currentValue: Math.round(inGoalUnit * 10) / 10,
+          updatedAt: new Date().toISOString(),
+        };
         await db.save('goals', updatedGoal);
       }
     }
