@@ -25,7 +25,7 @@ export interface PlanPickerHost {
   onCreateCustomExercise: (
     prefilledName: string | undefined,
     onCreated: (ex: ExerciseDefinition) => void,
-    preset?: { bodyPart?: string; category?: string },
+    preset?: { bodyPart?: string; category?: string; regions?: string[] },
   ) => void;
   onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onDeleteExercise: (id: string) => void;
@@ -160,7 +160,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
   );
 
   const handleCreateCustom = useCallback(
-    (prefilledName?: string, preset?: { bodyPart?: string; category?: string }) => {
+    (prefilledName?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => {
       pickerHost.onCreateCustomExercise(prefilledName, ex => {
         appendFromLibrary(ex);
         setSessionAdded(n => n + 1);

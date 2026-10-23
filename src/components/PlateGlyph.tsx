@@ -210,6 +210,24 @@ export function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit 
   );
 }
 
+/* ── 壶铃：单只定重，铃身大小随重量，不上色（同哑铃，片子的颜色只给杠铃） ──
+   以前没有图形，只写「壶铃 16 kg」（design-plates §3 单只定重，阶段二补上）。
+   形状按缩放画，数字不跟着缩：钉在铃身底部，最轻的也读得清。 */
+
+export function KettlebellGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
+  const max = unit === 'kg' ? 48 : 106;
+  const s = 0.6 + (Math.min(Math.max(value, 0), max) / max) * 0.4;
+  return (
+    <div className="kb-wrap" aria-hidden>
+      <span className="kb-shape" style={{ transform: `scale(${s})` }}>
+        <span className="kb-handle" />
+        <span className="kb-body" />
+      </span>
+      {value > 0 && <b className="kb-num">{fmt1(value)}</b>}
+    </div>
+  );
+}
+
 /* ── 固定杠铃：一根焊死的成品杠，头的大小随重量，总重印在杆中间 ─────── */
 
 export function FixedBarGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
@@ -369,6 +387,7 @@ export function LoadHero({
         {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} />}
         {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} />}
         {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}
+        {kind === 'bell' && <KettlebellGlyph value={value} unit={unit} />}
         {kind === 'fixed' && <FixedBarGlyph value={value} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={value} unit={unit} plateUnit={plateUnit} />}
       </div>
@@ -745,6 +764,7 @@ function GymHero({
             {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} />}
             {kind === 'pin' && <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
             {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
+            {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}
             {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
             {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
           </div>
