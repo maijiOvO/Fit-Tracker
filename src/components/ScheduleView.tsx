@@ -10,6 +10,9 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import ScheduleEditorModal, { type PlanPickerHost } from './ScheduleEditorModal';
 import { formatWeight } from './SetCapsule';
+import { MiniPlates, planSide, plateWords } from './MiniPlates';
+import { barWeight } from '../utils/plates';
+import { EQ_BARBELL } from '../utils/exerciseAttrs';
 import { haptic, H } from '../utils/haptics';
 import { dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
 
@@ -74,7 +77,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
   const { confirm, toastUndo } = useUiOverlay();
   const { schedules, schedulesByDate, updateSchedule, deleteSchedule } = useScheduleContext();
   // 计划里存的是排计划那天的名字；改过名后要显示现名
-  const { resolveName } = useExercisePrefs();
+  const { resolveName, findExerciseDef, attrsOf } = useExercisePrefs();
 
   const today = useMemo(() => new Date(), []);
   const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -417,19 +420,41 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                   <div className="text-xs text-tertiary">{translations.scheduleNoExercises[lang]}</div>
                 ) : (
                   <ul className="space-y-1.5">
-                    {s.exercises.map(ex => (
-                      <li
-                        key={ex.id}
-                        className="flex items-center justify-between text-small border border-divider rounded-chip px-3 py-2"
-                      >
-                        <span className="text-primary truncate">{resolveName(ex.name)}</span>
-                        <span className="font-mono tabular-nums text-secondary text-xs">
-                          {ex.targetSets ? `${ex.targetSets}×` : ''}
-                          {ex.targetReps ?? ''}
-                          {ex.targetWeight ? ` · ${Math.round(Number(formatWeight(ex.targetWeight, unit)) * 10) / 10}${unit === 'lbs' ? 'lb' : 'kg'}` : ''}
-                        </span>
-                      </li>
-                    ))}
+                    {s.exercises.map(ex => {
+                      // 杠铃 / 挂片器械的目标重量画成配片，下面写每边要准备的片（「杠铃片」阶段二）：
+                      // 计划是「去之前想好挂什么」，正好是片子语言最有用的地方。哑铃、配重片照旧只写数字。
+                      const def = findExerciseDef(ex.name);
+                      const a = def ? attrsOf(def) : undefined;
+                      const side =
+                        a?.resistance === 'plates' && ex.targetWeight
+                          ? planSide(ex.targetWeight, unit, a.equipment === EQ_BARBELL ? barWeight(undefined, unit) : 0)
+                          : null;
+                      return (
+                        <li key={ex.id} className="border border-divider rounded-chip px-3 py-2">
+                          <div className="flex items-center justify-between gap-2 text-small">
+                            <span className="text-primary truncate">{resolveName(ex.name)}</span>
+                            <span className="flex items-center gap-2 font-mono tabular-nums text-secondary text-xs">
+                              {side && <MiniPlates perSide={side.perSide} unit={unit} />}
+                              <span>
+                                {ex.targetSets ? `${ex.targetSets}×` : ''}
+                                {ex.targetReps ?? ''}
+                                {ex.targetWeight ? ` · ${Math.round(Number(formatWeight(ex.targetWeight, unit)) * 10) / 10}${unit === 'lbs' ? 'lb' : 'kg'}` : ''}
+                              </span>
+                            </span>
+                          </div>
+                          {side && (
+                            <div className="mt-0.5 text-micro font-normal text-tertiary">
+                              {lang === Language.CN ? '每边：' : 'Per side: '}
+                              {plateWords(side.perSide, unit, lang === Language.CN)}
+                              {side.approx !== null &&
+                                (lang === Language.CN
+                                  ? `（凑不整，最接近 ${side.approx} ${unit === 'lbs' ? 'lb' : 'kg'}）`
+                                  : ` (closest: ${side.approx} ${unit === 'lbs' ? 'lb' : 'kg'})`)}
+                            </div>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
 

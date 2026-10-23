@@ -143,6 +143,8 @@ interface RegionCardProps {
   isStarred: boolean;
   /** 额外 class：is-un（未细分）/ is-tap（只能点）/ is-deleted（已删除） */
   variant?: string;
+  /** 器材小剪影（按阻力类型）：没有就不画 */
+  equip?: EquipIcon;
   /** 格子里的显式行列（行对齐的 grid） */
   cell?: { col: string; ci: number; r: number };
   /** 未细分托盘里的卡：可拖回格子 */
@@ -159,12 +161,22 @@ interface RegionCardProps {
  * 灰底无边框、粗体；已添加＝朱砂实底；收藏是右上角一颗小星，「×N」是右下角 mono 角标。
  * 名字按词断行（词间 <wbr>，CSS keep-all）。整理态的「按住即拖」由 useRegionDrag 在结果区统一接管。
  */
+/**
+ * 器材小剪影（「杠铃片」阶段二，2026-10-22）：和训练页大图同形 —— 杠铃＝杆＋两片、哑铃＝两头、
+ * 壶铃＝提手＋铃身、配重片＝一摞。灰色不上色，不抢名字；同一列里杠铃深蹲 / 哑铃深蹲扫一眼就分得开。
+ * 自重 / 弹力带 / 不计重不画（没有器材可画）。
+ */
+type EquipIcon = 'bar' | 'db' | 'kb' | 'stack';
+const equipIconOf = (r: Resistance): EquipIcon | undefined =>
+  r === 'plates' || r === 'fixedBar' ? 'bar' : r === 'dumbbell' ? 'db' : r === 'kettlebell' ? 'kb' : r === 'stack' ? 'stack' : undefined;
+
 const RegionCard: React.FC<RegionCardProps> = ({
   id,
   displayName,
   added,
   isStarred,
   variant = '',
+  equip,
   cell,
   unassigned = false,
   longPress,
@@ -188,6 +200,7 @@ const RegionCard: React.FC<RegionCardProps> = ({
       {...(cell ? { 'data-r': cell.r, 'data-ci': cell.ci } : {})}
     >
       <span className="region-card-name">
+        {equip && <i className={`eq-ico eq-${equip}`} aria-hidden />}
         {segs.map((s, i) => (
           <React.Fragment key={i}>
             {i > 0 && <wbr />}
@@ -380,6 +393,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     restoreRegion,
     restoreLibraryExercise,
     updateVariant,
+    attrsOf,
   } = useExercisePrefs();
   const { toast, toastUndo, dismissToasts } = useUiOverlay();
   const { lang } = useUserSettingsContext();
@@ -945,6 +959,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         added={added}
         isStarred={!opts.isDeleted && !v && isStarredName(baseName)}
         variant={`${opts.variantCls ?? ''}${v ? ' is-variant' : ''}`.trim()}
+        equip={equipIconOf(attrsOf(ex, v?.id).resistance)}
         cell={opts.cell}
         unassigned={opts.unassigned}
         longPress={!arranging}

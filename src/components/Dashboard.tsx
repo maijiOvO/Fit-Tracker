@@ -9,20 +9,18 @@ import {
 import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight, plural } from '../utils/format';
-import { usesSignedLoad } from '../utils/load';
-import { buildLiftSummaries, type ChartRange } from '../utils/liftHistory';
+import { type ChartRange } from '../utils/liftHistory';
 import { LiftList } from './LiftList';
 import { FeaturedLifts } from './FeaturedLifts';
 import { LiftDetailSheet } from './LiftDetailSheet';
 import { TimelineView, type TimelineGranularity } from './TimelineView';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { hasDoneSets, useWorkoutContext } from '../contexts/WorkoutContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 import { weightBaseline, weightDelta } from '../utils/weightSummary';
-import { useGymScopedPR } from '../hooks/useLoadKind';
+import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -81,39 +79,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   const { lang, unit, weightEntries, appPrefs, changeAppPrefs } = useUserSettingsContext();
   const isCn = lang === Language.CN;
   const dateLocale = isCn ? 'zh-CN' : 'en-US';
-  const { workouts: allWorkouts, currentWorkout } = useWorkoutContext();
   const prefs = useExercisePrefs();
-  // 器械类纪录只在同一个馆里比（和刊末页同一口径，utils/prRecords）
-  const gymScoped = useGymScopedPR();
   /**
    * 进行中的那场（工作台里有动作、还没结束）：顶上单独一行，不进时间线。
    * 一组都没做完的空场（练到一半放弃留下的「N 动作 0 组」）也不进时间线 —— 它不是数据。
    */
-  const inProgress = !!currentWorkout.id && (currentWorkout.exercises?.length ?? 0) > 0 && !currentWorkout.finishedAt
-    ? currentWorkout
-    : null;
-  const workouts = useMemo(
-    () => allWorkouts.filter(w => w.id !== inProgress?.id && hasDoneSets(w)),
-    [allWorkouts, inProgress?.id],
-  );
-  // 「按动作」的逐场数据：列表、详情、趋势图共用一份口径（见 utils/liftHistory）
-  const lifts = useMemo(
-    () =>
-      buildLiftSummaries({
-        workouts,
-        // 稳定键「定义 id|做法 id」：并进来的旧名也按 variantIdOf 认到同一个做法
-        stableIdOf: ex => {
-          const def = prefs.findExerciseDef(ex.name);
-          return def ? `${def.id}|${prefs.variantIdOf(ex) ?? ''}` : `name:${prefs.liftKey(ex)}`;
-        },
-        liftKey: prefs.liftKey,
-        resolveName: prefs.resolveName,
-        signedLoadOf: ex => usesSignedLoad(ex, prefs.signedLoadOf(ex.name)),
-        getActiveMetrics: prefs.getActiveMetrics,
-        gymScoped,
-      }),
-    [workouts, prefs, gymScoped],
-  );
+  const { workouts, inProgress } = useDoneWorkouts();
+  // 「按动作」的逐场数据：列表、详情、趋势图共用一份口径（见 utils/liftHistory；「我的」页也用同一个钩子）
+  const lifts = useLiftSummaries(workouts);
   const openLift =
     selectedPRProject && selectedPRProject !== '__WEIGHT__'
       ? lifts.find(l => l.key === selectedPRProject) ?? null

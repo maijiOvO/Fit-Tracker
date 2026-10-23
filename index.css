@@ -26,7 +26,7 @@
 
 /* 标题：得意黑（OFL，atelier-anchor）。「杠铃片」§2：只用于 ≥20px，作者明说不适合正文与 UI。
  *
- * ⚠️ 和下面的印章体一样用 block，不用 optional：2026-10-18 实测首次加载错过 optional 窗口，
+ * ⚠️ 用 block，不用 optional：2026-10-18 实测首次加载错过 optional 窗口，
  * 整个会话的动作名都是黑体（字宽探针：CJK 160 vs 得意黑 128）。标题的意义就是那个字形；
  * 配合 index.html 的 preload，同源本地文件的「不显示」窗口基本为零。 */
 @font-face {
@@ -54,26 +54,7 @@
   font-display: optional;
 }
 
-/* 印记 / 批注。只切了印章与批注要用的那十几个字，别拿它排正文。
- *
- * ⚠️ 这一张【不能】用 optional，必须 block —— 和上面几张正文字体相反。
- *
- * optional 的语义是：给字体一个极短的阻塞窗口，没赶上就整页用回退字体
- * 且【永不替换】。正文该这样（宁可字形不对也不能让人读不到），
- * 但印章的全部意义就是那个字形 —— 落成黑体等于这个设计没了。
- * 实测踩过：重建字体子集后手机首次加载，六枚部位印全是黑体；
- * 同样的道理，PR 那枚落章在冷启动时多半也一直是黑体，只是太罕见没被发现。
- *
- * block = 字体到位前不显示，到位后一次画对。配合 index.html 里的 preload，
- * 这个"不显示"的窗口在自托管同源下基本为零。
- */
-@font-face {
-  font-family: 'Ma Shan Zheng';
-  src: url('/fonts/ma-shan-zheng.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: block;
-}
+/* Ma Shan Zheng（印章体）2026-10-22 退役：部位印改正文粗体方印（「杠铃片」阶段二）。 */
 
 /* 兜底字体的度量覆写：数值取自 Noto Sans SC 的 hhea 表
    （ascent 116% / descent 28.8% / lineGap 0，由 build-fonts.mjs 打印）。
@@ -1375,8 +1356,34 @@ button {
   top: 2px;
   right: 2px;
   line-height: 0;
-  color: var(--warning);
+  color: var(--accent-text); /* 收藏是选中态，不是警告（2026-10-22 界面审查） */
 }
+/* 器材小剪影：名字前一个 14×10 的灰色小图，和训练页大图同形；已添加的卡里跟着字色反白 */
+.eq-ico {
+  position: relative;
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  color: var(--text-tertiary);
+}
+.region-card.is-added .eq-ico { color: inherit; }
+.eq-ico::before,
+.eq-ico::after { content: ''; position: absolute; background: currentColor; border-radius: 1px; }
+/* 杠铃：一根杆 + 两片 */
+.eq-bar { background: linear-gradient(currentColor, currentColor) center / 14px 2px no-repeat; }
+.eq-bar::before { left: 2px; top: 0; width: 3px; height: 10px; }
+.eq-bar::after { right: 2px; top: 0; width: 3px; height: 10px; }
+/* 哑铃：短杆 + 两头 */
+.eq-db { background: linear-gradient(currentColor, currentColor) center / 12px 2px no-repeat; }
+.eq-db::before { left: 0; top: 1px; width: 4px; height: 8px; }
+.eq-db::after { right: 0; top: 1px; width: 4px; height: 8px; }
+/* 壶铃：提手 + 铃身 */
+.eq-kb::before { left: 3px; top: 0; width: 8px; height: 5px; background: none; border: 2px solid currentColor; border-bottom: 0; border-radius: 4px 4px 0 0; box-sizing: border-box; }
+.eq-kb::after { left: 2px; top: 3px; width: 10px; height: 7px; border-radius: 50%; }
+/* 配重片：一摞 */
+.eq-stack { width: 9px; background: repeating-linear-gradient(currentColor 0 2px, transparent 2px 3px); border-radius: 1px; }
 .region-card-x {
   position: absolute;
   right: 4px;
@@ -1733,13 +1740,13 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Ma Shan Zheng 字面偏上，同 BodyPartPicker 的量法 */
-  padding-top: 1px;
+  /* 正文粗体方印（「杠铃片」阶段二，2026-10-22）：黑框黑字，替换马善政书法印，和 BodyPartPicker 的 Seal 同一刻法 */
   background: var(--bg-card);
-  border: 2.5px solid var(--accent);
+  border: 2px solid var(--text-primary);
   border-radius: var(--radius-stamp);
-  color: var(--accent-text); /* 填充色当字 2.42:1，27px 大字也不过 3:1 */
-  font-size: 27px; /* 阶梯外：印章字 */
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: var(--fs-data-md);
   line-height: 1;
   box-shadow: var(--shadow-overlay);
   opacity: 0;
@@ -1752,16 +1759,9 @@ button {
     border-color var(--dur-tap) var(--ease-ink),
     color var(--dur-tap) var(--ease-ink);
 }
-/* 英文印面：衬线首字母，与 BodyPartPicker 的 Seal 同一套刻法（§12.1）。
-   Ma Shan Zheng 的拉丁笔画细、字面窄 —— 46px 方框里 C 只占三成宽，显空，
-   所以英文不共用那支笔。字号 32、上留 2px 都是照 52px 那版等比量下来的。 */
+/* 英文印面：首字母，字号放大一档（拉丁大写比汉字窄，同字号在方框里显空） */
 .seal-fan-item.is-latin {
-  font-family: 'Noto Sans SC', 'CJK Fallback', system-ui, sans-serif;
-  font-weight: 700;
-  font-size: 32px; /* 阶梯外：印章字 */
-  /* 基础类那 1px 上边距是给 Ma Shan Zheng 压字面用的；大写字母全在基线以上，
-     本来就偏低，再加就更歪。清零后上下留白 8.1 / 7.2，与 52px 那版同档。 */
-  padding-top: 0;
+  font-size: var(--fs-data-lg);
 }
 .seal-fan-item.is-dashed {
   border-style: dashed;

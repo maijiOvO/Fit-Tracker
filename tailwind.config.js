@@ -99,7 +99,7 @@ export default {
         display: ['"Noto Sans SC"', '"CJK Fallback"', 'system-ui', 'sans-serif'],
         // font-mono 沿用旧类名（40 处在用），指向窄体数字族。比例字体 + tabular-nums，不再用等宽
         mono: ['"Barlow Condensed"', '"Noto Sans SC"', 'system-ui', 'sans-serif'],
-        seal: ['"Ma Shan Zheng"', 'cursive'],
+
       },
       // 只改令牌值指向，不动 className —— 存量 100 处 rounded-card/control/chip
       // 自动跟随；169 处裸 rounded-xl/2xl/lg/full 留给第二步分批清理。

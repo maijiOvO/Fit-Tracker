@@ -1,8 +1,8 @@
-import React, { useState, lazy } from 'react';
+import React, { useState, lazy, useMemo } from 'react';
 import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import {
   Camera, ShieldAlert, Trash2, ChevronRight,
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity,
+  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity, Trophy,
 } from 'lucide-react';
 import { PrefsSheet } from './PrefsSheet';
 import type { SyncStatus } from '../hooks/useFitlogSync';
@@ -12,6 +12,13 @@ import { hasDoneSets } from '../contexts/WorkoutContext';
 import { translations } from '../../translations';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { plural } from '../utils/format';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
+import { BIG_THREE } from '../utils/liftHistory';
+import { blueMilestones, BLUE } from '../utils/milestones';
+import { EQ_BARBELL } from '../utils/exerciseAttrs';
+import { localYmd } from '../utils/dateUtils';
+import { MiniPlates } from './MiniPlates';
 
 // 懒加载 MetricChart（包含 recharts）
 const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
@@ -91,6 +98,33 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const { unit, appPrefs } = useUserSettingsContext();
   const [prefsOpen, setPrefsOpen] = useState(false);
 
+  // 「杠铃片」阶段二：上片里程碑 + 热力图镁粉点，口径和「按动作」同一个钩子
+  const { findExerciseDef, attrsOf } = useExercisePrefs();
+  const { workouts: doneWorkouts } = useDoneWorkouts();
+  const lifts = useLiftSummaries(doneWorkouts);
+  const prDays = useMemo(() => {
+    const out = new Set<string>();
+    for (const l of lifts) for (const s of l.sessions) if (s.records.length) out.add(localYmd(new Date(s.date)));
+    return out;
+  }, [lifts]);
+  // 特别关注里的杠铃动作（默认三大项），各取最新一枚里程碑
+  const milestones = useMemo(() => {
+    const featured = appPrefs.featuredLifts ?? BIG_THREE;
+    return featured
+      .map(id => lifts.find(l => l.stableId === id))
+      .filter((l): l is NonNullable<typeof l> => {
+        if (!l) return false;
+        const def = findExerciseDef(l.baseName);
+        if (!def) return false;
+        const a = attrsOf(def);
+        return a.resistance === 'plates' && a.equipment === EQ_BARBELL;
+      })
+      .map(l => ({ lift: l, m: blueMilestones(l, unit).pop() }))
+      .filter((x): x is { lift: typeof x.lift; m: NonNullable<typeof x.m> } => !!x.m);
+  }, [appPrefs.featuredLifts, lifts, findExerciseDef, attrsOf, unit]);
+  const bluesWord = (n: number) =>
+    isCn ? `${['', '一', '两', '三', '四', '五', '六'][n] ?? n}片蓝` : `${n} blue${n > 1 ? 's' : ''}`;
+
   return (
     <div className="space-y-6 anim-tab-enter">
       {/* Profile Header */}
@@ -147,6 +181,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         <ActivityHeatmap
           days={heatmapData}
           lang={lang}
+          prDays={prDays}
           onPickDay={day =>
             toast(
               lang === Language.CN
@@ -160,6 +195,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           }
         />
       </div>
+
+      {/* 上片里程碑：每边第一次挂上 N 片蓝（20 kg / 45 lb）的日子，镁粉牌（纪录不借片子颜色，片子只在小图里） */}
+      {milestones.length > 0 && (
+        <div className="w-full bg-card border border-divider rounded-card p-5" data-testid="milestones">
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <Trophy size={13} className="text-accent" strokeWidth={1.75} />
+            <h3 className="text-label font-medium text-secondary">{isCn ? '上片里程碑' : 'Plate milestones'}</h3>
+          </div>
+          <div className="milestone-row">
+            {milestones.map(({ lift, m }) => (
+              <div key={lift.stableId} className="milestone">
+                <small>{lift.baseName} · {isCn ? '第一次' : 'first'}</small>
+                <b>{bluesWord(m.blues)}</b>
+                <MiniPlates perSide={Array(m.blues).fill(BLUE[unit])} unit={unit} />
+                <small>
+                  {new Date(m.ts).toLocaleDateString(isCn ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                </small>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Guest Mode Warning */}
       {user.id === 'u_guest' && (

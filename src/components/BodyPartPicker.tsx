@@ -25,6 +25,7 @@
  * 形制不同、姿态不同、频率不同，两者不会互相顶。
  */
 import React from 'react';
+import { MoreHorizontal } from 'lucide-react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
 
@@ -34,16 +35,11 @@ export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'ot
  * 印文。取的是各自标签里【区别性的那个字】：
  * 练胸→胸、练肩→肩、练背→背、练腿→腿、练手臂→臂。
  *
- * 「其他」取【制】（自制／自定）。原本用「他」，但那是代词，刻进印里很怪。
- * 想用的其实是「擬」（自拟其题，草案意味正好呼应虚线印框），但用不了 ——
- * ⚠️ Ma Shan Zheng 只有 7015 字，是【纯简体字库】：
- *    擬 設 別 創 約 號 題 一概没有，只有对应的简化字。
- *    强行用会掉回系统黑体，正是本文件下面警告的那个坑。
- * 制 的好处是繁简同形，和 胸肩背腿臂 一样没有简化字的时代感，
- * 整版印谱在字形上是一致的。
+ * 「其他」不刻字，画「⋯」图标（lucide MoreHorizontal，不依赖字体子集）：原来刻的是「制」（自制／自定），用户反馈别人看不懂是干什么的（2026-10-22）。
+ * 虚线框 +「⋯」在中英文里都读作「更多 / 其他」，不用再借一个字。
  *
- * ⚠️ 这几个字必须在 scripts/build-fonts.mjs 的 SEAL_CHARS 里，
- *    否则 Ma Shan Zheng 的子集里没有它们，会静默掉回系统字体。
+ * 2026-10-22 起印面是正文粗体（Noto Sans SC 700），马善政书法字退役（「杠铃片」阶段二），
+ * 不再有「字必须进印章子集」的限制。
  */
 export const PARTS: {
   key: BodyPartKey;
@@ -77,7 +73,7 @@ export function isPartTitle(title: string, lang: Language): boolean {
   return PARTS.some(p => translations[p.tk][lang] === title);
 }
 
-/** FAB 印谱扇开（§12.4）用的完整六枚：五部位 + 「制」。顺序=印谱阅读序，位置固定不按频率排。 */
+/** FAB 印谱扇开（§12.4）用的完整六枚：五部位 + 「⋯」（其他）。顺序=印谱阅读序，位置固定不按频率排。 */
 export const FAN_PARTS: {
   key: BodyPartKey;
   seal: string;
@@ -87,27 +83,16 @@ export const FAN_PARTS: {
   dashed?: boolean;
 }[] = [
   ...PARTS,
-  { key: 'other', seal: '制', latin: 'O', tk: 'partOther', dashed: true },
+  { key: 'other', seal: '⋯', latin: '⋯', tk: 'partOther', dashed: true },
 ];
 
 /**
- * 朱文印。虚线框＝这一枚还没刻，等你自己题名（「其他」用）。
+ * 部位印。虚线框＝「其他」，印面是「⋯」。
  *
- * ── 两种刻法 ──────────────────────────────────────────
- *
- * 中文：汉字 + Ma Shan Zheng 30px。
- * 英文：标签首字母 + 衬线 700 36px（刊头同族）。
- *
- * 英文没有沿用 Ma Shan Zheng —— 它有全套拉丁字形（cmap 查过），但那不是它的主场：
- * 52px 方框内宽 47px，实测「胸」占 30.0×29，同尺下的手写体 C 只有 13.1 宽，
- * 不到方框的三成，印面明显显空，46px 扇开时更弱。
- * 换成衬线 700 后 C 占 26 宽，密度回到汉字量级；而且方框＋首字母在拉丁世界里
- * 本来就是藏书票／活字首字的语汇，不必借道汉字才成立。
- * 可玩的对比 demo：docs/demos/seal-latin.html。
- *
- * leading-none + padding-top：Ma Shan Zheng 的字面在 em 框里偏上，纯 flex 居中会往上飘，
- * 补 1px 压回来。衬线首字母反过来 —— 大写字母全在基线以上，本来就偏低，
- * 一点内边距都不能加：内高 48、墨高 29，pt-0 时上 10 / 下 9，加 2px 就变成上 12 / 下 7。
+ * 2026-10-22（「杠铃片」阶段二）：从马善政书法朱文印改成正文粗体方印 ——
+ * 黑框黑字、Noto Sans SC 700，和「杠铃片」几何、器物的语言一致，也少打包一张字体。
+ * 中文印面 22px，英文首字母大一档 26px（拉丁大写比汉字窄，同字号在方框里显空）。
+ * 历史：书法版与英文衬线版的对比见 docs/demos/seal-latin.html，方向对比见 docs/demos/phase2-directions.html。
  */
 const Seal: React.FC<{ char: string; latin: string; isCn: boolean; dashed?: boolean }> = ({
   char,
@@ -117,13 +102,11 @@ const Seal: React.FC<{ char: string; latin: string; isCn: boolean; dashed?: bool
 }) => (
   <span
     aria-hidden
-    className={`w-[52px] h-[52px] rounded-stamp border-[2.5px] ${
-      dashed ? 'border-dashed' : ''
-    } border-accent text-accent leading-none flex items-center justify-center select-none ${
-      isCn ? 'font-seal text-3xl pt-[1px]' : 'font-display font-bold text-[36px]'
-    }`}
+    className={`w-[52px] h-[52px] rounded-stamp border-2 ${
+      dashed ? 'border-dashed border-tertiary text-secondary' : 'border-primary text-primary'
+    } font-bold leading-none flex items-center justify-center select-none ${isCn ? 'text-xl' : 'text-2xl'}`}
   >
-    {isCn ? char : latin}
+    {dashed ? <MoreHorizontal size={26} strokeWidth={2.5} /> : isCn ? char : latin}
   </span>
 );
 
@@ -175,7 +158,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           style={{ animationDelay: `${5 * 32}ms` }}
           className={`${TILE} text-secondary hover:border-accent hover:text-accent`}
         >
-          <Seal char="制" latin="O" isCn={isCn} dashed />
+          <Seal char="⋯" latin="⋯" isCn={isCn} dashed />
           <span className="text-small font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>
