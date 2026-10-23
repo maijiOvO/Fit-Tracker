@@ -327,15 +327,15 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const weekdayStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
 
   /**
-   * 副行：时间 + 前三个动作。
+   * 副行：前三个动作。
    * 原先这一行只有「N 动作 M 组」两个数字 —— 回看时想知道的是「那天练了啥」，
-   * 不是「练了几个」。数字挪到右列，这一行换成真正有信息的内容，不多占高度。
+   * 不是「练了几个」。数字挪到右列，这一行换成真正有信息的内容。
+   * 时间不在这行：它和星期、馆名一样是「什么时候在哪」，归三级字（2026-10-22 界面审查）。
    */
   const preview = (w.exercises ?? [])
     .slice(0, 3)
     .map(ex => liftKey(ex))
     .join(' · ');
-  const subtitle = [timeStr, preview].filter(Boolean).join(' · ');
 
   const menuItem =
     'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-sm text-primary active:bg-card-hover';
@@ -358,30 +358,35 @@ const SessionCard: React.FC<SessionCardProps> = ({
         placement="down"
       />
 
-      {/* 一行三列：日期柱 / 标题+副行 / 计数。
+      {/* 三列：日期柱 / 标题 / 计数；动作摘要在第二行，横跨标题和计数两列。
           原先是三行左对齐（日期、标题、计数），右半张卡永远是空的，
-          而天粒度下第一行还跟组头重复了一遍。 */}
+          而天粒度下第一行还跟组头重复了一遍。
+          一行分三层（2026-10-22 界面审查）：标题（primary）＝练什么；
+          动作摘要（14px secondary）＝做了哪些；日期 / 星期 / 时间 / 馆名 / 单位（11px tertiary）＝什么时候在哪。
+          以前摘要和时间挤在一行 11px 三级字里，整行只剩「黑」和「一片灰」两层，光改颜色看不出差别。 */}
       <div
-        className="flex items-center gap-3 cursor-pointer"
+        className={`grid ${merged ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[1fr_auto]'} gap-x-3 gap-y-1 items-center cursor-pointer`}
         onClick={() => {
           if (swallowingClick()) return;
           onToggleExpand();
         }}
       >
         {merged && (
-          <div className="flex-none w-10 text-center">
+          <div className="row-span-2 w-10 text-center">
             <div className="font-mono font-bold text-xl leading-none text-primary tabular-nums">
               {when.getDate()}
             </div>
             <div className="text-micro font-normal text-tertiary mt-1">{weekdayStr}</div>
+            <div className="text-micro font-normal text-tertiary tabular-nums">{timeStr}</div>
           </div>
         )}
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0">
           {!merged && (
             <div className="flex items-center gap-2 text-micro font-normal text-tertiary mb-1">
               <Calendar size={11} strokeWidth={2} />
               <span className="font-medium">{dateStr}</span>
+              <span className="tabular-nums">{timeStr}</span>
             </div>
           )}
           <div className="flex items-center gap-2 min-w-0">
@@ -407,7 +412,6 @@ const SessionCard: React.FC<SessionCardProps> = ({
               </span>
             )}
           </div>
-          <div className="text-micro font-normal text-tertiary truncate mt-0.5">{subtitle}</div>
         </div>
 
         <div className="flex-none flex items-center gap-1.5">
@@ -429,6 +433,10 @@ const SessionCard: React.FC<SessionCardProps> = ({
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         </div>
+
+        {preview && (
+          <div className="col-span-2 min-w-0 text-sm text-secondary truncate">{preview}</div>
+        )}
       </div>
 
       {/* 长按菜单：卡内 absolute，右上角浮出（同 ExerciseCard ⋯ 菜单的形态） */}
