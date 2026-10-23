@@ -177,6 +177,8 @@ export interface MachineCtl {
    */
   slot?: HTMLElement | null;
   onOpen?: () => void;
+  /** 切 kg / lb（和训练页顶上那个是同一个开关）；弹窗里看不到顶上，这一段自己带一个 */
+  onToggleUnit?: () => void;
 }
 
 /* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
@@ -527,9 +529,24 @@ function GymHero({
    * 记的数、说明里的总重按显示单位。两者不一样时，说明里点明挂的是哪种片
    */
   const gu = rounder.unit;
-  const gl = gu === 'lbs' ? 'lb' : 'kg';
   const toG = (d: number) => (gu === unit ? d : Math.round(convert(d, unit, gu) * 100) / 100);
   const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
+  /**
+   * 设置面、小药丸按显示单位（2026-10-23 用户：调重量的界面都要能实时切单位）。
+   * 存的仍是这台器械上印的单位（gu）——只在显示和输入时换算，切来切去不丢精度，和杠铃片说明（plateLabel）一个做法。
+   */
+  const conv = gu !== unit;
+  // 换算过来的数留一位小数（10 lb → 4.5 kg）：两位在输入框里放不下，也不比一位更有用
+  const toD = (g: number) => (conv ? Math.round(convert(g, gu, unit) * 10) / 10 : g);
+  const fromD = (d: number) => (conv ? Math.round(convert(d, unit, gu) * 20) / 20 : d);
+  const fmtD = (g: number) => fmt(toD(g));
+  /** 每格只能是这个单位的档位：换算回来落到最近一档 */
+  const incFromD = (d: number) => {
+    if (!conv) return d;
+    const g = convert(d, unit, gu);
+    return INC_CHOICES[gu].reduce((b, x) => (Math.abs(x - g) < Math.abs(b - g) ? x : b), INC_CHOICES[gu][0]);
+  };
+  const incStepFn = listStepFn(INC_CHOICES[gu].map(toD));
   // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
   const empty = Math.abs(value) < 1e-9;
   const onGrid = empty || rounder.loadableD(value);
@@ -575,7 +592,7 @@ function GymHero({
     if (kind === 'loaded')
       caption +=
         tare !== undefined
-          ? isCn ? ` · 连器械共 ${fmt(vG + tare)} ${gl}` : ` · ${fmt(vG + tare)} ${gl} with the machine`
+          ? isCn ? ` · 连器械共 ${fmtD(vG + tare)} ${u}` : ` · ${fmtD(vG + tare)} ${u} with the machine`
           : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
@@ -613,13 +630,13 @@ function GymHero({
   const pillText = !machine
     ? ''
     : kind === 'pin'
-      ? isCn ? `${fmt(lightest)} 起 · 每格 ${fmt(ctx.inc)} ${gl}` : `From ${fmt(lightest)} · +${fmt(ctx.inc)} ${gl}`
+      ? isCn ? `${fmtD(lightest)} 起 · 每格 ${fmtD(ctx.inc)} ${u}` : `From ${fmtD(lightest)} · +${fmtD(ctx.inc)} ${u}`
       : kind === 'loaded'
         ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
           (machine.tare?.value != null
-            ? isCn ? ` · 器械自重 ${fmt(machine.tare.value)} ${gl}` : ` · machine ${fmt(machine.tare.value)} ${gl}`
+            ? isCn ? ` · 器械自重 ${fmtD(machine.tare.value)} ${u}` : ` · machine ${fmtD(machine.tare.value)} ${u}`
             : isCn ? ' · 自重没填' : ' · weight unknown')
-        : isCn ? `${incName} · 每档 ${fmt(ctx.inc)} ${gl}` : `${incName} · +${fmt(ctx.inc)} ${gl}`;
+        : isCn ? `${incName} · 每档 ${fmtD(ctx.inc)} ${u}` : `${incName} · +${fmtD(ctx.inc)} ${u}`;
   const incRow = (label: string) =>
     machine?.inc && (
       <div className="stack-stp">
@@ -627,15 +644,15 @@ function GymHero({
         <span className="stack-seg">
           <button type="button" aria-label={isCn ? '一档轻一点' : 'Smaller step'} onClick={() => { const n = listStepFn(INC_CHOICES[gu])(ctx.inc, -1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-dec">−</button>
           <ScrubNumber
-            value={ctx.inc}
-            onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.inc!.onSet(n)}
-            min={0.25}
-            stepFn={listStepFn(INC_CHOICES[gu])}
+            value={toD(ctx.inc)}
+            onCommit={n => { if (n === null || n <= 0) return; const g = incFromD(n); if (Math.abs(g - ctx.inc) > 1e-9) machine.inc!.onSet(g); }}
+            min={0.1}
+            stepFn={incStepFn}
             steps={[1, 2, 4]}
             testId="gym-inc-value"
             ariaLabel={label}
           />
-          <small>{gl}</small>
+          <small>{u}</small>
           <button type="button" aria-label={isCn ? '一档重一点' : 'Bigger step'} onClick={() => { const n = listStepFn(INC_CHOICES[gu])(ctx.inc, 1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-inc">＋</button>
         </span>
       </div>
@@ -682,14 +699,14 @@ function GymHero({
             <span className="stack-seg">
               <button type="button" aria-label={isCn ? '最轻一格轻一点' : 'Lighter'} onClick={() => nudgeStart(-1)} data-testid="stack-start-dec">−</button>
               <ScrubNumber
-                value={lightest}
-                onCommit={n => n !== null && n > 0 && Math.abs(n - lightest) > 1e-9 && machine.onStack!(ctx.inc, n)}
-                min={0.5}
+                value={toD(lightest)}
+                onCommit={n => { if (n === null || n <= 0) return; const g = fromD(n); if (Math.abs(g - lightest) > 1e-9) machine.onStack!(ctx.inc, g); }}
+                min={0.2}
                 steps={[0.5, 1, 2.5, 5]}
                 testId="stack-start"
                 ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
               />
-              <small>{gl}</small>
+              <small>{u}</small>
               <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
             </span>
           </div>
@@ -698,21 +715,21 @@ function GymHero({
             <span className="stack-seg">
               <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
               <ScrubNumber
-                value={ctx.inc}
-                onCommit={n => n !== null && n > 0 && Math.abs(n - ctx.inc) > 1e-9 && machine.onStack!(n, lightest)}
-                min={0.25}
-                stepFn={listStepFn(INC_CHOICES[gu])}
+                value={toD(ctx.inc)}
+                onCommit={n => { if (n === null || n <= 0) return; const g = incFromD(n); if (Math.abs(g - ctx.inc) > 1e-9) machine.onStack!(g, lightest); }}
+                min={0.1}
+                stepFn={incStepFn}
                 steps={[1, 2, 4]}
                 testId="stack-step"
                 ariaLabel={isCn ? '每格多重' : 'Step'}
               />
-              <small>{gl}</small>
+              <small>{u}</small>
               <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
             </span>
           </div>
           <div className="stack-mini" aria-hidden>
             {Array.from({ length: 7 }, (_, i) => (
-              <i key={i} className={i === 0 ? 'is-first' : ''}>{fmt(lightest + i * ctx.inc)}</i>
+              <i key={i} className={i === 0 ? 'is-first' : ''}>{fmtD(lightest + i * ctx.inc)}</i>
             ))}
             <span>…</span>
           </div>
@@ -744,17 +761,17 @@ function GymHero({
             <span>{isCn ? '器械自重' : 'Machine weight'}</span>
             <span className="stack-seg">
               <ScrubNumber
-                value={machine.tare.value}
-                onCommit={machine.tare.onSet}
+                value={machine.tare.value == null ? null : toD(machine.tare.value)}
+                onCommit={n => machine.tare!.onSet(n === null ? null : fromD(n))}
                 allowEmpty
                 min={-500}
                 max={500}
-                steps={gu === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
+                steps={unit === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
                 placeholder="—"
                 testId="gym-tare"
                 ariaLabel={isCn ? '器械自重' : 'Machine weight'}
               />
-              <small>{gl}</small>
+              <small>{u}</small>
             </span>
           </div>
           <p className="stack-note">
@@ -814,6 +831,21 @@ function GymHero({
                 <div className="sheet-sec-head">
                   <b>{isCn ? `在 ${machine.gym}` : `At ${machine.gym}`}</b>
                   <small>{isCn ? '只改这个馆的这一台' : 'Only this machine at this gym'}</small>
+                  {machine.onToggleUnit && (
+                    <span className="gym-seg sheet-unit" role="group" aria-label={isCn ? '重量单位' : 'Weight unit'} data-testid="sheet-unit">
+                      {(['kg', 'lbs'] as const).map(k => (
+                        <button
+                          key={k}
+                          type="button"
+                          className={`min-h-[32px] px-3 text-small font-semibold ${unit === k ? 'seg-on' : 'text-secondary'}`}
+                          aria-pressed={unit === k}
+                          onClick={() => unit !== k && machine.onToggleUnit!()}
+                        >
+                          {k === 'kg' ? 'kg' : 'lb'}
+                        </button>
+                      ))}
+                    </span>
+                  )}
                 </div>
                 {faceRows}
               </div>,
