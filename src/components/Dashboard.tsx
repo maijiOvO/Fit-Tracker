@@ -266,9 +266,8 @@ const Dashboard: React.FC<DashboardProps> = ({
             {weightSummary?.delta && (
               <span
                 data-testid="weight-delta-30d"
-                className={`text-xs font-semibold tabular-nums ${
-                  weightSummary.delta.startsWith('+') ? 'text-warning' : 'text-accent'
-                }`}
+                // 涨跌不上色：增肌期体重涨是好事，用「警告」色等于替用户下了判断；方向由正负号说明（2026-10-22 颜色审查）
+                className="text-xs font-semibold tabular-nums text-secondary"
               >
                 {weightSummary.delta} {unit}
                 <span className="text-tertiary font-normal ml-0.5">
@@ -284,7 +283,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               actions.onLogWeight();
             }}
             // 次要样式：首页的实心按钮只留右下角的「开练」（2026-10-22 界面审查：一屏一个主操作）
-            className="w-10 h-10 flex items-center justify-center bg-inset text-accent border border-divider rounded-control active:scale-press-sm"
+            className="w-10 h-10 flex items-center justify-center bg-btn text-accent border border-divider rounded-control active:scale-press-sm"
             aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
           >
             <Plus size={18} strokeWidth={2} />
@@ -368,7 +367,8 @@ const Dashboard: React.FC<DashboardProps> = ({
       {/* 视图切换：按时间 / 按动作 PR。
           做成页内标签（底下一条线、选中项下划线），不再是一张卡里的分段切换：
           原来这里和下面的天 / 周 / 月 / 年是两张一模一样的灰卡，列表前先叠三块卡，
-          两层切换也看不出谁管谁（2026-10-22 界面审查：卡片套卡片）。 */}
+          两层切换也看不出谁管谁（2026-10-22 界面审查：卡片套卡片）。
+          下划线取 --accent-text：浅色的青 / 橙 / 浅蓝填充色在白底上不到 3:1，当唯一的选中标记不够。 */}
       <div className="flex items-stretch border-b border-divider">
         <button
           type="button"
@@ -376,7 +376,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           aria-pressed={view === 'timeline'}
           className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-sm font-bold transition-ui ${
             view === 'timeline'
-              ? 'border-accent text-primary [&>svg]:text-accent'
+              ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
               : 'border-transparent text-tertiary hover:text-primary'
           }`}
         >
@@ -389,7 +389,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           aria-pressed={view === 'pr'}
           className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-sm font-bold transition-ui ${
             view === 'pr'
-              ? 'border-accent text-primary [&>svg]:text-accent'
+              ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
               : 'border-transparent text-tertiary hover:text-primary'
           }`}
         >

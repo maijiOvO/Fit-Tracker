@@ -1254,7 +1254,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const tabBar = (on: boolean) =>
     on ? <span className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full bg-accent" aria-hidden /> : null;
   const tabCount = (n: number, on: boolean) => (
-    <i className={`not-italic text-micro font-semibold tabular-nums ${on ? 'text-accent/70' : 'text-tertiary'}`}>{n}</i>
+    <i className={`not-italic text-micro font-semibold tabular-nums ${on ? 'text-accent' : 'text-tertiary'}`}>{n}</i>
   );
 
   /** 部位标签（普通态：0 结果的隐藏，已选中的除外；整理态：全部列出） */
@@ -1321,7 +1321,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           }`}
         >
           <span className="break-words text-center">{label}</span>
-          <span className={`text-micro font-semibold tabular-nums ${on ? 'text-accent/70' : 'text-tertiary'}`}>{n}</span>
+          <span className={`text-micro font-semibold tabular-nums ${on ? 'text-accent' : 'text-tertiary'}`}>{n}</span>
         </button>
       );
     });
@@ -1465,7 +1465,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               type="button"
               onClick={() => onCreateCustomExercise(q || undefined, createPreset())}
               // 次要样式：弹层的主操作是底部「完成」（2026-10-22 界面审查：一屏一个主操作）
-              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-inset text-primary border border-divider text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform [&>svg]:text-accent"
+              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-btn text-primary border border-divider text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform [&>svg]:text-accent"
             >
               <Plus size={14} strokeWidth={2.5} />
               {isCn ? '新动作' : 'New'}
@@ -1705,7 +1705,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             >
               {isCn ? '完成' : 'Done'}
               {sessionAdded > 0 && (
-                <span className="text-xs font-semibold opacity-85 tabular-nums">
+                <span className="text-xs font-semibold tabular-nums">
                   · {isCn ? `本次已加 ${sessionAdded}` : `${sessionAdded} added`}
                 </span>
               )}

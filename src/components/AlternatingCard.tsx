@@ -277,7 +277,7 @@ export const AlternatingCard: React.FC<Props> = ({
           <span className="text-label font-medium text-accent">{isCn ? '交替' : 'Alternating'}</span>
           <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
             {isCn ? `第${cardNo}个` : `#${cardNo}`} · <span className="text-primary font-semibold">{done}</span>
-            {done < planned && <span className="opacity-80">/{planned}</span>}
+            {done < planned && <span className="text-tertiary">/{planned}</span>}
             {isCn ? '组' : ` ${plural(done < planned ? planned : done, 'set')}`} · {volText}
           </span>
         </div>

@@ -444,7 +444,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 <button
                   type="button"
                   onClick={onChangeDate}
-                  className="normal-case tracking-normal text-tertiary/80 hover:text-accent transition-colors inline-flex items-center gap-1"
+                  className="normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1"
                   title={isCn ? '修改训练日期' : 'Change workout date'}
                 >
                   ·{' '}
@@ -460,9 +460,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 <button
                   type="button"
                   onClick={onChangeGym}
-                  className={`normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent ${
-                    currentWorkout.gym ? 'text-tertiary/80' : 'text-tertiary/45'
-                  }`}
+                  // 没选馆时只剩一个图标，以前再降到 45% 透明度，约 1.9:1 看不见能点（2026-10-22 颜色审查）
+                  className="normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
                   title={translations.gymPickTitle[lang] as string}
                   aria-label={translations.gymPickTitle[lang] as string}
                   data-testid="gym-button"
@@ -492,7 +491,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             </div>
             <input
               ref={titleInputRef}
-              className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary/60 min-h-[36px]"
+              className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
               value={currentWorkout.title}
               onChange={e =>
                 setCurrentWorkout({ ...currentWorkout, title: e.target.value })
@@ -519,7 +518,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                         ? 'bg-accent text-on-accent hover:opacity-90'
                         // 训练中的「结束训练」用次要样式：这一屏的主操作是底部「添加动作」，
                         // 两个实心按钮一上一下抢眼，结束反而比继续练更显眼（2026-10-22 界面审查）
-                        : 'bg-inset text-primary border border-divider [&>svg]:text-accent'
+                        : 'bg-btn text-primary border border-divider [&>svg]:text-accent'
             }`}
           >
             {saveStatus === 'saving' ? (

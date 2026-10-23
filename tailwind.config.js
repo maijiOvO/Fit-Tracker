@@ -50,6 +50,7 @@ export default {
           hover: tok('--bg-card-hover'),
         },
         inset: tok('--bg-inset'),
+        btn: tok('--bg-btn'), // 次要按钮底：浅色比 card 深、深色比 card 亮（见 index.css）
         divider: tok('--divider'),
         rule: tok('--rule-strong'),
 

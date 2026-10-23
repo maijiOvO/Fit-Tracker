@@ -111,6 +111,9 @@
   --bg-card: #F4F5F7;        /* 卡片：白底上的浅灰块 */
   --bg-card-hover: #ECEEF1;
   --bg-inset: #E9EBEF;       /* 凹槽 */
+  /* 次要按钮底（2026-10-22 颜色审查）：浅色比 card 深一档才看得见，深色要比 card 亮一档才是「凸起」。
+     以前直接借 inset，深色下 inset 比卡片还黑，按钮像个洞 */
+  --bg-btn: #E9EBEF;
   --divider: #E3E5E9;
   --rule-strong: #A3A8B0;
 
@@ -220,7 +223,7 @@
   --accent: #F97316;
   --accent-soft: #FFEDD5;
   --accent-ink: #EA580C;
-  --accent-text: #C2410C;
+  --accent-text: #BB3F0C; /* 原 #C2410C 在 inset 底上 4.34:1，不过 4.5（2026-10-22 颜色审查） */
   --text-on-accent: #1F1205;
 }
 /* 浅蓝：偏青的天蓝，和 20 kg 蓝片（#1E5BC6，更深更紫）拉开 */
@@ -239,6 +242,7 @@
   --bg-card: #172028;
   --bg-card-hover: #1D2731;
   --bg-inset: #080B0E;
+  --bg-btn: #25303A;
   --divider: #25303A;
   --rule-strong: #3E4B57;
 
@@ -302,6 +306,7 @@
   --bg-card: #19191D;
   --bg-card-hover: #202025;
   --bg-inset: #040405;
+  --bg-btn: #2A2A30;
   --divider: #2A2A30;
   --rule-strong: #45454D;
 
@@ -514,8 +519,10 @@ button {
   transform: scale(0.98);
 }
 
+/* 次要按钮用 --bg-btn，不用 inset：inset 是凹槽，深色下比卡片还黑，按钮像个洞
+   （2026-10-22 颜色审查）。按下才沉到 inset。 */
 .ui-btn-secondary {
-  background-color: var(--bg-inset);
+  background-color: var(--bg-btn);
   color: var(--text-primary);
   font-weight: 500;
   border-radius: var(--radius-control);
@@ -523,10 +530,8 @@ button {
   border: 1px solid var(--divider);
   transition: background-color 150ms ease, transform 150ms ease;
 }
-.ui-btn-secondary:hover {
-  background-color: var(--bg-card-hover);
-}
 .ui-btn-secondary:active {
+  background-color: var(--bg-inset);
   transform: scale(0.98);
 }
 
@@ -1146,10 +1151,8 @@ button {
   border-bottom: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);
   padding-bottom: 1px;
 }
-.ledger-row.is-ghost .ledger-unit,
-.ledger-subrow.is-ghost .ledger-unit {
-  opacity: 0.7;
-}
+/* 待做行的单位原来再降到 70% 透明度：三级字 × 0.7 在 card 上约 3.2:1，11px 看不清。
+   待做和做完靠数字墨色和虚线下划线区分，单位不用再淡一层（2026-10-22 颜色审查） */
 /* 待做行里改过的格子：墨色变实（第 4 条）。虚线下划线留着 —— 组号还是虚线印，这组还没算做完。 */
 .ledger-row.is-ghost .ledger-field.is-edited .ledger-input,
 .ledger-subrow.is-ghost .ledger-field.is-edited .ledger-input {
@@ -1538,7 +1541,7 @@ button {
   gap: 3px;
   padding-top: 11px;
   border-radius: var(--radius-control);
-  background: var(--bg-inset);
+  background: var(--bg-btn);
   color: var(--text-secondary);
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-weight: 600;
@@ -1547,7 +1550,7 @@ button {
   transition: background-color var(--dur-tap) var(--ease-ink);
 }
 .ledger-step button:active {
-  background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-inset));
+  background: var(--bg-inset);
 }
 /* 「递减」：窄一档、用正文字体（它不是数字），和 ±5 同高 */
 .ledger-step button.ledger-step-drop {
