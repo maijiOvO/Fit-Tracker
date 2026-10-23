@@ -19,7 +19,7 @@ import React, {
 import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { translations } from '../../translations';
 import { BODY_PARTS, BODY_REGIONS, DEFAULT_EXERCISES } from '../constants/exercises';
-import { mergeOverride, mergedVariants } from '../utils/exerciseOverride';
+import { mergeOverride, mergedName, mergedVariants } from '../utils/exerciseOverride';
 import {
   BUILTIN_EQUIPMENT,
   attrsPatch,
@@ -393,7 +393,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (storedName: string): string => {
       const def = findExerciseDef(storedName);
       if (def) {
-        return exerciseOverrides[def.id]?.name?.[lang] || def.name[lang] || storedName;
+        return mergedName(def, exerciseOverrides[def.id])[lang] || storedName;
       }
       return storedName;
     },
@@ -914,7 +914,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       const def = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === exerciseId);
       if (!def || !next) return false;
       const current = exerciseOverrides[exerciseId] || {};
-      const oldName = current.name?.[lang] || def.name[lang];
+      const oldName = mergedName(def, current)[lang];
       if (next === oldName) return true;
 
       const clash = findExerciseDef(next);
@@ -947,7 +947,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       // 只改当前语言的话，切到英文还是旧名，还会跟另一个同名动作撞在一起）。内置动作仍按语言改。
       const isCustom = customExercises.some(c => c.id === exerciseId);
       const otherLang = lang === Language.CN ? Language.EN : Language.CN;
-      const otherOld = current.name?.[otherLang] || def.name[otherLang];
+      const otherOld = mergedName(def, current)[otherLang];
       // 曾用名：旧名进去、新名出来（改回原来的名字时它就不再是「曾用」）
       const aliases = [
         ...new Set([...(current.aliases ?? []), oldName, ...(isCustom ? [otherOld] : [])]),
@@ -1010,7 +1010,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   const displayNameOf = useCallback(
     (exId: string) => {
       const def = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === exId);
-      return def ? exerciseOverrides[exId]?.name?.[lang] || def.name[lang] : '';
+      return def ? mergedName(def, exerciseOverrides[exId])[lang] : '';
     },
     [customExercises, exerciseOverrides, lang],
   );

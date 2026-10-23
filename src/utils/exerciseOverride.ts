@@ -24,6 +24,27 @@ export function mergedVariants(ex: ExerciseDefinition, over: Partial<ExerciseDef
   return combineVariants(ex.variants, over?.variants, over?.removedVariants, equipmentNames);
 }
 
+/**
+ * 覆盖层之后的中英文名。中英原名相同的动作（自建动作都是这样）覆盖层只写了一种语言时，另一种也用它。
+ *
+ * 2026-10 之前的改名只写当前语言（en-duplicate-renamed）：中文下把自建「悍马卧推」改成「曲肘蝴蝶机」，
+ * 覆盖层是 { cn: '曲肘蝴蝶机' }，英文还停在原名，跟另一个「悍马卧推」撞名，点错就记到别的动作下。
+ * 现在改名两种语言一起写，旧数据在读的时候补，不用改服务器上的数据。
+ * 内置动作中英原名不同，各语言的改名互不影响。
+ */
+export function mergedName(
+  ex: ExerciseDefinition,
+  over: Partial<ExerciseDefinition> | undefined,
+): ExerciseDefinition['name'] {
+  const o = over?.name;
+  if (!o) return ex.name;
+  if (ex.name.cn === ex.name.en) {
+    const one = o.cn || o.en;
+    if (one) return { ...ex.name, cn: o.cn || one, en: o.en || one };
+  }
+  return { ...ex.name, ...o };
+}
+
 export function mergeOverride(
   ex: ExerciseDefinition,
   over: Partial<ExerciseDefinition> | undefined,
@@ -48,7 +69,7 @@ export function mergeOverride(
     ...ex,
     ...over,
     ...legacyRegion,
-    name: { ...ex.name, ...(over.name ?? {}) },
+    name: mergedName(ex, over),
     ...(aliases.length ? { aliases: [...new Set(aliases)] } : {}),
     ...(variants ? { variants } : {}),
     equipment: attrs.equipment,
