@@ -71,7 +71,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
       }
     >
       <div className="space-y-2">
-        <label className="text-[10px] font-semibold text-secondary px-1">
+        <label className="text-micro font-semibold text-secondary px-1">
           {isCn ? '动作名称' : 'Exercise Name'}
         </label>
         <input

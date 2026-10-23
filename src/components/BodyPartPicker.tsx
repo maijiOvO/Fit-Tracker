@@ -120,7 +120,7 @@ const Seal: React.FC<{ char: string; latin: string; isCn: boolean; dashed?: bool
     className={`w-[52px] h-[52px] rounded-stamp border-[2.5px] ${
       dashed ? 'border-dashed' : ''
     } border-accent text-accent leading-none flex items-center justify-center select-none ${
-      isCn ? 'font-seal text-[30px] pt-[1px]' : 'font-display font-bold text-[36px]'
+      isCn ? 'font-seal text-3xl pt-[1px]' : 'font-display font-bold text-[36px]'
     }`}
   >
     {isCn ? char : latin}
@@ -144,7 +144,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
 
   return (
     <section className="bg-card border border-divider rounded-card p-5">
-      <h2 className="mb-5 font-display font-semibold text-[17px] text-primary text-center">
+      <h2 className="mb-5 font-display font-semibold text-lg text-primary text-center">
         {translations.pickBodyPartTitle[lang]}
       </h2>
 
@@ -163,7 +163,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
               className={`${TILE} text-primary hover:border-accent`}
             >
               <Seal char={seal} latin={latin} isCn={isCn} />
-              <span className="text-[13px] font-semibold">{label}</span>
+              <span className="text-sm font-semibold">{label}</span>
             </button>
           );
         })}
@@ -176,7 +176,7 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
           className={`${TILE} text-secondary hover:border-accent hover:text-accent`}
         >
           <Seal char="制" latin="O" isCn={isCn} dashed />
-          <span className="text-[13px] font-semibold">{translations.partOther[lang]}</span>
+          <span className="text-sm font-semibold">{translations.partOther[lang]}</span>
         </button>
       </div>
     </section>

@@ -434,7 +434,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <div className="flex-1 min-w-0 space-y-1">
             {/* flex-wrap + 每项 nowrap：360/384 宽下编辑态的五项挤不下一行，
                 原先是每项被压成一字一行（「未保存」竖着排）；现在整项折到第二行。 */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
               <span>
                 {editingWorkoutId
                   ? (isCn ? '编辑训练' : 'Edit Workout')
@@ -735,7 +735,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={() => onPickerOpenChange(true)}
-            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
+            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-base font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
             data-testid="open-picker-sheet"
           >
             <Plus size={19} strokeWidth={2.5} />

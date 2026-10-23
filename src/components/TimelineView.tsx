@@ -370,16 +370,16 @@ const SessionCard: React.FC<SessionCardProps> = ({
       >
         {merged && (
           <div className="flex-none w-10 text-center">
-            <div className="font-mono font-bold text-[19px] leading-none text-primary tabular-nums">
+            <div className="font-mono font-bold text-xl leading-none text-primary tabular-nums">
               {when.getDate()}
             </div>
-            <div className="text-[9.5px] text-tertiary mt-1">{weekdayStr}</div>
+            <div className="text-micro font-normal text-tertiary mt-1">{weekdayStr}</div>
           </div>
         )}
 
         <div className="flex-1 min-w-0">
           {!merged && (
-            <div className="flex items-center gap-2 text-[11px] text-tertiary mb-1">
+            <div className="flex items-center gap-2 text-micro font-normal text-tertiary mb-1">
               <Calendar size={11} strokeWidth={2} />
               <span className="font-medium">{dateStr}</span>
             </div>
@@ -390,7 +390,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               {w.title || (isCN ? '未命名训练' : 'Untitled')}
             </h4>
             {w.fromSchedule && (
-              <span className="flex-none text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
+              <span className="flex-none text-micro px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
                 {isCN ? '按计划' : 'Planned'}
               </span>
             )}
@@ -399,7 +399,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                 会把标题挤到只剩几个字 —— 标题才是主信息，该让路的是场地。 */}
             {w.gym && (
               <span
-                className="min-w-0 max-w-[5rem] text-[9px] px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
+                className="min-w-0 max-w-[5rem] text-micro font-normal px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
                 data-testid="timeline-gym"
               >
                 <MapPin size={8} strokeWidth={2.25} className="flex-none" />
@@ -407,19 +407,19 @@ const SessionCard: React.FC<SessionCardProps> = ({
               </span>
             )}
           </div>
-          <div className="text-[10.5px] text-tertiary truncate mt-0.5">{subtitle}</div>
+          <div className="text-micro font-normal text-tertiary truncate mt-0.5">{subtitle}</div>
         </div>
 
         <div className="flex-none flex items-center gap-1.5">
-          <div className="text-right text-[10px] text-tertiary leading-[1.45]">
+          <div className="text-right text-micro font-normal text-tertiary leading-[1.45]">
             <div>
-              <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
+              <span className="font-mono font-bold text-sm text-secondary tabular-nums">
                 {exerciseCount}
               </span>{' '}
               {isCN ? '动作' : 'ex.'}
             </div>
             <div>
-              <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
+              <span className="font-mono font-bold text-sm text-secondary tabular-nums">
                 {setCount}
               </span>{' '}
               {isCN ? '组' : plural(setCount, 'set')}
@@ -449,7 +449,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             >
               <Play size={16} strokeWidth={1.75} className="text-tertiary" />
               <span className="flex-1">{isCN ? '继续这场' : 'Resume'}</span>
-              <span className="text-[10px] text-tertiary">{isCN ? '刚结束' : 'Just ended'}</span>
+              <span className="text-micro font-normal text-tertiary">{isCN ? '刚结束' : 'Just ended'}</span>
             </button>
           )}
           <button
@@ -480,7 +480,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           >
             <CopyPlus size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
-            <span className="text-[10px] text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
+            <span className="text-micro font-normal text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
           </button>
           {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。
               和删除一样走「先执行 + 撤销」——手滑点到它，撤销条就在下面。 */}
@@ -493,7 +493,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             >
               <Merge size={16} strokeWidth={1.75} className="text-tertiary" />
               <span className="flex-1">{isCN ? '并入上一场' : 'Merge into previous'}</span>
-              <span className="text-[10px] text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+              <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
             </button>
           )}
           {/* §6.6：删除入口是墨色文字项，不靠颜色喊危险；
@@ -506,7 +506,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           >
             <Trash2 size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '删除' : 'Delete'}</span>
-            <span className="text-[10px] text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+            <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
           </button>
         </div>
       )}
@@ -522,7 +522,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   <span className="font-semibold text-sm text-primary truncate">
                     {liftKey(ex)}
                   </span>
-                  <span className="text-[10px] text-tertiary bg-card px-2 py-0.5 rounded-chip">
+                  <span className="text-micro font-normal text-tertiary bg-card px-2 py-0.5 rounded-chip">
                     {sets.length} {isCN ? '组' : plural(sets.length, 'set')}
                   </span>
                 </div>
@@ -697,7 +697,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
         })();
         const sectionTitle = monthLabel && (
-          <div className="px-1 pt-2 text-[10px] tracking-[0.14em] text-tertiary font-medium">
+          <div className="px-1 pt-2 text-micro tracking-[0.14em] text-tertiary font-medium">
             {monthLabel}
           </div>
         );
@@ -745,7 +745,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                 <CalendarSearch size={14} className="text-accent" strokeWidth={2} />
                 <h3 className="text-sm font-bold text-primary">{group.label}</h3>
               </div>
-              <div className="flex items-center gap-2.5 text-[11px] text-tertiary font-medium">
+              <div className="flex items-center gap-2.5 text-micro text-tertiary font-medium">
                 <span>
                   {group.workouts.length} {isCN ? '场' : 'sess.'}
                 </span>

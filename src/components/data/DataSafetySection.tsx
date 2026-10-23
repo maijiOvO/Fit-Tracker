@@ -112,7 +112,7 @@ export const DataSafetySection: React.FC = () => {
           <Btn onClick={() => openDataFlow('restore')} icon={ic(History)} testId="backup-restore">
             {t('从备份文件夹恢复', 'Restore from backup folder')}
           </Btn>
-          <p className="text-[10px] text-tertiary leading-relaxed px-1">
+          <p className="text-micro font-normal text-tertiary leading-relaxed px-1">
             {t(
               '也可选 SD 卡，或坚果云 / Syncthing 同步的文件夹来做云端备份。',
               'Or pick an SD card, or a folder synced by Syncthing / a cloud drive, for cloud backup.',
@@ -131,7 +131,7 @@ export const DataSafetySection: React.FC = () => {
           </Btn>
         )}
       </div>
-      <p className="text-[10px] text-tertiary leading-relaxed px-1 -mt-1">
+      <p className="text-micro font-normal text-tertiary leading-relaxed px-1 -mt-1">
         {t('一行一组，可用 Excel 打开或交给 AI 分析。', 'One row per set; for Excel or AI analysis.')}
       </p>
       <Btn onClick={() => openDataFlow('import-csv')} icon={ic(Upload)} testId="import-csv">

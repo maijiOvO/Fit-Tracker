@@ -282,7 +282,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
       <div className="ui-card p-3" data-testid="month-calendar">
         <div className="grid grid-cols-7 gap-1 mb-1">
           {weekDays.map(w => (
-            <div key={w} className="text-center text-[11px] text-tertiary font-medium py-1">{w}</div>
+            <div key={w} className="text-center text-micro text-tertiary font-medium py-1">{w}</div>
           ))}
         </div>
         <div
@@ -375,7 +375,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                       <h4 className="font-semibold text-primary truncate">
                         {s.title || (lang === Language.CN ? '未命名训练' : 'Untitled session')}
                       </h4>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-chip ${badge.cls}`}>{badge.label}</span>
+                      <span className={`text-micro font-normal px-2 py-0.5 rounded-chip ${badge.cls}`}>{badge.label}</span>
                     </div>
                     {s.bodyParts.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -385,7 +385,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                           return (
                             <span
                               key={tag}
-                              className="text-[11px] px-2 py-0.5 rounded-chip bg-inset text-secondary"
+                              className="text-micro font-normal px-2 py-0.5 rounded-chip bg-inset text-secondary"
                             >
                               {builtin || custom || tag}
                             </span>

@@ -253,7 +253,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
                         type="button"
                         aria-pressed={newEquip.res === r}
                         onClick={() => setNewEquip({ ...newEquip, res: r })}
-                        className={`min-h-[36px] px-1 rounded-control text-[11px] font-bold leading-tight transition-ui ${
+                        className={`min-h-[36px] px-1 rounded-control text-micro font-bold leading-tight transition-ui ${
                           newEquip.res === r ? 'bg-accent-soft text-accent' : 'bg-card text-secondary'
                         }`}
                       >

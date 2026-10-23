@@ -240,7 +240,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
         ))}
       </div>
       <div>
-        <h4 className="text-[10px] font-bold text-secondary uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
+        <h4 className="text-micro font-bold text-secondary uppercase tracking-[0.2em] mb-2 flex items-center gap-1.5">
           <Plus size={11} /> {isCn ? '新做法' : 'New variant'}
         </h4>
         <div className="flex gap-2">

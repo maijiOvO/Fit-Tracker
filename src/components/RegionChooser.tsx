@@ -87,7 +87,7 @@ export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, va
       >
         {label}
         {primary && (
-          <span className="px-1 rounded-sm bg-accent text-on-accent text-[10px] leading-[14px]" data-testid="region-primary">
+          <span className="px-1 rounded-sm bg-accent text-on-accent text-micro font-normal leading-[14px]" data-testid="region-primary">
             {isCn ? '主' : 'Main'}
           </span>
         )}

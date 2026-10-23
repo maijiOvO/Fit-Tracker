@@ -202,7 +202,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <h2 className="font-display text-display-sm text-primary mb-3">
           {translations.dashboardEmptyTitle[lang]}
         </h2>
-        <p className="text-secondary max-w-sm leading-relaxed text-[15px] mb-10">
+        <p className="text-secondary max-w-sm leading-relaxed text-base mb-10">
           {translations.dashboardEmptyDesc[lang]}
         </p>
         <button onClick={actions.onStartNewWorkout} className="ui-btn-primary flex items-center gap-2 px-8 py-4 text-base">

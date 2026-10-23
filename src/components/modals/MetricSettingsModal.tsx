@@ -137,7 +137,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
 
         {onChangeSignedLoad && (
           <>
-            <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
+            <p className="text-micro font-bold text-secondary  mb-4 px-1">
               {isCn ? '负荷记法' : 'Load'}
             </p>
             <div className="flex gap-1 p-1 mb-8 bg-card/50 border border-divider rounded-control" data-testid="signed-load-toggle">
@@ -158,7 +158,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
           </>
         )}
 
-        <p className="text-[10px] font-bold text-secondary  mb-4 px-1">
+        <p className="text-micro font-bold text-secondary  mb-4 px-1">
           {translations.addDimension[lang]}
         </p>
 

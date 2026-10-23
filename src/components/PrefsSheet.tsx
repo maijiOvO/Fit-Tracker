@@ -83,7 +83,7 @@ function Seg<T extends string | number>({
             aria-pressed={on}
             onClick={() => onPick(o.v)}
             className={`min-h-[40px] py-2 rounded-chip flex flex-col items-center justify-center gap-1 transition-colors duration-tap ease-paper ${
-              mono ? 'font-mono text-[13px] font-semibold' : 'text-xs font-medium'
+              mono ? 'font-mono text-sm font-semibold' : 'text-xs font-medium'
             } ${on ? 'seg-on' : 'text-secondary hover:text-primary hover:bg-card-hover'}`}
           >
             {o.icon}
@@ -536,7 +536,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
               <Upload size={18} strokeWidth={1.75} className="text-accent" />
               {translations.importData[lang]}
             </button>
-            <p className="text-[10px] text-tertiary leading-relaxed text-center px-3 -mt-2">{translations.importDesc[lang]}</p>
+            <p className="text-micro font-normal text-tertiary leading-relaxed text-center px-3 -mt-2">{translations.importDesc[lang]}</p>
             {rollback && (
               <>
                 <button
@@ -547,7 +547,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                   <Undo2 size={18} strokeWidth={1.75} className="text-accent" />
                   {translations.undoImport[lang]}
                 </button>
-                <p className="text-[10px] text-tertiary text-center -mt-2">
+                <p className="text-micro font-normal text-tertiary text-center -mt-2">
                   {t(
                     `导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
                     `Pre-import copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
@@ -562,7 +562,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                   name={
                     <span className="block">
                       {t('数据环境', 'Data Environment')}
-                      <span className="block text-[10px] font-normal text-tertiary mt-0.5">
+                      <span className="block text-micro font-normal text-tertiary mt-0.5">
                         {devMode
                           ? t('state-dev · FitLogDB-dev · 与真实数据完全隔离', 'state-dev · FitLogDB-dev · fully isolated')
                           : t('state · FitLogDB · 真实用户数据', 'state · FitLogDB · real user data')}

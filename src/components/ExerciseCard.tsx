@@ -410,7 +410,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           />
         )}
         <div className="flex items-baseline gap-3">
-          <h3 className="title-face text-[24px] text-primary leading-tight flex-1 min-w-0 break-words">
+          <h3 className="title-face text-xl text-primary leading-tight flex-1 min-w-0 break-words">
             {exerciseName}
           </h3>
 

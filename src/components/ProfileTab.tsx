@@ -171,13 +171,13 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             <h4 className="text-sm font-semibold text-warning uppercase tracking-wide">
               {translations.guestWarningTitle[lang]}
             </h4>
-            <p className="text-[11px] font-bold text-warning leading-relaxed">
+            <p className="text-micro font-bold text-warning leading-relaxed">
               {translations.guestWarningDesc[lang]}
             </p>
             {onCreateAccount && (
               <button
                 onClick={onCreateAccount}
-                className="mt-2 text-[10px] font-semibold text-primary bg-warning/40 hover:bg-warning/60 px-3 py-1.5 rounded-chip self-start transition-colors"
+                className="mt-2 text-micro font-semibold text-primary bg-warning/40 hover:bg-warning/60 px-3 py-1.5 rounded-chip self-start transition-colors"
               >
                 {translations.createAccount[lang]}
               </button>
@@ -191,7 +191,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         <div className="bg-card p-6 rounded-card border border-divider flex flex-col items-center justify-center gap-2 w-full">
           {/* 一组都没做完的空场不算一场 */}
           <span className="text-3xl font-semibold text-primary">{workouts.filter(hasDoneSets).length}</span>
-          <span className="text-[10px] font-semibold uppercase text-secondary tracking-widest">
+          <span className="text-micro font-semibold uppercase text-secondary tracking-widest">
             {lang === Language.CN ? '累计训练' : 'Workouts'}
           </span>
         </div>
@@ -256,9 +256,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   {/* Value */}
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-semibold text-primary">{metric.value}</span>
-                    <span className="text-[10px] font-bold text-tertiary uppercase">{metric.unit}</span>
+                    <span className="text-micro font-bold text-tertiary uppercase">{metric.unit}</span>
                   </div>
-                  <p className="text-[9px] text-tertiary mt-1">
+                  <p className="text-micro font-normal text-tertiary mt-1">
                     {new Date(metric.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
                   </p>
 
@@ -276,7 +276,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
                       {/* History List */}
                       <div className="mb-6 space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
-                        <h4 className="text-[10px] font-semibold text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
+                        <h4 className="text-micro font-semibold text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
                           <History size={10} /> {lang === Language.CN ? '历史记录' : 'History'}
                         </h4>
                         {measurements
@@ -287,9 +287,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                               <div className="flex items-center gap-3">
                                 <div className="flex flex-col">
                                   <span className="text-sm font-bold text-primary">
-                                    {historyItem.value} <span className="text-[10px] text-secondary uppercase">{historyItem.unit}</span>
+                                    {historyItem.value} <span className="text-micro font-normal text-secondary uppercase">{historyItem.unit}</span>
                                   </span>
-                                  <span className="text-[9px] text-tertiary">
+                                  <span className="text-micro font-normal text-tertiary">
                                     {new Date(historyItem.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
@@ -339,7 +339,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             <div className="p-2 bg-card rounded-control text-secondary">
               <Plus size={16} />
             </div>
-            <span className="text-[10px] font-bold text-secondary">
+            <span className="text-micro font-bold text-secondary">
               {lang === Language.CN ? '新指标' : 'New Metric'}
             </span>
           </button>
