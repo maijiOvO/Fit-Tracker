@@ -170,7 +170,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
 
         {regs.length > 0 && (
           <>
-            <div className="px-2 pt-0.5 text-[10px] font-bold tracking-[0.2em] text-secondary">
+            <div className="px-2 pt-0.5 text-micro font-bold tracking-[0.2em] text-secondary">
               {isCn ? '归到细分' : 'REGION'}
             </div>
             <div className="flex flex-wrap gap-1.5 pb-1.5" data-testid="menu-region-chips">

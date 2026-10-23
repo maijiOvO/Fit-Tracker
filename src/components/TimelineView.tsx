@@ -82,7 +82,7 @@ function getGroupInfo(
   date: Date,
   granularity: TimelineGranularity,
   lang: Language,
-): { key: string; label: string; sortKey: string } {
+): { key: string; label: string; sortKey: string; sub?: string } {
   const isCN = lang === Language.CN;
   if (granularity === 'day') {
     const y = date.getFullYear();
@@ -104,10 +104,10 @@ function getGroupInfo(
     const weekNum = parseInt(key.split('W')[1], 10);
     // 年份跟周号走（ISO 周年）：12/30 – 1/5 那一周是下一年的第 1 周，原来写成「上一年 · 第 1 周」（审查 C）
     const isoYear = key.slice(0, 4);
-    const label = isCN
-      ? `${isoYear}年 · 第${weekNum}周 (${sm}/${sd} - ${em}/${ed})`
-      : `${isoYear} · Week ${weekNum} (${sm}/${sd} - ${em}/${ed})`;
-    return { key, label, sortKey: key };
+    // 日期范围拆成副行：原来整串「2026年 · 第41周 (10/5 - 10/11)」挤在一行，
+    // 375 宽下把右边「2 场 · 16 动作 · 47 组」压成每项两行（2026-10-22）
+    const label = isCN ? `${isoYear}年 · 第${weekNum}周` : `${isoYear} · Week ${weekNum}`;
+    return { key, label, sortKey: key, sub: `${sm}/${sd} – ${em}/${ed}` };
   }
   if (granularity === 'month') {
     const y = date.getFullYear();
@@ -327,15 +327,15 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const weekdayStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
 
   /**
-   * 副行：时间 + 前三个动作。
+   * 副行：前三个动作。
    * 原先这一行只有「N 动作 M 组」两个数字 —— 回看时想知道的是「那天练了啥」，
-   * 不是「练了几个」。数字挪到右列，这一行换成真正有信息的内容，不多占高度。
+   * 不是「练了几个」。数字挪到右列，这一行换成真正有信息的内容。
+   * 时间不在这行：它和星期、馆名一样是「什么时候在哪」，归三级字（2026-10-22 界面审查）。
    */
   const preview = (w.exercises ?? [])
     .slice(0, 3)
     .map(ex => liftKey(ex))
     .join(' · ');
-  const subtitle = [timeStr, preview].filter(Boolean).join(' · ');
 
   const menuItem =
     'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-sm text-primary active:bg-card-hover';
@@ -358,30 +358,35 @@ const SessionCard: React.FC<SessionCardProps> = ({
         placement="down"
       />
 
-      {/* 一行三列：日期柱 / 标题+副行 / 计数。
+      {/* 三列：日期柱 / 标题 / 计数；动作摘要在第二行，横跨标题和计数两列。
           原先是三行左对齐（日期、标题、计数），右半张卡永远是空的，
-          而天粒度下第一行还跟组头重复了一遍。 */}
+          而天粒度下第一行还跟组头重复了一遍。
+          一行分三层（2026-10-22 界面审查）：标题（primary）＝练什么；
+          动作摘要（14px secondary）＝做了哪些；日期 / 星期 / 时间 / 馆名 / 单位（11px tertiary）＝什么时候在哪。
+          以前摘要和时间挤在一行 11px 三级字里，整行只剩「黑」和「一片灰」两层，光改颜色看不出差别。 */}
       <div
-        className="flex items-center gap-3 cursor-pointer"
+        className={`grid ${merged ? 'grid-cols-[auto_1fr_auto]' : 'grid-cols-[1fr_auto]'} gap-x-3 gap-y-1 items-center cursor-pointer`}
         onClick={() => {
           if (swallowingClick()) return;
           onToggleExpand();
         }}
       >
         {merged && (
-          <div className="flex-none w-10 text-center">
-            <div className="font-mono font-bold text-[19px] leading-none text-primary tabular-nums">
+          <div className="row-span-2 w-10 text-center">
+            <div className="font-mono font-bold text-xl leading-none text-primary tabular-nums">
               {when.getDate()}
             </div>
-            <div className="text-[9.5px] text-tertiary mt-1">{weekdayStr}</div>
+            <div className="text-micro font-normal text-tertiary mt-1">{weekdayStr}</div>
+            <div className="text-micro font-normal text-tertiary tabular-nums">{timeStr}</div>
           </div>
         )}
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0">
           {!merged && (
-            <div className="flex items-center gap-2 text-[11px] text-tertiary mb-1">
+            <div className="flex items-center gap-2 text-micro font-normal text-tertiary mb-1">
               <Calendar size={11} strokeWidth={2} />
               <span className="font-medium">{dateStr}</span>
+              <span className="tabular-nums">{timeStr}</span>
             </div>
           )}
           <div className="flex items-center gap-2 min-w-0">
@@ -390,7 +395,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               {w.title || (isCN ? '未命名训练' : 'Untitled')}
             </h4>
             {w.fromSchedule && (
-              <span className="flex-none text-[9px] px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
+              <span className="flex-none text-micro px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
                 {isCN ? '按计划' : 'Planned'}
               </span>
             )}
@@ -399,7 +404,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                 会把标题挤到只剩几个字 —— 标题才是主信息，该让路的是场地。 */}
             {w.gym && (
               <span
-                className="min-w-0 max-w-[5rem] text-[9px] px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
+                className="min-w-0 max-w-[5rem] text-micro font-normal px-1.5 py-0.5 rounded-chip bg-inset text-tertiary inline-flex items-center gap-1"
                 data-testid="timeline-gym"
               >
                 <MapPin size={8} strokeWidth={2.25} className="flex-none" />
@@ -407,19 +412,18 @@ const SessionCard: React.FC<SessionCardProps> = ({
               </span>
             )}
           </div>
-          <div className="text-[10.5px] text-tertiary truncate mt-0.5">{subtitle}</div>
         </div>
 
         <div className="flex-none flex items-center gap-1.5">
-          <div className="text-right text-[10px] text-tertiary leading-[1.45]">
+          <div className="text-right text-micro font-normal text-tertiary leading-[1.45]">
             <div>
-              <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
+              <span className="font-mono font-bold text-sm text-secondary tabular-nums">
                 {exerciseCount}
               </span>{' '}
               {isCN ? '动作' : 'ex.'}
             </div>
             <div>
-              <span className="font-mono font-bold text-[13px] text-secondary tabular-nums">
+              <span className="font-mono font-bold text-sm text-secondary tabular-nums">
                 {setCount}
               </span>{' '}
               {isCN ? '组' : plural(setCount, 'set')}
@@ -429,6 +433,10 @@ const SessionCard: React.FC<SessionCardProps> = ({
             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </div>
         </div>
+
+        {preview && (
+          <div className="col-span-2 min-w-0 text-sm text-secondary truncate">{preview}</div>
+        )}
       </div>
 
       {/* 长按菜单：卡内 absolute，右上角浮出（同 ExerciseCard ⋯ 菜单的形态） */}
@@ -449,7 +457,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             >
               <Play size={16} strokeWidth={1.75} className="text-tertiary" />
               <span className="flex-1">{isCN ? '继续这场' : 'Resume'}</span>
-              <span className="text-[10px] text-tertiary">{isCN ? '刚结束' : 'Just ended'}</span>
+              <span className="text-micro font-normal text-tertiary">{isCN ? '刚结束' : 'Just ended'}</span>
             </button>
           )}
           <button
@@ -480,7 +488,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           >
             <CopyPlus size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
-            <span className="text-[10px] text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
+            <span className="text-micro font-normal text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
           </button>
           {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。
               和删除一样走「先执行 + 撤销」——手滑点到它，撤销条就在下面。 */}
@@ -493,7 +501,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             >
               <Merge size={16} strokeWidth={1.75} className="text-tertiary" />
               <span className="flex-1">{isCN ? '并入上一场' : 'Merge into previous'}</span>
-              <span className="text-[10px] text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+              <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
             </button>
           )}
           {/* §6.6：删除入口是墨色文字项，不靠颜色喊危险；
@@ -506,7 +514,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           >
             <Trash2 size={16} strokeWidth={1.75} className="text-tertiary" />
             <span className="flex-1">{isCN ? '删除' : 'Delete'}</span>
-            <span className="text-[10px] text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+            <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
           </button>
         </div>
       )}
@@ -522,7 +530,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   <span className="font-semibold text-sm text-primary truncate">
                     {liftKey(ex)}
                   </span>
-                  <span className="text-[10px] text-tertiary bg-card px-2 py-0.5 rounded-chip">
+                  <span className="text-micro font-normal text-tertiary bg-card px-2 py-0.5 rounded-chip">
                     {sets.length} {isCN ? '组' : plural(sets.length, 'set')}
                   </span>
                 </div>
@@ -599,13 +607,13 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     );
     const map = new Map<
       string,
-      { label: string; sortKey: string; workouts: WorkoutSession[] }
+      { label: string; sub?: string; sortKey: string; workouts: WorkoutSession[] }
     >();
     for (const w of sorted) {
       if (!w.date) continue;
       const info = getGroupInfo(new Date(w.date), granularity, lang);
       if (!map.has(info.key)) {
-        map.set(info.key, { label: info.label, sortKey: info.sortKey, workouts: [] });
+        map.set(info.key, { label: info.label, sub: info.sub, sortKey: info.sortKey, workouts: [] });
       }
       map.get(info.key)!.workouts.push(w);
     }
@@ -634,7 +642,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   return (
     <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
       {/* 颛粒度切换 */}
-      <div className="ui-card p-1.5 flex items-center gap-1">
+      {/* 灰槽，不是卡：上面「按时间 / 按动作」已经是页内标签，这里是它下面的一层筛选（2026-10-22） */}
+      <div className="bg-inset rounded-control p-1 flex items-center gap-1">
         <GranularityChip
           active={granularity === 'day'}
           icon={<Calendar size={13} strokeWidth={2} />}
@@ -697,7 +706,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
         })();
         const sectionTitle = monthLabel && (
-          <div className="px-1 pt-2 text-[10px] tracking-[0.14em] text-tertiary font-medium">
+          <div className="px-1 pt-2 text-micro tracking-[0.14em] text-tertiary font-medium">
             {monthLabel}
           </div>
         );
@@ -741,11 +750,17 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
               onClick={() => toggleGroup(group.key)}
               className="w-full flex items-center justify-between px-1 py-2 group"
             >
-              <div className="flex items-center gap-2">
-                <CalendarSearch size={14} className="text-accent" strokeWidth={2} />
-                <h3 className="text-sm font-bold text-primary">{group.label}</h3>
+              <div className="flex items-center gap-2 min-w-0 text-left">
+                <CalendarSearch size={14} className="flex-none text-accent" strokeWidth={2} />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-primary truncate">{group.label}</h3>
+                  {group.sub && (
+                    <div className="text-micro text-tertiary font-medium tabular-nums">{group.sub}</div>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2.5 text-[11px] text-tertiary font-medium">
+              {/* 统计不许折行：被挤时让标题截断，不让「16 动作」拆成两行 */}
+              <div className="flex-none whitespace-nowrap flex items-center gap-2.5 text-micro text-tertiary font-medium">
                 <span>
                   {group.workouts.length} {isCN ? '场' : 'sess.'}
                 </span>

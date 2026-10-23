@@ -169,7 +169,7 @@ export const WorkoutColophon: React.FC<Props> = ({
                   不借任何片子的颜色（红色已经表示 25 kg），也不再用印章字。
                   落下的动作沿用 anim-stamp-drop：签名时刻的节奏不变，换的只是材料。 */}
               <span
-                className="anim-stamp-drop flex items-center justify-center w-16 h-16 rounded-stamp bg-chalk text-on-chalk border-2 border-on-chalk font-mono font-bold text-[30px] leading-none tracking-[0.04em]"
+                className="anim-stamp-drop flex items-center justify-center w-16 h-16 rounded-stamp bg-chalk text-on-chalk border-2 border-on-chalk font-mono font-bold text-3xl leading-none tracking-[0.04em]"
                 style={{ animationDelay: `${i * 140}ms` }}
                 aria-hidden
               >

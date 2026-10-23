@@ -50,6 +50,7 @@ export default {
           hover: tok('--bg-card-hover'),
         },
         inset: tok('--bg-inset'),
+        btn: tok('--bg-btn'), // 次要按钮底：浅色比 card 深、深色比 card 亮（见 index.css）
         divider: tok('--divider'),
         rule: tok('--rule-strong'),
 
@@ -154,20 +155,30 @@ export default {
         DEFAULT: 'var(--ease-paper)',
         paper: 'var(--ease-paper)',
       },
-      // §3 字号阶梯 —— 终结「display 在 Tailwind、data 在 CSS、正文缺失」的三处断裂。
-      // 下限 11px，旧的 9/10px 一律作废。
-      fontSize: {
-        'data-xl': ['40px', { lineHeight: '1', fontWeight: '600' }],   // PR、结束训练总结
-        'data-lg': ['26px', { lineHeight: '1', fontWeight: '600' }],   // 组行重量与次数
-        'data-md': ['22px', { lineHeight: '1.1', fontWeight: '600' }], // 卡片汇总、体重
-        headline: ['28px', { lineHeight: '1.2', fontWeight: '700' }],  // 训练标题（Serif）
-        h2: ['17px', { lineHeight: '1.35', fontWeight: '600' }],       // 动作名（Serif）
-        body: ['15px', { lineHeight: '1.7', fontWeight: '400' }],
-        label: ['12px', { lineHeight: '1.4', fontWeight: '500' }],
-        micro: ['11px', { lineHeight: '1.4', fontWeight: '500' }],
-        // 旧名保留，指向新阶梯上的等价档位（4 处 text-display-sm 在用）
-        'display-sm': ['22px', { lineHeight: '1.1', fontWeight: '600' }],
-      },
+    },
+    // §3 字号阶梯：九档，值在 index.css 的 --fs-*（CSS 里的 font-size 也读那里）。
+    // 写在 theme 而不是 extend：整组替换 Tailwind 默认字号，阶梯外的 text-5xl 之类根本不生成。
+    // 手写 text-[Npx] 一律不用（npm run check 会拦）。
+    fontSize: {
+      'data-xl': ['var(--fs-data-xl)', { lineHeight: '1', fontWeight: '600' }],   // PR、结束训练总结
+      'data-lg': ['var(--fs-data-lg)', { lineHeight: '1', fontWeight: '600' }],   // 组行重量与次数
+      'data-md': ['var(--fs-data-md)', { lineHeight: '1.1', fontWeight: '600' }], // 卡片汇总、体重
+      headline: ['var(--fs-headline)', { lineHeight: '1.2', fontWeight: '700' }],  // 训练标题
+      h2: ['var(--fs-h2)', { lineHeight: '1.35', fontWeight: '600' }],             // 动作名
+      body: ['var(--fs-body)', { lineHeight: '1.7', fontWeight: '400' }],
+      small: ['var(--fs-small)', { lineHeight: '20px' }],
+      label: ['var(--fs-label)', { lineHeight: '1.4', fontWeight: '500' }],
+      micro: ['var(--fs-micro)', { lineHeight: '1.4', fontWeight: '500' }],
+      'display-sm': ['var(--fs-data-md)', { lineHeight: '1.1', fontWeight: '600' }],
+      // Tailwind 的旧名（两百多处在用）只保留名字，值落到阶梯上；不带字重，和原来一样。
+      xs: ['var(--fs-label)', { lineHeight: '16px' }],      // 12
+      sm: ['var(--fs-small)', { lineHeight: '20px' }],      // 14
+      base: ['var(--fs-body)', { lineHeight: '22px' }],     // 16 → 15
+      lg: ['var(--fs-h2)', { lineHeight: '24px' }],         // 18 → 17
+      xl: ['var(--fs-data-md)', { lineHeight: '28px' }],    // 20 → 22
+      '2xl': ['var(--fs-data-lg)', { lineHeight: '32px' }], // 24 → 26
+      '3xl': ['var(--fs-headline)', { lineHeight: '32px' }],// 30 → 28
+      '4xl': ['var(--fs-data-xl)', { lineHeight: '44px' }], // 36 → 40
     },
   },
   plugins: [],

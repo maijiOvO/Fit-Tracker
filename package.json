@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit",
     "e2e": "npm run check && node scripts/e2e-smoke.mjs",
     "e2e:backup": "node scripts/e2e-backup.mjs",
-    "check": "node scripts/workbench-check.mjs && node scripts/prefs-check.mjs && node scripts/logic-check.mjs",
+    "check": "node scripts/type-scale-check.mjs && node scripts/workbench-check.mjs && node scripts/prefs-check.mjs && node scripts/logic-check.mjs",
     "check:workbench": "node scripts/workbench-check.mjs",
     "check:prefs": "node scripts/prefs-check.mjs",
     "check:logic": "node scripts/logic-check.mjs",

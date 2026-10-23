@@ -282,7 +282,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
       <div className="ui-card p-3" data-testid="month-calendar">
         <div className="grid grid-cols-7 gap-1 mb-1">
           {weekDays.map(w => (
-            <div key={w} className="text-center text-[11px] text-tertiary font-medium py-1">{w}</div>
+            <div key={w} className="text-center text-micro text-tertiary font-medium py-1">{w}</div>
           ))}
         </div>
         <div
@@ -353,7 +353,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
           <button
             onClick={openNew}
             data-testid="schedule-add-btn"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-sm font-medium hover:opacity-90 active:scale-press-sm transition"
+            // 次要样式：实心强调色留给日历上的选中日、计划卡的「开始」和右下角「开练」（2026-10-22 界面审查：一屏一个主操作）
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-btn text-primary border border-divider text-sm font-medium active:scale-press-sm transition [&>svg]:text-accent"
           >
             <Plus size={16} strokeWidth={2} />
             {translations.scheduleAdd[lang]}
@@ -375,7 +376,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                       <h4 className="font-semibold text-primary truncate">
                         {s.title || (lang === Language.CN ? '未命名训练' : 'Untitled session')}
                       </h4>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-chip ${badge.cls}`}>{badge.label}</span>
+                      <span className={`text-micro font-normal px-2 py-0.5 rounded-chip ${badge.cls}`}>{badge.label}</span>
                     </div>
                     {s.bodyParts.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -385,7 +386,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                           return (
                             <span
                               key={tag}
-                              className="text-[11px] px-2 py-0.5 rounded-chip bg-inset text-secondary"
+                              className="text-micro font-normal px-2 py-0.5 rounded-chip bg-inset text-secondary"
                             >
                               {builtin || custom || tag}
                             </span>

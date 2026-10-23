@@ -96,7 +96,7 @@ const PickerRow: React.FC<PickerRowProps> = ({
         <span className="flex items-center gap-2 flex-wrap text-sm font-semibold text-primary">
           {displayName}
           {added > 0 && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-chip bg-success/15 text-success text-[10px] font-bold whitespace-nowrap">
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-chip bg-success/15 text-success text-micro font-bold whitespace-nowrap">
               ✓ {isCn ? '已添加' : 'Added'}{added > 1 ? ` ×${added}` : ''}
             </span>
           )}
@@ -1235,8 +1235,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       <div key={title}>
         <div className="flex items-center gap-1.5 mb-2 px-0.5 mt-3 first:mt-1">
           {icon}
-          <h3 className="text-[11px] font-bold text-primary uppercase tracking-[0.12em]">{title}</h3>
-          <span className="text-[10px] font-bold text-tertiary">· {items.length}</span>
+          <h3 className="text-micro font-bold text-primary uppercase tracking-[0.12em]">{title}</h3>
+          <span className="text-micro font-bold text-tertiary">· {items.length}</span>
         </div>
         <div className="space-y-2">{items.map(ex => renderRow(ex))}</div>
       </div>
@@ -1248,13 +1248,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
    * 自建部位和内置部位同一个样子。
    */
   const tabCls = (on: boolean) =>
-    `relative flex-shrink-0 min-h-[40px] px-3 text-[13px] font-bold whitespace-nowrap flex items-center gap-1 transition-colors ${
+    `relative flex-shrink-0 min-h-[40px] px-3 text-sm font-bold whitespace-nowrap flex items-center gap-1 transition-colors ${
       on ? 'text-accent' : 'text-secondary active:text-primary'
     }`;
   const tabBar = (on: boolean) =>
     on ? <span className="absolute left-2 right-2 bottom-0 h-[2px] rounded-full bg-accent" aria-hidden /> : null;
   const tabCount = (n: number, on: boolean) => (
-    <i className={`not-italic text-[10px] font-semibold tabular-nums ${on ? 'text-accent/70' : 'text-tertiary'}`}>{n}</i>
+    <i className={`not-italic text-micro font-semibold tabular-nums ${on ? 'text-accent' : 'text-tertiary'}`}>{n}</i>
   );
 
   /** 部位标签（普通态：0 结果的隐藏，已选中的除外；整理态：全部列出） */
@@ -1321,7 +1321,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           }`}
         >
           <span className="break-words text-center">{label}</span>
-          <span className={`text-[10px] font-semibold tabular-nums ${on ? 'text-accent/70' : 'text-tertiary'}`}>{n}</span>
+          <span className={`text-micro font-semibold tabular-nums ${on ? 'text-accent' : 'text-tertiary'}`}>{n}</span>
         </button>
       );
     });
@@ -1395,7 +1395,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           {sessionAdded > 0 && !arranging && (
             <span
               key={sessionAdded}
-              className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-[11px] font-bold whitespace-nowrap"
+              className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-micro font-bold whitespace-nowrap"
             >
               ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
             </span>
@@ -1464,7 +1464,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={() => onCreateCustomExercise(q || undefined, createPreset())}
-              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-accent text-on-accent text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform"
+              // 次要样式：弹层的主操作是底部「完成」（2026-10-22 界面审查：一屏一个主操作）
+              className="flex-shrink-0 min-h-[46px] px-3.5 rounded-card bg-btn text-primary border border-divider text-xs font-bold flex items-center gap-1 active:scale-press-sm transition-transform [&>svg]:text-accent"
             >
               <Plus size={14} strokeWidth={2.5} />
               {isCn ? '新动作' : 'New'}
@@ -1478,7 +1479,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={() => setKbExpandFilters(true)}
-              className="flex-1 min-w-0 min-h-[36px] px-3 rounded-control bg-inset text-[11px] font-bold text-secondary flex items-center gap-1.5 active:bg-card-hover transition-colors"
+              className="flex-1 min-w-0 min-h-[36px] px-3 rounded-control bg-inset text-micro font-bold text-secondary flex items-center gap-1.5 active:bg-card-hover transition-colors"
               data-testid="filters-summary"
             >
               <Filter size={12} className="flex-shrink-0" />
@@ -1543,7 +1544,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   setPartMenu({ id: '' });
                 }}
                 aria-label={isCn ? '新建部位' : 'New part'}
-                className="flex-shrink-0 min-h-[40px] px-3 text-[13px] font-bold text-accent flex items-center gap-1 whitespace-nowrap"
+                className="flex-shrink-0 min-h-[40px] px-3 text-sm font-bold text-accent flex items-center gap-1 whitespace-nowrap"
                 data-testid="arrange-new-part"
               >
                 <Plus size={14} strokeWidth={2.5} />
@@ -1574,7 +1575,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 type="button"
                 onClick={() => setEquipOpen(v => !v)}
                 aria-expanded={equipOpen}
-                className={`flex-shrink-0 max-w-[128px] min-h-[40px] pl-2.5 pr-1 text-[13px] font-bold flex items-center gap-1 border-l border-divider ${
+                className={`flex-shrink-0 max-w-[128px] min-h-[40px] pl-2.5 pr-1 text-sm font-bold flex items-center gap-1 border-l border-divider ${
                   equips.size > 0 ? 'text-accent' : 'text-secondary'
                 }`}
                 data-testid="equip-toggle"
@@ -1593,7 +1594,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
         {/* 计数 / 清空（选了部位时不显示：清空就是点「全部」） */}
         {(q || nFilters > 0) && !arranging && !oneLine && (
-          <div className="flex items-center justify-between px-4 pb-1.5 flex-shrink-0 text-[11px] font-semibold text-tertiary">
+          <div className="flex items-center justify-between px-4 pb-1.5 flex-shrink-0 text-micro font-semibold text-tertiary">
             <span>
               <b className="text-secondary">{totalCount}</b> {isCn ? '个结果' : 'results'}
               {nFilters > 0 && ` · ${nFilters} ${isCn ? '个筛选' : 'filters'}`}
@@ -1699,12 +1700,12 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full min-h-[48px] rounded-control bg-accent text-on-accent font-bold text-[15px] flex items-center justify-center gap-2 active:opacity-90"
+              className="w-full min-h-[48px] rounded-control bg-accent text-on-accent font-bold text-base flex items-center justify-center gap-2 active:opacity-90"
               data-testid="picker-done"
             >
               {isCn ? '完成' : 'Done'}
               {sessionAdded > 0 && (
-                <span className="text-[12px] font-semibold opacity-85 tabular-nums">
+                <span className="text-xs font-semibold tabular-nums">
                   · {isCn ? `本次已加 ${sessionAdded}` : `${sessionAdded} added`}
                 </span>
               )}
@@ -1777,7 +1778,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             ) : (
               hidden.length > 0 && (
                 <>
-                  <div className="px-2 pt-1 text-[10px] font-bold tracking-[0.2em] text-secondary">
+                  <div className="px-2 pt-1 text-micro font-bold tracking-[0.2em] text-secondary">
                     {isCn ? '恢复' : 'RESTORE'}
                   </div>
                   <div className="flex flex-wrap gap-1.5">

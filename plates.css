@@ -51,7 +51,7 @@
   gap: 8px;
   padding: 2px 12px 8px;
 }
-.load-near span { font-size: 12px; color: var(--text-secondary); }
+.load-near span { font-size: var(--fs-label); color: var(--text-secondary); }
 .load-near button {
   min-height: 36px;
   min-width: 52px;
@@ -119,10 +119,10 @@
   font: 700 20px/1 'Barlow Condensed', system-ui, sans-serif;
   color: var(--text-primary);
 }
-.gym-inc-stepper span { font-size: 12px; color: var(--text-secondary); }
+.gym-inc-stepper span { font-size: var(--fs-label); color: var(--text-secondary); }
 .load-caption {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   color: var(--text-secondary);
 }
@@ -143,7 +143,7 @@
 /* 杠名：可点的批注（虚线下划线），点开选标准 / 女子 / 短杠 */
 .bar-chip {
   position: relative;
-  font-size: 12px;
+  font-size: var(--fs-label);
   line-height: 1.4;
   font-weight: 600;
   color: var(--text-primary);
@@ -163,7 +163,7 @@
   padding: 0 12px;
   border: 1.5px solid var(--divider);
   border-radius: var(--radius-control);
-  font-size: 13px;
+  font-size: var(--fs-small);
   color: var(--text-secondary);
   display: flex;
   align-items: baseline;
@@ -184,7 +184,7 @@
   background: var(--bg-inset);
   border-radius: var(--radius-control);
 }
-.bar-short-w button { width: 40px; min-height: 40px; font-size: 18px; color: var(--text-secondary); }
+.bar-short-w button { width: 40px; min-height: 40px; font-size: var(--fs-h2); color: var(--text-secondary); }
 .bar-short-w b { font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
 
 /* 配重片刻度（方案 A，docs/demos/stack-scale.html）：图上方一枚小药丸；点开后图这一块原地换成设置面，
@@ -194,38 +194,38 @@
   display: inline-flex; align-items: center; gap: 5px;
   min-height: 30px; padding: 0 10px; border-radius: 999px;
   border: 1px solid var(--divider); background: var(--bg-base);
-  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  font-size: var(--fs-label); font-weight: 600; color: var(--text-secondary);
 }
 .stack-tag svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .stack-tag:active { background: var(--bg-inset); }
 .stack-face { padding: 2px 14px 10px; min-height: 176px; }
 .stack-fhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.stack-fhead b { display: block; font-size: 14px; font-weight: 800; color: var(--text-primary); }
-.stack-fhead small { display: block; font-size: 11px; color: var(--text-tertiary); }
+.stack-fhead b { display: block; font-size: var(--fs-small); font-weight: 800; color: var(--text-primary); }
+.stack-fhead small { display: block; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-done {
   min-height: 36px; padding: 0 16px; border-radius: var(--radius-control);
-  background: var(--accent); color: var(--text-on-accent); font-size: 13px; font-weight: 800;
+  background: var(--accent); color: var(--text-on-accent); font-size: var(--fs-small); font-weight: 800;
 }
 .stack-stp {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 0; border-top: 1px solid var(--divider); font-size: 13px; color: var(--text-secondary);
+  padding: 8px 0; border-top: 1px solid var(--divider); font-size: var(--fs-small); color: var(--text-secondary);
 }
 .stack-seg {
   display: inline-flex; align-items: center;
   background: var(--bg-base); border: 1px solid var(--divider); border-radius: var(--radius-control); overflow: hidden;
 }
-.stack-seg button { width: 42px; min-height: 40px; font-size: 18px; color: var(--text-secondary); }
+.stack-seg button { width: 42px; min-height: 40px; font-size: var(--fs-h2); color: var(--text-secondary); }
 .stack-seg button:active { background: var(--bg-inset); }
 .stack-seg b, .stack-seg input {
   width: 56px; text-align: right; background: transparent; border: 0; outline: none; padding: 0;
   font: 800 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary);
 }
-.stack-seg small { width: 22px; padding-left: 3px; font-size: 11px; color: var(--text-tertiary); }
+.stack-seg small { width: 22px; padding-left: 3px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-mini { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; font: 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-tertiary); }
 .stack-mini i { font-style: normal; padding: 3px 6px; border-radius: 6px; background: var(--bg-base); border: 1px solid var(--divider); }
 .stack-mini i.is-first { border-color: var(--accent); color: var(--accent-text); font-weight: 800; }
-.stack-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--text-tertiary); }
-.stack-foot button { min-height: 32px; font-size: 12px; font-weight: 700; color: var(--accent-text); }
+.stack-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: var(--fs-micro); color: var(--text-tertiary); }
+.stack-foot button { min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
 
 /* ── 杠铃：真实比例 ─────────────────────────────────────────────
    --mm = 1 毫米在屏幕上的宽度 = 容器宽 ÷ 杠长（--L，mm）。杠长、握把段、套筒、直径、
@@ -291,7 +291,7 @@
 .bar-load .plate {
   width: min(calc(10px + var(--mm) * var(--thick) * 0.45), calc(var(--mm) * (var(--sleeve) - 10) / var(--n, 1) - 1px));
 }
-.plate-stack[data-crowded] .plate b { font-size: 8px; }
+.plate-stack[data-crowded] .plate b { font-size: 8px; /* 阶梯外：片子图形上的数字 */ }
 
 /* 一片：直径 / 厚度来自 --dia / --thick（mm）。大片同直径，靠厚度和印字区分。
    厚度不按真实比例（2026-10-20 用户定）：真比例下 25 kg 片只有 9px、5 kg 片不到 4px，印不下字。
@@ -376,7 +376,7 @@
 .pin-slab.is-at em {
   /* 插销那一片的确切重量：加粗放大，往左伸出去不挤刻度列 */
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: var(--fs-small);
   font-weight: 700;
   width: 40px;
   margin-left: -16px;
@@ -559,5 +559,5 @@
 .bar-short-w .scrub-num.is-scrubbing input { border-bottom-style: solid; color: var(--accent-text); }
 /* 刻度设置面的数字也按整数位钉住（.stack-seg input 原来右对齐，12 ⇄ 12.5 时整数位会跳） */
 .stack-seg .scrub-num input { text-align: left; font-variant-numeric: tabular-nums; }
-.stack-note { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
+.stack-note { font-size: var(--fs-micro); color: var(--text-tertiary); margin-top: 2px; }
 .stack-stp .gym-seg { flex-shrink: 0; }

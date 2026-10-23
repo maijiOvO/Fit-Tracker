@@ -210,7 +210,7 @@ export const AlternatingCard: React.FC<Props> = ({
           />
         )}
         <div className="flex items-baseline gap-3">
-          <h3 className="title-face text-[24px] text-primary leading-tight flex-1 min-w-0 break-words">
+          <h3 className="title-face text-xl text-primary leading-tight flex-1 min-w-0 break-words">
             {members.map((m, i) => (
               <React.Fragment key={m.id}>
                 {i > 0 && <span className="text-tertiary font-sans font-medium mx-1">⇄</span>}
@@ -277,7 +277,7 @@ export const AlternatingCard: React.FC<Props> = ({
           <span className="text-label font-medium text-accent">{isCn ? '交替' : 'Alternating'}</span>
           <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
             {isCn ? `第${cardNo}个` : `#${cardNo}`} · <span className="text-primary font-semibold">{done}</span>
-            {done < planned && <span className="opacity-80">/{planned}</span>}
+            {done < planned && <span className="text-tertiary">/{planned}</span>}
             {isCn ? '组' : ` ${plural(done < planned ? planned : done, 'set')}`} · {volText}
           </span>
         </div>

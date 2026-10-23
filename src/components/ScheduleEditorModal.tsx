@@ -364,7 +364,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <label className="block">
-                    <span className="text-[10px] text-tertiary">{translations.scheduleTargetSets[lang]}</span>
+                    <span className="text-micro font-normal text-tertiary">{translations.scheduleTargetSets[lang]}</span>
                     <ScrubNumber
                       value={ex.targetSets ?? null}
                       onCommit={n => updateExercise(ex.id, { targetSets: n ?? undefined })}
@@ -379,7 +379,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                     />
                   </label>
                   <label className="block">
-                    <span className="text-[10px] text-tertiary">{translations.scheduleTargetReps[lang]}</span>
+                    <span className="text-micro font-normal text-tertiary">{translations.scheduleTargetReps[lang]}</span>
                     <ScrubNumber
                       value={ex.targetReps ?? null}
                       onCommit={n => updateExercise(ex.id, { targetReps: n ?? undefined })}
@@ -394,7 +394,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                     />
                   </label>
                   <label className="block">
-                    <span className="text-[10px] text-tertiary">
+                    <span className="text-micro font-normal text-tertiary">
                       {translations.scheduleTargetWeight[lang]} ({unit})
                     </span>
                     <ScrubNumber

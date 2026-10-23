@@ -353,7 +353,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 
         <button onClick={() => onTabChange('dashboard')} className={tabBtn(activeTab === 'dashboard')}>
           <BarChart2 size={20} strokeWidth={1.75} />
-          <span className="text-[10px] font-medium">{translations.dashboard[lang]}</span>
+          <span className="text-micro font-medium">{translations.dashboard[lang]}</span>
         </button>
 
         <button
@@ -362,12 +362,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           data-testid="tab-plan"
         >
           <CalendarDays size={20} strokeWidth={1.75} />
-          <span className="text-[10px] font-medium">{translations.trainingPlan[lang]}</span>
+          <span className="text-micro font-medium">{translations.trainingPlan[lang]}</span>
         </button>
 
         <button onClick={() => onTabChange('profile')} className={tabBtn(activeTab === 'profile')}>
           <UserIcon size={20} strokeWidth={1.75} />
-          <span className="text-[10px] font-medium">{lang === Language.CN ? '我的' : 'Profile'}</span>
+          <span className="text-micro font-medium">{lang === Language.CN ? '我的' : 'Profile'}</span>
         </button>
 
         {/* FAB：点按走原路径；长按印谱扇开。touch-action:none —— 56px 圆钮上没有滚动语义 */}

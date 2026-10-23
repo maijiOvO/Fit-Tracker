@@ -183,12 +183,12 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         <div className={`grid gap-2 ${cards.length >= 3 ? 'grid-cols-3' : cards.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {cards.map(c => (
             <div key={c.label} className="bg-inset rounded-control px-3 py-2.5 min-w-0">
-              <div className="text-[11px] text-tertiary">{c.label}</div>
+              <div className="text-micro font-normal text-tertiary">{c.label}</div>
               <div className="font-mono font-semibold text-primary tabular-nums text-lg leading-tight truncate">
                 {c.value}
-                {c.unit && <span className="text-[11px] text-tertiary font-normal ml-1">{c.unit}</span>}
+                {c.unit && <span className="text-micro text-tertiary font-normal ml-1">{c.unit}</span>}
               </div>
-              <div className="text-[11px] text-tertiary leading-snug">{c.sub}</div>
+              <div className="text-micro font-normal text-tertiary leading-snug">{c.sub}</div>
             </div>
           ))}
         </div>
@@ -230,7 +230,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         <Suspense fallback={<div className="h-[220px]" />}>
           {metric && <LiftTrendChart lift={l} metric={metric} range={range} lang={lang} unit={unit} />}
         </Suspense>
-        <p className="text-[11px] text-tertiary mt-1 leading-snug">
+        <p className="text-micro font-normal text-tertiary mt-1 leading-snug">
           {isCn
             ? '线：历史最好 · 点：每场最好 · 实心：破纪录'
             : 'Line: all-time best · Dots: best set each session · Filled: new record'}
@@ -258,7 +258,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                   {rowSummary(s)}
                 </span>
                 {isPr && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-chip bg-warning/15 text-warning">PR</span>
+                  <span className="text-micro font-bold px-1.5 py-0.5 rounded-chip bg-warning/15 text-warning">PR</span>
                 )}
                 <span className="text-xs text-tertiary tabular-nums whitespace-nowrap">
                   {s.sets.length} {isCn ? '组' : plural(s.sets.length, 'set')}

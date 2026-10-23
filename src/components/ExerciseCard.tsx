@@ -410,7 +410,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           />
         )}
         <div className="flex items-baseline gap-3">
-          <h3 className="title-face text-[24px] text-primary leading-tight flex-1 min-w-0 break-words">
+          <h3 className="title-face text-xl text-primary leading-tight flex-1 min-w-0 break-words">
             {exerciseName}
           </h3>
 
@@ -586,7 +586,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           <span className="ml-auto font-mono text-label text-tertiary tabular-nums whitespace-nowrap">
             {isCn ? `第${cardNo ?? exIdx + 1}个` : `#${cardNo ?? exIdx + 1}`} ·{' '}
             <span className="text-primary font-semibold">{realSetCount}</span>
-            {ghostSetCount > 0 && <span className="opacity-80">/{plannedCount}</span>}
+            {ghostSetCount > 0 && <span className="text-tertiary">/{plannedCount}</span>}
             {/* 有分母时按分母定单复数（"1/4 sets"），没分母时还按原来的分子 */}
             {isCn ? '组' : ` ${plural(ghostSetCount > 0 ? plannedCount : realSetCount, 'set')}`} ·{' '}
             {formatVolume(totalVolumeKg(exercise), unit)}

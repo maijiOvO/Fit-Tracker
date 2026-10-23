@@ -97,7 +97,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
                     else e.currentTarget.blur();
                   }}
                 />
-                <span className="text-[10px] font-bold text-tertiary  mt-1">
+                <span className="text-micro font-bold text-tertiary  mt-1">
                   {col.label}
                 </span>
               </div>

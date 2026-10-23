@@ -434,7 +434,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <div className="flex-1 min-w-0 space-y-1">
             {/* flex-wrap + 每项 nowrap：360/384 宽下编辑态的五项挤不下一行，
                 原先是每项被压成一字一行（「未保存」竖着排）；现在整项折到第二行。 */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
               <span>
                 {editingWorkoutId
                   ? (isCn ? '编辑训练' : 'Edit Workout')
@@ -444,7 +444,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 <button
                   type="button"
                   onClick={onChangeDate}
-                  className="normal-case tracking-normal text-tertiary/80 hover:text-accent transition-colors inline-flex items-center gap-1"
+                  className="normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1"
                   title={isCn ? '修改训练日期' : 'Change workout date'}
                 >
                   ·{' '}
@@ -460,9 +460,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 <button
                   type="button"
                   onClick={onChangeGym}
-                  className={`normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent ${
-                    currentWorkout.gym ? 'text-tertiary/80' : 'text-tertiary/45'
-                  }`}
+                  // 没选馆时只剩一个图标，以前再降到 45% 透明度，约 1.9:1 看不见能点（2026-10-22 颜色审查）
+                  className="normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
                   title={translations.gymPickTitle[lang] as string}
                   aria-label={translations.gymPickTitle[lang] as string}
                   data-testid="gym-button"
@@ -492,7 +491,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             </div>
             <input
               ref={titleInputRef}
-              className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary/60 min-h-[36px]"
+              className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
               value={currentWorkout.title}
               onChange={e =>
                 setCurrentWorkout({ ...currentWorkout, title: e.target.value })
@@ -515,7 +514,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                     ? 'bg-danger text-on-accent'
                     : !(currentWorkout.exercises?.length) || (editingWorkoutId && !hasUnsavedChanges)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
-                      : 'bg-accent text-on-accent hover:opacity-90'
+                      : editingWorkoutId
+                        ? 'bg-accent text-on-accent hover:opacity-90'
+                        // 训练中的「结束训练」用次要样式：这一屏的主操作是底部「添加动作」，
+                        // 两个实心按钮一上一下抢眼，结束反而比继续练更显眼（2026-10-22 界面审查）
+                        : 'bg-btn text-primary border border-divider [&>svg]:text-accent'
             }`}
           >
             {saveStatus === 'saving' ? (
@@ -735,7 +738,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={() => onPickerOpenChange(true)}
-            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-[15px] font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
+            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-base font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
             data-testid="open-picker-sheet"
           >
             <Plus size={19} strokeWidth={2.5} />

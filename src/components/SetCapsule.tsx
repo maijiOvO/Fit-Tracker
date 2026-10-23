@@ -534,7 +534,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 type="button"
                 onClick={onDurationClick}
                 disabled={readOnly}
-                className={`ledger-field min-h-[44px] font-mono font-semibold text-[22px] leading-none text-primary tabular-nums${
+                className={`ledger-field min-h-[44px] font-mono font-semibold text-xl leading-none text-primary tabular-nums${
                   readOnly ? '' : ' ledger-fit'
                 }`}
                 // 居中而不是 .ledger-field 的 baseline：按钮 44px 高、只有一段文字，
@@ -707,17 +707,19 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             }
             className={`w-9 h-11 justify-self-center flex items-center justify-center
               font-display font-semibold leading-none transition-ui active:scale-press-sm
-              ${set.toFailure ? 'text-[17px]' : 'text-tertiary/35 text-[17px]'}`}
+              text-lg`}
           >
-            {/* 标了力竭＝墨底反白的小方块：换装后强调色是墨，单靠颜色已经和数字分不开（2026-10-18 审查） */}
-            <span className={set.toFailure ? 'w-7 h-7 flex items-center justify-center rounded-chip bg-accent text-on-accent' : ''}>
+            {/* 标了力竭＝墨底反白的小方块：换装后强调色是墨，单靠颜色已经和数字分不开（2026-10-18 审查）。
+                没标＝同尺寸的空心框 + 实色三级字：开关两态靠「实心 / 空心」区分。
+                以前没标时是 tertiary/35，对比度约 1.6:1，健身房里看不见这一列能点（2026-10-22 界面审查 P0）。 */}
+            <span className={`w-7 h-7 flex items-center justify-center rounded-chip ${set.toFailure ? 'bg-accent text-on-accent' : 'border border-divider text-tertiary'}`}>
               {isCn ? '竭' : 'F'}
             </span>
           </button>
         ) : set.toFailure ? (
           <span
             className="w-9 justify-self-center flex items-center justify-center
-              font-display font-semibold text-[17px] leading-none"
+              font-display font-semibold text-lg leading-none"
             title={isCn ? '做到力竭' : 'To failure'}
           >
             <span className="w-7 h-7 flex items-center justify-center rounded-chip bg-accent text-on-accent">{isCn ? '竭' : 'F'}</span>
@@ -957,7 +959,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
         if (readOnly) {
           return (
             <span key={m} className="ledger-field">
-              <span className="font-mono font-semibold text-[22px] leading-none text-primary tabular-nums">
+              <span className="font-mono font-semibold text-xl leading-none text-primary tabular-nums">
                 {value ? display : '—'}
               </span>
               {unitLabel && <span className="ledger-unit">{unitLabel}</span>}

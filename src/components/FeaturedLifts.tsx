@@ -177,7 +177,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
       {total && (
         <div className="pt-1 pb-3" data-testid="featured-total">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono font-bold text-[30px] leading-none text-primary tabular-nums">{toUnit(total.now)}</span>
+            <span className="font-mono font-bold text-3xl leading-none text-primary tabular-nums">{toUnit(total.now)}</span>
             <span className="text-sm text-secondary">
               {unit} · {mode === 'e1rm' ? (isCn ? '三项 1RM 总和' : 'Big 3 est. 1RM total') : isCn ? '三项总和' : 'Big 3 total'}
             </span>
@@ -242,7 +242,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
                 )}
               </span>
               {stats.lastPrTs != null && (
-                <span className={`flex items-center gap-1 text-[11px] mt-1 ${hot ? 'text-warning font-semibold' : 'text-tertiary'}`}>
+                <span className={`flex items-center gap-1 text-micro mt-1 ${hot ? 'text-warning font-semibold' : 'text-tertiary'}`}>
                   {hot && <Flame size={12} strokeWidth={2} />}
                   {hot
                     ? isCn
@@ -268,7 +268,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
       })}
 
       {mode === 'e1rm' && (
-        <p className="text-[11px] text-tertiary leading-snug border-t border-divider py-2.5">
+        <p className="text-micro font-normal text-tertiary leading-snug border-t border-divider py-2.5">
           {isCn
             ? '估算 1RM＝重量 ×（1 + 次数 / 30），仅算 12 次以内的组，非实测'
             : 'Est. 1RM = weight × (1 + reps / 30), sets of ≤12 reps; not a tested max'}

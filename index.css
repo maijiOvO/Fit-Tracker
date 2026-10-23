@@ -111,12 +111,18 @@
   --bg-card: #F4F5F7;        /* 卡片：白底上的浅灰块 */
   --bg-card-hover: #ECEEF1;
   --bg-inset: #E9EBEF;       /* 凹槽 */
+  /* 次要按钮底（2026-10-22 颜色审查）：浅色比 card 深一档才看得见，深色要比 card 亮一档才是「凸起」。
+     以前直接借 inset，深色下 inset 比卡片还黑，按钮像个洞 */
+  --bg-btn: #E9EBEF;
   --divider: #E3E5E9;
   --rule-strong: #A3A8B0;
 
   --text-primary: #111316;
-  --text-secondary: #4B5058;
-  --text-tertiary: #5C626B;  /* card / base / inset 三种底都过 4.5:1 */
+  /* 二级 / 三级原来是 #4B5058 / #5C626B，L* 只差 7，看上去是同一种灰（2026-10-22 界面审查）。
+     两头一起拉：二级压深、三级提亮，L* 30 / 44，差 14，和深色两套（差约 12.5）同档。
+     三级的上限卡在 inset 底和紫 / 玫红的 accent-soft 底上：都过 4.5:1（最紧 4.60） */
+  --text-secondary: #43474E;
+  --text-tertiary: #626872;
 
   /* 青（默认） */
   --accent: #12B39A;
@@ -173,6 +179,20 @@
   --radius-sheet: 8px;
   --radius-stamp: 4px;
 
+  /* 字号阶梯（2026-10-22 界面审查）：全站只用这九档，Tailwind 的 fontSize 和本文件的 font-size 都从这里取。
+     以前三套写法并行（text-xs/sm、text-label/micro、手写 text-[9.5px]），实际渲染出二十多种字号，
+     首页列表的辅助信息只有 9–10.5px。下限 11px。
+     不在阶梯上的只有图形：印章字、杠铃片上的数字、图表刻度、账本里按列宽自适应的数字。 */
+  --fs-micro: 11px;   /* 单位、角标、底栏标签 */
+  --fs-label: 12px;   /* 表头、小标签、辅助信息 */
+  --fs-small: 14px;   /* 密集界面文字：列表行、按钮、格子 */
+  --fs-body: 15px;    /* 正文、输入框 */
+  --fs-h2: 17px;      /* 小标题、动作名 */
+  --fs-data-md: 22px; /* 卡片汇总、日期数字、训练页动作名 */
+  --fs-data-lg: 26px; /* 组行重量与次数 */
+  --fs-headline: 28px;
+  --fs-data-xl: 40px; /* PR、结束训练总结 */
+
   /* 休息标记（§12.13）的几何。demo 里逐个调过的值：docs/archive/demos/rest-marker.html */
   --rest-h: 18px;
   --rest-w: 9px;
@@ -203,7 +223,7 @@
   --accent: #F97316;
   --accent-soft: #FFEDD5;
   --accent-ink: #EA580C;
-  --accent-text: #C2410C;
+  --accent-text: #BB3F0C; /* 原 #C2410C 在 inset 底上 4.34:1，不过 4.5（2026-10-22 颜色审查） */
   --text-on-accent: #1F1205;
 }
 /* 浅蓝：偏青的天蓝，和 20 kg 蓝片（#1E5BC6，更深更紫）拉开 */
@@ -222,6 +242,7 @@
   --bg-card: #172028;
   --bg-card-hover: #1D2731;
   --bg-inset: #080B0E;
+  --bg-btn: #25303A;
   --divider: #25303A;
   --rule-strong: #3E4B57;
 
@@ -285,6 +306,7 @@
   --bg-card: #19191D;
   --bg-card-hover: #202025;
   --bg-inset: #040405;
+  --bg-btn: #2A2A30;
   --divider: #2A2A30;
   --rule-strong: #45454D;
 
@@ -389,7 +411,7 @@ html {
 body {
   font-family: 'Noto Sans SC', 'CJK Fallback', system-ui, sans-serif;
   font-weight: 400;
-  font-size: 15px;
+  font-size: var(--fs-body);
   line-height: 1.7;
   /* §3 排印铁律：中文永远 letter-spacing: 0，永不 uppercase */
   letter-spacing: 0;
@@ -497,8 +519,10 @@ button {
   transform: scale(0.98);
 }
 
+/* 次要按钮用 --bg-btn，不用 inset：inset 是凹槽，深色下比卡片还黑，按钮像个洞
+   （2026-10-22 颜色审查）。按下才沉到 inset。 */
 .ui-btn-secondary {
-  background-color: var(--bg-inset);
+  background-color: var(--bg-btn);
   color: var(--text-primary);
   font-weight: 500;
   border-radius: var(--radius-control);
@@ -506,10 +530,8 @@ button {
   border: 1px solid var(--divider);
   transition: background-color 150ms ease, transform 150ms ease;
 }
-.ui-btn-secondary:hover {
-  background-color: var(--bg-card-hover);
-}
 .ui-btn-secondary:active {
+  background-color: var(--bg-inset);
   transform: scale(0.98);
 }
 
@@ -519,7 +541,7 @@ button {
   color: var(--text-primary);
   border-radius: var(--radius-control);
   padding: 0.75rem 1rem;
-  font-size: 15px;
+  font-size: var(--fs-body);
   border: 1px solid var(--divider);
   outline: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
@@ -536,7 +558,7 @@ button {
 }
 
 .ui-section-label {
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 500;
   color: var(--text-secondary);
 }
@@ -763,7 +785,7 @@ button {
   border-radius: var(--radius-chip);
   background: var(--accent);
   color: var(--text-on-accent);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   line-height: 1.4;
   white-space: nowrap;
@@ -892,7 +914,7 @@ button {
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-weight: 700;
   /* 窄体数字同字号下比等宽字体瘦一圈，30px 才和原先 26px 的分量相当（「杠铃片」§2） */
-  font-size: 30px;
+  font-size: 30px; /* 阶梯外：账本数字按列宽自适应，这是上限 */
   line-height: 1;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
@@ -911,7 +933,7 @@ button {
   opacity: 0.5;
 }
 .ledger-input-sm {
-  font-size: 20px;
+  font-size: 20px; /* 阶梯外：账本数字按列宽自适应 */
 }
 
 /* 长数字按格宽收字号，短数字一律还是 26px。
@@ -1012,7 +1034,7 @@ button {
   top: -3px;
   right: 0;
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   line-height: 1;
   color: var(--accent-text);
@@ -1021,7 +1043,7 @@ button {
 
 /* 单位：11px 内嵌在数值右下角，取代原来 10px 的表头副行 */
 .ledger-unit {
-  font-size: 11px;
+  font-size: var(--fs-micro);
   font-weight: 500;
   line-height: 1;
   color: var(--text-tertiary);
@@ -1129,10 +1151,8 @@ button {
   border-bottom: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent);
   padding-bottom: 1px;
 }
-.ledger-row.is-ghost .ledger-unit,
-.ledger-subrow.is-ghost .ledger-unit {
-  opacity: 0.7;
-}
+/* 待做行的单位原来再降到 70% 透明度：三级字 × 0.7 在 card 上约 3.2:1，11px 看不清。
+   待做和做完靠数字墨色和虚线下划线区分，单位不用再淡一层（2026-10-22 颜色审查） */
 /* 待做行里改过的格子：墨色变实（第 4 条）。虚线下划线留着 —— 组号还是虚线印，这组还没算做完。 */
 .ledger-row.is-ghost .ledger-field.is-edited .ledger-input,
 .ledger-subrow.is-ghost .ledger-field.is-edited .ledger-input {
@@ -1227,7 +1247,7 @@ button {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 13px;
+  font-size: var(--fs-small);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -1235,7 +1255,7 @@ button {
   flex: none;
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   color: var(--text-tertiary);
 }
@@ -1329,7 +1349,7 @@ button {
   text-align: left;
   background: var(--bg-inset);
   border-radius: var(--radius-control);
-  font-size: 12.5px;
+  font-size: var(--fs-label);
   line-height: 1.3;
   font-weight: 700;
   color: var(--text-secondary);
@@ -1422,7 +1442,7 @@ button {
   font-weight: 600;
 }
 .is-en .region-card {
-  font-size: 12px;
+  font-size: var(--fs-label);
   word-break: normal;
   overflow-wrap: break-word;
 }
@@ -1436,13 +1456,13 @@ button {
   color: var(--text-tertiary);
 }
 .region-ulab h3 {
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 700;
   color: var(--text-tertiary);
 }
 .region-ulab span {
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 600;
 }
 .region-unzone {
@@ -1521,16 +1541,16 @@ button {
   gap: 3px;
   padding-top: 11px;
   border-radius: var(--radius-control);
-  background: var(--bg-inset);
+  background: var(--bg-btn);
   color: var(--text-secondary);
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs-small);
   line-height: 1;
   transition: background-color var(--dur-tap) var(--ease-ink);
 }
 .ledger-step button:active {
-  background: color-mix(in srgb, var(--text-primary) 10%, var(--bg-inset));
+  background: var(--bg-inset);
 }
 /* 「递减」：窄一档、用正文字体（它不是数字），和 ±5 同高 */
 .ledger-step button.ledger-step-drop {
@@ -1538,7 +1558,7 @@ button {
   min-width: 64px;
   padding: 0 14px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--fs-small);
   align-items: center;
 }
 /* 组号在底稿行里是「未刻的印」：虚线框 + 淡墨（与「制」那枚虚线印同语义） */
@@ -1547,7 +1567,8 @@ button {
    只在工作台里画框（.is-ghost / .is-inked 只在可编辑的账本上挂），历史视图的组号还是素字。 */
 .ledger-row.is-ghost .set-num,
 .ledger-row.is-inked .set-num {
-  color: var(--accent);
+  /* 字用压深档：填充色 --accent 当字在 card 上只有 2.42:1（2026-10-22 界面审查 P0）。框线仍取填充色 */
+  color: var(--accent-text);
   border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
   border-radius: var(--radius-card);
   background: transparent;
@@ -1673,7 +1694,7 @@ button {
 }
 .rest-float-cap {
   z-index: 61;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   color: var(--accent-ink);
   background: var(--bg-card);
@@ -1717,8 +1738,8 @@ button {
   background: var(--bg-card);
   border: 2.5px solid var(--accent);
   border-radius: var(--radius-stamp);
-  color: var(--accent);
-  font-size: 27px;
+  color: var(--accent-text); /* 填充色当字 2.42:1，27px 大字也不过 3:1 */
+  font-size: 27px; /* 阶梯外：印章字 */
   line-height: 1;
   box-shadow: var(--shadow-overlay);
   opacity: 0;
@@ -1737,7 +1758,7 @@ button {
 .seal-fan-item.is-latin {
   font-family: 'Noto Sans SC', 'CJK Fallback', system-ui, sans-serif;
   font-weight: 700;
-  font-size: 32px;
+  font-size: 32px; /* 阶梯外：印章字 */
   /* 基础类那 1px 上边距是给 Ma Shan Zheng 压字面用的；大写字母全在基线以上，
      本来就偏低，再加就更歪。清零后上下留白 8.1 / 7.2，与 52px 那版同档。 */
   padding-top: 0;
@@ -1788,7 +1809,7 @@ button {
   padding: 2px 7px;
   border-radius: var(--radius-chip);
   background: var(--bg-card);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   font-weight: 600;
   line-height: 1.35;
   color: var(--text-secondary);
@@ -1818,7 +1839,7 @@ button {
   border: 1px solid var(--divider);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-overlay);
-  font-size: 12px;
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -1860,7 +1881,7 @@ button {
   gap: 10px;
   padding: 0 12px;
   border-radius: var(--radius-control);
-  font-size: 14px;
+  font-size: var(--fs-small);
   color: var(--text-secondary);
 }
 .reorder-strip li.is-moving {
