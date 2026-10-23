@@ -181,6 +181,14 @@ export interface MachineCtl {
 
 /* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
 
+/**
+ * 竖拖只认大图中间一条（2026-10-23 用户：整块配重片都能竖拖，翻页时手指划过就改了重量）。
+ * 方向不变（配重片竖着排就竖着滑，见 heroScrubAxis）；两边照常滚页面。
+ */
+function DragLane({ scrub }: { scrub: { handlers: Record<string, unknown> } }) {
+  return <span className="load-hero-lane" data-testid="hero-lane" aria-hidden {...scrub.handlers} />;
+}
+
 export function PinStackGlyph({ value, step, start = 0 }: { value: number; step: number; start?: number }) {
   // 带起始的配重片（12.5 起、每格 5）：第 1 片就是最轻一格，往下每片 +一档
   const s0 = start > 0 ? start : 0;
@@ -392,7 +400,7 @@ export function LoadHero({
       {/* 拖动区只包图形；下面的说明栏里有按钮，不能被拖动手势吃掉 */}
       <div
         className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
-        {...(scrub ? scrub.handlers : {})}
+        {...(scrub?.axis === 'x' ? scrub.handlers : {})}
       >
         {scrub?.scrubbing && (
           <span className="load-hero-step" aria-hidden>
@@ -405,6 +413,7 @@ export function LoadHero({
         {kind === 'bell' && <KettlebellGlyph value={value} unit={unit} />}
         {kind === 'fixed' && <FixedBarGlyph value={value} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={value} unit={unit} plateUnit={plateUnit} />}
+        {scrub?.axis === 'y' && <DragLane scrub={scrub} />}
       </div>
       <div className="load-caption-row">
         {kind === 'plates' && (
@@ -812,7 +821,7 @@ function GymHero({
             )}
           <div
             className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
-            {...(scrub ? scrub.handlers : {})}
+            {...(scrub?.axis === 'x' ? scrub.handlers : {})}
           >
             {scrub?.scrubbing && (
               <span className="load-hero-step" aria-hidden>
@@ -825,6 +834,7 @@ function GymHero({
             {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}
             {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
             {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
+            {scrub?.axis === 'y' && <DragLane scrub={scrub} />}
           </div>
           <div className="load-caption-row">
             {kind === 'plates' && (
