@@ -240,7 +240,9 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     Record<string, string>
   >({});
   // ============== 动作维度 / 备注 弹窗 ==============
-  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number } | null>(null);
+  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number; focus?: 'gym' } | null>(null);
+  /** 动作设置弹窗里「在 X · 只改这一台」的挂载点（卡片把这台器械的设置 portal 进去） */
+  const [metricGymSlot, setMetricGymSlot] = useState<HTMLElement | null>(null);
   // 「动作设置」里的名称 / 部位器械：库里有这个动作才能改（合并覆盖层后的定义，显示的是现在的标签）
   const metricModalDef = useMemo(() => {
     const def = showMetricModal?.name ? prefs.findExerciseDef(showMetricModal.name) : undefined;
@@ -1223,7 +1225,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                   : {}),
               })
             }
-            onOpenMetricModal={(name, exIdx) => setShowMetricModal({ name, exIdx })}
+            onOpenMetricModal={(name, exIdx, focus) => setShowMetricModal({ name, exIdx, focus })}
+            metricSlot={showMetricModal?.exIdx != null ? { exIdx: showMetricModal.exIdx, el: metricGymSlot } : null}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
             onChangeGym={() => setShowGymPicker(true)}
             onDeleteExerciseFromSession={exIdx => {
@@ -1377,6 +1380,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         toggleMetric={prefs.toggleMetric}
         onResetDefault={handleResetMetricsToDefault}
         onClose={() => setShowMetricModal(null)}
+        gymSlotRef={setMetricGymSlot}
+        focusGym={showMetricModal?.focus === 'gym'}
         signedLoad={showMetricModal?.name ? prefs.signedLoadOf(showMetricModal.name) : false}
         onChangeSignedLoad={
           showMetricModal?.name && prefs.findExerciseDef(showMetricModal.name)

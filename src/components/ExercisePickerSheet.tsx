@@ -39,7 +39,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf } from '../hooks/useExercisePickerData';
-import { RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, type Resistance } from '../utils/exerciseAttrs';
+import { EQ_BARBELL, RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, type Resistance } from '../utils/exerciseAttrs';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
 import { useRegionDrag } from '../hooks/useRegionDrag';
@@ -165,10 +165,17 @@ interface RegionCardProps {
  * 器材小剪影（「杠铃片」阶段二，2026-10-22）：和训练页大图同形 —— 杠铃＝杆＋两片、哑铃＝两头、
  * 壶铃＝提手＋铃身、配重片＝一摞。灰色不上色，不抢名字；同一列里杠铃深蹲 / 哑铃深蹲扫一眼就分得开。
  * 自重 / 弹力带 / 不计重不画（没有器材可画）。
+ * 杠铃片挂在杠铃上画杠铃；挂在别的器材上（悍马、倒蹬、史密斯这类挂片器械）画「挂片」——
+ * 一开始按阻力一律画成杠铃，悍马卧推这种固定器械也出现杠铃图标（2026-10-22 用户指出）。
  */
-type EquipIcon = 'bar' | 'db' | 'kb' | 'stack';
-const equipIconOf = (r: Resistance): EquipIcon | undefined =>
-  r === 'plates' || r === 'fixedBar' ? 'bar' : r === 'dumbbell' ? 'db' : r === 'kettlebell' ? 'kb' : r === 'stack' ? 'stack' : undefined;
+type EquipIcon = 'bar' | 'plate' | 'db' | 'kb' | 'stack';
+const equipIconOf = ({ equipment, resistance: r }: { equipment: string; resistance: Resistance }): EquipIcon | undefined =>
+  r === 'plates' ? (equipment.toLowerCase() === EQ_BARBELL.toLowerCase() ? 'bar' : 'plate')
+  : r === 'fixedBar' ? 'bar'
+  : r === 'dumbbell' ? 'db'
+  : r === 'kettlebell' ? 'kb'
+  : r === 'stack' ? 'stack'
+  : undefined;
 
 const RegionCard: React.FC<RegionCardProps> = ({
   id,
@@ -315,6 +322,8 @@ const dangerBtn =
 
 interface ExercisePickerSheetProps {
   open: boolean;
+  /** 这场标的馆：插销 / 挂片的器械在这个馆改过形式（gymKinds）的，小图标跟着这个馆画 */
+  gym?: string;
   onClose: () => void;
   /**
    * 这次打开要直接停在哪个部位（BODY_PARTS 的 id，如 'subChest'）。
@@ -371,6 +380,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   onDeleteExercise,
   onOpenNote,
   onOpenMetrics,
+  gym,
 }) => {
   const {
     starredExercises,
@@ -396,7 +406,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     attrsOf,
   } = useExercisePrefs();
   const { toast, toastUndo, dismissToasts } = useUiOverlay();
-  const { lang } = useUserSettingsContext();
+  const { lang, appPrefs } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
 
@@ -959,7 +969,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         added={added}
         isStarred={!opts.isDeleted && !v && isStarredName(baseName)}
         variant={`${opts.variantCls ?? ''}${v ? ' is-variant' : ''}`.trim()}
-        equip={equipIconOf(attrsOf(ex, v?.id).resistance)}
+        equip={(() => {
+          const icon = equipIconOf(attrsOf(ex, v?.id));
+          // 2026-10-22：悍马卧推在动作库里是插销，在 fit4less 改成了挂片，图标原来还画成插销
+          if (!gym || (icon !== 'stack' && icon !== 'plate')) return icon;
+          const k = appPrefs.gymKinds[`${gym}|${ex.id}|${v?.id ?? ''}`];
+          return k === 'pin' ? 'stack' : k === 'loaded' ? 'plate' : icon;
+        })()}
         cell={opts.cell}
         unassigned={opts.unassigned}
         longPress={!arranging}

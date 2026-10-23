@@ -1427,7 +1427,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     if (!lastLine.includes(`上次在 ${GB}`)) throw new Error(`expanded line should say 上次在 ${GB}: "${lastLine}"`);
     await page.locator('[data-testid="prefill-from"]').click();
 
-    // A2：回乙馆，大图上方小药丸 → 「这台器械」里改成挂片（2026-10-21 起这些设置不在 ⋯ 菜单里了）
+    // A2：回乙馆，大图上方小药丸 → 「动作设置」弹窗里「在 乙馆」那一段改成挂片（2026-10-22 两个入口合并）
     await pickGym(GB);
     if ((await weights()).join() !== '23') throw new Error('back at the gym with history the draft should be 23 again');
     const face = page.locator('[data-testid="stack-menu"]');
@@ -1436,7 +1436,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
       await face.waitFor({ state: 'visible', timeout: 3_000 });
     };
     const closeFace = async () => {
-      await face.locator('[data-testid="stack-done"]').click();
+      await page.locator('[data-testid="metric-modal-done"]').click();
       await face.waitFor({ state: 'hidden', timeout: 2_000 });
     };
     await openFace();
@@ -1458,8 +1458,8 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     const tares = (await readLs('fitlog_app_prefs'))?.gymTares;
     if (JSON.stringify(tares?.[`${GB}|press_machine_shoulder|`]) !== '{"v":30,"u":"kg"}') throw new Error(`gymTares not stored: ${JSON.stringify(tares)}`);
     await closeFace();
-    if (!(await page.getByText('加空载共 52.5 kg').count())) throw new Error('hero caption should add the sled: 加空载共 52.5 kg');
-    if (!(await page.locator('[data-testid="stack-chip"]').first().innerText()).includes('空载 30')) throw new Error('the pill should read 挂片 · 空载 30 kg');
+    if (!(await page.getByText('连器械共 52.5 kg').count())) throw new Error('hero caption should add the machine weight: 连器械共 52.5 kg');
+    if (!(await page.locator('[data-testid="stack-chip"]').first().innerText()).includes('器械自重 30')) throw new Error('the pill should read 挂片 · 器械自重 30 kg');
     if ((await weights()).join() !== '22.5') throw new Error(`the sled must not change the logged weight, got ${JSON.stringify(await weights())}`);
     await openFace();
     await tare.fill('');
@@ -1577,10 +1577,10 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     // 接回来的那一场里可能还有别的动作：按名字找这张卡，点大图上方的小药丸
     const gcard = page.locator('.ui-card', { has: page.locator('.masthead-rule', { hasText: NAME }) }).last();
     await gcard.locator('[data-testid="stack-chip"]').click();
-    const gface = gcard.locator('[data-testid="stack-menu"]');
+    const gface = page.locator('[data-testid="stack-menu"]');
     await gface.locator('[data-testid="gym-kind"]').waitFor({ state: 'visible', timeout: 3_000 });
     if ((await gface.locator('[data-testid="gym-kind-pin"]').getAttribute('aria-pressed')) !== 'true') throw new Error('a cable exercise should default to pin');
-    await gface.locator('[data-testid="stack-done"]').click();
+    await page.locator('[data-testid="metric-modal-done"]').click();
     await gface.waitFor({ state: 'hidden', timeout: 2_000 });
     await backAndDiscard(page);
     return 'pulled tagGym → tagCable (custom + override), rename dropped, machine face shows 插销 / 挂片';
@@ -1642,9 +1642,9 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
 
     await card.screenshot({ path: path.join(OUT, 'stack-closed.png') });
     await card.locator('[data-testid="stack-chip"]').click();
-    const menu = card.locator('[data-testid="stack-menu"]');
+    const menu = page.locator('[data-testid="stack-menu"]');
     await menu.waitFor({ state: 'visible', timeout: 3_000 });
-    await card.screenshot({ path: path.join(OUT, 'stack-open.png') });
+    await page.screenshot({ path: path.join(OUT, 'stack-open.png') });
     await menu.locator('[data-testid="stack-start"]').fill('12.5');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
@@ -1674,9 +1674,9 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await page.keyboard.type('5');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(300);
-    // 方案 A：设置面原地换掉大图；「完成」收回，图和标签回来
-    if (await card.locator('[data-testid="load-hero"] .load-hero-drag').count()) throw new Error('the stack graphic should be replaced by the settings face while open');
-    await menu.locator('[data-testid="stack-done"]').click();
+    // 2026-10-22 合并入口：设置行在「动作设置」弹窗的「在 X」一段里，不再原地换掉大图；确定收起，标签跟着变
+    if (!(await page.locator('.metric-gym-slot [data-testid="stack-menu"]').count())) throw new Error('the machine settings should render inside the exercise settings modal');
+    await page.locator('[data-testid="metric-modal-done"]').click();
     await menu.waitFor({ state: 'hidden', timeout: 2_000 });
     const chip = await card.locator('[data-testid="stack-chip"]').innerText();
     if (!chip.includes('12.5 起') || !chip.includes('每格 5')) throw new Error(`stack chip should read 12.5 起 · 每格 5: "${chip}"`);
@@ -1707,7 +1707,7 @@ async function seededScenarios(browser, { escapedRemoteCalls }) {
     await menu.locator('[data-testid="stack-start"]').fill('15');
     await menu.locator('[data-testid="stack-start"]').press('Enter');
     await page.waitForTimeout(300);
-    await menu.locator('[data-testid="stack-done"]').click();
+    await page.locator('[data-testid="metric-modal-done"]').click();
     await menu.waitFor({ state: 'hidden', timeout: 2_000 });
     const ov15 = (await readLs('fitlog_app_prefs'))?.gymOverrides?.[`${GD}|press_machine_shoulder|`];
     if (ov15?.s !== 15) throw new Error(`an aligned lightest plate (15 on a 5 step) must still be stored: ${JSON.stringify(ov15)}`);
