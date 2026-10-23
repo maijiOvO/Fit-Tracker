@@ -42,7 +42,7 @@ await build({
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
       "export { makeRounder, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
       "export * as A from './src/utils/exerciseAttrs.ts';",
-      "export { mergeOverride } from './src/utils/exerciseOverride.ts';",
+      "export { mergeOverride, mergedName } from './src/utils/exerciseOverride.ts';",
       "export { detectPRs } from './src/utils/prDetect.ts';",
       "export * as R from './src/utils/prRecords.ts';",
       "export { buildLiftSummaries, trendPoints } from './src/utils/liftHistory.ts';",
@@ -249,6 +249,20 @@ t('覆盖层合并：只改了中文名时英文名留着；曾用名两边取�
   assert.deepEqual(m.aliases.sort(), ['卧推', '平板卧推']);
   assert.equal(m.equipment, 'tagBarbell');
   assert.equal(L.mergeOverride(def, undefined), def);
+});
+
+t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写了中文 —— 英文也用新名，不再和另一个同名动作撞', () => {
+  const def = { id: '1779420343792', name: { cn: '悍马卧推', en: '悍马卧推' }, category: 'STRENGTH' };
+  const over = { name: { cn: '曲肘蝴蝶机' } };
+  assert.deepEqual(L.mergedName(def, over), { cn: '曲肘蝴蝶机', en: '曲肘蝴蝶机' });
+  assert.deepEqual(L.mergeOverride(def, over).name, { cn: '曲肘蝴蝶机', en: '曲肘蝴蝶机' });
+  // 只写了英文的也一样
+  assert.deepEqual(L.mergedName(def, { name: { en: 'Pec deck' } }), { cn: 'Pec deck', en: 'Pec deck' });
+  // 两种都写过：各用各的
+  assert.deepEqual(L.mergedName(def, { name: { cn: '夹胸', en: 'Pec deck' } }), { cn: '夹胸', en: 'Pec deck' });
+  // 内置（中英原名不同）：只改中文时英文照旧
+  const builtin = { id: 'b', name: { cn: '卧推', en: 'Bench' } };
+  assert.deepEqual(L.mergedName(builtin, { name: { cn: '杠铃卧推' } }), { cn: '杠铃卧推', en: 'Bench' });
 });
 
 // ── PR 判定（2026-10-22 重做，utils/prRecords：刊末页 / 训练中 PB 标 / 历史纪录点同一份）─────────
