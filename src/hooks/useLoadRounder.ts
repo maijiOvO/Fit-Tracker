@@ -80,7 +80,7 @@ export function useLoadRounder(): RounderFor {
     (ex, gym, unitOverride, gymsOverride) => {
       if (!getActiveMetrics(resolveName(ex.name)).includes('weight')) return null;
       const du: PlateUnit = (unitOverride ?? unit) === 'lbs' ? 'lbs' : 'kg';
-      const signed = usesSignedLoad(ex, signedLoadOf(ex.name));
+      const signed = usesSignedLoad(ex, signedLoadOf(ex));
       // 带上馆：这台器械在这个馆是插销还是挂片（gymKinds）
       const info = infoOf(ex, signed, gym);
       if (info.kind === 'plain') return null;

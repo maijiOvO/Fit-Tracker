@@ -81,7 +81,8 @@ export interface NewWorkoutTabProps {
   prPoolFor?: (ex: Exercise) => PRPool;
   onToggleNote: (name: string, gymKey?: string) => void;
   /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
-  onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym') => void;
+  /** group：从交替组打开（交替组的卡片没有重量大图，弹窗里「这一台」只写一句说明） */
+  onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym', group?: boolean) => void;
   /** 动作设置弹窗里「在 X」一段的挂载点，交给弹窗所属的那张卡 */
   metricSlot?: { exIdx: number; el: HTMLElement | null } | null;
   onDeleteExerciseFromSession: (exIdx: number) => void;
@@ -198,7 +199,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const setExs = (fn: (list: Exercise[]) => Exercise[]) =>
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(fn(w.exercises ?? [])) }));
 
-  const isSigned = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex.name));
+  const isSigned = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex));
 
   /**
    * 点组号：一下＝选中这一组 + 指针挪到它正下方（语义全在 workbench.tapSetNum）。
@@ -618,7 +619,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to, isSigned))}
                 onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
                 onToggleNote={onToggleNote}
-                onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId))}
+                onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId), undefined, true)}
                 onOpenTimePicker={(exId, setId, sec) => {
                   const ei = indexOf(exId);
                   const si = exs[ei]?.sets.findIndex(s => String(s.id) === setId) ?? -1;
@@ -673,7 +674,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onToggleNote={onToggleNote}
               onOpenMetricModal={(name, focus) => onOpenMetricModal(name, exIdx, focus)}
               settingsSlot={metricSlot?.exIdx === exIdx ? metricSlot.el : null}
-              onToggleUnit={onToggleUnit}
               onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
               onRename={(() => {
                 const def = findExerciseDef(ex.name);

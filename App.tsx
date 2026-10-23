@@ -240,8 +240,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     Record<string, string>
   >({});
   // ============== 动作维度 / 备注 弹窗 ==============
-  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number; focus?: 'gym' } | null>(null);
-  /** 动作设置弹窗里「在 X · 只改这一台」的挂载点（卡片把这台器械的设置 portal 进去） */
+  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number; focus?: 'gym'; group?: boolean } | null>(null);
+  /** 动作设置弹窗里「在 X 的这一台」的挂载点（卡片把这台器械的设置 portal 进去） */
   const [metricGymSlot, setMetricGymSlot] = useState<HTMLElement | null>(null);
   // 「动作设置」里的名称 / 部位器械：库里有这个动作才能改（合并覆盖层后的定义，显示的是现在的标签）
   const metricModalDef = useMemo(() => {
@@ -253,6 +253,8 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   // ============== 编辑动作标签 / 单组时长 / 单条动作时间 弹窗 ==============
   const [editExerciseTagsTarget, setEditExerciseTagsTarget] =
     useState<ExerciseDefinition | null>(null);
+  /** 从动作设置的「部位 ›」进来：只改类型 / 部位 / 细分（器材、阻力在动作设置里就地改） */
+  const [editTagsPartOnly, setEditTagsPartOnly] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState<{
     exIdx: number;
     setIdx: number;
@@ -716,14 +718,14 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     setShowEditGoalModal(false);
   };
 
-  // ============== 维度 Modal: 重置默认 ==============
+  // ============== 动作设置：记录项恢复默认 ==============
   const handleResetMetricsToDefault = useCallback(async () => {
     if (!showMetricModal) return;
     const cardio = prefs.findExerciseDef(showMetricModal.name)?.category === 'CARDIO';
     const ok = await confirm({
       message: isCn
-        ? `重置「${showMetricModal.name}」的配置？${cardio ? '默认按首选项里的有氧默认记录。' : '默认只记重量和次数。'}`
-        : `Reset "${showMetricModal.name}" to default settings?\n${cardio ? 'Default follows your cardio defaults in Preferences.' : 'Default tracks weight and reps only.'}`,
+        ? `恢复「${showMetricModal.name}」默认的记录项？${cardio ? '默认按首选项里的有氧默认记录。' : '默认只记重量和次数。'}`
+        : `Reset what "${showMetricModal.name}" tracks?\n${cardio ? 'Default follows your cardio defaults in Preferences.' : 'Default tracks weight and reps only.'}`,
     });
     if (ok) prefs.resetMetricsToDefault(showMetricModal.name);
   }, [confirm, isCn, prefs, showMetricModal]);
@@ -789,7 +791,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
    * 比法在 utils/prRecords（和结束训练的 PB 牌、历史纪录点同一份）：底稿行不算、本场不算（按 id 排除）。
    */
   const gymScopedPR = useGymScopedPR();
-  const isSignedEx = useCallback((e: Exercise) => usesSignedLoad(e, prefs.signedLoadOf(e.name)), [prefs.signedLoadOf]);
+  const isSignedEx = useCallback((e: Exercise) => usesSignedLoad(e, prefs.signedLoadOf(e)), [prefs.signedLoadOf]);
   const prHistoryByLift = useMemo(() => {
     const out = new Map<string, { ex: Exercise; gym?: string }[]>();
     for (const w of workouts) {
@@ -1117,10 +1119,15 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         open={!!editExerciseTagsTarget}
         exercise={editExerciseTagsTarget}
         lang={lang}
-        onClose={() => setEditExerciseTagsTarget(null)}
+        rows={editTagsPartOnly ? ['category', 'part', 'region'] : undefined}
+        onClose={() => {
+          setEditExerciseTagsTarget(null);
+          setEditTagsPartOnly(false);
+        }}
         onSave={(exerciseId, v) => {
           prefs.saveExerciseAttrs(exerciseId, v);
           setEditExerciseTagsTarget(null);
+          setEditTagsPartOnly(false);
         }}
       />
 
@@ -1225,7 +1232,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                   : {}),
               })
             }
-            onOpenMetricModal={(name, exIdx, focus) => setShowMetricModal({ name, exIdx, focus })}
+            onOpenMetricModal={(name, exIdx, focus, group) => setShowMetricModal({ name, exIdx, focus, group })}
             metricSlot={showMetricModal?.exIdx != null ? { exIdx: showMetricModal.exIdx, el: metricGymSlot } : null}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
             onChangeGym={() => setShowGymPicker(true)}
@@ -1376,18 +1383,23 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         open={!!showMetricModal}
         exerciseName={showMetricModal?.name || null}
         lang={lang}
-        getActiveMetrics={prefs.getActiveMetrics}
-        toggleMetric={prefs.toggleMetric}
-        onResetDefault={handleResetMetricsToDefault}
+        onResetMetrics={handleResetMetricsToDefault}
         onClose={() => setShowMetricModal(null)}
-        gymSlotRef={setMetricGymSlot}
-        focusGym={showMetricModal?.focus === 'gym'}
-        signedLoad={showMetricModal?.name ? prefs.signedLoadOf(showMetricModal.name) : false}
-        onChangeSignedLoad={
-          showMetricModal?.name && prefs.findExerciseDef(showMetricModal.name)
-            ? (on: boolean) => prefs.setSignedLoad(showMetricModal.name, on)
+        card={
+          showMetricModal?.exIdx != null
+            ? {
+                variantId: currentWorkout?.exercises?.[showMetricModal.exIdx]
+                  ? prefs.variantIdOf(currentWorkout.exercises[showMetricModal.exIdx])
+                  : undefined,
+                gym: currentWorkout?.gym,
+                group: showMetricModal.group,
+              }
             : undefined
         }
+        gymSlotRef={setMetricGymSlot}
+        focusGym={showMetricModal?.focus === 'gym'}
+        unit={unit === 'lbs' ? 'lbs' : 'kg'}
+        onToggleUnit={handleUnitToggle}
         onRename={
           metricModalDef
             ? () => {
@@ -1398,14 +1410,12 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
               }
             : undefined
         }
-        onEditTags={metricModalDef ? () => setEditExerciseTagsTarget(metricModalDef) : undefined}
-        tagSummary={
+        onEditPart={
           metricModalDef
-            ? [metricModalDef.bodyPart, metricModalDef.equipment ?? '']
-                .filter(Boolean)
-                .map(t => prefs.getTagName(t))
-                .filter(Boolean)
-                .join(' · ')
+            ? () => {
+                setEditTagsPartOnly(true);
+                setEditExerciseTagsTarget(metricModalDef);
+              }
             : undefined
         }
       />

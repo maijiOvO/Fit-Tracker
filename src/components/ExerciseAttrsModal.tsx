@@ -9,7 +9,7 @@ import { ExerciseDefinition, Language } from '../../types';
 import { regionList } from '../utils/exerciseAttrs';
 import { Modal, ModalFooter } from './Modal';
 import { hasRegionSection } from './RegionChooser';
-import { ExerciseAttrFields, type AttrValue } from './ExerciseAttrFields';
+import { ExerciseAttrFields, type AttrRow, type AttrValue } from './ExerciseAttrFields';
 
 interface ExerciseAttrsModalProps {
   open: boolean;
@@ -18,6 +18,8 @@ interface ExerciseAttrsModalProps {
   lang: Language;
   onClose: () => void;
   onSave: (exerciseId: string, value: AttrValue) => void;
+  /** 只改其中几项（动作设置的「部位 ›」：器材 / 阻力在动作设置里就地改，这里不再出现） */
+  rows?: readonly AttrRow[];
 }
 
 const fromDef = (ex: ExerciseDefinition): AttrValue => ({
@@ -28,7 +30,7 @@ const fromDef = (ex: ExerciseDefinition): AttrValue => ({
   resistance: ex.resistance,
 });
 
-export const ExerciseAttrsModal: React.FC<ExerciseAttrsModalProps> = ({ open, exercise, lang, onClose, onSave }) => {
+export const ExerciseAttrsModal: React.FC<ExerciseAttrsModalProps> = ({ open, exercise, lang, onClose, onSave, rows }) => {
   const [value, setValue] = useState<AttrValue | null>(null);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export const ExerciseAttrsModal: React.FC<ExerciseAttrsModalProps> = ({ open, ex
       isOpen
       onClose={onClose}
       title={exercise.name[lang]}
-      subtitle={isCn ? '部位与器材' : 'Part & gear'}
+      subtitle={rows && !rows.includes('equipment') ? (isCn ? '部位' : 'Body part') : isCn ? '部位与器材' : 'Part & gear'}
       size="md"
       // 从弹层的动作菜单里开出来，再往上一层
       layer="modal-3"
@@ -64,7 +66,7 @@ export const ExerciseAttrsModal: React.FC<ExerciseAttrsModalProps> = ({ open, ex
         />
       }
     >
-      <ExerciseAttrFields lang={lang} value={value} onChange={setValue} testId="exercise-attrs" />
+      <ExerciseAttrFields lang={lang} value={value} onChange={setValue} rows={rows} testId="exercise-attrs" />
     </Modal>
   );
 };

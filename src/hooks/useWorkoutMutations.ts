@@ -446,7 +446,7 @@ export function useWorkoutMutations({
         keyOf: liftKey,
         getActiveMetrics,
         unitLabel: unit,
-        isSigned: ex => usesSignedLoad(ex, signedLoadOf(ex.name)),
+        isSigned: ex => usesSignedLoad(ex, signedLoadOf(ex)),
         gymScoped,
       });
       const summary = sessionSummary(finalWorkout);

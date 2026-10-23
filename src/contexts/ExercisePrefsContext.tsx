@@ -107,9 +107,13 @@ interface ExercisePrefsContextValue {
    * 标准返回 undefined。
    */
   variantIdOf: (ex: { name: string; variantId?: string }) => string | undefined;
-  /** 这个动作是不是按带正负的负荷记（自重类：辅助负、自重 0、负重正）；设置里没写按默认 */
-  signedLoadOf: (exerciseName: string) => boolean;
-  setSignedLoad: (exerciseName: string, on: boolean) => void;
+  /**
+   * 这个动作（这个做法）是不是按带正负的负荷记（自重类：辅助负、自重 0、负重正）。
+   * 2026-10-23 起跟着阻力走：做法实际用的阻力是「自重」就带正负。传记录里的动作（带 variantId）才认得做法。
+   */
+  signedLoadOf: (ex: string | { name: string; variantId?: string }) => boolean;
+  /** 清掉旧的「负荷记法」开关（动作设置里改了动作的器材 / 阻力时调；以后只看阻力） */
+  clearSignedLoad: (exerciseName: string) => void;
   /** 「杠铃片」：这个动作用哪根杠；库里查不到的动作返回 undefined（= 标准杠） */
   barOf: (exerciseName: string) => import('../utils/plates').BarChoice | undefined;
   setBar: (exerciseName: string, bar: import('../utils/plates').BarChoice) => void;
@@ -1309,24 +1313,32 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const signedLoadOf = useCallback(
-    (exerciseName: string): boolean => {
-      const def = findExerciseDef(exerciseName);
+    (ex: string | { name: string; variantId?: string }): boolean => {
+      const name = typeof ex === 'string' ? ex : ex.name;
+      const def = findExerciseDef(name);
       if (!def) return false;
       const merged = mergeOverride(def, exerciseOverrides[def.id]);
+      const vid = typeof ex === 'string' ? undefined : variantIdOf(ex);
+      const v = vid ? withVariantNames(merged.variants).find(x => x.id === vid) : undefined;
+      // 做法自己设了器材 / 阻力：只看它的阻力
+      if (variantAttrs(v)) return attrsOf(merged, vid).resistance === 'bodyweight';
+      // 跟动作走：旧的「负荷记法」开关拨过的照旧（读时兼容，不写迁移；在动作设置里改器材 / 阻力时清掉）
       if (typeof merged.signedLoad === 'boolean') return merged.signedLoad;
       // 默认：内置的自重类（自重 / 辅助 / 负重），或阻力类型是自重的（含「器械 + 自重」：罗马椅、辅助器械）
       const bt = merged.exerciseConfig?.bodyweightType;
       return (!!bt && bt !== 'none') || attrsOf(merged).resistance === 'bodyweight';
     },
-    [attrsOf, exerciseOverrides, findExerciseDef],
+    [attrsOf, exerciseOverrides, findExerciseDef, variantIdOf, withVariantNames],
   );
 
-  const setSignedLoad = useCallback(
-    (exerciseName: string, on: boolean) => {
+  const clearSignedLoad = useCallback(
+    (exerciseName: string) => {
       const def = findExerciseDef(exerciseName);
-      if (def) writeDefField(def.id, { signedLoad: on });
+      if (def && typeof mergeOverride(def, exerciseOverrides[def.id]).signedLoad === 'boolean') {
+        writeDefField(def.id, { signedLoad: undefined });
+      }
     },
-    [findExerciseDef, writeDefField],
+    [exerciseOverrides, findExerciseDef, writeDefField],
   );
 
   const barOf = useCallback(
@@ -1517,7 +1529,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       variantsOf,
       variantIdOf,
       signedLoadOf,
-      setSignedLoad,
+      clearSignedLoad,
       barOf,
       setBar,
       updateVariant,
@@ -1575,7 +1587,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       variantsOf,
       variantIdOf,
       signedLoadOf,
-      setSignedLoad,
+      clearSignedLoad,
       barOf,
       setBar,
       updateVariant,

@@ -240,19 +240,35 @@
 .stack-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-foot button { min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
 
-/* 合并入口（2026-10-22）：「动作设置」弹窗分两段——「这个动作 · 所有馆通用」和「在 X · 只改这一台」。
-   第二段由卡片 portal 进 .metric-gym-slot；没有器械设置时它是空的，第一段的标题也就不出现（单段不必分）。 */
-.metric-scope-head, .sheet-sec-head { display: flex; align-items: baseline; gap: 8px; margin: 0 0 12px; padding: 0 4px; }
-.metric-scope-head b, .sheet-sec-head b { font-size: var(--fs-body); font-weight: 700; color: var(--text-primary); }
-.metric-scope-head small, .sheet-sec-head small { font-size: var(--fs-label); color: var(--text-tertiary); }
-.metric-scope-head { display: none; }
-.metric-modal:has(.metric-gym-slot:not(:empty)) .metric-scope-head { display: flex; }
-.metric-gym-slot:not(:empty) { margin-top: 4px; padding-top: 20px; border-top: 1px solid var(--rule-strong, var(--divider)); scroll-margin-top: 8px; }
-.stack-face.is-sheet { padding: 0 4px; min-height: 0; }
-/* 弹窗里看不到训练页顶上的单位开关，这一段自带一个（2026-10-23） */
-.sheet-unit { margin-left: auto; align-self: center; flex-shrink: 0; }
-.sheet-sec-head b { white-space: nowrap; }
-.sheet-sec-head small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 动作设置（2026-10-23）分三层：这个动作 / 做法 / 这一台。最后一层由卡片 portal 进 .metric-gym-slot。
+   段与段之间用实线分开、段内行用浅线（组间距 > 组内距）；段标题是小标签，不跟内容抢。 */
+.metric-topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 8px 0; background: var(--bg-card); }
+.metric-variant-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--bg-base); font-size: var(--fs-small); font-weight: 700; color: var(--text-primary); }
+.metric-variant-menu { position: absolute; left: 0; top: calc(100% + 4px); z-index: 3; min-width: 200px; padding: 4px 0; background: var(--bg-base); border: 1px solid var(--divider); border-radius: var(--radius-card); box-shadow: var(--shadow-overlay); }
+.metric-variant-menu button { width: 100%; min-height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 8px; text-align: left; font-size: var(--fs-small); color: var(--text-primary); }
+.metric-variant-menu button.is-on { color: var(--accent-text); font-weight: 700; }
+.metric-variant-menu small { margin-left: auto; padding-left: 12px; font-size: var(--fs-label); font-weight: 400; color: var(--text-tertiary); }
+.metric-unit { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-label); color: var(--text-tertiary); }
+.metric-sec { padding: 4px 0 20px; scroll-margin-top: 64px; }
+.metric-sec + .metric-sec { padding-top: 20px; border-top: 1px solid var(--rule-strong, var(--divider)); }
+.metric-sec-head { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; margin-bottom: 4px; }
+.metric-sec-head b { font-size: var(--fs-small); font-weight: 700; color: var(--text-primary); }
+.metric-sec-head small { font-size: var(--fs-label); color: var(--text-tertiary); }
+.metric-prop { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; text-align: left; border-top: 1px solid var(--divider); }
+.metric-sec-head + .metric-prop { border-top: 0; }
+.metric-prop .k { width: 56px; flex-shrink: 0; font-size: var(--fs-label); color: var(--text-secondary); }
+.metric-prop .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); font-weight: 600; color: var(--text-primary); }
+.metric-sub-head { display: flex; align-items: center; padding: 12px 0 8px; border-top: 1px solid var(--divider); font-size: var(--fs-label); color: var(--text-secondary); }
+.metric-link { margin-left: auto; min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
+.metric-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid var(--divider); font-size: var(--fs-small); color: var(--text-secondary); }
+.metric-chip.is-on { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); font-weight: 700; }
+.metric-chip.is-add { border-style: dashed; color: var(--text-tertiary); }
+.metric-note { margin-top: 6px; font-size: var(--fs-label); line-height: 1.5; color: var(--text-tertiary); }
+.metric-gym-slot { margin-top: 4px; }
+.attr-table.is-flat .attr-row > button { padding-left: 0; padding-right: 0; }
+.attr-table.is-flat .attr-row > button > span:first-child { width: 56px; }
+.attr-table.is-flat .attr-row > div { padding-left: 0; padding-right: 0; }
+.stack-face.is-sheet { padding: 0; min-height: 0; }
 
 /* ── 杠铃：真实比例 ─────────────────────────────────────────────
    --mm = 1 毫米在屏幕上的宽度 = 容器宽 ÷ 杠长（--L，mm）。杠长、握把段、套筒、直径、

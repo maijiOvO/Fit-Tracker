@@ -45,16 +45,25 @@ interface Props {
   /** 做法：只出细分（可选）、器材、阻力；inherited 是跟动作走时的器材与阻力 */
   variant?: { inherited: { equipment: string; resistance: Resistance }; regions: string[] };
   testId?: string;
+  /**
+   * 只出这几项（不传＝全出）。动作设置里拆开用：「部位 ›」进来只要类型 / 部位 / 细分，
+   * 做法那一段只要器材 / 阻力（2026-10-23 动作设置分「动作 / 做法 / 这一台」三层）。
+   */
+  rows?: readonly AttrRow[];
+  /** 就地改、即点即存的地方（动作设置）：表格去掉外框底色，跟弹窗里别的行一个样 */
+  flat?: boolean;
 }
 
 type RowKey = 'part' | 'region' | 'equipment' | 'resistance';
+export type AttrRow = 'category' | RowKey;
 
-export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, variant, testId }) => {
+export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, variant, testId, rows, flat }) => {
   const { getTagName, customTags, equipmentIds, addTag } = useExercisePrefs();
   const [open, setOpen] = useState<RowKey | null>(null);
   /** 就地新建器材（新动作用的器材库里还没有时，不用先退出去建）：名字 + 默认阻力 */
   const [newEquip, setNewEquip] = useState<{ name: string; res: Resistance } | null>(null);
   const isCn = lang === Language.CN;
+  const shows = (k: AttrRow) => !rows || rows.includes(k);
   const set = (patch: Partial<AttrValue>) => onChange({ ...value, ...patch });
   const toggle = (k: RowKey) => {
     setNewEquip(null);
@@ -78,7 +87,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
   const resLocked = following || !resistanceSelectable(value.equipment);
 
   const partIds = [...BODY_PARTS, ...customTags.filter(t => t.category === 'bodyPart').map(t => t.id)];
-  const showRegion = variant ? variant.regions.length > 0 : hasRegionSection(value.bodyPart, value.category);
+  const showRegion = shows('region') && (variant ? variant.regions.length > 0 : hasRegionSection(value.bodyPart, value.category));
 
   const noneEquipLabel = variant
     ? isCn ? '跟动作走' : 'Same as exercise'
@@ -139,7 +148,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
 
   return (
     <div className="space-y-3" data-testid={testId}>
-      {!variant && (
+      {!variant && shows('category') && (
         <div className="flex gap-2" role="group" aria-label={isCn ? '训练类型' : 'Category'}>
           {(['STRENGTH', 'CARDIO', 'FREE'] as ExerciseCategory[]).map(cat => (
             <button
@@ -159,8 +168,8 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
         </div>
       )}
 
-      <div className="attr-table rounded-card border border-divider bg-card divide-y divide-divider overflow-hidden">
-        {!variant &&
+      <div className={`attr-table divide-y divide-divider ${flat ? 'is-flat' : 'rounded-card border border-divider bg-card overflow-hidden'}`}>
+        {!variant && shows('part') &&
           row('part', isCn ? '部位' : 'Part', value.bodyPart ? getTagName(value.bodyPart) : '', {
             body: (
               <div className="grid grid-cols-3 gap-1.5">
@@ -197,7 +206,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
             },
           )}
 
-        {row('equipment', isCn ? '器材' : 'Gear', equipLabel, {
+        {shows('equipment') && row('equipment', isCn ? '器材' : 'Gear', equipLabel, {
           body: (
             <>
               <div className="grid grid-cols-3 gap-1.5">
@@ -267,7 +276,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
           ),
         })}
 
-        {row('resistance', isCn ? '阻力' : 'Load', resName(resNow), {
+        {shows('resistance') && row('resistance', isCn ? '阻力' : 'Load', resName(resNow), {
           locked: resLocked,
           body: (
             <div className="grid grid-cols-3 gap-1.5">

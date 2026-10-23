@@ -177,8 +177,6 @@ export interface MachineCtl {
    */
   slot?: HTMLElement | null;
   onOpen?: () => void;
-  /** 切 kg / lb（和训练页顶上那个是同一个开关）；弹窗里看不到顶上，这一段自己带一个 */
-  onToggleUnit?: () => void;
 }
 
 /* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
@@ -663,16 +661,16 @@ function GymHero({
     <>
       {machine.canSwitch && (
         <div className="stack-stp">
-          {/* 写明和动作设置（所有馆的默认）的关系：两层说的是同一件事，以前看不出这一台改没改过（2026-10-22） */}
+          {/* 写明和做法（所有馆的默认）的关系：两层说的是同一件事，以前看不出这一台改没改过（2026-10-22；10-23 起默认在做法那层） */}
           <span>
             {isCn ? '加重方式' : 'Loading'}
             {machine.libKind && (
               <small className="block text-label text-tertiary" data-testid="gym-kind-lib">
                 {kind === machine.libKind
-                  ? isCn ? '跟动作设置一样' : 'Same as the exercise'
+                  ? isCn ? `跟默认一样：${machine.libKind === 'pin' ? '配重片' : '杠铃片'}` : 'Same as the default'
                   : isCn
-                    ? `这一台改过，动作设置是${machine.libKind === 'pin' ? '插销' : '挂片'}`
-                    : `Changed here; the exercise says ${machine.libKind === 'pin' ? 'pin stack' : 'plate-loaded'}`}
+                    ? `这一台改过 · 默认是${machine.libKind === 'pin' ? '配重片' : '杠铃片'}`
+                    : `Changed here; the default is ${machine.libKind === 'pin' ? 'pin stack' : 'plate-loaded'}`}
               </small>
             )}
           </span>
@@ -786,7 +784,7 @@ function GymHero({
         <div className="stack-foot">
           <span />
           <button type="button" onClick={() => machine.inc!.onReset()} data-testid="stack-reset">
-            {isCn ? '恢复馆默认' : 'Use gym default'}
+            {isCn ? '每格恢复成馆默认' : 'Use gym default step'}
           </button>
         </div>
       )}
@@ -827,26 +825,8 @@ function GymHero({
           {/* 合并入口：设置行渲染进「动作设置」弹窗的「在 X」一段（状态还在这张卡上，所以用 portal） */}
           {hasMachine && machine?.slot &&
             createPortal(
+              // 段标题（在 X 的这一台）和单位开关在弹窗那边（2026-10-23 三层）
               <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
-                <div className="sheet-sec-head">
-                  <b>{isCn ? `在 ${machine.gym}` : `At ${machine.gym}`}</b>
-                  <small>{isCn ? '只改这个馆的这一台' : 'Only this machine at this gym'}</small>
-                  {machine.onToggleUnit && (
-                    <span className="gym-seg sheet-unit" role="group" aria-label={isCn ? '重量单位' : 'Weight unit'} data-testid="sheet-unit">
-                      {(['kg', 'lbs'] as const).map(k => (
-                        <button
-                          key={k}
-                          type="button"
-                          className={`min-h-[32px] px-3 text-small font-semibold ${unit === k ? 'seg-on' : 'text-secondary'}`}
-                          aria-pressed={unit === k}
-                          onClick={() => unit !== k && machine.onToggleUnit!()}
-                        >
-                          {k === 'kg' ? 'kg' : 'lb'}
-                        </button>
-                      ))}
-                    </span>
-                  )}
-                </div>
                 {faceRows}
               </div>,
               machine.slot,

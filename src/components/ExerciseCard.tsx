@@ -7,6 +7,7 @@
  * 一律降级为菜单内的墨色文字项，不靠颜色区分危险）。
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil, Shuffle, Repeat } from 'lucide-react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
@@ -84,8 +85,6 @@ interface ExerciseCardProps {
   onOpenMetricModal: (name: string, focus?: 'gym') => void;
   /** 动作设置弹窗开着、且开的正是这一张卡时，弹窗里「在 X」那一段的挂载点；这台器械的设置行 portal 进去 */
   settingsSlot?: HTMLElement | null;
-  /** 切 kg / lb：弹窗里「在 X」那一段自带一个开关 */
-  onToggleUnit?: () => void;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   onRename?: () => void;
   /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
@@ -144,7 +143,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onToggleNote,
   onOpenMetricModal,
   settingsSlot,
-  onToggleUnit,
   onRename,
   onSwitchVariant,
   onSetUpdate,
@@ -609,6 +607,22 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         )}
       </div>
 
+      {/* 动作设置开着、这张卡又给不出这台器械的设置：在「这一台」那段写明缺什么（2026-10-23，原来整段消失、找不到入口） */}
+      {settingsSlot && !(focusSet && activeMetrics.includes('weight') && gym && rounder && (kindKey || incKey)) &&
+        createPortal(
+          <p className="metric-note" data-testid="gym-missing">
+            {!activeMetrics.includes('weight')
+              ? isCn ? '记录项里开了「重量」，才有这台器械的设置。' : 'Turn on Weight above to set up this machine.'
+              : !gym
+                ? isCn ? '这场训练还没选馆。在训练页顶上选了馆，这台器械的设置才记得住。' : 'Pick a gym at the top of the workout first, so this machine can be remembered.'
+                : !focusSet
+                  ? isCn ? '加一组之后就能设。' : 'Add a set first.'
+                  : loadKind === 'plates'
+                    ? isCn ? '杠铃按这个馆的片子算，这里不用单独设。' : "Barbells use this gym's plates; nothing to set here."
+                    : isCn ? '这种阻力没有器械刻度要设。' : 'Nothing to set for this load type.'}
+          </p>,
+          settingsSlot,
+        )}
       {focusSet && activeMetrics.includes('weight') && (
         <LoadHero
           kind={loadKind}
@@ -629,7 +643,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   canSwitch: !!kindKey,
                   libKind: kindKey ? (loadInfo.libKind as 'pin' | 'loaded') : undefined,
                   slot: settingsSlot,
-                  onToggleUnit,
                   onOpen: () => onOpenMetricModal(exerciseName, 'gym'),
                   onKind: setGymKind,
                   onStack: incKey && loadKind === 'pin' ? setStack : undefined,

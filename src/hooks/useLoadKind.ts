@@ -117,7 +117,7 @@ export function useGymScopedPR(): (ex: Exercise) => boolean {
   const kindOf = useLoadKindOf();
   const { signedLoadOf } = useExercisePrefs();
   return useCallback(
-    ex => gymScopedKind(kindOf(ex, usesSignedLoad(ex, signedLoadOf(ex.name)))),
+    ex => gymScopedKind(kindOf(ex, usesSignedLoad(ex, signedLoadOf(ex)))),
     [kindOf, signedLoadOf],
   );
 }

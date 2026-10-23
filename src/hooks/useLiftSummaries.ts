@@ -44,7 +44,7 @@ export function useLiftSummaries(workouts: WorkoutSession[]): LiftSummary[] {
         },
         liftKey: prefs.liftKey,
         resolveName: prefs.resolveName,
-        signedLoadOf: ex => usesSignedLoad(ex, prefs.signedLoadOf(ex.name)),
+        signedLoadOf: ex => usesSignedLoad(ex, prefs.signedLoadOf(ex)),
         getActiveMetrics: prefs.getActiveMetrics,
         gymScoped,
       }),
