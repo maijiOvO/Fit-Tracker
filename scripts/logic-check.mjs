@@ -2,7 +2,7 @@
 /**
  * 散在各处的纯逻辑自检：体重 30 天基线 / 变化、PR 判定（刊末页 / 训练中 / 历史同一份口径）与印章换单位、
  * 底稿抄哪一场、龙门架标签迁移、递减档取整保持方向、按馆的片子单位取整、单边挂片、动作属性的器材 ⇄ 阻力联动、
- * 覆盖层合并、交替组改记到别的动作、搜索归一化。
+ * 覆盖层合并、交替组改记到别的动作、搜索归一化、热力图按本地日期归日、撞名动作的解析、配重片拖动的下限、文案表的英文不缺不漏。
  *
  * 这些规则原先只有 e2e 里一个数据点在守（一条用例造一次夹具、看一个数），边界情况（都在 30 天内、
  * 本馆没练过、带器材标签的 tagGym、有氧……）一条都没测。这里照 workbench-check / prefs-check 的写法：
@@ -50,6 +50,9 @@ await build({
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { blueMilestones } from './src/utils/milestones.ts';",
+      "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
+      "export { buildNameIndex } from './src/utils/nameIndex.ts';",
+      "export { translations } from './translations.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -216,6 +219,62 @@ t('递减档保持方向：递增档（比上一档重）吸到同一格时往�
   const r = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false);
   const s = { id: 's', weight: 18 * LB, reps: 9, ghost: true, subSets: [{ weight: 23.4 * LB, reps: 6 }] };
   assert.deepEqual(lbsOf(L.reRoundPending([s], ex1, r)[0]), [20, 30]);
+});
+
+// ── 热力图按本地日期归日（heatmap-utc-day）────────────────────────────
+t('热力图：多伦多昨晚 21:15 练的归在昨天（UTC 已经是今天）；只有底稿的场、还在练的那一场不算', () => {
+  const tz = process.env.TZ;
+  process.env.TZ = 'America/Toronto';
+  try {
+    // 2026-10-20 21:15 EDT = 2026-10-21 01:15Z
+    const w = (id, iso, sets, extra = {}) => ({ id, date: iso, exercises: [{ name: 'x', sets }], ...extra });
+    const done = [{ weight: 80, reps: 5 }, { weight: 80, reps: 5 }];
+    const days = L.buildHeatmapDays([
+      w('a', '2026-10-21T01:15:00.000Z', done, { finishedAt: '2026-10-21T02:00:00.000Z' }),
+      w('g', '2026-10-21T15:00:00.000Z', [{ weight: 80, reps: 5, ghost: true }], { finishedAt: '2026-10-21T16:00:00.000Z' }),
+      w('cur', '2026-10-21T16:00:00.000Z', done),
+    ], 'cur');
+    assert.deepEqual(days, [{ date: '2026-10-20', sets: 2, sessions: 1 }]);
+  } finally {
+    if (tz === undefined) delete process.env.TZ;
+    else process.env.TZ = tz;
+  }
+});
+
+// ── 撞名动作的解析（name-index-order-dependent）────────────────────────
+t('名字索引：两个自建动作原名都是「悍马卧推」、一个改名成「曲肘蝴蝶机」—— 历史归现名还叫悍马卧推的那个，与自建列表顺序无关', () => {
+  const def = (id, cn) => ({ id, name: { cn, en: cn }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' });
+  const A = def('1781149667255', '悍马卧推'); // 后建的
+  const B = def('1779420343792', '悍马卧推'); // 早年建的，后来改名
+  const over = { [B.id]: { name: { cn: '曲肘蝴蝶机', en: '曲肘蝴蝶机' } } };
+  for (const order of [[B, A], [A, B]]) {
+    const idx = L.buildNameIndex([], order, over);
+    assert.equal(idx.get('悍马卧推')?.id, A.id);
+    assert.equal(idx.get('曲肘蝴蝶机')?.id, B.id);
+  }
+  // 都没改名：同名按 id 从新到旧，先到的是后建的那个
+  assert.equal(L.buildNameIndex([], [B, A], {}).get('悍马卧推')?.id, A.id);
+});
+
+// ── 配重片拖动的下限（用户报：改了最轻一格还能拖到更轻）────────────────────
+t('配重片：一路往轻拖不会轻过最轻一格；最轻一格和每格对齐（15 / 每格 5）照样是下限', () => {
+  for (const [start, from] of [[12.5, 22.5], [15, 30]]) {
+    const r = L.makeRounder(pinInfo, 'lbs', lbCtx(5, start), false);
+    let v = from;
+    for (let i = 0; i < 12; i++) v = r.stepToD(v, -1);
+    assert.equal(v, start);
+    assert.equal(r.snapD(start - 5), start);
+  }
+});
+
+// ── 文案表的英文（英文界面漏翻：结束确认框的单位、弹窗关闭按钮的 aria-label 都漏过）────────
+t('translations.ts：每个 key 都有英文，英文里没有汉字（组件里写死的中文不在这里，归真机手测）', () => {
+  const CJK = /[一-鿿]/;
+  const bad = Object.entries(L.translations).filter(([, v]) => {
+    const en = [].concat(v?.en ?? []);
+    return !en.length || en.some(x => typeof x !== 'string' || !x.trim() || CJK.test(x));
+  });
+  assert.deepEqual(bad.map(([k]) => k), []);
 });
 
 // ── 动作属性：器材 ⇄ 阻力联动（exercise-attrs-gear-and-load 那条 e2e 的规则）────
