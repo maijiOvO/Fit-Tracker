@@ -338,7 +338,7 @@ export function LoadHero({
   onPick?: (displayValue: number) => void;
   /** 挂片式器械在这个馆填过的空载（显示单位）：说明栏加「加空载共 x」，只做参考 */
   tare?: number;
-  /** 这台器械在这个馆的设置（大图上方小药丸，点开原地换成设置面）；没标馆的训练不传 */
+  /** 这台器械在这个馆的设置（大图上方小药丸，点开是「动作设置」弹窗里「在 X」那一段）；没标馆的训练不传 */
   machine?: MachineCtl;
 }) {
   const [barOpen, setBarOpen] = useState(false);

@@ -110,31 +110,11 @@ Android Studio 装在非默认路径 `D:\tools\Android_studio\install`。
 - **不要手敲 `gradlew assemble*Release` 绕过 `npm run apk:*`。** 那五道闸门里有一道是
   解压 APK 扫凭据，它是唯一能证明「要发出去的这个文件没带 NAS 地址和 API key」的检查。
 
-## 5. 正式签名包（2026-09-15 起可用）
+## 5. 正式签名包
 
-调试装机走上面的 debug 路径；**要发出去的包**走这两条（`;` 不是 `&&` —— 用户的终端是
-PowerShell 5.1，`&&` 整条命令一个字都不执行）：
-
-| 变体 | 谁用 | 命令 |
-|---|---|---|
-| `solo` | 发行给别人，完全断网、无 INTERNET 权限 | `npm run build:solo; if ($?) { npx cap sync android }; if ($?) { npm run apk:solo }` |
-| `personal` | 自己用，与 NAS 同步 | `npm run build:release; if ($?) { npx cap sync android }; if ($?) { npm run apk:personal }` |
-
-两个变体**共用 applicationId**，同机不能共存、会互相覆盖安装；桌面名字是唯一区分
-（personal 显示 `Fit Tracker · NAS`）。
-
-> **要发版（不只是打个包）？走 `docs/release-signing.md` 的「发布一个新版本：完整清单」。**
-> 那里是七步：定 versionCode → 打包 → **核对 APK 是不是当前代码构建的** → 真机验往返 →
-> 传草稿 → 用户自己点发布 → 把工作区和手机恢复成 personal。
-> 别只跑打包命令就报完成，第 3 和第 7 步是最容易漏的。
-
-### 打包闸门管不到的两件事
-
-1. **「草稿里那个 APK 是不是这次构建的」。** 2026-09-16 实测撞过：GitHub 草稿里的包
-   打于前一天，晚于它的一个 commit 没进去，而文件名 / 大小 / sha256 与本地文件完全对得上 ——
-   **「草稿 = 本地某个文件」证明不了「本地那个文件 = 当前代码」。** 判据见清单第 3 步。
-2. **`versionCode` 有没有递增。** 现在是 `6`（2.1.0），发下一版要改成 `7`；以 `android/app/build.gradle` 里的值为准。安卓拒装 versionCode 更小的包，
-   忘了加 = 已装用户永远收不到更新，而构建和安装全程不会报任何错。
+调试装机走上面的 debug 路径。**要发出去的包**（`solo` / `personal` 两个变体、打包命令、五道闸门、
+发版七步清单）只在 `docs/release-signing.md` 里维护，动手前读它。
+别只跑打包命令就报完成：清单第 3 步（核对 APK 是当前代码构建的）和第 7 步（把工作区和手机恢复成 personal）最容易漏。
 
 ### 要在真机上验 solo 的行为，用 `soloDebug`
 
@@ -165,9 +145,6 @@ solo 构建**不挂 `window.__fitlog` 探针**（`isOffline()` 时不挂），�
 IndexedDB `FitLogDB-solo`。备份往返已于 2026-09-16 端到端验过，做法见知识库
 `patterns\每一段都验过不等于整条验过.md`。
 
-签名密钥在 `android/fitlog-release.keystore` + `android/key.properties`，两者都不进 git。
-**密钥丢了或漏了都不可逆**（丢 = 再也无法给已装用户发更新）。
-
 装新 Capacitor 插件之后必查一件事：
 
 ```sh
@@ -176,6 +153,3 @@ grep -n kotlin_version node_modules/@capacitor/<插件>/android/build.gradle
 
 比 `android/variables.gradle` 里的 `kotlin_version` 高就必须抬上去 ——
 低了是**运行时闪退、编译期无感**，而且普通 `adb logcat` 里没有，要 `adb logcat -b crash`。
-
-（根目录原来那个 `build-release-apk.ps1` 已删除：它依赖的 `setup-release-build.ps1`
-从来不存在，是一份跑不通的旧流程。）

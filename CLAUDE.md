@@ -21,19 +21,12 @@ grep -ril "<关键词>" G:\我的云端硬盘\DevNotes
 
 **这个项目「假的成功信号」类的坑特别多（挖出 9 条）。** 看到「构建通过 / e2e 全绿 / fetch 200 / 已缓存」时，先读 `patterns\假的成功信号.md` 再下结论。
 
-`_memory/fitlog/` 里另有 9 篇项目级记忆（toolchain-traps、phone-webview-cdp 等），会自动加载。
+`_memory/fitlog/` 里另有 14 篇项目级记忆（toolchain-traps、phone-webview-cdp 等），会自动加载。
 
-## 贴给我的命令：PowerShell 5.1 语法，一块一条
+## 文档与测试
 
-我运行命令的地方是桌面应用里的终端标签页 —— **Windows PowerShell 5.1**。
-
-- **禁止 `&&` / `||`**。这个版本不支持，报 `标记"&&"不是此版本中的有效语句分隔符。`，
-  整条命令一个字都不执行。要串用 `;`，要「成功才继续」用 `A; if ($?) { B }`。
-- **一个代码块只放一条命令**。应用按代码块给「运行」按钮，挤一起就没法单独跑。
-- 同源的：`2>/dev/null` 要写 `2>$null`；`head` / `tail` / `which` / `touch` / `mkdir -p` 不存在。
-
-这条跟你自己用什么 shell 干活无关 —— 你的 Bash 工具是 Git Bash，那边照常。
-约束只针对**交给我去跑的**命令。
+文档索引在 `docs/README.md`。测试分三层：`npm run check`（纯规则，秒级）、`npm run e2e`（关键路径，约半分钟）、
+`docs/manual-check.md`（真机手感 / 观感）。给我的命令按全局规则写 PowerShell 5.1。
 
 ## 写回知识库
 

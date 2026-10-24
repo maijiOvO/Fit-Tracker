@@ -174,7 +174,7 @@
   --fs-headline: 28px;
   --fs-data-xl: 40px; /* PR、结束训练总结 */
 
-  /* 休息标记（§12.13）的几何。demo 里逐个调过的值：docs/archive/demos/rest-marker.html */
+  /* 休息标记（§12.13）的几何：在手机上逐个调过的值 */
   --rest-h: 18px;
   --rest-w: 9px;
   --rest-hit: 14px;
@@ -852,8 +852,7 @@ button {
   position: relative;
 }
 
-/* 子组行＝引文式缩进。旧写法是 bg-card 反在 bg-inset 上，
-   属于层级反转（card 必须比 base 亮，见 §2 规则）。 */
+/* 子组行＝引文式缩进，不另垫底色（垫 bg-card 会和外面的卡分不出层级）。 */
 .ledger-subrow {
   display: grid;
   grid-template-columns: var(--cols);
@@ -1668,7 +1667,7 @@ button {
 
    ⚠️ 位置**不靠测量**：书签是 .ledger-paper 里的一个正常流子节点，
    夹在两个组块之间，高度 0，靠 CSS 自己贴在缝上。
-   规格 §12.6 当年因为「子组会把行撑高、要挂 ResizeObserver」而放弃了平移方案 ——
+   不用「量好位置再平移」：子组会把行撑高，那样得挂 ResizeObserver。
    在流里插一个节点就绕开了整件事：行怎么长高，缝跟着走，一次测量都不用做。
    （只有拖动过程中才量一次全场缝位，见 RestBookmark.tsx。） */
 .rest-seam {

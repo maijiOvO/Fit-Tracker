@@ -1,9 +1,8 @@
 # 数据安全设计：自动备份、重装恢复、CSV 导出、Strong / Hevy 导入
 
-2026-10-20 · 对应 `docs/next-round-2026-10-20.md` §4、§7.4 · **状态：已确认（全部按建议），已实现**
-
-这一轮做：本机自动快照 + 文件夹授权、重装后恢复、CSV 导出、Strong / Hevy CSV 导入。
+范围：本机自动快照 + 文件夹授权、重装后恢复、CSV 导出、Strong / Hevy CSV 导入。
 不做：训记导入、WebDAV、Google Drive、百度 / 阿里云盘。不加 INTERNET 权限。
+规则的自检在 `scripts/data-check.mjs`，完整的「卸载 → 恢复」路径在 `scripts/e2e-backup.mjs`。
 
 ---
 
@@ -224,18 +223,11 @@ Cable Fly    新建自定义动作               20 组 · 最重 40    [kg|lb]
 - 单位默认取 App 当前单位；每个动作一个开关。显示「最重 X」是为了让人一眼看出来（225 kg 卧推显然不对）。
 - 单位已知（Hevy、带单位列的 Strong）时不出单位开关，只显示一行「单位：lb（来自文件）」。
 
-## 7. 动哪些文件（尽量不碰另一个会话在改的地方）
+## 7. 真机验证（少做、易错）
 
-- 新增：`services/fitlogFolder.ts`（插件包装 + web mock）、`services/fitlogAutoBackup.ts`（时机、命名、核对、保留）、`services/fitlogCsvExport.ts`、`services/fitlogCsvImport.ts`（解析 + 映射，纯函数）、`src/hooks/useAutoBackup.ts`、恢复 / 导入确认的两个组件、`android/.../FitlogFolderPlugin.java`。
-- 改：`PrefsSheet.tsx` 数据区、`ProfileTab.tsx`（若数据入口在这）、`WorkoutContext.finishWorkout` 后加一行触发、`MainActivity.java` 注册插件、首页空状态加恢复卡、`FirstRunNotice` 加一句、`CHANGELOG`。
-- **不改** `types.ts` / `AppPrefs` / `FitlogSyncedPrefs`：备份状态存本机，不进同步。
-
-## 8. 验证
-
-- `npm run typecheck`、`npm run e2e`、`npm run build`。
-- e2e：插件在浏览器里有 mock 实现（内存里的「文件夹」），用来测：结束训练 → 自动备份 → 读回核对 → 保留规则；清空数据 → 恢复卡 → 摘要 → 恢复后条数一致；故意让 mock 读回内容不一致 → 必须显示失败。CSV 导出解析回来逐行比对；Strong（`;` 与 `,` 两种）/ Hevy 样本导入后条数、单位换算正确。
-- 真机（android-build 技能，打完解包核对是本次代码）：选文件夹 → 文件真的出现在「文档/fitlog」（adb 列目录核对）→ **卸载重装** → 两下点击恢复 → 条数一致。
-  **卸载重装只在测试包 / dev 数据环境上做**，动手前先确认手机上的真实数据有一份核对过的备份。
+选文件夹 → 文件真的出现在「文档/fitlog」（adb 列目录核对）→ **卸载重装** → 恢复 → 条数一致。
+**卸载重装只在测试包 / dev 数据环境上做**，动手前先确认手机上的真实数据有一份核对过的备份。
+打包走 android-build 技能，打完解包核对是本次代码。
 
 ## 决定（2026-10-20 用户确认：全部按建议）
 
@@ -244,20 +236,3 @@ Cable Fly    新建自定义动作               20 组 · 最重 40    [kg|lb]
 3. 本地已有数据时恢复：新格式给「合并（推荐）/ 覆盖」，旧格式只能覆盖。
 4. 热身组默认不导入。
 5. CSV 表头跟 App 语言走。
-
-## 实现与验证（2026-10-20）
-
-- 代码：`services/fitlogFolder.ts`（插件包装 + 浏览器 mock）、`fitlogAutoBackup.ts`、`fitlogCsvExport.ts`、`fitlogCsvImport.ts`；
-  `src/hooks/useDataSafety.ts`；`src/components/data/*`；原生 `FitlogFolderPlugin.java`。
-- `npm run typecheck`、`npm run build` 通过；`scripts/e2e-smoke.mjs` 64/64，`scripts/e2e-backup.mjs` 10/10
-  （保留规则、读回不一致 / 没权限报失败、卸载后恢复、合并不捞回墓碑、CSV 行数与 BOM、Strong 两种分隔符、Hevy 单位、重复导入不翻倍）。
-- 真机（小米 15 Ultra，Android 16，solo 独立测试包 `com.myron.fittracker.backuptest`，无联网权限）：
-  选文件夹 → `/sdcard/Documents/fitlog/` 出现备份，adb 读出是完整快照、4 场训练；CSV 存进同一目录，带 BOM；
-  **卸载 → 文件还在 → 重装 → 首次提示里点「从备份恢复」→ 系统选择器直接打开在 Documents › fitlog → 使用此文件夹 → 允许 →
-  摘要「找到备份：4 次训练，最后一次 10 月 19 日」→ 恢复 → 4 场全部回来**，文件夹自动接上、补写一份备份、同日旧份按规则清理。
-- 真机没测：Strong / Hevy 导入走的是和 JSON 导入同一个 `<input type=file>`（那条路 2026-09 已在真机验过），只在浏览器里测了。
-
-## 后续
-
-- 体重 / 围度进 CSV（第二个文件）。
-- 训记导入、WebDAV、云盘：这一轮不做。

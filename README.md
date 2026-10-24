@@ -62,8 +62,7 @@ services/
 
 Charts are lazy-loaded behind `LazyCharts.tsx` so the first-paint bundle stays small.
 
-Visual spec: [`docs/design-plates.md`](docs/design-plates.md) (interaction and WebView constraints still live in
-[`docs/design-ink-and-paper.md`](docs/design-ink-and-paper.md)). Open work: [`docs/TODO.md`](docs/TODO.md).
+Design docs and the manual device checklist are indexed in [`docs/README.md`](docs/README.md).
 
 ## Run locally
 
@@ -139,8 +138,13 @@ native check is rescued by the stamp.
   (`dist/fitlog-build-env.json`).
 - `npm run e2e` aborts and fails on any request that escapes to the real backend.
 
-Server-side enforcement (per-endpoint API keys + versioned backups before every
-write) is specified in [`docs/archive/nas-server-prompt.md`](docs/archive/nas-server-prompt.md).
+Server-side contract (enforced by the NAS service):
+- `GET/PUT /api/fitlog/state` (prod) and `/api/fitlog/state-dev` (dev), `Authorization: Bearer <key>`;
+  each endpoint has its own key, and a key used on the wrong endpoint gets **403**.
+- A PUT whose `X-Fitlog-Env` header or body `env` doesn't match the endpoint gets **409** and is not written;
+  `GET` always returns the endpoint's `env`.
+- Every PUT first copies the current snapshot to `backups/` (last 30 kept); if that copy fails the PUT fails.
+- Check from this machine: `npm run check-remote` / `npm run check-remote -- --prod`.
 
 ### Backend host
 

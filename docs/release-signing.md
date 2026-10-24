@@ -78,9 +78,6 @@ RSA 4096 · 2026-09-15 生成
 
 ## 打包
 
-**这台机器的终端是 Windows PowerShell 5.1，不支持 `&&`** —— 用 `;` 串，
-或者「成功才继续」写成 `A; if ($?) { B }`：
-
 ```powershell
 npm run build:solo; if ($?) { npx cap sync android }; if ($?) { npm run apk:solo }
 ```

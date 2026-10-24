@@ -3,7 +3,7 @@
  *
  * §12.4 FAB 印谱扇开：点按语义不变（进新训练页，页内印谱六选一）；
  * 长按 120ms 后六枚部位印从拇指下扇形摊开，滑到某枚松手＝落章开练。
- * 状态机、几何与三个实现坑见 docs/design-ink-and-paper.md §12.4，
+ * 规则见 docs/design-ink-and-paper.md §12.4（具体数值以下面的常量为准），
  * 可玩的调参 demo 在 docs/demos/fab-seal-fan.html。
  */
 import React, { useCallback, useRef, useState } from 'react';
@@ -26,7 +26,7 @@ interface TabNavigationProps {
   onStartWorkoutWithPart?: (partKey: BodyPartKey, title: string | null) => void;
 }
 
-/* ── 扇形几何（初值定稿于 §12.4，待真机调） ── */
+/* ── 扇形几何（真机调过的值） ── */
 const OPEN_DELAY_MS = 120; // 前 120ms 什么都不出，点按不许闪印谱
 const TAP_MAX_MS = 250; // 松手总时长 < 250ms 仍按点按算
 const FAN_R = 175; // 半径。160 时印与印只剩 1px 缝

@@ -197,8 +197,7 @@
 .bar-short-w button { width: 40px; min-height: 40px; font-size: var(--fs-h2); color: var(--text-secondary); }
 .bar-short-w b { font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
 
-/* 配重片刻度（方案 A，docs/demos/stack-scale.html）：图上方一枚小药丸；点开后图这一块原地换成设置面，
-   高度不塌、下面的组不动；右上「完成」收回 */
+/* 配重片刻度（docs/demos/stack-scale.html）：图上方一枚小药丸，点开是「动作设置」弹窗里「在 X」那一段 */
 .stack-tagrow { display: flex; padding: 0 12px 6px; }
 .stack-tag {
   display: inline-flex; align-items: center; gap: 5px;
