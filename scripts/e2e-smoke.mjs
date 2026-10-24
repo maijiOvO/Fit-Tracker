@@ -1449,6 +1449,16 @@ const run = async () => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.E2E_CHROMIUM || undefined });
   /** 逃逸到真实后端的请求（应当恒为空） */
   const escapedRemoteCalls = [];
+  // 先让 dev server 把整张模块图转译一遍：刚重启时五个 context 同时冷启动，首页 10 s 都画不出来（实测踩过）。
+  // 这一下不连后端：所有非本机请求直接拒掉
+  {
+    const warm = await browser.newContext();
+    await warm.route(url => !url.href.startsWith(BASE), route => route.abort());
+    const p = await warm.newPage();
+    await p.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await p.waitForSelector('header', { timeout: 60_000 });
+    await warm.close();
+  }
   const suites = [
     () => mainFlow(browser, escapedRemoteCalls),
     ...SEEDED_SHARDS.map((names, i) => () => runSeededShard(browser, escapedRemoteCalls, names, i)),
