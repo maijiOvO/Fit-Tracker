@@ -273,9 +273,34 @@ t('改值清 draftAuto：被改的组；递减档按 id 比，删掉中间一档
   const del = W.applySetUpdate(exs, r(exs), { subSets: [subs[1]] });
   assert.equal(del[0].sets[0].subSets[0].id, 's2');
   assert.equal(del[0].sets[0].subSets[0].draftAuto, true);
-  // 改 s1 的重量：只有 s1 清掉
-  const ed = W.applySetUpdate(exs, r(exs), { subSets: [{ ...subs[0], weight: 45 }, subs[1]] });
-  assert.deepEqual(ed[0].sets[0].subSets.map(s => s.draftAuto), [false, true]);
+  // 改 s2（最后一档）的重量：只有 s2 清掉（改 s1 会带着 s2 平移，s2 也清）
+  const ed = W.applySetUpdate(exs, r(exs), { subSets: [subs[0], { ...subs[1], weight: 35 }] });
+  assert.deepEqual(ed[0].sets[0].subSets.map(s => s.draftAuto), [true, false]);
+});
+
+t('改某一档的重量：同一组里下面没改过的档保持差值一起挪，后面待做组的同几档照样跟；打字中途不跟、打完结算', () => {
+  const r = exs => W.flatRows(exs)[0];
+  const mk = () => {
+    const exs = [ex('A', [[60, 8], [60, 8]])];
+    exs[0].sets.forEach((st, i) => (st.subSets = [{ id: `d${i}a`, weight: 50, reps: 8 }, { id: `d${i}b`, weight: 40, reps: 8 }]));
+    return exs;
+  };
+  const w = exs => exs[0].sets.map(st => [st.weight, ...st.subSets.map(x => x.weight)].join('/')).join(' ');
+  let exs = mk();
+  const s0 = exs[0].sets[0];
+  // ± / 横拖：一步到位
+  assert.equal(w(W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], weight: 45 }, s0.subSets[1]] })), '60/45/35 60/45/35');
+  // 下面那档改过（touched）：不动
+  exs = mk();
+  exs[0].sets[0].subSets[1].touched = { weight: true };
+  const t0 = exs[0].sets[0];
+  assert.equal(w(W.applySetUpdate(exs, r(exs), { subSets: [{ ...t0.subSets[0], weight: 45 }, t0.subSets[1]] })).split(' ')[0], '60/45/40');
+  // 打字：中途只改这一格，打完按总差值结算
+  exs = mk();
+  exs = W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], weight: 45 }, s0.subSets[1]], holdFollow: true });
+  assert.equal(w(exs), '60/45/40 60/50/40');
+  exs = W.applySetUpdate(exs, r(exs), { followFrom: { kg: 50, sub: 0 } });
+  assert.equal(w(exs), '60/45/35 60/45/35');
 });
 
 t('loadable：就近取整、等距取轻、不规则片、空杠下限、跨 0、哑铃下限', () => {

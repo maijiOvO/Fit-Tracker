@@ -333,6 +333,7 @@ export type SetUpdate = Partial<SetLog> & {
  *
  * 递减档（2026-10-15 用户定：和普通组完全一样）：
  *   - 改某一组第 j 档的重量 / 次数，后面各组的第 j 档照上面同一套跟（重量保持差值，次数原值相同才跟）。
+ *   - 改第 j 档的重量，同一组里它下面没改过的档保持差值一起挪（2026-10-25 用户定：60→50→40 改第一档成 45 → 60→45→35）。
  *   - 母组重量变了，它自己的递减档保持差值一起挪（60→55→50 改成 70 → 70→65→60）；档上改过的重量不动。
  *     跟着变的母组也一样带着自己的递减档挪。
  */
@@ -379,8 +380,18 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
         sets[i] = shiftSubs(edited, edited, shift, e, signed, snap);
         followWeight(sets, i, shift, e, signed, snap);
       } else {
-        const sub = edited.subSets?.[followFrom.sub];
-        if (sub) followSubWeight(sets, i, followFrom.sub, signedKg(sub, e, edited) - followFrom.kg, !!sub.bodyweightMode, e, snap);
+        const j = followFrom.sub;
+        const sub = edited.subSets?.[j];
+        if (sub) {
+          const shift = signedKg(sub, e, edited) - followFrom.kg;
+          const prevSubs = edited.subSets!;
+          sets[i] = shiftLowerSubs(edited, j, shift, e, snap);
+          sets[i].subSets!.forEach((nu, k) => {
+            if (k < j) return;
+            const d = k === j ? shift : signedKg(nu, e, sets[i]) - signedKg(prevSubs[k], e, edited);
+            followSubWeight(sets, i, k, d, !!nu.bodyweightMode, e, snap);
+          });
+        }
       }
       return { ...e, sets };
     }
@@ -395,9 +406,26 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
     if ('reps' in updates) followReps(sets, i, e, Number(before.reps) || 0, updates.reps);
     // 时长（有氧 / 计时组）照次数的规矩跟：后面待做、没改过、原值一样的组跟着变（审查 A5）
     if ('duration' in updates) followDuration(sets, i, Number(before.duration) || 0, Number(updates.duration) || 0);
-    if (updates.subSets) followSubs(sets, i, before, edited, e, !!holdFollow, snap);
+    if (updates.subSets && !holdFollow) {
+      // 改了某一档的重量：同一组里它下面没改过的档保持差值一起挪（2026-10-25 用户定：60→50→40 改第一档成 45 → 60→45→35）
+      const olds = before.subSets ?? [];
+      const j = edited.subSets!.findIndex((nu, k) => olds[k] && olds[k].id === nu.id && signedKg(nu, e, edited) !== signedKg(olds[k], e, before));
+      if (j >= 0 && olds.length === edited.subSets!.length) {
+        sets[i] = shiftLowerSubs(sets[i], j, signedKg(edited.subSets![j], e, edited) - signedKg(olds[j], e, before), e, snap);
+      }
+    }
+    if (updates.subSets) followSubs(sets, i, before, sets[i], e, !!holdFollow, snap);
     return { ...e, sets };
   });
+}
+
+/** 一组里第 j 档下面、重量没改过的档平移 shift（同一组的递减链保持差值） */
+function shiftLowerSubs(s: SetLog, j: number, shift: number, ex: Exercise, snap?: (kg: number) => number): SetLog {
+  if (!shift || !s.subSets) return s;
+  const subSets = s.subSets.map((sub, k) =>
+    k <= j || sub.touched?.weight ? sub : { ...sub, ...shiftWeight(sub, shift, ex, !!sub.bodyweightMode, s, snap) },
+  );
+  return { ...s, subSets };
 }
 
 /** 一组（或一档）的重量平移 shift（带符号的 kg）：带正负的负荷连号一起写，普通重量不低于 0 */
