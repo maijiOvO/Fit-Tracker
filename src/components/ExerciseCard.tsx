@@ -30,6 +30,7 @@ import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { profileIn } from '../utils/loadable';
 import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
+import { tick } from '../utils/tick';
 
 
 /** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法 + 今天的馆 */
@@ -217,6 +218,10 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     steps: heroFeel.steps,
     axis: heroFeel.axis,
     stepFn: heroFeel.stepFn,
+    px: heroFeel.px,
+    engagePx: heroFeel.engagePx,
+    // 配重片刻度轨每过一片：咔哒 + 短振（其余大图照旧一下点击感）
+    ...(heroFeel.axis === 'y' ? { onDetent: tick } : {}),
     disabled: !focusSet,
     ...(signed ? { min: -9999 } : {}),
   });

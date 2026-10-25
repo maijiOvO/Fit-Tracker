@@ -20,20 +20,12 @@
   user-select: none;
   -webkit-user-select: none;
 }
-/* 竖拖（配重片）只认中间一条（2026-10-23）：整块都能拖时，翻页的手指划过就改了重量。
-   两边照常滚页面；中间这条宽约四成，两道淡虚线标出来，拖的时候整条泛底色 */
+/* 配重片：只有右侧刻度轨能竖拖（2026-10-25，PinStackGlyph），整块照常滚页面 */
 .load-hero-drag.is-draggable.is-axis-y {
   cursor: auto;
   touch-action: auto;
 }
-.load-hero-lane {
-  position: absolute; top: 0; bottom: 0; left: 30%; width: 40%; z-index: 1;
-  cursor: ns-resize; touch-action: pan-x;
-  border-left: 1px dashed var(--rule-strong); border-right: 1px dashed var(--rule-strong);
-  opacity: 0.5;
-}
-.load-hero.is-scrubbing .load-hero-drag.is-axis-y { background: transparent; }
-.load-hero.is-scrubbing .load-hero-lane { opacity: 1; background: color-mix(in srgb, var(--bg-inset) 70%, transparent); }
+.load-hero.is-scrubbing .load-hero-drag.is-axis-y { background: transparent; touch-action: auto; }
 .load-hero.is-scrubbing .load-hero-drag { touch-action: none; }
 .load-hero-step {
   position: absolute;
@@ -396,56 +388,70 @@
   gap: 1px;
 }
 
-/* 配重片摞：竖着排，插销插在哪一片就加深那一片 */
+/* 配重片摞（PinStackGlyph）：导杆 + 顶板 + 有厚度的片 + 插销，右侧刻度轨。
+   窗口固定 9 片 × 12px（STACK_PITCH），--pin-y 是插销那一片在窗口里的中线。不上色：颜色只给杠铃片 */
 .pin-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  width: min(220px, 70%);
-  margin: 0 auto;
-}
-.pin-slab {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 3px;
+  height: 136px;
+  --win-top: 16px;
 }
-.pin-slab em {
-  width: 24px;
-  text-align: right;
-  font: 600 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-style: normal;
-  color: var(--text-tertiary);
+.pin-head {
+  position: absolute; top: 6px; left: calc(50% - 88px); width: 176px; height: 6px;
+  border-radius: 3px; background: var(--rule-strong);
 }
-.pin-slab i {
-  flex: 1;
-  height: 3px;
-  border-radius: 1px;
+.pin-rod {
+  position: absolute; top: 8px; height: 124px; width: 2px; border-radius: 1px; background: var(--rule-strong);
+}
+.pin-rod.is-l { left: calc(50% - 85px); }
+.pin-rod.is-r { left: calc(50% + 83px); }
+.pin-win {
+  position: absolute; top: var(--win-top); height: 108px; left: calc(50% - 75px); width: 150px; overflow: hidden;
+  -webkit-mask: linear-gradient(#000 calc(100% - 18px), transparent);
+  mask: linear-gradient(#000 calc(100% - 18px), transparent);
+}
+.pin-win.is-more-up {
+  -webkit-mask: linear-gradient(transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  mask: linear-gradient(transparent, #000 18px, #000 calc(100% - 18px), transparent);
+}
+.pin-plates { position: absolute; inset: 0 0 auto; transition: transform var(--dur-tap) var(--ease-ink); }
+.pin-slab {
+  position: absolute; left: 0; right: 0; height: 10px; border-radius: 2px;
   background: var(--bg-inset);
   transition: background-color var(--dur-tap) var(--ease-ink);
 }
-.pin-slab.is-up i { background: var(--text-tertiary); }
-.pin-slab.is-at i { background: var(--text-primary); }
-.pin-slab.is-at em {
-  /* 插销那一片的确切重量：加粗放大，往左伸出去不挤刻度列 */
-  color: var(--text-primary);
-  font-size: var(--fs-small);
-  font-weight: 700;
-  width: 40px;
-  margin-left: -16px;
+.pin-slab.is-up { background: color-mix(in srgb, var(--text-tertiary) 70%, var(--bg-inset)); }
+.pin-slab.is-at { background: var(--text-primary); }
+.pin-sel {
+  position: absolute; top: 0; left: 50%; width: 3px; margin-left: -1.5px; border-radius: 2px;
+  background: var(--text-primary); opacity: 0.35;
 }
-.pin-slab.is-at::after {
-  content: '';
-  position: absolute;
-  right: -16px;
-  top: 50%;
-  width: 14px;
-  height: 4px;
-  margin-top: -2px;
-  border-radius: 2px;
+/* 插销那一片的确切重量：和杠铃片上的数字同一套字（Barlow Condensed） */
+.pin-label {
+  position: absolute; right: calc(50% + 96px); top: calc(var(--win-top) + var(--pin-y) - 13px);
+  font: 800 26px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; font-style: normal;
+  color: var(--text-primary); white-space: nowrap;
+  transition: top var(--dur-tap) var(--ease-ink);
+}
+.pin-label small { margin-left: 2px; font: 600 var(--fs-micro) 'Noto Sans SC', system-ui, sans-serif; color: var(--text-tertiary); }
+.pin-pin {
+  position: absolute; left: calc(50% + 75px); top: calc(var(--win-top) + var(--pin-y) - 2px);
+  width: 25px; height: 4px; border-radius: 2px; background: var(--text-primary);
+  transition: top var(--dur-tap) var(--ease-ink);
+}
+/* 刻度轨：44px 宽，整条都能起拖（竖拖，所以 pan-x）；插销头在轨里走 */
+.pin-rail {
+  position: absolute; top: var(--win-top); height: 108px; left: calc(50% + 100px); width: 44px;
+  border-radius: 12px; border: 1px solid var(--rule-strong); background: var(--bg-card);
+  touch-action: pan-x; cursor: ns-resize; overflow: hidden;
+}
+.pin-rail i { position: absolute; left: 13px; right: 13px; height: 1px; background: var(--rule-strong); }
+.pin-rail b {
+  position: absolute; left: 8px; right: 8px; top: var(--pin-y); height: 14px; margin-top: -7px; border-radius: 7px;
   background: var(--text-primary);
+  transition: top var(--dur-tap) var(--ease-ink), background-color var(--dur-tap) var(--ease-ink);
 }
+.load-hero.is-scrubbing .pin-rail { border-color: var(--accent); background: var(--accent-soft); touch-action: none; }
+.load-hero.is-scrubbing .pin-rail b { background: var(--accent); }
 
 /* 哑铃：不上色，片子的颜色只给杠铃 */
 .db-pair {

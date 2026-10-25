@@ -18,7 +18,7 @@ import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { fromSignedKg } from '../utils/load';
-import { heroScrubAxis } from '../utils/scrubFeel';
+import { heroScrubAxis, STACK_PITCH, STACK_ENGAGE_PX } from '../utils/scrubFeel';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import type { LoadKind } from '../hooks/useLoadKind';
@@ -34,13 +34,19 @@ import type { ExRounder } from '../hooks/useLoadRounder';
  */
 export function weightScrubFor(
   rounder: ExRounder | null | undefined,
-): { steps: number[]; axis: 'x' | 'y'; stepFn?: (v: number, dir: 1 | -1, mult: number) => number } {
+): {
+  steps: number[];
+  axis: 'x' | 'y';
+  stepFn?: (v: number, dir: 1 | -1, mult: number) => number;
+  px?: number;
+  engagePx?: number;
+} {
   if (!rounder) return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
-  return {
-    steps: SCRUB_MULTS,
-    axis: heroScrubAxis(rounder.info.kind),
-    stepFn: (v, dir, mult) => rounder.stepToD(v, dir, mult),
-  };
+  const axis = heroScrubAxis(rounder.info.kind);
+  const stepFn = (v: number, dir: 1 | -1, mult: number) => rounder.stepToD(v, dir, mult);
+  // 配重片刻度轨：一档一片、跟手、不跳档（scrubFeel.STACK_PITCH）
+  if (axis === 'y') return { steps: [1], axis, stepFn, px: STACK_PITCH, engagePx: STACK_ENGAGE_PX };
+  return { steps: SCRUB_MULTS, axis, stepFn };
 }
 
 interface SetCapsuleProps {

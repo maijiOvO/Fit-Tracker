@@ -49,11 +49,11 @@ export const AXIS_DOMINANCE = 1;
  * 按下后还没起拖时，看位移决定：再等等 / 起拖 / 放手（这一下是翻页，不归这一格管）。
  * along＝沿拖动方向的位移，across＝垂直方向的位移（都是相对按下点）。
  */
-export function scrubEngage(along: number, across: number): 'wait' | 'engage' | 'release' {
-  // 竖拖（配重片大图）时 along 是竖向、across 是横向，同一条规则
+export function scrubEngage(along: number, across: number, engagePx = ENGAGE_PX): 'wait' | 'engage' | 'release' {
+  // 竖拖（配重片刻度轨）时 along 是竖向、across 是横向，同一条规则
   const a = Math.abs(along);
   const c = Math.abs(across);
-  if (Math.max(a, c) < ENGAGE_PX) return 'wait';
+  if (Math.max(a, c) < engagePx) return 'wait';
   return a > AXIS_DOMINANCE * c ? 'engage' : 'release';
 }
 
@@ -65,6 +65,14 @@ export function scrubEngage(along: number, across: number): 'wait' | 'engage' | 
 export function heroScrubAxis(kind: string | undefined): 'x' | 'y' {
   return kind === 'pin' ? 'y' : 'x';
 }
+
+/**
+ * 配重片刻度轨（2026-10-25 用户选定，示意 docs/demos/weight-stack-directions.html 方向 B）：
+ * 只有右侧那条轨能起拖，图本身和两侧照常滚页面。起手位置已经挑过，起拖阈值可以比格子低；
+ * 一档＝一片＝片距，手指走多少插销走多少；不吃速度跳档（片是离散的，甩一下跳十片只会是误触）。
+ */
+export const STACK_PITCH = 12;
+export const STACK_ENGAGE_PX = 8;
 
 /** 一次拖动的计步状态（useValueScrub 的 drag 里的那几项） */
 export interface ScrubTrack {
@@ -89,9 +97,10 @@ export function trackScrub(
   p: number,
   c: number,
   px: number,
+  engagePx = ENGAGE_PX,
 ): { t: ScrubTrack; go: 'wait' | 'release' | 'move'; detents: (1 | -1)[] } {
   if (!t.engaged) {
-    const go = scrubEngage(p - t.x0, c - t.c0);
+    const go = scrubEngage(p - t.x0, c - t.c0, engagePx);
     if (go !== 'engage') return { t, go, detents: [] };
     return { t: { ...t, engaged: true, x: p, acc: 0 }, go: 'move', detents: [] };
   }

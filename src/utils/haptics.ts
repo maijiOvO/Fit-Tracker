@@ -19,6 +19,7 @@ export const H = {
   pick: 12, // 选中
   longpress: 14, // 长按达成
   threshold: 6, // 越过阈值（弹层投影判定等）
+  tick: 5, // 配重片刻度轨每过一片（配一声咔哒，utils/tick.ts）
   seal: [0, 18, 40, 12], // 盖章：一记实 + 一记轻的余韵
   error: [20, 60, 20],
 } as const;

@@ -30,6 +30,7 @@ import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
 import { INC_CHOICES, sidePlates } from '../utils/loadable';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
+import { STACK_PITCH } from '../utils/scrubFeel';
 
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
@@ -182,31 +183,69 @@ export interface MachineCtl {
 /* ── 配重片摞（器械 / 龙门架）─────────────────────────── */
 
 /**
- * 竖拖只认大图中间一条（2026-10-23 用户：整块配重片都能竖拖，翻页时手指划过就改了重量）。
- * 方向不变（配重片竖着排就竖着滑，见 heroScrubAxis）；两边照常滚页面。
+ * 配重片：导杆 + 顶板 + 一摞有厚度的片 + 插销，右侧一条刻度轨（2026-10-25 用户选定，示意
+ * docs/demos/weight-stack-directions.html 方向 B）。只有轨能竖拖改重量，图本身和两侧照常滚页面
+ * （原来正中 40% 一条 pan-x，翻页的拇指正好走那里）。
+ * 固定 STACK_WIN 片高的窗口：重量再大图也不长高（原来画 max(16, at+3) 片、封顶 30，拖重时卡片一路长高，
+ * 超过 30 格插销那片根本没画）。窗口按页翻：插销离下沿不到 3 片才往下挪，手指往下、插销也往下。
  */
-function DragLane({ scrub }: { scrub: { handlers: Record<string, unknown> } }) {
-  return <span className="load-hero-lane" data-testid="hero-lane" aria-hidden {...scrub.handlers} />;
-}
+const STACK_WIN = 9;
 
-export function PinStackGlyph({ value, step, start = 0 }: { value: number; step: number; start?: number }) {
+export function PinStackGlyph({
+  value,
+  step,
+  start = 0,
+  unit,
+  rail,
+}: {
+  value: number;
+  step: number;
+  start?: number;
+  /** 插销那格写的单位（这台器械上印的） */
+  unit?: PlateUnit;
+  /** 刻度轨的拖动手势（useValueScrub）；不传＝只画图 */
+  rail?: { handlers: Record<string, unknown> };
+}) {
   // 带起始的配重片（12.5 起、每格 5）：第 1 片就是最轻一格，往下每片 +一档
   const s0 = start > 0 ? start : 0;
   const at = s0 > 0 ? (value >= s0 - 1e-9 ? Math.round((value - s0) / step) + 1 : 0) : Math.max(0, Math.round(value / step));
-  const n = Math.min(30, Math.max(16, at + 3));
+  const topRef = useRef(1);
+  let top = topRef.current;
+  if (at > 0 && at < top + 1) top = Math.max(1, at - 1);
+  if (at > top + STACK_WIN - 4) top = at - STACK_WIN + 4;
+  if (at === 0) top = 1;
+  topRef.current = top;
+  const P = STACK_PITCH;
+  // 插销那一排在窗口里的纵坐标（片的中线）；0＝还没插，插销停在顶板下
+  const pinY = at > 0 ? (at - top) * P + 5 : -4;
+  const plates = [];
+  for (let i = Math.max(1, top - 2); i <= top + STACK_WIN + 1; i++)
+    plates.push(<span key={i} className={`pin-slab${i < at ? ' is-up' : i === at ? ' is-at' : ''}`} style={{ top: (i - 1) * P }} />);
   return (
-    <div className="pin-stack" aria-hidden>
-      {Array.from({ length: n }, (_, i) => {
-        const idx = i + 1;
-        // 只标插销那一格（2026-10-20 用户定：临近的数字没人看，还会和插销那格的字叠在一起）
-        const label = idx === at ? fmt1(value) : '';
-        return (
-          <span key={idx} className={`pin-slab${idx < at ? ' is-up' : idx === at ? ' is-at' : ''}`}>
-            <em>{label}</em>
-            <i />
-          </span>
-        );
-      })}
+    <div className="pin-stack" aria-hidden style={{ ['--pin-y' as string]: `${pinY}px` }}>
+      <span className="pin-head" />
+      <span className="pin-rod is-l" />
+      <span className="pin-rod is-r" />
+      <span className={`pin-win${top > 1 ? ' is-more-up' : ''}`}>
+        <span className="pin-plates" style={{ transform: `translateY(${-(top - 1) * P}px)` }}>{plates}</span>
+        {/* 中间的选重杆只穿过被提起来的那几片 */}
+        <span className="pin-sel" style={{ height: Math.max(0, pinY + 5) }} />
+      </span>
+      {at > 0 && (
+        <em className="pin-label">
+          {fmt1(value)}
+          {unit && <small>{unit === 'lbs' ? 'lb' : 'kg'}</small>}
+        </em>
+      )}
+      <span className="pin-pin" />
+      {rail && (
+        <span className="pin-rail" data-testid="hero-rail" {...rail.handlers}>
+          {Array.from({ length: STACK_WIN }, (_, i) => (
+            <i key={i} style={{ top: i * P + 5 }} />
+          ))}
+          <b />
+        </span>
+      )}
     </div>
   );
 }
@@ -408,12 +447,11 @@ export function LoadHero({
           </span>
         )}
         {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} machine={kind === 'loaded'} />}
-        {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} />}
+        {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} unit={unit} rail={scrub?.axis === 'y' ? scrub : undefined} />}
         {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}
         {kind === 'bell' && <KettlebellGlyph value={value} unit={unit} />}
         {kind === 'fixed' && <FixedBarGlyph value={value} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={value} unit={unit} plateUnit={plateUnit} />}
-        {scrub?.axis === 'y' && <DragLane scrub={scrub} />}
       </div>
       <div className="load-caption-row">
         {kind === 'plates' && (
@@ -841,13 +879,14 @@ function GymHero({
               </span>
             )}
             {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
-            {kind === 'pin' && <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} />}
+            {kind === 'pin' && (
+              <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} unit={gu} rail={scrub?.axis === 'y' ? scrub : undefined} />
+            )}
             {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
             {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}
             {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
             {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
-            {scrub?.axis === 'y' && <DragLane scrub={scrub} />}
-          </div>
+              </div>
           <div className="load-caption-row">
             {kind === 'plates' && (
               <button

@@ -258,6 +258,8 @@ const MAIN_STEPS = [
   ['workout-log-sets', ['cold-load'], H],
   // 全局撤销 / 重做（services/undoJournal.ts）：一下一步，撤销结束训练回到工作台
   ['global-undo', ['cold-load'], H],
+  // 配重片刻度轨：只有轨能竖拖、一档一片；重量再大插销也画得出来
+  ['weight-stack-rail', ['cold-load'], H],
   // 接回「最近结束的那一场」（10 分钟内）：至少要有计划那场
   ['resume-recent-workout', ['plan-to-linked-workout'], H],
   ['no-real-backend-calls', [], { always: true }],
@@ -1486,6 +1488,55 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if ((await page.locator('.ledger-row.is-inked').count()) !== 1) throw new Error(`undo finish: ${await state()}`);
       await backAndDiscard(page);
       return `${seen.join(' → ')} · redo ×3 · undo finish → back on the bench`;
+    });
+
+    // 配重片（PinStackGlyph）：只有右侧刻度轨能竖拖改重量，图上别处拖不改（2026-10-25，原来正中一条 pan-x 被翻页误触）；
+    // 一档＝一片＝12px、不跳档；原来画的片数封顶 30，重量一大插销那片没画、数字也没了
+    await s('weight-stack-rail', async () => {
+      await toDashboard();
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
+      await page.locator('[data-testid="open-picker-sheet"]').click();
+      const sheet = page.locator('[data-testid="picker-sheet"]');
+      await sheet.locator('input[type="text"]').fill('高位下拉');
+      await sheet.locator('[data-testid="picker-sheet-exercise"]').first().click();
+      await page.locator('[data-testid="picker-sheet-close"]').click();
+
+      const wIn = page.locator('[data-testid="ledger-field-weight"] input').first();
+      const typeW = async n => {
+        await wIn.click();
+        await page.waitForTimeout(80);
+        await page.keyboard.type(String(n));
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(150);
+      };
+      await typeW(45);
+      const inc = Number((await page.locator('[data-testid="stack-chip"]').innerText()).match(/每格\s*([\d.]+)/)?.[1]);
+      if (!(inc > 0)) throw new Error('stack chip shows no step');
+      const w = async () => Number(await wIn.inputValue());
+      const drag = async (box, dy) => {
+        const x = box.x + box.width / 2, y = box.y + box.height / 2;
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        for (let d = 4; d <= Math.abs(dy); d += 4) await page.mouse.move(x, y + Math.sign(dy) * d);
+        await page.mouse.up();
+        await page.waitForTimeout(150);
+      };
+      const w0 = await w();
+      // 轨上往下 44px：8px 接管，之后 36px＝三片
+      await drag(await page.locator('[data-testid="hero-rail"]').boundingBox(), 44);
+      const w1 = await w();
+      if (Math.abs(w1 - (w0 + 3 * inc)) > 1e-6) throw new Error(`rail drag ${w0} → ${w1}, want +3 × ${inc}`);
+      // 图上（片子那一摞）同样拖：不改
+      await drag(await page.locator('.pin-win').boundingBox(), 44);
+      if ((await w()) !== w1) throw new Error(`dragging the stack itself changed the weight: ${w1} → ${await w()}`);
+      // 很重（远超 30 片）：插销那片和数字都还在
+      await typeW(inc * 60);
+      const label = page.locator('.pin-label');
+      if (!(await label.isVisible()) || !(await label.innerText()).startsWith(String(inc * 60)))
+        throw new Error(`heavy stack lost its pin label: ${await label.count()}`);
+      await backAndDiscard(page);
+      return `rail +3 plates (${w0} → ${w1}) · stack drag ignored · ${inc * 60} still labelled`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

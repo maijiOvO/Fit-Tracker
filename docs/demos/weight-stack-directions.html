@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配重片大图三个方向</title>
+<style>
+:root{
+  --bg:#FFFFFF; --card:#F4F5F7; --inset:#E4E7EB; --rule:#E3E5E9; --rule2:#A3A8B0;
+  --ink:#111316; --ink2:#4B5058; --ink3:#5C626B; --plate-up:#9298A0;
+  --acc:#12B39A; --acc-soft:#DCF4EF; --acc-text:#097464; --on-acc:#04211C; --warn:#C2410C;
+  --f-ui:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  --f-num:"Barlow Condensed","Noto Sans SC",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1013; --card:#1A1D21; --inset:#2A2E34; --rule:#2B2F35; --rule2:#5E646C;
+  --ink:#F1F2F3; --ink2:#B4B9C0; --ink3:#9AA0A8; --plate-up:#6B7179;
+  --acc:#2CC9AE; --acc-soft:#123A33; --acc-text:#5FE0C8; --on-acc:#04211C; --warn:#FB923C}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--f-ui);padding:24px 16px 48px}
+h1{font-size:20px;font-weight:800;margin-bottom:4px}
+.lead{color:var(--ink2);max-width:900px;margin-bottom:6px}
+.lead b{color:var(--ink)}
+.row{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;margin-top:18px}
+.col{width:340px;max-width:100%}
+.col h2{font-size:15px;font-weight:800;margin-bottom:2px}
+.col h2 .rec{font-size:11px;font-weight:700;color:var(--acc-text);background:var(--acc-soft);border-radius:999px;padding:2px 8px;margin-left:6px;vertical-align:2px}
+.col ul{color:var(--ink2);font-size:13px;padding-left:16px;margin:6px 0 10px;min-height:150px}
+.col li{margin:2px 0}
+.col li b{color:var(--ink)}
+
+/* 手机框：里面是真的能滚的页面，拿手机打开可以直接试「翻页会不会改到重量」 */
+.phone{position:relative;border:1px solid var(--rule);border-radius:22px;overflow:hidden;background:var(--bg);height:560px}
+.scroll{height:100%;overflow-y:auto;overscroll-behavior:contain}
+.top{height:54px;border-bottom:1px solid var(--rule);display:flex;align-items:center;padding:0 16px;font-weight:800}
+.card{margin:12px;background:var(--card);border-radius:14px;overflow:hidden;border:1px solid var(--rule)}
+.mast{padding:12px 14px 8px;border-bottom:1.5px solid var(--rule2)}
+.mast b{font-size:20px;font-weight:900}
+.mast small{display:block;color:var(--ink2);font-size:12px}
+.tagrow{padding:8px 12px 0}
+.tag{display:inline-flex;align-items:center;gap:4px;font:600 12px/1 var(--f-ui);color:var(--ink2);padding:6px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--rule)}
+.hero{position:relative;user-select:none;-webkit-user-select:none}
+.rows{border-top:1px solid var(--rule)}
+.r{display:grid;grid-template-columns:44px 1fr 1fr;align-items:center;padding:10px 14px;border-bottom:1px solid var(--rule)}
+.r .n{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;font-weight:700;background:var(--acc);color:var(--on-acc)}
+.r .n.ghost{background:none;border:1.5px dashed var(--rule2);color:var(--ink3)}
+.r .v{font:800 26px/1 var(--f-num)} .r .v small{font:500 12px var(--f-ui);margin-left:4px;color:var(--ink3)}
+.r .v.flash{animation:flash .5s}
+@keyframes flash{from{color:var(--warn)}to{color:var(--ink)}}
+.filler{margin:12px;height:120px;border-radius:14px;background:var(--card);border:1px solid var(--rule);display:grid;place-items:center;color:var(--ink3);font-size:12px}
+.log{position:absolute;left:10px;right:10px;bottom:10px;padding:7px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--rule);font-size:12px;color:var(--ink2);display:flex;justify-content:space-between;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.log b{color:var(--ink);font-family:var(--f-num);font-size:14px}
+.log button{border:0;background:none;color:var(--acc-text);font:700 12px var(--f-ui);cursor:pointer}
+
+/* ── 现状复刻：3px 条 + 中间 30%–70% 一条竖拖区（plates.css .pin-stack / .load-hero-lane） ── */
+.now{padding:10px 12px 4px}
+.now .stack{display:flex;flex-direction:column;gap:1px;width:min(220px,70%);margin:0 auto}
+.now .slab{position:relative;display:flex;align-items:center;gap:6px;height:3px}
+.now .slab em{width:24px;text-align:right;font:600 10px/1 var(--f-num);font-style:normal;color:var(--ink3)}
+.now .slab i{flex:1;height:3px;border-radius:1px;background:var(--inset)}
+.now .slab.up i{background:var(--ink3)} .now .slab.at i{background:var(--ink)}
+.now .slab.at em{color:var(--ink);font-size:13px;font-weight:700;width:40px;margin-left:-16px}
+.now .slab.at::after{content:"";position:absolute;right:-16px;top:50%;width:14px;height:4px;margin-top:-2px;border-radius:2px;background:var(--ink)}
+.now .lane{position:absolute;top:0;bottom:0;left:30%;width:40%;touch-action:pan-x;cursor:ns-resize;border-left:1px dashed var(--rule2);border-right:1px dashed var(--rule2);opacity:.5}
+.now.dragging .lane{opacity:1;background:color-mix(in srgb,var(--inset) 70%,transparent)}
+.now .cap{text-align:center;font-size:12px;color:var(--ink2);padding:2px 0 8px}
+
+/* ── 新图形（A / B / C 共用）：导杆 + 一摞有厚度的片 + 插销；固定 9 片高的窗口，重量再大图也不长高 ── */
+.glyph{position:relative;height:150px;padding:14px 0 10px}
+.win{position:absolute;top:18px;height:108px;left:50%;width:150px;margin-left:-75px;overflow:hidden}
+.win.more-up{-webkit-mask:linear-gradient(transparent,#000 18px);mask:linear-gradient(transparent,#000 18px)}
+.win.more-up.more-dn,.win.more-dn{-webkit-mask:linear-gradient(#000 calc(100% - 18px),transparent);mask:linear-gradient(#000 calc(100% - 18px),transparent)}
+.win.more-up.more-dn{-webkit-mask:linear-gradient(transparent,#000 18px,#000 calc(100% - 18px),transparent);mask:linear-gradient(transparent,#000 18px,#000 calc(100% - 18px),transparent)}
+.plates{position:absolute;left:0;right:0;top:0;transition:transform .14s cubic-bezier(.2,.7,.3,1)}
+.pl{position:absolute;left:0;right:0;height:10px;border-radius:2px;background:var(--inset);transition:background-color .12s}
+.pl.up{background:var(--plate-up)} .pl.at{background:var(--ink)}
+/* 中间那根选重杆：只穿过被提起来的那几片 */
+.selrod{position:absolute;left:50%;width:3px;margin-left:-1.5px;top:0;background:var(--ink);opacity:.35;border-radius:2px;transition:height .14s}
+.rodL,.rodR{position:absolute;top:10px;height:122px;width:2px;background:var(--rule2);border-radius:1px}
+.rodL{left:calc(50% - 85px)} .rodR{left:calc(50% + 83px)}
+.headpl{position:absolute;top:8px;left:calc(50% - 88px);width:176px;height:6px;border-radius:3px;background:var(--rule2)}
+.wlabel{position:absolute;right:calc(50% + 96px);font:800 26px/1 var(--f-num);color:var(--ink);white-space:nowrap;transition:top .14s}
+.wlabel small{font:600 12px var(--f-ui);color:var(--ink3);margin-left:2px}
+/* 插销：横杆 + 圆头 */
+.pin{position:absolute;left:calc(50% + 75px);height:0;transition:top .14s}
+.pin i{position:absolute;left:0;top:-2px;width:26px;height:4px;border-radius:2px;background:var(--ink)}
+.pin b{position:absolute;left:22px;top:-9px;width:18px;height:18px;border-radius:50%;background:var(--ink);box-shadow:0 0 0 3px var(--card)}
+.glyph .cap{position:absolute;left:0;right:0;bottom:-2px;text-align:center;font-size:12px;color:var(--ink3)}
+
+/* A：只抓插销 —— 48×48 的抓手跟着插销走，别处一律滚页面 */
+.grab{position:absolute;left:4px;top:-24px;width:56px;height:48px;touch-action:none;cursor:grab;border-radius:24px}
+.grab::after{content:"";position:absolute;left:12px;top:5px;width:38px;height:38px;border-radius:50%;border:1.5px dashed var(--rule2);opacity:.9}
+.grab .chev{position:absolute;left:44px;top:6px;width:14px;font:700 10px/12px var(--f-ui);color:var(--ink3);text-align:center}
+.va.dragging .grab{cursor:grabbing}
+.va.dragging .grab::after{border:2px solid var(--acc);background:color-mix(in srgb,var(--acc) 14%,transparent)}
+.va.dragging .pin b{background:var(--acc)}
+
+/* B：右侧刻度轨 —— 一条看得见的竖轨，插销头在轨里走 */
+.rail{position:absolute;top:18px;height:108px;left:calc(50% + 100px);width:44px;border-radius:12px;background:var(--bg);border:1px solid var(--rule);touch-action:none;cursor:ns-resize;overflow:hidden}
+.rail .tick{position:absolute;left:13px;right:13px;height:1px;background:var(--rule2)}
+.rail .knob{position:absolute;left:8px;right:8px;height:14px;margin-top:-7px;border-radius:7px;background:var(--ink);transition:top .14s}
+.vb .pin b{display:none} .vb .pin i{width:25px}
+.vb.dragging .rail{border-color:var(--acc);background:var(--acc-soft)}
+.vb.dragging .rail .knob{background:var(--acc)}
+
+/* C：点一下再拖 —— 平时整块不接手势（照常滚），点一下「拿起」才能竖拖，停 4 秒自动放下 */
+.vc .glyph{border-radius:12px;margin:0 8px;height:168px;transition:box-shadow .15s,background-color .15s}
+.vc.armed .glyph{touch-action:none;cursor:ns-resize;box-shadow:inset 0 0 0 2px var(--acc);background:color-mix(in srgb,var(--acc) 6%,transparent)}
+.vc .hint{position:absolute;left:0;right:0;text-align:center;bottom:0;font-size:11px;color:var(--ink3)}
+.vc.armed .hint{color:var(--acc-text);font-weight:700}
+.vc.armed .pin b{background:var(--acc)}
+
+.foot{max-width:900px;margin-top:28px;color:var(--ink2);font-size:13px}
+.foot h3{font-size:14px;color:var(--ink);margin:14px 0 4px}
+.foot li{margin:2px 0 2px 18px}
+</style>
+</head>
+<body>
+<h1>配重片大图：三个方向</h1>
+<p class="lead">四个手机框都是能真滚的页面。<b>拿手机打开这页，在每个框里正常上下翻</b>，看底部「被改了几次」——那就是误触。
+都保留「竖着滑改重量、往下＝更重」（2026-10-21 定案）；区别只在<b>从哪儿起手才算改重量</b>。</p>
+<p class="lead">A / B / C 共用一套新图形：导杆 + 顶板 + 有厚度的片 + 插销头，固定 9 片高的窗口（重量再大也不长高、不会把插销画丢），拖一档插销走一片（手指走多少、插销走多少），配重片不吃甩动加速。</p>
+
+<div class="row">
+  <div class="col">
+    <h2>现状</h2>
+    <ul>
+      <li>中间 40% 宽一条（两道淡虚线）竖拖，<code>touch-action: pan-x</code>：手指落在这条里<b>页面就滚不动</b>，竖走 20px 起改</li>
+      <li>这条正好在屏幕正中、卡片上半，是拇指翻页最常经过的地方</li>
+      <li>甩得快还会按速度跳档（×2 / ×5），误触一下改一大截</li>
+      <li>3px 细条像条形码；重量往上画的片数 16→30 会把整张卡撑高；超过 30 格插销和数字一起消失</li>
+    </ul>
+    <div class="phone"><div class="scroll" data-v="now"></div><div class="log"></div></div>
+  </div>
+
+  <div class="col">
+    <h2>A · 抓插销<span class="rec">推荐</span></h2>
+    <ul>
+      <li><b>只有按在插销头上才改重量</b>（48×48 抓手跟着插销走），图上其它地方、两侧一律照常滚</li>
+      <li>起手是「瞄准一个钮」，不会是翻页顺带：起拖阈值可以从 20px 降到 6px，正常改反而更跟手</li>
+      <li>手势和真器械一样：捏住插销往下挪</li>
+      <li>代价：目标小，得看一眼再按；第一次需要被告知（虚线圈＋上下箭头就是自教学）</li>
+    </ul>
+    <div class="phone"><div class="scroll" data-v="a"></div><div class="log"></div></div>
+  </div>
+
+  <div class="col">
+    <h2>B · 右侧刻度轨</h2>
+    <ul>
+      <li>图右边单独一条 44px 宽的竖轨，带每片一道刻度，插销头在轨里走；<b>整条轨都能起拖</b>，图本身不接手势</li>
+      <li>像系统的竖滑块，一眼看出「这里能拖」，比 A 好按</li>
+      <li>代价：轨在卡片右侧，右手拇指翻页也常走右边，误触比 A 多（但比现状的正中 40% 少得多，面积约 1/3）</li>
+      <li>插销和轨两样东西表达同一件事，图稍挤</li>
+    </ul>
+    <div class="phone"><div class="scroll" data-v="b"></div><div class="log"></div></div>
+  </div>
+
+  <div class="col">
+    <h2>C · 点一下再拖<span class="rec" style="color:var(--warn);background:var(--inset)">和 10-21 决策冲突</span></h2>
+    <ul>
+      <li>平时整块大图不接手势，翻页怎么划都不会改；<b>点一下「拿起」</b>（描边变色）才能在整块上竖拖，停 4 秒或翻页就自动放下</li>
+      <li>误触几乎为零，拿起之后拖动区最大</li>
+      <li>代价：每次改重量多一下点按，而且多了一个「拿起 / 放下」的状态要记；和「点按＝主动作」不冲突，但和其它大图（横拖直接拖）手法不一样</li>
+    </ul>
+    <div class="phone"><div class="scroll" data-v="c"></div><div class="log"></div></div>
+  </div>
+</div>
+
+<div class="foot">
+  <h3>和已定的两条决策对一下</h3>
+  <ul>
+    <li><b>10-21</b>：竖着滑改重量、不加按住，误触靠起拖距离和「上次 x」一键改回兜底（不能拿换手势防误触——新动作没历史，大图是唯一入口）。</li>
+    <li><b>10-23</b>：起拖 20px 挡不住翻页，用户自己提出「手指在特定地方上下滑动才能改重量」，于是缩成中间一条。——<b>缩小起手区域是用户认可过的做法</b>，A / B 都是沿这条往下走，只是把「特定地方」从正中 40% 换成更不挡翻页的位置。</li>
+    <li><b>A</b>：手势不变（竖滑、不按住、按下就拖），只把起手区域再缩到插销头。符合两条决策。风险是起手区域太小，新动作第一次找不到——要靠可见的抓手和 −5 / ＋5 按钮兜着。</li>
+    <li><b>B</b>：手势不变，起手区域是一条看得见的轨。符合两条决策，是对 10-23「中间一条」最小的改动（换个位置、画成控件）。</li>
+    <li><b>C</b>：多了一步「先点再拖」，性质和被否掉的「加按住」一样，是给主手势加门槛。<b>和 10-21 冲突</b>，列出来只作对照，不建议。</li>
+    <li>兜底仍在：起拖阈值、「上次 x」一键改回，现在还有顶栏全局撤销，误触一下能一键撤回。A / B 的起拖阈值能降，是因为起手位置已经挑过了，不是拿阈值换手感。</li>
+  </ul>
+  <h3>三个方向都要带上的（与选哪个无关）</h3>
+  <ul>
+    <li>固定高度窗口：现在 <code>PinStackGlyph</code> 画 <code>max(16, at+3)</code> 片、封顶 30 —— 拖重的时候卡片一路长高，下面的组行跟着往下挪；超过 30 格（每格 5 lb 时 155 lb 以上）插销那一片根本没画，数字和插销都没了。</li>
+    <li>一档一片、1:1 跟手：片距 12px＝每档 12px，配重片不走速度跳档（片是离散的，甩一下跳 10 片只会是误触）。</li>
+    <li>片子有厚度、有导杆和顶板，和杠铃 / 哑铃同一套「有体积的实物」语言；配重片不上色（颜色只给杠铃片）。只标插销那一片的重量（2026-10-20 定），字号和杠铃片上的数字对齐。</li>
+  </ul>
+</div>
+
+<script>
+const PITCH = 12, WIN = 9, STEP = 5, START = 5;
+const atOf = v => Math.round((v - START) / STEP) + 1;
+
+function shell(v, heroHtml) {
+  const fill = n => Array.from({ length: n }, (_, i) => `<div class="filler">别的动作 ${i + 1}</div>`).join('');
+  return `<div class="top">训练中</div>
+  <div class="filler">上一个动作</div>
+  <div class="card ${v}">
+    <div class="mast"><b>高位下拉</b><small>Demo Gym · 第 2 个</small></div>
+    <div class="tagrow"><span class="tag">✎ 5 起 · 每格 5 kg</span></div>
+    <div class="hero">${heroHtml}</div>
+    <div class="rows">
+      <div class="r"><span class="n">1</span><span class="v" data-w>45<small>kg</small></span><span class="v">10<small>次</small></span></div>
+      <div class="r"><span class="n ghost">2</span><span class="v" style="color:var(--ink3)">45<small>kg</small></span><span class="v" style="color:var(--ink3)">10<small>次</small></span></div>
+    </div>
+  </div>${fill(4)}<div style="height:60px"></div>`;
+}
+
+/* 竖拖引擎：同 useValueScrub —— 走够 engage 才判方向，竖大于横才接管；接管后每 px 一档 */
+function scrub(el, { engage, px, ladder, onDetent, onState, canStart = () => true }) {
+  let d = null;
+  el.addEventListener('pointerdown', e => {
+    if (!canStart(e)) return;
+    d = { y0: e.clientY, x0: e.clientX, y: e.clientY, acc: 0, on: false, t: performance.now(), vy: 0 };
+    if (e.pointerType === 'mouse') el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', e => {
+    if (!d) return;
+    if (!d.on) {
+      const a = Math.abs(e.clientY - d.y0), c = Math.abs(e.clientX - d.x0);
+      if (Math.max(a, c) < engage) return;
+      if (a <= c) { d = null; return; }
+      d.on = true; d.y = e.clientY; d.t = performance.now();
+      try { el.setPointerCapture(e.pointerId); } catch {}
+      onState(true); return;
+    }
+    const now = performance.now(), dy = e.clientY - d.y;
+    d.vy = d.vy * 0.6 + Math.abs(dy) / Math.max(1, now - d.t) * 0.4;
+    d.acc += dy; d.y = e.clientY; d.t = now;
+    const mult = ladder ? (d.vy > 2.2 ? 5 : d.vy > 1.1 ? 2 : 1) : 1;
+    while (Math.abs(d.acc) >= px) { const s = d.acc > 0 ? 1 : -1; d.acc -= s * px; onDetent(s * mult); }
+  });
+  const end = () => { if (d?.on) onState(false); d = null; };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+/* ── 现状 ── */
+function nowHero(v) {
+  const at = atOf(v), n = Math.min(30, Math.max(16, at + 3));
+  let s = '';
+  for (let i = 1; i <= n; i++) s += `<span class="slab${i < at ? ' up' : i === at ? ' at' : ''}"><em>${i === at ? v : ''}</em><i></i></span>`;
+  return `<div class="now"><div class="stack">${s}</div><span class="lane"></span></div>`;
+}
+
+/* ── 新图形 ── */
+function glyph(v, st, extra = '') {
+  const at = atOf(v);
+  if (at < st.top + 1) st.top = Math.max(1, at - 1);
+  if (at > st.top + WIN - 4) st.top = at - WIN + 4; // 插销下面至少留 3 片，看得出「还能往下」
+  const top = st.top, y = (at - top) * PITCH + 18 + 5;
+  let pl = '';
+  for (let i = Math.max(1, top - 2); i <= top + WIN + 2; i++)
+    pl += `<div class="pl${i < at ? ' up' : i === at ? ' at' : ''}" style="top:${(i - 1) * PITCH}px"></div>`;
+  const lifted = Math.max(0, at - top + 1) * PITCH;
+  return `<div class="glyph">
+    <div class="headpl"></div><div class="rodL"></div><div class="rodR"></div>
+    <div class="win${top > 1 ? ' more-up' : ''} more-dn"><div class="plates" style="transform:translateY(${-(top - 1) * PITCH}px)">${pl}</div>
+      <div class="selrod" style="height:${lifted}px"></div></div>
+    <div class="wlabel" style="top:${y - 13}px">${v}<small>kg</small></div>
+    <div class="pin" style="top:${y}px"><i></i><b></b>${extra.pin || ''}</div>
+    ${extra.after || ''}
+  </div>`;
+}
+
+function mount(root) {
+  const v = root.dataset.v, st = { w: 45, top: 1, n: 0, armed: false, timer: 0 };
+  const log = root.parentElement.querySelector('.log');
+  const paintLog = () => { log.innerHTML = `<span>被改了 <b>${st.n}</b> 次 · 现在 <b>${st.w}</b> kg</span><button>重置</button>`; log.querySelector('button').onclick = () => { st.w = 45; st.n = 0; render(); paintLog(); }; };
+  const heroHtml = () => {
+    if (v === 'now') return nowHero(st.w);
+    if (v === 'a') return glyph(st.w, st, { pin: '<span class="grab"><span class="chev">▲<br>▼</span></span>' });
+    if (v === 'b') {
+      glyph(st.w, st); // 先定窗口，刻度和轨里的插销头跟着窗口走
+      const at = atOf(st.w);
+      let ticks = '';
+      for (let i = st.top; i < st.top + WIN; i++) ticks += `<span class="tick" style="top:${(i - st.top) * PITCH + 5}px"></span>`;
+      return glyph(st.w, st, { after: `<div class="rail">${ticks}<span class="knob" style="top:${(at - st.top) * PITCH + 5}px"></span></div>` });
+    }
+    return glyph(st.w, st, { after: `<span class="hint">${st.armed ? '上下拖改重量' : '点一下拿起'}</span>` });
+  };
+  let card;
+  // 手势挂在不重画的 .hero 上，拖动中重画里面的图不会丢指针捕获
+  const render = () => { card.querySelector('.hero').innerHTML = heroHtml(); };
+  const change = s => {
+    const nw = Math.max(START, st.w + s * STEP);
+    if (nw === st.w) return;
+    st.w = nw; st.n++;
+    render(); paintLog();
+    const w = card.querySelector('[data-w]');
+    w.innerHTML = `${st.w}<small>kg</small>`; w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash');
+    if (v === 'c') rearm();
+  };
+  const setDrag = on => card.classList.toggle('dragging', on);
+  const rearm = () => { clearTimeout(st.timer); st.timer = setTimeout(() => { st.armed = false; card.classList.remove('armed'); render(); }, 4000); };
+  root.innerHTML = shell(v === 'now' ? 'now' : 'v' + v, '');
+  card = root.querySelector('.card');
+  const hero = card.querySelector('.hero');
+  render();
+  if (v === 'now') {
+    scrub(hero, { engage: 20, px: 10, ladder: true, onDetent: change, onState: setDrag,
+      canStart: e => e.target.classList.contains('lane') });
+  } else if (v === 'a') {
+    scrub(hero, { engage: 6, px: PITCH, onDetent: change, onState: setDrag, canStart: e => !!e.target.closest('.grab') });
+  } else if (v === 'b') {
+    scrub(hero, { engage: 8, px: PITCH, onDetent: change, onState: setDrag, canStart: e => !!e.target.closest('.rail') });
+  } else {
+    hero.addEventListener('click', () => { if (!st.armed) { st.armed = true; card.classList.add('armed'); render(); rearm(); } });
+    root.addEventListener('scroll', () => { if (st.armed) { st.armed = false; card.classList.remove('armed'); render(); } });
+    scrub(hero, { engage: 8, px: PITCH, onDetent: change, onState: on => { setDrag(on); if (!on) rearm(); }, canStart: () => st.armed });
+  }
+  paintLog();
+}
+document.querySelectorAll('.scroll[data-v]').forEach(mount);
+</script>
+</body>
+</html>

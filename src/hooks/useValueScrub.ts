@@ -68,8 +68,8 @@ interface Options {
   steps?: number[];
   disabled?: boolean;
   /**
-   * 拖动方向，默认横向。配重片的大图竖拖（纵向排布就竖着滑，heroScrubAxis）；组行格子一律横拖。
-   * 竖拖的格子要配 touch-action: pan-x（.is-axis-y），否则竖向手势先被页面滚动吃掉。
+   * 拖动方向，默认横向。配重片竖拖（纵向排布就竖着滑，heroScrubAxis），只挂在刻度轨上；组行格子一律横拖。
+   * 竖拖的元素要配 touch-action: pan-x（.pin-rail），否则竖向手势先被页面滚动吃掉。
    */
   axis?: 'x' | 'y';
   /**
@@ -84,6 +84,12 @@ interface Options {
    * grid / 残留取整都不再用。不给＝原来的定步长（纯数字的动作）。
    */
   stepFn?: (v: number, dir: 1 | -1, mult: number) => number;
+  /** 每档固定像素（配重片刻度轨＝片距，跟手）；不传按首选项「滑动手感」 */
+  px?: number;
+  /** 起拖阈值；不传＝ENGAGE_PX */
+  engagePx?: number;
+  /** 每走一档的反馈；不传＝一下点击感振动 */
+  onDetent?: (dir: 1 | -1) => void;
 }
 
 /** 给了 stepFn 时的倍数档：慢拖一档、甩起来两档 / 四档 */
@@ -113,6 +119,9 @@ export function useValueScrub({
   axis = 'x',
   grid,
   stepFn,
+  px: fixedPx,
+  engagePx,
+  onDetent,
 }: Options): Result {
   // 调用方每次渲染都新建 stepFn：放 ref 里，别让它把 onPointerMove 的身份打翻
   const stepFnRef = useRef(stepFn);
@@ -208,10 +217,10 @@ export function useValueScrub({
       const d = drag.current;
       if (!d) return;
 
-      const px = pxPerDetent();
+      const px = fixedPx ?? pxPerDetent();
       // 计步交给 trackScrub：接管那一刻从当前位置起算，之前走过的那段不算档（scrubFeel.trackScrub）
       const wasEngaged = d.engaged;
-      const r = trackScrub(d, pos(e), cross(e), px);
+      const r = trackScrub(d, pos(e), cross(e), px, engagePx);
       if (r.go === 'wait') return;
       if (r.go === 'release') {
         // 斜着 / 竖着划是在翻页，这一下放手不管了
@@ -243,7 +252,7 @@ export function useValueScrub({
         haptic(H.longpress); // §5.7 两档：换档＝确认感
       }
 
-      let moved = false;
+      let moved: 0 | 1 | -1 = 0;
       let next = valueRef.current;
       for (const sign of r.detents) {
         const fn = stepFnRef.current;
@@ -259,15 +268,16 @@ export function useValueScrub({
         }
         d.snapped = true;
         // 到了下限 / 空杠再往下拖：值没变就不算一档（不震、不回调）
-        if (next !== valueRef.current) moved = true;
+        if (next !== valueRef.current) moved = sign;
       }
       if (moved) {
         valueRef.current = next;
         onChange(next);
-        haptic(H.tap); // 每档＝点击感
+        if (onDetent) onDetent(moved);
+        else haptic(H.tap); // 每档＝点击感
       }
     },
-    [min, onChange, step, stepsKey, vel, axis, grid],
+    [min, onChange, step, stepsKey, vel, axis, grid, fixedPx, engagePx, onDetent],
   );
 
   const end = useCallback(() => {
