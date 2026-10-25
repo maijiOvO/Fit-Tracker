@@ -28,7 +28,8 @@ import { plateUnitOf } from '../utils/plates';
 import { gymOverrideKey, oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { profileIn } from '../utils/loadable';
+import { incIn, startIn, type IncSpec } from '../utils/loadable';
+import type { PlateUnit } from '../utils/plates';
 import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
 import { tick } from '../utils/tick';
 
@@ -180,7 +181,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const gymNote = gymKey ? appPrefs.gymNotes[gymKey] : undefined;
   const hasNote = !!exerciseNotes[exerciseName] || !!gymNote;
   // 馆档案取整器：纯数字的动作（含没有重量这一项的）是 null，组行照旧走首选项的步长
-  const rounder = useLoadRounder()(exercise, gym);
+  const rounderFor = useLoadRounder();
+  const rounder = rounderFor(exercise, gym);
   const prIdx = prSetIndex(exercise, prPool);
   /**
    * 顶部器材大图每张卡都画（2026-10-18 审查后用户定：只画选中那张时，做完一个动作大图跳到下一张卡，
@@ -203,7 +205,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   /** 大图拖动 / 点「改成能挂的」：写回选中（或画着的）那一组 */
   const writeHero = (next: number) => {
     if (!focusSet) return;
-    const kg = unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
+    const kg = rounder ? Math.abs(rounder.kgOfD(next)) : unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
     // 改重量就记下这一组挂的是哪种片：这个馆的片子（审查 A8），纯数字的动作按显示单位；口径同 SetCapsule.fromDisplay
     const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
     const updates: Partial<SetLog> = signed
@@ -321,16 +323,12 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     const ov = { ...appPrefs.gymOverrides };
     let inc: number;
     if (next === null) {
+      // 恢复馆默认：格子的单位也回到馆档案里这一类的单位（可能和这一台设的不一样），整个取整器按新设置重造
       delete ov[incKey];
-      const prof = profileIn(gym ? appPrefs.gyms[gym] : undefined, rounder.unit);
-      inc =
-        loadKind === 'pair'
-          ? prof.dumbbell
-          : loadKind === 'bell'
-            ? prof.kettlebell
-            : loadKind === 'fixed'
-              ? prof.fixedBar
-              : rounder.info.stack === 'cable' ? prof.cable : prof.machine;
+      changeAppPrefs({ gymOverrides: ov });
+      const fresh = rounderFor(exercise, gym, undefined, undefined, ov);
+      onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, fresh) });
+      return;
     } else {
       // 配重片的最轻一格跟着这一台走：只改一档时别把它冲掉；这一台原来存的最轻一格单位一样就原样留着
       // （按 ctx 里换算过的值写回会越存越漂），没设过就把眼下显示的那格（＝旧一档）钉住，免得它跟着一档一起变
@@ -345,6 +343,21 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     }
     changeAppPrefs({ gymOverrides: ov });
     onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, withInc(rounder, inc)) });
+  };
+  /**
+   * 换这一台的片子单位（2026-10-25 用户定：一台器械只有一种片，同一个馆里可以一台 lb、一台 kg）：
+   * 每格换成新单位里最接近的档位，最轻一格按实际重量换算；存进这一台的 gymOverrides，没做完、没改过的组吸到新格子上。
+   */
+  const machineUnitKey = incKey && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'fixed') ? incKey : null;
+  const setMachineUnit = (u: PlateUnit) => {
+    if (!rounder || !machineUnitKey || u === rounder.unit) return;
+    haptic(H.tap);
+    const cur: IncSpec = { v: rounder.ctx.inc, u: rounder.unit, ...(rounder.ctx.start ? { s: rounder.ctx.start } : {}) };
+    const s = loadKind === 'pin' ? startIn(cur, u) : 0;
+    const ov = { ...appPrefs.gymOverrides, [machineUnitKey]: { v: incIn(cur, u), u, ...(s > 0 ? { s } : {}) } };
+    changeAppPrefs({ gymOverrides: ov });
+    const fresh = rounderFor(exercise, gym, undefined, undefined, ov);
+    onUpdateExercise(exIdx, { sets: snapUntouched(exercise.sets, exercise, fresh) });
   };
   /**
    * 大图上改「最轻一格 · 每格」（2026-10-20 用户定：从 12.5 起、每格 +5 的龙门架）：存进这一台的 gymOverrides，
@@ -654,6 +667,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   inc: incKey ? { overridden: incOverridden, onSet: n => setIncOverride(n), onReset: () => setIncOverride(null) } : undefined,
                   tare: tareKey ? { value: tareD ?? null, onSet: saveTare } : undefined,
                   oneSide: sideKey ? { on: !!rounder.ctx.oneSide, onSet: setOneSide } : undefined,
+                  onUnit: machineUnitKey ? setMachineUnit : undefined,
                 }
               : undefined
           }

@@ -1535,8 +1535,28 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const label = page.locator('.pin-label');
       if (!(await label.isVisible()) || !(await label.innerText()).startsWith(String(inc * 60)))
         throw new Error(`heavy stack lost its pin label: ${await label.count()}`);
+      // 切显示单位：插销旁的数和单位跟着换（原来写的是器械上印的单位，切了不变）
+      const unitNow = async () => (await page.locator('[data-testid="unit-toggle"]').innerText()).trim();
+      const u0 = await unitNow();
+      await page.locator('[data-testid="unit-toggle"]').click();
+      await page.waitForTimeout(200);
+      const u1 = await unitNow();
+      const unitTxt = (await label.locator('small').innerText()).trim();
+      const want = /lb/i.test(u1) ? 'lb' : 'kg';
+      if (u1 === u0 || unitTxt !== want) throw new Error(`pin label unit after switching ${u0} → ${u1}: ${unitTxt}`);
+      // 切了显示单位还能连着拖：下三片、上三片，每片都按器械上的格子走（2026-10-25 用户报：切 kg 后拖不动 / 只走一下）。
+      // 显示值只有两位小数，换回器械单位比对
+      const toGym = d => (want === 'lb' ? d / 2.20462 : d * 2.20462);
+      const rail = await page.locator('[data-testid="hero-rail"]').boundingBox();
+      await drag(rail, 44);
+      const g1 = toGym(await w());
+      await drag(rail, -44);
+      const g2 = toGym(await w());
+      if (Math.abs(g1 - inc * 63) > 0.02 || Math.abs(g2 - inc * 60) > 0.02)
+        throw new Error(`after switching to ${u1}, rail drag ${inc * 60} → ${g1.toFixed(3)} → ${g2.toFixed(3)}, want ${inc * 63} → ${inc * 60}`);
+      await page.locator('[data-testid="unit-toggle"]').click();
       await backAndDiscard(page);
-      return `rail +3 plates (${w0} → ${w1}) · stack drag ignored · ${inc * 60} still labelled`;
+      return `rail +3 plates (${w0} → ${w1}) · stack drag ignored · ${inc * 60} still labelled · label follows ${u0} → ${u1} · rail ±3 plates in ${u1}`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

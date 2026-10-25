@@ -40,7 +40,7 @@ await build({
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
       "export { findLastIn } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
-      "export { makeRounder, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
+      "export { makeRounder, ownUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
       "export * as A from './src/utils/exerciseAttrs.ts';",
       "export { mergeOverride, mergedName } from './src/utils/exerciseOverride.ts';",
       "export { detectPRs } from './src/utils/prDetect.ts';",
@@ -494,6 +494,56 @@ t('取整：kg 馆显示 lb —— 格子按公斤片算，进出换成 lb；手
   const out = L.reRoundPending(sets, ex, L.makeRounder({ kind: 'plates' }, 'kg', ctx, false));
   assert.equal(out[0].weight, 61, 'typed value is kept');
   assert.equal(out[1].weight, 60);
+});
+t('lb 馆显示 kg：组行 / 大图拿到的是两位小数的显示值，连着拖每一下都要走一格、落在磅片格上（2026-10-25 用户报：切 kg 后拖不动 / 只能走一下）', () => {
+  // 照 SetCapsule：存 kg → 显示两位小数 → stepToD → 写回
+  const walk = (r, kg, dir, n) => {
+    const seen = [];
+    for (let i = 0; i < n; i++) {
+      const d = Math.round(kg * 100) / 100;
+      const next = r.stepToD(d, dir);
+      assert.notEqual(next, d, `第 ${i + 1} 下没动（${d} kg）`);
+      kg = r.kgOfD(next);
+      seen.push(Math.round(kg * K * 1000) / 1000);
+    }
+    return { kg, seen };
+  };
+  const pin = L.makeRounder(pinInfo, 'lbs', lbCtx(10, 10), false, 'kg');
+  const up = walk(pin, 100 / K, 1, 8);
+  assert.deepEqual(up.seen, [110, 120, 130, 140, 150, 160, 170, 180]);
+  assert.deepEqual(walk(pin, up.kg, -1, 8).seen, [170, 160, 150, 140, 130, 120, 110, 100]);
+  // 走到的格子在 kg 显示下也认得出「挂得出」（大图不弹两档）
+  assert.ok(pin.loadableD(Math.round((150 / K) * 100) / 100));
+  // 杠铃（磅片，最小一对 2.5）、哑铃（每对 5 lb）同理
+  const bar = L.makeRounder({ kind: 'plates' }, 'lbs', lbCtx(5), false, 'kg');
+  assert.deepEqual(walk(bar, 135 / K, 1, 4).seen, [140, 145, 150, 155]);
+  assert.deepEqual(walk(bar, 225 / K, -1, 4).seen, [220, 215, 210, 205]);
+  const db = L.makeRounder({ kind: 'pair' }, 'lbs', lbCtx(5), false, 'kg');
+  assert.deepEqual(walk(db, 50 / K, -1, 4).seen, [45, 40, 35, 30]);
+});
+t('kgOfD：格子上的显示值存成格子的精确 kg；不在格子上的（手打的）照打的存', () => {
+  const pin = L.makeRounder(pinInfo, 'lbs', lbCtx(10, 10), false, 'kg');
+  assert.equal(pin.kgOfD(49.9), 110 / K);
+  assert.equal(pin.kgOfD(50), 50);
+  const same = L.makeRounder(pinInfo, 'lbs', lbCtx(10, 10), false, 'lbs');
+  assert.equal(same.kgOfD(110), 110 / K);
+  assert.equal(same.kgOfD(112.5), 112.5 / K);
+});
+t('一台器械一种片：配重片 / 哑铃按这一台（或馆档案里这一类）自己的单位定格子；杠铃 / 挂片按馆的片子', () => {
+  const lbGym = { plateUnit: 'lbs', plates: [45, 25, 10, 5, 2.5], cable: { v: 5, u: 'kg', s: 5 }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' } };
+  const cable = { kind: 'pin', stack: 'cable' };
+  assert.equal(L.ownUnitOf(cable, lbGym, undefined), 'kg', '馆档案里龙门架设的是 kg');
+  assert.equal(L.ownUnitOf({ kind: 'pin', stack: 'machine' }, lbGym, undefined), 'lbs');
+  assert.equal(L.ownUnitOf(cable, lbGym, { v: 10, u: 'lbs' }), 'lbs', '这一台单独设的单位优先');
+  assert.equal(L.ownUnitOf({ kind: 'plates' }, lbGym, undefined), null);
+  assert.equal(L.ownUnitOf({ kind: 'loaded' }, lbGym, undefined), null);
+  assert.equal(L.ownUnitOf(cable, undefined, undefined), null, '没设档案跟显示单位走');
+  // lb 馆里一台 kg 的龙门架（5 起、每格 5 kg），显示 lb：走的是 kg 格子，不是被近似成 10 lb 一格
+  const r = L.makeRounder(cable, 'kg', { unit: 'kg', plates: [20, 10, 5, 2.5], bar: 20, inc: 5, start: 5 }, false, 'lbs');
+  const d = r.stepToD(r.toD(20), 1);
+  assert.equal(d, 55.12);
+  assert.equal(r.kgOfD(d), 25);
+  assert.equal(r.stepToD(55.12, -1), 44.09);
 });
 t('单边挂片：总重＝一边的片，一档＝最小一片', () => {
   const ctx = { unit: 'kg', plates: [20, 10, 5, 2.5], bar: 0, inc: 5 };

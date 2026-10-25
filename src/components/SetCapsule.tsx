@@ -268,7 +268,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 纯数字的动作按显示单位
   const plateUnitNow: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
   const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode' | 'plateUnit'> => {
-    const kg = parseWeight(Math.abs(v), unit);
+    // 有取整器：落在格子上的存格子的精确 kg（显示的两位小数换回去会差一点，见 ExRounder.kgOfD）
+    const kg = rounder ? Math.abs(rounder.kgOfD(v)) : parseWeight(Math.abs(v), unit);
     if (!signed) return { weight: kg, plateUnit: plateUnitNow };
     return { weight: kg, plateUnit: plateUnitNow, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
   };

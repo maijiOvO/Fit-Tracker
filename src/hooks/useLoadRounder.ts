@@ -18,12 +18,14 @@ import {
   bracket,
   incIn,
   isLoadable,
+  nearest,
   profileIn,
   startIn,
   snap,
   stepOf,
   stepTo,
   type GymProfile,
+  type IncSpec,
   type LoadCtx,
 } from '../utils/loadable';
 import { fromSignedKg, setSign, signedKg, usesSignedLoad } from '../utils/load';
@@ -42,6 +44,8 @@ export interface ExRounder {
   /** 带符号的 kg ⇄ 显示值 */
   toD: (kg: number) => number;
   fromD: (d: number) => number;
+  /** 显示值 → 要存的带符号 kg：落在格子上的存格子的精确值，其余同 fromD */
+  kgOfD: (d: number) => number;
   /** 显示值层面的取整 / 一档 / 走一下 / 上下两档 */
   snapD: (d: number) => number;
   loadableD: (d: number) => boolean;
@@ -67,6 +71,8 @@ export type RounderFor = (
   unitOverride?: PlateUnit,
   /** 刚存的馆档案（context 里的 appPrefs 还没刷新） */
   gymsOverride?: Record<string, GymProfile>,
+  /** 刚存的单台器械设置（同上；恢复馆默认 / 换这一台的单位时格子单位会变） */
+  overridesOverride?: Record<string, IncSpec>,
 ) => ExRounder | null;
 
 export function useLoadRounder(): RounderFor {
@@ -74,22 +80,23 @@ export function useLoadRounder(): RounderFor {
   const { barOf, signedLoadOf, getActiveMetrics, resolveName } = useExercisePrefs();
   const infoOf = useLoadInfoOf();
   const gyms = appPrefs.gyms;
-  const overrides = appPrefs.gymOverrides;
+  const savedOverrides = appPrefs.gymOverrides;
 
   return useCallback(
-    (ex, gym, unitOverride, gymsOverride) => {
+    (ex, gym, unitOverride, gymsOverride, overridesOverride) => {
+      const overrides = overridesOverride ?? savedOverrides;
       if (!getActiveMetrics(resolveName(ex.name)).includes('weight')) return null;
       const du: PlateUnit = (unitOverride ?? unit) === 'lbs' ? 'lbs' : 'kg';
       const signed = usesSignedLoad(ex, signedLoadOf(ex));
       // 带上馆：这台器械在这个馆是插销还是挂片（gymKinds）
       const info = infoOf(ex, signed, gym);
       if (info.kind === 'plain') return null;
-      // 格子按这个馆的片子单位算（显示 lb 的 kg 馆，± / 取整照样落在这个馆挂得出的重量上，审查 A9）
+      // 格子按这件器械的片子单位算（显示 lb 的 kg 馆，± / 取整照样落在这个馆挂得出的重量上，审查 A9）
       const profile = gym ? (gymsOverride ?? gyms)[gym] : undefined;
-      const u: PlateUnit = profile?.plateUnit ?? du;
-      const prof = profileIn(profile, u);
       const okey = gymOverrideKey(gym, info);
       const ov = okey ? overrides[okey] : undefined;
+      const u: PlateUnit = ownUnitOf(info, profile, ov) ?? profile?.plateUnit ?? du;
+      const prof = profileIn(profile, u);
       const stackInc = ov ? incIn(ov, u) : info.stack === 'cable' ? prof.cable : prof.machine;
       // 配重片的起始（最轻一格）：这台单独设过就用这台的，否则馆的默认（2026-10-20）
       const stackStart = ov ? startIn(ov, u) : info.stack === 'cable' ? prof.cableStart : prof.machineStart;
@@ -110,8 +117,31 @@ export function useLoadRounder(): RounderFor {
       };
       return makeRounder(info, u, ctx, signed, du);
     },
-    [unit, gyms, overrides, barOf, signedLoadOf, getActiveMetrics, resolveName, infoOf],
+    [unit, gyms, savedOverrides, barOf, signedLoadOf, getActiveMetrics, resolveName, infoOf],
   );
+}
+
+/**
+ * 一档就是这件器械本身的器材（配重片 / 哑铃 / 壶铃 / 固定杠铃）：一台器械只有一种片，格子按它自己的单位算
+ * （2026-10-25 用户定：同一个馆里可以一台 lb 的龙门架、一台 kg 的）——这一台单独设过就是它设的单位，
+ * 否则是馆档案里这一类的单位。没设档案＝null，跟馆的片子单位 / 显示单位走。
+ * 杠铃、挂片、带正负的负荷挂的是馆的片子，照旧按馆的片子单位。
+ */
+export function ownUnitOf(
+  info: Pick<LoadInfo, 'kind' | 'stack'>,
+  profile: GymProfile | undefined,
+  ov: IncSpec | undefined,
+): PlateUnit | null {
+  const k = info.kind;
+  if (k !== 'pin' && k !== 'pair' && k !== 'bell' && k !== 'fixed') return null;
+  if (ov) return ov.u;
+  if (!profile) return null;
+  const spec =
+    k === 'pair' ? profile.dumbbell
+    : k === 'bell' ? profile.kettlebell
+    : k === 'fixed' ? profile.fixedBar
+    : info.stack === 'cable' ? profile.cable : profile.machine;
+  return spec?.u ?? profile.plateUnit;
 }
 
 /** 单边挂片的开关存在这一台的 gymOverrides 里，键是这一台的键 + '|one'（值 { v: 1 }，删键＝两边挂） */
@@ -126,9 +156,18 @@ export function makeRounder(info: LoadInfo, u: PlateUnit, ctx: LoadCtx, signed: 
   const fromD = (d: number) => (du === 'lbs' ? d / K : d);
   const toG = (kg: number) => (u === 'lbs' ? kg * K : kg);
   const fromG = (g: number) => (u === 'lbs' ? g / K : g);
-  const d2g = (d: number) => (du === u ? d : toG(fromD(d)));
-  const g2d = (g: number) => (du === u ? g : toD(fromG(g)));
   const k = info.kind;
+  // 显示值只留两位小数（49.9 kg），换回片子单位差格子一点点（110.01 lb）：差在显示精度以内就认回那一格。
+  // 不认的话 isLoadable 的 0.01 容差判它不在格子上，往一个方向先「吸回」同一格——拖不动 / 只走一下（2026-10-25 用户报）
+  const tolG = du === u ? 0 : 0.005 * (u === 'lbs' ? K : 1 / K) + 1e-6;
+  const d2g = (d: number) => {
+    if (du === u) return d;
+    const g = toG(fromD(d));
+    // 取格子本身（nearest），不用 snap：snap 对 0.01 以内的数原样返回 139.99，还是差那一点
+    const s = nearest(k, g, ctx);
+    return Math.abs(s - g) <= tolG ? s : g;
+  };
+  const g2d = (g: number) => (du === u ? g : toD(fromG(g)));
   return {
     info,
     unit: u,
@@ -137,6 +176,11 @@ export function makeRounder(info: LoadInfo, u: PlateUnit, ctx: LoadCtx, signed: 
     signed,
     toD,
     fromD,
+    // 写回：在格子上的存格子的精确 kg（110 lb → 49.8952，不是显示的 49.9），不在格子上的（手打的）照显示值换
+    kgOfD: d => {
+      const g = d2g(d);
+      return Math.abs(d) > 1e-9 && isLoadable(k, g, ctx) ? fromG(nearest(k, g, ctx)) : fromD(d);
+    },
     snapD: d => g2d(snap(k, d2g(d), ctx)),
     loadableD: d => isLoadable(k, d2g(d), ctx),
     stepD: d => {

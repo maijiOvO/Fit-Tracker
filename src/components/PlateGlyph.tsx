@@ -170,6 +170,8 @@ export interface MachineCtl {
   tare?: { value: number | null; onSet: (n: number | null) => void };
   /** 挂片式器械只有一边能挂（T 杠、地雷架）：总重＝一边的片 */
   oneSide?: { on: boolean; onSet: (on: boolean) => void };
+  /** 这一台的片子单位（配重片 / 哑铃 / 壶铃 / 固定杠铃）：格子按它算，显示照样换算成显示单位 */
+  onUnit?: (u: PlateUnit) => void;
   /** 动作库里的形式（所有馆的默认）：「加重方式」行写明这一台是跟着它，还是改过 */
   libKind?: 'pin' | 'loaded';
   /**
@@ -196,13 +198,16 @@ export function PinStackGlyph({
   step,
   start = 0,
   unit,
+  label,
   rail,
 }: {
   value: number;
   step: number;
   start?: number;
-  /** 插销那格写的单位（这台器械上印的） */
+  /** 插销那格写的单位：显示单位（2026-10-25 用户：切单位时这里要跟着换） */
   unit?: PlateUnit;
+  /** 插销那格写的数（显示单位）；不传＝value。value 按器械上印的单位定位插销 */
+  label?: number;
   /** 刻度轨的拖动手势（useValueScrub）；不传＝只画图 */
   rail?: { handlers: Record<string, unknown> };
 }) {
@@ -233,7 +238,7 @@ export function PinStackGlyph({
       </span>
       {at > 0 && (
         <em className="pin-label">
-          {fmt1(value)}
+          {fmt1(label ?? value)}
           {unit && <small>{unit === 'lbs' ? 'lb' : 'kg'}</small>}
         </em>
       )}
@@ -728,6 +733,28 @@ function GymHero({
           </span>
         </div>
       )}
+      {machine.onUnit && (
+        <div className="stack-stp">
+          <span>
+            {isCn ? '这台的片子' : 'Marked in'}
+            <small className="block text-label text-tertiary">{isCn ? '格子按它算，显示照样换算' : 'Steps follow it; display converts'}</small>
+          </span>
+          <span className="gym-seg" role="group" data-testid="gym-machine-unit">
+            {(['kg', 'lbs'] as const).map(x => (
+              <button
+                key={x}
+                type="button"
+                className={`min-h-[36px] px-3 text-small font-semibold ${gu === x ? 'seg-on' : 'text-secondary'}`}
+                aria-pressed={gu === x}
+                onClick={() => machine.onUnit!(x)}
+                data-testid={`gym-machine-unit-${x}`}
+              >
+                {x === 'kg' ? 'kg' : 'lb'}
+              </button>
+            ))}
+          </span>
+        </div>
+      )}
       {kind === 'pin' && machine.onStack && (
         <>
           <div className="stack-stp">
@@ -880,7 +907,7 @@ function GymHero({
             )}
             {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
             {kind === 'pin' && (
-              <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} unit={gu} rail={scrub?.axis === 'y' ? scrub : undefined} />
+              <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} unit={unit} label={Math.round(v * 10) / 10} rail={scrub?.axis === 'y' ? scrub : undefined} />
             )}
             {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
             {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}
