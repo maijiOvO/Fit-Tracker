@@ -1202,8 +1202,12 @@ async function mainFlow(browser, escapedRemoteCalls) {
       // 计划里的组是待做：填个次数、点组号才算做完，否则「底稿不入册」结束不了
       const firstRow = page.locator('.ledger-row').first();
       await firstRow.locator('[data-testid="ledger-field-reps"] input').fill('5');
+      // 没手动点过：第一组是默认选中（指针下面那组待做），点它必须做完，不能当成「再点选中的组」吞掉
+      if (!((await firstRow.getAttribute('class')) || '').includes('is-selected')) throw new Error('fresh workout: first set is not default-selected');
       await firstRow.locator('.set-num').click();
-      await firstRow.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
+      await firstRow.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 }).catch(() => {
+        throw new Error('tapping the default-selected to-do set did not mark it done');
+      });
       await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
       await acceptAppConfirm(page);
       await dismissColophon(page);
@@ -1348,8 +1352,12 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await row0.locator('.set-num').click();
       if (!(await cls(row0)).includes('is-inked')) throw new Error('tapping the set number did not mark it done');
       if (!(await cls(row0)).includes('is-selected')) throw new Error('the set just tapped done is not the selected one');
+      // 再点刚做完、已选中的组：跟点完那一刻比，什么都不变（做完的行本来就不带 is-edited）
+      const doneCls = await cls(row0);
+      const doneEdited = await row0.locator('.ledger-field.is-edited').count();
       await row0.locator('.set-num').click();
-      if (!(await cls(row0)).includes('is-inked') || !(await cls(row0)).includes('is-selected')) throw new Error('tapping the selected set changed something');
+      if ((await cls(row0)) !== doneCls) throw new Error(`tapping the selected set changed it: ${doneCls} → ${await cls(row0)}`);
+      if ((await row0.locator('.ledger-field.is-edited').count()) !== doneEdited) throw new Error('re-tapping the selected set changed the is-edited marks');
 
       const steps = page.locator('[data-testid="weight-step"]');
       if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
