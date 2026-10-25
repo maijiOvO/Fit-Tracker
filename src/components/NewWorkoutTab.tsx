@@ -203,16 +203,17 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
   /**
    * 点组号：一下＝选中这一组 + 指针挪到它正下方（语义全在 workbench.tapSetNum）。
-   * 刚做完的那组再点＝退回（点错了一下就撤）；全零的组点不实，只选中。
+   * 已选中的组再点什么都不变；全零的组点不实，只选中。
    * 编辑旧训练另走 tapSetNumEditing：只动被点的那一组（练完的训练没有指针可挪）。
    */
   const tapSetNum = (r: RowRef) => {
+    // 已经实心（选中）的组再点：什么都不变（2026-10-25 用户定）
+    if (r.setId === selectedSetId) return;
     const res = editingWorkoutId ? tapSetNumEditing(exs, r) : tapSetNumPure(exs, r);
     if (res.outcome === 'noop') return;
     haptic(H.tap);
-    // 做完的那一下选中交给默认（指针下面那一组待做）：留在刚做完的组上，大图 / ± 改的就是做完的组，
-    // 后面没动过的组还会跟着平移（审查 A1）
-    setPickedSetId(res.outcome === 'done' ? null : r.setId);
+    // 被点的那组就是选中的，做完也一样：刚做完常要回头改这一组的数（2026-10-25 用户定，撤掉审查 A1 的「交给默认」）
+    setPickedSetId(r.setId);
     if (res.outcome === 'select') return;
     if (res.outcome === 'empty') {
       // 全零的组点不实：一组什么都没填，做完也记不下任何东西

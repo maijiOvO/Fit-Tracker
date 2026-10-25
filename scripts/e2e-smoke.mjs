@@ -1342,9 +1342,10 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (edited < 1) throw new Error('edited cells on a to-do row are not marked is-edited');
       await row0.locator('.set-num').click();
       if (!(await cls(row0)).includes('is-inked')) throw new Error('tapping the set number did not mark it done');
+      if (!(await cls(row0)).includes('is-selected')) throw new Error('the set just tapped done is not the selected one');
       await row0.locator('.set-num').click();
-      if ((await cls(row0)).includes('is-inked')) throw new Error('tapping the just-done set did not revert it');
-      if ((await row0.locator('.ledger-field.is-edited').count()) !== edited) throw new Error('done → revert dropped the is-edited marks');
+      if (!(await cls(row0)).includes('is-inked') || !(await cls(row0)).includes('is-selected')) throw new Error('tapping the selected set changed something');
+      if ((await row0.locator('.ledger-field.is-edited').count()) !== edited) throw new Error('re-tapping the selected set dropped the is-edited marks');
 
       const steps = page.locator('[data-testid="weight-step"]');
       if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
@@ -1409,7 +1410,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const aliases = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem(lsKey('fitlog_exercise_overrides')) || '{}')).flatMap(o => o.aliases || []));
       if (!aliases.includes(before)) throw new Error(`old name "${before}" not kept as alias`);
       await backAndDiscard(page);
-      return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/revert · + ${w0}→${w1} · 77 → follower 75 · rename (clash rejected, alias kept)`;
+      return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/re-tap noop · + ${w0}→${w1} · 77 → follower 75 · rename (clash rejected, alias kept)`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

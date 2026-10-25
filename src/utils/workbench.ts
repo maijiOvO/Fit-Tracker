@@ -247,7 +247,7 @@ export type TapOutcome =
   | 'moved'
   /** 全零的组：只选中，不动指针 */
   | 'empty'
-  /** 编辑旧训练时点记录里的组：只选中，什么都不改 */
+  /** 只选中，什么都不改：编辑旧训练时点记录里的组；或点的就是指针正上方那组 */
   | 'select'
   | 'noop';
 
@@ -262,7 +262,7 @@ export interface TapResult extends DoneResult {
  *     别的卡 → 那张卡整张挪到当前卡下面（还没开始就挪到最前），再在那张卡里扫到这一组。当前卡没做的组原样留着。
  *     全零的组点不实（做完也记不下东西）：只选中，指针不动。
  *   - 待做、在指针上面（扫过时没数、或换卡时留下的）：原地补做；补的是别的卡 → 提示交替。
- *   - 刚做完的那组（指针正上方）：退回待做，值保留 —— 点错了再点一下就撤。
+ *   - 刚做完的那组（指针正上方）：指针已经在它下面，只选中（2026-10-25 起不再退回待做）。
  *   - 更上面的做完组：指针挪回它正下方，后面的组退回待做（值保留）—— 等于把书签往上拖。
  * 选中（组号实心、±5）由 UI 记：不管哪种结果，被点的那组就是选中的。
  */
@@ -287,7 +287,8 @@ export function tapSetNum(exs: Exercise[], r: RowRef): TapResult {
     if (!seat) return { exs, outcome: 'noop' };
     return { exs: sweepCard(next, seat.card, seat.idx + 1), outcome: 'done' };
   }
-  if (isJustDone(exs, r)) return { exs: revertSet(exs, r), outcome: 'revert' };
+  // 指针已经在它正下方：只选中，什么都不改（2026-10-25 用户定：不再「再点一下就撤」）
+  if (isJustDone(exs, r)) return { exs, outcome: 'select' };
   const seat = rowSeat(exs, r);
   if (!seat) return { exs, outcome: 'noop' };
   return { exs: movePointerTo(exs, seat.card.key, seat.idx + 1), outcome: 'moved' };

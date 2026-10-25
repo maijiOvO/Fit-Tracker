@@ -663,7 +663,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         <button
           type="button"
           onClick={() => onToggleNote(exerciseName, gymKey ?? undefined)}
-          className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
+          className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-highlight text-label text-primary flex items-start gap-2"
           data-testid="exercise-note"
         >
           <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-tertiary" strokeWidth={1.75} />

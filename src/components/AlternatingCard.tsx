@@ -288,7 +288,7 @@ export const AlternatingCard: React.FC<Props> = ({
           key={m.id}
           type="button"
           onClick={() => onToggleNote(resolveName(m.name), gymKeyOf(m))}
-          className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-primary text-label text-primary flex items-start gap-2"
+          className="w-full text-left px-3 py-2 bg-highlight-soft border-l-2 border-highlight text-label text-primary flex items-start gap-2"
         >
           <StickyNote size={13} className="mt-0.5 flex-shrink-0 text-tertiary" strokeWidth={1.75} />
           <span>

@@ -141,13 +141,13 @@ t('点组号：同一张卡里点下面的组，经过的做完（全零的留�
   assert.equal(W.nextPendingRow(exs).setId, 'A4');
 });
 
-t('点组号：刚做完的再点＝退回；更上面的做完组再点＝指针挪回去、后面的退回待做', () => {
+t('点组号：刚做完的再点＝只选中、什么都不改；更上面的做完组再点＝指针挪回去、后面的退回待做', () => {
   let exs = [ex('A', [[50, 10], [50, 10], [50, 10]])];
   exs = tap(exs, 'A3').exs;
   assert.equal(read(exs), 'A1[D] A2[D] A3[D] |');
   let r = tap(exs, 'A3');
-  assert.equal(r.outcome, 'revert');
-  assert.equal(read(r.exs), 'A1[D] A2[D] | A3[p]');
+  assert.equal(r.outcome, 'select');
+  assert.equal(read(r.exs), 'A1[D] A2[D] A3[D] |');
   r = tap(exs, 'A1');
   assert.equal(r.outcome, 'moved');
   assert.equal(read(r.exs), 'A1[D] | A2[p] A3[p]');
@@ -159,8 +159,7 @@ t('点组号：改过数的组做完再退回，仍认得改过（结束训练�
   exs = fill(exs, 'A1', { weight: 55, touched: { weight: true }, subSets: [{ weight: 40, reps: 8, touched: { reps: true } }] });
   exs = tap(exs, 'A2').exs;
   assert.equal(read(exs), 'A1[D] A2[D] |');
-  exs = tap(exs, 'A2').exs; // 退回 A2
-  exs = tap(exs, 'A1').exs; // 退回 A1
+  exs = W.movePointerTo(exs, W.buildCards(exs)[0].key, 0); // 书签拖回最上面：A1、A2 退回
   assert.equal(read(exs), '| A1[p] A2[p]');
   assert.deepEqual(exs[0].sets[0].touched, { weight: true }, 'touched survives done → revert');
   assert.deepEqual(exs[0].sets[0].subSets[0].touched, { reps: true }, 'drop-set touched survives done → revert');
