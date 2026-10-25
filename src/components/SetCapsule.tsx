@@ -7,6 +7,7 @@
  * 网格列宽由父卡片通过 --cols 下发，父行与子组行共用同一个变量，
  * 根治原先「表头 px-2、行 p-3」的 4px 错位。
  */
+import { translations } from '../../translations';
 import React, { useContext, useState } from 'react';
 import { Minus } from 'lucide-react';
 import { Language, SubSetLog, SetLog } from '../../types';
@@ -648,6 +649,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 className={`ledger-input${m === 'weight' ? ' is-int-anchored' : ''}`}
                 placeholder="0"
                 aria-label={unitLabel ? `${m} (${unitLabel})` : m}
+                data-undo-label={`${isCn ? `第 ${setIdx + 1} 组` : `Set ${setIdx + 1} `}${translations[m as keyof typeof translations]?.[lang] ?? m}`}
                 value={display}
                 onFocus={e => {
                   selectOnFocus(e);
@@ -992,6 +994,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               enterKeyHint={m === 'weight' ? 'next' : 'done'}
               className="ledger-input ledger-input-sm"
               placeholder="0"
+              data-undo-label={`${label === 'up' ? (isCn ? '递增' : 'Step-up') : isCn ? '递减' : 'Drop'}${isCn ? (m === 'weight' ? '重量' : '次数') : m === 'weight' ? ' weight' : ' reps'}`}
               onFocus={e => {
                 selectOnFocus(e);
                 if (m === 'weight') onTypeStart();

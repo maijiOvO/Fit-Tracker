@@ -13,6 +13,7 @@
  * ⚠️ services/appEnv.ts 里的开关本身必须用裸 localStorage，不能走这里。
  */
 import { storagePrefix } from './appEnv';
+import { undoJournal } from './undoJournal';
 
 function k(key: string): string {
   return storagePrefix() + key;
@@ -31,6 +32,7 @@ export const storage = {
   },
 
   setItem(key: string, value: string): void {
+    undoJournal.recordKey(key, value);
     try {
       localStorage.setItem(k(key), value);
     } catch (err) {
@@ -45,6 +47,7 @@ export const storage = {
   },
 
   removeItem(key: string): void {
+    undoJournal.recordKey(key, null);
     try {
       localStorage.removeItem(k(key));
     } catch {
@@ -52,3 +55,15 @@ export const storage = {
     }
   },
 };
+
+undoJournal.setIo({
+  getKey: key => storage.getItem(key),
+  setKey: (key, value) => {
+    try {
+      if (value === null) localStorage.removeItem(k(key));
+      else localStorage.setItem(k(key), value);
+    } catch {
+      /* ignore */
+    }
+  },
+});

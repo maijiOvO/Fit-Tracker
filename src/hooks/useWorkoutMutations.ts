@@ -22,6 +22,7 @@ import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
 import { findLastIn } from '../utils/prefillSource';
+import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -338,6 +339,26 @@ export function useWorkoutMutations({
    * 深拷贝是因为工作台有些改动仍是原地写对象（set-update-mutates-shared-objects），浅拷贝会连 workouts 里的原场次一起改掉。
    */
   const editOriginalRef = useRef<{ id: string; key: string } | null>(null);
+
+  // 全局撤销：「在编辑哪一场」跟工作台那一场一起撤（services/undoJournal.ts）。
+  // 只撤工作台、不撤这个，会把进行中的那场当成编辑草稿去「保存修改」
+  const editModeRef = useRef<{ id: string | null; original: { id: string; key: string } | null }>({ id: null, original: null });
+  if (editModeRef.current.id !== editingWorkoutId) editModeRef.current = { id: editingWorkoutId, original: editOriginalRef.current };
+  useEffect(
+    () =>
+      undoJournal.registerSource('editMode', {
+        get: () => editModeRef.current,
+        set: v => {
+          const m = v as { id: string | null; original: { id: string; key: string } | null };
+          editModeRef.current = m;
+          editOriginalRef.current = m.original;
+          workoutCtx.setDraftWorkoutId(m.id);
+          setEditingWorkoutId(m.id);
+        },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   // 草稿 id 交给 WorkoutContext，自动落盘的几条路（改动即存、切后台、pagehide）都跳过它。
   // handleEditWorkout 里也同步设一次：等这个 effect 跑之前，App 的自动落盘 effect 可能先跑。

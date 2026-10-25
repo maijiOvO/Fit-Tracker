@@ -1,4 +1,5 @@
 import { dbName } from './appEnv';
+import { undoJournal } from './undoJournal';
 
 // 库名按数据环境派生：prod = FitLogDB，dev = FitLogDB-dev（见 services/appEnv.ts）。
 // 两个库物理独立，开发模式产生的记录不可能出现在真实库里。
@@ -126,8 +127,25 @@ export class FitLogDB {
     });
   }
 
-  /** 写入一条并等事务提交（oncomplete）；事务出错或被中止都会 reject */
-  async save(storeName: string, item: any): Promise<void> {
+  /** 读一条（撤销日志读「写之前的样子」用） */
+  async get<T>(storeName: string, id: string): Promise<T | undefined> {
+    const store = await this.getStore(storeName, 'readonly');
+    return new Promise((resolve, reject) => {
+      const request = store.get(id);
+      request.onsuccess = () => resolve(request.result as T | undefined);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  /** 写入一条并等事务提交（oncomplete）；事务出错或被中止都会 reject。先记进撤销日志（services/undoJournal.ts） */
+  save(storeName: string, item: any): Promise<void> {
+    return undoJournal.track(
+      undoJournal.recordRows(storeName, [{ id: String(item?.id), after: item }]).then(() => this.rawPut(storeName, item)),
+    );
+  }
+
+  /** 不经过撤销日志的写（撤销 / 重做写回用） */
+  async rawPut(storeName: string, item: any): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
     const done = txDone(store.transaction);
     store.put(item);
@@ -139,14 +157,24 @@ export class FitLogDB {
     return this.save(storeName, item);
   }
 
-  async delete(storeName: string, id: string): Promise<void> {
+  delete(storeName: string, id: string): Promise<void> {
+    return undoJournal.track(
+      undoJournal.recordRows(storeName, [{ id: String(id), after: undefined }]).then(() => this.rawDelete(storeName, id)),
+    );
+  }
+
+  async rawDelete(storeName: string, id: string): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
     const done = txDone(store.transaction);
     store.delete(id);
     return done;
   }
 
-  async clear(storeName: string): Promise<void> {
+  clear(storeName: string): Promise<void> {
+    return undoJournal.track(undoJournal.recordReplace(storeName, []).then(() => this.rawClear(storeName)));
+  }
+
+  private async rawClear(storeName: string): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
     const done = txDone(store.transaction);
     store.clear();
@@ -157,7 +185,11 @@ export class FitLogDB {
    * 整表替换：clear + 全部 put 在同一个 readwrite 事务里。
    * 要么全换成功，要么（任一条失败 → 事务中止）原数据原样保留 —— 不会停在「清空了一半」。
    */
-  async replaceAll(storeName: string, rows: readonly any[]): Promise<void> {
+  replaceAll(storeName: string, rows: readonly any[]): Promise<void> {
+    return undoJournal.track(undoJournal.recordReplace(storeName, rows).then(() => this.rawReplaceAll(storeName, rows)));
+  }
+
+  private async rawReplaceAll(storeName: string, rows: readonly any[]): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
     const tx = store.transaction;
     const done = txDone(tx);
@@ -175,3 +207,10 @@ export class FitLogDB {
 }
 
 export const db = new FitLogDB();
+
+undoJournal.setIo({
+  getRow: (store, id) => db.get(store, id),
+  getAllRows: store => db.getAll(store),
+  putRow: (store, row) => db.rawPut(store, row),
+  deleteRow: (store, id) => db.rawDelete(store, id),
+});

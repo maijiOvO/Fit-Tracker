@@ -6,6 +6,7 @@ import { scheduleAutoBackup } from '../../services/fitlogAutoBackup';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { lastUsedGym } from '../utils/gyms';
 import { storage } from '../../services/appStorage';
+import { undoJournal } from '../../services/undoJournal';
 
 /** 「进行中」能接回来的时限：超过这么久没动过的未结束训练不再自动接回（早期没有 finishedAt 字段的旧记录也靠它挡掉） */
 const IN_PROGRESS_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -111,6 +112,22 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   // 持有最新 currentWorkout 的 ref，避免闭包过期
   const currentWorkoutRef = useRef(currentWorkout);
   currentWorkoutRef.current = currentWorkout;
+
+  // 全局撤销（services/undoJournal.ts）：工作台那一场是状态源 —— 编辑旧训练时它只在内存里，不落盘
+  useEffect(
+    () =>
+      undoJournal.registerSource('currentWorkout', {
+        get: () => currentWorkoutRef.current,
+        set: v => {
+          currentWorkoutRef.current = v as WorkoutSession;
+          setCurrentWorkout(v as WorkoutSession);
+        },
+      }),
+    [],
+  );
+  useEffect(() => {
+    undoJournal.touched();
+  }, [currentWorkout]);
 
   /** 工作台上那份是编辑草稿时的 id：自动落盘的三条路都认它（见 setDraftWorkoutId） */
   const draftIdRef = useRef<string | null>(null);

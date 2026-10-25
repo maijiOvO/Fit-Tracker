@@ -57,6 +57,8 @@ import { DateTimePicker } from './src/components/DateTimePicker';
 import { ExerciseAttrsModal } from './src/components/ExerciseAttrsModal';
 import type { PlanPickerHost } from './src/components/ScheduleEditorModal';
 import { AppHeader } from './src/components/AppHeader';
+import { useUndoGestures } from './src/hooks/useUndoGestures';
+import { useGlobalUndoHost } from './src/hooks/useGlobalUndo';
 import {
   AddCustomExerciseModal,
   AddGoalModal,
@@ -185,6 +187,16 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     });
   }, []);
   useKeyboardScroll(activeTab === 'new');
+
+  // ============== 全局撤销 / 重做（services/undoJournal.ts） ==============
+  useUndoGestures();
+  useGlobalUndoHost({
+    isCn,
+    activeTab,
+    toast,
+    goTo: tab => setActiveTab(tab),
+    refreshSchedules: scheduleCtx.refreshFromDb,
+  });
 
   /**
    * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）。

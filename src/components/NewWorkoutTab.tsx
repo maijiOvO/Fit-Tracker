@@ -53,6 +53,7 @@ import { ReorderStrip } from './ReorderStrip';
 import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { UndoRedoButtons } from './UndoRedoButtons';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -442,11 +443,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             {/* flex-wrap + 每项 nowrap：360/384 宽下编辑态的五项挤不下一行，
                 原先是每项被压成一字一行（「未保存」竖着排）；现在整项折到第二行。 */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
-              <span>
-                {editingWorkoutId
-                  ? (isCn ? '编辑训练' : 'Edit Workout')
-                  : (isCn ? '新建训练' : 'New Workout')}
-              </span>
+              {/* 「新建训练」字样拿掉了（2026-10-25）：顶栏要给撤销 / 重做让一列，训练页本身就说明了是新的一场；
+                  编辑旧训练还写「编辑训练」—— 那时保存语义不一样，得看得出来 */}
+              {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit Workout'}</span>}
               {editingWorkoutId && currentWorkout.date && (
                 <button
                   type="button"
@@ -474,7 +473,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   data-testid="gym-button"
                 >
                   <MapPin size={10} strokeWidth={2} />
-                  {currentWorkout.gym || ''}
+                  <span className="max-w-[6rem] truncate">{currentWorkout.gym || ''}</span>
                 </button>
               )}
               <button
@@ -506,6 +505,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               placeholder={translations.trainingTitlePlaceholder[lang]}
             />
           </div>
+
+          {/* 全局撤销 / 重做：独占一列、上下两行都不伸到它下面，纵向没有别的按钮（2026-10-25） */}
+          <UndoRedoButtons isCn={isCn} />
 
           <button
             type="button"

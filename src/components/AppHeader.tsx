@@ -13,6 +13,7 @@ import {
 import { Language } from '../../types';
 import { translations } from '../../translations';
 import type { SyncStatus } from '../hooks/useFitlogSync';
+import { UndoRedoButtons } from './UndoRedoButtons';
 
 interface AppHeaderProps {
   lang: Language;
@@ -38,6 +39,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     </h1>
 
     <div className="flex items-center gap-2">
+      {/* 全局撤销 / 重做：顶栏上方是状态栏留白、下方是分隔线，纵向没有别的按钮 */}
+      <UndoRedoButtons isCn={lang === Language.CN} />
       <button
         data-testid="header-sync"
         onClick={onSync}

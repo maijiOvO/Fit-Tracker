@@ -1,4 +1,5 @@
 import { db } from './db';
+import { undoJournal } from './undoJournal';
 import { FITLOG_SOLO_USER_ID } from './fitlogSolo';
 import type { FitlogRemoteSnapshot, FitlogSyncedPrefs } from './fitlogSnapshotTypes';
 import {
@@ -488,10 +489,13 @@ export async function migrateRecordsToSoloUserId(): Promise<void> {
       }
     }
   };
-  await fixList('workouts', await db.getAll<WorkoutSession>('workouts'));
-  await fixList('goals', await db.getAll<Goal>('goals'));
-  await fixList('weightLogs', await db.getAll<WeightEntry>('weightLogs'));
-  await fixList('custom_metrics', await db.getAll<Measurement>('custom_metrics'));
+  // 数据迁移不是用户动作，不进撤销日志
+  await undoJournal.withoutJournal(async () => {
+    await fixList('workouts', await db.getAll<WorkoutSession>('workouts'));
+    await fixList('goals', await db.getAll<Goal>('goals'));
+    await fixList('weightLogs', await db.getAll<WeightEntry>('weightLogs'));
+    await fixList('custom_metrics', await db.getAll<Measurement>('custom_metrics'));
+  });
 }
 
 export async function collectLocalSnapshot(): Promise<FitlogRemoteSnapshot> {

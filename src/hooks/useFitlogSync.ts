@@ -268,7 +268,10 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     document.addEventListener('visibilitychange', retry);
     window.addEventListener('online', retry);
     window.addEventListener('fitlog:pulled', onPulled);
+    // 全局撤销 / 重做写回了本机（useGlobalUndo）：同一条路重读
+    window.addEventListener('fitlog:local-restored', onPulled);
     return () => {
+      window.removeEventListener('fitlog:local-restored', onPulled);
       document.removeEventListener('visibilitychange', retry);
       window.removeEventListener('online', retry);
       window.removeEventListener('fitlog:pulled', onPulled);

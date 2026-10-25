@@ -30,6 +30,7 @@ import {
   writePrefsToLocalStorage,
 } from './fitlogRemote';
 import { db } from './db';
+import { undoJournal } from './undoJournal';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
 import { isRemoteConfigured } from './fitlogRemote';
 
@@ -120,15 +121,21 @@ export async function overwriteLocal(
   before: FitlogRemoteSnapshot,
 ): Promise<'pushed' | 'not-configured' | 'failed'> {
   const snap = asAuthoritative(next, before);
+  // 整份改写不进撤销日志，之前的撤销历史作废（导入另有「撤销导入」）
+  undoJournal.clear();
   try {
-    writePrefsToLocalStorage(snap.prefs);
-    await applySnapshotToLocalIndexedDb(snap);
+    await undoJournal.withoutJournal(async () => {
+      writePrefsToLocalStorage(snap.prefs);
+      await applySnapshotToLocalIndexedDb(snap);
+    });
   } catch (err) {
     console.error('[fitlog] 写回本机失败，换回写之前的样子:', err);
     let rolledBack = false;
     try {
-      writePrefsToLocalStorage(before.prefs);
-      await applySnapshotToLocalIndexedDb(before);
+      await undoJournal.withoutJournal(async () => {
+        writePrefsToLocalStorage(before.prefs);
+        await applySnapshotToLocalIndexedDb(before);
+      });
       rolledBack = true;
     } catch (e2) {
       console.error('[fitlog] 换回写之前的样子也失败了:', e2);

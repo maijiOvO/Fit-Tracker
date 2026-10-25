@@ -138,7 +138,7 @@ async function clickAppConfirm(page, labelRe) {
  * 起个名存好（就在这个馆开）。没弹（接回进行中的那场之类）就什么都不做。等到选馆弹层关掉、新建页出来才返回。
  */
 async function pickStartGym(page, name = 'E2E Gym') {
-  const ready = page.locator('text=/新建训练|New Workout/');
+  const ready = page.locator('[data-testid="finish-button"]');
   const picker = page.locator('[data-testid="gym-picker"]');
   const form = page.locator('[data-testid="gym-profile-form"]');
   await ready.or(picker).or(form).first().waitFor({ timeout: 5_000 });
@@ -256,6 +256,8 @@ const MAIN_STEPS = [
   ['plan-to-linked-workout', ['cold-load'], H],
   ['timeline-ops', ['plan-to-linked-workout'], H],
   ['workout-log-sets', ['cold-load'], H],
+  // 全局撤销 / 重做（services/undoJournal.ts）：一下一步，撤销结束训练回到工作台
+  ['global-undo', ['cold-load'], H],
   // 接回「最近结束的那一场」（10 分钟内）：至少要有计划那场
   ['resume-recent-workout', ['plan-to-linked-workout'], H],
   ['no-real-backend-calls', [], { always: true }],
@@ -875,7 +877,7 @@ const SEEDED = {
     if (!latest || latest.id === W_HEAT.id) throw new Error('fixture drift: the copied workout did not finish');
 
     await menuOn(latest.id, /继续这场|Resume/);
-    await page.locator('text=/新建训练|New Workout/').first().waitFor({ timeout: 5_000 });
+    await page.locator('[data-testid="finish-button"]').first().waitFor({ timeout: 5_000 });
     const t0 = await workoutTombstones();
     const cards = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') });
     for (let n = await cards.count(); n > 0; n--) {
@@ -1156,7 +1158,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       return window.__fitlog.fetchRemote();
     });
   const toDashboard = () => page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
-  const newWorkoutPage = page.locator('text=/新建训练|New Workout/');
+  const newWorkoutPage = page.locator('[data-testid="finish-button"]');
   /** plan-to-linked-workout 落下的那场训练，时间线那条拿它当靶子 */
   let finishedWorkoutId = null;
 
@@ -1410,6 +1412,66 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (!aliases.includes(before)) throw new Error(`old name "${before}" not kept as alias`);
       await backAndDiscard(page);
       return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/re-tap noop · + ${w0}→${w1} · 77 → follower 75 · rename (clash rejected, alias kept)`;
+    });
+
+    await s('global-undo', async () => {
+      await toDashboard();
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
+      await page.locator('[data-testid="open-picker-sheet"]').click();
+      const sheet = page.locator('[data-testid="picker-sheet"]');
+      await sheet.locator('input[type="text"]').fill('杠铃平板卧推');
+      await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first().click();
+      await page.locator('[data-testid="picker-sheet-close"]').click();
+
+      const rows = page.locator('.ledger-row');
+      const undo = page.locator('[data-testid="undo-redo"]').last().locator('[data-testid="global-undo"]');
+      const redo = page.locator('[data-testid="undo-redo"]').last().locator('[data-testid="global-redo"]');
+      const wIn = page.locator('[data-testid="ledger-field-weight"] input').first();
+      const state = async () => `${await rows.count()} rows · w=${await wIn.inputValue()} · inked=${await page.locator('.ledger-row.is-inked').count()}`;
+      const settle = () => page.waitForTimeout(250);
+
+      await wIn.click();
+      await page.waitForTimeout(80); // 全选放在下一帧
+      await page.keyboard.type('60');
+      await page.keyboard.press('Enter');
+      await settle();
+      await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
+      await settle();
+      await rows.first().locator('.set-num').click();
+      await settle();
+      const done = await state();
+      if (done !== '2 rows · w=60 · inked=1') throw new Error(`setup: ${done}`);
+
+      // 一下一步往回撤：做完 → 添加组 → 打的 60（打字连回车是一步）
+      const seen = [];
+      for (let i = 0; i < 3; i++) {
+        await undo.click();
+        await settle();
+        seen.push(await state());
+      }
+      const wantBack = ['2 rows · w=60 · inked=0', '1 rows · w=60 · inked=0'];
+      if (seen[0] !== wantBack[0] || seen[1] !== wantBack[1] || seen[2].startsWith('1 rows · w=60'))
+        throw new Error(`undo steps: ${seen.join(' | ')}`);
+      if (!(await redo.isEnabled())) throw new Error('redo disabled after undo');
+      for (let i = 0; i < 3; i++) {
+        await redo.click();
+        await settle();
+      }
+      if ((await state()) !== done) throw new Error(`redo did not come back: ${await state()}`);
+      if (await redo.isEnabled()) throw new Error('redo still enabled at the newest step');
+
+      // 结束训练 → 首页 → 撤销：那场回到工作台，做完的组还在
+      await page.locator('[data-testid="finish-button"]').click();
+      await acceptAppConfirm(page);
+      await dismissColophon(page);
+      await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
+      await page.locator('header [data-testid="global-undo"]').click();
+      await page.locator('[data-testid="finish-button"]').waitFor({ timeout: 3_000 });
+      await settle();
+      if ((await page.locator('.ledger-row.is-inked').count()) !== 1) throw new Error(`undo finish: ${await state()}`);
+      await backAndDiscard(page);
+      return `${seen.join(' → ')} · redo ×3 · undo finish → back on the bench`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

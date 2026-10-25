@@ -13,6 +13,7 @@ import { db } from './db';
 import { getDataEnv, setDataEnv, type DataEnv } from './appEnv';
 import { cancelPendingFitlogPush } from './fitlogSyncScheduler';
 import { storage } from './appStorage';
+import { undoJournal } from './undoJournal';
 import { RemoteError } from './fitlogRemote';
 
 /* ── 推送的稳妥性（2026-10-22，审查 A26；单设备用，不做按条目的时间戳） ──
@@ -97,8 +98,12 @@ export async function pullAndMergeFitlogRemoteDetailed(): Promise<PullOutcome> {
     if (remote.status === 'failed') return { kind: 'failed', reason: remote.reason };
     const local = await collectLocalSnapshot();
     const merged = mergeLocalWithRemote(local, remote.snapshot);
-    writePrefsToLocalStorage(merged.prefs);
-    await applySnapshotToLocalIndexedDb(merged);
+    // 拉进来的是别处的改动：不进撤销日志，而且之前的撤销历史作废（撤销会把它们盖掉）
+    await undoJournal.withoutJournal(async () => {
+      writePrefsToLocalStorage(merged.prefs);
+      await applySnapshotToLocalIndexedDb(merged);
+    });
+    undoJournal.clear();
     return { kind: 'merged', prefs: merged.prefs };
   })();
   try {
@@ -167,6 +172,7 @@ export async function switchDataEnv(next: DataEnv): Promise<void> {
   if (previous === next) return;
 
   cancelPendingFitlogPush();
+  undoJournal.clear();
   setDataEnv(next);
 
   // 两个环境各算各的：换过去之后那边还没拉过
