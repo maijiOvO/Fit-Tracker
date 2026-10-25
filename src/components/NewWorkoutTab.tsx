@@ -185,7 +185,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
    *
    * 选中：组号实心 + ±5。默认选中指针下面那一组；点哪一组的组号，哪一组就选中，
-   * 同时指针挪到它正下方（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）。
+   * 点的是指针下面的待做组，指针同时前进到它正下方（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）；
+   * 点做完的组只选中，指针不往回跳（2026-10-25）。
    * 只存「手动选中的那一组」，删掉 / 拖书签之后清空，回到默认。
    */
   const exs = currentWorkout.exercises ?? [];
@@ -202,7 +203,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const isSigned = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex));
 
   /**
-   * 点组号：一下＝选中这一组 + 指针挪到它正下方（语义全在 workbench.tapSetNum）。
+   * 点组号：一下＝选中这一组；待做的组顺带做完、指针前进（语义全在 workbench.tapSetNum）。
    * 已选中的组再点什么都不变；全零的组点不实，只选中。
    * 编辑旧训练另走 tapSetNumEditing：只动被点的那一组（练完的训练没有指针可挪）。
    */

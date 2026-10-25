@@ -243,11 +243,9 @@ export type TapOutcome =
   | 'done'
   /** 刚做完的那组退回待做 */
   | 'revert'
-  /** 指针挪回这一组正下方，后面的退回待做 */
-  | 'moved'
   /** 全零的组：只选中，不动指针 */
   | 'empty'
-  /** 只选中，什么都不改：编辑旧训练时点记录里的组；或点的就是指针正上方那组 */
+  /** 只选中，什么都不改：点的是做完的组（编辑旧训练时点记录里的组也是） */
   | 'select'
   | 'noop';
 
@@ -256,14 +254,15 @@ export interface TapResult extends DoneResult {
 }
 
 /**
- * 点组号（2026-10-11，用户按真机手感定）：**一下＝选中这一组 + 指针挪到它正下方。**
+ * 点组号（2026-10-11，用户按真机手感定）：**一下＝选中这一组；点的是待做组，指针前进到它正下方。**
  * 以前要「先选中、再点一下才做完」，挪指针得精确拖书签（瞄起点、瞄终点两次）；现在一次点击顶掉这两样。
  *   - 待做、在指针下面：指针所在的卡里（或还没开始）→ 像拖指针一样扫下去：经过的有数的待做组做完，这一组做完。
  *     别的卡 → 那张卡整张挪到当前卡下面（还没开始就挪到最前），再在那张卡里扫到这一组。当前卡没做的组原样留着。
  *     全零的组点不实（做完也记不下东西）：只选中，指针不动。
  *   - 待做、在指针上面（扫过时没数、或换卡时留下的）：原地补做；补的是别的卡 → 提示交替。
- *   - 刚做完的那组（指针正上方）：指针已经在它下面，只选中（2026-10-25 起不再退回待做）。
- *   - 更上面的做完组：指针挪回它正下方，后面的组退回待做（值保留）—— 等于把书签往上拖。
+ *   - 做完的组：只选中，指针不动、什么都不退回（2026-10-25 用户定）。指针＝真实进度，点组号只会让它前进；
+ *     往回挪（撤销点错的做完）只能拖书签。以前点更上面的做完组会把指针挪回去、后面的组退回待做，
+ *     回头改组 1 时刚做完的组 2 会被当成底稿跟着平移，记成错的数。
  * 选中（组号实心、±5）由 UI 记：不管哪种结果，被点的那组就是选中的。
  */
 export function tapSetNum(exs: Exercise[], r: RowRef): TapResult {
@@ -287,11 +286,8 @@ export function tapSetNum(exs: Exercise[], r: RowRef): TapResult {
     if (!seat) return { exs, outcome: 'noop' };
     return { exs: sweepCard(next, seat.card, seat.idx + 1), outcome: 'done' };
   }
-  // 指针已经在它正下方：只选中，什么都不改（2026-10-25 用户定：不再「再点一下就撤」）
-  if (isJustDone(exs, r)) return { exs, outcome: 'select' };
-  const seat = rowSeat(exs, r);
-  if (!seat) return { exs, outcome: 'noop' };
-  return { exs: movePointerTo(exs, seat.card.key, seat.idx + 1), outcome: 'moved' };
+  // 做完的组：只选中，指针不动、什么都不退回（2026-10-25 用户定：点组号只会让指针前进，往回挪只能拖书签）
+  return { exs, outcome: 'select' };
 }
 
 /**
@@ -329,7 +325,8 @@ export type SetUpdate = Partial<SetLog> & {
  *     上次留下的金字塔（145/185/185/165）整体平移成 150/190/190/170，结构不被压平。和递减档同一条规则。
  *     在带符号的数上算（辅助 −10 +5 → −5），普通重量不低于 0。
  *   - 次数（2026-10-11 用户定）：只跟「原值和这组改之前一样」的组。
- * 做完的组改、待做的组改都触发；跟着变的仍是底稿（不记 touched），所以结束时不当「改过数但没点完成」提醒，之后还会继续跟。
+ * 做完的组改、待做的组改都触发 —— 但改的若不是这个动作里最新做完的那组（后面还有做完的组），后面一律不跟（2026-10-25）；
+ * 跟着变的仍是底稿（不记 touched），所以结束时不当「改过数但没点完成」提醒，之后还会继续跟。
  *
  * 递减档（2026-10-15 用户定：和普通组完全一样）：
  *   - 改某一组第 j 档的重量 / 次数，后面各组的第 j 档照上面同一套跟（重量保持差值，次数原值相同才跟）。
@@ -371,6 +368,9 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
     }
     const sets = [...e.sets];
     sets[i] = edited;
+    // 改的不是最新做完的那组（这个动作里它后面还有做完的组）：后面的组一律不跟（2026-10-25 用户定）。
+    // 回头改组 1 的手误，不该把还没做的组 3、4 带着挪；编辑旧训练改中间一组同理
+    const frozen = !before.ghost && e.sets.slice(i + 1).some(x => !x.ghost);
 
     // 打完结算：值已经在打字时写进去了，这里只按总差值带后面
     if (followFrom) {
@@ -378,7 +378,7 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
         const shift = signedKg(edited, e) - followFrom.kg;
         const signed = !!edited.bodyweightMode;
         sets[i] = shiftSubs(edited, edited, shift, e, signed, snap);
-        followWeight(sets, i, shift, e, signed, snap);
+        if (!frozen) followWeight(sets, i, shift, e, signed, snap);
       } else {
         const j = followFrom.sub;
         const sub = edited.subSets?.[j];
@@ -387,7 +387,7 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
           const prevSubs = edited.subSets!;
           sets[i] = shiftLowerSubs(edited, j, shift, e, snap);
           sets[i].subSets!.forEach((nu, k) => {
-            if (k < j) return;
+            if (k < j || frozen) return;
             const d = k === j ? shift : signedKg(nu, e, sets[i]) - signedKg(prevSubs[k], e, edited);
             followSubWeight(sets, i, k, d, !!nu.bodyweightMode, e, snap);
           });
@@ -401,22 +401,29 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
     const shift = 'weight' in updates && !holdFollow ? signedKg(edited, e) - signedKg(before, e) : 0;
     if (shift) {
       sets[i] = shiftSubs(edited, before, shift, e, signed, snap);
-      followWeight(sets, i, shift, e, signed, snap);
+      if (!frozen) followWeight(sets, i, shift, e, signed, snap);
+    }
+    if (frozen) {
+      // 同一组里的递减链照样保持差值（只管这一组自己），后面的组不动
+      if (updates.subSets && !holdFollow) sets[i] = cascadeEditedSub(sets[i], before, e, snap);
+      return { ...e, sets };
     }
     if ('reps' in updates) followReps(sets, i, e, Number(before.reps) || 0, updates.reps);
     // 时长（有氧 / 计时组）照次数的规矩跟：后面待做、没改过、原值一样的组跟着变（审查 A5）
     if ('duration' in updates) followDuration(sets, i, Number(before.duration) || 0, Number(updates.duration) || 0);
-    if (updates.subSets && !holdFollow) {
-      // 改了某一档的重量：同一组里它下面没改过的档保持差值一起挪（2026-10-25 用户定：60→50→40 改第一档成 45 → 60→45→35）
-      const olds = before.subSets ?? [];
-      const j = edited.subSets!.findIndex((nu, k) => olds[k] && olds[k].id === nu.id && signedKg(nu, e, edited) !== signedKg(olds[k], e, before));
-      if (j >= 0 && olds.length === edited.subSets!.length) {
-        sets[i] = shiftLowerSubs(sets[i], j, signedKg(edited.subSets![j], e, edited) - signedKg(olds[j], e, before), e, snap);
-      }
-    }
+    if (updates.subSets && !holdFollow) sets[i] = cascadeEditedSub(sets[i], before, e, snap);
     if (updates.subSets) followSubs(sets, i, before, sets[i], e, !!holdFollow, snap);
     return { ...e, sets };
   });
+}
+
+/** 改了某一档的重量：同一组里它下面没改过的档保持差值一起挪（2026-10-25 用户定：60→50→40 改第一档成 45 → 60→45→35） */
+function cascadeEditedSub(s: SetLog, before: SetLog, ex: Exercise, snap?: (kg: number) => number): SetLog {
+  const olds = before.subSets ?? [];
+  const subs = s.subSets ?? [];
+  if (olds.length !== subs.length) return s;
+  const j = subs.findIndex((nu, k) => olds[k].id === nu.id && signedKg(nu, ex, s) !== signedKg(olds[k], ex, before));
+  return j < 0 ? s : shiftLowerSubs(s, j, signedKg(subs[j], ex, s) - signedKg(olds[j], ex, before), ex, snap);
 }
 
 /** 一组里第 j 档下面、重量没改过的档平移 shift（同一组的递减链保持差值） */
