@@ -191,9 +191,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   // ============== 全局撤销 / 重做（services/undoJournal.ts） ==============
   useUndoGestures();
   useGlobalUndoHost({
-    isCn,
     activeTab,
-    toast,
     goTo: tab => setActiveTab(tab),
     refreshSchedules: scheduleCtx.refreshFromDb,
   });

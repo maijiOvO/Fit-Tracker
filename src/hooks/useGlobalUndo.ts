@@ -3,7 +3,7 @@
  *   - 写回由 services/undoJournal.ts 做；这里让界面跟上：各个数据源从库里重读（和同步拉取之后同一条路，
  *     useFitlogSync 接 fitlog:local-restored），计划单独重读。
  *   - 撤销回来的那一份要推上服务器：标脏 + 排一次推送（推送是整份覆盖，墓碑跟着撤销一起回去）。
- *   - 闪一行提示说撤了什么（可能是别的页面上的改动）。
+ *   - 不弹提示（2026-10-25 用户定：撤销 / 重做本身就是反馈，底部只留报错这类没做成的提示）。
  *   - 撤销「结束训练」：那场回到进行中，跳回训练页。别的撤销不跳页。
  */
 import { useEffect, useRef } from 'react';
@@ -22,9 +22,7 @@ export function runGlobalUndo(d: Direction): Promise<void> {
 }
 
 export interface GlobalUndoDeps {
-  isCn: boolean;
   activeTab: string;
-  toast: (message: string, variant?: 'info' | 'success' | 'error') => void;
   goTo: (tab: 'new') => void;
   refreshSchedules: () => Promise<void>;
 }
@@ -38,7 +36,7 @@ export function useGlobalUndoHost(deps: GlobalUndoDeps): void {
     host = async (d: Direction) => {
       const res = d === 'undo' ? await undoJournal.undo() : await undoJournal.redo();
       if (!res) return;
-      const { isCn, activeTab, toast, goTo, refreshSchedules } = ref.current;
+      const { activeTab, goTo, refreshSchedules } = ref.current;
       invalidateAppPrefsCache();
       window.dispatchEvent(new CustomEvent('fitlog:local-restored'));
       if (res.stores.includes('scheduledWorkouts')) void refreshSchedules();
@@ -50,8 +48,6 @@ export function useGlobalUndoHost(deps: GlobalUndoDeps): void {
       if (cw && hasExercises(cw.to) && activeTab !== 'new') {
         if (!hasExercises(cw.from) || (cw.from as WorkoutSession).id !== (cw.to as WorkoutSession).id) goTo('new');
       }
-      const verb = d === 'undo' ? (isCn ? '已撤销' : 'Undone') : isCn ? '已重做' : 'Redone';
-      toast(res.label ? `${verb}${isCn ? '：' : ': '}${res.label}` : verb, 'info');
     };
     return () => {
       host = null;

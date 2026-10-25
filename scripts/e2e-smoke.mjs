@@ -1472,6 +1472,8 @@ async function mainFlow(browser, escapedRemoteCalls) {
       }
       if ((await state()) !== done) throw new Error(`redo did not come back: ${await state()}`);
       if (await redo.isEnabled()) throw new Error('redo still enabled at the newest step');
+      // 撤销 / 重做不弹提示（用户定）：底部只留没做成的报错
+      if (await page.locator('[data-testid="toast"]', { hasText: /已撤销|已重做|Undone|Redone/ }).count()) throw new Error('undo / redo still shows a toast');
 
       // 结束训练 → 首页 → 撤销：那场回到工作台，做完的组还在
       await page.locator('[data-testid="finish-button"]').click();

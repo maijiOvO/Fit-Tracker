@@ -135,8 +135,8 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
     dismissToast(item.id);
     if (item.onUndo) {
       try {
+        // 做成了不再回一句「已撤销」（2026-10-25 用户定），没做成照样报错
         await item.onUndo();
-        toast(isCn ? '已撤销' : 'Undone', 'success');
       } catch (e) {
         console.error('Undo failed:', e);
         toast(isCn ? '撤销失败' : 'Undo failed', 'error');
