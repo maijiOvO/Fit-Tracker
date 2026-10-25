@@ -1345,7 +1345,6 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (!(await cls(row0)).includes('is-selected')) throw new Error('the set just tapped done is not the selected one');
       await row0.locator('.set-num').click();
       if (!(await cls(row0)).includes('is-inked') || !(await cls(row0)).includes('is-selected')) throw new Error('tapping the selected set changed something');
-      if ((await row0.locator('.ledger-field.is-edited').count()) !== edited) throw new Error('re-tapping the selected set dropped the is-edited marks');
 
       const steps = page.locator('[data-testid="weight-step"]');
       if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);

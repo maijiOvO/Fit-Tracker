@@ -208,8 +208,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    * 编辑旧训练另走 tapSetNumEditing：只动被点的那一组（练完的训练没有指针可挪）。
    */
   const tapSetNum = (r: RowRef) => {
-    // 已经实心（选中）的组再点：什么都不变（2026-10-25 用户定）
-    if (r.setId === selectedSetId) return;
+    // 已经实心（选中）的做完组再点：什么都不变（2026-10-25 用户定）。
+    // 只挡做完的：没点过时默认实心的是指针下面那一组待做，点它就是「这组做完了」
+    if (r.setId === selectedSetId && findSet(exs, r)?.ghost === false) return;
     const res = editingWorkoutId ? tapSetNumEditing(exs, r) : tapSetNumPure(exs, r);
     if (res.outcome === 'noop') return;
     haptic(H.tap);
