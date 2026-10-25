@@ -650,6 +650,7 @@ const SEEDED = {
     remote.failPuts = true;
     const attempts0 = remote.putAttempts;
     await menuOn(W_DEL.id, /删除|Delete/);
+    await acceptAppConfirm(page); // 删整场要确认（2026-10-25）
     await card(W_DEL.id).waitFor({ state: 'detached', timeout: 3_000 });
     // 删除和墓碑是当场写的：等删除之后那次防抖推送真的试过、被拒
     await until(() => remote.putAttempts > attempts0, 'the debounced push after the delete to be attempted', 8_000);
@@ -726,7 +727,7 @@ const SEEDED = {
   },
 
   // 选动作 / 动作库：
-  //  从动作库删除＝隐藏：不弹确认，定义留在 customExercises、覆盖层打 hidden；撤销摘掉，自建列表顺序不变
+  //  从动作库删除＝隐藏：不弹确认、不出撤销条，定义留在 customExercises、覆盖层打 hidden；顶栏全局撤销摘掉，自建列表顺序不变
   //  remove-last-exercise-not-persisted：新训练删光动作 → 这场从库里删掉（写墓碑）；删了再加回来照常落盘
   //  弹层里本次加过的再点一下＝取消；「完成」关弹层；卡头「底稿」点开看上次的几组
   //  hidden-builtin-name-locked：用删掉的动作名新建＝把它恢复出来（不建第二个同名的）
@@ -740,8 +741,7 @@ const SEEDED = {
       await longPress(page, row);
       await menu.waitFor({ state: 'visible', timeout: 3_000 });
       await menu.getByRole('button', { name: /从动作库删除|Delete from library/ }).click();
-      // 删掉之后出撤销条（同一个处理函数里先写覆盖层、再弹条）；要是弹的是确认框，就没有撤销条
-      await page.locator('[data-testid="toast-undo"]').last().waitFor({ state: 'visible', timeout: 3_000 }).catch(() => {});
+      await until(async () => (await hidden()) || (await page.locator('[role="dialog"]').isVisible().catch(() => false)), 'the delete to land or ask');
     };
 
     const before = await customIds();
@@ -755,12 +755,13 @@ const SEEDED = {
     if ((await customIds()) !== before) throw new Error('delete removed the custom definition');
     if (!(await hidden())) throw new Error('delete did not mark it hidden');
     if (await row.isVisible().catch(() => false)) throw new Error('hidden exercise still listed');
-    await page.locator('[data-testid="toast-undo"]').last().click();
-    await row.waitFor({ state: 'visible', timeout: 3_000 });
-    if (await hidden()) throw new Error('undo did not unhide');
-    if ((await customIds()) !== before) throw new Error('undo changed the custom list order');
+    if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('library delete still shows an undo toast');
+    // 弹层盖着顶栏：关掉弹层再按全局撤销
     await search.fill('');
     await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.locator('[data-testid="global-undo"]').last().click();
+    await until(async () => !(await hidden()), 'global undo to unhide the deleted exercise');
+    if ((await customIds()) !== before) throw new Error('undo changed the custom list order');
     await dismissToasts();
 
     // 删光动作：已经在空的新训练里
@@ -1219,8 +1220,8 @@ async function mainFlow(browser, escapedRemoteCalls) {
       return `schedule ${scheduleId} → workout ${w.id}, linked on the remote`;
     });
 
-    // 时间线操作层：长按菜单（松手那一下的 click 被吞掉）、删除＝先执行 + 撤销（墓碑跟着写 / 摘）、
-    // 复制为今天（每一组都是底稿，§12.6）、并入上一场 + 撤销
+    // 时间线操作层：长按菜单（松手那一下的 click 被吞掉）、删除＝确认后删、顶栏全局撤销拿回来（墓碑跟着写 / 摘）、
+    // 复制为今天（每一组都是底稿，§12.6）、并入上一场 + 全局撤销
     await s('timeline-ops', async () => {
       if (!finishedWorkoutId) throw new Error('no finished workout to work on');
       await toDashboard();
@@ -1240,10 +1241,12 @@ async function mainFlow(browser, escapedRemoteCalls) {
 
       await page.waitForTimeout(400); // 菜单项的 350ms 静默期
       await menu.getByRole('menuitem').filter({ hasText: /删除|Delete/ }).click();
-      await until(async () => (await page.locator('[role="dialog"]').count()) > 0 || (await card.count()) === 0, 'the delete to either remove the card or ask');
-      if (await page.locator('[role="dialog"]').count()) throw new Error('delete still opens a confirm dialog — 要求先执行 + 撤销');
+      // 删整场要确认（2026-10-25：只有删训练、清空账户留确认框）
+      await acceptAppConfirm(page);
+      await card.waitFor({ state: 'detached', timeout: 5_000 });
       if (!(await tombstones()).includes(finishedWorkoutId)) throw new Error('deleting a workout wrote no tombstone');
-      await page.locator('[data-testid="toast-undo"]').first().click();
+      if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('workout delete still shows an undo toast');
+      await page.locator('header [data-testid="global-undo"]').click();
       await card.waitFor({ state: 'visible', timeout: 5_000 });
       if ((await tombstones()).includes(finishedWorkoutId)) throw new Error('undo left the tombstone behind');
 
@@ -1266,10 +1269,10 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await sessionMenu(page, cards.first(), /并入上一场|Merge into previous/);
       await page.locator(`[data-testid="${mergedId}"]`).waitFor({ state: 'detached', timeout: 3_000 });
       if ((await cards.count()) !== before - 1) throw new Error(`expected ${before - 1} cards after merge, got ${await cards.count()}`);
-      await page.locator('[data-testid="toast-undo"]').first().click();
+      await page.locator('header [data-testid="global-undo"]').click();
       await page.locator(`[data-testid="${mergedId}"]`).waitFor({ state: 'visible', timeout: 5_000 });
       if ((await cards.count()) !== before) throw new Error(`undo did not restore the card count (${await cards.count()} vs ${before})`);
-      return `menu release swallowed · delete + undo (tombstone) · copy ${ghost} drafts · merge ${before} → ${before - 1} → ${before}`;
+      return `menu release swallowed · delete (confirm) + global undo (tombstone) · copy ${ghost} drafts · merge ${before} → ${before - 1} → ${before}`;
     });
 
     // 开练 → 加杠铃 → 记组：
@@ -1420,8 +1423,9 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await pickStartGym(page);
       await page.locator('[data-testid="open-picker-sheet"]').click();
       const sheet = page.locator('[data-testid="picker-sheet"]');
+      // 按曾用名也搜得到：workout-log-sets 可能已经把它改了名
       await sheet.locator('input[type="text"]').fill('杠铃平板卧推');
-      await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first().click();
+      await sheet.locator('[data-testid="picker-sheet-exercise"]').first().click();
       await page.locator('[data-testid="picker-sheet-close"]').click();
 
       const rows = page.locator('.ledger-row');

@@ -34,7 +34,7 @@ import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
 import { switchDataEnv } from './services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from './services/fitlogSyncScheduler';
-import { recordTombstone, removeTombstone } from './services/fitlogTombstones';
+import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
 import {
@@ -156,7 +156,7 @@ const AppWithAuth: React.FC<AppWithAuthProps> = props => {
 
 const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) => {
   const resolvedUserId = propUserId || FITLOG_SOLO_USER_ID;
-  const { confirm, toast, toastUndo } = useUiOverlay();
+  const { toast } = useUiOverlay();
 
   const authCtx = useAuthContext();
   const workoutCtx = useWorkoutContext();
@@ -731,16 +731,11 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   };
 
   // ============== 动作设置：记录项恢复默认 ==============
-  const handleResetMetricsToDefault = useCallback(async () => {
+  const handleResetMetricsToDefault = useCallback(() => {
     if (!showMetricModal) return;
-    const cardio = prefs.findExerciseDef(showMetricModal.name)?.category === 'CARDIO';
-    const ok = await confirm({
-      message: isCn
-        ? `恢复「${showMetricModal.name}」默认的记录项？${cardio ? '默认按首选项里的有氧默认记录。' : '默认只记重量和次数。'}`
-        : `Reset what "${showMetricModal.name}" tracks?\n${cardio ? 'Default follows your cardio defaults in Preferences.' : 'Default tracks weight and reps only.'}`,
-    });
-    if (ok) prefs.resetMetricsToDefault(showMetricModal.name);
-  }, [confirm, isCn, prefs, showMetricModal]);
+    // 不再确认：点错了用顶栏的全局撤销（2026-10-25）
+    prefs.resetMetricsToDefault(showMetricModal.name);
+  }, [prefs, showMetricModal]);
 
   // ============== Time picker（单组时长） ==============
   const openTimePicker = (exIdx: number, setIdx: number, _currentSeconds: number) => {
@@ -858,15 +853,10 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         onCreated: (ids, partnerNames) => {
           created = ids;
           if (partnerNames.length) {
-            // 上次是交替做的：搭档连带进来了，说一声并给撤销（只撤搭档，这个动作留着）
-            const partnerIds = ids.slice(1);
-            toastUndo(
+            // 上次是交替做的：搭档连带进来了，说一声（不要搭档就删掉它，或者用顶栏的全局撤销整个撤回）
+            toast(
               isCn ? `已连带加入 ${partnerNames.join('、')}（上次交替做的）` : `Also added ${partnerNames.join(', ')} (alternated last time)`,
-              () => {
-                const drop = new Set(partnerIds);
-                setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups((w.exercises ?? []).filter(e => !drop.has(e.id))) }));
-              },
-              { undoLabel: isCn ? '撤销' : 'Undo', durationMs: 6000 },
+              'info',
             );
           }
         },
@@ -878,7 +868,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       }
       return true;
     },
-    [addExerciseToWorkout, isCn, pickerTargetGroup, setCurrentWorkout, toastUndo],
+    [addExerciseToWorkout, isCn, pickerTargetGroup, setCurrentWorkout, toast],
   );
 
   const handlePickerSheetOpenChange = useCallback((open: boolean, focusPart?: string | null, targetGroup?: string | null) => {
@@ -1279,24 +1269,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
                   .then(() => scheduleDebouncedFitlogPush())
                   .catch(err => console.error('Drop emptied workout failed:', err));
               }
-              // 全是底稿的单击即删、不给撤销（2026-10-18 用户定：删了加回来就行）。
-              // 已经做完过组的给撤销：误点一下丢的是真练过的数，加回来也找不回（审查 A2）
-              const removed = (currentWorkout.exercises ?? [])[exIdx];
-              if (removed && removed.sets.some(st => !st.ghost)) {
-                toastUndo(
-                  isCn ? `已删除「${prefs.resolveName(removed.name)}」` : `Deleted "${prefs.resolveName(removed.name)}"`,
-                  () => {
-                    if (dropWhole) removeTombstone('workouts', workoutId);
-                    setCurrentWorkout(w => {
-                      const list = [...(w.exercises ?? [])];
-                      list.splice(Math.min(exIdx, list.length), 0, removed);
-                      // 整场被删掉、工作台还空着：换回原来的 id（墓碑已摘），落盘时写回那一场
-                      return { ...w, ...(dropWhole && !(w.exercises ?? []).length ? { id: workoutId } : {}), exercises: normalizeGroups(list) };
-                    });
-                  },
-                  { undoLabel: isCn ? '撤销' : 'Undo', durationMs: 6000 },
-                );
-              }
+              // 单击即删，不给撤销条：点错了用顶栏的全局撤销（2026-10-25；做完过组的也一样，工作台和那场的记录一起撤回）
             }}
           />
         )}

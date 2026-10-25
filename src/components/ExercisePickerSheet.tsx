@@ -410,7 +410,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     updateVariant,
     attrsOf,
   } = useExercisePrefs();
-  const { toast, toastUndo, dismissToasts } = useUiOverlay();
+  const { toast, dismissToasts } = useUiOverlay();
   const { lang, appPrefs } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
@@ -785,7 +785,6 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const all = inBoard ? [...cols.values()].flat() : fallback ? [fallback] : [];
     const ex = all.find(e => e.id === exId);
     if (!ex) return;
-    const before = all.map(e => ({ id: e.id, region: e.region ?? '', regionRank: e.regionRank }));
     const fromRegion = effectiveRegion(ex) ?? '';
     let changes: { id: string; region: string; regionRank?: number }[];
     if (region) {
@@ -808,7 +807,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         : region
           ? isCn ? `已归到「${getTagName(region)}」` : `Moved to ${getTagName(region)}`
           : isCn ? '已放回未细分' : 'Back to unassigned';
-    toastUndo(msg, () => applyRegionLayout(before));
+    toast(msg, 'info');
     // 落到哪一列，那张卡渗一下墨
     window.requestAnimationFrame(() => {
       const el = rowRefs.current.get(exId);
@@ -833,12 +832,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         const vid = id.slice(sep + 2);
         if (!ex) return;
         const name = ex.name[lang];
-        const before = (ex.variants ?? []).find(v => v.id === vid)?.region ?? '';
         updateVariant(name, vid, { region: target });
         haptic(H.tap);
-        toastUndo(
+        toast(
           target ? (isCn ? `做法已归到「${getTagName(target)}」` : `Variant moved to ${getTagName(target)}`) : isCn ? '做法跟回动作本身' : 'Variant follows the exercise',
-          () => updateVariant(name, vid, { region: before }),
+          'info',
         );
         return;
       }

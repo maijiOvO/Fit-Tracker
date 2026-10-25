@@ -59,7 +59,7 @@ export interface NewWorkoutTabProps {
   lang: Language;
   unit: string;
   currentWorkout: WorkoutSession;
-  /** 要支持函数式更新：撤销条的回调是 5 秒后才跑的，必须按那一刻的最新状态插回去 */
+  /** 要支持函数式更新：异步回来的改动（交替提示等）必须按那一刻的最新状态改 */
   setCurrentWorkout: React.Dispatch<React.SetStateAction<WorkoutSession>>;
   editingWorkoutId: string | null;
   hasUnsavedChanges: boolean;

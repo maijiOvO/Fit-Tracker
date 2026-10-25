@@ -5,7 +5,6 @@ import React, { useCallback, useState } from 'react';
 import { Language, WeightEntry } from '../../types';
 import { db } from '../../services/db';
 import { KG_TO_LBS } from '../constants';
-import { removeTombstone } from '../../services/fitlogTombstones';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useGoalsContext } from '../contexts/GoalsContext';
@@ -32,7 +31,7 @@ export function useWeightLog(
   const authCtx = useAuthContext();
   const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
-  const { toast, toastUndo } = useUiOverlay();
+  const { toast } = useUiOverlay();
 
   const lang = settingsCtx.lang;
   const isCn = lang === Language.CN;
@@ -112,22 +111,15 @@ export function useWeightLog(
       e.stopPropagation();
       const entry = weightEntries.find(w => w.id === id);
       if (!entry) return;
-      // 2026-10-11：下面有撤销条，确认框去掉
-      const snapshot = structuredClone(entry);
+      // 不确认、不给撤销条：点错了用顶栏的全局撤销（2026-10-25）
       try {
         await settingsCtx.deleteWeightEntry(id);
-        toastUndo(isCn ? '已删除体重记录' : 'Weight entry deleted', async () => {
-          await db.save('weightLogs', snapshot);
-          removeTombstone('weightLogs', id);
-          await settingsCtx.refreshWeightEntries();
-          scheduleDebouncedFitlogPush();
-        });
       } catch (error) {
         console.error('Delete failed', error);
         toast(isCn ? '删除失败' : 'Delete failed', 'error');
       }
     },
-    [isCn, settingsCtx, toast, toastUndo, weightEntries],
+    [isCn, settingsCtx, toast, weightEntries],
   );
 
   const triggerEditWeight = useCallback(

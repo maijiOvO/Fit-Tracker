@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Exercise, Language, SetLog, WorkoutSession } from '../../types';
 import { db } from '../../services/db';
-import { recordTombstone, removeTombstone } from '../../services/fitlogTombstones';
+import { recordTombstone } from '../../services/fitlogTombstones';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { hasDoneSets, useWorkoutContext } from '../contexts/WorkoutContext';
 import { useScheduleContext } from '../contexts/ScheduleContext';
@@ -213,10 +213,7 @@ export interface UseWorkoutMutationsResult {
   ) => void;
   handleAddExerciseToPastWorkout: (workoutId: string) => void;
   handleNewWorkoutBack: () => Promise<void>;
-  handleDeleteWorkout: (
-    workoutId: string,
-    options?: { skipConfirm?: boolean },
-  ) => Promise<void>;
+  handleDeleteWorkout: (workoutId: string) => Promise<void>;
   /** §12.8 菜单项「并入上一场」：把这场的动作追加到紧邻的前一场，本场删除，可撤销 */
   handleMergeIntoPrevious: (workoutId: string) => Promise<void>;
   /**
@@ -279,7 +276,7 @@ export function useWorkoutMutations({
   const workoutCtx = useWorkoutContext();
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
-  const { confirm, toast, toastUndo } = useUiOverlay();
+  const { confirm, toast } = useUiOverlay();
   const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef } = useExercisePrefs();
   /** 「杠铃片」馆档案：底稿按今天的馆和单位就近取整（docs/design-plates.md §3） */
   const rounderFor = useLoadRounder();
@@ -612,45 +609,33 @@ export function useWorkoutMutations({
   }, [confirm, editingWorkoutId, exitEditing, getPreviousTab, hasUnsavedChanges, isCn, setActiveTab, workoutCtx]);
 
   const handleDeleteWorkout = useCallback(
-    async (workoutId: string, options?: { skipConfirm?: boolean }) => {
+    async (workoutId: string) => {
       const w = workouts.find(x => x.id === workoutId);
       if (!w) return;
       const dateLabel = new Date(w.date).toLocaleDateString(isCn ? 'zh-CN' : 'en-US');
-      /**
-       * skipConfirm：时间线长按菜单走「先执行 + 撤销条」（§12.8），
-       * 撤销就是那道保险，再弹确认框等于上两道锁。旧入口保持确认框不变。
-       */
-      if (!options?.skipConfirm) {
-        const ok = await confirm({
-          message: isCn
-            ? `确定要删除 ${dateLabel} 的整场训练吗？`
-            : `Delete the entire workout from ${dateLabel}?`,
-          danger: true,
-          confirmLabel: isCn ? '删除' : 'Delete',
-        });
-        if (!ok) return;
-      }
-      const snapshot = structuredClone(w);
+      // 删整场训练一律先确认（2026-10-25 用户定：有了全局撤销，只有删训练、清空账户留确认框；
+      // 时间线长按菜单原来跳过确认、靠撤销条兜底，撤销条拆掉了）
+      const ok = await confirm({
+        message: isCn
+          ? `确定要删除 ${dateLabel} 的整场训练吗？`
+          : `Delete the entire workout from ${dateLabel}?`,
+        danger: true,
+        confirmLabel: isCn ? '删除' : 'Delete',
+      });
+      if (!ok) return;
       try {
         await deleteWorkout(workoutId);
         // 立刻写墓碑（workout-delete-no-tombstone），和「并入上一场」同一个理由：
-        // 推送没落地时，下次启动的拉取会把这场原样合并回来。撤销时摘掉（下面 removeTombstone）。
+        // 推送没落地时，下次启动的拉取会把这场原样合并回来。全局撤销会把墓碑一起撤掉（它也进撤销日志）。
         // deleteWorkout 里的推送是防抖的，这一行同步执行，赶得上同一次推送。
         recordTombstone('workouts', workoutId);
-        const restorePlan = unlinkPlanOf(workoutId);
-        toastUndo(isCn ? '已删除训练' : 'Workout deleted', async () => {
-          await db.save('workouts', snapshot);
-          removeTombstone('workouts', workoutId);
-          restorePlan?.();
-          await refreshFromDb();
-          scheduleDebouncedFitlogPush();
-        });
+        unlinkPlanOf(workoutId);
       } catch (err) {
         console.error('Delete workout failed:', err);
         toast(isCn ? '删除失败' : 'Delete failed', 'error');
       }
     },
-    [confirm, deleteWorkout, isCn, refreshFromDb, toast, toastUndo, unlinkPlanOf, workouts],
+    [confirm, deleteWorkout, isCn, toast, unlinkPlanOf, workouts],
   );
 
   /**
@@ -678,8 +663,6 @@ export function useWorkoutMutations({
         return;
       }
 
-      const prevSnapshot = structuredClone(prev);
-      const selfSnapshot = structuredClone(w);
       /** 两场的收尾时间取更晚的那个：合并后的一场是到那一刻才结束的 */
       const laterOf = (a?: string, b?: string) => {
         if (!a) return b;
@@ -702,28 +685,19 @@ export function useWorkoutMutations({
         await db.save('workouts', merged);
         await db.delete('workouts', workoutId);
         recordTombstone('workouts', workoutId);
-        const restorePlan = unlinkPlanOf(workoutId, prev.id);
+        unlinkPlanOf(workoutId, prev.id);
         await refreshFromDb();
         scheduleDebouncedFitlogPush();
 
+        // 并到了哪一场在时间线上看不出来：说一声（点错了用顶栏的全局撤销）
         const intoName = prev.title || (isCn ? '未命名训练' : 'Untitled');
-        toastUndo(
-          isCn ? `已并入「${intoName}」` : `Merged into "${intoName}"`,
-          async () => {
-            await db.save('workouts', prevSnapshot);
-            await db.save('workouts', selfSnapshot);
-            removeTombstone('workouts', workoutId);
-            restorePlan?.();
-            await refreshFromDb();
-            scheduleDebouncedFitlogPush();
-          },
-        );
+        toast(isCn ? `已并入「${intoName}」` : `Merged into "${intoName}"`, 'info');
       } catch (err) {
         console.error('Merge workout failed:', err);
         toast(isCn ? '并入失败' : 'Merge failed', 'error');
       }
     },
-    [isCn, refreshFromDb, toast, toastUndo, unlinkPlanOf, workouts],
+    [isCn, refreshFromDb, toast, unlinkPlanOf, workouts],
   );
 
   /**
@@ -883,7 +857,7 @@ export function useWorkoutMutations({
       date: string,
     ) => {
       e.stopPropagation();
-      // 2026-10-11：下面已经有撤销条，确认框是重复的保险，去掉
+      // 不确认：点错了用顶栏的全局撤销（2026-10-25）
       void date;
 
       try {
@@ -899,15 +873,13 @@ export function useWorkoutMutations({
           return;
         }
 
-        const snapshot = structuredClone(workout);
         const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
         const deletedWholeWorkout = updatedExercises.length === 0;
 
-        let restorePlan: (() => void) | null = null;
         if (deletedWholeWorkout) {
           await db.delete('workouts', workoutId);
           recordTombstone('workouts', workoutId);
-          restorePlan = unlinkPlanOf(workoutId);
+          unlinkPlanOf(workoutId);
         } else {
           await db.save('workouts', {
             ...workout,
@@ -917,23 +889,13 @@ export function useWorkoutMutations({
         }
         await refreshFromDb();
         scheduleDebouncedFitlogPush();
-
-        toastUndo(
-          isCn ? `已删除 ${exerciseName}` : `Deleted ${exerciseName}`,
-          async () => {
-            await db.save('workouts', snapshot);
-            if (deletedWholeWorkout) removeTombstone('workouts', workoutId);
-            restorePlan?.();
-            await refreshFromDb();
-            scheduleDebouncedFitlogPush();
-          },
-        );
+        void exerciseName;
       } catch (error) {
         console.error('Error deleting exercise record:', error);
         toast(isCn ? '删除失败，请重试' : 'Delete failed, please try again', 'error');
       }
     },
-    [confirm, isCn, refreshFromDb, toast, toastUndo, unlinkPlanOf],
+    [confirm, isCn, refreshFromDb, toast, unlinkPlanOf],
   );
 
   const handleStartScheduledSession = useCallback(

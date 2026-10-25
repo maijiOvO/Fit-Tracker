@@ -134,7 +134,7 @@ interface ExercisePrefsContextValue {
   /**
    * 并入另一个动作（2.5 整理用）：source 变成 target 的一个做法（带着 source 的细分和器材），source 从动作库消失。
    * 历史记录一条不改：source 的名字从此解析到 target、做法按 variantAliases 认；纪录也就并到 target 的那个做法下。
-   * 撤销条（这是动作库操作，不受训练页撤销开关管）。返回 false＝没并成（已 toast）。
+   * 点错了用全局撤销。返回 false＝没并成（已 toast）。
    */
   mergeExerciseInto: (sourceId: string, targetId: string) => boolean;
   /** 一条记录的练法名：现名优先，练法被删了用记录里当时的名字；标准返回 '' */
@@ -184,7 +184,7 @@ interface ExercisePrefsContextValue {
   deleteTag: (id: string) => Promise<void>;
   /** 返回 false = 没改成（重名 / 空名），调用方别关弹窗 */
   renameExercise: (exerciseId: string, newName: string) => boolean;
-  /** 从动作库删除＝隐藏（内置 / 自建一样），不弹确认，给撤销条；可在整理的「已删除」里恢复 */
+  /** 从动作库删除＝隐藏（内置 / 自建一样），不弹确认；可在整理的「已删除」里恢复，或用全局撤销 */
   deleteLibraryExercise: (exerciseId: string) => void;
   restoreLibraryExercise: (exerciseId: string) => void;
   addCustomExercise: (ex: ExerciseDefinition) => void;
@@ -201,13 +201,13 @@ interface ExercisePrefsContextValue {
    * 撞上这个部位被删掉（隐藏）的系统细分：直接把它恢复，返回它的 id，不再建一个同名的。
    */
   addRegionTag: (part: string, name: string) => string | null;
-  /** 练法：新建返回 id（同名返回 null 并 toast）、改名（同名返回 false）、删除（撤销条） */
+  /** 练法：新建返回 id（同名返回 null 并 toast）、改名（同名返回 false）、删除（不确认） */
   addVariant: (exerciseName: string, name: string) => string | null;
   renameVariant: (exerciseName: string, id: string, name: string) => boolean;
   removeVariant: (exerciseName: string, id: string) => void;
   /** 整理里挪列：dir = -1 左移 / 1 右移 */
   moveRegion: (part: string, id: string, dir: -1 | 1) => void;
-  /** 整理里删细分：系统细分＝隐藏、自建细分＝删标签；都走撤销条，动作回未细分 */
+  /** 整理里删细分：系统细分＝隐藏、自建细分＝删标签；不确认，提示里说几个动作回未细分 */
   removeRegion: (part: string, id: string) => void;
   restoreRegion: (part: string, id: string) => void;
 
@@ -300,7 +300,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   migrateLocalCableTagsOnce();
   const { lang } = useUserSettingsContext();
-  const { toast, toastUndo } = useUiOverlay();
+  const { toast } = useUiOverlay();
 
   const [customTags, setCustomTags] = useState<CustomTag[]>(() =>
     readJSON<CustomTag[]>(LS_KEYS.customTags, []),
@@ -520,7 +520,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (ex: ExerciseDefinition): string[] => {
       // 有氧 / 自由不分细分（跑步机挂在腿部、划船机挂在背部，不能混进细分列）
       if ((ex.category || 'STRENGTH') !== 'STRENGTH' || !ex.region) return [];
-      // 主细分被删了（或部位换了）就算未细分，次要的不顶上来：删细分的撤销条说的是「回到未细分」
+      // 主细分被删了（或部位换了）就算未细分，次要的不顶上来：删细分的提示说的是「回到未细分」
       if (!regionsOf(ex.bodyPart).some(r => r.id === ex.region)) return [];
       // 次要细分可以是别的部位的（2026-10-21 用户定）：哪个部位下还在就算，删掉的才丢
       const ok = new Set(BODY_PARTS.flatMap(p => regionsOf(p).map(r => r.id)));
@@ -804,9 +804,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
             ? live.filter(d => (d.bodyPart || '').toLowerCase() === id.toLowerCase()).length
             : live.filter(d => (d.equipment || '').toLowerCase() === id.toLowerCase()).length;
       const name = getTagName(id);
-      const tagSnapshot = structuredClone(tag);
-      const tagIndex = customTags.findIndex(ct => ct.id === id);
-      const overrideSnapshot = tagRenameOverrides[id];
 
       setCustomTags(prev => {
         const next = prev.filter(ct => ct.id !== id);
@@ -836,25 +833,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
             : cn
               ? `已删除器材「${name}」${affected ? `，${affected} 个动作改为无器材` : ''}`
               : `Gear deleted${affected ? ` — ${affected} now without gear` : ''}`;
-      toastUndo(msg, () => {
-        setCustomTags(prev => {
-          const next = prev.filter(ct => ct.id !== id);
-          next.splice(Math.min(Math.max(tagIndex, 0), next.length), 0, tagSnapshot);
-          writeJSON(LS_KEYS.customTags, next);
-          return next;
-        });
-        if (overrideSnapshot) {
-          setTagRenameOverrides(prev => {
-            const next = { ...prev, [id]: overrideSnapshot };
-            writeJSON(LS_KEYS.tagRenameOverrides, next);
-            return next;
-          });
-        }
-        markPrefsUpdated();
-        scheduleDebouncedFitlogPush();
-      });
+      // 有几个动作跟着变了在当前页面看不全：说一声（点错了用顶栏的全局撤销，2026-10-25 拆掉撤销条）
+      toast(msg, 'info');
     },
-    [customExercises, customTags, exerciseOverrides, getTagName, lang, tagRenameOverrides, toastUndo],
+    [customExercises, customTags, exerciseOverrides, getTagName, lang, toast],
   );
 
   /**
@@ -972,20 +954,15 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   /**
-   * 从动作库删除：先执行 + 撤销（§12.5 通则 3），不弹确认。
-   * 原先自建动作会从 customExercises 里移走，撤销条一过就再也找不回来；现在统一只打 hidden，
+   * 从动作库删除：不弹确认，点错了用顶栏的全局撤销（原来是撤销条）。
+   * 原先自建动作会从 customExercises 里移走，撤销窗口一过就再也找不回来；现在统一只打 hidden，
    * 在整理的「已删除」里点一下就恢复。
    */
   const deleteLibraryExercise = useCallback(
     (exId: string) => {
-      const name = displayNameOf(exId);
       writeHidden(exId, true);
-      toastUndo(
-        lang === Language.CN ? `已从动作库删除「${name}」` : `Deleted "${name}"`,
-        () => writeHidden(exId, false),
-      );
     },
-    [displayNameOf, lang, toastUndo, writeHidden],
+    [writeHidden],
   );
 
   const restoreLibraryExercise = useCallback(
@@ -1197,19 +1174,13 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [lang, toast, variantClash, rawVariantsOf, writeVariants],
   );
 
-  /** 删练法：历史记录里带着当时的名字，照样能显示、照样单独算 PR；撤销放回原位 */
+  /** 删练法：历史记录里带着当时的名字，照样能显示、照样单独算 PR；点错了用顶栏的全局撤销 */
   const removeVariant = useCallback(
     (exerciseName: string, id: string) => {
-      const before = rawVariantsOf(exerciseName);
-      const gone = variantsOf(exerciseName).find(v => v.id === id);
-      if (!gone) return;
-      writeVariants(exerciseName, before.filter(v => v.id !== id));
-      toastUndo(
-        lang === Language.CN ? `已删除做法「${gone.name}」` : `Variant "${gone.name}" removed`,
-        () => writeVariants(exerciseName, before),
-      );
+      if (!variantsOf(exerciseName).some(v => v.id === id)) return;
+      writeVariants(exerciseName, rawVariantsOf(exerciseName).filter(v => v.id !== id));
     },
-    [lang, toastUndo, rawVariantsOf, variantsOf, writeVariants],
+    [rawVariantsOf, variantsOf, writeVariants],
   );
 
   const updateVariant = useCallback(
@@ -1344,8 +1315,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       for (const n of srcNames) aliases[n.trim()] = vid;
       const variants = existing ? t.variants ?? [] : [...(t.variants ?? []), variant];
 
-      const snapCustom = structuredClone(customExercises);
-      const snapOver = structuredClone(exerciseOverrides);
       writeDefField(tgt.id, { variants, variantAliases: aliases });
       setExerciseOverrides(prev => {
         const updated = { ...prev, [src.id]: { ...(prev[src.id] || {}), mergedInto: tgt.id, hidden: true } };
@@ -1354,20 +1323,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       });
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
-      toastUndo(
-        cn ? `「${srcName}」已并入「${tgtName}」，成为做法「${variant.name}」` : `"${srcName}" merged into "${tgtName}"`,
-        () => {
-          setCustomExercises(snapCustom);
-          writeJSON(LS_KEYS.customExercises, snapCustom);
-          setExerciseOverrides(snapOver);
-          writeJSON(LS_KEYS.exerciseOverrides, snapOver);
-          markPrefsUpdated();
-          scheduleDebouncedFitlogPush();
-        },
-      );
+      toast(cn ? `「${srcName}」已并入「${tgtName}」，成为做法「${variant.name}」` : `"${srcName}" merged into "${tgtName}"`, 'info');
       return true;
     },
-    [customExercises, exerciseOverrides, lang, toastUndo, withVariantNames, writeDefField],
+    [customExercises, exerciseOverrides, lang, toast, withVariantNames, writeDefField],
   );
 
   const moveRegion = useCallback(
@@ -1382,7 +1341,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [regionsOf, writeLayout],
   );
 
-  /** 此刻落在某一列的动作数（撤销条里说「N 个动作回到未细分」） */
+  /** 此刻落在某一列的动作数（提示里说「N 个动作回到未细分」） */
   const countInRegion = useCallback(
     (id: string) =>
       [...DEFAULT_EXERCISES, ...customExercises]
@@ -1402,20 +1361,20 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   const removeRegion = useCallback(
     (part: string, id: string) => {
       if (!(BODY_REGIONS[part] ?? []).includes(id)) {
-        void deleteTag(id); // 自建细分：删标签（自带撤销条，不弹确认）
+        void deleteTag(id); // 自建细分：删标签（不弹确认）
         return;
       }
       const n = countInRegion(id);
       const name = getTagName(id);
       writeLayout(part, { hidden: [...new Set([...(layoutOf(part)?.hidden ?? []), id])] });
-      toastUndo(
+      toast(
         lang === Language.CN
           ? `已删除细分「${name}」${n ? `，${n} 个动作回到未细分` : ''}`
           : `Region removed${n ? ` — ${n} back to unassigned` : ''}`,
-        () => restoreRegion(part, id),
+        'info',
       );
     },
-    [countInRegion, deleteTag, getTagName, lang, layoutOf, restoreRegion, toastUndo, writeLayout],
+    [countInRegion, deleteTag, getTagName, lang, layoutOf, toast, writeLayout],
   );
 
   const applyPrefsFromSnapshot = useCallback((raw: FitlogSyncedPrefs) => {

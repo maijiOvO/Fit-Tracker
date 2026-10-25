@@ -39,10 +39,7 @@ export interface DashboardActions {
   onEndInProgress: () => void;
   onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
-  onDeleteWorkout: (
-    workoutId: string,
-    options?: { skipConfirm?: boolean },
-  ) => void | Promise<void>;
+  onDeleteWorkout: (workoutId: string) => void | Promise<void>;
   onMergeIntoPrevious: (workoutId: string) => void | Promise<void>;
   onCopyWorkoutToToday: (workoutId: string) => void | Promise<void>;
   /** 刚结束 10 分钟内的那场接回工作台（时间线长按菜单） */

@@ -78,7 +78,7 @@ interface SetCapsuleProps {
    * 单位前的 + / − 可点，换号。sign 给出旧数据（组上没写号）时的号。
    */
   signed?: { sign: (s: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] }) => -1 | 1 };
-  /** 删一档递减：交给工作台做（要挂撤销条，撤销必须按最新状态插回去） */
+  /** 删一档递减：交给工作台做 */
   onRemoveSub?: (subIdx: number) => void;
   /** 「杠铃片」§3：这个动作的重量怎么画、怎么拖。不传＝纯数字（只读历史视图） */
   loadKind?: LoadKind;
@@ -732,7 +732,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           <span />
         )}
 
-        {/* 删组：热区 44×44，一律单击。撤销条看设置（2.6，默认关）—— 由工作台决定给不给。 */}
+        {/* 删组：热区 44×44，一律单击；点错了用顶栏的全局撤销。 */}
         {!readOnly ? (
           <button
             type="button"

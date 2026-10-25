@@ -40,8 +40,8 @@ interface TimelineViewProps {
   renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
   onEditWorkout: (workoutId: string) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
-  /** §12.8：长按菜单里的删除走「先执行 + 撤销条」，skipConfirm 跳过确认弹窗 */
-  onDeleteWorkout: (workoutId: string, options?: { skipConfirm?: boolean }) => void;
+  /** 删整场：一律先确认（2026-10-25） */
+  onDeleteWorkout: (workoutId: string) => void;
   /** 把这场并入时间上紧邻的前一场（误结束拆场的事后补救），带撤销 */
   onMergeIntoPrevious: (workoutId: string) => void;
   /** 刚结束（10 分钟内）的那场接回工作台：误点结束的补救（原来是开新一场时弹「继续刚才那场？」） */
@@ -176,7 +176,7 @@ interface SessionCardProps {
  * 点按＝展开/收起详情（原语义不动）；长按＝浮出操作菜单
  * （编辑 / 补记动作 / 删除）。原先每张卡常驻一排「编辑·补加·删除」按钮，
  * 低频操作永久占着版面 —— 收进长按后，卡面只剩内容本身。
- * 删除不再弹确认框：先执行 + 撤销条（撤销就是那道保险，两道锁是冗余）。
+ * 删除整场要确认（2026-10-25：撤销条拆了，换成顶栏全局撤销；删训练、清空账户这两处仍留确认框）。
  * 菜单形态与 ExerciseCard 的 ⋯ 菜单同一idiom：卡内 absolute、点外关闭。
  *
  * ⚠️ 菜单开着时整张卡必须抬 z（不是只给菜单加 z-20）：菜单比矮卡片高，
@@ -492,8 +492,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
             <span className="text-micro font-normal text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
           </button>
-          {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。
-              和删除一样走「先执行 + 撤销」——手滑点到它，撤销条就在下面。 */}
+          {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。点了就并，手滑了用顶栏的全局撤销。 */}
           {canMerge && (
             <button
               type="button"
@@ -506,8 +505,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
             </button>
           )}
-          {/* §6.6：删除入口是墨色文字项，不靠颜色喊危险；
-              保险由撤销条提供（先执行 + 5 秒撤销），不再弹确认框。 */}
+          {/* §6.6：删除入口是墨色文字项，不靠颜色喊危险；点了先弹确认框（删整场是少数留确认的操作） */}
           <button
             type="button"
             role="menuitem"
@@ -733,7 +731,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   renderSetCapsule={renderSetCapsule}
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
-                  onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
+                  onDelete={() => onDeleteWorkout(w.id)}
                   onMerge={() => onMergeIntoPrevious(w.id)}
                   onCopy={() => onCopyToToday(w.id)}
                   onResume={() => onResumeFinished(w.id)}
@@ -798,7 +796,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   renderSetCapsule={renderSetCapsule}
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
-                  onDelete={() => onDeleteWorkout(w.id, { skipConfirm: true })}
+                  onDelete={() => onDeleteWorkout(w.id)}
                   onMerge={() => onMergeIntoPrevious(w.id)}
                   onCopy={() => onCopyToToday(w.id)}
                   onResume={() => onResumeFinished(w.id)}

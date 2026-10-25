@@ -7,7 +7,7 @@
  *   - 「改名」一行：和头部点名字是同一个就地输入框，给找不到头部入口的人一个看得见的按钮
  *   - 「归到细分」chip 行（有细分的力量动作）
  *   - 部位与器材 / 做法 / 备注 / 记录项：打开现有的同一批弹窗
- *   - 并入另一个动作（2.5 整理）：这个动作变成那个动作的一个做法，历史 / 纪录跟过去；撤销条
+ *   - 并入另一个动作（2.5 整理）：这个动作变成那个动作的一个做法，历史 / 纪录跟过去；点错了用全局撤销
  *   - 从动作库删除：先执行 + 撤销，不弹确认
  *
  * 长按满 500ms 时面板就弹出来了，手指还按着：松手补发的那次 click 不带新的 pointerdown，
@@ -26,7 +26,7 @@ interface Props {
   ex: ExerciseDefinition;
   lang: Language;
   onClose: () => void;
-  /** 归到细分（'' = 放回未细分）；由弹层负责写序号与撤销条 */
+  /** 归到细分（'' = 放回未细分）；由弹层负责写序号与提示 */
   onAssignRegion: (ex: ExerciseDefinition, regionId: string) => void;
   onEditTags: (ex: ExerciseDefinition) => void;
   onVariants: (name: string) => void;

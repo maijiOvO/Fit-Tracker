@@ -7,7 +7,6 @@ import { Language, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
 import { useScheduleContext } from '../contexts';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { useUiOverlay } from '../contexts/UiOverlayContext';
 import ScheduleEditorModal, { type PlanPickerHost } from './ScheduleEditorModal';
 import { formatWeight } from './SetCapsule';
 import { MiniPlates, planSide, plateWords } from './MiniPlates';
@@ -74,7 +73,6 @@ function statusBadge(status: ScheduledWorkout['status'], lang: Language) {
 }
 
 const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onStartScheduledSession, pickerHost }) => {
-  const { confirm, toastUndo } = useUiOverlay();
   const { schedules, schedulesByDate, updateSchedule, deleteSchedule } = useScheduleContext();
   // 计划里存的是排计划那天的名字；改过名后要显示现名
   const { resolveName, findExerciseDef, attrsOf } = useExercisePrefs();
@@ -227,21 +225,12 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     setEditorOpen(true);
   };
 
-  /** 标记跳过：先执行 + 撤销条（2026-10-11，原来一点就生效、没退路） */
+  /** 标记跳过：一点就生效，点错了用顶栏的全局撤销（2026-10-25，原来是撤销条） */
   const markSkipped = async (s: ScheduledWorkout) => {
-    const before = { ...s };
     await updateSchedule({ ...s, status: 'skipped', updatedAt: new Date().toISOString() });
-    toastUndo(lang === Language.CN ? '已标记跳过' : 'Marked as skipped', () =>
-      updateSchedule({ ...before, updatedAt: new Date().toISOString() }),
-    );
   };
+  // 删计划不再确认：顶栏的全局撤销就是保险（2026-10-25 用户定：只有删训练、清空账户留确认框）
   const onDelete = async (s: ScheduledWorkout) => {
-    const ok = await confirm({
-      message: lang === Language.CN ? '确定删除这条计划吗？' : 'Delete this plan?',
-      danger: true,
-      confirmLabel: lang === Language.CN ? '删除' : 'Delete',
-    });
-    if (!ok) return;
     await deleteSchedule(s.id);
   };
 
