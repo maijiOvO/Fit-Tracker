@@ -169,7 +169,7 @@ function sideBracket(side: number, plates: number[], unit: PlateUnit): [number, 
   return [lo / Q, hi / Q];
 }
 
-const r2 = (v: number) => Math.round(v * 100) / 100;
+export const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** 是不是要取整的器材：纯数字的动作（含没有重量这一项的）不管 */
 function snaps(kind: LoadKind): boolean {

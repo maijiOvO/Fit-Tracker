@@ -24,6 +24,7 @@ import {
 } from './fitlogFolder';
 import { storage } from './appStorage';
 import { getDataEnv } from './appEnv';
+import { pad2 } from '../src/utils/format';
 
 const FOLDER_KEY = 'fitlog_backup_folder';
 const STATUS_KEY = 'fitlog_backup_status';
@@ -89,11 +90,9 @@ export function markBackupPending(): void {
 
 // ============ 命名 ============
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
 /** fitlog-backup-2026-10-20-1832.json（本地时间）；dev 数据环境多一段 dev */
 function autoBackupName(when = new Date(), env = getDataEnv()): string {
-  const stamp = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}-${pad(when.getHours())}${pad(when.getMinutes())}`;
+  const stamp = `${when.getFullYear()}-${pad2(when.getMonth() + 1)}-${pad2(when.getDate())}-${pad2(when.getHours())}${pad2(when.getMinutes())}`;
   return `fitlog-${env === 'dev' ? 'dev-' : ''}backup-${stamp}.json`;
 }
 
@@ -116,7 +115,7 @@ export function parseAutoBackupName(file: FolderFile): NamedBackup | null {
 
 // ============ 保留规则 ============
 
-const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dayKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
 
 /**

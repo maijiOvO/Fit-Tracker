@@ -22,6 +22,7 @@ import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfi
 import { setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
 import { formatVolume, plural } from '../utils/format';
+import { KG_TO_LBS } from '../constants';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
@@ -197,7 +198,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   /** 大图拖动 / 点「改成能挂的」：写回选中（或画着的）那一组 */
   const writeHero = (next: number) => {
     if (!focusSet) return;
-    const kg = rounder ? Math.abs(rounder.kgOfD(next)) : unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
+    const kg = rounder ? Math.abs(rounder.kgOfD(next)) : unit === 'lbs' ? Math.abs(next) / KG_TO_LBS : Math.abs(next);
     // 改重量就记下这一组挂的是哪种片：这个馆的片子（审查 A8），纯数字的动作按显示单位；口径同 SetCapsule.fromDisplay
     const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
     const updates: Partial<SetLog> = signed
@@ -376,7 +377,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const tareKey = kindKey && loadKind === 'loaded' ? kindKey : null;
   const tareSpec = tareKey ? appPrefs.gymTares[tareKey] : undefined;
   const tareD = tareSpec && rounder
-    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * 2.20462 : tareSpec.v / 2.20462) * 10) / 10
+    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * KG_TO_LBS : tareSpec.v / KG_TO_LBS) * 10) / 10
     : undefined;
   // 空载：横划 / 打字都行；清空＝不知道（墓碑）
   const saveTare = (n: number | null) => {

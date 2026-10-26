@@ -9,6 +9,7 @@
  * 换算常数和 SetCapsule.formatWeight 用同一个（2.20462），否则 kg → 显示值 → kg 来回会在等距点上翻转。
  */
 import { useCallback } from 'react';
+import { KG_TO_LBS } from '../constants';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import type { Exercise, SetLog, SubSetLog } from '../../types';
@@ -20,6 +21,7 @@ import {
   isLoadable,
   nearest,
   profileIn,
+  r2,
   startIn,
   snap,
   stepOf,
@@ -30,8 +32,7 @@ import {
 } from '../utils/loadable';
 import { fromSignedKg, setSign, signedKg, usesSignedLoad } from '../utils/load';
 
-const K = 2.20462;
-const r2 = (v: number) => Math.round(v * 100) / 100;
+const K = KG_TO_LBS;
 
 export interface ExRounder {
   info: LoadInfo;

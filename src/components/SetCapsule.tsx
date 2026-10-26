@@ -18,7 +18,8 @@ import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { fromSignedKg } from '../utils/load';
-import { parseWeight, secondsToHMS } from '../utils/format';
+import { pad2, parseWeight, secondsToHMS } from '../utils/format';
+import { KG_TO_LBS } from '../constants';
 import { heroScrubAxis, STACK_PITCH, STACK_ENGAGE_PX } from '../utils/scrubFeel';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
@@ -133,7 +134,7 @@ const focusNextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
 
 export function formatWeight(kg: number, targetUnit: string): string {
   if (targetUnit === 'lbs') {
-    return (kg * 2.20462).toFixed(2).replace(/\.?0+$/, '');
+    return (kg * KG_TO_LBS).toFixed(2).replace(/\.?0+$/, '');
   }
   return kg.toFixed(2).replace(/\.?0+$/, '');
 }
@@ -430,7 +431,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     if (set.ghost && set.checkWeight && !set.touched?.weight) return { text: isCn ? '换了做法，确认一下重量' : 'New variant — check weight' };
     const ref = set.prefillRef as SetLog['prefillRef'];
     if (!ref || !(Math.abs(ref.kg) > 0)) return none;
-    const inRef = Math.round((ref.unit === 'lbs' ? Math.abs(ref.kg) * 2.20462 : Math.abs(ref.kg)) * 100) / 100;
+    const inRef = Math.round((ref.unit === 'lbs' ? Math.abs(ref.kg) * KG_TO_LBS : Math.abs(ref.kg)) * 100) / 100;
     const lab = ref.unit === 'lbs' ? 'lb' : 'kg';
     const assisted = !!signed && ref.kg < 0;
     const what = ref.plan ? (isCn ? '计划' : 'Plan') : isCn ? '上次' : 'Last';
@@ -522,7 +523,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
           if (m === 'duration') {
             const hms = secondsToHMS(set.duration || 0);
-            const pad = (n: number) => n.toString().padStart(2, '0');
             return (
               <button
                 key={m}
@@ -537,7 +537,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 style={{ ['--ledger-chars' as string]: 8, alignItems: 'center' }}
               >
                 <span className="ledger-fit-text">
-                  {pad(hms.h)}:{pad(hms.m)}:{pad(hms.s)}
+                  {pad2(hms.h)}:{pad2(hms.m)}:{pad2(hms.s)}
                 </span>
               </button>
             );

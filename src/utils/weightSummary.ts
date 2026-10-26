@@ -5,6 +5,8 @@
  * 都在 30 天内就退到最早一条。入参顺序随意，排序在这里做。
  * 从 Dashboard 抽出来，好在 node 里直接测（scripts/logic-check.mjs）。
  */
+import { KG_TO_LBS } from '../constants';
+
 export interface WeighIn {
   date: string;
   weight: number;
@@ -40,7 +42,7 @@ export function weightDelta<T extends WeighIn>(
   const latestAt = new Date(s.latest.date).getTime();
   if (now - latestAt > 30 * DAY) return null;
   const span = Math.round((latestAt - new Date(s.baseline.date).getTime()) / DAY);
-  const d = (s.latest.weight - s.baseline.weight) * (unit === 'lbs' ? 2.20462 : 1);
+  const d = (s.latest.weight - s.baseline.weight) * (unit === 'lbs' ? KG_TO_LBS : 1);
   const r = Math.round(d * 10) / 10;
   return {
     text: r > 0 ? `+${r}` : r < 0 ? `${r}` : '0',

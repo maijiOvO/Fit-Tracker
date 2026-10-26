@@ -3,6 +3,9 @@
  */
 import { KG_TO_LBS } from '../constants';
 
+/** 两位补零 */
+export const pad2 = (n: number) => String(n).padStart(2, '0');
+
 /**
  * 格式化体重值
  */

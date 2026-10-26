@@ -6,6 +6,7 @@ import { Language } from '../../types';
 import { translations } from '../../translations';
 import { KG_TO_LBS } from '../constants';
 import { distToDisplay, metricUnitLabel } from './exerciseConfig';
+import { pad2 } from './format';
 import { E1RM, type SetRef } from './liftHistory';
 
 /** 数值智能去零：80 而不是 80.00；最多一位小数（§6.5） */
@@ -44,8 +45,7 @@ function clockOf(sec: number): string {
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);
   const s = t % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
 }
 
 /** 已经换成显示单位的数怎么写：时长写成时:分:秒，其余最多一位小数 */

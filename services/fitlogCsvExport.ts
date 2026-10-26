@@ -11,6 +11,8 @@
 import type { Exercise, SetLog, SubSetLog, WorkoutSession } from '../types';
 import { signedKg } from '../src/utils/load';
 import { plateUnitOf } from '../src/utils/plates';
+import { KG_TO_LBS } from '../src/constants';
+import { pad2 } from '../src/utils/format';
 
 export interface CsvExportHelpers {
   isCn: boolean;
@@ -24,26 +26,23 @@ export interface CsvExportHelpers {
   fallbackUnit: 'kg' | 'lbs';
 }
 
-const KG_TO_LBS = 2.20462;
-
 function cell(v: unknown): string {
   if (v === undefined || v === null) return '';
   const s = String(v);
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
 function localDate(iso: string | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 function localTime(iso: string | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -113,6 +112,6 @@ function row(
 }
 
 export function csvFileName(isCn: boolean, when = new Date()): string {
-  const d = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`;
+  const d = `${when.getFullYear()}-${pad2(when.getMonth() + 1)}-${pad2(when.getDate())}`;
   return isCn ? `fitlog-训练记录-${d}.csv` : `fitlog-workouts-${d}.csv`;
 }
