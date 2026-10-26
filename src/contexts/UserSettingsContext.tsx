@@ -20,7 +20,6 @@ interface UserSettingsContextType {
   setLang: (lang: Language) => void;
   /** 用户改语言：记进 appPrefs（打时间戳）并推送，同步时才不会被远端旧值翻回去 */
   changeLang: (lang: Language) => void;
-  toggleLanguage: () => void;
 
   unit: 'kg' | 'lbs';
   /** 套用一个已经定下的值（同步拉回 / 切数据环境）：不打时间戳、不推送 */
@@ -42,9 +41,7 @@ interface UserSettingsContextType {
 
   measurements: Measurement[];
   addMeasurement: (measurement: Measurement) => Promise<void>;
-  updateMeasurement: (measurement: Measurement) => Promise<void>;
   deleteMeasurement: (id: string) => Promise<void>;
-  refreshMeasurements: () => Promise<void>;
   reloadFromIndexedDb: () => Promise<void>;
 }
 
@@ -132,10 +129,6 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
     scheduleDebouncedFitlogPush();
   };
 
-  const toggleLanguage = () => {
-    changeLang(lang === Language.CN ? Language.EN : Language.CN);
-  };
-
   const setUnit = (newUnit: 'kg' | 'lbs') => {
     setUnitState(newUnit);
     storage.setItem('fitlog_unit', newUnit);
@@ -168,12 +161,6 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
     scheduleDebouncedFitlogPush();
   };
 
-  const updateMeasurement = async (measurement: Measurement) => {
-    await db.upsert('custom_metrics', measurement);
-    setMeasurements((prev) => prev.map((m) => (m.id === measurement.id ? measurement : m)));
-    scheduleDebouncedFitlogPush();
-  };
-
   const deleteMeasurement = async (id: string) => {
     await db.delete('custom_metrics', id);
     recordTombstone('customMetrics', id);
@@ -187,7 +174,6 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
         lang,
         setLang,
         changeLang,
-        toggleLanguage,
         unit,
         setUnit,
         changeUnit,
@@ -200,9 +186,7 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
         refreshWeightEntries: reloadFromIndexedDb,
         measurements,
         addMeasurement,
-        updateMeasurement,
         deleteMeasurement,
-        refreshMeasurements: reloadFromIndexedDb,
         reloadFromIndexedDb,
       }}
     >

@@ -18,9 +18,7 @@ export interface MeasurementForm {
 
 export interface UseMeasurementLogResult {
   showMeasureModal: boolean;
-  setShowMeasureModal: React.Dispatch<React.SetStateAction<boolean>>;
   editingMeasurementId: string | null;
-  setEditingMeasurementId: React.Dispatch<React.SetStateAction<string | null>>;
   measureForm: MeasurementForm;
   setMeasureForm: React.Dispatch<React.SetStateAction<MeasurementForm>>;
   expandedMetric: string | null;
@@ -158,9 +156,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
 
   return {
     showMeasureModal,
-    setShowMeasureModal,
     editingMeasurementId,
-    setEditingMeasurementId,
     measureForm,
     setMeasureForm,
     expandedMetric,

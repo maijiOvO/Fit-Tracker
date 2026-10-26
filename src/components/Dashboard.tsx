@@ -54,8 +54,6 @@ export interface DashboardActions {
   onDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
   onLogWeight: () => void;
   onEditWeight: (entry: WeightEntry) => void;
-  onExportData: () => void;
-  onImportData: () => void;
 }
 
 interface DashboardProps {
@@ -374,7 +372,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           workouts={workouts}
           granularity={granularity}
           onGranularityChange={setGranularity}
-          resolveName={prefs.resolveName}
           renderSetCapsule={renderSetCapsule}
           onEditWorkout={(id) => actions.onEditWorkout(id)}
           onAddExerciseToWorkout={actions.onAddExerciseToPastWorkout}

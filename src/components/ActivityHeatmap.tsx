@@ -30,10 +30,6 @@ export interface HeatmapDay {
 interface Props {
   days: HeatmapDay[];
   lang: Language;
-  /** 往回看多少天 */
-  span?: number;
-  /** 收起时显示几周。「我的」页面里整张图太占纵向高度，默认只留 5 行。 */
-  collapsedWeeks?: number;
   onPickDay?: (day: HeatmapDay) => void;
   /** 破了纪录的日子（本地日期 YYYY-MM-DD）：格子中间画一颗镁粉白点（「杠铃片」阶段二，纪录 = 镁粉） */
   prDays?: Set<string>;
@@ -51,11 +47,14 @@ function levelOf(sets: number): number {
 /** 网格、连续天数与 heatmapData 的日键必须同一个函数（本地日期） */
 const ymd = localYmd;
 
+/** 往回看多少天 */
+const SPAN = 91;
+/** 收起时显示几周。「我的」页面里整张图太占纵向高度，只留 5 行。 */
+const COLLAPSED_WEEKS = 5;
+
 export const ActivityHeatmap: React.FC<Props> = ({
   days,
   lang,
-  span = 91,
-  collapsedWeeks = 5,
   onPickDay,
   prDays,
 }) => {
@@ -71,7 +70,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
 
     // 让每行从一周的第一天开始（首选项「每周开始于」）：把起点往前推到最近的那一天
     const start = new Date(today);
-    start.setDate(start.getDate() - (span - 1));
+    start.setDate(start.getDate() - (SPAN - 1));
     start.setDate(start.getDate() - dayOfWeekIndex(start));
 
     const out: (HeatmapDay & { level: number; isToday: boolean; future: boolean })[] = [];
@@ -108,14 +107,14 @@ export const ActivityHeatmap: React.FC<Props> = ({
     }
 
     return { cells: out, streak: s };
-  }, [days, span, weekStart]);
+  }, [days, weekStart]);
 
   const weekdays = rotateWeekdays(isCn ? ['日', '一', '二', '三', '四', '五', '六'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S']);
 
-  // 收起时只留最近 collapsedWeeks 行（贴着今天那一端）
+  // 收起时只留最近 COLLAPSED_WEEKS 行（贴着今天那一端）
   const totalWeeks = Math.ceil(cells.length / 7);
-  const canCollapse = totalWeeks > collapsedWeeks;
-  const shown = !canCollapse || expanded ? cells : cells.slice((totalWeeks - collapsedWeeks) * 7);
+  const canCollapse = totalWeeks > COLLAPSED_WEEKS;
+  const shown = !canCollapse || expanded ? cells : cells.slice((totalWeeks - COLLAPSED_WEEKS) * 7);
   const shownWeeks = Math.ceil(shown.length / 7);
   // 统计只覆盖画出来的那几周——展开时数字跟着变，说的和看到的才是同一件事
   const inRange = shown.filter(c => !c.future && c.sets > 0);

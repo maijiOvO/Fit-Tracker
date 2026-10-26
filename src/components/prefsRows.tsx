@@ -80,8 +80,8 @@ export const Line: React.FC<{ name: React.ReactNode; children: React.ReactNode }
 );
 
 /** 名称在上，整宽控件在下 */
-export const Stack: React.FC<{ name: React.ReactNode; children: React.ReactNode; testId?: string }> = ({ name, children, testId }) => (
-  <div className="py-3 pb-3.5 flex flex-col gap-2.5" data-testid={testId}>
+export const Stack: React.FC<{ name: React.ReactNode; children: React.ReactNode }> = ({ name, children }) => (
+  <div className="py-3 pb-3.5 flex flex-col gap-2.5">
     {typeof name === 'string' ? <Name name={name} /> : name}
     {children}
   </div>

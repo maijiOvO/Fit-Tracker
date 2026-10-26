@@ -62,14 +62,10 @@ function createEmptyWorkout(userId: string): WorkoutSession {
 interface WorkoutContextType {
   workouts: WorkoutSession[];
   currentWorkout: WorkoutSession;
-  isLoading: boolean;
 
-  addWorkout: (workout: WorkoutSession) => Promise<void>;
-  updateWorkout: (workout: WorkoutSession) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
 
   setCurrentWorkout: React.Dispatch<React.SetStateAction<WorkoutSession>>;
-  updateCurrentWorkout: (updates: Partial<WorkoutSession>) => void;
   createNewWorkout: () => WorkoutSession;
 
   /**
@@ -92,7 +88,6 @@ interface WorkoutContextType {
   /** 保存编辑过的旧训练：只写库 + 推送，不动 finishedAt / status（不是「再结束一次」） */
   saveEditedWorkout: (workout: WorkoutSession) => Promise<void>;
 
-  syncWorkouts: () => Promise<void>;
   refreshFromDb: () => Promise<void>;
   /** 工作台是空的时候，把库里最近一场进行中的训练接回来（启动时自动跑一次；退出编辑旧训练后再跑） */
   restoreInProgress: () => Promise<void>;
@@ -107,7 +102,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   const uid = userId || FITLOG_SOLO_USER_ID;
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
   const [currentWorkout, setCurrentWorkout] = useState<WorkoutSession>(() => createEmptyWorkout(uid));
-  const [isLoading, setIsLoading] = useState(true);
 
   // 持有最新 currentWorkout 的 ref，避免闭包过期
   const currentWorkoutRef = useRef(currentWorkout);
@@ -150,8 +144,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
       );
     } catch (err) {
       console.error('[WorkoutContext] 刷新训练列表失败:', err);
-    } finally {
-      setIsLoading(false);
     }
   }, [uid]);
 
@@ -238,19 +230,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     scheduleDebouncedFitlogPush();
   }, [refreshFromDb]);
 
-  const addWorkout = async (workout: WorkoutSession) => {
-    await db.upsert('workouts', workout);
-    setWorkouts((prev) => [workout, ...prev]);
-    scheduleDebouncedFitlogPush();
-  };
-
-  const updateWorkout = async (workout: WorkoutSession) => {
-    await db.upsert('workouts', workout);
-    setWorkouts((prev) => prev.map((w) => (w.id === workout.id ? workout : w)));
-    if (currentWorkout.id === workout.id) setCurrentWorkout(workout);
-    scheduleDebouncedFitlogPush();
-  };
-
   const deleteWorkout = async (id: string) => {
     await db.delete('workouts', id);
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
@@ -275,31 +254,18 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     };
   };
 
-  const updateCurrentWorkout = (updates: Partial<WorkoutSession>) => {
-    setCurrentWorkout((prev) => ({ ...prev, ...updates }));
-  };
-
-  const syncWorkouts = async () => {
-    await refreshFromDb();
-  };
-
   return (
     <WorkoutContext.Provider
       value={{
         workouts,
         currentWorkout,
-        isLoading,
-        addWorkout,
-        updateWorkout,
         deleteWorkout,
         setCurrentWorkout,
-        updateCurrentWorkout,
         createNewWorkout,
         persistCurrentWorkout,
         finishWorkout,
         setDraftWorkoutId,
         saveEditedWorkout,
-        syncWorkouts,
         refreshFromDb,
         restoreInProgress,
       }}

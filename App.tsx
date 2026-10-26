@@ -322,7 +322,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     activeScheduleIdRef,
   } = useWorkoutMutations({
     setActiveTab,
-    reloadAfterSave: () => loadLocalData(resolvedUserId),
     getPreviousTab: () => previousTab,
     // 从纪录详情点进来的：详情留着（回来接着看），编辑页滚到那个动作（审查 B5）
     onEnterEditWorkout: focusId => {
@@ -617,8 +616,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setShowWeightInput(true);
       },
       onEditWeight: triggerEditWeight,
-      onExportData: handleExportData,
-      onImportData: handleImportData,
     }),
     [
       handleEditWorkout,
@@ -1184,7 +1181,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             editingWorkoutId={editingWorkoutId}
             hasUnsavedChanges={hasUnsavedChanges}
             saveStatus={saveStatus}
-            previousTab={previousTab}
             exerciseNotes={prefs.exerciseNotes}
             resolveName={prefs.resolveName}
             getActiveMetrics={prefs.getActiveMetrics}

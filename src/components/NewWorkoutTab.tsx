@@ -64,7 +64,6 @@ export interface NewWorkoutTabProps {
   editingWorkoutId: string | null;
   hasUnsavedChanges: boolean;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
-  previousTab: string;
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;

@@ -7,7 +7,6 @@ import { recordTombstone } from '../../services/fitlogTombstones';
 
 interface ScheduleContextType {
   schedules: ScheduledWorkout[];
-  isLoading: boolean;
   addSchedule: (s: ScheduledWorkout) => Promise<void>;
   updateSchedule: (s: ScheduledWorkout) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
@@ -22,7 +21,6 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
   userId,
 }) => {
   const [schedules, setSchedules] = useState<ScheduledWorkout[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const refreshFromDb = useCallback(async () => {
     const rows = await db.getAll<ScheduledWorkout>('scheduledWorkouts');
@@ -32,7 +30,6 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
         ? rows
         : rows.filter(r => r.userId === uid);
     setSchedules(filtered.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
-    setIsLoading(false);
   }, [userId]);
 
   useEffect(() => {
@@ -74,7 +71,7 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
 
   return (
     <ScheduleContext.Provider
-      value={{ schedules, isLoading, addSchedule, updateSchedule, deleteSchedule, refreshFromDb, schedulesByDate }}
+      value={{ schedules, addSchedule, updateSchedule, deleteSchedule, refreshFromDb, schedulesByDate }}
     >
       {children}
     </ScheduleContext.Provider>

@@ -36,7 +36,6 @@ interface ToastItem {
 }
 
 interface UiOverlayContextValue {
-  lang: Language;
   confirm: (options: ConfirmOptions) => Promise<boolean>;
   toast: (message: string, variant?: ToastVariant) => void;
   /** 显示带「撤销」的 toast，默认 5 秒 */
@@ -153,7 +152,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
   };
 
   return (
-    <UiOverlayContext.Provider value={{ lang, confirm, toast, toastUndo, dismissToasts }}>
+    <UiOverlayContext.Provider value={{ confirm, toast, toastUndo, dismissToasts }}>
       {children}
 
       {/* 确认对话框。§6.6：危险确认是唯一允许出现 danger 实心的地方，

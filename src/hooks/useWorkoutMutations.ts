@@ -167,7 +167,6 @@ function editKey(w: WorkoutSession): string {
 
 export interface UseWorkoutMutationsParams {
   setActiveTab: (tab: ActiveTab) => void;
-  reloadAfterSave: () => Promise<void>;
   /** 返回当前的 previousTab（用于「返回」按钮回到来源页） */
   getPreviousTab: () => ActiveTab;
   /** 进入「编辑历史训练」时的副作用钩子；focusExerciseId：从纪录详情进来的，编辑页滚到这个动作 */
@@ -191,7 +190,6 @@ export interface ColophonState {
 
 export interface UseWorkoutMutationsResult {
   saveStatus: SaveStatus;
-  setSaveStatus: React.Dispatch<React.SetStateAction<SaveStatus>>;
 
   editingWorkoutId: string | null;
   setEditingWorkoutId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -199,8 +197,6 @@ export interface UseWorkoutMutationsResult {
   /** 编辑旧训练时，草稿和进来时的原样不一样（只在编辑态为 true；新训练每一下都已自动保存） */
   hasUnsavedChanges: boolean;
 
-  /** 结束训练（标记 finishedAt + 清空 + 跳转）；编辑旧训练时＝保存修改（不动 finishedAt、不出刊末页） */
-  finishWorkout: () => Promise<void>;
   /** 刊末页数据。§9：非 PR 日也必须有收尾，所以每次结束训练都会有值。 */
   colophon: ColophonState | null;
   dismissColophon: () => void;
@@ -1238,11 +1234,9 @@ export function useWorkoutMutations({
     discardCurrentWorkout,
     switchExerciseVariant,
     saveStatus,
-    setSaveStatus,
     editingWorkoutId,
     setEditingWorkoutId,
     hasUnsavedChanges,
-    finishWorkout,
     colophon,
     dismissColophon,
     handleFinishWithConfirmation,

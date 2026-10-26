@@ -7,11 +7,9 @@ import { recordTombstone } from '../../services/fitlogTombstones';
 
 interface GoalsContextType {
   goals: Goal[];
-  isLoading: boolean;
   addGoal: (goal: Goal) => Promise<void>;
   updateGoal: (goal: Goal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
-  refreshGoals: () => Promise<void>;
   refreshFromDb: () => Promise<void>;
 }
 
@@ -22,7 +20,6 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
   userId,
 }) => {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const refreshFromDb = useCallback(async () => {
     const localGoals = await db.getAll<Goal>('goals');
@@ -32,7 +29,6 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
         ? localGoals
         : localGoals.filter((g) => g.userId === uid);
     setGoals(filtered);
-    setIsLoading(false);
   }, [userId]);
 
   useEffect(() => {
@@ -62,11 +58,9 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
     <GoalsContext.Provider
       value={{
         goals,
-        isLoading,
         addGoal,
         updateGoal,
         deleteGoal,
-        refreshGoals: refreshFromDb,
         refreshFromDb,
       }}
     >

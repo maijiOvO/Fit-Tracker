@@ -36,7 +36,6 @@ interface TimelineViewProps {
   workouts: WorkoutSession[];
   granularity: TimelineGranularity;
   onGranularityChange: (g: TimelineGranularity) => void;
-  resolveName: (name: string) => string;
   renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
   onEditWorkout: (workoutId: string) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
@@ -150,7 +149,6 @@ interface SessionCardProps {
   lang: Language;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  resolveName: (name: string) => string;
   renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
   onEdit: () => void;
   onAppend: () => void;
@@ -577,7 +575,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   workouts,
   granularity,
   onGranularityChange,
-  resolveName,
   renderSetCapsule,
   onEditWorkout,
   onAddExerciseToWorkout,
@@ -727,7 +724,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onToggleExpand={() =>
                     setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
                   }
-                  resolveName={resolveName}
                   renderSetCapsule={renderSetCapsule}
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
@@ -792,7 +788,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onToggleExpand={() =>
                     setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
                   }
-                  resolveName={resolveName}
                   renderSetCapsule={renderSetCapsule}
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
