@@ -1,17 +1,18 @@
 /**
- * 首选项弹层（审查 2026-10-06 第一节第 3 点；demo 是 docs/demos/prefs-sheet.html，2026-10-18 用户拍板）。
+ * 首选项弹层（审查 2026-10-06 第一节第 3 点；demo 是 docs/demos/prefs-sheet.html，2026-10-26 用户拍板第二版结构）。
  *
- * 入口是「我的」页底部一行「首选项 ›」。外壳照 ExercisePickerSheet：整页高、顶部 22px 圆角、抓手、宋体标题、右上 ×，
+ * 入口是「我的」页底部一行「首选项 ›」。外壳照 ExercisePickerSheet：整页高、顶部 22px 圆角、抓手、标题、右上 ×，
  * 整张弹层可下拉关闭（同一套原生非被动 touchmove，见 ExercisePickerSheet 的注释）。
  *
- * 分五组：训练 / 动作 / 显示 / 设备 / 数据。行只有两种：「小节名 + 分段块」和「名称 … 值」。
+ * 分五组：单位与记录 / 手感 / 外观与地区 / 数据 / 账户，按「这一项管什么」分。行的积木在 prefsRows.tsx。
+ * 自动备份 / 导出 / 导入是弹层里的二级页（标题栏左侧返回，安卓返回键先回主页）。
  * 跟数据走的（单位、步长、递减、有氧默认、距离单位、语言、周起始日）记进 appPrefs（打时间戳 + 推送）；
  * 跟设备走的（外观、动效、振动、滑动手感、删组撤销）各自存在本机。
  * 界面里不写说明文字（单人自用），导入的后果说明和导入前副本那行是状态，保留。
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronRight, Download, Moon, RefreshCw, Smartphone, Sun, Undo2, Upload, X, AlertCircle } from 'lucide-react';
+import { Check, ChevronLeft, Moon, RefreshCw, Smartphone, Sun, X, AlertCircle } from 'lucide-react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
@@ -25,7 +26,8 @@ import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { isRemoteConfigured } from '../../services/fitlogRemote';
 import { useGymSwitch } from '../hooks/useGymSwitch';
-import { DataSafetySection } from './data/DataSafetySection';
+import { BackupPage, BackupRow, ExportPage, ImportPage } from './data/DataSafetySection';
+import { Go, Group, Line, Seg, Stack, Toggle, type Opt } from './prefsRows';
 import { useBackClose } from '../hooks/useBackClose';
 
 interface PrefsSheetProps {
@@ -50,92 +52,8 @@ interface PrefsSheetProps {
   onToggleDevMode?: () => void;
 }
 
-type Opt<T> = { v: T; label: React.ReactNode; icon?: React.ReactNode };
-
-/** 分段块（ProfileTab 外观那一排）：单选传 value，多选传 values */
-function Seg<T extends string | number>({
-  opts,
-  value,
-  values,
-  onPick,
-  mono,
-  testId,
-}: {
-  opts: Opt<T>[];
-  value?: T;
-  values?: T[];
-  onPick: (v: T) => void;
-  mono?: boolean;
-  testId?: string;
-}) {
-  return (
-    <div
-      className="grid gap-2 p-1 bg-inset rounded-control border border-divider"
-      style={{ gridTemplateColumns: `repeat(${opts.length}, minmax(0, 1fr))` }}
-      data-testid={testId}
-    >
-      {opts.map(o => {
-        const on = values ? values.includes(o.v) : value === o.v;
-        return (
-          <button
-            key={String(o.v)}
-            type="button"
-            aria-pressed={on}
-            onClick={() => onPick(o.v)}
-            className={`min-h-[40px] py-2 rounded-chip flex flex-col items-center justify-center gap-1 transition-colors duration-tap ease-paper ${
-              mono ? 'font-mono text-small font-semibold' : 'text-xs font-medium'
-            } ${on ? 'seg-on' : 'text-secondary hover:text-primary hover:bg-card-hover'}`}
-          >
-            {o.icon}
-            <span>{o.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-const Item: React.FC<{ label: string; aside?: React.ReactNode; children: React.ReactNode }> = ({ label, aside, children }) => (
-  <div className="space-y-2">
-    <p className="ui-section-label px-1 flex justify-between">
-      <span>{label}</span>
-      {aside && <span className="font-mono text-micro text-tertiary">{aside}</span>}
-    </p>
-    {children}
-  </div>
-);
-
-/** 「名称 … 值」一行（ProfileTab 振动行，去掉图标方块） */
-const Row: React.FC<{
-  name: React.ReactNode;
-  value: React.ReactNode;
-  onClick?: () => void;
-  role?: string;
-  checked?: boolean;
-  danger?: boolean;
-  testId?: string;
-}> = ({ name, value, onClick, role, checked, danger, testId }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    role={role}
-    aria-checked={role === 'switch' ? checked : undefined}
-    data-testid={testId}
-    className="w-full min-h-[44px] -my-1 px-1 py-1 flex justify-between items-center gap-3 rounded-control text-left transition-colors duration-tap ease-paper active:bg-inset"
-  >
-    <span className={`font-bold ${danger ? 'text-danger' : 'text-primary'}`}>{name}</span>
-    {value}
-  </button>
-);
-
-const Group: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className="space-y-2">
-    <h3 className="px-2 text-xs font-semibold text-secondary">{title}</h3>
-    <div className="ui-card p-5 space-y-4">{children}</div>
-  </section>
-);
-
-const Rule = () => <div className="h-px bg-divider -mx-1" />;
+/** 弹层里的页：主页 + 三个二级页（标题栏左侧出返回） */
+type View = 'main' | 'backup' | 'export' | 'import';
 
 export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   open,
@@ -155,12 +73,20 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   onToggleDevMode,
 }) => {
   const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
-  // 安卓返回键关首选项（审查 B11）
+  const [view, setView] = useState<View>('main');
+  // 安卓返回键关首选项（审查 B11）；在二级页时先回主页（后登记的在上面）
   useBackClose(open, onClose);
+  useBackClose(open && view !== 'main', () => setView('main'));
   // 手动切单位只换显示：存的 kg 一个不动，工作台上的组也不重新取整（useGymSwitch，2026-10-21 起）
   const { switchUnit } = useGymSwitch();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
+  const titles: Record<View, string> = {
+    main: t('首选项', 'Preferences'),
+    backup: t('自动备份', 'Auto backup'),
+    export: t('导出', 'Export'),
+    import: t('导入', 'Import'),
+  };
 
   const theme = useTheme();
   const motion = useMotionPreference();
@@ -300,8 +226,11 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   const dragHandlers = { onPointerDown: mouseDown, onPointerMove: mouseMove, onPointerUp: mouseUp, onPointerCancel: mouseUp };
 
   useEffect(() => {
-    if (open && bodyRef.current) bodyRef.current.scrollTop = 0;
+    if (open) setView('main');
   }, [open]);
+  useEffect(() => {
+    if (open && bodyRef.current) bodyRef.current.scrollTop = 0;
+  }, [open, view]);
 
   // ===== 选项 =====
   const themeOpts: Opt<ThemePreference>[] = [
@@ -309,15 +238,14 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
     { v: 'light', label: t('浅色', 'Light'), icon: <Sun size={18} strokeWidth={1.75} /> },
     { v: 'dark', label: t('深色', 'Dark'), icon: <Moon size={18} strokeWidth={1.75} /> },
   ];
-  // 色点直接用两套的实色值，不走 --accent（那只反映当前选中的一套）
-  const accentDot = (c: string) => <span className="w-[18px] h-[18px] rounded-full" style={{ background: c }} aria-hidden />;
+  // 色点直接用两套的实色值，不走 --accent（那只反映当前选中的一套）；只有色点，名字给读屏
   const dark = theme.resolved === 'dark';
-  const accentOpts: Opt<AccentPreference>[] = [
-    { v: 'teal', label: t('青', 'Teal'), icon: accentDot(dark ? '#2BE0C0' : '#12B39A') },
-    { v: 'sky', label: t('浅蓝', 'Sky'), icon: accentDot(dark ? '#38BDF8' : '#0EA5E9') },
-    { v: 'violet', label: t('紫', 'Violet'), icon: accentDot(dark ? '#7445F0' : '#7C3AED') },
-    { v: 'rose', label: t('玫红', 'Rose'), icon: accentDot(dark ? '#E0245C' : '#E11D5C') },
-    { v: 'orange', label: t('橙', 'Orange'), icon: accentDot(dark ? '#FF8A3D' : '#F97316') },
+  const accentOpts: { v: AccentPreference; name: string; c: string }[] = [
+    { v: 'teal', name: t('青', 'Teal'), c: dark ? '#2BE0C0' : '#12B39A' },
+    { v: 'sky', name: t('浅蓝', 'Sky'), c: dark ? '#38BDF8' : '#0EA5E9' },
+    { v: 'violet', name: t('紫', 'Violet'), c: dark ? '#7445F0' : '#7C3AED' },
+    { v: 'rose', name: t('玫红', 'Rose'), c: dark ? '#E0245C' : '#E11D5C' },
+    { v: 'orange', name: t('橙', 'Orange'), c: dark ? '#FF8A3D' : '#F97316' },
   ];
   // 档名自己说清楚（审查 teaching-text-candidates：删掉每档下面那行说明）
   const motionOpts: Opt<MotionPreference>[] = [
@@ -332,12 +260,6 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
     { v: 'reps', label: t('次数', 'Reps') },
   ];
 
-  const onOff = (on: boolean) => (
-    <span className={`text-label font-semibold ${on ? 'text-accent' : 'text-tertiary'}`}>
-      {on ? t('开', 'On') : t('关', 'Off')}
-    </span>
-  );
-  const chevron = <ChevronRight size={16} strokeWidth={2} className="text-tertiary flex-shrink-0" />;
 
   const ago = (ms: number) => {
     const m = Math.floor((Date.now() - ms) / 60_000);
@@ -398,7 +320,18 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
           style={{ touchAction: 'none' }}
           {...dragHandlers}
         >
-          <h2 className="font-display text-lg font-semibold text-primary whitespace-nowrap">{t('首选项', 'Preferences')}</h2>
+          {view !== 'main' && (
+            <button
+              type="button"
+              onClick={() => setView('main')}
+              className="-ml-3 -mr-1.5 w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
+              aria-label={t('返回', 'Back')}
+              data-testid="prefs-sheet-back"
+            >
+              <ChevronLeft size={22} strokeWidth={2} />
+            </button>
+          )}
+          <h2 className="font-display text-lg font-semibold text-primary whitespace-nowrap">{titles[view]}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -412,181 +345,189 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
 
         <div
           ref={bodyRef}
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-4 pt-2 space-y-4"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar px-4 pt-2 space-y-8"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 40px)' }}
         >
-          <Group title={t('训练', 'Training')}>
-            <Item label={t('重量单位', 'Weight unit')}>
-              <Seg mono opts={[{ v: 'kg', label: 'kg' }, { v: 'lbs', label: 'lbs' }]} value={unit} onPick={v => switchUnit(v as 'kg' | 'lbs')} testId="prefs-unit" />
-            </Item>
-            {/* 有器材的动作按馆档案走（选馆弹层里「编辑」）；这两项只管没标器材的动作 */}
-            <Item label={t('没标器材时 ±', '± (no equipment)')} aside={unit}>
-              <Seg
-                mono
-                opts={WEIGHT_STEP_OPTIONS.map(v => ({ v: v as number, label: String(v) }))}
-                value={appPrefs.weightStep}
-                onPick={v => changeAppPrefs({ weightStep: v })}
-                testId="prefs-weight-step"
-              />
-            </Item>
-            <Item label={t('没标器材时递减', 'Drop (no equipment)')} aside={unit}>
-              <Seg
-                mono
-                opts={DROP_STEP_OPTIONS.map(v => ({ v: v as number, label: String(v) }))}
-                value={appPrefs.dropStep}
-                onPick={v => changeAppPrefs({ dropStep: v })}
-                testId="prefs-drop-step"
-              />
-            </Item>
-            <Item label={t('滑动手感', 'Scrub feel')}>
-              <Seg
-                opts={[
-                  { v: 'fine' as ScrubFeel, label: t('细', 'Fine') },
-                  { v: 'mid' as ScrubFeel, label: t('中', 'Medium') },
-                  { v: 'coarse' as ScrubFeel, label: t('粗', 'Coarse') },
-                ]}
-                value={feel}
-                onPick={v => {
-                  setScrubFeel(v);
-                  setFeel(v);
-                }}
-              />
-            </Item>
-          </Group>
-
-          <Group title={t('动作', 'Exercises')}>
-            <Item label={t('有氧默认记录', 'Cardio records')}>
-              <Seg
-                opts={cardioOpts}
-                values={appPrefs.cardioMetrics}
-                onPick={v => {
-                  const cur = appPrefs.cardioMetrics;
-                  const has = cur.includes(v);
-                  if (has && cur.length === 1) return; // 至少留一项
-                  changeAppPrefs({ cardioMetrics: has ? cur.filter(x => x !== v) : cardioOpts.map(o => o.v).filter(x => x === v || cur.includes(x)) });
-                }}
-                testId="prefs-cardio"
-              />
-            </Item>
-            <Item label={t('距离单位', 'Distance unit')}>
-              <Seg mono opts={[{ v: 'km', label: 'km' }, { v: 'mi', label: 'mi' }]} value={appPrefs.distUnit} onPick={v => changeAppPrefs({ distUnit: v as 'km' | 'mi' })} testId="prefs-dist-unit" />
-            </Item>
-            <Row name={t('动作库与标签', 'Library & tags')} value={chevron} onClick={onOpenLibrary} testId="prefs-open-library" />
-          </Group>
-
-          <Group title={t('显示', 'Display')}>
-            <Item label={t('外观', 'Appearance')}>
-              <Seg opts={themeOpts} value={theme.preference} onPick={theme.setPreference} />
-            </Item>
-            <Item label={t('强调色', 'Accent')}>
-              <Seg opts={accentOpts} value={theme.accent} onPick={theme.setAccent} testId="prefs-accent" />
-            </Item>
-            <Item label={t('动效', 'Motion')}>
-              <Seg opts={motionOpts} value={motion.preference} onPick={motion.setPreference} />
-            </Item>
-            <Item label={t('语言', 'Language')}>
-              <Seg
-                // 语言名用它自己的文字写；标上 lang，读屏按中文念，e2e 的英文模式扫雷也认这个标记
-                opts={[{ v: Language.CN, label: <span lang="zh-CN">中文</span> }, { v: Language.EN, label: 'English' }]}
-                value={lang}
-                onPick={v => v !== lang && onToggleLanguage()}
-                testId="language-toggle"
-              />
-            </Item>
-            <Item label={t('每周开始于', 'Week starts on')}>
-              <Seg
-                opts={[{ v: 'mon', label: t('周一', 'Monday') }, { v: 'sun', label: t('周日', 'Sunday') }]}
-                value={appPrefs.weekStart}
-                onPick={v => changeAppPrefs({ weekStart: v as 'mon' | 'sun' })}
-                testId="prefs-week-start"
-              />
-            </Item>
-          </Group>
-
-          <Group title={t('设备', 'Device')}>
-            <Row
-              name={t('振动反馈', 'Haptics')}
-              value={onOff(haptics)}
-              role="switch"
-              checked={haptics}
-              onClick={() => {
-                const next = !haptics;
-                setHapticsEnabled(next);
-                setHaptics(next);
-                if (next) haptic(H.tap);
-              }}
-            />
-          </Group>
-
-          <Group title={t('数据', 'Data')}>
-            {/* 没有服务器（单机版 / 演示版）就没有同步这回事：整行不出（审查 B12） */}
-            {isRemoteConfigured() && (
-              <>
-                <Row name={t('同步', 'Sync')} value={syncValue} onClick={onSync} testId="prefs-sync" />
-                <Rule />
-              </>
-            )}
-            <DataSafetySection />
-            <Rule />
-            <button type="button" onClick={onExportData} disabled={dataBusy} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5 disabled:opacity-50">
-              <Download size={18} strokeWidth={1.75} className="text-accent" />
-              {t('导出完整备份（JSON）', 'Export full backup (JSON)')}
-            </button>
-            <button type="button" onClick={onImportData} disabled={dataBusy} className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3.5 disabled:opacity-50">
-              <Upload size={18} strokeWidth={1.75} className="text-accent" />
-              {translations.importData[lang]}
-            </button>
-            <p className="text-micro font-normal text-tertiary leading-relaxed text-center px-3 -mt-2">{translations.importDesc[lang]}</p>
-            {rollback && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => { void rollbackImport(rollback.newer); }}
-                  className="ui-btn-secondary w-full flex items-center justify-center gap-2 py-3"
-                >
-                  <Undo2 size={18} strokeWidth={1.75} className="text-accent" />
-                  {translations.undoImport[lang]}
-                </button>
-                <p className="text-micro font-normal text-tertiary text-center -mt-2">
-                  {t(
-                    `导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
-                    `Pre-import copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
-                  )}
-                </p>
-              </>
-            )}
-            {onToggleDevMode && (
-              <>
-                <Rule />
-                <Row
+          {view === 'main' && (
+            <>
+              <Group title={t('单位与记录', 'Units & logging')}>
+                <Line name={t('重量单位', 'Weight unit')}>
+                  <Seg inline num opts={[{ v: 'kg', label: 'kg' }, { v: 'lbs', label: 'lbs' }]} value={unit} onPick={v => switchUnit(v as 'kg' | 'lbs')} testId="prefs-unit" />
+                </Line>
+                <Line name={t('距离单位', 'Distance unit')}>
+                  <Seg inline num opts={[{ v: 'km', label: 'km' }, { v: 'mi', label: 'mi' }]} value={appPrefs.distUnit} onPick={v => changeAppPrefs({ distUnit: v as 'km' | 'mi' })} testId="prefs-dist-unit" />
+                </Line>
+                {/* 有器材的动作按馆档案走（选馆弹层里「编辑」）；这两项只管没标器材的动作 */}
+                <Stack
                   name={
-                    <span className="block">
-                      {t('数据环境', 'Data Environment')}
-                      <span className="block text-micro font-normal text-tertiary mt-0.5">
-                        {devMode
-                          ? t('state-dev · FitLogDB-dev · 与真实数据完全隔离', 'state-dev · FitLogDB-dev · fully isolated')
-                          : t('state · FitLogDB · 真实用户数据', 'state · FitLogDB · real user data')}
-                      </span>
+                    <span className="text-small font-medium text-primary">
+                      {t('未标器材的动作', 'No equipment set')}
+                      <span className="ml-1.5 font-mono text-small font-semibold text-tertiary">{unit}</span>
                     </span>
                   }
-                  value={
-                    <span className={`text-xs font-semibold px-3 py-1 rounded-chip shrink-0 ${devMode ? 'bg-warning/15 text-warning' : 'bg-card text-secondary'}`}>
-                      {devMode ? t('开发', 'Dev') : t('用户', 'User')}
-                    </span>
-                  }
-                  onClick={onToggleDevMode}
+                >
+                  <div className="grid grid-cols-[36px_1fr] items-center gap-2">
+                    <span className="text-label text-tertiary">±</span>
+                    <Seg
+                      num
+                      opts={WEIGHT_STEP_OPTIONS.map(v => ({ v: v as number, label: String(v) }))}
+                      value={appPrefs.weightStep}
+                      onPick={v => changeAppPrefs({ weightStep: v })}
+                      testId="prefs-weight-step"
+                    />
+                    <span className="text-label text-tertiary">{t('递减', 'Drop')}</span>
+                    <Seg
+                      num
+                      opts={DROP_STEP_OPTIONS.map(v => ({ v: v as number, label: String(v) }))}
+                      value={appPrefs.dropStep}
+                      onPick={v => changeAppPrefs({ dropStep: v })}
+                      testId="prefs-drop-step"
+                    />
+                  </div>
+                </Stack>
+                <Stack name={t('有氧默认记录', 'Cardio records')}>
+                  <Seg
+                    opts={cardioOpts}
+                    values={appPrefs.cardioMetrics}
+                    onPick={v => {
+                      const cur = appPrefs.cardioMetrics;
+                      const has = cur.includes(v);
+                      if (has && cur.length === 1) return; // 至少留一项
+                      changeAppPrefs({ cardioMetrics: has ? cur.filter(x => x !== v) : cardioOpts.map(o => o.v).filter(x => x === v || cur.includes(x)) });
+                    }}
+                    testId="prefs-cardio"
+                  />
+                </Stack>
+                <Go name={t('动作库与标签', 'Library & tags')} onClick={onOpenLibrary} testId="prefs-open-library" />
+              </Group>
+
+              <Group title={t('手感', 'Feel')}>
+                <Line name={t('滑动手感', 'Scrub feel')}>
+                  <Seg
+                    inline
+                    opts={[
+                      { v: 'fine' as ScrubFeel, label: t('细', 'Fine') },
+                      { v: 'mid' as ScrubFeel, label: t('中', 'Medium') },
+                      { v: 'coarse' as ScrubFeel, label: t('粗', 'Coarse') },
+                    ]}
+                    value={feel}
+                    onPick={v => {
+                      setScrubFeel(v);
+                      setFeel(v);
+                    }}
+                  />
+                </Line>
+                <Toggle
+                  name={t('振动反馈', 'Haptics')}
+                  on={haptics}
+                  onChange={next => {
+                    setHapticsEnabled(next);
+                    setHaptics(next);
+                    if (next) haptic(H.tap);
+                  }}
+                  testId="prefs-haptics"
                 />
-              </>
-            )}
-            {onLogout && (
-              <>
-                <Rule />
-                <Row name={translations.logout[lang]} value={chevron} danger onClick={onLogout} />
-              </>
-            )}
-            <Rule />
-            <Row name={translations.resetAccount[lang]} value={chevron} danger onClick={onResetAccount} testId="prefs-reset-account" />
-          </Group>
+                <Line name={t('动效', 'Motion')}>
+                  <Seg inline opts={motionOpts} value={motion.preference} onPick={motion.setPreference} />
+                </Line>
+              </Group>
+
+              <Group title={t('外观与地区', 'Appearance & region')}>
+                <Stack name={t('外观', 'Appearance')}>
+                  <Seg opts={themeOpts} value={theme.preference} onPick={theme.setPreference} />
+                </Stack>
+                <Line name={t('强调色', 'Accent')}>
+                  <div className="flex flex-shrink-0 gap-0.5" data-testid="prefs-accent">
+                    {accentOpts.map(o => {
+                      const on = theme.accent === o.v;
+                      return (
+                        <button
+                          key={o.v}
+                          type="button"
+                          aria-pressed={on}
+                          aria-label={o.name}
+                          onClick={() => theme.setAccent(o.v)}
+                          className="w-[34px] h-[34px] flex items-center justify-center rounded-full"
+                        >
+                          <span
+                            className={`w-[22px] h-[22px] rounded-full transition-shadow duration-tap ease-paper ${on ? 'ring-2 ring-primary ring-offset-2 ring-offset-card' : ''}`}
+                            style={{ background: o.c }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Line>
+                <Line name={t('语言', 'Language')}>
+                  <Seg
+                    inline
+                    // 语言名用它自己的文字写；标上 lang，读屏按中文念，e2e 的英文模式扫雷也认这个标记
+                    opts={[{ v: Language.CN, label: <span lang="zh-CN">中文</span> }, { v: Language.EN, label: 'English' }]}
+                    value={lang}
+                    onPick={v => v !== lang && onToggleLanguage()}
+                    testId="language-toggle"
+                  />
+                </Line>
+                <Line name={t('每周开始于', 'Week starts on')}>
+                  <Seg
+                    inline
+                    opts={[{ v: 'mon', label: t('周一', 'Mon') }, { v: 'sun', label: t('周日', 'Sun') }]}
+                    value={appPrefs.weekStart}
+                    onPick={v => changeAppPrefs({ weekStart: v as 'mon' | 'sun' })}
+                    testId="prefs-week-start"
+                  />
+                </Line>
+              </Group>
+
+              <Group title={t('数据', 'Data')}>
+                {/* 没有服务器（单机版 / 演示版）就没有同步这回事：整行不出（审查 B12） */}
+                {isRemoteConfigured() && (
+                  <Go name={t('同步', 'Sync')} value={syncValue} chevron={false} onClick={onSync} testId="prefs-sync" />
+                )}
+                <BackupRow onOpen={() => setView('backup')} />
+                <Go name={t('导出', 'Export')} onClick={() => setView('export')} testId="prefs-open-export" />
+                <Go name={t('导入', 'Import')} onClick={() => setView('import')} testId="prefs-open-import" />
+                {rollback && (
+                  <Go
+                    name={translations.undoImport[lang]}
+                    tone="accent"
+                    sub={t(
+                      `导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
+                      `Pre-import copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
+                    )}
+                    chevron={false}
+                    onClick={() => { void rollbackImport(rollback.newer); }}
+                    testId="prefs-undo-import"
+                  />
+                )}
+              </Group>
+
+              <Group title={t('账户', 'Account')}>
+                {onToggleDevMode && (
+                  <Go
+                    name={t('数据环境', 'Data Environment')}
+                    sub={
+                      devMode
+                        ? t('state-dev · FitLogDB-dev · 与真实数据完全隔离', 'state-dev · FitLogDB-dev · fully isolated')
+                        : t('state · FitLogDB · 真实用户数据', 'state · FitLogDB · real user data')
+                    }
+                    value={
+                      <span className={`text-label font-semibold px-2.5 py-0.5 rounded-chip ${devMode ? 'bg-warning/15 text-warning' : 'bg-inset text-secondary'}`}>
+                        {devMode ? t('开发', 'Dev') : t('用户', 'User')}
+                      </span>
+                    }
+                    chevron={false}
+                    onClick={onToggleDevMode}
+                  />
+                )}
+                {onLogout && <Go name={translations.logout[lang]} tone="danger" onClick={onLogout} />}
+                <Go name={translations.resetAccount[lang]} tone="danger" onClick={onResetAccount} testId="prefs-reset-account" />
+              </Group>
+            </>
+          )}
+          {view === 'backup' && <BackupPage />}
+          {view === 'export' && <ExportPage onExportJson={onExportData} busy={dataBusy} />}
+          {view === 'import' && <ImportPage onImportJson={onImportData} busy={dataBusy} />}
         </div>
       </section>
     </div>,

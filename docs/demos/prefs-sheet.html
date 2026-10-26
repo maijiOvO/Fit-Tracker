@@ -5,81 +5,72 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Demo · 首选项</title>
 <!--
-  交互 demo：首选项（审查 docs/archive/audit-2026-10-06.md 第一节第 3 点；交接 docs/archive/handoff-2026-10-07-remaining.md §2）。
-  只出 demo，不接进 App。底座 services/appPrefs.ts 已在；这里每一项以后都是 AppPrefs 的一个字段（设备级的除外）。
+  交互 demo：首选项弹层第二版结构（按 Refactoring UI 诊断重排；2026-10-26 用户拍板，已照此实现在 PrefsSheet / prefsRows / DataSafetySection）。
+  配色、字体、圆角照现在的 index.css（白底浅灰卡、青强调色、Noto Sans SC + Barlow Condensed）。
 
-  照现在 App 搬的：
-    「我的」页（AppHeader 的同步 / 单位按钮、头像区、训练活跃度卡、累计训练、记录体重、身体数据 & 指标、底栏与印章 FAB）；
-    弹层外壳与头部（ExercisePickerSheet：92% 高、顶部 22px 圆角、抓手、宋体 18px 标题、右上 ×）；
-    分组卡（ProfileTab 设置卡：ui-card p-5，小节名 ui-section-label + bg-inset 分段块，选中＝朱砂实底）；
-    开关行（ProfileTab 振动 / 撤销那两行：粗体名 … 右侧「开」朱砂 /「关」三级灰）；
-    数据区（BackupCard 的 ui-btn-secondary 三个按钮、导入的后果说明、导入前副本那行状态；重置账户 = 原来的危险行）；
-    外观三档带图标（原样）；数据环境行（原样，仅未锁定构建出现）；撤销条 / toast（UiOverlayContext）。
+  结构
+    · 五组：单位与记录 / 手感 / 外观与地区 / 数据 / 账户。按「这一项管什么」分，不按存在哪里分
+      （滑动手感、振动、动效都是手上的感觉，归一组；语言和周起始日是地区，跟外观放一起）。
+    · 卡片里只有一种行：名称在左，控件在右；控件放不下（3 档以上带图标、4 档数字、多选）才落到名称下面整宽。
+      二选一（kg / lbs、km / mi、中文 / English、周一 / 周日）和三个短档（细中粗、动效）都在同一行。
+    · 层级：组标题 12px 600 灰，组与组隔 32px；行名 14px 500，不再加粗；值和副文字 12px 三级灰。
+      行与行用分隔线，卡内不再混用间距和分隔线。
+    · ±步长和递减合成一行「未标器材的动作」，单位写在行名旁，两条分段块各带一个短标签。
+    · 强调色只剩五个色点（读屏用 aria-label 念名字）。
+    · 振动是真开关。
+    · 数据组只剩四行：同步 / 自动备份 › / 导出 › / 导入 ›，按钮堆进二级页。
+      全页只有一个实心主按钮：备份没开时在主页「自动备份」行上（选择文件夹），开了以后在备份二级页（立即备份）。
+      「撤销上次导入」只在有副本时出现，是一行。
+    · 数据环境、退出登录、重置账户单独成「账户」卡放最底。
 
-  新的只有这些：
-    1. 「我的」页底部的设置卡换成一行「首选项 ›」，右侧是当前值摘要（状态，不是说明）。
-    2. 整页底部弹层「首选项」，分 训练 / 动作 / 显示 / 设备 / 数据 五组，组名用「身体数据 & 指标」那种节标题。
-    3. 行里去掉了 40px 图标方块（审查 settings-card-mixed-rows）：只剩「小节名 + 分段块」和「名称 … 值」两种行；
-       开关行左右内边距收成和小节名对齐。
-    4. 动效三档改成自解释的档名（跟系统 / 总有动效 / 减弱），删掉每档下面那行小字。
-    5. 有氧默认记录＝分段块的多选版（可同时选中多格，至少留一格）。
-    6. 备份卡去掉了云图标、标题下的说明和「你的数据，始终属于你。」；导入的后果说明留着。
-    7. 同步一行：右侧显示同步状态，点一下立即同步（和顶栏那颗按钮同一件事）。
+  删掉的说明文字（照「界面里不写说明文字」）：「一行一组，可用 Excel 打开或交给 AI 分析」「也可选 SD 卡或坚果云…」。
+  保留的是状态和后果：备份状态、导入会替换当前数据、导入前副本那行。
 
-  取舍（等拍板）：
-    · ±步长 / 递减每档 kg 和 lbs 共用一个数（用户 10-06 定），所以各只有一行；选项取两套的并集
-      ±步长 1 / 2.5 / 5 / 10，递减 2.5 / 5 / 10 / 15，数值跟着当前重量单位读。
-    · 「动作库与标签 ›」在 demo 里只弹 toast（真实现跳到添加动作弹层的整理态）。
-    · 语言切到 English 在 demo 里只改摘要；外观真的切深浅色；振动开的时候 navigator.vibrate 一下。
+  demo 限定：顶部「状态」几个小块切换备份正常 / 未开 / 失败、有没有导入副本、有没有远端；
+  外观真的切深浅色，强调色真的换；跳转类按钮只弹 toast。?open 直接打开弹层，?open=backup|export|import 打开二级页。
 -->
 <style>
   @font-face{font-family:'Noto Sans SC';src:url('/fonts/noto-sans-sc.woff2') format('woff2-variations'),url('../../public/fonts/noto-sans-sc.woff2') format('woff2-variations');font-weight:400 700;font-display:block}
-  @font-face{font-family:'Noto Serif SC';src:url('/fonts/noto-serif-sc.woff2') format('woff2-variations'),url('../../public/fonts/noto-serif-sc.woff2') format('woff2-variations');font-weight:600 700;font-display:block}
-  @font-face{font-family:'IBM Plex Mono';src:url('/fonts/plex-mono-500.woff2') format('woff2'),url('../../public/fonts/plex-mono-500.woff2') format('woff2');font-weight:500;font-display:block}
-  @font-face{font-family:'IBM Plex Mono';src:url('/fonts/plex-mono-600.woff2') format('woff2'),url('../../public/fonts/plex-mono-600.woff2') format('woff2');font-weight:600;font-display:block}
+  @font-face{font-family:'Barlow Condensed';src:url('/fonts/barlow-condensed-600.woff2') format('woff2'),url('../../public/fonts/barlow-condensed-600.woff2') format('woff2');font-weight:600;font-display:block}
 
   :root{
-    --bg-desk:#E2DACA;
-    --bg-base:#EFE9DC; --bg-card:#FBF8F1; --bg-card-hover:#F5F1E7; --bg-inset:#E7E0D0;
-    --divider:#D9D0BC; --rule-strong:#B9AE97;
-    --text-primary:#1A1714; --text-secondary:#554E45; --text-tertiary:#665E53;
-    --accent:#B23A28; --accent-soft:#F4E3DD; --accent-ink:#8E2C1D; --text-on-accent:#FDFBF6;
-    --success:#3F6B45; --warning:#815709; --danger:#8E2C1D;
-    --scrim:rgba(26,23,20,.45);
-    --shadow-page:0 1px 1px rgba(26,23,20,.07);
-    --shadow-overlay:0 2px 6px rgba(26,23,20,.10),0 18px 40px -24px rgba(26,23,20,.30);
-    --shadow-lg:0 10px 15px -3px rgba(26,23,20,.10),0 4px 6px -4px rgba(26,23,20,.10);
-    --shadow-2xl:0 25px 50px -12px rgba(0,0,0,.25);
-    --radius-card:4px; --radius-control:3px; --radius-chip:2px; --radius-sheet:4px;
-    --dur-tap:120ms; --dur-base:220ms; --dur-stamp:520ms;
-    --ease-paper:cubic-bezier(.2,.8,.2,1); --ease-ink:cubic-bezier(.4,0,.2,1);
-    --f-sans:'Noto Sans SC',-apple-system,'PingFang SC','MiSans','Microsoft YaHei',system-ui,sans-serif;
-    --f-serif:'Noto Serif SC','Songti SC','SimSun',serif;
-    --f-mono:'IBM Plex Mono',ui-monospace,monospace;
+    --bg-desk:#E3E5E9;
+    --bg-base:#FFFFFF; --bg-card:#F4F5F7; --bg-card-hover:#ECEEF1; --bg-inset:#E9EBEF; --bg-btn:#E9EBEF;
+    --divider:#E3E5E9;
+    --text-primary:#111316; --text-secondary:#43474E; --text-tertiary:#626872;
+    --accent:#12B39A; --accent-ink:#0E9A84; --accent-text:#097464; --text-on-accent:#04211C;
+    --seg-pill:#FFFFFF; --seg-shadow:0 1px 2px rgba(17,19,22,.10),0 0 0 .5px rgba(17,19,22,.06);
+    --success:#2F6B45; --warning:#7A5A10; --warning-soft:#EFE8D6; --danger:#A3241F; --danger-soft:#F2DCDA;
+    --scrim:rgba(22,24,27,.42);
+    --shadow-overlay:0 2px 6px rgba(22,24,27,.10),0 18px 40px -24px rgba(22,24,27,.30);
+    --radius-card:4px; --radius-control:4px; --radius-chip:2px;
+    --dur-tap:120ms; --dur-base:220ms; --ease-paper:cubic-bezier(.2,.8,.2,1);
+    --f-sans:'Noto Sans SC',-apple-system,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+    --f-num:'Barlow Condensed','Noto Sans SC',system-ui,sans-serif;
     --pw:384px;
   }
+  :root[data-accent="sky"]{--accent:#0EA5E9;--accent-ink:#0284C7;--accent-text:#0369A1;--text-on-accent:#03202E}
+  :root[data-accent="violet"]{--accent:#7C3AED;--accent-ink:#6D28D9;--accent-text:#6D28D9;--text-on-accent:#FFFFFF}
+  :root[data-accent="rose"]{--accent:#E11D5C;--accent-ink:#C2154D;--accent-text:#C4134C;--text-on-accent:#FFFFFF}
+  :root[data-accent="orange"]{--accent:#F97316;--accent-ink:#EA580C;--accent-text:#BB3F0C;--text-on-accent:#1F1205}
   @media (prefers-color-scheme:dark){
     :root:not([data-theme="light"]){
-      --bg-desk:#0A0908; --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
-      --divider:#332E25; --rule-strong:#4A4232;
-      --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
-      --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
-      --success:#86B27C; --warning:#CE9B3C; --danger:#E8776A; --scrim:rgba(0,0,0,.6);
-      --shadow-page:0 1px 1px rgba(0,0,0,.35);
+      --bg-desk:#05080A; --bg-base:#0D1216; --bg-card:#172028; --bg-card-hover:#1D2731; --bg-inset:#080B0E; --bg-btn:#25303A;
+      --divider:#25303A; --text-primary:#F2F5F7; --text-secondary:#A9B4BE; --text-tertiary:#8693A0;
+      --accent:#2BE0C0; --accent-ink:#5BF0D6; --accent-text:#2BE0C0; --text-on-accent:#06201C;
+      --seg-pill:#2A3642; --seg-shadow:0 1px 2px rgba(0,0,0,.45);
+      --success:#7FBF92; --warning:#D2AE5C; --warning-soft:#2A2416; --danger:#EF7A70; --danger-soft:#331714; --scrim:rgba(0,0,0,.6);
       --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
-      --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
       color-scheme:dark;
     }
   }
   :root[data-theme="dark"]{
-    --bg-desk:#0A0908; --bg-base:#14120F; --bg-card:#1E1B16; --bg-card-hover:#26221B; --bg-inset:#0E0C0A;
-    --divider:#332E25; --rule-strong:#4A4232;
-    --text-primary:#EDE6D8; --text-secondary:#B3A992; --text-tertiary:#948A78;
-    --accent:#E0674B; --accent-soft:#351712; --accent-ink:#ED7A5E; --text-on-accent:#17130F;
-    --success:#86B27C; --warning:#CE9B3C; --danger:#E8776A; --scrim:rgba(0,0,0,.6);
-    --shadow-page:0 1px 1px rgba(0,0,0,.35);
+    --bg-desk:#05080A; --bg-base:#0D1216; --bg-card:#172028; --bg-card-hover:#1D2731; --bg-inset:#080B0E; --bg-btn:#25303A;
+    --divider:#25303A; --text-primary:#F2F5F7; --text-secondary:#A9B4BE; --text-tertiary:#8693A0;
+    --accent:#2BE0C0; --accent-ink:#5BF0D6; --accent-text:#2BE0C0; --text-on-accent:#06201C;
+    --seg-pill:#2A3642; --seg-shadow:0 1px 2px rgba(0,0,0,.45);
+    --success:#7FBF92; --warning:#D2AE5C; --warning-soft:#2A2416; --danger:#EF7A70; --danger-soft:#331714; --scrim:rgba(0,0,0,.6);
     --shadow-overlay:0 2px 6px rgba(0,0,0,.45),0 18px 40px -24px rgba(0,0,0,.8);
-    --shadow-lg:0 10px 15px -3px rgba(0,0,0,.4),0 4px 6px -4px rgba(0,0,0,.4);
     color-scheme:dark;
   }
   [hidden]{display:none!important}
@@ -91,169 +82,137 @@
   .phone{position:relative;height:100%;max-width:var(--pw);margin:0 auto;overflow:hidden;background:var(--bg-base)}
   @media (min-width:400px){ .phone{box-shadow:var(--shadow-overlay)} }
 
-  /* ── 「我的」页（ProfileTab / AppHeader / TabNavigation 原样） ── */
+  /* ── 「我的」页（只留到首选项入口为止的骨架） ── */
   .page{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;padding-bottom:96px}
   .page::-webkit-scrollbar{display:none}
-  .hdr{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg-base) 90%,transparent);border-bottom:1px solid var(--divider);
-    padding:56px 24px 16px;display:flex;justify-content:space-between;align-items:center}
-  .hdr h1{font:600 18px/1.4 var(--f-serif);letter-spacing:0}
-  .hbtns{display:flex;gap:8px;align-items:center}
-  .hsync{padding:8px;border-radius:var(--radius-control);border:1px solid var(--divider);background:var(--bg-card);color:var(--success)}
-  .hunit{background:var(--bg-card);border:1px solid var(--divider);padding:6px 12px;border-radius:var(--radius-control);font-size:12px;font-weight:600;text-transform:uppercase;color:var(--accent)}
+  .hdr{position:sticky;top:0;z-index:20;background:var(--bg-base);border-bottom:1px solid var(--divider);padding:56px 24px 16px;display:flex;justify-content:space-between;align-items:center}
+  .hdr h1{font-size:18px;font-weight:700}
+  .hunit{background:var(--bg-card);border:1px solid var(--divider);padding:6px 12px;border-radius:var(--radius-control);font-size:12px;font-weight:600;text-transform:uppercase;color:var(--accent-text)}
   .main{padding:16px;display:flex;flex-direction:column;gap:24px}
-  .prof{display:flex;flex-direction:column;align-items:center;padding:40px 0;position:relative;overflow:hidden}
-  .prof .glow{position:absolute;inset:0;background:color-mix(in srgb,var(--accent) 5%,transparent);filter:blur(64px);transform:scale(1.5)}
-  .ava{position:relative;width:112px;height:112px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:24px;
-    box-shadow:0 0 0 4px var(--bg-base),var(--shadow-lg);font:600 36px var(--f-serif);color:var(--text-on-accent)}
-  .ava .cam{position:absolute;bottom:0;right:-4px;padding:8px;border-radius:50%;background:var(--accent);color:var(--text-on-accent);box-shadow:0 0 0 4px var(--bg-base)}
-  .prof h2{font:600 22px/1.1 var(--f-serif);position:relative}
-  .prof p{color:var(--text-secondary);font-weight:500;margin-top:4px;position:relative}
   .card{background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card)}
-  .act{padding:20px}
-  .act .t{display:flex;align-items:center;gap:8px;margin:0 4px 12px;font-size:12px;font-weight:500;color:var(--text-secondary)}
-  .act .t .ic{color:var(--accent)}
-  .act .sum{font-size:12px;color:var(--text-secondary);margin:0 4px 8px}
-  .act .sum b{font:600 18px var(--f-serif);color:var(--text-primary)}
-  .hm{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
-  .hm span{aspect-ratio:1;background:var(--bg-inset);border-radius:var(--radius-chip)}
-  .hm span.l1{background:color-mix(in srgb,var(--accent) 30%,var(--bg-inset))}
-  .hm span.l2{background:color-mix(in srgb,var(--accent) 60%,var(--bg-inset))}
   .stat{padding:24px;display:flex;flex-direction:column;align-items:center;gap:8px}
-  .stat b{font-size:30px;font-weight:600;line-height:1}
-  .stat span{font-size:10px;font-weight:600;color:var(--text-secondary)}
-  .lw{padding:20px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow-lg);text-align:left}
-  .lw .l{display:flex;align-items:center;gap:16px}
-  .lw .sq{padding:16px;border-radius:var(--radius-card);background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--accent)}
-  .lw h3{font-size:20px;font-weight:600}
-  .lw small{display:block;font-size:12px;font-weight:700;color:var(--text-secondary)}
-  .lw .pl{padding:12px;border-radius:var(--radius-control);background:var(--bg-inset);color:var(--text-secondary)}
-  .sect{display:flex;flex-direction:column;gap:16px}
-  .secth{display:flex;justify-content:space-between;align-items:center;padding:0 8px}
-  .secth h3{font-size:12px;font-weight:600;color:var(--text-secondary)}
-  .secth button{color:var(--accent);font-size:12px;font-weight:600;display:flex;align-items:center;gap:4px}
-  .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .newm{border:2px dashed var(--divider);border-radius:var(--radius-card);min-height:100px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-    font-size:10px;font-weight:700;color:var(--text-secondary)}
-  /* 新 1：首选项入口行 */
+  .stat b{font:600 40px/1 var(--f-num)}
+  .stat span{font-size:12px;color:var(--text-secondary)}
   .entry{width:100%;padding:16px;display:flex;justify-content:space-between;align-items:center;gap:12px}
-  .entry .n{font-weight:700;color:var(--text-primary);white-space:nowrap}
-  .entry .v{display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;font-weight:500;color:var(--text-secondary)}
+  .entry .n{font-weight:600;white-space:nowrap}
+  .entry .v{display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;color:var(--text-secondary)}
   .entry .v span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .entry .v .ic{color:var(--text-tertiary)}
-  .entry:active{background:var(--bg-card-hover)}
-  .nav{position:absolute;left:0;right:0;bottom:0;z-index:30;height:64px;background:color-mix(in srgb,var(--bg-base) 95%,transparent);border-top:1px solid var(--divider);
-    display:grid;grid-template-columns:repeat(4,1fr)}
-  .nav div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:10px;font-weight:500;color:var(--text-tertiary)}
-  .nav div.on{color:var(--accent)}
-  .fab{position:absolute;left:20px;bottom:24px;z-index:31;width:56px;height:56px;border-radius:50%;background:var(--accent);color:var(--text-on-accent);
-    display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-lg)}
+  .nav{position:absolute;left:0;right:0;bottom:0;z-index:30;height:64px;background:var(--bg-base);border-top:1px solid var(--divider);display:grid;grid-template-columns:repeat(4,1fr)}
+  .nav div{display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-tertiary)}
+  .nav div.on{color:var(--accent-text)}
 
-  /* ── 弹层（ExercisePickerSheet 外壳原样） ── */
+  /* ── 弹层外壳（ExercisePickerSheet 原样） ── */
   .scrim{position:absolute;inset:0;z-index:90;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity var(--dur-base) var(--ease-paper)}
   .scrim.on{opacity:1;pointer-events:auto}
   .sheet{position:absolute;left:0;right:0;bottom:0;z-index:100;height:92%;display:flex;flex-direction:column;background:var(--bg-base);
-    border-top:1px solid var(--divider);border-radius:22px 22px 0 0;box-shadow:var(--shadow-page);
-    transform:translateY(105%);transition:transform var(--dur-base) var(--ease-paper)}
+    border-top:1px solid var(--divider);border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform var(--dur-base) var(--ease-paper)}
   .sheet.on{transform:translateY(0)}
   .sheet.dragging{transition:none}
   .grab{flex:none;padding:10px 0 6px;touch-action:none;cursor:grab}
   .grab i{display:block;width:48px;height:6px;border-radius:999px;background:var(--divider);margin:0 auto}
-  .shead{flex:none;display:flex;align-items:center;gap:10px;padding:6px 16px 2px;min-height:52px;touch-action:none}
-  .shead h2{font:600 18px/28px var(--f-serif);white-space:nowrap}
-  .sicon{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);border-radius:var(--radius-control);margin-left:auto;margin-right:-10px}
-  .sbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 16px 40px;display:flex;flex-direction:column;gap:16px;scrollbar-width:none}
+  .shead{flex:none;display:flex;align-items:center;gap:4px;padding:6px 16px 2px;min-height:52px;touch-action:none}
+  .shead h2{font-size:18px;font-weight:600;white-space:nowrap}
+  .sicon{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--text-secondary);border-radius:var(--radius-control)}
+  #close{margin-left:auto;margin-right:-10px}
+  #back{margin-left:-12px}
+  .sbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 16px 48px;display:flex;flex-direction:column;gap:32px;scrollbar-width:none}
   .sbody::-webkit-scrollbar{display:none}
+  .sbody.enter{animation:slidein var(--dur-base) var(--ease-paper)}
+  .sbody.enter-back{animation:slideback var(--dur-base) var(--ease-paper)}
+  @keyframes slidein{from{transform:translateX(24px);opacity:0}}
+  @keyframes slideback{from{transform:translateX(-24px);opacity:0}}
 
-  /* 新 2：分组 —— 节标题（「身体数据 & 指标」那种）+ ProfileTab 设置卡 */
+  /* ── 分组：组标题在卡外；卡里一行一条分隔线 ── */
   .grp{display:flex;flex-direction:column;gap:8px}
-  .grp > h3{padding:0 8px;font-size:12px;font-weight:600;color:var(--text-secondary)}
-  .grp > .card{padding:20px;display:flex;flex-direction:column;gap:16px}
-  .item{display:flex;flex-direction:column;gap:8px}
-  .lab{padding:0 4px;font-size:12px;font-weight:500;color:var(--text-secondary);display:flex;justify-content:space-between}
-  .lab i{font:500 11px var(--f-mono);font-style:normal;color:var(--text-tertiary)}
-  .seg{display:grid;gap:8px;padding:4px;background:var(--bg-inset);border:1px solid var(--divider);border-radius:var(--radius-control)}
-  .seg button{min-height:40px;padding:8px 0;border-radius:var(--radius-chip);font-size:12px;font-weight:500;color:var(--text-secondary);text-align:center;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:background-color var(--dur-tap) var(--ease-paper),color var(--dur-tap) var(--ease-paper)}
-  .seg button.num{font:600 13px var(--f-mono)}
-  .seg button.on{background:var(--accent);color:var(--text-on-accent)}
-  /* 开关行 / 跳转行（ProfileTab 振动行，去掉图标方块） */
-  .row{width:100%;min-height:44px;padding:4px;margin:-4px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;border-radius:var(--radius-control);
-    transition:background-color var(--dur-tap) var(--ease-paper)}
-  .row:active{background:var(--bg-inset)}
-  .row .n{font-weight:700;color:var(--text-primary);text-align:left}
-  .row .v{font-size:12px;font-weight:600;color:var(--text-tertiary);display:flex;align-items:center;gap:6px;white-space:nowrap}
-  .row .v.on{color:var(--accent)}
-  .row .v.ok{color:var(--success)}
-  .row .v .spin{animation:spin 1s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .hr{height:1px;background:var(--divider);margin:0 -4px}
-  /* 数据区（BackupCard 原样的按钮） */
-  .btn2{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 16px;background:var(--bg-inset);color:var(--text-primary);font-weight:500;
-    border:1px solid var(--divider);border-radius:var(--radius-control);transition:background-color 150ms ease,transform 150ms ease}
-  .btn2:active{transform:scale(.98);background:var(--bg-card-hover)}
-  .btn2 .ic{color:var(--accent)}
-  .note{font-size:10px;line-height:1.6;color:var(--text-tertiary);text-align:center;padding:0 12px;margin-top:-8px}
-  .dev .sub{display:block;font-size:10px;font-weight:400;color:var(--text-tertiary);margin-top:2px}
-  .dev .tag{font-size:12px;font-weight:600;padding:4px 12px;border-radius:var(--radius-chip);background:color-mix(in srgb,var(--warning) 15%,transparent);color:var(--warning)}
-  .row.danger .n{color:var(--danger)}
+  .grp > h3{padding:0 4px;font-size:12px;font-weight:600;color:var(--text-secondary)}
+  .grp > .card{padding:0 16px}
+  .grp > .card > * + *{border-top:1px solid var(--divider)}
 
-  /* 撤销条 / toast（UiOverlayContext 原样） */
-  @keyframes toastprint{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0)}}
-  .toast{position:absolute;left:16px;right:16px;bottom:24px;z-index:190;display:flex;align-items:center;gap:12px;padding:12px 16px;overflow:hidden;
-    background:var(--bg-card);border:1px solid var(--divider);border-radius:var(--radius-card);box-shadow:var(--shadow-lg);font-size:14px;font-weight:500;
-    animation:toastprint var(--dur-base) var(--ease-paper) both}
-  .demotag{position:absolute;top:0;left:0;right:0;z-index:130;height:30px;display:flex;align-items:center;padding:0 16px;font-size:10px;color:var(--text-tertiary);pointer-events:none}
-  @media (prefers-reduced-motion:reduce){ .sheet,.scrim{transition-duration:1ms} .toast{animation-duration:1ms} }
+  .row{width:100%;min-height:52px;padding:10px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left}
+  button.row{transition:background-color var(--dur-tap) var(--ease-paper)}
+  button.row:active{background:var(--bg-card-hover);box-shadow:0 0 0 16px var(--bg-card-hover);clip-path:inset(0 -16px)}
+  .row .tx{min-width:0;display:flex;flex-direction:column;gap:2px}
+  .row .n{font-size:14px;font-weight:500;color:var(--text-primary)}
+  .row .n i{font:600 13px var(--f-num);font-style:normal;color:var(--text-tertiary);margin-left:6px}
+  .row .sub{font-size:12px;line-height:1.45;color:var(--text-tertiary)}
+  .row .sub.bad{color:var(--danger)}
+  .row .v{flex:none;font-size:12px;font-weight:500;color:var(--text-tertiary);display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .row .v.ok{color:var(--success)}
+  .row .v.bad{color:var(--danger)}
+  .row .v .spin{animation:spin 1s linear infinite}
+  .row.danger .n{color:var(--danger)}
+  .row.act .n{color:var(--accent-text)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* 落到名称下面的整宽控件 */
+  .row.stack{flex-direction:column;align-items:stretch;gap:10px;padding:12px 0 14px}
+  .pair{display:grid;grid-template-columns:36px 1fr;align-items:center;gap:8px}
+  .pair > span{font-size:12px;color:var(--text-tertiary)}
+
+  /* 分段块（index.css .seg-on：凹槽 + 白药丸） */
+  .seg{display:grid;gap:2px;padding:3px;background:var(--bg-inset);border-radius:var(--radius-control)}
+  .seg button{min-height:34px;padding:6px 0;border-radius:var(--radius-chip);font-size:12px;font-weight:500;color:var(--text-secondary);text-align:center;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;transition:background-color var(--dur-tap) var(--ease-paper),color var(--dur-tap) var(--ease-paper)}
+  .seg button.num{font:600 15px var(--f-num);font-variant-numeric:tabular-nums}
+  .seg button.on{background:var(--seg-pill);color:var(--text-primary);box-shadow:var(--seg-shadow)}
+  .seg button.on svg{color:var(--accent-text)}
+  .seg.icons button{min-height:52px}
+  .seg.inline{flex:none;display:inline-grid;grid-auto-columns:minmax(44px,auto);grid-auto-flow:column}
+  .seg.inline button{min-height:30px;padding:4px 12px}
+
+  /* 强调色：只有色点 */
+  .dots{flex:none;display:flex;gap:2px}
+  .dots button{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%}
+  .dots button span{width:22px;height:22px;border-radius:50%;transition:box-shadow var(--dur-tap) var(--ease-paper)}
+  .dots button.on span{box-shadow:0 0 0 2px var(--bg-card),0 0 0 4px var(--text-primary)}
+
+  /* 开关 */
+  .tgl{flex:none;position:relative;width:44px;height:26px;border-radius:999px;background:var(--bg-inset);box-shadow:inset 0 0 0 1px var(--divider);transition:background-color var(--dur-tap) var(--ease-paper)}
+  .tgl::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--seg-pill);box-shadow:var(--seg-shadow);transition:transform var(--dur-base) var(--ease-paper)}
+  .tgl.on{background:var(--accent);box-shadow:none}
+  .tgl.on::after{transform:translateX(18px);background:#fff}
+
+  /* 全页唯一的实心主按钮 */
+  .pbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:var(--radius-control);
+    background:var(--accent);color:var(--text-on-accent);font-size:14px;font-weight:600;transition:background-color var(--dur-tap) var(--ease-paper)}
+  .pbtn:active{background:var(--accent-ink)}
+  .pbtn.wide{width:100%;padding:12px 16px}
+  .tag{flex:none;font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--radius-chip);background:var(--bg-inset);color:var(--text-secondary)}
+  .tag.dev{background:var(--warning-soft);color:var(--warning)}
+
+  /* toast（UiOverlayContext 原样） */
+  .toast{position:absolute;left:16px;right:16px;bottom:24px;z-index:190;padding:12px 16px;background:var(--bg-card);border:1px solid var(--divider);
+    border-radius:var(--radius-card);box-shadow:var(--shadow-overlay);font-size:14px;font-weight:500}
+  /* demo 状态切换（不属于设计） */
+  .demobar{position:absolute;top:0;left:0;right:0;z-index:130;display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px 12px;font-size:11px;color:var(--text-tertiary)}
+  .demobar b{font-weight:500;margin-right:4px}
+  .demobar button{padding:2px 8px;border-radius:999px;border:1px dashed var(--divider);color:var(--text-tertiary)}
+  .demobar button.on{border-style:solid;border-color:var(--text-tertiary);color:var(--text-primary)}
+  @media (prefers-reduced-motion:reduce){ .sheet,.scrim{transition-duration:1ms} .sbody.enter,.sbody.enter-back{animation:none} }
 </style>
 </head>
 <body>
 <div class="phone" id="phone">
-  <div class="demotag">Demo · 首选项</div>
+  <div class="demobar" id="demobar"></div>
   <div class="page" id="page">
-    <header class="hdr">
-      <h1>健身记录</h1>
-      <div class="hbtns">
-        <button class="hsync" id="hsync" aria-label="同步"></button>
-        <button class="hunit" id="hunit"></button>
-      </div>
-    </header>
+    <header class="hdr"><h1>健身记录</h1><button class="hunit" id="hunit"></button></header>
     <main class="main">
-      <div class="prof">
-        <div class="glow"></div>
-        <div class="ava">M<span class="cam" id="cam"></span></div>
-        <h2>Me</h2>
-        <p>solo@fitlog.local</p>
-      </div>
-      <div class="card act">
-        <div class="t" id="actT">训练活跃度</div>
-        <div class="sum">连续 <b>2</b> 天 · 近 5 周 · 9 天有训练 · 186 组</div>
-        <div class="hm" id="hm"></div>
-      </div>
       <div class="card stat"><b>142</b><span>累计训练</span></div>
-      <button class="card lw" id="lw">
-        <span class="l"><span class="sq" id="scale"></span><span><h3>记录体重</h3><small>记录当前数据</small></span></span>
-        <span class="pl" id="lwplus"></span>
-      </button>
-      <div class="sect">
-        <div class="secth"><h3>身体数据 &amp; 指标</h3><button id="addm">添加</button></div>
-        <div class="mgrid"><div class="newm" id="newm">新指标</div></div>
-      </div>
-      <!-- 新 1：原来的设置卡换成这一行 -->
       <div class="card"><button class="entry" id="entry" data-testid="prefs-entry">
         <span class="n">首选项</span><span class="v"><span id="summary"></span><b id="entryChev"></b></span>
       </button></div>
     </main>
   </div>
-  <nav class="nav">
-    <div></div>
-    <div id="nav1">个人记录</div><div id="nav2">训练计划</div><div class="on" id="nav3">我的</div>
-  </nav>
-  <div class="fab" id="fab"></div>
+  <nav class="nav"><div></div><div>个人记录</div><div>训练计划</div><div class="on">我的</div></nav>
 
   <div class="scrim" id="scrim"></div>
   <section class="sheet" id="sheet" role="dialog" aria-label="首选项">
     <div class="grab" id="grab"><i></i></div>
-    <div class="shead" id="shead"><h2>首选项</h2><button class="sicon" id="close" aria-label="关闭"></button></div>
+    <div class="shead" id="shead">
+      <button class="sicon" id="back" aria-label="返回" hidden></button>
+      <h2 id="stitle">首选项</h2>
+      <button class="sicon" id="close" aria-label="关闭"></button>
+    </div>
     <div class="sbody" id="sbody"></div>
   </section>
   <div id="toastHost"></div>
@@ -266,185 +225,230 @@
   const svg = (w, body, extra = '') => `<svg class="ic" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${body}</svg>`;
   const I = {
     x: svg(21, '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 'stroke-width="2"'),
-    chev: svg(18, '<path d="m9 18 6-6-6-6"/>', 'stroke-width="2"'),
-    chevS: svg(16, '<path d="m9 18 6-6-6-6"/>', 'stroke-width="2"'),
-    check: svg(18, '<path d="M20 6 9 17l-5-5"/>', 'stroke-width="2.5"'),
-    checkS: svg(14, '<path d="M20 6 9 17l-5-5"/>', 'stroke-width="2.5"'),
-    sync: svg(14, '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>', 'style="animation:spin 1s linear infinite"'),
+    back: svg(22, '<path d="m15 18-6-6 6-6"/>', 'stroke-width="2"'),
+    chev: svg(16, '<path d="m9 18 6-6-6-6"/>', 'stroke-width="2"'),
+    check: svg(14, '<path d="M20 6 9 17l-5-5"/>', 'stroke-width="2.5"'),
+    alert: svg(14, '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>', 'stroke-width="2"'),
+    sync: svg(14, '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>', 'class="spin"'),
     phone: svg(18, '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>'),
     sun: svg(18, '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'),
     moon: svg(18, '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'),
-    dl: svg(18, '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>'),
-    ul: svg(18, '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>'),
-    undo: svg(18, '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>'),
-    act: svg(13, '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>'),
-    cam: svg(16, '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>', 'stroke-width="2"'),
-    scale: svg(24, '<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>', 'stroke-width="2"'),
-    plus: svg(20, '<path d="M5 12h14"/><path d="M12 5v14"/>', 'stroke-width="2"'),
-    plusS: svg(14, '<path d="M5 12h14"/><path d="M12 5v14"/>', 'stroke-width="2"'),
-    plusL: svg(26, '<path d="M5 12h14"/><path d="M12 5v14"/>', 'stroke-width="2.5"'),
-    bars: svg(20, '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>'),
-    cal: svg(20, '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>'),
-    user: svg(20, '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>'),
   };
 
-  // ── 状态：以后 AppPrefs 的字段（跟数据走）+ 设备级（跟设备走） ──
+  // ── 设置（App 里的 appPrefs / 设备级） ──
   const P = {
-    unit: 'lbs',            // appPrefs.unit（和顶栏同一个）
-    step: 5,                // appPrefs.step：±步长，kg / lbs 共用
-    drop: 5,                // appPrefs.dropStep：递减每档，kg / lbs 共用
-    scrub: 'mid',           // 设备：滑动手感 细 / 中 / 粗
-    cardio: ['dur', 'dist'],// appPrefs.cardioMetrics
-    dist: 'km',             // appPrefs.distUnit
-    theme: 'auto',          // 设备
-    motion: 'auto',         // 设备
-    lang: 'cn',             // appPrefs.lang
-    week: 'mon',            // appPrefs.weekStart
-    haptics: true,          // 设备
-    undoDel: false,         // 设备（undoPref，默认关）
-    devMode: true,          // 数据环境（仅未锁定构建）
+    unit: 'kg', step: 5, drop: 5, cardio: ['dur', 'dist'], dist: 'km',
+    scrub: 'mid', haptics: true, motion: 'auto',
+    theme: 'auto', accent: 'teal', lang: 'cn', week: 'mon',
+    devMode: true,
   };
-  let sync = 'ok', syncAt = Date.now() - 2 * 60e3, rollback = { workouts: 141, date: '2026-10-07' };
+  // ── demo 状态 ──
+  const D = { backup: 'ok', rollback: true, remote: true };
+  let sync = 'ok', syncAt = Date.now() - 2 * 60e3, view = 'main';
 
-  // ── 「我的」页静态部分 ──
-  $('#hsync').innerHTML = I.check;
-  $('#cam').innerHTML = I.cam;
-  $('#actT').insertAdjacentHTML('afterbegin', I.act);
-  $('#scale').innerHTML = I.scale;
-  $('#lwplus').innerHTML = I.plus;
-  $('#addm').insertAdjacentHTML('afterbegin', I.plusS);
-  $('#newm').insertAdjacentHTML('afterbegin', `<span style="padding:8px;color:var(--text-secondary)">${I.plusS}</span>`);
   $('#entryChev').outerHTML = I.chev;
-  $('#fab').innerHTML = I.plusL;
-  $('#nav1').insertAdjacentHTML('afterbegin', I.bars);
-  $('#nav2').insertAdjacentHTML('afterbegin', I.cal);
-  $('#nav3').insertAdjacentHTML('afterbegin', I.user);
   $('#close').innerHTML = I.x;
-  $('#hm').innerHTML = Array.from({ length: 35 }, (_, i) => `<span class="${[2, 4, 9, 11, 16, 18, 23, 25, 30, 32].includes(i) ? (i % 3 ? 'l2' : 'l1') : ''}"></span>`).join('');
+  $('#back').innerHTML = I.back;
 
-  const fmt = n => String(n);
   const ago = () => { const m = Math.round((Date.now() - syncAt) / 60e3); return m < 1 ? '刚刚' : `${m} 分钟前`; };
-
-  // 摘要（审查原文：「±5 lbs · 递减 −5 · 中文」）
   const renderTop = () => {
     $('#hunit').textContent = P.unit;
-    $('#summary').textContent = `±${fmt(P.step)} ${P.unit} · 递减 −${fmt(P.drop)} · ${P.lang === 'cn' ? '中文' : 'English'}`;
+    $('#summary').textContent = `±${P.step} ${P.unit} · 递减 −${P.drop} · ${P.lang === 'cn' ? '中文' : 'English'}`;
   };
 
-  // ── 弹层内容 ──
-  const seg = (key, opts, cls = '') =>
-    `<div class="seg" style="grid-template-columns:repeat(${opts.length},1fr)">${opts.map(o => {
+  // ── 积木 ──
+  const seg = (key, opts, cls = '', inline = false) =>
+    `<div class="seg${inline ? ' inline' : ''}${opts.some(o => o.i) ? ' icons' : ''}" ${inline ? '' : `style="grid-template-columns:repeat(${opts.length},1fr)"`}>${opts.map(o => {
       const on = Array.isArray(P[key]) ? P[key].includes(o.v) : P[key] === o.v;
       return `<button type="button" class="${cls}${on ? ' on' : ''}" data-k="${key}" data-v="${o.v}" aria-pressed="${on}">${o.i || ''}<span>${o.t}</span></button>`;
     }).join('')}</div>`;
-  const item = (label, body, aside = '') => `<div class="item"><p class="lab"><span>${label}</span>${aside}</p>${body}</div>`;
-  const sw = (key, name) =>
-    `<button type="button" class="row" role="switch" aria-checked="${P[key]}" data-sw="${key}"><span class="n">${name}</span><span class="v${P[key] ? ' on' : ''}">${P[key] ? '开' : '关'}</span></button>`;
-  const nums = a => a.map(v => ({ v, t: fmt(v) }));
+  const nums = a => a.map(v => ({ v, t: String(v) }));
+  const name = (n, sub = '', subCls = '') => `<span class="tx"><span class="n">${n}</span>${sub ? `<span class="sub ${subCls}">${sub}</span>` : ''}</span>`;
+  // 一行：名称在左，控件在右
+  const line = (n, ctl) => `<div class="row">${name(n)}${ctl}</div>`;
+  // 控件放不下：落到名称下面
+  const stack = (n, ctl) => `<div class="row stack">${typeof n === 'string' ? `<span class="n">${n}</span>` : n}${ctl}</div>`;
+  const go = (id, n, v = '', sub = '', subCls = '', cls = '') =>
+    `<button type="button" class="row ${cls}" data-go="${id}">${name(n, sub, subCls)}<span class="v">${v}${I.chev}</span></button>`;
+  const grp = (title, body) => `<section class="grp">${title ? `<h3>${title}</h3>` : ''}<div class="card">${body}</div></section>`;
 
-  const render = () => {
-    const syncV = sync === 'busy'
-      ? `<span class="v">${I.sync}同步中</span>`
-      : `<span class="v ok">${I.checkS}已同步 · ${ago()}</span>`;
-    $('#sbody').innerHTML = `
-      <section class="grp"><h3>训练</h3><div class="card">
-        ${item('重量单位', seg('unit', [{ v: 'kg', t: 'kg' }, { v: 'lbs', t: 'lbs' }], 'num'))}
-        ${item('加减步长', seg('step', nums([1, 2.5, 5, 10]), 'num'), `<i>${P.unit}</i>`)}
-        ${item('递减每档', seg('drop', nums([2.5, 5, 10, 15]), 'num'), `<i>${P.unit}</i>`)}
-        ${item('滑动手感', seg('scrub', [{ v: 'fine', t: '细' }, { v: 'mid', t: '中' }, { v: 'coarse', t: '粗' }]))}
-        ${sw('undoDel', '删组 / 删动作后可撤销')}
-      </div></section>
+  const ACCENTS = [
+    { v: 'teal', t: '青', c: ['#12B39A', '#2BE0C0'] },
+    { v: 'sky', t: '浅蓝', c: ['#0EA5E9', '#38BDF8'] },
+    { v: 'violet', t: '紫', c: ['#7C3AED', '#7445F0'] },
+    { v: 'rose', t: '玫红', c: ['#E11D5C', '#E0245C'] },
+    { v: 'orange', t: '橙', c: ['#F97316', '#FF8A3D'] },
+  ];
+  const isDark = () => P.theme === 'dark' || (P.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
 
-      <section class="grp"><h3>动作</h3><div class="card">
-        ${item('有氧默认记录', seg('cardio', [{ v: 'dur', t: '时长' }, { v: 'dist', t: '距离' }, { v: 'speed', t: '速度' }, { v: 'reps', t: '次数' }]))}
-        ${item('距离单位', seg('dist', [{ v: 'km', t: 'km' }, { v: 'mi', t: 'mi' }], 'num'))}
-        <button type="button" class="row" id="gotoLib"><span class="n">动作库与标签</span><span class="v">${I.chevS}</span></button>
-      </div></section>
+  const syncValue = () => sync === 'busy'
+    ? `<span class="v">${I.sync}同步中</span>`
+    : `<span class="v ok">${I.check}已同步 · ${ago()}</span>`;
 
-      <section class="grp"><h3>显示</h3><div class="card">
-        ${item('外观', seg('theme', [{ v: 'auto', t: '跟随系统', i: I.phone }, { v: 'light', t: '浅色', i: I.sun }, { v: 'dark', t: '深色', i: I.moon }]))}
-        ${item('动效', seg('motion', [{ v: 'auto', t: '跟系统' }, { v: 'keep', t: '总有动效' }, { v: 'reduce', t: '减弱' }]))}
-        ${item('语言', seg('lang', [{ v: 'cn', t: '中文' }, { v: 'en', t: 'English' }]))}
-        ${item('每周开始于', seg('week', [{ v: 'mon', t: '周一' }, { v: 'sun', t: '周日' }]))}
-      </div></section>
-
-      <section class="grp"><h3>设备</h3><div class="card">
-        ${sw('haptics', '振动反馈')}
-      </div></section>
-
-      <section class="grp"><h3>数据</h3><div class="card">
-        <button type="button" class="row" id="syncRow"><span class="n">同步</span>${syncV}</button>
-        <div class="hr"></div>
-        <button type="button" class="btn2" id="exp">${I.dl}立即导出备份</button>
-        <button type="button" class="btn2" id="imp">${I.ul}导入备份</button>
-        <p class="note">从导出的 JSON 文件恢复。当前数据会被完全替换，导入前会自动存一份可撤销的副本</p>
-        ${rollback ? `<button type="button" class="btn2" id="rb">${I.undo}撤销上次导入</button>
-        <p class="note">导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.date}</p>` : ''}
-        <div class="hr"></div>
-        <button type="button" class="row dev" id="devRow"><span class="n">数据环境<span class="sub">${P.devMode ? 'state-dev · FitLogDB-dev · 与真实数据完全隔离' : 'state · FitLogDB · 真实用户数据'}</span></span><span class="tag">${P.devMode ? '开发' : '用户'}</span></button>
-        <div class="hr"></div>
-        <button type="button" class="row danger" id="reset"><span class="n">重置账户</span><span class="v">${I.chevS}</span></button>
-      </div></section>`;
+  // 自动备份在主页的那一行：没开时带全页唯一的主按钮
+  const backupRow = () => {
+    if (D.backup === 'off') return `<div class="row">${name('自动备份', '未开启 · 卸载 App 会丢失全部记录', 'bad')}<button type="button" class="pbtn" data-act="choose">选择文件夹</button></div>`;
+    if (D.backup === 'error') return go('backup', '自动备份', `<span class="v bad">${I.alert}失败</span>`, '没有文件夹访问权限', 'bad');
+    return go('backup', '自动备份', '今天 21:40');
   };
+
+  const views = {
+    main: {
+      title: '首选项',
+      body: () => [
+        grp('单位与记录',
+          line('重量单位', seg('unit', [{ v: 'kg', t: 'kg' }, { v: 'lbs', t: 'lbs' }], 'num', true)) +
+          line('距离单位', seg('dist', [{ v: 'km', t: 'km' }, { v: 'mi', t: 'mi' }], 'num', true)) +
+          stack(`<span class="n">未标器材的动作<i>${P.unit}</i></span>`,
+            `<div class="pair"><span>±</span>${seg('step', nums([1, 2.5, 5, 10]), 'num')}</div>` +
+            `<div class="pair"><span>递减</span>${seg('drop', nums([2.5, 5, 10, 15]), 'num')}</div>`) +
+          stack('有氧默认记录', seg('cardio', [{ v: 'dur', t: '时长' }, { v: 'dist', t: '距离' }, { v: 'speed', t: '速度' }, { v: 'reps', t: '次数' }])) +
+          go('lib', '动作库与标签')),
+        grp('手感',
+          line('滑动手感', seg('scrub', [{ v: 'fine', t: '细' }, { v: 'mid', t: '中' }, { v: 'coarse', t: '粗' }], '', true)) +
+          `<button type="button" class="row" role="switch" aria-checked="${P.haptics}" data-sw="haptics">${name('振动反馈')}<span class="tgl${P.haptics ? ' on' : ''}"></span></button>` +
+          line('动效', seg('motion', [{ v: 'auto', t: '跟系统' }, { v: 'keep', t: '总有动效' }, { v: 'reduce', t: '减弱' }], '', true))),
+        grp('外观与地区',
+          stack('外观', seg('theme', [{ v: 'auto', t: '跟随系统', i: I.phone }, { v: 'light', t: '浅色', i: I.sun }, { v: 'dark', t: '深色', i: I.moon }])) +
+          line('强调色', `<div class="dots">${ACCENTS.map(a => `<button type="button" class="${P.accent === a.v ? 'on' : ''}" data-k="accent" data-v="${a.v}" aria-label="${a.t}" aria-pressed="${P.accent === a.v}"><span style="background:${a.c[isDark() ? 1 : 0]}"></span></button>`).join('')}</div>`) +
+          line('语言', seg('lang', [{ v: 'cn', t: '中文' }, { v: 'en', t: 'English' }], '', true)) +
+          line('每周开始于', seg('week', [{ v: 'mon', t: '周一' }, { v: 'sun', t: '周日' }], '', true))),
+        grp('数据',
+          (D.remote ? `<button type="button" class="row" id="syncRow">${name('同步')}${syncValue()}</button>` : '') +
+          backupRow() +
+          go('export', '导出') +
+          go('import', '导入') +
+          (D.rollback ? `<button type="button" class="row act" data-act="rollback">${name('撤销上次导入', '导入前的副本 · 141 次训练 · 10-07 · 留 7 天')}</button>` : '')),
+        grp('账户',
+          `<button type="button" class="row" id="devRow">${name('数据环境', P.devMode ? 'state-dev · FitLogDB-dev · 与真实数据隔离' : 'state · FitLogDB · 真实用户数据')}<span class="tag${P.devMode ? ' dev' : ''}">${P.devMode ? '开发' : '用户'}</span></button>` +
+          (D.remote ? go('logout', '退出登录', '', '', '', 'danger') : '') +
+          go('reset', '重置账户', '', '', '', 'danger')),
+      ].join(''),
+    },
+    backup: {
+      title: '自动备份',
+      body: () => {
+        const status = D.backup === 'off'
+          ? name('未开启', '卸载 App 会丢失全部记录', 'bad')
+          : D.backup === 'error'
+            ? name('上次备份失败', '没有文件夹访问权限，重新选一次文件夹', 'bad')
+            : name('上次备份 · 今天 21:40', 'Documents/FitLog · 共 12 份');
+        const primary = D.backup === 'ok'
+          ? `<button type="button" class="pbtn wide" data-act="backupNow">立即备份</button>`
+          : `<button type="button" class="pbtn wide" data-act="choose">${D.backup === 'error' ? '重新选择文件夹' : '选择文件夹'}</button>`;
+        return [
+          grp('', stack(status, primary)),
+          grp('',
+            (D.backup === 'ok' ? go('folder', '备份文件夹', 'Documents/FitLog') : '') +
+            go('restore', '从备份文件夹恢复')),
+        ].join('');
+      },
+    },
+    export: {
+      title: '导出',
+      body: () => grp('',
+        go('csv', 'CSV 表格', '分享') +
+        (D.backup !== 'off' ? go('csvFolder', 'CSV 表格', '存到备份文件夹') : '') +
+        go('json', '完整备份（JSON）')),
+    },
+    import: {
+      title: '导入',
+      body: () => grp('',
+        go('importJson', '完整备份（JSON）', '', '会替换当前数据，导入前自动留一份可撤销的副本') +
+        go('importCsv', '从 Strong / Hevy 导入')),
+    },
+  };
+
+  const TOASTS = {
+    lib: '（demo）跳到动作库整理态', logout: '（demo）弹退出登录确认', reset: '（demo）弹现有的重置确认框',
+    folder: '（demo）打开系统文件夹选择器', restore: '（demo）进入恢复流程',
+    csv: '（demo）系统分享 fitlog-sets.csv', csvFolder: '已存到 Documents/FitLog', json: '已导出 fitlog-backup-2026-10-25.json',
+    importJson: '（demo）打开选文件', importCsv: '（demo）进入 Strong / Hevy 导入流程',
+  };
+
+  const render = (dir = '') => {
+    const v = views[view];
+    $('#stitle').textContent = v.title;
+    $('#back').hidden = view === 'main';
+    const body = $('#sbody');
+    body.innerHTML = v.body();
+    if (dir) { body.classList.remove('enter', 'enter-back'); void body.offsetWidth; body.classList.add(dir); }
+  };
+  const goView = to => { const back = to === 'main'; view = to; render(back ? 'enter-back' : 'enter'); $('#sbody').scrollTop = 0; };
 
   const applyTheme = () => {
     if (P.theme === 'auto') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', P.theme);
+    if (P.accent === 'teal') document.documentElement.removeAttribute('data-accent');
+    else document.documentElement.setAttribute('data-accent', P.accent);
   };
 
   let toastTimer;
   const toast = msg => {
     clearTimeout(toastTimer);
-    $('#toastHost').innerHTML = `<div class="toast"><span class="msg">${msg}</span></div>`;
-    toastTimer = setTimeout(() => { $('#toastHost').innerHTML = ''; }, 2600);
+    $('#toastHost').innerHTML = `<div class="toast">${msg}</div>`;
+    toastTimer = setTimeout(() => { $('#toastHost').innerHTML = ''; }, 2400);
   };
 
   $('#sbody').addEventListener('click', e => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.dataset.k) {
-      const k = b.dataset.k;
-      const raw = b.dataset.v;
-      const v = isNaN(+raw) ? raw : +raw;
+      const k = b.dataset.k, raw = b.dataset.v, v = isNaN(+raw) ? raw : +raw;
       if (Array.isArray(P[k])) {
         const has = P[k].includes(v);
-        if (has && P[k].length === 1) return; // 至少留一格
+        if (has && P[k].length === 1) return; // 至少留一项
         P[k] = has ? P[k].filter(x => x !== v) : [...P[k], v];
       } else P[k] = v;
-      if (k === 'theme') applyTheme();
+      if (k === 'theme' || k === 'accent') applyTheme();
     } else if (b.dataset.sw) {
-      const k = b.dataset.sw;
-      P[k] = !P[k];
-      if (k === 'haptics' && P[k] && navigator.vibrate) navigator.vibrate(10);
-    } else if (b.id === 'syncRow' || b.id === 'devRow') {
-      if (b.id === 'devRow') { P.devMode = !P.devMode; }
-      else if (sync !== 'busy') {
-        sync = 'busy';
-        setTimeout(() => { sync = 'ok'; syncAt = Date.now(); render(); }, 900);
-      }
-    } else if (b.id === 'gotoLib') return toast('（demo）这里跳到添加动作弹层的整理态');
-    else if (b.id === 'exp') return toast('已导出 fitlog-backup-2026-10-18.json');
-    else if (b.id === 'imp') return toast('（demo）这里打开选文件');
-    else if (b.id === 'rb') { rollback = null; toast('已恢复到导入前'); }
-    else if (b.id === 'reset') return toast('（demo）这里弹现有的重置确认框');
-    else return;
-    const top = $('#sbody').scrollTop;
-    render(); renderTop();
-    $('#sbody').scrollTop = top;
+      P[b.dataset.sw] = !P[b.dataset.sw];
+      if (P.haptics && navigator.vibrate) navigator.vibrate(10);
+    } else if (b.dataset.go) {
+      if (views[b.dataset.go]) return goView(b.dataset.go);
+      return toast(TOASTS[b.dataset.go]);
+    } else if (b.dataset.act === 'choose') { D.backup = 'ok'; toast('已选择 Documents/FitLog，并完成第一次备份'); renderBar(); }
+    else if (b.dataset.act === 'backupNow') return toast('已备份 · 共 13 份');
+    else if (b.dataset.act === 'rollback') { D.rollback = false; toast('已恢复到导入前'); renderBar(); }
+    else if (b.id === 'devRow') P.devMode = !P.devMode;
+    else if (b.id === 'syncRow') {
+      if (sync === 'busy') return;
+      sync = 'busy';
+      setTimeout(() => { sync = 'ok'; syncAt = Date.now(); if (view === 'main') keep(render); }, 900);
+    } else return;
+    keep(render); renderTop();
   });
+  const keep = fn => { const top = $('#sbody').scrollTop; fn(); $('#sbody').scrollTop = top; };
 
-  $('#hunit').addEventListener('click', () => { P.unit = P.unit === 'kg' ? 'lbs' : 'kg'; renderTop(); render(); });
-  $('#hsync').addEventListener('click', () => { syncAt = Date.now(); render(); });
+  $('#back').addEventListener('click', () => goView('main'));
+  $('#hunit').addEventListener('click', () => { P.unit = P.unit === 'kg' ? 'lbs' : 'kg'; renderTop(); keep(render); });
+
+  // ── demo 状态条 ──
+  const renderBar = () => {
+    const chip = (on, act, t) => `<button type="button" class="${on ? 'on' : ''}" data-d="${act}">${t}</button>`;
+    $('#demobar').innerHTML = `<b>状态</b>` +
+      chip(D.backup === 'ok', 'b:ok', '备份正常') + chip(D.backup === 'off', 'b:off', '未开') + chip(D.backup === 'error', 'b:error', '失败') +
+      chip(D.rollback, 'rb', '导入副本') + chip(D.remote, 'remote', '远端');
+  };
+  $('#demobar').addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    const d = b.dataset.d;
+    if (d.startsWith('b:')) D.backup = d.slice(2);
+    else if (d === 'rb') D.rollback = !D.rollback;
+    else if (d === 'remote') D.remote = !D.remote;
+    renderBar(); keep(render);
+  });
 
   // ── 开 / 关弹层；抓手和头部可下拉关闭 ──
   const sheet = $('#sheet'), scrim = $('#scrim');
-  const open = () => { render(); $('#sbody').scrollTop = 0; sheet.classList.add('on'); scrim.classList.add('on'); };
+  const open = (to = 'main') => { view = to; render(); $('#sbody').scrollTop = 0; sheet.classList.add('on'); scrim.classList.add('on'); };
   const close = () => { sheet.classList.remove('on', 'dragging'); sheet.style.transform = ''; scrim.classList.remove('on'); };
-  $('#entry').addEventListener('click', open);
+  $('#entry').addEventListener('click', () => open());
   $('#close').addEventListener('click', close);
   scrim.addEventListener('click', close);
   let y0 = null;
-  const down = e => { if (e.target.closest('#close')) return; y0 = e.clientY; sheet.classList.add('dragging'); e.currentTarget.setPointerCapture(e.pointerId); };
+  const down = e => { if (e.target.closest('button')) return; y0 = e.clientY; sheet.classList.add('dragging'); e.currentTarget.setPointerCapture(e.pointerId); };
   const move = e => { if (y0 == null) return; sheet.style.transform = `translateY(${Math.max(0, e.clientY - y0)}px)`; };
   const up = e => {
     if (y0 == null) return;
@@ -460,11 +464,10 @@
   }
 
   renderTop();
+  renderBar();
   render();
-  // 截图用：?open 直接打开弹层（不走过渡），?page 「我的」页滚到底
   const q = new URLSearchParams(location.search);
-  if (q.has('open')) { sheet.style.transition = scrim.style.transition = 'none'; open(); }
-  if (q.has('page')) $('#page').scrollTop = 1e5;
+  if (q.has('open')) { sheet.style.transition = scrim.style.transition = 'none'; open(views[q.get('open')] ? q.get('open') : 'main'); }
 })();
 </script>
 </body>
