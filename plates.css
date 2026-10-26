@@ -507,6 +507,9 @@
 .milestone b { display: block; margin: 4px 0 2px; font-size: var(--fs-h2); font-weight: 700; line-height: 1.2; }
 /* 镁粉牌深浅主题都是白底，副字用定值的深灰（浅色的二级字色），跟主题走会在深色下变浅、看不清 */
 .milestone small { display: block; font-size: var(--fs-micro); color: #43474E; }
+/* 深色里一整块白牌太刺眼（同 PB 行）：改淡强调色底，字跟主题走 */
+.dark .milestone { background: var(--accent-soft); border-color: var(--accent); color: var(--text-primary); }
+.dark .milestone small { color: var(--text-secondary); }
 
 /* 小号配片（MiniPlates）：计划卡、里程碑用。一侧从里到外，高按直径比例，片宽 4px */
 .mini-plates { display: inline-flex; align-items: center; gap: 1px; height: 16px; vertical-align: middle; }
