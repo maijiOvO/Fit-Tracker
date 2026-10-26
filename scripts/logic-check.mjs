@@ -49,7 +49,6 @@ await build({
       "export { moveSetToExercise } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
-      "export { blueMilestones } from './src/utils/milestones.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
       "export { translations } from './translations.ts';",
@@ -626,23 +625,6 @@ t('横划：走够 20px 才接管、接管那一下不算档；之后每 10px �
   assert.equal(run([[115, 50]]).tr.engaged, false);
   // 斜着划（垂直方向更多）：放手
   assert.equal(run([[110, 75]]).released, true);
-});
-
-// ── 上片里程碑（「杠铃片」阶段二）：每边第一次挂上 N 片蓝 ─────────────────────
-t('上片里程碑：磅 135 / 225 / 315 关，跳级的一场把中间几关一起记上；kg 存储的尾巴（102.058）不吃掉一关', () => {
-  const lb = x => x / 2.20462;
-  const lift = { sessions: [
-    { ts: 1, top: { kg: lb(95), reps: 5 } },
-    { ts: 2, top: { kg: lb(135), reps: 5 } },
-    { ts: 3, top: { kg: lb(185), reps: 5 } },
-    { ts: 4, top: { kg: 102.058, reps: 3 } }, // 225 lb
-    { ts: 5, top: { kg: lb(320), reps: 1 } }, // 跳过 315 ——这一场同时记 3 片
-    { ts: 6, top: null },
-  ] };
-  assert.deepEqual(L.blueMilestones(lift, 'lbs'), [{ blues: 1, ts: 2 }, { blues: 2, ts: 4 }, { blues: 3, ts: 5 }]);
-  // 公斤：60 / 100 / 140；同一组数据按公斤算 135 lb ≈ 61.2 kg 过 60，225 lb ≈ 102 过 100
-  assert.deepEqual(L.blueMilestones(lift, 'kg').map(m => m.blues), [1, 2, 3]);
-  assert.deepEqual(L.blueMilestones({ sessions: [] }, 'kg'), []);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

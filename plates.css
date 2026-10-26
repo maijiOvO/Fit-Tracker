@@ -493,25 +493,7 @@
 .heat-pr::after { position: absolute; inset: 0; margin: auto; }
 .heat-pr-dot { display: inline-block; }
 
-/* 上片里程碑：镁粉牌（同刊末页 PB 牌），横排可滑 */
-.milestone-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
-.milestone {
-  flex: none;
-  min-width: 120px;
-  padding: 8px 10px;
-  border-radius: var(--radius-card);
-  background: var(--chalk);
-  border: 1px solid var(--text-on-chalk);
-  color: var(--text-on-chalk);
-}
-.milestone b { display: block; margin: 4px 0 2px; font-size: var(--fs-h2); font-weight: 700; line-height: 1.2; }
-/* 镁粉牌深浅主题都是白底，副字用定值的深灰（浅色的二级字色），跟主题走会在深色下变浅、看不清 */
-.milestone small { display: block; font-size: var(--fs-micro); color: #43474E; }
-/* 深色里一整块白牌太刺眼（同 PB 行）：改淡强调色底，字跟主题走 */
-.dark .milestone { background: var(--accent-soft); border-color: var(--accent); color: var(--text-primary); }
-.dark .milestone small { color: var(--text-secondary); }
-
-/* 小号配片（MiniPlates）：计划卡、里程碑用。一侧从里到外，高按直径比例，片宽 4px */
+/* 小号配片（MiniPlates）：计划卡用。一侧从里到外，高按直径比例，片宽 4px */
 .mini-plates { display: inline-flex; align-items: center; gap: 1px; height: 16px; vertical-align: middle; }
 .mini-plates .mini-rod { width: 8px; height: 3px; background: var(--bar-rod); }
 .mini-plates i { display: block; width: 4px; border-radius: 1px; box-shadow: inset 0 0 0 0.5px var(--plate-edge); }
