@@ -18,7 +18,6 @@ interface AddCustomExerciseModalProps {
   /** 器材与阻力（2026-10-20 起单选；resistance 不写 = 跟器材默认） */
   newExerciseEquip: { equipment: string; resistance?: Resistance };
   setNewExerciseEquip: (v: { equipment: string; resistance?: Resistance }) => void;
-  /** 细分（第 3 条）；'' = 未细分 */
   /** 细分，主细分在前；[] = 未细分 */
   newExerciseRegions: string[];
   setNewExerciseRegions: (ids: string[]) => void;
@@ -103,5 +102,3 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
     </Modal>
   );
 };
-
-export default AddCustomExerciseModal;

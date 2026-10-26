@@ -62,7 +62,7 @@ export const WEIGHT_STEP_OPTIONS = [1, 2.5, 5, 10] as const;
 export const DROP_STEP_OPTIONS = [2.5, 5, 10, 15] as const;
 
 /** 读取方一律经过这里拿默认值，AppPrefs 里只存用户改过的 */
-export const APP_PREF_DEFAULTS = {
+const APP_PREF_DEFAULTS = {
   weightStep: 5,
   dropStep: 5,
   cardioMetrics: ['duration', 'distance'],

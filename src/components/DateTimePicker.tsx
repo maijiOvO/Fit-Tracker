@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
-import { dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
+import { getDaysInMonth, getFirstDayOfMonth, rotateWeekdays } from '../utils/dateUtils';
 import { Modal, ModalFooter } from './Modal';
 
 interface DateTimePickerProps {
@@ -38,9 +38,6 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
   const [selectedMinute, setSelectedMinute] = useState(initialDate.getMinutes());
   const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
   const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
-
-  const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-  const getFirstDayOfMonth = (month: number, year: number) => dayOfWeekIndex(new Date(year, month, 1));
 
   const days = getDaysInMonth(currentMonth, currentYear);
   const firstDay = getFirstDayOfMonth(currentMonth, currentYear);
@@ -249,5 +246,3 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
     </Modal>
   );
 };
-
-export default DateTimePicker;

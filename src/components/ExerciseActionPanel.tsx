@@ -295,5 +295,3 @@ export const ExerciseActionPanel: React.FC<Props> = ({
     </div>
   );
 };
-
-export default ExerciseActionPanel;

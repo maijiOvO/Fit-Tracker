@@ -226,5 +226,3 @@ export function useExercisePickerData({
     noPart,
   };
 }
-
-export default useExercisePickerData;

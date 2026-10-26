@@ -179,5 +179,3 @@ export const RestBookmark: React.FC<Props> = ({ lang, onMove }) => {
     </div>
   );
 };
-
-export default RestBookmark;

@@ -12,13 +12,8 @@ import {
 import { Language } from '../../types';
 import { KG_TO_LBS } from '../constants';
 import { type ChartRange, type LiftSummary, rangeStart, trendPoints } from '../utils/liftHistory';
-import { formatSet, formatShown, metricLabel, metricUnit, toDisplay, trimNum as trim1 } from '../utils/liftDisplay';
+import { formatSet, formatShown, metricLabel, metricUnit, toDisplay, trimNum } from '../utils/liftDisplay';
 import { useTheme } from '../hooks/useTheme';
-
-/** 数值智能去零：80 而不是 80.00（§6.5） */
-function trimNum(v: number): string {
-  return String(Math.round(v * 10) / 10);
-}
 
 /**
  * 版画插图的两样零件：45° 斜线 pattern（取代渐变面积填充 —— 那是塑料感的来源），
@@ -126,7 +121,6 @@ function niceAxis(values: number[]): { domain: [number, number]; ticks: number[]
   return { domain: [lo, hi], ticks };
 }
 
-const tickNum = (v: number) => String(Math.round(v * 10) / 10);
 
 /** 窗口起点：'all' 从第一场稍往前一点 */
 function windowStart(range: ChartRange, firstTs: number, now: number) {
@@ -226,7 +220,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
           <YAxis
             domain={yAxis.domain}
             ticks={yAxis.ticks}
-            tickFormatter={metric === 'duration' ? (v: number) => formatShown('duration', v) : tickNum}
+            tickFormatter={metric === 'duration' ? (v: number) => formatShown('duration', v) : trimNum}
             fontSize={11}
             tick={{ fill: p.tick }}
             axisLine={false}
@@ -338,7 +332,7 @@ export function WeightTrendChart({ weightEntries, range, lang, unit }: WeightTre
           <YAxis
             domain={yAxis.domain}
             ticks={yAxis.ticks}
-            tickFormatter={tickNum}
+            tickFormatter={trimNum}
             fontSize={11}
             tick={{ fill: p.tick }}
             axisLine={false}
@@ -353,7 +347,7 @@ export function WeightTrendChart({ weightEntries, range, lang, unit }: WeightTre
               return (
                 <TooltipBox palette={p}>
                   <div style={{ color: p.tooltipLabel }}>{fullDate(pt.ts, isCn)}</div>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{trim1(pt.val)} {unit}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{trimNum(pt.val)} {unit}</div>
                 </TooltipBox>
               );
             }}

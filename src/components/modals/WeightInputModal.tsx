@@ -66,5 +66,3 @@ export const WeightInputModal: React.FC<WeightInputModalProps> = ({
     </Modal>
   );
 };
-
-export default WeightInputModal;

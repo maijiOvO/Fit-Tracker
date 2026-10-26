@@ -38,7 +38,6 @@ import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
 import {
-  BODY_PARTS,
   DEFAULT_EXERCISES,
   ExerciseCategory,
 } from './src/constants/exercises';
@@ -121,17 +120,8 @@ const LibrarySheet = lazy(() =>
 
 // 懒加载 Tab 组件
 const Dashboard = lazy(() => import('./src/components/Dashboard'));
-const ProfileTab = lazy(() =>
-  import('./src/components/ProfileTab').then(m => ({ default: m.default })),
-);
-const PlanTab = lazy(() =>
-  import('./src/components/PlanTab').then(m => ({ default: m.default })),
-);
-
-interface AppWithAuthProps {
-  /** 单机版固定传入 FITLOG_SOLO_USER_ID（保留接口便于测试） */
-  userId?: string;
-}
+const ProfileTab = lazy(() => import('./src/components/ProfileTab'));
+const PlanTab = lazy(() => import('./src/components/PlanTab'));
 
 const TabSuspenseFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -139,7 +129,7 @@ const TabSuspenseFallback: React.FC = () => (
   </div>
 );
 
-const AppWithAuth: React.FC<AppWithAuthProps> = props => {
+const AppWithAuth: React.FC = () => {
   const lang = useUserSettingsContext().lang;
   return (
     <UiOverlayProvider lang={lang}>
@@ -148,14 +138,14 @@ const AppWithAuth: React.FC<AppWithAuthProps> = props => {
         <FirstRunNotice />
         {/* 自动备份、重装恢复、CSV 导入的弹窗与后台时机 */}
         <DataSafetyHost />
-        <AppWithAuthShell {...props} />
+        <AppWithAuthShell />
       </ExercisePrefsProvider>
     </UiOverlayProvider>
   );
 };
 
-const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) => {
-  const resolvedUserId = propUserId || FITLOG_SOLO_USER_ID;
+const AppWithAuthShell: React.FC = () => {
+  const resolvedUserId = FITLOG_SOLO_USER_ID;
   const { toast } = useUiOverlay();
 
   const authCtx = useAuthContext();
@@ -200,7 +190,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
    * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）。
    */
   const createdExerciseTargetRef = useRef<((ex: ExerciseDefinition) => void) | null>(null);
-  /** 训练页弹层头部入口：标签管理（只管标签词表，不再进全屏动作库） */
 
   // ============== 训练页「添加动作」弹层 ==============
   /** 首选项「动作库与标签 ›」打开的那一个：只管动作库，一打开就是整理态 */
@@ -219,7 +208,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   const pendingFocusPartRef = useRef<string | null>(null);
   // 这一场开练时选的部位：给「添加动作」当默认栏。放 ref：打开弹层的回调是稳定的（[] 依赖），直接读会拿到旧闭包
   const sessionFocusPartRef = useRef<string | null>(null);
-  sessionFocusPartRef.current = currentWorkout?.focusPart ?? null;
+  sessionFocusPartRef.current = currentWorkout.focusPart ?? null;
   /** §12.4：经由 FAB 印谱选了「制」的训练 id —— 进页不再问部位、聚焦标题 */
   const [partPrechosenId, setPartPrechosenId] = useState<string | null>(null);
   const [sheetSessionAdded, setSheetSessionAdded] = useState(0);
@@ -323,7 +312,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     activeScheduleIdRef,
   } = useWorkoutMutations({
     setActiveTab,
-    reloadAfterSave: () => loadLocalData(resolvedUserId),
     getPreviousTab: () => previousTab,
     // 从纪录详情点进来的：详情留着（回来接着看），编辑页滚到那个动作（审查 B5）
     onEnterEditWorkout: focusId => {
@@ -536,7 +524,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
   // ============== 工作台一变就落盘（编辑旧训练的草稿除外，persistCurrentWorkout 自己认） ==============
   useEffect(() => {
-    if (currentWorkout?.exercises && currentWorkout.exercises.length > 0) {
+    if (currentWorkout.exercises && currentWorkout.exercises.length > 0) {
       workoutCtx.persistCurrentWorkout();
     }
   }, [currentWorkout, workoutCtx]);
@@ -618,8 +606,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         setShowWeightInput(true);
       },
       onEditWeight: triggerEditWeight,
-      onExportData: handleExportData,
-      onImportData: handleImportData,
     }),
     [
       handleEditWorkout,
@@ -687,12 +673,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       description: '',
       targetValue: newGoal.targetValue!,
       currentValue: newGoal.currentValue || 0,
-      unit:
-        newGoal.type === 'weight'
-          ? unit
-          : newGoal.type === 'strength'
-            ? unit
-            : 'times/week',
+      unit: newGoal.type === 'weight' || newGoal.type === 'strength' ? unit : 'times/week',
       startDate: now,
       targetDate: undefined,
       dataSource: 'manual',
@@ -736,7 +717,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
   }, [prefs, showMetricModal]);
 
   // ============== Time picker（单组时长） ==============
-  const openTimePicker = (exIdx: number, setIdx: number, _currentSeconds: number) => {
+  const openTimePicker = (exIdx: number, setIdx: number) => {
     setShowTimePicker({ exIdx, setIdx });
   };
 
@@ -845,7 +826,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         return false;
       }
       let created: string[] = [];
-      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false, {
+      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, {
         altGroup: pickerTargetGroup,
         variantId,
         onCreated: (ids, partnerNames) => {
@@ -917,7 +898,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       target(ex);
       return;
     }
-    const newId = addExerciseToWorkout(ex, false);
+    const newId = addExerciseToWorkout(ex);
     if (pickerSheetOpen) {
       lastAddedExerciseIdRef.current = newId;
       setSheetSessionAdded(n => n + 1);
@@ -951,10 +932,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     }),
     [openCreateCustomExerciseModal, prefs],
   );
-
-  // ============== 静音未使用 imports（保留以便未来扩展）==============
-  void BODY_PARTS;
-  void translations;
 
   // =========================================================
   // Render
@@ -1189,7 +1166,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             editingWorkoutId={editingWorkoutId}
             hasUnsavedChanges={hasUnsavedChanges}
             saveStatus={saveStatus}
-            previousTab={previousTab}
             exerciseNotes={prefs.exerciseNotes}
             resolveName={prefs.resolveName}
             getActiveMetrics={prefs.getActiveMetrics}
@@ -1371,17 +1347,17 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         card={
           showMetricModal?.exIdx != null
             ? {
-                variantId: currentWorkout?.exercises?.[showMetricModal.exIdx]
+                variantId: currentWorkout.exercises?.[showMetricModal.exIdx]
                   ? prefs.variantIdOf(currentWorkout.exercises[showMetricModal.exIdx])
                   : undefined,
-                gym: currentWorkout?.gym,
+                gym: currentWorkout.gym,
                 group: showMetricModal.group,
               }
             : undefined
         }
         gymSlotRef={setMetricGymSlot}
         focusGym={showMetricModal?.focus === 'gym'}
-        unit={unit === 'lbs' ? 'lbs' : 'kg'}
+        unit={unit}
         onToggleUnit={handleUnitToggle}
         onRename={
           metricModalDef
@@ -1438,7 +1414,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
       <DateTimePicker
         isOpen={showWorkoutDatePicker}
         lang={lang}
-        initialDate={currentWorkout?.date ? new Date(currentWorkout.date) : new Date()}
+        initialDate={currentWorkout.date ? new Date(currentWorkout.date) : new Date()}
         onClose={() => setShowWorkoutDatePicker(false)}
         onConfirm={(date) => {
           setCurrentWorkout({ ...currentWorkout, date: date.toISOString() });
@@ -1453,7 +1429,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
         startMode={!!gymStart}
         lang={lang}
         options={gymOptions}
-        current={gymStart ? undefined : currentWorkout?.gym}
+        current={gymStart ? undefined : currentWorkout.gym}
         onClose={() => {
           setShowGymPicker(false);
           setGymStart(null);
@@ -1482,7 +1458,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             // 工作台上那场（进行中的或编辑草稿）由下面 switchGym 换名字，进行中的那场随它落盘
             const stamp = new Date().toISOString();
             const hits = workouts.filter(w => w.gym === renamedFrom);
-            const liveId = !editingWorkoutId ? currentWorkout?.id : undefined;
+            const liveId = !editingWorkoutId ? currentWorkout.id : undefined;
             void Promise.all(
               hits.filter(w => w.id !== liveId).map(w => db.save('workouts', { ...w, gym: name, updatedAt: stamp })),
             )
@@ -1512,7 +1488,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
             return;
           }
           // 新的馆＝这场就用它；改的是今天这个馆＝没做完的组按新档案重新取整。别的馆只存档案，不动今天这场
-          const today = isNew || currentWorkout?.gym === name || (!!renamedFrom && currentWorkout?.gym === renamedFrom);
+          const today = isNew || currentWorkout.gym === name || (!!renamedFrom && currentWorkout.gym === renamedFrom);
           if (today) {
             // 今天这场在被改名的馆：先换成新名字再交给 switchGym（同一个馆，不按「换馆」重挑底稿，只按新档案重新取整）
             const base = renamedFrom && currentWorkout.gym === renamedFrom ? { ...currentWorkout, gym: name } : currentWorkout;
@@ -1542,7 +1518,7 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
 
       {user && activeTab !== 'new' && (
         <TabNavigation
-          activeTab={activeTab as 'dashboard' | 'new' | 'plan' | 'profile'}
+          activeTab={activeTab}
           onTabChange={setActiveTab}
           lang={lang}
           resume={inProgress}

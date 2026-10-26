@@ -4,7 +4,7 @@
 import { appPrefsNow } from '../../services/appPrefs';
 
 /** 首选项「每周开始于」：0 = 周日，1 = 周一（默认） */
-export const weekStartDay = (): 0 | 1 => (appPrefsNow().weekStart === 'sun' ? 0 : 1);
+const weekStartDay = (): 0 | 1 => (appPrefsNow().weekStart === 'sun' ? 0 : 1);
 
 /** d 是它那一周的第几天（0 = 一周的第一天，按首选项） */
 export const dayOfWeekIndex = (d: Date): number => (d.getDay() - weekStartDay() + 7) % 7;
@@ -70,30 +70,4 @@ export const formatExerciseTime = (time: string, lang: string): { date: string; 
       })
     };
   }
-};
-
-// 秒数转时分秒对象
-export const secondsToHMS = (totalSeconds: number): { h: number; m: number; s: number } => {
-  const h = Math.floor(totalSeconds / 3600);
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return { h, m, s };
-};
-
-// 时分秒对象转秒数
-export const hmsToSeconds = (h: number, m: number, s: number): number => {
-  return h * 3600 + m * 60 + s;
-};
-
-// 格式化秒数为 mm:ss 或 h:mm:ss
-export const formatTime = (seconds: number): string => {
-  if (seconds < 0) return '0:00';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  
-  if (h > 0) {
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-  return `${m}:${s.toString().padStart(2, '0')}`;
 };

@@ -67,5 +67,3 @@ export const RenameModal: React.FC<RenameModalProps> = ({
     </Modal>
   );
 };
-
-export default RenameModal;

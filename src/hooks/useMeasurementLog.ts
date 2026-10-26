@@ -18,9 +18,7 @@ export interface MeasurementForm {
 
 export interface UseMeasurementLogResult {
   showMeasureModal: boolean;
-  setShowMeasureModal: React.Dispatch<React.SetStateAction<boolean>>;
   editingMeasurementId: string | null;
-  setEditingMeasurementId: React.Dispatch<React.SetStateAction<string | null>>;
   measureForm: MeasurementForm;
   setMeasureForm: React.Dispatch<React.SetStateAction<MeasurementForm>>;
   expandedMetric: string | null;
@@ -94,7 +92,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
         userId: user.id,
         // 名字去掉首尾空格：「腰围 」和「腰围」原来会成两个指标
         name,
-        value: parseFloat(measureForm.value.toString()),
+        value: parseFloat(measureForm.value),
         unit: measureForm.unit.trim(),
         date: dateToUse,
         updatedAt: now,
@@ -158,9 +156,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
 
   return {
     showMeasureModal,
-    setShowMeasureModal,
     editingMeasurementId,
-    setEditingMeasurementId,
     measureForm,
     setMeasureForm,
     expandedMetric,

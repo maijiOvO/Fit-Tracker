@@ -19,7 +19,7 @@ import type { Exercise, SetLog, SubSetLog } from '../../types';
 import { fromSignedKg, signedKg } from './load';
 import { segmentName } from './nameSegments';
 
-export const isPending = (s: SetLog): boolean => !!s.ghost;
+const isPending = (s: SetLog): boolean => !!s.ghost;
 
 export interface WorkbenchCard {
   /** 单个动作＝动作 id；交替组＝'g:' + 组 id */
@@ -34,7 +34,7 @@ export interface RowRef {
 }
 
 /** 有没有填数：全零的组做完也记不下任何东西 */
-export function setHasValue(s: SetLog): boolean {
+function setHasValue(s: SetLog): boolean {
   const n = (v: unknown) => Number(v) > 0;
   return (
     ['weight', 'reps', 'duration', 'distance', 'score', 'time'].some(k => n((s as any)[k])) ||
@@ -90,18 +90,18 @@ export function cardRows(card: WorkbenchCard, exs: Exercise[]): RowRef[] {
     return ex ? ex.sets.map(s => ({ exId: ex.id, setId: String(s.id) })) : [];
   }
   const M = members.length;
-  const non: { r: RowRef; key: number; done: boolean; mi: number }[] = [];
+  const non: { r: RowRef; key: number; mi: number }[] = [];
   const queues: RowRef[][] = members.map(() => []);
   members.forEach((ex, mi) => {
     ex.sets.forEach((s, k) => {
       const r = { exId: ex.id, setId: String(s.id) };
       if (isPending(s)) queues[mi].push(r);
       // 没有 seq 的（旧数据 / 接回来的训练）按轮换位次排在前面；seq 是时间戳，天然排在它们之后
-      else non.push({ r, key: s.seq ?? k * M + mi, done: !s.ghost, mi });
+      else non.push({ r, key: s.seq ?? k * M + mi, mi });
     });
   });
   non.sort((a, b) => a.key - b.key);
-  const lastDone = [...non].reverse().find(x => x.done);
+  const lastDone = non[non.length - 1];
   let k = lastDone ? (lastDone.mi + 1) % M : 0;
   const pend: RowRef[] = [];
   while (queues.some(q => q.length)) {
@@ -223,7 +223,7 @@ function sweepCard(exs: Exercise[], card: WorkbenchCard, gap: number): Exercise[
 }
 
 /** 指针此刻所在的卡（它正上方那一行所在的卡）；一组都没做过时为 null */
-export function pointerCard(exs: Exercise[]): WorkbenchCard | null {
+function pointerCard(exs: Exercise[]): WorkbenchCard | null {
   const P = pointerIndex(exs);
   if (P === 0) return null;
   const key = flatRows(exs)[P - 1].cardKey;

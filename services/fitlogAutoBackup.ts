@@ -22,8 +22,9 @@ import {
   type FolderFile,
   type FolderRef,
 } from './fitlogFolder';
-import { storage } from './appStorage';
+import { parseJsonOr, storage } from './appStorage';
 import { getDataEnv } from './appEnv';
+import { pad2 } from '../src/utils/format';
 
 const FOLDER_KEY = 'fitlog_backup_folder';
 const STATUS_KEY = 'fitlog_backup_status';
@@ -52,13 +53,7 @@ export interface BackupStatus {
 // ============ 状态 ============
 
 function readJson<T>(key: string): T | null {
-  const raw = storage.getItem(key);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
+  return parseJsonOr<T | null>(storage.getItem(key), null);
 }
 
 export function getBackupFolder(): FolderRef | null {
@@ -89,11 +84,9 @@ export function markBackupPending(): void {
 
 // ============ 命名 ============
 
-const pad = (n: number) => String(n).padStart(2, '0');
-
 /** fitlog-backup-2026-10-20-1832.json（本地时间）；dev 数据环境多一段 dev */
-export function autoBackupName(when = new Date(), env = getDataEnv()): string {
-  const stamp = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}-${pad(when.getHours())}${pad(when.getMinutes())}`;
+function autoBackupName(when = new Date(), env = getDataEnv()): string {
+  const stamp = `${when.getFullYear()}-${pad2(when.getMonth() + 1)}-${pad2(when.getDate())}-${pad2(when.getHours())}${pad2(when.getMinutes())}`;
   return `fitlog-${env === 'dev' ? 'dev-' : ''}backup-${stamp}.json`;
 }
 
@@ -116,7 +109,7 @@ export function parseAutoBackupName(file: FolderFile): NamedBackup | null {
 
 // ============ 保留规则 ============
 
-const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dayKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
 
 /**
@@ -169,7 +162,7 @@ function maxStamp(rows: Array<Record<string, unknown>> | undefined): string {
 }
 
 /** 各表条数 + 最新修改时间 + prefs 时间戳。够判断「这一天有没有动过数据」，不追求精确 */
-export function snapshotFingerprint(file: FitlogBackupFile): string {
+function snapshotFingerprint(file: FitlogBackupFile): string {
   const s = file.snapshot;
   const p = s.prefs as unknown as Record<string, unknown>;
   return JSON.stringify([

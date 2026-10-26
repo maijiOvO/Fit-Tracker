@@ -56,6 +56,16 @@ export const storage = {
   },
 };
 
+/** 读 JSON 字串：空 / 解析失败给 fallback（'null' 解析出的 null 照样返回，和 JSON.parse 一致） */
+export function parseJsonOr<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 undoJournal.setIo({
   getKey: key => storage.getItem(key),
   setKey: (key, value) => {

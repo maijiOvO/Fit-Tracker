@@ -40,5 +40,3 @@ export const UndoRedoButtons: React.FC<Props> = ({ isCn }) => {
     </div>
   );
 };
-
-export default UndoRedoButtons;

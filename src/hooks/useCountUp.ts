@@ -11,8 +11,6 @@
 import { useEffect, useRef, useState } from 'react';
 
 interface Options {
-  /** 起始值，默认 0 */
-  from?: number;
   durationMs?: number;
   /** 小数位 */
   decimals?: number;
@@ -20,8 +18,8 @@ interface Options {
   disabled?: boolean;
 }
 
-export function useCountUp(to: number, { from = 0, durationMs = 700, decimals = 0, disabled }: Options = {}) {
-  const [value, setValue] = useState(disabled ? to : from);
+export function useCountUp(to: number, { durationMs = 700, decimals = 0, disabled }: Options = {}) {
+  const [value, setValue] = useState(disabled ? to : 0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -39,13 +37,13 @@ export function useCountUp(to: number, { from = 0, durationMs = 700, decimals = 
     }
 
     const start = performance.now();
-    const delta = to - from;
+    const delta = to;
     let done = false;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / durationMs);
       // easeOutCubic：末尾放缓，读数看得清
       const eased = 1 - Math.pow(1 - t, 3);
-      setValue(from + delta * eased);
+      setValue(delta * eased);
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
       else done = true;
     };
@@ -71,7 +69,7 @@ export function useCountUp(to: number, { from = 0, durationMs = 700, decimals = 
       window.clearTimeout(guard);
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [to, from, durationMs, disabled]);
+  }, [to, durationMs, disabled]);
 
   return decimals > 0 ? value.toFixed(decimals) : String(Math.round(value));
 }

@@ -32,7 +32,7 @@ export class CsvImportError extends Error {
 // ============ CSV ============
 
 /** RFC 4180：引号里可以有分隔符、换行、"" 转义。去掉 BOM。 */
-export function parseCsv(text: string, delimiter: string): string[][] {
+function parseCsv(text: string, delimiter: string): string[][] {
   const s = text.replace(/^﻿/, '');
   const rows: string[][] = [];
   let row: string[] = [];
@@ -466,7 +466,7 @@ function tokens(name: string): string {
  * 外来动作名 → fitlog 的动作定义。先看已有的名字（用户之前导入 / 自建过同名的），
  * 再看手工表，最后按词集合比对内置英文名和曾用名。对不上返回 undefined（调用方新建自定义动作）。
  */
-export function matchExercise(
+function matchExercise(
   srcName: string,
   defs: ExerciseDefinition[],
   findByName: (name: string) => ExerciseDefinition | undefined,

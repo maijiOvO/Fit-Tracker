@@ -32,5 +32,3 @@ export function useKeyboardInset(enabled: boolean): number {
 
   return enabled ? inset : 0;
 }
-
-export default useKeyboardInset;

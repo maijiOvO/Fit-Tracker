@@ -18,23 +18,17 @@ import {
   sessionMetric,
   sessionMetricSet,
 } from '../utils/liftHistory';
-import { formatLoad, formatMetric, formatSet, metricLabel, metricUnit, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { CHART_RANGES, formatLoad, formatMetric, formatSet, metricLabel, metricUnit, rangeLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { plural } from '../utils/format';
 import { storage } from '../../services/appStorage';
 
 const LiftTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.LiftTrendChart })));
 
 const RANGE_STORAGE_KEY = 'fitlog_lift_chart_range';
-const RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
-const rangeLabel = (r: ChartRange, isCn: boolean) =>
-  ({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r];
 
 function savedRange(): ChartRange | null {
-  try {
-    const saved = storage.getItem(RANGE_STORAGE_KEY);
-    if (saved && (RANGES as string[]).includes(saved)) return saved as ChartRange;
-  } catch {}
-  return null;
+  const saved = storage.getItem(RANGE_STORAGE_KEY);
+  return saved && (CHART_RANGES as string[]).includes(saved) ? (saved as ChartRange) : null;
 }
 
 /** 没选过范围时：历史不到半年看全部，再长先看半年 */
@@ -55,7 +49,7 @@ interface LiftDetailSheetProps {
   activeMetrics: string[];
   metric: string | undefined;
   onMetricChange: (metric: string) => void;
-  renderSetCapsule: (s: any, exerciseName: string, ex: unknown, idx: number) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, idx: number) => React.ReactNode;
   formatExerciseTime: (iso: string, lang: 'cn' | 'en') => { time: string };
   onEditExerciseTime: (workoutId: string, exerciseId: string, initial: Date) => void;
   /** exerciseId：编辑页打开后滚到这个动作 */
@@ -106,7 +100,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
 
   const chooseRange = (r: ChartRange) => {
     setChosenRange(r);
-    try { storage.setItem(RANGE_STORAGE_KEY, r); } catch {}
+    storage.setItem(RANGE_STORAGE_KEY, r);
   };
 
   const l = lift ?? shown;
@@ -212,7 +206,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
             ))}
         </div>
         <div className="flex gap-0.5 bg-inset rounded-control p-0.5" role="group">
-          {RANGES.map(r => (
+          {CHART_RANGES.map(r => (
             <button
               key={r}
               type="button"
@@ -273,7 +267,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                       {s.gym && <span className="px-2 py-0.5 rounded-chip bg-inset text-secondary">{s.gym}</span>}
                       {s.fromSchedule && (
                         <span className="px-2 py-0.5 rounded-chip bg-accent-soft text-accent font-medium">
-                          {translations.planBadgeFaithful?.[lang] ?? (isCn ? '来自计划' : 'From plan')}
+                          {translations.planBadgeFaithful[lang]}
                         </span>
                       )}
                       {s.exerciseTime && (
@@ -288,7 +282,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {s.sets.map((set, i) => renderSetCapsule(set, s.exercise.name, s.exercise, i))}
+                    {s.sets.map((set, i) => renderSetCapsule(set, s.exercise.name, i))}
                   </div>
                   {l.hasWeight && !l.signed && s.e1rm && (
                     <p className="text-xs text-tertiary">

@@ -1,4 +1,3 @@
-import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -45,11 +44,6 @@ export default defineConfig(({ mode }) => {
           env.VITE_FITLOG_SOLO === 'true',
         ),
       ],
-      resolve: {
-        alias: {
-          '@': path.resolve(__dirname, '.'),
-        }
-      },
       build: {
         rollupOptions: {
           output: {
@@ -61,8 +55,7 @@ export default defineConfig(({ mode }) => {
             }
           }
         },
-        // recharts 和 react-calendar-heatmap 不在 manualChunks 中
-        // 它们会被懒加载的 Dashboard 组件自动分离到异步 chunk
+        // recharts 不在 manualChunks 中：它会被懒加载的 Dashboard 组件自动分离到异步 chunk
         chunkSizeWarningLimit: 400,
       }
     };

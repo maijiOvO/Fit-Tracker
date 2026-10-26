@@ -84,5 +84,3 @@ export const NoteModal: React.FC<NoteModalProps> = ({ open, lang, data, setData,
     </Modal>
   );
 };
-
-export default NoteModal;

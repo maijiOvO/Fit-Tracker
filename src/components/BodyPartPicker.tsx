@@ -41,7 +41,7 @@ export type BodyPartKey = 'chest' | 'shoulders' | 'back' | 'legs' | 'arms' | 'ot
  * 2026-10-22 起印面是正文粗体（Noto Sans SC 700），马善政书法字退役（「杠铃片」阶段二），
  * 不再有「字必须进印章子集」的限制。
  */
-export const PARTS: {
+const PARTS: {
   key: BodyPartKey;
   seal: string;
   /** 英文印面。取标签首字母，六枚 C S B L A O 互不相同。 */
@@ -165,5 +165,3 @@ export const BodyPartPicker: React.FC<BodyPartPickerProps> = ({ lang, onPick, on
     </section>
   );
 };
-
-export default BodyPartPicker;

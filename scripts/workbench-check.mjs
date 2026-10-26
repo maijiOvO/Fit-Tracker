@@ -237,6 +237,16 @@ t('点组号：交替组里按轮换扫过去', () => {
   assert.equal(read(exs), 'A1[D] B1[D] A2[D] | B2[p]');
 });
 
+t('交替组行序：待做的从「最后一条做完（seq 最大）的成员」的下一位开始轮换', () => {
+  // B1 最后做完（seq 2）→ 轮到 A：A2 在 B2 前面
+  let exs = W.groupExercises([ex('A', [[1, 1], [1, 1]]), ex('B', [[2, 2], [2, 2]])], ['A', 'B']);
+  exs = fill(fill(exs, 'A1', { ghost: false, seq: 1 }), 'B1', { ghost: false, seq: 2 });
+  assert.equal(read(exs), 'A1[D] B1[D] | A2[p] B2[p]');
+  // 反过来 A1 最后做完 → 轮到 B：B2 在 A2 前面（做完的按 seq 排，B1 先）
+  exs = fill(fill(exs, 'A1', { seq: 2 }), 'B1', { seq: 1 });
+  assert.equal(read(exs), 'B1[D] A1[D] | B2[p] A2[p]');
+});
+
 t('改值：重量保持差值带后面没动过的待做底稿，次数只带原值相同的；改过的、做完的不跟', () => {
   const r = exs => W.flatRows(exs)[0];
   // 全是 60：改第 1 组（待做）→ 后面全跟；跟着变的不记 touched

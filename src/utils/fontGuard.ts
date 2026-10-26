@@ -30,9 +30,6 @@ const DEADLINE_MS = 6000;
  *    英文印面却搭在正文那张 optional 的衬线上 —— 错过窗口就落成系统衬线，
  *    而「印章的全部意义就是那个字形」。实测三张正文字体是一起赢一起输的，
  *    但那是观察不是保证，多探一张的成本只有一个隐藏 span。
- *
- * ⚠️ 衬线的字重轴只切了 600–700，探针必须用 700：给 400 会落到默认实例上，
- *    量出来的宽度不代表真实使用的那一档。
  */
 function bodyFontApplied(): boolean {
   const mk = (family: string, text: string, weight = 400) => {

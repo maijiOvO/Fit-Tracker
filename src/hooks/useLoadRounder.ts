@@ -9,6 +9,7 @@
  * 换算常数和 SetCapsule.formatWeight 用同一个（2.20462），否则 kg → 显示值 → kg 来回会在等距点上翻转。
  */
 import { useCallback } from 'react';
+import { KG_TO_LBS } from '../constants';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import type { Exercise, SetLog, SubSetLog } from '../../types';
@@ -20,6 +21,7 @@ import {
   isLoadable,
   nearest,
   profileIn,
+  r2,
   startIn,
   snap,
   stepOf,
@@ -30,8 +32,7 @@ import {
 } from '../utils/loadable';
 import { fromSignedKg, setSign, signedKg, usesSignedLoad } from '../utils/load';
 
-const K = 2.20462;
-const r2 = (v: number) => Math.round(v * 100) / 100;
+const K = KG_TO_LBS;
 
 export interface ExRounder {
   info: LoadInfo;
@@ -54,10 +55,6 @@ export interface ExRounder {
   bracketD: (d: number) => { lo: number; hi: number };
   /** 带符号 kg 层面的取整（自动生成的重量用它） */
   snapKg: (kg: number) => number;
-}
-
-export function gymOverrideKey(gym: string | undefined, info: Pick<LoadInfo, 'defId' | 'variantId'>): string | null {
-  return gymMachineKey(gym, info);
 }
 
 /**
@@ -93,7 +90,7 @@ export function useLoadRounder(): RounderFor {
       if (info.kind === 'plain') return null;
       // 格子按这件器械的片子单位算（显示 lb 的 kg 馆，± / 取整照样落在这个馆挂得出的重量上，审查 A9）
       const profile = gym ? (gymsOverride ?? gyms)[gym] : undefined;
-      const okey = gymOverrideKey(gym, info);
+      const okey = gymMachineKey(gym, info);
       const ov = okey ? overrides[okey] : undefined;
       const u: PlateUnit = ownUnitOf(info, profile, ov) ?? profile?.plateUnit ?? du;
       const prof = profileIn(profile, u);

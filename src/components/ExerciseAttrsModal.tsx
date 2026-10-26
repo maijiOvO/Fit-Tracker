@@ -70,5 +70,3 @@ export const ExerciseAttrsModal: React.FC<ExerciseAttrsModalProps> = ({ open, ex
     </Modal>
   );
 };
-
-export default ExerciseAttrsModal;

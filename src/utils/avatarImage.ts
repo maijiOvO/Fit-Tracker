@@ -5,7 +5,7 @@
  * 换一张手机原图就会写满，之后标签、改名、单位等写入都被静默吞掉。
  * 头像只在圆形 object-cover 里显示，所以居中裁成正方形再缩，看起来和原图一样，只有几十 KB。
  */
-export const AVATAR_PX = 256;
+const AVATAR_PX = 256;
 
 /** 超过这么长的已存头像当成旧的原图，启动时缩一次 */
 export const AVATAR_LEGACY_MIN_CHARS = 150_000;

@@ -45,7 +45,7 @@ test-artifacts/
 assets/icon.png
 
 # 字体源文件（252MB 第三方 TTF，构建输入而非产物）
-# 现用：Noto Sans SC（可变）、Smiley Sans（得意黑）、Barlow Condensed、Ma Shan Zheng，清单见 scripts/build-fonts.mjs
+# 现用：Noto Sans SC（可变）、Smiley Sans（得意黑）、Barlow Condensed，清单见 scripts/build-fonts.mjs
 # 开头的 / 是关键：裸 `fonts/` 会连 public/fonts/ 一起忽略掉，
 # 而那里的子集 woff2 产物必须提交（新克隆没有源文件，构建脚本会跳过子集化）。
 /fonts/

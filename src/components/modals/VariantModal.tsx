@@ -281,5 +281,3 @@ export const VariantModal: React.FC<VariantModalProps> = ({
     </Modal>
   );
 };
-
-export default VariantModal;

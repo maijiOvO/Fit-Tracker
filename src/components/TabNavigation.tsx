@@ -19,11 +19,11 @@ interface TabNavigationProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   lang: Language;
-  onStartWorkout?: () => void;
+  onStartWorkout: () => void;
   /** 有进行中的训练：FAB 是「回到训练」（不扇开印谱，点了直接回工作台） */
   resume?: boolean;
   /** §12.4：印谱扇开选中某枚印。title=训练名（「⋯」其他为 null，进页后写名字） */
-  onStartWorkoutWithPart?: (partKey: BodyPartKey, title: string | null) => void;
+  onStartWorkoutWithPart: (partKey: BodyPartKey, title: string | null) => void;
 }
 
 /* ── 扇形几何（真机调过的值） ── */
@@ -77,10 +77,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
 }) => {
   const isCn = lang === Language.CN;
 
-  const handleStartClick = () => {
-    if (onStartWorkout) onStartWorkout();
-    else onTabChange('new');
-  };
+  const handleStartClick = () => onStartWorkout();
 
   /* ── 印谱扇开状态机 ── */
   const fabRef = useRef<HTMLButtonElement | null>(null);
@@ -122,7 +119,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const openFan = useCallback(() => {
     openTimerRef.current = null;
     const fab = fabRef.current;
-    if (!fab || !onStartWorkoutWithPart) return;
+    if (!fab) return;
     const r = fab.getBoundingClientRect();
     const cx = r.left + r.width / 2;
     const cy = r.top + r.height / 2;
@@ -174,7 +171,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   const commit = useCallback(
     (idx: number, list: FanSeal[]) => {
       const s = list[idx];
-      if (!s || !onStartWorkoutWithPart) return;
+      if (!s) return;
       suppressClickAtRef.current = performance.now();
       hoveredValRef.current = null;
       setHovered(null);
@@ -189,7 +186,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   );
 
   const onFabPointerDown = (e: React.PointerEvent) => {
-    if (!e.isPrimary || !onStartWorkoutWithPart) return;
+    if (!e.isPrimary) return;
     if (fanState !== 'idle') return;
     pidRef.current = e.pointerId;
     downTRef.current = performance.now();

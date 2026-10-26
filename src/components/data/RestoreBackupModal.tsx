@@ -91,12 +91,9 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     try {
       const text = await readText(e.file.uri);
       const parsed = parseBackupFile(text);
-      let exportedAt: string | undefined;
-      try {
-        exportedAt = JSON.parse(text).exportedAt ?? JSON.parse(text).exportDate;
-      } catch {
-        /* parseBackupFile 已经过了，这里不会到 */
-      }
+      // parseBackupFile 已经 JSON.parse 过且要求是对象，这里不会抛
+      const json = JSON.parse(text);
+      const exportedAt: string | undefined = json.exportedAt ?? json.exportDate;
       return { ...e, parsed, exportedAt };
     } catch {
       return { ...e, bad: true };
@@ -161,7 +158,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
         await choose();
       }
     })();
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const pick = async (i: number) => {
     const e = await load(entries[i]);

@@ -14,7 +14,7 @@ import { translations } from '../../translations';
 import { combineVariants, layerAttrs } from './exerciseAttrs';
 
 /** 内置器材的中英文名（认「用户早先自己建的同名做法」用） */
-export function equipmentNames(id: string): string[] {
+function equipmentNames(id: string): string[] {
   const t = (translations as Record<string, { cn: string; en: string } | undefined>)[id];
   return t ? [t.cn, t.en] : [];
 }

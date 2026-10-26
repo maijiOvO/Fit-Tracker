@@ -173,5 +173,3 @@ export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, va
     </div>
   );
 };
-
-export default RegionChooser;

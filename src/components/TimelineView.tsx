@@ -17,17 +17,18 @@ import {
   Play,
 } from 'lucide-react';
 import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
-
-/** 刚结束 10 分钟内：长按菜单给「继续这场」 */
-const justEnded = (w: { finishedAt?: string }) =>
-  !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
-import { Language, WorkoutSession, Exercise } from '../../types';
+import { Language, WorkoutSession } from '../../types';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
 import { dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
+import { realSets } from '../utils/prDetect';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+
+/** 刚结束 10 分钟内：长按菜单给「继续这场」 */
+const justEnded = (w: { finishedAt?: string }) =>
+  !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
 
@@ -36,8 +37,7 @@ interface TimelineViewProps {
   workouts: WorkoutSession[];
   granularity: TimelineGranularity;
   onGranularityChange: (g: TimelineGranularity) => void;
-  resolveName: (name: string) => string;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
   onEditWorkout: (workoutId: string) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
   /** 删整场：一律先确认（2026-10-25） */
@@ -48,11 +48,6 @@ interface TimelineViewProps {
   onResumeFinished: (workoutId: string) => void;
   /** 把这场的结构铺成今天的一次新训练（全部为底稿），进工作台 */
   onCopyToToday: (workoutId: string) => void;
-}
-
-/** 底稿行不算数据（§12.6）：未收尾的草稿场次里可能带着 ghost 行 */
-function realSets(ex: Exercise): Exercise['sets'] {
-  return (ex.sets ?? []).filter((s: any) => !s.ghost);
 }
 
 /**
@@ -150,8 +145,7 @@ interface SessionCardProps {
   lang: Language;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  resolveName: (name: string) => string;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
   onEdit: () => void;
   onAppend: () => void;
   onDelete: () => void;
@@ -538,7 +532,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   // 一组一整行：以前是胶囊时代的 flex-wrap，每行按内容收窄（254 / 218px 各不相同），
                   // 同一个动作里 41.89 和 132.28 的列宽不一样，数字和单位对不齐（2026-10-22 界面审查）
                   <div className="flex flex-col gap-1.5 [&>*]:w-full">
-                    {sets.map((s, i) => renderSetCapsule(s, ex.name, ex, i))}
+                    {sets.map((s, i) => renderSetCapsule(s, ex.name, i))}
                   </div>
                 )}
               </div>
@@ -577,7 +571,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   workouts,
   granularity,
   onGranularityChange,
-  resolveName,
   renderSetCapsule,
   onEditWorkout,
   onAddExerciseToWorkout,
@@ -727,7 +720,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onToggleExpand={() =>
                     setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
                   }
-                  resolveName={resolveName}
                   renderSetCapsule={renderSetCapsule}
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
@@ -792,7 +784,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onToggleExpand={() =>
                     setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
                   }
-                  resolveName={resolveName}
                   renderSetCapsule={renderSetCapsule}
                   onEdit={() => onEditWorkout(w.id)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
@@ -812,5 +803,3 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     </div>
   );
 };
-
-export default TimelineView;

@@ -18,7 +18,7 @@ import type {
   Measurement,
   ScheduledWorkout,
 } from '../types';
-import { storage } from './appStorage';
+import { parseJsonOr, storage } from './appStorage';
 import { mergeAppPrefs, readAppPrefs, writeAppPrefs } from './appPrefs';
 import { getDataEnv, isOffline, statePath } from './appEnv';
 import { migrateCableTags } from '../src/utils/cableTagMigration';
@@ -69,32 +69,24 @@ const PROD_API_KEY = import.meta.env.VITE_API_KEY || '';
 const DEV_API_KEY =
   (import.meta.env.MODE === 'development' ? import.meta.env.VITE_API_KEY_DEV : undefined) || PROD_API_KEY;
 
-/**
- * 当前数据环境对应的凭据。
- * 助手客户端（/api/chat，两把 key 都放行）也复用它，
- * 免得开发机只配了 dev key 时助手用不了。
- */
-export function apiKey(): string {
+/** 当前数据环境对应的凭据。 */
+function apiKey(): string {
   return getDataEnv() === 'dev' ? DEV_API_KEY : PROD_API_KEY;
 }
 
 /** 兼容旧调用点（App.tsx / ProfileTab）—— 判定逻辑已统一到 services/appEnv.ts */
-export { isDevMode, setDevMode, isEnvLocked, getDataEnv } from './appEnv';
+export { isDevMode, isEnvLocked, getDataEnv } from './appEnv';
 
-/** 状态端点路径：完全由数据环境决定，不再接受任意的环境变量覆盖。 */
-export function resolveStatePath(): string {
-  return statePath();
-}
 
 /** 允许 .env 里写裸 IP/域名，自动补 https:// */
-export function normalizeApiBaseUrl(raw: string): string {
+function normalizeApiBaseUrl(raw: string): string {
   const t = raw.trim();
   if (!t) return '';
   if (/^https?:\/\//i.test(t)) return t.replace(/\/$/, '');
   return `https://${t.replace(/\/$/, '')}`;
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
+const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
 
 export function isRemoteConfigured(): boolean {
   // 断网构建（demo / solo）永不联网：这里返回 false，调度器 / pull / push / 同步按钮
@@ -236,7 +228,7 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
 export async function fetchRemoteSnapshotResult(): Promise<RemoteSnapshotResult> {
   if (!isRemoteConfigured()) return { status: 'empty' };
 
-  const path = resolveStatePath();
+  const path = statePath();
   try {
     // 20 秒超时（审查 A26）：NAS / 隧道挂住时 GET 一直不回，启动拉取和之后每次推送前的拉取都会被它卡死
     const response = await remoteFetch('GET', path, undefined, 20000);
@@ -271,7 +263,7 @@ export async function fetchRemoteSnapshotResult(): Promise<RemoteSnapshotResult>
 
 export async function putRemoteSnapshot(snapshot: FitlogRemoteSnapshot): Promise<void> {
   if (!isRemoteConfigured()) return;
-  const path = resolveStatePath();
+  const path = statePath();
   const payload: FitlogRemoteSnapshot = {
     ...snapshot,
     env: getDataEnv(),
@@ -288,7 +280,7 @@ export async function putRemoteSnapshot(snapshot: FitlogRemoteSnapshot): Promise
 }
 
 function entityUpdatedMs(w: WorkoutSession): number {
-  const ts = (w as { updatedAt?: string }).updatedAt || (w as { createdAt?: string }).createdAt || w.date;
+  const ts = w.updatedAt || w.createdAt || w.date;
   return new Date(ts).getTime();
 }
 
@@ -313,7 +305,7 @@ function scheduleUpdatedMs(s: ScheduledWorkout): number {
   return new Date(s.updatedAt || s.createdAt || s.date).getTime();
 }
 
-export function mergeByIdPreferNewer<T extends { id: string }>(
+function mergeByIdPreferNewer<T extends { id: string }>(
   local: T[],
   remote: T[],
   getTs: (x: T) => number,
@@ -430,24 +422,15 @@ export function mergeFitlogPrefs(
   };
 }
 
-function readParsed<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
   return {
-    customTags: readParsed(storage.getItem('fitlog_custom_tags'), []),
-    customExercises: readParsed(storage.getItem('fitlog_custom_exercises'), []),
-    exerciseNotes: readParsed(storage.getItem('fitlog_exercise_notes'), {}),
-    starredExercises: readParsed(storage.getItem('fitlog_starred_exercises'), {}),
-    exerciseMetricConfigs: readParsed(storage.getItem('fitlog_metric_configs'), {}),
-    tagRenameOverrides: readParsed(storage.getItem('fitlog_tag_rename_overrides'), {}),
-    exerciseOverrides: readParsed(storage.getItem('fitlog_exercise_overrides'), {}),
+    customTags: parseJsonOr(storage.getItem('fitlog_custom_tags'), []),
+    customExercises: parseJsonOr(storage.getItem('fitlog_custom_exercises'), []),
+    exerciseNotes: parseJsonOr(storage.getItem('fitlog_exercise_notes'), {}),
+    starredExercises: parseJsonOr(storage.getItem('fitlog_starred_exercises'), {}),
+    exerciseMetricConfigs: parseJsonOr(storage.getItem('fitlog_metric_configs'), {}),
+    tagRenameOverrides: parseJsonOr(storage.getItem('fitlog_tag_rename_overrides'), {}),
+    exerciseOverrides: parseJsonOr(storage.getItem('fitlog_exercise_overrides'), {}),
     starredLastUpdateMs: Number.parseInt(storage.getItem('fitlog_starred_last_update') || '0', 10) || 0,
     metricsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_metrics_last_update') || '0', 10) || 0,
     prefsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_prefs_last_update') || '0', 10) || 0,

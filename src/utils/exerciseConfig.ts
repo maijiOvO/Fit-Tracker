@@ -21,14 +21,14 @@ export function distFromDisplay(metric: string, v: number): number {
   return v;
 }
 
-export const DEFAULT_INSTANCE_CONFIG: NonNullable<Exercise['instanceConfig']> = {
+const DEFAULT_INSTANCE_CONFIG: NonNullable<Exercise['instanceConfig']> = {
   enablePyramid: false,
   bodyweightMode: 'none',
   pyramidMode: 'decreasing',
   autoCalculateSubSets: false,
 };
 
-export function getExerciseConfig(
+function getExerciseConfig(
   exercise: Exercise,
 ): NonNullable<Exercise['instanceConfig']> {
   return exercise.instanceConfig || DEFAULT_INSTANCE_CONFIG;

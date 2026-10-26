@@ -13,7 +13,7 @@ import { MiniPlates, planSide, plateWords } from './MiniPlates';
 import { barWeight } from '../utils/plates';
 import { EQ_BARBELL } from '../utils/exerciseAttrs';
 import { haptic, H } from '../utils/haptics';
-import { dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
+import { dayOfWeekIndex, localYmd, rotateWeekdays } from '../utils/dateUtils';
 
 /* ── 翻月横滑 §12.9：松手判定与弹层同一套速度投影数学（§5.3） ── */
 /** 横向位移 ≥12px 且横>竖才认定是翻月（同 §12.3 scrub 的 12px 规则） */
@@ -31,13 +31,6 @@ interface ScheduleViewProps {
   customTags: CustomTag[];
   onStartScheduledSession: (scheduleId: string) => void;
   pickerHost: PlanPickerHost;
-}
-
-function toLocalISODate(d: Date): string {
-  const yr = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const da = String(d.getDate()).padStart(2, '0');
-  return `${yr}-${mo}-${da}`;
 }
 
 function buildMonthGrid(viewMonth: Date): { date: Date; inMonth: boolean }[] {
@@ -79,7 +72,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
 
   const today = useMemo(() => new Date(), []);
   const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDate, setSelectedDate] = useState<string>(toLocalISODate(today));
+  const [selectedDate, setSelectedDate] = useState<string>(localYmd(today));
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorTarget, setEditorTarget] = useState<ScheduledWorkout | null>(null);
@@ -253,7 +246,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
             onClick={() => {
               const t = new Date();
               setViewMonth(new Date(t.getFullYear(), t.getMonth(), 1));
-              setSelectedDate(toLocalISODate(t));
+              setSelectedDate(localYmd(t));
             }}
             className="text-xs px-2 py-1 rounded-chip border border-divider text-secondary hover:text-primary hover:bg-card-hover transition-colors"
           >
@@ -299,10 +292,10 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                   className="w-1/3 flex-none grid grid-cols-7 gap-1"
                 >
                   {buildMonthGrid(month).map(({ date, inMonth }) => {
-                    const iso = toLocalISODate(date);
+                    const iso = localYmd(date);
                     const list = schedulesByDate(iso);
                     const isSelected = iso === selectedDate;
-                    const isToday = iso === toLocalISODate(today);
+                    const isToday = iso === localYmd(today);
                     const hasPlanned = list.some(x => x.status === 'planned');
                     const hasDone = list.some(x => x.status === 'completed');
                     return (

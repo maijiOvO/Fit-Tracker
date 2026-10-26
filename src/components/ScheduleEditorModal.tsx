@@ -108,7 +108,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
     (ex: ExerciseDefinition): string => {
       const id = makeId('sex');
       const cat = (ex.category as ExerciseCategory) || 'STRENGTH';
-      const name = ex.name?.[lang] || ex.name?.cn || ex.name?.en || '';
+      const name = ex.name[lang] || ex.name.cn || ex.name.en || '';
       // 把所选动作的标签信息（部位/器材）携带进来，便于聚合显示
       setExercises(prev => [
         ...prev,

@@ -210,5 +210,3 @@ export const WorkoutColophon: React.FC<Props> = ({
     document.body,
   );
 };
-
-export default WorkoutColophon;

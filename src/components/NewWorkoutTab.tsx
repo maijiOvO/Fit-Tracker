@@ -64,7 +64,6 @@ export interface NewWorkoutTabProps {
   editingWorkoutId: string | null;
   hasUnsavedChanges: boolean;
   saveStatus: 'idle' | 'saving' | 'saved' | 'error';
-  previousTab: string;
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
   resolveName: (name: string) => string;
@@ -72,17 +71,18 @@ export interface NewWorkoutTabProps {
   onSave: () => void;
   /** kg ⇄ lbs 显示切换（训练页隐藏了全局 AppHeader，入口在本页头部） */
   onToggleUnit: () => void;
-  onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
+  onOpenTimePicker: (exIdx: number, setIdx: number) => void;
   /** 改动作的时间（卡头那个「12:13」）。以前它误开的是第 1 组的时长 */
   onOpenExerciseTime?: (exId: string) => void;
   /** 底稿抄自哪一场（C2）：给卡头「底稿 · 10/4」用 */
   lastSessionFor?: (ex: Exercise) => { date: string; sets: SetLog[] } | null;
-  /** 「杠铃片」§1：这个动作（同一练法）历史单组最重的带符号 kg，训练中实时标 PB 用；null＝没有历史 */
   /** 训练中标 PB 用：这个动作以前做完的组 + 比法（utils/prRecords） */
   prPoolFor?: (ex: Exercise) => PRPool;
   onToggleNote: (name: string, gymKey?: string) => void;
-  /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
-  /** group：从交替组打开（交替组的卡片没有重量大图，弹窗里「这一台」只写一句说明） */
+  /**
+   * exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节）。
+   * group：从交替组打开（交替组的卡片没有重量大图，弹窗里「这一台」只写一句说明）。
+   */
   onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym', group?: boolean) => void;
   /** 动作设置弹窗里「在 X」一段的挂载点，交给弹窗所属的那张卡 */
   metricSlot?: { exIdx: number; el: HTMLElement | null } | null;
@@ -625,10 +625,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
                 onToggleNote={onToggleNote}
                 onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId), undefined, true)}
-                onOpenTimePicker={(exId, setId, sec) => {
+                onOpenTimePicker={(exId, setId) => {
                   const ei = indexOf(exId);
                   const si = exs[ei]?.sets.findIndex(s => String(s.id) === setId) ?? -1;
-                  if (ei >= 0 && si >= 0) onOpenTimePicker(ei, si, sec);
+                  if (ei >= 0 && si >= 0) onOpenTimePicker(ei, si);
                 }}
                 dragHandle={dragHandle}
               />,
@@ -788,5 +788,3 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     </>
   );
 };
-
-export default NewWorkoutTab;

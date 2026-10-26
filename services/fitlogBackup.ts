@@ -25,6 +25,7 @@ import type { FitlogRemoteSnapshot, FitlogSyncedPrefs, FitlogTombstones } from '
 import {
   applySnapshotToLocalIndexedDb,
   collectLocalSnapshot,
+  isRemoteConfigured,
   mergeLocalWithRemote,
   readPrefsFromLocalStorage,
   writePrefsToLocalStorage,
@@ -32,10 +33,9 @@ import {
 import { db } from './db';
 import { undoJournal } from './undoJournal';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
-import { isRemoteConfigured } from './fitlogRemote';
 
 /** 备份文件的格式版本。与 snapshot.schemaVersion 是两件事，别混。 */
-export const BACKUP_FORMAT_VERSION = 2;
+const BACKUP_FORMAT_VERSION = 2;
 
 /**
  * 导入前的回滚副本存在 IndexedDB，**不是**存在下载下来的文件里。
@@ -53,7 +53,7 @@ const ROLLBACK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  * 写回本机失败。rolledBack：已经自动换回写之前的样子（「数据未改动」这句话才是真的）；
  * false：回滚也没成，可能停在改了一半——提示要说实话，并指向「撤销上次导入」（审查 A25）
  */
-export class OverwriteFailedError extends Error {
+class OverwriteFailedError extends Error {
   constructor(readonly rolledBack: boolean, cause: unknown) {
     super(`overwrite failed (${rolledBack ? 'rolled back' : 'NOT rolled back'}): ${cause instanceof Error ? cause.message : String(cause)}`);
     this.name = 'OverwriteFailedError';
@@ -78,7 +78,7 @@ const STORES: [Store, keyof FitlogRemoteSnapshot][] = [
  *   - 时间戳换成现在：记录的 updatedAt、首选项的各个 lastUpdate —— 万一走到合并，也是这一份赢
  * 单设备用：不考虑另一台设备同时在改。
  */
-export function asAuthoritative(next: FitlogRemoteSnapshot, before: FitlogRemoteSnapshot): FitlogRemoteSnapshot {
+function asAuthoritative(next: FitlogRemoteSnapshot, before: FitlogRemoteSnapshot): FitlogRemoteSnapshot {
   const now = new Date().toISOString();
   const nowMs = Date.now();
   const ids = (snap: FitlogRemoteSnapshot, k: keyof FitlogRemoteSnapshot) =>
@@ -289,18 +289,12 @@ export function parseBackupFile(raw: string): ParsedBackup {
  *   1. 先把当前状态整份存进回滚槽 —— 失败就整个中止，绝不带着「备份没存成
  *      但数据已经被覆盖」的状态往下走
  *   2. 再写 prefs 与 IndexedDB（后者内部是 clear + 写，本来就是覆盖）
- *
- * @param keepFields 旧格式缺失、需要从当前数据沿用的字段
  */
 export async function applyBackup(parsed: ParsedBackup): Promise<'pushed' | 'not-configured' | 'failed'> {
   const current = await collectLocalSnapshot();
 
   // 1. 回滚槽（失败直接抛，不吞）
-  await db.save(ROLLBACK_STORE, {
-    id: ROLLBACK_ID,
-    createdAt: new Date().toISOString(),
-    snapshot: current,
-  });
+  await saveRollbackSlot(current);
 
   // 2. 旧格式缺的字段沿用当前值
   const next: FitlogRemoteSnapshot = { ...parsed.snapshot };
@@ -321,11 +315,7 @@ export async function applyBackup(parsed: ParsedBackup): Promise<'pushed' | 'not
 export async function mergeBackup(parsed: ParsedBackup): Promise<'pushed' | 'not-configured' | 'failed'> {
   if (parsed.legacy) throw new Error('legacy-cannot-merge');
   const current = await collectLocalSnapshot();
-  await db.save(ROLLBACK_STORE, {
-    id: ROLLBACK_ID,
-    createdAt: new Date().toISOString(),
-    snapshot: current,
-  });
+  await saveRollbackSlot(current);
   const merged = mergeLocalWithRemote(current, parsed.snapshot);
   return overwriteLocal(merged, current);
 }
@@ -343,11 +333,7 @@ export async function addImportedRecords(input: {
   metricSeeds: Record<string, string[]>;
 }): Promise<'pushed' | 'not-configured' | 'failed'> {
   const current = await collectLocalSnapshot();
-  await db.save(ROLLBACK_STORE, {
-    id: ROLLBACK_ID,
-    createdAt: new Date().toISOString(),
-    snapshot: current,
-  });
+  await saveRollbackSlot(current);
 
   const incoming = new Set(input.workouts.map(w => w.id));
   const knownDefs = new Set(current.prefs.customExercises.map(d => d.id));
@@ -384,6 +370,21 @@ export function lastWorkoutDate(parsed: ParsedBackup): string | null {
 
 // ============ 回滚 ============
 
+type RollbackRow = { id: string; createdAt: string; snapshot: FitlogRemoteSnapshot };
+
+/** 把当前状态整份存进回滚槽（失败直接抛，不吞） */
+async function saveRollbackSlot(current: FitlogRemoteSnapshot): Promise<void> {
+  await db.save(ROLLBACK_STORE, { id: ROLLBACK_ID, createdAt: new Date().toISOString(), snapshot: current });
+}
+
+async function findRollbackRow(): Promise<RollbackRow | undefined> {
+  const rows = await db.getAll<RollbackRow>(ROLLBACK_STORE);
+  return rows.find((r) => r.id === ROLLBACK_ID);
+}
+
+/** 7 天内的才算还在；过期后怎么处理（清掉 / 报错）由调用方定 */
+const rollbackFresh = (row: RollbackRow) => Date.now() - new Date(row.createdAt).getTime() < ROLLBACK_MAX_AGE_MS;
+
 export interface RollbackInfo {
   createdAt: string;
   workouts: number;
@@ -393,12 +394,9 @@ export interface RollbackInfo {
 
 /** 回滚槽（过了 7 天的当场清掉、当没有） */
 export async function readRollback(): Promise<RollbackInfo | null> {
-  const rows = await db.getAll<{ id: string; createdAt: string; snapshot: FitlogRemoteSnapshot }>(
-    ROLLBACK_STORE,
-  );
-  const row = rows.find((r) => r.id === ROLLBACK_ID);
+  const row = await findRollbackRow();
   if (!row?.snapshot) return null;
-  if (!(Date.now() - new Date(row.createdAt).getTime() < ROLLBACK_MAX_AGE_MS)) {
+  if (!rollbackFresh(row)) {
     await db.delete(ROLLBACK_STORE, ROLLBACK_ID).catch(() => undefined);
     return null;
   }
@@ -410,9 +408,8 @@ export async function readRollback(): Promise<RollbackInfo | null> {
 
 /** 撤销上一次导入。回滚槽用掉即清空 —— 留着会让人以为还能再撤一次。 */
 export async function rollbackImport(): Promise<'pushed' | 'not-configured' | 'failed'> {
-  const rows = await db.getAll<{ id: string; createdAt: string; snapshot: FitlogRemoteSnapshot }>(ROLLBACK_STORE);
-  const row = rows.find((r) => r.id === ROLLBACK_ID);
-  if (!row?.snapshot || !(Date.now() - new Date(row.createdAt).getTime() < ROLLBACK_MAX_AGE_MS)) throw new Error('no-rollback');
+  const row = await findRollbackRow();
+  if (!row?.snapshot || !rollbackFresh(row)) throw new Error('no-rollback');
   const current = await collectLocalSnapshot();
   const pushed = await overwriteLocal(row.snapshot, current);
   await db.delete(ROLLBACK_STORE, ROLLBACK_ID);

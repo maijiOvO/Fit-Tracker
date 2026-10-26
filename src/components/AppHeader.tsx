@@ -70,5 +70,3 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     </div>
   </header>
 );
-
-export default AppHeader;

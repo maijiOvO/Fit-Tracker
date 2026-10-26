@@ -6,9 +6,15 @@ import { Language } from '../../types';
 import { translations } from '../../translations';
 import { KG_TO_LBS } from '../constants';
 import { distToDisplay, metricUnitLabel } from './exerciseConfig';
-import { E1RM, type SetRef } from './liftHistory';
+import { pad2 } from './format';
+import { E1RM, type ChartRange, type SetRef } from './liftHistory';
 
-/** 80 而不是 80.00；最多一位小数 */
+/** 图表时间范围的四档与分段按钮文案（首页体重图 / 力量史同一套） */
+export const CHART_RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
+export const rangeLabel = (r: ChartRange, isCn: boolean) =>
+  ({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r];
+
+/** 数值智能去零：80 而不是 80.00；最多一位小数（§6.5） */
 export function trimNum(v: number): string {
   return String(Math.round(v * 10) / 10);
 }
@@ -39,13 +45,12 @@ export function metricUnit(metric: string, unit: 'kg' | 'lbs'): string {
 }
 
 /** 秒 → 1:05:30 / 25:00（时长指标的显示） */
-export function clockOf(sec: number): string {
+function clockOf(sec: number): string {
   const t = Math.max(0, Math.round(sec));
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);
   const s = t % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+  return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
 }
 
 /** 已经换成显示单位的数怎么写：时长写成时:分:秒，其余最多一位小数 */

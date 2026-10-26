@@ -30,7 +30,7 @@ export const RECORD_PRIORITY: RecordKind[] = ['weight', 'e1rm', 'reps', 'volume'
 const TOL = 0.01;
 
 /** 超过这个次数的组不估 1RM */
-export const E1RM_MAX_REPS = 10;
+const E1RM_MAX_REPS = 10;
 
 /** Epley：w × (1 + r/30)；1 次就是本身。估不了返回 null */
 export function e1rmOf(kg: number, reps: number): number | null {
@@ -71,7 +71,7 @@ export function prSetsOf(ex: Exercise, gym: string | undefined, signed: boolean)
 }
 
 /** 历史上这一组能不能拿来和 gym 那一场比 */
-export function comparableTo(rule: PRRule, s: PRSet, gym: string): boolean {
+function comparableTo(rule: PRRule, s: PRSet, gym: string): boolean {
   if (rule.machine) return s.gym === gym;
   // 辅助器械的辅助量各馆不通用；加了负重 / 纯自重的是真重量，跨馆比
   if (rule.signed && s.kg < 0) return s.gym === gym;

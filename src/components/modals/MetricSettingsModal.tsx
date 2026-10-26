@@ -390,5 +390,3 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
     </Modal>
   );
 };
-
-export default MetricSettingsModal;

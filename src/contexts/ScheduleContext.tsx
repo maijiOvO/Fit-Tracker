@@ -7,7 +7,6 @@ import { recordTombstone } from '../../services/fitlogTombstones';
 
 interface ScheduleContextType {
   schedules: ScheduledWorkout[];
-  isLoading: boolean;
   addSchedule: (s: ScheduledWorkout) => Promise<void>;
   updateSchedule: (s: ScheduledWorkout) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
@@ -22,7 +21,6 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
   userId,
 }) => {
   const [schedules, setSchedules] = useState<ScheduledWorkout[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const refreshFromDb = useCallback(async () => {
     const rows = await db.getAll<ScheduledWorkout>('scheduledWorkouts');
@@ -32,7 +30,6 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
         ? rows
         : rows.filter(r => r.userId === uid);
     setSchedules(filtered.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
-    setIsLoading(false);
   }, [userId]);
 
   useEffect(() => {
@@ -40,13 +37,13 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
   }, [userId, refreshFromDb]);
 
   const addSchedule = async (s: ScheduledWorkout) => {
-    await db.upsert('scheduledWorkouts', s);
+    await db.save('scheduledWorkouts', s);
     setSchedules(prev => [...prev, s].sort((a, b) => (a.date < b.date ? -1 : 1)));
     scheduleDebouncedFitlogPush();
   };
 
   const updateSchedule = async (s: ScheduledWorkout) => {
-    await db.upsert('scheduledWorkouts', s);
+    await db.save('scheduledWorkouts', s);
     setSchedules(prev =>
       prev.map(p => (p.id === s.id ? s : p)).sort((a, b) => (a.date < b.date ? -1 : 1)),
     );
@@ -74,7 +71,7 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
 
   return (
     <ScheduleContext.Provider
-      value={{ schedules, isLoading, addSchedule, updateSchedule, deleteSchedule, refreshFromDb, schedulesByDate }}
+      value={{ schedules, addSchedule, updateSchedule, deleteSchedule, refreshFromDb, schedulesByDate }}
     >
       {children}
     </ScheduleContext.Provider>
@@ -86,5 +83,3 @@ export const useScheduleContext = (): ScheduleContextType => {
   if (!ctx) throw new Error('useScheduleContext must be used within ScheduleProvider');
   return ctx;
 };
-
-export default ScheduleContext;

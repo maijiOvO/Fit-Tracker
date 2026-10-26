@@ -33,7 +33,7 @@ export interface ExerciseSearchEntry {
 }
 
 /** 搜索里不算数的分隔：空格、连字符、间隔号、下划线 */
-export const flatSearch = (s: string) => s.toLowerCase().replace(/[\s\-‐–—·・_]/g, '');
+const flatSearch = (s: string) => s.toLowerCase().replace(/[\s\-‐–—·・_]/g, '');
 
 /** 常见缩写 → 英文名里要出现的词（都小写、按词首字母对不上的那几个） */
 const ABBR: Record<string, string> = {
@@ -50,7 +50,7 @@ const CJK_RE = /[一-鿿]/;
 /** pinyin-pro 结果缓存（动作名 / 标签名数量有限，常驻缓存即可） */
 const pinyinCache = new Map<string, { py: string; pyi: string }>();
 
-export function pinyinOf(text: string): { py: string; pyi: string } {
+function pinyinOf(text: string): { py: string; pyi: string } {
   const cached = pinyinCache.get(text);
   if (cached) return cached;
   let out: { py: string; pyi: string };
@@ -95,7 +95,7 @@ export function buildSearchEntry(nameCn: string, nameEn: string, tagNames: strin
 }
 
 /** needle 是否为 hay 的子序列（字符按序出现，可不连续） */
-export function isSubsequence(needle: string, hay: string): boolean {
+function isSubsequence(needle: string, hay: string): boolean {
   if (!needle) return true;
   let i = 0;
   for (const ch of hay) {

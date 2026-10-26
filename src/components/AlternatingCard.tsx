@@ -26,7 +26,7 @@ import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfi
 import { memberAbbrs, RowRef } from '../utils/workbench';
 import { setVolumeKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
-import { plural } from '../utils/format';
+import { formatVolume, plural } from '../utils/format';
 
 interface Props {
   cardKey: string;
@@ -59,7 +59,7 @@ interface Props {
   onSwitchVariant: (exId: string, variantId: string | undefined, name?: string) => void;
   onToggleNote: (name: string, gymKey?: string) => void;
   onOpenMetricModal: (name: string, exId: string) => void;
-  onOpenTimePicker: (exId: string, setId: string, seconds: number) => void;
+  onOpenTimePicker: (exId: string, setId: string) => void;
   /** 这一场训练记的馆：组行的 ± / 拖动 / 递减档按这个馆的档案走（各动作各按各的器材） */
   gym?: string;
   dragHandle?: {
@@ -155,7 +155,7 @@ export const AlternatingCard: React.FC<Props> = ({
   };
   const names = members.map(m => resolveName(m.name));
   const abbrs = memberAbbrs(names);
-  const byId = new Map<string, Exercise>(members.map(m => [m.id, m] as [string, Exercise]));
+  const byId = new Map<string, Exercise>(members.map(m => [m.id, m]));
   const idx = (id: string) => members.findIndex(m => m.id === id);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -182,12 +182,7 @@ export const AlternatingCard: React.FC<Props> = ({
   const done = rows.filter(r => setOf(r) && !setOf(r)!.ghost).length;
   const planned = rows.filter(r => setOf(r)).length;
   const volume = members.reduce((n, ex) => n + ex.sets.reduce((v, s) => (s.ghost ? v : v + setVolumeKg(s, ex)), 0), 0);
-  const volText = (() => {
-    const v = unit === 'lbs' ? volume * 2.20462 : volume;
-    if (v <= 0) return '—';
-    if (v >= 1000) return `${(v / 1000).toFixed(1)}${unit === 'lbs' ? 'k' : 't'}`;
-    return `${Math.round(v)}${unit}`;
-  })();
+  const volText = formatVolume(volume, unit);
 
   const counter = new Map<string, number>();
   const notes = members.filter(m => exerciseNotes[resolveName(m.name)] || gymNoteOf(m));
@@ -351,7 +346,7 @@ export const AlternatingCard: React.FC<Props> = ({
                 onUpdate={u => onSetUpdate(r, u)}
                 onRemove={() => onRemoveSet(r)}
                 onRemoveSub={sub => onRemoveSubSet(r, sub)}
-                onDurationClick={() => onOpenTimePicker(r.exId, r.setId, set.duration || 0)}
+                onDurationClick={() => onOpenTimePicker(r.exId, r.setId)}
               />
               {pointerGap === i + 1 && <RestBookmark lang={lang} onMove={onMovePointer} />}
             </React.Fragment>
@@ -517,5 +512,3 @@ export const AlternatingCard: React.FC<Props> = ({
     </div>
   );
 };
-
-export default AlternatingCard;

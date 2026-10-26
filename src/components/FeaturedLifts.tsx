@@ -317,7 +317,6 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
     const picked = draft.map(id => lifts.find(l => l.stableId === id)).filter((l): l is LiftSummary => !!l);
     return [...picked, ...rest];
     // 只在打开时排一次，勾选时不跳行
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lifts, open]);
 
   const full = draft.length >= MAX_FEATURED;

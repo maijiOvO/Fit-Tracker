@@ -3,12 +3,23 @@
  */
 import { KG_TO_LBS } from '../constants';
 
+/** 两位补零 */
+export const pad2 = (n: number) => String(n).padStart(2, '0');
+
 /**
  * 格式化体重值
  */
 export const formatWeight = (val: number, unit: 'kg' | 'lbs'): string => {
   const converted = unit === 'kg' ? val : val * KG_TO_LBS;
   return converted.toFixed(1);
+};
+
+/** 总容量：≥1000 显示 1.2t / 1.2k，否则取整带单位；0 显示「—」 */
+export const formatVolume = (kg: number, unit: string): string => {
+  const v = unit === 'lbs' ? kg * KG_TO_LBS : kg;
+  if (v <= 0) return '—';
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}${unit === 'lbs' ? 'k' : 't'}`;
+  return `${Math.round(v)}${unit}`;
 };
 
 /**
@@ -26,24 +37,6 @@ export const secondsToHMS = (totalSeconds: number) => {
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
   return { h, m, s };
-};
-
-/**
- * 时分秒对象转换为秒
- */
-export const hmsToSeconds = (h: number, m: number, s: number): number => {
-  return h * 3600 + m * 60 + s;
-};
-
-/**
- * 格式化时间为 MM:SS 或 HH:MM:SS
- */
-export const formatTime = (seconds: number): string => {
-  const { h, m, s } = secondsToHMS(seconds);
-  if (h > 0) {
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
 /**

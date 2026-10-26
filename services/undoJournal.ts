@@ -18,7 +18,7 @@
  * 从服务器拉进来东西、整份改写（恢复备份 / 导入 / 重置）、切换数据环境之后清空 —— 撤销会把那些改动盖掉。
  */
 
-export const MAX_STEPS = 50;
+const MAX_STEPS = 50;
 
 /** 进日志的 localStorage 键（用户数据 / 同步首选项）；各个 *_last_update 时间戳不进，撤销之后统一改成现在 */
 const JOURNALED_KEYS = new Set([
@@ -39,14 +39,12 @@ const JOURNALED_KEYS = new Set([
 ]);
 
 /** 撤销之后改成「现在」的时间戳：同步合并按它们判谁新，撤销回来的那份得赢 */
-export const PREF_TIMESTAMP_KEYS = [
+const PREF_TIMESTAMP_KEYS = [
   'fitlog_prefs_last_update',
   'fitlog_metrics_last_update',
   'fitlog_starred_last_update',
   'fitlog_app_prefs_last_update',
 ];
-
-export const isJournaledKey = (key: string) => JOURNALED_KEYS.has(key);
 
 type Row = { id: string } & Record<string, unknown>;
 
@@ -211,16 +209,6 @@ export const undoJournal = {
     finalize();
     current = emptyStep(label);
     notify();
-  },
-
-  /** 换了这一步的名字（按钮文字等；拿不到时留空） */
-  labelStep(label: string) {
-    if (current && label) current.label = label;
-  },
-
-  /** 不开新步，只把当前这一步收尾（撤销按钮按下时先调） */
-  closeStep() {
-    finalize();
   },
 
   /** 包住系统写入（拉取合并、整份改写）：不进日志 */

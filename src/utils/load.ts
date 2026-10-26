@@ -50,12 +50,3 @@ export function setVolumeKg(s: SetLog, ex?: Exercise | null): number {
   }
   return v;
 }
-
-/** 显示用：带号的数（按显示单位），自重 0 显示「自重」 */
-export function formatSignedLoad(kgSigned: number, unit: string, isCn: boolean): string {
-  const v = unit === 'lbs' ? kgSigned * 2.20462 : kgSigned;
-  const r = Math.round(v * 10) / 10;
-  if (r === 0) return isCn ? '自重' : 'BW';
-  const abs = String(Math.abs(r));
-  return `${r > 0 ? '+' : '−'}${abs} ${unit === 'lbs' ? 'lbs' : 'kg'}`;
-}

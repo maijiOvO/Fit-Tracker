@@ -94,7 +94,7 @@ export const BackupRow: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
   return (
     <Go
       name={t('自动备份', 'Auto backup')}
-      sub={folder && status.shrinkWarning ? t('训练次数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept') : undefined}
+      sub={status.shrinkWarning ? t('训练次数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept') : undefined}
       bad
       value={<span data-testid="backup-status">{status.lastOkAt ? ago(status.lastOkAt, isCn) : t('还没有备份', 'No backup yet')}</span>}
       onClick={onOpen}

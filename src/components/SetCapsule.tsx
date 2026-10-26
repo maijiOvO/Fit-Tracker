@@ -18,6 +18,8 @@ import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { fromSignedKg } from '../utils/load';
+import { pad2, parseWeight, secondsToHMS } from '../utils/format';
+import { KG_TO_LBS } from '../constants';
 import { heroScrubAxis, STACK_PITCH, STACK_ENGAGE_PX } from '../utils/scrubFeel';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
@@ -130,25 +132,11 @@ const focusNextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
   else cur.blur();
 };
 
-function secondsToHMS(seconds: number): { h: number; m: number; s: number } {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return { h, m, s };
-}
-
 export function formatWeight(kg: number, targetUnit: string): string {
   if (targetUnit === 'lbs') {
-    return (kg * 2.20462).toFixed(2).replace(/\.?0+$/, '');
+    return (kg * KG_TO_LBS).toFixed(2).replace(/\.?0+$/, '');
   }
   return kg.toFixed(2).replace(/\.?0+$/, '');
-}
-
-function parseWeight(displayValue: number, sourceUnit: string): number {
-  if (sourceUnit === 'lbs') {
-    return displayValue / 2.20462;
-  }
-  return displayValue;
 }
 
 export const SetCapsule: React.FC<SetCapsuleProps> = ({
@@ -269,7 +257,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const plateUnitNow: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
   const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode' | 'plateUnit'> => {
     // 有取整器：落在格子上的存格子的精确 kg（显示的两位小数换回去会差一点，见 ExRounder.kgOfD）
-    const kg = rounder ? Math.abs(rounder.kgOfD(v)) : parseWeight(Math.abs(v), unit);
+    const kg = rounder ? Math.abs(rounder.kgOfD(v)) : parseWeight(Math.abs(v), unit === 'lbs' ? 'lbs' : 'kg');
     if (!signed) return { weight: kg, plateUnit: plateUnitNow };
     return { weight: kg, plateUnit: plateUnitNow, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
   };
@@ -443,7 +431,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     if (set.ghost && set.checkWeight && !set.touched?.weight) return { text: isCn ? '换了做法，确认一下重量' : 'New variant — check weight' };
     const ref = set.prefillRef as SetLog['prefillRef'];
     if (!ref || !(Math.abs(ref.kg) > 0)) return none;
-    const inRef = Math.round((ref.unit === 'lbs' ? Math.abs(ref.kg) * 2.20462 : Math.abs(ref.kg)) * 100) / 100;
+    const inRef = Math.round((ref.unit === 'lbs' ? Math.abs(ref.kg) * KG_TO_LBS : Math.abs(ref.kg)) * 100) / 100;
     const lab = ref.unit === 'lbs' ? 'lb' : 'kg';
     const assisted = !!signed && ref.kg < 0;
     const what = ref.plan ? (isCn ? '计划' : 'Plan') : isCn ? '上次' : 'Last';
@@ -535,7 +523,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
           if (m === 'duration') {
             const hms = secondsToHMS(set.duration || 0);
-            const pad = (n: number) => n.toString().padStart(2, '0');
             return (
               <button
                 key={m}
@@ -550,7 +537,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 style={{ ['--ledger-chars' as string]: 8, alignItems: 'center' }}
               >
                 <span className="ledger-fit-text">
-                  {pad(hms.h)}:{pad(hms.m)}:{pad(hms.s)}
+                  {pad2(hms.h)}:{pad2(hms.m)}:{pad2(hms.s)}
                 </span>
               </button>
             );
@@ -1045,5 +1032,3 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
     </div>
   );
 };
-
-export default SetCapsule;

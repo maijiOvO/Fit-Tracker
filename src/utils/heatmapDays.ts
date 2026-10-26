@@ -27,7 +27,6 @@ export function buildHeatmapDays(workouts: WorkoutSession[], currentWorkoutId?: 
 
       // 按本地日期归日（和 ActivityHeatmap 的网格同一个函数），不是 UTC 日期
       const dayString = localYmd(d);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dayString)) return;
 
       const sets = (w.exercises || []).reduce(
         (n: number, ex: any) =>
@@ -43,7 +42,5 @@ export function buildHeatmapDays(workouts: WorkoutSession[], currentWorkoutId?: 
     }
   });
 
-  return Array.from(map.entries())
-    .map(([date, v]) => ({ date, sets: v.sets, sessions: v.sessions }))
-    .filter(item => item.sessions > 0 && /^\d{4}-\d{2}-\d{2}$/.test(item.date));
+  return Array.from(map.entries()).map(([date, v]) => ({ date, sets: v.sets, sessions: v.sessions }));
 }

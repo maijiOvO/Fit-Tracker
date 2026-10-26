@@ -154,11 +154,6 @@ export function setDataEnv(env: DataEnv): void {
   cached = env;
 }
 
-/** 兼容旧调用点 */
-export function setDevMode(on: boolean): void {
-  setDataEnv(on ? 'dev' : 'prod');
-}
-
 // ============ 各子系统的命名空间派生 ============
 
 /** localStorage key 前缀：prod 无前缀，保证既有真实数据零迁移 */
@@ -168,7 +163,6 @@ export function storagePrefix(): string {
   return getDataEnv() === 'dev' ? 'dev:' : '';
 }
 
-/** IndexedDB 库名：dev 用完全独立的库，物理隔离 */
 /**
  * IndexedDB 库名：dev 用完全独立的库，物理隔离。
  *

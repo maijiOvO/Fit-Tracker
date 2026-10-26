@@ -89,5 +89,3 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
     </Modal>
   );
 };
-
-export default MeasurementModal;

@@ -7,11 +7,9 @@ import { recordTombstone } from '../../services/fitlogTombstones';
 
 interface GoalsContextType {
   goals: Goal[];
-  isLoading: boolean;
   addGoal: (goal: Goal) => Promise<void>;
   updateGoal: (goal: Goal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
-  refreshGoals: () => Promise<void>;
   refreshFromDb: () => Promise<void>;
 }
 
@@ -22,7 +20,6 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
   userId,
 }) => {
   const [goals, setGoals] = useState<Goal[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   const refreshFromDb = useCallback(async () => {
     const localGoals = await db.getAll<Goal>('goals');
@@ -32,7 +29,6 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
         ? localGoals
         : localGoals.filter((g) => g.userId === uid);
     setGoals(filtered);
-    setIsLoading(false);
   }, [userId]);
 
   useEffect(() => {
@@ -40,13 +36,13 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
   }, [userId, refreshFromDb]);
 
   const addGoal = async (goal: Goal) => {
-    await db.upsert('goals', goal);
+    await db.save('goals', goal);
     setGoals((prev) => [...prev, goal]);
     scheduleDebouncedFitlogPush();
   };
 
   const updateGoal = async (goal: Goal) => {
-    await db.upsert('goals', goal);
+    await db.save('goals', goal);
     setGoals((prev) => prev.map((g) => (g.id === goal.id ? goal : g)));
     scheduleDebouncedFitlogPush();
   };
@@ -62,11 +58,9 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
     <GoalsContext.Provider
       value={{
         goals,
-        isLoading,
         addGoal,
         updateGoal,
         deleteGoal,
-        refreshGoals: refreshFromDb,
         refreshFromDb,
       }}
     >
@@ -80,5 +74,3 @@ export const useGoalsContext = (): GoalsContextType => {
   if (!context) throw new Error('useGoalsContext must be used within GoalsProvider');
   return context;
 };
-
-export default GoalsContext;

@@ -84,16 +84,6 @@ interface ExercisePrefsContextValue {
 
   /** ============ Setters（保留少量直接写入，绝大多数操作走下方 actions） ============ */
   setCustomTags: React.Dispatch<React.SetStateAction<CustomTag[]>>;
-  setCustomExercises: React.Dispatch<React.SetStateAction<ExerciseDefinition[]>>;
-  setExerciseNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  setExerciseMetricConfigs: React.Dispatch<
-    React.SetStateAction<Record<string, string[]>>
-  >;
-  setStarredExercises: React.Dispatch<React.SetStateAction<Record<string, number>>>;
-  setExerciseOverrides: React.Dispatch<
-    React.SetStateAction<Record<string, Partial<ExerciseDefinition>>>
-  >;
-  setTagRenameOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
   /** ============ Helpers（纯函数） ============ */
   resolveName: (storedName: string) => string;
@@ -188,9 +178,6 @@ interface ExercisePrefsContextValue {
   deleteLibraryExercise: (exerciseId: string) => void;
   restoreLibraryExercise: (exerciseId: string) => void;
   addCustomExercise: (ex: ExerciseDefinition) => void;
-  addCustomTag: (tag: CustomTag) => void;
-  /** 归到细分；'' = 放回未细分 */
-  assignRegion: (exerciseId: string, regionId: string) => void;
   /**
    * 批量写细分与列内顺序（拖到细分 / 撤销都走这里）。regionRank 不给＝去掉手动顺序。
    * 内置动作写覆盖层、自建动作写定义本身，一次写完、一次推送。
@@ -213,9 +200,6 @@ interface ExercisePrefsContextValue {
 
   /** 用远端拉下来的 snapshot 全量覆盖偏好（语言/单位/头像由 caller 处理） */
   applyPrefsFromSnapshot: (p: FitlogSyncedPrefs) => void;
-
-  /** 一键重置（重置账户用） */
-  resetAllPrefs: () => void;
 }
 
 const ExercisePrefsContext = createContext<ExercisePrefsContextValue | null>(null);
@@ -983,16 +967,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     scheduleDebouncedFitlogPush();
   }, []);
 
-  const addCustomTag = useCallback((tag: CustomTag) => {
-    setCustomTags(prev => {
-      const next = [...prev, tag];
-      writeJSON(LS_KEYS.customTags, next);
-      return next;
-    });
-    markPrefsUpdated();
-    scheduleDebouncedFitlogPush();
-  }, []);
-
   /**
    * 拖到 / 归到另一列＝换主细分（movePrimary：原来是次要细分的提上来，不是的顶替原来的主细分）。
    * base 是要写的那一层（自建定义 / 覆盖层），内置动作的次要细分从定义上补进来算。
@@ -1007,29 +981,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       return regionsPatch(movePrimary(cur, target));
     },
     [],
-  );
-
-  /** 归到细分：自建动作写进定义本身，内置动作写进覆盖层（已有同步容器，不新增 prefs key） */
-  const assignRegion = useCallback(
-    (exerciseId: string, regionId: string) => {
-      if (customExercises.some(c => c.id === exerciseId)) {
-        setCustomExercises(prev => {
-          const next = prev.map(c => (c.id === exerciseId ? { ...c, ...regionMove(c.id, c, regionId) } : c));
-          writeJSON(LS_KEYS.customExercises, next);
-          return next;
-        });
-      } else {
-        setExerciseOverrides(prev => {
-          const base = prev[exerciseId] || {};
-          const updated = { ...prev, [exerciseId]: { ...base, ...regionMove(exerciseId, base, regionId) } };
-          writeJSON(LS_KEYS.exerciseOverrides, updated);
-          return updated;
-        });
-      }
-      markPrefsUpdated();
-      scheduleDebouncedFitlogPush();
-    },
-    [customExercises, regionMove],
   );
 
   const applyRegionLayout = useCallback(
@@ -1406,17 +1357,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     );
   }, []);
 
-  const resetAllPrefs = useCallback(() => {
-    setCustomTags([]);
-    setCustomExercises([]);
-    setExerciseNotes({});
-    setExerciseMetricConfigs({});
-    setStarredExercises({});
-    setExerciseOverrides({});
-    setTagRenameOverrides({});
-    Object.values(LS_KEYS).forEach(k => storage.removeItem(k));
-  }, []);
-
   const value: ExercisePrefsContextValue = useMemo(
     () => ({
       customTags,
@@ -1427,12 +1367,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       exerciseOverrides,
       tagRenameOverrides,
       setCustomTags,
-      setCustomExercises,
-      setExerciseNotes,
-      setExerciseMetricConfigs,
-      setStarredExercises,
-      setExerciseOverrides,
-      setTagRenameOverrides,
       resolveName,
       findExerciseDef,
       regionsOf,
@@ -1470,8 +1404,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addTag,
       setEquipmentResistance,
       addCustomExercise,
-      addCustomTag,
-      assignRegion,
       applyRegionLayout,
       addRegionTag,
       moveRegion,
@@ -1481,7 +1413,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       renameVariant,
       removeVariant,
       applyPrefsFromSnapshot,
-      resetAllPrefs,
     }),
     [
       customTags,
@@ -1528,8 +1459,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addTag,
       setEquipmentResistance,
       addCustomExercise,
-      addCustomTag,
-      assignRegion,
       applyRegionLayout,
       addRegionTag,
       moveRegion,
@@ -1539,7 +1468,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       renameVariant,
       removeVariant,
       applyPrefsFromSnapshot,
-      resetAllPrefs,
     ],
   );
 

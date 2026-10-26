@@ -9,6 +9,7 @@ import {
 import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight, plural } from '../utils/format';
+import { CHART_RANGES, rangeLabel } from '../utils/liftDisplay';
 import { type ChartRange } from '../utils/liftHistory';
 import { LiftList } from './LiftList';
 import { FeaturedLifts } from './FeaturedLifts';
@@ -28,7 +29,6 @@ type DashboardView = 'timeline' | 'pr';
 const VIEW_STORAGE_KEY = 'fitlog_dashboard_view';
 const GRANULARITY_STORAGE_KEY = 'fitlog_timeline_granularity';
 const WEIGHT_RANGE_STORAGE_KEY = 'fitlog_weight_chart_range';
-const WEIGHT_RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
 
 /** 必须由 App 注入的交互（依赖 Tab 切换、Modal、Workout 变更等） */
 export interface DashboardActions {
@@ -54,8 +54,6 @@ export interface DashboardActions {
   onDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
   onLogWeight: () => void;
   onEditWeight: (entry: WeightEntry) => void;
-  onExportData: () => void;
-  onImportData: () => void;
 }
 
 interface DashboardProps {
@@ -92,7 +90,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const renderSetCapsule = useCallback(
     // setIdx 是这一组在它所在列表里的下标：组号显示 setIdx + 1（set-number-all-one：以前写死 0，全是「1」）
-    (s: any, exerciseName: string, _exercise?: unknown, setIdx = 0) => (
+    (s: any, exerciseName: string, setIdx = 0) => (
       <SetCapsule
         key={`${s.id ?? 'set'}-${setIdx}`}
         set={s}
@@ -109,40 +107,23 @@ const Dashboard: React.FC<DashboardProps> = ({
   );
 
   const [weightRange, setWeightRange] = useState<ChartRange>(() => {
-    try {
-      const saved = storage.getItem(WEIGHT_RANGE_STORAGE_KEY);
-      if (saved && (WEIGHT_RANGES as string[]).includes(saved)) return saved as ChartRange;
-    } catch {}
-    return '3m';
+    const saved = storage.getItem(WEIGHT_RANGE_STORAGE_KEY);
+    return saved && (CHART_RANGES as string[]).includes(saved) ? (saved as ChartRange) : '3m';
   });
   useEffect(() => {
-    try { storage.setItem(WEIGHT_RANGE_STORAGE_KEY, weightRange); } catch {}
+    storage.setItem(WEIGHT_RANGE_STORAGE_KEY, weightRange);
   }, [weightRange]);
   // 视图模式：默认按时间线
-  const [view, setView] = useState<DashboardView>(() => {
-    try {
-      const saved = storage.getItem(VIEW_STORAGE_KEY);
-      return saved === 'pr' ? 'pr' : 'timeline';
-    } catch {
-      return 'timeline';
-    }
-  });
+  const [view, setView] = useState<DashboardView>(() => (storage.getItem(VIEW_STORAGE_KEY) === 'pr' ? 'pr' : 'timeline'));
   const [granularity, setGranularity] = useState<TimelineGranularity>(() => {
-    try {
-      const saved = storage.getItem(GRANULARITY_STORAGE_KEY);
-      if (saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year') {
-        return saved;
-      }
-      return 'day';
-    } catch {
-      return 'day';
-    }
+    const saved = storage.getItem(GRANULARITY_STORAGE_KEY);
+    return saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year' ? saved : 'day';
   });
   useEffect(() => {
-    try { storage.setItem(VIEW_STORAGE_KEY, view); } catch {}
+    storage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
   useEffect(() => {
-    try { storage.setItem(GRANULARITY_STORAGE_KEY, granularity); } catch {}
+    storage.setItem(GRANULARITY_STORAGE_KEY, granularity);
   }, [granularity]);
 
   const [exerciseTimeEdit, setExerciseTimeEdit] = useState<{
@@ -271,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {translations.weightTrend[lang]}
               </p>
               <div className="flex gap-0.5 bg-inset rounded-control p-0.5" role="group">
-                {WEIGHT_RANGES.map(r => (
+                {CHART_RANGES.map(r => (
                   <button
                     key={r}
                     type="button"
@@ -279,7 +260,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     className={`px-2 py-1 rounded-chip text-xs font-semibold tabular-nums ${r === weightRange ? 'seg-on' : 'text-tertiary'}`}
                     aria-pressed={r === weightRange}
                   >
-                    {({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r]}
+                    {rangeLabel(r, isCn)}
                   </button>
                 ))}
               </div>
@@ -374,7 +355,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           workouts={workouts}
           granularity={granularity}
           onGranularityChange={setGranularity}
-          resolveName={prefs.resolveName}
           renderSetCapsule={renderSetCapsule}
           onEditWorkout={(id) => actions.onEditWorkout(id)}
           onAddExerciseToWorkout={actions.onAddExerciseToPastWorkout}

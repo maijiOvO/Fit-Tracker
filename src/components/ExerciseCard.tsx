@@ -21,11 +21,12 @@ import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
 import { setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
-import { plural } from '../utils/format';
+import { formatVolume, plural } from '../utils/format';
+import { KG_TO_LBS } from '../constants';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
-import { gymOverrideKey, oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
+import { oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { incIn, startIn, type IncSpec } from '../utils/loadable';
@@ -46,7 +47,7 @@ export interface PRPool {
  * 最大重量 / 估算 1RM / 次数纪录 / 单组容量，挑最硬的那一种；历史为空不算；器械只比同一个馆。
  * 一张卡至多标一行：破了那项纪录的那一组。
  */
-export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
+function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
   if (!pool) return -1;
   const top = findRecords(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.gym)[0];
   return top?.at ?? -1;
@@ -59,13 +60,6 @@ function totalVolumeKg(exercise: Exercise): number {
   return exercise.sets.reduce((sum, s) => (s.ghost ? sum : sum + setVolumeKg(s, exercise)), 0);
 }
 
-function formatVolume(kg: number, unit: string): string {
-  const v = unit === 'lbs' ? kg * 2.20462 : kg;
-  if (v <= 0) return '—';
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}${unit === 'lbs' ? 'k' : 't'}`;
-  return `${Math.round(v)}${unit}`;
-}
-
 interface ExerciseCardProps {
   exercise: Exercise;
   exIdx: number;
@@ -76,7 +70,7 @@ interface ExerciseCardProps {
   resolveName: (name: string) => string;
   onUpdateExercise: (exIdx: number, updates: Partial<Exercise>) => void;
   onDeleteExercise: (exIdx: number) => void;
-  onOpenTimePicker: (exIdx: number, setIdx: number, currentSeconds: number) => void;
+  onOpenTimePicker: (exIdx: number, setIdx: number) => void;
   /** 改这个动作的时间（卡头「12:13」）；不传则那行只显示不可点 */
   onOpenExerciseTime?: () => void;
   /** 底稿抄自哪一场（C2，2026-10-11）：卡头「底稿 · 10/4」，点开在卡内看那次的几组，不用离开工作台 */
@@ -111,7 +105,6 @@ interface ExerciseCardProps {
   signed?: boolean;
   /** 刊头「第 N 个」：按卡算（交替组算一张） */
   cardNo?: number;
-  /** 这个动作（同一练法）历史上单组最重的带符号 kg；null＝没有历史（不判纪录）。编辑旧训练时不传 */
   /** 训练中标 PB（编辑旧训练不传） */
   prPool?: PRPool | null;
   /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */
@@ -166,7 +159,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
   const { variantsOf, variantLabel, findExerciseDef, barOf, setBar } = useExercisePrefs();
-  const [variantOpen, setVariantOpen] = React.useState(false);
+  const [variantOpen, setVariantOpen] = useState(false);
   const variantName = variantLabel(exercise);
   const variantCount = variantsOf(exercise.name).length;
   const hasDef = !!findExerciseDef(exercise.name);
@@ -205,7 +198,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   /** 大图拖动 / 点「改成能挂的」：写回选中（或画着的）那一组 */
   const writeHero = (next: number) => {
     if (!focusSet) return;
-    const kg = rounder ? Math.abs(rounder.kgOfD(next)) : unit === 'lbs' ? Math.abs(next) / 2.20462 : Math.abs(next);
+    const kg = rounder ? Math.abs(rounder.kgOfD(next)) : unit === 'lbs' ? Math.abs(next) / KG_TO_LBS : Math.abs(next);
     // 改重量就记下这一组挂的是哪种片：这个馆的片子（审查 A8），纯数字的动作按显示单位；口径同 SetCapsule.fromDisplay
     const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
     const updates: Partial<SetLog> = signed
@@ -249,7 +242,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 首次渲染整卡的行都不算新（seenRef 为空 → 全部跳过）。
    */
   const seenSetIdsRef = useRef<Set<string> | null>(null);
-  const currentIds = exercise.sets.map((s: any) => String(s.id));
+  const currentIds = exercise.sets.map(s => String(s.id));
   const newSetIds = new Set<string>();
   if (seenSetIdsRef.current) {
     for (const id of currentIds) if (!seenSetIdsRef.current.has(id)) newSetIds.add(id);
@@ -298,7 +291,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const prefillElsewhere = !!exercise.prefillGym && exercise.prefillGym !== gym ? exercise.prefillGym : null;
 
   const handleDurationClick = (setIdx: number) => {
-    onOpenTimePicker(exIdx, setIdx, exercise.sets[setIdx].duration || 0);
+    onOpenTimePicker(exIdx, setIdx);
   };
 
   // 父行与子组行共用同一份列宽，根治原先「表头 px-2 vs 行 p-3」的 4px 错位
@@ -314,7 +307,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 改完把没做完、没改过的组吸到新的一档上。
    */
   const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'fixed' || loadKind === 'signed')
-    ? gymOverrideKey(gym, rounder.info)
+    ? gymMachineKey(gym, rounder.info)
     : null;
   const incOverridden = !!(incKey && appPrefs.gymOverrides[incKey]);
   const setIncOverride = (next: number | null) => {
@@ -384,7 +377,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const tareKey = kindKey && loadKind === 'loaded' ? kindKey : null;
   const tareSpec = tareKey ? appPrefs.gymTares[tareKey] : undefined;
   const tareD = tareSpec && rounder
-    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * 2.20462 : tareSpec.v / 2.20462) * 10) / 10
+    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * KG_TO_LBS : tareSpec.v / KG_TO_LBS) * 10) / 10
     : undefined;
   // 空载：横划 / 打字都行；清空＝不知道（墓碑）
   const saveTare = (n: number | null) => {
@@ -790,5 +783,3 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     </div>
   );
 };
-
-export default ExerciseCard;

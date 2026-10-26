@@ -7,6 +7,7 @@ import {
   writePrefsToLocalStorage,
   migrateRecordsToSoloUserId,
   isRemoteConfigured,
+  RemoteError,
 } from './fitlogRemote';
 import type { FitlogSyncedPrefs } from './fitlogSnapshotTypes';
 import { db } from './db';
@@ -14,7 +15,6 @@ import { getDataEnv, setDataEnv, type DataEnv } from './appEnv';
 import { cancelPendingFitlogPush } from './fitlogSyncScheduler';
 import { storage } from './appStorage';
 import { undoJournal } from './undoJournal';
-import { RemoteError } from './fitlogRemote';
 
 /* ── 推送的稳妥性（2026-10-22，审查 A26；单设备用，不做按条目的时间戳） ──
  *

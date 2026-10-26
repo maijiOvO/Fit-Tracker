@@ -152,11 +152,6 @@ export class FitLogDB {
     return done;
   }
 
-  /** Context 等均名使用 put，与 save 等价 */
-  async upsert(storeName: string, item: any): Promise<void> {
-    return this.save(storeName, item);
-  }
-
   delete(storeName: string, id: string): Promise<void> {
     return undoJournal.track(
       undoJournal.recordRows(storeName, [{ id: String(id), after: undefined }]).then(() => this.rawDelete(storeName, id)),

@@ -31,7 +31,7 @@ const markActive = (id: string) => {
  * （2026-10-21 审查）。所以还得是工作台上落过盘的那一场（activeId；「继续这场」接回来的旧训练也走这条），
  * 或者开练时间本身就在 12 小时内（旧版本升级上来、还没记过 activeId 的那一场）。
  */
-export function findInProgress(list: WorkoutSession[], activeId: string | null = null): WorkoutSession | null {
+function findInProgress(list: WorkoutSession[], activeId: string | null = null): WorkoutSession | null {
   const now = Date.now();
   const ts = (w: WorkoutSession) => new Date(w.updatedAt || w.startTime || w.date).getTime() || 0;
   const started = (w: WorkoutSession) => new Date(w.startTime || w.createdAt || w.date).getTime() || 0;
@@ -62,14 +62,10 @@ function createEmptyWorkout(userId: string): WorkoutSession {
 interface WorkoutContextType {
   workouts: WorkoutSession[];
   currentWorkout: WorkoutSession;
-  isLoading: boolean;
 
-  addWorkout: (workout: WorkoutSession) => Promise<void>;
-  updateWorkout: (workout: WorkoutSession) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
 
   setCurrentWorkout: React.Dispatch<React.SetStateAction<WorkoutSession>>;
-  updateCurrentWorkout: (updates: Partial<WorkoutSession>) => void;
   createNewWorkout: () => WorkoutSession;
 
   /**
@@ -92,7 +88,6 @@ interface WorkoutContextType {
   /** 保存编辑过的旧训练：只写库 + 推送，不动 finishedAt / status（不是「再结束一次」） */
   saveEditedWorkout: (workout: WorkoutSession) => Promise<void>;
 
-  syncWorkouts: () => Promise<void>;
   refreshFromDb: () => Promise<void>;
   /** 工作台是空的时候，把库里最近一场进行中的训练接回来（启动时自动跑一次；退出编辑旧训练后再跑） */
   restoreInProgress: () => Promise<void>;
@@ -107,7 +102,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
   const uid = userId || FITLOG_SOLO_USER_ID;
   const [workouts, setWorkouts] = useState<WorkoutSession[]>([]);
   const [currentWorkout, setCurrentWorkout] = useState<WorkoutSession>(() => createEmptyWorkout(uid));
-  const [isLoading, setIsLoading] = useState(true);
 
   // 持有最新 currentWorkout 的 ref，避免闭包过期
   const currentWorkoutRef = useRef(currentWorkout);
@@ -150,8 +144,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
       );
     } catch (err) {
       console.error('[WorkoutContext] 刷新训练列表失败:', err);
-    } finally {
-      setIsLoading(false);
     }
   }, [uid]);
 
@@ -170,17 +162,19 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     void refreshFromDb().then(restoreInProgress);
   }, [uid, refreshFromDb, restoreInProgress]);
 
+  /** 切后台 / 页面卸载时把进行中的那场落盘（类似 sendBeacon 的 fire-and-forget，不阻塞） */
+  const flushCurrent = () => {
+    const w = currentWorkoutRef.current;
+    if (shouldAutoPersist(w)) {
+      markActive(w.id);
+      void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
+    }
+  };
+
   // ==================== visibilitychange：后台保活 ====================
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        const w = currentWorkoutRef.current;
-        if (shouldAutoPersist(w)) {
-          markActive(w.id);
-          // 同步落盘（fire-and-forget，页面隐藏时不阻塞）
-          void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
-        }
-      }
+      if (document.hidden) flushCurrent();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -188,16 +182,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
 
   // ==================== pagehide 兼容：后端页面隐藏时强制落盘 ====================
   useEffect(() => {
-    const handlePageHide = () => {
-      const w = currentWorkoutRef.current;
-      if (shouldAutoPersist(w)) {
-        markActive(w.id);
-        // pagehide 时同步落盘（使用 sendBeacon 类似的同步方式）
-        const req = db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
-        // 不能 await，但至少发出请求
-        void req;
-      }
-    };
+    const handlePageHide = () => flushCurrent();
     window.addEventListener('pagehide', handlePageHide);
     return () => window.removeEventListener('pagehide', handlePageHide);
   }, []);
@@ -238,19 +223,6 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     scheduleDebouncedFitlogPush();
   }, [refreshFromDb]);
 
-  const addWorkout = async (workout: WorkoutSession) => {
-    await db.upsert('workouts', workout);
-    setWorkouts((prev) => [workout, ...prev]);
-    scheduleDebouncedFitlogPush();
-  };
-
-  const updateWorkout = async (workout: WorkoutSession) => {
-    await db.upsert('workouts', workout);
-    setWorkouts((prev) => prev.map((w) => (w.id === workout.id ? workout : w)));
-    if (currentWorkout.id === workout.id) setCurrentWorkout(workout);
-    scheduleDebouncedFitlogPush();
-  };
-
   const deleteWorkout = async (id: string) => {
     await db.delete('workouts', id);
     setWorkouts((prev) => prev.filter((w) => w.id !== id));
@@ -275,31 +247,18 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     };
   };
 
-  const updateCurrentWorkout = (updates: Partial<WorkoutSession>) => {
-    setCurrentWorkout((prev) => ({ ...prev, ...updates }));
-  };
-
-  const syncWorkouts = async () => {
-    await refreshFromDb();
-  };
-
   return (
     <WorkoutContext.Provider
       value={{
         workouts,
         currentWorkout,
-        isLoading,
-        addWorkout,
-        updateWorkout,
         deleteWorkout,
         setCurrentWorkout,
-        updateCurrentWorkout,
         createNewWorkout,
         persistCurrentWorkout,
         finishWorkout,
         setDraftWorkoutId,
         saveEditedWorkout,
-        syncWorkouts,
         refreshFromDb,
         restoreInProgress,
       }}
@@ -316,5 +275,3 @@ export const useWorkoutContext = (): WorkoutContextType => {
   }
   return context;
 };
-
-export default WorkoutContext;

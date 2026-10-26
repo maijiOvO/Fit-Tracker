@@ -293,5 +293,3 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
     </div>
   );
 };
-
-export default ExerciseAttrFields;
