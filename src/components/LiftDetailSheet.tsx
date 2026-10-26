@@ -18,21 +18,18 @@ import {
   sessionMetric,
   sessionMetricSet,
 } from '../utils/liftHistory';
-import { formatLoad, formatMetric, formatSet, metricLabel, metricUnit, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { CHART_RANGES, formatLoad, formatMetric, formatSet, metricLabel, metricUnit, rangeLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { plural } from '../utils/format';
 import { storage } from '../../services/appStorage';
 
 const LiftTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.LiftTrendChart })));
 
 const RANGE_STORAGE_KEY = 'fitlog_lift_chart_range';
-const RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
-const rangeLabel = (r: ChartRange, isCn: boolean) =>
-  ({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r];
 
 function savedRange(): ChartRange | null {
   try {
     const saved = storage.getItem(RANGE_STORAGE_KEY);
-    if (saved && (RANGES as string[]).includes(saved)) return saved as ChartRange;
+    if (saved && (CHART_RANGES as string[]).includes(saved)) return saved as ChartRange;
   } catch {}
   return null;
 }
@@ -212,7 +209,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
             ))}
         </div>
         <div className="flex gap-0.5 bg-inset rounded-control p-0.5" role="group">
-          {RANGES.map(r => (
+          {CHART_RANGES.map(r => (
             <button
               key={r}
               type="button"

@@ -162,17 +162,19 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
     void refreshFromDb().then(restoreInProgress);
   }, [uid, refreshFromDb, restoreInProgress]);
 
+  /** 切后台 / 页面卸载时把进行中的那场落盘（类似 sendBeacon 的 fire-and-forget，不阻塞） */
+  const flushCurrent = () => {
+    const w = currentWorkoutRef.current;
+    if (shouldAutoPersist(w)) {
+      markActive(w.id);
+      void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
+    }
+  };
+
   // ==================== visibilitychange：后台保活 ====================
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        const w = currentWorkoutRef.current;
-        if (shouldAutoPersist(w)) {
-          markActive(w.id);
-          // 同步落盘（fire-and-forget，页面隐藏时不阻塞）
-          void db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
-        }
-      }
+      if (document.hidden) flushCurrent();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -180,16 +182,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode; userId?: string }>
 
   // ==================== pagehide 兼容：后端页面隐藏时强制落盘 ====================
   useEffect(() => {
-    const handlePageHide = () => {
-      const w = currentWorkoutRef.current;
-      if (shouldAutoPersist(w)) {
-        markActive(w.id);
-        // pagehide 时同步落盘（使用 sendBeacon 类似的同步方式）
-        const req = db.save('workouts', { ...w, updatedAt: new Date().toISOString() });
-        // 不能 await，但至少发出请求
-        void req;
-      }
-    };
+    const handlePageHide = () => flushCurrent();
     window.addEventListener('pagehide', handlePageHide);
     return () => window.removeEventListener('pagehide', handlePageHide);
   }, []);

@@ -22,7 +22,7 @@ import {
   type FolderFile,
   type FolderRef,
 } from './fitlogFolder';
-import { storage } from './appStorage';
+import { parseJsonOr, storage } from './appStorage';
 import { getDataEnv } from './appEnv';
 import { pad2 } from '../src/utils/format';
 
@@ -53,13 +53,7 @@ export interface BackupStatus {
 // ============ 状态 ============
 
 function readJson<T>(key: string): T | null {
-  const raw = storage.getItem(key);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
+  return parseJsonOr<T | null>(storage.getItem(key), null);
 }
 
 export function getBackupFolder(): FolderRef | null {

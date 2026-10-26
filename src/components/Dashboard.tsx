@@ -9,6 +9,7 @@ import {
 import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight, plural } from '../utils/format';
+import { CHART_RANGES, rangeLabel } from '../utils/liftDisplay';
 import { type ChartRange } from '../utils/liftHistory';
 import { LiftList } from './LiftList';
 import { FeaturedLifts } from './FeaturedLifts';
@@ -28,7 +29,6 @@ type DashboardView = 'timeline' | 'pr';
 const VIEW_STORAGE_KEY = 'fitlog_dashboard_view';
 const GRANULARITY_STORAGE_KEY = 'fitlog_timeline_granularity';
 const WEIGHT_RANGE_STORAGE_KEY = 'fitlog_weight_chart_range';
-const WEIGHT_RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
 
 /** 必须由 App 注入的交互（依赖 Tab 切换、Modal、Workout 变更等） */
 export interface DashboardActions {
@@ -109,7 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [weightRange, setWeightRange] = useState<ChartRange>(() => {
     try {
       const saved = storage.getItem(WEIGHT_RANGE_STORAGE_KEY);
-      if (saved && (WEIGHT_RANGES as string[]).includes(saved)) return saved as ChartRange;
+      if (saved && (CHART_RANGES as string[]).includes(saved)) return saved as ChartRange;
     } catch {}
     return '3m';
   });
@@ -269,7 +269,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                 {translations.weightTrend[lang]}
               </p>
               <div className="flex gap-0.5 bg-inset rounded-control p-0.5" role="group">
-                {WEIGHT_RANGES.map(r => (
+                {CHART_RANGES.map(r => (
                   <button
                     key={r}
                     type="button"
@@ -277,7 +277,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     className={`px-2 py-1 rounded-chip text-xs font-semibold tabular-nums ${r === weightRange ? 'seg-on' : 'text-tertiary'}`}
                     aria-pressed={r === weightRange}
                   >
-                    {({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r]}
+                    {rangeLabel(r, isCn)}
                   </button>
                 ))}
               </div>

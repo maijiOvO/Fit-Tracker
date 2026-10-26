@@ -7,7 +7,12 @@ import { translations } from '../../translations';
 import { KG_TO_LBS } from '../constants';
 import { distToDisplay, metricUnitLabel } from './exerciseConfig';
 import { pad2 } from './format';
-import { E1RM, type SetRef } from './liftHistory';
+import { E1RM, type ChartRange, type SetRef } from './liftHistory';
+
+/** 图表时间范围的四档与分段按钮文案（首页体重图 / 力量史同一套） */
+export const CHART_RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
+export const rangeLabel = (r: ChartRange, isCn: boolean) =>
+  ({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r];
 
 /** 数值智能去零：80 而不是 80.00；最多一位小数（§6.5） */
 export function trimNum(v: number): string {

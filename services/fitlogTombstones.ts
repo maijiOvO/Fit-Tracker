@@ -1,15 +1,10 @@
 import type { FitlogTombstones } from './fitlogSnapshotTypes';
-import { storage } from './appStorage';
+import { parseJsonOr, storage } from './appStorage';
 
 const LS_KEY = 'fitlog_tombstones';
 
 export function readTombstones(): FitlogTombstones {
-  try {
-    const raw = storage.getItem(LS_KEY);
-    return raw ? (JSON.parse(raw) as FitlogTombstones) : {};
-  } catch {
-    return {};
-  }
+  return parseJsonOr<FitlogTombstones>(storage.getItem(LS_KEY), {});
 }
 
 export function writeTombstones(t: FitlogTombstones): void {

@@ -18,7 +18,7 @@ import type {
   Measurement,
   ScheduledWorkout,
 } from '../types';
-import { storage } from './appStorage';
+import { parseJsonOr, storage } from './appStorage';
 import { mergeAppPrefs, readAppPrefs, writeAppPrefs } from './appPrefs';
 import { getDataEnv, isOffline, statePath } from './appEnv';
 import { migrateCableTags } from '../src/utils/cableTagMigration';
@@ -422,24 +422,15 @@ export function mergeFitlogPrefs(
   };
 }
 
-function readParsed<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
   return {
-    customTags: readParsed(storage.getItem('fitlog_custom_tags'), []),
-    customExercises: readParsed(storage.getItem('fitlog_custom_exercises'), []),
-    exerciseNotes: readParsed(storage.getItem('fitlog_exercise_notes'), {}),
-    starredExercises: readParsed(storage.getItem('fitlog_starred_exercises'), {}),
-    exerciseMetricConfigs: readParsed(storage.getItem('fitlog_metric_configs'), {}),
-    tagRenameOverrides: readParsed(storage.getItem('fitlog_tag_rename_overrides'), {}),
-    exerciseOverrides: readParsed(storage.getItem('fitlog_exercise_overrides'), {}),
+    customTags: parseJsonOr(storage.getItem('fitlog_custom_tags'), []),
+    customExercises: parseJsonOr(storage.getItem('fitlog_custom_exercises'), []),
+    exerciseNotes: parseJsonOr(storage.getItem('fitlog_exercise_notes'), {}),
+    starredExercises: parseJsonOr(storage.getItem('fitlog_starred_exercises'), {}),
+    exerciseMetricConfigs: parseJsonOr(storage.getItem('fitlog_metric_configs'), {}),
+    tagRenameOverrides: parseJsonOr(storage.getItem('fitlog_tag_rename_overrides'), {}),
+    exerciseOverrides: parseJsonOr(storage.getItem('fitlog_exercise_overrides'), {}),
     starredLastUpdateMs: Number.parseInt(storage.getItem('fitlog_starred_last_update') || '0', 10) || 0,
     metricsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_metrics_last_update') || '0', 10) || 0,
     prefsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_prefs_last_update') || '0', 10) || 0,
