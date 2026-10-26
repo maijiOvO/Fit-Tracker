@@ -38,12 +38,6 @@ function readAccent(): AccentPreference {
   return v && ACCENTS.includes(v) ? v : 'teal';
 }
 
-function resolveTheme(pref: ThemePreference): ResolvedTheme {
-  if (pref === 'dark') return 'dark';
-  if (pref === 'light') return 'light';
-  return getSystemDark() ? 'dark' : 'light';
-}
-
 function applyThemeClass(resolved: ResolvedTheme, accent: AccentPreference) {
   const root = document.documentElement;
   root.classList.toggle('dark', resolved === 'dark');
@@ -57,12 +51,6 @@ function applyThemeClass(resolved: ResolvedTheme, accent: AccentPreference) {
     document.head.appendChild(meta);
   }
   meta.content = color;
-}
-
-/** Apply before React paint — called from index.html inline script too */
-export function applyThemeFromStorage() {
-  const pref = readPreference();
-  applyThemeClass(resolveTheme(pref), readAccent());
 }
 
 export function useTheme() {
