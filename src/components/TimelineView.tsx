@@ -23,6 +23,7 @@ import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
 import { dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
+import { realSets } from '../utils/prDetect';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
 /** 刚结束 10 分钟内：长按菜单给「继续这场」 */
@@ -47,11 +48,6 @@ interface TimelineViewProps {
   onResumeFinished: (workoutId: string) => void;
   /** 把这场的结构铺成今天的一次新训练（全部为底稿），进工作台 */
   onCopyToToday: (workoutId: string) => void;
-}
-
-/** 底稿行不算数据（§12.6）：未收尾的草稿场次里可能带着 ghost 行 */
-function realSets(ex: Exercise): Exercise['sets'] {
-  return (ex.sets ?? []).filter((s: any) => !s.ghost);
 }
 
 /**

@@ -21,7 +21,7 @@ import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
 import { setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
-import { plural } from '../utils/format';
+import { formatVolume, plural } from '../utils/format';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
@@ -57,13 +57,6 @@ function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number
 function totalVolumeKg(exercise: Exercise): number {
   // 辅助的那部分不是举起来的，不算容量（带正负的负荷）
   return exercise.sets.reduce((sum, s) => (s.ghost ? sum : sum + setVolumeKg(s, exercise)), 0);
-}
-
-function formatVolume(kg: number, unit: string): string {
-  const v = unit === 'lbs' ? kg * 2.20462 : kg;
-  if (v <= 0) return '—';
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}${unit === 'lbs' ? 'k' : 't'}`;
-  return `${Math.round(v)}${unit}`;
 }
 
 interface ExerciseCardProps {

@@ -34,7 +34,7 @@ export interface PRResult {
 }
 
 /** 底稿行不是事实（§12.6），不能参与任何纪录判定（history 里可能躺着没结束就被放弃的草稿） */
-function realSets(ex: Exercise): any[] {
+export function realSets(ex: Exercise): Exercise['sets'] {
   return (ex.sets ?? []).filter((s: any) => !s.ghost);
 }
 

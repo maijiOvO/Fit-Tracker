@@ -8,6 +8,7 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { formatExerciseTime as fmtExerciseTime } from '../utils/dateUtils';
 
 export interface UseExerciseTimeEditorResult {
   updateExerciseTime: (
@@ -54,19 +55,7 @@ export function useExerciseTimeEditor(): UseExerciseTimeEditorResult {
   );
 
   const formatExerciseTime = useCallback(
-    (time: string, _lang?: Language | string) => {
-      if (!time) return { date: '', time: '' };
-      const date = new Date(time);
-      const locale = isCn ? 'zh-CN' : 'en-US';
-      void _lang;
-      return {
-        date: date.toLocaleDateString(locale),
-        time: date.toLocaleTimeString(locale, {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      };
-    },
+    (time: string, _lang?: Language | string) => fmtExerciseTime(time, isCn ? 'cn' : 'en'),
     [isCn],
   );
 

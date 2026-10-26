@@ -11,7 +11,7 @@
  * 全部是纯函数：值一律是「ctx.unit（馆的片子单位）下带符号的数」，调用方负责换算。
  */
 import type { LoadKind } from '../hooks/useLoadKind';
-import { DEFAULT_PLATES, KG_PER_LB, type PlateUnit } from './plates';
+import { DEFAULT_PLATES, convert, type PlateUnit } from './plates';
 
 export interface IncSpec {
   v: number;
@@ -60,11 +60,6 @@ export function defaultProfile(unit: PlateUnit): GymProfile {
   return unit === 'kg'
     ? { plateUnit: 'kg', plates: [...DEFAULT_PLATES.kg], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' }, kettlebell: DEFAULT_KETTLEBELL_INC.kg, fixedBar: DEFAULT_FIXED_BAR_INC.kg }
     : { plateUnit: 'lbs', plates: [...DEFAULT_PLATES.lbs], cable: { v: 10, u: 'lbs' }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' }, kettlebell: DEFAULT_KETTLEBELL_INC.lbs, fixedBar: DEFAULT_FIXED_BAR_INC.lbs };
-}
-
-function convert(v: number, from: PlateUnit, to: PlateUnit): number {
-  if (from === to) return v;
-  return from === 'kg' ? v / KG_PER_LB : v * KG_PER_LB;
 }
 
 /** 档位换到当前单位：取 INC_CHOICES 里最接近的（2.5 kg 一档在 lb 下就是 5 lb 一档 —— 单位就是一切） */

@@ -8,7 +8,7 @@ import { KG_TO_LBS } from '../constants';
 import { distToDisplay, metricUnitLabel } from './exerciseConfig';
 import { E1RM, type SetRef } from './liftHistory';
 
-/** 80 而不是 80.00；最多一位小数 */
+/** 数值智能去零：80 而不是 80.00；最多一位小数（§6.5） */
 export function trimNum(v: number): string {
   return String(Math.round(v * 10) / 10);
 }

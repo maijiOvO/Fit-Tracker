@@ -11,6 +11,14 @@ export const formatWeight = (val: number, unit: 'kg' | 'lbs'): string => {
   return converted.toFixed(1);
 };
 
+/** 总容量：≥1000 显示 1.2t / 1.2k，否则取整带单位；0 显示「—」 */
+export const formatVolume = (kg: number, unit: string): string => {
+  const v = unit === 'lbs' ? kg * KG_TO_LBS : kg;
+  if (v <= 0) return '—';
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}${unit === 'lbs' ? 'k' : 't'}`;
+  return `${Math.round(v)}${unit}`;
+};
+
 /**
  * 解析体重值（转换为 kg）
  */

@@ -26,7 +26,7 @@ import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfi
 import { memberAbbrs, RowRef } from '../utils/workbench';
 import { setVolumeKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
-import { plural } from '../utils/format';
+import { formatVolume, plural } from '../utils/format';
 
 interface Props {
   cardKey: string;
@@ -182,12 +182,7 @@ export const AlternatingCard: React.FC<Props> = ({
   const done = rows.filter(r => setOf(r) && !setOf(r)!.ghost).length;
   const planned = rows.filter(r => setOf(r)).length;
   const volume = members.reduce((n, ex) => n + ex.sets.reduce((v, s) => (s.ghost ? v : v + setVolumeKg(s, ex)), 0), 0);
-  const volText = (() => {
-    const v = unit === 'lbs' ? volume * 2.20462 : volume;
-    if (v <= 0) return '—';
-    if (v >= 1000) return `${(v / 1000).toFixed(1)}${unit === 'lbs' ? 'k' : 't'}`;
-    return `${Math.round(v)}${unit}`;
-  })();
+  const volText = formatVolume(volume, unit);
 
   const counter = new Map<string, number>();
   const notes = members.filter(m => exerciseNotes[resolveName(m.name)] || gymNoteOf(m));
