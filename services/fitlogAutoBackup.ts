@@ -92,7 +92,7 @@ export function markBackupPending(): void {
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** fitlog-backup-2026-10-20-1832.json（本地时间）；dev 数据环境多一段 dev */
-export function autoBackupName(when = new Date(), env = getDataEnv()): string {
+function autoBackupName(when = new Date(), env = getDataEnv()): string {
   const stamp = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}-${pad(when.getHours())}${pad(when.getMinutes())}`;
   return `fitlog-${env === 'dev' ? 'dev-' : ''}backup-${stamp}.json`;
 }
@@ -169,7 +169,7 @@ function maxStamp(rows: Array<Record<string, unknown>> | undefined): string {
 }
 
 /** 各表条数 + 最新修改时间 + prefs 时间戳。够判断「这一天有没有动过数据」，不追求精确 */
-export function snapshotFingerprint(file: FitlogBackupFile): string {
+function snapshotFingerprint(file: FitlogBackupFile): string {
   const s = file.snapshot;
   const p = s.prefs as unknown as Record<string, unknown>;
   return JSON.stringify([

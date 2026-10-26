@@ -21,7 +21,7 @@ import { haptic, H } from '../utils/haptics';
 /** 前 120ms 什么都不出，否则每次普通点按都闪一下。 */
 export const LONGPRESS_DELAY_MS = 120;
 /** 进度线画出的时长。总时长 = 120 + 380 = 500ms。 */
-export const LONGPRESS_DRAW_MS = 380;
+const LONGPRESS_DRAW_MS = 380;
 const TOTAL_MS = LONGPRESS_DELAY_MS + LONGPRESS_DRAW_MS;
 
 /** 手指抖动不取消，移出这个距离（＝开始滚动了）才取消。 */

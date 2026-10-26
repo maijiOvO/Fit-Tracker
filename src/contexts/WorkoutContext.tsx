@@ -31,7 +31,7 @@ const markActive = (id: string) => {
  * （2026-10-21 审查）。所以还得是工作台上落过盘的那一场（activeId；「继续这场」接回来的旧训练也走这条），
  * 或者开练时间本身就在 12 小时内（旧版本升级上来、还没记过 activeId 的那一场）。
  */
-export function findInProgress(list: WorkoutSession[], activeId: string | null = null): WorkoutSession | null {
+function findInProgress(list: WorkoutSession[], activeId: string | null = null): WorkoutSession | null {
   const now = Date.now();
   const ts = (w: WorkoutSession) => new Date(w.updatedAt || w.startTime || w.date).getTime() || 0;
   const started = (w: WorkoutSession) => new Date(w.startTime || w.createdAt || w.date).getTime() || 0;
@@ -282,5 +282,3 @@ export const useWorkoutContext = (): WorkoutContextType => {
   }
   return context;
 };
-
-export default WorkoutContext;

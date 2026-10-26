@@ -74,5 +74,3 @@ export const useGoalsContext = (): GoalsContextType => {
   if (!context) throw new Error('useGoalsContext must be used within GoalsProvider');
   return context;
 };
-
-export default GoalsContext;

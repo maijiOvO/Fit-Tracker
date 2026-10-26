@@ -103,5 +103,3 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
     </Modal>
   );
 };
-
-export default AddCustomExerciseModal;

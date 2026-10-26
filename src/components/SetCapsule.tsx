@@ -1045,5 +1045,3 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
     </div>
   );
 };
-
-export default SetCapsule;

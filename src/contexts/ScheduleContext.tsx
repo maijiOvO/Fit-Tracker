@@ -83,5 +83,3 @@ export const useScheduleContext = (): ScheduleContextType => {
   if (!ctx) throw new Error('useScheduleContext must be used within ScheduleProvider');
   return ctx;
 };
-
-export default ScheduleContext;

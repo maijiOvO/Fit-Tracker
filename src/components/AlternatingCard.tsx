@@ -517,5 +517,3 @@ export const AlternatingCard: React.FC<Props> = ({
     </div>
   );
 };
-
-export default AlternatingCard;

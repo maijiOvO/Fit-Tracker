@@ -43,7 +43,7 @@ interface ModalProps {
   /** 底部操作区。用 <ModalFooter> 包一层以获得统一的取消/确认比例。 */
   footer?: React.ReactNode;
   variant?: ModalVariant;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'full';
   layer?: ModalLayer;
   showCloseButton?: boolean;
   /** 点遮罩是否关闭。表单类弹窗填到一半被误关很恼人，可关掉。 */
@@ -59,7 +59,6 @@ const sizeStyles = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-lg',
-  xl: 'max-w-xl',
   full: 'max-w-2xl',
 };
 

@@ -35,7 +35,7 @@ import { undoJournal } from './undoJournal';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
 
 /** 备份文件的格式版本。与 snapshot.schemaVersion 是两件事，别混。 */
-export const BACKUP_FORMAT_VERSION = 2;
+const BACKUP_FORMAT_VERSION = 2;
 
 /**
  * 导入前的回滚副本存在 IndexedDB，**不是**存在下载下来的文件里。
@@ -53,7 +53,7 @@ const ROLLBACK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
  * 写回本机失败。rolledBack：已经自动换回写之前的样子（「数据未改动」这句话才是真的）；
  * false：回滚也没成，可能停在改了一半——提示要说实话，并指向「撤销上次导入」（审查 A25）
  */
-export class OverwriteFailedError extends Error {
+class OverwriteFailedError extends Error {
   constructor(readonly rolledBack: boolean, cause: unknown) {
     super(`overwrite failed (${rolledBack ? 'rolled back' : 'NOT rolled back'}): ${cause instanceof Error ? cause.message : String(cause)}`);
     this.name = 'OverwriteFailedError';
@@ -78,7 +78,7 @@ const STORES: [Store, keyof FitlogRemoteSnapshot][] = [
  *   - 时间戳换成现在：记录的 updatedAt、首选项的各个 lastUpdate —— 万一走到合并，也是这一份赢
  * 单设备用：不考虑另一台设备同时在改。
  */
-export function asAuthoritative(next: FitlogRemoteSnapshot, before: FitlogRemoteSnapshot): FitlogRemoteSnapshot {
+function asAuthoritative(next: FitlogRemoteSnapshot, before: FitlogRemoteSnapshot): FitlogRemoteSnapshot {
   const now = new Date().toISOString();
   const nowMs = Date.now();
   const ids = (snap: FitlogRemoteSnapshot, k: keyof FitlogRemoteSnapshot) =>

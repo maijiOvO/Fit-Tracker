@@ -807,5 +807,3 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
     </div>
   );
 };
-
-export default TimelineView;

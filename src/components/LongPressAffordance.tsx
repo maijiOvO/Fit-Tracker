@@ -59,5 +59,3 @@ export const LongPressAffordance: React.FC<Props> = ({
     </>
   );
 };
-
-export default LongPressAffordance;

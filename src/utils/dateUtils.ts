@@ -4,7 +4,7 @@
 import { appPrefsNow } from '../../services/appPrefs';
 
 /** 首选项「每周开始于」：0 = 周日，1 = 周一（默认） */
-export const weekStartDay = (): 0 | 1 => (appPrefsNow().weekStart === 'sun' ? 0 : 1);
+const weekStartDay = (): 0 | 1 => (appPrefsNow().weekStart === 'sun' ? 0 : 1);
 
 /** d 是它那一周的第几天（0 = 一周的第一天，按首选项） */
 export const dayOfWeekIndex = (d: Date): number => (d.getDay() - weekStartDay() + 7) % 7;

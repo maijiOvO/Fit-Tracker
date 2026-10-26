@@ -189,5 +189,3 @@ export function listStepFn(list: number[]) {
     return list[i];
   };
 }
-
-export default ScrubNumber;

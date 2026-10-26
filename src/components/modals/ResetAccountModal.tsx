@@ -75,5 +75,3 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
     </Modal>
   );
 };
-
-export default ResetAccountModal;

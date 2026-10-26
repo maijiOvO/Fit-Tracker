@@ -200,5 +200,3 @@ export const useUserSettingsContext = (): UserSettingsContextType => {
   if (!context) throw new Error('useUserSettingsContext must be used within UserSettingsProvider');
   return context;
 };
-
-export default UserSettingsContext;

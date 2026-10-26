@@ -34,7 +34,7 @@ export const PITCH_PX = 40;
 const EDGE_PX = 16;
 
 /** 第 0 行中心在 top 处、行距 pitch 时，手指 y 对应的位置（夹在 0…n-1） */
-export function slotAt(y: number, top: number, n: number, pitch = PITCH_PX): number {
+function slotAt(y: number, top: number, n: number, pitch = PITCH_PX): number {
   return Math.max(0, Math.min(n - 1, Math.round((y - top) / pitch)));
 }
 
@@ -42,7 +42,7 @@ export function slotAt(y: number, top: number, n: number, pitch = PITCH_PX): num
  * 抬起时第 0 行中心放哪：被拖那张卡的那一行正好在手指下；整条放不下时往视口里推
  *（推过之后手指不在那一行上，第一下挪动会就近落到手指下那一格——位置条整个都看得见更要紧）。
  */
-export function stripTopFor(y: number, idx: number, n: number, vh: number, pitch = PITCH_PX): number {
+function stripTopFor(y: number, idx: number, n: number, vh: number, pitch = PITCH_PX): number {
   const top = y - idx * pitch;
   const min = EDGE_PX + pitch / 2;
   const max = vh - EDGE_PX - pitch / 2 - (n - 1) * pitch;

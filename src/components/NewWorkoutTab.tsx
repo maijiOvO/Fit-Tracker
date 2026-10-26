@@ -787,5 +787,3 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     </>
   );
 };
-
-export default NewWorkoutTab;

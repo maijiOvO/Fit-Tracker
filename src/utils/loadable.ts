@@ -177,7 +177,7 @@ function sideBracket(side: number, plates: number[], unit: PlateUnit): [number, 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** 是不是要取整的器材：纯数字的动作（含没有重量这一项的）不管 */
-export function snaps(kind: LoadKind): boolean {
+function snaps(kind: LoadKind): boolean {
   return kind !== 'plain';
 }
 

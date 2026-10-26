@@ -47,7 +47,7 @@ function localTime(iso: string | undefined): string {
 }
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export const CSV_HEADERS = {
+const CSV_HEADERS = {
   cn: ['日期', '开始时间', '训练', '场地', '动作', '做法', '部位', '细分', '组序', '类型', '重量', '单位', '重量(kg)', '次数', '力竭', '时长(秒)', '距离', '距离单位', '训练备注'],
   en: ['Date', 'Start Time', 'Workout', 'Gym', 'Exercise', 'Variant', 'Body Part', 'Region', 'Set', 'Type', 'Weight', 'Unit', 'Weight (kg)', 'Reps', 'To Failure', 'Duration (s)', 'Distance', 'Distance Unit', 'Workout Notes'],
 };

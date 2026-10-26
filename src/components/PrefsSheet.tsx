@@ -534,5 +534,3 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
     document.body,
   );
 };
-
-export default PrefsSheet;

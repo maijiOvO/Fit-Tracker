@@ -249,5 +249,3 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
     </Modal>
   );
 };
-
-export default DateTimePicker;

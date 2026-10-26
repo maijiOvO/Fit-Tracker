@@ -126,5 +126,3 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
     </Modal>
   );
 };
-
-export default EditGoalModal;

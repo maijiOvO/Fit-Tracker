@@ -98,7 +98,7 @@ export function useLoadInfoOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, sign
 }
 
 /** 只要画法 */
-export function useLoadKindOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean, gym?: string) => LoadKind {
+function useLoadKindOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean, gym?: string) => LoadKind {
   const infoOf = useLoadInfoOf();
   return useCallback((ex, signed, gym) => infoOf(ex, signed, gym).kind, [infoOf]);
 }

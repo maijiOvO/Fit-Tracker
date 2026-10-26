@@ -97,5 +97,3 @@ export const AddGoalModal: React.FC<AddGoalModalProps> = ({
     </Modal>
   );
 };
-
-export default AddGoalModal;

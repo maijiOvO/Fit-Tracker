@@ -102,7 +102,7 @@ function AnimatedStack({
 
 /* ── 杠铃（真实比例）───────────────────────────────────────────── */
 
-export function BarbellGlyph({
+function BarbellGlyph({
   perSide,
   plateUnit,
   display,
@@ -257,7 +257,7 @@ export function PinStackGlyph({
 
 /* ── 哑铃：不上色，头的大小随重量 ─────────────────────────────── */
 
-export function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
+function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
   const max = unit === 'kg' ? 50 : 110;
   const s = 0.45 + (Math.min(Math.max(value, 0), max) / max) * 0.55;
   const head = <span className="db-head" style={{ transform: `scale(${0.6 + s * 0.5}, ${s})` }} />;
@@ -281,7 +281,7 @@ export function DumbbellGlyph({ value, unit }: { value: number; unit: PlateUnit 
    以前没有图形，只写「壶铃 16 kg」（design-plates §3 单只定重，阶段二补上）。
    形状按缩放画，数字不跟着缩：钉在铃身底部，最轻的也读得清。 */
 
-export function KettlebellGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
+function KettlebellGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
   const max = unit === 'kg' ? 48 : 106;
   const s = 0.6 + (Math.min(Math.max(value, 0), max) / max) * 0.4;
   return (
@@ -297,7 +297,7 @@ export function KettlebellGlyph({ value, unit }: { value: number; unit: PlateUni
 
 /* ── 固定杠铃：一根焊死的成品杠，头的大小随重量，总重印在杆中间 ─────── */
 
-export function FixedBarGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
+function FixedBarGlyph({ value, unit }: { value: number; unit: PlateUnit }) {
   const max = unit === 'kg' ? 50 : 110;
   const s = 0.45 + (Math.min(Math.max(value, 0), max) / max) * 0.55;
   const head = <span className="fb-head" style={{ transform: `scale(${0.6 + s * 0.5}, ${s})` }} />;
@@ -312,7 +312,7 @@ export function FixedBarGlyph({ value, unit }: { value: number; unit: PlateUnit 
 
 /* ── 带符号负荷（自重）：负数画弹力带，正数挂腰片 ──────────────── */
 
-export function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: number; unit: PlateUnit; plateUnit: PlateUnit; belt?: number[] }) {
+function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: number; unit: PlateUnit; plateUnit: PlateUnit; belt?: number[] }) {
   const span = unit === 'kg' ? 40 : 90;
   const pos = 50 + (Math.max(-span, Math.min(span, value)) / span) * 45;
   const belt = value > 0 ? beltIn ?? loadSide(convert(value, unit, plateUnit), plateUnit).perSide : [];
@@ -992,5 +992,3 @@ function GymHero({
     </div>
   );
 }
-
-export default LoadHero;

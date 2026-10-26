@@ -74,7 +74,7 @@ const DEV_API_KEY =
  * 助手客户端（/api/chat，两把 key 都放行）也复用它，
  * 免得开发机只配了 dev key 时助手用不了。
  */
-export function apiKey(): string {
+function apiKey(): string {
   return getDataEnv() === 'dev' ? DEV_API_KEY : PROD_API_KEY;
 }
 
@@ -82,19 +82,19 @@ export function apiKey(): string {
 export { isDevMode, isEnvLocked, getDataEnv } from './appEnv';
 
 /** 状态端点路径：完全由数据环境决定，不再接受任意的环境变量覆盖。 */
-export function resolveStatePath(): string {
+function resolveStatePath(): string {
   return statePath();
 }
 
 /** 允许 .env 里写裸 IP/域名，自动补 https:// */
-export function normalizeApiBaseUrl(raw: string): string {
+function normalizeApiBaseUrl(raw: string): string {
   const t = raw.trim();
   if (!t) return '';
   if (/^https?:\/\//i.test(t)) return t.replace(/\/$/, '');
   return `https://${t.replace(/\/$/, '')}`;
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
+const API_BASE_URL = normalizeApiBaseUrl(RAW_API_URL);
 
 export function isRemoteConfigured(): boolean {
   // 断网构建（demo / solo）永不联网：这里返回 false，调度器 / pull / push / 同步按钮
@@ -313,7 +313,7 @@ function scheduleUpdatedMs(s: ScheduledWorkout): number {
   return new Date(s.updatedAt || s.createdAt || s.date).getTime();
 }
 
-export function mergeByIdPreferNewer<T extends { id: string }>(
+function mergeByIdPreferNewer<T extends { id: string }>(
   local: T[],
   remote: T[],
   getTs: (x: T) => number,

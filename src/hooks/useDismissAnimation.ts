@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
  * 读 index.css 里的动效令牌，避免 JS 与 CSS 各写一份时长。
  * reduced-motion 会改写这些变量，运行时读能自动跟上。
  */
-export function cssDuration(name: string, fallbackMs: number): number {
+function cssDuration(name: string, fallbackMs: number): number {
   if (typeof window === 'undefined') return fallbackMs;
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   if (!raw) return fallbackMs;

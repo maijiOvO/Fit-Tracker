@@ -31,11 +31,11 @@ export const RESISTANCE_NAMES: Record<Resistance, { cn: string; en: string }> = 
 
 export const EQ_BARBELL = 'tagBarbell';
 export const EQ_DUMBBELL = 'tagDumbbell';
-export const EQ_KETTLEBELL = 'tagKettlebell';
+const EQ_KETTLEBELL = 'tagKettlebell';
 export const EQ_MACHINE = 'tagMachine';
 export const EQ_CABLE = 'tagCable';
-export const EQ_BODYWEIGHT = 'tagBodyweight';
-export const EQ_BAND = 'tagBand';
+const EQ_BODYWEIGHT = 'tagBodyweight';
+const EQ_BAND = 'tagBand';
 
 /** 内置器材（id 沿用旧标签 id：改名覆盖、旧数据都认它） */
 export const BUILTIN_EQUIPMENT = [EQ_BARBELL, EQ_DUMBBELL, EQ_KETTLEBELL, EQ_MACHINE, EQ_CABLE, EQ_BODYWEIGHT, EQ_BAND];

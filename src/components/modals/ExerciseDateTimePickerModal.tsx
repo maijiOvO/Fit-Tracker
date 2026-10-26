@@ -323,5 +323,3 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
     </Modal>
   );
 };
-
-export default ExerciseDateTimePickerModal;

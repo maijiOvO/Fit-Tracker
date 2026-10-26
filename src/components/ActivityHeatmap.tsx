@@ -218,5 +218,3 @@ export const ActivityHeatmap: React.FC<Props> = ({
     </div>
   );
 };
-
-export default ActivityHeatmap;

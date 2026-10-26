@@ -61,7 +61,7 @@ export function useBackupState(): { supported: boolean; folder: FolderRef | null
 }
 
 /** 把一次备份的结局说成人话。只有核对通过（ok）才说成功 */
-export function useReportBackup(): (o: BackupOutcome) => void {
+function useReportBackup(): (o: BackupOutcome) => void {
   const { lang } = useUserSettingsContext();
   const { toast } = useUiOverlay();
   const isCn = lang === Language.CN;

@@ -39,7 +39,7 @@ export function metricUnit(metric: string, unit: 'kg' | 'lbs'): string {
 }
 
 /** 秒 → 1:05:30 / 25:00（时长指标的显示） */
-export function clockOf(sec: number): string {
+function clockOf(sec: number): string {
   const t = Math.max(0, Math.round(sec));
   const h = Math.floor(t / 3600);
   const m = Math.floor((t % 3600) / 60);

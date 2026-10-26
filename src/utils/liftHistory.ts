@@ -14,7 +14,7 @@ import { e1rmOf, findRecords, prSetsOf, type PRSet, type RecordKind } from './pr
 export const E1RM = 'e1rm';
 
 /** Epley，≤ 10 次才估（和纪录同一份，见 utils/prRecords） */
-export const estimate1RM = e1rmOf;
+const estimate1RM = e1rmOf;
 
 export interface SetRef {
   /** 带符号的 kg（辅助为负）；不带号的动作就是 weight */

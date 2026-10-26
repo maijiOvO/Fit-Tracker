@@ -46,7 +46,7 @@ export interface PRPool {
  * 最大重量 / 估算 1RM / 次数纪录 / 单组容量，挑最硬的那一种；历史为空不算；器械只比同一个馆。
  * 一张卡至多标一行：破了那项纪录的那一组。
  */
-export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
+function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
   if (!pool) return -1;
   const top = findRecords(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.gym)[0];
   return top?.at ?? -1;
@@ -790,5 +790,3 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     </div>
   );
 };
-
-export default ExerciseCard;

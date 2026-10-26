@@ -119,5 +119,3 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
     </Modal>
   );
 };
-
-export default DurationPickerModal;

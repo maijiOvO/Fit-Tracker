@@ -450,5 +450,3 @@ function GymProfileForm({
     </div>
   );
 }
-
-export default GymPickerModal;
