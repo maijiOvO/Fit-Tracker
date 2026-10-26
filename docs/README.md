@@ -6,5 +6,6 @@
 - [`design-backup.md`](design-backup.md) —— 数据安全：自动备份、重装恢复、CSV 导出、Strong / Hevy 导入。
 - [`release-signing.md`](release-signing.md) —— 正式签名包与发版清单（少做、易错，每次照着走）。
 - [`manual-check.md`](manual-check.md) —— 真机手测清单：脚本判断不了的手感、观感、动画。
+- [`../scripts/diff/README.md`](../scripts/diff/README.md) —— 重构期「行为不变」对照：产物 diff、纯函数对照、字符集、界面对照；日常不用，大改时比主仓与分支。
 - [`demos/`](demos/) —— 交互示意 HTML，代码注释里引用的那几份。
 - [`screenshots/`](screenshots/) —— README 用的截图清单。
