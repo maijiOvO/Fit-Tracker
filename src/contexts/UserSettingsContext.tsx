@@ -141,7 +141,7 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
   };
 
   const addWeightEntry = async (entry: WeightEntry) => {
-    await db.upsert('weightLogs', entry);
+    await db.save('weightLogs', entry);
     setWeightEntries((prev) =>
       [...prev, entry].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     );
@@ -156,7 +156,7 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
   };
 
   const addMeasurement = async (measurement: Measurement) => {
-    await db.upsert('custom_metrics', measurement);
+    await db.save('custom_metrics', measurement);
     await reloadFromIndexedDb();
     scheduleDebouncedFitlogPush();
   };

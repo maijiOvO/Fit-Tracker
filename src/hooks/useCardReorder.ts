@@ -71,7 +71,6 @@ interface Options {
   count: number;
   /** 松手落定后回调：把 from 移到 to */
   onReorder: (from: number, to: number) => void;
-  disabled?: boolean;
 }
 
 interface Result {
@@ -88,7 +87,7 @@ interface Result {
   drawMs: number;
 }
 
-export function useCardReorder({ count, onReorder, disabled = false }: Options): Result {
+export function useCardReorder({ count, onReorder }: Options): Result {
   const els = useRef<(HTMLElement | null)[]>([]);
   const [pressingIdx, setPressingIdx] = useState<number | null>(null);
   const [hintingIdx, setHintingIdx] = useState<number | null>(null);
@@ -198,7 +197,7 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
   const handleProps = useCallback(
     (i: number): CardReorderHandle => ({
       onPointerDown: e => {
-        if (disabled || !e.isPrimary || dragRef.current || pressRef.current) return;
+        if (!e.isPrimary || dragRef.current || pressRef.current) return;
         // 刊头里的 ⋯ 菜单等控件自己响应，不参与拖动
         if ((e.target as HTMLElement).closest('button, input, a')) return;
         pressRef.current = {
@@ -246,7 +245,7 @@ export function useCardReorder({ count, onReorder, disabled = false }: Options):
       },
       onContextMenu: e => e.preventDefault(),
     }),
-    [abort, clearPress, disabled, lift, moveTo, settle],
+    [abort, clearPress, lift, moveTo, settle],
   );
 
   return {

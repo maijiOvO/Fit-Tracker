@@ -59,7 +59,7 @@ interface Props {
   onSwitchVariant: (exId: string, variantId: string | undefined, name?: string) => void;
   onToggleNote: (name: string, gymKey?: string) => void;
   onOpenMetricModal: (name: string, exId: string) => void;
-  onOpenTimePicker: (exId: string, setId: string, seconds: number) => void;
+  onOpenTimePicker: (exId: string, setId: string) => void;
   /** 这一场训练记的馆：组行的 ± / 拖动 / 递减档按这个馆的档案走（各动作各按各的器材） */
   gym?: string;
   dragHandle?: {
@@ -346,7 +346,7 @@ export const AlternatingCard: React.FC<Props> = ({
                 onUpdate={u => onSetUpdate(r, u)}
                 onRemove={() => onRemoveSet(r)}
                 onRemoveSub={sub => onRemoveSubSet(r, sub)}
-                onDurationClick={() => onOpenTimePicker(r.exId, r.setId, set.duration || 0)}
+                onDurationClick={() => onOpenTimePicker(r.exId, r.setId)}
               />
               {pointerGap === i + 1 && <RestBookmark lang={lang} onMove={onMovePointer} />}
             </React.Fragment>

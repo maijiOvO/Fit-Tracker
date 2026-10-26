@@ -43,7 +43,7 @@ interface GymPickerModalProps {
   /** 新显示单位：新建档案默认用它的片 */
   unit?: string;
   /** 存档案。isNew：新的馆（存好就用它）；renamedFrom：这次把它从这个名字改了过来 */
-  onSaveProfile?: (name: string, profile: GymProfile, isNew: boolean, renamedFrom?: string) => void;
+  onSaveProfile: (name: string, profile: GymProfile, isNew: boolean, renamedFrom?: string) => void;
   /** 开练前选馆：标题改问「这场在哪个馆练」，没有馆就直接开「新的馆」表单，表单关掉就整个关掉 */
   startMode?: boolean;
 }
@@ -63,20 +63,15 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   startMode = false,
 }) => {
   const isCn = lang === Language.CN;
-  const [draft, setDraft] = useState('');
   /** 正在编辑的馆：null＝列表；''＝新的馆 */
   const [editing, setEditing] = useState<string | null>(null);
 
   /** 开练时一个馆都没有：直接进新建表单，表单就是整个弹层（关表单＝不开练） */
   const noGyms = options.length === 0 && Object.keys(profiles).length === 0;
-  const formOnly = startMode && noGyms && !!onSaveProfile;
+  const formOnly = startMode && noGyms;
 
-  // 每次打开都从空输入开始，免得上次没提交的半截名字残留
   useEffect(() => {
-    if (open) {
-      setDraft('');
-      setEditing(formOnly ? '' : null);
-    }
+    if (open) setEditing(formOnly ? '' : null);
   }, [open]);
 
   const commit = (gym: string | undefined) => {
@@ -84,15 +79,12 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
     onClose();
   };
 
-  const draftGym = normalizeGym(draft);
-  const isNew = !!draftGym && !options.some(o => o === draftGym);
-
   const row =
     'w-full min-h-[48px] px-4 flex items-center gap-3 text-left text-small active:bg-card-hover transition-colors duration-tap ease-paper';
 
   const allGyms = [...options, ...Object.keys(profiles).filter(g => !options.includes(g))];
 
-  if (editing !== null && onSaveProfile) {
+  if (editing !== null) {
     return (
       <Modal
         isOpen={open}
@@ -156,16 +148,14 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
                 </span>
               )}
             </button>
-            {onSaveProfile && (
-              <button
-                type="button"
-                className="min-h-[48px] px-4 flex-shrink-0 text-label text-secondary underline underline-offset-2"
-                onClick={() => setEditing(g)}
-                data-testid={`gym-edit-${i}`}
-              >
-                {isCn ? '编辑' : 'Edit'}
-              </button>
-            )}
+            <button
+              type="button"
+              className="min-h-[48px] px-4 flex-shrink-0 text-label text-secondary underline underline-offset-2"
+              onClick={() => setEditing(g)}
+              data-testid={`gym-edit-${i}`}
+            >
+              {isCn ? '编辑' : 'Edit'}
+            </button>
           </div>
         ))}
 
@@ -177,41 +167,15 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
           </button>
         )}
 
-        {onSaveProfile ? (
-          <button
-            type="button"
-            className={`${row} text-primary border-t border-divider mt-2 font-semibold`}
-            onClick={() => setEditing('')}
-            data-testid="gym-new"
-          >
-            <Plus size={15} strokeWidth={2.5} className="flex-shrink-0" />
-            {isCn ? '新的馆…' : 'New gym…'}
-          </button>
-        ) : (
-          <div className="border-t border-divider mt-2 px-4 pt-3 pb-1 flex items-center gap-2">
-            <input
-              className="ui-input flex-1"
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && draftGym) commit(draftGym);
-              }}
-              placeholder={translations.gymNewPlaceholder[lang] as string}
-              data-testid="gym-new-input"
-            />
-            <button
-              type="button"
-              disabled={!isNew}
-              onClick={() => draftGym && commit(draftGym)}
-              className={`min-h-[44px] px-3 rounded-card flex-shrink-0 flex items-center gap-1 text-small font-bold transition-ui active:scale-press-sm ${
-                isNew ? 'bg-accent text-on-accent' : 'bg-card/40 text-tertiary cursor-not-allowed'
-              }`}
-              aria-label={isCn ? '添加场地' : 'Add gym'}
-            >
-              <Plus size={15} strokeWidth={2.5} />
-            </button>
-          </div>
-        )}
+        <button
+          type="button"
+          className={`${row} text-primary border-t border-divider mt-2 font-semibold`}
+          onClick={() => setEditing('')}
+          data-testid="gym-new"
+        >
+          <Plus size={15} strokeWidth={2.5} className="flex-shrink-0" />
+          {isCn ? '新的馆…' : 'New gym…'}
+        </button>
       </div>
     </Modal>
   );

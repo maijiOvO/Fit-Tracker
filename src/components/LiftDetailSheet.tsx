@@ -55,7 +55,7 @@ interface LiftDetailSheetProps {
   activeMetrics: string[];
   metric: string | undefined;
   onMetricChange: (metric: string) => void;
-  renderSetCapsule: (s: any, exerciseName: string, ex: unknown, idx: number) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, idx: number) => React.ReactNode;
   formatExerciseTime: (iso: string, lang: 'cn' | 'en') => { time: string };
   onEditExerciseTime: (workoutId: string, exerciseId: string, initial: Date) => void;
   /** exerciseId：编辑页打开后滚到这个动作 */
@@ -288,7 +288,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {s.sets.map((set, i) => renderSetCapsule(set, s.exercise.name, s.exercise, i))}
+                    {s.sets.map((set, i) => renderSetCapsule(set, s.exercise.name, i))}
                   </div>
                   {l.hasWeight && !l.signed && s.e1rm && (
                     <p className="text-xs text-tertiary">

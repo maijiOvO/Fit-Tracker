@@ -71,7 +71,7 @@ export interface NewWorkoutTabProps {
   onSave: () => void;
   /** kg ⇄ lbs 显示切换（训练页隐藏了全局 AppHeader，入口在本页头部） */
   onToggleUnit: () => void;
-  onOpenTimePicker: (exIdx: number, setIdx: number, seconds: number) => void;
+  onOpenTimePicker: (exIdx: number, setIdx: number) => void;
   /** 改动作的时间（卡头那个「12:13」）。以前它误开的是第 1 组的时长 */
   onOpenExerciseTime?: (exId: string) => void;
   /** 底稿抄自哪一场（C2）：给卡头「底稿 · 10/4」用 */
@@ -625,10 +625,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
                 onToggleNote={onToggleNote}
                 onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId), undefined, true)}
-                onOpenTimePicker={(exId, setId, sec) => {
+                onOpenTimePicker={(exId, setId) => {
                   const ei = indexOf(exId);
                   const si = exs[ei]?.sets.findIndex(s => String(s.id) === setId) ?? -1;
-                  if (ei >= 0 && si >= 0) onOpenTimePicker(ei, si, sec);
+                  if (ei >= 0 && si >= 0) onOpenTimePicker(ei, si);
                 }}
                 dragHandle={dragHandle}
               />,

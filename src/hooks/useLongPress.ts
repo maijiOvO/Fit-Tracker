@@ -30,8 +30,6 @@ const CANCEL_DISTANCE_PX = 10;
 interface Options {
   /** 达成后要做的事 */
   onLongPress: () => void;
-  /** 总时长，默认 500ms */
-  durationMs?: number;
   disabled?: boolean;
 }
 
@@ -56,7 +54,7 @@ interface Result {
   drawMs: number;
 }
 
-export function useLongPress({ onLongPress, durationMs = TOTAL_MS, disabled = false }: Options): Result {
+export function useLongPress({ onLongPress, disabled = false }: Options): Result {
   const [pressing, setPressing] = useState(false);
   const [hinting, setHinting] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -110,9 +108,9 @@ export function useLongPress({ onLongPress, durationMs = TOTAL_MS, disabled = fa
         // 而这里的语义时刻就是「达成」这一帧。
         haptic(H.longpress);
         cbRef.current();
-      }, durationMs);
+      }, TOTAL_MS);
     },
-    [cancel, disabled, durationMs],
+    [cancel, disabled],
   );
 
   const move = useCallback(
@@ -136,6 +134,6 @@ export function useLongPress({ onLongPress, durationMs = TOTAL_MS, disabled = fa
     },
     pressing,
     hinting,
-    drawMs: durationMs - LONGPRESS_DELAY_MS,
+    drawMs: LONGPRESS_DRAW_MS,
   };
 }

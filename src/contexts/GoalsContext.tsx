@@ -36,13 +36,13 @@ export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> =
   }, [userId, refreshFromDb]);
 
   const addGoal = async (goal: Goal) => {
-    await db.upsert('goals', goal);
+    await db.save('goals', goal);
     setGoals((prev) => [...prev, goal]);
     scheduleDebouncedFitlogPush();
   };
 
   const updateGoal = async (goal: Goal) => {
-    await db.upsert('goals', goal);
+    await db.save('goals', goal);
     setGoals((prev) => prev.map((g) => (g.id === goal.id ? goal : g)));
     scheduleDebouncedFitlogPush();
   };

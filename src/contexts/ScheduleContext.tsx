@@ -37,13 +37,13 @@ export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }
   }, [userId, refreshFromDb]);
 
   const addSchedule = async (s: ScheduledWorkout) => {
-    await db.upsert('scheduledWorkouts', s);
+    await db.save('scheduledWorkouts', s);
     setSchedules(prev => [...prev, s].sort((a, b) => (a.date < b.date ? -1 : 1)));
     scheduleDebouncedFitlogPush();
   };
 
   const updateSchedule = async (s: ScheduledWorkout) => {
-    await db.upsert('scheduledWorkouts', s);
+    await db.save('scheduledWorkouts', s);
     setSchedules(prev =>
       prev.map(p => (p.id === s.id ? s : p)).sort((a, b) => (a.date < b.date ? -1 : 1)),
     );

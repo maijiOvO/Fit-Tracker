@@ -17,7 +17,7 @@ import {
   Play,
 } from 'lucide-react';
 import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
-import { Language, WorkoutSession, Exercise } from '../../types';
+import { Language, WorkoutSession } from '../../types';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
@@ -37,7 +37,7 @@ interface TimelineViewProps {
   workouts: WorkoutSession[];
   granularity: TimelineGranularity;
   onGranularityChange: (g: TimelineGranularity) => void;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
   onEditWorkout: (workoutId: string) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
   /** 删整场：一律先确认（2026-10-25） */
@@ -145,7 +145,7 @@ interface SessionCardProps {
   lang: Language;
   isExpanded: boolean;
   onToggleExpand: () => void;
-  renderSetCapsule: (s: any, exerciseName: string, exercise?: Exercise, setIdx?: number) => React.ReactNode;
+  renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
   onEdit: () => void;
   onAppend: () => void;
   onDelete: () => void;
@@ -532,7 +532,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
                   // 一组一整行：以前是胶囊时代的 flex-wrap，每行按内容收窄（254 / 218px 各不相同），
                   // 同一个动作里 41.89 和 132.28 的列宽不一样，数字和单位对不齐（2026-10-22 界面审查）
                   <div className="flex flex-col gap-1.5 [&>*]:w-full">
-                    {sets.map((s, i) => renderSetCapsule(s, ex.name, ex, i))}
+                    {sets.map((s, i) => renderSetCapsule(s, ex.name, i))}
                   </div>
                 )}
               </div>

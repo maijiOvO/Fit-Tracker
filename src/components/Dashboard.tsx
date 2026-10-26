@@ -90,7 +90,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const renderSetCapsule = useCallback(
     // setIdx 是这一组在它所在列表里的下标：组号显示 setIdx + 1（set-number-all-one：以前写死 0，全是「1」）
-    (s: any, exerciseName: string, _exercise?: unknown, setIdx = 0) => (
+    (s: any, exerciseName: string, setIdx = 0) => (
       <SetCapsule
         key={`${s.id ?? 'set'}-${setIdx}`}
         set={s}

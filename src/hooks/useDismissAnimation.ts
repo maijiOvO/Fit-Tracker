@@ -27,7 +27,7 @@ interface DismissState {
   leaving: boolean;
 }
 
-export function useDismissAnimation(open: boolean, exitVar = '--dur-exit', fallbackMs = 180): DismissState {
+export function useDismissAnimation(open: boolean): DismissState {
   const [mounted, setMounted] = useState(open);
   const [leaving, setLeaving] = useState(false);
 
@@ -41,9 +41,9 @@ export function useDismissAnimation(open: boolean, exitVar = '--dur-exit', fallb
     const t = window.setTimeout(() => {
       setMounted(false);
       setLeaving(false);
-    }, cssDuration(exitVar, fallbackMs));
+    }, cssDuration('--dur-exit', 180));
     return () => window.clearTimeout(t);
-  }, [open, exitVar, fallbackMs]);
+  }, [open]);
 
   return { mounted, leaving };
 }

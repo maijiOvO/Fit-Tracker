@@ -13,9 +13,6 @@ import { e1rmOf, findRecords, prSetsOf, type PRSet, type RecordKind } from './pr
 /** 估算 1RM 的伪指标键。不在 activeMetrics 里，只在图表 / 纪录里出现 */
 export const E1RM = 'e1rm';
 
-/** Epley，≤ 10 次才估（和纪录同一份，见 utils/prRecords） */
-const estimate1RM = e1rmOf;
-
 export interface SetRef {
   /** 带符号的 kg（辅助为负）；不带号的动作就是 weight */
   kg: number;
@@ -106,7 +103,7 @@ function buildSession(w: WorkoutSession, ex: Exercise, signed: boolean): LiftSes
       mostReps = { kg, reps };
     }
     // 带号的动作不估 1RM：自重那部分不在数里，估出来的数没有意义
-    const est = signed ? null : estimate1RM(kg, reps);
+    const est = signed ? null : e1rmOf(kg, reps);
     if (est != null && (!e1rm || est > e1rm.value)) e1rm = { kg, reps, value: est };
   }
   return {

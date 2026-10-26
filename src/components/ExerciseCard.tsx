@@ -26,7 +26,7 @@ import { KG_TO_LBS } from '../constants';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from '../hooks/useLoadKind';
 import { LoadHero } from './PlateGlyph';
 import { plateUnitOf } from '../utils/plates';
-import { gymOverrideKey, oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
+import { oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from '../hooks/useLoadRounder';
 import { keyedPatch } from '../../services/appPrefs';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { incIn, startIn, type IncSpec } from '../utils/loadable';
@@ -70,7 +70,7 @@ interface ExerciseCardProps {
   resolveName: (name: string) => string;
   onUpdateExercise: (exIdx: number, updates: Partial<Exercise>) => void;
   onDeleteExercise: (exIdx: number) => void;
-  onOpenTimePicker: (exIdx: number, setIdx: number, currentSeconds: number) => void;
+  onOpenTimePicker: (exIdx: number, setIdx: number) => void;
   /** 改这个动作的时间（卡头「12:13」）；不传则那行只显示不可点 */
   onOpenExerciseTime?: () => void;
   /** 底稿抄自哪一场（C2，2026-10-11）：卡头「底稿 · 10/4」，点开在卡内看那次的几组，不用离开工作台 */
@@ -291,7 +291,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const prefillElsewhere = !!exercise.prefillGym && exercise.prefillGym !== gym ? exercise.prefillGym : null;
 
   const handleDurationClick = (setIdx: number) => {
-    onOpenTimePicker(exIdx, setIdx, exercise.sets[setIdx].duration || 0);
+    onOpenTimePicker(exIdx, setIdx);
   };
 
   // 父行与子组行共用同一份列宽，根治原先「表头 px-2 vs 行 p-3」的 4px 错位
@@ -307,7 +307,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 改完把没做完、没改过的组吸到新的一档上。
    */
   const incKey = rounder && gym && (loadKind === 'pin' || loadKind === 'pair' || loadKind === 'bell' || loadKind === 'fixed' || loadKind === 'signed')
-    ? gymOverrideKey(gym, rounder.info)
+    ? gymMachineKey(gym, rounder.info)
     : null;
   const incOverridden = !!(incKey && appPrefs.gymOverrides[incKey]);
   const setIncOverride = (next: number | null) => {

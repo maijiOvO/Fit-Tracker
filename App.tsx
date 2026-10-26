@@ -717,7 +717,7 @@ const AppWithAuthShell: React.FC = () => {
   }, [prefs, showMetricModal]);
 
   // ============== Time picker（单组时长） ==============
-  const openTimePicker = (exIdx: number, setIdx: number, _currentSeconds: number) => {
+  const openTimePicker = (exIdx: number, setIdx: number) => {
     setShowTimePicker({ exIdx, setIdx });
   };
 
@@ -826,7 +826,7 @@ const AppWithAuthShell: React.FC = () => {
         return false;
       }
       let created: string[] = [];
-      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, false, {
+      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, {
         altGroup: pickerTargetGroup,
         variantId,
         onCreated: (ids, partnerNames) => {
@@ -898,7 +898,7 @@ const AppWithAuthShell: React.FC = () => {
       target(ex);
       return;
     }
-    const newId = addExerciseToWorkout(ex, false);
+    const newId = addExerciseToWorkout(ex);
     if (pickerSheetOpen) {
       lastAddedExerciseIdRef.current = newId;
       setSheetSessionAdded(n => n + 1);

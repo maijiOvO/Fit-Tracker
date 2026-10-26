@@ -258,7 +258,6 @@ export interface UseWorkoutMutationsResult {
    */
   addExerciseToWorkout: (
     ex: { id: string; name: { en: string; cn: string }; category?: ExerciseCategory; exerciseConfig?: any },
-    closeLibrary?: boolean,
     opts?: { altGroup?: string | null; variantId?: string; onCreated?: (ids: string[], partnerNames: string[]) => void },
   ) => string;
 }
@@ -1023,7 +1022,6 @@ export function useWorkoutMutations({
         category?: ExerciseCategory;
         exerciseConfig?: any;
       },
-      _closeLibrary = false,
       opts: {
         altGroup?: string | null;
         variantId?: string;

@@ -57,10 +57,6 @@ export interface ExRounder {
   snapKg: (kg: number) => number;
 }
 
-export function gymOverrideKey(gym: string | undefined, info: Pick<LoadInfo, 'defId' | 'variantId'>): string | null {
-  return gymMachineKey(gym, info);
-}
-
 /**
  * 返回 rounderFor(ex, gym, unitOverride?)：
  *   - gym：这场训练记的馆（WorkoutSession.gym）；没标馆 / 没设过档案 → 标准片 + 常见档位
@@ -94,7 +90,7 @@ export function useLoadRounder(): RounderFor {
       if (info.kind === 'plain') return null;
       // 格子按这件器械的片子单位算（显示 lb 的 kg 馆，± / 取整照样落在这个馆挂得出的重量上，审查 A9）
       const profile = gym ? (gymsOverride ?? gyms)[gym] : undefined;
-      const okey = gymOverrideKey(gym, info);
+      const okey = gymMachineKey(gym, info);
       const ov = okey ? overrides[okey] : undefined;
       const u: PlateUnit = ownUnitOf(info, profile, ov) ?? profile?.plateUnit ?? du;
       const prof = profileIn(profile, u);

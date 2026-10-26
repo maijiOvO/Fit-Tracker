@@ -77,10 +77,6 @@ function apiKey(): string {
 /** 兼容旧调用点（App.tsx / ProfileTab）—— 判定逻辑已统一到 services/appEnv.ts */
 export { isDevMode, isEnvLocked, getDataEnv } from './appEnv';
 
-/** 状态端点路径：完全由数据环境决定，不再接受任意的环境变量覆盖。 */
-function resolveStatePath(): string {
-  return statePath();
-}
 
 /** 允许 .env 里写裸 IP/域名，自动补 https:// */
 function normalizeApiBaseUrl(raw: string): string {
@@ -232,7 +228,7 @@ export async function fetchRemoteSnapshot(): Promise<FitlogRemoteSnapshot | null
 export async function fetchRemoteSnapshotResult(): Promise<RemoteSnapshotResult> {
   if (!isRemoteConfigured()) return { status: 'empty' };
 
-  const path = resolveStatePath();
+  const path = statePath();
   try {
     // 20 秒超时（审查 A26）：NAS / 隧道挂住时 GET 一直不回，启动拉取和之后每次推送前的拉取都会被它卡死
     const response = await remoteFetch('GET', path, undefined, 20000);
@@ -267,7 +263,7 @@ export async function fetchRemoteSnapshotResult(): Promise<RemoteSnapshotResult>
 
 export async function putRemoteSnapshot(snapshot: FitlogRemoteSnapshot): Promise<void> {
   if (!isRemoteConfigured()) return;
-  const path = resolveStatePath();
+  const path = statePath();
   const payload: FitlogRemoteSnapshot = {
     ...snapshot,
     env: getDataEnv(),
