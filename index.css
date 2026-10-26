@@ -118,13 +118,11 @@
 
   --highlight: #A3A8B0;
   --highlight-soft: #EEF0F3;
-  --text-on-highlight: #111316;
 
   /* 语义：降饱和，和灰阶相容。危险靠形态与位置区分，不靠颜色 */
   --success: #2F6B45;
   --success-soft: #DDE8E0;
   --warning: #7A5A10;
-  --warning-soft: #EFE8D6;
   --danger: #A3241F;
   --danger-soft: #F2DCDA;
 
@@ -242,12 +240,10 @@
 
   --highlight: #4A5866;
   --highlight-soft: #1C2630;
-  --text-on-highlight: #F2F5F7;
 
   --success: #7FBF92;
   --success-soft: #18261D;
   --warning: #D2AE5C;
-  --warning-soft: #2A2416;
   --danger: #EF7A70;
   --danger-soft: #331714;
 
@@ -297,7 +293,6 @@
 
   --highlight: #4A4A52;
   --highlight-soft: #232328;
-  --text-on-highlight: #F4F4F6;
 
   --seg-pill: #2C2C33;
   --seg-shadow: 0 1px 2px rgba(0, 0, 0, .55);
