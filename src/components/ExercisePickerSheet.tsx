@@ -849,11 +849,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const pickKey = variantId ? `${ex.id}::${variantId}` : ex.id;
     if (lastPickRef.current.id === pickKey && now - lastPickRef.current.t < 450) return;
     lastPickRef.current = { id: pickKey, t: now };
-    try {
-      haptic(H.pick);
-    } catch {
-      /* noop */
-    }
+    haptic(H.pick);
     // 本次打开里加过的再点一下＝取消这次添加（App 里判），那一下不播「添加」的墨迹
     if (onPickExercise(ex, variantId) === false) return;
     const row = rowRefs.current.get(pickKey);

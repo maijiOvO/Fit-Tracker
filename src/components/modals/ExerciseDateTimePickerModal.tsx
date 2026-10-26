@@ -26,21 +26,13 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
 }) => {
   const isCn = lang === Language.CN;
 
-  const [selectedDate, setSelectedDate] = useState(() =>
-    initialTime ? new Date(initialTime) : new Date(),
-  );
-  const [selectedHour, setSelectedHour] = useState(
-    () => new Date(initialTime || Date.now()).getHours(),
-  );
-  const [selectedMinute, setSelectedMinute] = useState(
-    () => new Date(initialTime || Date.now()).getMinutes(),
-  );
-  const [currentMonth, setCurrentMonth] = useState(() =>
-    (initialTime ? new Date(initialTime) : new Date()).getMonth(),
-  );
-  const [currentYear, setCurrentYear] = useState(() =>
-    (initialTime ? new Date(initialTime) : new Date()).getFullYear(),
-  );
+  // 初值只在首渲染用，五个状态取同一刻（打开时的重置在下面的 effect 里）
+  const init = initialTime ? new Date(initialTime) : new Date();
+  const [selectedDate, setSelectedDate] = useState(init);
+  const [selectedHour, setSelectedHour] = useState(init.getHours());
+  const [selectedMinute, setSelectedMinute] = useState(init.getMinutes());
+  const [currentMonth, setCurrentMonth] = useState(init.getMonth());
+  const [currentYear, setCurrentYear] = useState(init.getFullYear());
 
   // 每次重新打开重置
   useEffect(() => {

@@ -90,18 +90,18 @@ export function cardRows(card: WorkbenchCard, exs: Exercise[]): RowRef[] {
     return ex ? ex.sets.map(s => ({ exId: ex.id, setId: String(s.id) })) : [];
   }
   const M = members.length;
-  const non: { r: RowRef; key: number; done: boolean; mi: number }[] = [];
+  const non: { r: RowRef; key: number; mi: number }[] = [];
   const queues: RowRef[][] = members.map(() => []);
   members.forEach((ex, mi) => {
     ex.sets.forEach((s, k) => {
       const r = { exId: ex.id, setId: String(s.id) };
       if (isPending(s)) queues[mi].push(r);
       // 没有 seq 的（旧数据 / 接回来的训练）按轮换位次排在前面；seq 是时间戳，天然排在它们之后
-      else non.push({ r, key: s.seq ?? k * M + mi, done: !s.ghost, mi });
+      else non.push({ r, key: s.seq ?? k * M + mi, mi });
     });
   });
   non.sort((a, b) => a.key - b.key);
-  const lastDone = [...non].reverse().find(x => x.done);
+  const lastDone = non[non.length - 1];
   let k = lastDone ? (lastDone.mi + 1) % M : 0;
   const pend: RowRef[] = [];
   while (queues.some(q => q.length)) {

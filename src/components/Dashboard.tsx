@@ -107,40 +107,23 @@ const Dashboard: React.FC<DashboardProps> = ({
   );
 
   const [weightRange, setWeightRange] = useState<ChartRange>(() => {
-    try {
-      const saved = storage.getItem(WEIGHT_RANGE_STORAGE_KEY);
-      if (saved && (CHART_RANGES as string[]).includes(saved)) return saved as ChartRange;
-    } catch {}
-    return '3m';
+    const saved = storage.getItem(WEIGHT_RANGE_STORAGE_KEY);
+    return saved && (CHART_RANGES as string[]).includes(saved) ? (saved as ChartRange) : '3m';
   });
   useEffect(() => {
-    try { storage.setItem(WEIGHT_RANGE_STORAGE_KEY, weightRange); } catch {}
+    storage.setItem(WEIGHT_RANGE_STORAGE_KEY, weightRange);
   }, [weightRange]);
   // 视图模式：默认按时间线
-  const [view, setView] = useState<DashboardView>(() => {
-    try {
-      const saved = storage.getItem(VIEW_STORAGE_KEY);
-      return saved === 'pr' ? 'pr' : 'timeline';
-    } catch {
-      return 'timeline';
-    }
-  });
+  const [view, setView] = useState<DashboardView>(() => (storage.getItem(VIEW_STORAGE_KEY) === 'pr' ? 'pr' : 'timeline'));
   const [granularity, setGranularity] = useState<TimelineGranularity>(() => {
-    try {
-      const saved = storage.getItem(GRANULARITY_STORAGE_KEY);
-      if (saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year') {
-        return saved;
-      }
-      return 'day';
-    } catch {
-      return 'day';
-    }
+    const saved = storage.getItem(GRANULARITY_STORAGE_KEY);
+    return saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year' ? saved : 'day';
   });
   useEffect(() => {
-    try { storage.setItem(VIEW_STORAGE_KEY, view); } catch {}
+    storage.setItem(VIEW_STORAGE_KEY, view);
   }, [view]);
   useEffect(() => {
-    try { storage.setItem(GRANULARITY_STORAGE_KEY, granularity); } catch {}
+    storage.setItem(GRANULARITY_STORAGE_KEY, granularity);
   }, [granularity]);
 
   const [exerciseTimeEdit, setExerciseTimeEdit] = useState<{

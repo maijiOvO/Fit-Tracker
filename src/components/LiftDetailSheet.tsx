@@ -27,11 +27,8 @@ const LiftTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m
 const RANGE_STORAGE_KEY = 'fitlog_lift_chart_range';
 
 function savedRange(): ChartRange | null {
-  try {
-    const saved = storage.getItem(RANGE_STORAGE_KEY);
-    if (saved && (CHART_RANGES as string[]).includes(saved)) return saved as ChartRange;
-  } catch {}
-  return null;
+  const saved = storage.getItem(RANGE_STORAGE_KEY);
+  return saved && (CHART_RANGES as string[]).includes(saved) ? (saved as ChartRange) : null;
 }
 
 /** 没选过范围时：历史不到半年看全部，再长先看半年 */
@@ -103,7 +100,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
 
   const chooseRange = (r: ChartRange) => {
     setChosenRange(r);
-    try { storage.setItem(RANGE_STORAGE_KEY, r); } catch {}
+    storage.setItem(RANGE_STORAGE_KEY, r);
   };
 
   const l = lift ?? shown;
