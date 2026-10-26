@@ -605,6 +605,12 @@
 }
 .ledger-row.is-pr .ledger-input,
 .ledger-row.is-pr .set-num { color: var(--text-on-chalk); }
+/* 深色里整行铺镁粉白会是一大块刺眼的白（真机：第一次点选一组、被判成 PB 时整行变白）。
+   深色改成淡强调色底 + 正常墨色，PB 小标签（.pb-tag）仍保留镁粉白。 */
+.dark .ledger-row.is-pr { background: var(--accent-soft); }
+.dark .ledger-row.is-pr .ledger-input { color: var(--text-primary); }
+.dark .ledger-row.is-pr .set-num { color: var(--accent-text); }
+.dark .ledger-row.is-pr.is-selected .set-num { color: var(--text-on-accent); }
 /* 「上次 x」：底稿抄自上一次、单位不同或取整过时，标出上一次挂的原值（只做参考，2026-10-18 用户定） */
 .ref-tag {
   /* 行下标：落在格子下沿虚线和行底之间那 10px 里。放格子里面（左上 / 右上）都会压到大号数字或小数 */
