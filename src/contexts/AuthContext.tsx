@@ -25,7 +25,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (!raw) return { ...FITLOG_SOLO_USER };
       const parsed = JSON.parse(raw) as User;
       const avatarUrl = storage.getItem(AVATAR_KEY) || parsed?.avatarUrl || undefined;
-      if (!parsed?.id || parsed.id === 'u_guest') return { ...FITLOG_SOLO_USER, avatarUrl };
       /** 统一到单机 ID（保留头像） */
       return { ...FITLOG_SOLO_USER, avatarUrl };
     } catch {

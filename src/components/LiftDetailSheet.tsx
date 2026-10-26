@@ -273,7 +273,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                       {s.gym && <span className="px-2 py-0.5 rounded-chip bg-inset text-secondary">{s.gym}</span>}
                       {s.fromSchedule && (
                         <span className="px-2 py-0.5 rounded-chip bg-accent-soft text-accent font-medium">
-                          {translations.planBadgeFaithful?.[lang] ?? (isCn ? '来自计划' : 'From plan')}
+                          {translations.planBadgeFaithful[lang]}
                         </span>
                       )}
                       {s.exerciseTime && (

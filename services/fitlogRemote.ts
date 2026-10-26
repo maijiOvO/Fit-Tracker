@@ -284,7 +284,7 @@ export async function putRemoteSnapshot(snapshot: FitlogRemoteSnapshot): Promise
 }
 
 function entityUpdatedMs(w: WorkoutSession): number {
-  const ts = (w as { updatedAt?: string }).updatedAt || (w as { createdAt?: string }).createdAt || w.date;
+  const ts = w.updatedAt || w.createdAt || w.date;
   return new Date(ts).getTime();
 }
 

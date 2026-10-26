@@ -92,7 +92,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
         userId: user.id,
         // 名字去掉首尾空格：「腰围 」和「腰围」原来会成两个指标
         name,
-        value: parseFloat(measureForm.value.toString()),
+        value: parseFloat(measureForm.value),
         unit: measureForm.unit.trim(),
         date: dateToUse,
         updatedAt: now,

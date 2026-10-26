@@ -35,13 +35,12 @@ const PlanTab: React.FC<PlanTabProps> = ({
   planPickerHost,
 }) => {
   const [subView, setSubView] = useState<PlanSubView>(() => {
-    if (typeof window === 'undefined') return 'schedule';
     const v = storage.getItem(STORAGE_KEY);
     return v === 'goals' ? 'goals' : 'schedule';
   });
 
   useEffect(() => {
-    try { storage.setItem(STORAGE_KEY, subView); } catch {}
+    storage.setItem(STORAGE_KEY, subView);
   }, [subView]);
 
   return (

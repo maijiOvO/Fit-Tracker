@@ -155,7 +155,7 @@ export const AlternatingCard: React.FC<Props> = ({
   };
   const names = members.map(m => resolveName(m.name));
   const abbrs = memberAbbrs(names);
-  const byId = new Map<string, Exercise>(members.map(m => [m.id, m] as [string, Exercise]));
+  const byId = new Map<string, Exercise>(members.map(m => [m.id, m]));
   const idx = (id: string) => members.findIndex(m => m.id === id);
 
   const [menuOpen, setMenuOpen] = useState(false);

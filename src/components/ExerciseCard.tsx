@@ -159,7 +159,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
   const { variantsOf, variantLabel, findExerciseDef, barOf, setBar } = useExercisePrefs();
-  const [variantOpen, setVariantOpen] = React.useState(false);
+  const [variantOpen, setVariantOpen] = useState(false);
   const variantName = variantLabel(exercise);
   const variantCount = variantsOf(exercise.name).length;
   const hasDef = !!findExerciseDef(exercise.name);
@@ -242,7 +242,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
    * 首次渲染整卡的行都不算新（seenRef 为空 → 全部跳过）。
    */
   const seenSetIdsRef = useRef<Set<string> | null>(null);
-  const currentIds = exercise.sets.map((s: any) => String(s.id));
+  const currentIds = exercise.sets.map(s => String(s.id));
   const newSetIds = new Set<string>();
   if (seenSetIdsRef.current) {
     for (const id of currentIds) if (!seenSetIdsRef.current.has(id)) newSetIds.add(id);
