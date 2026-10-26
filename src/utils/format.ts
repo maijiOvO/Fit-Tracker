@@ -29,24 +29,6 @@ export const secondsToHMS = (totalSeconds: number) => {
 };
 
 /**
- * 时分秒对象转换为秒
- */
-export const hmsToSeconds = (h: number, m: number, s: number): number => {
-  return h * 3600 + m * 60 + s;
-};
-
-/**
- * 格式化时间为 MM:SS 或 HH:MM:SS
- */
-export const formatTime = (seconds: number): string => {
-  const { h, m, s } = secondsToHMS(seconds);
-  if (h > 0) {
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
-
-/**
  * 英文单复数。中文不区分，所以调用方形如 `isCn ? '组' : plural(n, 'set')`,
  * 只在英文分支里用。缩写（ex. / sess.）本来就不变形，不要套这个。
  */

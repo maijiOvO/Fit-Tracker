@@ -79,7 +79,7 @@ export function apiKey(): string {
 }
 
 /** 兼容旧调用点（App.tsx / ProfileTab）—— 判定逻辑已统一到 services/appEnv.ts */
-export { isDevMode, setDevMode, isEnvLocked, getDataEnv } from './appEnv';
+export { isDevMode, isEnvLocked, getDataEnv } from './appEnv';
 
 /** 状态端点路径：完全由数据环境决定，不再接受任意的环境变量覆盖。 */
 export function resolveStatePath(): string {

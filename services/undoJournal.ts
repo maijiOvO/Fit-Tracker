@@ -46,8 +46,6 @@ export const PREF_TIMESTAMP_KEYS = [
   'fitlog_app_prefs_last_update',
 ];
 
-export const isJournaledKey = (key: string) => JOURNALED_KEYS.has(key);
-
 type Row = { id: string } & Record<string, unknown>;
 
 /** 一行（或一个键）在这一步里的前后两份；undefined＝不存在 */
@@ -211,16 +209,6 @@ export const undoJournal = {
     finalize();
     current = emptyStep(label);
     notify();
-  },
-
-  /** 换了这一步的名字（按钮文字等；拿不到时留空） */
-  labelStep(label: string) {
-    if (current && label) current.label = label;
-  },
-
-  /** 不开新步，只把当前这一步收尾（撤销按钮按下时先调） */
-  closeStep() {
-    finalize();
   },
 
   /** 包住系统写入（拉取合并、整份改写）：不进日志 */

@@ -25,6 +25,7 @@ import type { FitlogRemoteSnapshot, FitlogSyncedPrefs, FitlogTombstones } from '
 import {
   applySnapshotToLocalIndexedDb,
   collectLocalSnapshot,
+  isRemoteConfigured,
   mergeLocalWithRemote,
   readPrefsFromLocalStorage,
   writePrefsToLocalStorage,
@@ -32,7 +33,6 @@ import {
 import { db } from './db';
 import { undoJournal } from './undoJournal';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
-import { isRemoteConfigured } from './fitlogRemote';
 
 /** 备份文件的格式版本。与 snapshot.schemaVersion 是两件事，别混。 */
 export const BACKUP_FORMAT_VERSION = 2;

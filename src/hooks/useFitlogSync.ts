@@ -7,7 +7,6 @@ import { translations } from '../../translations';
 import { db } from '../../services/db';
 import {
   isRemoteConfigured,
-  markPrefsUpdated,
   migrateRecordsToSoloUserId,
   readPrefsFromLocalStorage,
   RemoteError,
@@ -335,9 +334,6 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
       syncLockRef.current = false;
     }
   }, [handleSnapshotApply, loadLocalData, resolvedUserId, settingsCtx.lang, toast]);
-
-  // 兼容旧逻辑：markPrefsUpdated 不应缺失
-  void markPrefsUpdated;
 
   return { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData };
 }

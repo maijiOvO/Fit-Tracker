@@ -38,7 +38,6 @@ import { recordTombstone } from './services/fitlogTombstones';
 import { FITLOG_SOLO_USER_ID } from './services/fitlogSolo';
 
 import {
-  BODY_PARTS,
   DEFAULT_EXERCISES,
   ExerciseCategory,
 } from './src/constants/exercises';
@@ -951,10 +950,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
     }),
     [openCreateCustomExerciseModal, prefs],
   );
-
-  // ============== 静音未使用 imports（保留以便未来扩展）==============
-  void BODY_PARTS;
-  void translations;
 
   // =========================================================
   // Render

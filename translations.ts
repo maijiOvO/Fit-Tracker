@@ -105,7 +105,6 @@ export const translations: TranslationStrings = {
   tagKettlebell: { en: 'Kettlebell', cn: '壶铃' },
   tagBand: { en: 'Band', cn: '弹力带' },
   createAccount: { en: "Create One", cn: "去注册" },
-  prManagement: { en: 'PR Management', cn: '纪录管理' },
   setGoal: { en: 'Add Goal', cn: '添加目标' },
   goalWeight: { en: 'Body Weight', cn: '体重目标' },
   goalStrength: { en: 'Strength PR', cn: '力量目标' },
@@ -126,9 +125,6 @@ export const translations: TranslationStrings = {
   partLegs: { en: 'Legs', cn: '练腿' },
   partArms: { en: 'Arms', cn: '练手臂' },
   partOther: { en: 'Other', cn: '其他' },
-  bodyPartHeader: { en: 'Body Parts', cn: '训练部位' },
-  equipmentHeader: { en: 'Equipment', cn: '使用器材' },
-  addCustomTag: { en: 'Add Custom Tag', cn: '添加自定义标签' },
   // ── 场地（§12.11）──
   gymPickTitle: { en: 'Where are you training?', cn: '在哪个馆练的' },
   gymClear: { en: 'No gym', cn: '不标场地' },
@@ -155,12 +151,9 @@ export const translations: TranslationStrings = {
   distance: { cn: '距离', en: 'Distance' },
   duration: { cn: '时长', en: 'Duration' },
   speed: { cn: '速度', en: 'Speed' },
-  manageMetrics: { cn: '维度设置', en: 'Metrics' },
-  addDimension: { cn: '添加维度', en: 'Add Dimension' },
   dimensionPlaceholder: { cn: '维度名称 (如: 分数)', en: 'Metric (e.g. Score)' },
 
   exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
-  importData: { cn: '导入备份', en: 'Import Backup' },
   importDesc: {
     cn: '从 JSON 文件恢复，当前数据将被替换（导入前自动存可撤销副本）',
     en: 'Restore from an exported JSON file. Current data is replaced; an undoable copy is saved first',
