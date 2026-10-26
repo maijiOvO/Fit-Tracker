@@ -69,11 +69,7 @@ const PROD_API_KEY = import.meta.env.VITE_API_KEY || '';
 const DEV_API_KEY =
   (import.meta.env.MODE === 'development' ? import.meta.env.VITE_API_KEY_DEV : undefined) || PROD_API_KEY;
 
-/**
- * 当前数据环境对应的凭据。
- * 助手客户端（/api/chat，两把 key 都放行）也复用它，
- * 免得开发机只配了 dev key 时助手用不了。
- */
+/** 当前数据环境对应的凭据。 */
 function apiKey(): string {
   return getDataEnv() === 'dev' ? DEV_API_KEY : PROD_API_KEY;
 }

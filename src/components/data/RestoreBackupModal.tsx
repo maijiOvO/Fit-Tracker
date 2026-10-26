@@ -161,7 +161,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
         await choose();
       }
     })();
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const pick = async (i: number) => {
     const e = await load(entries[i]);

@@ -163,7 +163,6 @@ export function storagePrefix(): string {
   return getDataEnv() === 'dev' ? 'dev:' : '';
 }
 
-/** IndexedDB 库名：dev 用完全独立的库，物理隔离 */
 /**
  * IndexedDB 库名：dev 用完全独立的库，物理隔离。
  *

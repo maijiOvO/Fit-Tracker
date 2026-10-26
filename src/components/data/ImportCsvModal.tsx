@@ -66,7 +66,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
         onClose();
       }
     })();
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   /** 名字解析要绕开已并入别的动作的定义；内置在前，和 ExercisePrefsContext 的名字索引一致 */
   const defs = useMemo(

@@ -250,7 +250,6 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
       }
     };
     void initApp();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**

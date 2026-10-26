@@ -61,8 +61,7 @@ export default defineConfig(({ mode }) => {
             }
           }
         },
-        // recharts 和 react-calendar-heatmap 不在 manualChunks 中
-        // 它们会被懒加载的 Dashboard 组件自动分离到异步 chunk
+        // recharts 不在 manualChunks 中：它会被懒加载的 Dashboard 组件自动分离到异步 chunk
         chunkSizeWarningLimit: 400,
       }
     };

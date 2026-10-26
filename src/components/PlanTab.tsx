@@ -21,7 +21,6 @@ interface PlanTabProps {
   onEditGoal: (goal: Goal) => void;
   customTags: { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string }[];
   onStartScheduledSession: (scheduleId: string) => void;
-  /** 在编辑器中点击"从动作库选择"时调用，参数是收到所选动作后的回调 */
   /** 计划编辑器选动作弹层用的 App 层弹窗 */
   planPickerHost: PlanPickerHost;
 }

@@ -76,12 +76,13 @@ export interface NewWorkoutTabProps {
   onOpenExerciseTime?: (exId: string) => void;
   /** 底稿抄自哪一场（C2）：给卡头「底稿 · 10/4」用 */
   lastSessionFor?: (ex: Exercise) => { date: string; sets: SetLog[] } | null;
-  /** 「杠铃片」§1：这个动作（同一练法）历史单组最重的带符号 kg，训练中实时标 PB 用；null＝没有历史 */
   /** 训练中标 PB 用：这个动作以前做完的组 + 比法（utils/prRecords） */
   prPoolFor?: (ex: Exercise) => PRPool;
   onToggleNote: (name: string, gymKey?: string) => void;
-  /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
-  /** group：从交替组打开（交替组的卡片没有重量大图，弹窗里「这一台」只写一句说明） */
+  /**
+   * exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节）。
+   * group：从交替组打开（交替组的卡片没有重量大图，弹窗里「这一台」只写一句说明）。
+   */
   onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym', group?: boolean) => void;
   /** 动作设置弹窗里「在 X」一段的挂载点，交给弹窗所属的那张卡 */
   metricSlot?: { exIdx: number; el: HTMLElement | null } | null;

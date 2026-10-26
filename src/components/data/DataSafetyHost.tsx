@@ -52,7 +52,7 @@ export const DataSafetyHost: React.FC = () => {
       window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // 第一次有了结束的训练、还没选文件夹 → 引导一次（只一次；之后设置页里一直有「未开启」的提示）
   const hasFinished = workouts.some(w => w.finishedAt || w.status === 'completed');
@@ -60,7 +60,7 @@ export const DataSafetyHost: React.FC = () => {
     if (!supported || folder || !hasFinished || isDemo() || flow) return;
     if (storage.getItem(PROMPTED_KEY) === '1') return;
     setFlow('setup');
-  }, [supported, folder, hasFinished]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supported, folder, hasFinished]);
 
   const closeSetup = () => {
     storage.setItem(PROMPTED_KEY, '1');

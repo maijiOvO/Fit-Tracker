@@ -349,7 +349,6 @@ export function useWorkoutMutations({
           setEditingWorkoutId(m.id);
         },
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

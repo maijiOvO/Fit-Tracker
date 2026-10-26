@@ -111,7 +111,6 @@ interface ExerciseCardProps {
   signed?: boolean;
   /** 刊头「第 N 个」：按卡算（交替组算一张） */
   cardNo?: number;
-  /** 这个动作（同一练法）历史上单组最重的带符号 kg；null＝没有历史（不判纪录）。编辑旧训练时不传 */
   /** 训练中标 PB（编辑旧训练不传） */
   prPool?: PRPool | null;
   /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */

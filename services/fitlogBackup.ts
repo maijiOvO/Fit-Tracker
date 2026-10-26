@@ -289,8 +289,6 @@ export function parseBackupFile(raw: string): ParsedBackup {
  *   1. 先把当前状态整份存进回滚槽 —— 失败就整个中止，绝不带着「备份没存成
  *      但数据已经被覆盖」的状态往下走
  *   2. 再写 prefs 与 IndexedDB（后者内部是 clear + 写，本来就是覆盖）
- *
- * @param keepFields 旧格式缺失、需要从当前数据沿用的字段
  */
 export async function applyBackup(parsed: ParsedBackup): Promise<'pushed' | 'not-configured' | 'failed'> {
   const current = await collectLocalSnapshot();

@@ -199,7 +199,6 @@ const AppWithAuthShell: React.FC<AppWithAuthProps> = ({ userId: propUserId }) =>
    * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）。
    */
   const createdExerciseTargetRef = useRef<((ex: ExerciseDefinition) => void) | null>(null);
-  /** 训练页弹层头部入口：标签管理（只管标签词表，不再进全屏动作库） */
 
   // ============== 训练页「添加动作」弹层 ==============
   /** 首选项「动作库与标签 ›」打开的那一个：只管动作库，一打开就是整理态 */

@@ -56,7 +56,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       cancelled = true;
     };
     // 只在启动时跑一次
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value: AuthContextType = { user, setUser };

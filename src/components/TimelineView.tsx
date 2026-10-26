@@ -17,10 +17,6 @@ import {
   Play,
 } from 'lucide-react';
 import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
-
-/** 刚结束 10 分钟内：长按菜单给「继续这场」 */
-const justEnded = (w: { finishedAt?: string }) =>
-  !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
 import { Language, WorkoutSession, Exercise } from '../../types';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
@@ -28,6 +24,10 @@ import { plural } from '../utils/format';
 import { dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+
+/** 刚结束 10 分钟内：长按菜单给「继续这场」 */
+const justEnded = (w: { finishedAt?: string }) =>
+  !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
 

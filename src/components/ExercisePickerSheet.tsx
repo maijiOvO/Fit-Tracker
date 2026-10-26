@@ -340,7 +340,6 @@ interface ExercisePickerSheetProps {
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数（App 维护，含新建动作路径） */
   sessionAdded: number;
-  /** variantId：点的是某个做法的小卡 */
   /** 点卡片。返回 false＝这是「取消本次添加」（本次打开里刚加过的再点一下），不播添加动画 */
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
   /** 普通态里换了部位 chip（部位标签，如 subChest）：训练名没手动改过时跟着改 */
@@ -870,7 +869,6 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   useEffect(() => {
     if (!open || arranging || !axis || axis.kind !== 'part') return;
     onPartChange?.(axis.v);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axis, open, arranging]);
 
   /** 打开动作面板：先收起撤销条（它会盖住面板底部的「删除」） */
@@ -1207,7 +1205,6 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     );
   };
 
-  /** 整理最底下的器材节：一行器材 chip（带使用数），点开器材面板；行尾「＋」新建 */
   /**
    * 整理最底下的「器材」：器材表（2026-10-20，原一排胶囊）。一行一件：名字 · 阻力 · 用到它的动作数。
    * 内置器材的阻力锁定（行内带锁）；点任一行打开器材面板（改名 / 自建的改阻力、删除），末行新建。
