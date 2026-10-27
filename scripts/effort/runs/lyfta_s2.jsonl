@@ -1,0 +1,345 @@
+{"t": 1793055962.52, "phase": "explore", "op": "session"}
+{"t": 1793055963.23, "phase": "explore", "op": "launch", "pkg": "com.lyfta"}
+{"t": 1793055975.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1793055988.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1793055998.41, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793055998.55, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["405", "512"]}
+{"t": 1793056008.19, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793056019.92, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793056029.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1024"]}
+{"t": 1793056040.14, "phase": "X-unit", "op": "phase"}
+{"t": 1793056040.23, "phase": "X-unit", "op": "note", "text": "Bench Press ⋮ → 单位（kg） opened dialog: 为“Bench Press”选择重量单位 kg / lbs / 取消 (setup taps were explore: ⋮ + 单位)"}
+{"t": 1793056040.38, "phase": "X-unit", "op": "tap", "hit_src": "cache", "hit": {"label": "lbs | id=text1", "cls": "CheckedTextView", "w_dp": 317, "h_dp": 48, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "641"]}
+{"t": 1793056049.94, "phase": "X-unit", "op": "tap", "hit_src": "cache", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "384"]}
+{"t": 1793056055.76, "phase": "X-unit", "op": "shot", "path": "s2_unit_lbs_card.png"}
+{"t": 1793056062.45, "phase": "X-unit", "op": "note", "text": "lbs mode: previous-session prefill converted raw: 40kg->88.18lbs, 60kg->132.28lbs (no rounding to 2.5/5 lb plates); header Lbs"}
+{"t": 1793056062.64, "phase": "X-unit", "op": "tap", "hit_src": "cache", "hit": {"label": "132.28 | id=et_text_field_one", "cls": "EditText", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["282", "721"]}
+{"t": 1793056064.31, "phase": "X-unit", "op": "shot", "path": "s2_x_unit_keypad.png"}
+{"t": 1793056077.26, "phase": "X-unit", "op": "tap", "hit": {"label": "1 | id=tv_button_one", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "906"]}
+{"t": 1793056081.54, "phase": "X-unit", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["332", "906"]}
+{"t": 1793056085.27, "phase": "X-unit", "op": "tap", "hit": {"label": "5 | id=tv_button_five", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "982"]}
+{"t": 1793056089.27, "phase": "X-unit", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["462", "1134"]}
+{"t": 1793056091.56, "phase": "X-unit", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["462", "1134"]}
+{"t": 1793056093.26, "phase": "X-unit", "op": "shot", "path": "s2_x_unit_done.png"}
+{"t": 1793056106.15, "phase": "X-unit", "op": "note", "text": "X-unit result: set 1 logged as 135 lbs x 8 (typed 1,3,5 + 下一步 x2 = 5 taps; tap on '3' had no UI tree, key 85x46dp). Volume counter converts to kg (489.9 kg). PR popup at top: 'Bench Press 预估 1RM - 78 kg' (non-blocking banner). Focus moved to set 2 weight cell."}
+{"t": 1793056106.23, "phase": "explore", "op": "phase"}
+{"t": 1793056106.38, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["462", "906"]}
+{"t": 1793056107.61, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "789"]}
+{"t": 1793056116.59, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056117.76, "phase": "explore", "op": "note", "text": "set-number sheet has only set types + 更多 + 删除该组: no per-set note field"}
+{"t": 1793056117.85, "phase": "X-notes", "op": "phase"}
+{"t": 1793056121.27, "phase": "X-notes", "op": "tap", "hit": {"label": "添加备注… | id=et_exercise_note", "cls": "EditText", "w_dp": 120, "h_dp": 34, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["84", "469"]}
+{"t": 1793056122.96, "phase": "X-notes", "op": "shot", "path": "s2_x_notes_kb.png"}
+{"t": 1793056131.74, "phase": "X-notes", "op": "note", "text": "exercise note field opens SYSTEM keyboard (Sogou), inline single-line field under exercise name"}
+{"t": 1793056131.93, "phase": "X-notes", "op": "text", "expect_pkg": "com.lyfta", "chars": 6}
+{"t": 1793056132.09, "phase": "X-notes", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056142.04, "phase": "X-notes", "op": "note", "text": "note saved as 'seat4' (IME dropped the space; adb artifact). Exercise note total: tap field + type + back = 3 actions"}
+{"t": 1793056142.21, "phase": "X-notes", "op": "tap", "hit_src": "cache", "hit": {"label": "desc=更多选项 | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793056145.61, "phase": "X-notes", "op": "tap", "hit": {"label": "添加置顶笔记 | id=tv_add_pinned_note", "cls": "TextView", "w_dp": 384, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "787"]}
+{"t": 1793056149.87, "phase": "X-notes", "op": "shot", "path": "s2_pinned_note.png"}
+{"t": 1793056155.77, "phase": "X-notes", "op": "tap", "hit_src": "cache", "hit": {"label": "置顶笔记… | id=et_pinned_notes", "cls": "EditText", "w_dp": 304, "h_dp": 43, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["236", "476"]}
+{"t": 1793056155.96, "phase": "X-notes", "op": "text", "expect_pkg": "com.lyfta", "chars": 9}
+{"t": 1793056156.12, "phase": "X-notes", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056157.3, "phase": "X-notes", "op": "note", "text": "pinned note: ⋮ → 添加置顶笔记 adds a separate field '置顶笔记…' (304x43dp, pin icon) above the per-session note; 2 taps + type + back"}
+{"t": 1793056157.39, "phase": "explore", "op": "phase"}
+{"t": 1793056167.06, "phase": "X-superset", "op": "phase"}
+{"t": 1793056171.29, "phase": "X-superset", "op": "tap", "hit": {"label": "desc=更多选项 | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793056175.12, "phase": "X-superset", "op": "tap", "hit": {"label": "添加到超级组 | id=tv_add_to_superset", "cls": "TextView", "w_dp": 384, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "866"]}
+{"t": 1793056179.67, "phase": "X-superset", "op": "shot", "path": "s2_superset_pick.png"}
+{"t": 1793056184.39, "phase": "X-superset", "op": "tap", "hit_src": "cache", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 62, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "1119"]}
+{"t": 1793056187.08, "phase": "X-superset", "op": "shot", "path": "s2_superset_done.png"}
+{"t": 1793056196.48, "phase": "X-superset", "op": "note", "text": "superset: ⋮ → 添加到超级组 → sheet '超级组“Bench Press”搭配：' list → tap Chest Dip; both cards get an orange left bar, no other layout change"}
+{"t": 1793056199.3, "phase": "X-superset", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "866"]}
+{"t": 1793056201.99, "phase": "X-superset", "op": "shot", "path": "s2_superset_after_check.png"}
+{"t": 1793056210.55, "phase": "X-superset", "op": "note", "text": "after ✓ on Bench set 2: Bench card auto-collapsed and Chest Dip card auto-expanded (superset auto-switch), no scrolling needed"}
+{"t": 1793056213.31, "phase": "X-superset", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "767"]}
+{"t": 1793056216.0, "phase": "X-superset", "op": "shot", "path": "s2_superset_back.png"}
+{"t": 1793056225.57, "phase": "X-superset", "op": "note", "text": "after ✓ Chest Dip set 1: switched back to Bench (expanded) automatically. Superset steady state = 1 tap per set incl. switching (when prefilled). Note: superset sets the alternation; the orange bar is the only visual marker"}
+{"t": 1793056225.66, "phase": "X-replace", "op": "phase"}
+{"t": 1793056228.31, "phase": "X-replace", "op": "tap", "hit": {"label": "desc=Lyfta | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "1133"]}
+{"t": 1793056238.66, "phase": "X-replace", "op": "tap", "hit_src": "cache", "hit": {"label": "替换动作 | id=tv_replace_exercise", "cls": "TextView", "w_dp": 384, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "866"]}
+{"t": 1793056243.87, "phase": "X-replace", "op": "shot", "path": "s2_replace.png"}
+{"t": 1793056253.5, "phase": "X-replace", "op": "note", "text": "替换为 screen: same picker as add, pre-filtered to the replaced exercise's muscle group (胸部, filter badge 1), 最近完成 first"}
+{"t": 1793056253.66, "phase": "X-replace", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["135", "894"]}
+{"t": 1793056265.9, "phase": "X-replace", "op": "note", "text": "tap on replacement card replaces immediately (no confirm, no undo bar seen). The completed Chest Dip set 1 was DROPPED: volume 1983.9 -> 969.9 kg, sets 3 -> 2"}
+{"t": 1793056265.99, "phase": "explore", "op": "phase"}
+{"t": 1793056266.49, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056277.38, "phase": "explore", "op": "note", "text": "after replace: Lever Chest Press card collapsed (0/4 已完成, 4 sets from history), superset link removed (no orange bar), position kept"}
+{"t": 1793056277.47, "phase": "X-replace", "op": "phase"}
+{"t": 1793056281.77, "phase": "X-replace", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["200", "705"]}
+{"t": 1793056291.32, "phase": "X-replace", "op": "size", "w_dp": 384, "h_dp": 80}
+{"t": 1793056291.9, "phase": "X-replace", "op": "shot", "path": "s2_replace_open.png"}
+{"t": 1793056304.46, "phase": "X-replace", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["489", "414"]}
+{"t": 1793056305.65, "phase": "X-replace", "op": "note", "text": "replaced exercise expanded with its own history prefill (50x12, 55x10...) in kg; ✓ logs set 1"}
+{"t": 1793056305.74, "phase": "explore", "op": "phase"}
+{"t": 1793056315.18, "phase": "explore", "op": "size", "w_dp": 48, "h_dp": 48}
+{"t": 1793056315.69, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056316.21, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056328.59, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056329.1, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056330.37, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056340.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "775"]}
+{"t": 1793056357.63, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056368.28, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "775"]}
+{"t": 1793056369.54, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056370.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "932"]}
+{"t": 1793056391.25, "phase": "explore", "op": "note", "text": "暂停训练: header timer freezes/dims (6:05), menu item becomes 继续训练; no banner"}
+{"t": 1793056391.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1033"]}
+{"t": 1793056401.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "932"]}
+{"t": 1793056411.39, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1048"]}
+{"t": 1793056422.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1093"]}
+{"t": 1793056436.6, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "735"]}
+{"t": 1793056437.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1033"]}
+{"t": 1793056439.11, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "932"]}
+{"t": 1793056440.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1126"]}
+{"t": 1793056454.44, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "153"]}
+{"t": 1793056456.8, "phase": "explore", "op": "note", "text": "workout 添加照片 → 相机 / 相册. 相机: system camera permission prompt → denied → in-app '需要权限 … 存储和相机权限' with 设置/取消. 相册: opens system photo picker (安全访问, no permission needed) → cancelled without picking"}
+{"t": 1793056457.31, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056457.81, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056458.32, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056469.26, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["230", "367"]}
+{"t": 1793056469.4, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 7}
+{"t": 1793056469.56, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056469.64, "phase": "explore", "op": "note", "text": "workout note: 更多 → 添加备注 inserts a 296x72dp multi-line field at top of workout (system keyboard)"}
+{"t": 1793056470.13, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056470.62, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056471.12, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056490.01, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056498.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1024"]}
+{"t": 1793056510.06, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056525.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "517"]}
+{"t": 1793056527.07, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "746"]}
+{"t": 1793056528.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "989"]}
+{"t": 1793056540.4, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056543.92, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056546.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056547.08, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056547.58, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056560.14, "phase": "explore", "op": "note", "text": "workout settings: 详细训练视图 ON → collapsed cards list each set inline (W 88.18lbs x 10 次, ✓ 1 135lbs x 8 次 …) + note; 连接 Spotify ON → green Spotify icon in top bar (not tapped, would launch Spotify); also toggles 保持屏幕常亮, 超级组自动滚动 (on by default), 个人记录通知"}
+{"t": 1793056560.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056561.15, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056571.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "817"]}
+{"t": 1793056585.71, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793056597.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056598.15, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056598.66, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793056616.24, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["459", "108"]}
+{"t": 1793056627.42, "phase": "explore", "op": "note", "text": "完成 with unfinished sets → dialog '你还没有填写这些动作的全部字段：• Bench Press • Lever Chest Press' 仍然完成 / 继续训练"}
+{"t": 1793056627.57, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "663"]}
+{"t": 1793056643.17, "phase": "explore", "op": "note", "text": "finish page has no visibility/privacy toggle; not saving this workout (privacy default 所有人 would publish it to feed) → will discard"}
+{"t": 1793056643.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793056645.9, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056646.39, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056646.88, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056667.49, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056668.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1115"]}
+{"t": 1793056679.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793056681.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1793056694.41, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["483", "592"]}
+{"t": 1793056707.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "544"]}
+{"t": 1793056731.26, "phase": "explore", "op": "note", "text": "AI 动作推荐 ON → empty workout shows ✨ '给我个惊喜！' (48x48dp) next to + 添加动作 → sheet '训练向导' free-text '你在找哪种类型的训练？' + '给我个惊喜！ 🎉' → ~5 s later 5 exercises x 3 sets with reps only (Pull-up 3x8, Bent Over Row, Straight Back Seated Row, Barbell Curl, Dumbbell Hammer Curl 3x10), no weights; ignores that a chest workout was done today? (back/biceps). No lock badge."}
+{"t": 1793056731.76, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056732.26, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056751.48, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056760.07, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1024"]}
+{"t": 1793056762.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793056775.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "517"]}
+{"t": 1793056776.47, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "746"]}
+{"t": 1793056777.69, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "989"]}
+{"t": 1793056779.51, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056803.82, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793056805.07, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1115"]}
+{"t": 1793056808.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793056821.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "740"]}
+{"t": 1793056830.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["388", "1028"]}
+{"t": 1793056844.82, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["378", "1138"]}
+{"t": 1793056856.0, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["151", "438"]}
+{"t": 1793056867.94, "phase": "explore", "op": "note", "text": "训练卡 ⋮ → 保存到收藏: 1 tap, no confirmation/toast captured; creates template '晨间训练' (5 个动作) in 训练库 → 训练模板 → 收藏 folder (now 2 templates)"}
+{"t": 1793056868.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["260", "790"]}
+{"t": 1793056881.36, "phase": "explore", "op": "note", "text": "template from workout keeps sets, rep ranges and weight ranges (Bench Press 3 组 • 7 - 10 次 • 40 - 60kg; total 19 组, ~1小时)"}
+{"t": 1793056881.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "108"]}
+{"t": 1793056891.13, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["382", "255"]}
+{"t": 1793056901.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793056911.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793056914.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["196", "325"]}
+{"t": 1793056925.63, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["374", "446"]}
+{"t": 1793056938.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["190", "550"]}
+{"t": 1793056943.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["320", "593"]}
+{"t": 1793056954.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "205"]}
+{"t": 1793056955.15, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 4}
+{"t": 1793056955.3, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793056955.45, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "575"]}
+{"t": 1793056957.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793056958.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793056970.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["459", "108"]}
+{"t": 1793056981.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "108"]}
+{"t": 1793056991.95, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "814"]}
+{"t": 1793057005.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1034"]}
+{"t": 1793057016.5, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["67", "486"]}
+{"t": 1793057016.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057028.5, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["78", "426"]}
+{"t": 1793057028.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057044.82, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "426"]}
+{"t": 1793057046.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057059.87, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "333"]}
+{"t": 1793057061.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057085.27, "phase": "explore", "op": "note", "text": "PHONE CALL screen in foreground (active call ~17 s) — stopped touching the phone; screenshot with number deleted. Last 2 taps (4周 radio, 继续) voided as possibly disrupted"}
+{"t": 1793057085.35, "phase": "explore", "op": "void", "n": 2}
+{"t": 1793057187.99, "phase": "explore", "op": "note", "text": "after ~2 min: call ended (mCallState=0), Lyfta back on top; plan screen unchanged (my 2 taps had landed on the call screen, not Lyfta). Resuming."}
+{"t": 1793057188.14, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "333"]}
+{"t": 1793057189.35, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057201.6, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057214.42, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057229.79, "phase": "explore", "op": "note", "text": "plan flow: 训练库 → 创建训练计划 → name dialog (default 我的计划 #1) → plan = folder of templates; '将训练模板添加到训练计划' opens template builder (new template, not pick existing); plan ⋮: 开始计划 / 编辑计划 / 分享计划链接 / 分享到社区 / 删除计划. 开始计划 wizard: intro → start date (今天/明天/周一/自定义) → training days (choose N = #templates) → length (4/6/8/12 周/自定义, default 8) → 你的计划已就绪 summary → 计划预览 week list → 开始计划. 6+ screens, no lock badge."}
+{"t": 1793057229.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1138"]}
+{"t": 1793057240.27, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057248.71, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "730", "80", "730"], "ms": 300, "dist_dp": 263}
+{"t": 1793057259.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["420", "722"]}
+{"t": 1793057281.41, "phase": "explore", "op": "note", "text": "训练 tab → 训练分析 → AI 反馈 card: ~5 s → sheet 'AI 训练分析 / 分析完成' with English generic text (Today's Highlights / Keep Going / Next Tip: add back exercises) although UI is Chinese; 明白了！ to close. No lock."}
+{"t": 1793057281.56, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1110"]}
+{"t": 1793057282.78, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057285.36, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057294.64, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057295.13, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057295.63, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057304.15, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057304.64, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057305.14, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057316.86, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057318.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057320.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["126", "108"]}
+{"t": 1793057329.67, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057338.59, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057339.08, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057339.57, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057340.07, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057340.56, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057341.05, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057351.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["365", "108"]}
+{"t": 1793057366.72, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057367.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["154", "108"]}
+{"t": 1793057376.01, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["204", "265"]}
+{"t": 1793057386.36, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057391.12, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057395.9, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057400.68, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057405.44, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057410.02, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057414.47, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057419.03, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057428.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["162", "1138"]}
+{"t": 1793057434.02, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057436.77, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057439.52, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057442.28, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057446.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057451.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793057456.91, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057461.64, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057466.38, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057471.14, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057474.45, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057478.51, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057485.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057487.44, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["154", "108"]}
+{"t": 1793057488.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["204", "198"]}
+{"t": 1793057490.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["482", "185"]}
+{"t": 1793057500.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["354", "170"]}
+{"t": 1793057512.02, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["376", "1035"]}
+{"t": 1793057522.56, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057535.37, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1093"]}
+{"t": 1793057547.64, "phase": "explore", "op": "note", "text": "我的 → 照片: empty state '进度照片 / 提示：每周从同一角度拍照。' + floating 添加照片 → directly system camera permission (no gallery choice offered); back re-prompted; denied with 拒绝且不再询问 → silently back to page, nothing else"}
+{"t": 1793057547.78, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793057559.51, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "395"]}
+{"t": 1793057571.23, "phase": "explore", "op": "note", "text": "送好友 30 天 Premium page: '赠送一份免费的 7 天 30 天 Lyfta 访客通行证' (text shows both 7 and 30 — UI glitch) + 立即分享 (not tapped)"}
+{"t": 1793057571.37, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["52", "121"]}
+{"t": 1793057572.61, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "474"]}
+{"t": 1793057582.84, "phase": "explore", "op": "note", "text": "优惠码: bottom sheet '输入你的优惠码' + field + 验证代码 (nothing entered)"}
+{"t": 1793057583.0, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057591.93, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057592.42, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057603.13, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "822"]}
+{"t": 1793057624.88, "phase": "explore", "op": "note", "text": "Lyfta 推广伙伴: in-app webview (English) 'Give 30% off. Earn 30% back.' Join the affiliate program (agree to terms) — not tapped"}
+{"t": 1793057625.03, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057626.6, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057636.77, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "706"]}
+{"t": 1793057647.26, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["414", "700"]}
+{"t": 1793057661.8, "phase": "explore", "op": "note", "text": "导出 → ~1-2 s → system share sheet (ChooserActivity) with single file 'export822469722896579547.csv' (random numeric name); no in-app save-to-folder; closed via 关闭, nothing sent"}
+{"t": 1793057661.95, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["50", "614"]}
+{"t": 1793057673.05, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057674.28, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057680.22, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057684.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057689.22, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057693.96, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057704.2, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057708.69, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057713.25, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057717.96, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057722.68, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057727.43, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057731.98, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057736.44, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057740.99, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057745.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057758.33, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057768.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["482", "95"]}
+{"t": 1793057780.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057783.02, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057783.51, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057784.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "108"]}
+{"t": 1793057797.05, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793057800.91, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057811.66, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057812.16, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057813.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["154", "108"]}
+{"t": 1793057822.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["204", "198"]}
+{"t": 1793057828.56, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057829.05, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793057836.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "292"]}
+{"t": 1793057846.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["388", "648"]}
+{"t": 1793057858.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793057863.79, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057864.29, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793057877.3, "phase": "explore", "op": "note", "text": "delete history workout: card ⋮ → 删除 → '确定要删除“晨间训练”吗？' 删除/取消 → gone, weekly summary 2→1 workouts; no undo bar"}
+{"t": 1793057877.44, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["378", "1138"]}
+{"t": 1793057889.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["464", "480"]}
+{"t": 1793057907.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["374", "618"]}
+{"t": 1793057920.19, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["404", "713"]}
+{"t": 1793057931.27, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["190", "550"]}
+{"t": 1793057933.49, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "108"]}
+{"t": 1793057943.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057953.55, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "629"]}
+{"t": 1793057969.31, "phase": "explore", "op": "note", "text": "plan cleanup: plan ⋮ (active) → 停止计划 (confirm, history kept) → 删除计划 ('确定要删除这个训练计划及其所有训练模板吗？此操作无法撤销。')"}
+{"t": 1793057969.45, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793057971.67, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1793057973.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1793057976.12, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["405", "512"]}
+{"t": 1793057977.34, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793057990.06, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793057993.54, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "945"]}
+{"t": 1793058006.82, "phase": "explore", "op": "note", "text": "bodyweight exercise ⋮ → 更新体重 → dialog field '你的体重（kg）' EMPTY (not prefilled with 75 kg measurement or profile weight) + 更新体重/取消; cancelled"}
+{"t": 1793058006.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "515"]}
+{"t": 1793058008.2, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793058026.59, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["399", "1062"]}
+{"t": 1793058034.92, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793058039.82, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793058227.13, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1793058229.35, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1793058231.57, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793058232.8, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793058235.03, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "384"]}
+{"t": 1793058248.08, "phase": "explore", "op": "note", "text": "cleanup check: new workout + Bench Press → pinned note 'grip81' still there although the s2 workout was cancelled (pinned note saved per exercise immediately); weight unit back to Kg (per-exercise lbs did not persist after discarding)"}
+{"t": 1793058248.24, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["380", "476"]}
+{"t": 1793058248.39, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058248.53, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058248.67, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058248.81, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058248.95, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058249.09, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058249.23, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058249.37, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "del"}
+{"t": 1793058249.52, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793058259.46, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793058263.98, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["399", "1062"]}
+{"t": 1793058267.46, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}

@@ -1,0 +1,829 @@
+{"t": 1793037739.43, "phase": "explore", "op": "session"}
+{"t": 1793037739.52, "phase": "onboard", "op": "phase"}
+{"t": 1793037739.83, "phase": "onboard", "op": "launch", "expect_pkg": "com.hevy", "pkg": "com.alphaprogression.alphaprogression"}
+{"t": 1793037748.29, "phase": "onboard", "op": "shot", "path": "alpha_ob01.png"}
+{"t": 1793037757.94, "phase": "onboard", "op": "note", "text": "Screen 1 splash: 'Stop guessing. Start progressing.' buttons Start now / Log in (webview UI, no a11y tree)"}
+{"t": 1793037758.07, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=webview", "cls": "WebView", "w_dp": 384, "h_dp": 853, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "976"]}
+{"t": 1793037758.17, "phase": "onboard", "op": "size", "w_dp": 351, "h_dp": 64}
+{"t": 1793037760.71, "phase": "onboard", "op": "shot", "path": "alpha_ob02.png"}
+{"t": 1793037766.52, "phase": "onboard", "op": "note", "text": "Screen 2 gender: Male/Female cards, 'Prefer not to say' link; single-tap choice (auto-advance?), Cancel top-left"}
+{"t": 1793037768.63, "phase": "onboard", "op": "tap", "hit": {"label": "", "cls": "Image", "w_dp": 50, "h_dp": 49, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["143", "351"]}
+{"t": 1793037768.72, "phase": "onboard", "op": "size", "w_dp": 172, "h_dp": 141}
+{"t": 1793037771.34, "phase": "onboard", "op": "shot", "path": "alpha_ob03.png"}
+{"t": 1793037776.98, "phase": "onboard", "op": "note", "text": "Screen 3 experience: 5 options Beginner/Intermediate/Advanced/Pro/Elite, auto-advance on tap; no skip"}
+{"t": 1793037779.1, "phase": "onboard", "op": "tap", "hit": {"label": "6+ months", "cls": "TextView", "w_dp": 273, "h_dp": 23, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "425"]}
+{"t": 1793037779.21, "phase": "onboard", "op": "size", "w_dp": 351, "h_dp": 75}
+{"t": 1793037781.85, "phase": "onboard", "op": "shot", "path": "alpha_ob04.png"}
+{"t": 1793037793.8, "phase": "onboard", "op": "note", "text": "Screen 4 bodyweight: Weight 'Please select' (required, Done disabled until set) + Health Connect import toggle (off, left off). Footer: 'By continuing, you accept our terms and privacy policy' (clickwrap on Done, no separate Agree)"}
+{"t": 1793037795.92, "phase": "onboard", "op": "tap", "hit": {"label": "Weight", "cls": "TextView", "w_dp": 158, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "304"]}
+{"t": 1793037796.01, "phase": "onboard", "op": "size", "w_dp": 351, "h_dp": 72}
+{"t": 1793037798.54, "phase": "onboard", "op": "shot", "path": "alpha_ob05.png"}
+{"t": 1793037804.79, "phase": "onboard", "op": "note", "text": "Weight picker: full-screen scroll wheel of values (default lb, starts ~185 lb) + app numeric keypad with check; 'Switch to kg' link top-right (units default lb on en-US emulator locale)"}
+{"t": 1793037808.34, "phase": "onboard", "op": "tap", "hit": {"label": "184.7 lb", "cls": "View", "w_dp": 384, "h_dp": 80, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "76"]}
+{"t": 1793037808.43, "phase": "onboard", "op": "size", "w_dp": 98, "h_dp": 30}
+{"t": 1793037809.96, "phase": "onboard", "op": "shot", "path": "alpha_ob06.png"}
+{"t": 1793037818.84, "phase": "onboard", "op": "tap", "hit": {"label": "7", "cls": "Button", "w_dp": 117, "h_dp": 53, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "1034"]}
+{"t": 1793037818.93, "phase": "onboard", "op": "size", "w_dp": 115, "h_dp": 51}
+{"t": 1793037822.54, "phase": "onboard", "op": "tap", "hit": {"label": "5", "cls": "Button", "w_dp": 121, "h_dp": 53, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "950"]}
+{"t": 1793037822.63, "phase": "onboard", "op": "size", "w_dp": 120, "h_dp": 51}
+{"t": 1793037824.19, "phase": "onboard", "op": "shot", "path": "alpha_ob07.png"}
+{"t": 1793037832.89, "phase": "onboard", "op": "tap", "hit": {"label": "", "cls": "Button", "w_dp": 117, "h_dp": 53, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793037834.47, "phase": "onboard", "op": "shot", "path": "alpha_ob08.png"}
+{"t": 1793037846.99, "phase": "onboard", "op": "note", "text": "Done enabled after weight=75 kg; tapping Done = implicit acceptance of terms/privacy (clickwrap, no checkbox). Proceeding since it is the only way to logging and not an explicit Agree button"}
+{"t": 1793037849.11, "phase": "onboard", "op": "tap", "hit": {"label": "Done", "cls": "Button", "w_dp": 353, "h_dp": 66, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1015"]}
+{"t": 1793037853.19, "phase": "onboard", "op": "shot", "path": "alpha_ob09.png"}
+{"t": 1793037876.43, "phase": "onboard", "op": "note", "text": "Screen 5 PAYWALL 'Try all features for free': 14 days free then USD 99.99 yearly (8.33 monthly); timeline Install/Today/Day12 reminder/Day14; button TRY FOR FREE; links Show monthly / What's included? / Restore; X close top-right visible immediately. Dismissed with X"}
+{"t": 1793037878.57, "phase": "onboard", "op": "tap", "hit": {"label": "Try all features for free", "cls": "View", "w_dp": 384, "h_dp": 801, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["496", "76"]}
+{"t": 1793037878.66, "phase": "onboard", "op": "size", "w_dp": 26, "h_dp": 26}
+{"t": 1793037883.02, "phase": "onboard", "op": "shot", "path": "alpha_ob10.png"}
+{"t": 1793037893.24, "phase": "onboard", "op": "note", "text": "Home reached, NO login/registration required. Achievement toast 'Ready, Set, Go! Completed the onboarding process.' slides in top. Home: week date strip, hero image, links Exercises/Help, big button 'Create plan or workout'; bottom nav 4 icons (dumbbell, chart, profile, lock=Pro)"}
+{"t": 1793037893.33, "phase": "T1-start", "op": "phase"}
+{"t": 1793037895.46, "phase": "T1-start", "op": "tap", "hit": {"label": "Create plan or workout", "cls": "Button", "w_dp": 353, "h_dp": 65, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1032"]}
+{"t": 1793037897.99, "phase": "T1-start", "op": "shot", "path": "alpha_t1_01.png"}
+{"t": 1793037903.8, "phase": "T1-start", "op": "note", "text": "Chooser sheet: Plan (Popular!, multi-week) vs Workout (Quickstart a workout)"}
+{"t": 1793037905.97, "phase": "T1-start", "op": "tap", "hit": {"label": "Quickstart a workout", "cls": "TextView", "w_dp": 284, "h_dp": 23, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "464"]}
+{"t": 1793037908.51, "phase": "T1-start", "op": "shot", "path": "alpha_t1_02.png"}
+{"t": 1793037913.57, "phase": "T1-start", "op": "size", "w_dp": 351, "h_dp": 76}
+{"t": 1793037917.46, "phase": "T1-start", "op": "note", "text": "Second chooser 'Start workout': Workout generator (Popular!) vs Empty workout"}
+{"t": 1793037919.63, "phase": "T1-start", "op": "tap", "hit": {"label": "Create a workout from scratch", "cls": "TextView", "w_dp": 284, "h_dp": 23, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "532"]}
+{"t": 1793037919.73, "phase": "T1-start", "op": "size", "w_dp": 351, "h_dp": 76}
+{"t": 1793037922.49, "phase": "T1-start", "op": "shot", "path": "alpha_t1_03.png"}
+{"t": 1793037933.28, "phase": "T1-start", "op": "note", "text": "Empty workout opens exercise picker FIRST (multi-select, button 'Start (0)'), gym selector 'My gym', 795 exercises, filter, sort 'Most used', Create custom. Natural flow = build list first, then Start. Following that."}
+{"t": 1793037933.36, "phase": "T1-E1-add", "op": "phase"}
+{"t": 1793037935.53, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793037936.77, "phase": "T1-E1-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 5}
+{"t": 1793037939.43, "phase": "T1-E1-add", "op": "shot", "path": "alpha_t1_04.png"}
+{"t": 1793037946.47, "phase": "T1-E1-add", "op": "note", "text": "system keyboard opened for search; results live-filter"}
+{"t": 1793037948.63, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "Bench Press", "cls": "TextView", "w_dp": 245, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "466"]}
+{"t": 1793037948.73, "phase": "T1-E1-add", "op": "size", "w_dp": 351, "h_dp": 66}
+{"t": 1793037951.37, "phase": "T1-E1-add", "op": "shot", "path": "alpha_t1_05.png"}
+{"t": 1793037958.72, "phase": "T1-E1-add", "op": "note", "text": "tap selects (check badge), keyboard closes, query stays; Start (1)"}
+{"t": 1793037958.81, "phase": "T1-E2-add", "op": "phase"}
+{"t": 1793037960.98, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "bench", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["489", "231"]}
+{"t": 1793037962.67, "phase": "T1-E2-add", "op": "shot", "path": "alpha_t1_06.png"}
+{"t": 1793037967.67, "phase": "T1-E2-add", "op": "size", "w_dp": 21, "h_dp": 21}
+{"t": 1793037974.21, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793037975.47, "phase": "T1-E2-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 7}
+{"t": 1793037977.69, "phase": "T1-E2-add", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793037979.4, "phase": "T1-E2-add", "op": "shot", "path": "alpha_t1_07.png"}
+{"t": 1793037988.95, "phase": "T1-E2-add", "op": "note", "text": "'Incline Bench Press / Dumbbells' was hidden behind the keyboard (8th result), closed keyboard with back"}
+{"t": 1793037991.19, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "Create plan or workout", "cls": "Button", "w_dp": 353, "h_dp": 65, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "1015"]}
+{"t": 1793037991.28, "phase": "T1-E2-add", "op": "size", "w_dp": 351, "h_dp": 66}
+{"t": 1793037994.52, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "incline", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["489", "231"]}
+{"t": 1793037994.61, "phase": "T1-E2-add", "op": "size", "w_dp": 21, "h_dp": 21}
+{"t": 1793037996.84, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793037998.08, "phase": "T1-E2-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 11}
+{"t": 1793038000.66, "phase": "T1-E2-add", "op": "shot", "path": "alpha_t1_08.png"}
+{"t": 1793038011.13, "phase": "T1-E2-add", "op": "void", "n": 3}
+{"t": 1793038011.22, "phase": "T1-E3-add", "op": "phase"}
+{"t": 1793038013.39, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "chest press", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["489", "231"]}
+{"t": 1793038013.48, "phase": "T1-E3-add", "op": "size", "w_dp": 21, "h_dp": 21}
+{"t": 1793038015.73, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793038015.82, "phase": "T1-E3-add", "op": "size", "w_dp": 353, "h_dp": 41}
+{"t": 1793038017.09, "phase": "T1-E3-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 11}
+{"t": 1793038021.37, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "Machine", "cls": "TextView", "w_dp": 245, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "373"]}
+{"t": 1793038021.46, "phase": "T1-E3-add", "op": "size", "w_dp": 351, "h_dp": 66}
+{"t": 1793038023.1, "phase": "T1-E3-add", "op": "shot", "path": "alpha_t1_09.png"}
+{"t": 1793038029.84, "phase": "T1-E4-add", "op": "phase"}
+{"t": 1793038032.04, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "chest press", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["489", "231"]}
+{"t": 1793038032.13, "phase": "T1-E4-add", "op": "size", "w_dp": 21, "h_dp": 21}
+{"t": 1793038034.37, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793038034.47, "phase": "T1-E4-add", "op": "size", "w_dp": 353, "h_dp": 41}
+{"t": 1793038035.7, "phase": "T1-E4-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 3}
+{"t": 1793038038.32, "phase": "T1-E4-add", "op": "shot", "path": "alpha_t1_10.png"}
+{"t": 1793038047.64, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "Chest Dips", "cls": "TextView", "w_dp": 245, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "652"]}
+{"t": 1793038047.73, "phase": "T1-E4-add", "op": "size", "w_dp": 351, "h_dp": 66}
+{"t": 1793038048.91, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1793038051.09, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "dip", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["489", "231"]}
+{"t": 1793038051.17, "phase": "T1-E5-add", "op": "size", "w_dp": 21, "h_dp": 21}
+{"t": 1793038053.46, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "", "cls": "EditText", "w_dp": 353, "h_dp": 41, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793038053.55, "phase": "T1-E5-add", "op": "size", "w_dp": 353, "h_dp": 41}
+{"t": 1793038054.79, "phase": "T1-E5-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 5}
+{"t": 1793038057.4, "phase": "T1-E5-add", "op": "shot", "path": "alpha_t1_11.png"}
+{"t": 1793038065.48, "phase": "T1-E5-add", "op": "note", "text": "No 'Cable Crossover' at top of 'cable' results; picked 'High Cable Flys / Cable' (closest standing crossover)"}
+{"t": 1793038067.65, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "Cable", "cls": "TextView", "w_dp": 245, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "373"]}
+{"t": 1793038067.74, "phase": "T1-E5-add", "op": "size", "w_dp": 351, "h_dp": 66}
+{"t": 1793038069.38, "phase": "T1-E5-add", "op": "shot", "path": "alpha_t1_12.png"}
+{"t": 1793038076.93, "phase": "T1-start", "op": "phase"}
+{"t": 1793038077.02, "phase": "T1-start", "op": "note", "text": "Start (5) tap counted in T1-start (list built first)"}
+{"t": 1793038079.24, "phase": "T1-start", "op": "tap", "hit": {"label": "Start  (5)", "cls": "Button", "w_dp": 353, "h_dp": 65, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793038082.89, "phase": "T1-start", "op": "shot", "path": "alpha_t1_13.png"}
+{"t": 1793038090.08, "phase": "T1-start", "op": "note", "text": "System notification permission prompt on workout start; tapped Don't allow"}
+{"t": 1793038098.54, "phase": "T1-start", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "722"]}
+{"t": 1793038101.17, "phase": "T1-start", "op": "shot", "path": "alpha_t1_14.png"}
+{"t": 1793038106.25, "phase": "T1-start", "op": "size", "w_dp": 284, "h_dp": 55}
+{"t": 1793038114.0, "phase": "T1-start", "op": "note", "text": "Workout screen: one exercise per page, thumbnails carousel on top (+ to add), 'Standalone workout' header w/ wrench; Bench Press: Barbell, target '10 reps'; 'Warm-up sets' button; table # / KG / REPS / 10RM; 3 sets default, set1 reps prefilled 10 (from target reps), KG '-'; green check per set; tooltip 'How to find the best starting weight'; rest timer button bottom"}
+{"t": 1793038114.09, "phase": "explore", "op": "phase"}
+{"t": 1793038114.22, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["126", "346"]}
+{"t": 1793038125.68, "phase": "explore", "op": "note", "text": "Warm-up sets button -> sheet 'Unlock the warm-up calculator now!' More info (Pro lock)"}
+{"t": 1793038125.81, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793038127.02, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["56", "471"]}
+{"t": 1793038136.9, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["56", "471"]}
+{"t": 1793038147.0, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "413"]}
+{"t": 1793038157.79, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793038159.01, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["251", "237"]}
+{"t": 1793038169.29, "phase": "explore", "op": "note", "text": "Exercise ... menu: N sets / N reps steppers, Dropsets, Supersets, Add note, Replace, Remove, Add exercises, Help. No warm-up set type."}
+{"t": 1793038169.42, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793038170.64, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "471"]}
+{"t": 1793038184.01, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "665"]}
+{"t": 1793038199.81, "phase": "explore", "op": "note", "text": "Explore findings: tapping KG opens full-screen picker (scroll list in 2.5 kg steps + app keypad + locked plate visual); tapping a list value commits in 1 tap. Warm-up button turned into '1 warm-up set' (calc locked, Pro). No warm-up set type -> warm-up logged as normal set 1. Explore left set1 KG=30."}
+{"t": 1793038199.9, "phase": "T1-E1-s1", "op": "phase"}
+{"t": 1793038204.14, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "471"]}
+{"t": 1793038206.68, "phase": "T1-E1-s1", "op": "shot", "path": "alpha_t1_15.png"}
+{"t": 1793038211.96, "phase": "T1-E1-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038217.32, "phase": "T1-E1-s1", "op": "note", "text": "Picker centered on current value 30 (highlighted); 40 not visible -> typed on app keypad"}
+{"t": 1793038221.54, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "950"]}
+{"t": 1793038225.77, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1118"]}
+{"t": 1793038230.01, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793038232.6, "phase": "T1-E1-s1", "op": "shot", "path": "alpha_t1_16.png"}
+{"t": 1793038246.3, "phase": "T1-E1-s1", "op": "size", "w_dp": 83, "h_dp": 38}
+{"t": 1793038246.39, "phase": "T1-E1-s1", "op": "note", "text": "keypad digit keys measured 117x53dp (two digit taps above logged as UNKNOWN size)"}
+{"t": 1793038246.47, "phase": "T1-E1-s1", "op": "note", "text": "reps 10 prefilled from target reps -> no reps input needed"}
+{"t": 1793038250.69, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793038250.78, "phase": "T1-E1-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038253.36, "phase": "T1-E1-s1", "op": "shot", "path": "alpha_t1_17.png"}
+{"t": 1793038263.1, "phase": "T1-E1-s1", "op": "note", "text": "Set done: row greys out, next set auto-filled with same values (40x10), rest timer auto-starts 3:00 as green pill at bottom (non-blocking). Achievement toast 'International Chest Day' slides in. ONBOARDING END = first set logged."}
+{"t": 1793038263.19, "phase": "T1-E1-s2", "op": "phase"}
+{"t": 1793038267.4, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "544"]}
+{"t": 1793038267.49, "phase": "T1-E1-s2", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038270.08, "phase": "T1-E1-s2", "op": "shot", "path": "alpha_t1_18.png"}
+{"t": 1793038281.46, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "950"]}
+{"t": 1793038281.55, "phase": "T1-E1-s2", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038285.78, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1118"]}
+{"t": 1793038285.86, "phase": "T1-E1-s2", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038290.09, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793038290.18, "phase": "T1-E1-s2", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038295.5, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "544"]}
+{"t": 1793038295.59, "phase": "T1-E1-s2", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038298.12, "phase": "T1-E1-s2", "op": "shot", "path": "alpha_t1_19.png"}
+{"t": 1793038305.29, "phase": "T1-E1-s2", "op": "note", "text": "reps picker: list centered on current 10 reps (7..12 visible) + keypad; tap '8 reps' commits"}
+{"t": 1793038309.51, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "172"]}
+{"t": 1793038309.61, "phase": "T1-E1-s2", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038311.23, "phase": "T1-E1-s2", "op": "shot", "path": "alpha_t1_20.png"}
+{"t": 1793038323.38, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793038323.47, "phase": "T1-E1-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038325.65, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1793038326.15, "phase": "T1-E1-s3", "op": "shot", "path": "alpha_t1_21.png"}
+{"t": 1793038337.08, "phase": "T1-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "617"]}
+{"t": 1793038337.18, "phase": "T1-E1-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038339.78, "phase": "T1-E1-s3", "op": "shot", "path": "alpha_t1_22.png"}
+{"t": 1793038350.99, "phase": "T1-E1-s3", "op": "note", "text": "After last planned set (3 default), app auto-advances to next exercise (Incline Bench Press); set 3 was same as set 2 -> 1 tap (check only). Rest timer restarts."}
+{"t": 1793038351.08, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1793038355.29, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["64", "150"]}
+{"t": 1793038355.38, "phase": "T1-E1-s4", "op": "size", "w_dp": 60, "h_dp": 44}
+{"t": 1793038361.72, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "413"]}
+{"t": 1793038361.82, "phase": "T1-E1-s4", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793038364.5, "phase": "T1-E1-s4", "op": "shot", "path": "alpha_t1_23.png"}
+{"t": 1793038373.26, "phase": "T1-E1-s4", "op": "note", "text": "Sets sheet: - 3 + stepper and 'Undo last set' button"}
+{"t": 1793038377.48, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["376", "989"]}
+{"t": 1793038377.58, "phase": "T1-E1-s4", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793038382.91, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793038383.01, "phase": "T1-E1-s4", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793038385.66, "phase": "T1-E1-s4", "op": "shot", "path": "alpha_t1_24.png"}
+{"t": 1793038398.65, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "690"]}
+{"t": 1793038398.74, "phase": "T1-E1-s4", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038401.29, "phase": "T1-E1-s4", "op": "shot", "path": "alpha_t1_25.png"}
+{"t": 1793038411.05, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "291"]}
+{"t": 1793038411.15, "phase": "T1-E1-s4", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038416.48, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "690"]}
+{"t": 1793038416.58, "phase": "T1-E1-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038419.23, "phase": "T1-E1-s4", "op": "shot", "path": "alpha_t1_26.png"}
+{"t": 1793038430.78, "phase": "T1-E1-s4", "op": "note", "text": "E1 set4 needed: go back to Bench thumbnail, # header -> Sets sheet + , tap outside to close, then reps 7, check -> auto-advance again to Incline. Lesson: add 4th set BEFORE finishing set 3 (default plan is 3 sets)"}
+{"t": 1793038430.88, "phase": "T1-E2-addset", "op": "phase"}
+{"t": 1793038435.12, "phase": "T1-E2-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "413"]}
+{"t": 1793038435.22, "phase": "T1-E2-addset", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793038441.54, "phase": "T1-E2-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["376", "989"]}
+{"t": 1793038441.63, "phase": "T1-E2-addset", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793038446.94, "phase": "T1-E2-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793038447.04, "phase": "T1-E2-addset", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793038449.22, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1793038453.43, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "471"]}
+{"t": 1793038453.52, "phase": "T1-E2-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038456.06, "phase": "T1-E2-s1", "op": "shot", "path": "alpha_t1_27.png"}
+{"t": 1793038464.19, "phase": "T1-E2-s1", "op": "note", "text": "Dumbbell weight list starts at 0 kg in 1 kg steps (no 22.5) -> typed 22.5 on keypad"}
+{"t": 1793038468.42, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "866"]}
+{"t": 1793038468.51, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038472.72, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "866"]}
+{"t": 1793038472.81, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038477.05, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "1130"]}
+{"t": 1793038477.15, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038481.37, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "950"]}
+{"t": 1793038481.46, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038485.69, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793038485.78, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038488.42, "phase": "T1-E2-s1", "op": "shot", "path": "alpha_t1_28.png"}
+{"t": 1793038501.58, "phase": "explore", "op": "phase"}
+{"t": 1793038501.7, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["56", "468"]}
+{"t": 1793038514.47, "phase": "explore", "op": "void", "n": 10}
+{"t": 1793038514.56, "phase": "explore", "op": "note", "text": "E2 add-set attempt silently failed (sheet tap too early?), voided addset+s1 and redoing both"}
+{"t": 1793038514.64, "phase": "T1-E2-addset", "op": "phase"}
+{"t": 1793038518.87, "phase": "T1-E2-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "410"]}
+{"t": 1793038518.96, "phase": "T1-E2-addset", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793038521.56, "phase": "T1-E2-addset", "op": "shot", "path": "alpha_x09.png"}
+{"t": 1793038531.81, "phase": "T1-E2-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["376", "1079"]}
+{"t": 1793038531.91, "phase": "T1-E2-addset", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793038537.24, "phase": "T1-E2-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793038537.35, "phase": "T1-E2-addset", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793038539.56, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1793038543.8, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "468"]}
+{"t": 1793038543.89, "phase": "T1-E2-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038546.54, "phase": "T1-E2-s1", "op": "shot", "path": "alpha_x10.png"}
+{"t": 1793038553.87, "phase": "T1-E2-s1", "op": "note", "text": "Dumbbell list around 20 kg goes 18/20/22/24 (2 kg steps, default dumbbell inventory) -> 22.5 must be typed"}
+{"t": 1793038558.11, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "866"]}
+{"t": 1793038558.19, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038562.42, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "866"]}
+{"t": 1793038562.51, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038566.74, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "1130"]}
+{"t": 1793038566.82, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038571.04, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "950"]}
+{"t": 1793038571.13, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038575.35, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793038575.45, "phase": "T1-E2-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038581.76, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "468"]}
+{"t": 1793038581.85, "phase": "T1-E2-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038584.52, "phase": "T1-E2-s1", "op": "shot", "path": "alpha_t1_29.png"}
+{"t": 1793038591.02, "phase": "T1-E2-s2", "op": "phase"}
+{"t": 1793038595.24, "phase": "T1-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "541"]}
+{"t": 1793038595.34, "phase": "T1-E2-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038597.53, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1793038601.77, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "614"]}
+{"t": 1793038601.86, "phase": "T1-E2-s3", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038604.5, "phase": "T1-E2-s3", "op": "shot", "path": "alpha_t1_30.png"}
+{"t": 1793038614.83, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "291"]}
+{"t": 1793038614.92, "phase": "T1-E2-s3", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038620.24, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "614"]}
+{"t": 1793038620.33, "phase": "T1-E2-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038622.52, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1793038626.76, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "687"]}
+{"t": 1793038626.85, "phase": "T1-E2-s4", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038629.49, "phase": "T1-E2-s4", "op": "shot", "path": "alpha_t1_31.png"}
+{"t": 1793038639.21, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "291"]}
+{"t": 1793038639.31, "phase": "T1-E2-s4", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038644.65, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "687"]}
+{"t": 1793038644.87, "phase": "T1-E2-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038648.59, "phase": "T1-E2-s4", "op": "shot", "path": "alpha_t1_32.png"}
+{"t": 1793038655.61, "phase": "T1-E3-addset", "op": "phase"}
+{"t": 1793038659.85, "phase": "T1-E3-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "410"]}
+{"t": 1793038659.95, "phase": "T1-E3-addset", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793038666.27, "phase": "T1-E3-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["376", "1079"]}
+{"t": 1793038666.37, "phase": "T1-E3-addset", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793038671.7, "phase": "T1-E3-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793038671.8, "phase": "T1-E3-addset", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793038673.99, "phase": "T1-E3-s1", "op": "phase"}
+{"t": 1793038678.22, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "468"]}
+{"t": 1793038678.31, "phase": "T1-E3-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038680.88, "phase": "T1-E3-s1", "op": "shot", "path": "alpha_t1_33.png"}
+{"t": 1793038691.72, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "950"]}
+{"t": 1793038691.81, "phase": "T1-E3-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038696.05, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1118"]}
+{"t": 1793038696.14, "phase": "T1-E3-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038700.39, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793038700.49, "phase": "T1-E3-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038706.8, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "468"]}
+{"t": 1793038706.89, "phase": "T1-E3-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038713.22, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "648"]}
+{"t": 1793038713.3, "phase": "T1-E3-s1", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038715.91, "phase": "T1-E3-s1", "op": "shot", "path": "alpha_t1_34.png"}
+{"t": 1793038727.07, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "468"]}
+{"t": 1793038727.18, "phase": "T1-E3-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038729.38, "phase": "T1-E3-s2", "op": "phase"}
+{"t": 1793038733.62, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "541"]}
+{"t": 1793038733.71, "phase": "T1-E3-s2", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038736.27, "phase": "T1-E3-s2", "op": "shot", "path": "alpha_t1_35.png"}
+{"t": 1793038746.29, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "648"]}
+{"t": 1793038746.38, "phase": "T1-E3-s2", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038752.7, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "541"]}
+{"t": 1793038752.8, "phase": "T1-E3-s2", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038755.37, "phase": "T1-E3-s2", "op": "shot", "path": "alpha_t1_36.png"}
+{"t": 1793038765.88, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "172"]}
+{"t": 1793038765.97, "phase": "T1-E3-s2", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038772.29, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "541"]}
+{"t": 1793038772.39, "phase": "T1-E3-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038774.58, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1793038775.11, "phase": "T1-E3-s3", "op": "shot", "path": "alpha_t1_37.png"}
+{"t": 1793038785.22, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "614"]}
+{"t": 1793038785.32, "phase": "T1-E3-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038787.5, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1793038791.73, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "687"]}
+{"t": 1793038791.82, "phase": "T1-E3-s4", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038798.13, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "291"]}
+{"t": 1793038798.22, "phase": "T1-E3-s4", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038800.84, "phase": "T1-E3-s4", "op": "shot", "path": "alpha_t1_38.png"}
+{"t": 1793038810.61, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "687"]}
+{"t": 1793038810.7, "phase": "T1-E3-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038814.39, "phase": "T1-E3-s4", "op": "shot", "path": "alpha_t1_39.png"}
+{"t": 1793038821.55, "phase": "T1-E4-addset", "op": "phase"}
+{"t": 1793038825.77, "phase": "T1-E4-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "410"]}
+{"t": 1793038825.86, "phase": "T1-E4-addset", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793038832.18, "phase": "T1-E4-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["376", "1079"]}
+{"t": 1793038832.28, "phase": "T1-E4-addset", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793038837.61, "phase": "T1-E4-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793038837.7, "phase": "T1-E4-addset", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793038839.89, "phase": "T1-E4-s1", "op": "phase"}
+{"t": 1793038844.12, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "468"]}
+{"t": 1793038844.2, "phase": "T1-E4-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038846.76, "phase": "T1-E4-s1", "op": "shot", "path": "alpha_t1_40.png"}
+{"t": 1793038856.97, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "648"]}
+{"t": 1793038857.06, "phase": "T1-E4-s1", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038863.4, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "468"]}
+{"t": 1793038863.49, "phase": "T1-E4-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038866.06, "phase": "T1-E4-s1", "op": "shot", "path": "alpha_t1_41.png"}
+{"t": 1793038873.41, "phase": "T1-E4-s1", "op": "void", "n": 1}
+{"t": 1793038873.5, "phase": "T1-E4-s1", "op": "note", "text": "Check with KG '-' does nothing (no message): bodyweight sets need KG filled (0 = bodyweight). Voided that tap."}
+{"t": 1793038877.74, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "468"]}
+{"t": 1793038877.83, "phase": "T1-E4-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038880.37, "phase": "T1-E4-s1", "op": "shot", "path": "alpha_t1_42.png"}
+{"t": 1793038887.27, "phase": "T1-E4-s1", "op": "note", "text": "Bodyweight exercise KG picker shows ADDED weight: +0 kg, +1, +1.25, +2, +2.5 ... (bodyweight+added supported natively)"}
+{"t": 1793038891.5, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "189"]}
+{"t": 1793038891.6, "phase": "T1-E4-s1", "op": "size", "w_dp": 185, "h_dp": 68}
+{"t": 1793038897.92, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "468"]}
+{"t": 1793038898.01, "phase": "T1-E4-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038900.68, "phase": "T1-E4-s1", "op": "shot", "path": "alpha_t1_43.png"}
+{"t": 1793038907.97, "phase": "T1-E4-s2", "op": "phase"}
+{"t": 1793038912.2, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "541"]}
+{"t": 1793038912.29, "phase": "T1-E4-s2", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038914.85, "phase": "T1-E4-s2", "op": "shot", "path": "alpha_x11.png"}
+{"t": 1793038919.08, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "172"]}
+{"t": 1793038919.18, "phase": "T1-E4-s2", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038925.52, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "541"]}
+{"t": 1793038925.62, "phase": "T1-E4-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038927.8, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1793038932.03, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "614"]}
+{"t": 1793038932.12, "phase": "T1-E4-s3", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038934.72, "phase": "T1-E4-s3", "op": "shot", "path": "alpha_t1_44.png"}
+{"t": 1793038945.21, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "866"]}
+{"t": 1793038945.3, "phase": "T1-E4-s3", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038949.54, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1118"]}
+{"t": 1793038949.63, "phase": "T1-E4-s3", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038953.86, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793038953.95, "phase": "T1-E4-s3", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793038960.29, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "614"]}
+{"t": 1793038960.39, "phase": "T1-E4-s3", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793038963.0, "phase": "T1-E4-s3", "op": "shot", "path": "alpha_x12.png"}
+{"t": 1793038975.66, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "172"]}
+{"t": 1793038975.74, "phase": "T1-E4-s3", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793038978.36, "phase": "T1-E4-s3", "op": "shot", "path": "alpha_t1_45.png"}
+{"t": 1793038982.58, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "614"]}
+{"t": 1793038982.68, "phase": "T1-E4-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038984.86, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1793038989.11, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "687"]}
+{"t": 1793038989.21, "phase": "T1-E4-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793038992.85, "phase": "T1-E4-s4", "op": "shot", "path": "alpha_t1_46.png"}
+{"t": 1793038999.76, "phase": "T1-E5-addset", "op": "phase"}
+{"t": 1793039003.98, "phase": "T1-E5-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "410"]}
+{"t": 1793039004.08, "phase": "T1-E5-addset", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793039010.4, "phase": "T1-E5-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["376", "1079"]}
+{"t": 1793039010.5, "phase": "T1-E5-addset", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793039015.82, "phase": "T1-E5-addset", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793039015.92, "phase": "T1-E5-addset", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793039018.11, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1793039022.34, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "468"]}
+{"t": 1793039022.43, "phase": "T1-E5-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793039024.99, "phase": "T1-E5-s1", "op": "shot", "path": "alpha_t1_47.png"}
+{"t": 1793039036.44, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "866"]}
+{"t": 1793039036.53, "phase": "T1-E5-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793039040.75, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "950"]}
+{"t": 1793039040.83, "phase": "T1-E5-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793039045.04, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793039045.14, "phase": "T1-E5-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793039051.48, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "468"]}
+{"t": 1793039051.57, "phase": "T1-E5-s1", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793039053.75, "phase": "T1-E5-s1", "op": "note", "text": "reps 15 not visible in reps list (7..12) -> typed"}
+{"t": 1793039057.97, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["92", "866"]}
+{"t": 1793039058.06, "phase": "T1-E5-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793039062.3, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "950"]}
+{"t": 1793039062.39, "phase": "T1-E5-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793039066.63, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["447", "781"]}
+{"t": 1793039066.72, "phase": "T1-E5-s1", "op": "size", "w_dp": 117, "h_dp": 53}
+{"t": 1793039069.35, "phase": "T1-E5-s1", "op": "shot", "path": "alpha_t1_48.png"}
+{"t": 1793039081.58, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "468"]}
+{"t": 1793039081.67, "phase": "T1-E5-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039083.86, "phase": "T1-E5-s2", "op": "phase"}
+{"t": 1793039088.08, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "541"]}
+{"t": 1793039088.17, "phase": "T1-E5-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039090.36, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1793039094.59, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "614"]}
+{"t": 1793039094.67, "phase": "T1-E5-s3", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793039097.23, "phase": "T1-E5-s3", "op": "shot", "path": "alpha_x13.png"}
+{"t": 1793039107.14, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "528"]}
+{"t": 1793039107.23, "phase": "T1-E5-s3", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793039113.55, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "614"]}
+{"t": 1793039113.64, "phase": "T1-E5-s3", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793039116.24, "phase": "T1-E5-s3", "op": "shot", "path": "alpha_x14.png"}
+{"t": 1793039128.39, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "60"]}
+{"t": 1793039128.48, "phase": "T1-E5-s3", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793039131.09, "phase": "T1-E5-s3", "op": "shot", "path": "alpha_t1_49.png"}
+{"t": 1793039135.33, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "614"]}
+{"t": 1793039135.42, "phase": "T1-E5-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039137.61, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1793039141.81, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "687"]}
+{"t": 1793039141.91, "phase": "T1-E5-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039145.52, "phase": "T1-E5-s4", "op": "shot", "path": "alpha_t1_50.png"}
+{"t": 1793039152.72, "phase": "T1-E5-s4", "op": "note", "text": "All sets of all exercises done -> rest timer replaced by big 'Complete workout' button"}
+{"t": 1793039152.81, "phase": "T1-finish", "op": "phase"}
+{"t": 1793039157.03, "phase": "T1-finish", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793039157.12, "phase": "T1-finish", "op": "size", "w_dp": 351, "h_dp": 64}
+{"t": 1793039160.92, "phase": "T1-finish", "op": "shot", "path": "alpha_t1_51.png"}
+{"t": 1793039168.39, "phase": "T1-finish", "op": "note", "text": "Complete workout: no confirm dialog; summary sheet with confetti, star '12', 1st workout / 0:18 hours / 1w streak, per-exercise medals, muscle 'Chest 100% 20 sets', achievements 'Newbie Gains'"}
+{"t": 1793039172.98, "phase": "T1-finish", "op": "scroll", "expect_pkg": "com.alphaprogression.alphaprogression", "dir": "down"}
+{"t": 1793039174.62, "phase": "T1-finish", "op": "shot", "path": "alpha_t1_52.png"}
+{"t": 1793039182.08, "phase": "T1-finish", "op": "void", "n": 1}
+{"t": 1793039182.17, "phase": "T1-finish", "op": "note", "text": "~4 s after summary a bottom sheet pops up: Instagram giveaway 'share your training to your Instagram stories and tag @alphaprogression' (no close button visible; dismissed by tapping the dimmed area)"}
+{"t": 1793039184.31, "phase": "T1-finish", "op": "tap", "hit": {"label": "0:18 hours", "cls": "Button", "w_dp": 85, "h_dp": 68, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "300"]}
+{"t": 1793039184.41, "phase": "T1-finish", "op": "size", "w_dp": 384, "h_dp": 430}
+{"t": 1793039187.05, "phase": "T1-finish", "op": "shot", "path": "alpha_t1_53.png"}
+{"t": 1793039193.73, "phase": "T1-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "TextView", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793039197.97, "phase": "T1-finish", "op": "shot", "path": "alpha_t1_54.png"}
+{"t": 1793039203.79, "phase": "T1-finish", "op": "size", "w_dp": 45, "h_dp": 21}
+{"t": 1793039217.56, "phase": "T1-finish", "op": "note", "text": "T1 finish -> Close returns to Home (Workout tab); home shows only a dot on today in date strip"}
+{"t": 1793039217.65, "phase": "explore", "op": "phase"}
+{"t": 1793039217.77, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["216", "1130"]}
+{"t": 1793039228.58, "phase": "explore", "op": "note", "text": "Stats tab: '1 month' range, Add chart; cards Training(Workouts), Bench Press 10RM, Quads Sets, Bodyweight kg -> ALL 'Unlock charts now!' (Pro)"}
+{"t": 1793039229.07, "phase": "explore", "op": "scroll", "expect_pkg": "com.alphaprogression.alphaprogression", "dir": "down"}
+{"t": 1793039230.73, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["324", "1130"]}
+{"t": 1793039239.87, "phase": "explore", "op": "note", "text": "Profile tab: trophy/achievements (+2), 1 workout, 1w streak, Gym 'My gym', Bodyweight 75 kg (+), Add measurement, Basic info, Help, Settings"}
+{"t": 1793039239.99, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["432", "1130"]}
+{"t": 1793039249.33, "phase": "explore", "op": "note", "text": "4th tab (lock) = paywall with Free vs PRO table: Plan generator, Progression recommendations, Charts, Multiple gyms, Much more -> all PRO only; 14 days free then 99.99/yr"}
+{"t": 1793039249.45, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["496", "76"]}
+{"t": 1793039251.66, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["324", "1130"]}
+{"t": 1793039252.87, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["469", "76"]}
+{"t": 1793039263.31, "phase": "explore", "op": "scroll", "expect_pkg": "com.alphaprogression.alphaprogression", "dir": "down"}
+{"t": 1793039264.96, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "250"]}
+{"t": 1793039274.51, "phase": "explore", "op": "note", "text": "Settings: Training / Appearance / Notifications / Language and units / Pro version / Account / Health Connect toggle / Help: FAQ (searchable, in-app), Contact; Reddit/Facebook/Instagram/TikTok links; Changes; Terms; Privacy; v7.7"}
+{"t": 1793039274.63, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}
+{"t": 1793039276.21, "phase": "explore", "op": "scroll", "expect_pkg": "com.alphaprogression.alphaprogression", "dir": "up"}
+{"t": 1793039277.42, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "250"]}
+{"t": 1793039286.82, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "900"]}
+{"t": 1793039297.55, "phase": "explore", "op": "note", "text": "My gym > Weights: per-equipment increments: Machine 2.5, Cable 2.5, Smith 0 kg bar + plates 1.25-20, Trap bar 20+plates, Barbell 20 kg + 1.25-20, EZ 10, Dumbbells 1 kg/2 kg, Kettlebells 2, Bands 5, TRX/Bodyweight/Misc 1/1.25/2; Switch to lb"}
+{"t": 1793039297.69, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "640"]}
+{"t": 1793039308.24, "phase": "explore", "op": "note", "text": "Equipment weight editor (Dumbbells): Unit (Global kg / per equipment), Ranges table Min/Max/Intervals (0-10 by 1, 10-1000 by 2), Add range, 'Switch to bar and plates', Restore defaults, Save. Free (no lock)."}
+{"t": 1793039308.37, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["61", "76"]}
+{"t": 1793039309.59, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["487", "76"]}
+{"t": 1793039311.83, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "503"]}
+{"t": 1793039323.61, "phase": "explore", "op": "note", "text": "Rest timer settings: Enabled, Alarm, Continue past zero, Between exercises; Duration presets by exercise size: Large 3:00, Medium 2:00, Small 1:30, Stability 1:00, Cardio 1:00 (explains 3:00 after bench, 2:00 others)"}
+{"t": 1793039323.74, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039324.96, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "577"]}
+{"t": 1793039327.66, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039328.89, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "650"]}
+{"t": 1793039339.35, "phase": "explore", "op": "note", "text": "Warm-up sets settings: Enabled; sets by exercise size Large 1-2/Medium 1/Small 0-1 (depends on experience), reps modifiers, reps & intensity 1 set 8x50% ... (calculator itself Pro-locked in workout). Defaults: Sets 3, Reps 10, RIR No target; Dropsets weight drop 25%; Deloads 50% sets/100% reps/5+ RIR"}
+{"t": 1793039339.48, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039340.75, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "323"]}
+{"t": 1793039349.82, "phase": "explore", "op": "note", "text": "Reference workout (source of prefill/recommendation): Same plan day | Last workout"}
+{"t": 1793039349.97, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["61", "76"]}
+{"t": 1793039351.22, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "396"]}
+{"t": 1793039359.97, "phase": "explore", "op": "note", "text": "Performance metric column choice: 1RM / 10RM / Volume"}
+{"t": 1793039360.1, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["61", "76"]}
+{"t": 1793039361.32, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "827"]}
+{"t": 1793039370.68, "phase": "explore", "op": "note", "text": "My gym > Equipment: picture grid of equipment (free weights, benches/racks, ...) with checkmarks; filters exercise library (795 exercises). Switch gym = multiple gyms (Pro per paywall table)"}
+{"t": 1793039370.83, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["61", "76"]}
+{"t": 1793039372.05, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["450", "750"]}
+{"t": 1793039380.89, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1043"]}
+{"t": 1793039389.9, "phase": "explore", "op": "note", "text": "Create gym -> paywall (multiple gyms = Pro)"}
+{"t": 1793039390.03, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["496", "76"]}
+{"t": 1793039399.05, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793039400.27, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039402.48, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "323"]}
+{"t": 1793039411.15, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "250"]}
+{"t": 1793039419.6, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "756"]}
+{"t": 1793039429.11, "phase": "explore", "op": "note", "text": "Appearance: Theme Auto/Light/Dark (dark works, free), Prevent sleep, High-quality videos"}
+{"t": 1793039429.25, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "250"]}
+{"t": 1793039431.46, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "518"]}
+{"t": 1793039433.68, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039434.88, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "396"]}
+{"t": 1793039443.69, "phase": "explore", "op": "note", "text": "Notifications: Training reminders, New reports, Achievements, Live notifications (all on by default)"}
+{"t": 1793039443.81, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039445.02, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "503"]}
+{"t": 1793039453.93, "phase": "explore", "op": "note", "text": "Language and units: Language English, Weight kg, Length cm/m/km, Numbers format, Time 12h, Week start Sunday; 'Weight units can also be specified per equipment or exercise'"}
+{"t": 1793039454.05, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "250"]}
+{"t": 1793039462.39, "phase": "explore", "op": "scroll", "expect_pkg": "com.alphaprogression.alphaprogression", "dir": "down"}
+{"t": 1793039471.26, "phase": "explore", "op": "note", "text": "Languages (14): Dansk, Deutsch, English, Espanol, Francais, Italiano, Japanese(NEW), Nederlands, Norsk, Polski, Portugues, Svenska, Turkce -> NO Chinese"}
+{"t": 1793039471.38, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["61", "76"]}
+{"t": 1793039472.59, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["50", "76"]}
+{"t": 1793039473.82, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "683"]}
+{"t": 1793039487.02, "phase": "explore", "op": "note", "text": "Account: Pro version, Export data >, Sign up (optional), Reset data, Delete guest account -> app runs as 'guest account' (no login required; sign-up optional for sync)"}
+{"t": 1793039487.14, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["487", "76"]}
+{"t": 1793039489.35, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["143", "337"]}
+{"t": 1793039498.53, "phase": "explore", "op": "note", "text": "History: Profile > workouts card -> 'Training' page: chart locked + list of workouts (Standalone workout Today)"}
+{"t": 1793039498.65, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "750"]}
+{"t": 1793039507.34, "phase": "explore", "op": "note", "text": "Past workout detail: 5 exercises 20 sets, date/time/duration (editable wrench), 12 stars, muscle map, per-exercise set tables with 10RM"}
+{"t": 1793039507.47, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["467", "155"]}
+{"t": 1793039520.26, "phase": "explore", "op": "note", "text": "Past workout ... menu: Open (edit), Repeat as standalone workout, Delete, Share, Help"}
+{"t": 1793039520.38, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793039521.59, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}
+{"t": 1793039522.8, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793039524.01, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["108", "1130"]}
+{"t": 1793039526.22, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["121", "173"]}
+{"t": 1793039537.84, "phase": "explore", "op": "note", "text": "Home date strip tap -> Calendar sheet (months, workouts per month/week, dots), 'Today' panel lists workout + bodyweight"}
+{"t": 1793039537.96, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793039539.16, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1032"]}
+{"t": 1793039541.38, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "300"]}
+{"t": 1793039550.16, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "250"]}
+{"t": 1793039560.5, "phase": "explore", "op": "note", "text": "Plan generator -> paywall (Pro)"}
+{"t": 1793039560.63, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["496", "76"]}
+{"t": 1793039562.83, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "532"]}
+{"t": 1793039574.34, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["143", "330"]}
+{"t": 1793039575.56, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793039586.36, "phase": "explore", "op": "note", "text": "Empty plan: frequency 1x-7x/week picker -> plan editor Day 1 (rename via ...), Add exercises, Import, Add day, Save"}
+{"t": 1793039586.48, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "596"]}
+{"t": 1793039598.11, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793039608.94, "phase": "explore", "op": "note", "text": "Plan Import from past workout: copies exercises with '4 sets' '10 reps' targets (per-exercise set count/target reps, not per-set weights). Created plan 'New plan' Day 'Standalone workout' (test data)"}
+{"t": 1793039609.07, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793039620.52, "phase": "explore", "op": "note", "text": "Home with a plan: plan name + ..., Week 1, plan days list, All plans, Exercises, Help; 'Create plan or workout' button gone; achievement toast 'Peter Plan'"}
+{"t": 1793039620.64, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["200", "351"]}
+{"t": 1793039634.24, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["104", "314"]}
+{"t": 1793039644.52, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["496", "76"]}
+{"t": 1793039656.96, "phase": "explore", "op": "note", "text": "Starting a PLAN workout shows the full paywall EVERY start? (first time at least); X closes and workout starts. Prefill: all 4 sets copied from last session exactly (40x10, 60x8, 60x8, 60x7) + reference table of last workout under the sets. No progression suggestion (Pro)."}
+{"t": 1793039657.08, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["383", "76"]}
+{"t": 1793039666.7, "phase": "explore", "op": "note", "text": "Workout header (wrench) sheet: rename, Start time, Duration, Complete, Pause, Reset; Expert settings LOCKED (Unlock): Track RIR, Deload; Share; Save"}
+{"t": 1793039666.83, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "582"]}
+{"t": 1793039675.89, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1097"]}
+{"t": 1793039689.22, "phase": "explore", "op": "note", "text": "Workout Reset = 'Reset day?' confirm -> discards in-progress workout, back to plan day page"}
+{"t": 1793039689.35, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}
+{"t": 1793039691.54, "phase": "T3-start", "op": "phase"}
+{"t": 1793039691.62, "phase": "T3-start", "op": "note", "text": "T3 path chosen: plan created in explore by importing T1 (one-time ~8 taps: Create plan or workout > Plan > Empty plan > 1x > Next > Import > Import > Save). Alternative without plan: Home date > workout > ... > Repeat as standalone workout (4 taps)."}
+{"t": 1793039693.78, "phase": "T3-start", "op": "tap", "hit": {"label": "Standalone workout", "cls": "TextView", "w_dp": 147, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["200", "351"]}
+{"t": 1793039693.88, "phase": "T3-start", "op": "size", "w_dp": 351, "h_dp": 68}
+{"t": 1793039698.12, "phase": "T3-start", "op": "tap", "hit": {"label": "Start", "cls": "Button", "w_dp": 118, "h_dp": 53, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["104", "314"]}
+{"t": 1793039698.22, "phase": "T3-start", "op": "size", "w_dp": 117, "h_dp": 52}
+{"t": 1793039702.03, "phase": "T3-start", "op": "shot", "path": "alpha_t3_01.png"}
+{"t": 1793039710.63, "phase": "T3-start", "op": "note", "text": "No paywall on this (2nd) plan start. Workout opens on Bench with all 4 sets prefilled from last session; no exercise add needed (T3-E*-add phases skipped)."}
+{"t": 1793039710.71, "phase": "T3-E1-s1", "op": "phase"}
+{"t": 1793039714.95, "phase": "T3-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793039715.04, "phase": "T3-E1-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039717.22, "phase": "T3-E1-s2", "op": "phase"}
+{"t": 1793039721.45, "phase": "T3-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793039721.59, "phase": "T3-E1-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039723.78, "phase": "T3-E1-s3", "op": "phase"}
+{"t": 1793039728.02, "phase": "T3-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "617"]}
+{"t": 1793039728.12, "phase": "T3-E1-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039730.31, "phase": "T3-E1-s4", "op": "phase"}
+{"t": 1793039734.54, "phase": "T3-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "690"]}
+{"t": 1793039734.63, "phase": "T3-E1-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039737.26, "phase": "T3-E1-s4", "op": "shot", "path": "alpha_t3_02.png"}
+{"t": 1793039746.27, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1793039750.5, "phase": "T3-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793039750.59, "phase": "T3-E2-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039752.78, "phase": "T3-E2-s2", "op": "phase"}
+{"t": 1793039757.0, "phase": "T3-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793039757.09, "phase": "T3-E2-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039759.29, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1793039763.54, "phase": "T3-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "617"]}
+{"t": 1793039763.63, "phase": "T3-E2-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039765.81, "phase": "T3-E2-s4", "op": "phase"}
+{"t": 1793039770.03, "phase": "T3-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "690"]}
+{"t": 1793039770.13, "phase": "T3-E2-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039772.84, "phase": "T3-E2-s4", "op": "shot", "path": "alpha_t3_e3.png"}
+{"t": 1793039772.93, "phase": "T3-E3-s1", "op": "phase"}
+{"t": 1793039777.15, "phase": "T3-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793039777.24, "phase": "T3-E3-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039779.42, "phase": "T3-E3-s2", "op": "phase"}
+{"t": 1793039783.66, "phase": "T3-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793039783.76, "phase": "T3-E3-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039785.94, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1793039790.18, "phase": "T3-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "617"]}
+{"t": 1793039790.28, "phase": "T3-E3-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039792.46, "phase": "T3-E3-s4", "op": "phase"}
+{"t": 1793039796.69, "phase": "T3-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "690"]}
+{"t": 1793039796.79, "phase": "T3-E3-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039799.46, "phase": "T3-E3-s4", "op": "shot", "path": "alpha_t3_e4.png"}
+{"t": 1793039805.72, "phase": "T3-E4-s1", "op": "phase"}
+{"t": 1793039809.96, "phase": "T3-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793039810.05, "phase": "T3-E4-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039812.24, "phase": "T3-E4-s2", "op": "phase"}
+{"t": 1793039816.49, "phase": "T3-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793039816.59, "phase": "T3-E4-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039818.77, "phase": "T3-E4-s3", "op": "phase"}
+{"t": 1793039823.01, "phase": "T3-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "617"]}
+{"t": 1793039823.1, "phase": "T3-E4-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039825.29, "phase": "T3-E4-s4", "op": "phase"}
+{"t": 1793039829.51, "phase": "T3-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "690"]}
+{"t": 1793039829.61, "phase": "T3-E4-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039832.26, "phase": "T3-E4-s4", "op": "shot", "path": "alpha_t3_e5.png"}
+{"t": 1793039832.35, "phase": "T3-E5-s1", "op": "phase"}
+{"t": 1793039836.56, "phase": "T3-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793039836.66, "phase": "T3-E5-s1", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039838.84, "phase": "T3-E5-s2", "op": "phase"}
+{"t": 1793039843.06, "phase": "T3-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793039843.15, "phase": "T3-E5-s2", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039845.34, "phase": "T3-E5-s3", "op": "phase"}
+{"t": 1793039849.56, "phase": "T3-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "617"]}
+{"t": 1793039849.66, "phase": "T3-E5-s3", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039851.85, "phase": "T3-E5-s4", "op": "phase"}
+{"t": 1793039856.07, "phase": "T3-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "690"]}
+{"t": 1793039856.17, "phase": "T3-E5-s4", "op": "size", "w_dp": 48, "h_dp": 36}
+{"t": 1793039858.83, "phase": "T3-E5-s4", "op": "shot", "path": "alpha_t3_e6.png"}
+{"t": 1793039867.38, "phase": "T7-in", "op": "phase"}
+{"t": 1793039871.63, "phase": "T7-in", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["30", "150"]}
+{"t": 1793039871.72, "phase": "T7-in", "op": "size", "w_dp": 42, "h_dp": 44}
+{"t": 1793039874.31, "phase": "T7-in", "op": "shot", "path": "alpha_t7_01.png"}
+{"t": 1793039881.21, "phase": "T7-in", "op": "note", "text": "Last session numbers: shown inline under the set table on the exercise page (reference card) - visible with 0 extra taps when on that exercise; 1 tap on thumbnail to navigate"}
+{"t": 1793039885.43, "phase": "T7-in", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["114", "237"]}
+{"t": 1793039885.53, "phase": "T7-in", "op": "size", "w_dp": 130, "h_dp": 25}
+{"t": 1793039889.1, "phase": "T7-in", "op": "shot", "path": "alpha_t7_02.png"}
+{"t": 1793039896.42, "phase": "T7-in", "op": "note", "text": "Exercise detail (tap name): tabs Info/Instructions/History; Info: 'Unlock exercise evaluations now!' (Pro), Equipment, muscles map, Type Large exercise, Metrics Weight+reps, per-exercise Weight unit kg, Bodyweight %, Similar (62)"}
+{"t": 1793039900.65, "phase": "T7-in", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["433", "143"]}
+{"t": 1793039900.75, "phase": "T7-in", "op": "size", "w_dp": 110, "h_dp": 35}
+{"t": 1793039903.3, "phase": "T7-in", "op": "shot", "path": "alpha_t7_03.png"}
+{"t": 1793039911.33, "phase": "T7-in", "op": "note", "text": "Exercise History tab: 1 workout / best 60 kg / best 10RM 57 (free numbers), progress chart LOCKED ('Unlock charts now!'), past sessions tables. 1RM as metric only via Settings>Performance metric"}
+{"t": 1793039911.42, "phase": "explore", "op": "phase"}
+{"t": 1793039911.55, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["269", "143"]}
+{"t": 1793039922.17, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "450"]}
+{"t": 1793039934.99, "phase": "explore", "op": "note", "text": "Instructions tab: HD exercise video plays (free) + Setup/Execution text"}
+{"t": 1793039935.13, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793039937.32, "phase": "T3-finish", "op": "phase"}
+{"t": 1793039941.55, "phase": "T3-finish", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793039941.65, "phase": "T3-finish", "op": "size", "w_dp": 351, "h_dp": 64}
+{"t": 1793039948.54, "phase": "T3-finish", "op": "shot", "path": "alpha_t3_10.png"}
+{"t": 1793039960.2, "phase": "T3-finish", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1023"]}
+{"t": 1793039966.38, "phase": "T3-finish", "op": "void", "n": 1}
+{"t": 1793039966.46, "phase": "T3-finish", "op": "note", "text": "'Very short workout - Did this workout really take 4:03 min? Yes / No, edit duration' sheet: artifact of test speed (real session would not trigger) -> tapped Yes, voided"}
+{"t": 1793039967.05, "phase": "T3-finish", "op": "shot", "path": "alpha_t3_11.png"}
+{"t": 1793039978.62, "phase": "T3-finish", "op": "shot", "path": "alpha_t3_12.png"}
+{"t": 1793039984.88, "phase": "T3-finish", "op": "note", "text": "T3 summary: no Instagram popup this time; achievements 'Lift Up the Week', 'Two Good to Quit'"}
+{"t": 1793039987.06, "phase": "T3-finish", "op": "tap", "hit": {"label": "", "cls": "TextView", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793039987.17, "phase": "T3-finish", "op": "size", "w_dp": 45, "h_dp": 21}
+{"t": 1793039990.81, "phase": "T3-finish", "op": "shot", "path": "alpha_t3_13.png"}
+{"t": 1793039997.43, "phase": "T3-finish", "op": "note", "text": "After summary Close, lands on the plan-day page (completed workout); one more Close to home"}
+{"t": 1793039999.63, "phase": "T3-finish", "op": "tap", "hit": {"label": "Close", "cls": "TextView", "w_dp": 71, "h_dp": 61, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}
+{"t": 1793039999.72, "phase": "T3-finish", "op": "size", "w_dp": 45, "h_dp": 21}
+{"t": 1793040002.26, "phase": "T3-finish", "op": "shot", "path": "alpha_t3_14.png"}
+{"t": 1793040012.0, "phase": "T3-finish", "op": "note", "text": "Home after T3: inline card 'Would you rate this app 5 stars? Sure / No / Later' (non-modal); plan day shows green check"}
+{"t": 1793040012.08, "phase": "explore", "op": "phase"}
+{"t": 1793040012.2, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "332"]}
+{"t": 1793040014.43, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["479", "76"]}
+{"t": 1793040024.69, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["479", "76"]}
+{"t": 1793040033.73, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "464"]}
+{"t": 1793040035.95, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "532"]}
+{"t": 1793040046.73, "phase": "explore", "op": "note", "text": "Exercise picker 'Most used' sort now puts the 5 used exercises on top with usage count badges"}
+{"t": 1793040046.85, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "373"]}
+{"t": 1793040048.06, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "466"]}
+{"t": 1793040049.32, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793040060.77, "phase": "explore", "op": "note", "text": "Empty standalone workout with previously used exercises also prefills from last session (but default 3 sets, last had 4)"}
+{"t": 1793040060.89, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "471"]}
+{"t": 1793040063.11, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["483", "544"]}
+{"t": 1793040065.29, "phase": "T4-edit", "op": "phase"}
+{"t": 1793040069.53, "phase": "T4-edit", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["153", "544"]}
+{"t": 1793040069.63, "phase": "T4-edit", "op": "size", "w_dp": 75, "h_dp": 36}
+{"t": 1793040072.18, "phase": "T4-edit", "op": "shot", "path": "alpha_t4_01.png"}
+{"t": 1793040082.53, "phase": "T4-edit", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "528"]}
+{"t": 1793040082.64, "phase": "T4-edit", "op": "size", "w_dp": 156, "h_dp": 68}
+{"t": 1793040085.28, "phase": "T4-edit", "op": "shot", "path": "alpha_t4_02.png"}
+{"t": 1793040093.21, "phase": "T4-edit", "op": "note", "text": "Edit done set: tap its KG cell (still editable, greyed row) -> picker -> tap 62.5 (2 taps); 10RM recalculated"}
+{"t": 1793040093.29, "phase": "explore", "op": "phase"}
+{"t": 1793040093.73, "phase": "explore", "op": "swipe", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["400", "617", "100", "617"], "ms": 300, "dist_dp": 213}
+{"t": 1793040103.21, "phase": "explore", "op": "note", "text": "Horizontal swipe on page = switch exercise (pager), not set delete"}
+{"t": 1793040103.67, "phase": "explore", "op": "swipe", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["100", "617", "450", "617"], "ms": 300, "dist_dp": 249}
+{"t": 1793040106.6, "phase": "explore", "op": "long", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "544"], "ms": 700}
+{"t": 1793040117.54, "phase": "explore", "op": "note", "text": "Long-press on set row = same as tap (opens picker); no per-row context menu / swipe-delete"}
+{"t": 1793040117.69, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["61", "76"]}
+{"t": 1793040118.87, "phase": "T4-delete", "op": "phase"}
+{"t": 1793040123.11, "phase": "T4-delete", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "413"]}
+{"t": 1793040123.21, "phase": "T4-delete", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793040125.93, "phase": "T4-delete", "op": "shot", "path": "alpha_t4_03.png"}
+{"t": 1793040136.37, "phase": "T4-delete", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["164", "989"]}
+{"t": 1793040136.47, "phase": "T4-delete", "op": "size", "w_dp": 38, "h_dp": 38}
+{"t": 1793040141.83, "phase": "T4-delete", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "600"]}
+{"t": 1793040141.94, "phase": "T4-delete", "op": "size", "w_dp": 384, "h_dp": 580}
+{"t": 1793040144.62, "phase": "T4-delete", "op": "shot", "path": "alpha_t4_04.png"}
+{"t": 1793040152.45, "phase": "T4-delete", "op": "note", "text": "Delete set: only via Sets stepper '-' (removes LAST set), no delete for an arbitrary set; 3 taps (header, -, close)"}
+{"t": 1793040152.55, "phase": "T4-undo", "op": "phase"}
+{"t": 1793040156.8, "phase": "T4-undo", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["66", "413"]}
+{"t": 1793040156.91, "phase": "T4-undo", "op": "size", "w_dp": 45, "h_dp": 20}
+{"t": 1793040163.25, "phase": "T4-undo", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793040163.37, "phase": "T4-undo", "op": "size", "w_dp": 351, "h_dp": 64}
+{"t": 1793040166.03, "phase": "T4-undo", "op": "shot", "path": "alpha_t4_05.png"}
+{"t": 1793040174.17, "phase": "T4-undo", "op": "note", "text": "'Undo last set' = un-marks the last completed set (set 2 back to active); it does NOT restore the deleted set. No general undo exists."}
+{"t": 1793040174.26, "phase": "T5-add", "op": "phase"}
+{"t": 1793040178.5, "phase": "T5-add", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["244", "150"]}
+{"t": 1793040178.59, "phase": "T5-add", "op": "size", "w_dp": 48, "h_dp": 35}
+{"t": 1793040184.94, "phase": "T5-add", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793040185.04, "phase": "T5-add", "op": "size", "w_dp": 353, "h_dp": 41}
+{"t": 1793040186.33, "phase": "T5-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 14}
+{"t": 1793040189.01, "phase": "T5-add", "op": "shot", "path": "alpha_t5_01.png"}
+{"t": 1793040197.44, "phase": "T5-add", "op": "note", "text": "Search 'overhead press' returns Overhead Curls/Shrugs, no Overhead Press at top -> retry with 'shoulder press' (kept as real-user friction)"}
+{"t": 1793040201.7, "phase": "T5-add", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["489", "231"]}
+{"t": 1793040201.8, "phase": "T5-add", "op": "size", "w_dp": 21, "h_dp": 21}
+{"t": 1793040206.22, "phase": "T5-add", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "231"]}
+{"t": 1793040206.33, "phase": "T5-add", "op": "size", "w_dp": 353, "h_dp": 41}
+{"t": 1793040207.63, "phase": "T5-add", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 14}
+{"t": 1793040210.29, "phase": "T5-add", "op": "shot", "path": "alpha_t5_02.png"}
+{"t": 1793040221.17, "phase": "T5-add", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "669"]}
+{"t": 1793040221.27, "phase": "T5-add", "op": "size", "w_dp": 351, "h_dp": 75}
+{"t": 1793040223.99, "phase": "T5-add", "op": "shot", "path": "alpha_t5_03.png"}
+{"t": 1793040233.19, "phase": "T5-add", "op": "note", "text": "picked 'Seated Shoulder Press / Barbell' (Standing Shoulder Press Barbell = true OHP exists further down); mid-workout picker button reads 'Add (1)'"}
+{"t": 1793040237.43, "phase": "T5-add", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793040237.54, "phase": "T5-add", "op": "size", "w_dp": 351, "h_dp": 64}
+{"t": 1793040241.18, "phase": "T5-add", "op": "shot", "path": "alpha_t5_04.png"}
+{"t": 1793040248.64, "phase": "T5-add", "op": "note", "text": "New exercise appended at end, app jumps to it"}
+{"t": 1793040248.73, "phase": "explore", "op": "phase"}
+{"t": 1793040250.11, "phase": "explore", "op": "longdrag", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["255", "150", "50", "150"], "ms": 800, "dist_dp": 146}
+{"t": 1793040261.49, "phase": "explore", "op": "note", "text": "Rest timer continues past zero showing negative -0:09 (grey)"}
+{"t": 1793040262.83, "phase": "explore", "op": "long", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["255", "150"], "ms": 1200}
+{"t": 1793040274.56, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["403", "237"]}
+{"t": 1793040284.86, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "691"]}
+{"t": 1793040294.25, "phase": "explore", "op": "note", "text": "Supersets: 'Superset with previous exercise' (free, not applied). No reorder in ... menu, no drag on thumbnails; long-press thumbnail does nothing"}
+{"t": 1793040294.38, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793040295.92, "phase": "explore", "op": "swipe", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "46", "270", "700"], "ms": 300, "dist_dp": 465}
+{"t": 1793040306.58, "phase": "explore", "op": "note", "text": "Pull-down minimizes workout into a blue bar 'Standalone workout - 4:08 min' on home (can browse app mid-workout)"}
+{"t": 1793040306.71, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1032"]}
+{"t": 1793040308.89, "phase": "T5-remove", "op": "phase"}
+{"t": 1793040313.12, "phase": "T5-remove", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["403", "237"]}
+{"t": 1793040313.22, "phase": "T5-remove", "op": "size", "w_dp": 48, "h_dp": 35}
+{"t": 1793040319.55, "phase": "T5-remove", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "978"]}
+{"t": 1793040319.65, "phase": "T5-remove", "op": "size", "w_dp": 351, "h_dp": 50}
+{"t": 1793040322.29, "phase": "T5-remove", "op": "shot", "path": "alpha_t5_05.png"}
+{"t": 1793040332.6, "phase": "T5-remove", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1097"]}
+{"t": 1793040332.7, "phase": "T5-remove", "op": "size", "w_dp": 351, "h_dp": 68}
+{"t": 1793040335.33, "phase": "T5-remove", "op": "shot", "path": "alpha_t5_06.png"}
+{"t": 1793040342.07, "phase": "T5-remove", "op": "note", "text": "Remove exercise: ... > Remove > confirm sheet Remove (3 taps)"}
+{"t": 1793040342.16, "phase": "T6", "op": "phase"}
+{"t": 1793040342.28, "phase": "T6", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "home"}
+{"t": 1793040347.69, "phase": "T6", "op": "launch", "expect_pkg": "com.alphaprogression.alphaprogression", "pkg": "com.alphaprogression.alphaprogression"}
+{"t": 1793040352.34, "phase": "T6", "op": "shot", "path": "alpha_t6_01.png"}
+{"t": 1793040358.57, "phase": "T6", "op": "note", "text": "T6 home+relaunch: exact same screen, timer running"}
+{"t": 1793040361.19, "phase": "T6", "op": "launch", "expect_pkg": "com.alphaprogression.alphaprogression", "pkg": "com.alphaprogression.alphaprogression"}
+{"t": 1793040367.81, "phase": "T6", "op": "shot", "path": "alpha_t6_02.png"}
+{"t": 1793040374.84, "phase": "T6", "op": "note", "text": "After force-stop relaunch: 'Create account - Create an account to keep your workout data safe' (Email/Password, Sign up) with keyboard auto-opened; 'Later' top-right skips (skippable nag, appeared on 2nd cold start)"}
+{"t": 1793040376.98, "phase": "T6", "op": "tap", "hit": {"label": "id=webview", "cls": "WebView", "w_dp": 384, "h_dp": 853, "interactive": true, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["487", "76"]}
+{"t": 1793040380.61, "phase": "T6", "op": "shot", "path": "alpha_t6_03.png"}
+{"t": 1793040387.4, "phase": "T6", "op": "note", "text": "Later -> second sheet 'Warning: Without an account, your data may be lost at any time.' Okay (2 taps to skip sign-up nag)"}
+{"t": 1793040391.63, "phase": "T6", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1097"]}
+{"t": 1793040395.22, "phase": "T6", "op": "shot", "path": "alpha_t6_04.png"}
+{"t": 1793040402.13, "phase": "T6", "op": "note", "text": "After cold start: home with minimized bar 'Standalone workout - 5:45 min' (timer kept running); plan now shows Week 2"}
+{"t": 1793040406.37, "phase": "T6", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1032"]}
+{"t": 1793040413.69, "phase": "T6", "op": "tap", "hit": null, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["64", "150"]}
+{"t": 1793040416.28, "phase": "T6", "op": "shot", "path": "alpha_t6_05.png"}
+{"t": 1793040424.32, "phase": "T6", "op": "note", "text": "Workout fully recovered after force-stop: edited 62.5, deleted set, undone state all intact"}
+{"t": 1793040424.4, "phase": "explore", "op": "phase"}
+{"t": 1793040424.54, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["383", "76"]}
+{"t": 1793040426.75, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "582"]}
+{"t": 1793040428.96, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1097"]}
+{"t": 1793040439.37, "phase": "explore", "op": "note", "text": "Standalone workout Reset -> discards, back to home (in-progress gone)"}
+{"t": 1793040439.46, "phase": "T7-out", "op": "phase"}
+{"t": 1793040441.59, "phase": "T7-out", "op": "tap", "hit": {"label": "Exercises", "cls": "View", "w_dp": 384, "h_dp": 40, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["76", "491"]}
+{"t": 1793040441.69, "phase": "T7-out", "op": "size", "w_dp": 70, "h_dp": 24}
+{"t": 1793040444.37, "phase": "T7-out", "op": "shot", "path": "alpha_t7_04.png"}
+{"t": 1793040453.01, "phase": "T7-out", "op": "tap", "hit": {"label": "Barbell", "cls": "View", "w_dp": 245, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["300", "373"]}
+{"t": 1793040453.11, "phase": "T7-out", "op": "size", "w_dp": 351, "h_dp": 75}
+{"t": 1793040457.05, "phase": "T7-out", "op": "shot", "path": "alpha_t7_05.png"}
+{"t": 1793040463.72, "phase": "T7-out", "op": "note", "text": "Exercise detail from library opens on last-used tab (Instructions)"}
+{"t": 1793040465.91, "phase": "T7-out", "op": "tap", "hit": {"label": "exercise-28", "cls": "View", "w_dp": 384, "h_dp": 797, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["433", "143"]}
+{"t": 1793040466.0, "phase": "T7-out", "op": "size", "w_dp": 110, "h_dp": 35}
+{"t": 1793040468.53, "phase": "T7-out", "op": "shot", "path": "alpha_t7_06.png"}
+{"t": 1793040478.65, "phase": "T7-out", "op": "tap", "hit": {"label": "Bench Press", "cls": "View", "w_dp": 384, "h_dp": 829, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793040481.93, "phase": "T7-out", "op": "tap", "hit": {"label": "Close", "cls": "TextView", "w_dp": 71, "h_dp": 61, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}
+{"t": 1793040484.11, "phase": "T8", "op": "phase"}
+{"t": 1793040486.23, "phase": "T8", "op": "tap", "hit": {"label": "", "cls": "Image", "w_dp": 77, "h_dp": 42, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["324", "1130"]}
+{"t": 1793040486.32, "phase": "T8", "op": "size", "w_dp": 50, "h_dp": 40}
+{"t": 1793040490.52, "phase": "T8", "op": "tap", "hit": {"label": "+6", "cls": "View", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["469", "76"]}
+{"t": 1793040490.61, "phase": "T8", "op": "size", "w_dp": 90, "h_dp": 24}
+{"t": 1793040494.87, "phase": "T8", "op": "tap", "hit": {"label": "Account", "cls": "TextView", "w_dp": 250, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "683"]}
+{"t": 1793040494.97, "phase": "T8", "op": "size", "w_dp": 351, "h_dp": 52}
+{"t": 1793040499.21, "phase": "T8", "op": "tap", "hit": {"label": "Export data", "cls": "TextView", "w_dp": 250, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "357"]}
+{"t": 1793040499.3, "phase": "T8", "op": "size", "w_dp": 351, "h_dp": 52}
+{"t": 1793040502.84, "phase": "T8", "op": "shot", "path": "alpha_t8_01.png"}
+{"t": 1793040509.82, "phase": "T8", "op": "size", "w_dp": 351, "h_dp": 52}
+{"t": 1793040509.9, "phase": "T8", "op": "note", "text": "Export data: Plans (1) / Workouts (2) / Custom exercises (0) / Measurements (1), CSV delimiter Comma; free (no lock)"}
+{"t": 1793040512.03, "phase": "T8", "op": "tap", "hit": {"label": "Workouts (2)", "cls": "TextView", "w_dp": 284, "h_dp": 24, "interactive": false, "pkg": "com.alphaprogression.alphaprogression"}, "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "323"]}
+{"t": 1793040512.12, "phase": "T8", "op": "size", "w_dp": 351, "h_dp": 52}
+{"t": 1793040515.7, "phase": "T8", "op": "shot", "path": "alpha_t8_02.png"}
+{"t": 1793040527.78, "phase": "T8", "op": "note", "text": "Workouts export sheet: Download .csv / Copy to clipboard / Send by email. Stopped here (no file downloaded). Export is free, CSV only (no JSON), no import feature seen."}
+{"t": 1793040527.86, "phase": "explore", "op": "phase"}
+{"t": 1793040527.99, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793040529.21, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["487", "76"]}
+{"t": 1793040531.43, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["125", "636"]}
+{"t": 1793040542.09, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "189"]}
+{"t": 1793040551.6, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "410"]}
+{"t": 1793040562.38, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793040572.87, "phase": "explore", "op": "note", "text": "Measurement added: Body fat 15% (list of ~15 types: body fat, calves, chest, forearms, hips, neck, shoulder width...); free; shows on profile with + quick add"}
+{"t": 1793040572.99, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "210"]}
+{"t": 1793040582.48, "phase": "explore", "op": "note", "text": "Achievements page: trophy levels, 11% of achievements, categories e.g. Workouts 2 of 11 (Newbie Gains, International Chest Day, Never Skip Leg Day...), Share"}
+{"t": 1793040582.6, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["54", "76"]}
+{"t": 1793040583.81, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["77", "763"]}
+{"t": 1793040592.62, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["487", "76"]}
+{"t": 1793040593.85, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["108", "1130"]}
+{"t": 1793040596.06, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["76", "491"]}
+{"t": 1793040598.27, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["118", "292"]}
+{"t": 1793040607.27, "phase": "explore", "op": "note", "text": "Exercise filters: gym, Equipment, Muscle, Type, Custom only"}
+{"t": 1793040607.4, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793040608.61, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["479", "166"]}
+{"t": 1793040618.24, "phase": "explore", "op": "text", "expect_pkg": "com.alphaprogression.alphaprogression", "chars": 10}
+{"t": 1793040618.38, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793040619.58, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "392"]}
+{"t": 1793040628.56, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["143", "250"]}
+{"t": 1793040630.78, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "499"]}
+{"t": 1793040639.81, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["71", "488"]}
+{"t": 1793040642.39, "phase": "explore", "op": "scroll", "expect_pkg": "com.alphaprogression.alphaprogression", "dir": "down"}
+{"t": 1793040650.28, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "1100"]}
+{"t": 1793040661.18, "phase": "explore", "op": "note", "text": "Custom exercise create: photo, name, equipment grid (12), muscle map grid (19), auxiliary muscles, type, metrics, bodyweight %; free; achievement 'Go Your Own Way'. Library now 796."}
+{"t": 1793040661.3, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}
+{"t": 1793040663.52, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["479", "76"]}
+{"t": 1793040665.74, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "464"]}
+{"t": 1793040667.94, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["270", "300"]}
+{"t": 1793040679.03, "phase": "explore", "op": "note", "text": "Workout generator -> paywall (Pro)"}
+{"t": 1793040679.16, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["496", "76"]}
+{"t": 1793040681.38, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793040682.58, "phase": "explore", "op": "key", "expect_pkg": "com.alphaprogression.alphaprogression", "key": "back"}
+{"t": 1793040684.79, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["70", "437"]}
+{"t": 1793040692.25, "phase": "explore", "op": "note", "text": "All plans: New plan 1 day - 4 weeks (plan default length 4 weeks), Create plan"}
+{"t": 1793040692.37, "phase": "explore", "op": "tap", "expect_pkg": "com.alphaprogression.alphaprogression", "xy": ["484", "76"]}

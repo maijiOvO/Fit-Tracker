@@ -1,0 +1,196 @@
+{"t": 1793007589.71, "phase": "explore", "op": "session"}
+{"t": 1793007594.39, "phase": "explore", "op": "session"}
+{"t": 1793007598.58, "phase": "explore", "op": "launch", "expect_pkg": "com.hevy", "pkg": "com.trainnote.rn"}
+{"t": 1793007620.12, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793007625.52, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007629.49, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007638.17, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["168", "558"]}
+{"t": 1793007643.61, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007652.57, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007654.15, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007654.64, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007655.11, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007658.99, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007668.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "683"]}
+{"t": 1793007673.29, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007674.51, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["193", "1128"]}
+{"t": 1793007685.85, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793007697.18, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1793007706.96, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["193", "935"]}
+{"t": 1793007749.85, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007751.43, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007751.91, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007753.15, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "1079"]}
+{"t": 1793007758.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007761.71, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007764.47, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007767.22, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007771.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793007774.02, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007774.52, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007774.96, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "800", "270", "500"], "ms": 300, "dist_dp": 213}
+{"t": 1793007782.54, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "506"]}
+{"t": 1793007787.44, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007791.99, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007796.59, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007799.37, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007802.3, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007814.24, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["208", "170"]}
+{"t": 1793007819.17, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007821.95, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007824.77, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007827.56, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007828.06, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007828.56, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007829.05, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007829.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007829.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["332", "170"]}
+{"t": 1793007834.6, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007837.93, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007840.75, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007843.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007844.05, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007844.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007845.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007845.54, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007845.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["456", "170"]}
+{"t": 1793007850.57, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007853.36, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007856.14, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007858.93, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793007859.42, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007859.92, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007860.42, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007860.92, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793007864.69, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007865.91, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1793007876.52, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["225", "112"]}
+{"t": 1793007887.4, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["486", "134"]}
+{"t": 1793007892.49, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007893.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["403", "134"]}
+{"t": 1793007903.47, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007904.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["486", "134"]}
+{"t": 1793007914.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["373", "412"]}
+{"t": 1793007925.87, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793007927.09, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1793007929.31, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793007939.95, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793007949.88, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["150", "644"]}
+{"t": 1793007962.95, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793007974.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "860"]}
+{"t": 1793007975.59, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1793007986.47, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "370"]}
+{"t": 1793007996.73, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["142", "590"]}
+{"t": 1793008006.97, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["167", "934"]}
+{"t": 1793008007.12, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["269", "1080"]}
+{"t": 1793008007.25, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["59", "934"]}
+{"t": 1793008008.48, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["234", "416"]}
+{"t": 1793008008.62, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1793008008.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["269", "1080"]}
+{"t": 1793008016.61, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["151", "628"]}
+{"t": 1793008027.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["388", "884"]}
+{"t": 1793008038.31, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["399", "170"]}
+{"t": 1793008052.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1118"]}
+{"t": 1793008054.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793008069.92, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "892"]}
+{"t": 1793008080.48, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1793008096.36, "phase": "explore", "op": "launch", "expect_pkg": "com.trainnote.rn", "pkg": "com.lyfta"}
+{"t": 1793008109.51, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793008121.14, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793008127.0, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008131.47, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008135.92, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008138.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008141.38, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008147.11, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793008157.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "726"]}
+{"t": 1793008168.58, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "838"]}
+{"t": 1793008185.1, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008186.67, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008194.47, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["408", "517"]}
+{"t": 1793008203.82, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["411", "841"]}
+{"t": 1793008203.96, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008204.11, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008205.33, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793008207.56, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1793008221.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1793008231.29, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793008242.01, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793008254.03, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1793008266.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "721"]}
+{"t": 1793008281.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1033"]}
+{"t": 1793008289.63, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008290.86, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793008302.29, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008303.52, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["397", "721"]}
+{"t": 1793008313.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["462", "982"]}
+{"t": 1793008323.0, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008324.23, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008335.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1142"]}
+{"t": 1793008346.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1115"]}
+{"t": 1793008356.36, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793008368.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793008370.91, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793008380.97, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "305"]}
+{"t": 1793008392.76, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008403.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1011"]}
+{"t": 1793008409.64, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008412.49, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008415.26, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008417.99, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008420.71, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008432.3, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793008434.46, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793008434.95, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "up"}
+{"t": 1793008436.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "489"]}
+{"t": 1793008455.38, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008455.53, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008455.67, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008455.81, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793008457.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793008464.23, "phase": "explore", "op": "launch", "expect_pkg": "com.lyfta", "pkg": "com.hevy"}
+{"t": 1793008477.14, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793008493.45, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["472", "102"]}
+{"t": 1793008506.94, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "485"]}
+{"t": 1793008507.13, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 12}
+{"t": 1793008507.28, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793008508.5, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "571"]}
+{"t": 1793008519.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["472", "102"]}
+{"t": 1793008521.62, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "485"]}
+{"t": 1793008522.85, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 12}
+{"t": 1793008530.24, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "573"]}
+{"t": 1793008541.3, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "345"]}
+{"t": 1793008551.66, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "681"]}
+{"t": 1793008561.5, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "418"]}
+{"t": 1793008573.09, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "908"]}
+{"t": 1793008583.41, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "236"]}
+{"t": 1793008585.64, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793008598.5, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1046"]}
+{"t": 1793008616.02, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "102"]}
+{"t": 1793008626.05, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1110"]}
+{"t": 1793008636.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "621"]}
+{"t": 1793008656.73, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793008671.35, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["449", "410"]}
+{"t": 1793008682.72, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1111"]}
+{"t": 1793008695.18, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["499", "92"]}
+{"t": 1793008697.41, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["499", "95"]}
+{"t": 1793008714.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "516"]}
+{"t": 1793008727.99, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793008729.21, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793008730.44, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1135"]}
+{"t": 1793008741.8, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "272"]}
+{"t": 1793008767.93, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "555"]}
+{"t": 1793008778.5, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["292", "432"]}
+{"t": 1793008789.22, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793008814.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["283", "541"]}
+{"t": 1793008815.92, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 2}
+{"t": 1793008824.19, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "541"]}
+{"t": 1793008835.01, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "869"]}
+{"t": 1793008836.23, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["300", "755"]}
+{"t": 1793008845.36, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["283", "739"]}
+{"t": 1793008846.59, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 2}
+{"t": 1793008847.82, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "739"]}
+{"t": 1793008857.4, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "698"]}
+{"t": 1793008866.21, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "960"]}
+{"t": 1793008893.22, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "599"]}
+{"t": 1793008896.44, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}

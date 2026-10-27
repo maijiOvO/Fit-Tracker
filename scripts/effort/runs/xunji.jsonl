@@ -1,0 +1,585 @@
+{"t": 1792993720.87, "phase": "explore", "op": "session"}
+{"t": 1792993721.6, "phase": "explore", "op": "launch", "pkg": "com.trainnote.rn"}
+{"t": 1792993732.88, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["149", "650"]}
+{"t": 1792993741.95, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1155"]}
+{"t": 1792993754.05, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "891"]}
+{"t": 1792993764.61, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1792993776.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["149", "650"]}
+{"t": 1792993778.42, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1155"]}
+{"t": 1792993780.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "891"]}
+{"t": 1792993791.29, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1792993793.51, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792993805.86, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1792993816.58, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["483", "661"]}
+{"t": 1792993827.26, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["392", "718"]}
+{"t": 1792993840.19, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 4}
+{"t": 1792993840.33, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["376", "489"]}
+{"t": 1792993852.87, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1792993862.83, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "1050"]}
+{"t": 1792993874.9, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1792993884.11, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "91"]}
+{"t": 1792993897.69, "phase": "explore", "op": "note", "text": "Prefs defaults: 打勾时弹出计时器=弹出, 自动复制历史=直接复制 (kept). Deleted 2 workouts of 2026-10-26, cancelled 5x5 plan (type-to-confirm '9056' dialog). Kept AI plan, challenge, BeltSquat."}
+{"t": 1792993897.83, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792993899.04, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1792993909.51, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1792993920.86, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792993932.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792993933.36, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 5}
+{"t": 1792993945.82, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["84", "818"]}
+{"t": 1792993961.25, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1792993972.46, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1792993986.46, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792993987.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792993988.28, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 7}
+{"t": 1792993989.34, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["84", "818"]}
+{"t": 1792993993.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792993994.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792993995.25, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 3}
+{"t": 1792993996.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["84", "818"]}
+{"t": 1792994000.5, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792994001.23, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994002.27, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 5}
+{"t": 1792994003.29, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["84", "818"]}
+{"t": 1792994016.5, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792994017.21, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994018.23, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["425", "1125"]}
+{"t": 1792994018.97, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 3}
+{"t": 1792994031.67, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792994035.51, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "900", "330", "400"], "ms": 300, "dist_dp": 355}
+{"t": 1792994046.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792994048.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994049.96, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 3}
+{"t": 1792994051.98, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994065.97, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792994066.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994067.75, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 11}
+{"t": 1792994081.43, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994086.08, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994090.66, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994106.1, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792994106.83, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994107.87, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 7}
+{"t": 1792994113.06, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994117.33, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994121.95, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994126.34, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994127.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792994128.08, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994129.11, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 5}
+{"t": 1792994133.54, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994137.92, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994142.2, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994146.6, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["330", "600", "330", "300"], "ms": 300, "dist_dp": 213}
+{"t": 1792994160.82, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["325", "129"]}
+{"t": 1792994161.56, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994162.6, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 3}
+{"t": 1792994164.34, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792994177.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792994179.85, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994180.86, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 3}
+{"t": 1792994182.08, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792994193.97, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "1020"]}
+{"t": 1792994195.24, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792994207.97, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "375"]}
+{"t": 1792994224.96, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["234", "590"]}
+{"t": 1792994238.88, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792994239.02, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792994239.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792994252.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["150", "802"]}
+{"t": 1792994269.68, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1135"]}
+{"t": 1792994271.41, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "891"]}
+{"t": 1792994273.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1792994288.83, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1792994290.49, "phase": "T1-start", "op": "phase"}
+{"t": 1792994291.21, "phase": "T1-start", "op": "shot", "path": "T1_home.png"}
+{"t": 1792994293.58, "phase": "T1-start", "op": "tap", "hit": {"label": "训练", "cls": "ViewGroup", "w_dp": 62, "h_dp": 62, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1792994297.23, "phase": "T1-start", "op": "tap", "hit": {"label": "减脂塑形", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1792994299.41, "phase": "T1-start", "op": "shot", "path": "T1_empty.png"}
+{"t": 1792994314.98, "phase": "T1-start", "op": "note", "text": "FAB menu overlay not in UI tree: hit-test for 新建训练 wrongly reports 减脂塑形; real target is icon ~70px shot (~50dp) + label"}
+{"t": 1792994315.07, "phase": "T1-E1-add", "op": "phase"}
+{"t": 1792994317.44, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "动作", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792994321.56, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "输入动作名字搜索", "cls": "EditText", "w_dp": 121, "h_dp": 38, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994322.57, "phase": "T1-E1-add", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 5}
+{"t": 1792994323.79, "phase": "T1-E1-add", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792994325.54, "phase": "T1-E1-add", "op": "shot", "path": "T1_E1_search.png"}
+{"t": 1792994336.58, "phase": "T1-E1-add", "op": "note", "text": "Search: typed 'bench' (IME already in English mode; switched once in explore), pressed keyboard 搜索/enter to hide keyboard (live filter)"}
+{"t": 1792994339.13, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["228", "400"]}
+{"t": 1792994342.54, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "完成(1)", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792994345.22, "phase": "T1-E1-add", "op": "shot", "path": "T1_E1_added.png"}
+{"t": 1792994357.42, "phase": "T1-E1-add", "op": "note", "text": "Exercise added collapsed (accordion card), no prefill (0.0/0.0, 1组) - must tap card to expand"}
+{"t": 1792994360.09, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "杠铃卧推", "cls": "ViewGroup", "w_dp": 360, "h_dp": 92, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "375"]}
+{"t": 1792994361.46, "phase": "T1-E1-s1", "op": "phase"}
+{"t": 1792994362.41, "phase": "T1-E1-s1", "op": "shot", "path": "T1_E1_expanded.png"}
+{"t": 1792994365.29, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "590"]}
+{"t": 1792994367.26, "phase": "T1-E1-s1", "op": "shot", "path": "T1_E1_kp.png"}
+{"t": 1792994378.1, "phase": "T1-E1-s1", "op": "note", "text": "App's own keypad (not system keyboard); list auto-scrolls so active row sits above keypad; field hint 杠+总片"}
+{"t": 1792994381.42, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "部位专攻", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792994385.38, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "历史", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792994388.31, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "热身组", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["60", "934"]}
+{"t": 1792994390.08, "phase": "T1-E1-s1", "op": "shot", "path": "T1_E1_warm.png"}
+{"t": 1792994410.41, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "我的", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "1080"]}
+{"t": 1792994413.44, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "我的", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "1080"]}
+{"t": 1792994416.39, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "热身组", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["60", "934"]}
+{"t": 1792994416.47, "phase": "T1-E1-s1", "op": "void", "n": 6}
+{"t": 1792994416.55, "phase": "T1-E1-s1", "op": "note", "text": "my mis-tap (typed 1 instead of 4); voided fix-up"}
+{"t": 1792994419.88, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "4", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "934"]}
+{"t": 1792994422.77, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "历史", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792994425.65, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "热身组", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["60", "934"]}
+{"t": 1792994429.54, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792994433.44, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "部位专攻", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792994436.38, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "历史", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792994437.88, "phase": "T1-E1-s1", "op": "shot", "path": "T1_E1_s1_ready.png"}
+{"t": 1792994453.59, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792994455.93, "phase": "T1-E1-s1", "op": "shot", "path": "T1_E1_s1_done.png"}
+{"t": 1792994466.71, "phase": "T1-E1-s1", "op": "note", "text": "Set marked done: whole row turns green, workout timer starts on first check, rest timer starts as floating circle bottom-right (60s), no modal (minimized form remembered from earlier use). Warm-up set excluded from volume."}
+{"t": 1792994466.8, "phase": "T1-E1-s2", "op": "phase"}
+{"t": 1792994478.45, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 384, "h_dp": 120, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "802"]}
+{"t": 1792994480.12, "phase": "T1-E1-s2", "op": "shot", "path": "T1_E1_s2_added.png"}
+{"t": 1792994488.56, "phase": "T1-E1-s2", "op": "note", "text": "新增一组 copies previous set incl. warm-up flag (row2 = 热 40x10); must un-toggle warm-up"}
+{"t": 1792994499.93, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "第1练", "cls": "ViewGroup", "w_dp": 352, "h_dp": 74, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "672"]}
+{"t": 1792994501.81, "phase": "T1-E1-s2", "op": "shot", "path": "T1_E1_s2_kp.png"}
+{"t": 1792994510.96, "phase": "T1-E1-s2", "op": "note", "text": "Floating rest timer overlaps keypad RPE/一键改向下 keys"}
+{"t": 1792994523.1, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "6", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "934"]}
+{"t": 1792994535.24, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "历史", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792994547.32, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "热身组", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["60", "934"]}
+{"t": 1792994559.4, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "10", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792994571.48, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1007"]}
+{"t": 1792994573.02, "phase": "T1-E1-s2", "op": "shot", "path": "T1_E1_s2_ready.png"}
+{"t": 1792994584.59, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792994586.84, "phase": "T1-E1-s2", "op": "shot", "path": "T1_E1_s2_done.png"}
+{"t": 1792994595.51, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1792994607.64, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "自重跟练", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "884"]}
+{"t": 1792994619.83, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 384, "h_dp": 120, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "754"]}
+{"t": 1792994621.55, "phase": "T1-E1-s3", "op": "shot", "path": "T1_E1_s3_done.png"}
+{"t": 1792994631.02, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1792994642.59, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "4", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "966"]}
+{"t": 1792994655.01, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "部位专攻", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "836"]}
+{"t": 1792994656.48, "phase": "T1-E1-s4", "op": "shot", "path": "T1_E1_s4_kp.png"}
+{"t": 1792994676.23, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "7", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1007"]}
+{"t": 1792994688.31, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792994690.34, "phase": "T1-E1-s4", "op": "shot", "path": "T1_E1_s4_done.png"}
+{"t": 1792994700.32, "phase": "T1-E2-add", "op": "phase"}
+{"t": 1792994712.35, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "动作", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792994716.45, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "输入动作名字搜索", "cls": "EditText", "w_dp": 121, "h_dp": 38, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792994717.52, "phase": "T1-E2-add", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 7}
+{"t": 1792994718.75, "phase": "T1-E2-add", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792994720.49, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_search.png"}
+{"t": 1792994731.91, "phase": "T1-E2-add", "op": "swipe", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["330", "900", "330", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1792994733.66, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_scroll.png"}
+{"t": 1792994746.34, "phase": "T1-E2-add", "op": "swipe", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 296, "h_dp": 167, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["330", "500", "330", "750"], "ms": 600, "dist_dp": 178}
+{"t": 1792994746.43, "phase": "T1-E2-add", "op": "void", "n": 1}
+{"t": 1792994748.18, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_scroll2.png"}
+{"t": 1792994757.42, "phase": "T1-E2-add", "op": "note", "text": "incline search: results grouped by equipment, barbell first; 上斜哑铃卧推 needs one scroll"}
+{"t": 1792994759.96, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["228", "530"]}
+{"t": 1792994763.38, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "完成(1)", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792994766.05, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_added.png"}
+{"t": 1792994785.91, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["210", "1045"]}
+{"t": 1792994787.83, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_expanded.png"}
+{"t": 1792994797.15, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1792994808.53, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "737"]}
+{"t": 1792994821.16, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792994832.57, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792994844.32, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1080"]}
+{"t": 1792994856.41, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792994857.57, "phase": "T1-E2-s1", "op": "shot", "path": "T1_E2_kp.png"}
+{"t": 1792994866.65, "phase": "T1-E2-s1", "op": "note", "text": "Dumbbell weight field: no per-hand/total hint (barbell had 杠+总片); entered 22.5 as per hand. Has 记录左右 toggle on card."}
+{"t": 1792994878.58, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792994890.66, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792994902.75, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792994914.83, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792994916.01, "phase": "T1-E2-s2", "op": "phase"}
+{"t": 1792994916.66, "phase": "T1-E2-s2", "op": "shot", "path": "T1_E2_s1_done.png"}
+{"t": 1792994926.23, "phase": "T1-E2-s2", "op": "note", "text": "Dumbbell volume counted as 22.5x10=225 (not x2)"}
+{"t": 1792994937.66, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792994939.16, "phase": "T1-E2-s2", "op": "shot", "path": "T1_E2_s2_added.png"}
+{"t": 1792994960.27, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 296, "h_dp": 167, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "810"]}
+{"t": 1792994961.44, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1792994972.81, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "1022"]}
+{"t": 1792994974.3, "phase": "T1-E2-s3", "op": "shot", "path": "T1_E2_s3_added.png"}
+{"t": 1792994995.41, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "892"]}
+{"t": 1792995007.6, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "1007"]}
+{"t": 1792995008.57, "phase": "T1-E2-s3", "op": "shot", "path": "T1_E2_s3_kp.png"}
+{"t": 1792995020.45, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995021.61, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1792995022.21, "phase": "T1-E2-s4", "op": "shot", "path": "T1_E2_s3_done.png"}
+{"t": 1792995043.28, "phase": "T1-E2-s4", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792995055.84, "phase": "T1-E2-s4", "op": "tap", "hit": {"label": "上斜凳俯卧哑铃反向上举", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "810"]}
+{"t": 1792995057.31, "phase": "T1-E2-s4", "op": "shot", "path": "T1_E2_s4_kp.png"}
+{"t": 1792995068.94, "phase": "T1-E2-s4", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1007"]}
+{"t": 1792995080.45, "phase": "T1-E2-s4", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995082.14, "phase": "T1-E2-s4", "op": "shot", "path": "T1_E2_s4_done.png"}
+{"t": 1792995091.66, "phase": "T1-E3-add", "op": "phase"}
+{"t": 1792995103.2, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "临时超级组", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792995107.39, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "输入动作名字搜索", "cls": "EditText", "w_dp": 121, "h_dp": 38, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792995108.44, "phase": "T1-E3-add", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 11}
+{"t": 1792995109.65, "phase": "T1-E3-add", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792995111.34, "phase": "T1-E3-add", "op": "shot", "path": "T1_E3_search.png"}
+{"t": 1792995122.64, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "器", "cls": "ViewGroup", "w_dp": 32, "h_dp": 20, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["506", "822"]}
+{"t": 1792995124.39, "phase": "T1-E3-add", "op": "shot", "path": "T1_E3_idx.png"}
+{"t": 1792995134.22, "phase": "T1-E3-add", "op": "note", "text": "chest press search: 器械推胸 not near top (dumbbell/cable/悍马 groups first); used right-edge equipment index letter 器 (32x20dp) to jump"}
+{"t": 1792995136.82, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "多角度", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["424", "400"]}
+{"t": 1792995140.23, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "完成(1)", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792995142.92, "phase": "T1-E3-add", "op": "shot", "path": "T1_E3_added.png"}
+{"t": 1792995162.55, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 141, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["210", "1045"]}
+{"t": 1792995163.91, "phase": "T1-E3-s1", "op": "phase"}
+{"t": 1792995164.5, "phase": "T1-E3-s1", "op": "shot", "path": "T1_E3_expanded.png"}
+{"t": 1792995185.69, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "739"]}
+{"t": 1792995197.87, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792995209.24, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 141, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792995220.95, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792995233.04, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792995245.11, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792995246.08, "phase": "T1-E3-s1", "op": "shot", "path": "T1_E3_s1_kp.png"}
+{"t": 1792995257.41, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995258.58, "phase": "T1-E3-s2", "op": "phase"}
+{"t": 1792995259.18, "phase": "T1-E3-s2", "op": "shot", "path": "T1_E3_s1_done.png"}
+{"t": 1792995280.37, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792995293.36, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "810"]}
+{"t": 1792995305.57, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792995317.37, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792995328.7, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792995340.78, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792995352.87, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 141, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792995353.84, "phase": "T1-E3-s2", "op": "shot", "path": "T1_E3_s2_kp.png"}
+{"t": 1792995365.51, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995366.68, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1792995367.28, "phase": "T1-E3-s3", "op": "shot", "path": "T1_E3_s2_done.png"}
+{"t": 1792995388.12, "phase": "T1-E3-s3", "op": "tap", "hit": {"label": "查看动作要点", "cls": "ViewGroup", "w_dp": 90, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792995400.31, "phase": "T1-E3-s3", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 167, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "810"]}
+{"t": 1792995402.01, "phase": "T1-E3-s3", "op": "shot", "path": "T1_E3_s3_done.png"}
+{"t": 1792995402.1, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1792995413.41, "phase": "T1-E3-s4", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 141, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "1022"]}
+{"t": 1792995414.89, "phase": "T1-E3-s4", "op": "shot", "path": "T1_E3_s4_added.png"}
+{"t": 1792995435.47, "phase": "T1-E3-s4", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 160, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "892"]}
+{"t": 1792995447.65, "phase": "T1-E3-s4", "op": "tap", "hit": {"label": "器械推胸（版本4）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 141, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "1007"]}
+{"t": 1792995459.64, "phase": "T1-E3-s4", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995461.31, "phase": "T1-E3-s4", "op": "shot", "path": "T1_E3_s4_done.png"}
+{"t": 1792995470.76, "phase": "T1-E4-add", "op": "phase"}
+{"t": 1792995482.48, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "临时超级组", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792995487.04, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "输入动作名字搜索", "cls": "EditText", "w_dp": 121, "h_dp": 38, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792995488.06, "phase": "T1-E4-add", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 3}
+{"t": 1792995489.28, "phase": "T1-E4-add", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792995491.0, "phase": "T1-E4-add", "op": "shot", "path": "T1_E4_search.png"}
+{"t": 1792995502.07, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 157, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["228", "1020"]}
+{"t": 1792995505.37, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "完成(1)", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792995519.05, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 157, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["210", "1045"]}
+{"t": 1792995520.42, "phase": "T1-E4-s1", "op": "phase"}
+{"t": 1792995521.01, "phase": "T1-E4-s1", "op": "shot", "path": "T1_E4_expanded.png"}
+{"t": 1792995530.46, "phase": "T1-E4-s1", "op": "note", "text": "双杠臂屈伸 is type 自身加重: +kg field (blank=BW), shows 当前体重 70kg (from profile); volume counts BW+added"}
+{"t": 1792995541.75, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "746"]}
+{"t": 1792995554.29, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792995565.77, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792995577.46, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "双杠臂屈伸_直上直下版", "cls": "ViewGroup", "w_dp": 296, "h_dp": 167, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995578.62, "phase": "T1-E4-s2", "op": "phase"}
+{"t": 1792995579.22, "phase": "T1-E4-s2", "op": "shot", "path": "T1_E4_s1_done.png"}
+{"t": 1792995601.3, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "自重", "cls": "TextView", "w_dp": 288, "h_dp": 27, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792995613.69, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "810"]}
+{"t": 1792995625.88, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792995637.86, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 157, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792995649.92, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "双杠臂屈伸_直上直下版", "cls": "ViewGroup", "w_dp": 296, "h_dp": 167, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995651.59, "phase": "T1-E4-s2", "op": "shot", "path": "T1_E4_s2_done.png"}
+{"t": 1792995651.68, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1792995663.02, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "自重", "cls": "TextView", "w_dp": 288, "h_dp": 27, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792995664.51, "phase": "T1-E4-s3", "op": "shot", "path": "T1_E4_s3_added.png"}
+{"t": 1792995684.75, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "810"]}
+{"t": 1792995697.29, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792995709.38, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 157, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1792995721.3, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "双杠臂屈伸_直上直下版", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792995732.63, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 157, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1007"]}
+{"t": 1792995733.6, "phase": "T1-E4-s3", "op": "shot", "path": "T1_E4_s3_kp.png"}
+{"t": 1792995745.61, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "双杠臂屈伸_直上直下版", "cls": "ViewGroup", "w_dp": 296, "h_dp": 167, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792995746.79, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1792995758.09, "phase": "T1-E4-s4", "op": "tap", "hit": {"label": "自重", "cls": "TextView", "w_dp": 288, "h_dp": 27, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792995759.57, "phase": "T1-E4-s4", "op": "shot", "path": "T1_E4_s4_added.png"}
+{"t": 1792995781.31, "phase": "T1-E4-s4", "op": "tap", "hit": {"label": "TRX-三头臂屈伸（中难度）", "cls": "ViewGroup", "w_dp": 296, "h_dp": 168, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "810"]}
+{"t": 1792995782.97, "phase": "T1-E4-s4", "op": "shot", "path": "T1_E4_s4_done.png"}
+{"t": 1792995783.06, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1792995794.97, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "临时超级组", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792995799.59, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "输入动作名字搜索", "cls": "EditText", "w_dp": 121, "h_dp": 38, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792995800.61, "phase": "T1-E5-add", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 5}
+{"t": 1792995801.83, "phase": "T1-E5-add", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792995803.54, "phase": "T1-E5-add", "op": "shot", "path": "T1_E5_search.png"}
+{"t": 1792995815.97, "phase": "T1-E5-add", "op": "swipe", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["330", "900", "330", "500"], "ms": 600, "dist_dp": 285}
+{"t": 1792995817.73, "phase": "T1-E5-add", "op": "shot", "path": "T1_E5_scroll.png"}
+{"t": 1792995828.41, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["228", "440"]}
+{"t": 1792995831.83, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "完成(1)", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792995845.31, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "绳索交叉反向飞鸟", "cls": "ViewGroup", "w_dp": 132, "h_dp": 133, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["210", "1045"]}
+{"t": 1792995846.68, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1792995847.27, "phase": "T1-E5-s1", "op": "shot", "path": "T1_E5_expanded.png"}
+{"t": 1792995858.55, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1792995858.63, "phase": "T1-E5-add", "op": "void", "n": 1}
+{"t": 1792995858.72, "phase": "T1-E5-add", "op": "note", "text": "My tap meant to expand new card hit dips' 新增一组 (layout differed) -> extra set 5; voided and removing it"}
+{"t": 1792995870.27, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["478", "892"]}
+{"t": 1792995871.96, "phase": "T1-E5-add", "op": "shot", "path": "x_rowmenu.png"}
+{"t": 1792995882.08, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "删除", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["333", "1098"]}
+{"t": 1792995883.25, "phase": "T1-E5-add", "op": "void", "n": 2}
+{"t": 1792995883.85, "phase": "T1-E5-add", "op": "shot", "path": "x_afterdel.png"}
+{"t": 1792995904.21, "phase": "T1-E5-add", "op": "swipe", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 500, "dist_dp": 285}
+{"t": 1792995905.89, "phase": "T1-E5-add", "op": "shot", "path": "T1_E5_scrolled.png"}
+{"t": 1792995914.05, "phase": "T1-E5-add", "op": "note", "text": "New card added below the expanded previous card, off-screen -> scroll needed before expanding"}
+{"t": 1792995925.86, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["210", "925"]}
+{"t": 1792995927.22, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1792995927.82, "phase": "T1-E5-s1", "op": "shot", "path": "T1_E5_expanded2.png"}
+{"t": 1792995950.02, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "743"]}
+{"t": 1792995962.21, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792995974.2, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792995986.28, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792995998.35, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792996010.43, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792996011.4, "phase": "T1-E5-s1", "op": "shot", "path": "T1_E5_s1_kp.png"}
+{"t": 1792996023.52, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792996024.69, "phase": "T1-E5-s2", "op": "phase"}
+{"t": 1792996025.3, "phase": "T1-E5-s2", "op": "shot", "path": "T1_E5_s1_done.png"}
+{"t": 1792996045.37, "phase": "T1-E5-s2", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792996057.72, "phase": "T1-E5-s2", "op": "tap", "hit": {"label": "复制本组", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "810"]}
+{"t": 1792996059.41, "phase": "T1-E5-s2", "op": "shot", "path": "T1_E5_s2_done.png"}
+{"t": 1792996059.5, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1792996070.84, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "1022"]}
+{"t": 1792996072.31, "phase": "T1-E5-s3", "op": "shot", "path": "T1_E5_s3_added.png"}
+{"t": 1792996092.96, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "892"]}
+{"t": 1792996105.14, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792996117.12, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1007"]}
+{"t": 1792996129.19, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1080"]}
+{"t": 1792996141.28, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792996153.35, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1792996165.43, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "861"]}
+{"t": 1792996177.52, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792996178.5, "phase": "T1-E5-s3", "op": "shot", "path": "T1_E5_s3_kp.png"}
+{"t": 1792996190.61, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1792996191.77, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1792996203.52, "phase": "T1-E5-s4", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "940"]}
+{"t": 1792996204.99, "phase": "T1-E5-s4", "op": "shot", "path": "T1_E5_s4_added.png"}
+{"t": 1792996244.93, "phase": "T1-E5-s4", "op": "tap", "hit": {"label": "复制本组", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "810"]}
+{"t": 1792996246.59, "phase": "T1-E5-s4", "op": "shot", "path": "T1_E5_s4_done.png"}
+{"t": 1792996246.68, "phase": "T1-finish", "op": "phase"}
+{"t": 1792996258.0, "phase": "T1-finish", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["475", "148"]}
+{"t": 1792996260.18, "phase": "T1-finish", "op": "shot", "path": "T1_finish_dialog.png"}
+{"t": 1792996267.15, "phase": "T1-finish", "op": "note", "text": "Finish dialog: primary button 完成并生成分享图, secondary text 完成训练, 取消"}
+{"t": 1792996278.91, "phase": "T1-finish", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "728"]}
+{"t": 1792996281.77, "phase": "T1-finish", "op": "shot", "path": "T1_after.png"}
+{"t": 1792996289.45, "phase": "T1-finish", "op": "note", "text": "Back on home; 第1练 0:30 已完成, 动作5 组数19 (warm-up not counted). No summary screen."}
+{"t": 1792996289.54, "phase": "explore", "op": "phase"}
+{"t": 1792996299.15, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792996300.87, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["44", "834"]}
+{"t": 1792996314.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "110"]}
+{"t": 1792996315.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1792996317.13, "phase": "T3-start", "op": "phase"}
+{"t": 1792996320.2, "phase": "T3-start", "op": "tap", "hit": {"label": "历史", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792996325.2, "phase": "T3-start", "op": "tap", "hit": {"label": "26", "cls": "ViewGroup", "w_dp": 51, "h_dp": 94, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["44", "834"]}
+{"t": 1792996329.77, "phase": "T3-start", "op": "tap", "hit": {"label": "复制到今天", "cls": "ViewGroup", "w_dp": 86, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["203", "1130"]}
+{"t": 1792996332.55, "phase": "T3-start", "op": "shot", "path": "T3_after_copy.png"}
+{"t": 1792996340.11, "phase": "T3-start", "op": "note", "text": "复制到今天 returns to home automatically; new pending card 第1练 with GO! (listed above the completed one)"}
+{"t": 1792996342.47, "phase": "T3-start", "op": "tap", "hit": {"label": "第1练", "cls": "ViewGroup", "w_dp": 352, "h_dp": 82, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "660"]}
+{"t": 1792996345.17, "phase": "T3-start", "op": "shot", "path": "T3_workout.png"}
+{"t": 1792996353.14, "phase": "T3-start", "op": "note", "text": "All 5 exercises prefilled with T1 sets (incl. warm-up flag), all cards collapsed"}
+{"t": 1792996353.22, "phase": "T3-E1-add", "op": "phase"}
+{"t": 1792996356.01, "phase": "T3-E1-add", "op": "tap", "hit": {"label": "杠铃卧推", "cls": "ViewGroup", "w_dp": 360, "h_dp": 92, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "375"]}
+{"t": 1792996357.89, "phase": "T3-E1-add", "op": "shot", "path": "T3_E1_expanded.png"}
+{"t": 1792996364.6, "phase": "T3-E1-s1", "op": "phase"}
+{"t": 1792996367.36, "phase": "T3-E1-s1", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "590"]}
+{"t": 1792996368.33, "phase": "T3-E1-s2", "op": "phase"}
+{"t": 1792996380.29, "phase": "T3-E1-s2", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "672"]}
+{"t": 1792996381.26, "phase": "T3-E1-s3", "op": "phase"}
+{"t": 1792996393.16, "phase": "T3-E1-s3", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "754"]}
+{"t": 1792996394.13, "phase": "T3-E1-s4", "op": "phase"}
+{"t": 1792996405.41, "phase": "T3-E1-s4", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "836"]}
+{"t": 1792996406.9, "phase": "T3-E1-s4", "op": "shot", "path": "T3_E1_done.png"}
+{"t": 1792996414.41, "phase": "T3-E2-add", "op": "phase"}
+{"t": 1792996426.36, "phase": "T3-E2-add", "op": "swipe", "hit": {"label": "正常", "cls": "ViewGroup", "w_dp": 40, "h_dp": 53, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 500, "dist_dp": 285}
+{"t": 1792996428.05, "phase": "T3-E2-add", "op": "shot", "path": "T3_E2_scroll.png"}
+{"t": 1792996447.29, "phase": "T3-E2-add", "op": "tap", "hit": {"label": "晚餐", "cls": "ViewGroup", "w_dp": 59, "h_dp": 51, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "490"]}
+{"t": 1792996449.17, "phase": "T3-E2-add", "op": "shot", "path": "T3_E2_expanded.png"}
+{"t": 1792996457.48, "phase": "T3-E2-add", "op": "note", "text": "Expanding next card collapses previous (accordion) and leaves list scrolled so row 1 is off-screen; scroll back needed"}
+{"t": 1792996469.76, "phase": "T3-E2-add", "op": "swipe", "hit": {"label": "加餐", "cls": "ViewGroup", "w_dp": 59, "h_dp": 51, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "500", "270", "750"], "ms": 500, "dist_dp": 178}
+{"t": 1792996471.47, "phase": "T3-E2-add", "op": "shot", "path": "T3_E2_scroll2.png"}
+{"t": 1792996478.45, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1792996490.23, "phase": "T3-E2-s1", "op": "tap", "hit": {"label": "2", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "712"]}
+{"t": 1792996491.19, "phase": "T3-E2-s2", "op": "phase"}
+{"t": 1792996503.16, "phase": "T3-E2-s2", "op": "tap", "hit": {"label": "3", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "794"]}
+{"t": 1792996504.13, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1792996515.4, "phase": "T3-E2-s3", "op": "tap", "hit": {"label": "个人计划(AI)", "cls": "ViewGroup", "w_dp": 114, "h_dp": 27, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "876"]}
+{"t": 1792996516.36, "phase": "T3-E2-s4", "op": "phase"}
+{"t": 1792996527.93, "phase": "T3-E2-s4", "op": "tap", "hit": {"label": "增肌·男", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "958"]}
+{"t": 1792996529.44, "phase": "T3-E2-s4", "op": "shot", "path": "T3_E2_done.png"}
+{"t": 1792996537.01, "phase": "T3-E3-add", "op": "phase"}
+{"t": 1792996549.23, "phase": "T3-E3-add", "op": "swipe", "hit": {"label": "正常", "cls": "ViewGroup", "w_dp": 40, "h_dp": 53, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "400"], "ms": 500, "dist_dp": 355}
+{"t": 1792996550.91, "phase": "T3-E3-add", "op": "shot", "path": "T3_E3_scroll.png"}
+{"t": 1792996569.16, "phase": "T3-E3-add", "op": "tap", "hit": {"label": "2", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "635"]}
+{"t": 1792996571.02, "phase": "T3-E3-add", "op": "shot", "path": "T3_E3_expanded.png"}
+{"t": 1792996578.82, "phase": "T3-E3-s1", "op": "phase"}
+{"t": 1792996590.15, "phase": "T3-E3-s1", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 352, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "402"]}
+{"t": 1792996591.12, "phase": "T3-E3-s2", "op": "phase"}
+{"t": 1792996602.97, "phase": "T3-E3-s2", "op": "tap", "hit": {"label": "加餐", "cls": "ViewGroup", "w_dp": 59, "h_dp": 51, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "484"]}
+{"t": 1792996603.93, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1792996615.51, "phase": "T3-E3-s3", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "566"]}
+{"t": 1792996616.47, "phase": "T3-E3-s4", "op": "phase"}
+{"t": 1792996627.87, "phase": "T3-E3-s4", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "648"]}
+{"t": 1792996629.34, "phase": "T3-E3-s4", "op": "shot", "path": "T3_E3_done.png"}
+{"t": 1792996629.44, "phase": "T3-E4-add", "op": "phase"}
+{"t": 1792996640.73, "phase": "T3-E4-add", "op": "tap", "hit": {"label": "力量举", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "990"]}
+{"t": 1792996642.61, "phase": "T3-E4-add", "op": "shot", "path": "T3_E4_expanded.png"}
+{"t": 1792996652.16, "phase": "T3-E4-s1", "op": "phase"}
+{"t": 1792996663.61, "phase": "T3-E4-s1", "op": "tap", "hit": {"label": "热", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "552"]}
+{"t": 1792996664.58, "phase": "T3-E4-s2", "op": "phase"}
+{"t": 1792996676.05, "phase": "T3-E4-s2", "op": "tap", "hit": {"label": "2", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "634"]}
+{"t": 1792996677.02, "phase": "T3-E4-s3", "op": "phase"}
+{"t": 1792996688.43, "phase": "T3-E4-s3", "op": "tap", "hit": {"label": "3", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "716"]}
+{"t": 1792996689.39, "phase": "T3-E4-s4", "op": "phase"}
+{"t": 1792996701.05, "phase": "T3-E4-s4", "op": "tap", "hit": {"label": "4", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "798"]}
+{"t": 1792996702.52, "phase": "T3-E4-s4", "op": "shot", "path": "T3_E4_done.png"}
+{"t": 1792996702.61, "phase": "T3-E5-add", "op": "phase"}
+{"t": 1792996714.53, "phase": "T3-E5-add", "op": "swipe", "hit": {"label": "正常", "cls": "ViewGroup", "w_dp": 40, "h_dp": 53, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "400"], "ms": 500, "dist_dp": 355}
+{"t": 1792996716.21, "phase": "T3-E5-add", "op": "shot", "path": "T3_E5_scroll.png"}
+{"t": 1792996735.01, "phase": "T3-E5-add", "op": "tap", "hit": {"label": "正常", "cls": "ViewGroup", "w_dp": 40, "h_dp": 53, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "925"]}
+{"t": 1792996736.89, "phase": "T3-E5-add", "op": "shot", "path": "T3_E5_expanded.png"}
+{"t": 1792996744.78, "phase": "T3-E5-s1", "op": "phase"}
+{"t": 1792996756.08, "phase": "T3-E5-s1", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "724"]}
+{"t": 1792996757.05, "phase": "T3-E5-s2", "op": "phase"}
+{"t": 1792996768.99, "phase": "T3-E5-s2", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "806"]}
+{"t": 1792996769.96, "phase": "T3-E5-s3", "op": "phase"}
+{"t": 1792996781.9, "phase": "T3-E5-s3", "op": "tap", "hit": {"label": "个人计划(AI)", "cls": "ViewGroup", "w_dp": 114, "h_dp": 27, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "888"]}
+{"t": 1792996782.86, "phase": "T3-E5-s4", "op": "phase"}
+{"t": 1792996794.77, "phase": "T3-E5-s4", "op": "tap", "hit": {"label": "增肌·男", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "970"]}
+{"t": 1792996796.25, "phase": "T3-E5-s4", "op": "shot", "path": "T3_E5_done.png"}
+{"t": 1792996796.33, "phase": "T3-finish", "op": "phase"}
+{"t": 1792996807.67, "phase": "T3-finish", "op": "tap", "hit": {"label": "完成", "cls": "ViewGroup", "w_dp": 60, "h_dp": 35, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["475", "148"]}
+{"t": 1792996820.51, "phase": "T3-finish", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "728"]}
+{"t": 1792996823.28, "phase": "T3-finish", "op": "shot", "path": "T3_after.png"}
+{"t": 1792996833.12, "phase": "explore", "op": "phase"}
+{"t": 1792996833.2, "phase": "explore", "op": "note", "text": "T3 done: 复制到今天 path. Now setting up a workout in progress for T4-T7 (copy again, check bench sets)"}
+{"t": 1792996833.35, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792996835.07, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["44", "834"]}
+{"t": 1792996837.3, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["203", "1130"]}
+{"t": 1792996848.43, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "660"]}
+{"t": 1792996850.65, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "375"]}
+{"t": 1792996852.07, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["326", "590"]}
+{"t": 1792996852.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["326", "672"]}
+{"t": 1792996852.33, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["326", "754"]}
+{"t": 1792996853.5, "phase": "T4", "op": "phase"}
+{"t": 1792996854.1, "phase": "T4", "op": "shot", "path": "T4_start.png"}
+{"t": 1792996875.03, "phase": "T4", "op": "tap", "hit": {"label": "60", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["142", "672"]}
+{"t": 1792996887.99, "phase": "T4", "op": "tap", "hit": {"label": "杠铃卧推", "cls": "ViewGroup", "w_dp": 360, "h_dp": 561, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "934"]}
+{"t": 1792996899.98, "phase": "T4", "op": "tap", "hit": {"label": "7", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "861"]}
+{"t": 1792996911.97, "phase": "T4", "op": "tap", "hit": {"label": "挑战", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1080"]}
+{"t": 1792996923.98, "phase": "T4", "op": "tap", "hit": {"label": "正常", "cls": "ViewGroup", "w_dp": 40, "h_dp": 53, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "934"]}
+{"t": 1792996924.97, "phase": "T4", "op": "shot", "path": "T4_edit.png"}
+{"t": 1792996936.98, "phase": "T4", "op": "tap", "hit": {"label": "3", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["480", "775"]}
+{"t": 1792996938.66, "phase": "T4", "op": "shot", "path": "T4_edited.png"}
+{"t": 1792996949.36, "phase": "T4", "op": "note", "text": "Edit done set: tap value -> keypad (value pre-selected, typing replaces) -> type 62.5 -> hide keypad (keypad-hide button); saved instantly, set stays done, volume updates"}
+{"t": 1792996960.96, "phase": "T4", "op": "tap", "hit": {"label": "热", "cls": "ViewGroup", "w_dp": 328, "h_dp": 58, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["478", "564"]}
+{"t": 1792996962.65, "phase": "T4", "op": "shot", "path": "T4_menu.png"}
+{"t": 1792996972.27, "phase": "T4", "op": "tap", "hit": {"label": "删除", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["333", "924"]}
+{"t": 1792996973.95, "phase": "T4", "op": "shot", "path": "T4_deleted.png"}
+{"t": 1792996984.19, "phase": "T4", "op": "note", "text": "Set delete via row ... menu -> 删除: no confirm, no toast, no undo anywhere (workout 设置 sheet has no undo either)"}
+{"t": 1792996984.27, "phase": "T5", "op": "phase"}
+{"t": 1792996995.92, "phase": "T5", "op": "tap", "hit": {"label": "手动开始休息计时", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792997000.24, "phase": "T5", "op": "tap", "hit": {"label": "输入动作名字搜索", "cls": "EditText", "w_dp": 121, "h_dp": 38, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["213", "129"]}
+{"t": 1792997001.29, "phase": "T5", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 8}
+{"t": 1792997002.5, "phase": "T5", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "enter"}
+{"t": 1792997004.2, "phase": "T5", "op": "shot", "path": "T5_search.png"}
+{"t": 1792997014.63, "phase": "T5", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["228", "400"]}
+{"t": 1792997017.99, "phase": "T5", "op": "tap", "hit": {"label": "完成(1)", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1792997020.69, "phase": "T5", "op": "shot", "path": "T5_added.png"}
+{"t": 1792997029.37, "phase": "T5", "op": "note", "text": "Overhead press: search 'overhead' -> 站姿杠铃推举 first result; added at bottom of list (6th), off-screen, no feedback"}
+{"t": 1792997041.57, "phase": "T5", "op": "long", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 143, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "830"], "ms": 700}
+{"t": 1792997043.76, "phase": "T5", "op": "shot", "path": "T5_sort.png"}
+{"t": 1792997067.37, "phase": "T5", "op": "swipe", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 159, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["150", "558", "150", "225"], "ms": 2500, "dist_dp": 237}
+{"t": 1792997069.06, "phase": "T5", "op": "shot", "path": "T5_sorted.png"}
+{"t": 1792997080.53, "phase": "T5", "op": "void", "n": 1}
+{"t": 1792997080.6, "phase": "T5", "op": "note", "text": "adb swipe can't drag here (needs hold first). Performed ONE long-press-and-drag via raw adb motionevent (not auto-logged): count as 1 long-press drag of 站姿杠铃推举 row (row ~384x58dp) to 2nd position"}
+{"t": 1792997084.04, "phase": "T5", "op": "shot", "path": "T5_sorted2.png"}
+{"t": 1792997093.11, "phase": "T5", "op": "note", "text": "Drag result: 站姿杠铃推举 landed 3rd (above 器械推胸; no squat in this workout so 器械推胸 stands in). Sort page is a separate overlay list, needs 保存当前排序"}
+{"t": 1792997104.4, "phase": "T5", "op": "tap", "hit": {"label": "临时超级组", "cls": "ViewGroup", "w_dp": 192, "h_dp": 43, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["135", "1140"]}
+{"t": 1792997106.59, "phase": "T5", "op": "shot", "path": "T5_saved.png"}
+{"t": 1792997125.9, "phase": "T5", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 296, "h_dp": 151, "interactive": false, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["478", "942"]}
+{"t": 1792997127.8, "phase": "T5", "op": "shot", "path": "T5_gear.png"}
+{"t": 1792997139.61, "phase": "T5", "op": "tap", "hit": {"label": "删除", "cls": "ViewGroup", "w_dp": 175, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["333", "1098"]}
+{"t": 1792997141.49, "phase": "T5", "op": "shot", "path": "T5_del.png"}
+{"t": 1792997150.32, "phase": "T5", "op": "note", "text": "Exercise delete via gear -> 删除: no confirm, no undo"}
+{"t": 1792997150.41, "phase": "T6", "op": "phase"}
+{"t": 1792997150.59, "phase": "T6", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "home"}
+{"t": 1792997156.16, "phase": "T6", "op": "launch", "expect_pkg": "com.trainnote.rn", "pkg": "com.trainnote.rn"}
+{"t": 1792997159.84, "phase": "T6", "op": "shot", "path": "T6_resume.png"}
+{"t": 1792997169.25, "phase": "T6", "op": "note", "text": "After home+relaunch: same workout screen, timer kept running (05:07), all data intact"}
+{"t": 1792997171.88, "phase": "T6", "op": "launch", "expect_pkg": "com.trainnote.rn", "pkg": "com.trainnote.rn"}
+{"t": 1792997177.59, "phase": "T6", "op": "shot", "path": "T6_coldstart.png"}
+{"t": 1792997186.86, "phase": "T6", "op": "note", "text": "After force-stop: opens on home (no auto-resume, no prompt); in-progress workout shown as 第3练 with progress 11%; no floating 训练进行中 pill visible"}
+{"t": 1792997189.75, "phase": "T6", "op": "tap", "hit": {"label": "第3练", "cls": "ViewGroup", "w_dp": 352, "h_dp": 74, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "890"]}
+{"t": 1792997192.45, "phase": "T6", "op": "shot", "path": "T6_resumed.png"}
+{"t": 1792997214.61, "phase": "T6", "op": "note", "text": "Resumed: all edits/deletes intact, but workout timer PAUSED at 04:48 (was 05:07 before kill; ~20s lost, needs manual play)"}
+{"t": 1792997214.69, "phase": "T7", "op": "phase"}
+{"t": 1792997217.51, "phase": "T7", "op": "tap", "hit": {"label": "杠铃卧推", "cls": "ViewGroup", "w_dp": 360, "h_dp": 92, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["250", "375"]}
+{"t": 1792997219.4, "phase": "T7", "op": "shot", "path": "T7_exp.png"}
+{"t": 1792997230.52, "phase": "T7", "op": "tap", "hit": {"label": "动作历史", "cls": "ViewGroup", "w_dp": 160, "h_dp": 41, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["388", "966"]}
+{"t": 1792997233.19, "phase": "T7", "op": "shot", "path": "T7_hist.png"}
+{"t": 1792997241.94, "phase": "T7", "op": "note", "text": "动作历史 sheet: per-session sets + 1RM预测 per set (incl. current workout at top). Free."}
+{"t": 1792997244.42, "phase": "T7", "op": "tap", "hit": {"label": "图表", "cls": "ViewGroup", "w_dp": 24, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["399", "170"]}
+{"t": 1792997247.12, "phase": "T7", "op": "shot", "path": "T7_chart.png"}
+{"t": 1792997258.46, "phase": "T7", "op": "note", "text": "图表 tab: PRO lock - sample/fake chart (records 3000kg/150kg/180kg, dates 02/14..08/25 not user data) behind '点击开启训记Pro，解锁动作图表'"}
+{"t": 1792997261.74, "phase": "T7", "op": "tap", "hit": {"label": "关闭", "cls": "ViewGroup", "w_dp": 92, "h_dp": 51, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1118"]}
+{"t": 1792997262.91, "phase": "T7-outside", "op": "phase"}
+{"t": 1792997266.36, "phase": "T7-outside", "op": "tap", "hit": {"label": "训练", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["67", "1140"]}
+{"t": 1792997272.14, "phase": "T7-outside", "op": "tap", "hit": {"label": "自重跟练", "cls": "ViewGroup", "w_dp": 72, "h_dp": 24, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["212", "1128"]}
+{"t": 1792997274.9, "phase": "T7-outside", "op": "shot", "path": "T7_lib.png"}
+{"t": 1792997286.91, "phase": "T7-outside", "op": "tap", "hit": {"label": "讲解", "cls": "ViewGroup", "w_dp": 132, "h_dp": 111, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["228", "680"]}
+{"t": 1792997289.85, "phase": "T7-outside", "op": "shot", "path": "T7_detail.png"}
+{"t": 1792997301.81, "phase": "T7-outside", "op": "tap", "hit": {"label": "历史", "cls": "ViewGroup", "w_dp": 24, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["343", "170"]}
+{"t": 1792997306.13, "phase": "T7-outside", "op": "tap", "hit": {"label": "图表", "cls": "ViewGroup", "w_dp": 24, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["399", "170"]}
+{"t": 1792997308.3, "phase": "T7-outside", "op": "shot", "path": "T7_out_chart.png"}
+{"t": 1792997310.72, "phase": "T7-outside", "op": "tap", "hit": {"label": "关闭", "cls": "ViewGroup", "w_dp": 92, "h_dp": 51, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1118"]}
+{"t": 1792997311.88, "phase": "explore", "op": "phase"}
+{"t": 1792997319.14, "phase": "T8", "op": "phase"}
+{"t": 1792997322.18, "phase": "T8", "op": "tap", "hit": {"label": "我的", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1792997326.86, "phase": "T8", "op": "swipe", "hit": {"label": "OPPO健康", "cls": "ViewGroup", "w_dp": 320, "h_dp": 25, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "400"], "ms": 300, "dist_dp": 355}
+{"t": 1792997339.42, "phase": "T8", "op": "tap", "hit": {"label": "数据导出和导入", "cls": "ViewGroup", "w_dp": 320, "h_dp": 25, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["168", "641"]}
+{"t": 1792997342.1, "phase": "T8", "op": "shot", "path": "T8_export.png"}
+{"t": 1792997359.13, "phase": "T8", "op": "tap", "hit": {"label": "desc=训练 Skill", "cls": "Button", "w_dp": 82, "h_dp": 95, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["206", "207"]}
+{"t": 1792997370.98, "phase": "T8", "op": "note", "text": "数据导出和导入 = 4 Agent Skills (设置/训练/饮食/身体), '会员专属能力'; no CSV/JSON/file export"}
+{"t": 1792997371.11, "phase": "T8", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792997375.42, "phase": "T8", "op": "tap", "hit": {"label": "历史", "cls": "Button", "w_dp": 52, "h_dp": 55, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792997380.54, "phase": "T8", "op": "tap", "hit": {"label": "设置", "cls": "ViewGroup", "w_dp": 51, "h_dp": 45, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["487", "110"]}
+{"t": 1792997382.74, "phase": "T8", "op": "shot", "path": "T8_histsettings.png"}
+{"t": 1792997395.16, "phase": "T8", "op": "tap", "hit": {"label": "管理历史记录", "cls": "ViewGroup", "w_dp": 185, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["373", "412"]}
+{"t": 1792997397.83, "phase": "T8", "op": "shot", "path": "T8_manage.png"}
+{"t": 1792997413.97, "phase": "T8", "op": "note", "text": "管理历史记录 = list with multi-select delete only. T8 conclusion: no free file export found"}
+{"t": 1792997414.05, "phase": "explore", "op": "phase"}
+{"t": 1792997414.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["425", "1047"]}
+{"t": 1792997416.42, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "375"]}
+{"t": 1792997417.83, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "754"]}
+{"t": 1792997427.78, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["133", "758"]}
+{"t": 1792997437.98, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "932"]}
+{"t": 1792997449.41, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["50", "108"]}
+{"t": 1792997450.62, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["50", "108"]}
+{"t": 1792997451.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["234", "754"]}
+{"t": 1792997453.06, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["480", "1080"]}
+{"t": 1792997462.9, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["479", "937"]}
+{"t": 1792997473.23, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["44", "867"]}
+{"t": 1792997474.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["60", "1007"]}
+{"t": 1792997484.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["60", "1007"]}
+{"t": 1792997485.85, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["60", "1080"]}
+{"t": 1792997496.74, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["60", "1080"]}
+{"t": 1792997497.96, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["480", "775"]}
+{"t": 1792997499.18, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1792997500.9, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["135", "1125"]}
+{"t": 1792997511.82, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["135", "1125"]}
+{"t": 1792997523.4, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "660"]}
+{"t": 1792997523.53, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["424", "660"]}
+{"t": 1792997524.24, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["135", "1125"]}
+{"t": 1792997536.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["281", "700"]}
+{"t": 1792997554.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["44", "108"]}
+{"t": 1792997556.44, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["42", "129"]}
+{"t": 1792997566.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1140"]}
+{"t": 1792997578.83, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "891"]}
+{"t": 1792997580.55, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1792997582.77, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792997584.49, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["120", "110"]}
+{"t": 1792997596.4, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792997597.63, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792997608.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "497"]}
+{"t": 1792997619.84, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1792997621.06, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1792997630.89, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "950", "270", "350"], "ms": 300, "dist_dp": 427}
+{"t": 1792997632.42, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "950", "270", "350"], "ms": 300, "dist_dp": 427}
+{"t": 1792997633.94, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "950", "270", "350"], "ms": 300, "dist_dp": 427}
+{"t": 1792997635.47, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "950", "270", "350"], "ms": 300, "dist_dp": 427}
+{"t": 1792997651.59, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}

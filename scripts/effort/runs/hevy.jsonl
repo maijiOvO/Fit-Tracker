@@ -1,0 +1,978 @@
+{"t": 1793002381.13, "phase": "explore", "op": "session"}
+{"t": 1793002381.63, "phase": "explore", "op": "launch", "expect_pkg": "com.lyfta", "pkg": "com.hevy"}
+{"t": 1793002399.14, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793002410.0, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793002413.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793002424.12, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1135"]}
+{"t": 1793002425.36, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "272"]}
+{"t": 1793002445.05, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "634"]}
+{"t": 1793002455.5, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793002457.32, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "355"]}
+{"t": 1793002465.56, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "up"}
+{"t": 1793002466.78, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "355"]}
+{"t": 1793002475.28, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002476.49, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "525"]}
+{"t": 1793002479.98, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002481.23, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "440"]}
+{"t": 1793002493.81, "phase": "explore", "op": "note", "text": "Warm-up calculator (PRO badge) opens paywall: monthly CA$3.99, yearly CA$31.99 (save 33%), lifetime CA$104.99; dismiss via X or 暂不. Pro appears NOT active despite trial claim"}
+{"t": 1793002493.95, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1105"]}
+{"t": 1793002495.17, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "270"]}
+{"t": 1793002503.52, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002504.76, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["471", "102"]}
+{"t": 1793002505.97, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "555"]}
+{"t": 1793002517.61, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002518.86, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793002529.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793002538.17, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793002546.4, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["283", "474"]}
+{"t": 1793002562.77, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "945"]}
+{"t": 1793002564.58, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "945"]}
+{"t": 1793002573.32, "phase": "explore", "op": "note", "text": "keypad + key increments weight by 2.5 kg (barbell)"}
+{"t": 1793002573.46, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["354", "1097"]}
+{"t": 1793002573.6, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["77", "945"]}
+{"t": 1793002573.74, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793002573.88, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002575.7, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793002575.83, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793002575.97, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002583.36, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "556"]}
+{"t": 1793002591.06, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "541"]}
+{"t": 1793002599.16, "phase": "explore", "op": "note", "text": "add-set row shows previous set's values as grey placeholders; tapping check accepts them (2 taps for a repeat set)"}
+{"t": 1793002599.31, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["47", "474"]}
+{"t": 1793002619.46, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "747"]}
+{"t": 1793002620.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "298"]}
+{"t": 1793002629.29, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002630.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["97", "364"]}
+{"t": 1793002637.87, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002639.1, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "723"]}
+{"t": 1793002641.31, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002641.45, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 3}
+{"t": 1793002643.66, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002668.04, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "723"]}
+{"t": 1793002670.27, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002670.4, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 3}
+{"t": 1793002691.0, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002692.23, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "771"]}
+{"t": 1793002692.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "998"]}
+{"t": 1793002701.6, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "723"]}
+{"t": 1793002703.81, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002703.95, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 9}
+{"t": 1793002714.24, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793002714.39, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "658"]}
+{"t": 1793002721.93, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793002724.52, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793002733.76, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["398", "606"]}
+{"t": 1793002741.83, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793002741.97, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["215", "869"]}
+{"t": 1793002742.13, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002754.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "688"]}
+{"t": 1793002755.9, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["398", "672"]}
+{"t": 1793002756.05, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793002756.19, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793002756.33, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002757.55, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "754"]}
+{"t": 1793002758.77, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["283", "803"]}
+{"t": 1793002758.9, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793002759.04, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793002759.18, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002767.62, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002775.96, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["67", "102"]}
+{"t": 1793002785.61, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["398", "672"]}
+{"t": 1793002793.99, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1021"]}
+{"t": 1793002803.03, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002804.25, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "754"]}
+{"t": 1793002812.66, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["283", "738"]}
+{"t": 1793002813.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793002814.03, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793002814.17, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002823.01, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793002831.45, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["400", "697", "100", "697"], "ms": 300, "dist_dp": 213}
+{"t": 1793002839.33, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["486", "697"]}
+{"t": 1793002848.94, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["399", "103"]}
+{"t": 1793002857.09, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793002858.32, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "893"]}
+{"t": 1793002865.37, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793002878.92, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793002881.15, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["399", "775"]}
+{"t": 1793002891.13, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002891.31, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 7}
+{"t": 1793002896.73, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["490", "189"]}
+{"t": 1793002897.96, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002898.12, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 11}
+{"t": 1793002902.61, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["490", "189"]}
+{"t": 1793002903.84, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002903.99, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793002908.78, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["490", "189"]}
+{"t": 1793002919.46, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002919.6, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 3}
+{"t": 1793002922.13, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "650", "270", "450"], "ms": 300, "dist_dp": 142}
+{"t": 1793002942.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1135"]}
+{"t": 1793002950.46, "phase": "T1-start", "op": "phase"}
+{"t": 1793002952.78, "phase": "T1-start", "op": "tap", "hit": {"label": "desc=开始空白锻炼", "cls": "ViewGroup", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "272"]}
+{"t": 1793002955.49, "phase": "T1-start", "op": "shot", "path": "hv_T1_empty.png"}
+{"t": 1793002955.57, "phase": "T1-start", "op": "note", "text": "Workout starts immediately on 开始空白锻炼: timer running, empty workout, no popup"}
+{"t": 1793002960.07, "phase": "T1-E1-add", "op": "phase"}
+{"t": 1793002971.68, "phase": "T1-E1-add", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "555"]}
+{"t": 1793002971.83, "phase": "T1-E1-add", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793002976.82, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793002977.06, "phase": "T1-E1-add", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793002979.73, "phase": "T1-E1-add", "op": "shot", "path": "hv_T1_E1_search.png"}
+{"t": 1793002982.3, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "desc=卧推 （杠铃）", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793002985.79, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "desc=添加 1 项运动", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793002988.48, "phase": "T1-E1-add", "op": "shot", "path": "hv_T1_E1_added.png"}
+{"t": 1793002997.17, "phase": "T1-E1-add", "op": "note", "text": "Bench added with 1 empty set (0/0 grey placeholders), 之前的锻炼 shows '-' (no history). No prefill."}
+{"t": 1793002997.26, "phase": "T1-E1-s1", "op": "phase"}
+{"t": 1793003008.54, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["47", "474"]}
+{"t": 1793003008.71, "phase": "T1-E1-s1", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793003010.35, "phase": "T1-E1-s1", "op": "shot", "path": "hv_T1_settype.png"}
+{"t": 1793003021.69, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "747"]}
+{"t": 1793003021.86, "phase": "T1-E1-s1", "op": "size", "w_dp": 351, "h_dp": 63}
+{"t": 1793003034.78, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "474"]}
+{"t": 1793003034.96, "phase": "T1-E1-s1", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003036.63, "phase": "T1-E1-s1", "op": "shot", "path": "hv_T1_kp.png"}
+{"t": 1793003047.94, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "945"]}
+{"t": 1793003048.09, "phase": "T1-E1-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003059.86, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793003060.02, "phase": "T1-E1-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003072.09, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003072.25, "phase": "T1-E1-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003083.91, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793003084.08, "phase": "T1-E1-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003095.34, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793003095.51, "phase": "T1-E1-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003107.44, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003107.6, "phase": "T1-E1-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003109.26, "phase": "T1-E1-s1", "op": "shot", "path": "hv_T1_E1_s1_done.png"}
+{"t": 1793003119.25, "phase": "T1-E1-s1", "op": "note", "text": "Warm-up: tap set badge -> sheet 选择组类型 -> 热身组 (badge W). App keypad: arrow on weight jumps to reps; keypad's bottom-right key on reps is a green check that marks the set done and closes keypad. Rest timer default Off -> no popup after first check. Warm-up counted in 训练量 400kg"}
+{"t": 1793003119.33, "phase": "T1-E1-s2", "op": "phase"}
+{"t": 1793003130.74, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "556"]}
+{"t": 1793003130.92, "phase": "T1-E1-s2", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003132.58, "phase": "T1-E1-s2", "op": "shot", "path": "hv_T1_E1_s2_added.png"}
+{"t": 1793003138.69, "phase": "T1-E1-s2", "op": "note", "text": "添加组 after warm-up creates a normal set (not W) with previous set's 40/10 as grey placeholders"}
+{"t": 1793003150.04, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "540"]}
+{"t": 1793003150.2, "phase": "T1-E1-s2", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003163.07, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["354", "945"]}
+{"t": 1793003163.24, "phase": "T1-E1-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003175.19, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793003175.36, "phase": "T1-E1-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003187.26, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003187.42, "phase": "T1-E1-s2", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003199.4, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1021"]}
+{"t": 1793003199.55, "phase": "T1-E1-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003211.49, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003211.65, "phase": "T1-E1-s2", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003213.31, "phase": "T1-E1-s2", "op": "shot", "path": "hv_T1_E1_s2_done.png"}
+{"t": 1793003218.78, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1793003230.66, "phase": "T1-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "622"]}
+{"t": 1793003230.84, "phase": "T1-E1-s3", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003243.84, "phase": "T1-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "606"]}
+{"t": 1793003243.99, "phase": "T1-E1-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793003245.65, "phase": "T1-E1-s3", "op": "shot", "path": "hv_T1_E1_s3_done.png"}
+{"t": 1793003250.97, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1793003263.07, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "688"]}
+{"t": 1793003263.23, "phase": "T1-E1-s4", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003276.24, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["398", "672"]}
+{"t": 1793003276.41, "phase": "T1-E1-s4", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003289.35, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "1021"]}
+{"t": 1793003289.5, "phase": "T1-E1-s4", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003301.45, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003301.59, "phase": "T1-E1-s4", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003303.25, "phase": "T1-E1-s4", "op": "shot", "path": "hv_T1_E1_s4_done.png"}
+{"t": 1793003308.93, "phase": "T1-E2-add", "op": "phase"}
+{"t": 1793003320.34, "phase": "T1-E2-add", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "855"]}
+{"t": 1793003320.49, "phase": "T1-E2-add", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003325.47, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793003325.68, "phase": "T1-E2-add", "op": "text", "expect_pkg": "com.hevy", "chars": 7}
+{"t": 1793003328.34, "phase": "T1-E2-add", "op": "shot", "path": "hv_T1_E2_search.png"}
+{"t": 1793003330.64, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "desc=上斜卧推（哑铃）", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793003334.11, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "desc=添加 1 项运动", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793003336.83, "phase": "T1-E2-add", "op": "shot", "path": "hv_T1_E2_added.png"}
+{"t": 1793003344.34, "phase": "T1-E2-add", "op": "note", "text": "After adding exercise the list auto-scrolls so new card is visible"}
+{"t": 1793003344.42, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1793003356.04, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "606"]}
+{"t": 1793003356.21, "phase": "T1-E2-s1", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003369.16, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "869"]}
+{"t": 1793003369.33, "phase": "T1-E2-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003381.29, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "869"]}
+{"t": 1793003381.45, "phase": "T1-E2-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003393.38, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "1097"]}
+{"t": 1793003393.54, "phase": "T1-E2-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003405.51, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793003405.67, "phase": "T1-E2-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003417.61, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003417.75, "phase": "T1-E2-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003429.7, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793003429.85, "phase": "T1-E2-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003441.83, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793003442.01, "phase": "T1-E2-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003442.56, "phase": "T1-E2-s1", "op": "shot", "path": "hv_T1_E2_s1_kp.png"}
+{"t": 1793003453.94, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003454.11, "phase": "T1-E2-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003455.75, "phase": "T1-E2-s1", "op": "shot", "path": "hv_T1_E2_s1_done.png"}
+{"t": 1793003463.13, "phase": "T1-E2-s2", "op": "phase"}
+{"t": 1793003475.2, "phase": "T1-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "688"]}
+{"t": 1793003475.36, "phase": "T1-E2-s2", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003487.91, "phase": "T1-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "672"]}
+{"t": 1793003488.06, "phase": "T1-E2-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793003489.7, "phase": "T1-E2-s2", "op": "shot", "path": "hv_T1_E2_s2_done.png"}
+{"t": 1793003489.78, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1793003501.5, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "754"]}
+{"t": 1793003501.65, "phase": "T1-E2-s3", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003503.3, "phase": "T1-E2-s3", "op": "shot", "path": "hv_T1_E2_s3_added.png"}
+{"t": 1793003520.67, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["398", "738"]}
+{"t": 1793003520.84, "phase": "T1-E2-s3", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003533.79, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["354", "1021"]}
+{"t": 1793003533.94, "phase": "T1-E2-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003545.93, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003546.08, "phase": "T1-E2-s3", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003547.24, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1793003559.08, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "820"]}
+{"t": 1793003559.23, "phase": "T1-E2-s4", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003560.88, "phase": "T1-E2-s4", "op": "shot", "path": "hv_T1_E2_s4_added.png"}
+{"t": 1793003567.16, "phase": "T1-E2-s4", "op": "void", "n": 1}
+{"t": 1793003579.31, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "780"]}
+{"t": 1793003579.47, "phase": "T1-E2-s4", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003581.13, "phase": "T1-E2-s4", "op": "shot", "path": "hv_T1_E2_s4_added.png"}
+{"t": 1793003598.56, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["398", "764"]}
+{"t": 1793003598.71, "phase": "T1-E2-s4", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003611.65, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1021"]}
+{"t": 1793003611.8, "phase": "T1-E2-s4", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003623.76, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003623.91, "phase": "T1-E2-s4", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003625.57, "phase": "T1-E2-s4", "op": "shot", "path": "hv_T1_E2_s4_done.png"}
+{"t": 1793003631.73, "phase": "T1-E3-add", "op": "phase"}
+{"t": 1793003643.08, "phase": "T1-E3-add", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "881"]}
+{"t": 1793003643.23, "phase": "T1-E3-add", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003647.63, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793003647.88, "phase": "T1-E3-add", "op": "text", "expect_pkg": "com.hevy", "chars": 11}
+{"t": 1793003650.54, "phase": "T1-E3-add", "op": "shot", "path": "hv_T1_E3_search.png"}
+{"t": 1793003652.86, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "desc=胸推（器械）", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793003656.33, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "desc=添加 1 项运动", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793003659.08, "phase": "T1-E3-add", "op": "shot", "path": "hv_T1_E3_added.png"}
+{"t": 1793003665.38, "phase": "T1-E3-s1", "op": "phase"}
+{"t": 1793003676.97, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "606"]}
+{"t": 1793003677.13, "phase": "T1-E3-s1", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003689.54, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793003689.69, "phase": "T1-E3-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003701.02, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793003701.18, "phase": "T1-E3-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003712.63, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003712.78, "phase": "T1-E3-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003724.74, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793003724.89, "phase": "T1-E3-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003736.84, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "869"]}
+{"t": 1793003737.01, "phase": "T1-E3-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003748.95, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003749.1, "phase": "T1-E3-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003750.75, "phase": "T1-E3-s1", "op": "shot", "path": "hv_T1_E3_s1_done.png"}
+{"t": 1793003750.84, "phase": "T1-E3-s2", "op": "phase"}
+{"t": 1793003762.11, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "688"]}
+{"t": 1793003762.27, "phase": "T1-E3-s2", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003763.92, "phase": "T1-E3-s2", "op": "shot", "path": "hv_T1_E3_s2_added.png"}
+{"t": 1793003780.73, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "672"]}
+{"t": 1793003780.89, "phase": "T1-E3-s2", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003793.39, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793003793.54, "phase": "T1-E3-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003805.21, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793003805.38, "phase": "T1-E3-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003816.69, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003816.83, "phase": "T1-E3-s2", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003828.69, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793003828.84, "phase": "T1-E3-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003840.72, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793003840.86, "phase": "T1-E3-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003852.88, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003853.05, "phase": "T1-E3-s2", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003854.22, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1793003854.79, "phase": "T1-E3-s3", "op": "shot", "path": "hv_T1_E3_s2_done.png"}
+{"t": 1793003872.1, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "754"]}
+{"t": 1793003872.25, "phase": "T1-E3-s3", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003885.23, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "738"]}
+{"t": 1793003885.4, "phase": "T1-E3-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793003887.04, "phase": "T1-E3-s3", "op": "shot", "path": "hv_T1_E3_s3_done.png"}
+{"t": 1793003887.13, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1793003898.43, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "820"]}
+{"t": 1793003898.6, "phase": "T1-E3-s4", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003900.25, "phase": "T1-E3-s4", "op": "shot", "path": "hv_T1_E3_s4_added.png"}
+{"t": 1793003917.47, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["398", "804"]}
+{"t": 1793003917.63, "phase": "T1-E3-s4", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793003919.3, "phase": "T1-E3-s4", "op": "shot", "path": "hv_T1_E3_s4_kp.png"}
+{"t": 1793003930.63, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["354", "1021"]}
+{"t": 1793003930.78, "phase": "T1-E3-s4", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793003942.74, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793003942.89, "phase": "T1-E3-s4", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793003944.54, "phase": "T1-E3-s4", "op": "shot", "path": "hv_T1_E3_s4_done.png"}
+{"t": 1793003950.35, "phase": "T1-E4-add", "op": "phase"}
+{"t": 1793003961.97, "phase": "T1-E4-add", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "881"]}
+{"t": 1793003962.13, "phase": "T1-E4-add", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793003966.52, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793003966.75, "phase": "T1-E4-add", "op": "text", "expect_pkg": "com.hevy", "chars": 3}
+{"t": 1793003969.41, "phase": "T1-E4-add", "op": "shot", "path": "hv_T1_E4_search.png"}
+{"t": 1793003972.05, "phase": "T1-E4-add", "op": "swipe", "hit": {"label": "desc=凳上臂屈伸", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "650", "270", "450"], "ms": 300, "dist_dp": 142}
+{"t": 1793003973.72, "phase": "T1-E4-add", "op": "shot", "path": "hv_T1_E4_scrolled.png"}
+{"t": 1793003982.6, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "desc=双杠臂屈伸（负重）", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "529"]}
+{"t": 1793003984.34, "phase": "T1-E4-add", "op": "shot", "path": "hv_T1_E4_sel.png"}
+{"t": 1793003993.01, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "desc=添加 1 项运动", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "1126"]}
+{"t": 1793003995.7, "phase": "T1-E4-add", "op": "shot", "path": "hv_T1_E4_added.png"}
+{"t": 1793003995.79, "phase": "T1-E4-add", "op": "note", "text": "dip search: 双杠臂屈伸（负重） is 6th result, hidden behind system keyboard; swipe list to dismiss keyboard. Bodyweight variant 双杠臂屈伸 has reps only; weighted variant has +KG column. Used weighted variant with +KG 0 for BW sets"}
+{"t": 1793004002.24, "phase": "T1-E4-s1", "op": "phase"}
+{"t": 1793004013.6, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["398", "606"]}
+{"t": 1793004013.75, "phase": "T1-E4-s1", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793004026.61, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004026.76, "phase": "T1-E4-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004038.71, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "869"]}
+{"t": 1793004038.86, "phase": "T1-E4-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004050.86, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004051.01, "phase": "T1-E4-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004052.66, "phase": "T1-E4-s1", "op": "shot", "path": "hv_T1_E4_s1_done.png"}
+{"t": 1793004052.75, "phase": "T1-E4-s2", "op": "phase"}
+{"t": 1793004064.05, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "688"]}
+{"t": 1793004064.21, "phase": "T1-E4-s2", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004077.13, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["398", "672"]}
+{"t": 1793004077.29, "phase": "T1-E4-s2", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793004089.73, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004089.87, "phase": "T1-E4-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004101.34, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793004101.48, "phase": "T1-E4-s2", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004113.47, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004113.62, "phase": "T1-E4-s2", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004115.25, "phase": "T1-E4-s2", "op": "shot", "path": "hv_T1_E4_s2_done.png"}
+{"t": 1793004121.62, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1793004133.67, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "754"]}
+{"t": 1793004133.83, "phase": "T1-E4-s3", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004146.82, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "738"]}
+{"t": 1793004146.97, "phase": "T1-E4-s3", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793004159.92, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004160.07, "phase": "T1-E4-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004172.05, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1097"]}
+{"t": 1793004172.19, "phase": "T1-E4-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004184.15, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004184.31, "phase": "T1-E4-s3", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004196.25, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "1021"]}
+{"t": 1793004196.4, "phase": "T1-E4-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004208.39, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004208.56, "phase": "T1-E4-s3", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004210.2, "phase": "T1-E4-s3", "op": "shot", "path": "hv_T1_E4_s3_done.png"}
+{"t": 1793004216.04, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1793004227.6, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "780"]}
+{"t": 1793004227.75, "phase": "T1-E4-s4", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004240.72, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "764"]}
+{"t": 1793004240.88, "phase": "T1-E4-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004242.53, "phase": "T1-E4-s4", "op": "shot", "path": "hv_T1_E4_s4_done.png"}
+{"t": 1793004248.16, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1793004259.89, "phase": "T1-E5-add", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "947"]}
+{"t": 1793004260.05, "phase": "T1-E5-add", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004264.47, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793004264.7, "phase": "T1-E5-add", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793004267.37, "phase": "T1-E5-add", "op": "shot", "path": "hv_T1_E5_search.png"}
+{"t": 1793004269.72, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "desc=绳索夹胸交叉", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793004273.18, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "desc=添加 1 项运动", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793004275.9, "phase": "T1-E5-add", "op": "shot", "path": "hv_T1_E5_added.png"}
+{"t": 1793004282.58, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1793004294.22, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "606"]}
+{"t": 1793004294.37, "phase": "T1-E5-s1", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793004307.34, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004307.5, "phase": "T1-E5-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004319.48, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793004319.63, "phase": "T1-E5-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004331.58, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004331.73, "phase": "T1-E5-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004343.7, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004343.87, "phase": "T1-E5-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004355.83, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793004355.99, "phase": "T1-E5-s1", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004367.95, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004368.1, "phase": "T1-E5-s1", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004369.77, "phase": "T1-E5-s1", "op": "shot", "path": "hv_T1_E5_s1_done.png"}
+{"t": 1793004369.86, "phase": "T1-E5-s2", "op": "phase"}
+{"t": 1793004382.07, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "688"]}
+{"t": 1793004382.22, "phase": "T1-E5-s2", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004395.19, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "672"]}
+{"t": 1793004395.34, "phase": "T1-E5-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004397.0, "phase": "T1-E5-s2", "op": "shot", "path": "hv_T1_E5_s2_done.png"}
+{"t": 1793004403.13, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1793004414.44, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "754"]}
+{"t": 1793004414.58, "phase": "T1-E5-s3", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004427.49, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "738"]}
+{"t": 1793004427.64, "phase": "T1-E5-s3", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793004440.59, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004440.76, "phase": "T1-E5-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004452.7, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "1021"]}
+{"t": 1793004452.86, "phase": "T1-E5-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004464.83, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "1097"]}
+{"t": 1793004464.99, "phase": "T1-E5-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004476.97, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "945"]}
+{"t": 1793004477.13, "phase": "T1-E5-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004489.06, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004489.21, "phase": "T1-E5-s3", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004500.72, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["77", "869"]}
+{"t": 1793004500.86, "phase": "T1-E5-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004512.28, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["215", "869"]}
+{"t": 1793004512.42, "phase": "T1-E5-s3", "op": "size", "w_dp": 94, "h_dp": 50}
+{"t": 1793004524.39, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "1097"]}
+{"t": 1793004524.53, "phase": "T1-E5-s3", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793004526.19, "phase": "T1-E5-s3", "op": "shot", "path": "hv_T1_E5_s3_done.png"}
+{"t": 1793004534.82, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1793004546.61, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "780"]}
+{"t": 1793004546.81, "phase": "T1-E5-s4", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793004559.73, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "764"]}
+{"t": 1793004559.91, "phase": "T1-E5-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004561.56, "phase": "T1-E5-s4", "op": "shot", "path": "hv_T1_E5_s4_done.png"}
+{"t": 1793004567.44, "phase": "T1-finish", "op": "phase"}
+{"t": 1793004578.89, "phase": "T1-finish", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "102"]}
+{"t": 1793004579.05, "phase": "T1-finish", "op": "size", "w_dp": 55, "h_dp": 37}
+{"t": 1793004581.68, "phase": "T1-finish", "op": "shot", "path": "hv_T1_finish1.png"}
+{"t": 1793004589.79, "phase": "T1-finish", "op": "note", "text": "Save screen: title (empty), duration/volume 9067.5kg/20 sets, add photo/video, description, date, gym, 可见性 default 所有人 (public). Changing visibility to private"}
+{"t": 1793004592.11, "phase": "T1-finish", "op": "tap", "hit": {"label": "desc=可见性, 所有人", "cls": "ViewGroup", "w_dp": 352, "h_dp": 60, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "826"]}
+{"t": 1793004593.81, "phase": "T1-finish", "op": "shot", "path": "hv_T1_visibility.png"}
+{"t": 1793004604.3, "phase": "T1-finish", "op": "tap", "hit": {"label": "desc=私密, 将此锻炼保持私有，仅对你可见，供个人使用。", "cls": "ViewGroup", "w_dp": 320, "h_dp": 98, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "790"]}
+{"t": 1793004606.01, "phase": "T1-finish", "op": "shot", "path": "hv_T1_private.png"}
+{"t": 1793004610.36, "phase": "T1-finish", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793004611.99, "phase": "T1-finish", "op": "shot", "path": "hv_T1_finish2.png"}
+{"t": 1793004619.85, "phase": "T1-finish", "op": "note", "text": "Visibility sheet does not close on selection; back key to close. 3 of the finish actions (open visibility, 私密, back) are only for privacy"}
+{"t": 1793004622.16, "phase": "T1-finish", "op": "tap", "hit": {"label": "desc=保存", "cls": "ViewGroup", "w_dp": 56, "h_dp": 36, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793004625.89, "phase": "T1-finish", "op": "shot", "path": "hv_T1_finish3.png"}
+{"t": 1793004634.16, "phase": "T1-finish", "op": "note", "text": "After save: celebration/share screen 好样的! 第1次锻炼 with share cards (Instagram, more, copy text, download); dismiss with 完成"}
+{"t": 1793004636.5, "phase": "T1-finish", "op": "tap", "hit": {"label": "desc=完成", "cls": "ViewGroup", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "1120"]}
+{"t": 1793004640.32, "phase": "T1-finish", "op": "shot", "path": "hv_T1_after.png"}
+{"t": 1793004649.52, "phase": "explore", "op": "phase"}
+{"t": 1793004650.03, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "up"}
+{"t": 1793004650.52, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "up"}
+{"t": 1793004660.63, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["489", "179"]}
+{"t": 1793004674.61, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "928"]}
+{"t": 1793004683.95, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793004684.39, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793004684.84, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793004685.28, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793004685.72, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793004686.16, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793004693.29, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "160"]}
+{"t": 1793004701.12, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "867"]}
+{"t": 1793004702.33, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793004713.66, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "272"]}
+{"t": 1793004715.88, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "555"]}
+{"t": 1793004718.09, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793004718.24, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793004720.46, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793004721.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793004730.24, "phase": "explore", "op": "note", "text": "Explore: 首页 card ⋮ menu = 分享锻炼/保存为计划/复制锻炼/编辑锻炼/删除锻炼. 复制锻炼 starts workout with all 5 exercises x 4 sets prefilled (white values, W kept, 之前的锻炼 column). Adding single bench (with history) to blank workout pre-creates 4 sets with last numbers as grey placeholders incl. W; check accepts them"}
+{"t": 1793004730.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "934"]}
+{"t": 1793004731.59, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793004742.75, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793004747.91, "phase": "T3-start", "op": "phase"}
+{"t": 1793004750.24, "phase": "T3-start", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 24, "h_dp": 24, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["489", "179"]}
+{"t": 1793004753.78, "phase": "T3-start", "op": "tap", "hit": {"label": "desc=复制锻炼", "cls": "ViewGroup", "w_dp": 320, "h_dp": 56, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "928"]}
+{"t": 1793004756.49, "phase": "T3-start", "op": "shot", "path": "hv_T3_start.png"}
+{"t": 1793004764.03, "phase": "T3-start", "op": "note", "text": "T3: all exercises pre-added by 复制锻炼 so no T3-En-add phases; values prefilled as real values (white) from last workout"}
+{"t": 1793004764.12, "phase": "T3-E1-s1", "op": "phase"}
+{"t": 1793004775.46, "phase": "T3-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "474"]}
+{"t": 1793004775.63, "phase": "T3-E1-s1", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004775.72, "phase": "T3-E1-s2", "op": "phase"}
+{"t": 1793004787.51, "phase": "T3-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "540"]}
+{"t": 1793004787.66, "phase": "T3-E1-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004787.74, "phase": "T3-E1-s3", "op": "phase"}
+{"t": 1793004799.63, "phase": "T3-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "606"]}
+{"t": 1793004799.79, "phase": "T3-E1-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004799.87, "phase": "T3-E1-s4", "op": "phase"}
+{"t": 1793004811.79, "phase": "T3-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "672"]}
+{"t": 1793004811.94, "phase": "T3-E1-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004813.63, "phase": "T3-E1-s4", "op": "shot", "path": "hv_T3_E1_done.png"}
+{"t": 1793004819.9, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1793004832.37, "phase": "T3-E2-s1", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "900", "270", "300"], "ms": 400, "dist_dp": 427}
+{"t": 1793004834.03, "phase": "T3-E2-s1", "op": "shot", "path": "hv_T3_E2.png"}
+{"t": 1793004840.74, "phase": "T3-E2-s1", "op": "void", "n": 1}
+{"t": 1793004840.82, "phase": "explore", "op": "phase"}
+{"t": 1793004841.97, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 1000, "dist_dp": 498}
+{"t": 1793004855.98, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793004856.43, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793004863.62, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1793004874.98, "phase": "T3-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1025"]}
+{"t": 1793004875.14, "phase": "T3-E2-s1", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004875.23, "phase": "T3-E2-s2", "op": "phase"}
+{"t": 1793004886.5, "phase": "T3-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1091"]}
+{"t": 1793004886.66, "phase": "T3-E2-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004886.74, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1793004899.61, "phase": "T3-E2-s3", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "400"], "ms": 1000, "dist_dp": 427}
+{"t": 1793004901.27, "phase": "T3-E2-s3", "op": "shot", "path": "hv_T3_E2_scroll.png"}
+{"t": 1793004910.32, "phase": "T3-E2-s3", "op": "void", "n": 1}
+{"t": 1793004910.4, "phase": "explore", "op": "phase"}
+{"t": 1793004911.56, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "400", "270", "1000"], "ms": 1000, "dist_dp": 427}
+{"t": 1793004912.71, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1793004925.89, "phase": "T3-E2-s3", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "650"], "ms": 1000, "dist_dp": 249}
+{"t": 1793004927.56, "phase": "T3-E2-s3", "op": "shot", "path": "hv_T3_E2_scroll.png"}
+{"t": 1793004945.17, "phase": "T3-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "577"]}
+{"t": 1793004945.32, "phase": "T3-E2-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004945.41, "phase": "T3-E2-s4", "op": "phase"}
+{"t": 1793004957.2, "phase": "T3-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "643"]}
+{"t": 1793004957.36, "phase": "T3-E2-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004957.45, "phase": "T3-E3-s1", "op": "phase"}
+{"t": 1793004969.32, "phase": "T3-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "996"]}
+{"t": 1793004969.47, "phase": "T3-E3-s1", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004969.56, "phase": "T3-E3-s2", "op": "phase"}
+{"t": 1793004981.43, "phase": "T3-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1062"]}
+{"t": 1793004981.6, "phase": "T3-E3-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004981.68, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1793004993.57, "phase": "T3-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1128"]}
+{"t": 1793004993.72, "phase": "T3-E3-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793004995.4, "phase": "T3-E3-s3", "op": "shot", "path": "hv_T3_E3.png"}
+{"t": 1793005006.16, "phase": "T3-E3-s3", "op": "void", "n": 1}
+{"t": 1793005006.24, "phase": "explore", "op": "phase"}
+{"t": 1793005006.39, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "1140"]}
+{"t": 1793005013.8, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1793005025.83, "phase": "T3-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1074"]}
+{"t": 1793005025.99, "phase": "T3-E3-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005027.68, "phase": "T3-E3-s3", "op": "shot", "path": "hv_tmp.png"}
+{"t": 1793005034.19, "phase": "T3-E3-s3", "op": "note", "text": "Checking a set near the bottom auto-scrolls the list by about one row to keep the next set in view (caused a mis-tap once; voided)"}
+{"t": 1793005034.27, "phase": "T3-E3-s4", "op": "phase"}
+{"t": 1793005046.05, "phase": "T3-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1075"]}
+{"t": 1793005046.2, "phase": "T3-E3-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005047.88, "phase": "T3-E3-s4", "op": "shot", "path": "hv_tmp.png"}
+{"t": 1793005053.56, "phase": "T3-E4-s1", "op": "phase"}
+{"t": 1793005066.28, "phase": "T3-E4-s1", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "400"], "ms": 1000, "dist_dp": 427}
+{"t": 1793005067.94, "phase": "T3-E4-s1", "op": "shot", "path": "hv_T3_E4.png"}
+{"t": 1793005086.5, "phase": "T3-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "581"]}
+{"t": 1793005086.68, "phase": "T3-E4-s1", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005088.36, "phase": "T3-E4-s1", "op": "shot", "path": "hv_tmp1.png"}
+{"t": 1793005088.45, "phase": "T3-E4-s2", "op": "phase"}
+{"t": 1793005099.75, "phase": "T3-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "647"]}
+{"t": 1793005099.89, "phase": "T3-E4-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005099.98, "phase": "T3-E4-s3", "op": "phase"}
+{"t": 1793005111.36, "phase": "T3-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "713"]}
+{"t": 1793005111.52, "phase": "T3-E4-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005111.61, "phase": "T3-E4-s4", "op": "phase"}
+{"t": 1793005122.88, "phase": "T3-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "779"]}
+{"t": 1793005123.04, "phase": "T3-E4-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005124.7, "phase": "T3-E4-s4", "op": "shot", "path": "hv_T3_E4_done.png"}
+{"t": 1793005130.84, "phase": "T3-E5-s1", "op": "phase"}
+{"t": 1793005142.15, "phase": "T3-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1126"]}
+{"t": 1793005142.3, "phase": "T3-E5-s1", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005143.99, "phase": "T3-E5-s1", "op": "shot", "path": "hv_T3_E5.png"}
+{"t": 1793005150.2, "phase": "T3-E5-s2", "op": "phase"}
+{"t": 1793005162.25, "phase": "T3-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1075"]}
+{"t": 1793005162.44, "phase": "T3-E5-s2", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005164.09, "phase": "T3-E5-s2", "op": "shot", "path": "hv_tmp.png"}
+{"t": 1793005169.7, "phase": "T3-E5-s3", "op": "phase"}
+{"t": 1793005181.43, "phase": "T3-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1075"]}
+{"t": 1793005181.58, "phase": "T3-E5-s3", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005183.24, "phase": "T3-E5-s3", "op": "shot", "path": "hv_tmp.png"}
+{"t": 1793005189.34, "phase": "T3-E5-s4", "op": "phase"}
+{"t": 1793005200.64, "phase": "T3-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1075"]}
+{"t": 1793005200.79, "phase": "T3-E5-s4", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793005202.46, "phase": "T3-E5-s4", "op": "shot", "path": "hv_T3_E5_done.png"}
+{"t": 1793005202.55, "phase": "T3-finish", "op": "phase"}
+{"t": 1793005213.84, "phase": "T3-finish", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "102"]}
+{"t": 1793005214.01, "phase": "T3-finish", "op": "size", "w_dp": 55, "h_dp": 37}
+{"t": 1793005225.01, "phase": "T3-finish", "op": "shot", "path": "hv_T3_finish1.png"}
+{"t": 1793005225.1, "phase": "T3-finish", "op": "note", "text": "Save screen again defaults 可见性=所有人 even though last workout was saved private (no memory of choice); 9067.5kg / 20 sets matches T1"}
+{"t": 1793005227.42, "phase": "T3-finish", "op": "tap", "hit": {"label": "desc=可见性, 所有人", "cls": "ViewGroup", "w_dp": 352, "h_dp": 60, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "849"]}
+{"t": 1793005229.14, "phase": "T3-finish", "op": "shot", "path": "hv_T3_vis.png"}
+{"t": 1793005241.21, "phase": "T3-finish", "op": "tap", "hit": {"label": "desc=私密, 将此锻炼保持私有，仅对你可见，供个人使用。", "cls": "ViewGroup", "w_dp": 320, "h_dp": 98, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "789"]}
+{"t": 1793005242.5, "phase": "T3-finish", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793005248.75, "phase": "T3-finish", "op": "tap", "hit": {"label": "desc=保存", "cls": "ViewGroup", "w_dp": 56, "h_dp": 36, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793005252.5, "phase": "T3-finish", "op": "shot", "path": "hv_T3_finish2.png"}
+{"t": 1793005254.86, "phase": "T3-finish", "op": "tap", "hit": {"label": "desc=完成", "cls": "ViewGroup", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "1120"]}
+{"t": 1793005258.68, "phase": "T3-finish", "op": "shot", "path": "hv_T3_after.png"}
+{"t": 1793005269.11, "phase": "explore", "op": "phase"}
+{"t": 1793005269.19, "phase": "explore", "op": "note", "text": "After 2nd save, home feed shows banner 与健身房朋友一起玩Hevy更有趣 (与朋友联系 / 忽略)"}
+{"t": 1793005277.93, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["489", "641"]}
+{"t": 1793005286.98, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "928"]}
+{"t": 1793005289.2, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "474"]}
+{"t": 1793005289.34, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "540"]}
+{"t": 1793005289.47, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "606"]}
+{"t": 1793005297.03, "phase": "T4", "op": "phase"}
+{"t": 1793005308.58, "phase": "T4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["283", "540"]}
+{"t": 1793005308.73, "phase": "T4", "op": "size", "w_dp": 72, "h_dp": 34}
+{"t": 1793005310.41, "phase": "T4", "op": "shot", "path": "hv_T4_edit.png"}
+{"t": 1793005328.77, "phase": "T4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "945"]}
+{"t": 1793005328.92, "phase": "T4", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793005330.58, "phase": "T4", "op": "shot", "path": "hv_T4_plus.png"}
+{"t": 1793005341.94, "phase": "T4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["477", "869"]}
+{"t": 1793005342.1, "phase": "T4", "op": "size", "w_dp": 73, "h_dp": 50}
+{"t": 1793005343.76, "phase": "T4", "op": "shot", "path": "hv_T4_edited.png"}
+{"t": 1793005351.01, "phase": "T4", "op": "note", "text": "Edit done set: tap weight (value preselected, keypad opens), + key adds 2.5 -> 62.5, hide-keypad key. Set stays checked, volume updates"}
+{"t": 1793005363.42, "phase": "T4", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["400", "672", "100", "672"], "ms": 300, "dist_dp": 213}
+{"t": 1793005363.52, "phase": "T4", "op": "size", "w_dp": 384, "h_dp": 34}
+{"t": 1793005365.19, "phase": "T4", "op": "shot", "path": "hv_T4_swipe.png"}
+{"t": 1793005377.27, "phase": "T4", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["486", "672"]}
+{"t": 1793005377.41, "phase": "T4", "op": "size", "w_dp": 80, "h_dp": 34}
+{"t": 1793005379.08, "phase": "T4", "op": "shot", "path": "hv_T4_deleted.png"}
+{"t": 1793005386.95, "phase": "T4", "op": "note", "text": "Delete set: swipe row left -> red 删除 -> tap. No confirmation, no undo toast/button anywhere (no undo in Hevy). Edited 62.5 set badge turns into a PR medal icon (live PR)"}
+{"t": 1793005387.03, "phase": "T5", "op": "phase"}
+{"t": 1793005398.49, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000"]}
+{"t": 1793005398.65, "phase": "T5", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793005400.31, "phase": "T5", "op": "shot", "path": "hv_tmp.png"}
+{"t": 1793005408.33, "phase": "T5", "op": "void", "n": 1}
+{"t": 1793005408.41, "phase": "explore", "op": "phase"}
+{"t": 1793005408.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["477", "869"]}
+{"t": 1793005409.72, "phase": "T5", "op": "phase"}
+{"t": 1793005422.02, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793005434.15, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793005446.24, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793005447.9, "phase": "T5", "op": "shot", "path": "hv_T5_bottom.png"}
+{"t": 1793005465.17, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "789"]}
+{"t": 1793005465.32, "phase": "T5", "op": "size", "w_dp": 351, "h_dp": 40}
+{"t": 1793005469.74, "phase": "T5", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793005470.02, "phase": "T5", "op": "text", "expect_pkg": "com.hevy", "chars": 14}
+{"t": 1793005472.67, "phase": "T5", "op": "shot", "path": "hv_T5_search.png"}
+{"t": 1793005482.93, "phase": "T5", "op": "tap", "hit": {"label": "desc=肩推 (杠铃）", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793005486.4, "phase": "T5", "op": "tap", "hit": {"label": "desc=添加 1 项运动", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793005489.12, "phase": "T5", "op": "shot", "path": "hv_T5_added.png"}
+{"t": 1793005508.57, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["500", "430"]}
+{"t": 1793005508.73, "phase": "T5", "op": "size", "w_dp": 24, "h_dp": 32}
+{"t": 1793005521.69, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "837"]}
+{"t": 1793005521.84, "phase": "T5", "op": "size", "w_dp": 351, "h_dp": 63}
+{"t": 1793005524.5, "phase": "T5", "op": "shot", "path": "hv_T5_sort.png"}
+{"t": 1793005535.54, "phase": "T5", "op": "longdrag", "hit": {"label": "", "cls": "ImageView", "w_dp": 24, "h_dp": 24, "interactive": false, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["500", "606", "500", "165"], "ms": 300, "dist_dp": 314}
+{"t": 1793005537.18, "phase": "T5", "op": "shot", "path": "hv_T5_moved.png"}
+{"t": 1793005549.43, "phase": "T5", "op": "tap", "hit": {"label": "desc=完成", "cls": "ViewGroup", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793005552.17, "phase": "T5", "op": "shot", "path": "hv_T5_sorted.png"}
+{"t": 1793005571.61, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793005583.74, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793005595.87, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793005608.0, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793005609.66, "phase": "T5", "op": "shot", "path": "hv_T5_top.png"}
+{"t": 1793005618.08, "phase": "T5", "op": "note", "text": "After reorder 完成, view stays at bottom; moved exercise is at top -> needed scrolling back up (4 swipes, maybe 2 would do)"}
+{"t": 1793005629.93, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["500", "298"]}
+{"t": 1793005630.09, "phase": "T5", "op": "size", "w_dp": 24, "h_dp": 32}
+{"t": 1793005643.04, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["270", "1110"]}
+{"t": 1793005643.2, "phase": "T5", "op": "size", "w_dp": 351, "h_dp": 63}
+{"t": 1793005644.87, "phase": "T5", "op": "shot", "path": "hv_T5_removed.png"}
+{"t": 1793005651.07, "phase": "T5", "op": "note", "text": "删除运动 via card ⋮: no confirmation (exercise had no done sets)"}
+{"t": 1793005651.16, "phase": "T6", "op": "phase"}
+{"t": 1793005651.34, "phase": "T6", "op": "key", "expect_pkg": "com.hevy", "key": "home"}
+{"t": 1793005656.83, "phase": "T6", "op": "launch", "expect_pkg": "com.hevy", "pkg": "com.hevy"}
+{"t": 1793005660.52, "phase": "T6", "op": "shot", "path": "hv_T6_resume.png"}
+{"t": 1793005667.01, "phase": "T6", "op": "note", "text": "Home+relaunch: workout screen intact, timer kept running (6min12s), edits retained"}
+{"t": 1793005669.58, "phase": "T6", "op": "launch", "expect_pkg": "com.hevy", "pkg": "com.hevy"}
+{"t": 1793005675.31, "phase": "T6", "op": "shot", "path": "hv_T6_forcestop.png"}
+{"t": 1793005693.09, "phase": "T6", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["63", "1033"]}
+{"t": 1793005693.27, "phase": "T6", "op": "size", "w_dp": 40, "h_dp": 40}
+{"t": 1793005695.95, "phase": "T6", "op": "shot", "path": "hv_T6_resumed.png"}
+{"t": 1793005703.35, "phase": "T6", "op": "note", "text": "Force-stop + relaunch: opens on 首页 with floating in-progress bar (锻炼 6min27s, current exercise, expand ^ and trash). Expanding shows everything intact incl. timer"}
+{"t": 1793005703.43, "phase": "T7-in", "op": "phase"}
+{"t": 1793005703.51, "phase": "T7-in", "op": "note", "text": "Last session numbers already visible inline in 之前的锻炼 column (0 taps)"}
+{"t": 1793005715.61, "phase": "T7-in", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["165", "298"]}
+{"t": 1793005715.77, "phase": "T7-in", "op": "size", "w_dp": 150, "h_dp": 24}
+{"t": 1793005718.47, "phase": "T7-in", "op": "shot", "path": "hv_T7_in_detail.png"}
+{"t": 1793005727.28, "phase": "T7-in", "op": "tap", "hit": {"label": "单次最大重量 (1RM)", "cls": "ViewGroup", "w_dp": 174, "h_dp": 28, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["324", "1019"]}
+{"t": 1793005729.04, "phase": "T7-in", "op": "shot", "path": "hv_T7_1rm.png"}
+{"t": 1793005740.38, "phase": "T7-in", "op": "note", "text": "Exercise detail: tabs 总结/历史记录/怎么做/排行榜; chart includes in-progress value; chips 最重的重量/1RM(Epley-like 77.16)/最佳...; range 最近3个月 dropdown; 个人纪录 list"}
+{"t": 1793005740.53, "phase": "T7-in", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793005741.69, "phase": "explore", "op": "phase"}
+{"t": 1793005742.72, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793005743.15, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793005743.6, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793005752.14, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "867"]}
+{"t": 1793005753.36, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793005755.59, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793005766.1, "phase": "T7-out", "op": "phase"}
+{"t": 1793005768.44, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=个人资料", "cls": "FrameLayout", "w_dp": 128, "h_dp": 60, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793005772.95, "phase": "T7-out", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 384, "h_dp": 619, "interactive": false, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["399", "775"]}
+{"t": 1793005777.83, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=<用户名>", "cls": "ViewGroup", "w_dp": 250, "h_dp": 24, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793005778.04, "phase": "T7-out", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793005782.46, "phase": "T7-out", "op": "tap", "hit": {"label": "您的全名", "cls": "EditText", "w_dp": 264, "h_dp": 21, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793005785.23, "phase": "T7-out", "op": "shot", "path": "hv_T7_out_detail.png"}
+{"t": 1793005792.96, "phase": "T7-out", "op": "void", "n": 5}
+{"t": 1793005793.04, "phase": "explore", "op": "phase"}
+{"t": 1793005793.19, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["39", "102"]}
+{"t": 1793005802.71, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793005804.86, "phase": "T7-out", "op": "phase"}
+{"t": 1793005807.2, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=个人资料", "cls": "FrameLayout", "w_dp": 128, "h_dp": 60, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793005811.67, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=运动", "cls": "ViewGroup", "w_dp": 168, "h_dp": 48, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["399", "819"]}
+{"t": 1793005814.4, "phase": "T7-out", "op": "shot", "path": "hv_T7_out_lib.png"}
+{"t": 1793005828.16, "phase": "T7-out", "op": "tap", "hit": {"label": "搜索运动", "cls": "EditText", "w_dp": 312, "h_dp": 27, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793005828.42, "phase": "T7-out", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793005832.83, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=卧推 （杠铃）", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793005835.61, "phase": "T7-out", "op": "shot", "path": "hv_T7_out_detail.png"}
+{"t": 1793005837.96, "phase": "T7-out", "op": "tap", "hit": {"label": "单次最大重量 (1RM)", "cls": "ViewGroup", "w_dp": 174, "h_dp": 28, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["324", "1019"]}
+{"t": 1793005839.75, "phase": "T7-out", "op": "shot", "path": "hv_T7_out_1rm.png"}
+{"t": 1793005850.01, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=历史记录", "cls": "View", "w_dp": 96, "h_dp": 48, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["158", "176"]}
+{"t": 1793005852.77, "phase": "T7-out", "op": "shot", "path": "hv_T7_out_hist.png"}
+{"t": 1793005852.86, "phase": "T7-out", "op": "note", "text": "Library opens with 近期的训练 list where bench is first: search was optional (could skip 2 actions). 1RM 74.07 from saved workouts. 历史记录 tab lists past sessions with set lines"}
+{"t": 1793005858.92, "phase": "explore", "op": "phase"}
+{"t": 1793005859.07, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["45", "176"]}
+{"t": 1793005860.29, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["445", "739"]}
+{"t": 1793005867.86, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1022"]}
+{"t": 1793005877.95, "phase": "explore", "op": "note", "text": "Pro NOT active in app: chart ranges 年/所有时间 open paywall '无限图表历史记录, 免费版限制: 3 个月'. Trial claimed by user is not reflected"}
+{"t": 1793005878.31, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005882.32, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005886.31, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005890.31, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005894.32, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005898.33, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005902.32, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005906.32, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["300", "470", "100", "470"], "ms": 200, "dist_dp": 142}
+{"t": 1793005954.7, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "740", "270", "500"], "ms": 400, "dist_dp": 171}
+{"t": 1793005958.82, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "740", "270", "500"], "ms": 400, "dist_dp": 171}
+{"t": 1793005962.98, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "740", "270", "500"], "ms": 400, "dist_dp": 171}
+{"t": 1793005967.13, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "740", "270", "500"], "ms": 400, "dist_dp": 171}
+{"t": 1793005971.27, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "740", "270", "500"], "ms": 400, "dist_dp": 171}
+{"t": 1793005982.56, "phase": "explore", "op": "note", "text": "Paywall feature list: 无限图表历史记录(免费3个月), 无限训练计划, Hevy Trainer, 无限自定义训练动作, 高级统计, 跟踪所有测量数据, 热身计算器, 支持我们的小团队"}
+{"t": 1793005983.01, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793005983.45, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793005983.59, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "92"]}
+{"t": 1793005984.82, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793005986.04, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793005995.3, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793005998.76, "phase": "T8", "op": "phase"}
+{"t": 1793006002.21, "phase": "T8", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 24, "h_dp": 24, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["500", "95"]}
+{"t": 1793006004.92, "phase": "T8", "op": "shot", "path": "hv_settings.png"}
+{"t": 1793006013.53, "phase": "T8", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793006026.27, "phase": "T8", "op": "tap", "hit": {"label": "desc=导出和导入数据", "cls": "ViewGroup", "w_dp": 384, "h_dp": 20, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["286", "142"]}
+{"t": 1793006028.97, "phase": "T8", "op": "shot", "path": "hv_T8_export.png"}
+{"t": 1793006040.07, "phase": "T8", "op": "tap", "hit": {"label": "desc=导出数据", "cls": "ViewGroup", "w_dp": 384, "h_dp": 60, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["286", "183"]}
+{"t": 1793006042.78, "phase": "T8", "op": "shot", "path": "hv_T8_exportpage.png"}
+{"t": 1793006053.54, "phase": "T8", "op": "tap", "hit": {"label": "desc=导出锻炼", "cls": "ViewGroup", "w_dp": 352, "h_dp": 40, "interactive": true, "pkg": "com.hevy"}, "expect_pkg": "com.hevy", "xy": ["270", "331"]}
+{"t": 1793006057.27, "phase": "T8", "op": "shot", "path": "hv_T8_share.png"}
+{"t": 1793006066.82, "phase": "T8", "op": "note", "text": "T8 (started from 个人资料 tab): gear -> scroll -> 导出和导入数据 -> 导出数据 -> 导出锻炼 -> system share sheet workout_data.csv. CSV only, free, no Pro badge. Separate 导出测量结果. Note: exported data cannot be re-imported into Hevy"}
+{"t": 1793006066.9, "phase": "explore", "op": "phase"}
+{"t": 1793006067.06, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["49", "612"]}
+{"t": 1793006068.29, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006069.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "268"]}
+{"t": 1793006083.04, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006084.27, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006085.86, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "up"}
+{"t": 1793006091.58, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "845"]}
+{"t": 1793006103.81, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006105.04, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "929"]}
+{"t": 1793006110.45, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006111.66, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "600"]}
+{"t": 1793006116.15, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006117.37, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "1087"]}
+{"t": 1793006128.93, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006130.98, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "900", "270", "500"], "ms": 800, "dist_dp": 285}
+{"t": 1793006140.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "576"]}
+{"t": 1793006145.07, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006146.3, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "408"]}
+{"t": 1793006160.32, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006161.9, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "up"}
+{"t": 1793006162.04, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "431"]}
+{"t": 1793006166.58, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006167.8, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["461", "185"]}
+{"t": 1793006178.71, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["39", "102"]}
+{"t": 1793006189.26, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["140", "819"]}
+{"t": 1793006200.37, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793006203.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "943"]}
+{"t": 1793006215.2, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006216.42, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006235.6, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["140", "819"]}
+{"t": 1793006238.19, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793006239.41, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "459"]}
+{"t": 1793006242.23, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006243.45, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "1002"]}
+{"t": 1793006246.23, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006247.45, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["268", "324"]}
+{"t": 1793006256.3, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "92"]}
+{"t": 1793006257.53, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006258.75, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["140", "909"]}
+{"t": 1793006269.47, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "102"]}
+{"t": 1793006286.0, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["423", "508"]}
+{"t": 1793006287.8, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 2}
+{"t": 1793006289.02, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["472", "102"]}
+{"t": 1793006300.24, "phase": "explore", "op": "note", "text": "Measurements: free = 体重 + 腰围 only; 体脂/去脂/颈/肩/胸/二头/前臂... locked (PRO). Progress photo allowed. System numeric keyboard. Recorded 75 kg on 10/26 (onboarding had 85 kg on 10/25)"}
+{"t": 1793006300.38, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006301.6, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["399", "909"]}
+{"t": 1793006313.63, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006314.86, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1135"]}
+{"t": 1793006317.09, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["140", "449"]}
+{"t": 1793006329.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["67", "102"]}
+{"t": 1793006330.91, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793006335.41, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["489", "641"]}
+{"t": 1793006336.64, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "837"]}
+{"t": 1793006349.6, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["410", "534"]}
+{"t": 1793006353.14, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006354.37, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006367.15, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006378.93, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006383.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006384.73, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006389.21, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006390.44, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006395.11, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006396.34, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006400.85, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006408.92, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006410.15, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["67", "102"]}
+{"t": 1793006420.98, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["67", "102"]}
+{"t": 1793006439.71, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793006451.64, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006452.86, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006457.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006463.21, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006464.44, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006468.94, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006473.4, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006474.62, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006479.26, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006483.77, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "567"]}
+{"t": 1793006484.99, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006489.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006512.03, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006513.25, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006525.32, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006534.39, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006546.37, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006559.54, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006560.77, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006565.27, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006571.4, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006572.62, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006577.14, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793006589.17, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006590.97, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "928"]}
+{"t": 1793006605.18, "phase": "explore", "op": "note", "text": "Routine limit verified: 5th routine -> sheet 'Free accounts have a limit of 4 routines. Upgrade to Hevy Pro to create unlimited routines.' (继续/暂不)"}
+{"t": 1793006605.32, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1098"]}
+{"t": 1793006606.54, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006607.77, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "1109"]}
+{"t": 1793006625.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793006631.49, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006632.72, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "1109"]}
+{"t": 1793006633.95, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793006639.51, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "646"]}
+{"t": 1793006640.74, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "1109"]}
+{"t": 1793006641.96, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793006655.57, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["405", "165"]}
+{"t": 1793006677.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "946"]}
+{"t": 1793006692.3, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006692.44, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006704.19, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "400"]}
+{"t": 1793006704.33, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006722.83, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006727.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006732.18, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006736.67, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006741.15, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006745.63, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006750.12, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006762.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "657"]}
+{"t": 1793006762.83, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006768.28, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006768.41, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006773.42, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006773.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006778.65, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006778.8, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006783.84, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006783.98, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006789.07, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006789.21, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006794.26, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "273"]}
+{"t": 1793006794.4, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1121"]}
+{"t": 1793006814.74, "phase": "explore", "op": "note", "text": "WARNING: chained tap accidentally pressed 接受并继续 on the Hevy Trainer medical disclaimer (健康条款和政策) — unintended; must be reported. Did not save the plan."}
+{"t": 1793006815.24, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793006818.72, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "80"]}
+{"t": 1793006829.88, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006847.81, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "80"]}
+{"t": 1793006869.1, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["135", "165"]}
+{"t": 1793006870.32, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["399", "418"]}
+{"t": 1793006882.35, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["357", "372"]}
+{"t": 1793006899.51, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006900.75, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006901.97, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793006904.2, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "95"]}
+{"t": 1793006906.42, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "761"]}
+{"t": 1793006912.32, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793006931.08, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["483", "580"]}
+{"t": 1793006932.31, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1135"]}
+{"t": 1793006934.54, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "272"]}
+{"t": 1793006936.76, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "555"]}
+{"t": 1793006938.97, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793006939.12, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793006941.34, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793006942.57, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793006952.9, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["421", "540"]}
+{"t": 1793006954.7, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793006955.94, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["97", "364"]}
+{"t": 1793006964.23, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1126"]}
+{"t": 1793006965.46, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["97", "298"]}
+{"t": 1793006974.06, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1032", "270", "965"], "ms": 300, "dist_dp": 48}
+{"t": 1793006974.52, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1032", "270", "965"], "ms": 300, "dist_dp": 48}
+{"t": 1793006974.96, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1032", "270", "965"], "ms": 300, "dist_dp": 48}
+{"t": 1793006975.4, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1032", "270", "965"], "ms": 300, "dist_dp": 48}
+{"t": 1793006975.83, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1032", "270", "965"], "ms": 300, "dist_dp": 48}
+{"t": 1793006976.27, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1032", "270", "965"], "ms": 300, "dist_dp": 48}
+{"t": 1793006978.06, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1126"]}
+{"t": 1793006979.28, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["491", "406"]}
+{"t": 1793006989.06, "phase": "explore", "op": "note", "text": "Rest timer when set per exercise: non-blocking bottom bar (-15 / 00:43 / +15 / 跳过) after ✓, no modal"}
+{"t": 1793006989.19, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["250", "473"]}
+{"t": 1793006997.98, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["125", "685"]}
+{"t": 1793007019.06, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007020.29, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007021.8, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "400", "270", "900"], "ms": 300, "dist_dp": 355}
+{"t": 1793007023.02, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "298"]}
+{"t": 1793007043.17, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007044.4, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["47", "540"]}
+{"t": 1793007052.26, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007053.8, "phase": "explore", "op": "swipe", "expect_pkg": "com.hevy", "xy": ["270", "1000", "270", "400"], "ms": 300, "dist_dp": 427}
+{"t": 1793007063.68, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "867"]}
+{"t": 1793007064.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793007067.11, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793007069.32, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "95"]}
+{"t": 1793007071.55, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["286", "761"]}
+{"t": 1793007074.12, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793007075.35, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["483", "580"]}
+{"t": 1793007087.25, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007088.48, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007090.7, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["399", "819"]}
+{"t": 1793007092.93, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["472", "102"]}
+{"t": 1793007102.66, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "911"]}
+{"t": 1793007116.75, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793007120.6, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "up"}
+{"t": 1793007120.73, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "197"]}
+{"t": 1793007121.95, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "485"]}
+{"t": 1793007122.13, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 10}
+{"t": 1793007122.27, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007123.5, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "571"]}
+{"t": 1793007135.87, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["472", "102"]}
+{"t": 1793007138.1, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "485"]}
+{"t": 1793007139.33, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 10}
+{"t": 1793007140.53, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "571"]}
+{"t": 1793007151.65, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["320", "685"]}
+{"t": 1793007153.88, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "685"]}
+{"t": 1793007165.16, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["320", "871"]}
+{"t": 1793007167.38, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "911"]}
+{"t": 1793007169.6, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "197"]}
+{"t": 1793007172.39, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["478", "102"]}
+{"t": 1793007187.14, "phase": "explore", "op": "note", "text": "Custom exercises: free limit shown '自定义训练 (1/7)' + 解锁更多. Create form: media, name, equipment (无/杠铃/杠铃片/壶铃/器械/悬挂带/哑铃/阻力带/...), primary muscle, other muscles, type (重量和次数/徒手次数/负重徒手+Kg/辅助徒手-Kg/时长/持续时间与重量/距离和时长/...)"}
+{"t": 1793007187.28, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1056"]}
+{"t": 1793007189.49, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "102"]}
+{"t": 1793007200.45, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "837"]}
+{"t": 1793007212.47, "phase": "explore", "op": "note", "text": "Per-exercise weight unit (默认/公斤/磅) in exercise ⋮ menu"}
+{"t": 1793007212.61, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007213.84, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "102"]}
+{"t": 1793007215.06, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["146", "1109"]}
+{"t": 1793007226.5, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "621"]}
+{"t": 1793007231.0, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007232.23, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793007234.46, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["117", "94"]}
+{"t": 1793007248.48, "phase": "explore", "op": "note", "text": "Volume of saved workout changed 9067.5 -> 8687.5 kg after I logged bodyweight 75 (was 85): weighted-dip volume = (latest bodyweight + added) x reps, recomputed retroactively (38 reps x 10 kg = 380)"}
+{"t": 1793007248.63, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["112", "240"]}
+{"t": 1793007261.81, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "94"]}
+{"t": 1793007266.3, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007267.53, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["443", "94"]}
+{"t": 1793007272.45, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007273.67, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["117", "94"]}
+{"t": 1793007274.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["168", "161"]}
+{"t": 1793007289.34, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["489", "641"]}
+{"t": 1793007290.57, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1019"]}
+{"t": 1793007304.01, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["67", "99"]}
+{"t": 1793007308.53, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1135"]}
+{"t": 1793007310.75, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["399", "819"]}
+{"t": 1793007312.99, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["140", "263"]}
+{"t": 1793007324.29, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007325.53, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793007327.75, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["281", "176"]}
+{"t": 1793007332.54, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["393", "176"]}
+{"t": 1793007344.57, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007345.79, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793007347.02, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
+{"t": 1793007389.23, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1135"]}
+{"t": 1793007391.47, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "272"]}
+{"t": 1793007393.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "555"]}
+{"t": 1793007395.91, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "189"]}
+{"t": 1793007396.05, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793007398.26, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "432"]}
+{"t": 1793007399.48, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "706"]}
+{"t": 1793007412.22, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["404", "934"]}
+{"t": 1793007413.44, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "598"]}
+{"t": 1793007415.66, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1135"]}
