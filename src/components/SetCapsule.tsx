@@ -155,7 +155,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   onNumTap,
   displayNo,
   badge,
-  firstCol = 36,
+  firstCol = 48,
   signed,
   onRemoveSub,
   isPR = false,
@@ -477,7 +477,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           if (e.animationName === 'row-in') setEntering(false);
         }}
       >
-        {/* 组号：36×36 胶囊。点 = 选中，选中的再点 = 做完（指针移到它下面）；
+        {/* 组号：48×48 胶囊（2026-10-26 从 36 放大，见 exerciseConfig.ledgerCols）。点 = 选中，选中的再点 = 做完（指针移到它下面）；
             长按 = 加一档递减（达成后吞掉松手那次 click）。
             交替组在组号上方叠一行动作简称（「卧推」「飞鸟」，2026-10-21 起一个词；原来一个字、放在组号左边） */}
         <span className={badge ? 'flex flex-col items-center min-w-0' : 'flex items-center gap-1 min-w-0'}>
@@ -494,7 +494,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             </button>
           )}
           <span
-            className={`set-num relative ${badge ? 'w-[30px] h-[30px]' : 'w-9 h-9'} flex-none flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y`}
+            className={`set-num relative ${badge ? 'w-[30px] h-[30px]' : 'w-12 h-12'} flex-none flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y`}
             onClick={readOnly ? undefined : onSetNumClick}
             role={readOnly ? undefined : 'button'}
             aria-pressed={readOnly ? undefined : selected}
