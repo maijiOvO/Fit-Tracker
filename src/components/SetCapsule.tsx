@@ -25,6 +25,7 @@ import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
+import { nextDropShown } from '../utils/setStep';
 
 /**
  * 「杠铃片」§3 + 馆档案：拖一格多少，跟着「这个馆、这件器材」的一档走（交互只有一套，变的只是落点）。
@@ -66,7 +67,7 @@ interface SetCapsuleProps {
   onRemove: () => void;
   onDurationClick?: () => void;
   /**
-   * 选中（2026-10 指针）：组号实心，这一组的整块之后露出 −5 / +5。全场至多一行。
+   * 选中（2026-10 指针）：组号实心；± / 递减键在底栏上方的 SetActionStrip 里改这一组。全场至多一行。
    * 默认选中的是指针下面那一组；点别的组号先选中它。
    */
   selected?: boolean;
@@ -162,8 +163,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   rounder,
 }) => {
   const isCn = lang === Language.CN;
-  // 首选项：±步长、递减每档（当前单位下的数，kg / lbs 共用）。只读历史视图里也拿得到，拿不到用存储里的值
-  const { weightStep, dropStep } = useContext(UserSettingsContext)?.appPrefs ?? appPrefsNow();
+  // 首选项：递减每档（当前单位下的数，kg / lbs 共用）。只读历史视图里也拿得到，拿不到用存储里的值
+  const { dropStep } = useContext(UserSettingsContext)?.appPrefs ?? appPrefsNow();
   // §11 坑 1：动画跑完必须摘掉入场类，否则它会盖住后续的反馈动画，
   // 且 fill:both 会把 height 钉死在 52px。
   const [entering, setEntering] = useState(isNew);
@@ -306,29 +307,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   /**
    * 加一档子组（组型：递减 / 递增，变体第三层）。
    * 上次练过、带着子组的组，底稿里已经原样抄来了（toGhostSets），不经过这里。
-   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）走一档 ——
-   * 有馆档案的器材（rounder）：∓ 这件器材的一档，再吸到最近能挂的（片子不规则时按能挂的下一个走）；
-   * 纯数字的动作：∓「递减每档」（首选项，默认 5），上一行是换算残留（132.28）先取整再走。
-   * 带正负的负荷在带符号的数上走：+10 → +5 → 0 → −5（递减可以一路降进辅助）。普通重量下限 0。
-   * 次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
+   * 这里只管手动加一档：从【上一行】（最后一档，没有就是母组）走一档（算法在 setStep.nextDropShown，
+   * 底栏上方操作条的「递减」键同一份）。次数跟上一行一致：递减组多半做到力竭，具体数只能现填。
    */
   const handleAddSubSet = (dir: -1 | 1 = -1) => {
     const prev = subSets.length > 0 ? subSets[subSets.length - 1] : set;
     const prevSign = subSets.length > 0 ? signOf(prev, set) : rowSign;
     const shown = toDisplay(prev.weight, prevSign);
-    let next: number;
-    if (rounder) {
-      next = rounder.snapD(shown + dir * rounder.stepD(shown));
-      // 吸回了原处（空杠再往下、片子太粗）：按「能挂的下一个」走
-      if (Math.abs(next - shown) < 0.01) next = rounder.stepToD(shown, dir);
-      // 已经是最轻的一档（哑铃最小那对、空杠）：不降到 0，和上一档一样，自己再改
-      if (!signed && next <= 0 && shown > 0) next = shown;
-    } else {
-      const residue = Math.abs(shown * 2 - Math.round(shown * 2)) > 1e-6;
-      const base = residue ? (dir < 0 ? Math.floor(shown) : Math.ceil(shown)) : shown;
-      next = base + dir * dropStep;
-    }
-    if (!signed) next = Math.max(0, next);
+    const next = nextDropShown(shown, dir, rounder, dropStep, !!signed);
     const newSubSet: SubSetLog = {
       id: `sub_${Date.now()}`,
       ...(shown !== 0 || signed ? fromDisplay(next) : { weight: 0 }),
@@ -355,32 +341,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     },
     disabled: readOnly,
   });
-
-  /**
-   * − / +：有馆档案的器材走这个馆这件器材的一档（第一下先吸到那个方向最近能挂的）；
-   * 纯数字的动作走首选项的步长（默认 5），换算残留不取整。普通重量下限 0，带正负的负荷可以跨过 0。
-   */
-  // 标签按方向各算：带正负的在 0 上往下走的是辅助一档、往上走的是最小一片，两边不一样
-  const stepShownFor = (dir: 1 | -1) => {
-    if (!rounder) return weightStep;
-    const moved = Math.abs(rounder.stepToD(weightDisplay, dir) - weightDisplay);
-    return Math.round((rounder.loadableD(weightDisplay) && moved > 0 ? moved : rounder.stepD(weightDisplay) || weightStep) * 100) / 100;
-  };
-  const stepDown = stepShownFor(-1);
-  const stepUp = stepShownFor(1);
-  const bump = (dir: 1 | -1) => {
-    haptic(H.tap);
-    let next = rounder ? rounder.stepToD(weightDisplay, dir) : Math.round((weightDisplay + dir * weightStep) * 100) / 100;
-    if (!signed) next = Math.max(0, next);
-    update(fromDisplay(next));
-  };
-
-  /** 次数 ±1（走同一条改值路径：后面原值一样、没改过的待做组跟着变） */
-  const bumpReps = (dir: 1 | -1) => {
-    haptic(H.tap);
-    const next = Math.max(0, (Number(set.reps) || 0) + dir);
-    if (next !== (Number(set.reps) || 0)) update({ reps: next });
-  };
 
   /** 换号（点单位前的 + / −）：辅助 ⇄ 负重，绝对值不动 */
   const flipSign = () => {
@@ -812,47 +772,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         </div>
       )}
 
-      {/* −5 / +5：跟着选中的那一组（2026-10 指针；原先跟着休息书签）。整行两颗宽键，出汗的手也按得准。
-          右端「递减」＝加一档递减（2026-10-11）：长按组号那条路没人知道，这里给一次点击的入口；长按保留。
-          次数 −1 / +1（审查 B2）：差一两次是最常见的改法，不用再去横划次数格。 */}
-      {!readOnly && selected && (activeMetrics.includes('weight') || activeMetrics.includes('reps')) && (
-        <div className="ledger-step" data-set-idx={setIdx} data-testid="weight-step">
-          {activeMetrics.includes('weight') && (
-            <>
-              <button type="button" onClick={() => bump(-1)} aria-label={isCn ? `重量减 ${stepDown} ${unit}` : `Weight −${stepDown} ${unit}`}>
-                −{stepDown} <span className="ledger-unit">{unit}</span>
-              </button>
-              <button type="button" onClick={() => bump(1)} aria-label={isCn ? `重量加 ${stepUp} ${unit}` : `Weight +${stepUp} ${unit}`}>
-                +{stepUp} <span className="ledger-unit">{unit}</span>
-              </button>
-            </>
-          )}
-          {activeMetrics.includes('reps') && (
-            <>
-              <button type="button" onClick={() => bumpReps(-1)} aria-label={isCn ? '次数减 1' : 'Reps −1'} data-testid="reps-dec">
-                −1 <span className="ledger-unit">{isCn ? '次' : 'rep'}</span>
-              </button>
-              <button type="button" onClick={() => bumpReps(1)} aria-label={isCn ? '次数加 1' : 'Reps +1'} data-testid="reps-inc">
-                +1 <span className="ledger-unit">{isCn ? '次' : 'rep'}</span>
-              </button>
-            </>
-          )}
-          {activeMetrics.includes('weight') && (
-            <button
-              type="button"
-              className="ledger-step-drop"
-              onClick={() => {
-                haptic(H.tap);
-                handleAddSubSet(-1);
-              }}
-              aria-label={isCn ? '加一档递减' : 'Add a drop set'}
-              data-testid="add-drop-set"
-            >
-              {isCn ? '递减' : 'Drop'}
-            </button>
-          )}
-        </div>
-      )}
+      {/* 选中组的 ± / 递减键不在行里：固定在底栏上方（SetActionStrip，2026-10-27 用户定），
+          位置不跟着选中的组跳、不挤卡片。 */}
     </>
   );
 };

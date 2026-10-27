@@ -53,6 +53,7 @@ await build({
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
+      "export * as SS from './src/utils/setStep.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -215,6 +216,28 @@ t('递减档保持方向：最轻 12.5 · 每格 5 —— 从原值铺 22 / 16.6
   const [u] = L.snapUntouched([touched], ex1, r);
   assert.equal(u.subSets[0], touched.subSets[0]);
 });
+// ── 选中组操作条的 ± / 递减一档（固定在底栏上方，和组行上原来那一行同一套算法）────────
+t('± 一档：纯数字走首选项步长、换算残留不取整、普通重量下限 0、带正负的跨过 0；有馆档案先吸到那个方向最近能挂的', () => {
+  assert.equal(L.SS.bumpShown(61.24, 1, null, 5, false), 66.24);
+  assert.equal(L.SS.bumpShown(3, -1, null, 5, false), 0);
+  assert.equal(L.SS.bumpShown(3, -1, null, 5, true), -2);
+  const r = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false);
+  assert.equal(L.SS.bumpShown(22, 1, r, 5, false), 30);
+  assert.equal(L.SS.bumpShown(22, -1, r, 5, false), 20);
+  // 键上的数：在格子上写一档；不在格子上（换算残留）也写一档，不写「离格子还差多少」
+  assert.equal(L.SS.stepShown(20, 1, r, 5), 10);
+  assert.equal(L.SS.stepShown(22, 1, r, 5), 10);
+  assert.equal(L.SS.stepShown(61.24, 1, null, 5), 5);
+});
+t('递减一档：纯数字 ∓ 递减步长（残留先取整）、下限 0、带正负可降进辅助；有馆档案 ∓ 一格，吸回原处按能挂的下一个走，最轻一格不动', () => {
+  assert.equal(L.SS.nextDropShown(61.24, -1, null, 5, false), 56);
+  assert.equal(L.SS.nextDropShown(61.24, 1, null, 5, false), 67);
+  assert.equal(L.SS.nextDropShown(2, -1, null, 5, false), 0);
+  assert.equal(L.SS.nextDropShown(2, -1, null, 5, true), -3);
+  assert.equal(L.SS.nextDropShown(20, -1, L.makeRounder(pinInfo, 'lbs', lbCtx(10), false), 5, false), 10);
+  assert.equal(L.SS.nextDropShown(12.5, -1, L.makeRounder(pinInfo, 'lbs', lbCtx(5, 12.5), false), 5, false), 12.5);
+});
+
 t('递减档保持方向：递增档（比上一档重）吸到同一格时往重的方向挪', () => {
   const r = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false);
   const s = { id: 's', weight: 18 * LB, reps: 9, ghost: true, subSets: [{ weight: 23.4 * LB, reps: 6 }] };

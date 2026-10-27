@@ -54,6 +54,7 @@ import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { UndoRedoButtons } from './UndoRedoButtons';
+import { SetActionStrip } from './SetActionStrip';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -205,6 +206,27 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const pickedValid = !!pickedSetId && exs.some(e => e.sets.some(s => String(s.id) === pickedSetId));
   const selectedSetId = pickedValid ? pickedSetId : defaultRow?.setId ?? null;
   const cards = buildCards(exs);
+
+  /**
+   * 选中组操作条（SetActionStrip）固定在底栏上方，改的是选中那一组。
+   * 正在打字（软键盘起来了）和添加动作弹层开着时收掉：前者让键盘上方只剩正在改的那行，后者弹层盖住了它。
+   */
+  const selectedRow = selectedSetId
+    ? exs.flatMap(e => e.sets.filter(s => String(s.id) === selectedSetId).map(s => ({ ex: e, set: s }))).at(0)
+    : undefined;
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const isField = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
+    const onIn = (e: FocusEvent) => { if (isField(e.target)) setTyping(true); };
+    const onOut = (e: FocusEvent) => { if (isField(e.target)) setTyping(false); };
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    return () => {
+      document.removeEventListener('focusin', onIn);
+      document.removeEventListener('focusout', onOut);
+    };
+  }, []);
+  const stripRow = selectedRow && !typing && !pickerOpen ? selectedRow : null;
 
   const setExs = (fn: (list: Exercise[]) => Exercise[]) =>
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(fn(w.exercises ?? [])) }));
@@ -596,8 +618,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         labels={cards.map(c => c.exIds.map(id => resolveName(exs.find(e => e.id === id)?.name ?? '')).join(' ⇄ '))}
       />
 
-      {/* 动作卡列表；底部为常驻添加栏预留空间 */}
-      <div className="space-y-6 pb-32">
+      {/* 动作卡列表；底部为常驻添加栏（操作条露出时再高一截）预留空间 */}
+      <div className={`space-y-6 ${stripRow ? 'pb-48' : 'pb-32'}`}>
         {cards.map((card, ci) => {
           // 编辑旧训练不画书签：拖它往上会把后面的组退回待做，保存时整段被剥掉
           const pointerGap = !editingWorkoutId && seam?.cardKey === card.key ? seam.gap : null;
@@ -771,11 +793,25 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         </div>
       </div>
 
-      {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外 */}
+      {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外；选中组操作条叠在它上面 */}
       <div
         className="fixed bottom-0 inset-x-0 z-bar bg-base/95 border-t border-divider"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
+        {stripRow && (
+          <SetActionStrip
+            exercise={stripRow.ex}
+            set={stripRow.set}
+            setNo={stripRow.ex.sets.indexOf(stripRow.set) + 1}
+            name={resolveName(stripRow.ex.name)}
+            activeMetrics={getActiveMetrics(stripRow.ex.name)}
+            unit={unit}
+            lang={lang}
+            signed={isSigned(stripRow.ex)}
+            rounder={rounderFor(stripRow.ex, currentWorkout.gym)}
+            onUpdate={u => updateSet({ exId: stripRow.ex.id, setId: String(stripRow.set.id) }, u)}
+          />
+        )}
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <span className="text-xs font-semibold text-secondary whitespace-nowrap tabular-nums">
             {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount} {isCn ? '组' : plural(setCount, 'set')}
