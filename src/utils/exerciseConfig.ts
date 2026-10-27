@@ -52,15 +52,12 @@ export function getLoadMode(exercise: Exercise): LoadMode {
  * 行自己也要设一遍：只读的历史视图里没有 ExerciseCard 当父级，
  * 只靠父级下发的话 var(--cols) 会解析失败、网格塌成单列。
  */
-export function ledgerCols(metricCount: number, firstCol = 48): string {
-  // 组号 48 | 各指标 | 力竭 | 删组 44
-  //
-  // 组号 48：全场最常点的目标（每组至少一下），2026-10-26 按记录开销计分从 36 放到 48
-  // （docs/competitors/effort-fitlog.md：36 dp 每次 2.6 比特，是一组开销里除「想一下」外最大的一项）。
-  // 行高 52 装得下，不加行高。
+export function ledgerCols(metricCount: number, firstCol = 36): string {
+  // 组号 36 | 各指标 | 力竭 | 删组 44
   //
   // 力竭列不取 44：它紧挨删组按钮，两个 44 并排会把指标列挤爆，
-  // 撞上硬约束 1（抬眼 0.3 秒读到重量和次数）。36 够用：它左右两侧误触的代价都很低
+  // 撞上硬约束 1（抬眼 0.3 秒读到重量和次数）。36 有先例——
+  // 组号胶囊本身就是 36×36 且承载长按；且它左右两侧误触的代价都很低
   // （左边是输入框，点了只是聚焦；右边删组必须长按 400ms）。
   //
   // 指标 ≥3 时再收到 26：那种配置在 375px 上本来就装不下

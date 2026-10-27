@@ -537,7 +537,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             </div>
             <input
               ref={titleInputRef}
-              data-testid="workout-title"
               className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
               value={currentWorkout.title}
               onChange={e =>

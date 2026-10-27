@@ -6,7 +6,7 @@ import {
   Scale, TrendingUp, History, ChevronDown, ChevronUp,
   Clock
 } from 'lucide-react';
-import { Language, WeightEntry, WorkoutSession } from '../../types';
+import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
 import { formatWeight, plural } from '../utils/format';
 import { CHART_RANGES, rangeLabel } from '../utils/liftDisplay';
@@ -21,7 +21,6 @@ import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 import { weightBaseline, weightDelta } from '../utils/weightSummary';
-import { isToday } from '../utils/dateUtils';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
@@ -166,16 +165,9 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
-  const doneSets = (w: WorkoutSession) => w.exercises.reduce((n, ex) => n + ex.sets.filter(s => !s.ghost).length, 0);
-  const inProgressDone = inProgress ? doneSets(inProgress) : 0;
-  // 上一场（workouts 按日期倒序）：「复制为今天的训练」的可见入口（§6.4 高频动作不藏进长按，2026-10-26）。
-  // 工作台上有进行中的那场时让位给它 —— 两行都是「接着练」，同时出现会打架。
-  const last = inProgress ? null : workouts[0] ?? null;
-  const lastWhen = last
-    ? isToday(new Date(last.date))
-      ? isCn ? '今天' : 'Today'
-      : new Date(last.date).toLocaleDateString(dateLocale, { month: 'short', day: 'numeric' })
-    : '';
+  const inProgressDone = inProgress
+    ? inProgress.exercises.reduce((n, ex) => n + ex.sets.filter(s => !s.ghost).length, 0)
+    : 0;
 
   return (
     <div className="space-y-5 anim-tab-enter">
@@ -208,26 +200,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             {isCn ? '结束' : 'End'}
           </button>
         </div>
-      )}
-
-      {last && (
-        <button
-          type="button"
-          onClick={() => void actions.onCopyWorkoutToToday(last.id)}
-          className="ui-card w-full min-h-[56px] px-4 flex items-center gap-3 text-left active:bg-card-hover"
-          data-testid="repeat-last"
-        >
-          <span className="flex-1 min-w-0">
-            <span className="block text-label font-semibold text-tertiary">{isCn ? `上次 · ${lastWhen}` : `Last · ${lastWhen}`}</span>
-            <span className="block font-semibold text-primary truncate">
-              {last.title || (isCn ? '未命名训练' : 'Untitled')}
-              <span className="font-mono text-label text-tertiary tabular-nums ml-2">
-                {last.exercises.length} {isCn ? '动作' : 'ex'} · {doneSets(last)} {isCn ? '组' : plural(doneSets(last), 'set')}
-              </span>
-            </span>
-          </span>
-          <span className="text-small font-bold text-accent whitespace-nowrap">{isCn ? '再练一次 ›' : 'Repeat ›'}</span>
-        </button>
       )}
 
       {/* 体重：单行摘要，点击展开趋势 */}

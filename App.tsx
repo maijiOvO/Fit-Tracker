@@ -43,7 +43,7 @@ import {
 } from './src/constants/exercises';
 import { attrsPatch, regionsPatch, type Resistance } from './src/utils/exerciseAttrs';
 import { applySetUpdate, normalizeGroups } from './src/utils/workbench';
-import { lastUsedGym, listGyms } from './src/utils/gyms';
+import { listGyms } from './src/utils/gyms';
 import { mergeOverride } from './src/utils/exerciseOverride';
 import { usesSignedLoad } from './src/utils/load';
 import { prSetsOf } from './src/utils/prRecords';
@@ -329,8 +329,8 @@ const AppWithAuthShell: React.FC = () => {
   const [gymStart, setGymStart] = useState<((gym: string | undefined, gyms?: Record<string, GymProfile>) => void) | null>(null);
   const switchGymRef = useRef<((w: WorkoutSession, gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession) | null>(null);
   const startAtGym = useCallback(
-    (make: (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession, after?: (w: WorkoutSession) => void) => {
-      const run = (gym: string | undefined, gyms?: Record<string, GymProfile>) => {
+    (make: (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession, after?: (w: WorkoutSession) => void) =>
+      setGymStart(() => (gym: string | undefined, gyms?: Record<string, GymProfile>) => {
         void startWorkoutGuarded(() => {
           const base = make(gym, gyms);
           // 按这个馆的片子切单位（设过档案的馆）；底稿已经按这个馆铺好了，同一个馆不会重挑
@@ -340,18 +340,8 @@ const AppWithAuthShell: React.FC = () => {
           setActiveTab('new');
           after?.(w);
         });
-      };
-      // §12.11 默认沿用上一场：有标过馆的历史就直接在那个馆开，不弹「这场在哪个馆练」
-      // （2026-10-26 按记录开销计分改：每次开练多一次弹出 + 一次想，一场 1 分；换馆那天在训练页头点馆名换）。
-      // 一场都没标过才问 —— 新用户在这里建第一个馆（positioning 原则 4：卖点藏在选馆弹层里）。
-      const last = lastUsedGym(workouts);
-      if (last) {
-        run(last, settingsCtx.appPrefs.gyms);
-        return;
-      }
-      setGymStart(() => run);
-    },
-    [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab, workouts, settingsCtx.appPrefs.gyms],
+      }),
+    [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab],
   );
 
   /** 复制为今天 / 从计划开练：先检查、确认，再和 FAB 一样先选馆（审查 A12） */

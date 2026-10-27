@@ -2,19 +2,19 @@
 phone.py-style action log so effort_score.py scores it with the same rules as the competitors.
 
 fitlog has no recorded log: the walk below is the fastest path an experienced user takes through the current UI,
-with target sizes measured in a 375 x 812 viewport (1 CSS px = 1 dp). Defaults describe the code as of 2026-10-26
-(after the effort pack: 48 dp set numbers, no gym sheet on start, two-tap end, "repeat last" on the home page,
-auto-scroll to the next card). Flags re-create the earlier UI or model candidate changes, so a change can be
-scored before it is built.
+with target sizes measured in a 375 x 812 viewport (1 CSS px = 1 dp). Defaults describe the code as of 2026-10-27
+(after the first effort pack: two-tap end, auto-scroll to the next card; the user kept the 36 dp set number, the gym
+sheet on start and the long-press entry for "repeat last"). Flags re-create the earlier UI or model candidate
+changes, so a change can be scored before it is built.
 
     python scripts/effort/fitlog_walk.py out.jsonl [flag=value ...]      write the log
     python scripts/effort/fitlog_walk.py --report [flag=value ...]       score it and print the numbers for effort-fitlog.md
 
 Flags (all integers):
-    setnum=48      set-number short edge in dp (36 before 2026-10-26)
-    gymsheet=0     1 = the "which gym" sheet pops on every start (before 2026-10-26)
+    setnum=36      set-number short edge in dp (48 / 56 / 63 are the candidates; 48 was built and rejected 2026-10-27)
+    gymsheet=1     0 = no "which gym" sheet on start, the last gym is reused (built and rejected 2026-10-27)
     endconfirm=0   1 = the end-workout confirm dialog (before 2026-10-26); default is the same-button second tap
-    repeat=1       0 = no "repeat last" row on the home page: T3 starts from the timeline long-press menu
+    repeat=0       1 = a "repeat last" row on the home page instead of the timeline long-press menu (built and rejected 2026-10-27)
     autoscroll=1   0 = the page does not follow the pointer to the next card (one manual scroll per exercise)
     bottom=0       1 = fixed 343x56 bottom button marks the pointer's set done; 2 = 375x96 zone; 3 = 375x192 zone (eyes-free)
     kbdone=0       1 = the keyboard's "done" key on the reps field marks the set done
@@ -22,7 +22,7 @@ Flags (all integers):
     keypad=0       1 = the app's own number pad (no keyboard slide-in wait)
     warm=0         1 = E1-s1 is tagged as a warm-up with one extra 44 dp tap
     halfstep=0     1 = the gym profile offers the cable's add-on plate (+2.5) as a step key (E5-s3 needs no typing)
-    old=1          shorthand for setnum=36 gymsheet=1 endconfirm=1 repeat=0 autoscroll=0 (the UI before the pack)
+    old=1          shorthand for endconfirm=1 autoscroll=0 (the UI before the pack, 2026-10-26)
 """
 import contextlib
 import io
@@ -76,9 +76,9 @@ X_NUM, X_W, X_R = 36, 116, 206  # set number, weight field, reps field
 X_WUP, X_RDN = 140, 230          # +5 kg, −1 rep keys
 FAB = (187, 760)
 
-DEFAULTS = dict(setnum=48, gymsheet=0, endconfirm=0, repeat=1, autoscroll=1,
+DEFAULTS = dict(setnum=36, gymsheet=1, endconfirm=0, repeat=0, autoscroll=1,
                 bottom=0, kbdone=0, autofocus=0, keypad=0, warm=0, halfstep=0)
-OLD = dict(setnum=36, gymsheet=1, endconfirm=1, repeat=0, autoscroll=0)
+OLD = dict(endconfirm=1, autoscroll=0)
 
 
 def walk(flags):
