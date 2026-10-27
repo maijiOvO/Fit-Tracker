@@ -24,6 +24,7 @@ import { plural } from '../utils/format';
 import { dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
 import { realSets } from '../utils/prDetect';
+import { sessionDurationMin } from '../utils/sessionDuration';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
 /** 刚结束 10 分钟内：长按菜单给「继续这场」 */
@@ -321,6 +322,9 @@ const SessionCard: React.FC<SessionCardProps> = ({
     hour12: false,
   });
   const weekdayStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
+  // 练了多久归「什么时候在哪」那一层，跟时间同一组三级字；算不出就不占位
+  const durationMin = sessionDurationMin(w);
+  const durationStr = durationMin === null ? '' : isCN ? `${durationMin} 分` : `${durationMin} min`;
 
   /**
    * 副行：前三个动作。
@@ -374,6 +378,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
             </div>
             <div className="text-micro font-normal text-tertiary mt-1">{weekdayStr}</div>
             <div className="text-micro font-normal text-tertiary tabular-nums">{timeStr}</div>
+            {durationStr && (
+              <div className="text-micro font-normal text-tertiary tabular-nums whitespace-nowrap" data-testid="timeline-duration">
+                {durationStr}
+              </div>
+            )}
           </div>
         )}
 
@@ -383,6 +392,11 @@ const SessionCard: React.FC<SessionCardProps> = ({
               <Calendar size={11} strokeWidth={2} />
               <span className="font-medium">{dateStr}</span>
               <span className="tabular-nums">{timeStr}</span>
+              {durationStr && (
+                <span className="tabular-nums" data-testid="timeline-duration">
+                  · {durationStr}
+                </span>
+              )}
             </div>
           )}
           <div className="flex items-center gap-2 min-w-0">

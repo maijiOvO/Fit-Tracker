@@ -52,6 +52,7 @@ await build({
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
       "export { translations } from './translations.ts';",
+      "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -625,6 +626,25 @@ t('横划：走够 20px 才接管、接管那一下不算档；之后每 10px �
   assert.equal(run([[115, 50]]).tr.engaged, false);
   // 斜着划（垂直方向更多）：放手
   assert.equal(run([[110, 75]]).released, true);
+});
+
+// ── 训练时长（刊末页 / 时间线 / CSV 同一口径）──────────────────────────
+t('训练时长：finishedAt − startTime 按整分截断（计时器的读法，不四舍五入）；不到 1 分（补记）和超过 12 小时（忘了结束）都不显示；没 finishedAt 的退回导入写的 duration 秒；什么都没有就没有', () => {
+  const T0 = '2026-10-21T18:00:00.000Z';
+  const plus = (min, sec = 0) => new Date(Date.parse(T0) + min * 60000 + sec * 1000).toISOString();
+  assert.equal(L.sessionDurationMin({ startTime: T0, finishedAt: plus(47, 20) }), 47);
+  assert.equal(L.sessionDurationMin({ startTime: T0, finishedAt: plus(47, 40) }), 47);
+  assert.equal(L.sessionDurationMin({ startTime: T0, finishedAt: plus(0, 50) }), null);
+  assert.equal(L.sessionDurationMin({ startTime: T0, finishedAt: plus(12 * 60 + 1) }), null);
+  assert.equal(L.sessionDurationMin({ startTime: T0, finishedAt: plus(12 * 60) }), 720);
+  // finishedAt 在 startTime 之前（改过日期的脏数据）：不编
+  assert.equal(L.sessionDurationMin({ startTime: plus(10), finishedAt: T0 }), null);
+  // Strong / Hevy 导入只有 duration（秒），没有 finishedAt 时用它；有 finishedAt 时以时间差为准
+  assert.equal(L.sessionDurationMin({ startTime: T0, duration: 65 * 60 }), 65);
+  assert.equal(L.sessionDurationMin({ startTime: T0, finishedAt: plus(47), duration: 65 * 60 }), 47);
+  assert.equal(L.sessionDurationMin({ duration: 30 }), null);
+  assert.equal(L.sessionDurationMin({ startTime: T0 }), null);
+  assert.equal(L.sessionDurationMin({}), null);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

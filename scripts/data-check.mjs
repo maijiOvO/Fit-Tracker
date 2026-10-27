@@ -204,12 +204,23 @@ await t('CSV：BOM + 中文表头、一组一行、重量带单位和 kg 两列'
     regionsOf: () => '',
     fallbackUnit: 'kg',
   });
-  assert.ok(text.startsWith('﻿日期,开始时间,训练'));
+  assert.ok(text.startsWith('﻿日期,开始时间,训练时长(分),训练'));
   const lines = text.replace(/^﻿/, '').trim().split('\r\n');
   const sets = SEED.reduce((k, w) => k + w.exercises[0].sets.length, 0);
   assert.equal(rows, sets);
   assert.equal(lines.length, sets + 1);
   assert.ok(lines.some(l => /杠铃平板卧推,,胸部,[^,]*,1,正式,100,kg,100,5/.test(l)), lines.slice(0, 3).join('\n'));
+  // 种子没有 startTime：时长列留空，不编一个数
+  assert.ok(lines.slice(1).every(l => /^[^,]*,[^,]*,,/.test(l)), lines[1]);
+});
+
+await t('CSV：有开始和结束时间的场，每一行都带整场时长（分）', () => {
+  const w = seedWorkout('seed_t', 3, 'E2E 时长', '杠铃推举', [[50, 5], [50, 5]]);
+  w.startTime = new Date(Date.parse(w.finishedAt) - 52 * 60000 - 30000).toISOString();
+  const { text } = D.buildWorkoutsCsv([w], { isCn: true, resolveName: x => x, bodyPartOf: () => '', regionsOf: () => '', fallbackUnit: 'kg' });
+  const lines = text.replace(/^﻿/, '').trim().split('\r\n').slice(1);
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every(l => /^[^,]*,[^,]*,52,E2E 时长,/.test(l)), lines[0]);
 });
 
 // ── 合并式恢复 ───────────────────────────────────────────────────────
