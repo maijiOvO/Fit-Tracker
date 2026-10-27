@@ -1,0 +1,130 @@
+{"t": 1793036816.71, "phase": "explore", "op": "session"}
+{"t": 1793036833.36, "phase": "explore", "op": "launch", "pkg": "com.hevy"}
+{"t": 1793036845.89, "phase": "explore", "op": "note", "text": "emulator pass: fresh login landed straight on Home feed, no what's-new/permission/onboarding screen; UI language is English on emulator (system locale)"}
+{"t": 1793036846.02, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1124"]}
+{"t": 1793036863.28, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "316"]}
+{"t": 1793036876.85, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "347"]}
+{"t": 1793036877.05, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 4}
+{"t": 1793036877.17, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "435"]}
+{"t": 1793036888.26, "phase": "explore", "op": "longdrag", "expect_pkg": "com.hevy", "xy": ["200", "740", "200", "520"], "ms": 1000, "dist_dp": 156}
+{"t": 1793036897.75, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "461"]}
+{"t": 1793036905.5, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793036908.38, "phase": "explore", "op": "longdrag", "expect_pkg": "com.hevy", "xy": ["200", "560", "200", "860"], "ms": 1000, "dist_dp": 213}
+{"t": 1793036918.35, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "462"]}
+{"t": 1793036928.12, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1098"]}
+{"t": 1793036938.15, "phase": "explore", "op": "note", "text": "routine folder: + folder icon -> name dialog -> folder with 'Add new routine'; long-press card drag into folder works; folder ⋯ = Share/Reorder Folders/Rename/Add New Routine/Delete; empty folder deleted with no confirm"}
+{"t": 1793036938.27, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1124"]}
+{"t": 1793036947.59, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["505", "64"]}
+{"t": 1793036956.03, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "731"]}
+{"t": 1793036964.63, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793036976.07, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["483", "124"]}
+{"t": 1793036976.2, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["483", "665"]}
+{"t": 1793036983.73, "phase": "explore", "op": "note", "text": "Workout Settings: Keep Awake default OFF -> turned on; Smart Superset Scrolling default OFF -> on; Inline Timer default ON; Live PR Notification default ON"}
+{"t": 1793036983.85, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1124"]}
+{"t": 1793036985.08, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "242"]}
+{"t": 1793037015.58, "phase": "explore", "op": "note", "text": "Keep Awake verified: during workout Hevy window has fl=KEEP_SCREEN_ON (dumpsys window), SCREEN_BRIGHT_WAKE_LOCK ws=com.hevy"}
+{"t": 1793037015.7, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "525"]}
+{"t": 1793037024.69, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "402"]}
+{"t": 1793037024.81, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "515"]}
+{"t": 1793037024.94, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["289", "160"]}
+{"t": 1793037025.18, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 5}
+{"t": 1793037034.37, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "402"]}
+{"t": 1793037034.5, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037042.88, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "1115"]}
+{"t": 1793037052.77, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["500", "249"]}
+{"t": 1793037092.77, "phase": "X-superset", "op": "phase"}
+{"t": 1793037092.85, "phase": "X-superset", "op": "note", "text": "setup started in explore with 1 tap on exercise ⋮ (500,249, ~24x48dp icon) - add 1 tap to this phase"}
+{"t": 1793037104.04, "phase": "X-superset", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["185", "1008"]}
+{"t": 1793037106.6, "phase": "X-superset", "op": "shot", "path": "s2_superset_pick.png"}
+{"t": 1793037108.98, "phase": "X-superset", "op": "shot", "path": "emu\\stuck.png"}
+{"t": 1793037111.35, "phase": "X-superset", "op": "size", "w_dp": 352, "h_dp": 68}
+{"t": 1793037126.39, "phase": "X-superset", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["180", "630"]}
+{"t": 1793037128.94, "phase": "X-superset", "op": "shot", "path": "s2_superset.png"}
+{"t": 1793037133.7, "phase": "X-superset", "op": "size", "w_dp": 384, "h_dp": 56}
+{"t": 1793037150.7, "phase": "X-superset", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "471"]}
+{"t": 1793037153.27, "phase": "X-superset", "op": "shot", "path": "s2_superset_scroll.png"}
+{"t": 1793037158.31, "phase": "X-superset", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793037175.11, "phase": "X-superset", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1069"]}
+{"t": 1793037175.2, "phase": "X-superset", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793037177.78, "phase": "X-superset", "op": "shot", "path": "s2_superset_r1.png"}
+{"t": 1793037187.92, "phase": "X-superset", "op": "note", "text": "round 1 done (bench W + incline 1) by 2 ✓ taps, values prefilled from history; no auto-scroll seen because both rows already on screen"}
+{"t": 1793037199.49, "phase": "X-superset", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "538"]}
+{"t": 1793037199.58, "phase": "X-superset", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793037202.15, "phase": "X-superset", "op": "shot", "path": "s2_superset_r2.png"}
+{"t": 1793037210.32, "phase": "X-superset", "op": "note", "text": "after bench set1 ✓ list auto-scrolled ~61px (screenshot px) so incline set 2 fully in view = smart superset scrolling"}
+{"t": 1793037221.86, "phase": "X-superset", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "1074"]}
+{"t": 1793037221.94, "phase": "X-superset", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793037224.51, "phase": "X-superset", "op": "shot", "path": "s2_superset_r3.png"}
+{"t": 1793037233.17, "phase": "X-superset", "op": "note", "text": "2 rounds of superset logged with 4 ✓ taps total; rows were prefilled from history (W/1 bench, 1/2 incline)"}
+{"t": 1793037233.25, "phase": "explore", "op": "phase"}
+{"t": 1793037233.76, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037234.26, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037243.7, "phase": "X-duration", "op": "phase"}
+{"t": 1793037255.41, "phase": "X-duration", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["304", "606"]}
+{"t": 1793037255.5, "phase": "X-duration", "op": "size", "w_dp": 24, "h_dp": 24}
+{"t": 1793037259.03, "phase": "X-duration", "op": "shot", "path": "s2_plank_run.png"}
+{"t": 1793037283.89, "phase": "X-duration", "op": "tap", "hit": null, "expect_pkg": "com.hevy", "xy": ["491", "606"]}
+{"t": 1793037283.98, "phase": "X-duration", "op": "size", "w_dp": 36, "h_dp": 34}
+{"t": 1793037286.58, "phase": "X-duration", "op": "shot", "path": "s2_plank_done.png"}
+{"t": 1793037297.03, "phase": "X-duration", "op": "note", "text": "inline timer: ▶ (≈24dp) starts stopwatch in the TIME cell (turns to ⏸), tapping ✓ while running stops it and records elapsed 00:28 -> 2 taps per timed set, no keyboard. No countdown/target time; no sound checked"}
+{"t": 1793037297.13, "phase": "explore", "op": "phase"}
+{"t": 1793037297.27, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["251", "496"]}
+{"t": 1793037306.29, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 10}
+{"t": 1793037306.42, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["36", "565"]}
+{"t": 1793037315.53, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["200", "800"]}
+{"t": 1793037326.29, "phase": "explore", "op": "note", "text": "exercise Note: tap Note -> inline text field + system keyboard; tooltip 'Tap to change note type'; icon -> sheet Pinned Exercise Note (every time, hidden from posts) / Workout Note (this workout only, visible to friends/followers) / Delete Note"}
+{"t": 1793037326.42, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037326.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["36", "565"]}
+{"t": 1793037328.8, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["150", "1104"]}
+{"t": 1793037337.8, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["470", "73"]}
+{"t": 1793037348.07, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "400"]}
+{"t": 1793037357.0, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["157", "1008"]}
+{"t": 1793037368.7, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "765"]}
+{"t": 1793037378.8, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "731"]}
+{"t": 1793037380.01, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "400"]}
+{"t": 1793037382.22, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["250", "1099"]}
+{"t": 1793037393.77, "phase": "explore", "op": "note", "text": "photo/video: sheet Take Photo / Select Library Photo or Video. Take Photo -> system camera permission prompt -> Don't allow -> in-app 'We need permission' dialog (Open Settings/Cancel). Library -> Android system photo picker (no permission needed; emulator has no photos) -> cancelled"}
+{"t": 1793037393.89, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["39", "596"]}
+{"t": 1793037396.25, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "732"]}
+{"t": 1793037411.42, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "892"]}
+{"t": 1793037422.53, "phase": "explore", "op": "note", "text": "Save page Gym > Select: opens location permission prompt immediately (declined) -> Gym page: Use my location (find gyms nearby) / Suggestions: Home gym (private location). Location tag only, no equipment/plates attached"}
+{"t": 1793037422.66, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037423.87, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["250", "553"]}
+{"t": 1793037424.24, "phase": "explore", "op": "text", "expect_pkg": "com.hevy", "chars": 13}
+{"t": 1793037424.38, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037432.75, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "868"]}
+{"t": 1793037444.42, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "614"]}
+{"t": 1793037448.74, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["450", "1124"]}
+{"t": 1793037449.96, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["505", "64"]}
+{"t": 1793037452.54, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037453.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037462.43, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["483", "125"]}
+{"t": 1793037462.57, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["483", "665"]}
+{"t": 1793037464.29, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037465.86, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037466.35, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037477.44, "phase": "explore", "op": "note", "text": "restored Keep Awake OFF and Smart Superset Scrolling OFF"}
+{"t": 1793037477.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "128"]}
+{"t": 1793037487.12, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037487.62, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037488.12, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037488.6, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037489.09, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037491.38, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037492.59, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "186"]}
+{"t": 1793037503.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037503.54, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037504.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037504.54, "phase": "explore", "op": "scroll", "expect_pkg": "com.hevy", "dir": "down"}
+{"t": 1793037511.27, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037518.94, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "346"]}
+{"t": 1793037532.1, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["253", "864"]}
+{"t": 1793037552.47, "phase": "explore", "op": "note", "text": "FAQ: in-app list with 'Search topics' + articles in webview (hevy blog). Article 'Tracking Progress on Gym Machines (And Why It Can Be Inconsistent)' recommends: stick to same machines / create custom exercises for new machines"}
+{"t": 1793037552.6, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037553.82, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037562.56, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "760"]}
+{"t": 1793037574.27, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["270", "453"]}
+{"t": 1793037595.56, "phase": "explore", "op": "note", "text": "Learn About Hevy Coach: survey 'What best describes you?' (trainer / have a trainer / just curious) -> chose just curious -> 'Welcome to Hevy Coach' intro page (desktop tool for PTs: build programs, track clients) with Get Started (not followed, likely web sign-up). Getting Started Guide + Routine Help = static illustrated in-app pages"}
+{"t": 1793037595.69, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037595.87, "phase": "explore", "op": "key", "expect_pkg": "com.hevy", "key": "back"}
+{"t": 1793037597.08, "phase": "explore", "op": "tap", "expect_pkg": "com.hevy", "xy": ["90", "1124"]}

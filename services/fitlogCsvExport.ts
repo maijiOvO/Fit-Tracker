@@ -10,6 +10,7 @@
  */
 import type { Exercise, SetLog, SubSetLog, WorkoutSession } from '../types';
 import { signedKg } from '../src/utils/load';
+import { sessionDurationMin } from '../src/utils/sessionDuration';
 import { plateUnitOf } from '../src/utils/plates';
 import { KG_TO_LBS } from '../src/constants';
 import { pad2 } from '../src/utils/format';
@@ -47,8 +48,8 @@ function localTime(iso: string | undefined): string {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const CSV_HEADERS = {
-  cn: ['日期', '开始时间', '训练', '场地', '动作', '做法', '部位', '细分', '组序', '类型', '重量', '单位', '重量(kg)', '次数', '力竭', '时长(秒)', '距离', '距离单位', '训练备注'],
-  en: ['Date', 'Start Time', 'Workout', 'Gym', 'Exercise', 'Variant', 'Body Part', 'Region', 'Set', 'Type', 'Weight', 'Unit', 'Weight (kg)', 'Reps', 'To Failure', 'Duration (s)', 'Distance', 'Distance Unit', 'Workout Notes'],
+  cn: ['日期', '开始时间', '训练时长(分)', '训练', '场地', '动作', '做法', '部位', '细分', '组序', '类型', '重量', '单位', '重量(kg)', '次数', '力竭', '时长(秒)', '距离', '距离单位', '训练备注'],
+  en: ['Date', 'Start Time', 'Workout Duration (min)', 'Workout', 'Gym', 'Exercise', 'Variant', 'Body Part', 'Region', 'Set', 'Type', 'Weight', 'Unit', 'Weight (kg)', 'Reps', 'To Failure', 'Duration (s)', 'Distance', 'Distance Unit', 'Workout Notes'],
 };
 
 /** 返回整份 CSV 文本（含 BOM）和行数（不含表头） */
@@ -58,7 +59,8 @@ export function buildWorkoutsCsv(workouts: WorkoutSession[], h: CsvExportHelpers
 
   for (const w of sorted) {
     const when = w.startTime || w.date;
-    const base = [localDate(when), localTime(when), w.title ?? '', w.gym ?? ''];
+    // 整场的时长重复写在每一行上，和「训练备注」同一做法：Excel 里按日期筛就是一场
+    const base = [localDate(when), localTime(when), String(sessionDurationMin(w) ?? ''), w.title ?? '', w.gym ?? ''];
     for (const ex of w.exercises ?? []) {
       const name = h.resolveName(ex.name);
       const exCols = [name, ex.variantName ?? '', h.bodyPartOf(ex.name), h.regionsOf(ex.name)];

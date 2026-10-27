@@ -22,6 +22,7 @@ import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
 import { findLastIn } from '../utils/prefillSource';
+import { sessionDurationMin } from '../utils/sessionDuration';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
 
@@ -182,6 +183,8 @@ export interface ColophonState {
   dateISO: string;
   exerciseCount: number;
   setCount: number;
+  /** 练了多少分钟；补记 / 忘了结束的场算不出就不显示（sessionDurationMin） */
+  durationMin: number | null;
   volume: number;
   unitLabel: string;
   stamps: PRHit[];
@@ -463,6 +466,8 @@ export function useWorkoutMutations({
       });
       const summary = sessionSummary(finalWorkout);
       const volume = unit === 'lbs' ? summary.volumeKg * KG_TO_LBS : summary.volumeKg;
+      // ctxFinishWorkout 才写 finishedAt；刊末页要的就是「到现在为止」，口径和时间线一致
+      const durationMin = sessionDurationMin({ ...finalWorkout, finishedAt: new Date().toISOString() });
 
       await ctxFinishWorkout(finalWorkout);
 
@@ -473,6 +478,7 @@ export function useWorkoutMutations({
         dateISO: finalWorkout.date,
         exerciseCount: summary.exerciseCount,
         setCount: summary.setCount,
+        durationMin,
         volume,
         unitLabel: unit,
         stamps: stampsInUnit(pr.stamps, unit, KG_TO_LBS),

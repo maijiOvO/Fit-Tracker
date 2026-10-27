@@ -1,0 +1,522 @@
+{"t": 1793032412.05, "phase": "explore", "op": "session"}
+{"t": 1793032412.79, "phase": "explore", "op": "launch", "expect_pkg": "com.hevy", "pkg": "com.trainnote.rn"}
+{"t": 1793032426.29, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793032434.52, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793032443.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793032461.06, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["183", "208"]}
+{"t": 1793032470.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1793032471.67, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1793032481.42, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "370"]}
+{"t": 1793032491.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["141", "590"]}
+{"t": 1793032507.87, "phase": "X-baseline-set", "op": "phase"}
+{"t": 1793032510.41, "phase": "X-baseline-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["141", "415"]}
+{"t": 1793032514.21, "phase": "X-baseline-set", "op": "tap", "hit": {"label": "6", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "935"]}
+{"t": 1793032518.04, "phase": "X-baseline-set", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1793032521.04, "phase": "X-baseline-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1793032523.94, "phase": "X-baseline-set", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1008"]}
+{"t": 1793032526.5, "phase": "X-baseline-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1793032528.13, "phase": "X-baseline-set", "op": "shot", "path": "s2_base_done.png"}
+{"t": 1793032535.58, "phase": "explore", "op": "phase"}
+{"t": 1793032535.71, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793032544.11, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "512"]}
+{"t": 1793032553.37, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793032562.38, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1128"]}
+{"t": 1793032581.33, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1083"]}
+{"t": 1793032582.56, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793032593.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["135", "952"]}
+{"t": 1793032603.67, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["289", "700"]}
+{"t": 1793032615.03, "phase": "explore", "op": "note", "text": "语音播报: workout 设置 -> 语音播报: disclaimer (only for bodyweight), per-exercise rep interval/rest/next-exercise seconds, 开始播报 -> fullscreen follow-along player counting reps 0/8(60kg); X -> 提前结束 dialog; after exit workout timer paused at 00:53"}
+{"t": 1793032615.17, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793032616.38, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["465", "740"]}
+{"t": 1793032617.62, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1110"]}
+{"t": 1793032627.64, "phase": "X-bigfont-set", "op": "phase"}
+{"t": 1793032630.19, "phase": "X-bigfont-set", "op": "tap", "hit": {"label": "新增一组", "cls": "ViewGroup", "w_dp": 160, "h_dp": 41, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["151", "835"]}
+{"t": 1793032631.85, "phase": "X-bigfont-set", "op": "shot", "path": "s2_big2.png"}
+{"t": 1793032642.32, "phase": "X-bigfont-set", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 66, "h_dp": 54, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["259", "712"]}
+{"t": 1793032644.11, "phase": "X-bigfont-set", "op": "shot", "path": "s2_big_kp.png"}
+{"t": 1793032654.72, "phase": "X-bigfont-set", "op": "tap", "hit": {"label": "7", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1008"]}
+{"t": 1793032658.29, "phase": "X-bigfont-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 56, "h_dp": 52, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["362", "407"]}
+{"t": 1793032659.45, "phase": "X-bigfont-set", "op": "note", "text": "大字版 on: weight/reps cells 54x42 -> 66x54dp, check 52x42 -> 55x53dp, fonts larger; keypad unchanged (digits 69x48dp); 新增一组 unchanged 160x41dp"}
+{"t": 1793032659.54, "phase": "explore", "op": "phase"}
+{"t": 1793032668.47, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["478", "712"]}
+{"t": 1793032678.61, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793032679.78, "phase": "X-setnote", "op": "phase"}
+{"t": 1793032691.21, "phase": "X-setnote", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["478", "712"]}
+{"t": 1793032694.6, "phase": "X-setnote", "op": "tap", "hit": {"label": "输入组备注", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["363", "1005"]}
+{"t": 1793032696.5, "phase": "X-setnote", "op": "shot", "path": "s2_setnote.png"}
+{"t": 1793032707.25, "phase": "X-setnote", "op": "void", "n": 0}
+{"t": 1793032707.33, "phase": "X-setnote", "op": "note", "text": "row ... menu target: UI tree unavailable; visible glyph is 3 dots ~17x6dp (hit area unknown, recorded below as visible size of the second-to-last action is not settable); system keyboard opens for set note"}
+{"t": 1793032707.5, "phase": "X-setnote", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 11}
+{"t": 1793032719.1, "phase": "X-setnote", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["270", "570"]}
+{"t": 1793032720.76, "phase": "X-setnote", "op": "shot", "path": "s2_setnote_done.png"}
+{"t": 1793032727.41, "phase": "X-setnote", "op": "size", "w_dp": 236, "h_dp": 38}
+{"t": 1793032727.49, "phase": "explore", "op": "phase"}
+{"t": 1793032732.9, "phase": "X-copyset", "op": "phase"}
+{"t": 1793032744.31, "phase": "X-copyset", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["478", "712"]}
+{"t": 1793032746.4, "phase": "X-copyset", "op": "shot", "path": "s2_menu2.png"}
+{"t": 1793032753.61, "phase": "X-copyset", "op": "size", "w_dp": 17, "h_dp": 6}
+{"t": 1793032755.92, "phase": "X-copyset", "op": "tap", "hit": {"label": "复制本组", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["353", "802"]}
+{"t": 1793032757.09, "phase": "explore", "op": "phase"}
+{"t": 1793032766.87, "phase": "explore", "op": "note", "text": "复制本组: appends copy at end of exercise (not below source), undone, weight/reps copied, set note NOT copied"}
+{"t": 1793032767.03, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["478", "851"]}
+{"t": 1793032776.4, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["393", "760"]}
+{"t": 1793032787.58, "phase": "explore", "op": "note", "text": "手动开始休息计时: starts the same floating 60s rest circle without marking set done"}
+{"t": 1793032787.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["104", "528"]}
+{"t": 1793032798.21, "phase": "X-settimer-set", "op": "phase"}
+{"t": 1793032809.68, "phase": "X-settimer-set", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["362", "851"]}
+{"t": 1793032812.33, "phase": "X-settimer-set", "op": "shot", "path": "s2_settimer2.png"}
+{"t": 1793032820.52, "phase": "X-settimer-set", "op": "size", "w_dp": 55, "h_dp": 53}
+{"t": 1793032826.17, "phase": "X-settimer-set", "op": "shot", "path": "s2_settimer3.png"}
+{"t": 1793032845.34, "phase": "X-settimer-set", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["270", "783"]}
+{"t": 1793032848.0, "phase": "X-settimer-set", "op": "shot", "path": "s2_settimer4.png"}
+{"t": 1793032857.98, "phase": "X-settimer-set", "op": "size", "w_dp": 275, "h_dp": 50}
+{"t": 1793032858.06, "phase": "X-settimer-set", "op": "note", "text": "每组计时 on: each check box shows timer 60; tapping check opens TRAINING TIMER modal: 准备 5s countdown then 训练计时 60s, buttons 跳过 / 连续播放 / minimize; set marked done only after timer ends or 跳过, then normal rest timer starts. Cost +1 tap (跳过) or waiting"}
+{"t": 1793032858.14, "phase": "explore", "op": "phase"}
+{"t": 1793032858.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["209", "528"]}
+{"t": 1793032868.78, "phase": "explore", "op": "note", "text": "每组计时 stopwatch icon -> 动作-时间设置 page (light-themed web page in dark app): 训练时间/准备时间 统一设置 + per-set"}
+{"t": 1793032868.92, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["57", "107"]}
+{"t": 1793032870.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["104", "528"]}
+{"t": 1793032871.36, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "972"]}
+{"t": 1793032882.27, "phase": "explore", "op": "note", "text": "简单/正常/困难: per-exercise radio (one per exercise, not per set), tap fills circle; no prompt"}
+{"t": 1793032882.4, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["478", "359"]}
+{"t": 1793032891.81, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["372", "585"]}
+{"t": 1793032901.7, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 2}
+{"t": 1793032902.92, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["170", "290"]}
+{"t": 1793032912.59, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["393", "877"]}
+{"t": 1793032913.81, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["126", "377"]}
+{"t": 1793032923.41, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["477", "113"]}
+{"t": 1793032932.92, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["316", "526"]}
+{"t": 1793032942.63, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 2}
+{"t": 1793032942.77, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["490", "113"]}
+{"t": 1793032943.99, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["478", "359"]}
+{"t": 1793032945.21, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["372", "720"]}
+{"t": 1793032955.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["424", "660"]}
+{"t": 1793032956.42, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1125"]}
+{"t": 1793032968.04, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1793032977.46, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["75", "942"]}
+{"t": 1793032987.79, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["110", "903"]}
+{"t": 1793033001.04, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["75", "963"]}
+{"t": 1793033012.62, "phase": "explore", "op": "note", "text": "备选动作: picker; alt shows as thumbnail at card bottom (清除/x); tapping it swaps card to the alt exercise with its own empty sets (main sets hidden, header 0/1组), 备选动作(1) expands 主动作/备选动作 thumbnails, tap 主动作 to swap back; data kept. 组间休息(设置): per-exercise 热身组/正式组 seconds page (system keyboard). 组间有氧: pick 1 of ~10 cardio moves + seconds, shown as row '原地跑(30s)' on card"}
+{"t": 1793033012.7, "phase": "X-replace", "op": "phase"}
+{"t": 1793033024.22, "phase": "X-replace", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["478", "359"]}
+{"t": 1793033025.9, "phase": "X-replace", "op": "shot", "path": "s2_gear2.png"}
+{"t": 1793033033.94, "phase": "X-replace", "op": "size", "w_dp": 17, "h_dp": 17}
+{"t": 1793033036.21, "phase": "X-replace", "op": "tap", "hit": {"label": "替换动作", "cls": "ViewGroup", "w_dp": 175, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["352", "857"]}
+{"t": 1793033038.9, "phase": "X-replace", "op": "shot", "path": "s2_replace.png"}
+{"t": 1793033052.55, "phase": "X-replace", "op": "tap", "hit": {"label": "暂停卧推", "cls": "ViewGroup", "w_dp": 352, "h_dp": 106, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "650"]}
+{"t": 1793033055.2, "phase": "X-replace", "op": "shot", "path": "s2_replace2.png"}
+{"t": 1793033065.03, "phase": "explore", "op": "phase"}
+{"t": 1793033065.11, "phase": "explore", "op": "note", "text": "替换动作: page with 训练场景 (健身房/纯器械/在家哑铃) + 身体状况筛选 (只是不想做/腰不舒服/膝盖痛...) and 推荐替代动作(8) with reasons; tap one -> replaced instantly, set count kept, done flags cleared, weights reset to 智能重量推荐 20kg toast (保守起始建议, 长按关闭提示)"}
+{"t": 1793033068.34, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "390"]}
+{"t": 1793033082.15, "phase": "explore", "op": "note", "text": "After replace: the 3 done 60kg sets became undone 20/8,20/7,20/7 - logged weights overwritten; set note, 组间有氧 gone. Toast stays until long-press"}
+{"t": 1793033082.99, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900"], "ms": 700}
+{"t": 1793033084.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793033085.44, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "892"]}
+{"t": 1793033096.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1793033099.15, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793033107.87, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "506"]}
+{"t": 1793033119.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033120.14, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033120.63, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033121.13, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033129.98, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["208", "170"]}
+{"t": 1793033139.64, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033140.16, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033140.65, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033149.39, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033149.89, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033150.39, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033160.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["332", "170"]}
+{"t": 1793033164.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033165.05, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033165.54, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033174.67, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["84", "170"]}
+{"t": 1793033176.28, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033180.8, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033185.39, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033188.22, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033191.49, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033194.31, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033197.15, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033199.96, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033203.42, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033206.24, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033214.43, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033214.92, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033215.42, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033215.93, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033216.43, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033216.93, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033217.44, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033217.95, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033218.45, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033218.96, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033221.14, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033233.4, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033233.9, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793033234.35, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "500", "270", "800"], "ms": 300, "dist_dp": 213}
+{"t": 1793033243.49, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "400"], "ms": 300, "dist_dp": 355}
+{"t": 1793033252.95, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "500", "270", "750"], "ms": 300, "dist_dp": 178}
+{"t": 1793033267.86, "phase": "explore", "op": "note", "text": "训练按钮大小 (偏好设置 > 训练设置): 标准/大/特大, found at 大 (baseline measurements so far were at 大 with 大字版 off). Also found: 输入框位置 左kg右次/左次右kg, 完成一个动作后自动打开下一个动作 (不自动 default), 是否在点击计时器之后打勾本组, 是否复制每组备注"}
+{"t": 1793033268.01, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["280", "692"]}
+{"t": 1793033269.24, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793033270.48, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["306", "1105"]}
+{"t": 1793033271.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793033282.31, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "99"]}
+{"t": 1793033292.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793033293.5, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793033295.72, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793033297.94, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["183", "208"]}
+{"t": 1793033299.16, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1793033300.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1793033302.59, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "370"]}
+{"t": 1793033313.1, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793033322.11, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["465", "740"]}
+{"t": 1793033323.34, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1110"]}
+{"t": 1793033334.08, "phase": "X-btnsize-XL-set", "op": "phase"}
+{"t": 1793033337.45, "phase": "X-btnsize-XL-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 50, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["141", "596"]}
+{"t": 1793033339.08, "phase": "X-btnsize-XL-set", "op": "shot", "path": "s2_xl_kp.png"}
+{"t": 1793033351.62, "phase": "X-btnsize-XL-set", "op": "tap", "hit": {"label": "6", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "935"]}
+{"t": 1793033355.93, "phase": "X-btnsize-XL-set", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1793033360.1, "phase": "X-btnsize-XL-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 50, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "410"]}
+{"t": 1793033363.33, "phase": "X-btnsize-XL-set", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1008"]}
+{"t": 1793033366.33, "phase": "X-btnsize-XL-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 53, "h_dp": 50, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "410"]}
+{"t": 1793033367.49, "phase": "X-btnsize-XL-set", "op": "note", "text": "训练按钮大小=特大 (大字版 off): weight/reps cells 54x50dp, check 53x50dp (vs 大 54x42 / 52x42): only height grows; keypad unchanged 69x48dp"}
+{"t": 1793033367.57, "phase": "explore", "op": "phase"}
+{"t": 1793033373.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["67", "1130"]}
+{"t": 1793033375.44, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793033402.67, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "506"]}
+{"t": 1793033405.25, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033405.75, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033415.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["254", "1140"]}
+{"t": 1793033417.15, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "400", "270", "900"], "ms": 300, "dist_dp": 355}
+{"t": 1793033426.2, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1793033435.55, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["74", "345"]}
+{"t": 1793033436.77, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["425", "1037"]}
+{"t": 1793033447.98, "phase": "X-btnsize-std-set", "op": "phase"}
+{"t": 1793033459.41, "phase": "X-btnsize-std-set", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["151", "814"]}
+{"t": 1793033461.43, "phase": "X-btnsize-std-set", "op": "shot", "path": "s2_std2.png"}
+{"t": 1793033470.63, "phase": "X-btnsize-std-set", "op": "size", "w_dp": 160, "h_dp": 41}
+{"t": 1793033470.7, "phase": "X-btnsize-std-set", "op": "void", "n": 1}
+{"t": 1793033470.79, "phase": "explore", "op": "phase"}
+{"t": 1793033470.87, "phase": "explore", "op": "note", "text": "Button size change not applied to open workout until reopened"}
+{"t": 1793033471.04, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["67", "1130"]}
+{"t": 1793033473.27, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["425", "1037"]}
+{"t": 1793033485.82, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["67", "1130"]}
+{"t": 1793033488.06, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793033490.29, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "506"]}
+{"t": 1793033492.86, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033493.35, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793033494.88, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "400", "270", "900"], "ms": 300, "dist_dp": 355}
+{"t": 1793033496.41, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1793033507.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["254", "516"]}
+{"t": 1793033509.17, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "400", "270", "900"], "ms": 300, "dist_dp": 355}
+{"t": 1793033520.38, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["74", "651"]}
+{"t": 1793033540.47, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["74", "690"]}
+{"t": 1793033552.28, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "400"], "ms": 800, "dist_dp": 355}
+{"t": 1793033563.01, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["254", "967"]}
+{"t": 1793033575.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["425", "1037"]}
+{"t": 1793033578.15, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793033579.36, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "892"]}
+{"t": 1793033580.58, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1793033582.81, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793033584.03, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793033586.26, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793033597.72, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793033598.94, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1793033611.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793033613.06, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793033615.29, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793033626.67, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "660"]}
+{"t": 1793033627.89, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["323", "440"]}
+{"t": 1793033629.12, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1793033640.44, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "370"]}
+{"t": 1793033650.43, "phase": "X-btnsize-std-set", "op": "phase"}
+{"t": 1793033652.99, "phase": "X-btnsize-std-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["141", "581"]}
+{"t": 1793033654.64, "phase": "X-btnsize-std-set", "op": "shot", "path": "s2_std_kp.png"}
+{"t": 1793033665.92, "phase": "X-btnsize-std-set", "op": "tap", "hit": {"label": "6", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "935"]}
+{"t": 1793033668.45, "phase": "X-btnsize-std-set", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1793033671.93, "phase": "X-btnsize-std-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "401"]}
+{"t": 1793033674.41, "phase": "X-btnsize-std-set", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1008"]}
+{"t": 1793033677.04, "phase": "X-btnsize-std-set", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "401"]}
+{"t": 1793033679.2, "phase": "X-btnsize-std-set", "op": "note", "text": "训练按钮大小=标准: cells 54x30dp, check 52x30dp (vs 大 42dp tall, 特大 50dp tall). Keypad 69x48 in all three"}
+{"t": 1793033679.28, "phase": "explore", "op": "phase"}
+{"t": 1793033692.34, "phase": "explore", "op": "note", "text": "完成一个动作后自动打开下一个动作=自动: after the last set of bench was checked, bench card collapsed and the next card (dips) expanded automatically with row 1 visible on screen - fixes the accordion extra tap (off by default)"}
+{"t": 1793033692.5, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793033693.71, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "892"]}
+{"t": 1793033694.94, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1793033697.17, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["212", "1128"]}
+{"t": 1793033708.0, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1793033718.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["455", "170"]}
+{"t": 1793033728.44, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1118"]}
+{"t": 1793033729.65, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["183", "208"]}
+{"t": 1793033740.18, "phase": "explore", "op": "note", "text": "置顶: 动作详情 header pin icon -> exercise appears in a 置顶 group at top of its body-part list (per body part), one tap toggle"}
+{"t": 1793033740.33, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["492", "129"]}
+{"t": 1793033749.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["407", "243"]}
+{"t": 1793033760.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "670"]}
+{"t": 1793033762.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["424", "840"]}
+{"t": 1793033771.73, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1145"]}
+{"t": 1793033782.17, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "277"]}
+{"t": 1793033794.65, "phase": "explore", "op": "note", "text": "新增超级组 (动作页 +): free; pick exercises -> 组合 -> name dialog (default A+B) -> saved under left category 超级组 (bottom of list), card shows both names"}
+{"t": 1793033794.79, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793033796.01, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793033798.23, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793033809.79, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["55", "1000", "55", "300"], "ms": 300, "dist_dp": 498}
+{"t": 1793033819.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["52", "616"]}
+{"t": 1793033829.47, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "640"]}
+{"t": 1793033838.78, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1793033849.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "370"]}
+{"t": 1793033860.14, "phase": "X-superset-round", "op": "phase"}
+{"t": 1793033862.63, "phase": "X-superset-round", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["341", "730"]}
+{"t": 1793033864.29, "phase": "X-superset-round", "op": "shot", "path": "s2_ss_kp.png"}
+{"t": 1793033876.26, "phase": "X-superset-round", "op": "tap", "hit": {"label": "6", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "935"]}
+{"t": 1793033880.32, "phase": "X-superset-round", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1793033884.45, "phase": "X-superset-round", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["440", "465"]}
+{"t": 1793033887.15, "phase": "X-superset-round", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1008"]}
+{"t": 1793033890.16, "phase": "X-superset-round", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["341", "519"]}
+{"t": 1793033892.66, "phase": "X-superset-round", "op": "tap", "hit": {"label": "4", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["167", "935"]}
+{"t": 1793033895.65, "phase": "X-superset-round", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1793033898.56, "phase": "X-superset-round", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["440", "519"]}
+{"t": 1793033900.95, "phase": "X-superset-round", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1008"]}
+{"t": 1793033904.22, "phase": "X-superset-round", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 30, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["340", "412"]}
+{"t": 1793033906.88, "phase": "X-superset-round", "op": "shot", "path": "s2_ss_done.png"}
+{"t": 1793033921.28, "phase": "X-superset-round", "op": "note", "text": "Superset card (from library superset): one round = rows A and B each with kg/reps cells + one check for the round; keypad lacks 热身组 key; 4 bottom buttons 新增一组/动作历史/语音设置/语音播报. One round 60x8 + 40x8 = 10 taps. Volume 800"}
+{"t": 1793033921.36, "phase": "explore", "op": "phase"}
+{"t": 1793033921.52, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793033922.74, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "892"]}
+{"t": 1793033923.97, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1793033926.19, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["212", "1128"]}
+{"t": 1793033928.42, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["492", "129"]}
+{"t": 1793033929.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["400", "334"]}
+{"t": 1793033941.34, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "882"]}
+{"t": 1793033951.87, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 4}
+{"t": 1793033952.0, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "249"]}
+{"t": 1793033954.22, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793033964.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["492", "129"]}
+{"t": 1793033965.42, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["400", "334"]}
+{"t": 1793033975.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["508", "707"]}
+{"t": 1793033987.06, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["394", "700"]}
+{"t": 1793033988.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793033990.44, "phase": "explore", "op": "note", "text": "管理分类: 23 built-in categories with '-' badge, custom with x; 新增分类 dialog (system keyboard); long-press drag to sort; delete custom -> confirm '删除之后，该分类下的动作不会删除'. Created and deleted Gym2"}
+{"t": 1793033991.31, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["228", "640"], "ms": 700}
+{"t": 1793034002.51, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["345", "1118"]}
+{"t": 1793034014.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["200", "1098"]}
+{"t": 1793034025.54, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["394", "700"]}
+{"t": 1793034026.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["32", "209"]}
+{"t": 1793034028.98, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1793034031.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["455", "170"]}
+{"t": 1793034042.6, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["455", "170"]}
+{"t": 1793034043.89, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1118"]}
+{"t": 1793034045.1, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["183", "208"]}
+{"t": 1793034054.89, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "390"]}
+{"t": 1793034057.11, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["455", "170"]}
+{"t": 1793034058.34, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1118"]}
+{"t": 1793034059.56, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["183", "208"]}
+{"t": 1793034070.41, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["416", "129"]}
+{"t": 1793034081.34, "phase": "explore", "op": "note", "text": "识别: in-app pre-permission dialog 权限使用说明 (相机权限, 拍照识别健身器械, photo sent to recognition service) -> declined 暂不授权"}
+{"t": 1793034081.48, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["258", "784"]}
+{"t": 1793034082.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793034085.21, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793034095.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["140", "456"]}
+{"t": 1793034105.59, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["449", "786"]}
+{"t": 1793034115.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["426", "786"]}
+{"t": 1793034127.38, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["425", "786", "480", "786"], "ms": 300, "dist_dp": 39}
+{"t": 1793034139.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["499", "94"]}
+{"t": 1793034150.97, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034152.2, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["475", "509"]}
+{"t": 1793034153.43, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["449", "786"]}
+{"t": 1793034165.89, "phase": "explore", "op": "note", "text": "经期: select a date first, then 月经来了 toggle -> marks 5-day period (from 经期长度 5 / 周期 28 settings), shows 写心得 box and advice text (stop strength training, eat iron). Toggle needs a date selected first (tapping 今 path didn't work)"}
+{"t": 1793034166.04, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["455", "786"]}
+{"t": 1793034176.25, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034178.47, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "571"]}
+{"t": 1793034188.61, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["147", "1061"]}
+{"t": 1793034199.19, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1061"]}
+{"t": 1793034209.02, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["364", "645"]}
+{"t": 1793034211.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1132"]}
+{"t": 1793034224.16, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["200", "1000"], "ms": 700}
+{"t": 1793034234.87, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["400", "1000", "100", "1000"], "ms": 300, "dist_dp": 213}
+{"t": 1793034245.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1098"]}
+{"t": 1793034257.35, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["394", "700"]}
+{"t": 1793034259.58, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793034269.46, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "571"]}
+{"t": 1793034281.86, "phase": "explore", "op": "note", "text": "轻断食: preset 14:10 (dropdown), 马上开始 / 到点开始 (planned 20:00), ring countdown 断食期间 -> 结束断食 confirm -> switches to 进食期间 countdown; 历史记录 sheet with 补录, swipe to edit/删除记录. Started+ended+deleted record; state back to 准备开始"}
+{"t": 1793034282.02, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["100", "231"]}
+{"t": 1793034292.13, "phase": "explore", "op": "note", "text": "断食计划 sheet: 12:12 / 14:10 / 16:8 / 自定义 (VIP 可自定义断食时长), 开始时间, 结束提醒"}
+{"t": 1793034292.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["53", "686"]}
+{"t": 1793034293.52, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793034294.8, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["143", "629"]}
+{"t": 1793034305.01, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["140", "212"]}
+{"t": 1793034306.23, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 2}
+{"t": 1793034306.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["398", "212"]}
+{"t": 1793034307.62, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 1}
+{"t": 1793034307.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "304"]}
+{"t": 1793034310.0, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793034322.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["143", "629"]}
+{"t": 1793034325.07, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["140", "212"]}
+{"t": 1793034326.3, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 2}
+{"t": 1793034326.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["398", "212"]}
+{"t": 1793034327.69, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 1}
+{"t": 1793034327.84, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "304"]}
+{"t": 1793034339.3, "phase": "explore", "op": "note", "text": "RM计算器: weight + reps (system keyboard) -> 开始计算 -> table 1-30RM with % (60x8 -> 1RM 74.9, 80%=59.9; percentages fixed table); free, standalone (not linked to logs)"}
+{"t": 1793034339.45, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034340.69, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "686"]}
+{"t": 1793034350.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["452", "1078"]}
+{"t": 1793034361.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "303"]}
+{"t": 1793034372.13, "phase": "explore", "op": "note", "text": "照片墙: empty wall + FAB -> 添加图片 / 上传到日期 / 完成; 上传方式 相册/相机 -> stopped (needs photo/camera permission); returned"}
+{"t": 1793034372.28, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["394", "655"]}
+{"t": 1793034373.51, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["44", "108"]}
+{"t": 1793034374.73, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793034375.94, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["148", "743"]}
+{"t": 1793034385.56, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["418", "1132"]}
+{"t": 1793034396.02, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["200", "190"]}
+{"t": 1793034397.28, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 9}
+{"t": 1793034397.43, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "330"]}
+{"t": 1793034398.7, "phase": "explore", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 18}
+{"t": 1793034398.86, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["494", "100"]}
+{"t": 1793034409.09, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["270", "255"], "ms": 700}
+{"t": 1793034417.96, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["450", "255", "100", "255"], "ms": 300, "dist_dp": 249}
+{"t": 1793034426.91, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["494", "94"]}
+{"t": 1793034436.51, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["407", "210"]}
+{"t": 1793034447.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["293", "700"]}
+{"t": 1793034449.81, "phase": "explore", "op": "note", "text": "备忘录: title + markdown body (links auto-tagged: 抖音/微博/小红书), images; list shows created/updated dates; delete via detail -> 编辑 -> 删除 -> confirm. Created+deleted test memo"}
+{"t": 1793034459.24, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034460.82, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793034470.16, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "177"]}
+{"t": 1793034485.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["76", "410"]}
+{"t": 1793034497.76, "phase": "explore", "op": "note", "text": "教练记: coach mode - student cards grid, free up to 5 students (PRO unlocks unlimited), top bar 新版/课表/转移/筛选; 新增学员 form: photo, 姓名(required), 性别, 训记ID(optional, links student account), 分组. Not created (would link another person)"}
+{"t": 1793034497.9, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["53", "105"]}
+{"t": 1793034499.13, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["295", "94"]}
+{"t": 1793034509.8, "phase": "explore", "op": "note", "text": "教练记 课表: weekly 排课总表 05:00-23:00 grid, 1h/30min granularity"}
+{"t": 1793034509.94, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["40", "100"]}
+{"t": 1793034511.18, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034520.81, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["118", "622"]}
+{"t": 1793034534.4, "phase": "explore", "op": "note", "text": "缓存: 重新上传训练记录 (12 local records re-uploadable, 5 min cooldown) + 清除缓存 (fix stubborn bugs) + hidden __DD输出. Not pressed: re-upload could resurrect deleted workouts / clear may log out"}
+{"t": 1793034534.55, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034535.82, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["128", "691"]}
+{"t": 1793034546.43, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793034557.31, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["282", "500"]}
+{"t": 1793034569.22, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034571.85, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793034572.46, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "up"}
+{"t": 1793034573.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "247"]}
+{"t": 1793034588.21, "phase": "explore", "op": "note", "text": "小工具: 训练工具 (增肌指南 = article page with 购买训记永久VIP(88元) bar; 新建HIIT), 修复与清理 (解决支付卡顿, 一键清理个人模版[危险], 历史体重全部置0, 历史白屏修复按钮), 诊断工具 (性能诊断: opt-in CPU/内存/掉帧 log, export to WeChat), 账号与登录 (卓易通密码设置), 迁移与恢复 (教练记数据转移, 旧设备数据迁移). Destructive ones not pressed"}
+{"t": 1793034588.36, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034589.59, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034590.79, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "1067"]}
+{"t": 1793034601.41, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "900", "270", "600"], "ms": 300, "dist_dp": 213}
+{"t": 1793034610.66, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "866"]}
+{"t": 1793034622.39, "phase": "explore", "op": "note", "text": "网络节点: 智能选择/国内服务器(current)/海外服务器; not switched"}
+{"t": 1793034622.54, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034623.78, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793034625.01, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["182", "700"]}
+{"t": 1793034635.15, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["438", "203"]}
+{"t": 1793034645.17, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["330", "715"]}
+{"t": 1793034655.25, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["280", "685"]}
+{"t": 1793034666.58, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["470", "123"]}
+{"t": 1793034677.85, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "893"]}
+{"t": 1793034691.85, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "893"]}
+{"t": 1793034703.18, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["376", "893"], "ms": 1500}
+{"t": 1793034717.74, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["376", "893"], "ms": 3500}
+{"t": 1793034731.49, "phase": "explore", "op": "note", "text": "新建有氧: name + 选择有氧运动 (categories 常用/有氧/球类/力量/身心/户外/水上/冰雪/其他, search), 类型 匀速有氧, 时间 1min, 日期, 记录方式 auto by sport (步行记录: 距离/步数/消耗/心率...), 开始 -> full-screen timer, 暂停 -> 继续 / 长按结束 (~3s hold). Or 直接完成训练 (log without timer)"}
+{"t": 1793034731.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1793034743.98, "phase": "explore", "op": "long", "expect_pkg": "com.trainnote.rn", "xy": ["270", "882"], "ms": 700}
+{"t": 1793034754.21, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1052"]}
+{"t": 1793034765.31, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["394", "700"]}
+{"t": 1793034767.54, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793034768.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["289", "700"]}
+{"t": 1793034780.31, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1025"]}
+{"t": 1793034792.85, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["466", "110"]}
+{"t": 1793034804.97, "phase": "explore", "op": "note", "text": "新建HIIT: interval timer page (训记默认模版 switcher, 运动时长/间歇, 动作数 3 (箭步走/深蹲跳/自重深蹲), 循环 2, 每轮休息, 热身/放松, 屏幕常亮, total 02:50) -> 开始 shows phase countdown + 下一个; 退出训练 exits immediately (no record). HIIT模版 button for saved templates"}
+{"t": 1793034805.12, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "110"]}
+{"t": 1793034807.36, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793034818.07, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["372", "700"]}
+{"t": 1793034830.56, "phase": "explore", "op": "note", "text": "新建休息: 休息日标题, 常用理由 chips (休息日/有事/月经/生病/受伤/没心情/没动力/压力大/天气不好/加班 + 自定义 up to 10), 日期, colour for calendar tag. Cancelled (not saved)"}
+{"t": 1793034830.7, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["59", "108"]}
+{"t": 1793034832.92, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["498", "114"]}
+{"t": 1793034844.54, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["393", "277"]}
+{"t": 1793034856.49, "phase": "explore", "op": "note", "text": "轨迹跟踪 (九宫格): 杠铃轨迹跟踪 - pick a pre-recorded video, aim crosshair at bar end, analyse path. Needs media access -> not used. 九宫格 also: 扫码获取计划 (camera), 过往心得, HIIT工具, 周期中心, 教练记"}
+{"t": 1793034856.64, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034858.88, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["498", "114"]}
+{"t": 1793034860.1, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["393", "210"]}
+{"t": 1793034871.34, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034873.58, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["498", "114"]}
+{"t": 1793034874.82, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["393", "412"]}
+{"t": 1793034885.78, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["501", "94"]}
+{"t": 1793034897.92, "phase": "explore", "op": "note", "text": "周期中心 = 训练预约安排: weekday tabs 周一..周日/自定义, + picks a template/AI-plan day to schedule on a weekday. Not saved. 过往心得: list of post-workout notes (empty)"}
+{"t": 1793034898.07, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["38", "101"]}
+{"t": 1793034899.32, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793034901.57, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793034904.22, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793034929.92, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "400", "270", "800"], "ms": 300, "dist_dp": 284}
+{"t": 1793034939.52, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["178", "809"]}
+{"t": 1793034950.55, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793034959.72, "phase": "explore", "op": "note", "text": "安卓悬浮窗倒计时 (new row): rest countdown as system overlay when app is backgrounded; needs SYSTEM_ALERT_WINDOW (打开系统悬浮窗权限页 - not granted); styles 基础(free) / 卡片 / 悬浮球 (锁定=PRO); 高画质版/性能版"}
+{"t": 1793034959.87, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "back"}
+{"t": 1793034961.1, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1793034963.33, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["285", "1128"]}
+{"t": 1793034976.36, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["358", "1128"]}
+{"t": 1793034978.89, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793034980.48, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793034996.19, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "300", "270", "600"], "ms": 300, "dist_dp": 213}
+{"t": 1793035005.44, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["138", "674"]}
+{"t": 1793035008.01, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793035008.52, "phase": "explore", "op": "scroll", "expect_pkg": "com.trainnote.rn", "dir": "down"}
+{"t": 1793035017.41, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["99", "1098"]}
+{"t": 1793035028.52, "phase": "explore", "op": "swipe", "expect_pkg": "com.trainnote.rn", "xy": ["270", "400", "270", "800"], "ms": 800, "dist_dp": 284}
+{"t": 1793035040.76, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["177", "666"]}
+{"t": 1793035053.66, "phase": "explore", "op": "note", "text": "Restored prefs: 训练按钮大小=大, 自动打开下一个动作=不自动; 大字版 off; no workout in progress; fasting idle; period cleared; pin removed; superset & category & memo deleted"}
+{"t": 1793035053.81, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["36", "94"]}
+{"t": 1793035055.04, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["66", "1128"]}
+{"t": 1793035068.89, "phase": "explore", "op": "note", "text": "LOG FIX: an earlier 'void 0' voided ALL prior actions (python [-0:] slice). Redoing X-baseline-set, X-bigfont-set, X-setnote below as -redo phases"}
+{"t": 1793035069.04, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["468", "1105"]}
+{"t": 1793035070.27, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["61", "700"]}
+{"t": 1793035072.49, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["202", "1130"]}
+{"t": 1793035082.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["228", "660"]}
+{"t": 1793035084.14, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["405", "1125"]}
+{"t": 1793035086.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["250", "370"]}
+{"t": 1793035099.3, "phase": "X-baseline-set-redo", "op": "phase"}
+{"t": 1793035101.78, "phase": "X-baseline-set-redo", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["141", "590"]}
+{"t": 1793035103.43, "phase": "X-baseline-set-redo", "op": "shot", "path": "s2_redo3.png"}
+{"t": 1793035114.6, "phase": "X-baseline-set-redo", "op": "tap", "hit": {"label": "6", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["372", "935"]}
+{"t": 1793035118.66, "phase": "X-baseline-set-redo", "op": "tap", "hit": {"label": "0", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1080"]}
+{"t": 1793035122.49, "phase": "X-baseline-set-redo", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 54, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["234", "415"]}
+{"t": 1793035126.56, "phase": "X-baseline-set-redo", "op": "tap", "hit": {"label": "8", "cls": "ViewGroup", "w_dp": 69, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["270", "1008"]}
+{"t": 1793035130.56, "phase": "X-baseline-set-redo", "op": "tap", "hit": {"label": "", "cls": "ViewGroup", "w_dp": 52, "h_dp": 42, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["326", "415"]}
+{"t": 1793035131.75, "phase": "X-baseline-set-redo", "op": "note", "text": "baseline 训练按钮大小=大, 大字版 off: cells 54x42dp, check 52x42dp, keypad digits 69x48dp; first set 60x8 = 6 taps"}
+{"t": 1793035131.84, "phase": "explore", "op": "phase"}
+{"t": 1793035141.37, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793035142.65, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["465", "740"]}
+{"t": 1793035143.93, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "1110"]}
+{"t": 1793035145.14, "phase": "X-bigfont-set-redo", "op": "phase"}
+{"t": 1793035156.56, "phase": "X-bigfont-set-redo", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["151", "835"]}
+{"t": 1793035158.31, "phase": "X-bigfont-set-redo", "op": "shot", "path": "s2_redo5.png"}
+{"t": 1793035160.8, "phase": "X-bigfont-set-redo", "op": "shot", "path": "emu\\test.png"}
+{"t": 1793035166.33, "phase": "X-bigfont-set-redo", "op": "size", "w_dp": 160, "h_dp": 41}
+{"t": 1793035177.65, "phase": "X-bigfont-set-redo", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["259", "712"]}
+{"t": 1793035179.42, "phase": "X-bigfont-set-redo", "op": "shot", "path": "s2_redo6.png"}
+{"t": 1793035187.71, "phase": "X-bigfont-set-redo", "op": "size", "w_dp": 66, "h_dp": 54}
+{"t": 1793035199.55, "phase": "X-bigfont-set-redo", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["167", "1008"]}
+{"t": 1793035211.61, "phase": "X-bigfont-set-redo", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["362", "407"]}
+{"t": 1793035212.82, "phase": "X-bigfont-set-redo", "op": "note", "text": "大字版 on (redo): cells 66x54dp, check ~55x53dp (screenshot-measured, UI tree unavailable this time); reps-only change = 3 taps after 新增一组"}
+{"t": 1793035212.92, "phase": "explore", "op": "phase"}
+{"t": 1793035222.92, "phase": "X-setnote-redo", "op": "phase"}
+{"t": 1793035234.31, "phase": "X-setnote-redo", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["478", "712"]}
+{"t": 1793035235.53, "phase": "X-setnote-redo", "op": "size", "w_dp": 17, "h_dp": 6}
+{"t": 1793035245.21, "phase": "X-setnote-redo", "op": "tap", "hit": {"label": "输入组备注", "cls": "ViewGroup", "w_dp": 157, "h_dp": 48, "interactive": true, "pkg": "com.trainnote.rn"}, "expect_pkg": "com.trainnote.rn", "xy": ["363", "1005"]}
+{"t": 1793035246.53, "phase": "X-setnote-redo", "op": "text", "expect_pkg": "com.trainnote.rn", "chars": 11}
+{"t": 1793035257.92, "phase": "X-setnote-redo", "op": "tap", "hit": null, "expect_pkg": "com.trainnote.rn", "xy": ["270", "570"]}
+{"t": 1793035259.17, "phase": "X-setnote-redo", "op": "size", "w_dp": 236, "h_dp": 38}
+{"t": 1793035259.28, "phase": "explore", "op": "phase"}
+{"t": 1793035269.21, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["472", "1130"]}
+{"t": 1793035270.48, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["465", "740"]}
+{"t": 1793035279.79, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "892"]}
+{"t": 1793035281.23, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "687"]}
+{"t": 1793035336.36, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["498", "114"]}
+{"t": 1793035337.63, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["393", "142"]}
+{"t": 1793035349.58, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["394", "700"]}
+{"t": 1793035350.75, "phase": "explore", "op": "note", "text": "扫码获取计划: dialog 相册/扫码/取消 (import a plan someone shared as QR) -> cancelled (needs camera/photos)"}
+{"t": 1793036062.3, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "home"}
+{"t": 1793036089.46, "phase": "explore", "op": "key", "expect_pkg": "com.trainnote.rn", "key": "home"}
+{"t": 1793036394.98, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "656"]}
+{"t": 1793036409.27, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "656"]}
+{"t": 1793036422.07, "phase": "explore", "op": "tap", "expect_pkg": "com.trainnote.rn", "xy": ["270", "656"]}

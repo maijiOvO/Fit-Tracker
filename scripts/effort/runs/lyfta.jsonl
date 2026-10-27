@@ -1,0 +1,710 @@
+{"t": 1792997899.22, "phase": "explore", "op": "session"}
+{"t": 1792997899.59, "phase": "explore", "op": "launch", "expect_pkg": "com.trainnote.rn", "pkg": "com.lyfta"}
+{"t": 1792997919.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1138"]}
+{"t": 1792997930.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "410"]}
+{"t": 1792997939.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "679"]}
+{"t": 1792997948.13, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1024"]}
+{"t": 1792997956.69, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1792997968.36, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "288"]}
+{"t": 1792997976.38, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["414", "816"]}
+{"t": 1792997977.61, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "194"]}
+{"t": 1792997985.55, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792997986.78, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792997995.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1792998008.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792998010.04, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1792998019.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1792998028.71, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792998037.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1792998049.16, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["282", "654"]}
+{"t": 1792998065.12, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["70", "981"]}
+{"t": 1792998065.27, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998065.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998066.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792998066.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998068.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998081.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998082.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998093.71, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["489", "789"]}
+{"t": 1792998103.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "875"]}
+{"t": 1792998105.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "654"]}
+{"t": 1792998117.46, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1034"]}
+{"t": 1792998127.13, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792998136.08, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "316"]}
+{"t": 1792998144.75, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "709"]}
+{"t": 1792998153.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1132"]}
+{"t": 1792998155.01, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "316"]}
+{"t": 1792998156.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "630"]}
+{"t": 1792998168.94, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792998170.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "989"]}
+{"t": 1792998172.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792998174.1, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 7}
+{"t": 1792998176.34, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792998194.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "989"]}
+{"t": 1792998196.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792998198.68, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 7}
+{"t": 1792998210.71, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1792998211.96, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 11}
+{"t": 1792998214.67, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792998220.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1792998222.07, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 3}
+{"t": 1792998224.79, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792998232.83, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1792998234.05, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1792998236.77, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792998247.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "989"]}
+{"t": 1792998249.26, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792998251.01, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 11}
+{"t": 1792998256.0, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1792998257.22, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 3}
+{"t": 1792998262.24, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1792998263.45, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1792998274.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1792998276.07, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 3}
+{"t": 1792998278.8, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1792998280.03, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792998290.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "989"]}
+{"t": 1792998304.13, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1121"]}
+{"t": 1792998305.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1115"]}
+{"t": 1792998316.37, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1792998330.92, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1792998333.08, "phase": "T1-start", "op": "phase"}
+{"t": 1792998335.99, "phase": "T1-start", "op": "tap", "hit": {"label": "开始新训练 | id=floating_start_workout", "cls": "Button", "w_dp": 143, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1792998338.61, "phase": "T1-start", "op": "shot", "path": "T1_start.png"}
+{"t": 1792998348.19, "phase": "T1-start", "op": "note", "text": "Started from 首页 floating 开始新训练: workout starts immediately, timer running, empty workout"}
+{"t": 1792998355.34, "phase": "T1-E1-add", "op": "phase"}
+{"t": 1792998360.34, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "+ 添加动作 | id=btn_add_exercises", "cls": "Button", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1792998364.74, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "desc=搜索 | id=img_search_icon", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792998366.47, "phase": "T1-E1-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1792998369.66, "phase": "T1-E1-add", "op": "shot", "path": "T1_E1_search.png"}
+{"t": 1792998372.06, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1792998376.08, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792998382.08, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1792998384.7, "phase": "T1-E1-add", "op": "shot", "path": "T1_E1_card.png"}
+{"t": 1792998407.49, "phase": "T1-E1-add", "op": "note", "text": "Bench added collapsed (0/3 已完成, 3 empty sets by default), must tap card to expand. No prefill (dash placeholders), 上一个 column empty"}
+{"t": 1792998407.58, "phase": "T1-E1-s1", "op": "phase"}
+{"t": 1792998410.1, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "id=fl_set_no", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["39", "654"]}
+{"t": 1792998412.25, "phase": "T1-E1-s1", "op": "shot", "path": "T1_settype.png"}
+{"t": 1792998414.54, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "id=cl_warm_up_set", "cls": "ViewGroup", "w_dp": 172, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["143", "780"]}
+{"t": 1792998429.11, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "– | id=et_text_field_one", "cls": "EditText", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["282", "654"]}
+{"t": 1792998433.13, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "4 | id=tv_button_four", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "981"]}
+{"t": 1792998437.09, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "0 | id=tv_button_zero", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998442.16, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998445.33, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792998448.18, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998453.13, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998455.27, "phase": "T1-E1-s1", "op": "shot", "path": "T1_E1_s1_done.png"}
+{"t": 1792998473.32, "phase": "T1-E1-s1", "op": "note", "text": "Warm-up via tap set number -> sheet 选择组类型 -> 热身 (row shows W). Custom keypad, 下一步 on weight jumps to reps, 下一步 on reps marks set done and moves focus to next set weight. Rest timer default off -> no popup on first check. Warm-up counted in 训练量 (400 kg)."}
+{"t": 1792998473.41, "phase": "T1-E1-s2", "op": "phase"}
+{"t": 1792998477.12, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "6 | id=tv_button_six", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["332", "981"]}
+{"t": 1792998485.12, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "0 | id=tv_button_zero", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998489.15, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998492.32, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1057"]}
+{"t": 1792998497.12, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998507.88, "phase": "T1-E1-s2", "op": "note", "text": "Next set row stays empty (dash), no copy of the previous set within session: same-as-previous set must be retyped"}
+{"t": 1792998507.96, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1792998511.16, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "6 | id=tv_button_six", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["332", "981"]}
+{"t": 1792998514.15, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "0 | id=tv_button_zero", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998517.13, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998520.29, "phase": "T1-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1057"]}
+{"t": 1792998525.15, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998527.29, "phase": "T1-E1-s3", "op": "shot", "path": "T1_E1_s3.png"}
+{"t": 1792998537.78, "phase": "T1-E1-s3", "op": "note", "text": "Last default set done -> keypad closes. Set 4 needs 添加组 (only 3 default sets)"}
+{"t": 1792998537.86, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1792998541.14, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "+ 添加组 | id=ml_add_set", "cls": "Button", "w_dp": 352, "h_dp": 42, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "875"]}
+{"t": 1792998554.15, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "8 | id=et_text_field_two", "cls": "EditText", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["397", "789"]}
+{"t": 1792998555.82, "phase": "T1-E1-s4", "op": "shot", "path": "T1_E1_s4_field.png"}
+{"t": 1792998558.11, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "1057"]}
+{"t": 1792998569.15, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998571.27, "phase": "T1-E1-s4", "op": "shot", "path": "T1_E1_s4_done.png"}
+{"t": 1792998581.67, "phase": "T1-E1-s4", "op": "note", "text": "添加组 adds a row prefilled with a copy of the previous set (60x8, not done). Tapping a filled field selects value, typing replaces."}
+{"t": 1792998581.76, "phase": "T1-E2-add", "op": "phase"}
+{"t": 1792998585.16, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "+ 添加动作 | id=btn_add_exercises", "cls": "Button", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "989"]}
+{"t": 1792998589.53, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "desc=搜索 | id=img_search_icon", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792998591.26, "phase": "T1-E2-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 7}
+{"t": 1792998594.45, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_search.png"}
+{"t": 1792998596.74, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["405", "512"]}
+{"t": 1792998600.39, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792998603.03, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_added.png"}
+{"t": 1792998614.43, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["263", "989"]}
+{"t": 1792998617.08, "phase": "T1-E2-add", "op": "shot", "path": "T1_E2_card.png"}
+{"t": 1792998636.09, "phase": "T1-E2-add", "op": "note", "text": "E2 Dumbbell Incline Bench Press: weight header shows dumbbell icon x2 Kg = per-hand entry, volume doubles. New card collapses Bench (accordion)."}
+{"t": 1792998636.17, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1792998641.43, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "– | id=et_text_field_one", "cls": "EditText", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["282", "699"]}
+{"t": 1792998645.44, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792998649.43, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792998653.44, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": ". | id=tv_button_comma", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "1133"]}
+{"t": 1792998657.41, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "5 | id=tv_button_five", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792998663.41, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998666.57, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792998668.83, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998673.45, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998675.61, "phase": "T1-E2-s1", "op": "shot", "path": "T1_E2_s1.png"}
+{"t": 1792998684.65, "phase": "T1-E2-s2", "op": "phase"}
+{"t": 1792998687.42, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792998693.46, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792998699.43, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": ". | id=tv_button_comma", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "1133"]}
+{"t": 1792998703.45, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "5 | id=tv_button_five", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792998707.43, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998710.57, "phase": "T1-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792998712.86, "phase": "T1-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792998715.45, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998734.48, "phase": "T1-E2-s2", "op": "shot", "path": "dbg1.png"}
+{"t": 1792998743.2, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1792998754.5, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792998766.42, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792998778.36, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "id=rl_toolbar", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "1133"]}
+{"t": 1792998790.43, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "5 | id=tv_button_five", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792998802.43, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "下一步 | id=tv_button_next", "cls": "TextView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998805.6, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["332", "1057"]}
+{"t": 1792998817.42, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998819.57, "phase": "T1-E2-s3", "op": "shot", "path": "T1_E2_s3.png"}
+{"t": 1792998839.92, "phase": "T1-E2-s3", "op": "note", "text": "hit-test for the . key was misreported as rl_toolbar 384x792 (real target . key 85x46dp)"}
+{"t": 1792998840.0, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1792998851.44, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "813"]}
+{"t": 1792998886.7, "phase": "T1-E2-s4", "op": "shot", "path": "dbg2.png"}
+{"t": 1792998921.3, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["397", "727"]}
+{"t": 1792998925.03, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1057"]}
+{"t": 1792998936.46, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792998938.61, "phase": "T1-E2-s4", "op": "shot", "path": "T1_E2_s4.png"}
+{"t": 1792998995.1, "phase": "T1-E2-s4", "op": "note", "text": "uiautomator fails (could not get idle state) while workout page is scrolled and the header ticking timer shows -> hit null. Real targets: keypad keys 85x46dp, 下一步 85x38dp, fields 72x48dp, 添加组 352x42dp"}
+{"t": 1792998995.19, "phase": "T1-E3-add", "op": "phase"}
+{"t": 1792999006.5, "phase": "T1-E3-add", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "926"]}
+{"t": 1792999010.89, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "desc=搜索 | id=img_search_icon", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792999012.64, "phase": "T1-E3-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 11}
+{"t": 1792999015.85, "phase": "T1-E3-add", "op": "shot", "path": "T1_E3_search.png"}
+{"t": 1792999018.14, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1792999022.42, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792999025.08, "phase": "T1-E3-add", "op": "shot", "path": "T1_E3_added.png"}
+{"t": 1792999044.21, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["195", "926"]}
+{"t": 1792999046.85, "phase": "T1-E3-add", "op": "shot", "path": "T1_E3_card.png"}
+{"t": 1792999055.6, "phase": "T1-E3-add", "op": "note", "text": "E3: closest = Lever Chest Press (first result for chest press, plate-loaded lever machine, no selectorized variant in top results). Card tap hit misreported as fragment_container, real target card header row 384x80dp"}
+{"t": 1792999055.69, "phase": "T1-E3-s1", "op": "phase"}
+{"t": 1792999067.43, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["282", "636"]}
+{"t": 1792999080.28, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999092.29, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792999104.32, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999107.48, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999109.74, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792999121.43, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999123.58, "phase": "T1-E3-s1", "op": "shot", "path": "T1_E3_s1.png"}
+{"t": 1792999133.63, "phase": "T1-E3-s1", "op": "note", "text": "hit-test uses a stale dump when uiautomator fails (reported card_root / fragment_container). E3 s1 real targets: weight field 72x48, keys 85x46, 下一步 85x38"}
+{"t": 1792999133.72, "phase": "T1-E3-s2", "op": "phase"}
+{"t": 1792999145.45, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999157.45, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999169.47, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999173.59, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999175.85, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792999187.12, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999188.78, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1792999200.48, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999212.47, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999223.97, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999227.13, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999229.63, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792999241.48, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999243.63, "phase": "T1-E3-s3", "op": "shot", "path": "T1_E3_s3.png"}
+{"t": 1792999251.51, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1792999263.48, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "857"]}
+{"t": 1792999265.62, "phase": "T1-E3-s4", "op": "shot", "path": "T1_E3_s4a.png"}
+{"t": 1792999284.59, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["397", "771"]}
+{"t": 1792999297.52, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["332", "1057"]}
+{"t": 1792999308.79, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999310.93, "phase": "T1-E3-s4", "op": "shot", "path": "T1_E3_s4.png"}
+{"t": 1792999318.66, "phase": "T1-E4-add", "op": "phase"}
+{"t": 1792999330.54, "phase": "T1-E4-add", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "971"]}
+{"t": 1792999334.93, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "desc=搜索 | id=img_search_icon", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792999336.65, "phase": "T1-E4-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 3}
+{"t": 1792999339.86, "phase": "T1-E4-add", "op": "shot", "path": "T1_E4_search.png"}
+{"t": 1792999342.17, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1792999345.93, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792999348.59, "phase": "T1-E4-add", "op": "shot", "path": "T1_E4_added.png"}
+{"t": 1792999367.02, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["195", "971"]}
+{"t": 1792999369.67, "phase": "T1-E4-add", "op": "shot", "path": "T1_E4_card.png"}
+{"t": 1792999378.34, "phase": "T1-E4-add", "op": "note", "text": "Chest Dip weight column header (+Kg): bodyweight + added, empty = BW"}
+{"t": 1792999378.42, "phase": "T1-E4-s1", "op": "phase"}
+{"t": 1792999389.94, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["397", "681"]}
+{"t": 1792999393.97, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999396.21, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792999407.95, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999410.09, "phase": "T1-E4-s1", "op": "shot", "path": "T1_E4_s1.png"}
+{"t": 1792999420.05, "phase": "T1-E4-s1", "op": "note", "text": "BW set: tapped reps field directly, 下一步 completed with weight empty. Focus jumps to next set (+Kg) field"}
+{"t": 1792999420.13, "phase": "T1-E4-s2", "op": "phase"}
+{"t": 1792999431.96, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999435.12, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999437.38, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792999448.96, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999450.62, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1792999461.97, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999473.96, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1792999485.99, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999490.19, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "1057"]}
+{"t": 1792999501.98, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999504.12, "phase": "T1-E4-s3", "op": "shot", "path": "T1_E4_s3.png"}
+{"t": 1792999511.81, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1792999523.98, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "806"]}
+{"t": 1792999526.13, "phase": "T1-E4-s4", "op": "shot", "path": "T1_E4_s4a.png"}
+{"t": 1792999545.02, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["489", "721"]}
+{"t": 1792999547.14, "phase": "T1-E4-s4", "op": "shot", "path": "T1_E4_s4.png"}
+{"t": 1792999556.88, "phase": "T1-E4-s4", "op": "note", "text": "添加组 row shows previous set values in grey, a single ✓ accepts them (same-as-previous = 2 taps when adding a set)"}
+{"t": 1792999556.97, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1792999569.0, "phase": "T1-E5-add", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "920"]}
+{"t": 1792999574.42, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "desc=搜索 | id=img_search_icon", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792999576.14, "phase": "T1-E5-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1792999579.35, "phase": "T1-E5-add", "op": "shot", "path": "T1_E5_search.png"}
+{"t": 1792999582.42, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["405", "512"]}
+{"t": 1792999586.41, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792999589.04, "phase": "T1-E5-add", "op": "shot", "path": "T1_E5_added.png"}
+{"t": 1792999608.43, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["200", "920"]}
+{"t": 1792999611.06, "phase": "T1-E5-add", "op": "shot", "path": "T1_E5_card.png"}
+{"t": 1792999620.87, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1792999632.45, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["282", "631"]}
+{"t": 1792999645.4, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999657.4, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999669.45, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "id=fragment_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999672.61, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999674.86, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999686.45, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999688.11, "phase": "T1-E5-s2", "op": "phase"}
+{"t": 1792999699.47, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999711.46, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999723.46, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999726.62, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999728.86, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999740.47, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999742.13, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1792999753.48, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999765.47, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "1057"]}
+{"t": 1792999777.48, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "1133"]}
+{"t": 1792999789.48, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1792999801.31, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999804.48, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1792999806.72, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1792999818.49, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1792999820.65, "phase": "T1-E5-s3", "op": "shot", "path": "T1_E5_s3.png"}
+{"t": 1792999830.5, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1792999842.46, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["270", "857"]}
+{"t": 1792999844.6, "phase": "T1-E5-s4", "op": "shot", "path": "T1_E5_s4a.png"}
+{"t": 1792999863.52, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["489", "771"]}
+{"t": 1792999865.18, "phase": "T1-finish", "op": "phase"}
+{"t": 1792999876.52, "phase": "T1-finish", "op": "tap", "hit": null, "expect_pkg": "com.lyfta", "xy": ["459", "108"]}
+{"t": 1792999879.65, "phase": "T1-finish", "op": "shot", "path": "T1_finish1.png"}
+{"t": 1792999888.6, "phase": "T1-finish", "op": "note", "text": "Finish page 完成训练: auto name 晨间训练, description, photo/video, date, duration 25m, activity type, session RPE (optional), 保存"}
+{"t": 1792999890.89, "phase": "T1-finish", "op": "tap", "hit": {"label": "保存 | id=btn_save_variant_b", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1792999894.51, "phase": "T1-finish", "op": "shot", "path": "T1_finish2.png"}
+{"t": 1792999904.48, "phase": "T1-finish", "op": "note", "text": "After save: fullscreen 做得好！ share-card carousel (10 cards: streak etc) with 分享 button, closed via X top-left 42dp"}
+{"t": 1792999906.88, "phase": "T1-finish", "op": "tap", "hit": {"label": "desc=关闭 | id=img_back", "cls": "ImageView", "w_dp": 42, "h_dp": 42, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["46", "109"]}
+{"t": 1792999909.61, "phase": "T1-finish", "op": "shot", "path": "T1_finish3.png"}
+{"t": 1792999926.61, "phase": "explore", "op": "phase"}
+{"t": 1792999926.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "539"]}
+{"t": 1792999936.76, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792999937.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1138"]}
+{"t": 1792999948.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1792999951.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1115"]}
+{"t": 1792999953.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1792999955.54, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1792999957.27, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1792999960.0, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1792999961.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1792999963.46, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1792999976.16, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792999977.88, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1792999994.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1792999996.87, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1792999999.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1793000000.81, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1793000003.52, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793000004.75, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1793000006.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1793000022.94, "phase": "explore", "op": "note", "text": "Extra check: adding Bench Press (has history) in a new workout prefills all 4 sets with last numbers incl. W warm-up type (grey, one ✓ accepts), plus 上一个 column shows 40kg x 10 etc"}
+{"t": 1793000023.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["282", "721"]}
+{"t": 1793000024.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1057"]}
+{"t": 1793000036.77, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["141", "932"]}
+{"t": 1793000049.18, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "435"]}
+{"t": 1793000050.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["398", "932"]}
+{"t": 1793000060.78, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "435"]}
+{"t": 1793000062.51, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793000064.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["282", "721"]}
+{"t": 1793000065.45, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "981"]}
+{"t": 1793000075.65, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["40", "703"]}
+{"t": 1793000085.18, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793000086.9, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793000098.47, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["405", "1062"]}
+{"t": 1793000110.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793000112.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "539"]}
+{"t": 1793000114.57, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["388", "692"]}
+{"t": 1793000126.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1793000140.0, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793000142.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["405", "1062"]}
+{"t": 1793000143.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793000153.44, "phase": "T3-start", "op": "phase"}
+{"t": 1793000155.74, "phase": "T3-start", "op": "tap", "hit": {"label": "desc=Lyfta | id=img_feed_options", "cls": "ImageView", "w_dp": 38, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "539"]}
+{"t": 1793000157.97, "phase": "T3-start", "op": "shot", "path": "T3_menu.png"}
+{"t": 1793000160.25, "phase": "T3-start", "op": "tap", "hit": {"label": "再做一次 | id=tv_perform", "cls": "TextView", "w_dp": 209, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["388", "692"]}
+{"t": 1793000163.91, "phase": "T3-start", "op": "shot", "path": "T3_start.png"}
+{"t": 1793000163.99, "phase": "T3-start", "op": "note", "text": "再做一次 from home feed card ⋮ menu: new workout with 5 exercises, all collapsed, 0/4 已完成 each"}
+{"t": 1793000164.08, "phase": "T3-E1-add", "op": "phase"}
+{"t": 1793000167.64, "phase": "T3-E1-add", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1793000170.29, "phase": "T3-E1-add", "op": "shot", "path": "T3_E1.png"}
+{"t": 1793000175.49, "phase": "T3-E1-s1", "op": "phase"}
+{"t": 1793000179.66, "phase": "T3-E1-s1", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "654"]}
+{"t": 1793000181.81, "phase": "T3-E1-s1", "op": "shot", "path": "T3_E1_s1.png"}
+{"t": 1793000181.9, "phase": "T3-E1-s2", "op": "phase"}
+{"t": 1793000185.68, "phase": "T3-E1-s2", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "721"]}
+{"t": 1793000187.35, "phase": "T3-E1-s3", "op": "phase"}
+{"t": 1793000189.67, "phase": "T3-E1-s3", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "789"]}
+{"t": 1793000191.33, "phase": "T3-E1-s4", "op": "phase"}
+{"t": 1793000193.69, "phase": "T3-E1-s4", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "856"]}
+{"t": 1793000196.32, "phase": "T3-E1-s4", "op": "shot", "path": "T3_E1_s4.png"}
+{"t": 1793000204.72, "phase": "T3-E1-s4", "op": "note", "text": "No auto-advance to next exercise after last set, no rest popup (timer off)"}
+{"t": 1793000204.81, "phase": "T3-E2-add", "op": "phase"}
+{"t": 1793000207.67, "phase": "T3-E2-add", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["258", "1056"]}
+{"t": 1793000210.31, "phase": "T3-E2-add", "op": "shot", "path": "T3_E2.png"}
+{"t": 1793000219.92, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1793000224.68, "phase": "T3-E2-s1", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "767"]}
+{"t": 1793000226.34, "phase": "T3-E2-s2", "op": "phase"}
+{"t": 1793000228.68, "phase": "T3-E2-s2", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "834"]}
+{"t": 1793000230.34, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1793000232.68, "phase": "T3-E2-s3", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "902"]}
+{"t": 1793000234.34, "phase": "T3-E2-s4", "op": "phase"}
+{"t": 1793000236.67, "phase": "T3-E2-s4", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "969"]}
+{"t": 1793000239.32, "phase": "T3-E2-s4", "op": "shot", "path": "T3_E2_s4.png"}
+{"t": 1793000239.41, "phase": "T3-E3-add", "op": "phase"}
+{"t": 1793000243.66, "phase": "T3-E3-add", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["196", "1155"]}
+{"t": 1793000246.31, "phase": "T3-E3-add", "op": "shot", "path": "T3_E3.png"}
+{"t": 1793000254.61, "phase": "T3-E3-s1", "op": "phase"}
+{"t": 1793000257.69, "phase": "T3-E3-s1", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "879"]}
+{"t": 1793000259.36, "phase": "T3-E3-s2", "op": "phase"}
+{"t": 1793000261.67, "phase": "T3-E3-s2", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "946"]}
+{"t": 1793000263.33, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1793000265.67, "phase": "T3-E3-s3", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "1014"]}
+{"t": 1793000267.34, "phase": "T3-E3-s4", "op": "phase"}
+{"t": 1793000269.69, "phase": "T3-E3-s4", "op": "tap", "hit": {"label": "desc=组未完成 | id=fl_check_set", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "1081"]}
+{"t": 1793000271.85, "phase": "T3-E4-add", "op": "phase"}
+{"t": 1793000274.99, "phase": "T3-E4-add", "op": "swipe", "hit": {"label": "50 | id=et_text_field_one", "cls": "EditText", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "900", "270", "500"], "ms": 300, "dist_dp": 285}
+{"t": 1793000277.12, "phase": "T3-E4-add", "op": "shot", "path": "T3_E4pre.png"}
+{"t": 1793000296.66, "phase": "T3-E4-add", "op": "tap", "hit": {"label": "id=cl_exercise_name", "cls": "ViewGroup", "w_dp": 384, "h_dp": 160, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["152", "593"]}
+{"t": 1793000299.3, "phase": "T3-E4-add", "op": "shot", "path": "T3_E4.png"}
+{"t": 1793000308.08, "phase": "T3-E4-add", "op": "note", "text": "Chest Dip prefill shows 0 in (+Kg) for BW sets, 上一个 shows '- x 12'"}
+{"t": 1793000308.17, "phase": "T3-E4-s1", "op": "phase"}
+{"t": 1793000319.67, "phase": "T3-E4-s1", "op": "tap", "hit": {"label": "id=rl_toolbar", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "302"]}
+{"t": 1793000321.33, "phase": "T3-E4-s2", "op": "phase"}
+{"t": 1793000332.69, "phase": "T3-E4-s2", "op": "tap", "hit": {"label": "desc=Lyfta | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "370"]}
+{"t": 1793000334.36, "phase": "T3-E4-s3", "op": "phase"}
+{"t": 1793000345.68, "phase": "T3-E4-s3", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "437"]}
+{"t": 1793000347.36, "phase": "T3-E4-s4", "op": "phase"}
+{"t": 1793000358.63, "phase": "T3-E4-s4", "op": "tap", "hit": {"label": "desc=Lyfta | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "505"]}
+{"t": 1793000361.26, "phase": "T3-E4-s4", "op": "shot", "path": "T3_E4_s4.png"}
+{"t": 1793000361.35, "phase": "T3-E5-add", "op": "phase"}
+{"t": 1793000372.7, "phase": "T3-E5-add", "op": "tap", "hit": {"label": "id=cl_exercise_name", "cls": "ViewGroup", "w_dp": 384, "h_dp": 160, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["200", "705"]}
+{"t": 1793000375.34, "phase": "T3-E5-add", "op": "shot", "path": "T3_E5.png"}
+{"t": 1793000388.62, "phase": "T3-E5-add", "op": "note", "text": "T3 hit-test entries in E4/E5 come from stale dumps (uiautomator idle failure while header timer ticks). Real targets: ✓ 48x48dp, card header 384x80dp"}
+{"t": 1793000388.7, "phase": "T3-E5-s1", "op": "phase"}
+{"t": 1793000400.7, "phase": "T3-E5-s1", "op": "tap", "hit": {"label": "desc=Lyfta | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "415"]}
+{"t": 1793000402.36, "phase": "T3-E5-s2", "op": "phase"}
+{"t": 1793000413.71, "phase": "T3-E5-s2", "op": "tap", "hit": {"label": "desc=Lyfta | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "482"]}
+{"t": 1793000415.37, "phase": "T3-E5-s3", "op": "phase"}
+{"t": 1793000426.71, "phase": "T3-E5-s3", "op": "tap", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "550"]}
+{"t": 1793000428.37, "phase": "T3-E5-s4", "op": "phase"}
+{"t": 1793000439.71, "phase": "T3-E5-s4", "op": "tap", "hit": {"label": "desc=更多选项 | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["489", "617"]}
+{"t": 1793000442.34, "phase": "T3-E5-s4", "op": "shot", "path": "T3_E5_s4.png"}
+{"t": 1793000442.42, "phase": "T3-finish", "op": "phase"}
+{"t": 1793000453.73, "phase": "T3-finish", "op": "tap", "hit": {"label": "完成 | id=btn_finish", "cls": "Button", "w_dp": 82, "h_dp": 34, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["459", "108"]}
+{"t": 1793000456.87, "phase": "T3-finish", "op": "shot", "path": "T3_finish1.png"}
+{"t": 1793000466.74, "phase": "T3-finish", "op": "tap", "hit": {"label": "保存 | id=btn_save_variant_b", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793000470.38, "phase": "T3-finish", "op": "shot", "path": "T3_finish2.png"}
+{"t": 1793000475.99, "phase": "T3-finish", "op": "tap", "hit": {"label": "desc=关闭 | id=img_back", "cls": "ImageView", "w_dp": 42, "h_dp": 42, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["46", "109"]}
+{"t": 1793000478.71, "phase": "T3-finish", "op": "shot", "path": "T3_finish3.png"}
+{"t": 1793000485.09, "phase": "explore", "op": "phase"}
+{"t": 1793000492.77, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "539"]}
+{"t": 1793000494.49, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["388", "692"]}
+{"t": 1793000497.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1793000499.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["489", "654"]}
+{"t": 1793000501.37, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["489", "721"]}
+{"t": 1793000502.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["489", "789"]}
+{"t": 1793000513.87, "phase": "T4-edit", "op": "phase"}
+{"t": 1793000516.93, "phase": "T4-edit", "op": "tap", "hit": {"label": "60 | id=et_text_field_one", "cls": "EditText", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["282", "721"]}
+{"t": 1793000520.92, "phase": "T4-edit", "op": "tap", "hit": {"label": "6 | id=tv_button_six", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["332", "981"]}
+{"t": 1793000524.9, "phase": "T4-edit", "op": "tap", "hit": {"label": "2 | id=tv_button_two", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "905"]}
+{"t": 1793000528.93, "phase": "T4-edit", "op": "tap", "hit": {"label": ". | id=tv_button_comma", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["70", "1133"]}
+{"t": 1793000532.9, "phase": "T4-edit", "op": "tap", "hit": {"label": "5 | id=tv_button_five", "cls": "TextView", "w_dp": 85, "h_dp": 46, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["201", "981"]}
+{"t": 1793000534.04, "phase": "T4-edit", "op": "shot", "path": "T4_edit_kb.png"}
+{"t": 1793000536.94, "phase": "T4-edit", "op": "tap", "hit": {"label": "desc=Lyfta | id=iv_button_close_keyboard", "cls": "ImageView", "w_dp": 85, "h_dp": 38, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["463", "905"]}
+{"t": 1793000539.09, "phase": "T4-edit", "op": "shot", "path": "T4_edit.png"}
+{"t": 1793000548.92, "phase": "T4-edit", "op": "note", "text": "Edit done set: tap weight field (value selected), type 62.5, close keypad key. Set stays done. 训练量 header did not update (still 1 360 kg, should be 1 380)"}
+{"t": 1793000549.0, "phase": "T4-delete", "op": "phase"}
+{"t": 1793000553.93, "phase": "T4-delete", "op": "tap", "hit": {"label": "id=fl_set_no", "cls": "FrameLayout", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["39", "856"]}
+{"t": 1793000556.07, "phase": "T4-delete", "op": "shot", "path": "T4_del_sheet.png"}
+{"t": 1793000566.91, "phase": "T4-delete", "op": "tap", "hit": {"label": "id=cl_remove_set", "cls": "ViewGroup", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793000569.07, "phase": "T4-delete", "op": "shot", "path": "T4_deleted.png"}
+{"t": 1793000582.04, "phase": "T4-delete", "op": "note", "text": "Delete set: tap set number -> 删除该组 at bottom of sheet. No confirm, no undo snackbar, no global undo found. 训练量 refreshed to 1 380 now"}
+{"t": 1793000582.12, "phase": "explore", "op": "phase"}
+{"t": 1793000582.67, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "789", "120", "789"], "ms": 400, "dist_dp": 235}
+{"t": 1793000596.78, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["390", "1132"]}
+{"t": 1793000607.74, "phase": "explore", "op": "void", "n": 1}
+{"t": 1793000607.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["165", "370"]}
+{"t": 1793000616.35, "phase": "T4-swipedel", "op": "phase"}
+{"t": 1793000619.35, "phase": "T4-swipedel", "op": "swipe", "hit": {"label": "id=rl_toolbar", "cls": "ViewGroup", "w_dp": 384, "h_dp": 792, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["450", "721", "120", "721"], "ms": 400, "dist_dp": 235}
+{"t": 1793000619.43, "phase": "T4-undo", "op": "phase"}
+{"t": 1793000622.95, "phase": "T4-undo", "op": "tap", "hit": {"label": "撤销 | id=snackbar_action", "cls": "Button", "w_dp": 53, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["390", "1132"]}
+{"t": 1793000624.61, "phase": "T4-undo", "op": "shot", "path": "T4_undo.png"}
+{"t": 1793000635.23, "phase": "T4-undo", "op": "note", "text": "Swipe-left on a set row deletes it immediately with snackbar 已移除的组 撤销 (few seconds). Undo restored the set. 训练量 header stale after undo (400 kg shown, real 900)"}
+{"t": 1793000635.31, "phase": "explore", "op": "phase"}
+{"t": 1793000636.16, "phase": "explore", "op": "long", "expect_pkg": "com.lyfta", "xy": ["258", "920"], "ms": 700}
+{"t": 1793000649.28, "phase": "explore", "op": "note", "text": "Long-press on a card collapses all cards into a drag list (drag reorder). My plain long press dropped Dumbbell Incline at the bottom"}
+{"t": 1793000649.37, "phase": "T5-add", "op": "phase"}
+{"t": 1793000652.94, "phase": "T5-add", "op": "tap", "hit": {"label": "+ 添加动作 | id=btn_add_exercises", "cls": "Button", "w_dp": 352, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "946"]}
+{"t": 1793000657.32, "phase": "T5-add", "op": "tap", "hit": {"label": "desc=搜索 | id=img_search_icon", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1793000659.04, "phase": "T5-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 8}
+{"t": 1793000662.2, "phase": "T5-add", "op": "shot", "path": "T5_search.png"}
+{"t": 1793000669.51, "phase": "T5-add", "op": "text", "expect_pkg": "com.lyfta", "chars": 6}
+{"t": 1793000672.71, "phase": "T5-add", "op": "shot", "path": "T5_search2.png"}
+{"t": 1793000681.07, "phase": "T5-add", "op": "note", "text": "'overhead' alone returned triceps extensions first, needed 'overhead press'. Picked Barbell Seated Overhead Press"}
+{"t": 1793000683.36, "phase": "T5-add", "op": "tap", "hit": {"label": "id=card_root", "cls": "FrameLayout", "w_dp": 176, "h_dp": 256, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["405", "512"]}
+{"t": 1793000686.72, "phase": "T5-add", "op": "tap", "hit": {"label": "添加 1 个动作 | id=btn_add", "cls": "Button", "w_dp": 352, "h_dp": 52, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1793000689.37, "phase": "T5-add", "op": "shot", "path": "T5_added.png"}
+{"t": 1793000697.57, "phase": "T5-add", "op": "note", "text": "No Squat in this chest workout: target = move OHP to top, above Bench Press"}
+{"t": 1793000697.65, "phase": "T5-move", "op": "phase"}
+{"t": 1793000702.31, "phase": "T5-move", "op": "longdrag", "hit": {"label": "id=cl_root", "cls": "ViewGroup", "w_dp": 384, "h_dp": 82, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["200", "946", "200", "340"], "ms": 800, "dist_dp": 431}
+{"t": 1793000704.98, "phase": "T5-move", "op": "shot", "path": "T5_moved.png"}
+{"t": 1793000712.83, "phase": "T5-remove", "op": "phase"}
+{"t": 1793000716.76, "phase": "T5-remove", "op": "tap", "hit": {"label": "desc=Lyfta | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793000718.9, "phase": "T5-remove", "op": "shot", "path": "T5_menu.png"}
+{"t": 1793000728.96, "phase": "T5-remove", "op": "tap", "hit": {"label": "移除动作 | id=tv_remove_exercise", "cls": "TextView", "w_dp": 384, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "1115"]}
+{"t": 1793000731.11, "phase": "T5-remove", "op": "shot", "path": "T5_removed.png"}
+{"t": 1793000744.28, "phase": "T5-remove", "op": "note", "text": "Remove exercise: ⋮ -> 移除动作, no confirm, snackbar 已移除 ... 撤销"}
+{"t": 1793000744.36, "phase": "T6", "op": "phase"}
+{"t": 1793000744.54, "phase": "T6", "op": "key", "expect_pkg": "com.lyfta", "key": "home"}
+{"t": 1793000749.97, "phase": "T6", "op": "launch", "expect_pkg": "com.lyfta", "pkg": "com.lyfta"}
+{"t": 1793000753.63, "phase": "T6", "op": "shot", "path": "T6_resume.png"}
+{"t": 1793000756.26, "phase": "T6", "op": "launch", "expect_pkg": "com.lyfta", "pkg": "com.lyfta"}
+{"t": 1793000761.91, "phase": "T6", "op": "shot", "path": "T6_forcestop.png"}
+{"t": 1793000773.3, "phase": "T6", "op": "note", "text": "Home+relaunch: workout page as left. Force-stop+relaunch: opens straight into the in-progress workout, timer continued (0:04:25), sets intact, header now also shows PR 3"}
+{"t": 1793000773.38, "phase": "explore", "op": "phase"}
+{"t": 1793000773.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["165", "370"]}
+{"t": 1793000787.52, "phase": "T7-in", "op": "phase"}
+{"t": 1793000792.78, "phase": "T7-in", "op": "tap", "hit": {"label": "desc=更多选项 | id=exercise_option_menu", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793000796.64, "phase": "T7-in", "op": "tap", "hit": {"label": "视频和历史 | id=tv_video_history", "cls": "TextView", "w_dp": 384, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "630"]}
+{"t": 1793000801.49, "phase": "T7-in", "op": "tap", "hit": {"label": "desc=历史", "cls": "LinearLayout", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["154", "187"]}
+{"t": 1793000804.64, "phase": "T7-in", "op": "shot", "path": "T7_in_history.png"}
+{"t": 1793000813.71, "phase": "T7-in", "op": "tap", "hit": {"label": "desc=进度", "cls": "LinearLayout", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["256", "187"]}
+{"t": 1793000817.34, "phase": "T7-in", "op": "shot", "path": "T7_in_progress.png"}
+{"t": 1793000831.4, "phase": "T7-in", "op": "note", "text": "In-workout lookup: ⋮ -> 视频和历史 opens 关于 tab (video) by default, 历史 tab lists past sessions with per-set 1RM and PR medals, 进度 tab charts 预估力量 (79kg) and 训练量"}
+{"t": 1793000831.48, "phase": "explore", "op": "phase"}
+{"t": 1793000831.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["357", "187"]}
+{"t": 1793000842.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["458", "187"]}
+{"t": 1793000853.9, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793000855.63, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793000857.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793000870.91, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["151", "170"]}
+{"t": 1793000883.8, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793000885.96, "phase": "T7-out", "op": "phase"}
+{"t": 1793000888.85, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=我的 | id=navigation_you", "cls": "FrameLayout", "w_dp": 77, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793000894.46, "phase": "T7-out", "op": "tap", "hit": {"label": "动作", "cls": "TextView", "w_dp": 30, "h_dp": 20, "interactive": false, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["151", "170"]}
+{"t": 1793000900.06, "phase": "T7-out", "op": "tap", "hit": {"label": "id=rl_image_container", "cls": "ViewGroup", "w_dp": 384, "h_dp": 80, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["199", "767"]}
+{"t": 1793000903.69, "phase": "T7-out", "op": "shot", "path": "T7_out_1.png"}
+{"t": 1793000911.15, "phase": "T7-out", "op": "note", "text": "动作 tab hit reported text 30x20, real tab 72x52dp"}
+{"t": 1793000913.44, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=历史", "cls": "LinearLayout", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["154", "187"]}
+{"t": 1793000916.58, "phase": "T7-out", "op": "shot", "path": "T7_out_hist.png"}
+{"t": 1793000918.89, "phase": "T7-out", "op": "tap", "hit": {"label": "desc=进度", "cls": "LinearLayout", "w_dp": 72, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["256", "187"]}
+{"t": 1793000922.02, "phase": "T7-out", "op": "shot", "path": "T7_out_prog.png"}
+{"t": 1793000928.02, "phase": "explore", "op": "phase"}
+{"t": 1793000928.16, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793000929.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793000944.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["399", "1142"]}
+{"t": 1793000946.26, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793000948.84, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793000959.43, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["270", "500", "270", "800"], "ms": 300, "dist_dp": 213}
+{"t": 1793000963.78, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793000964.27, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793000975.29, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793000977.02, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793000979.83, "phase": "T8", "op": "phase"}
+{"t": 1793000982.14, "phase": "T8", "op": "tap", "hit": {"label": "desc=我的 | id=navigation_you", "cls": "FrameLayout", "w_dp": 77, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793000987.56, "phase": "T8", "op": "tap", "hit": {"label": "desc=设置", "cls": "View", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793000990.63, "phase": "T8", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001003.1, "phase": "T8", "op": "tap", "hit": {"label": "导出数据 | id=rl_export", "cls": "TextView", "w_dp": 384, "h_dp": 56, "interactive": true, "pkg": "com.lyfta"}, "expect_pkg": "com.lyfta", "xy": ["270", "240"]}
+{"t": 1793001006.73, "phase": "T8", "op": "shot", "path": "T8_export.png"}
+{"t": 1793001020.01, "phase": "T8", "op": "note", "text": "Export dialog: 这会将你的所有训练数据下载为 CSV 文件 (取消/导出). No Pro lock shown. Stopped before 导出 (would create a file), result after tap not tested"}
+{"t": 1793001020.09, "phase": "explore", "op": "phase"}
+{"t": 1793001020.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["312", "700"]}
+{"t": 1793001021.45, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "177"]}
+{"t": 1793001034.55, "phase": "explore", "op": "note", "text": "导入数据 opens Chrome at my.lyfta.app/auth/login?returnUrl=/import-tool (web import tool, needs web login). Did not log in"}
+{"t": 1793001034.79, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001045.03, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["270", "300", "270", "1100"], "ms": 300, "dist_dp": 569}
+{"t": 1793001046.54, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["270", "300", "270", "1100"], "ms": 300, "dist_dp": 569}
+{"t": 1793001048.26, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "305"]}
+{"t": 1793001059.41, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001068.95, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1011"]}
+{"t": 1793001082.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "489"]}
+{"t": 1793001093.69, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "600", "90", "600"], "ms": 300, "dist_dp": 256}
+{"t": 1793001097.98, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "600", "90", "600"], "ms": 300, "dist_dp": 256}
+{"t": 1793001102.26, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "600", "90", "600"], "ms": 300, "dist_dp": 256}
+{"t": 1793001106.57, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "600", "90", "600"], "ms": 300, "dist_dp": 256}
+{"t": 1793001110.86, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "600", "90", "600"], "ms": 300, "dist_dp": 256}
+{"t": 1793001115.13, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["450", "600", "90", "600"], "ms": 300, "dist_dp": 256}
+{"t": 1793001126.06, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001127.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "720"]}
+{"t": 1793001133.36, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001135.08, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "951"]}
+{"t": 1793001140.07, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001141.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1094"]}
+{"t": 1793001146.78, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001148.36, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001159.7, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001161.43, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001170.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "710"]}
+{"t": 1793001183.09, "phase": "explore", "op": "note", "text": "同步训练数据: re-sync then jumps back to home feed"}
+{"t": 1793001183.24, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793001185.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793001189.05, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001190.78, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "429"]}
+{"t": 1793001201.51, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "446"]}
+{"t": 1793001206.49, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001208.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "851"]}
+{"t": 1793001220.83, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001222.56, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "930"]}
+{"t": 1793001227.53, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001229.26, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1009"]}
+{"t": 1793001234.24, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001235.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1087"]}
+{"t": 1793001242.44, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001244.16, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "536"]}
+{"t": 1793001249.67, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001251.38, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "615"]}
+{"t": 1793001263.28, "phase": "explore", "op": "note", "text": "Privacy default 谁可以看到你的训练 = 所有人 (public). Beta: 设定训练目标, 以图片形式分享模板. Theme light/dark/system. 12+ languages. Units global kg/lbs, km/mi, cm/in"}
+{"t": 1793001263.46, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001265.18, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001266.91, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["162", "1138"]}
+{"t": 1793001278.8, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001288.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "226"]}
+{"t": 1793001300.86, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["101", "226"]}
+{"t": 1793001303.58, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["147", "500"]}
+{"t": 1793001315.31, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001317.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["378", "1138"]}
+{"t": 1793001327.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793001338.58, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["200", "995"]}
+{"t": 1793001350.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "205"]}
+{"t": 1793001351.38, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 10}
+{"t": 1793001351.52, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001352.76, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "575"]}
+{"t": 1793001354.98, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1793001356.7, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1793001359.42, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793001360.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1793001371.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["459", "108"]}
+{"t": 1793001382.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793001385.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["180", "1110"]}
+{"t": 1793001395.59, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "750"]}
+{"t": 1793001405.4, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001416.81, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001418.54, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "459"]}
+{"t": 1793001419.77, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 10}
+{"t": 1793001419.92, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001421.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["461", "108"]}
+{"t": 1793001432.08, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["319", "173"]}
+{"t": 1793001445.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["174", "325"]}
+{"t": 1793001449.06, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "459"]}
+{"t": 1793001450.79, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 10}
+{"t": 1793001452.6, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["461", "108"]}
+{"t": 1793001464.0, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["45", "173"]}
+{"t": 1793001475.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["162", "1138"]}
+{"t": 1793001478.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "226"]}
+{"t": 1793001489.73, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["99", "430"]}
+{"t": 1793001500.35, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["438", "108"]}
+{"t": 1793001512.58, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["78", "330"]}
+{"t": 1793001528.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "516"]}
+{"t": 1793001530.05, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 8}
+{"t": 1793001541.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["78", "545"]}
+{"t": 1793001556.37, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["206", "545"]}
+{"t": 1793001557.59, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["497", "1125"]}
+{"t": 1793001566.8, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1118"]}
+{"t": 1793001579.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["77", "1126"]}
+{"t": 1793001584.53, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001595.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["45", "102"]}
+{"t": 1793001596.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793001598.55, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793001601.29, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["253", "170"]}
+{"t": 1793001616.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["202", "269"]}
+{"t": 1793001628.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["269", "604"]}
+{"t": 1793001641.61, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "316"]}
+{"t": 1793001642.83, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 2}
+{"t": 1793001644.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "532"]}
+{"t": 1793001656.99, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001658.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["354", "170"]}
+{"t": 1793001663.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["433", "100"]}
+{"t": 1793001676.66, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001678.38, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["50", "170"]}
+{"t": 1793001681.45, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001692.31, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001702.38, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}
+{"t": 1793001712.42, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "740"]}
+{"t": 1793001721.83, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["388", "825"]}
+{"t": 1793001736.07, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001749.34, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793001753.87, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["416", "1035"]}
+{"t": 1793001756.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "592"]}
+{"t": 1793001758.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["371", "108"]}
+{"t": 1793001760.02, "phase": "explore", "op": "text", "expect_pkg": "com.lyfta", "chars": 5}
+{"t": 1793001762.75, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["135", "512"]}
+{"t": 1793001763.98, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "697"]}
+{"t": 1793001766.19, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["263", "384"]}
+{"t": 1793001768.41, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["120", "523"]}
+{"t": 1793001780.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["489", "620"]}
+{"t": 1793001781.98, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["270", "1001", "270", "700"], "ms": 600, "dist_dp": 214}
+{"t": 1793001793.06, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1107"]}
+{"t": 1793001794.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["282", "654"]}
+{"t": 1793001796.02, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["70", "981"]}
+{"t": 1793001796.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1793001796.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1793001797.34, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["70", "905"]}
+{"t": 1793001797.47, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["201", "1133"]}
+{"t": 1793001797.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1793001814.93, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1793001815.95, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "1133"]}
+{"t": 1793001826.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["140", "108"]}
+{"t": 1793001852.54, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "102"]}
+{"t": 1793001854.25, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["463", "905"]}
+{"t": 1793001855.49, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "721"]}
+{"t": 1793001857.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1034"]}
+{"t": 1793001870.02, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001871.25, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "384"]}
+{"t": 1793001872.97, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "866"]}
+{"t": 1793001884.09, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001885.66, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793001911.28, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "904"]}
+{"t": 1793001913.0, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1024"]}
+{"t": 1793001915.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["455", "517"]}
+{"t": 1793001916.45, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001926.87, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "1160"]}
+{"t": 1793001928.1, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001939.55, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["100", "550", "450", "550"], "ms": 400, "dist_dp": 249}
+{"t": 1793001950.27, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["398", "348"]}
+{"t": 1793001959.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1107"]}
+{"t": 1793001960.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["282", "348"]}
+{"t": 1793001970.08, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793001972.01, "phase": "explore", "op": "long", "expect_pkg": "com.lyfta", "xy": ["489", "550"], "ms": 700}
+{"t": 1793001990.77, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "300"]}
+{"t": 1793001993.19, "phase": "explore", "op": "long", "expect_pkg": "com.lyfta", "xy": ["489", "550"], "ms": 700}
+{"t": 1793002005.63, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "1107"]}
+{"t": 1793002006.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["39", "108"]}
+{"t": 1793002018.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["399", "1062"]}
+{"t": 1793002019.84, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "616"]}
+{"t": 1793002022.06, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["154", "108"]}
+{"t": 1793002039.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["204", "265"]}
+{"t": 1793002047.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["154", "108"]}
+{"t": 1793002048.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["204", "198"]}
+{"t": 1793002051.11, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "108"]}
+{"t": 1793002064.93, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793002066.67, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["486", "1138"]}
+{"t": 1793002069.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["500", "100"]}
+{"t": 1793002072.48, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793002074.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "772"]}
+{"t": 1793002077.28, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793002090.59, "phase": "explore", "op": "swipe", "expect_pkg": "com.lyfta", "xy": ["270", "400", "270", "900"], "ms": 300, "dist_dp": 355}
+{"t": 1793002099.92, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["270", "874"]}
+{"t": 1793002103.0, "phase": "explore", "op": "scroll", "expect_pkg": "com.lyfta", "dir": "down"}
+{"t": 1793002114.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["480", "517"]}
+{"t": 1793002116.56, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793002118.28, "phase": "explore", "op": "key", "expect_pkg": "com.lyfta", "key": "back"}
+{"t": 1793002119.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lyfta", "xy": ["54", "1138"]}

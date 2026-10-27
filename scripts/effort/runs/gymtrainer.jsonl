@@ -1,0 +1,722 @@
+{"t": 1793047895.75, "phase": "explore", "op": "session"}
+{"t": 1793047895.85, "phase": "onboard", "op": "phase"}
+{"t": 1793047896.22, "phase": "onboard", "op": "launch", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "pkg": "gymworkout.gym.gymlog.gymtrainer"}
+{"t": 1793047905.91, "phase": "onboard", "op": "shot", "path": "ob01.png"}
+{"t": 1793047916.04, "phase": "onboard", "op": "note", "text": "Screen 1 Welcome: START button + Continue with your existing account (login optional link). Leap Fitness brand."}
+{"t": 1793047916.21, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "START | id=tvStart", "cls": "TextView", "w_dp": 319, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "999"]}
+{"t": 1793047923.17, "phase": "onboard", "op": "shot", "path": "ob02.png"}
+{"t": 1793047926.62, "phase": "onboard", "op": "note", "text": "Screen 2 gender: Male/Female cards, no skip visible"}
+{"t": 1793047926.76, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=maleLayer", "cls": "View", "w_dp": 169, "h_dp": 309, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["141", "653"]}
+{"t": 1793047931.45, "phase": "onboard", "op": "shot", "path": "ob03.png"}
+{"t": 1793047934.99, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivEmoji", "cls": "ViewGroup", "w_dp": 335, "h_dp": 68, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["287", "380"]}
+{"t": 1793047936.55, "phase": "onboard", "op": "shot", "path": "ob03b.png"}
+{"t": 1793047942.75, "phase": "onboard", "op": "note", "text": "Screen 3 main goal: 6 options single-select + Next; progress bar ~10%"}
+{"t": 1793047944.93, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793047949.73, "phase": "onboard", "op": "shot", "path": "ob04.png"}
+{"t": 1793047953.1, "phase": "onboard", "op": "note", "text": "Screen 4 focus areas: 8 chips multi-select + Next"}
+{"t": 1793047953.23, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Full Body | id=tv_full_body", "cls": "TextView", "w_dp": 105, "h_dp": 38, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["322", "385"]}
+{"t": 1793047955.43, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793047960.34, "phase": "onboard", "op": "shot", "path": "ob05.png"}
+{"t": 1793047967.69, "phase": "onboard", "op": "note", "text": "Screen 5 height: vertical ruler, default 175 cm, cm/ft toggle"}
+{"t": 1793047969.38, "phase": "onboard", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=indicator", "cls": "View", "w_dp": 243, "h_dp": 1, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["490", "548", "490", "890"], "ms": 1500, "dist_dp": 243}
+{"t": 1793047975.76, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793047980.5, "phase": "onboard", "op": "shot", "path": "ob06.png"}
+{"t": 1793047984.25, "phase": "onboard", "op": "note", "text": "Screen 6 weight: horizontal ruler default 75 kg (kept), kg/lbs toggle, BMI 23.7 shown"}
+{"t": 1793047984.38, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793047989.1, "phase": "onboard", "op": "shot", "path": "ob07.png"}
+{"t": 1793047992.58, "phase": "onboard", "op": "note", "text": "Screen 7 target weight: ruler default 72 kg (kept; odd for build-muscle goal)"}
+{"t": 1793047992.71, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793047997.38, "phase": "onboard", "op": "shot", "path": "ob08.png"}
+{"t": 1793048000.62, "phase": "onboard", "op": "note", "text": "Screen 8 fitness level: 3 options"}
+{"t": 1793048000.75, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivEmoji", "cls": "ViewGroup", "w_dp": 329, "h_dp": 108, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["285", "470"]}
+{"t": 1793048002.92, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048007.63, "phase": "onboard", "op": "shot", "path": "ob09.png"}
+{"t": 1793048014.65, "phase": "onboard", "op": "note", "text": "Screen 9 Estimate your 1RM: benchmark exercise picker (Bench Press), weight field 30 kg, reps 5 -> 1RM 35 computed; skip link I m a beginner and I don t know"}
+{"t": 1793048014.79, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "30 | id=tv_weight", "cls": "EditText", "w_dp": 61, "h_dp": 37, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["401", "659"]}
+{"t": 1793048018.58, "phase": "onboard", "op": "shot", "path": "ob09b.png"}
+{"t": 1793048027.79, "phase": "onboard", "op": "note", "text": "System numeric keyboard opened, cursor lands mid-text; existing value not selected"}
+{"t": 1793048027.94, "phase": "onboard", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "KEYCODE_MOVE_END"}
+{"t": 1793048028.02, "phase": "onboard", "op": "void", "n": 1}
+{"t": 1793048028.17, "phase": "onboard", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "del"}
+{"t": 1793048028.32, "phase": "onboard", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "del"}
+{"t": 1793048028.49, "phase": "onboard", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 2}
+{"t": 1793048030.69, "phase": "onboard", "op": "tap", "hit": {"label": "5 | id=tv_reps", "cls": "EditText", "w_dp": 61, "h_dp": 37, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["401", "727"]}
+{"t": 1793048030.9, "phase": "onboard", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "KEYCODE_MOVE_END"}
+{"t": 1793048030.99, "phase": "onboard", "op": "void", "n": 1}
+{"t": 1793048031.14, "phase": "onboard", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "del"}
+{"t": 1793048031.27, "phase": "onboard", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 1}
+{"t": 1793048031.41, "phase": "onboard", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "enter"}
+{"t": 1793048038.16, "phase": "onboard", "op": "note", "text": "1RM estimated 76 kg from 60x8"}
+{"t": 1793048038.29, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Next | id=tv_btn", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1054"]}
+{"t": 1793048043.12, "phase": "onboard", "op": "shot", "path": "ob10.png"}
+{"t": 1793048049.93, "phase": "onboard", "op": "note", "text": "Screen 10 frequency: 3/4/5 days/More options + week start day (7 options); Next disabled until both chosen"}
+{"t": 1793048050.06, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=day4", "cls": "FrameLayout", "w_dp": 166, "h_dp": 70, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["393", "386"]}
+{"t": 1793048052.29, "phase": "onboard", "op": "tap", "hit": {"label": "id=day2", "cls": "FrameLayout", "w_dp": 166, "h_dp": 70, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["393", "692"]}
+{"t": 1793048054.54, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048059.26, "phase": "onboard", "op": "shot", "path": "ob11.png"}
+{"t": 1793048063.04, "phase": "onboard", "op": "note", "text": "Screen 11 equipment: All/Barbells/Dumbbells/Kettlebells/Weight Machines/None"}
+{"t": 1793048063.17, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivEmoji", "cls": "ViewGroup", "w_dp": 329, "h_dp": 68, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["287", "305"]}
+{"t": 1793048065.34, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048070.04, "phase": "onboard", "op": "shot", "path": "ob12.png"}
+{"t": 1793048074.09, "phase": "onboard", "op": "note", "text": "Screen 12 location: Large Gym/Small Gym/Garage Gym/At Home"}
+{"t": 1793048074.21, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Large Gym | id=tvContent", "cls": "ViewGroup", "w_dp": 329, "h_dp": 89, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["245", "300"]}
+{"t": 1793048076.41, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048082.11, "phase": "onboard", "op": "shot", "path": "ob13.png"}
+{"t": 1793048086.28, "phase": "onboard", "op": "note", "text": "Screen 13 biggest challenge: 3 options"}
+{"t": 1793048086.41, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048094.32, "phase": "onboard", "op": "void", "n": 1}
+{"t": 1793048094.41, "phase": "onboard", "op": "note", "text": "Next does nothing until an option is chosen (required)"}
+{"t": 1793048094.53, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Lack clear workout guidance | id=tvContent", "cls": "ViewGroup", "w_dp": 329, "h_dp": 63, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["245", "480"]}
+{"t": 1793048096.7, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048102.41, "phase": "onboard", "op": "shot", "path": "ob14.png"}
+{"t": 1793048106.32, "phase": "onboard", "op": "note", "text": "Screen 14 How would you like to train: I want a plan / still figuring / I train my way (Just need a simple way to log) -> chose I train my way"}
+{"t": 1793048106.44, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "I train my way | id=tvContent", "cls": "ViewGroup", "w_dp": 329, "h_dp": 89, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["245", "610"]}
+{"t": 1793048108.63, "phase": "onboard", "op": "tap", "hit": {"label": "Next | id=tv_next", "cls": "TextView", "w_dp": 313, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793048118.47, "phase": "onboard", "op": "shot", "path": "ob15.png"}
+{"t": 1793048131.9, "phase": "onboard", "op": "shot", "path": "ob15b.png"}
+{"t": 1793048139.26, "phase": "onboard", "op": "note", "text": "Screen 15 fake loading Tailoring Your Experience (4 progress bars, ~6-8 s forced wait, 4.9 rating badge)"}
+{"t": 1793048139.37, "phase": "onboard", "op": "note", "text": "Screen 16 Your Custom Setup Is Ready: weight curve 75->73 kg in 4 weeks, About You, Start Now"}
+{"t": 1793048143.78, "phase": "onboard", "op": "tap", "hit": null, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1102"]}
+{"t": 1793048153.15, "phase": "onboard", "op": "shot", "path": "ob16.png"}
+{"t": 1793048156.48, "phase": "onboard", "op": "size", "w_dp": 374, "h_dp": 33}
+{"t": 1793048161.75, "phase": "onboard", "op": "size", "w_dp": 354, "h_dp": 62}
+{"t": 1793048174.83, "phase": "onboard", "op": "shot", "path": "ob16b.png"}
+{"t": 1793048183.12, "phase": "onboard", "op": "note", "text": "AD #1: full-screen interstitial (Google AdMob, shows Test Ad on emulator) right after Start Now; close X appeared top-right after ~5-8 s"}
+{"t": 1793048183.25, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "WebView", "w_dp": 384, "h_dp": 829, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["516", "40"]}
+{"t": 1793048183.34, "phase": "onboard", "op": "size", "w_dp": 24, "h_dp": 24}
+{"t": 1793048189.07, "phase": "onboard", "op": "shot", "path": "ob17.png"}
+{"t": 1793048198.5, "phase": "onboard", "op": "note", "text": "Onboarding done: landed on Custom tab (empty state Create your first custom workout + START). No paywall, no permission prompt, no login so far."}
+{"t": 1793048198.59, "phase": "explore", "op": "phase"}
+{"t": 1793048198.71, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["54", "1130"]}
+{"t": 1793048211.84, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048222.06, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["162", "1130"]}
+{"t": 1793048223.29, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "755"]}
+{"t": 1793048232.54, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "231"]}
+{"t": 1793048241.42, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048242.56, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 5}
+{"t": 1793048251.93, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["323", "552"]}
+{"t": 1793048261.16, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "717"]}
+{"t": 1793048271.49, "phase": "explore", "op": "note", "text": "Rate-us dialog (5 stars + RATE) popped right after adding the first exercise to a custom workout, ~3 min into app use; dismissed with back"}
+{"t": 1793048271.62, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048280.88, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["39", "83"]}
+{"t": 1793048288.13, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["431", "626"]}
+{"t": 1793048289.38, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["54", "1130"]}
+{"t": 1793048290.75, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["405", "67"]}
+{"t": 1793048302.93, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1130"]}
+{"t": 1793048312.15, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["378", "1130"]}
+{"t": 1793048317.07, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["486", "1130"]}
+{"t": 1793048328.29, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "742"]}
+{"t": 1793048339.55, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048340.83, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "470"]}
+{"t": 1793048349.97, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "255"]}
+{"t": 1793048359.93, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["484", "812"]}
+{"t": 1793048369.33, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["140", "1108"]}
+{"t": 1793048370.57, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "355"]}
+{"t": 1793048374.88, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048376.1, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048377.41, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "197"]}
+{"t": 1793048390.23, "phase": "explore", "op": "note", "text": "Backup & Restore = Google account chooser (Google sign-in -> cloud sync); not signed in, dismissed"}
+{"t": 1793048390.38, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048400.61, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["162", "1130"]}
+{"t": 1793048401.83, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "755"]}
+{"t": 1793048404.08, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "231"]}
+{"t": 1793048406.3, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["296", "407"]}
+{"t": 1793048413.85, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1109"]}
+{"t": 1793048423.07, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["507", "212"]}
+{"t": 1793048431.21, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048432.43, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1107"]}
+{"t": 1793048442.22, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["229", "190"]}
+{"t": 1793048451.27, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1045"]}
+{"t": 1793048466.67, "phase": "explore", "op": "note", "text": "First workout start shows a coach-mark guide with an (Example Exercise) 5x20kgx5, Skip Guide button top-right (consumed in explore, so T1 will not show it)"}
+{"t": 1793048466.79, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "920"]}
+{"t": 1793048476.64, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793048486.18, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["60", "393"]}
+{"t": 1793048496.01, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["507", "189"]}
+{"t": 1793048505.63, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["360", "550"]}
+{"t": 1793048515.55, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "487"]}
+{"t": 1793048526.11, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["57", "1109"]}
+{"t": 1793048537.01, "phase": "explore", "op": "note", "text": "Guide = 7 coach marks (Hello, Log next set, Log a set checkbox, More actions, rest timer off by default, Edit your plan (sets 30x3 demo), Log all sets ALL) + I got it! => ~8 taps if followed, 1 tap via Skip Guide"}
+{"t": 1793048537.14, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "997"]}
+{"t": 1793048546.64, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "618"]}
+{"t": 1793048556.89, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["291", "299"]}
+{"t": 1793048569.63, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793048569.84, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "1101"]}
+{"t": 1793048579.53, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["445", "870"]}
+{"t": 1793048588.69, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["45", "823"]}
+{"t": 1793048589.92, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "924"]}
+{"t": 1793048591.44, "phase": "explore", "op": "swipe", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["450", "302", "150", "302"], "ms": 300, "dist_dp": 213}
+{"t": 1793048603.03, "phase": "explore", "op": "swipe", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["505", "302", "200", "302"], "ms": 500, "dist_dp": 217}
+{"t": 1793048612.57, "phase": "explore", "op": "long", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["110", "299"], "ms": 700}
+{"t": 1793048621.44, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["110", "299"]}
+{"t": 1793048632.05, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "387"]}
+{"t": 1793048634.18, "phase": "explore", "op": "swipe", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "396", "60", "396"], "ms": 800, "dist_dp": 291}
+{"t": 1793048648.31, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["476", "390"]}
+{"t": 1793048649.55, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793048659.05, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["33", "79"]}
+{"t": 1793048668.47, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "627"]}
+{"t": 1793048678.22, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "535"]}
+{"t": 1793048690.71, "phase": "explore", "op": "note", "text": "AD #2: interstitial after QUIT (discard) workout"}
+{"t": 1793048703.84, "phase": "explore", "op": "note", "text": "AD #2 close X visible at ~5 s"}
+{"t": 1793048703.96, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["516", "40"]}
+{"t": 1793048714.11, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["500", "73"]}
+{"t": 1793048721.6, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["449", "200"]}
+{"t": 1793048728.98, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["431", "626"]}
+{"t": 1793048753.58, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "755"]}
+{"t": 1793048755.81, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "231"]}
+{"t": 1793048758.05, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048759.5, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 7}
+{"t": 1793048768.64, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["360", "552"]}
+{"t": 1793048769.88, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048771.09, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048771.54, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 3}
+{"t": 1793048780.71, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["351", "697"]}
+{"t": 1793048781.94, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048783.15, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048783.51, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 11}
+{"t": 1793048794.61, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "544"]}
+{"t": 1793048796.86, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048798.34, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 11}
+{"t": 1793048807.01, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["360", "407"]}
+{"t": 1793048808.27, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048809.53, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048810.22, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 5}
+{"t": 1793048819.59, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 4}
+{"t": 1793048828.84, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048829.07, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048830.4, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 9}
+{"t": 1793048835.0, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048835.35, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048835.89, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 3}
+{"t": 1793048846.59, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048846.86, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048847.81, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 9}
+{"t": 1793048856.99, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["353", "552"]}
+{"t": 1793048857.4, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048858.64, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["81", "247"]}
+{"t": 1793048868.68, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1130"]}
+{"t": 1793048869.91, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048870.15, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048870.52, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 3}
+{"t": 1793048872.83, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793048881.02, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["351", "697"]}
+{"t": 1793048882.25, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1109"]}
+{"t": 1793048893.1, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1016"]}
+{"t": 1793048895.34, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048896.55, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 8}
+{"t": 1793048905.18, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["500", "106"]}
+{"t": 1793048906.41, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["39", "83"]}
+{"t": 1793048907.67, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["431", "626"]}
+{"t": 1793048924.6, "phase": "T1-start", "op": "phase"}
+{"t": 1793048924.68, "phase": "T1-start", "op": "note", "text": "No empty/quick workout exists: the app flow is build-first (Custom tab -> START builds a custom workout New training 1 in Edit mode, then SAVE, open, START). Exercises added in the builder via multi-select dialog."}
+{"t": 1793048924.81, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btnEmptyStart", "cls": "LinearLayout", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "755"]}
+{"t": 1793048927.39, "phase": "T1-start", "op": "shot", "path": "t1_builder.png"}
+{"t": 1793048927.48, "phase": "T1-E1-add", "op": "phase"}
+{"t": 1793048929.63, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "id=btn_add_exercise", "cls": "View", "w_dp": 384, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "231"]}
+{"t": 1793048933.89, "phase": "T1-E1-add", "op": "tap", "hit": {"label": "Search exercises | id=etInput", "cls": "EditText", "w_dp": 310, "h_dp": 43, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793048933.99, "phase": "T1-E1-add", "op": "note", "text": "system keyboard (text) opens for search"}
+{"t": 1793048934.98, "phase": "T1-E1-add", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 5}
+{"t": 1793048945.46, "phase": "T1-E1-add", "op": "note", "text": "Bench Press · Barbell is 2nd result under Bench Fly · Dumbbell"}
+{"t": 1793048945.59, "phase": "T1-E1-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["323", "545"]}
+{"t": 1793048946.78, "phase": "T1-E2-add", "op": "phase"}
+{"t": 1793048948.96, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "id=ivClean", "cls": "ImageView", "w_dp": 16, "h_dp": 16, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048949.97, "phase": "T1-E2-add", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 7}
+{"t": 1793048959.54, "phase": "T1-E2-add", "op": "note", "text": "search clear X is 16x16dp; ADD n EXERCISES button floats above keyboard at y~717 overlapping the 3rd result row"}
+{"t": 1793048959.67, "phase": "T1-E2-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["360", "545"]}
+{"t": 1793048960.86, "phase": "T1-E3-add", "op": "phase"}
+{"t": 1793048963.02, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "id=ivClean", "cls": "ImageView", "w_dp": 16, "h_dp": 16, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048964.69, "phase": "T1-E3-add", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 11}
+{"t": 1793048973.24, "phase": "T1-E3-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["360", "407"]}
+{"t": 1793048974.42, "phase": "T1-E4-add", "op": "phase"}
+{"t": 1793048976.59, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "id=ivClean", "cls": "ImageView", "w_dp": 16, "h_dp": 16, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793048977.22, "phase": "T1-E4-add", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 3}
+{"t": 1793048987.63, "phase": "T1-E4-add", "op": "note", "text": "Chest Dip row partly hidden behind the floating ADD button; tapped its upper edge"}
+{"t": 1793048987.77, "phase": "T1-E4-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["351", "662"]}
+{"t": 1793048995.65, "phase": "T1-E4-add", "op": "shot", "path": "t1_dip.png"}
+{"t": 1793049004.71, "phase": "T1-E4-add", "op": "void", "n": 1}
+{"t": 1793049004.8, "phase": "T1-E4-add", "op": "note", "text": "with keyboard open the result list is clipped at ~3rd row by a selected-exercise thumbnail tray + ADD button; must close keyboard to reach Chest Dip"}
+{"t": 1793049004.92, "phase": "T1-E4-add", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793049008.17, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["351", "697"]}
+{"t": 1793049009.93, "phase": "T1-E4-add", "op": "shot", "path": "t1_dip2.png"}
+{"t": 1793049020.83, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1793049020.92, "phase": "T1-E5-add", "op": "note", "text": "keyword cable gives 63 results with no chest fly in first screen (cable fly / crossover give 0: search is substring on name, names are X Fly · Cable); used chest fly, found in explore"}
+{"t": 1793049023.11, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "id=ivClean", "cls": "ImageView", "w_dp": 16, "h_dp": 16, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["492", "171"]}
+{"t": 1793049025.31, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "Search exercises | id=etInput", "cls": "EditText", "w_dp": 310, "h_dp": 43, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793049026.32, "phase": "T1-E5-add", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 9}
+{"t": 1793049030.71, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["353", "545"]}
+{"t": 1793049038.95, "phase": "T1-E5-add", "op": "shot", "path": "t1_add5.png"}
+{"t": 1793049039.08, "phase": "T1-E5-add", "op": "tap", "hit_src": "cache", "hit": {"label": "ADD 5 EXERCISES | id=btnAdd", "cls": "TextView", "w_dp": 343, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "717"]}
+{"t": 1793049043.92, "phase": "T1-E5-add", "op": "shot", "path": "t1_builder5.png"}
+{"t": 1793049048.54, "phase": "T1-start", "op": "phase"}
+{"t": 1793049048.62, "phase": "T1-start", "op": "note", "text": "builder: each exercise added with 1 empty set; left at defaults"}
+{"t": 1793049048.75, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "SAVE | id=btn_save", "cls": "TextView", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1107"]}
+{"t": 1793049058.34, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "New training 1 | id=tvTitle", "cls": "ViewGroup", "w_dp": 354, "h_dp": 222, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["229", "190"]}
+{"t": 1793049062.62, "phase": "T1-start", "op": "tap", "hit": {"label": "START | id=btnStart", "cls": "TextView", "w_dp": 344, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1045"]}
+{"t": 1793049070.49, "phase": "T1-start", "op": "shot", "path": "t1_workout.png"}
+{"t": 1793049075.99, "phase": "T1-E1-s1", "op": "phase"}
+{"t": 1793049076.07, "phase": "T1-E1-s1", "op": "note", "text": "workout opens with first exercise expanded, 1 empty set row (KG / Reps), no prefill; warm-up set type does not exist -> logged 40x10 as normal set"}
+{"t": 1793049076.21, "phase": "T1-E1-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "299"]}
+{"t": 1793049080.42, "phase": "T1-E1-s1", "op": "shot", "path": "t1_kgkeypad.png"}
+{"t": 1793049089.73, "phase": "T1-E1-s1", "op": "note", "text": "app keypad (not system): digits, dot, backspace, hide, Next, plate-calculator key"}
+{"t": 1793049089.87, "phase": "T1-E1-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "4 | id=btn_num_4", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "924"]}
+{"t": 1793049092.94, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049096.9, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "Next | id=btn_next", "cls": "TextView", "w_dp": 83, "h_dp": 116, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "1057"]}
+{"t": 1793049105.97, "phase": "T1-E1-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049110.27, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049112.97, "phase": "T1-E1-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "724"]}
+{"t": 1793049118.52, "phase": "T1-E1-s1", "op": "shot", "path": "t1_e1s1.png"}
+{"t": 1793049126.73, "phase": "T1-E1-s1", "op": "note", "text": "set logged: row turns green, no rest timer (off by default), app auto-expands next exercise because bench had only 1 planned set; FINISH appears in header"}
+{"t": 1793049126.82, "phase": "T1-E1-s2", "op": "phase"}
+{"t": 1793049126.95, "phase": "T1-E1-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "329"]}
+{"t": 1793049137.2, "phase": "T1-E1-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "6 | id=btn_num_6", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "924"]}
+{"t": 1793049139.98, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049144.52, "phase": "T1-E1-s2", "op": "shot", "path": "t1_e1s2a.png"}
+{"t": 1793049157.49, "phase": "T1-E1-s2", "op": "void", "n": 2}
+{"t": 1793049157.59, "phase": "T1-E1-s2", "op": "note", "text": "FRICTION: after Add a set the app keypad stays/opens but focus is on Incline set 1 KG (the field focused after previous LOG), not the new bench set 2; typed 60 into wrong exercise, fixed"}
+{"t": 1793049157.73, "phase": "T1-E1-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_backspace", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "836"]}
+{"t": 1793049161.05, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "id=btn_backspace", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "836"]}
+{"t": 1793049161.14, "phase": "T1-E1-s2", "op": "void", "n": 2}
+{"t": 1793049165.4, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "40 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "169"]}
+{"t": 1793049174.04, "phase": "T1-E1-s2", "op": "note", "text": "focusing a field shows a Recently used: 40 kg x 10 Reps chip (tap to fill)"}
+{"t": 1793049174.19, "phase": "T1-E1-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "6 | id=btn_num_6", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "924"]}
+{"t": 1793049178.12, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049179.79, "phase": "T1-E1-s2", "op": "shot", "path": "t1_e1s2b.png"}
+{"t": 1793049187.94, "phase": "T1-E1-s2", "op": "note", "text": "new set row shows previous values greyed as hint; typing replaces"}
+{"t": 1793049191.1, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "Next | id=btn_next", "cls": "TextView", "w_dp": 83, "h_dp": 116, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "1057"]}
+{"t": 1793049195.06, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "8 | id=btn_num_8", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1013"]}
+{"t": 1793049198.08, "phase": "T1-E1-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049203.69, "phase": "T1-E1-s2", "op": "shot", "path": "t1_e1s2c.png"}
+{"t": 1793049212.72, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1793049212.87, "phase": "T1-E1-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 35, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "148"]}
+{"t": 1793049214.56, "phase": "T1-E1-s3", "op": "shot", "path": "t1_e1s3a.png"}
+{"t": 1793049228.78, "phase": "T1-E1-s3", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=view_fold_click", "cls": "View", "w_dp": 353, "h_dp": 93, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "250", "270", "600"], "ms": 400, "dist_dp": 249}
+{"t": 1793049230.5, "phase": "T1-E1-s3", "op": "shot", "path": "t1_e1s3b.png"}
+{"t": 1793049254.32, "phase": "T1-E1-s3", "op": "note", "text": "TRAP: in s2 Next moved focus to Reps which held copied 10 with caret at end, typing 8 gave 108 and set was logged 60x108 (my error not caught before LOG); fixing now (voided)"}
+{"t": 1793049254.47, "phase": "T1-E1-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "108 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "224"]}
+{"t": 1793049259.85, "phase": "T1-E1-s3", "op": "tap", "hit": null, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1013"]}
+{"t": 1793049261.58, "phase": "T1-E1-s3", "op": "shot", "path": "t1_fix.png"}
+{"t": 1793049276.13, "phase": "T1-E1-s3", "op": "void", "n": 4}
+{"t": 1793049276.21, "phase": "T1-E1-s3", "op": "note", "text": "direct tap on a field selects its content (typing replaces); keypad Next does NOT select (typing appends) -> fixed set 2 to 60x8; redoing s3 cleanly"}
+{"t": 1793049279.17, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "id=btn_close_keyboard", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "924"]}
+{"t": 1793049284.01, "phase": "T1-E1-s3", "op": "swipe", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "434", "60", "434"], "ms": 800, "dist_dp": 291}
+{"t": 1793049285.68, "phase": "T1-E1-s3", "op": "shot", "path": "t1_del3.png"}
+{"t": 1793049297.5, "phase": "T1-E1-s3", "op": "void", "n": 2}
+{"t": 1793049301.09, "phase": "T1-E1-s3", "op": "swipe", "hit": {"label": "id=iv_arrow", "cls": "RelativeLayout", "w_dp": 384, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "412", "60", "412"], "ms": 800, "dist_dp": 291}
+{"t": 1793049305.17, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "Delete | id=btn_delete", "cls": "TextView", "w_dp": 91, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["476", "412"]}
+{"t": 1793049310.16, "phase": "T1-E1-s3", "op": "swipe", "hit": {"label": "id=iv_arrow", "cls": "RelativeLayout", "w_dp": 384, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "318", "60", "318"], "ms": 800, "dist_dp": 291}
+{"t": 1793049314.19, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "Delete | id=btn_delete", "cls": "TextView", "w_dp": 91, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["476", "318"]}
+{"t": 1793049315.38, "phase": "T1-E1-s3", "op": "void", "n": 4}
+{"t": 1793049315.91, "phase": "T1-E1-s3", "op": "shot", "path": "t1_del4.png"}
+{"t": 1793049330.2, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "312"]}
+{"t": 1793049331.84, "phase": "T1-E1-s3", "op": "shot", "path": "t1_e1s3c.png"}
+{"t": 1793049343.49, "phase": "T1-E1-s3", "op": "note", "text": "Add a set copies previous set values (shown grey until done)"}
+{"t": 1793049346.23, "phase": "T1-E1-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793049348.91, "phase": "T1-E1-s3", "op": "shot", "path": "t1_e1s3d.png"}
+{"t": 1793049363.91, "phase": "T1-E1-s3", "op": "note", "text": "after LOG, app scrolls to next exercise whose set is empty and auto-opens app keypad on its KG"}
+{"t": 1793049364.01, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1793049366.26, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 35, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "140"]}
+{"t": 1793049367.92, "phase": "T1-E1-s4", "op": "shot", "path": "t1_e1s4a.png"}
+{"t": 1793049380.84, "phase": "T1-E1-s4", "op": "note", "text": "new bench set added offscreen above the viewport; had to scroll up to reach it"}
+{"t": 1793049383.72, "phase": "T1-E1-s4", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049393.78, "phase": "T1-E1-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "8 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "286"]}
+{"t": 1793049396.29, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "7 | id=btn_num_7", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "1013"]}
+{"t": 1793049400.38, "phase": "T1-E1-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049403.03, "phase": "T1-E1-s4", "op": "shot", "path": "t1_e1s4b.png"}
+{"t": 1793049419.44, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1793049419.54, "phase": "T1-E2-s1", "op": "note", "text": "keypad already open with focus on Incline set1 KG (auto)"}
+{"t": 1793049423.76, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793049426.3, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793049430.4, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": ". | id=btn_num_dot", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1101"]}
+{"t": 1793049433.31, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049436.31, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "Next | id=btn_next", "cls": "TextView", "w_dp": 83, "h_dp": 116, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "1057"]}
+{"t": 1793049440.34, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049443.37, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049445.08, "phase": "T1-E2-s1", "op": "shot", "path": "t1_e2s1a.png"}
+{"t": 1793049465.12, "phase": "T1-E2-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049467.85, "phase": "T1-E2-s1", "op": "shot", "path": "t1_e2s1b.png"}
+{"t": 1793049481.21, "phase": "T1-E2-s2", "op": "phase"}
+{"t": 1793049485.85, "phase": "T1-E2-s2", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049487.65, "phase": "T1-E2-s2", "op": "shot", "path": "t1_e2s2a.png"}
+{"t": 1793049496.97, "phase": "T1-E2-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "408"]}
+{"t": 1793049500.47, "phase": "T1-E2-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049503.14, "phase": "T1-E2-s2", "op": "shot", "path": "t1_e2s2b.png"}
+{"t": 1793049515.29, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1793049518.87, "phase": "T1-E2-s3", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049529.76, "phase": "T1-E2-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "411"]}
+{"t": 1793049540.73, "phase": "T1-E2-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "10 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "166"]}
+{"t": 1793049543.43, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "9 | id=btn_num_9", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1013"]}
+{"t": 1793049545.06, "phase": "T1-E2-s3", "op": "shot", "path": "t1_e2s3a.png"}
+{"t": 1793049547.44, "phase": "T1-E2-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049549.64, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1793049554.0, "phase": "T1-E2-s4", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049564.75, "phase": "T1-E2-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "425"]}
+{"t": 1793049574.15, "phase": "T1-E2-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "9 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "163"]}
+{"t": 1793049577.49, "phase": "T1-E2-s4", "op": "tap", "hit": {"label": "8 | id=btn_num_8", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1013"]}
+{"t": 1793049581.5, "phase": "T1-E2-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049583.71, "phase": "T1-E3-s1", "op": "phase"}
+{"t": 1793049584.33, "phase": "T1-E3-s1", "op": "shot", "path": "t1_e3s1a.png"}
+{"t": 1793049593.99, "phase": "T1-E3-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049598.35, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049601.56, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "Next | id=btn_next", "cls": "TextView", "w_dp": 83, "h_dp": 116, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "1057"]}
+{"t": 1793049605.54, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049608.51, "phase": "T1-E3-s1", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793049620.01, "phase": "T1-E3-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049622.2, "phase": "T1-E3-s2", "op": "phase"}
+{"t": 1793049625.0, "phase": "T1-E3-s2", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049633.94, "phase": "T1-E3-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "388"]}
+{"t": 1793049643.01, "phase": "T1-E3-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "50 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "169"]}
+{"t": 1793049645.58, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049648.61, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049652.61, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "12 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "169"]}
+{"t": 1793049655.6, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049659.59, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049661.34, "phase": "T1-E3-s2", "op": "shot", "path": "t1_e3s2a.png"}
+{"t": 1793049674.7, "phase": "T1-E3-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049676.9, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1793049681.13, "phase": "T1-E3-s3", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049690.02, "phase": "T1-E3-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "407"]}
+{"t": 1793049694.71, "phase": "T1-E3-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049696.91, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1793049700.15, "phase": "T1-E3-s4", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 55, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049709.46, "phase": "T1-E3-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "417"]}
+{"t": 1793049719.57, "phase": "T1-E3-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "10 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "164"]}
+{"t": 1793049722.76, "phase": "T1-E3-s4", "op": "tap", "hit": {"label": "9 | id=btn_num_9", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1013"]}
+{"t": 1793049726.69, "phase": "T1-E3-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049728.9, "phase": "T1-E4-s1", "op": "phase"}
+{"t": 1793049728.98, "phase": "T1-E4-s1", "op": "note", "text": "Chest Dip is reps-only (no weight field): BW and +10 kg cannot be recorded; logging reps only"}
+{"t": 1793049729.59, "phase": "T1-E4-s1", "op": "shot", "path": "t1_e4s1a.png"}
+{"t": 1793049740.05, "phase": "T1-E4-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049742.71, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793049745.75, "phase": "T1-E4-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049747.96, "phase": "T1-E4-s2", "op": "phase"}
+{"t": 1793049751.19, "phase": "T1-E4-s2", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 64, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049760.59, "phase": "T1-E4-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "399"]}
+{"t": 1793049771.96, "phase": "T1-E4-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "12 | id=et_content", "cls": "EditText", "w_dp": 122, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["291", "157"]}
+{"t": 1793049774.75, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049777.72, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "0 | id=btn_num_0", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "1101"]}
+{"t": 1793049780.76, "phase": "T1-E4-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049782.96, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1793049783.04, "phase": "T1-E4-s3", "op": "note", "text": "set 3 should be +10 kg x 8: weight impossible on Chest Dip; logged 8 reps"}
+{"t": 1793049786.24, "phase": "T1-E4-s3", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 64, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049796.9, "phase": "T1-E4-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "412"]}
+{"t": 1793049806.62, "phase": "T1-E4-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "10 | id=et_content", "cls": "EditText", "w_dp": 122, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["291", "159"]}
+{"t": 1793049808.96, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "8 | id=btn_num_8", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1013"]}
+{"t": 1793049811.79, "phase": "T1-E4-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049813.99, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1793049817.32, "phase": "T1-E4-s4", "op": "swipe", "hit": {"label": "id=ly_round_detail", "cls": "ViewGroup", "w_dp": 384, "h_dp": 64, "interactive": false, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "200", "270", "500"], "ms": 400, "dist_dp": 213}
+{"t": 1793049826.06, "phase": "T1-E4-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "432"]}
+{"t": 1793049829.36, "phase": "T1-E4-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049831.56, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1793049832.16, "phase": "T1-E5-s1", "op": "shot", "path": "t1_e5s1a.png"}
+{"t": 1793049841.82, "phase": "T1-E5-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049845.83, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049848.8, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "Next | id=btn_next", "cls": "TextView", "w_dp": 83, "h_dp": 116, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "1057"]}
+{"t": 1793049852.85, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049855.82, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049858.84, "phase": "T1-E5-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049861.04, "phase": "T1-E5-s2", "op": "phase"}
+{"t": 1793049861.61, "phase": "T1-E5-s2", "op": "shot", "path": "t1_e5s2a.png"}
+{"t": 1793049871.52, "phase": "T1-E5-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "876"]}
+{"t": 1793049880.59, "phase": "T1-E5-s2", "op": "tap", "hit_src": "cache", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793049882.79, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1793049885.86, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "id=btn_add_exercise", "cls": "View", "w_dp": 384, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "970"]}
+{"t": 1793049894.9, "phase": "T1-E5-s3", "op": "void", "n": 1}
+{"t": 1793049895.04, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivClose", "cls": "ImageView", "w_dp": 40, "h_dp": 40, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["500", "106"]}
+{"t": 1793049895.13, "phase": "T1-E5-s3", "op": "void", "n": 1}
+{"t": 1793049905.44, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "876"]}
+{"t": 1793049914.85, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "15 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "882"]}
+{"t": 1793049920.25, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049923.04, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "7 | id=btn_num_7", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "1013"]}
+{"t": 1793049927.06, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": ". | id=btn_num_dot", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1101"]}
+{"t": 1793049931.1, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793049942.55, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "15 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "453"]}
+{"t": 1793049945.07, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793049949.04, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793049950.69, "phase": "T1-E5-s3", "op": "shot", "path": "t1_e5s3a.png"}
+{"t": 1793049953.05, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793049974.89, "phase": "T1-E5-s3", "op": "void", "n": 10}
+{"t": 1793049974.98, "phase": "T1-E5-s3", "op": "note", "text": "E5 s3 went wrong: reps tap while keypad open did not move focus (list had re-scrolled), result 17.51x15 logged; voided whole s3 and redoing"}
+{"t": 1793049976.02, "phase": "T1-E5-s3", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=iv_arrow", "cls": "RelativeLayout", "w_dp": 384, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "790", "60", "790"], "ms": 800, "dist_dp": 291}
+{"t": 1793049977.7, "phase": "T1-E5-s3", "op": "shot", "path": "t1_del5.png"}
+{"t": 1793049990.14, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "Delete | id=btn_delete", "cls": "TextView", "w_dp": 91, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["476", "785"]}
+{"t": 1793049991.33, "phase": "T1-E5-s3", "op": "void", "n": 2}
+{"t": 1793050000.93, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "876"]}
+{"t": 1793050005.17, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "15 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "882"]}
+{"t": 1793050010.12, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793050013.21, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "7 | id=btn_num_7", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "1013"]}
+{"t": 1793050017.22, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": ". | id=btn_num_dot", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1101"]}
+{"t": 1793050021.3, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793050030.82, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "15 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "464"]}
+{"t": 1793050032.54, "phase": "T1-E5-s3", "op": "shot", "path": "t1_e5s3b.png"}
+{"t": 1793050048.85, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["380", "464"]}
+{"t": 1793050050.57, "phase": "T1-E5-s3", "op": "shot", "path": "t1_e5s3c.png"}
+{"t": 1793050062.12, "phase": "T1-E5-s3", "op": "size", "w_dp": 61, "h_dp": 44}
+{"t": 1793050065.16, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793050068.18, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793050069.94, "phase": "T1-E5-s3", "op": "shot", "path": "t1_e5s3d.png"}
+{"t": 1793050088.87, "phase": "T1-E5-s3", "op": "void", "n": 10}
+{"t": 1793050088.96, "phase": "T1-E5-s3", "op": "note", "text": "FRICTION/BUG: switching from KG to Reps by tapping while app keypad is open is unreliable here: first tap did not move input focus (digit went to KG -> 17.51, toast Character limit reached), second tap focused Reps but appended to copied 15 -> 1512. Voided; redoing"}
+{"t": 1793050093.18, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "id=btn_close_keyboard", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "924"]}
+{"t": 1793050103.46, "phase": "T1-E5-s3", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=iv_arrow", "cls": "RelativeLayout", "w_dp": 384, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "790", "60", "790"], "ms": 800, "dist_dp": 291}
+{"t": 1793050107.19, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "Delete | id=btn_delete", "cls": "TextView", "w_dp": 91, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["476", "787"]}
+{"t": 1793050108.4, "phase": "T1-E5-s3", "op": "void", "n": 3}
+{"t": 1793050119.51, "phase": "T1-E5-s3", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "876"]}
+{"t": 1793050123.24, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "15 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "882"]}
+{"t": 1793050129.26, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "1 | id=btn_num_1", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "836"]}
+{"t": 1793050132.25, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "7 | id=btn_num_7", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "1013"]}
+{"t": 1793050135.26, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": ". | id=btn_num_dot", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1101"]}
+{"t": 1793050138.27, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793050142.3, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "Next | id=btn_next", "cls": "TextView", "w_dp": 83, "h_dp": 116, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "1057"]}
+{"t": 1793050144.02, "phase": "T1-E5-s3", "op": "shot", "path": "t1_e5s3e.png"}
+{"t": 1793050158.3, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "id=btn_backspace", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "836"]}
+{"t": 1793050160.0, "phase": "T1-E5-s3", "op": "shot", "path": "t1_e5s3f.png"}
+{"t": 1793050171.79, "phase": "T1-E5-s3", "op": "note", "text": "Next to Reps keeps copied 15 with caret at end; one backspace -> 1, then 2 -> 12"}
+{"t": 1793050175.33, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793050179.31, "phase": "T1-E5-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "724"]}
+{"t": 1793050181.52, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1793050190.04, "phase": "T1-E5-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["283", "876"]}
+{"t": 1793050201.47, "phase": "T1-E5-s4", "op": "tap", "hit_src": "cache", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050203.67, "phase": "T1-finish", "op": "phase"}
+{"t": 1793050204.22, "phase": "T1-finish", "op": "shot", "path": "t1_alldone.png"}
+{"t": 1793050207.32, "phase": "T1-finish", "op": "tap", "hit": {"label": "FINISH | id=btn_finish", "cls": "TextView", "w_dp": 76, "h_dp": 28, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["457", "79"]}
+{"t": 1793050213.97, "phase": "T1-finish", "op": "shot", "path": "t1_finish1.png"}
+{"t": 1793050222.69, "phase": "T1-finish", "op": "note", "text": "FINISH (header, 76x28dp) goes straight to result page, no confirm: TOTAL WEIGHT LIFTED 5678 kg (= sum of logged sets; dumbbell weight counted once, not x2), share row Instagram/WhatsApp/Save Image/Copy text/More, FINISH button"}
+{"t": 1793050222.83, "phase": "T1-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "FINISH | id=btnNewFinish", "cls": "TextView", "w_dp": 343, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1107"]}
+{"t": 1793050228.62, "phase": "T1-finish", "op": "shot", "path": "t1_finish2.png"}
+{"t": 1793050235.45, "phase": "T1-finish", "op": "note", "text": "Update your workout? dialog: diff of template vs done sets per exercise (0 kg x 0 -> logged values); Update all changes / Keep current -> chose Update"}
+{"t": 1793050235.59, "phase": "T1-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "Update all changes | id=tv_update", "cls": "TextView", "w_dp": 307, "h_dp": 45, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1021"]}
+{"t": 1793050242.44, "phase": "T1-finish", "op": "shot", "path": "t1_finish3.png"}
+{"t": 1793050249.0, "phase": "T1-finish", "op": "note", "text": "after finish: lands on Report tab; no ad shown at finish this time"}
+{"t": 1793050265.11, "phase": "explore", "op": "phase"}
+{"t": 1793050265.77, "phase": "explore", "op": "launch", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "pkg": "gymworkout.gym.gymlog.gymtrainer"}
+{"t": 1793050298.3, "phase": "explore", "op": "note", "text": "cold launch: blue splash with progress bar ~5-8 s (ad-loading style), lands on last tab Custom; no app-open ad seen"}
+{"t": 1793050298.39, "phase": "T3-start", "op": "phase"}
+{"t": 1793050298.52, "phase": "T3-start", "op": "tap", "hit_src": "cache", "hit": {"label": "New training 1 | id=tvTitle", "cls": "ViewGroup", "w_dp": 354, "h_dp": 222, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["229", "190"]}
+{"t": 1793050301.42, "phase": "T3-start", "op": "shot", "path": "t3_detail.png"}
+{"t": 1793050303.59, "phase": "T3-start", "op": "tap", "hit": {"label": "START | id=btnStart", "cls": "TextView", "w_dp": 344, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1045"]}
+{"t": 1793050307.32, "phase": "T3-start", "op": "shot", "path": "t3_workout.png"}
+{"t": 1793050317.38, "phase": "T3-start", "op": "note", "text": "T3: Custom tab -> template card -> START; all 20 sets prefilled from template (updated at T1 finish), not from history; no last-time column"}
+{"t": 1793050317.47, "phase": "T3-E1-s1", "op": "phase"}
+{"t": 1793050317.6, "phase": "T3-E1-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050320.34, "phase": "T3-E1-s1", "op": "shot", "path": "t3_e1s1.png"}
+{"t": 1793050320.44, "phase": "T3-E1-s2", "op": "phase"}
+{"t": 1793050322.86, "phase": "T3-E1-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050325.06, "phase": "T3-E1-s3", "op": "phase"}
+{"t": 1793050327.86, "phase": "T3-E1-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050330.06, "phase": "T3-E1-s4", "op": "phase"}
+{"t": 1793050332.94, "phase": "T3-E1-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050335.55, "phase": "T3-E1-s4", "op": "shot", "path": "t3_e1s4.png"}
+{"t": 1793050343.78, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1793050343.93, "phase": "T3-E2-s1", "op": "tap", "hit_src": "cache", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050346.13, "phase": "T3-E2-s2", "op": "phase"}
+{"t": 1793050348.87, "phase": "T3-E2-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050351.07, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1793050354.9, "phase": "T3-E2-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050357.1, "phase": "T3-E2-s4", "op": "phase"}
+{"t": 1793050359.94, "phase": "T3-E2-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050362.58, "phase": "T3-E2-s4", "op": "shot", "path": "t3_e2done.png"}
+{"t": 1793050362.68, "phase": "T3-E3-s1", "op": "phase"}
+{"t": 1793050364.95, "phase": "T3-E3-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050367.15, "phase": "T3-E3-s2", "op": "phase"}
+{"t": 1793050371.13, "phase": "T3-E3-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050373.34, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1793050376.13, "phase": "T3-E3-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050378.33, "phase": "T3-E3-s4", "op": "phase"}
+{"t": 1793050382.14, "phase": "T3-E3-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050384.77, "phase": "T3-E3-s4", "op": "shot", "path": "t3_e3done.png"}
+{"t": 1793050384.88, "phase": "T3-E4-s1", "op": "phase"}
+{"t": 1793050389.14, "phase": "T3-E4-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050391.35, "phase": "T3-E4-s2", "op": "phase"}
+{"t": 1793050394.15, "phase": "T3-E4-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050396.35, "phase": "T3-E4-s3", "op": "phase"}
+{"t": 1793050399.13, "phase": "T3-E4-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050401.32, "phase": "T3-E4-s4", "op": "phase"}
+{"t": 1793050404.02, "phase": "T3-E4-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050406.83, "phase": "T3-E4-s4", "op": "shot", "path": "t3_e4done.png"}
+{"t": 1793050406.92, "phase": "T3-E5-s1", "op": "phase"}
+{"t": 1793050410.12, "phase": "T3-E5-s1", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050412.31, "phase": "T3-E5-s2", "op": "phase"}
+{"t": 1793050415.1, "phase": "T3-E5-s2", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050417.3, "phase": "T3-E5-s3", "op": "phase"}
+{"t": 1793050420.08, "phase": "T3-E5-s3", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050422.28, "phase": "T3-E5-s4", "op": "phase"}
+{"t": 1793050425.16, "phase": "T3-E5-s4", "op": "tap", "hit": {"label": "LOG NEXT SET | id=btn_log", "cls": "TextView", "w_dp": 293, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050427.79, "phase": "T3-E5-s4", "op": "shot", "path": "t3_e5done.png"}
+{"t": 1793050442.49, "phase": "T3-finish", "op": "phase"}
+{"t": 1793050442.62, "phase": "T3-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "FINISHED | id=btn_log", "cls": "TextView", "w_dp": 354, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1109"]}
+{"t": 1793050446.64, "phase": "T3-finish", "op": "shot", "path": "t3_fin1.png"}
+{"t": 1793050455.91, "phase": "T3-finish", "op": "note", "text": "bottom FINISHED button (354x51dp) also finishes once all sets done; result card WELL DONE 2nd workout, 20 sets 5678 kg"}
+{"t": 1793050456.05, "phase": "T3-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "FINISH | id=btnNewFinish", "cls": "TextView", "w_dp": 343, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1107"]}
+{"t": 1793050460.73, "phase": "T3-finish", "op": "shot", "path": "t3_fin2.png"}
+{"t": 1793050471.04, "phase": "explore", "op": "phase"}
+{"t": 1793050471.17, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["162", "1130"]}
+{"t": 1793050472.4, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["229", "190"]}
+{"t": 1793050474.63, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1045"]}
+{"t": 1793050477.88, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050480.1, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050482.29, "phase": "T4", "op": "phase"}
+{"t": 1793050482.9, "phase": "T4", "op": "shot", "path": "t4_0.png"}
+{"t": 1793050486.05, "phase": "T4", "op": "tap", "hit": {"label": "60 | id=et_content", "cls": "EditText", "w_dp": 61, "h_dp": 44, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "393"]}
+{"t": 1793050497.31, "phase": "T4", "op": "note", "text": "tap done set KG -> app keypad, content selected; Recently used chips: 60x7, 60x8, 40x10"}
+{"t": 1793050497.45, "phase": "T4", "op": "tap", "hit_src": "cache", "hit": {"label": "6 | id=btn_num_6", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["335", "924"]}
+{"t": 1793050499.88, "phase": "T4", "op": "tap", "hit": {"label": "2 | id=btn_num_2", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "836"]}
+{"t": 1793050502.9, "phase": "T4", "op": "tap", "hit": {"label": ". | id=btn_num_dot", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "1101"]}
+{"t": 1793050506.92, "phase": "T4", "op": "tap", "hit": {"label": "5 | id=btn_num_5", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["204", "924"]}
+{"t": 1793050510.88, "phase": "T4", "op": "tap", "hit": {"label": "id=btn_close_keyboard", "cls": "TextView", "w_dp": 83, "h_dp": 53, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["466", "924"]}
+{"t": 1793050512.56, "phase": "T4", "op": "shot", "path": "t4_1.png"}
+{"t": 1793050523.11, "phase": "T4", "op": "note", "text": "edit saved in place (no confirm), set stays done"}
+{"t": 1793050524.14, "phase": "T4", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=cbClickView", "cls": "RelativeLayout", "w_dp": 384, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["470", "487", "60", "487"], "ms": 800, "dist_dp": 291}
+{"t": 1793050525.78, "phase": "T4", "op": "shot", "path": "t4_2.png"}
+{"t": 1793050528.94, "phase": "T4", "op": "tap", "hit": {"label": "Delete | id=btn_delete", "cls": "TextView", "w_dp": 91, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["476", "487"]}
+{"t": 1793050530.63, "phase": "T4", "op": "shot", "path": "t4_3.png"}
+{"t": 1793050540.98, "phase": "T4", "op": "note", "text": "swipe-left Delete removes the set instantly: no confirm, no undo/snackbar; no undo anywhere (only unticking a done set)"}
+{"t": 1793050541.08, "phase": "T5", "op": "phase"}
+{"t": 1793050541.64, "phase": "T5", "op": "scroll", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "dir": "down"}
+{"t": 1793050550.76, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "id=btn_add_exercise", "cls": "View", "w_dp": 384, "h_dp": 59, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1006"]}
+{"t": 1793050555.08, "phase": "T5", "op": "tap", "hit": {"label": "Search exercises | id=etInput", "cls": "EditText", "w_dp": 310, "h_dp": 43, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793050556.78, "phase": "T5", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 8}
+{"t": 1793050567.32, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "id=layout_exercise_info", "cls": "ViewGroup", "w_dp": 346, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["345", "400"]}
+{"t": 1793050570.6, "phase": "T5", "op": "tap", "hit": {"label": "ADD 1 EXERCISE | id=btnAdd", "cls": "TextView", "w_dp": 343, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "717"]}
+{"t": 1793050573.3, "phase": "T5", "op": "shot", "path": "t5_1.png"}
+{"t": 1793050582.39, "phase": "T5", "op": "note", "text": "no Squat in this workout; reorder target = move Overhead Press above Incline"}
+{"t": 1793050584.68, "phase": "T5", "op": "longdrag", "hit_src": "cache", "hit": {"label": "id=view_fold_click", "cls": "View", "w_dp": 353, "h_dp": 93, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["330", "786", "330", "190"], "ms": 1000, "dist_dp": 424}
+{"t": 1793050586.38, "phase": "T5", "op": "shot", "path": "t5_2.png"}
+{"t": 1793050599.65, "phase": "T5", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=btn_add_set_click", "cls": "View", "w_dp": 351, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "300", "270", "700"], "ms": 400, "dist_dp": 285}
+{"t": 1793050601.25, "phase": "T5", "op": "shot", "path": "t5_3.png"}
+{"t": 1793050610.77, "phase": "T5", "op": "void", "n": 1}
+{"t": 1793050610.86, "phase": "T5", "op": "note", "text": "reorder: long-press exercise header and drag (no visible handle), works; dropped above Incline"}
+{"t": 1793050613.15, "phase": "T5", "op": "tap", "hit": {"label": "id=layer_more", "cls": "View", "w_dp": 32, "h_dp": 32, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["507", "441"]}
+{"t": 1793050621.6, "phase": "T5", "op": "note", "text": "exercise menu: Add memo, Replace, Rest Timer Off, Remove exercise, Create Superset"}
+{"t": 1793050621.74, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "Remove exercise | id=tv_remove_exercise", "cls": "TextView", "w_dp": 182, "h_dp": 35, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["401", "661"]}
+{"t": 1793050630.53, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "YES | id=btn_pos", "cls": "TextView", "w_dp": 61, "h_dp": 34, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["431", "626"]}
+{"t": 1793050632.49, "phase": "T5", "op": "shot", "path": "t5_4.png"}
+{"t": 1793050632.6, "phase": "T6", "op": "phase"}
+{"t": 1793050632.75, "phase": "T6", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "home"}
+{"t": 1793050638.22, "phase": "T6", "op": "launch", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "pkg": "gymworkout.gym.gymlog.gymtrainer"}
+{"t": 1793050642.95, "phase": "T6", "op": "shot", "path": "t6_1.png"}
+{"t": 1793050652.57, "phase": "T6", "op": "note", "text": "home + relaunch after 5 s: back in workout, state intact, timer kept running"}
+{"t": 1793050653.14, "phase": "T6", "op": "launch", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "pkg": "gymworkout.gym.gymlog.gymtrainer"}
+{"t": 1793050662.95, "phase": "T6", "op": "shot", "path": "t6_2.png"}
+{"t": 1793050677.45, "phase": "T6", "op": "shot", "path": "t6_3.png"}
+{"t": 1793050685.58, "phase": "T6", "op": "note", "text": "after force-stop: splash ~8-14 s, then Custom tab with resume bar at bottom: New training 1 03:10 + Continue"}
+{"t": 1793050685.71, "phase": "T6", "op": "tap", "hit_src": "cache", "hit": {"label": "Continue | id=btnContinue", "cls": "TextView", "w_dp": 85, "h_dp": 37, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["457", "1030"]}
+{"t": 1793050689.53, "phase": "T6", "op": "shot", "path": "t6_4.png"}
+{"t": 1793050699.2, "phase": "T6", "op": "note", "text": "workout fully recovered incl. edits/deletions"}
+{"t": 1793050699.3, "phase": "T7-in", "op": "phase"}
+{"t": 1793050699.47, "phase": "T7-in", "op": "tap", "hit_src": "cache", "hit": {"label": "id=exercise_info_click_view", "cls": "View", "w_dp": 61, "h_dp": 61, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["111", "189"]}
+{"t": 1793050703.39, "phase": "T7-in", "op": "shot", "path": "t7_1.png"}
+{"t": 1793050710.31, "phase": "T7-in", "op": "tap", "hit_src": "cache", "hit": {"label": "desc=RECORDS", "cls": "LinearLayout", "w_dp": 192, "h_dp": 38, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["405", "139"]}
+{"t": 1793050712.96, "phase": "T7-in", "op": "shot", "path": "t7_2.png"}
+{"t": 1793050726.82, "phase": "T7-in", "op": "note", "text": "in-workout: tap exercise thumbnail -> bottom sheet INSTRUCTIONS/RECORDS; RECORDS: BEST 1RM 76, MAX WEIGHT 60, MAX VOLUME 3560 (both same-day sessions summed), 1RM bar chart per day, HISTORY per session with sets grouped and per-row 1RM; DONE closes"}
+{"t": 1793050726.95, "phase": "T7-in", "op": "tap", "hit_src": "cache", "hit": {"label": "DONE | id=tv_btn", "cls": "TextView", "w_dp": 313, "h_dp": 51, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1109"]}
+{"t": 1793050728.16, "phase": "explore", "op": "phase"}
+{"t": 1793050737.34, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["201", "487"]}
+{"t": 1793050738.58, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["73", "1101"]}
+{"t": 1793050752.78, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1060"]}
+{"t": 1793050754.02, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793050755.27, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["507", "189"]}
+{"t": 1793050763.77, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["401", "359"]}
+{"t": 1793050773.67, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["468", "396"]}
+{"t": 1793050774.89, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["389", "810"]}
+{"t": 1793050776.13, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["312", "1109"]}
+{"t": 1793050792.46, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "857"]}
+{"t": 1793050793.69, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["507", "189"]}
+{"t": 1793050794.91, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["401", "540"]}
+{"t": 1793050805.61, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["507", "473"]}
+{"t": 1793050813.91, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["401", "824"]}
+{"t": 1793050824.93, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["500", "226"]}
+{"t": 1793050826.15, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["33", "79"]}
+{"t": 1793050835.96, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "627"]}
+{"t": 1793050838.21, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "535"]}
+{"t": 1793050848.15, "phase": "explore", "op": "note", "text": "second QUIT: no ad (interstitials appear frequency-capped)"}
+{"t": 1793050856.11, "phase": "T7-out", "op": "phase"}
+{"t": 1793050856.24, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "Exercises", "cls": "FrameLayout", "w_dp": 77, "h_dp": 60, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1130"]}
+{"t": 1793050860.49, "phase": "T7-out", "op": "tap", "hit": {"label": "id=ivSearch", "cls": "ImageView", "w_dp": 36, "h_dp": 36, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["501", "81"]}
+{"t": 1793050869.98, "phase": "T7-out", "op": "note", "text": "search opens RECENT list; Bench Press visible without typing"}
+{"t": 1793050870.16, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivIMg", "cls": "ViewGroup", "w_dp": 384, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["250", "1000"]}
+{"t": 1793050873.84, "phase": "T7-out", "op": "shot", "path": "t7_out1.png"}
+{"t": 1793050882.57, "phase": "T7-out", "op": "void", "n": 1}
+{"t": 1793050882.65, "phase": "T7-out", "op": "note", "text": "search field auto-opens system keyboard covering the lower RECENT rows (Bench Press row hidden under keyboard)"}
+{"t": 1793050882.79, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivClean", "cls": "ImageView", "w_dp": 16, "h_dp": 16, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["406", "80"]}
+{"t": 1793050882.88, "phase": "T7-out", "op": "void", "n": 1}
+{"t": 1793050883.6, "phase": "T7-out", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 5}
+{"t": 1793050893.84, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "id=ivIMg", "cls": "ViewGroup", "w_dp": 384, "h_dp": 91, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["326", "420"]}
+{"t": 1793050897.57, "phase": "T7-out", "op": "shot", "path": "t7_out2.png"}
+{"t": 1793050904.52, "phase": "T7-out", "op": "note", "text": "same INSTRUCTIONS/RECORDS sheet (with video play button ivPlay)"}
+{"t": 1793050904.66, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "desc=RECORDS", "cls": "LinearLayout", "w_dp": 192, "h_dp": 38, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["405", "139"]}
+{"t": 1793050907.33, "phase": "T7-out", "op": "shot", "path": "t7_out3.png"}
+{"t": 1793050907.43, "phase": "explore", "op": "phase"}
+{"t": 1793050907.55, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["474", "467"]}
+{"t": 1793050921.0, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["135", "139"]}
+{"t": 1793050922.24, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["474", "467"]}
+{"t": 1793050936.99, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1109"]}
+{"t": 1793050938.29, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["486", "81"]}
+{"t": 1793050939.55, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["378", "1130"]}
+{"t": 1793050943.06, "phase": "explore", "op": "scroll", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "dir": "down"}
+{"t": 1793050955.37, "phase": "explore", "op": "scroll", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "dir": "down"}
+{"t": 1793050957.15, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["50", "427"]}
+{"t": 1793050966.61, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["495", "842"]}
+{"t": 1793050974.83, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793050976.06, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["249", "860"]}
+{"t": 1793050985.17, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["500", "74"]}
+{"t": 1793050996.08, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793050996.4, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793050997.61, "phase": "T8", "op": "phase"}
+{"t": 1793050999.85, "phase": "T8", "op": "tap", "hit": {"label": "Me", "cls": "FrameLayout", "w_dp": 77, "h_dp": 60, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["486", "1130"]}
+{"t": 1793051004.13, "phase": "T8", "op": "tap", "hit": {"label": "id=setting_account", "cls": "LinearLayout", "w_dp": 354, "h_dp": 87, "interactive": true, "pkg": "gymworkout.gym.gymlog.gymtrainer"}, "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "197"]}
+{"t": 1793051008.13, "phase": "T8", "op": "shot", "path": "t8_1.png"}
+{"t": 1793051017.67, "phase": "T8", "op": "note", "text": "no data export (CSV/JSON) anywhere; Backup & Restore only offers Google account sign-in (cloud sync); stopped at account chooser"}
+{"t": 1793051017.88, "phase": "T8", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051020.1, "phase": "explore", "op": "phase"}
+{"t": 1793051020.27, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "384"]}
+{"t": 1793051029.67, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "446"]}
+{"t": 1793051039.83, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051041.1, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051042.53, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1130"]}
+{"t": 1793051044.77, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["471", "1013"]}
+{"t": 1793051054.54, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "476"]}
+{"t": 1793051056.21, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 12}
+{"t": 1793051056.41, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051057.63, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["478", "605"]}
+{"t": 1793051066.33, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "416"]}
+{"t": 1793051066.52, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793051067.76, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["478", "731"]}
+{"t": 1793051076.97, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "570"]}
+{"t": 1793051077.26, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1095"]}
+{"t": 1793051079.21, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1023"]}
+{"t": 1793051088.7, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["162", "1130"]}
+{"t": 1793051089.95, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["426", "1020"]}
+{"t": 1793051098.76, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "231"]}
+{"t": 1793051101.01, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "171"]}
+{"t": 1793051102.43, "phase": "explore", "op": "text", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "chars": 8}
+{"t": 1793051104.67, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["300", "400"]}
+{"t": 1793051112.21, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "717"]}
+{"t": 1793051122.29, "phase": "explore", "op": "note", "text": "custom exercise: name/photo/bodypart/equipment; no tracking-type choice; Weighted Dip with Dip Machine equipment still reps-only"}
+{"t": 1793051122.43, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["39", "83"]}
+{"t": 1793051123.68, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["431", "626"]}
+{"t": 1793051125.07, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["54", "1130"]}
+{"t": 1793051127.33, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["135", "67"]}
+{"t": 1793051140.48, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "600"]}
+{"t": 1793051146.15, "phase": "explore", "op": "swipe", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["450", "250", "100", "250"], "ms": 300, "dist_dp": 249}
+{"t": 1793051158.48, "phase": "explore", "op": "swipe", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["100", "250", "450", "250"], "ms": 300, "dist_dp": 249}
+{"t": 1793051159.72, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["420", "470"]}
+{"t": 1793051162.03, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "1060"]}
+{"t": 1793051173.65, "phase": "explore", "op": "note", "text": "plan Day 1 workout: weights prefilled from 1RM (e.g. 60 kg x 8, 4 sets)"}
+{"t": 1793051173.78, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["33", "79"]}
+{"t": 1793051176.04, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "627"]}
+{"t": 1793051178.28, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "535"]}
+{"t": 1793051191.48, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051192.74, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["486", "1130"]}
+{"t": 1793051194.97, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "470"]}
+{"t": 1793051197.24, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "255"]}
+{"t": 1793051205.24, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["484", "812"]}
+{"t": 1793051205.47, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["399", "1108"]}
+{"t": 1793051206.69, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "355"]}
+{"t": 1793051220.09, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["140", "1108"]}
+{"t": 1793051221.32, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051222.65, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "642"]}
+{"t": 1793051239.53, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["468", "642"]}
+{"t": 1793051243.19, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["270", "556"]}
+{"t": 1793051253.86, "phase": "explore", "op": "scroll", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "dir": "down"}
+{"t": 1793051254.47, "phase": "explore", "op": "scroll", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "dir": "down"}
+{"t": 1793051257.84, "phase": "explore", "op": "key", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "key": "back"}
+{"t": 1793051273.45, "phase": "explore", "op": "tap", "expect_pkg": "gymworkout.gym.gymlog.gymtrainer", "xy": ["162", "1130"]}

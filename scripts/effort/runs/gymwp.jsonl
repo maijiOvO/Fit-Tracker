@@ -1,0 +1,965 @@
+{"t": 1793040997.68, "phase": "explore", "op": "session"}
+{"t": 1793040997.76, "phase": "onboard", "op": "phase"}
+{"t": 1793040998.05, "phase": "onboard", "op": "launch", "expect_pkg": "com.alphaprogression.alphaprogression", "pkg": "com.lealApps.pedro.gymWorkoutPlan"}
+{"t": 1793041003.69, "phase": "onboard", "op": "shot", "path": "ob01.png"}
+{"t": 1793041020.14, "phase": "onboard", "op": "note", "text": "screen1 welcome: Get started D:/tools/git/Git/ Sign In (optional)"}
+{"t": 1793041020.26, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1011"]}
+{"t": 1793041022.81, "phase": "onboard", "op": "shot", "path": "ob02.png"}
+{"t": 1793041031.14, "phase": "onboard", "op": "note", "text": "screen2 goal single-choice 5 options no skip, progress bar ~10pct"}
+{"t": 1793041031.27, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Build muscle", "cls": "CardView", "w_dp": 336, "h_dp": 81, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "320"]}
+{"t": 1793041033.82, "phase": "onboard", "op": "shot", "path": "ob03.png"}
+{"t": 1793041039.88, "phase": "onboard", "op": "note", "text": "screen3 biggest challenge single-choice 6 options auto-advance"}
+{"t": 1793041040.01, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Seeing results", "cls": "CardView", "w_dp": 336, "h_dp": 81, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "506"]}
+{"t": 1793041042.55, "phase": "onboard", "op": "shot", "path": "ob04.png"}
+{"t": 1793041047.97, "phase": "onboard", "op": "note", "text": "screen4 info/persuasion page (stat), Next button"}
+{"t": 1793041048.09, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041050.61, "phase": "onboard", "op": "shot", "path": "ob05.png"}
+{"t": 1793041056.09, "phase": "onboard", "op": "note", "text": "screen5 focus muscle single-choice 7 options"}
+{"t": 1793041056.21, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Balanced", "cls": "CardView", "w_dp": 162, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["147", "354"]}
+{"t": 1793041058.73, "phase": "onboard", "op": "shot", "path": "ob06.png"}
+{"t": 1793041064.12, "phase": "onboard", "op": "note", "text": "screen6 cardio yes/no"}
+{"t": 1793041064.24, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "No cardio", "cls": "CardView", "w_dp": 336, "h_dp": 81, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "550"]}
+{"t": 1793041066.77, "phase": "onboard", "op": "shot", "path": "ob07.png"}
+{"t": 1793041072.33, "phase": "onboard", "op": "note", "text": "screen7 experience 4 options"}
+{"t": 1793041072.46, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Intermediate", "cls": "CardView", "w_dp": 336, "h_dp": 81, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "637"]}
+{"t": 1793041074.98, "phase": "onboard", "op": "shot", "path": "ob08.png"}
+{"t": 1793041080.54, "phase": "onboard", "op": "note", "text": "screen8 gym type basic/full"}
+{"t": 1793041080.66, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Fully equipped gym", "cls": "CardView", "w_dp": 336, "h_dp": 81, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450"]}
+{"t": 1793041083.21, "phase": "onboard", "op": "shot", "path": "ob09.png"}
+{"t": 1793041092.19, "phase": "onboard", "op": "note", "text": "screen9 training days: toggle Specific days (7 checkboxes, multi) D:/tools/git/Git/ Days per week; Next disabled until selection; progress ~70pct"}
+{"t": 1793041092.31, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Monday", "cls": "CardView", "w_dp": 336, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["244", "423"]}
+{"t": 1793041094.61, "phase": "onboard", "op": "tap", "hit": {"label": "Tuesday", "cls": "CardView", "w_dp": 336, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["244", "519"]}
+{"t": 1793041096.79, "phase": "onboard", "op": "tap", "hit": {"label": "Thursday", "cls": "CardView", "w_dp": 336, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["244", "710"]}
+{"t": 1793041098.99, "phase": "onboard", "op": "tap", "hit": {"label": "Friday", "cls": "CardView", "w_dp": 336, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["244", "806"]}
+{"t": 1793041101.23, "phase": "onboard", "op": "tap", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041103.75, "phase": "onboard", "op": "shot", "path": "ob10.png"}
+{"t": 1793041110.0, "phase": "onboard", "op": "note", "text": "screen10 training time picker (hour/min/AMPM number pickers, default 11:06 PM = current time?), option Set each day separately; accepted default"}
+{"t": 1793041110.12, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041112.63, "phase": "onboard", "op": "shot", "path": "ob11.png"}
+{"t": 1793041118.06, "phase": "onboard", "op": "note", "text": "screen11 interstitial 'foundation of your plan is ready', Next"}
+{"t": 1793041118.18, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041120.69, "phase": "onboard", "op": "shot", "path": "ob12.png"}
+{"t": 1793041126.18, "phase": "onboard", "op": "note", "text": "screen12 gender 3 options (has Prefer not to say)"}
+{"t": 1793041126.3, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Male", "cls": "CardView", "w_dp": 336, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "475"]}
+{"t": 1793041128.85, "phase": "onboard", "op": "shot", "path": "ob13.png"}
+{"t": 1793041137.61, "phase": "onboard", "op": "note", "text": "screen13 birth date wheel picker (month/day/year) default Jan 01 2000, Continue looks disabled until wheel moved"}
+{"t": 1793041137.74, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "FrameLayout", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["440", "386"]}
+{"t": 1793041140.96, "phase": "onboard", "op": "tap", "hit": {"label": "", "cls": "FrameLayout", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["440", "386"]}
+{"t": 1793041142.51, "phase": "onboard", "op": "shot", "path": "ob13b.png"}
+{"t": 1793041149.42, "phase": "onboard", "op": "void", "n": 2}
+{"t": 1793041149.5, "phase": "onboard", "op": "note", "text": "wheel taps don't move; must swipe"}
+{"t": 1793041152.06, "phase": "onboard", "op": "swipe", "hit": {"label": "", "cls": "FrameLayout", "w_dp": 384, "h_dp": 853, "interactive": false, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["440", "480", "440", "680"], "ms": 400, "dist_dp": 142}
+{"t": 1793041154.6, "phase": "onboard", "op": "shot", "path": "ob13c.png"}
+{"t": 1793041160.49, "phase": "onboard", "op": "size", "w_dp": 336, "h_dp": 40}
+{"t": 1793041160.57, "phase": "onboard", "op": "note", "text": "1998 selected, Continue enabled only after wheel interaction"}
+{"t": 1793041162.7, "phase": "onboard", "op": "tap", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041165.23, "phase": "onboard", "op": "shot", "path": "ob14.png"}
+{"t": 1793041173.33, "phase": "onboard", "op": "note", "text": "screen14 height NumberPicker default 170 cm, units toggle kg/cm vs lb/ft"}
+{"t": 1793041173.96, "phase": "onboard", "op": "swipe", "hit_src": "cache", "hit": {"label": "171", "cls": "Button", "w_dp": 64, "h_dp": 66, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["256", "650", "256", "410"], "ms": 500, "dist_dp": 171}
+{"t": 1793041182.5, "phase": "onboard", "op": "swipe", "hit_src": "cache", "hit": {"label": "174", "cls": "Button", "w_dp": 64, "h_dp": 66, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["256", "650", "256", "260"], "ms": 500, "dist_dp": 277}
+{"t": 1793041190.45, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "178", "cls": "Button", "w_dp": 64, "h_dp": 66, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["256", "450"]}
+{"t": 1793041197.71, "phase": "onboard", "op": "note", "text": "height 178 took 2 swipes + 1 tap on NumberPicker"}
+{"t": 1793041197.83, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041200.37, "phase": "onboard", "op": "shot", "path": "ob15.png"}
+{"t": 1793041207.38, "phase": "onboard", "op": "note", "text": "screen15 weight NumberPicker default 70.0 kg (integer + decimal wheels)"}
+{"t": 1793041208.04, "phase": "onboard", "op": "swipe", "hit_src": "cache", "hit": {"label": "71", "cls": "Button", "w_dp": 64, "h_dp": 66, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["228", "700", "228", "300"], "ms": 500, "dist_dp": 285}
+{"t": 1793041216.01, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "75", "cls": "Button", "w_dp": 64, "h_dp": 66, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["228", "504"]}
+{"t": 1793041222.78, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041226.32, "phase": "onboard", "op": "shot", "path": "ob16.png"}
+{"t": 1793041232.55, "phase": "onboard", "op": "note", "text": "screen16 target weight picker, default 80.0 kg (current+5 for build muscle?), accepted default"}
+{"t": 1793041232.68, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041236.22, "phase": "onboard", "op": "shot", "path": "ob17.png"}
+{"t": 1793041245.3, "phase": "onboard", "op": "note", "text": "screen17 notification pre-prompt, toggle default ON, button 'Allow notifications'"}
+{"t": 1793041245.43, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "Switch", "w_dp": 52, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "657"]}
+{"t": 1793041246.61, "phase": "onboard", "op": "size", "w_dp": 48, "h_dp": 32}
+{"t": 1793041253.06, "phase": "onboard", "op": "size", "w_dp": 52, "h_dp": 48}
+{"t": 1793041253.14, "phase": "onboard", "op": "note", "text": "toggled notifications off -> button becomes Continue"}
+{"t": 1793041253.27, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041256.87, "phase": "onboard", "op": "shot", "path": "ob18.png"}
+{"t": 1793041263.34, "phase": "onboard", "op": "note", "text": "screen18 fake 'Analyzing profile' loading animation (5 lines), auto-advance"}
+{"t": 1793041269.95, "phase": "onboard", "op": "shot", "path": "ob19.png"}
+{"t": 1793041276.23, "phase": "onboard", "op": "note", "text": "screen19 plan summary (4x/wk, 28 exercises, 3 phases x 4 weeks)"}
+{"t": 1793041276.36, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041279.93, "phase": "onboard", "op": "shot", "path": "ob20.png"}
+{"t": 1793041285.9, "phase": "onboard", "op": "note", "text": "screen20 'Your goal is now a plan' chart interstitial"}
+{"t": 1793041286.03, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041289.57, "phase": "onboard", "op": "shot", "path": "ob21.png"}
+{"t": 1793041296.93, "phase": "onboard", "op": "note", "text": "screen21 motivational commitment pledge 'I'm committing' (only button; not a legal agreement)"}
+{"t": 1793041297.06, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 324, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1090"]}
+{"t": 1793041300.63, "phase": "onboard", "op": "shot", "path": "ob22.png"}
+{"t": 1793041310.48, "phase": "onboard", "op": "note", "text": "screen22 PAYWALL: 12mo $59.99/yr ($5/mo, Best Option, preselected), 3mo $29.99, 1mo $12.99; toggle 'Activate 7-day free trial' default OFF; X close visible immediately top-right (40dp)"}
+{"t": 1793041310.62, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=imageView_close", "cls": "ImageView", "w_dp": 40, "h_dp": 40, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["511", "64"]}
+{"t": 1793041314.19, "phase": "onboard", "op": "shot", "path": "ob23.png"}
+{"t": 1793041323.55, "phase": "onboard", "op": "note", "text": "screen23 after paywall close: 'Before you decide, see how it actually works' (demo tour), Next"}
+{"t": 1793041323.73, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041327.32, "phase": "onboard", "op": "shot", "path": "ob24.png"}
+{"t": 1793041333.67, "phase": "onboard", "op": "note", "text": "screen24 tour 'Your plan, your way'"}
+{"t": 1793041333.81, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041337.39, "phase": "onboard", "op": "shot", "path": "ob25.png"}
+{"t": 1793041343.95, "phase": "onboard", "op": "note", "text": "screen25 tour 'Your workout tracked, set by set'"}
+{"t": 1793041344.08, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041347.67, "phase": "onboard", "op": "shot", "path": "ob26.png"}
+{"t": 1793041353.88, "phase": "onboard", "op": "note", "text": "screen26 tour 'workout doesn't end at the last set' (recovery/progress)"}
+{"t": 1793041354.0, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041357.59, "phase": "onboard", "op": "shot", "path": "ob27.png"}
+{"t": 1793041364.22, "phase": "onboard", "op": "note", "text": "screen27 tour end 'This is how you get in shape', button I'm ready to start"}
+{"t": 1793041364.35, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041368.94, "phase": "onboard", "op": "shot", "path": "ob28.png"}
+{"t": 1793041375.57, "phase": "onboard", "op": "note", "text": "screen28 PAYWALL 2: 'Start your Premium journey' countdown timer discount $47.99/yr (was $59.99) first year; X visible immediately (56dp)"}
+{"t": 1793041375.71, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "id=imageView_close", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["500", "76"]}
+{"t": 1793041380.3, "phase": "onboard", "op": "shot", "path": "ob29.png"}
+{"t": 1793041387.11, "phase": "onboard", "op": "note", "text": "screen29 confirm-shaming bottom sheet 'Are you sure? You will lose this exclusive promotion' -> Discard discount"}
+{"t": 1793041387.26, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Discard discount", "cls": "TextView", "w_dp": 336, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1098"]}
+{"t": 1793041391.81, "phase": "onboard", "op": "shot", "path": "ob30.png"}
+{"t": 1793041400.03, "phase": "onboard", "op": "note", "text": "screen30 sign-up wall: Google D:/tools/git/Git/ Email D:/tools/git/Git/ 'Continue without an account' (small link 201x35dp); footer 'By continuing, you agree to Terms' (implicit). Chose without account"}
+{"t": 1793041400.15, "phase": "onboard", "op": "tap", "hit_src": "cache", "hit": {"label": "Continue without an account | id=textView_continue_without_account", "cls": "TextView", "w_dp": 201, "h_dp": 35, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "882"]}
+{"t": 1793041404.78, "phase": "onboard", "op": "shot", "path": "ob31.png"}
+{"t": 1793041418.33, "phase": "onboard", "op": "note", "text": "home reached (My Plan tab). coach-mark tooltip tour with Skip/Next; going through with Next"}
+{"t": 1793041422.58, "phase": "onboard", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["367", "930"]}
+{"t": 1793041422.68, "phase": "onboard", "op": "size", "w_dp": 60, "h_dp": 40}
+{"t": 1793041425.39, "phase": "onboard", "op": "shot", "path": "ob32.png"}
+{"t": 1793041433.13, "phase": "onboard", "op": "note", "text": "coach mark 2 'Your workout routines' (switches segmented to My Workouts)"}
+{"t": 1793041437.37, "phase": "onboard", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["423", "936"]}
+{"t": 1793041437.47, "phase": "onboard", "op": "size", "w_dp": 60, "h_dp": 40}
+{"t": 1793041440.13, "phase": "onboard", "op": "shot", "path": "ob33.png"}
+{"t": 1793041447.54, "phase": "onboard", "op": "note", "text": "coach mark 3 'Workout on the spot' on Quick Workout (generated chest/triceps/shoulders list), Close"}
+{"t": 1793041451.79, "phase": "onboard", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["463", "934"]}
+{"t": 1793041451.88, "phase": "onboard", "op": "size", "w_dp": 60, "h_dp": 40}
+{"t": 1793041454.48, "phase": "onboard", "op": "shot", "path": "ob34.png"}
+{"t": 1793041464.01, "phase": "onboard", "op": "note", "text": "onboard ends at home (My Plan). Onboarding-to-first-set = onboard + T1-start + T1-E1-add + T1-E1-s1"}
+{"t": 1793041464.1, "phase": "explore", "op": "phase"}
+{"t": 1793041464.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["435", "84"]}
+{"t": 1793041471.56, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793041471.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793041481.92, "phase": "explore", "op": "note", "text": "banner ad ('Test Ad' on emulator) at top of My Workouts"}
+{"t": 1793041487.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["202", "1126"]}
+{"t": 1793041496.93, "phase": "explore", "op": "note", "text": "bottom sheet upsell 'Gym WP Widget' add home-screen widget, on first visit to Activities; Cancel"}
+{"t": 1793041497.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["186", "1070"]}
+{"t": 1793041506.75, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["337", "1126"]}
+{"t": 1793041516.46, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["472", "1126"]}
+{"t": 1793041525.58, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793041527.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["489", "84"]}
+{"t": 1793041537.04, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793041544.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "168"]}
+{"t": 1793041554.44, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793041562.6, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["39", "78"]}
+{"t": 1793041563.82, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793041565.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["388", "1048"]}
+{"t": 1793041585.02, "phase": "explore", "op": "note", "text": "Quick tab first visit: coach-mark tour 'Freestyle Workout'"}
+{"t": 1793041585.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["434", "663"]}
+{"t": 1793041593.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["434", "376"]}
+{"t": 1793041602.28, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["430", "278"]}
+{"t": 1793041604.5, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793041606.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "717"]}
+{"t": 1793041617.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "771"]}
+{"t": 1793041618.38, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["388", "1048"]}
+{"t": 1793041620.61, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["508", "577"]}
+{"t": 1793041629.99, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793041631.2, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793041633.41, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "717"]}
+{"t": 1793041635.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "503"]}
+{"t": 1793041636.04, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 4}
+{"t": 1793041636.18, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["414", "771"]}
+{"t": 1793041646.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "717"]}
+{"t": 1793041648.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "503"]}
+{"t": 1793041649.65, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 4}
+{"t": 1793041657.24, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["414", "575"]}
+{"t": 1793041666.33, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "381"]}
+{"t": 1793041675.57, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["269", "826"]}
+{"t": 1793041684.65, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["414", "782"]}
+{"t": 1793041696.56, "phase": "explore", "op": "note", "text": "FULL-SCREEN INTERSTITIAL AD after adding a workout split in routine (video ad 'Watch Now')"}
+{"t": 1793041704.16, "phase": "explore", "op": "note", "text": "ad X visible by ~5s (screenshot taken ~5s after it appeared), sound on"}
+{"t": 1793041704.29, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["516", "40"]}
+{"t": 1793041713.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "433"]}
+{"t": 1793041729.17, "phase": "explore", "op": "note", "text": "Start workout disabled while routine has 0 exercises -> no empty-workout start"}
+{"t": 1793041729.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["482", "981"]}
+{"t": 1793041738.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "196"]}
+{"t": 1793041740.0, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793041753.29, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793041755.5, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793041765.61, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793041766.91, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793041774.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["146", "560"]}
+{"t": 1793041786.33, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793041793.84, "phase": "explore", "op": "note", "text": "free tier: search shows first 5 results, rest blurred 'Access blocked! Subscribe now and unlock the exercise list' + Become Premium"}
+{"t": 1793041793.97, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793041795.19, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793041795.39, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 7}
+{"t": 1793041797.61, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793041805.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["146", "560"]}
+{"t": 1793041806.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793041808.17, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793041808.45, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 11}
+{"t": 1793041810.68, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793041820.71, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793041830.59, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "600", "270", "900"], "ms": 300, "dist_dp": 213}
+{"t": 1793041837.71, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["495", "370"]}
+{"t": 1793041840.29, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "up"}
+{"t": 1793041840.77, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "up"}
+{"t": 1793041851.34, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "488"]}
+{"t": 1793041852.56, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793041869.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["436", "402"]}
+{"t": 1793041876.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["431", "400"]}
+{"t": 1793041879.56, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "up"}
+{"t": 1793041888.02, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "313"]}
+{"t": 1793041898.74, "phase": "explore", "op": "note", "text": "first Start workout: notification pre-prompt dialog 'Enhance your experience with notifications' After/Allow"}
+{"t": 1793041898.87, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["343", "796"]}
+{"t": 1793041925.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["220", "595"]}
+{"t": 1793041935.94, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793041936.07, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793041937.33, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793041945.79, "phase": "explore", "op": "note", "text": "entering set 1 values auto-copies to following sets (2,3)"}
+{"t": 1793041945.91, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793041955.75, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1099"]}
+{"t": 1793041982.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793041994.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["293", "660"]}
+{"t": 1793041997.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793042013.09, "phase": "explore", "op": "note", "text": "rest skip Next -> 'Get ready!' 10s prep countdown, auto -> Perform"}
+{"t": 1793042013.57, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793042027.24, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["449", "74"]}
+{"t": 1793042036.39, "phase": "explore", "op": "note", "text": "in-workout Statistics: Repetitions and Weight totals LOCKED (premium padlock); time pie (warm-up/prep/in progress/rest)"}
+{"t": 1793042036.52, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042037.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["39", "74"]}
+{"t": 1793042046.32, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793042054.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793042066.18, "phase": "explore", "op": "note", "text": "values entered during workout written back into the routine template (Bench 3 sets 10 reps 40 kg) even after Leave Workout"}
+{"t": 1793042066.3, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042067.64, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042068.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["202", "1126"]}
+{"t": 1793042071.12, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["405", "78"]}
+{"t": 1793042085.85, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["430", "777"]}
+{"t": 1793042116.1, "phase": "explore", "op": "note", "text": "Leave Workout discards session (nothing in History)"}
+{"t": 1793042116.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793042118.5, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793042120.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["483", "381"]}
+{"t": 1793042128.52, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["427", "594"]}
+{"t": 1793042136.14, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["413", "673"]}
+{"t": 1793042146.01, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["337", "1126"]}
+{"t": 1793042148.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "219"]}
+{"t": 1793042149.51, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "219"]}
+{"t": 1793042149.77, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 3}
+{"t": 1793042152.0, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042159.58, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "522"]}
+{"t": 1793042170.51, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042171.75, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042173.0, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042174.29, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793042176.55, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793042187.62, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["151", "1048"]}
+{"t": 1793042189.81, "phase": "T1-start", "op": "phase"}
+{"t": 1793042189.9, "phase": "T1-start", "op": "note", "text": "no empty-workout option exists: Start workout disabled with 0 exercises; Quick is auto-generated. Path: My Workouts > new routine > split > exercises (build list first)"}
+{"t": 1793042192.07, "phase": "T1-start", "op": "tap", "hit": {"label": "id=cardView2", "cls": "CardView", "w_dp": 80, "h_dp": 40, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793042196.46, "phase": "T1-start", "op": "tap", "hit": {"label": "+ Add workout routine | id=textView_addWorkout", "cls": "TextView", "w_dp": 230, "h_dp": 39, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "717"]}
+{"t": 1793042200.71, "phase": "T1-start", "op": "tap", "hit": {"label": "Workout name | id=editText_workoutName", "cls": "EditText", "w_dp": 277, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "503"]}
+{"t": 1793042202.34, "phase": "T1-start", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 9}
+{"t": 1793042210.72, "phase": "T1-start", "op": "note", "text": "routine name dialog: system keyboard, typed 'Chest Day'"}
+{"t": 1793042210.85, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "Save | id=button1", "cls": "Button", "w_dp": 64, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["414", "575"]}
+{"t": 1793042219.45, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootLayout", "cls": "ViewGroup", "w_dp": 384, "h_dp": 96, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "381"]}
+{"t": 1793042222.04, "phase": "T1-start", "op": "shot", "path": "t1_01.png"}
+{"t": 1793042228.72, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "+ Add workout split | id=textView_addWorkout", "cls": "TextView", "w_dp": 165, "h_dp": 39, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["269", "826"]}
+{"t": 1793042237.64, "phase": "T1-start", "op": "note", "text": "split dialog: name prefilled 'Workout A', weekday checkboxes optional; accepted defaults"}
+{"t": 1793042237.76, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "Add | id=button1", "cls": "Button", "w_dp": 64, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["414", "782"]}
+{"t": 1793042243.54, "phase": "T1-start", "op": "shot", "path": "t1_02.png"}
+{"t": 1793042251.64, "phase": "T1-start", "op": "note", "text": "FULL-SCREEN INTERSTITIAL AD again after adding workout split (2nd time, reproducible)"}
+{"t": 1793042252.98, "phase": "T1-start", "op": "shot", "path": "t1_ad.png"}
+{"t": 1793042259.72, "phase": "T1-start", "op": "note", "text": "ad X close visible immediately (<=5s), ~24dp"}
+{"t": 1793042259.94, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "View", "w_dp": 25, "h_dp": 25, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["516", "40"]}
+{"t": 1793042269.09, "phase": "T1-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=materialCardView", "cls": "CardView", "w_dp": 344, "h_dp": 97, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "433"]}
+{"t": 1793042271.63, "phase": "T1-start", "op": "shot", "path": "t1_03.png"}
+{"t": 1793042278.97, "phase": "T1-E1-add", "op": "phase"}
+{"t": 1793042279.05, "phase": "T1-E1-add", "op": "note", "text": "natural flow: build list first, multi-select add sheet; all 5 selected in one sheet"}
+{"t": 1793042279.17, "phase": "T1-E1-add", "op": "tap", "hit_src": "cache", "hit": {"label": "Add exercises | id=textView_addExercise", "cls": "TextView", "w_dp": 178, "h_dp": 68, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "739"]}
+{"t": 1793042289.81, "phase": "T1-E1-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=container_muscle_indicator", "cls": "ViewGroup", "w_dp": 344, "h_dp": 733, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "196"]}
+{"t": 1793042291.18, "phase": "T1-E1-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793042293.8, "phase": "T1-E1-add", "op": "shot", "path": "t1_04.png"}
+{"t": 1793042302.33, "phase": "T1-E1-add", "op": "void", "n": 1}
+{"t": 1793042302.41, "phase": "T1-E1-add", "op": "note", "text": "previous tap actually hit search bar 352x56dp (stale tree). First tap opens search mode + keyboard but field NOT focused: typed text lost, need 2nd tap on field"}
+{"t": 1793042309.52, "phase": "T1-E1-add", "op": "tap", "hit_src": "cache", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042310.82, "phase": "T1-E1-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793042313.06, "phase": "T1-E1-add", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793042322.77, "phase": "T1-E1-add", "op": "void", "n": 1}
+{"t": 1793042322.9, "phase": "T1-E1-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "488"]}
+{"t": 1793042324.5, "phase": "T1-E1-add", "op": "shot", "path": "t1_05.png"}
+{"t": 1793042324.59, "phase": "T1-E2-add", "op": "phase"}
+{"t": 1793042326.75, "phase": "T1-E2-add", "op": "tap", "hit": {"label": "id=image_view_clear", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793042335.11, "phase": "T1-E2-add", "op": "tap", "hit_src": "cache", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042336.5, "phase": "T1-E2-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 7}
+{"t": 1793042339.15, "phase": "T1-E2-add", "op": "shot", "path": "t1_06.png"}
+{"t": 1793042350.56, "phase": "T1-E2-add", "op": "note", "text": "result list kept old scroll position -> top results hidden behind 'Access blocked' banner; must scroll up"}
+{"t": 1793042351.04, "phase": "T1-E2-add", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 98, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450", "270", "760"], "ms": 300, "dist_dp": 221}
+{"t": 1793042352.77, "phase": "T1-E2-add", "op": "shot", "path": "t1_07.png"}
+{"t": 1793042360.7, "phase": "T1-E2-add", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 75, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450", "270", "760"], "ms": 300, "dist_dp": 221}
+{"t": 1793042368.69, "phase": "T1-E2-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "488"]}
+{"t": 1793042369.87, "phase": "T1-E3-add", "op": "phase"}
+{"t": 1793042372.05, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "id=image_view_clear", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793042375.64, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042377.06, "phase": "T1-E3-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 11}
+{"t": 1793042388.53, "phase": "T1-E3-add", "op": "shot", "path": "t1_08.png"}
+{"t": 1793042400.86, "phase": "T1-E3-add", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=layout_cabecario", "cls": "FrameLayout", "w_dp": 384, "h_dp": 813, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450", "270", "740"], "ms": 300, "dist_dp": 206}
+{"t": 1793042403.65, "phase": "T1-E3-add", "op": "shot", "path": "t1_09.png"}
+{"t": 1793042413.37, "phase": "T1-E3-add", "op": "swipe", "hit": {"label": "id=layout_cabecario", "cls": "FrameLayout", "w_dp": 384, "h_dp": 813, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450", "270", "900"], "ms": 300, "dist_dp": 320}
+{"t": 1793042416.17, "phase": "T1-E3-add", "op": "shot", "path": "t1_10.png"}
+{"t": 1793042429.69, "phase": "T1-E3-add", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "up"}
+{"t": 1793042431.29, "phase": "T1-E3-add", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "up"}
+{"t": 1793042434.1, "phase": "T1-E3-add", "op": "shot", "path": "t1_11.png"}
+{"t": 1793042442.75, "phase": "T1-E3-add", "op": "void", "n": 4}
+{"t": 1793042442.84, "phase": "T1-E3-add", "op": "note", "text": "glitch: after 3rd search results list rendered all blurred/stuck scroll; retyping search"}
+{"t": 1793042442.99, "phase": "T1-E3-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=image_view_clear", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793042446.36, "phase": "T1-E3-add", "op": "tap", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042447.92, "phase": "T1-E3-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 11}
+{"t": 1793042451.64, "phase": "T1-E3-add", "op": "shot", "path": "t1_12.png"}
+{"t": 1793042463.76, "phase": "T1-E3-add", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "enter"}
+{"t": 1793042467.35, "phase": "T1-E3-add", "op": "shot", "path": "t1_13.png"}
+{"t": 1793042475.13, "phase": "T1-E3-add", "op": "note", "text": "multi-word query only refreshed after pressing keyboard search/enter key"}
+{"t": 1793042475.27, "phase": "T1-E3-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "488"]}
+{"t": 1793042476.44, "phase": "T1-E4-add", "op": "phase"}
+{"t": 1793042478.66, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "id=image_view_clear", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793042481.97, "phase": "T1-E4-add", "op": "tap", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042483.22, "phase": "T1-E4-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 3}
+{"t": 1793042493.64, "phase": "T1-E4-add", "op": "note", "text": "again list opened scrolled past the free top-5; scroll up needed"}
+{"t": 1793042494.13, "phase": "T1-E4-add", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "up"}
+{"t": 1793042505.11, "phase": "T1-E4-add", "op": "void", "n": 1}
+{"t": 1793042505.58, "phase": "T1-E4-add", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 98, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450", "270", "760"], "ms": 300, "dist_dp": 221}
+{"t": 1793042509.22, "phase": "T1-E4-add", "op": "swipe", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 74, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "450", "270", "760"], "ms": 300, "dist_dp": 221}
+{"t": 1793042518.32, "phase": "T1-E4-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "646"]}
+{"t": 1793042519.51, "phase": "T1-E5-add", "op": "phase"}
+{"t": 1793042521.72, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "id=image_view_clear", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793042525.04, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042526.51, "phase": "T1-E5-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793042537.29, "phase": "T1-E5-add", "op": "note", "text": "'cable' top-5 free results contain no fly/crossover; refining query"}
+{"t": 1793042537.41, "phase": "T1-E5-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=image_view_clear", "cls": "ImageView", "w_dp": 56, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["478", "196"]}
+{"t": 1793042540.64, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793042542.09, "phase": "T1-E5-add", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 9}
+{"t": 1793042542.45, "phase": "T1-E5-add", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "enter"}
+{"t": 1793042552.99, "phase": "T1-E5-add", "op": "note", "text": "picked 'Standing Fly - neutral grip (cable)' as closest to Cable Crossover (Cable Crossover not in free top-5)"}
+{"t": 1793042553.12, "phase": "T1-E5-add", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "961"]}
+{"t": 1793042556.36, "phase": "T1-E5-add", "op": "tap", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 344, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793042559.99, "phase": "T1-E5-add", "op": "shot", "path": "t1_14.png"}
+{"t": 1793042568.49, "phase": "T1-go", "op": "phase"}
+{"t": 1793042568.57, "phase": "T1-go", "op": "note", "text": "after adding, screen is scrolled to the list bottom; scroll up to reach Start workout"}
+{"t": 1793042569.0, "phase": "T1-go", "op": "swipe", "hit_src": "cache", "hit": {"label": "id=cardView", "cls": "CardView", "w_dp": 373, "h_dp": 114, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "300", "270", "900"], "ms": 300, "dist_dp": 427}
+{"t": 1793042579.9, "phase": "T1-go", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 344, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "313"]}
+{"t": 1793042583.57, "phase": "T1-go", "op": "shot", "path": "t1_15.png"}
+{"t": 1793042588.96, "phase": "T1-go", "op": "note", "text": "notification pre-prompt dialog appears again on every Start workout (2nd time); After"}
+{"t": 1793042591.1, "phase": "T1-go", "op": "tap", "hit": {"label": "After | id=cta_deny", "cls": "TextView", "w_dp": 53, "h_dp": 39, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["343", "796"]}
+{"t": 1793042591.18, "phase": "T1-go", "op": "size", "w_dp": 53, "h_dp": 39}
+{"t": 1793042593.35, "phase": "T1-E1-s1", "op": "phase"}
+{"t": 1793042593.92, "phase": "T1-E1-s1", "op": "shot", "path": "t1_16.png"}
+{"t": 1793042615.4, "phase": "T1-E1-s1", "op": "note", "text": "E1 set1 40x10 = warm-up: app has a 'Warm-up' stage card (Free reps, Light load) that is NOT logged; logging 40x10 as regular set 1 (gap)"}
+{"t": 1793042619.64, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["194", "595"]}
+{"t": 1793042619.74, "phase": "T1-E1-s1", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793042620.95, "phase": "T1-E1-s1", "op": "note", "text": "system numeric keyboard opens (Gboard number pad), field value 0 selected"}
+{"t": 1793042621.11, "phase": "T1-E1-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793042625.34, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793042625.44, "phase": "T1-E1-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793042625.61, "phase": "T1-E1-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793042629.85, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793042629.95, "phase": "T1-E1-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793042631.61, "phase": "T1-E1-s1", "op": "shot", "path": "t1_17.png"}
+{"t": 1793042643.32, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1099"]}
+{"t": 1793042643.41, "phase": "T1-E1-s1", "op": "size", "w_dp": 312, "h_dp": 48}
+{"t": 1793042643.51, "phase": "T1-E1-s1", "op": "note", "text": "Next ends warm-up stage -> 'Get ready!' 10 s preparation countdown (auto, waited)"}
+{"t": 1793042655.19, "phase": "T1-E1-s1", "op": "shot", "path": "t1_18.png"}
+{"t": 1793042659.42, "phase": "T1-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793042659.51, "phase": "T1-E1-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793042662.15, "phase": "T1-E1-s1", "op": "shot", "path": "t1_19.png"}
+{"t": 1793042670.73, "phase": "T1-E1-s1", "op": "note", "text": "after Next: 60 s rest countdown + optional 'How was your last set? Light/Ideal/Hard' card (ignored)"}
+{"t": 1793042670.82, "phase": "T1-E1-s2", "op": "phase"}
+{"t": 1793042675.16, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["190", "788"]}
+{"t": 1793042675.25, "phase": "T1-E1-s2", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793042677.0, "phase": "T1-E1-s2", "op": "shot", "path": "t1_20.png"}
+{"t": 1793042683.29, "phase": "T1-E1-s2", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 1}
+{"t": 1793042687.58, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793042687.68, "phase": "T1-E1-s2", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793042688.02, "phase": "T1-E1-s2", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793042692.26, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793042692.35, "phase": "T1-E1-s2", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793042694.05, "phase": "T1-E1-s2", "op": "shot", "path": "t1_21.png"}
+{"t": 1793042701.1, "phase": "T1-E1-s2", "op": "note", "text": "waited out rest + prep (hands-free auto-advance, no tap)"}
+{"t": 1793042741.84, "phase": "T1-E1-s2", "op": "shot", "path": "t1_22.png"}
+{"t": 1793042749.28, "phase": "T1-E1-s2", "op": "note", "text": "set 3 auto-filled 8x60 from edited set 2"}
+{"t": 1793042753.56, "phase": "T1-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793042753.67, "phase": "T1-E1-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793042754.86, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1793042754.96, "phase": "T1-E1-s3", "op": "note", "text": "set 3 prefilled 60x8 matches; just wait rest+prep and tap Next"}
+{"t": 1793042827.67, "phase": "T1-E1-s3", "op": "shot", "path": "t1_23.png"}
+{"t": 1793042846.18, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1793042846.26, "phase": "T1-E1-s4", "op": "note", "text": "routine had 3 sets: tapping '+ Add set' before finishing set 3 (else Next on last set moves to next exercise)"}
+{"t": 1793042850.49, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["90", "817"]}
+{"t": 1793042850.58, "phase": "T1-E1-s4", "op": "size", "w_dp": 100, "h_dp": 40}
+{"t": 1793042853.19, "phase": "T1-E1-s4", "op": "shot", "path": "t1_24.png"}
+{"t": 1793042860.01, "phase": "T1-E1-s4", "op": "note", "text": "added set 4 is prefilled with previous set values (8x60)"}
+{"t": 1793042860.09, "phase": "T1-E1-s3", "op": "phase"}
+{"t": 1793042864.32, "phase": "T1-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793042864.41, "phase": "T1-E1-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793042866.59, "phase": "T1-E1-s4", "op": "phase"}
+{"t": 1793042867.16, "phase": "T1-E1-s4", "op": "shot", "path": "t1_25.png"}
+{"t": 1793042946.24, "phase": "T1-E1-s4", "op": "shot", "path": "t1_26.png"}
+{"t": 1793042958.3, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["190", "721"]}
+{"t": 1793042958.4, "phase": "T1-E1-s4", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793042958.64, "phase": "T1-E1-s4", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 1}
+{"t": 1793042962.88, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793042962.98, "phase": "T1-E1-s4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793042967.22, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793042967.31, "phase": "T1-E1-s4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793042968.98, "phase": "T1-E1-s4", "op": "shot", "path": "t1_27.png"}
+{"t": 1793042979.37, "phase": "T1-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793042979.46, "phase": "T1-E1-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793042983.09, "phase": "T1-E1-s4", "op": "shot", "path": "t1_28.png"}
+{"t": 1793043050.15, "phase": "T1-E1-s4", "op": "shot", "path": "t1_29.png"}
+{"t": 1793043058.01, "phase": "T1-E2-s1", "op": "phase"}
+{"t": 1793043058.09, "phase": "T1-E2-s1", "op": "note", "text": "auto-advanced to Exercise 2/5 after rest (hands-free); no warm-up stage for 2nd exercise"}
+{"t": 1793043062.31, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["194", "649"]}
+{"t": 1793043062.39, "phase": "T1-E2-s1", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043062.77, "phase": "T1-E2-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043067.02, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043067.11, "phase": "T1-E2-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043067.28, "phase": "T1-E2-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 4}
+{"t": 1793043071.53, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043071.61, "phase": "T1-E2-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043073.38, "phase": "T1-E2-s1", "op": "shot", "path": "t1_30.png"}
+{"t": 1793043081.88, "phase": "T1-E2-s1", "op": "note", "text": "dumbbell weight: single kg field, no per-hand indication"}
+{"t": 1793043086.1, "phase": "T1-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043086.19, "phase": "T1-E2-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043086.28, "phase": "T1-E2-s2", "op": "phase"}
+{"t": 1793043160.1, "phase": "T1-E2-s2", "op": "shot", "path": "t1_31.png"}
+{"t": 1793043164.36, "phase": "T1-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043164.45, "phase": "T1-E2-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043164.56, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1793043238.27, "phase": "T1-E2-s3", "op": "shot", "path": "t1_32.png"}
+{"t": 1793043274.09, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["177", "712"]}
+{"t": 1793043274.18, "phase": "T1-E2-s3", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043274.43, "phase": "T1-E2-s3", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 1}
+{"t": 1793043278.66, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043278.76, "phase": "T1-E2-s3", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043282.99, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043283.08, "phase": "T1-E2-s3", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043284.26, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1793043288.49, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["90", "818"]}
+{"t": 1793043288.58, "phase": "T1-E2-s4", "op": "size", "w_dp": 100, "h_dp": 40}
+{"t": 1793043289.76, "phase": "T1-E2-s3", "op": "phase"}
+{"t": 1793043293.97, "phase": "T1-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043294.07, "phase": "T1-E2-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043296.75, "phase": "T1-E2-s3", "op": "shot", "path": "t1_33.png"}
+{"t": 1793043301.98, "phase": "T1-E2-s4", "op": "phase"}
+{"t": 1793043374.59, "phase": "T1-E2-s4", "op": "shot", "path": "t1_34.png"}
+{"t": 1793043384.37, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["177", "721"]}
+{"t": 1793043384.47, "phase": "T1-E2-s4", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043384.73, "phase": "T1-E2-s4", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 1}
+{"t": 1793043388.98, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043389.07, "phase": "T1-E2-s4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043393.31, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043393.4, "phase": "T1-E2-s4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043398.72, "phase": "T1-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043398.81, "phase": "T1-E2-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043464.62, "phase": "T1-E2-s4", "op": "shot", "path": "t1_35.png"}
+{"t": 1793043470.77, "phase": "T1-E3-s1", "op": "phase"}
+{"t": 1793043475.0, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["194", "649"]}
+{"t": 1793043475.09, "phase": "T1-E3-s1", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043475.46, "phase": "T1-E3-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043479.71, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043479.81, "phase": "T1-E3-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043479.98, "phase": "T1-E3-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043484.21, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043484.31, "phase": "T1-E3-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043497.63, "phase": "T1-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043497.72, "phase": "T1-E3-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043499.89, "phase": "T1-E3-s2", "op": "phase"}
+{"t": 1793043500.46, "phase": "T1-E3-s2", "op": "shot", "path": "t1_36.png"}
+{"t": 1793043510.18, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["190", "788"]}
+{"t": 1793043510.27, "phase": "T1-E3-s2", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043510.61, "phase": "T1-E3-s2", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043514.86, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043514.95, "phase": "T1-E3-s2", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043515.31, "phase": "T1-E3-s2", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043519.58, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043519.67, "phase": "T1-E3-s2", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043590.34, "phase": "T1-E3-s2", "op": "shot", "path": "t1_37.png"}
+{"t": 1793043599.34, "phase": "T1-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043599.44, "phase": "T1-E3-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043599.54, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1793043672.32, "phase": "T1-E3-s3", "op": "shot", "path": "t1_38.png"}
+{"t": 1793043677.47, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1793043681.72, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["90", "817"]}
+{"t": 1793043681.81, "phase": "T1-E3-s4", "op": "size", "w_dp": 100, "h_dp": 40}
+{"t": 1793043682.99, "phase": "T1-E3-s3", "op": "phase"}
+{"t": 1793043687.22, "phase": "T1-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043687.3, "phase": "T1-E3-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043687.4, "phase": "T1-E3-s4", "op": "phase"}
+{"t": 1793043760.24, "phase": "T1-E3-s4", "op": "shot", "path": "t1_39.png"}
+{"t": 1793043770.31, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["190", "721"]}
+{"t": 1793043770.41, "phase": "T1-E3-s4", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043770.68, "phase": "T1-E3-s4", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 1}
+{"t": 1793043774.93, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043775.04, "phase": "T1-E3-s4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043779.3, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043779.39, "phase": "T1-E3-s4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043784.74, "phase": "T1-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043784.83, "phase": "T1-E3-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043850.65, "phase": "T1-E3-s4", "op": "shot", "path": "t1_40.png"}
+{"t": 1793043857.45, "phase": "T1-E4-s1", "op": "phase"}
+{"t": 1793043857.54, "phase": "T1-E4-s1", "op": "note", "text": "Chest Dip is reps-only ('repetitions' field, no kg): bodyweight/added weight (+10) cannot be recorded (gap)"}
+{"t": 1793043861.79, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["238", "617"]}
+{"t": 1793043861.88, "phase": "T1-E4-s1", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043862.31, "phase": "T1-E4-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043864.11, "phase": "T1-E4-s1", "op": "shot", "path": "t1_41.png"}
+{"t": 1793043873.52, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043873.62, "phase": "T1-E4-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043885.97, "phase": "T1-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043886.07, "phase": "T1-E4-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043888.26, "phase": "T1-E4-s2", "op": "phase"}
+{"t": 1793043888.79, "phase": "T1-E4-s2", "op": "shot", "path": "t1_42.png"}
+{"t": 1793043898.4, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["238", "782"]}
+{"t": 1793043898.5, "phase": "T1-E4-s2", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793043898.87, "phase": "T1-E4-s2", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793043903.14, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793043903.24, "phase": "T1-E4-s2", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793043974.02, "phase": "T1-E4-s2", "op": "shot", "path": "t1_43.png"}
+{"t": 1793043983.93, "phase": "T1-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793043984.03, "phase": "T1-E4-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793043986.22, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1793043986.83, "phase": "T1-E4-s3", "op": "shot", "path": "t1_44.png"}
+{"t": 1793044064.35, "phase": "T1-E4-s3", "op": "shot", "path": "t1_45.png"}
+{"t": 1793044074.23, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["238", "698"]}
+{"t": 1793044074.34, "phase": "T1-E4-s3", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793044074.71, "phase": "T1-E4-s3", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 1}
+{"t": 1793044079.0, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793044079.11, "phase": "T1-E4-s3", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793044080.3, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1793044084.56, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["90", "801"]}
+{"t": 1793044084.65, "phase": "T1-E4-s4", "op": "size", "w_dp": 100, "h_dp": 40}
+{"t": 1793044085.85, "phase": "T1-E4-s3", "op": "phase"}
+{"t": 1793044090.1, "phase": "T1-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044090.2, "phase": "T1-E4-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044090.32, "phase": "T1-E4-s4", "op": "phase"}
+{"t": 1793044163.15, "phase": "T1-E4-s4", "op": "shot", "path": "t1_46.png"}
+{"t": 1793044172.27, "phase": "T1-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044172.37, "phase": "T1-E4-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044238.2, "phase": "T1-E4-s4", "op": "shot", "path": "t1_47.png"}
+{"t": 1793044244.57, "phase": "T1-E5-s1", "op": "phase"}
+{"t": 1793044248.86, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["194", "649"]}
+{"t": 1793044248.97, "phase": "T1-E5-s1", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793044249.46, "phase": "T1-E5-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793044253.73, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793044253.84, "phase": "T1-E5-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793044254.02, "phase": "T1-E5-s1", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793044258.3, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793044258.4, "phase": "T1-E5-s1", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793044270.76, "phase": "T1-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044270.86, "phase": "T1-E5-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044270.96, "phase": "T1-E5-s2", "op": "phase"}
+{"t": 1793044344.0, "phase": "T1-E5-s2", "op": "shot", "path": "t1_48.png"}
+{"t": 1793044356.93, "phase": "T1-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044357.06, "phase": "T1-E5-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044357.19, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1793044430.1, "phase": "T1-E5-s3", "op": "shot", "path": "t1_49.png"}
+{"t": 1793044444.25, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["190", "712"]}
+{"t": 1793044444.37, "phase": "T1-E5-s3", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793044444.75, "phase": "T1-E5-s3", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793044449.03, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793044449.14, "phase": "T1-E5-s3", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793044449.43, "phase": "T1-E5-s3", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 4}
+{"t": 1793044453.7, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793044453.82, "phase": "T1-E5-s3", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793044455.05, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1793044459.4, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["90", "818"]}
+{"t": 1793044459.51, "phase": "T1-E5-s4", "op": "size", "w_dp": 100, "h_dp": 40}
+{"t": 1793044460.73, "phase": "T1-E5-s3", "op": "phase"}
+{"t": 1793044464.98, "phase": "T1-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044465.1, "phase": "T1-E5-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044465.21, "phase": "T1-E5-s4", "op": "phase"}
+{"t": 1793044538.14, "phase": "T1-E5-s4", "op": "shot", "path": "t1_50.png"}
+{"t": 1793044550.1, "phase": "T1-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044550.23, "phase": "T1-E5-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044553.46, "phase": "T1-finish", "op": "phase"}
+{"t": 1793044554.09, "phase": "T1-finish", "op": "shot", "path": "t1_51.png"}
+{"t": 1793044571.8, "phase": "T1-finish", "op": "tap", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 228, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044571.94, "phase": "T1-finish", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044576.58, "phase": "T1-finish", "op": "shot", "path": "t1_52.png"}
+{"t": 1793044588.45, "phase": "T1-finish", "op": "note", "text": "Report screen: photo, date (locked earlier), exercise checkboxes, summary, notes; Finish Workout"}
+{"t": 1793044588.61, "phase": "T1-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 344, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793044594.32, "phase": "T1-finish", "op": "shot", "path": "t1_53.png"}
+{"t": 1793044608.0, "phase": "T1-finish", "op": "note", "text": "FULL-SCREEN INTERSTITIAL AD after Finish Workout (3rd interstitial)"}
+{"t": 1793044608.88, "phase": "T1-finish", "op": "shot", "path": "t1_ad2.png"}
+{"t": 1793044609.04, "phase": "T1-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "View", "w_dp": 384, "h_dp": 51, "interactive": false, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["516", "40"]}
+{"t": 1793044612.91, "phase": "T1-finish", "op": "shot", "path": "t1_54.png"}
+{"t": 1793044633.22, "phase": "T1-finish", "op": "size", "w_dp": 25, "h_dp": 25}
+{"t": 1793044633.31, "phase": "T1-finish", "op": "note", "text": "after ad: 'Workout complete!' social share card (photo, AI suggested caption, filters, Share); closed with X"}
+{"t": 1793044633.46, "phase": "T1-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "id=close_button", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["39", "78"]}
+{"t": 1793044637.1, "phase": "T1-finish", "op": "shot", "path": "t1_55.png"}
+{"t": 1793044648.26, "phase": "explore", "op": "phase"}
+{"t": 1793044659.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "381"]}
+{"t": 1793044661.95, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "433"]}
+{"t": 1793044676.25, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "280"]}
+{"t": 1793044688.73, "phase": "explore", "op": "note", "text": "banner ad slot appears or not between visits -> list items shift ~100px (mis-tap risk)"}
+{"t": 1793044688.86, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "358"]}
+{"t": 1793044703.76, "phase": "explore", "op": "note", "text": "template auto-updated after T1: 4 sets, '7-10 reps 40-60 kg' (session values written back)"}
+{"t": 1793044703.9, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793044705.15, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793044706.39, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["202", "1126"]}
+{"t": 1793044708.65, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["405", "78"]}
+{"t": 1793044723.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["280", "715"]}
+{"t": 1793044739.45, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793044741.67, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793044754.89, "phase": "explore", "op": "note", "text": "history detail: Repetitions, Weight totals and Time chart LOCKED (premium); per-exercise list with check marks"}
+{"t": 1793044755.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["280", "163"]}
+{"t": 1793044764.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["280", "256"]}
+{"t": 1793044779.48, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["430", "653"]}
+{"t": 1793044809.07, "phase": "explore", "op": "note", "text": "exercise History tab shows per-set reps x kg per date with edit pencil; Best Volume and Best 1RM LOCKED"}
+{"t": 1793044809.2, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793044810.43, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793044811.65, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793044813.87, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["151", "1048"]}
+{"t": 1793044816.06, "phase": "T3-start", "op": "phase"}
+{"t": 1793044823.43, "phase": "T3-start", "op": "note", "text": "T3 path: My Workouts > Chest Day > Workout A > Start workout (alt: History > entry > Workout Again, same tap count)"}
+{"t": 1793044823.57, "phase": "T3-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=cardView2", "cls": "CardView", "w_dp": 80, "h_dp": 40, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793044835.48, "phase": "T3-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootLayout", "cls": "ViewGroup", "w_dp": 384, "h_dp": 96, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "280"]}
+{"t": 1793044846.33, "phase": "T3-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=materialCardView", "cls": "CardView", "w_dp": 344, "h_dp": 106, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "358"]}
+{"t": 1793044850.8, "phase": "T3-start", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 344, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "313"]}
+{"t": 1793044854.51, "phase": "T3-start", "op": "shot", "path": "t3_01.png"}
+{"t": 1793044861.83, "phase": "T3-start", "op": "note", "text": "notification pre-prompt again (3rd workout start)"}
+{"t": 1793044864.51, "phase": "T3-start", "op": "tap", "hit": {"label": "After | id=cta_deny", "cls": "TextView", "w_dp": 53, "h_dp": 39, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["343", "796"]}
+{"t": 1793044864.61, "phase": "T3-start", "op": "size", "w_dp": 53, "h_dp": 39}
+{"t": 1793044866.85, "phase": "T3-E1-s1", "op": "phase"}
+{"t": 1793044867.5, "phase": "T3-E1-s1", "op": "shot", "path": "t3_02.png"}
+{"t": 1793044875.13, "phase": "T3-E1-s1", "op": "note", "text": "all 20 sets prefilled from last session (written-back template), exact match"}
+{"t": 1793044879.43, "phase": "T3-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1099"]}
+{"t": 1793044879.53, "phase": "T3-E1-s1", "op": "size", "w_dp": 312, "h_dp": 48}
+{"t": 1793044894.88, "phase": "T3-E1-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044894.98, "phase": "T3-E1-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044895.09, "phase": "T3-E1-s2", "op": "phase"}
+{"t": 1793044967.9, "phase": "T3-E1-s2", "op": "shot", "path": "t3_03.png"}
+{"t": 1793044981.23, "phase": "T3-E1-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793044981.33, "phase": "T3-E1-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793044981.44, "phase": "T3-E1-s3", "op": "phase"}
+{"t": 1793045057.91, "phase": "T3-E1-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045058.01, "phase": "T3-E1-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045058.12, "phase": "T3-E1-s4", "op": "phase"}
+{"t": 1793045130.89, "phase": "T3-E1-s4", "op": "shot", "path": "t3_04.png"}
+{"t": 1793045135.19, "phase": "T3-E1-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045135.29, "phase": "T3-E1-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045135.39, "phase": "T3-E2-s1", "op": "phase"}
+{"t": 1793045208.19, "phase": "T3-E2-s1", "op": "shot", "path": "t3_05.png"}
+{"t": 1793045219.47, "phase": "T3-E2-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045219.58, "phase": "T3-E2-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045219.68, "phase": "T3-E2-s2", "op": "phase"}
+{"t": 1793045296.14, "phase": "T3-E2-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045296.25, "phase": "T3-E2-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045296.35, "phase": "T3-E2-s3", "op": "phase"}
+{"t": 1793045372.85, "phase": "T3-E2-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045372.96, "phase": "T3-E2-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045373.07, "phase": "T3-E2-s4", "op": "phase"}
+{"t": 1793045445.96, "phase": "T3-E2-s4", "op": "shot", "path": "t3_06.png"}
+{"t": 1793045450.27, "phase": "T3-E2-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045450.38, "phase": "T3-E2-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045450.49, "phase": "T3-E3-s1", "op": "phase"}
+{"t": 1793045523.3, "phase": "T3-E3-s1", "op": "shot", "path": "t3_07.png"}
+{"t": 1793045549.07, "phase": "T3-E3-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045549.19, "phase": "T3-E3-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045549.32, "phase": "T3-E3-s2", "op": "phase"}
+{"t": 1793045625.85, "phase": "T3-E3-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045625.97, "phase": "T3-E3-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045626.12, "phase": "T3-E3-s3", "op": "phase"}
+{"t": 1793045702.65, "phase": "T3-E3-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045702.76, "phase": "T3-E3-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045702.88, "phase": "T3-E3-s4", "op": "phase"}
+{"t": 1793045779.44, "phase": "T3-E3-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045779.55, "phase": "T3-E3-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045779.66, "phase": "T3-E4-s1", "op": "phase"}
+{"t": 1793045852.49, "phase": "T3-E4-s1", "op": "shot", "path": "t3_08.png"}
+{"t": 1793045865.76, "phase": "T3-E4-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045865.87, "phase": "T3-E4-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045865.97, "phase": "T3-E4-s2", "op": "phase"}
+{"t": 1793045942.5, "phase": "T3-E4-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793045942.61, "phase": "T3-E4-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793045942.72, "phase": "T3-E4-s3", "op": "phase"}
+{"t": 1793046019.2, "phase": "T3-E4-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046019.32, "phase": "T3-E4-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046019.44, "phase": "T3-E4-s4", "op": "phase"}
+{"t": 1793046095.91, "phase": "T3-E4-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046096.01, "phase": "T3-E4-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046096.13, "phase": "T3-E5-s1", "op": "phase"}
+{"t": 1793046168.95, "phase": "T3-E5-s1", "op": "shot", "path": "t3_09.png"}
+{"t": 1793046215.47, "phase": "T3-E5-s1", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046215.58, "phase": "T3-E5-s1", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046215.69, "phase": "T3-E5-s2", "op": "phase"}
+{"t": 1793046292.2, "phase": "T3-E5-s2", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046292.31, "phase": "T3-E5-s2", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046292.42, "phase": "T3-E5-s3", "op": "phase"}
+{"t": 1793046368.93, "phase": "T3-E5-s3", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046369.04, "phase": "T3-E5-s3", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046369.16, "phase": "T3-E5-s4", "op": "phase"}
+{"t": 1793046441.92, "phase": "T3-E5-s4", "op": "shot", "path": "t3_10.png"}
+{"t": 1793046446.21, "phase": "T3-E5-s4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046446.35, "phase": "T3-E5-s4", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046446.47, "phase": "T3-finish", "op": "phase"}
+{"t": 1793046450.12, "phase": "T3-finish", "op": "shot", "path": "t3_11.png"}
+{"t": 1793046457.43, "phase": "T3-finish", "op": "tap", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 228, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046457.54, "phase": "T3-finish", "op": "size", "w_dp": 228, "h_dp": 48}
+{"t": 1793046462.94, "phase": "T3-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 344, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793046469.02, "phase": "T3-finish", "op": "shot", "path": "t3_12.png"}
+{"t": 1793046476.42, "phase": "T3-finish", "op": "note", "text": "interstitial ad after Finish Workout again (reproducible)"}
+{"t": 1793046476.59, "phase": "T3-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "", "cls": "View", "w_dp": 384, "h_dp": 51, "interactive": false, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["516", "40"]}
+{"t": 1793046476.7, "phase": "T3-finish", "op": "size", "w_dp": 25, "h_dp": 25}
+{"t": 1793046482.1, "phase": "T3-finish", "op": "tap", "hit_src": "cache", "hit": {"label": "id=close_button", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["39", "78"]}
+{"t": 1793046495.3, "phase": "explore", "op": "phase"}
+{"t": 1793046495.44, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "381"]}
+{"t": 1793046497.67, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "358"]}
+{"t": 1793046499.88, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "313"]}
+{"t": 1793046503.09, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["343", "796"]}
+{"t": 1793046505.3, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1099"]}
+{"t": 1793046507.51, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046509.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046511.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046522.25, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "440"]}
+{"t": 1793046524.49, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "313"]}
+{"t": 1793046535.6, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["343", "796"]}
+{"t": 1793046537.83, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1099"]}
+{"t": 1793046540.11, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046542.35, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046544.64, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046546.9, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046549.12, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["328", "1099"]}
+{"t": 1793046558.96, "phase": "T4", "op": "phase"}
+{"t": 1793046559.05, "phase": "T4", "op": "note", "text": "T4a: change done set 2 60x8 -> 62.5x8 during rest"}
+{"t": 1793046563.38, "phase": "T4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["363", "591"]}
+{"t": 1793046563.49, "phase": "T4", "op": "size", "w_dp": 40, "h_dp": 48}
+{"t": 1793046565.24, "phase": "T4", "op": "shot", "path": "t4_03.png"}
+{"t": 1793046565.77, "phase": "T4", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 4}
+{"t": 1793046570.07, "phase": "T4", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["469", "1092"]}
+{"t": 1793046570.18, "phase": "T4", "op": "size", "w_dp": 90, "h_dp": 44}
+{"t": 1793046571.87, "phase": "T4", "op": "shot", "path": "t4_04.png"}
+{"t": 1793046578.8, "phase": "explore", "op": "phase"}
+{"t": 1793046579.69, "phase": "explore", "op": "long", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["120", "471"], "ms": 700}
+{"t": 1793046587.76, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793046589.46, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["480", "471", "100", "471"], "ms": 400, "dist_dp": 270}
+{"t": 1793046603.19, "phase": "explore", "op": "note", "text": "explore discovery: swipe-left on a set row deletes it instantly (no confirm). Swiping deleted done set 1 (40x10); also editing set 2 kg to 62.5 had propagated 62.5 to later undone sets 3-4; done checkmarks now lost on remaining rows"}
+{"t": 1793046603.29, "phase": "T4", "op": "phase"}
+{"t": 1793046603.39, "phase": "T4", "op": "note", "text": "T4b: delete set via swipe-left on set 3 row"}
+{"t": 1793046608.04, "phase": "T4", "op": "swipe", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["480", "712", "100", "712"], "ms": 300, "dist_dp": 270}
+{"t": 1793046608.74, "phase": "T4", "op": "shot", "path": "t4_07.png"}
+{"t": 1793046619.44, "phase": "T4", "op": "void", "n": 1}
+{"t": 1793046619.54, "phase": "explore", "op": "phase"}
+{"t": 1793046620.33, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["480", "591", "60", "591"], "ms": 600, "dist_dp": 299}
+{"t": 1793046633.65, "phase": "explore", "op": "note", "text": "swipe-left (slow, 600ms) on set row deletes the set, no confirmation; fast 300ms swipe did nothing. Done-checkmarks get re-assigned oddly after deletion"}
+{"t": 1793046633.74, "phase": "T4", "op": "phase"}
+{"t": 1793046638.63, "phase": "T4", "op": "swipe", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["480", "591", "60", "591"], "ms": 600, "dist_dp": 299}
+{"t": 1793046638.73, "phase": "T4", "op": "size", "w_dp": 319, "h_dp": 68}
+{"t": 1793046640.16, "phase": "T4", "op": "shot", "path": "t4_09.png"}
+{"t": 1793046648.46, "phase": "T4", "op": "note", "text": "T4c: no undo anywhere (no snackbar after delete; bottom 'Back' only steps the timer flow back)"}
+{"t": 1793046648.55, "phase": "explore", "op": "phase"}
+{"t": 1793046649.13, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "700", "270", "300"], "ms": 400, "dist_dp": 285}
+{"t": 1793046657.27, "phase": "T5", "op": "phase"}
+{"t": 1793046657.39, "phase": "T5", "op": "note", "text": "no Squat in this workout: target = move Overhead Press above Chest Press (machine)"}
+{"t": 1793046661.67, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "824"]}
+{"t": 1793046661.78, "phase": "T5", "op": "size", "w_dp": 120, "h_dp": 40}
+{"t": 1793046664.49, "phase": "T5", "op": "shot", "path": "t5_01.png"}
+{"t": 1793046671.59, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "id=container_muscle_indicator", "cls": "ViewGroup", "w_dp": 344, "h_dp": 733, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "196"]}
+{"t": 1793046675.05, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 328, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["286", "196"]}
+{"t": 1793046676.68, "phase": "T5", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 14}
+{"t": 1793046677.0, "phase": "T5", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "enter"}
+{"t": 1793046690.51, "phase": "T5", "op": "note", "text": "first tap in T5 actually hit search bar 352x56dp (stale tree recorded 344x733); again needed 2nd tap to focus field. Barbell OHP not in free top results; picked Standing Overhead Press (dumbbell)"}
+{"t": 1793046690.65, "phase": "T5", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "488"]}
+{"t": 1793046693.97, "phase": "T5", "op": "tap", "hit": {"label": "id=card_button_border", "cls": "CardView", "w_dp": 344, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793046697.65, "phase": "T5", "op": "shot", "path": "t5_02.png"}
+{"t": 1793046710.54, "phase": "T5", "op": "longdrag", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "832", "300", "440"], "ms": 900, "dist_dp": 279}
+{"t": 1793046713.19, "phase": "T5", "op": "shot", "path": "t5_03.png"}
+{"t": 1793046720.4, "phase": "T5", "op": "size", "w_dp": 344, "h_dp": 88}
+{"t": 1793046720.48, "phase": "T5", "op": "note", "text": "long-press-drag reorder works on exercise list; dialog 'Keep changes for future workouts? YES permanent, NO only this workout' (+ do not show again)"}
+{"t": 1793046722.65, "phase": "T5", "op": "tap", "hit": {"label": "No | id=button2", "cls": "Button", "w_dp": 64, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["312", "742"]}
+{"t": 1793046722.75, "phase": "T5", "op": "size", "w_dp": 40, "h_dp": 40}
+{"t": 1793046725.45, "phase": "T5", "op": "shot", "path": "t5_04.png"}
+{"t": 1793046732.69, "phase": "T5", "op": "size", "w_dp": 64, "h_dp": 48}
+{"t": 1793046737.57, "phase": "T5", "op": "swipe", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["480", "475", "60", "475"], "ms": 600, "dist_dp": 299}
+{"t": 1793046737.74, "phase": "T5", "op": "size", "w_dp": 344, "h_dp": 88}
+{"t": 1793046740.51, "phase": "T5", "op": "shot", "path": "t5_05.png"}
+{"t": 1793046747.5, "phase": "T5", "op": "note", "text": "swipe-left on exercise row reveals Replace (yellow) and Delete (red trash) buttons"}
+{"t": 1793046751.82, "phase": "T5", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["470", "475"]}
+{"t": 1793046751.94, "phase": "T5", "op": "size", "w_dp": 55, "h_dp": 55}
+{"t": 1793046754.63, "phase": "T5", "op": "shot", "path": "t5_06.png"}
+{"t": 1793046761.7, "phase": "T5", "op": "note", "text": "delete exercise: immediate, no confirm, toast 'Saved'"}
+{"t": 1793046761.79, "phase": "T6", "op": "phase"}
+{"t": 1793046761.92, "phase": "T6", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "home"}
+{"t": 1793046767.45, "phase": "T6", "op": "launch", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "pkg": "com.lealApps.pedro.gymWorkoutPlan"}
+{"t": 1793046772.33, "phase": "T6", "op": "shot", "path": "t6_01.png"}
+{"t": 1793046778.15, "phase": "T6", "op": "note", "text": "home+relaunch: workout screen intact, same state"}
+{"t": 1793046781.3, "phase": "T6", "op": "launch", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "pkg": "com.lealApps.pedro.gymWorkoutPlan"}
+{"t": 1793046788.52, "phase": "T6", "op": "shot", "path": "t6_02.png"}
+{"t": 1793046801.26, "phase": "T6", "op": "note", "text": "after force-stop: app relaunches into workout screen with dialog 'Exit workout?' Discard or Continue (+do not show again)"}
+{"t": 1793046803.58, "phase": "T6", "op": "tap", "hit": {"label": "id=0_resource_name_obfuscated", "cls": "View", "w_dp": 384, "h_dp": 805, "interactive": true, "pkg": "com.android.vending"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["401", "680"]}
+{"t": 1793046807.44, "phase": "T6", "op": "shot", "path": "t6_03.png"}
+{"t": 1793046815.1, "phase": "T6", "op": "void", "n": 1}
+{"t": 1793046815.22, "phase": "T6", "op": "note", "text": "Google Play in-app update sheet 'Update available' popped up over the relaunch (flexible update; closed with X, not updated)"}
+{"t": 1793046817.54, "phase": "T6", "op": "tap", "hit": {"label": "desc=Dismiss update dialog | id=0_resource_name_obfuscated", "cls": "ImageView", "w_dp": 54, "h_dp": 54, "interactive": true, "pkg": "com.android.vending"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["501", "652"]}
+{"t": 1793046820.41, "phase": "T6", "op": "shot", "path": "t6_04.png"}
+{"t": 1793046829.78, "phase": "T6", "op": "tap", "hit": {"label": "Continue | id=button1", "cls": "Button", "w_dp": 82, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["401", "680"]}
+{"t": 1793046829.92, "phase": "T6", "op": "size", "w_dp": 80, "h_dp": 48}
+{"t": 1793046833.74, "phase": "T6", "op": "shot", "path": "t6_05.png"}
+{"t": 1793046841.11, "phase": "T6", "op": "note", "text": "workout recovered after Continue (state preserved incl. edits)"}
+{"t": 1793046841.2, "phase": "T7-in", "op": "phase"}
+{"t": 1793046845.44, "phase": "T7-in", "op": "tap", "hit": null, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["490", "268"]}
+{"t": 1793046845.55, "phase": "T7-in", "op": "size", "w_dp": 34, "h_dp": 34}
+{"t": 1793046849.26, "phase": "T7-in", "op": "shot", "path": "t7_01.png"}
+{"t": 1793046858.98, "phase": "T7-in", "op": "note", "text": "(i) icon opens exercise detail: Statistics chart (Total Volume default) with banner ad; volume aggregated per day (3560 = 2 sessions same day)"}
+{"t": 1793046861.17, "phase": "T7-in", "op": "tap", "hit": {"label": "id=cardView_op", "cls": "CardView", "w_dp": 62, "h_dp": 31, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["248", "1168"]}
+{"t": 1793046861.29, "phase": "T7-in", "op": "size", "w_dp": 62, "h_dp": 32}
+{"t": 1793046864.29, "phase": "T7-in", "op": "shot", "path": "t7_02.png"}
+{"t": 1793046866.49, "phase": "T7-in", "op": "tap", "hit": {"label": "History | id=button_historic", "cls": "RadioButton", "w_dp": 115, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["430", "653"]}
+{"t": 1793046866.61, "phase": "T7-in", "op": "size", "w_dp": 115, "h_dp": 40}
+{"t": 1793046869.36, "phase": "T7-in", "op": "shot", "path": "t7_03.png"}
+{"t": 1793046877.81, "phase": "T7-in", "op": "note", "text": "1RM chart LOCKED (blurred + padlock); History tab shows last session sets (10x40, 8x60, 8x60, 7x60)"}
+{"t": 1793046877.9, "phase": "explore", "op": "phase"}
+{"t": 1793046878.05, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793046880.32, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["39", "74"]}
+{"t": 1793046889.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793046900.98, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["151", "1048"]}
+{"t": 1793046903.19, "phase": "T7-out", "op": "phase"}
+{"t": 1793046905.54, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "desc=Exercises | id=bbn_item4_exercicios", "cls": "FrameLayout", "w_dp": 96, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["337", "1126"]}
+{"t": 1793046914.63, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "id=container_muscle_indicator", "cls": "ViewGroup", "w_dp": 344, "h_dp": 729, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "219"]}
+{"t": 1793046918.19, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "Search | id=text_input_edit_text_search_exercises", "cls": "EditText", "w_dp": 316, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["272", "73"]}
+{"t": 1793046919.62, "phase": "T7-out", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 5}
+{"t": 1793046929.92, "phase": "T7-out", "op": "note", "text": "first tap again hit search bar (352x56) though tree says container; field then needs 2nd tap"}
+{"t": 1793046930.06, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "id=rootView", "cls": "CardView", "w_dp": 344, "h_dp": 104, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "364"]}
+{"t": 1793046933.88, "phase": "T7-out", "op": "shot", "path": "t7_04.png"}
+{"t": 1793046941.01, "phase": "T7-out", "op": "tap", "hit_src": "cache", "hit": {"label": "id=cardView_op", "cls": "CardView", "w_dp": 62, "h_dp": 31, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["248", "1173"]}
+{"t": 1793046945.35, "phase": "T7-out", "op": "tap", "hit": {"label": "History | id=button_historic", "cls": "RadioButton", "w_dp": 115, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["431", "652"]}
+{"t": 1793046948.13, "phase": "T7-out", "op": "shot", "path": "t7_05.png"}
+{"t": 1793046948.23, "phase": "explore", "op": "phase"}
+{"t": 1793046953.79, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793046955.11, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793046956.39, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793046958.65, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793046967.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "381"]}
+{"t": 1793046976.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "439"]}
+{"t": 1793046988.26, "phase": "explore", "op": "note", "text": "CONFIRMED: discarded (Leave Workout) session still overwrote template: Bench now '1 set 8 reps 62.5 kg' (T4 edits+deletes leaked into routine)"}
+{"t": 1793046988.41, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793046989.69, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793046990.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["151", "1048"]}
+{"t": 1793046993.21, "phase": "T8", "op": "phase"}
+{"t": 1793046995.46, "phase": "T8", "op": "tap", "hit": {"label": "id=imageViewProfile", "cls": "ImageView", "w_dp": 32, "h_dp": 32, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["489", "84"]}
+{"t": 1793047004.61, "phase": "T8", "op": "tap", "hit_src": "cache", "hit": {"label": "id=linearLayout_export_statistics", "cls": "LinearLayout", "w_dp": 344, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "933"]}
+{"t": 1793047008.56, "phase": "T8", "op": "shot", "path": "t8_01.png"}
+{"t": 1793047020.17, "phase": "T8", "op": "note", "text": "Export statistics -> Premium paywall ('Improve Your Workout', Continue); export is premium-only"}
+{"t": 1793047020.32, "phase": "T8", "op": "tap", "hit_src": "cache", "hit": {"label": "id=view_close_a", "cls": "ImageView", "w_dp": 48, "h_dp": 48, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["45", "87"]}
+{"t": 1793047022.55, "phase": "T8", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047025.92, "phase": "T8", "op": "tap", "hit": {"label": "desc=Activities | id=bbn_item2_treino", "cls": "FrameLayout", "w_dp": 96, "h_dp": 56, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["202", "1126"]}
+{"t": 1793047030.25, "phase": "T8", "op": "tap", "hit": {"label": "id=sales_container", "cls": "RelativeLayout", "w_dp": 384, "h_dp": 773, "interactive": false, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["135", "78"]}
+{"t": 1793047041.09, "phase": "T8", "op": "void", "n": 1}
+{"t": 1793047041.23, "phase": "T8", "op": "tap", "hit_src": "cache", "hit": {"label": "id=cardView_export", "cls": "CardView", "w_dp": 110, "h_dp": 44, "interactive": true, "pkg": "com.lealApps.pedro.gymWorkoutPlan"}, "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["434", "1043"]}
+{"t": 1793047045.09, "phase": "T8", "op": "shot", "path": "t8_02.png"}
+{"t": 1793047057.58, "phase": "T8", "op": "note", "text": "Activities > Statistics > Export -> same Premium paywall"}
+{"t": 1793047057.68, "phase": "explore", "op": "phase"}
+{"t": 1793047057.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["45", "87"]}
+{"t": 1793047060.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "724"]}
+{"t": 1793047072.17, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047074.82, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1000", "270", "300"], "ms": 400, "dist_dp": 498}
+{"t": 1793047076.95, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1000", "270", "300"], "ms": 400, "dist_dp": 498}
+{"t": 1793047084.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["405", "78"]}
+{"t": 1793047086.48, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["427", "986"]}
+{"t": 1793047096.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["427", "907"]}
+{"t": 1793047106.74, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["262", "236"]}
+{"t": 1793047118.32, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047119.57, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047120.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["472", "1126"]}
+{"t": 1793047123.07, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["427", "1020"]}
+{"t": 1793047132.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["104", "609"]}
+{"t": 1793047142.94, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "704"]}
+{"t": 1793047144.19, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 3}
+{"t": 1793047144.46, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047145.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793047159.48, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "573"]}
+{"t": 1793047162.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["431", "573"]}
+{"t": 1793047164.97, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["468", "1141"]}
+{"t": 1793047174.43, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1000", "270", "400"], "ms": 400, "dist_dp": 427}
+{"t": 1793047176.05, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1000", "270", "400"], "ms": 400, "dist_dp": 427}
+{"t": 1793047183.5, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793047185.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["489", "84"]}
+{"t": 1793047188.3, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793047189.54, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "510"]}
+{"t": 1793047200.58, "phase": "explore", "op": "swipe", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "300", "270", "1000"], "ms": 300, "dist_dp": 498}
+{"t": 1793047201.82, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793047211.4, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["254", "622"]}
+{"t": 1793047222.86, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["284", "703"]}
+{"t": 1793047234.82, "phase": "explore", "op": "note", "text": "AI Plan workout: tapping an exercise to edit -> Premium paywall"}
+{"t": 1793047234.95, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["45", "87"]}
+{"t": 1793047236.2, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047237.43, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1048"]}
+{"t": 1793047246.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["247", "381"]}
+{"t": 1793047255.86, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["233", "439"]}
+{"t": 1793047258.1, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["288", "542"]}
+{"t": 1793047275.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["369", "516"]}
+{"t": 1793047278.52, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["369", "516"]}
+{"t": 1793047286.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["146", "310"]}
+{"t": 1793047298.87, "phase": "explore", "op": "note", "text": "'Type of set' = measurement mode only: Reps and weight, Repetitions, Weight, Time (no warm-up/drop/failure set types); per-exercise rest timer 01:00 and Note"}
+{"t": 1793047299.0, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047300.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["345", "310"]}
+{"t": 1793047310.7, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["360", "411"]}
+{"t": 1793047312.13, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 2}
+{"t": 1793047312.28, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047321.31, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["321", "716"]}
+{"t": 1793047322.54, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047331.78, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["509", "703"]}
+{"t": 1793047339.8, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["402", "905"]}
+{"t": 1793047354.19, "phase": "explore", "op": "note", "text": "Super Set via exercise menu links with next exercise (orange bracket), free; menu also Replace, Move, Statistics, Delete"}
+{"t": 1793047354.32, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047355.57, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047356.82, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["489", "78"]}
+{"t": 1793047359.47, "phase": "explore", "op": "scroll", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "dir": "down"}
+{"t": 1793047360.72, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "510"]}
+{"t": 1793047370.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["45", "87"]}
+{"t": 1793047379.91, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "754"]}
+{"t": 1793047389.02, "phase": "explore", "op": "note", "text": "Measurement Units: global Metric or Imperial only (no per-exercise unit)"}
+{"t": 1793047389.15, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["341", "789"]}
+{"t": 1793047390.39, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "834"]}
+{"t": 1793047399.22, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["341", "834"]}
+{"t": 1793047400.44, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "914"]}
+{"t": 1793047409.64, "phase": "explore", "op": "note", "text": "Language: PT, ES, EN, DE, FR, IT (6, no Chinese)"}
+{"t": 1793047409.76, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["341", "944"]}
+{"t": 1793047410.98, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "572"]}
+{"t": 1793047423.16, "phase": "explore", "op": "note", "text": "Reminders: notification frequency (Moderate recommended) + per-weekday workout schedule times from onboarding"}
+{"t": 1793047423.28, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047424.5, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "1096"]}
+{"t": 1793047428.23, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047429.45, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["309", "995"]}
+{"t": 1793047438.55, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["186", "1070"]}
+{"t": 1793047439.77, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047440.99, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["337", "1126"]}
+{"t": 1793047443.23, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "219"]}
+{"t": 1793047444.52, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047453.55, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["198", "165"]}
+{"t": 1793047462.96, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["120", "238"]}
+{"t": 1793047464.18, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793047475.38, "phase": "explore", "op": "note", "text": "library: every list (All, filtered) shows only top 5 exercises free, rest blurred 'Access blocked'"}
+{"t": 1793047475.53, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["390", "1104"]}
+{"t": 1793047486.35, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "404"]}
+{"t": 1793047488.19, "phase": "explore", "op": "text", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "chars": 15}
+{"t": 1793047488.34, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047489.59, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["157", "722"]}
+{"t": 1793047500.21, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["45", "87"]}
+{"t": 1793047510.05, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "1104"]}
+{"t": 1793047523.69, "phase": "explore", "op": "note", "text": "custom exercise: name + instructions + photo saved free (in 'My Exercises' chip); choosing Primary Muscle Groups -> Premium paywall"}
+{"t": 1793047523.82, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047525.04, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047526.33, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793047528.65, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["151", "1048"]}
+{"t": 1793047530.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["435", "84"]}
+{"t": 1793047532.11, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["402", "146"]}
+{"t": 1793047544.63, "phase": "explore", "op": "note", "text": "Plan menu: Create new Plan reruns goal questionnaire; Restart Plan; View details"}
+{"t": 1793047544.75, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047546.98, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["459", "210"]}
+{"t": 1793047555.79, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "491"]}
+{"t": 1793047564.56, "phase": "explore", "op": "note", "text": "AI plan: 3 phases (Strength, Hypertrophy, Hypertrophy+...) x 4 weeks, all weeks browsable free; exercise editing inside plan workouts is premium"}
+{"t": 1793047564.68, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["388", "1048"]}
+{"t": 1793047566.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["236", "152"]}
+{"t": 1793047579.47, "phase": "explore", "op": "note", "text": "Quick workout filters: Duration, Equipment (No equipment, Machine, Dumbbell-Barbell, Pulley), Level, Goal, Muscles Edit"}
+{"t": 1793047579.6, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["39", "474"]}
+{"t": 1793047580.81, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["337", "1126"]}
+{"t": 1793047583.04, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "219"]}
+{"t": 1793047584.42, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047585.66, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["300", "994"]}
+{"t": 1793047588.89, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["270", "652"]}
+{"t": 1793047600.19, "phase": "explore", "op": "note", "text": "exercise Instructions: animated illustration + Preparation, Execution, Tips text (free), banner ad"}
+{"t": 1793047600.31, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047601.56, "phase": "explore", "op": "key", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "key": "back"}
+{"t": 1793047602.8, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["67", "1126"]}
+{"t": 1793047605.03, "phase": "explore", "op": "tap", "expect_pkg": "com.lealApps.pedro.gymWorkoutPlan", "xy": ["151", "1048"]}
