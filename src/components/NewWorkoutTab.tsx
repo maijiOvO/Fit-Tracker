@@ -181,6 +181,32 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const [partChosenFor, setPartChosenFor] = useState<string | null>(null);
 
   /**
+   * 结束训练不弹确认框（§12.5 通则 3：结束不在例外名单里，结束后能从时间线接回 / 编辑）。
+   * 顶栏的按钮离拇指远、容易误触，所以同一键再点一次才结束：第一下只把按钮改成「再点一次结束」，4 秒没点回去。
+   * 第二下落在同一处，不用重新瞄准（2026-10-26 按记录开销计分改：确认弹窗每场多一次等待、一次想、一次瞄准）。
+   * 一组都没做完时不上膛，直接交给下面问「放弃？」。
+   */
+  const [endArmed, setEndArmed] = useState(false);
+  const endArmTimer = useRef<number | null>(null);
+  useEffect(() => () => window.clearTimeout(endArmTimer.current ?? undefined), []);
+  const onFinishClick = () => {
+    const anyDone = (currentWorkout.exercises ?? []).some(e => e.sets.some(s => !s.ghost || s.touched));
+    if (editingWorkoutId || !anyDone) {
+      onSave();
+      return;
+    }
+    if (!endArmed) {
+      setEndArmed(true);
+      haptic(H.tap);
+      endArmTimer.current = window.setTimeout(() => setEndArmed(false), 4000);
+      return;
+    }
+    window.clearTimeout(endArmTimer.current ?? undefined);
+    setEndArmed(false);
+    onSave();
+  };
+
+  /**
    * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
    * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
@@ -511,7 +537,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
           <button
             type="button"
-            onClick={onSave}
+            onClick={onFinishClick}
+            data-armed={endArmed ? 'true' : undefined}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length) || (!!editingWorkoutId && !hasUnsavedChanges)}
             data-testid="finish-button"
             className={`min-h-[44px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center gap-2 transition-ui active:scale-press-sm ${
@@ -523,7 +550,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                     ? 'bg-danger text-on-accent'
                     : !(currentWorkout.exercises?.length) || (editingWorkoutId && !hasUnsavedChanges)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
-                      : editingWorkoutId
+                      : editingWorkoutId || endArmed
                         ? 'bg-accent text-on-accent hover:opacity-90'
                         // 训练中的「结束训练」用次要样式：这一屏的主操作是底部「添加动作」，
                         // 两个实心按钮一上一下抢眼，结束反而比继续练更显眼（2026-10-22 界面审查）
@@ -548,7 +575,13 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             ) : (
               <>
                 {editingWorkoutId ? <Check size={16} strokeWidth={3} /> : <Flag size={16} strokeWidth={3} />}
-                <span>{editingWorkoutId ? (isCn ? '保存修改' : 'Save changes') : isCn ? '结束训练' : 'End Workout'}</span>
+                <span>
+                  {editingWorkoutId
+                    ? isCn ? '保存修改' : 'Save changes'
+                    : endArmed
+                      ? isCn ? '再点一次结束' : 'Tap again to end'
+                      : isCn ? '结束训练' : 'End Workout'}
+                </span>
               </>
             )}
           </button>

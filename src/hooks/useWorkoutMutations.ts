@@ -200,8 +200,11 @@ export interface UseWorkoutMutationsResult {
   /** 刊末页数据。§9：非 PR 日也必须有收尾，所以每次结束训练都会有值。 */
   colophon: ColophonState | null;
   dismissColophon: () => void;
-  /** 带单位提示的结束确认 */
-  handleFinishWithConfirmation: () => Promise<void>;
+  /**
+   * 结束训练。askFirst=false：训练页的「再点一次结束」已经是二次确认，不再弹框；
+   * 首页「进行中 → 结束」那条路（askFirst 默认 true）仍问一句。一组都没做完时两条路都问「放弃？」。
+   */
+  handleFinishWithConfirmation: (askFirst?: boolean) => Promise<void>;
 
   handleEditWorkout: (
     workoutId: string,
@@ -519,7 +522,7 @@ export function useWorkoutMutations({
     exitEditing,
   ]);
 
-  const handleFinishWithConfirmation = useCallback(async () => {
+  const handleFinishWithConfirmation = useCallback(async (askFirst = true) => {
     // 改过数但没点完成的组按做完入册（toRecordedExercises），这里不再提醒「返回补点」（2026-10-20 用户定：
     // 点结束 / 保存就是练完了）。没动过的底稿行静默不入册，本来就是「没做」。
 
@@ -542,12 +545,15 @@ export function useWorkoutMutations({
       return;
     }
 
-    const ok = await confirm({
-      // 2026-10-11：去掉「当前单位设置」「将被添加到历史记录」两行 —— 都是常识，每场都读一遍是噪音
-      message: isCn ? '确认结束当前训练吗？' : 'Confirm ending this workout?',
-      confirmLabel: isCn ? '结束训练' : 'End Workout',
-    });
-    if (ok) await finishWorkout();
+    if (askFirst) {
+      const ok = await confirm({
+        // 2026-10-11：去掉「当前单位设置」「将被添加到历史记录」两行 —— 都是常识，每场都读一遍是噪音
+        message: isCn ? '确认结束当前训练吗？' : 'Confirm ending this workout?',
+        confirmLabel: isCn ? '结束训练' : 'End Workout',
+      });
+      if (!ok) return;
+    }
+    await finishWorkout();
   }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
 
   const handleEditWorkout = useCallback(

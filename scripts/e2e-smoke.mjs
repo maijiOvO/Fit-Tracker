@@ -125,6 +125,18 @@ async function acceptAppConfirm(page) {
   await dlg.waitFor({ state: 'detached', timeout: 5_000 });
 }
 
+/**
+ * 训练页「结束训练」（2026-10-26 起不弹确认框）：同一键点两下 —— 第一下只上膛（按钮变「再点一次结束」、data-armed），
+ * 第二下才结束。第一下弹了任何对话框都算回退到老行为。
+ */
+async function endWorkout(page) {
+  const btn = page.locator('[data-testid="finish-button"]');
+  await btn.click();
+  await page.locator('[data-testid="finish-button"][data-armed="true"]').waitFor({ timeout: 3_000 });
+  if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('ending a workout should arm the button, not open a dialog');
+  await btn.click();
+}
+
 /** 点确认框里指定文案的那个按钮（确认 / 取消都走这里） */
 async function clickAppConfirm(page, labelRe) {
   const dlg = page.locator('[role="dialog"]');
@@ -871,8 +883,7 @@ const SEEDED = {
     await row0.locator('[data-testid="ledger-field-weight"] input').fill('200');
     await row0.locator('.set-num').click();
     await row0.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
-    await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
-    await acceptAppConfirm(page);
+    await endWorkout(page);
     await dismissColophon(page);
     const done = ((await remoteSnap())?.workouts || []).filter(w => w.finishedAt);
     done.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
@@ -1210,8 +1221,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await firstRow.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 }).catch(() => {
         throw new Error('tapping the default-selected to-do set did not mark it done');
       });
-      await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
-      await acceptAppConfirm(page);
+      await endWorkout(page);
       await dismissColophon(page);
 
       const snap = await remoteSnap();
@@ -1264,8 +1274,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (await page.locator('.ledger-row.is-inked').count()) throw new Error('copied sets must all be drafts');
       // 做完一组再结束：造出真正的第二场，给「并入上一场」用
       await page.locator('.ledger-row .set-num').first().click();
-      await page.getByRole('button', { name: /结束训练|End Workout/ }).first().click();
-      await acceptAppConfirm(page);
+      await endWorkout(page);
       await dismissColophon(page);
 
       const cards = page.locator('[data-testid^="timeline-session-"]');
@@ -1478,8 +1487,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (await page.locator('[data-testid="toast"]', { hasText: /已撤销|已重做|Undone|Redone/ }).count()) throw new Error('undo / redo still shows a toast');
 
       // 结束训练 → 首页 → 撤销：那场回到工作台，做完的组还在
-      await page.locator('[data-testid="finish-button"]').click();
-      await acceptAppConfirm(page);
+      await endWorkout(page);
       await dismissColophon(page);
       await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
       await page.locator('header [data-testid="global-undo"]').click();

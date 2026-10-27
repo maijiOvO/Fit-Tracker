@@ -1180,7 +1180,7 @@ const AppWithAuthShell: React.FC = () => {
             resolveName={prefs.resolveName}
             getActiveMetrics={prefs.getActiveMetrics}
             onBack={handleNewWorkoutBack}
-            onSave={handleFinishWithConfirmation}
+            onSave={() => void handleFinishWithConfirmation(false)}
             onToggleUnit={handleUnitToggle}
             pickerOpen={pickerSheetOpen}
             onPickerOpenChange={handlePickerSheetOpenChange}
