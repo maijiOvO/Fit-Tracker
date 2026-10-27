@@ -875,23 +875,22 @@ const SEEDED = {
     return `library delete = hide + undo · emptied ${wid} dropped · tap add/cancel · same-name create restores`;
   },
 
-  // 首页「上次 · 再练一次」（2026-10-26）：一下就进复制好的那场 —— 不弹长按菜单、不弹选馆（历史里有馆就沿用），
-  // 每一组都是底稿（§12.6 红线），标题是上一场的
+  // 首页「上次 · 再练一次」（2026-10-26）：一下就进复制好的那场 —— 不弹长按菜单，每一组都是底稿（§12.6 红线），标题是上一场的。
+  // 夹具里的训练没标过馆，所以这里仍会弹「新的馆」表单（一场都没标过才问）；pickStartGym 两种情况都接得住
   'seeded-repeat-last': async ({ page }) => {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
     const row = page.locator('[data-testid="repeat-last"]');
     await row.waitFor({ state: 'visible', timeout: 5_000 });
     const label = (await row.innerText()).replace(/\s+/g, ' ');
     await row.click();
-    await page.locator('[data-testid="finish-button"]').waitFor({ timeout: 5_000 });
-    if (await page.locator('[data-testid="gym-picker"]').isVisible().catch(() => false)) throw new Error('repeat-last still asks which gym although history has one');
+    await pickStartGym(page);
     const title = await page.locator('[data-testid="workout-title"]').inputValue();
     if (!title || !label.includes(title)) throw new Error(`repeat-last opened "${title}" but the row said "${label}"`);
     const ghost = await page.locator('.ledger-row.is-ghost').count();
     if (!ghost) throw new Error('repeat-last: no draft rows');
     if (await page.locator('.ledger-row.is-inked').count()) throw new Error('repeat-last: copied sets must all be drafts');
     await backAndDiscard(page);
-    return `one tap → "${title}" · ${ghost} drafts · no gym sheet`;
+    return `one tap → "${title}" · ${ghost} drafts`;
   },
 
   // 「继续这场」接回来的训练删光动作，不整场删（用户定）：里面是真正练过的组
