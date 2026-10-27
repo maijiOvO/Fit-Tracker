@@ -27,7 +27,6 @@ export interface PlanPickerHost {
     onCreated: (ex: ExerciseDefinition) => void,
     preset?: { bodyPart?: string; category?: string; regions?: string[] },
   ) => void;
-  onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onDeleteExercise: (id: string) => void;
   onOpenNote: (name: string) => void;
   onOpenMetrics: (name: string) => void;
@@ -441,7 +440,6 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
         sessionAdded={sessionAdded}
         onPickExercise={handlePick}
         onCreateCustomExercise={handleCreateCustom}
-        onEditExerciseTags={pickerHost.onEditExerciseTags}
         onDeleteExercise={pickerHost.onDeleteExercise}
         onOpenNote={pickerHost.onOpenNote}
         onOpenMetrics={pickerHost.onOpenMetrics}

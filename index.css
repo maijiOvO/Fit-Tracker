@@ -1138,262 +1138,186 @@ button {
   opacity: 1;
 }
 
-/* ── 部位细分格（2026-10 第三版「A + 栏线」，照 docs/demos/region-board-v3.html）──
-   小卡跟部位 / 器材 chip 同一套：灰底无边框、粗体；已添加＝朱砂实底。
-   列是第一层级：列间一道 1px divider 栏线（列距 9px，线在正中），从表头穿到格子底；
-   表头 13px/700 + 刊头双线（同动作卡 .masthead-rule）。格子是一张行对齐的 grid（卡片带显式行列）。
-   一屏最多 4 列（2.2，2026-10-06 用户定）：≤4 个细分按列等分；多于 4 个每列按 4 列宽、整张横滑（.is-scroll）。
-   英文每列 112px 横滑（5 列怎么排都放不下 Dumbb/ell）。
-   表头始终吸顶：它在横滑容器外面（.region-headwrap，自己也是横向滚动容器），两边 scrollLeft 双向同步 ——
-   sticky 在 overflow-x 的容器里吸不了顶。 */
-.region-board {
-  --region-gap: 9px;
-  /* 栏线位置按列宽算：等分时 % 在用到它的地方解析（heads / gwrap 的宽度） */
-  --region-colw: calc((100% - (var(--region-n) - 1) * var(--region-gap)) / var(--region-n));
-  position: relative;
-  /* 给横滑时的列宽当参照（100cqi＝格子可见宽度） */
-  container-type: inline-size;
-}
-.region-board.is-scroll {
-  --region-colw: calc((100cqi - 3 * var(--region-gap)) / 4);
-}
-.region-board.is-wide {
-  --region-colw: 112px;
-}
-.region-board.is-scroll .region-bscroll {
-  overflow-x: auto;
-  margin: 0 -16px;
-  padding: 0 16px;
+/* ── 添加动作：分类页（2026-10-27，照 docs/demos/picker-layout-a.html）──
+   跟 App 别处同一个语言：bg-card 行块 + 一行一行的列表 + 小灰字分组标题。
+   左竖栏列「下一级」（热身 / 各细分 / 未细分，或全部里的收藏 / 最近 / 各部位），点了跳到那组，滚动时跟着亮。 */
+.picker-rail {
+  flex: none;
+  width: 78px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--bg-card);
+  border-right: 1px solid var(--divider);
+  padding-bottom: 24px;
   scrollbar-width: none;
 }
-.region-board.is-scroll .region-bscroll::-webkit-scrollbar {
-  display: none;
+.picker-rail::-webkit-scrollbar { display: none; }
+.picker-rail-item {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 13px 6px 13px 12px;
+  text-align: left;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-tertiary);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
-.region-board.is-scroll .region-bin {
-  width: max-content;
+.picker-rail-item b { font-weight: inherit; }
+.picker-rail-item i {
+  display: block;
+  margin-top: 2px;
+  font: normal 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
 }
-.region-heads,
-.region-grid,
-.region-tray {
-  display: grid;
-  grid-template-columns: var(--region-tpl);
-  column-gap: var(--region-gap, 9px);
+/* 这一组里本次加了几个 */
+.picker-rail-item em {
+  position: absolute;
+  top: 9px;
+  right: 6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font: normal 700 var(--fs-micro)/15px 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  text-align: center;
 }
-/* 吸顶层：两侧伸进弹层的 16px 留白（表头行末的「＋」挂在那里），下面留出栏线伸出去的 7px。
-   横滑时它跟格子一起滚（scrollLeft 双向同步），不画滚动条 */
-.region-headwrap {
+.picker-rail-item.is-on {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.picker-rail-item.is-on::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 11px;
+  bottom: 11px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--accent);
+}
+.picker-rail-item.is-action { color: var(--accent-text); font-size: var(--fs-label); font-weight: 700; }
+.picker-rail-sep { display: block; height: 1px; margin: 4px 10px; background: var(--divider); }
+
+.picker-lbl {
   position: sticky;
   top: 0;
-  z-index: 3;
-  margin: 0 -16px 3px;
-  padding: 0 16px 7px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  background: var(--bg-base);
-}
-.region-headwrap::-webkit-scrollbar {
-  display: none;
-}
-/* 表头下只留一道细线：原来深线 + 阴影双线，再加上栏线，一屏三套线像没排好的表格（2026-10-23 界面审查） */
-.region-heads {
-  position: relative;
-  padding: 12px 0 6px;
-  background: var(--bg-base);
-  border-bottom: 1px solid var(--divider);
-}
-/* 横滑时右缘渐隐＝后面还有列（原来是第五列露一条边，像溢出）。末尾有 16px 内边距，滚到头最后一列不被淡掉 */
-.region-board.is-scroll .region-headwrap,
-.region-board.is-scroll .region-bscroll,
-.hscroll-fade {
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
-}
-/* 整理时表头行末的「＋」挂在右侧留白里，不能被淡掉 */
-.is-arranging .region-board.is-scroll .region-headwrap {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-.region-board.is-scroll .region-heads {
-  width: max-content;
-}
-.region-head {
-  position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-  padding-left: 6px; /* 和卡片里的字同一条起点 */
-  white-space: nowrap;
-  text-align: left;
-  border-radius: var(--radius-control);
-  transition: background-color var(--dur-tap) var(--ease-ink);
-}
-.region-head b {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: var(--fs-small);
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.region-head i {
-  flex: none;
-  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-style: normal;
-  font-size: var(--fs-micro);
+  gap: 6px;
+  padding: 12px 4px 6px;
+  background: var(--bg-base);
+  font-size: var(--fs-label);
   font-weight: 600;
   color: var(--text-tertiary);
 }
-/* 整理：表头可点（改名 / 移动 / 排序 / 删除），名字下一道朱砂虚线＝可点的批注（同 .marginalia） */
-.region-head.is-editable {
-  min-height: 30px;
-  align-items: center;
-}
-.region-head.is-editable b {
-  line-height: 1.4;
-  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
-}
-.region-head.is-target {
-  background: var(--accent);
-}
-.region-head.is-target b,
-.region-head.is-target i {
-  color: var(--text-on-accent);
-}
-.region-head.is-target b {
-  border-bottom-color: transparent;
-}
-/* 表头行末的「＋」：5 列已经占满宽度，不能再占一列（会把每列挤窄），挂在行尾、半截伸进右侧留白 */
-.region-head-plus {
-  position: absolute;
-  top: 6px;
-  right: -16px;
-  bottom: 2px;
-  width: 30px;
-  padding-right: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-.region-head-plus span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 28px;
-  border-radius: var(--radius-control);
-  border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
-  color: var(--accent-text);
-}
-.region-gwrap {
-  position: relative;
-}
-.region-grid {
-  position: relative;
-  row-gap: 4px;
-  align-items: stretch;
-}
-/* 栏线只在整理时画（那时列是落点，要看清边界）；选动作时列与列靠留白分开 */
-.region-rule {
-  position: absolute;
-  z-index: 0;
-  display: none;
-  width: 1px;
-  background: var(--divider);
-  pointer-events: none;
-}
-.is-arranging .region-rule {
-  display: block;
-}
-.region-heads .region-rule {
-  top: 6px;
-  bottom: -7px;
-}
-.region-gwrap .region-rule {
-  top: -10px;
-  bottom: 0;
-}
-/* 拖动时整列高亮：范围就是两条栏线之间（useRegionDrag 摆位置） */
-.region-band {
-  position: absolute;
-  top: -10px;
-  bottom: -4px;
-  z-index: 0;
-  display: none;
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  pointer-events: none;
-}
-.region-band.is-on {
-  display: block;
-}
-
-.region-card {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  min-height: 44px;
-  padding: 6px;
-  text-align: left;
-  background: var(--bg-inset);
-  border-radius: var(--radius-control);
-  font-size: var(--fs-label);
-  line-height: 1.3;
-  /* 常规字重：粗体留给表头和选中的部位，一屏二十多张粗体卡是一堵字墙（2026-10-23 界面审查） */
-  font-weight: 500;
-  color: var(--text-primary);
-  /* 名字按词断行：词间插了零宽空格（nameSegments），词内不断；词表外的长名字兜底逐字断 */
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-  touch-action: pan-y;
-  transition:
-    background-color var(--dur-tap) var(--ease-paper),
-    color var(--dur-tap) var(--ease-paper);
-}
-.region-card:active {
-  background: color-mix(in srgb, var(--text-primary) 8%, var(--bg-inset));
-}
-.region-card-name {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-/* 剪影跟字同一行（不单占一格）：卡只有 ~80px 宽，单占一格字就只剩 45px、一词一行 */
-.region-card-title {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+.picker-lbl i { font: normal 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+.picker-block {
+  background: var(--bg-card);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
   overflow: hidden;
 }
-/* 做法名：名字下一行小灰字 */
-.region-card-sub {
-  font-size: var(--fs-micro);
-  color: var(--text-tertiary);
-}
-.region-card.is-added .region-card-sub { color: inherit; opacity: 0.8; }
-/* 空列（选动作时）：一行淡字，和卡片同高同起点 */
-.region-none {
+.picker-none { padding: 14px 12px; font-size: var(--fs-label); color: var(--text-tertiary); }
+
+.picker-row {
+  position: relative;
   display: flex;
   align-items: center;
-  min-height: 44px;
-  padding-left: 6px;
+  gap: 8px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 8px 8px 10px;
+  text-align: left;
+  touch-action: pan-y;
+  transition: background-color var(--dur-tap) var(--ease-paper);
+}
+/* 行间分隔线从名字起，剪影那一列不画（同时间线的行） */
+.picker-row + .picker-row::before,
+.picker-also-tog + .picker-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 36px;
+  right: 0;
+  height: 1px;
+  background: var(--divider);
+}
+.picker-row:active { background: var(--bg-card-hover); }
+.picker-row-ico { flex: none; width: 18px; display: flex; justify-content: center; }
+.picker-row-ico .eq-ico { margin: 0; }
+.picker-row-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.picker-row-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.picker-row-sub { font-size: var(--fs-label); font-weight: 500; color: var(--text-tertiary); }
+.picker-row-star { flex: none; color: var(--accent-text); }
+.picker-row-also {
+  flex: none;
+  padding: 0 4px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-chip);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--text-tertiary);
+}
+.picker-row-meta {
+  margin-top: 2px;
   font-size: var(--fs-label);
   color: var(--text-tertiary);
-  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.region-card-star {
-  position: absolute;
-  top: 3px;
-  right: 3px;
-  line-height: 0;
-  color: var(--accent-text); /* 收藏是选中态，不是警告（2026-10-22 界面审查） */
+/* ＋ 方块（同首页「记录体重」的 ＋）；已加＝主色实底 ×N */
+.picker-row-add {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--bg-btn);
+  color: var(--accent-text);
 }
-/* 器材小剪影：名字前一个 14×10 的灰色小图，和训练页大图同形；已添加的卡里跟着字色反白 */
+.picker-row.is-added .picker-row-add {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+}
+/* 兼练：收在组尾一行，点开才铺 */
+.picker-also-tog {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px 0 36px;
+  border-top: 1px solid var(--divider);
+  text-align: left;
+  font-size: var(--fs-label);
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.picker-also-tog i { font: normal 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+.picker-also-tog span { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* 器材小剪影：名字前一个 14×10 的灰色小图，和训练页大图同形；已添加的行里跟着字色反白 */
 .eq-ico {
   position: relative;
   display: inline-block;
@@ -1403,7 +1327,6 @@ button {
   vertical-align: -1px;
   color: var(--text-tertiary);
 }
-.region-card.is-added .eq-ico { color: inherit; }
 .eq-ico::before,
 .eq-ico::after { content: ''; position: absolute; background: currentColor; border-radius: 1px; }
 /* 杠铃：一根杆 + 两片 */
@@ -1423,151 +1346,6 @@ button {
 .eq-plate::after { left: 9px; top: 2px; width: 3px; height: 6px; }
 /* 配重片：一摞 */
 .eq-stack { width: 9px; margin: 0 6px 0 3px; background: repeating-linear-gradient(currentColor 0 2px, transparent 2px 3px); border-radius: 1px; }
-.region-card-x {
-  position: absolute;
-  right: 4px;
-  bottom: 3px;
-  font: 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  opacity: 0.8;
-}
-.region-card.is-added {
-  background: var(--accent);
-  color: var(--text-on-accent);
-  box-shadow: var(--shadow-page);
-}
-.region-card.is-added .region-card-star {
-  color: inherit;
-}
-/* 未细分：同一种小卡，轻一档（透明底 + 描边）＝还没放好 */
-.region-card.is-un {
-  background: transparent;
-  box-shadow: inset 0 0 0 1px var(--divider);
-}
-.region-card.is-un.is-added {
-  background: var(--accent);
-  box-shadow: var(--shadow-page);
-}
-/* 空列的落位（只在整理时画：那时它确实是「可以放进来」） */
-.region-card.is-empty {
-  background: transparent;
-  border: 1px dashed var(--divider);
-  pointer-events: none;
-}
-/* 整理：小卡浮起成纸片＝可以拿起来挪（材质表达状态，不加图标、不写说明） */
-.is-arranging .region-card {
-  background: var(--bg-card);
-  box-shadow: var(--shadow-page), inset 0 0 0 1px var(--divider);
-  color: var(--text-primary);
-  /* 按住一下才拖（useRegionDrag HOLD_MS）：直接划交给浏览器滚，拿起来之后由 touchmove 拦住 */
-  touch-action: pan-x pan-y;
-}
-/* 按够了、还没动：微微浮起，告诉手指「拿起来了」 */
-.is-arranging .region-card.is-armed {
-  transform: scale(1.04);
-  transition: transform 120ms var(--ease-paper, ease-out);
-}
-.is-arranging .region-card.is-added {
-  background: var(--accent);
-  color: var(--text-on-accent);
-  box-shadow: var(--shadow-page);
-}
-.is-arranging .region-card.is-empty {
-  background: transparent;
-  box-shadow: none;
-}
-/* 只能点、不能拖的托盘（没有细分的部位 / 未分部位 / 已删除）照常能滚 */
-.is-arranging .region-card.is-tap {
-  touch-action: pan-y;
-}
-.is-arranging .region-card.is-deleted {
-  background: transparent;
-  box-shadow: none;
-  border: 1px dashed var(--divider);
-  color: var(--text-tertiary);
-}
-.is-en .region-card {
-  font-size: var(--fs-label);
-  word-break: normal;
-  overflow-wrap: break-word;
-}
-/* 「未细分」「已删除」「器材」的小标题：跟表头同族、小一号、tertiary，中文不加字距 */
-.region-ulab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 18px 0 8px;
-  padding-left: 2px;
-  color: var(--text-tertiary);
-}
-.region-ulab h3 {
-  font-size: var(--fs-label);
-  font-weight: 700;
-  color: var(--text-tertiary);
-}
-.region-ulab span {
-  font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-size: var(--fs-micro);
-  font-weight: 600;
-}
-.region-unzone {
-  position: relative;
-  border-radius: var(--radius-card);
-  transition:
-    background-color var(--dur-tap) var(--ease-ink),
-    box-shadow var(--dur-tap) var(--ease-ink);
-}
-.region-unzone.is-target {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
-}
-.region-tray {
-  row-gap: 4px;
-}
-/* 横滑的部位行（筛选收成一行 / 整理的部位行） */
-.hscroll-bare {
-  scrollbar-width: none;
-}
-.hscroll-bare::-webkit-scrollbar {
-  display: none;
-}
-
-/* ── 拖动（整理态，useRegionDrag 命令式管理 DOM）──
-   浮卡＝离桌（shadow-overlay + scale 1.03）；落位虚线跟着手指高度走；浮卡被吸向落位。 */
-.region-floater {
-  position: absolute;
-  left: 0;
-  top: 0;
-  z-index: 30;
-  width: var(--fw);
-  min-height: var(--fh, 44px);
-  pointer-events: none;
-  background: var(--bg-card);
-  color: var(--text-primary);
-  outline: 1px solid var(--accent);
-  box-shadow: var(--shadow-overlay);
-  transform: translate(var(--fx), var(--fy)) scale(calc(1 + 0.03 * var(--move)));
-}
-.region-floater.is-landing {
-  transition: transform var(--dur-base) var(--ease-paper);
-}
-.is-drag-source {
-  opacity: 0.35;
-  outline: 1px dashed var(--rule-strong);
-  outline-offset: -1px;
-}
-.region-slot {
-  position: relative;
-  z-index: 1;
-  min-height: 44px;
-  border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, transparent);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--accent) 4%, transparent);
-}
-@media (prefers-reduced-motion: reduce) {
-  .region-floater.is-landing {
-    transition-duration: 1ms;
-  }
-}
 
 /* −5 / +5（第 2 条）：只在休息书签正下方那一组的整块之后出现，整行两颗宽键 */
 .ledger-step {

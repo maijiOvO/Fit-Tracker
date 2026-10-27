@@ -40,6 +40,7 @@ await build({
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
       "export { findLastIn } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
+      "export { migrateWarmRegions } from './src/utils/warmRegionMigration.ts';",
       "export { makeRounder, ownUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
       "export * as A from './src/utils/exerciseAttrs.ts';",
       "export { mergeOverride, mergedName } from './src/utils/exerciseOverride.ts';",
@@ -184,6 +185,44 @@ t('龙门架迁移：tagGym → tagCable；已有器材标签只摘掉 tagGym；
   // 没有要改的：原样返回同一个对象（调用方靠 !== 决定写不写回）
   const clean = { customExercises: [p.customExercises[1]].map(d => ({ ...d, tags: ['tagBarbell'] })), tagRenameOverrides: {} };
   assert.equal(L.migrateCableTags(clean), clean);
+});
+
+// ── 热身细分 → 热身用途（warmRegionMigration）────────────────────────
+t('热身迁移：主细分是热身＝只当热身；兼着热身＝训练 + 热身；做法 / 布局里的热身细分摘掉；可反复跑', () => {
+  const p = {
+    customExercises: [
+      // 只放在热身列：只当热身，热身部位＝胸
+      { id: 'c1', name: { cn: '扩胸', en: '扩胸' }, bodyPart: 'subChest', region: 'chestWarm', regions: ['chestWarm'], category: 'STRENGTH' },
+      // 主细分热身、还兼内侧：内侧顶上来当主，训练 + 热身
+      { id: 'c2', name: { cn: '蝴蝶机', en: '蝴蝶机' }, bodyPart: 'subChest', region: 'chestWarm', regions: ['chestWarm', 'chestInner', 'shFront'], category: 'STRENGTH' },
+      // 主细分正常、兼着背的热身：训练 + 热身（背）
+      { id: 'c3', name: { cn: '划船', en: '划船' }, bodyPart: 'subBack', region: 'backMid', regions: ['backMid', 'backWarm'], category: 'STRENGTH', variants: [{ id: 'v1', name: '宽', region: 'backWarm', regions: ['backWarm'] }] },
+    ],
+    // 内置动作的覆盖层：拖进过热身列
+    exerciseOverrides: { pushup: { region: 'chestWarm', regions: ['chestWarm'] }, bp_barbell: { bar: 'std' } },
+    customTags: [{ id: 'regionLayout:subChest', name: '', category: 'regionLayout', parentPart: 'subChest', order: ['chestWarm', 'chestMid'], hidden: ['chestWarm', 'chestOuter'] }],
+    tagRenameOverrides: { chestWarm: '热身活动', chestMid: '胸中' },
+    other: 1,
+  };
+  const m = L.migrateWarmRegions(p);
+  const [c1, c2, c3] = m.customExercises;
+  assert.deepEqual([c1.region, c1.regions, c1.warmParts, c1.warmOnly], ['', [], ['subChest'], true]);
+  assert.deepEqual([c2.region, c2.regions, c2.warmParts, c2.warmOnly], ['chestInner', ['chestInner', 'shFront'], ['subChest'], undefined]);
+  assert.deepEqual([c3.region, c3.regions, c3.warmParts, c3.warmOnly], ['backMid', ['backMid'], ['subBack'], undefined]);
+  assert.deepEqual([c3.variants[0].region, c3.variants[0].regions], ['', []], 'variant falls back to the exercise');
+  assert.deepEqual(m.exerciseOverrides.pushup, { region: '', regions: [], warmParts: ['subChest'], warmOnly: true });
+  assert.equal(m.exerciseOverrides.bp_barbell, p.exerciseOverrides.bp_barbell, 'untouched override keeps identity');
+  assert.deepEqual([m.customTags[0].order, m.customTags[0].hidden], [['chestMid'], ['chestOuter']]);
+  assert.deepEqual(m.tagRenameOverrides, { chestMid: '胸中' });
+  assert.equal(m.other, 1);
+  // 已经是热身用途的再跑一遍：原样返回同一个对象
+  assert.equal(L.migrateWarmRegions(m), m);
+  // 已有 warmParts 的并上去、不重复
+  const u = L.migrateWarmRegions({ customExercises: [{ id: 'u', name: { cn: 'u', en: 'u' }, bodyPart: 'subChest', region: 'chestMid', regions: ['chestMid', 'shWarm'], warmParts: ['subChest'] }] });
+  assert.deepEqual(u.customExercises[0].warmParts, ['subChest', 'subShoulder']);
+  // 什么都没有：同一个对象
+  const clean = { customExercises: [p.customExercises[2]].map(d => ({ ...d, regions: ['backMid'], variants: [] })) };
+  assert.equal(L.migrateWarmRegions(clean), clean);
 });
 
 // ── 递减档取整保持方向（useLoadRounder.keepSubOrder）─────────────────

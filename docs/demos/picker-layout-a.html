@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Demo · 分类页细化</title>
+<!--
+  交互 demo：添加动作弹层 A「分类页」细化版第二轮。右上角 ◐ 切明暗。
+
+  骨架：头部 → 搜索行（搜索 · 器材 · ＋新动作）→ 部位下划线标签 → 左竖栏（下一级）+ 右行列表 → 完成。
+  竖栏永远列「当前这一级的下一级」：全部＝收藏 · 最近 · 热身 · 各部位；部位＝热身 · 各细分 · 未细分；有氧 / 自由不出竖栏。
+  搜索有字时竖栏收起、拉平；器材是搜索行的漏斗，点开铺器材格。
+  行：剪影 | 名字 + 上次成绩 · 几天前 | ＋（已加＝主色 ×N）。点＝加入，长按＝动作面板。
+
+  第二轮改的两件事：
+  1. 复合动作在它挂的每个细分里都出现（数据本来就是多选：region 主细分 + regions 次要细分，可跨部位）。
+     主细分里照常；次要细分里收在组尾一行「兼练 N · 名字…」，点开才铺（带「兼」）。硬拉＝下背（主）+ 腿后侧 + 臀，
+     在背部和腿部都找得到；计数只算主细分。
+  2. 整理只做两件事，各有一个入口：
+     · 给动作归类：行右侧变成「›」，小灰字换成它现在的归类（主细分 · 兼 …，没归的标「未细分」）；
+       点行＝动作面板（和长按出的是同一张，不分二级）：名称 · 用途 · 部位 · 细分 · 器材 · 做法 · 删除。
+       用途「训练 / 热身」可以都开（蝴蝶机夹胸：内侧的训练动作，也在胸部热身里）。
+       训练＝训练部位单选 + 细分多选（其他部位的在下面展开），选了自己部位两个以上细分时多一行「主练」单选；
+       热身＝热身部位多选（出现在哪几个部位的热身里）。
+       不再拖：拖只能表达「换到一列」，表达不了「同时属于几列」。
+     · 改部位和细分：竖栏底部「编辑部位」。部位列表（改名 · 上下移 · 删自建 · 新建，点「细分 ›」进去）→ 细分列表（改名 · 上下移 · 删除 · 新建）；
+       从某个部位进来直接落在它的细分。给动作归类时缺细分，动作面板里「＋ 新建细分」当场建。
+     整理态的「全部」竖栏换成待办：未分部位 · 未细分 · 已删除。
+
+  照现在 App 搬的：弹层外壳、头部、「本次已加 N」、搜索框、器材剪影、下划线标签、bg-card 行块、底部面板、
+    细分多选（RegionChooser：「主」标记、其他部位折叠）、「完成」。
+  新的只有：竖栏、行的上次成绩 / 归类、行右侧 ＋ 与 ›、「兼」、用途、编辑部位页。
+-->
+<style>
+:root {
+  --bg-base: #FFFFFF; --bg-card: #F4F5F7; --bg-card-hover: #ECEEF1; --bg-inset: #E9EBEF; --bg-btn: #E9EBEF;
+  --divider: #E3E5E9; --rule-strong: #A3A8B0;
+  --text-primary: #111316; --text-secondary: #43474E; --text-tertiary: #626872;
+  --accent: #12B39A; --accent-soft: #DCF4EF; --accent-text: #097464; --text-on-accent: #04211C;
+  --warning: #7A5A10; --danger: #A3241F; --scrim: rgba(22,24,27,.42);
+}
+:root[data-theme="dark"] {
+  --bg-base: #0D1216; --bg-card: #172028; --bg-card-hover: #1D2731; --bg-inset: #080B0E; --bg-btn: #25303A;
+  --divider: #25303A; --rule-strong: #3E4B57;
+  --text-primary: #F2F5F7; --text-secondary: #A9B4BE; --text-tertiary: #8693A0;
+  --accent: #2BE0C0; --accent-soft: #12332F; --accent-text: #2BE0C0; --text-on-accent: #06201C;
+  --warning: #D2AE5C; --danger: #EF7A70; --scrim: rgba(0,0,0,.58);
+}
+:root { --r: 4px; --mono: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: #05080A; overscroll-behavior: none; }
+body { font-family: 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary); }
+button, input { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; text-align: left; }
+input { cursor: text; outline: none; }
+
+.demo-bar { position: fixed; top: 0; right: 0; z-index: 60; padding: 8px 12px; }
+.demo-bar button { width: 36px; height: 30px; text-align: center; border-radius: 4px; background: #1b1b1b; color: #ccc; }
+.phone { position: relative; max-width: 430px; height: 100%; margin: 0 auto; }
+.sheet { position: absolute; inset: 48px 0 0; display: flex; flex-direction: column; background: var(--bg-base); border-radius: 8px 8px 0 0; overflow: hidden; }
+.grab { width: 36px; height: 4px; margin: 8px auto 0; border-radius: 2px; background: var(--rule-strong); flex: none; }
+
+.head { display: flex; align-items: center; gap: 8px; padding: 8px 16px; flex: none; min-height: 48px; }
+.head h2 { font-size: 20px; font-weight: 700; }
+.head .added { font: 600 12px var(--mono); padding: 2px 6px; border-radius: 2px; background: var(--accent-soft); color: var(--accent-text); }
+.head .sp { flex: 1; }
+.head .arr { font-size: 14px; font-weight: 700; color: var(--accent-text); padding: 6px 8px; border-radius: var(--r); }
+.head .arr.on { background: var(--accent-soft); }
+.head .x { width: 32px; height: 32px; font-size: 22px; text-align: center; color: var(--text-secondary); }
+
+.search { display: flex; gap: 6px; padding: 0 16px 8px; flex: none; }
+.search label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 12px; border-radius: var(--r); background: var(--bg-card); color: var(--text-tertiary); font-size: 14px; }
+.search input { flex: 1; min-width: 0; height: 100%; font-size: 15px; color: var(--text-primary); }
+.search input::placeholder { color: var(--text-tertiary); }
+.search .clr { color: var(--text-tertiary); font-size: 16px; padding: 4px; }
+.sbtn { flex: none; position: relative; height: 40px; min-width: 40px; padding: 0 10px; text-align: center; border-radius: var(--r); background: var(--bg-btn); color: var(--text-secondary); font-size: 14px; font-weight: 700; }
+.sbtn.on { background: var(--accent-soft); color: var(--accent-text); }
+.sbtn .dot { position: absolute; top: 4px; right: 4px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--accent); color: var(--text-on-accent); font: 700 10px/14px var(--mono); }
+.sbtn.new { color: var(--accent-text); font-size: 20px; font-weight: 400; }
+
+.eqgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 0 16px 10px; flex: none; }
+.eqgrid button { display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 2px; background: var(--bg-inset); font-size: 13px; font-weight: 600; }
+.eqgrid button i:last-child { margin-left: auto; font: normal 600 12px var(--mono); color: var(--text-tertiary); }
+.eqgrid button.on { background: var(--accent); color: var(--text-on-accent); }
+.eqgrid button.on i { color: inherit !important; }
+
+.utabs { display: flex; overflow-x: auto; scrollbar-width: none; padding: 0 8px; border-bottom: 1px solid var(--divider); flex: none; }
+.utabs::-webkit-scrollbar { display: none; }
+.utabs button { flex: none; padding: 10px 10px 9px; font-size: 15px; font-weight: 600; color: var(--text-tertiary); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.utabs button.on { color: var(--text-primary); font-weight: 700; border-color: var(--accent); }
+.utabs button sup { font: 700 10px var(--mono); color: var(--accent-text); margin-left: 1px; }
+
+.body { flex: 1; min-height: 0; display: flex; }
+.rail { flex: none; width: 78px; overflow-y: auto; background: var(--bg-card); border-right: 1px solid var(--divider); scrollbar-width: none; padding-bottom: 24px; }
+.rail::-webkit-scrollbar { display: none; }
+.rail button { display: block; width: 100%; padding: 13px 6px 13px 12px; font-size: 14px; font-weight: 600; line-height: 1.25; color: var(--text-tertiary); position: relative; word-break: keep-all; overflow-wrap: anywhere; }
+.rail button i { display: block; font: normal 600 11px var(--mono); margin-top: 2px; }
+.rail button i.warn { color: var(--warning); }
+.rail button em { position: absolute; top: 9px; right: 6px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--accent); color: var(--text-on-accent); font: normal 700 10px/15px var(--mono); text-align: center; }
+.rail button.on { background: var(--bg-base); color: var(--text-primary); font-weight: 700; }
+.rail button.on::before { content: ''; position: absolute; left: 0; top: 11px; bottom: 11px; width: 3px; border-radius: 0 2px 2px 0; background: var(--accent); }
+.rail .sep { height: 1px; background: var(--divider); margin: 4px 10px; }
+.rail .edit { color: var(--accent-text); font-size: 13px; }
+
+.list { flex: 1; min-width: 0; overflow-y: auto; padding: 0 12px 24px; overscroll-behavior: contain; }
+.lbl { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 6px; padding: 12px 4px 6px; background: var(--bg-base); font-size: 13px; font-weight: 600; color: var(--text-tertiary); }
+.lbl i { font: normal 600 12px var(--mono); }
+.block { background: var(--bg-card); border: 1px solid var(--divider); border-radius: var(--r); overflow: hidden; }
+.none { padding: 14px 12px; font-size: 13px; color: var(--text-tertiary); }
+
+.row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 56px; padding: 8px 8px 8px 10px; position: relative; user-select: none; -webkit-user-select: none; touch-action: pan-y; cursor: pointer; }
+.row + .row::before { content: ''; position: absolute; top: 0; left: 36px; right: 0; height: 1px; background: var(--divider); }
+.row:active { background: var(--bg-card-hover); }
+.row .ico { flex: none; width: 18px; display: flex; justify-content: center; }
+.row .mid { flex: 1; min-width: 0; }
+.row .nm { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .nm .v { font-size: 13px; font-weight: 500; color: var(--text-tertiary); margin-left: 4px; }
+.row .nm .st { color: var(--accent-text); font-size: 11px; margin-left: 4px; vertical-align: 2px; }
+.row .nm .also { display: inline-block; margin-left: 6px; padding: 0 4px; border: 1px solid var(--divider); border-radius: 2px; font-size: 11px; font-weight: 600; line-height: 16px; color: var(--text-tertiary); vertical-align: 1px; }
+.row .meta { margin-top: 2px; font-size: 12px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .meta b { font: 600 13px var(--mono); color: var(--text-secondary); }
+.row .meta .main { color: var(--text-secondary); font-weight: 600; }
+.row .meta .warn { color: var(--warning); font-weight: 600; }
+.row .add { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--r); background: var(--bg-btn); color: var(--accent-text); font-size: 20px; }
+.row.on .add { background: var(--accent); color: var(--text-on-accent); font: 700 15px var(--mono); }
+.row .chev { flex: none; width: 24px; text-align: center; color: var(--text-tertiary); font-size: 18px; }
+.also-tog { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 40px; padding: 0 12px 0 36px; border-top: 1px solid var(--divider); font-size: 12px; font-weight: 600; color: var(--text-tertiary); }
+.also-tog i { font: normal 600 12px var(--mono); }
+.also-tog span { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.also-tog + .row::before { display: none; }
+.row .press { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); }
+.row.pressing .press { width: 100%; transition: width .45s linear; }
+.row.gone { opacity: .55; }
+
+.eq-ico { position: relative; display: inline-block; width: 14px; height: 10px; color: var(--text-tertiary); }
+.eq-ico::before, .eq-ico::after { content: ''; position: absolute; background: currentColor; border-radius: 1px; }
+.eq-bar { background: linear-gradient(currentColor, currentColor) center / 14px 2px no-repeat; }
+.eq-bar::before { left: 2px; top: 0; width: 3px; height: 10px; } .eq-bar::after { right: 2px; top: 0; width: 3px; height: 10px; }
+.eq-db { background: linear-gradient(currentColor, currentColor) center / 12px 2px no-repeat; }
+.eq-db::before { left: 0; top: 1px; width: 4px; height: 8px; } .eq-db::after { right: 0; top: 1px; width: 4px; height: 8px; }
+.eq-plate { background: linear-gradient(currentColor, currentColor) 0 50% / 4px 2px no-repeat; }
+.eq-plate::before { left: 4px; top: 0; width: 4px; height: 10px; } .eq-plate::after { left: 9px; top: 2px; width: 3px; height: 6px; }
+.eq-stack { width: 9px; background: repeating-linear-gradient(currentColor 0 2px, transparent 2px 3px); border-radius: 1px; }
+.eq-bw { width: 10px; height: 10px; border: 2px solid currentColor; border-radius: 50%; }
+.eq-kb::before { left: 3px; top: 0; width: 8px; height: 5px; background: none; border: 2px solid currentColor; border-bottom: 0; border-radius: 4px 4px 0 0; }
+.eq-kb::after { left: 2px; top: 3px; width: 10px; height: 7px; border-radius: 50%; }
+.eq-cardio { width: 12px; height: 8px; border-bottom: 2px solid currentColor; }
+
+.foot { flex: none; padding: 10px 16px 18px; border-top: 1px solid var(--divider); }
+.foot button { width: 100%; height: 48px; text-align: center; border-radius: var(--r); background: var(--accent); color: var(--text-on-accent); font-size: 16px; font-weight: 700; }
+
+/* 底部面板 */
+.scrim { position: fixed; inset: 0; z-index: 70; background: var(--scrim); display: none; }
+.scrim.on { display: block; }
+.panel { position: fixed; left: 50%; bottom: 0; z-index: 71; width: 100%; max-width: 430px; transform: translate(-50%, 100%); background: var(--bg-inset); border-radius: 8px 8px 0 0; padding: 8px 16px 20px; transition: transform .2s; max-height: 86%; overflow-y: auto; }
+:root[data-theme="dark"] .panel { background: var(--bg-card); }
+.panel.on { transform: translate(-50%, 0); }
+.panel h3 { display: flex; align-items: baseline; gap: 8px; font-size: 18px; font-weight: 700; padding: 10px 0 2px; }
+.panel h3 small { font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
+.panel .cap { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text-tertiary); padding: 16px 0 8px; }
+.panel .pbtn { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 44px; margin-top: 6px; padding: 0 14px; border: 1px solid var(--divider); border-radius: var(--r); background: var(--bg-base); font-size: 14px; font-weight: 600; }
+.panel .pbtn span { color: var(--text-tertiary); font-weight: 500; }
+.panel .pbtn.danger { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--bg-base)); border-color: transparent; }
+.panel .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.panel .chips button { display: flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px; border-radius: var(--r); background: var(--bg-base); font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+.panel .chips button.on { background: var(--accent); color: var(--text-on-accent); }
+.panel .chips button.off { opacity: .4; }
+.panel .chips .pri { padding: 0 3px; border-radius: 2px; background: var(--text-on-accent); color: var(--accent); font-size: 10px; line-height: 14px; font-weight: 600; }
+.panel .others { display: flex; align-items: center; gap: 4px; min-height: 32px; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.panel .others span { color: var(--accent-text); }
+.panel .opart { margin: 8px 0 4px; font-size: 12px; color: var(--text-tertiary); }
+.panel .sw { display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 14px; border: 1px solid var(--divider); border-radius: var(--r); background: var(--bg-base); font-size: 14px; font-weight: 600; width: 100%; }
+.panel .sw .t { width: 40px; height: 24px; border-radius: 12px; background: var(--bg-btn); position: relative; transition: background .15s; }
+.panel .sw .t::after { content: ''; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
+.panel .sw.on .t { background: var(--accent); }
+.panel .sw.on .t::after { left: 19px; }
+.panel .done { width: 100%; height: 46px; margin-top: 18px; text-align: center; border-radius: var(--r); background: var(--accent); color: var(--text-on-accent); font-weight: 700; }
+.panel .namerow { display: flex; gap: 6px; }
+.panel .namerow input { flex: 1; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid var(--divider); border-radius: var(--r); background: var(--bg-base); font-size: 15px; font-weight: 600; }
+.panel .namerow input:focus { border-color: var(--accent); }
+.panel .namerow .star { width: 44px; height: 44px; text-align: center; border: 1px solid var(--divider); border-radius: var(--r); background: var(--bg-base); color: var(--text-tertiary); font-size: 16px; }
+.panel .namerow .star.on { color: var(--accent-text); }
+.panel .pseg { display: flex; gap: 2px; padding: 3px; border-radius: var(--r); background: var(--bg-base); border: 1px solid var(--divider); }
+.panel .pseg button { flex: 1; height: 34px; text-align: center; border-radius: 3px; font-size: 14px; font-weight: 600; color: var(--text-tertiary); }
+.panel .pseg button.on { background: var(--accent); color: var(--text-on-accent); font-weight: 700; }
+.panel .chips .eq-ico { color: inherit; opacity: .7; }
+.panel .chips .newreg { color: var(--accent-text); background: transparent; border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); }
+.panel .namerow .ok { flex: none; padding: 0 16px; border-radius: var(--r); background: var(--accent); color: var(--text-on-accent); font-weight: 700; }
+.panel h3 .back { font-size: 22px; color: var(--text-secondary); padding-right: 2px; }
+.panel .erow .ib.go { width: auto; padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; color: var(--accent-text); }
+/* 编辑细分：列表页 */
+.panel .elist { background: var(--bg-base); border: 1px solid var(--divider); border-radius: var(--r); overflow: hidden; }
+.panel .erow { display: flex; align-items: center; gap: 6px; min-height: 50px; padding: 0 6px 0 12px; position: relative; }
+.panel .erow + .erow::before { content: ''; position: absolute; top: 0; left: 12px; right: 0; height: 1px; background: var(--divider); }
+.panel .erow input { flex: 1; min-width: 0; height: 36px; font-size: 15px; font-weight: 600; border-bottom: 1px dashed transparent; }
+.panel .erow input:focus { border-bottom-color: var(--accent); }
+.panel .erow i { font: normal 600 12px var(--mono); color: var(--text-tertiary); width: 22px; text-align: right; }
+.panel .erow .ib { width: 34px; height: 34px; text-align: center; border-radius: var(--r); color: var(--text-secondary); font-size: 15px; }
+.panel .erow .ib:disabled { opacity: .3; }
+.panel .erow .ib.del { color: var(--danger); }
+.panel .erow.fixed .ename { color: var(--text-tertiary); }
+.panel .erow .ename { flex: 1; min-width: 0; height: 36px; line-height: 36px; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; }
+.panel .erow.drag { touch-action: pan-y; user-select: none; -webkit-user-select: none; background: var(--bg-base); transition: transform .15s; }
+.panel .erow.drag .press { position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); }
+.panel .erow.drag.pressing .press { width: 100%; transition: width .5s linear; }
+.panel .erow.lifted { z-index: 5; transition: none; border-radius: var(--r); outline: 1.5px solid var(--accent); box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 18px 40px -24px rgba(0,0,0,.4); }
+.panel .erow.lifted::before, .panel .erow.lifted + .erow::before { display: none; }
+.panel .erow.fixed + .dlist .erow:first-child::before { content: ''; position: absolute; top: 0; left: 12px; right: 0; height: 1px; background: var(--divider); }
+.panel .eadd { display: block; width: 100%; min-height: 48px; padding: 0 12px; color: var(--accent-text); font-size: 14px; font-weight: 700; }
+.toast { position: fixed; left: 50%; bottom: 96px; z-index: 90; transform: translateX(-50%); padding: 8px 14px; border-radius: var(--r); background: var(--text-primary); color: var(--bg-base); font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap; }
+.toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="demo-bar"><button id="theme">◐</button></div>
+<div class="phone">
+  <div class="sheet" id="sheet">
+    <div class="grab"></div>
+    <div class="head" id="head"></div>
+    <div class="search">
+      <label>⌕<input id="q" placeholder="名称 / 拼音 / 部位…" autocomplete="off"><button class="clr" id="clr" hidden>✕</button></label>
+      <button class="sbtn" id="eqbtn" aria-label="器材">⏷</button>
+      <button class="sbtn new" id="newbtn" aria-label="新动作">＋</button>
+    </div>
+    <div id="eqwrap"></div>
+    <div class="utabs" id="tabs"></div>
+    <div class="body"><nav class="rail" id="rail"></nav><div class="list" id="list"></div></div>
+    <div class="foot" id="foot"><button>完成</button></div>
+  </div>
+</div>
+<div class="scrim" id="scrim"></div>
+<div class="panel" id="panel"></div>
+<div class="toast" id="toast"></div>
+<script>
+const PARTS = [
+  { id: 'chest', name: '胸部', regs: ['上胸', '中胸', '下胸', '内侧', '外侧'] },
+  { id: 'shoulder', name: '肩部', regs: ['前束', '中束', '后束'] },
+  { id: 'back', name: '背部', regs: ['背阔', '中背', '斜方', '下背'] },
+  { id: 'arms', name: '手臂', regs: ['二头', '三头', '前臂'] },
+  { id: 'legs', name: '腿部', regs: ['股四', '腿后侧', '臀', '小腿'] },
+].map(p => ({ ...p, builtin: true })); // 内置部位只能改名、调顺序，不能删（同现在）
+const CATS = [{ id: 'cardio', name: '有氧' }, { id: 'free', name: '自由' }];
+const EQ = { bar: '杠铃', db: '哑铃', plate: '挂片', stack: '配重', kb: '壶铃', bw: '自重', cardio: '有氧器械' };
+let uid = 0;
+// x(名字, 部位, 细分['部位:细分'...]（第一个是主）, 器材, 其他)
+const x = (n, part, regs, eq, o = {}) => ({ id: ++uid, n, part, regs, eq, star: false, sub: '', w: 0, reps: 0, ago: -1, warm: [], train: !(o.warm && o.warm.length), ...o });
+const EX = [
+  x('手臂绕环', '', [], 'bw', { reps: 20, ago: 3, warm: ['chest', 'shoulder'] }),
+  x('弹力带拉开', '', [], 'bw', { reps: 15, ago: 3, warm: ['chest', 'shoulder', 'back'] }),
+  x('空杆卧推', 'chest', [], 'bar', { w: 20, reps: 15, ago: 3, warm: ['chest'] }),
+  x('肩胛俯卧撑', '', [], 'bw', { reps: 12, ago: 10, warm: ['chest', 'back'] }),
+  x('弹力带外旋', '', [], 'bw', { reps: 15, ago: 6, warm: ['shoulder'] }),
+  x('猫牛式', '', [], 'bw', { reps: 10, ago: 5, warm: ['back'] }),
+  x('徒手深蹲', '', [], 'bw', { reps: 15, ago: 4, warm: ['legs'] }),
+  x('上斜哑铃卧推', 'chest', ['chest:上胸', 'chest:中胸', 'shoulder:前束', 'arms:三头'], 'db', { star: true, w: 26, reps: 10, ago: 3 }),
+  x('上斜杠铃卧推', 'chest', ['chest:上胸', 'shoulder:前束'], 'bar', { w: 60, reps: 8, ago: 10 }),
+  x('低位绳索夹胸', 'chest', ['chest:上胸'], 'stack', { w: 15, reps: 12, ago: 3 }),
+  x('器械推胸', 'chest', ['chest:上胸'], 'stack', { sub: '上斜', w: 45, reps: 10, ago: 31 }),
+  x('杠铃平板卧推', 'chest', ['chest:中胸', 'chest:下胸', 'arms:三头', 'shoulder:前束'], 'bar', { star: true, w: 80, reps: 5, ago: 3 }),
+  x('哑铃平板卧推', 'chest', ['chest:中胸', 'arms:三头'], 'db', { w: 30, reps: 8, ago: 10 }),
+  x('悍马卧推', 'chest', ['chest:中胸'], 'plate', { star: true, w: 70, reps: 8, ago: 10 }),
+  x('俯卧撑', 'chest', ['chest:中胸', 'chest:下胸', 'arms:三头'], 'bw', { reps: 20, ago: 45 }),
+  x('胸部双杠臂屈伸', 'chest', ['chest:下胸', 'arms:三头', 'shoulder:前束'], 'bw', { star: true, w: 10, reps: 8, ago: 3 }),
+  x('高位绳索夹胸', 'chest', ['chest:下胸'], 'stack', { w: 17.5, reps: 12, ago: 10 }),
+  x('绳索夹胸', 'chest', ['chest:内侧'], 'stack'),
+  x('哑铃飞鸟', 'chest', ['chest:外侧'], 'db', { w: 14, reps: 12, ago: 17 }),
+  x('蝴蝶机夹胸', 'chest', ['chest:内侧'], 'stack', { w: 40, reps: 12, ago: 6, warm: ['chest'], train: true }),
+  x('杠铃推举', 'shoulder', ['shoulder:前束', 'shoulder:中束', 'arms:三头'], 'bar', { star: true, w: 45, reps: 6, ago: 6 }),
+  x('哑铃推举', 'shoulder', ['shoulder:前束'], 'db', { w: 22, reps: 8, ago: 13 }),
+  x('哑铃侧平举', 'shoulder', ['shoulder:中束'], 'db', { star: true, w: 10, reps: 15, ago: 6 }),
+  x('绳索面拉', 'shoulder', ['shoulder:后束', 'back:斜方'], 'stack', { w: 20, reps: 15, ago: 6 }),
+  x('高位下拉', 'back', ['back:背阔', 'arms:二头'], 'stack', { star: true, w: 60, reps: 10, ago: 5 }),
+  x('负重引体向上', 'back', ['back:背阔', 'back:中背', 'arms:二头'], 'bw', { w: 10, reps: 6, ago: 12 }),
+  x('杠铃划船', 'back', ['back:中背', 'back:背阔', 'arms:二头'], 'bar', { star: true, w: 70, reps: 8, ago: 5 }),
+  x('坐姿绳索划船', 'back', ['back:中背'], 'stack', { w: 55, reps: 10, ago: 12 }),
+  x('杠铃耸肩', 'back', ['back:斜方'], 'bar', { w: 100, reps: 12, ago: 33 }),
+  x('杠铃硬拉', 'back', ['back:下背', 'legs:腿后侧', 'legs:臀', 'back:斜方'], 'bar', { star: true, w: 140, reps: 3, ago: 12 }),
+  x('山羊挺身', 'back', ['back:下背', 'legs:臀'], 'bw', { reps: 15, ago: 5 }),
+  x('杠铃弯举', 'arms', ['arms:二头', 'arms:前臂'], 'bar', { w: 30, reps: 10, ago: 8 }),
+  x('绳索下压', 'arms', ['arms:三头'], 'stack', { w: 25, reps: 12, ago: 8 }),
+  x('杠铃深蹲', 'legs', ['legs:股四', 'legs:臀', 'back:下背'], 'bar', { star: true, w: 110, reps: 5, ago: 4 }),
+  x('腿举', 'legs', ['legs:股四', 'legs:臀'], 'plate', { w: 180, reps: 10, ago: 4 }),
+  x('罗马尼亚硬拉', 'legs', ['legs:腿后侧', 'legs:臀', 'back:下背'], 'bar', { w: 90, reps: 8, ago: 11 }),
+  x('臀推', 'legs', ['legs:臀', 'legs:腿后侧'], 'bar', { w: 100, reps: 10, ago: 11 }),
+  x('站姿提踵', 'legs', ['legs:小腿'], 'stack', { w: 60, reps: 15, ago: 18 }),
+  x('壶铃摆荡', '', [], 'kb', { w: 24, reps: 15, ago: 9 }),
+  x('农夫行走', '', [], 'db', { w: 30, reps: 0, ago: 20 }),
+  x('跑步机', 'cardio', [], 'cardio', { ago: 2 }),
+  x('椭圆机', 'cardio', [], 'cardio', { ago: 9 }),
+  x('篮球', 'free', [], 'bw', { ago: 14 }),
+  x('哑铃上斜飞鸟', 'chest', ['chest:上胸'], 'db', { deleted: true }),
+];
+const RECENT = ['杠铃平板卧推', '上斜哑铃卧推', '杠铃深蹲', '胸部双杠臂屈伸', '手臂绕环', '高位下拉', '杠铃划船'];
+
+let tab = 'chest', q = '', eqOpen = false, arranging = false;
+const eqSel = new Set();
+const added = new Map();
+const openAlso = new Set();
+const $ = s => document.querySelector(s);
+const P = id => PARTS.find(p => p.id === id);
+const partName = id => (P(id) || CATS.find(c => c.id === id) || {}).name || '';
+const regName = k => k.split(':')[1];
+const agoTxt = d => d === 0 ? '今天' : d === 1 ? '昨天' : d < 7 ? `${d} 天前` : d < 30 ? `${Math.floor(d / 7)} 周前` : `${Math.floor(d / 30)} 个月前`;
+const eqOk = e => !eqSel.size || eqSel.has(e.eq);
+const live = () => EX.filter(e => !e.deleted);
+const total = () => [...added.values()].reduce((a, b) => a + b, 0);
+const isStrengthPart = id => !!P(id);
+
+// 一组 = { key, name, items:[{e, also}], reg? }
+function groupsFor(t) {
+  const all = live();
+  const it = (arr, also = false) => arr.filter(eqOk).map(e => ({ e, also }));
+  if (t === 'all') {
+    if (arranging) {
+      return [
+        { key: 'nopart', name: '未分部位', items: it(EX.filter(e => !e.deleted && !e.part && e.train)), todo: true },
+        { key: 'noreg', name: '未细分', items: it(all.filter(e => isStrengthPart(e.part) && !e.regs.length && e.train)), todo: true },
+        { key: 'deleted', name: '已删除', items: EX.filter(e => e.deleted).map(e => ({ e })) },
+      ];
+    }
+    const byName = new Map(all.map(e => [e.n, e]));
+    return [
+      { key: 'star', name: '收藏', items: it(all.filter(e => e.star)) },
+      { key: 'recent', name: '最近', items: it(RECENT.map(n => byName.get(n)).filter(Boolean)) },
+      { key: 'warm', name: '热身', items: it(all.filter(e => e.warm.length)), warmAll: true },
+      ...PARTS.map(p => ({ key: 'p:' + p.id, name: p.name, items: it(all.filter(e => e.part === p.id && e.train)) })),
+      { key: 'nopart', name: '未分部位', items: it(all.filter(e => !e.part && e.train)) },
+    ];
+  }
+  const p = P(t);
+  if (!p) return [{ key: 'flat', name: partName(t), items: it(all.filter(e => e.part === t)), flat: true }];
+  return [
+    { key: 'warm', name: '热身', items: it(all.filter(e => e.warm.includes(t))) },
+    ...p.regs.map(r => {
+      const k = `${t}:${r}`;
+      // 主细分在前，兼练的排后面
+      return { key: 'r:' + r, name: r, reg: r, items: [...it(all.filter(e => e.regs[0] === k)), ...it(all.filter(e => e.regs.indexOf(k) > 0), true)] };
+    }),
+    { key: 'un', name: '未细分', items: it(all.filter(e => e.part === t && !e.regs.length && e.train)), todo: true },
+  ];
+}
+// 正常态只列有动作的组；整理态细分全列，刚建的空部位至少留一个「未细分」
+const visible = gs => gs.filter(g => g.items.length || (arranging && (g.reg || (g.key === 'un' && !gs.some(o => o.reg)))));
+
+function classTxt(e) {
+  if (e.deleted) return '已删除';
+  const w = e.warm.length ? `热身 · ${e.warm.map(partName).join(' ')}` : '';
+  if (!e.train) return w;
+  if (!e.part) return '<span class="warn">未分部位</span>' + (w ? ` · ${w}` : '');
+  if (!isStrengthPart(e.part)) return partName(e.part);
+  if (!e.regs.length) return '<span class="warn">未细分</span>' + (w ? ` · ${w}` : '');
+  const [m, ...rest] = e.regs;
+  return `<span class="main">${regName(m)}</span>${rest.length ? ` · 兼 ${rest.map(regName).join(' ')}` : ''}${w ? ` · ${w}` : ''}`;
+}
+function row({ e, also }, ctx) {
+  const k = added.get(e.id) || 0;
+  let meta;
+  if (arranging) meta = classTxt(e);
+  else if (ctx === 'search') meta = classTxt(e).replace(/<[^>]+>/g, '');
+  else if (ctx === 'warmAll') meta = '挂在 ' + e.warm.map(partName).join(' · ');
+  else meta = e.reps || e.ago >= 0 ? (e.reps ? `上次 ${e.w ? `<b>${e.w}</b> kg × ` : ''}<b>${e.reps}</b> · ` : '上次 ') + agoTxt(e.ago) : '还没练过';
+  const right = arranging ? '<span class="chev">›</span>' : `<span class="add">${k ? '×' + k : '＋'}</span>`;
+  return `<div class="row${k && !arranging ? ' on' : ''}${e.deleted ? ' gone' : ''}" data-id="${e.id}"><span class="ico"><i class="eq-ico eq-${e.eq}"></i></span>
+    <span class="mid"><div class="nm">${e.n}${e.sub ? `<span class="v">· ${e.sub}</span>` : ''}${e.star ? '<span class="st">★</span>' : ''}${also ? '<span class="also">兼</span>' : ''}</div><div class="meta">${meta}</div></span>${right}<span class="press"></span></div>`;
+}
+
+function render() {
+  const t = total();
+  $('#head').innerHTML = arranging
+    ? `<h2>整理</h2><span class="sp"></span><button class="arr on" data-arr>完成</button>`
+    : `<h2>添加动作</h2>${t ? `<span class="added">本次已加 ${t}</span>` : ''}<span class="sp"></span><button class="arr" data-arr>整理</button><button class="x">×</button>`;
+  $('#foot').style.display = arranging ? 'none' : '';
+  $('#newbtn').style.display = arranging ? 'none' : '';
+  $('#eqbtn').style.display = arranging ? 'none' : '';
+  $('#clr').hidden = !q;
+  const eb = $('#eqbtn');
+  eb.className = 'sbtn' + (eqSel.size || eqOpen ? ' on' : '');
+  eb.innerHTML = '⏷' + (eqSel.size ? `<span class="dot">${eqSel.size}</span>` : '');
+
+  if (eqOpen && !arranging) {
+    const pool = q ? live().filter(e => e.n.includes(q)) : tab === 'all' ? live() : live().filter(e => e.part === tab || e.warm.includes(tab) || e.regs.some(r => r.startsWith(tab + ':')));
+    $('#eqwrap').innerHTML = `<div class="eqgrid">${Object.entries(EQ).map(([id, n]) => {
+      const c = pool.filter(e => e.eq === id).length;
+      if (!c && !eqSel.has(id)) return '';
+      return `<button data-eq="${id}" class="${eqSel.has(id) ? 'on' : ''}"><i class="eq-ico eq-${id}"></i>${n}<i>${c}</i></button>`;
+    }).join('')}</div>`;
+  } else $('#eqwrap').innerHTML = '';
+
+  const addedIn = id => live().filter(e => (e.part === id || e.warm.includes(id)) && added.get(e.id)).reduce((a, e) => a + added.get(e.id), 0);
+  $('#tabs').style.display = q ? 'none' : '';
+  $('#tabs').innerHTML = [{ id: 'all', name: '全部' }].concat(PARTS, CATS).map(p => {
+    const n = p.id === 'all' || arranging ? 0 : addedIn(p.id);
+    return `<button data-tab="${p.id}" class="${p.id === tab ? 'on' : ''}">${p.name}${n ? `<sup>${n}</sup>` : ''}</button>`;
+  }).join('');
+
+  const list = $('#list'), rail = $('#rail');
+  if (q) {
+    const hits = EX.filter(e => (arranging || !e.deleted) && (e.n.includes(q) || partName(e.part).includes(q) || e.regs.some(r => regName(r).includes(q)))).filter(eqOk);
+    rail.style.display = 'none';
+    list.innerHTML = `<div class="lbl">搜索结果<i>${hits.length}</i></div>` + (hits.length ? `<div class="block">${hits.map(e => row({ e }, 'search')).join('')}</div>` : `<div class="block"><div class="none">没有「${q}」</div></div>`);
+    return;
+  }
+  const gs = visible(groupsFor(tab));
+  if (!gs.length) {
+    rail.style.display = 'none';
+    list.innerHTML = `<div class="lbl">${partName(tab)}<i>0</i></div><div class="block"><div class="none">空</div></div>`;
+    return;
+  }
+  if (gs.length === 1 && gs[0].flat) {
+    rail.style.display = 'none';
+    list.innerHTML = `<div class="lbl">${gs[0].name}<i>${gs[0].items.length}</i></div><div class="block">${gs[0].items.map(i => row(i)).join('')}</div>`;
+    return;
+  }
+  rail.style.display = '';
+  const keepTop = list.dataset.view === tab + arranging ? list.scrollTop : 0;
+  list.dataset.view = tab + arranging;
+  rail.innerHTML = gs.map((g, i) => {
+    const n = g.items.reduce((a, it) => a + (it.also ? 0 : added.get(it.e.id) || 0), 0);
+    const sep = (!arranging && tab === 'all' && g.key === 'p:chest') || (tab !== 'all' && i === 1) || g.key === 'un' || (!arranging && g.key === 'nopart') ? '<div class="sep"></div>' : '';
+    return `${sep}<button data-g="${i}"><b>${g.name}</b><i class="${arranging && g.todo && g.items.length ? 'warn' : ''}">${g.items.filter(it => !it.also).length}</i>${n && !arranging ? `<em>${n}</em>` : ''}</button>`;
+  }).join('') + (arranging ? '<div class="sep"></div><button class="edit" data-editparts>编辑部位</button>' : '');
+  // 兼练的收在组尾一行，点开才铺：卧推带三头、前束，不收的话三头那组会被各种推挤满
+  const body = g => {
+    const main = g.items.filter(it => !it.also), also = g.items.filter(it => it.also);
+    if (!g.items.length) return '<div class="none">空</div>';
+    const open = openAlso.has(tab + g.key);
+    return main.map(it => row(it, g.warmAll ? 'warmAll' : '')).join('')
+      + (also.length ? `<button class="also-tog" data-also="${g.key}">兼练 <i>${also.length}</i><span>${open ? '收起' : also.map(it => it.e.n).join(' · ')}</span><b>${open ? '▴' : '▾'}</b></button>${open ? also.map(it => row(it)).join('') : ''}` : '');
+  };
+  list.innerHTML = gs.map((g, i) => `<section data-sec="${i}"><div class="lbl">${g.name}<i>${g.items.filter(it => !it.also).length}</i></div><div class="block">${body(g)}</div></section>`).join('');
+  list.scrollTop = keepTop;
+  syncRail();
+}
+
+function syncRail() {
+  const list = $('#list');
+  const secs = [...list.querySelectorAll('section')];
+  if (!secs.length) return;
+  let cur = 0;
+  secs.forEach((s, i) => { if (s.offsetTop - list.offsetTop <= list.scrollTop + 4) cur = i; });
+  if (list.scrollTop > 0 && list.scrollTop + list.clientHeight >= list.scrollHeight - 2) cur = secs.length - 1;
+  document.querySelectorAll('#rail button[data-g]').forEach(b => {
+    const on = +b.dataset.g === cur;
+    if (on && !b.classList.contains('on')) b.scrollIntoView({ block: 'nearest' });
+    b.classList.toggle('on', on);
+  });
+}
+$('#list').addEventListener('scroll', syncRail);
+
+// ── 面板 ──
+let panelFn = null;
+function openPanel(fn) { panelFn = fn; $('#panel').innerHTML = fn(); $('#panel').classList.add('on'); $('#scrim').classList.add('on'); }
+function refreshPanel() { const st = $('#panel').scrollTop; $('#panel').innerHTML = panelFn(); $('#panel').scrollTop = st; }
+function closePanel() { panelFn = null; $('#panel').classList.remove('on'); $('#scrim').classList.remove('on'); render(); }
+$('#scrim').onclick = closePanel;
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 1600); }
+
+// 动作面板（长按 / 整理里点行，同一张）：名字 · 类型（训练 / 热身）· 部位 · 细分 · 器材 · 做法 · 删除，不再分二级。
+// 训练：部位单选 + 细分多选（第一个是主，其他部位折叠）；热身：部位多选＝出现在哪几个部位的热身里，没有细分。
+let othersOpen = false, regDraft = false;
+// 动作面板里就地新建细分（同 RegionChooser 末尾的「新建细分」）：建在训练部位下，建完直接选上
+function addRegFromPanel() {
+  const e = panelFn.ex, own = P(e.part), inp = $('#panel [data-regdraft]'), n = inp.value.trim();
+  if (!n) { regDraft = false; refreshPanel(); return; }
+  if (own.regs.includes(n)) { toast(`已经有「${n}」`); return; }
+  own.regs.push(n);
+  const k = `${own.id}:${n}`, mine = e.regs.filter(r => r.startsWith(own.id + ':'));
+  e.regs = [...mine, k, ...e.regs.filter(r => !r.startsWith(own.id + ':'))];
+  regDraft = false; refreshPanel();
+}
+function exPanel(id) {
+  const e = EX.find(v => v.id === id);
+  regDraft = false;
+  othersOpen = e.regs.some(r => !r.startsWith(e.part + ':'));
+  openPanel(() => {
+    const own = P(e.part);
+    const mine = e.regs.filter(r => r.startsWith(e.part + ':'));
+    const otherCnt = e.regs.length - mine.length;
+    const chip = k => {
+      const i = e.regs.indexOf(k), isOwn = k.startsWith(e.part + ':');
+      const off = !isOwn && !mine.length;
+      return `<button data-reg="${k}" class="${i >= 0 ? 'on' : ''}${off ? ' off' : ''}">${regName(k)}${i === 0 ? '<span class="pri">主</span>' : ''}</button>`;
+    };
+    if (e.deleted) return `<h3>${e.n}<small>已删除</small></h3><button class="pbtn" data-restore="${id}">恢复<span>回到${partName(e.part) || '未分部位'}</span></button><button class="done" data-close>完成</button>`;
+    const warm = e.warm.length > 0;
+    return `<h3>${e.n}${e.sub ? ` · ${e.sub}` : ''}<small>${classTxt(e).replace(/<[^>]+>/g, '')}</small></h3>
+      <div class="cap">名称</div>
+      <div class="namerow"><input value="${e.n}" data-rename><button class="star${e.star ? ' on' : ''}" data-star="${id}">★</button></div>
+      <div class="cap">用途</div>
+      <div class="pseg"><button data-use="train" class="${e.train ? 'on' : ''}">训练</button><button data-use="warm" class="${warm ? 'on' : ''}">热身</button></div>
+      ${e.train ? `<div class="cap">训练部位</div>
+        <div class="chips">${PARTS.concat(CATS).map(p => `<button data-part="${p.id}" class="${e.part === p.id ? 'on' : ''}">${p.name}</button>`).join('')}<button data-part="" class="${!e.part ? 'on' : ''}">未分部位</button></div>` : ''}
+      ${own && e.train ? `<div class="cap">细分</div>
+        <div class="chips"><button data-reg="" class="${!e.regs.length ? 'on' : ''}">未细分</button>${own.regs.map(r => chip(`${e.part}:${r}`)).join('')}${regDraft ? '' : '<button class="newreg" data-newreg>＋ 新建细分</button>'}</div>
+        ${regDraft ? `<div class="namerow" style="margin-top:8px"><input data-regdraft placeholder="${own.name}的新细分"><button class="ok" data-regok>添加</button></div>` : ''}
+        <button class="others" data-others>${othersOpen ? '▾' : '▸'} 其他部位${otherCnt ? ` <span>· ${otherCnt}</span>` : ''}</button>
+        ${othersOpen ? PARTS.filter(p => p.id !== e.part).map(p => `<div class="opart">${p.name}</div><div class="chips">${p.regs.map(r => chip(`${p.id}:${r}`)).join('')}</div>`).join('') : ''}
+        ${mine.length > 1 ? `<div class="cap">主练</div><div class="chips">${mine.map(k => `<button data-pri="${k}" class="${e.regs[0] === k ? 'on' : ''}">${regName(k)}</button>`).join('')}</div>` : ''}` : ''}
+      ${warm ? `<div class="cap">热身部位</div>
+        <div class="chips">${PARTS.map(p => `<button data-warmp="${p.id}" class="${e.warm.includes(p.id) ? 'on' : ''}">${p.name}</button>`).join('')}</div>` : ''}
+      <div class="cap">器材</div>
+      <div class="chips">${Object.entries(EQ).map(([k, n]) => `<button data-eqset="${k}" class="${e.eq === k ? 'on' : ''}"><i class="eq-ico eq-${k}"></i>${n}</button>`).join('')}</div>
+      <button class="pbtn" style="margin-top:18px">做法<span>${e.sub ? '1 个 ›' : '›'}</span></button>
+      <button class="pbtn">备注<span>›</span></button>
+      <button class="pbtn danger" data-del="${id}">从动作库删除</button>
+      <button class="done" data-close>完成</button>`;
+  });
+  panelFn.ex = e;
+}
+// 编辑部位：两屏。部位列表（改名 · 排序 · 删自建 · 新建，点「细分 ›」进去）；某个部位的细分列表（‹ 回部位列表）。
+// 点名字＝就地改名；长按一行抬起后上下拖＝排序（同训练页动作卡：长按 500ms + 进度线，手指挪一行换一格，松手落定）。
+// 从某个部位的竖栏进来直接落在它的细分屏；从「全部」进来落在部位列表。
+let editPart = null;
+function editPanel(partId) {
+  editPart = partId;
+  openPanel(() => {
+    const p = editPart && P(editPart);
+    if (!p) {
+      const pc = id => live().filter(e => e.part === id || e.warm.includes(id)).length;
+      return `<h3>编辑部位</h3>
+        <div class="elist">
+          <div class="dlist" data-dlist="parts">
+          ${PARTS.map((q, i) => `<div class="erow drag" data-ri="${i}"><span class="ename" data-edit="ppn">${q.name}</span><i>${pc(q.id)}</i>
+            ${q.builtin ? '<button class="ib" disabled>✕</button>' : `<button class="ib del" data-pdel="${i}">✕</button>`}<button class="ib go" data-popen="${q.id}">细分 ›</button><span class="press"></span></div>`).join('')}
+          </div>
+          <button class="eadd" data-padd>＋ 新建部位</button>
+        </div>
+        <button class="done" data-close>完成</button>`;
+    }
+    const cnt = r => live().filter(e => e.regs.includes(`${p.id}:${r}`)).length;
+    return `<h3><button class="back" data-pback>‹</button>${p.name}<small>细分</small></h3>
+      <div class="elist">
+        <div class="erow fixed"><span class="ename">热身</span></div>
+        <div class="dlist" data-dlist="regs">
+        ${p.regs.map((r, i) => `<div class="erow drag" data-ri="${i}"><span class="ename" data-edit="rn">${r}</span><i>${cnt(r)}</i>
+          <button class="ib del" data-rdel="${i}">✕</button><span class="press"></span></div>`).join('')}
+        </div>
+        <button class="eadd" data-radd>＋ 新建细分</button>
+      </div>
+      <button class="done" data-close>完成</button>`;
+  });
+}
+
+// 点名字＝就地改名：换成输入框，回车 / 失焦提交（提交走下面的 change）
+function startEdit(span) {
+  if (!span) return;
+  const i = span.closest('.erow').dataset.ri, inp = document.createElement('input');
+  inp.value = span.textContent; inp.dataset[span.dataset.edit] = i;
+  span.replaceWith(inp); inp.focus(); inp.select();
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+  inp.addEventListener('blur', () => setTimeout(refreshPanel, 0));
+}
+
+// 长按一行抬起后上下拖排序（同 useCardReorder：500ms 前移动超过 10px 算滚动、取消；行距固定，手指挪一行换一格）
+document.addEventListener('pointerdown', ev => {
+  const row = ev.target.closest('.dlist .erow.drag');
+  if (!row || ev.target.closest('button, input')) return;
+  const list = row.parentElement, rows = [...list.children], from = rows.indexOf(row);
+  const sx = ev.clientX, sy = ev.clientY;
+  let lifted = false, to = from;
+  const pitch = rows.length > 1 ? rows[1].offsetTop - rows[0].offsetTop : row.offsetHeight;
+  row.classList.add('pressing');
+  const timer = setTimeout(() => {
+    lifted = true; row.classList.remove('pressing'); row.classList.add('lifted');
+    $('#panel').style.overflowY = 'hidden';
+    if (navigator.vibrate) navigator.vibrate(10);
+  }, 500);
+  const move = e => {
+    if (!lifted) { if (Math.hypot(e.clientX - sx, e.clientY - sy) > 10) end(e, true); return; }
+    e.preventDefault();
+    const dy = e.clientY - sy;
+    to = Math.max(0, Math.min(rows.length - 1, from + Math.round(dy / pitch)));
+    row.style.transform = `translateY(${dy}px)`;
+    rows.forEach((r, i) => {
+      if (r === row) return;
+      const shift = from < to && i > from && i <= to ? -pitch : to < from && i >= to && i < from ? pitch : 0;
+      r.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  };
+  const end = (e, cancel) => {
+    clearTimeout(timer);
+    ['pointermove', 'pointerup', 'pointercancel'].forEach(t => document.removeEventListener(t, t === 'pointermove' ? move : up));
+    document.removeEventListener('touchmove', block);
+    row.classList.remove('pressing');
+    $('#panel').style.overflowY = '';
+    if (!lifted) return;
+    // 松手后补发的 click 吞一次，限时作废（拖动中手指移动过，浏览器不一定补发）
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 300);
+    rows.forEach(r => { r.style.transform = ''; });
+    row.classList.remove('lifted');
+    if (cancel || e.type === 'pointercancel' || to === from) return;
+    const arr = list.dataset.dlist === 'parts' ? PARTS : P(editPart).regs;
+    arr.splice(to, 0, arr.splice(from, 1)[0]);
+    refreshPanel();
+  };
+  const up = e => end(e, false);
+  const block = e => { if (lifted) e.preventDefault(); };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', up);
+  document.addEventListener('touchmove', block, { passive: false });
+});
+
+// ── 点击 ──
+let suppressClick = false;
+document.addEventListener('click', ev => {
+  if (suppressClick) { suppressClick = false; return; }
+  const ed = ev.target.closest('[data-edit]');
+  if (ed) { startEdit(ed); return; }
+  const t = ev.target.closest('button, .row');
+  if (!t || t.disabled) return;
+  const d = t.dataset;
+  if (t.id === 'theme') { const r = document.documentElement; r.dataset.theme = r.dataset.theme === 'dark' ? 'light' : 'dark'; return; }
+  if (d.arr != null) { arranging = !arranging; eqOpen = false; render(); return; }
+  if (t.id === 'eqbtn') { eqOpen = !eqOpen; render(); return; }
+  if (t.id === 'clr') { q = ''; $('#q').value = ''; render(); return; }
+  if (d.eq) { eqSel.has(d.eq) ? eqSel.delete(d.eq) : eqSel.add(d.eq); render(); return; }
+  if (d.tab) { tab = d.tab; $('#list').scrollTop = 0; render(); return; }
+  if (d.g != null) { const s = document.querySelector(`section[data-sec="${d.g}"]`); $('#list').scrollTo({ top: s.offsetTop - $('#list').offsetTop, behavior: 'smooth' }); return; }
+  if (d.editparts != null) { editPanel(P(tab) ? tab : null); return; }
+  if (d.also) { const k = tab + d.also; openAlso.has(k) ? openAlso.delete(k) : openAlso.add(k); render(); return; }
+  if (t.classList.contains('row')) {
+    const id = +d.id;
+    if (arranging) { exPanel(id); return; }
+    added.set(id, (added.get(id) || 0) + 1); render(); return;
+  }
+  // 面板
+  if (d.close != null) { closePanel(); return; }
+  const e = panelFn && panelFn.ex;
+  if (d.part != null) { if (e.part !== d.part) { e.part = d.part; e.regs = e.regs.filter(r => r.startsWith(d.part + ':')); } refreshPanel(); return; }
+  if (d.reg != null) {
+    const k = d.reg;
+    if (!k) e.regs = [];
+    else if (e.regs.includes(k)) {
+      const own = e.regs.filter(r => r.startsWith(e.part + ':'));
+      if (k.startsWith(e.part + ':') && own.length === 1) { refreshPanel(); return; } // 自己部位最后一个去不掉（同 toggleRegion）
+      e.regs = e.regs.filter(r => r !== k);
+    } else if (k.startsWith(e.part + ':')) {
+      const own = e.regs.filter(r => r.startsWith(e.part + ':')), other = e.regs.filter(r => !r.startsWith(e.part + ':'));
+      e.regs = [...own, k, ...other];
+    } else if (e.regs.some(r => r.startsWith(e.part + ':'))) e.regs = [...e.regs, k];
+    refreshPanel(); return;
+  }
+  if (d.others != null) { othersOpen = !othersOpen; refreshPanel(); return; }
+  // 用途：训练 / 热身可以都开，至少留一个。开热身默认挂在训练部位；只剩热身时开训练，部位取热身的第一个
+  if (d.use) {
+    const warm = e.warm.length > 0;
+    if (d.use === 'warm') {
+      if (warm && e.train) e.warm = [];
+      else if (!warm) e.warm = [isStrengthPart(e.part) ? e.part : isStrengthPart(tab) ? tab : 'chest'];
+    } else {
+      if (e.train && warm) { e.train = false; e.regs = []; }
+      else if (!e.train) { e.train = true; if (!e.part) e.part = e.warm[0]; }
+    }
+    refreshPanel(); return;
+  }
+  if (d.pri) { e.regs = [d.pri, ...e.regs.filter(r => r !== d.pri)]; refreshPanel(); return; }
+  if (d.warmp) { e.warm.includes(d.warmp) ? (e.warm.length > 1 && (e.warm = e.warm.filter(p => p !== d.warmp))) : e.warm.push(d.warmp); refreshPanel(); return; }
+  if (d.eqset) { e.eq = d.eqset; refreshPanel(); return; }
+  if (d.star) { const v = EX.find(v => v.id === +d.star); v.star = !v.star; refreshPanel(); return; }
+  if (d.del) { EX.find(v => v.id === +d.del).deleted = true; closePanel(); toast('已删除 · 顶栏可撤销'); return; }
+  if (d.restore) { EX.find(v => v.id === +d.restore).deleted = false; closePanel(); toast('已恢复'); return; }
+  if (d.newreg != null) { regDraft = true; refreshPanel(); $('#panel [data-regdraft]').focus(); return; }
+  if (d.regok != null) { addRegFromPanel(); return; }
+  // 编辑部位：部位列表这一屏
+  if (d.popen) { editPart = d.popen; refreshPanel(); return; }
+  if (d.pback != null) { editPart = null; refreshPanel(); return; }
+  if (d.pdel != null) {
+    // 删自建部位：训练部位是它的回到「未分部位」，挂它的细分 / 热身一并摘掉
+    const [gone] = PARTS.splice(+d.pdel, 1);
+    EX.forEach(v => {
+      if (v.part === gone.id) v.part = '';
+      v.regs = v.regs.filter(k => !k.startsWith(gone.id + ':'));
+      if (v.warm.includes(gone.id)) { v.warm = v.warm.filter(x => x !== gone.id); if (!v.warm.length && !v.train) { v.train = true; } }
+    });
+    if (tab === gone.id) tab = 'all';
+    refreshPanel(); toast(`删了「${gone.name}」· 顶栏可撤销`); return;
+  }
+  if (d.padd != null) {
+    let n = '新部位', i = 2; while (PARTS.some(q => q.name === n)) n = '新部位 ' + i++;
+    PARTS.push({ id: 'c' + Date.now(), name: n, regs: [] });
+    refreshPanel(); startEdit([...$('#panel').querySelectorAll('[data-edit]')].at(-1)); return;
+  }
+  const p = P(editPart);
+  if (!p) return;
+  if (d.rdel != null) {
+    const r = p.regs[+d.rdel], k = `${p.id}:${r}`;
+    p.regs.splice(+d.rdel, 1);
+    EX.forEach(v => { v.regs = v.regs.filter(x => x !== k); });
+    refreshPanel(); toast(`删了「${r}」· 顶栏可撤销`); return;
+  }
+  if (d.radd != null) { let n = '新细分', i = 2; while (p.regs.includes(n)) n = '新细分 ' + i++; p.regs.push(n); refreshPanel(); startEdit([...$('#panel').querySelectorAll('[data-edit]')].at(-1)); return; }
+});
+// 编辑细分里改名：改完就生效（动作挂的细分跟着改）
+document.addEventListener('change', ev => {
+  const t = ev.target, p = P(editPart);
+  if (t.dataset.ppn != null) {
+    const nw = t.value.trim(), q = PARTS[+t.dataset.ppn];
+    if (!nw || PARTS.some(o => o !== q && o.name === nw)) { t.value = q.name; return; }
+    q.name = nw;
+  } else if (t.dataset.rn != null) {
+    const i = +t.dataset.rn, old = p.regs[i], nw = t.value.trim();
+    if (!nw || p.regs.includes(nw)) { t.value = old; return; }
+    p.regs[i] = nw;
+    EX.forEach(v => { v.regs = v.regs.map(k => k === `${p.id}:${old}` ? `${p.id}:${nw}` : k); });
+  } else if (t.dataset.rename != null && t.value.trim() && panelFn?.ex) { panelFn.ex.n = t.value.trim(); refreshPanel(); }
+});
+$('#q').addEventListener('input', ev => { q = ev.target.value.trim(); render(); });
+
+// 长按＝动作面板（正常态）
+document.addEventListener('pointerdown', ev => {
+  const r = ev.target.closest('.row');
+  if (!r || arranging) return;
+  r.classList.add('pressing');
+  const sx = ev.clientX, sy = ev.clientY;
+  const timer = setTimeout(() => { r.classList.remove('pressing'); suppressClick = true; exPanel(+r.dataset.id); off(); }, 480);
+  const cancel = e2 => { if (e2.type === 'pointermove' && Math.hypot(e2.clientX - sx, e2.clientY - sy) < 8) return; clearTimeout(timer); r.classList.remove('pressing'); off(); };
+  const off = () => { ['pointermove', 'pointerup', 'pointercancel'].forEach(t => document.removeEventListener(t, cancel)); };
+  ['pointermove', 'pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, cancel));
+});
+document.addEventListener('contextmenu', ev => { if (ev.target.closest('.row')) ev.preventDefault(); });
+
+document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+render();
+</script>
+</body>
+</html>

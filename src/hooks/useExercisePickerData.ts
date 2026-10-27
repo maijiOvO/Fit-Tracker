@@ -36,7 +36,9 @@ export interface ScoredExercise {
 export function matchAxis(ex: ExerciseDefinition, axis: PickerAxis): boolean {
   if (!axis) return true;
   if (axis.kind === 'part') {
-    return (ex.bodyPart || '').toLowerCase() === axis.v.toLowerCase();
+    // 热身用途挂在这个部位的也算（手臂绕环没有训练部位，但在胸部、肩部的热身里）
+    const v = axis.v.toLowerCase();
+    return (ex.bodyPart || '').toLowerCase() === v || (ex.warmParts ?? []).some(p => p.toLowerCase() === v);
   }
   return (ex.category || 'STRENGTH') === axis.v;
 }
@@ -97,9 +99,9 @@ export function useExercisePickerData({
   const byId = useMemo(() => new Map(library.map(ex => [ex.id, ex])), [library]);
   /** 整理的「已删除」托盘（并入了别的动作的不算：它已经是那个动作的一个做法） */
   const deleted = useMemo(() => library.filter(ex => ex.hidden && !ex.mergedInto), [library]);
-  /** 整理的「未分部位」：力量动作没有部位，或部位（自建）已被删掉 */
+  /** 整理的「未分部位」：力量动作没有部位，或部位（自建）已被删掉；只当热身的不算（它本来就不归部位） */
   const noPart = useMemo(
-    () => merged.filter(ex => (ex.category || 'STRENGTH') === 'STRENGTH' && !effectivePart(ex)),
+    () => merged.filter(ex => (ex.category || 'STRENGTH') === 'STRENGTH' && !effectivePart(ex) && !(ex.warmOnly && ex.warmParts?.length)),
     [merged, effectivePart],
   );
 
@@ -125,6 +127,8 @@ export function useExercisePickerData({
       const rgs = new Set(effectiveRegions(ex));
       for (const v of ex.variants ?? []) for (const r of regionList(v)) rgs.add(r);
       for (const r of rgs) tagNames.push(...namesOf(r));
+      // 搜「热身」出全部热身动作
+      if (ex.warmParts?.length) tagNames.push('热身', 'warm-up');
       m.set(ex.id, buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames));
     }
     return m;
@@ -162,12 +166,12 @@ export function useExercisePickerData({
    * 器材是手动点的筛选，照旧生效。
    */
   const searching = tokens.length > 0;
-  /** 细分格：选了有细分的部位、且没在搜索。格子里只摆力量动作（有氧不进细分列） */
+  /** 选了有细分的部位、且没在搜索：细分组里只摆力量动作（有氧不进细分）；热身组什么类别都行（跑步机热身） */
   const boardPart =
     !searching && axis?.kind === 'part' && regionsOf(axis.v).length > 0 ? axis.v : null;
   const inScope = (ex: ExerciseDefinition) =>
     (searching || matchAxis(ex, axis)) &&
-    (!boardPart || (ex.category || 'STRENGTH') === 'STRENGTH');
+    (!boardPart || (ex.category || 'STRENGTH') === 'STRENGTH' || (ex.warmParts ?? []).some(p => p.toLowerCase() === boardPart.toLowerCase()));
 
   const results = useMemo(
     () => scored.filter(r => inScope(r.ex) && matchEquips(r.ex, equips)),
@@ -207,6 +211,7 @@ export function useExercisePickerData({
     for (const { ex } of scored) {
       if (!matchEquips(ex, equips)) continue;
       if (ex.bodyPart) avail.add('part:' + ex.bodyPart.toLowerCase());
+      for (const p of ex.warmParts ?? []) avail.add('part:' + p.toLowerCase());
       avail.add('cat:' + (ex.category || 'STRENGTH'));
     }
     return avail;
@@ -218,8 +223,6 @@ export function useExercisePickerData({
     axisAvailable,
     equipIds,
     customPartIds,
-    boardPart,
-    searching,
     merged,
     byId,
     deleted,

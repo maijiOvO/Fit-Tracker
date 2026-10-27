@@ -31,6 +31,7 @@ import {
   type Resistance,
 } from '../utils/exerciseAttrs';
 import { migrateCableTags } from '../utils/cableTagMigration';
+import { migrateWarmRegions } from '../utils/warmRegionMigration';
 import { buildNameIndex } from '../utils/nameIndex';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
@@ -51,13 +52,16 @@ export interface CustomTag {
   parentCategory?: string;
   /** category='region' / 'regionLayout' 时：挂在哪个部位下（如 'subChest'） */
   parentPart?: string;
-  /** regionLayout：列的顺序（细分 id）；没列到的接在后面按默认 */
+  /** regionLayout：列的顺序（细分 id）；没列到的接在后面按默认。id 为 PART_ORDER_ID 的那条存部位顺序 */
   order?: string[];
   /** regionLayout：删掉（隐藏）的系统细分。动作上的引用不动，自然回未细分；恢复即回来 */
   hidden?: string[];
   /** equipment：这件自建器材的默认阻力（没写 = 不计重）。动作上还能再改 */
   resistance?: Resistance;
 }
+
+/** 部位顺序那条 regionLayout 的 id（不挂部位，layoutOf 按 parentPart 找，碰不到它） */
+const PART_ORDER_ID = 'regionLayout:partOrder';
 
 /** 动作（或它的某个做法）此刻生效的器材与阻力 */
 export interface ExerciseAttrs {
@@ -192,8 +196,14 @@ interface ExercisePrefsContextValue {
   addVariant: (exerciseName: string, name: string) => string | null;
   renameVariant: (exerciseName: string, id: string, name: string) => boolean;
   removeVariant: (exerciseName: string, id: string) => void;
-  /** 整理里挪列：dir = -1 左移 / 1 右移 */
-  moveRegion: (part: string, id: string, dir: -1 | 1) => void;
+  /** 编辑部位里拖细分换位置：把 from 位挪到 to 位（regionsOf 的下标） */
+  reorderRegions: (part: string, from: number, to: number) => void;
+  /** 部位按用户排的顺序（编辑部位里拖过才有；没排到的按传进来的顺序接在后面） */
+  sortParts: (ids: string[]) => string[];
+  /** 编辑部位里拖部位换位置：ids 是此刻列表的顺序 */
+  reorderParts: (ids: string[], from: number, to: number) => void;
+  /** 热身用途：出现在哪几个部位的热身里、是不是只当热身（warmParts 空＝不当热身） */
+  setWarmUse: (exerciseId: string, warmParts: string[], warmOnly: boolean) => void;
   /** 整理里删细分：系统细分＝隐藏、自建细分＝删标签；不确认，提示里说几个动作回未细分 */
   removeRegion: (part: string, id: string) => void;
   restoreRegion: (part: string, id: string) => void;
@@ -270,11 +280,13 @@ function migrateLocalCableTagsOnce(): void {
   const before = {
     customExercises: readJSON<ExerciseDefinition[]>(LS_KEYS.customExercises, []),
     exerciseOverrides: readJSON<Record<string, Partial<ExerciseDefinition>>>(LS_KEYS.exerciseOverrides, {}),
+    customTags: readJSON<CustomTag[]>(LS_KEYS.customTags, []),
     tagRenameOverrides: readJSON<Record<string, string>>(LS_KEYS.tagRenameOverrides, {}),
   };
-  const after = migrateCableTags(before);
+  const after = migrateWarmRegions(migrateCableTags(before));
   if (after === before) return;
   if (after.customExercises !== before.customExercises) writeJSON(LS_KEYS.customExercises, after.customExercises);
+  if (after.customTags !== before.customTags) writeJSON(LS_KEYS.customTags, after.customTags);
   if (after.exerciseOverrides !== before.exerciseOverrides) writeJSON(LS_KEYS.exerciseOverrides, after.exerciseOverrides);
   if (after.tagRenameOverrides !== before.tagRenameOverrides) writeJSON(LS_KEYS.tagRenameOverrides, after.tagRenameOverrides);
 }
@@ -1280,16 +1292,47 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [customExercises, exerciseOverrides, lang, toast, withVariantNames, writeDefField],
   );
 
-  const moveRegion = useCallback(
-    (part: string, id: string, dir: -1 | 1) => {
+  const reorderRegions = useCallback(
+    (part: string, from: number, to: number) => {
       const ids = regionsOf(part).map(r => r.id);
-      const i = ids.indexOf(id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= ids.length) return;
-      [ids[i], ids[j]] = [ids[j], ids[i]];
+      if (from === to || !ids[from] || !ids[to]) return;
+      ids.splice(to, 0, ids.splice(from, 1)[0]);
       writeLayout(part, { order: ids });
     },
     [regionsOf, writeLayout],
+  );
+
+  // 部位顺序借一条 regionLayout 存（id 固定 PART_ORDER_ID、不挂部位），理由同细分布局：不新增 prefs key
+  const partOrder = useMemo(() => customTags.find(t => t.id === PART_ORDER_ID)?.order ?? [], [customTags]);
+  const sortParts = useCallback(
+    (ids: string[]) => {
+      const at = (id: string) => {
+        const i = partOrder.indexOf(id);
+        return i < 0 ? partOrder.length + ids.indexOf(id) : i;
+      };
+      return [...ids].sort((a, b) => at(a) - at(b));
+    },
+    [partOrder],
+  );
+  const reorderParts = useCallback((ids: string[], from: number, to: number) => {
+    if (from === to || !ids[from] || !ids[to]) return;
+    const order = [...ids];
+    order.splice(to, 0, order.splice(from, 1)[0]);
+    setCustomTags(prev => {
+      const tag: CustomTag = { id: PART_ORDER_ID, name: '', category: 'regionLayout', order };
+      const next = prev.some(t => t.id === PART_ORDER_ID) ? prev.map(t => (t.id === PART_ORDER_ID ? tag : t)) : [...prev, tag];
+      writeJSON(LS_KEYS.customTags, next);
+      return next;
+    });
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
+  }, []);
+
+  const setWarmUse = useCallback(
+    (exerciseId: string, warmParts: string[], warmOnly: boolean) => {
+      writeDefField(exerciseId, { warmParts, warmOnly: warmParts.length > 0 && warmOnly ? true : undefined });
+    },
+    [writeDefField],
   );
 
   /** 此刻落在某一列的动作数（提示里说「N 个动作回到未细分」） */
@@ -1329,7 +1372,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const applyPrefsFromSnapshot = useCallback((raw: FitlogSyncedPrefs) => {
-    const p = migrateCableTags(raw);
+    const p = migrateWarmRegions(migrateCableTags(raw));
     setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
     setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
     setExerciseNotes(
@@ -1406,7 +1449,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addCustomExercise,
       applyRegionLayout,
       addRegionTag,
-      moveRegion,
+      reorderRegions,
+      sortParts,
+      reorderParts,
+      setWarmUse,
       removeRegion,
       restoreRegion,
       addVariant,
@@ -1461,7 +1507,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addCustomExercise,
       applyRegionLayout,
       addRegionTag,
-      moveRegion,
+      reorderRegions,
+      sortParts,
+      reorderParts,
+      setWarmUse,
       removeRegion,
       restoreRegion,
       addVariant,

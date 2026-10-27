@@ -110,7 +110,6 @@ export interface NewWorkoutTabProps {
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
   onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
-  onEditExerciseTags: (ex: ExerciseDefinition) => void;
   onRenameExercise: (id: string, currentName: string) => void;
   /** 换练法（第 8 条） */
   onSwitchVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
@@ -157,7 +156,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   sessionAdded,
   onPickExercise,
   onCreateCustomExercise,
-  onEditExerciseTags,
   onRenameExercise,
   onSwitchVariant,
   onDeleteLibraryExercise,
@@ -828,7 +826,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           );
         }}
         onCreateCustomExercise={onCreateCustomExercise}
-        onEditExerciseTags={onEditExerciseTags}
         onDeleteExercise={onDeleteLibraryExercise}
         onOpenNote={onToggleNote}
         onOpenMetrics={name => onOpenMetricModal(name)}

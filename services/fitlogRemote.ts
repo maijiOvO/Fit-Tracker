@@ -22,6 +22,7 @@ import { parseJsonOr, storage } from './appStorage';
 import { mergeAppPrefs, readAppPrefs, writeAppPrefs } from './appPrefs';
 import { getDataEnv, isOffline, statePath } from './appEnv';
 import { migrateCableTags } from '../src/utils/cableTagMigration';
+import { migrateWarmRegions } from '../src/utils/warmRegionMigration';
 
 /**
  * 个人服务器默认地址：家庭 NAS，经 Tailscale Funnel 对外暴露。
@@ -442,8 +443,9 @@ export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
 }
 
 export function writePrefsToLocalStorage(raw: FitlogSyncedPrefs): void {
-  // 「健身房器材」→ 龙门架的纠正：远端（或备份）里还是旧标签时，落到本机前就改掉（cableTagMigration.ts）
-  const p = migrateCableTags(raw);
+  // 远端（或备份）里还是旧数据时，落到本机前就纠正：「健身房器材」→ 龙门架（cableTagMigration.ts）、
+  // 热身细分 → 热身用途（warmRegionMigration.ts）
+  const p = migrateWarmRegions(migrateCableTags(raw));
   storage.setItem('fitlog_custom_tags', JSON.stringify(p.customTags ?? []));
   storage.setItem('fitlog_custom_exercises', JSON.stringify(p.customExercises ?? []));
   storage.setItem('fitlog_exercise_notes', JSON.stringify(p.exerciseNotes ?? {}));

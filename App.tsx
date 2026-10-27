@@ -925,7 +925,6 @@ const AppWithAuthShell: React.FC = () => {
   const planPickerHost = useMemo<PlanPickerHost>(
     () => ({
       onCreateCustomExercise: (prefilledName, onCreated, preset) => openCreateCustomExerciseModal(prefilledName, onCreated, preset),
-      onEditExerciseTags: ex => setEditExerciseTagsTarget(ex),
       onDeleteExercise: id => prefs.deleteLibraryExercise(id),
       onOpenNote: name => setNoteModalData({ name, note: prefs.exerciseNotes[name] || '' }),
       onOpenMetrics: name => setShowMetricModal({ name }),
@@ -1180,7 +1179,6 @@ const AppWithAuthShell: React.FC = () => {
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
             onCreateCustomExercise={(name, preset) => openCreateCustomExerciseModal(name, undefined, preset)}
-            onEditExerciseTags={ex => setEditExerciseTagsTarget(ex)}
             onRenameExercise={(id, name) => {
               setExerciseToRename({ id, name });
               setNewExerciseNameInput(name);
@@ -1310,7 +1308,6 @@ const AppWithAuthShell: React.FC = () => {
             sessionAdded={0}
             onPickExercise={() => false}
             onCreateCustomExercise={(name, preset) => planPickerHost.onCreateCustomExercise(name, () => {}, preset)}
-            onEditExerciseTags={planPickerHost.onEditExerciseTags}
             onDeleteExercise={planPickerHost.onDeleteExercise}
             onOpenNote={planPickerHost.onOpenNote}
             onOpenMetrics={planPickerHost.onOpenMetrics}

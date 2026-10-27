@@ -4,7 +4,7 @@
  * 随部位联动 —— 只列当前部位下的细分（系统在前、自建在后，自建的是虚线样子，
  * 跟自定义部位 chip 同一套），第一个是「未细分」（做法里是「跟动作走」）。
  * 点没选的＝加上，点选着的＝去掉；最后一个点不掉（要清空点「未细分」）。
- * 第一个选的是主细分（标「主」）：添加动作的细分格里只出现在它那一列，其余的搜得到。
+ * 第一个是主细分（标「主」，本部位选了两个以上时下面多一行「主练」明着选）：添加动作里它正常排在那一组，其余细分收在「兼练」里。
  * 次要细分可以是别的部位的（2026-10-21 用户定：硬拉＝下背 + 臀 + 腿后侧）：下面「其他部位」展开按部位列，
  * 先选了自己部位的才点得上（主细分一定是自己部位的），已经选了别的部位的就默认展开。
  * 末尾「新建细分」就地展开一个输入框，建完直接加上。只有力量动作、且部位有细分时才出现（全身 / 有氧 / 自由不分细分）。
@@ -13,7 +13,7 @@ import React, { useState } from 'react';
 import { Language } from '../../types';
 import { BODY_PARTS, BODY_REGIONS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { toggleRegion } from '../utils/exerciseAttrs';
+import { movePrimary, toggleRegion } from '../utils/exerciseAttrs';
 import { ChevronRight, PlusCircle } from 'lucide-react';
 
 interface RegionChooserProps {
@@ -134,6 +134,30 @@ export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, va
           >
             {isCn ? '添加' : 'Add'}
           </button>
+        </div>
+      )}
+      {/* 本部位选了两个以上：明着选哪个是主（原来只能靠「先点的那个」，界面上看不出来，2026-10-27） */}
+      {mineCount > 1 && (
+        <div className="mt-3" data-testid="region-primary-row">
+          <p className="mb-1 text-label text-tertiary">{isCn ? '主练' : 'Main'}</p>
+          <div className="flex flex-wrap gap-2">
+            {current
+              .filter(id => own.includes(id))
+              .map(id => (
+                <button
+                  key={id}
+                  type="button"
+                  aria-pressed={current[0] === id}
+                  onClick={() => onChange(movePrimary(current, id))}
+                  className={`min-h-[36px] px-3.5 rounded-control text-xs font-bold transition-ui ${
+                    current[0] === id ? 'bg-accent text-on-accent' : 'bg-card text-secondary hover:bg-card-hover'
+                  }`}
+                  data-testid="region-primary-pick"
+                >
+                  {getTagName(id)}
+                </button>
+              ))}
+          </div>
         </div>
       )}
       {otherParts.length > 0 && (
