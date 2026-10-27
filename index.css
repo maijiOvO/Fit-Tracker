@@ -1354,6 +1354,16 @@ button {
   padding: 6px 12px;
   border-bottom: 1px solid var(--divider);
 }
+/* 固定在底栏上方的选中组操作条（2026-10-27）：键的位置不跟着选中的组跳；
+   上一行小字写在改哪一组。底栏自己有顶边线，这里只在和「添加动作」之间划一条。 */
+.set-strip {
+  padding: 8px 16px 0;
+  border-bottom: 1px solid var(--divider);
+}
+.set-strip .ledger-step {
+  padding: 2px 0 8px;
+  border-bottom: 0;
+}
 .ledger-step button {
   flex: 1;
   min-height: 40px;

@@ -164,7 +164,7 @@ def score(path, task=None):
         is_edit = "EditText" in str(hit.get("cls", ""))
         kind = ("keypad" if op == "tap" and (r.get("_kind") == "keypad" or KEYPAD.match(label)) else
                 "stepper" if op == "tap" and STEPPER.match(label) else op)
-        same = (prev is not None and prev.get("op") == "tap" and op == "tap" and kind != "keypad"
+        same = (prev is not None and prev.get("op") == "tap" and op == "tap"
                 and (prev.get("hit") or {}).get("label") == label
                 and (prev.get("hit") or {}).get("w_dp") == hit.get("w_dp"))
         unit = (("stepper", label) if kind == "stepper" else ("scrub", label) if kind == "scrub"
@@ -181,7 +181,16 @@ def score(path, task=None):
         run = unit
 
         if op == "tap" and kind == "keypad":
-            add(ph, "K", P["K"]); phases[ph]["keys"] += 1; phases[ph]["bits"] += KEY_BITS
+            # a digit key is an aimed tap on the key's real size, travel from the previous touch point (key centre to
+            # key centre inside a run; from the field for the first key). effort-standard.md §4, 2026-10-27: before
+            # that every key was a flat K + log2(3) bits whatever its size. Counted in `keys`, not in `aims`.
+            p, edge = tier(hit, r.get("xy"))
+            if same:
+                add(ph, "T", P["T"] / p)
+            else:
+                add(ph, "PT", (P["P"] + P["T"]) / p)
+                aim(ph, edge, r.get("xy"))
+            phases[ph]["keys"] += 1
         elif op == "tap":
             p, edge = tier(hit, r.get("xy"))
             if same:

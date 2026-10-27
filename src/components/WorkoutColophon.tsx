@@ -28,6 +28,8 @@ interface Props {
   dateISO: string;
   exerciseCount: number;
   setCount: number;
+  /** 练了多少分钟；null 不显示这一项（补记的、忘了结束的） */
+  durationMin: number | null;
   /** 总容量，已按当前单位换算 */
   volume: number;
   unitLabel: string;
@@ -63,6 +65,7 @@ export const WorkoutColophon: React.FC<Props> = ({
   dateISO,
   exerciseCount,
   setCount,
+  durationMin,
   volume,
   unitLabel,
   stamps,
@@ -152,6 +155,13 @@ export const WorkoutColophon: React.FC<Props> = ({
           <span className="block font-mono font-semibold text-data-md text-primary tabular-nums">{setCount}</span>
           <span className="text-micro text-tertiary">{isCn ? '组' : plural(setCount, 'set')}</span>
         </span>
+        {/* 时长只在这里和时间线出现，训练中不计时（2026-10-27 批示）；数字是结束那一刻定下来的，不动画 */}
+        {durationMin !== null && (
+          <span className="text-center" data-testid="colophon-duration">
+            <span className="block font-mono font-semibold text-data-md text-primary tabular-nums">{durationMin}</span>
+            <span className="text-micro text-tertiary">{isCn ? '分' : 'min'}</span>
+          </span>
+        )}
         <span className="text-center">
           <span className="block font-mono font-semibold text-data-xl text-primary tabular-nums">{volumeText}</span>
           <span className="text-micro text-tertiary">

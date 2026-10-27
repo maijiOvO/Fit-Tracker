@@ -54,6 +54,7 @@ import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { UndoRedoButtons } from './UndoRedoButtons';
+import { SetActionStrip } from './SetActionStrip';
 
 export interface NewWorkoutTabProps {
   lang: Language;
@@ -205,6 +206,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   };
 
   /**
+   * 整场备注（2026-10-27 批示）：给这一场留一句「为什么今天不一样」（没睡好、养伤降重），
+   * 以后翻时间线看到数字掉了知道原因。只是一条文字，不参与任何计算。
+   * 入口是刊头下的眉批（§6.2），点开原地变成多行输入，不弹层（§6.6）；失焦收回成一行。
+   */
+  const [noteOpen, setNoteOpen] = useState(false);
+  useEffect(() => setNoteOpen(false), [currentWorkout.id]);
+
+  /**
    * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
    * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
@@ -233,6 +242,27 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     scrollToCardRef.current = null;
     document.querySelector<HTMLElement>(`[data-card-key="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [exs]);
+
+  /**
+   * 选中组操作条（SetActionStrip）固定在底栏上方，改的是选中那一组。
+   * 正在打字（软键盘起来了）和添加动作弹层开着时收掉：前者让键盘上方只剩正在改的那行，后者弹层盖住了它。
+   */
+  const selectedRow = selectedSetId
+    ? exs.flatMap(e => e.sets.filter(s => String(s.id) === selectedSetId).map(s => ({ ex: e, set: s }))).at(0)
+    : undefined;
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    const isField = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
+    const onIn = (e: FocusEvent) => { if (isField(e.target)) setTyping(true); };
+    const onOut = (e: FocusEvent) => { if (isField(e.target)) setTyping(false); };
+    document.addEventListener('focusin', onIn);
+    document.addEventListener('focusout', onOut);
+    return () => {
+      document.removeEventListener('focusin', onIn);
+      document.removeEventListener('focusout', onOut);
+    };
+  }, []);
+  const stripRow = selectedRow && !typing && !pickerOpen ? selectedRow : null;
 
   const setExs = (fn: (list: Exercise[]) => Exercise[]) =>
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(fn(w.exercises ?? [])) }));
@@ -600,14 +630,41 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         </div>
       </div>
 
+      {/* 整场备注眉批：有备注时露首行（二级字），没有时淡墨「加备注」；点开原地编辑 */}
+      <div className="-mt-1 mb-5 px-1">
+        {noteOpen ? (
+          <textarea
+            className="ui-input w-full min-h-[64px] resize-none text-small"
+            value={currentWorkout.notes ?? ''}
+            onChange={e => setCurrentWorkout({ ...currentWorkout, notes: e.target.value })}
+            onBlur={() => setNoteOpen(false)}
+            placeholder={isCn ? '这一场有什么要记的：没睡好、养伤降重、换了器械……' : 'Anything about this session: slept badly, deload, different machine…'}
+            autoFocus
+            data-testid="workout-notes-input"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setNoteOpen(true)}
+            className={`inline-flex max-w-full text-left text-label ${currentWorkout.notes ? 'text-secondary' : 'text-tertiary'}`}
+            aria-label={isCn ? '整场备注' : 'Workout note'}
+            data-testid="workout-notes"
+          >
+            <span className="marginalia truncate">
+              {currentWorkout.notes ? currentWorkout.notes.split('\n')[0] : isCn ? '加备注' : 'Add a note'}
+            </span>
+          </button>
+        )}
+      </div>
+
       {/* 拖动排序时浮出的位置条：每张卡一行（交替组一行写全部成员） */}
       <ReorderStrip
         strip={reorder.strip}
         labels={cards.map(c => c.exIds.map(id => resolveName(exs.find(e => e.id === id)?.name ?? '')).join(' ⇄ '))}
       />
 
-      {/* 动作卡列表；底部为常驻添加栏预留空间 */}
-      <div className="space-y-6 pb-32">
+      {/* 动作卡列表；底部为常驻添加栏（操作条露出时再高一截）预留空间 */}
+      <div className={`space-y-6 ${stripRow ? 'pb-48' : 'pb-32'}`}>
         {cards.map((card, ci) => {
           // 编辑旧训练不画书签：拖它往上会把后面的组退回待做，保存时整段被剥掉
           const pointerGap = !editingWorkoutId && seam?.cardKey === card.key ? seam.gap : null;
@@ -782,11 +839,25 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         </div>
       </div>
 
-      {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外 */}
+      {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外；选中组操作条叠在它上面 */}
       <div
         className="fixed bottom-0 inset-x-0 z-bar bg-base/95 border-t border-divider"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
+        {stripRow && (
+          <SetActionStrip
+            exercise={stripRow.ex}
+            set={stripRow.set}
+            setNo={stripRow.ex.sets.indexOf(stripRow.set) + 1}
+            name={resolveName(stripRow.ex.name)}
+            activeMetrics={getActiveMetrics(stripRow.ex.name)}
+            unit={unit}
+            lang={lang}
+            signed={isSigned(stripRow.ex)}
+            rounder={rounderFor(stripRow.ex, currentWorkout.gym)}
+            onUpdate={u => updateSet({ exId: stripRow.ex.id, setId: String(stripRow.set.id) }, u)}
+          />
+        )}
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <span className="text-xs font-semibold text-secondary whitespace-nowrap tabular-nums">
             {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount} {isCn ? '组' : plural(setCount, 'set')}

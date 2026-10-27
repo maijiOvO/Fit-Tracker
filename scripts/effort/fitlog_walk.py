@@ -60,11 +60,27 @@ class Log:
     def swipe(self):
         self.rows.append({"op": "swipe", "phase": self.ph})
 
+    # fitlog's number fields open the system number pad (inputMode decimal / numeric): Gboard number layout, keys
+    # 89x44 dp, same grid prep_logs.py uses for Gym WP, placed at the bottom of the 812 dp screen (px space).
+    GB_X = {"1": 69, "4": 69, "7": 69, "2": 203, "5": 203, "8": 203, "0": 203, "3": 336, "6": 336, "9": 336, ".": 336, "→|": 470}
+    GB_Y = {"1": 820, "2": 820, "3": 820, "4": 891, "5": 891, "6": 891, "7": 962, "8": 962, "9": 962, "0": 1034, ".": 1034, "→|": 1034}
+
+    def gb(self, ch):
+        row = {"op": "tap", "phase": self.ph, "hit": {"label": ch, "cls": "Key", "w_dp": 89, "h_dp": 44}, "xy": [self.GB_X[ch], self.GB_Y[ch]]}
+        if ch != "→|":
+            row["_kind"] = "keypad"  # the next-field key is a plain tap between the two value units
+        self.rows.append(row)
+
     def text(self, s):
-        self.rows.append({"op": "text", "phase": self.ph, "chars": len(s)})
+        """digits are typed on the system number pad: one aimed tap per key (§4); letters would be `text`"""
+        for ch in s:
+            self.gb(ch)
 
     def key(self, k):
-        self.rows.append({"op": "key", "phase": self.ph, "key": k})
+        if k == "enter":
+            self.gb("→|")  # the pad's 「下一项」 key
+        else:
+            self.rows.append({"op": "key", "phase": self.ph, "key": k})
 
     def scrub(self, label, w, h, xy, detents, detent_dp):
         self.rows.append({"op": "scrub", "phase": self.ph, "hit": {"label": label, "cls": "EditText", "w_dp": w, "h_dp": h},

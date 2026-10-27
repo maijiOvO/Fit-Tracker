@@ -1564,6 +1564,7 @@ const AppWithAuthShell: React.FC = () => {
         dateISO={colophon?.dateISO ?? new Date().toISOString()}
         exerciseCount={colophon?.exerciseCount ?? 0}
         setCount={colophon?.setCount ?? 0}
+        durationMin={colophon?.durationMin ?? null}
         volume={colophon?.volume ?? 0}
         unitLabel={colophon?.unitLabel ?? 'kg'}
         stamps={colophon?.stamps ?? []}
