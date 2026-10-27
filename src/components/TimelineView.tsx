@@ -530,6 +530,12 @@ const SessionCard: React.FC<SessionCardProps> = ({
       {/* 展开详情 */}
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-divider space-y-3 anim-reveal">
+          {/* 整场备注：导入来的和训练页写的都在这里看全文；没有就不占位 */}
+          {w.notes && (
+            <p className="text-small text-secondary whitespace-pre-wrap break-words px-1" data-testid="timeline-notes">
+              {w.notes}
+            </p>
+          )}
           {(w.exercises || []).map((ex, idx) => {
             const sets = realSets(ex);
             return (

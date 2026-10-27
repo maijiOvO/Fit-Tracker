@@ -181,6 +181,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const [partChosenFor, setPartChosenFor] = useState<string | null>(null);
 
   /**
+   * 整场备注（2026-10-27 批示）：给这一场留一句「为什么今天不一样」（没睡好、养伤降重），
+   * 以后翻时间线看到数字掉了知道原因。只是一条文字，不参与任何计算。
+   * 入口是刊头下的眉批（§6.2），点开原地变成多行输入，不弹层（§6.6）；失焦收回成一行。
+   */
+  const [noteOpen, setNoteOpen] = useState(false);
+  useEffect(() => setNoteOpen(false), [currentWorkout.id]);
+
+  /**
    * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
    * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
@@ -553,6 +561,33 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             )}
           </button>
         </div>
+      </div>
+
+      {/* 整场备注眉批：有备注时露首行（二级字），没有时淡墨「加备注」；点开原地编辑 */}
+      <div className="-mt-1 mb-5 px-1">
+        {noteOpen ? (
+          <textarea
+            className="ui-input w-full min-h-[64px] resize-none text-small"
+            value={currentWorkout.notes ?? ''}
+            onChange={e => setCurrentWorkout({ ...currentWorkout, notes: e.target.value })}
+            onBlur={() => setNoteOpen(false)}
+            placeholder={isCn ? '这一场有什么要记的：没睡好、养伤降重、换了器械……' : 'Anything about this session: slept badly, deload, different machine…'}
+            autoFocus
+            data-testid="workout-notes-input"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setNoteOpen(true)}
+            className={`inline-flex max-w-full text-left text-label ${currentWorkout.notes ? 'text-secondary' : 'text-tertiary'}`}
+            aria-label={isCn ? '整场备注' : 'Workout note'}
+            data-testid="workout-notes"
+          >
+            <span className="marginalia truncate">
+              {currentWorkout.notes ? currentWorkout.notes.split('\n')[0] : isCn ? '加备注' : 'Add a note'}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* 拖动排序时浮出的位置条：每张卡一行（交替组一行写全部成员） */}
