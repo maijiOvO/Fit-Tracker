@@ -224,6 +224,18 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const selectedSetId = pickedValid ? pickedSetId : defaultRow?.setId ?? null;
   const cards = buildCards(exs);
 
+  /**
+   * 换动作自动跟过去（2026-10-26）：点组号把指针推进到另一张卡时，页面滚到那张卡顶；同一张卡内不滚。
+   * 只由点组号触发（tapSetNum 里记下目标卡），删组 / 拖书签 / 撤销挪动指针都不滚 —— 那些时候手在别处。
+   */
+  const scrollToCardRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = scrollToCardRef.current;
+    if (!key) return;
+    scrollToCardRef.current = null;
+    document.querySelector<HTMLElement>(`[data-card-key="${key}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [exs]);
+
   const setExs = (fn: (list: Exercise[]) => Exercise[]) =>
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(fn(w.exercises ?? [])) }));
 
@@ -249,6 +261,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
       return;
     }
+    const nextSeam = pointerSeam(res.exs);
+    if (nextSeam && nextSeam.cardKey !== seam?.cardKey) scrollToCardRef.current = nextSeam.cardKey;
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(stampDoneUnit(exs, res.exs)) }));
     if (res.suggestPair) {
       const { a, b } = res.suggestPair;
@@ -523,6 +537,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             </div>
             <input
               ref={titleInputRef}
+              data-testid="workout-title"
               className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
               value={currentWorkout.title}
               onChange={e =>
@@ -605,7 +620,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               data-ex-card={flashId}
               data-card-key={card.key}
               ref={reorder.itemRef(ci)}
-              className={`relative rounded-card bg-base${reorder.draggingIdx === ci ? ' reorder-lifted' : ''}`}
+              // scroll-mt：自动跟到下一张卡时别钻到吸顶页头底下
+              className={`relative rounded-card bg-base scroll-mt-28${reorder.draggingIdx === ci ? ' reorder-lifted' : ''}`}
             >
               {body}
             </div>
