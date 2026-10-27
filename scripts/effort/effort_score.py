@@ -91,7 +91,7 @@ def tier(hit, xy):
 def score(path, task=None):
     rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
     # drop voided actions: a "void n" entry voids the last n actions not voided yet (same rule as phone.py tally)
-    acts = ("tap", "long", "swipe", "scroll", "text", "key", "launch")
+    acts = ("tap", "long", "swipe", "scroll", "text", "key", "scrub", "launch")
     keep = [True] * len(rows)
     for i, r in enumerate(rows):
         if r.get("op") == "void":
@@ -156,7 +156,7 @@ def score(path, task=None):
                 aim(ph0, e0, xy0); aim(ph0, e0, None)
                 last_swipe = None
             continue
-        if op not in ("tap", "long", "swipe", "scroll", "text", "key"):
+        if op not in ("tap", "long", "swipe", "scroll", "text", "key", "scrub"):
             continue
 
         hit = r.get("hit") or {}
@@ -167,7 +167,8 @@ def score(path, task=None):
         same = (prev is not None and prev.get("op") == "tap" and op == "tap" and kind != "keypad"
                 and (prev.get("hit") or {}).get("label") == label
                 and (prev.get("hit") or {}).get("w_dp") == hit.get("w_dp"))
-        unit = ("stepper", label) if kind == "stepper" else (kind,) if kind in ("text", "keypad") else None
+        unit = (("stepper", label) if kind == "stepper" else ("scrub", label) if kind == "scrub"
+                else (kind,) if kind in ("text", "keypad") else None)
         # leaving a typed value (text or keypad run): one glance back at it
         if run and run[0] in ("text", "keypad") and unit != run:
             add(ph, "S", P["S_micro"])
@@ -202,6 +203,16 @@ def score(path, task=None):
             add(ph, "F", P["F"]); pending_m = True; phases[ph]["scrolls"] += 1
             phases[ph]["eyes_free"] += P["F"]
             last_swipe = (ph, hit, r.get("xy")) if op == "swipe" else None
+        elif op == "scrub":
+            # detent drag (effort-standard.md §4 刻度拖动): aim the start like a tap, drag n detents, stop by
+            # reading the number. Overshooting the last detent is a one-detent back-drag, not a redo, so it
+            # costs (1 - hit(detent width)) x D instead of dividing by the hit rate. Two aims, eyes on.
+            p, edge = tier(hit, r.get("xy"))
+            n, det = int(r.get("detents", 1)), float(r.get("detent_dp", 10))
+            add(ph, "drag", (P["P"] + P["D"]) / p + (1 - hit_rate(det)) * P["D"] + P["S_micro"])
+            phases[ph]["aims"] += 2; phases[ph]["scrubs"] += 1
+            aim(ph, edge, r.get("xy"))
+            phases[ph]["bits"] += fitts_bits(n * det * MM_PER_DP, det * MM_PER_DP)
         elif op == "text":
             n = int(r.get("chars", 1))
             add(ph, "K", n * P["K"]); phases[ph]["keys"] += n; phases[ph]["bits"] += n * KEY_BITS

@@ -22,6 +22,9 @@ Flags (all integers):
     keypad=0       1 = the app's own number pad (no keyboard slide-in wait)
     warm=0         1 = E1-s1 is tagged as a warm-up with one extra 44 dp tap
     halfstep=0     1 = the gym profile offers the cable's add-on plate (+2.5) as a step key (E5-s3 needs no typing)
+    scrub=1        first sets are entered by dragging the weight / reps cell (§12.3 scrub, 10 px per detent, a
+                   moderate flick reaches the x2 tier); 0 = typed on the system keyboard; 2 = also replace the
+                   ± keys on later sets with drags (slower than ± for small changes, kept for comparison)
     old=1          shorthand for endconfirm=1 autoscroll=0 (the UI before the pack, 2026-10-26)
 """
 import contextlib
@@ -63,6 +66,10 @@ class Log:
     def key(self, k):
         self.rows.append({"op": "key", "phase": self.ph, "key": k})
 
+    def scrub(self, label, w, h, xy, detents, detent_dp):
+        self.rows.append({"op": "scrub", "phase": self.ph, "hit": {"label": label, "cls": "EditText", "w_dp": w, "h_dp": h},
+                          "xy": xy, "detents": detents, "detent_dp": detent_dp})
+
     def shot(self):
         self.rows.append({"op": "shot", "phase": self.ph})
 
@@ -77,7 +84,7 @@ X_WUP, X_RDN = 140, 230          # +5 kg, −1 rep keys
 FAB = (187, 760)
 
 DEFAULTS = dict(setnum=36, gymsheet=1, endconfirm=0, repeat=0, autoscroll=1,
-                bottom=0, kbdone=0, autofocus=0, keypad=0, warm=0, halfstep=0)
+                bottom=0, kbdone=0, autofocus=0, keypad=0, warm=0, halfstep=0, scrub=1)
 OLD = dict(endconfirm=1, autoscroll=0)
 
 
@@ -122,7 +129,43 @@ def walk(flags):
         for _ in range(n):
             L.tap(label, 56, 40, px(x, ROW_Y + (row + 1) * ROW_H))
 
-    def first_set(w, r, bodyweight=False, first_exercise=False):
+    # §12.3 scrub: the whole cell is the drag zone, 10 px per detent at the default "mid" feel (scrubFeel.ts).
+    # Tiers by speed: a moderate flick (>= 0.55 px/ms) doubles the step, so a long change is "flick to the x2
+    # tier, then x1 for the remainder". The x4 / x5 tiers need a hard flick and are not assumed.
+    DET = 10
+
+    def detents(delta, step, big=2):
+        n = int(delta // (step * big))
+        return n + int(round((delta - n * step * big) / step))
+
+    def scrub_cell(which, row, n):
+        if which == "w":
+            L.scrub("重量格", 86, 38, px(X_W, ROW_Y + row * ROW_H), n, DET)
+        else:
+            L.scrub("次数格", 76, 38, px(X_R, ROW_Y + row * ROW_H), n, DET)
+
+    def change(row, w_label, w_n, w_delta, w_step, r_n):
+        """later set: adjust weight (w_n ± taps, or a drag over w_delta at w_step) and reps (r_n taps of −1)"""
+        if f["scrub"] == 2:
+            if w_n:
+                scrub_cell("w", row, detents(w_delta, w_step))
+            if r_n:
+                scrub_cell("r", row, r_n)
+        else:
+            if w_n:
+                steps(w_label, w_n, row, X_WUP)
+            if r_n:
+                steps("−1 次", r_n, row, X_RDN)
+
+    def first_set(w, r, bodyweight=False, first_exercise=False, w_detents=0, r_detents=0):
+        if f["scrub"]:
+            # empty ghost row: drag the weight cell (first detent snaps to the nearest loadable weight, e.g. the
+            # bar), then the reps cell from 0, then tap the set number. No keyboard.
+            if not bodyweight:
+                scrub_cell("w", 0, w_detents)
+            scrub_cell("r", 0, r_detents)
+            done_tap(0)
+            return
         focused = bool(f["autofocus"]) and not bodyweight and (first_exercise or f["autofocus"] == 2)
         type_set(0, w, r, bodyweight, focused)
 
@@ -159,29 +202,30 @@ def walk(flags):
     L.tap("完成", 343, 48, px(187, 770))
 
     # E1 40x10 (warm-up), 60x8, 60x8, 60x7
-    L.phase("T1-E1-s1"); first_set("40", "10", first_exercise=True)
+    # 40 by drag: 1 detent snaps 0 -> bar 20, then 20 kg at 5 per detent (x2 tier: 2); reps 0 -> 10 at x2: 5
+    L.phase("T1-E1-s1"); first_set("40", "10", first_exercise=True, w_detents=1 + detents(20, 5), r_detents=detents(10, 1))
     if f["warm"]:
         L.tap("热身", 44, 44, px(300, ROW_Y))
-    L.phase("T1-E1-s2"); add_set(1); done_tap(1); steps("+5 kg", 4, 1, X_WUP); steps("−1 次", 2, 1, X_RDN)
+    L.phase("T1-E1-s2"); add_set(1); done_tap(1); change(1, "+5 kg", 4, 20, 5, 2)
     L.phase("T1-E1-s3"); add_set(2); done_tap(2)
-    L.phase("T1-E1-s4"); add_set(3); done_tap(3); steps("−1 次", 1, 3, X_RDN)
+    L.phase("T1-E1-s4"); add_set(3); done_tap(3); change(3, "", 0, 0, 0, 1)
     # E2 22.5x10, 22.5x10, 22.5x9, 22.5x8
-    L.phase("T1-E2-s1"); next_exercise(); first_set("22.5", "10")
+    L.phase("T1-E2-s1"); next_exercise(); first_set("22.5", "10", w_detents=detents(22.5, 2.5), r_detents=detents(10, 1))  # dumbbell rack steps by 2.5
     L.phase("T1-E2-s2"); add_set(1); done_tap(1)
-    L.phase("T1-E2-s3"); add_set(2); done_tap(2); steps("−1 次", 1, 2, X_RDN)
-    L.phase("T1-E2-s4"); add_set(3); done_tap(3); steps("−1 次", 1, 3, X_RDN)
+    L.phase("T1-E2-s3"); add_set(2); done_tap(2); change(2, "", 0, 0, 0, 1)
+    L.phase("T1-E2-s4"); add_set(3); done_tap(3); change(3, "", 0, 0, 0, 1)
     # E3 50x12, 55x10, 55x10, 55x9
-    L.phase("T1-E3-s1"); next_exercise(); first_set("50", "12")
-    L.phase("T1-E3-s2"); add_set(1); done_tap(1); steps("+5 kg", 1, 1, X_WUP); steps("−1 次", 2, 1, X_RDN)
+    L.phase("T1-E3-s1"); next_exercise(); first_set("50", "12", w_detents=detents(50, 5), r_detents=detents(12, 1))  # pin stack steps by 5
+    L.phase("T1-E3-s2"); add_set(1); done_tap(1); change(1, "+5 kg", 1, 5, 5, 2)
     L.phase("T1-E3-s3"); add_set(2); done_tap(2)
-    L.phase("T1-E3-s4"); add_set(3); done_tap(3); steps("−1 次", 1, 3, X_RDN)
+    L.phase("T1-E3-s4"); add_set(3); done_tap(3); change(3, "", 0, 0, 0, 1)
     # E4 bodyweight x12, x10, +10x8, +10x8
-    L.phase("T1-E4-s1"); next_exercise(); first_set(None, "12", bodyweight=True)
-    L.phase("T1-E4-s2"); add_set(1); done_tap(1); steps("−1 次", 2, 1, X_RDN)
-    L.phase("T1-E4-s3"); add_set(2); done_tap(2); steps("+5 kg", 2, 2, X_WUP); steps("−1 次", 2, 2, X_RDN)
+    L.phase("T1-E4-s1"); next_exercise(); first_set(None, "12", bodyweight=True, r_detents=detents(12, 1))
+    L.phase("T1-E4-s2"); add_set(1); done_tap(1); change(1, "", 0, 0, 0, 2)
+    L.phase("T1-E4-s3"); add_set(2); done_tap(2); change(2, "+5 kg", 2, 10, 1, 2)  # plain number: 1 kg per detent
     L.phase("T1-E4-s4"); add_set(3); done_tap(3)
     # E5 15x15, 15x15, 17.5x12, 17.5x12 (the cable stack steps by 5: 17.5 has to be typed unless halfstep)
-    L.phase("T1-E5-s1"); next_exercise(); first_set("15", "15")
+    L.phase("T1-E5-s1"); next_exercise(); first_set("15", "15", w_detents=detents(15, 5), r_detents=detents(15, 1))  # cable stack steps by 5
     L.phase("T1-E5-s2"); add_set(1); done_tap(1)
     L.phase("T1-E5-s3"); add_set(2)
     if f["halfstep"]:
