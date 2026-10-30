@@ -41,7 +41,7 @@ interface Props {
   /** 这个动作在这场是不是按带正负的负荷记 */
   isSigned: (ex: Exercise) => boolean;
   pointerGap: number | null;
-  onMovePointer: (cardKey: string, gap: number) => void;
+  onMovePointer: (cardKey: string, gap: number, label: string) => void;
   selectedSetId: string | null;
   onNumTap: (r: RowRef) => void;
   onSetUpdate: (r: RowRef, updates: Partial<SetLog>) => void;

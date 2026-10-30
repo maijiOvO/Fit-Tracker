@@ -96,7 +96,7 @@ interface ExerciseCardProps {
    */
   pointerGap?: number | null;
   /** 书签被拖到别处（可能是别的卡）：cardKey + gap，交给工作台改状态 */
-  onMovePointer?: (cardKey: string, gap: number) => void;
+  onMovePointer?: (cardKey: string, gap: number, label: string) => void;
   /** 选中的那一组（组号实心 + ±5） */
   selectedSetId?: string | null;
   /** 点组号（选中 / 做完 / 退回由工作台判） */

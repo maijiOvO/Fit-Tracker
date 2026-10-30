@@ -119,6 +119,11 @@ export function findSet(exs: Exercise[], r: RowRef): SetLog | undefined {
   return exs.find(e => e.id === r.exId)?.sets.find(s => String(s.id) === r.setId);
 }
 
+/** 全场做完了几组（底栏计数、拖书签的落定提示共用一个口径：底稿行不算） */
+export function doneCount(exs: Exercise[]): number {
+  return exs.reduce((n, e) => n + e.sets.filter(s => !isPending(s)).length, 0);
+}
+
 /** 指针以上有几行（全场扁平序）＝最后一条「不是待做」的行之后 */
 export function pointerIndex(exs: Exercise[]): number {
   const flat = flatRows(exs);

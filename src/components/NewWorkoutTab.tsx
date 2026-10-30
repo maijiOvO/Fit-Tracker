@@ -32,6 +32,7 @@ import {
   findSet,
   groupExercises,
   moveGroupMember,
+  doneCount,
   movePointerTo,
   moveSetToExercise,
   nextPendingRow,
@@ -325,10 +326,21 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     });
   };
 
-  const movePointer = (cardKey: string, gap: number) => {
+  const movePointer = (cardKey: string, gap: number, label: string) => {
+    const before = exs;
+    const after = movePointerTo(before, cardKey, gap);
     // 拖指针做完的组同样记下做完时挂的片
-    setCurrentWorkout(w => ({ ...w, exercises: stampDoneUnit(w.exercises ?? [], movePointerTo(w.exercises ?? [], cardKey, gap)) }));
+    setCurrentWorkout(w => ({ ...w, exercises: stampDoneUnit(w.exercises ?? [], after) }));
     setPickedSetId(null);
+    // 落定了就说一声落在哪、动了几组：书签吸附到最近的缝，落点和手感差一截时人看不出来，
+    // 一组都没扫到也得说（2026-10-29 「拖到底了」其实没动，底栏少 4 组到结束都没发现）
+    const delta = doneCount(after) - doneCount(before);
+    const what = delta > 0
+      ? isCn ? `${delta} 组记做完` : `${delta} ${plural(delta, 'set')} done`
+      : delta < 0
+        ? isCn ? `${-delta} 组退回待做` : `${-delta} ${plural(-delta, 'set')} back to pending`
+        : isCn ? '没有组变化' : 'no sets changed';
+    toast(`${label} · ${what}`, 'info');
   };
 
   /** 更新一组（按 id，交替组和单卡共用）；后面同值、没动过的底稿跟着变（workbench.applySetUpdate） */
@@ -417,7 +429,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const exerciseCount = exs.length;
   // 底稿行不算数据（§12.6）：口径必须跟刊头的 realSetCount 一致，
   // 否则刊头写「3组」底栏写「4组」，其中一个在说假话。
-  const setCount = exs.reduce((s, ex) => s + (ex.sets?.filter(set => !set.ghost).length || 0), 0);
+  const setCount = doneCount(exs);
+  // 分母同刊头的 plannedCount：台上全部的组。做完数和台上的组数不一样时人才看得见「还有组没点完」
+  const plannedCount = exs.reduce((s, ex) => s + (ex.sets?.length || 0), 0);
   /**
    * 是否先问「今天练哪里」。四个条件缺一不可：
    *  - 还没有动作：一旦开始记就不该再打断
@@ -860,7 +874,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         )}
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <span className="text-xs font-semibold text-secondary whitespace-nowrap tabular-nums">
-            {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount} {isCn ? '组' : plural(setCount, 'set')}
+            {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount}
+            {plannedCount > setCount && <span className="text-tertiary">/{plannedCount}</span>}
+            {isCn ? ' 组' : ` ${plural(plannedCount > setCount ? plannedCount : setCount, 'set')}`}
           </span>
           <button
             type="button"

@@ -132,6 +132,21 @@ t('拖指针：往下经过的做完（全零的留着待做），往上经过�
   assert.equal(read(exs), 'A1[D] | A2[p] A3[p]');
 });
 
+t('拖指针到别的卡的最底：跨卡经过的全做完（含改过数的），doneCount 跟着变', () => {
+  // 2026-10-29 练手臂：最早的卡 A 一直待做，B、C 点组号做完 → [B, C, A]
+  let exs = [ex('A', [[10, 15], [22, 15], [22, 15], [22, 15]]), ex('B', [[14, 12]]), ex('C', [[9, 12]])];
+  exs = tap(exs, 'B1').exs;
+  exs = tap(exs, 'C1').exs;
+  assert.equal(read(exs), 'B1[D] C1[D] | A1[p] A2[p] A3[p] A4[p]');
+  assert.equal(W.doneCount(exs), 2);
+  // 落在 A 第 1 组之前 ＝ 指针原位（底下那张卡没露出来时最容易吸到这里）：什么都不变
+  assert.equal(read(W.movePointerTo(exs, 'A', 0)), read(exs));
+  exs = W.movePointerTo(exs, 'A', 4);
+  assert.equal(read(exs), 'B1[D] C1[D] A1[D] A2[D] A3[D] A4[D] |');
+  assert.equal(W.doneCount(exs), 6);
+  assert.equal(read(W.movePointerTo(exs, 'B', 0)), '| B1[p] C1[p] A1[p] A2[p] A3[p] A4[p]');
+});
+
 t('点组号：同一张卡里点下面的组，经过的做完（全零的留着待做）、指针落在它正下方', () => {
   let exs = [ex('A', [[50, 10], [0, 0], [55, 8], [60, 6]]), ex('B', [[20, 12]])];
   const r = tap(exs, 'A3');
