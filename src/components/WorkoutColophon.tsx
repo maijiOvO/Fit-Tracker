@@ -36,6 +36,8 @@ interface Props {
   stamps: PRHit[];
   /** >2 枚时合并的「另 N 项刷新」 */
   extraCount: number;
+  /** 填了数却没点做完、按规则没入册的组数；0 不显示 */
+  droppedCount: number;
   onDone: () => void;
 }
 
@@ -70,6 +72,7 @@ export const WorkoutColophon: React.FC<Props> = ({
   unitLabel,
   stamps,
   extraCount,
+  droppedCount,
   onDone,
 }) => {
   const isCn = lang === Language.CN;
@@ -152,7 +155,7 @@ export const WorkoutColophon: React.FC<Props> = ({
           </span>
         </span>
         <span className="text-center">
-          <span className="block font-mono font-semibold text-data-md text-primary tabular-nums">{setCount}</span>
+          <span className="block font-mono font-semibold text-data-md text-primary tabular-nums" data-testid="colophon-sets">{setCount}</span>
           <span className="text-micro text-tertiary">{isCn ? '组' : plural(setCount, 'set')}</span>
         </span>
         {/* 时长只在这里和时间线出现，训练中不计时（2026-10-27 批示）；数字是结束那一刻定下来的，不动画 */}
@@ -169,6 +172,14 @@ export const WorkoutColophon: React.FC<Props> = ({
           </span>
         </span>
       </div>
+      {/* 待做组没点做完就结束，以前静默丢（核心动作每场只剩 1 组就是这么来的）；这里说一声，要补去时间线编辑 */}
+      {droppedCount > 0 && (
+        <p className="anim-stagger text-label text-secondary mt-3" style={{ ['--i' as string]: 4 }} data-testid="colophon-dropped">
+          {isCn
+            ? `${droppedCount} 组填了数但没点做完，没有入册；要补的话去时间线里编辑这场。`
+            : `${droppedCount} ${plural(droppedCount, 'set')} had numbers but ${droppedCount === 1 ? 'was' : 'were'} never marked done, so ${droppedCount === 1 ? 'it was' : 'they were'} left out. Edit this workout from the timeline to add ${droppedCount === 1 ? 'it' : 'them'}.`}
+        </p>
+      )}
 
       {/* PR 落章。全 App 只有这里和结束训练允许盖章语汇。 */}
       {hasPR && (

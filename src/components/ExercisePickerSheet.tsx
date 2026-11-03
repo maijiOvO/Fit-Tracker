@@ -291,7 +291,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     attrsOf,
   } = useExercisePrefs();
   const { dismissToasts } = useUiOverlay();
-  const { lang, unit, appPrefs } = useUserSettingsContext();
+  const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
   const { recentExerciseNames } = useExerciseStats();
   const isCn = lang === Language.CN;
 
@@ -1060,6 +1060,20 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             >
               ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
             </span>
+          )}
+          {/* 首选项「连带交替搭档」：动作上次在交替组里练的，同组搭档一起建出来。往现成的组里加（targetLabel）时不相干，不显示 */}
+          {!arranging && !targetLabel && (
+            <button
+              type="button"
+              aria-pressed={appPrefs.inheritAltGroup}
+              onClick={() => changeAppPrefs({ inheritAltGroup: !appPrefs.inheritAltGroup })}
+              className={`flex-shrink-0 min-h-[32px] px-2.5 py-1 rounded-control text-micro font-bold whitespace-nowrap transition-colors ${
+                appPrefs.inheritAltGroup ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'
+              }`}
+              data-testid="picker-inherit-alt"
+            >
+              {isCn ? '连带交替搭档' : 'Bring partners'}
+            </button>
           )}
           <button
             type="button"

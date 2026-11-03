@@ -239,7 +239,7 @@ const AppWithAuthShell: React.FC = () => {
     Record<string, string>
   >({});
   // ============== 动作维度 / 备注 弹窗 ==============
-  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number; focus?: 'gym'; group?: boolean } | null>(null);
+  const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number; focus?: 'gym' } | null>(null);
   /** 动作设置弹窗里「在 X 的这一台」的挂载点（卡片把这台器械的设置 portal 进去） */
   const [metricGymSlot, setMetricGymSlot] = useState<HTMLElement | null>(null);
   // 「动作设置」里的名称 / 部位器械：库里有这个动作才能改（合并覆盖层后的定义，显示的是现在的标签）
@@ -826,20 +826,29 @@ const AppWithAuthShell: React.FC = () => {
         return false;
       }
       let created: string[] = [];
-      lastAddedExerciseIdRef.current = addExerciseToWorkout(ex, {
+      let partnerNames: string[] = [];
+      const newId = addExerciseToWorkout(ex, {
         altGroup: pickerTargetGroup,
         variantId,
-        onCreated: (ids, partnerNames) => {
+        onCreated: (ids, partners) => {
           created = ids;
-          if (partnerNames.length) {
-            // 上次是交替做的：搭档连带进来了，说一声（不要搭档就删掉它，或者用顶栏的全局撤销整个撤回）
-            toast(
-              isCn ? `已连带加入 ${partnerNames.join('、')}（上次交替做的）` : `Also added ${partnerNames.join(', ')} (alternated last time)`,
-              'info',
-            );
-          }
+          partnerNames = partners;
         },
       });
+      lastAddedExerciseIdRef.current = newId;
+      if (partnerNames.length) {
+        // 上次是交替做的：搭档连带进来了，说一声，附「只要这个」把刚建出来的搭档卡删掉（都是全底稿，不走撤销条）
+        const partnerIds = new Set(created.filter(id => id !== newId));
+        toast(
+          isCn ? `已连带加入 ${partnerNames.join('、')}（上次交替做的）` : `Also added ${partnerNames.join(', ')} (alternated last time)`,
+          'info',
+          {
+            label: isCn ? '只要这个' : 'Just this one',
+            onClick: () =>
+              setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups((w.exercises ?? []).filter(e => !partnerIds.has(e.id))) })),
+          },
+        );
+      }
       if (created.length) {
         stack.push(created);
         sheetPicksRef.current.set(key, stack);
@@ -1206,7 +1215,7 @@ const AppWithAuthShell: React.FC = () => {
                   : {}),
               })
             }
-            onOpenMetricModal={(name, exIdx, focus, group) => setShowMetricModal({ name, exIdx, focus, group })}
+            onOpenMetricModal={(name, exIdx, focus) => setShowMetricModal({ name, exIdx, focus })}
             metricSlot={showMetricModal?.exIdx != null ? { exIdx: showMetricModal.exIdx, el: metricGymSlot } : null}
             onChangeDate={() => setShowWorkoutDatePicker(true)}
             onChangeGym={() => setShowGymPicker(true)}
@@ -1348,7 +1357,6 @@ const AppWithAuthShell: React.FC = () => {
                   ? prefs.variantIdOf(currentWorkout.exercises[showMetricModal.exIdx])
                   : undefined,
                 gym: currentWorkout.gym,
-                group: showMetricModal.group,
               }
             : undefined
         }
@@ -1569,6 +1577,7 @@ const AppWithAuthShell: React.FC = () => {
         unitLabel={colophon?.unitLabel ?? 'kg'}
         stamps={colophon?.stamps ?? []}
         extraCount={colophon?.extraCount ?? 0}
+        droppedCount={colophon?.droppedCount ?? 0}
         onDone={dismissColophon}
       />
     </div>

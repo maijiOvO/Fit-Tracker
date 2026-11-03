@@ -51,6 +51,11 @@ export interface AppPrefs {
   featuredLifts?: string[];
   /** 特别关注按什么算：做过的最重一组，还是估算 1RM（看自己的极限大概在哪） */
   featuredMode?: 'weight' | 'e1rm';
+  /**
+   * 添加动作时连带上次的交替搭档（2026-11-02）：动作上次是在交替组里练的，就把同组的其他动作一起建出来、
+   * 从计划开练也照上次排成交替组。不写＝开。关掉只影响这两条路，「再练一次」整场复制照原样。
+   */
+  inheritAltGroup?: boolean;
 }
 
 export type GymKind = 'pin' | 'loaded';
@@ -74,6 +79,7 @@ const APP_PREF_DEFAULTS = {
   gymNotes: {},
   gymTares: {},
   featuredMode: 'weight',
+  inheritAltGroup: true,
 } as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang' | 'featuredLifts'>;
 
 export type ResolvedAppPrefs = {
@@ -91,6 +97,7 @@ export type ResolvedAppPrefs = {
   /** null＝没设过，用默认（三大项） */
   featuredLifts: string[] | null;
   featuredMode: 'weight' | 'e1rm';
+  inheritAltGroup: boolean;
 };
 
 const isUnit = (u: unknown): u is 'kg' | 'lbs' => u === 'kg' || u === 'lbs';
@@ -152,6 +159,7 @@ export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
       ? p.featuredLifts.filter((k): k is string => typeof k === 'string').slice(0, MAX_FEATURED)
       : null,
     featuredMode: p?.featuredMode === 'e1rm' ? 'e1rm' : 'weight',
+    inheritAltGroup: p?.inheritAltGroup !== false,
   };
 }
 

@@ -34,10 +34,8 @@ interface MetricSettingsModalProps {
   onRename?: () => void;
   /** 部位（类型 / 部位 / 细分）：打开属性弹窗的「只改部位」版 */
   onEditPart?: () => void;
-  /**
-   * 训练里从卡片打开：卡片上正用的做法、这场的馆、是不是交替组。不传＝从动作库等处打开，没有「这一台」。
-   */
-  card?: { variantId?: string; gym?: string; group?: boolean };
+  /** 训练里从卡片打开（单卡或交替组成员）：卡片上正用的做法、这场的馆。不传＝从动作库等处打开，没有「这一台」。 */
+  card?: { variantId?: string; gym?: string };
   /** 「这一台」的挂载点：卡片把这台器械的设置行 portal 进来 */
   gymSlotRef?: (el: HTMLElement | null) => void;
   /** 从大图的小药丸进来：打开后滚到「这一台」 */
@@ -161,17 +159,12 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
 
   /* ── 这一台 ── */
   const onCardVariant = (card?.variantId || undefined) === editingId;
-  const gymNote = !card
-    ? null
-    : card.group
+  const gymNote =
+    card && !onCardVariant
       ? isCn
-        ? '交替组的卡片上没有重量大图，这台器械的刻度要在单独的卡片上设。'
-        : 'Alternating cards have no load view; set this machine up on a single card.'
-      : !onCardVariant
-        ? isCn
-          ? `这一台的设置跟着卡片上的做法（${variantLabel(card.variantId)}）。在卡片上换成「${variantLabel(editingId)}」再来设。`
-          : `Machine settings follow the card's variant (${variantLabel(card.variantId)}). Switch the card to "${variantLabel(editingId)}" to set them.`
-        : null;
+        ? `这一台的设置跟着卡片上的做法（${variantLabel(card.variantId)}）。在卡片上换成「${variantLabel(editingId)}」再来设。`
+        : `Machine settings follow the card's variant (${variantLabel(card.variantId)}). Switch the card to "${variantLabel(editingId)}" to set them.`
+      : null;
 
   return (
     <Modal

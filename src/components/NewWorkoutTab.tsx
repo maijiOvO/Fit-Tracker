@@ -81,11 +81,8 @@ export interface NewWorkoutTabProps {
   /** 训练中标 PB 用：这个动作以前做完的组 + 比法（utils/prRecords） */
   prPoolFor?: (ex: Exercise) => PRPool;
   onToggleNote: (name: string, gymKey?: string) => void;
-  /**
-   * exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节）。
-   * group：从交替组打开（交替组的卡片没有重量大图，弹窗里「这一台」只写一句说明）。
-   */
-  onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym', group?: boolean) => void;
+  /** exIdx 用于在弹窗内修改该动作实例的负重/辅助标记；从动作库进来时不给（不显示那一节） */
+  onOpenMetricModal: (name: string, exIdx?: number, focus?: 'gym') => void;
   /** 动作设置弹窗里「在 X」一段的挂载点，交给弹窗所属的那张卡 */
   metricSlot?: { exIdx: number; el: HTMLElement | null } | null;
   onDeleteExerciseFromSession: (exIdx: number) => void;
@@ -351,19 +348,20 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       exercises: applySetUpdate(w.exercises ?? [], r, updates, e => rounderFor(e, w.gym)?.snapKg ?? null),
     }));
 
-  /** 添加组：克隆这个动作最后一组的值，新行从待做开始 */
+  /** 添加组：克隆这个动作最后一组的值，新行从待做开始，但标 added —— 结束时照样入册（types.ts SetLog.added） */
   const addSetTo = (exId: string) =>
     setCurrentWorkout(w => ({
       ...w,
       exercises: (w.exercises ?? []).map(e => {
         if (e.id !== exId) return e;
         const lastSet = e.sets.length > 0 ? e.sets[e.sets.length - 1] : null;
-        // 克隆上一行的值，新行从【待做】开始（第 4 条）：加出来不等于做完了。
+        // 克隆上一行的值，新行从【待做】开始（第 4 条）：指针、±5、底稿跟随都照旧；加出来的组结束时不丢，靠 added 标记。
         // 力竭是当日这一组的事实，不跟着抄；touched / 跳过 / 先后号同理。
         // 递减档照抄（2026-10-15 用户定：和普通组一样继承；不做那档就删掉），换新 id、去掉改过标记。
         const newId = `${Date.now()}`;
         // 编辑旧训练时加的组是补记做过的（审查 B3）：直接按做完入册，不用再点一下组号；新训练照旧从待做开始
         const asDone = !!editingWorkoutId;
+        const seq = asDone ? {} : { added: true as const };
         const newSet: SetLog = lastSet
           ? (() => {
               // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」，不是「从上一次纯换算来的」；
@@ -374,6 +372,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 ...base,
                 id: newId,
                 ghost: !asDone,
+                ...seq,
                 ...(Number(base.weight) > 0 ? { plateUnit: pu } : {}),
                 ...(subSets?.length
                   ? {
@@ -386,7 +385,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   : {}),
               };
             })()
-          : { id: newId, weight: 0, reps: 0, ghost: !asDone };
+          : { id: newId, weight: 0, reps: 0, ghost: !asDone, ...seq };
         return { ...e, sets: [...e.sets, newSet] };
       }),
     }));
@@ -741,7 +740,13 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to, isSigned))}
                 onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
                 onToggleNote={onToggleNote}
-                onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId), undefined, true)}
+                onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId))}
+                settingsFor={
+                  metricSlot && members.some(m => indexOf(m.id) === metricSlot.exIdx)
+                    ? { exId: exs[metricSlot.exIdx].id, el: metricSlot.el }
+                    : null
+                }
+                onUpdateMemberSets={(exId, sets) => setExs(list => list.map(e => (e.id === exId ? { ...e, sets } : e)))}
                 onOpenTimePicker={(exId, setId) => {
                   const ei = indexOf(exId);
                   const si = exs[ei]?.sets.findIndex(s => String(s.id) === setId) ?? -1;

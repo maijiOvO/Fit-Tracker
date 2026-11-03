@@ -16,12 +16,12 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, newGroupId, normalizeGroups, stripWorkbenchSet } from '../utils/workbench';
+import { groupExercises, newGroupId, normalizeGroups, setHasValue, stripWorkbenchSet } from '../utils/workbench';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
-import { findLastIn } from '../utils/prefillSource';
+import { findLastAltGroup, findLastIn } from '../utils/prefillSource';
 import { sessionDurationMin } from '../utils/sessionDuration';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
@@ -107,8 +107,8 @@ export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLo
  * 入册的样子（§12.6 红线：底稿永远不会静默变成数据）。
  * 剥掉没动过的 ghost 行（抄来的底稿＝这次没做）；整动作只剩底稿的，连动作一起丢。
  * 改过数的待做组（touched）算做完入册（2026-10-20 用户定）：点「结束训练」「保存修改」就说明练完了，
- * 手动填过数的那组是做了的，没必要再弹「有 N 组没点完成，返回补点」。没动过的底稿照旧不入册 ——
- * 那条红线防的是「抄来的数」冒充数据，用户亲手填的数不在此列。
+ * 手动填过数的那组是做了的，没必要再弹「有 N 组没点完成，返回补点」。训练中按「添加组」手加的待做组（added）同理
+ * （2026-11-02：加出来的不是抄来的）。没动过的底稿照旧不入册 —— 那条红线防的是「抄来的数」冒充数据，用户亲手填 / 加的不在此列。
  * prefillFrom / prefillGym 只服务工作台眉批；fromGhost（已停写）、touched、seq 都是工作台上的标记，不跟进历史。
  * 结束训练、保存修改、判「编辑态改没改」共用这一份。
  */
@@ -120,7 +120,7 @@ function toRecordedExercises(exercises: Exercise[] | undefined): Exercise[] {
         return {
           ...rest,
           sets: (ex.sets ?? [])
-            .filter(s => !s.ghost || isTouchedGhost(s))
+            .filter(s => !s.ghost || s.added || isTouchedGhost(s))
             .map(s => {
               const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet({ ...s, ghost: false });
               return set.subSets?.length
@@ -137,6 +137,14 @@ function toRecordedExercises(exercises: Exercise[] | undefined): Exercise[] {
 function isTouchedGhost(s: SetLog): boolean {
   const touched = (t: Record<string, boolean | undefined> | undefined) => Object.values(t ?? {}).some(Boolean);
   return !!s.ghost && (touched(s.touched) || (s.subSets ?? []).some(sub => touched(sub.touched)));
+}
+
+/** 结束时丢掉的待做组里填了数的（手加的、改过的会入册，全零的空行记不下东西，都不算）：刊末页提醒用，规则本身不变 */
+function countDroppedPending(exercises: Exercise[] | undefined): number {
+  return (exercises ?? []).reduce(
+    (n, ex) => n + (ex.sets ?? []).filter(s => s.ghost && !s.added && !isTouchedGhost(s) && setHasValue(s)).length,
+    0,
+  );
 }
 
 function countTouchedGhosts(exercises: Exercise[] | undefined): number {
@@ -189,6 +197,8 @@ export interface ColophonState {
   unitLabel: string;
   stamps: PRHit[];
   extraCount: number;
+  /** 结束时还待做、填了数、却没点做完也没改过的组数：按规则不入册，刊末页说一声（2026-11-02，以前静默丢） */
+  droppedCount: number;
 }
 
 export interface UseWorkoutMutationsResult {
@@ -486,6 +496,7 @@ export function useWorkoutMutations({
         unitLabel: unit,
         stamps: stampsInUnit(pr.stamps, unit, KG_TO_LBS),
         extraCount: pr.extraCount,
+        droppedCount: countDroppedPending(currentWorkout.exercises),
       });
 
       // 回写要的是刚结束的这一场（plan-session-leaks-schedule-id：原来拿 workouts[0]，可能是别的场），
@@ -928,6 +939,7 @@ export function useWorkoutMutations({
         const empty = workoutCtx.createNewWorkout();
         const g = gym ?? empty.gym;
         const now = new Date().toISOString();
+        const inheritAlt = appPrefsNow().inheritAltGroup;
         const built = (target.exercises || []).map((pe, i) => {
           const def = findExerciseDef(pe.name);
           const category = pe.category || def?.category || 'STRENGTH';
@@ -968,10 +980,14 @@ export function useWorkoutMutations({
               tags: pe.tags ?? [],
               sets,
             } as Exercise,
-            group: last?.ex.altGroup ? `${last.workout.id}|${last.ex.altGroup}` : undefined,
+            // 交替关系看最近一次交替做的那场（同 addExerciseToWorkout）
+            group: (() => {
+              const alt = inheritAlt ? (last?.ex.altGroup ? last : findLastAltGroup(workouts, resolveName, pe.name)) : null;
+              return alt ? `${alt.workout.id}|${alt.ex.altGroup}` : undefined;
+            })(),
           };
         });
-        // 上次交替做的几个动作这次计划里都有：照样排成交替组（只有一个的不成组）
+        // 上次交替做的几个动作这次计划里都有：照样排成交替组（只有一个的不成组）；首选项「连带交替搭档」关着就不排
         const count = new Map<string, number>();
         for (const b of built) if (b.group) count.set(b.group, (count.get(b.group) ?? 0) + 1);
         const ids = new Map<string, string>();
@@ -991,7 +1007,7 @@ export function useWorkoutMutations({
         };
       };
     },
-    [buildExercise, confirm, currentWorkout.exercises, editingWorkoutId, findExerciseDef, findLast, isCn, preferGymFor, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx],
+    [buildExercise, confirm, currentWorkout.exercises, editingWorkoutId, findExerciseDef, findLast, isCn, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx, workouts],
   );
 
   /**
@@ -1102,14 +1118,20 @@ export function useWorkoutMutations({
 
       /**
        * 上次是在交替组里练的：同组的其他动作一起带进来（本场已有的并进来），按轮换排（用户定：底稿按干净的轮换重排）。
-       * 从交替组「加一个动作」进来的不带 —— 那时是往一个现成的组里加。
+       * 从交替组「加一个动作」进来的不带 —— 那时是往一个现成的组里加。弹层头部「连带交替搭档」关着也不带（只加这一张）。
        */
       const partners: Exercise[] = [];
       const joinIds: string[] = [];
       let gid: string | undefined = opts.altGroup ?? undefined;
-      if (!gid && last?.ex.altGroup) {
-        const lastGroup = last.ex.altGroup;
-        const mates = last.workout.exercises.filter(e => e.altGroup === lastGroup && e !== last.ex);
+      // 搭档关系看最近一次交替做的那场，不一定是上一次（上一次单练了也能把搭档找回来，2026-11-02 用户指出）
+      const altHit =
+        !gid && appPrefsNow().inheritAltGroup
+          ? last?.ex.altGroup
+            ? last
+            : findLastAltGroup(workouts, resolveName, exerciseName, currentWorkout.id || undefined, before)
+          : null;
+      if (altHit) {
+        const mates = altHit.workout.exercises.filter(e => e.altGroup === altHit.ex.altGroup && e !== altHit.ex);
         if (mates.length) {
           gid = newGroupId();
           for (const m of mates) {
@@ -1119,14 +1141,14 @@ export function useWorkoutMutations({
               if (!inSession.altGroup) joinIds.push(inSession.id);
               continue;
             }
-            partners.push(
-              buildExercise(m.name, m.category, { ex: m, workout: last.workout }, exerciseTime, undefined, undefined),
-            );
+            // 搭档的底稿抄它自己最近一次的数（交替那场可能已经是几周前）；没有更近的就抄交替那场
+            const mLast = findLast(mName, null, currentWorkout.id || undefined, preferGymFor(mName, undefined, currentWorkout.gym), before);
+            partners.push(buildExercise(m.name, m.category, mLast ?? { ex: m, workout: altHit.workout }, exerciseTime, undefined, undefined));
           }
         }
       }
-      // 成员顺序照上次那一场（轮换的先后）
-      const order = last?.ex.altGroup ? last.workout.exercises.filter(e => e.altGroup === last.ex.altGroup).map(e => resolveName(e.name)) : [];
+      // 成员顺序照交替那一场（轮换的先后）
+      const order = altHit ? altHit.workout.exercises.filter(e => e.altGroup === altHit.ex.altGroup).map(e => resolveName(e.name)) : [];
       const fresh = [newEx, ...partners]
         .map(e => (gid ? { ...e, altGroup: gid } : e))
         .sort((a, b) => order.indexOf(resolveName(a.name)) - order.indexOf(resolveName(b.name)));
@@ -1149,7 +1171,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, workouts],
   );
 
   /**

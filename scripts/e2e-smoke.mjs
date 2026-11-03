@@ -1488,6 +1488,11 @@ async function mainFlow(browser, escapedRemoteCalls) {
 
       // 结束训练 → 首页 → 撤销：那场回到工作台，做完的组还在
       await endWorkout(page);
+      // 第 2 组是「添加组」手加的、没点做完：结束时照样入册（SetLog.added，2026-11-02），刊末页数 2 组。
+      // 老规则下它是没动过的底稿、静默丢掉，这里会读到 1 —— 核心动作每场只剩 1 组就是这么来的
+      await page.locator('[data-testid="colophon-sets"]').waitFor({ state: 'visible', timeout: 5_000 });
+      const colSets = (await page.locator('[data-testid="colophon-sets"]').innerText()).trim();
+      if (colSets !== '2') throw new Error(`colophon set count ${colSets}: the hand-added pending set was dropped at finish`);
       await dismissColophon(page);
       await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
       await page.locator('header [data-testid="global-undo"]').click();

@@ -11,6 +11,9 @@
  *   - 卡底按动作分开的「＋ 动作名」：新的组插到轮换里该在的位置
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { MachineFace, MachineMissingNote } from './PlateGlyph';
+import { useMachineSettings } from '../hooks/useMachineSettings';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
@@ -59,6 +62,10 @@ interface Props {
   onSwitchVariant: (exId: string, variantId: string | undefined, name?: string) => void;
   onToggleNote: (name: string, gymKey?: string) => void;
   onOpenMetricModal: (name: string, exId: string) => void;
+  /** 动作设置弹窗开着、改的是这个成员：弹窗里「这一台」的挂载点，成员把器械设置行 portal 进去（单卡是 settingsSlot） */
+  settingsFor?: { exId: string; el: HTMLElement | null } | null;
+  /** 「这一台」改了刻度之后，把这个成员没做完、没改过的组吸到新刻度上 */
+  onUpdateMemberSets: (exId: string, sets: SetLog[]) => void;
   onOpenTimePicker: (exId: string, setId: string) => void;
   /** 这一场训练记的馆：组行的 ± / 拖动 / 递减档按这个馆的档案走（各动作各按各的器材） */
   gym?: string;
@@ -104,6 +111,37 @@ const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; c
   </div>
 );
 
+/**
+ * 交替组成员的「这一台」：卡上没有重量大图，动作设置弹窗开着时把器械设置行（或缺什么的说明）portal 进弹窗的挂载点。
+ * 原来这里只给一句「要在单独的卡片上设」，改器械刻度得先拆开交替组（2026-11-02 用户指出）。
+ * 独立成组件是因为 hook 不能按条件调：成员换了就整个重挂。
+ */
+const MemberMachineSettings: React.FC<{
+  member: Exercise;
+  gym?: string;
+  signed: boolean;
+  unit: string;
+  isCn: boolean;
+  activeMetrics: string[];
+  el: HTMLElement;
+  onSets: (sets: SetLog[]) => void;
+}> = ({ member, gym, signed, unit, isCn, activeMetrics, el, onSets }) => {
+  const ms = useMachineSettings(member, gym, signed, onSets);
+  const hasWeight = activeMetrics.includes('weight');
+  const hasSet = member.sets.length > 0;
+  const ctl = hasWeight && hasSet ? ms.machineCtl(el) : undefined;
+  return createPortal(
+    ctl && ms.rounder ? (
+      <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
+        <MachineFace kind={ms.loadKind} unit={unit === 'lbs' ? 'lbs' : 'kg'} isCn={isCn} rounder={ms.rounder} machine={ctl} />
+      </div>
+    ) : (
+      <MachineMissingNote isCn={isCn} hasWeight={hasWeight} gym={gym} hasSet={hasSet} loadKind={ms.loadKind} />
+    ),
+    el,
+  );
+};
+
 /** 交替组组行的首列宽（简称叠在组号上方） */
 const ALT_FIRST_COL = 44;
 
@@ -136,6 +174,8 @@ export const AlternatingCard: React.FC<Props> = ({
   onSwitchVariant,
   onToggleNote,
   onOpenMetricModal,
+  settingsFor,
+  onUpdateMemberSets,
   onOpenTimePicker,
   gym,
   dragHandle,
@@ -251,6 +291,23 @@ export const AlternatingCard: React.FC<Props> = ({
                   <Plus size={16} strokeWidth={1.75} className="text-tertiary" />
                   {isCn ? '加一个动作' : 'Add an exercise'}
                 </button>
+                {/* 每个成员一行直达它的面板（做法 / 备注 / 动作设置 / 移出 / 删除）：原来只能点标题里的动作名，看不出能点（2026-11-02） */}
+                {members.map((m, i) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setMemberFor(m.id);
+                    }}
+                    data-testid="alt-member-settings"
+                  >
+                    <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary flex-shrink-0" />
+                    <span className="min-w-0 truncate">{isCn ? `设置 · ${names[i]}` : `Set up ${names[i]}`}</span>
+                  </button>
+                ))}
                 <button
                   type="button"
                   role="menuitem"
@@ -497,6 +554,19 @@ export const AlternatingCard: React.FC<Props> = ({
             );
           })}
         </Panel>
+      )}
+
+      {settingsFor?.el && byId.get(settingsFor.exId) && (
+        <MemberMachineSettings
+          member={byId.get(settingsFor.exId)!}
+          gym={gym}
+          signed={isSigned(byId.get(settingsFor.exId)!)}
+          unit={unit}
+          isCn={isCn}
+          activeMetrics={getActiveMetrics(resolveName(byId.get(settingsFor.exId)!.name))}
+          el={settingsFor.el}
+          onSets={sets => onUpdateMemberSets(settingsFor.exId, sets)}
+        />
       )}
 
       {variantFor && byId.get(variantFor) && (

@@ -38,7 +38,7 @@ await build({
     contents: [
       "export * from './src/utils/weightSummary.ts';",
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
-      "export { findLastIn } from './src/utils/prefillSource.ts';",
+      "export { findLastIn, findLastAltGroup } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
       "export { migrateWarmRegions } from './src/utils/warmRegionMigration.ts';",
       "export { makeRounder, ownUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
@@ -150,6 +150,17 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
   assert.equal(L.findLastIn(ws, id, vOf, '推肩').workout.id, 'w_b', 'no gym → latest');
   assert.equal(L.findLastIn(ws, id, vOf, '推肩', null, 'w_a', 'A').workout.id, 'w_a_old', 'skipWorkoutId');
   assert.equal(L.findLastIn(ws, id, vOf, '深蹲'), null);
+  // 连带交替搭档：上一次单练了，也要找到更早那次交替做的那场（2026-11-02 用户指出）；只在组里但没搭档的、只有底稿的不算
+  const alt = (name, g, sets) => ({ ...ex(name, sets), altGroup: g });
+  const wa = [
+    W('solo_last', 'A', [ex('举腿', [done(0)])]),
+    W('alt_ghost', 'A', [alt('举腿', 'g2', [ghost(0)]), alt('卷腹', 'g2', [done(0)])]),
+    W('alt_ok', 'A', [alt('卷腹', 'g1', [done(0)]), alt('举腿', 'g1', [done(0)])]),
+    W('lonely', 'A', [alt('举腿', 'g0', [done(0)])]),
+  ];
+  assert.equal(L.findLastAltGroup(wa, id, '举腿').workout.id, 'alt_ok', 'skip the solo session and the ghost-only one');
+  assert.equal(L.findLastAltGroup(wa, id, '举腿', 'alt_ok'), null, 'a group with no other member does not count');
+  assert.equal(L.findLastAltGroup(wa, id, '深蹲'), null);
   // 做法：'' = 标准做法，别的做法不算
   const wv = [W('v1', 'A', [ex('推肩', [done(30)], 'wide')]), W('v0', 'A', [ex('推肩', [done(20)])])];
   assert.equal(L.findLastIn(wv, id, vOf, '推肩', '', undefined, 'A').workout.id, 'v0');

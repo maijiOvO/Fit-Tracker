@@ -30,14 +30,21 @@ interface ToastItem {
   variant: ToastVariant;
   undoLabel?: string;
   onUndo?: () => void | Promise<void>;
+  /** 右侧一个文字按钮（和撤销条互斥：撤销走 toastUndo）；点了先收起这条再执行 */
+  action?: ToastAction;
   expiresAt: number;
   /** 停留时长，喂给底边剩余时间线的 animation-duration（§5.3） */
   durationMs: number;
 }
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface UiOverlayContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
-  toast: (message: string, variant?: ToastVariant) => void;
+  toast: (message: string, variant?: ToastVariant, action?: ToastAction) => void;
   /** 显示带「撤销」的 toast，默认 5 秒 */
   toastUndo: (
     message: string,
@@ -81,11 +88,12 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
 
   const dismissToasts = useCallback(() => setToasts([]), []);
 
-  const toast = useCallback((message: string, variant: ToastVariant = 'info') => {
+  const toast = useCallback((message: string, variant: ToastVariant = 'info', action?: ToastAction) => {
     const id = `toast-${++toastIdRef.current}`;
-    const durationMs = 3500;
+    // 带按钮的多留一会儿：看懂文案再决定点不点
+    const durationMs = action ? 5000 : 3500;
     const expiresAt = Date.now() + durationMs;
-    setToasts(prev => [...prev.slice(-4), { id, message, variant, expiresAt, durationMs }]);
+    setToasts(prev => [...prev.slice(-4), { id, message, variant, action, expiresAt, durationMs }]);
     window.setTimeout(() => dismissToast(id), durationMs);
   }, [dismissToast]);
 
@@ -206,6 +214,19 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
                 className="flex-shrink-0 px-3 py-1.5 rounded-control bg-accent text-on-accent text-xs font-bold active:scale-press-sm"
               >
                 {item.undoLabel}
+              </button>
+            )}
+            {item.action && (
+              <button
+                type="button"
+                data-testid="toast-action"
+                onClick={() => {
+                  dismissToast(item.id);
+                  item.action?.onClick();
+                }}
+                className="flex-shrink-0 px-2 py-1.5 rounded-control text-accent text-xs font-bold whitespace-nowrap active:bg-accent-soft"
+              >
+                {item.action.label}
               </button>
             )}
             <button

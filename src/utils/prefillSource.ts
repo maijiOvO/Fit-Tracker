@@ -63,3 +63,27 @@ export function isPristineDraftCard(sets: SetLog[] | undefined): boolean {
     s => s.ghost && !touchedAny(s) && !s.prefillRef?.plan && !(s.subSets ?? []).some(sub => touchedAny(sub)),
   );
 }
+
+/**
+ * 这个动作最近一次**交替着做**的那场（同组还有别的成员、且这个动作有做完的组），给「连带交替搭档」用。
+ * 只看上一次不够：上一次单练了、再想按交替组练时，开关开着也带不进搭档（2026-11-02 用户指出）。
+ * 不分馆、不分做法 —— 搭档关系跟馆和做法无关。
+ */
+export function findLastAltGroup(
+  workouts: WorkoutSession[],
+  resolveName: (n: string) => string,
+  exerciseName: string,
+  skipWorkoutId?: string,
+  before?: string,
+): LastHit | null {
+  const target = resolveName(exerciseName);
+  if (!target) return null;
+  const beforeMs = before ? new Date(before).getTime() : NaN;
+  for (const w of workouts) {
+    if (skipWorkoutId && w.id === skipWorkoutId) continue;
+    if (Number.isFinite(beforeMs) && !(new Date(w.date).getTime() < beforeMs)) continue;
+    const we = w.exercises.find(e => e.altGroup && resolveName(e.name) === target && e.sets?.some(s => !s.ghost));
+    if (we && w.exercises.some(e => e !== we && e.altGroup === we.altGroup)) return { ex: we, workout: w };
+  }
+  return null;
+}

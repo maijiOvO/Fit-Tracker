@@ -532,38 +532,12 @@ export function LoadHero({
  *     再给上下两个能挂的重量，点一下改成它
  *   - 挂片式器械（史密斯、倒蹬…）照杠铃算，只算片子（没有空杠）
  */
-function GymHero({
-  kind,
-  value,
-  unit,
-  bar,
-  onBarChange,
-  isCn,
-  scrub,
-  rounder,
-  onPick,
-  barOpen,
-  setBarOpen,
-  tare,
-  machine,
-}: {
-  kind: LoadKind;
-  value: number;
-  unit: PlateUnit;
-  bar?: BarChoice;
-  onBarChange?: (bar: BarChoice) => void;
-  isCn: boolean;
-  scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
-  rounder: ExRounder;
-  onPick?: (displayValue: number) => void;
-  barOpen: boolean;
-  setBarOpen: (f: (o: boolean) => boolean) => void;
-  tare?: number;
-  machine?: MachineCtl;
-}) {
-  const ctx = rounder.ctx;
-  const [stackOpen, setStackOpen] = useState(false);
-  const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
+/**
+ * 显示单位 ↔ 这台器械的片子单位（gu）的换算小工具（2026-10-23 用户：调重量的界面都要能实时切单位）。
+ * 存的仍是这台器械上印的单位（gu）——只在显示和输入时换算，切来切去不丢精度，和杠铃片说明（plateLabel）一个做法。
+ * 大图（GymHero）和设置行（MachineFace）共用。
+ */
+function displayConv(rounder: ExRounder, unit: PlateUnit) {
   const u = unit === 'lbs' ? 'lb' : 'kg';
   /**
    * 这个馆的片子单位（审查 A9）：片子、空杠、器械一档、配重片刻度都按它（那台器械上印的就是它）；
@@ -588,21 +562,20 @@ function GymHero({
     return INC_CHOICES[gu].reduce((b, x) => (Math.abs(x - g) < Math.abs(b - g) ? x : b), INC_CHOICES[gu][0]);
   };
   const incStepFn = listStepFn(INC_CHOICES[gu].map(toD));
-  // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
-  const empty = Math.abs(value) < 1e-9;
-  const onGrid = empty || rounder.loadableD(value);
-  const v = onGrid ? value : rounder.snapD(value);
-  const vG = toG(v);
-  const barKind: BarKind = bar?.kind ?? 'standard';
-  const isBar = kind === 'plates' || kind === 'loaded';
-  const oneSide = kind === 'loaded' && !!ctx.oneSide;
-  const base = kind === 'plates' ? ctx.bar : 0;
-  const perSide = isBar && vG > base + 1e-9 ? sidePlates((vG - base) / (oneSide ? 1 : 2), ctx.plates, gu) : [];
-  const belt = kind === 'signed' && vG > 0 ? sidePlates(vG, ctx.plates, gu) : [];
-  const near = onGrid ? null : rounder.bracketD(value);
-  const plateTxt = (ps: number[]) => ps.map(w => plateLabel(w, gu, unit)).join(' + ');
-  const mixed = gu !== unit ? (isCn ? (gu === 'lbs' ? '（磅片）' : '（公斤片）') : gu === 'lbs' ? ' (lb plates)' : ' (kg plates)') : '';
+  return { u, gu, toG, fmt, conv, toD, fromD, fmtD, incFromD, incStepFn };
+}
 
+/**
+ * 「这台器械」的设置行：加重方式 / 这台的片子 / 最轻一格 · 每格 / 单边 / 器械自重 / 每档 / 恢复馆默认。
+ * 大图里原地展开、渲染进「动作设置」弹窗（slot）、交替组卡（没有大图，只有这几行）三处共用一份。
+ * 状态都在 machine（useMachineSettings）里，这里只画。
+ */
+export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: LoadKind; unit: PlateUnit; isCn: boolean; rounder: ExRounder; machine: MachineCtl }) {
+  const ctx = rounder.ctx;
+  const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
+  const { u, gu, toD, fromD, fmtD, incFromD, incStepFn } = displayConv(rounder, unit);
+  const oneSide = kind === 'loaded' && !!ctx.oneSide;
+  const lightest = stackStart > 0 ? stackStart : ctx.inc;
   const nudgeStart = (dir: 1 | -1) => {
     if (!machine?.onStack) return;
     const cur = stackStart > 0 ? stackStart : ctx.inc;
@@ -619,65 +592,6 @@ function GymHero({
     // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
     machine.onStack(nextV, stackStart > 0 ? stackStart : ctx.inc);
   };
-
-  let caption = '';
-  if (isBar) {
-    caption = perSide.length
-      ? oneSide
-        ? isCn ? `单边 ${plateTxt(perSide)} ${u}${mixed}` : `One side ${plateTxt(perSide)} ${u}${mixed}`
-        : isCn ? `每边 ${plateTxt(perSide)} ${u}${mixed}` : `Per side ${plateTxt(perSide)} ${u}${mixed}`
-      : kind === 'plates'
-        ? isCn ? '空杠' : 'Empty bar'
-        : isCn ? '还没挂片' : 'No plates yet';
-    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）。空载按馆的片子单位记
-    if (kind === 'loaded')
-      caption +=
-        tare !== undefined
-          ? isCn ? ` · 连器械共 ${fmtD(vG + tare)} ${u}` : ` · ${fmtD(vG + tare)} ${u} with the machine`
-          : isCn ? ' · 只算片子' : ' · plates only';
-  } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
-  else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
-  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt(v)} ${u}` : `Kettlebell ${fmt(v)} ${u}`;
-  // 固定杠铃是一根的总重，不写「每只」
-  else if (kind === 'fixed') caption = isCn ? `固定杠铃 ${fmt(v)} ${u}` : `Fixed barbell ${fmt(v)} ${u}`;
-  else if (kind === 'signed') {
-    if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
-    else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';
-    else caption = isCn ? `腰挂 ${plateTxt(belt)} ${u}${mixed}` : `Belt ${plateTxt(belt)} ${u}${mixed}`;
-  }
-  if (empty && kind !== 'signed') caption = isCn ? '还没填重量' : 'No weight yet';
-  if (near) {
-    const shown = kind === 'signed' && value < 0 ? `${isCn ? '辅助 ' : 'assisted '}${fmt(-value)}` : fmt(Math.abs(value));
-    caption = isCn ? `按 ${shown} ${u} 记 · 图上是最接近的配法` : `Logged as ${shown} ${u} · drawn as the closest load`;
-  }
-
-  const barName = isCn ? BAR_LABEL[barKind].cn : BAR_LABEL[barKind].en;
-  const barTxt = `${barName} ${plateLabel(ctx.bar, gu, unit)} ${u}`;
-  const shortU: PlateUnit = bar?.kind === 'short' ? (bar.unit ?? gu) : gu;
-  const shortW = bar?.kind === 'short' ? (bar.weight ?? SHORT_BAR_DEFAULT[shortU]) : SHORT_BAR_DEFAULT[gu];
-  const pick = (k: BarKind) =>
-    onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
-  const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
-
-  const lightest = stackStart > 0 ? stackStart : ctx.inc;
-  const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
-  // 有弹窗位置（slot）时不在原地展开：设置行渲染进「动作设置」里
-  const faceOpen = stackOpen && hasMachine && !machine?.slot;
-  const incName =
-    kind === 'pair' ? (isCn ? '哑铃' : 'Dumbbells')
-    : kind === 'bell' ? (isCn ? '壶铃' : 'Kettlebells')
-    : kind === 'fixed' ? (isCn ? '固定杠铃' : 'Fixed bars')
-    : isCn ? '辅助' : 'Assist';
-  const pillText = !machine
-    ? ''
-    : kind === 'pin'
-      ? isCn ? `${fmtD(lightest)} 起 · 每格 ${fmtD(ctx.inc)} ${u}` : `From ${fmtD(lightest)} · +${fmtD(ctx.inc)} ${u}`
-      : kind === 'loaded'
-        ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
-          (machine.tare?.value != null
-            ? isCn ? ` · 器械自重 ${fmtD(machine.tare.value)} ${u}` : ` · machine ${fmtD(machine.tare.value)} ${u}`
-            : isCn ? ' · 自重没填' : ' · weight unknown')
-        : isCn ? `${incName} · 每档 ${fmtD(ctx.inc)} ${u}` : `${incName} · +${fmtD(ctx.inc)} ${u}`;
   const incRow = (label: string) =>
     machine?.inc && (
       <div className="stack-stp">
@@ -698,9 +612,7 @@ function GymHero({
         </span>
       </div>
     );
-
-  /** 「这台器械」的设置行：原地展开（交替组等）和渲染进「动作设置」弹窗（slot）共用一份 */
-  const faceRows = machine && (
+  return (
     <>
       {machine.canSwitch && (
         <div className="stack-stp">
@@ -855,7 +767,114 @@ function GymHero({
       )}
     </>
   );
+}
 
+function GymHero({
+  kind,
+  value,
+  unit,
+  bar,
+  onBarChange,
+  isCn,
+  scrub,
+  rounder,
+  onPick,
+  barOpen,
+  setBarOpen,
+  tare,
+  machine,
+}: {
+  kind: LoadKind;
+  value: number;
+  unit: PlateUnit;
+  bar?: BarChoice;
+  onBarChange?: (bar: BarChoice) => void;
+  isCn: boolean;
+  scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
+  rounder: ExRounder;
+  onPick?: (displayValue: number) => void;
+  barOpen: boolean;
+  setBarOpen: (f: (o: boolean) => boolean) => void;
+  tare?: number;
+  machine?: MachineCtl;
+}) {
+  const ctx = rounder.ctx;
+  const [stackOpen, setStackOpen] = useState(false);
+  const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
+  const { u, gu, toG, fmt, fmtD } = displayConv(rounder, unit);
+  // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
+  const empty = Math.abs(value) < 1e-9;
+  const onGrid = empty || rounder.loadableD(value);
+  const v = onGrid ? value : rounder.snapD(value);
+  const vG = toG(v);
+  const barKind: BarKind = bar?.kind ?? 'standard';
+  const isBar = kind === 'plates' || kind === 'loaded';
+  const oneSide = kind === 'loaded' && !!ctx.oneSide;
+  const base = kind === 'plates' ? ctx.bar : 0;
+  const perSide = isBar && vG > base + 1e-9 ? sidePlates((vG - base) / (oneSide ? 1 : 2), ctx.plates, gu) : [];
+  const belt = kind === 'signed' && vG > 0 ? sidePlates(vG, ctx.plates, gu) : [];
+  const near = onGrid ? null : rounder.bracketD(value);
+  const plateTxt = (ps: number[]) => ps.map(w => plateLabel(w, gu, unit)).join(' + ');
+  const mixed = gu !== unit ? (isCn ? (gu === 'lbs' ? '（磅片）' : '（公斤片）') : gu === 'lbs' ? ' (lb plates)' : ' (kg plates)') : '';
+
+  let caption = '';
+  if (isBar) {
+    caption = perSide.length
+      ? oneSide
+        ? isCn ? `单边 ${plateTxt(perSide)} ${u}${mixed}` : `One side ${plateTxt(perSide)} ${u}${mixed}`
+        : isCn ? `每边 ${plateTxt(perSide)} ${u}${mixed}` : `Per side ${plateTxt(perSide)} ${u}${mixed}`
+      : kind === 'plates'
+        ? isCn ? '空杠' : 'Empty bar'
+        : isCn ? '还没挂片' : 'No plates yet';
+    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）。空载按馆的片子单位记
+    if (kind === 'loaded')
+      caption +=
+        tare !== undefined
+          ? isCn ? ` · 连器械共 ${fmtD(vG + tare)} ${u}` : ` · ${fmtD(vG + tare)} ${u} with the machine`
+          : isCn ? ' · 只算片子' : ' · plates only';
+  } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
+  else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
+  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt(v)} ${u}` : `Kettlebell ${fmt(v)} ${u}`;
+  // 固定杠铃是一根的总重，不写「每只」
+  else if (kind === 'fixed') caption = isCn ? `固定杠铃 ${fmt(v)} ${u}` : `Fixed barbell ${fmt(v)} ${u}`;
+  else if (kind === 'signed') {
+    if (v < 0) caption = isCn ? `辅助 ${fmt(-v)} ${u}` : `Assisted ${fmt(-v)} ${u}`;
+    else if (v === 0) caption = isCn ? '纯自重' : 'Bodyweight';
+    else caption = isCn ? `腰挂 ${plateTxt(belt)} ${u}${mixed}` : `Belt ${plateTxt(belt)} ${u}${mixed}`;
+  }
+  if (empty && kind !== 'signed') caption = isCn ? '还没填重量' : 'No weight yet';
+  if (near) {
+    const shown = kind === 'signed' && value < 0 ? `${isCn ? '辅助 ' : 'assisted '}${fmt(-value)}` : fmt(Math.abs(value));
+    caption = isCn ? `按 ${shown} ${u} 记 · 图上是最接近的配法` : `Logged as ${shown} ${u} · drawn as the closest load`;
+  }
+
+  const barName = isCn ? BAR_LABEL[barKind].cn : BAR_LABEL[barKind].en;
+  const barTxt = `${barName} ${plateLabel(ctx.bar, gu, unit)} ${u}`;
+  const shortU: PlateUnit = bar?.kind === 'short' ? (bar.unit ?? gu) : gu;
+  const shortW = bar?.kind === 'short' ? (bar.weight ?? SHORT_BAR_DEFAULT[shortU]) : SHORT_BAR_DEFAULT[gu];
+  const pick = (k: BarKind) =>
+    onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
+  const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
+
+  const lightest = stackStart > 0 ? stackStart : ctx.inc;
+  const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
+  // 有弹窗位置（slot）时不在原地展开：设置行渲染进「动作设置」里
+  const faceOpen = stackOpen && hasMachine && !machine?.slot;
+  const incName =
+    kind === 'pair' ? (isCn ? '哑铃' : 'Dumbbells')
+    : kind === 'bell' ? (isCn ? '壶铃' : 'Kettlebells')
+    : kind === 'fixed' ? (isCn ? '固定杠铃' : 'Fixed bars')
+    : isCn ? '辅助' : 'Assist';
+  const pillText = !machine
+    ? ''
+    : kind === 'pin'
+      ? isCn ? `${fmtD(lightest)} 起 · 每格 ${fmtD(ctx.inc)} ${u}` : `From ${fmtD(lightest)} · +${fmtD(ctx.inc)} ${u}`
+      : kind === 'loaded'
+        ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
+          (machine.tare?.value != null
+            ? isCn ? ` · 器械自重 ${fmtD(machine.tare.value)} ${u}` : ` · machine ${fmtD(machine.tare.value)} ${u}`
+            : isCn ? ' · 自重没填' : ' · weight unknown')
+        : isCn ? `${incName} · 每档 ${fmtD(ctx.inc)} ${u}` : `${incName} · +${fmtD(ctx.inc)} ${u}`;
   return (
     <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}${faceOpen ? ' is-face' : ''}`} data-testid="load-hero">
       {hasMachine && !faceOpen && (
@@ -883,16 +902,16 @@ function GymHero({
               {isCn ? '完成' : 'Done'}
             </button>
           </div>
-          {faceRows}
+          <MachineFace kind={kind} unit={unit} isCn={isCn} rounder={rounder} machine={machine} />
         </div>
       ) : (
         <>
           {/* 合并入口：设置行渲染进「动作设置」弹窗的「在 X」一段（状态还在这张卡上，所以用 portal） */}
-          {hasMachine && machine?.slot &&
+          {hasMachine && machine && machine.slot &&
             createPortal(
               // 段标题（在 X 的这一台）和单位开关在弹窗那边（2026-10-23 三层）
               <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
-                {faceRows}
+                <MachineFace kind={kind} unit={unit} isCn={isCn} rounder={rounder} machine={machine} />
               </div>,
               machine.slot,
             )}
@@ -990,5 +1009,22 @@ function GymHero({
         </div>
       )}
     </div>
+  );
+}
+
+/** 「动作设置」开着、这张卡又给不出这台器械的设置：在「这一台」那段写明缺什么（2026-10-23，原来整段消失、找不到入口）。单卡、交替组成员共用 */
+export function MachineMissingNote({ isCn, hasWeight, gym, hasSet, loadKind }: { isCn: boolean; hasWeight: boolean; gym?: string; hasSet: boolean; loadKind: LoadKind }) {
+  return (
+    <p className="metric-note" data-testid="gym-missing">
+      {!hasWeight
+        ? isCn ? '记录项里开了「重量」，才有这台器械的设置。' : 'Turn on Weight above to set up this machine.'
+        : !gym
+          ? isCn ? '这场训练还没选馆。在训练页顶上选了馆，这台器械的设置才记得住。' : 'Pick a gym at the top of the workout first, so this machine can be remembered.'
+          : !hasSet
+            ? isCn ? '加一组之后就能设。' : 'Add a set first.'
+            : loadKind === 'plates'
+              ? isCn ? '杠铃按这个馆的片子算，这里不用单独设。' : "Barbells use this gym's plates; nothing to set here."
+              : isCn ? '这种阻力没有器械刻度要设。' : 'Nothing to set for this load type.'}
+    </p>
   );
 }

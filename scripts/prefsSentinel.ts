@@ -41,6 +41,7 @@ export const PREFS_SENTINEL = {
     gymTares: { '哨兵馆|EX_sentinel|': { v: -7.5, u: 'lbs' } },
     featuredLifts: ['EX_sentinel|', 'EX_sentinel|V_sentinel'],
     featuredMode: 'e1rm',
+    inheritAltGroup: false,
   } satisfies Required<AppPrefs>,
   appPrefsUpdatedMs: 1700000000005,
 } satisfies Required<FitlogSyncedPrefs>;

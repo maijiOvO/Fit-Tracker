@@ -34,7 +34,7 @@ export interface RowRef {
 }
 
 /** 有没有填数：全零的组做完也记不下任何东西 */
-function setHasValue(s: SetLog): boolean {
+export function setHasValue(s: SetLog): boolean {
   const n = (v: unknown) => Number(v) > 0;
   return (
     ['weight', 'reps', 'duration', 'distance', 'score', 'time'].some(k => n((s as any)[k])) ||
@@ -161,7 +161,7 @@ export function nextPendingRow(exs: Exercise[]): RowRef | null {
 }
 
 /** 新的先后号：比现有的都大（时间戳，跨重开也单调） */
-function nextSeq(exs: Exercise[]): number {
+export function nextSeq(exs: Exercise[]): number {
   let max = 0;
   for (const e of exs) for (const s of e.sets) if (s.seq && s.seq > max) max = s.seq;
   return Math.max(Date.now(), max + 1);
@@ -720,7 +720,7 @@ export function memberAbbrs(names: string[]): string[] {
 /** 结束训练：剥掉工作台标记；只剩一个成员的交替组拆掉 */
 export function stripWorkbenchSet<T extends SetLog>(s: T): T {
   // prefillRef / draftAuto 只服务工作台上的「上次 x」与切单位重算，不进历史（递减档上的也剥）
-  const { skipped: _sk, seq: _q, prefillRef: _pr, draftAuto: _da, checkWeight: _cw, ...rest } = s;
+  const { skipped: _sk, seq: _q, added: _ad, prefillRef: _pr, draftAuto: _da, checkWeight: _cw, ...rest } = s;
   return (rest.subSets?.length
     ? { ...rest, subSets: rest.subSets.map(({ prefillRef: _spr, draftAuto: _sda, checkWeight: _scw, ...sub }) => sub) }
     : rest) as T;

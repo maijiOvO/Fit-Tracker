@@ -60,8 +60,7 @@ export class FitLogDB {
         this.applySchema((ev.target as IDBOpenDBRequest).result);
       };
       req.onsuccess = (ev) => {
-        this.db = (ev.target as IDBOpenDBRequest).result;
-        this.openedAs = name;
+        this.adopt((ev.target as IDBOpenDBRequest).result, name);
         resolve();
       };
       req.onerror = () => reject(req.error);
@@ -85,12 +84,31 @@ export class FitLogDB {
         this.applySchema((event.target as IDBOpenDBRequest).result);
       };
       request.onsuccess = (event) => {
-        this.db = (event.target as IDBOpenDBRequest).result;
-        this.openedAs = name;
+        this.adopt((event.target as IDBOpenDBRequest).result, name);
         resolve();
       };
       request.onerror = () => reject(request.error);
     });
+  }
+
+  /**
+   * 接管一条新连接。浏览器会在后台单方面关掉 IndexedDB 连接（WebView 切后台被回收存储、磁盘出错、
+   * 另一处升级版本），之后 transaction() 同步抛 InvalidStateError —— 这里把连接丢掉，下一次读写在 getStore 里重开。
+   * 不处理的话每次自动落盘都静默失败，App 被杀后那一段训练就没了（2026-11-02 排查丢组时补的）。
+   */
+  private adopt(db: IDBDatabase, name: string): void {
+    this.db = db;
+    this.openedAs = name;
+    const drop = () => {
+      if (this.db !== db) return;
+      this.db = null;
+      this.openedAs = null;
+    };
+    db.onclose = drop;
+    db.onversionchange = () => {
+      db.close();
+      drop();
+    };
   }
 
   /** 数据环境切换后调用：关掉旧库连接，改开新环境对应的库 */
@@ -114,8 +132,16 @@ export class FitLogDB {
       // 旧版本数据库缺少这个 store —— 自我修复
       await this.forceUpgrade();
     }
-    const transaction = this.db!.transaction(name, mode);
-    return transaction.objectStore(name);
+    try {
+      return this.db!.transaction(name, mode).objectStore(name);
+    } catch (err) {
+      // 连接已经被关了但 onclose 还没派发到（或者关在 await 的间隙里）：重开一次再试
+      if (!(err instanceof DOMException && err.name === 'InvalidStateError')) throw err;
+      this.db = null;
+      this.openedAs = null;
+      await this.init();
+      return this.db!.transaction(name, mode).objectStore(name);
+    }
   }
 
   async getAll<T>(storeName: string): Promise<T[]> {
