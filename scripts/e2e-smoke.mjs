@@ -1409,10 +1409,14 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
       const title = card.locator('h3').first();
       const before = (await title.textContent())?.trim();
+      // 改名走 ⋯ → 动作设置 → 名称（2026-11-03 菜单里的「重命名」删了）；改名弹窗叠在动作设置上面，按「确定」按钮认它
+      await card.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
+      await card.getByRole('menuitem', { name: /动作设置|Settings/ }).click();
+      const renameRow = page.locator('[data-testid="settings-rename"]');
+      await renameRow.waitFor({ state: 'visible', timeout: 3_000 });
       const openRename = async () => {
-        await card.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
-        await card.getByRole('menuitem', { name: /重命名|Rename/ }).click();
-        const dlg = page.locator('[role="dialog"]');
+        await renameRow.click();
+        const dlg = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }) });
         await dlg.waitFor({ state: 'visible', timeout: 3_000 });
         return dlg;
       };
@@ -1430,6 +1434,11 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await dlg.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }).click();
       await dlg.waitFor({ state: 'detached', timeout: 3_000 });
       if ((await title.textContent())?.trim() !== fresh) throw new Error('card title did not follow the rename');
+      const settingsDone = page.getByRole('dialog').getByRole('button', { name: /^(完成|Done)$/ });
+      if (await settingsDone.count()) {
+        await settingsDone.click();
+        await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 3_000 });
+      }
       const aliases = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem(lsKey('fitlog_exercise_overrides')) || '{}')).flatMap(o => o.aliases || []));
       if (!aliases.includes(before)) throw new Error(`old name "${before}" not kept as alias`);
       await backAndDiscard(page);

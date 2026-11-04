@@ -1188,11 +1188,6 @@ const AppWithAuthShell: React.FC = () => {
             sessionAdded={sheetSessionAdded}
             onPickExercise={handlePickFromSheet}
             onCreateCustomExercise={(name, preset) => openCreateCustomExerciseModal(name, undefined, preset)}
-            onRenameExercise={(id, name) => {
-              setExerciseToRename({ id, name });
-              setNewExerciseNameInput(name);
-              setShowRenameExerciseModal(true);
-            }}
             onDeleteLibraryExercise={id => prefs.deleteLibraryExercise(id)}
             onSwitchVariant={switchExerciseVariant}
             flashExerciseId={flashExerciseId}
@@ -1362,8 +1357,6 @@ const AppWithAuthShell: React.FC = () => {
         }
         gymSlotRef={setMetricGymSlot}
         focusGym={showMetricModal?.focus === 'gym'}
-        unit={unit}
-        onToggleUnit={handleUnitToggle}
         onRename={
           metricModalDef
             ? () => {

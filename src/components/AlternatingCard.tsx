@@ -14,7 +14,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MachineFace, MachineMissingNote } from './PlateGlyph';
 import { useMachineSettings } from '../hooks/useMachineSettings';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Pencil, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { SetCapsule } from './SetCapsule';
@@ -55,7 +55,6 @@ interface Props {
   onRemoveMember: (exId: string) => void;
   onDeleteMember: (exId: string) => void;
   /** 改名：动作库里找得到这个动作才有（同单卡「⋯」里的重命名），返回 undefined 就不显示 */
-  renameMember?: (exId: string) => (() => void) | undefined;
   onSplit: () => void;
   onAddMember: () => void;
   onSwitchRowExercise: (r: RowRef, toExId: string) => void;
@@ -167,7 +166,6 @@ export const AlternatingCard: React.FC<Props> = ({
   onMoveMember,
   onRemoveMember,
   onDeleteMember,
-  renameMember,
   onSplit,
   onAddMember,
   onSwitchRowExercise,
@@ -455,23 +453,6 @@ export const AlternatingCard: React.FC<Props> = ({
               {isCn ? '右移' : 'Right'} <ChevronRight size={16} />
             </button>
           </div>
-          {(() => {
-            const rename = renameMember?.(memberFor);
-            return rename ? (
-              <button
-                type="button"
-                className={panelBtn}
-                onClick={() => {
-                  setMemberFor(null);
-                  rename();
-                }}
-                data-testid="alt-rename-member"
-              >
-                <Pencil size={16} className="text-accent" />
-                {isCn ? '重命名' : 'Rename'}
-              </button>
-            ) : null;
-          })()}
           <button
             type="button"
             className={panelBtn}

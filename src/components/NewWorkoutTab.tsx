@@ -109,7 +109,6 @@ export interface NewWorkoutTabProps {
   onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
   onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
-  onRenameExercise: (id: string, currentName: string) => void;
   /** 换练法（第 8 条） */
   onSwitchVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
   onDeleteLibraryExercise: (id: string) => void;
@@ -155,7 +154,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   sessionAdded,
   onPickExercise,
   onCreateCustomExercise,
-  onRenameExercise,
   onSwitchVariant,
   onDeleteLibraryExercise,
   flashExerciseId,
@@ -163,7 +161,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   partPrechosenId = null,
 }) => {
   const isCn = lang === Language.CN;
-  const { findExerciseDef, signedLoadOf } = useExercisePrefs();
+  const { signedLoadOf } = useExercisePrefs();
   const rounderFor = useLoadRounder();
   const { toast, toastUndo } = useUiOverlay();
   const flashTimerRef = useRef<number | null>(null);
@@ -730,11 +728,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onMoveMember={(exId, dir) => setExs(list => moveGroupMember(list, exId, dir))}
                 onRemoveMember={exId => setExs(list => removeFromGroup(list, exId))}
                 onDeleteMember={exId => onDeleteExerciseFromSession(indexOf(exId))}
-                renameMember={exId => {
-                  const ex = exs.find(e => e.id === exId);
-                  const def = ex ? findExerciseDef(ex.name) : null;
-                  return ex && def ? () => onRenameExercise(def.id, resolveName(ex.name)) : undefined;
-                }}
                 onSplit={() => setExs(list => splitGroup(list, card.group!))}
                 onAddMember={() => onPickerOpenChange(true, null, card.group)}
                 onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to, isSigned))}
@@ -802,10 +795,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onOpenMetricModal={(name, focus) => onOpenMetricModal(name, exIdx, focus)}
               settingsSlot={metricSlot?.exIdx === exIdx ? metricSlot.el : null}
               onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
-              onRename={(() => {
-                const def = findExerciseDef(ex.name);
-                return def ? () => onRenameExercise(def.id, resolveName(ex.name)) : undefined;
-              })()}
               onSetUpdate={(_eIdx, setIdx, updates) => {
                 const s = ex.sets[setIdx];
                 if (s) updateSet({ exId: ex.id, setId: String(s.id) }, updates);

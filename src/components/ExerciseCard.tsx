@@ -8,7 +8,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Pencil, Shuffle, Repeat } from 'lucide-react';
+import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Shuffle, Repeat } from 'lucide-react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language, SetLog } from '../../types';
@@ -78,7 +78,6 @@ interface ExerciseCardProps {
   /** 动作设置弹窗开着、且开的正是这一张卡时，弹窗里「在 X」那一段的挂载点；这台器械的设置行 portal 进去 */
   settingsSlot?: HTMLElement | null;
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
-  onRename?: () => void;
   /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
   onSwitchVariant?: (variantId: string | undefined, name?: string) => void;
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
@@ -134,7 +133,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onToggleNote,
   onOpenMetricModal,
   settingsSlot,
-  onRename,
   onSwitchVariant,
   onSetUpdate,
   onAddSet,
@@ -331,6 +329,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <MoreHorizontal size={20} strokeWidth={1.75} />
             </button>
 
+            {/* 条目按训练中用的频率排：备注、换做法、交替，再到动作设置；改名走动作设置里的「名称」（2026-11-03 用户定，菜单里不再重复） */}
             {menuOpen && (
               <div
                 role="menu"
@@ -348,18 +347,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   <StickyNote size={16} strokeWidth={1.75} className="text-tertiary" />
                   {hasNote ? (isCn ? '编辑备注' : 'Edit note') : isCn ? '加备注' : 'Add note'}
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={menuItem}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onOpenMetricModal(exerciseName);
-                  }}
-                >
-                  <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary" />
-                  {isCn ? '动作设置' : 'Settings'}
-                </button>
                 {onSwitchVariant && hasDef && (
                   <button
                     type="button"
@@ -371,7 +358,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     }}
                   >
                     <Shuffle size={16} strokeWidth={1.75} className="text-tertiary" />
-                    {isCn ? '做法' : 'Variant'}
+                    {isCn ? '换做法' : 'Switch variant'}
                   </button>
                 )}
                 {onAlternateWithNext && (
@@ -403,20 +390,18 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     {isCn ? '加入上面的交替组' : 'Join the group above'}
                   </button>
                 )}
-                {onRename && (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={menuItem}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onRename();
-                    }}
-                  >
-                    <Pencil size={16} strokeWidth={1.75} className="text-tertiary" />
-                    {isCn ? '重命名' : 'Rename'}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={menuItem}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onOpenMetricModal(exerciseName);
+                  }}
+                >
+                  <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary" />
+                  {isCn ? '动作设置' : 'Settings'}
+                </button>
                 {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险。单击即删、不弹确认；
                     已经有做完的组时删完给一条撤销（App.tsx onDeleteExerciseFromSession），全是底稿的删了加回来就行。 */}
                 <button

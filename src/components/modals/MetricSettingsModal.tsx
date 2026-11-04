@@ -40,9 +40,6 @@ interface MetricSettingsModalProps {
   gymSlotRef?: (el: HTMLElement | null) => void;
   /** 从大图的小药丸进来：打开后滚到「这一台」 */
   focusGym?: boolean;
-  /** 显示单位（全局，跟训练页顶上那个是同一个） */
-  unit?: 'kg' | 'lbs';
-  onToggleUnit?: () => void;
 }
 
 export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
@@ -56,8 +53,6 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   card,
   gymSlotRef,
   focusGym,
-  unit,
-  onToggleUnit,
 }) => {
   const {
     getActiveMetrics,
@@ -187,8 +182,8 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
       }
     >
       <div className="metric-modal">
-        {/* 顶栏：改哪个做法 + 显示单位。随内容滚时钉在上面 */}
-        {(variants.length > 0 || (card && onToggleUnit && !cardio)) && (
+        {/* 顶栏：改哪个做法，随内容滚时钉在上面。原来还有全局显示单位开关，和「这台的片子」挤在一张表里像是在给动作设单位，删了（2026-11-03 用户定），顶栏的 KG 按钮本来就在 */}
+        {variants.length > 0 && (
           <div className="metric-topbar">
             {variants.length > 0 && (
               <div className="relative">
@@ -228,24 +223,6 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
                   </div>
                 )}
               </div>
-            )}
-            {card && onToggleUnit && !cardio && (
-              <span className="metric-unit">
-                {isCn ? '单位' : 'Unit'}
-                <span className="gym-seg" role="group" aria-label={isCn ? '重量单位' : 'Weight unit'} data-testid="sheet-unit">
-                  {(['kg', 'lbs'] as const).map(k => (
-                    <button
-                      key={k}
-                      type="button"
-                      className={`min-h-[32px] px-3 text-small font-semibold ${unit === k ? 'seg-on' : 'text-secondary'}`}
-                      aria-pressed={unit === k}
-                      onClick={() => unit !== k && onToggleUnit()}
-                    >
-                      {k === 'kg' ? 'kg' : 'lb'}
-                    </button>
-                  ))}
-                </span>
-              </span>
             )}
           </div>
         )}
