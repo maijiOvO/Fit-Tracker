@@ -75,6 +75,33 @@ export function startIn(c: IncSpec | undefined, unit: PlateUnit): number {
   return Math.round(convert(c.s, c.u, unit) * 20) / 20;
 }
 
+const INC_KEYS = ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar'] as const;
+
+/**
+ * 切这个馆的片子单位（档案表单顶上的「公斤片 ⇄ 磅片」，2026-11-03 用户定）：
+ * 片子表重置为那种单位的标准片（自定义片一起清掉，design-plates.md「换馆重量」D）；
+ * 各档里还跟着旧片子单位走的（单位 = 旧片子单位）一起换过去：没动过的用新单位的默认，改过的一档取 INC_CHOICES 里最近的、起始按实重换算；
+ * 已经单独设成另一种单位的那一档（kg 馆里一台 lb 的龙门架）原样保留。旧档案缺的档不凭空补。
+ */
+export function withPlateUnit(p: GymProfile, unit: PlateUnit): GymProfile {
+  if (p.plateUnit === unit) return p;
+  const next: GymProfile = { ...p, plateUnit: unit, plates: [...DEFAULT_PLATES[unit]] };
+  const oldDef = defaultProfile(p.plateUnit);
+  const newDef = defaultProfile(unit);
+  for (const k of INC_KEYS) {
+    const c = p[k];
+    if (!c || c.u !== p.plateUnit) continue;
+    // 没动过的档（还是旧单位的默认，没设起始）直接用新单位的默认：4 kg 壶铃换成 5 lb，不是表里最近的 10 lb
+    if (c.v === oldDef[k]!.v && !c.s) {
+      next[k] = newDef[k];
+      continue;
+    }
+    const s = startIn(c, unit);
+    next[k] = { u: unit, v: incIn(c, unit), ...(s > 0 ? { s } : {}) };
+  }
+  return next;
+}
+
 /** 当前单位下实际用的那一套：档案和单位一致就照用，不一致按标准片、档位换算到最近（这次换了一套片子） */
 export interface LoadCtx {
   unit: PlateUnit;

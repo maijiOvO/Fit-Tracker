@@ -585,4 +585,31 @@ t('跨部位多选：自己部位的排前面，主细分永远是自己部位�
   assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'legGlute', own), ['backLower']);
 });
 
+t('loadable.withPlateUnit：切馆的片子单位，跟着旧片子单位走的各档一起换，单独设成别的单位的保留', () => {
+  const L = W.L;
+  // 新馆按显示单位 kg 起的档案，切成磅片：五档都没动过 → 就是一份 lb 的默认档案（壶铃 4 kg → 5 lb，不是表里最近的 10 lb）
+  const lb = L.withPlateUnit(L.defaultProfile('kg'), 'lbs');
+  assert.deepEqual(lb, L.defaultProfile('lbs'));
+  // 改过的档按实重取档位表里最近的：哑铃 2 kg ≈ 4.4 lb → 5；已经单独设成 lb 的龙门架原样保留；
+  // kg 的机器一档带起始点 → 单位、一档和起始一起换
+  const mixed = { ...L.defaultProfile('kg'), dumbbell: { v: 2, u: 'kg' }, cable: { v: 10, u: 'lbs', s: 12.5 }, machine: { v: 5, u: 'kg', s: 10 } };
+  const m = L.withPlateUnit(mixed, 'lbs');
+  assert.deepEqual(m.dumbbell, { v: 5, u: 'lbs' });
+  assert.deepEqual(m.cable, { v: 10, u: 'lbs', s: 12.5 }, '单独设过的保留');
+  assert.equal(m.machine.u, 'lbs');
+  assert.equal(m.machine.v, 10);
+  assert.equal(m.machine.s, Math.round(10 * 2.20462 * 20) / 20, '起始按实重换算');
+  // 换回 kg：刚才跟着换成 lb 的又跟着回来，原本就是 lb 的龙门架照旧不动（它在 lb 馆里是「跟着走」的，所以也换）
+  const back = L.withPlateUnit(m, 'kg');
+  assert.equal(back.cable.u, 'kg');
+  assert.equal(back.machine.u, 'kg');
+  // 同单位切同单位：原样
+  assert.deepEqual(L.withPlateUnit(mixed, 'kg'), mixed);
+  // 旧档案缺壶铃 / 固定杠铃一项：切单位后仍然缺（按默认走），不凭空补出来
+  const old = { plateUnit: 'kg', plates: [20, 10], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } };
+  const o = L.withPlateUnit(old, 'lbs');
+  assert.equal('kettlebell' in o, false);
+  assert.equal('fixedBar' in o, false);
+});
+
 console.log(`== ${n} passed ==`);

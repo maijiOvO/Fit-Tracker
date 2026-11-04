@@ -19,10 +19,10 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
-import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, withPlateUnit, type GymProfile, type IncSpec } from '../../utils/loadable';
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
 
-import { DEFAULT_PLATES, isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
+import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
 
 type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell' | 'fixedBar';
 /** 后加的档（旧档案没有这一项）按各自的默认 */
@@ -208,8 +208,8 @@ function GymProfileForm({
 
   const setUnit = (u: PlateUnit) => {
     if (p.plateUnit === u) return;
-    // 自定义片是按原单位存的，换了一套片子就一起清掉（design-plates.md「换馆重量」D）
-    setP({ ...p, plateUnit: u, plates: [...DEFAULT_PLATES[u]] });
+    // 片子表重置、跟着馆走的各档一起换单位，单独设成别的单位的那档不动（utils/loadable withPlateUnit）
+    setP(withPlateUnit(p, u));
     setCu(u);
   };
   const togglePlate = (w: number) => {
