@@ -94,8 +94,9 @@ export function useLoadRounder(): RounderFor {
       const okey = gymMachineKey(gym, info);
       const ov = okey ? overrides[okey] : undefined;
       const u: PlateUnit = ownUnitOf(info, profile, ov) ?? profile?.plateUnit ?? du;
-      // 挂片式器械填过的自重（gymTares）：当空杠算进总重（2026-11-08 用户定），按馆的片子单位换算
-      const tare = okey ? tareIn(gymTares[okey], u) : undefined;
+      // 挂片式器械的自重（gymTares）：这一台选了「算进记录」才当空杠算进总重（2026-11-08 用户定），按馆的片子单位换算
+      const tspec = okey ? gymTares[okey] : undefined;
+      const tare = tspec?.counted ? tareIn(tspec, u) : undefined;
       const prof = profileIn(profile, u);
       const stackInc = ov ? incIn(ov, u) : info.stack === 'cable' ? prof.cable : prof.machine;
       // 配重片的起始（最轻一格）：这台单独设过就用这台的，否则馆的默认（2026-10-20）
@@ -224,7 +225,7 @@ export function withOneSide(r: ExRounder, oneSide: boolean): ExRounder {
   return makeRounder(r.info, r.unit, { ...r.ctx, oneSide }, r.signed, r.display);
 }
 
-/** 同一个取整器换器械自重（填 / 改 / 清空那一刻，档案还没刷新）；undefined＝没填，只算片子 */
+/** 同一个取整器换算进记录的器械自重（填 / 改 / 清空 / 切算不算那一刻，档案还没刷新）；undefined＝不算，只算片子 */
 export function withTare(r: ExRounder, tare: number | undefined): ExRounder {
   return makeRounder(r.info, r.unit, { ...r.ctx, tare }, r.signed, r.display);
 }

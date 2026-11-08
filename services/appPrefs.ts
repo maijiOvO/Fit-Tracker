@@ -41,9 +41,10 @@ export interface AppPrefs {
   gymNotes?: Record<string, string>;
   /**
    * 挂片式器械的自重（滑台 / 史密斯杠，2026-10-20）：键同 gymOverrides，带单位；'' 是清空的墓碑。
-   * 填了就当空杠算进记录和取整（2026-11-08 用户定；原来只做参考）。可以是 0 或负数（带配重平衡的史密斯）。
+   * 默认只做参考（大图说明「连器械共 x」）；counted 时当空杠算进记录和取整（2026-11-08 用户定：史密斯这种杠上标了重量的，
+   * 用户自己选算不算；滑台 / 杠杆器械的「自重」和实际吃到的差远，照旧只做参考）。可以是 0 或负数（带配重平衡的史密斯）。
    */
-  gymTares?: Record<string, IncSpec | ''>;
+  gymTares?: Record<string, TareSpec | ''>;
   /**
    * 「按动作」顶上的特别关注（2026-10-20）：动作的稳定键「定义 id|做法 id」，最多 4 个、按显示顺序。
    * 没设过（undefined）＝自动取三大项；设成空数组＝用户清空了。存 id 不存名字：改名、切语言都不失效。
@@ -93,7 +94,7 @@ export type ResolvedAppPrefs = {
   /** 墓碑已滤掉 */
   gymKinds: Record<string, GymKind>;
   gymNotes: Record<string, string>;
-  gymTares: Record<string, IncSpec>;
+  gymTares: Record<string, TareSpec>;
   /** null＝没设过，用默认（三大项） */
   featuredLifts: string[] | null;
   featuredMode: 'weight' | 'e1rm';
@@ -136,7 +137,11 @@ function cleanKeyed<T>(raw: unknown, ok: (v: unknown) => v is T): Record<string,
 }
 const isGymKind = (v: unknown): v is GymKind => v === 'pin' || v === 'loaded';
 const isText = (v: unknown): v is string => typeof v === 'string' && v.trim() !== '';
-const isTare = (c: unknown): c is IncSpec =>
+/** 挂片式器械的自重：v / u 同 IncSpec（可为 0 或负数）；counted＝算进记录（没有＝只做参考） */
+export interface TareSpec extends IncSpec {
+  counted?: boolean;
+}
+const isTare = (c: unknown): c is TareSpec =>
   !!c && typeof c === 'object' && Number.isFinite((c as IncSpec).v) && Math.abs((c as IncSpec).v) <= 500 && isUnit((c as IncSpec).u);
 
 export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
@@ -210,7 +215,7 @@ export function invalidateAppPrefsCache(): void {
 export function keyedPatch<F extends 'gymKinds' | 'gymNotes' | 'gymTares'>(
   field: F,
   key: string,
-  value: string | IncSpec,
+  value: string | TareSpec,
 ): Pick<AppPrefs, F> {
   const raw = (readAppPrefs().appPrefs?.[field] ?? {}) as Record<string, unknown>;
   const next = { ...raw };
