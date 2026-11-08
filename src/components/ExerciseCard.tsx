@@ -522,7 +522,6 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           pinStep={unit === 'lbs' ? 10 : 5}
           scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
           rounder={rounder}
-          tare={ms.tareD}
           machine={ms.machineCtl(settingsSlot, () => onOpenMetricModal(exerciseName, 'gym'))}
           onPick={next => {
             haptic(H.tap);

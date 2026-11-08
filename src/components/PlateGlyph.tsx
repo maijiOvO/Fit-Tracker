@@ -28,7 +28,7 @@ import {
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { INC_CHOICES, sidePlates } from '../utils/loadable';
+import { INC_CHOICES, baseOf, sidePlates } from '../utils/loadable';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
 import { STACK_PITCH } from '../utils/scrubFeel';
 
@@ -166,7 +166,7 @@ export interface MachineCtl {
   onStack?: (step: number, start: number) => void;
   /** 一档（配重片 / 哑铃 / 壶铃 / 辅助）：恢复馆默认用 */
   inc?: { overridden: boolean; onSet: (n: number) => void; onReset: () => void };
-  /** 挂片式器械的空载（馆的片子单位；null＝不知道） */
+  /** 挂片式器械的自重（馆的片子单位；null＝不知道，只算片子） */
   tare?: { value: number | null; onSet: (n: number | null) => void };
   /** 挂片式器械只有一边能挂（T 杠、地雷架）：总重＝一边的片 */
   oneSide?: { on: boolean; onSet: (on: boolean) => void };
@@ -357,7 +357,6 @@ export function LoadHero({
   scrub,
   rounder,
   onPick,
-  tare,
   machine,
 }: {
   kind: LoadKind;
@@ -380,14 +379,12 @@ export function LoadHero({
    */
   rounder?: ExRounder | null;
   onPick?: (displayValue: number) => void;
-  /** 挂片式器械在这个馆填过的空载（显示单位）：说明栏加「加空载共 x」，只做参考 */
-  tare?: number;
   /** 这台器械在这个馆的设置（大图上方小药丸，点开是「动作设置」弹窗里「在 X」那一段）；没标馆的训练不传 */
   machine?: MachineCtl;
 }) {
   const [barOpen, setBarOpen] = useState(false);
   if (kind === 'plain') return null;
-  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, tare, machine }} />;
+  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, machine }} />;
 
   const barKind: BarKind = bar?.kind ?? 'standard';
   const barW = barWeight(bar, plateUnit);
@@ -751,8 +748,8 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           </div>
           <p className="stack-note">
             {isCn
-              ? '不挂片时这台器械本身多重（倒蹬的滑台、史密斯的杠）。填了只在上面说明里加一句「连器械共多少」，记录照旧只算片子；不知道就空着。'
-              : 'What the machine weighs with no plates (leg-press sled, Smith bar). Only adds a "with the machine" total to the caption; the log still counts plates only. Leave empty if unsure.'}
+              ? '不挂片时这台器械本身多重（倒蹬的滑台、史密斯的杠）。填了就像杠铃的空杠一样算进记录：记的数＝自重 + 片子，没做完、没改过的组跟着加上；不知道就空着，只算片子。'
+              : 'What the machine weighs with no plates (leg-press sled, Smith bar). Counts like an empty bar: logged = machine + plates, and pending untouched sets shift with it. Leave empty to count plates only.'}
           </p>
         </>
       )}
@@ -781,7 +778,6 @@ function GymHero({
   onPick,
   barOpen,
   setBarOpen,
-  tare,
   machine,
 }: {
   kind: LoadKind;
@@ -795,7 +791,6 @@ function GymHero({
   onPick?: (displayValue: number) => void;
   barOpen: boolean;
   setBarOpen: (f: (o: boolean) => boolean) => void;
-  tare?: number;
   machine?: MachineCtl;
 }) {
   const ctx = rounder.ctx;
@@ -810,7 +805,8 @@ function GymHero({
   const barKind: BarKind = bar?.kind ?? 'standard';
   const isBar = kind === 'plates' || kind === 'loaded';
   const oneSide = kind === 'loaded' && !!ctx.oneSide;
-  const base = kind === 'plates' ? ctx.bar : 0;
+  // 杠铃的空杠 / 挂片器械填过的自重都算在总重里，片子是总重减去它
+  const base = baseOf(kind, ctx);
   const perSide = isBar && vG > base + 1e-9 ? sidePlates((vG - base) / (oneSide ? 1 : 2), ctx.plates, gu) : [];
   const belt = kind === 'signed' && vG > 0 ? sidePlates(vG, ctx.plates, gu) : [];
   const near = onGrid ? null : rounder.bracketD(value);
@@ -826,11 +822,11 @@ function GymHero({
       : kind === 'plates'
         ? isCn ? '空杠' : 'Empty bar'
         : isCn ? '还没挂片' : 'No plates yet';
-    // 记录只算片子；填过空载的，说明里给个总数做参考（design-plates.md「换馆重量」空载）。空载按馆的片子单位记
+    // 填过器械自重的，记的数已经连它一起算（2026-11-08 用户定），说明里点明含了多少；没填的只算片子
     if (kind === 'loaded')
       caption +=
-        tare !== undefined
-          ? isCn ? ` · 连器械共 ${fmtD(vG + tare)} ${u}` : ` · ${fmtD(vG + tare)} ${u} with the machine`
+        ctx.tare !== undefined
+          ? isCn ? ` · 含器械自重 ${fmtD(ctx.tare)} ${u}` : ` · incl. machine ${fmtD(ctx.tare)} ${u}`
           : isCn ? ' · 只算片子' : ' · plates only';
   } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;

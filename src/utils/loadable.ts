@@ -80,8 +80,13 @@ export interface LoadCtx {
   unit: PlateUnit;
   /** 能用的片（当前单位） */
   plates: number[];
-  /** 杠铃空杠（当前单位）；挂片式器械只算片子，不用它 */
+  /** 杠铃空杠（当前单位）；挂片式器械不用它，用 tare */
   bar: number;
+  /**
+   * 挂片式器械的自重（当前单位；滑台 / 史密斯杠，2026-11-08 用户定）：填了就当空杠算进总重，
+   * 记的数＝自重 + 片子；没填（undefined）只算片子。可以是 0 或负数（带配重平衡的史密斯）。只对 loaded 生效。
+   */
+  tare?: number;
   /** 这件器材的一档（配重片 / 哑铃 / 辅助），按 kind 选好了 */
   inc: number;
   /** 配重片的起始（最轻一格，当前单位）；0 / 没有＝一档的整数倍 */
@@ -176,10 +181,15 @@ function snaps(kind: LoadKind): boolean {
   return kind !== 'plain';
 }
 
+/** 片子以外的底：杠铃是空杠，挂片式器械是填过的自重（没填＝0，只算片子），其余 0 */
+export function baseOf(kind: LoadKind, ctx: LoadCtx): number {
+  return kind === 'plates' ? ctx.bar : kind === 'loaded' ? ctx.tare ?? 0 : 0;
+}
+
 /** v 上下两个能挂的重量（当前单位、带符号） */
 export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; hi: number } {
   if (kind === 'plates' || kind === 'loaded') {
-    const base = kind === 'plates' ? ctx.bar : 0;
+    const base = baseOf(kind, ctx);
     if (v <= base) return { lo: base, hi: base };
     const sides = kind === 'loaded' && ctx.oneSide ? 1 : 2;
     const [a, b] = sideBracket((v - base) / sides, ctx.plates, ctx.unit);
@@ -261,8 +271,9 @@ export function stepTo(kind: LoadKind, cur: number, dir: 1 | -1, mult: number, c
     }
     next = x;
   }
-  // 杠铃往下减不到空杠以下（空杠就是最轻的那一下）；要记 0 就直接打字
-  if (kind === 'plates' && next < ctx.bar && cur >= ctx.bar - 0.01) next = ctx.bar;
+  // 杠铃 / 填了自重的挂片器械往下减不到空杠以下（空杠就是最轻的那一下）；要记 0 就直接打字
+  const base = baseOf(kind, ctx);
+  if ((kind === 'plates' || kind === 'loaded') && next < base && cur >= base - 0.01) next = base;
   // 比最轻能挂的还轻（0、手打的 15）：往下不能反而跳到空杠 / 最小一档，原地不动；往上照常吸上去
   if (dir < 0 && next > cur) next = cur;
   if (dir > 0 && next < cur) next = cur;
