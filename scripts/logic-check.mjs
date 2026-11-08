@@ -629,6 +629,42 @@ t('单边挂片：总重＝一边的片，一档＝最小一片', () => {
   assert.equal(one.stepD(25), 2.5);
   assert.equal(one.stepToD(25, 1), 27.5);
 });
+t('挂片器械填了自重：当空杠算进总重（记的数＝自重 + 片子），比空杠轻的吸到空杠；没填只算片子（2026-11-08 用户定）', () => {
+  const ctx = { unit: 'lbs', plates: [45, 35, 25, 10, 5, 2.5], bar: 45, inc: 10 };
+  const bare = L.makeRounder({ kind: 'loaded' }, 'lbs', ctx, false);
+  const smith = L.makeRounder({ kind: 'loaded' }, 'lbs', { ...ctx, tare: 25 }, false);
+  assert.equal(bare.snapD(70), 70, '没填：35 + 35');
+  assert.equal(smith.snapD(95), 95, '25 的杠 + 35 + 35');
+  assert.ok(smith.loadableD(70), '25 + 22.5 × 2 也挂得出');
+  assert.equal(smith.snapD(20), 25, '比空杠轻的吸到空杠');
+  assert.equal(smith.stepToD(0, 1), 25, '空着往上第一下是空杠');
+  assert.equal(smith.stepToD(25, -1), 25, '空杠往下不动');
+  assert.equal(smith.stepToD(25, 1), 30);
+  assert.deepEqual(smith.bracketD(96), { lo: 95, hi: 100 });
+  // 带配重平衡的史密斯：自重可以是负数
+  const cb = L.makeRounder({ kind: 'loaded' }, 'lbs', { ...ctx, tare: -5 }, false);
+  assert.equal(cb.snapD(65), 65, '-5 + 35 + 35');
+  // 自重不影响别的画法
+  assert.equal(L.makeRounder({ kind: 'plates' }, 'lbs', { ...ctx, tare: 25 }, false).snapD(135), 135, '杠铃还是按空杠 45');
+});
+t('填 / 改 / 清空自重：没做完、没改过的组挂的片不变、数字连自重一起增减（递减档一起）；做完的、改过的、空着的不动', () => {
+  const ctx = { unit: 'kg', plates: [20, 10, 5, 2.5], bar: 20, inc: 5 };
+  const ex = { id: 'e', name: '史密斯推肩', sets: [] };
+  const sets = [
+    { id: 'a', weight: 40, reps: 8 },
+    { id: 'b', weight: 40, reps: 8, ghost: true },
+    { id: 'c', weight: 42, reps: 8, ghost: true, touched: { weight: true } },
+    { id: 'd', weight: 0, reps: 8, ghost: true },
+    { id: 'e', weight: 40, reps: 8, ghost: true, subSets: [{ id: 'e1', weight: 30, reps: 8 }] },
+  ];
+  const withTare = L.makeRounder({ kind: 'loaded' }, 'kg', { ...ctx, tare: 15 }, false);
+  const out = L.snapUntouched(sets, ex, withTare, 15);
+  assert.deepEqual(out.map(s => s.weight), [40, 55, 42, 0, 55]);
+  assert.equal(out[4].subSets[0].weight, 45);
+  const bare = L.makeRounder({ kind: 'loaded' }, 'kg', ctx, false);
+  assert.deepEqual(L.snapUntouched(out, ex, bare, -15).map(s => s.weight), [40, 40, 42, 0, 40], '清空：减回去');
+  assert.equal(L.snapUntouched(out, ex, bare, -15)[4].subSets[0].weight, 30);
+});
 
 // ── 交替组改记到别的动作：剥掉原动作的「上次」参考、号按目标动作重写（审查 A7）──────────
 t('改记到别的动作：prefillRef / draftAuto 剥掉；目标不带正负时辅助的组变成 0', () => {

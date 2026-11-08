@@ -9,7 +9,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { keyedPatch } from '../../services/appPrefs';
 import type { Exercise, SetLog } from '../../types';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from './useLoadKind';
-import { oneSideKey, snapUntouched, useLoadRounder, withInc, withKind, withOneSide, withStack } from './useLoadRounder';
+import { oneSideKey, snapUntouched, tareIn, useLoadRounder, withInc, withKind, withOneSide, withStack, withTare } from './useLoadRounder';
 import { incIn, startIn, type IncSpec } from '../utils/loadable';
 import type { PlateUnit } from '../utils/plates';
 import { haptic, H } from '../utils/haptics';
@@ -95,22 +95,33 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
    */
   const kindKey = rounder && gymSwitchableKind(loadInfo.libKind) ? gymKey : null;
   /**
-   * 挂片时多一行「空载」（滑台 / 史密斯杠自重）：器械上标了就填，不知道就空着。
-   * 存 appPrefs.gymTares（带单位），只进大图说明，不改记录。
+   * 挂片时多一行「器械自重」（滑台 / 史密斯杠自重）：器械上标了就填，不知道就空着。
+   * 存 appPrefs.gymTares（带单位）。默认只进大图说明；这一台切成「算进记录」才当空杠算进记录和取整
+   * （2026-11-08 用户定：杠上标了重量的史密斯算，滑台那种不算，每台自己选）。
    */
   const tareKey = kindKey && loadKind === 'loaded' ? kindKey : null;
   const tareSpec = tareKey ? appPrefs.gymTares[tareKey] : undefined;
-  const tareD = tareSpec && rounder
-    ? Math.round((tareSpec.u === rounder.unit ? tareSpec.v : tareSpec.u === 'kg' ? tareSpec.v * KG_TO_LBS : tareSpec.v / KG_TO_LBS) * 10) / 10
-    : undefined;
-  // 空载：横划 / 打字都行；清空＝不知道（墓碑）
-  const saveTare = (n: number | null) => {
+  const tareG = tareSpec && rounder ? tareIn(tareSpec, rounder.unit) : undefined;
+  const tareCounted = !!tareSpec?.counted;
+  /** 写回自重并把算进记录的那部分差值平移到没做完、没改过的组上：挂的片不变，数字跟自重一起增减 */
+  const writeTare = (nextG: number | undefined, counted: boolean) => {
     if (!tareKey || !rounder) return;
-    if (n === null) {
-      if (tareSpec) changeAppPrefs(keyedPatch('gymTares', tareKey, ''));
-      return;
-    }
-    if (n !== tareD) changeAppPrefs(keyedPatch('gymTares', tareKey, { v: n, u: rounder.unit }));
+    changeAppPrefs(keyedPatch('gymTares', tareKey, nextG === undefined ? '' : { v: nextG, u: rounder.unit, ...(counted ? { counted } : {}) }));
+    const inLog = counted && nextG !== undefined ? nextG : undefined;
+    const shiftG = (inLog ?? 0) - (tareCounted ? tareG ?? 0 : 0);
+    onSets(snapUntouched(exercise.sets, exercise, withTare(rounder, inLog), rounder.unit === 'lbs' ? shiftG / KG_TO_LBS : shiftG));
+  };
+  // 自重：横划 / 打字都行；清空＝不知道（墓碑，算不算也一起清掉）
+  const saveTare = (n: number | null) => {
+    // 打的数留一位小数（和 tareIn 读回来的精度一样），否则显示单位换过来的长小数每次都「不等于」、白写一遍
+    const next = n === null ? undefined : Math.round(n * 10) / 10;
+    if (next === tareG) return;
+    writeTare(next, next !== undefined && tareCounted);
+  };
+  const setTareCounted = (on: boolean) => {
+    if (on === tareCounted || tareG === undefined) return;
+    haptic(H.tap);
+    writeTare(tareG, on);
   };
   /** 单边挂片（T 杠、地雷架）：存这一台的 gymOverrides（键 + '|one'），没做完、没改过的组按新算法重新取整 */
   const sideKey = kindKey && loadKind === 'loaded' ? oneSideKey(kindKey) : null;
@@ -143,10 +154,10 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
           onKind: setGymKind,
           onStack: incKey && loadKind === 'pin' ? setStack : undefined,
           inc: incKey ? { overridden: incOverridden, onSet: n => setIncOverride(n), onReset: () => setIncOverride(null) } : undefined,
-          tare: tareKey ? { value: tareD ?? null, onSet: saveTare } : undefined,
+          tare: tareKey ? { value: tareG ?? null, onSet: saveTare, counted: tareCounted, onCounted: setTareCounted } : undefined,
           oneSide: sideKey ? { on: !!rounder.ctx.oneSide, onSet: setOneSide } : undefined,
           onUnit: machineUnitKey ? setMachineUnit : undefined,
         }
       : undefined;
-  return { loadInfo, loadKind, gymKey, rounder, tareD, canSet, machineCtl };
+  return { loadInfo, loadKind, gymKey, rounder, canSet, machineCtl };
 }
