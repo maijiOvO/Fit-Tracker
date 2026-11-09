@@ -17,20 +17,30 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
     await deleteGoal(goalId);
   };
 
+  const addButton = (
+    <button
+      onClick={onAddGoal}
+      className="flex-shrink-0 min-h-[44px] px-3 inline-flex items-center gap-1.5 bg-btn text-primary border border-divider rounded-control text-small font-semibold active:scale-press-sm [&>svg]:text-accent"
+    >
+      <Plus size={16} strokeWidth={2} />
+      {translations.setGoal[lang]}
+    </button>
+  );
+
   return (
     <div className="space-y-5 anim-tab-enter">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="font-display text-display-sm text-primary">{translations.goals[lang]}</h2>
-          <p className="text-secondary text-small mt-1">{translations.goalsSubtitle[lang]}</p>
-        </div>
-        <button
-          onClick={onAddGoal}
-          className="p-3 bg-accent text-on-accent rounded-control hover:opacity-90 transition-opacity active:scale-press-sm"
-        >
-          <Plus size={22} strokeWidth={1.75} />
-        </button>
+      {/* 标题不写：上面的子页标签已经是「训练目标」。添加用次要样式，实色 ＋ 只留给右下角开练 */}
+      <div className="flex justify-between items-center gap-3">
+        <p className="text-secondary text-small">{translations.goalsSubtitle[lang]}</p>
+        {goals.length > 0 && addButton}
       </div>
+
+      {goals.length === 0 && (
+        <div className="ui-card p-8 flex flex-col items-center gap-4 text-small text-secondary" data-testid="goals-empty">
+          {lang === Language.CN ? '还没有目标' : 'No goals yet'}
+          {addButton}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {goals.map(g => (

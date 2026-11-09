@@ -809,6 +809,12 @@ button {
   padding: 0 12px;
   border-bottom: 1px solid var(--divider);
 }
+/* 历史是坐着翻的，不按健身房抬眼读数的尺寸画：一场动作多时不能占满几屏 */
+.ledger-row.is-readonly {
+  min-height: 30px;
+  padding: 0 2px;
+  border-bottom: 0;
+}
 
 /* §5.3「写下一组」：新行 clip-path 自上而下揭示，同时把高度从 0 撑到 52px 占位
    —— 不撑开的话下方的「添加组」按钮会先跳一格再等内容出现。
@@ -933,6 +939,12 @@ button {
 .ledger-fit .ledger-input {
   font-size: max(11px, min(30px, calc((100cqi - var(--ledger-unit-w, 20px)) / (var(--ledger-chars, 3) * 0.475))));
 }
+/* 输入框按字数收窄，单位才贴着数字（§6.1 内嵌在数值右下角）。撑满的话单位被推到格子右缘，读起来属于下一列。 */
+.ledger-fit .ledger-input,
+.ledger-field .ledger-input-sm {
+  flex: 0 1 auto;
+  width: calc(var(--ledger-chars, 1) * 1ch + 3px);
+}
 /* 单位比「lbs」长时（km/h、mph）20px 不够，三指标布局里「11.8」会被 km/h 挤得截掉末位。
    --ledger-unit-w 由 React 按单位串长度给，≤3 个字符时仍是 20px，两指标的老数不变。 */
 
@@ -959,7 +971,7 @@ button {
    与内容无关，所以没事；但时间线展开详情是把 <SetCapsule readOnly> 塞进
    `flex flex-wrap`（Dashboard.tsx renderSetCapsule），那里整行的宽度**正是**
    由内容撑出来的 —— 各格对固有宽度的贡献变成 0，列全塌成 0，重量和次数直接叠在一起。
-   只读态用的是 22px 定值、又是内容自适应布局，本来就不需要这套。 */
+   只读态用的是定值字号、又是内容自适应布局，本来就不需要这套。 */
 .ledger-field.ledger-fit {
   container-type: inline-size;
 }
@@ -1043,6 +1055,17 @@ button {
   content: '';
   position: absolute;
   inset: -10px;
+}
+/* 小控件补热区：外观不变，能按到的范围撑到 44×44 */
+.tap-44 { position: relative; }
+.tap-44::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
 }
 
 /* ── 签名时刻 P5 §5.3 ────────────────────────────────────────── */
@@ -1733,7 +1756,8 @@ button {
   padding: 6px 8px; margin: -6px -8px;
   touch-action: pan-y; cursor: ew-resize; user-select: none; -webkit-user-select: none;
 }
-.scrub-num.is-fill { display: flex; width: 100%; }
+/* 表单格子自带边框，.scrub-num 那圈热区负边距会让它比同列控件外凸 */
+.scrub-num.is-fill { display: flex; width: 100%; margin: 0; }
 .scrub-num input {
   min-width: 0; background: transparent; border: 0; outline: none; padding: 0 0 1px;
   font: inherit; color: inherit; text-align: left; cursor: ew-resize;

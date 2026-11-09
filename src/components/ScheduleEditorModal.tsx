@@ -307,7 +307,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
               <button
                 onClick={openPicker}
                 data-testid="schedule-pick-library"
-                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-accent text-on-accent hover:opacity-90 active:scale-press-sm transition"
+                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-btn text-primary border border-divider active:scale-press-sm transition [&>svg]:text-accent"
               >
                 <Library size={14} strokeWidth={1.75} />
                 {translations.scheduleFromLibrary[lang]}

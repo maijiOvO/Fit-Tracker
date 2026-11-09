@@ -67,23 +67,20 @@
 /* 馆档案表单（选馆弹层里的「编辑」/「新的馆…」） */
 .gym-form { display: flex; flex-direction: column; gap: 14px; padding-bottom: 8px; }
 .gym-field { display: flex; flex-direction: column; gap: 6px; }
+.gym-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gym-row .gym-inc-stepper { margin: 0; }
 .gym-seg {
   display: inline-flex;
   align-self: flex-start;
-  border: 1.5px solid var(--text-primary);
-  border-radius: 4px;
-  overflow: hidden;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-inset);
+  border-radius: var(--radius-control);
 }
+.gym-row .gym-seg { align-self: center; }
+.gym-seg button { border-radius: var(--radius-chip); }
 .gym-inc-stepper .gym-seg { margin-left: 8px; }
-.gym-inc-stepper .gym-seg button {
-  width: auto;
-  height: auto;
-  border: 0;
-  border-radius: 0;
-  /* 选中段是墨底：颜色交给 text-on-accent / text-secondary，别被上面那条 text-primary 盖掉 */
-  color: inherit;
-  font: 600 13px/1 system-ui, sans-serif;
-}
+.gym-inc-stepper .gym-seg button { font: 600 13px/1 system-ui, sans-serif; }
 .gym-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .gym-chips button {
   display: flex;
@@ -107,11 +104,12 @@
   gap: 6px;
   margin: 6px 0 2px;
 }
-.gym-inc-stepper button {
+.gym-inc-stepper > button {
   width: 36px;
   height: 36px;
-  border: 1.5px solid var(--text-primary);
-  border-radius: 4px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-control);
+  background: var(--bg-btn);
   font: 700 18px/1 'Barlow Condensed', system-ui, sans-serif;
   color: var(--text-primary);
 }
@@ -653,7 +651,10 @@
    右半边能放 (格宽 − 单位宽) / 2，要放下 --fit-chars 个数字宽（总位数 − 整数位 / 2，小数点按 0.68 个算，见 SetCapsule）。 */
 .ledger-fit .ledger-input.is-int-anchored {
   font-size: max(11px, min(30px, calc((100cqi - var(--ledger-unit-w, 20px)) / (2 * var(--fit-chars, 2) * 0.475))));
+  /* 单位贴着数字走：宽度 = 整数位定位的左缝 + 数字宽，单位右边的空由 auto 吃掉，整数位不受影响 */
+  width: calc(max(0px, 50% - var(--ledger-unit-w, 20px) / 2 - var(--int-chars, 2) * 0.5ch) + var(--ledger-chars, 1) * 1ch + 3px);
 }
+.ledger-input.is-int-anchored + .ledger-unit { margin-right: auto; }
 
 /* 标题：得意黑，只用于 ≥20px（作者明说不适合正文与 UI） */
 .title-face {

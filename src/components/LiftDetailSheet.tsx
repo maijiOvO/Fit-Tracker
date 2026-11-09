@@ -197,7 +197,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                 key={m}
                 type="button"
                 onClick={() => onMetricChange(m)}
-                className={`px-2.5 py-1 rounded-chip text-xs font-medium ${
+                className={`tap-44 px-2.5 py-1 rounded-chip text-xs font-medium ${
                   m === metric ? 'bg-accent-soft text-accent' : 'text-secondary'
                 }`}
               >
@@ -211,7 +211,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
               key={r}
               type="button"
               onClick={() => chooseRange(r)}
-              className={`px-2 py-1 rounded-chip text-xs font-semibold tabular-nums ${r === range ? 'seg-on' : 'text-tertiary'}`}
+              className={`tap-44 px-2 py-1 rounded-chip text-xs font-semibold tabular-nums ${r === range ? 'seg-on' : 'text-tertiary'}`}
               aria-pressed={r === range}
             >
               {rangeLabel(r, isCn)}

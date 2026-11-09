@@ -1240,6 +1240,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             className={`flex-1 min-w-0 min-h-0 overflow-y-auto overscroll-contain ${showRail ? 'pl-3 pr-4' : 'px-4'} pb-6 custom-scrollbar`}
           >
             {visible.map((g, i) => renderGroup(g, i))}
+            {arranging && !axis && !q && visible.length === 0 && (
+              <div className="picker-none" data-testid="picker-arrange-clear">{isCn ? '没有待整理的动作' : 'Nothing to tidy up'}</div>
+            )}
 
             {!arranging && totalCount === 0 && (
               <div className="text-center pt-9 pb-2 text-small font-semibold text-secondary">

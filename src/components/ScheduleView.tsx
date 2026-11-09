@@ -234,7 +234,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
         <button
           aria-label="prev-month"
           onClick={() => flip(-1)}
-          className="p-2 rounded-chip text-secondary hover:text-primary hover:bg-card-hover transition-colors"
+          className="tap-44 p-2 rounded-chip text-secondary hover:text-primary hover:bg-card-hover transition-colors"
         >
           <ChevronLeft size={18} strokeWidth={1.75} />
         </button>
@@ -248,14 +248,14 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
               setViewMonth(new Date(t.getFullYear(), t.getMonth(), 1));
               setSelectedDate(localYmd(t));
             }}
-            className="text-xs px-2 py-1 rounded-chip border border-divider text-secondary hover:text-primary hover:bg-card-hover transition-colors"
+            className="tap-44 text-xs px-2 py-1 rounded-chip border border-divider text-secondary hover:text-primary hover:bg-card-hover transition-colors"
           >
             {lang === Language.CN ? '今天' : 'Today'}
           </button>
           <button
             aria-label="next-month"
             onClick={() => flip(1)}
-            className="p-2 rounded-chip text-secondary hover:text-primary hover:bg-card-hover transition-colors"
+            className="tap-44 p-2 rounded-chip text-secondary hover:text-primary hover:bg-card-hover transition-colors"
           >
             <ChevronRight size={18} strokeWidth={1.75} />
           </button>

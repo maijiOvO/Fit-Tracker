@@ -507,7 +507,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     <>
       <div className="anim-tab-enter">
         {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}
-      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base/95 z-sticky border-b border-divider mb-4">
+      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base z-sticky border-b border-divider mb-4">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -519,9 +519,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           </button>
 
           <div className="flex-1 min-w-0 space-y-1">
-            {/* flex-wrap + 每项 nowrap：360/384 宽下编辑态的五项挤不下一行，
-                原先是每项被压成一字一行（「未保存」竖着排）；现在整项折到第二行。 */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap">
+            {/* 编辑态五项挤不下一行，整项折到第二行（每项 nowrap，否则压成一字一行）。
+                训练中只有馆和单位两项：不折行，馆名让位，头部高度不随按钮状态跳。 */}
+            <div className={`flex ${editingWorkoutId ? 'flex-wrap' : ''} items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap`}>
               {/* 「新建训练」字样拿掉了（2026-10-25）：顶栏要给撤销 / 重做让一列，训练页本身就说明了是新的一场；
                   编辑旧训练还写「编辑训练」—— 那时保存语义不一样，得看得出来 */}
               {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit Workout'}</span>}
@@ -546,7 +546,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   type="button"
                   onClick={onChangeGym}
                   // 没选馆时只剩一个图标，以前再降到 45% 透明度，约 1.9:1 看不见能点（2026-10-22 颜色审查）
-                  className="normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
+                  className="relative before:absolute before:-top-4 before:-bottom-1 before:-inset-x-2 min-w-0 normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
                   title={translations.gymPickTitle[lang] as string}
                   aria-label={translations.gymPickTitle[lang] as string}
                   data-testid="gym-button"
@@ -558,7 +558,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               <button
                 type="button"
                 onClick={onToggleUnit}
-                className="ml-auto normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-chip bg-inset text-tertiary active:scale-press-sm hover:text-secondary transition-ui"
+                className="relative before:absolute before:-top-3 before:-bottom-1 before:inset-x-0 ml-auto flex-shrink-0 normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-chip bg-inset text-tertiary active:scale-press-sm hover:text-secondary transition-ui"
                 title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
                 aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
                 data-testid="unit-toggle"
@@ -594,7 +594,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             data-armed={endArmed ? 'true' : undefined}
             disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length) || (!!editingWorkoutId && !hasUnsavedChanges)}
             data-testid="finish-button"
-            className={`min-h-[44px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center gap-2 transition-ui active:scale-press-sm ${
+            className={`min-h-[44px] min-w-[114px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
@@ -632,7 +632,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   {editingWorkoutId
                     ? isCn ? '保存修改' : 'Save changes'
                     : endArmed
-                      ? isCn ? '再点一次结束' : 'Tap again to end'
+                      // 和「结束训练」等字数：上膛这一下按钮不能变宽，否则挤动整个头部
+                      ? isCn ? '确认结束' : 'Confirm end'
                       : isCn ? '结束训练' : 'End Workout'}
                 </span>
               </>
@@ -849,7 +850,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
       {/* 底部常驻添加栏 —— fixed，故意在 anim-tab-enter 之外；选中组操作条叠在它上面 */}
       <div
-        className="fixed bottom-0 inset-x-0 z-bar bg-base/95 border-t border-divider"
+        className="fixed bottom-0 inset-x-0 z-bar bg-base border-t border-divider"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         {stripRow && (
@@ -875,10 +876,10 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <button
             type="button"
             onClick={() => onPickerOpenChange(true)}
-            className="flex-1 min-h-[52px] rounded-card bg-accent text-on-accent text-base font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
+            className="flex-1 min-h-[44px] rounded-card bg-accent text-on-accent text-small font-bold flex items-center justify-center gap-2 active:scale-press transition-transform"
             data-testid="open-picker-sheet"
           >
-            <Plus size={19} strokeWidth={2.5} />
+            <Plus size={16} strokeWidth={2.5} />
             {isCn ? '添加动作' : 'Add Exercise'}
           </button>
         </div>

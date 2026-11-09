@@ -158,7 +158,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
               type="button"
               onClick={() => onModeChange(m)}
               aria-pressed={mode === m}
-              className={`px-2 py-0.5 rounded-chip text-xs font-semibold ${mode === m ? 'seg-on' : 'text-tertiary'}`}
+              className={`tap-44 px-2 py-0.5 rounded-chip text-xs font-semibold ${mode === m ? 'seg-on' : 'text-tertiary'}`}
             >
               {m === 'weight' ? (isCn ? '最重' : 'Heaviest') : isCn ? '估算 1RM' : 'Est. 1RM'}
             </button>
@@ -167,7 +167,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="-mr-2 px-2 py-1 text-xs font-semibold text-tertiary active:opacity-70"
+          className="tap-44 -mr-2 px-2 py-1 text-xs font-semibold text-tertiary active:opacity-70"
           data-testid="featured-edit"
         >
           {isCn ? '编辑' : 'Edit'}

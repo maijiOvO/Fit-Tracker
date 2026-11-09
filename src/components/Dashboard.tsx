@@ -156,7 +156,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         <p className="text-secondary max-w-sm leading-relaxed text-base mb-10">
           {translations.dashboardEmptyDesc[lang]}
         </p>
-        <button onClick={actions.onStartNewWorkout} className="ui-btn-primary flex items-center gap-2 px-8 py-4 text-base">
+        <button onClick={actions.onStartNewWorkout} className="ui-btn-secondary flex items-center gap-2 px-6 py-3">
           <PlusCircle size={22} strokeWidth={1.75} />
           {translations.newWorkout[lang]}
         </button>
@@ -257,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     key={r}
                     type="button"
                     onClick={() => setWeightRange(r)}
-                    className={`px-2 py-1 rounded-chip text-xs font-semibold tabular-nums ${r === weightRange ? 'seg-on' : 'text-tertiary'}`}
+                    className={`tap-44 px-2 py-1 rounded-chip text-xs font-semibold tabular-nums ${r === weightRange ? 'seg-on' : 'text-tertiary'}`}
                     aria-pressed={r === weightRange}
                   >
                     {rangeLabel(r, isCn)}
@@ -325,7 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           type="button"
           onClick={() => setView('timeline')}
           aria-pressed={view === 'timeline'}
-          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
+          className={`min-h-[44px] px-3 -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
             view === 'timeline'
               ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
               : 'border-transparent text-tertiary hover:text-primary'
@@ -338,7 +338,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           type="button"
           onClick={() => setView('pr')}
           aria-pressed={view === 'pr'}
-          className={`flex-1 min-h-[44px] -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
+          className={`min-h-[44px] px-3 -mb-px flex items-center justify-center gap-2 border-b-2 text-small font-bold transition-ui ${
             view === 'pr'
               ? 'border-[color:var(--accent-text)] text-primary [&>svg]:text-accent'
               : 'border-transparent text-tertiary hover:text-primary'
@@ -347,6 +347,27 @@ const Dashboard: React.FC<DashboardProps> = ({
           <Trophy size={14} strokeWidth={2} />
           <span>{lang === Language.CN ? '按动作' : 'By exercise'}</span>
         </button>
+        {/* 天 / 周 / 月 / 年只管「按时间」，和标签同一行：列表前少叠一层控件 */}
+        {view === 'timeline' && workouts.length > 0 && (
+          <div className="ml-auto self-center flex gap-0.5 p-0.5 bg-inset rounded-control" role="group" data-testid="timeline-granularity">
+            {([
+              ['day', '天', 'D'],
+              ['week', '周', 'W'],
+              ['month', '月', 'M'],
+              ['year', '年', 'Y'],
+            ] as const).map(([g, cn, en]) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => setGranularity(g)}
+                aria-pressed={g === granularity}
+                className={`tap-44 w-8 min-h-[30px] rounded-chip text-xs font-bold ${g === granularity ? 'seg-on' : 'text-secondary'}`}
+              >
+                {isCn ? cn : en}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {view === 'timeline' && (
@@ -354,7 +375,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           lang={lang}
           workouts={workouts}
           granularity={granularity}
-          onGranularityChange={setGranularity}
           renderSetCapsule={renderSetCapsule}
           onEditWorkout={(id) => actions.onEditWorkout(id)}
           onAddExerciseToWorkout={actions.onAddExerciseToPastWorkout}

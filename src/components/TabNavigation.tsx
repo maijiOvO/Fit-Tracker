@@ -263,7 +263,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
   return (
     <nav
       data-chrome="bottom"
-      className="fixed bottom-0 inset-x-0 z-nav bg-base/95 border-t border-divider"
+      className="fixed bottom-0 inset-x-0 z-nav bg-base border-t border-divider"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* ── 印谱扇开层（fixed，视口坐标；scrim 在 nav 之上、弹层之下） ── */}

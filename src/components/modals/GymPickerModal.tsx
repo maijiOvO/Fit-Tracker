@@ -270,9 +270,10 @@ function GymProfileForm({
   };
 
   const seg = (on: boolean) =>
-    `min-h-[36px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
-  const inc = (key: IncKey, label: string) => (
+    `min-h-[34px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
+  const inc = (key: IncKey, label: string, hint?: string) => (
     <div className="gym-field">
+      <div className="gym-row">
       <span className="text-label text-secondary">{label}</span>
       <div className="gym-inc-stepper">
         <button type="button" onClick={() => stepInc(key, -1)} aria-label={isCn ? '轻一点' : 'Smaller'}>−</button>
@@ -291,6 +292,8 @@ function GymProfileForm({
           <button type="button" className={seg(incOf(key).u === 'lbs')} aria-pressed={incOf(key).u === 'lbs'} onClick={() => setIncUnit(key, 'lbs')}>lb</button>
         </span>
       </div>
+      </div>
+      {hint && <span className="text-micro text-tertiary">{hint}</span>}
     </div>
   );
 
@@ -311,7 +314,7 @@ function GymProfileForm({
           data-testid="gym-profile-name"
         />
       </label>
-      <div className="gym-field">
+      <div className="gym-row">
         <span className="text-label text-secondary">{isCn ? '片子' : 'Plates'}</span>
         <span className="gym-seg" role="group">
           <button type="button" className={seg(p.plateUnit === 'kg')} aria-pressed={p.plateUnit === 'kg'} onClick={() => setUnit('kg')}>
@@ -361,7 +364,7 @@ function GymProfileForm({
         </span>
         {/* 输入框吃剩下的宽度，单位和「加上」按自己的宽度排（原来 fill 的输入框占满整行，lb 被裁、「加上」竖成两行） */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 pl-2">
+          <div className="flex-1 min-w-0">
             <ScrubNumber
               value={cw.trim() === '' || !Number.isFinite(Number.parseFloat(cw)) ? null : Number.parseFloat(cw)}
               onCommit={n => setCw(n === null ? '' : String(n))}
@@ -400,7 +403,7 @@ function GymProfileForm({
         )}
       </div>
       {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
-      {inc('machine', isCn ? '固定器械一档（个别动作在 ⋯ 里单独设）' : 'Machine step (set odd ones in the exercise ⋯ menu)')}
+      {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '个别动作在 ⋯ 里单独设' : 'Set odd ones in the exercise ⋯ menu')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
       {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}

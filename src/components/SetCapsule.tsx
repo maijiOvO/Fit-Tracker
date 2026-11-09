@@ -426,7 +426,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   return (
     <>
       <div
-        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}${isPR && !isGhost ? ' is-pr' : ''}`}
+        className={`ledger-row${entering ? ' is-entering' : ''}${isGhost ? ' is-ghost' : ''}${inkin ? ' is-inkin' : ''}${!isGhost && !readOnly ? ' is-inked' : ''}${selected ? ' is-selected' : ''}${isPR && !isGhost ? ' is-pr' : ''}${readOnly ? ' is-readonly' : ''}`}
         style={colStyle}
         data-set-idx={setIdx}
         data-set-id={set.id}
@@ -454,7 +454,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             </button>
           )}
           <span
-            className={`set-num relative ${badge ? 'w-[30px] h-[30px]' : 'w-9 h-9'} flex-none flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y`}
+            className={`set-num relative ${badge ? 'w-[30px] h-[30px]' : readOnly ? 'w-6 h-6' : 'w-9 h-9'} flex-none flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y`}
             onClick={readOnly ? undefined : onSetNumClick}
             role={readOnly ? undefined : 'button'}
             aria-pressed={readOnly ? undefined : selected}
@@ -489,7 +489,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 type="button"
                 onClick={onDurationClick}
                 disabled={readOnly}
-                className={`ledger-field min-h-[44px] font-mono font-semibold text-xl leading-none text-primary tabular-nums${
+                className={`ledger-field font-mono font-semibold leading-none text-primary tabular-nums ${readOnly ? 'text-h2' : 'min-h-[44px] text-xl'}${
                   readOnly ? '' : ' ledger-fit'
                 }`}
                 // 居中而不是 .ledger-field 的 baseline：按钮 44px 高、只有一段文字，
@@ -515,7 +515,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                   : String(Math.round(distToDisplay(m, Number(raw)) * 100) / 100);
             return (
               <span key={m} className="ledger-field" style={{ justifyContent: 'flex-end' }}>
-                <span className="font-mono font-semibold text-data-lg text-primary tabular-nums">
+                <span className="font-mono font-semibold text-h2 text-primary tabular-nums">
                   {display}
                 </span>
                 {/* 空值不带单位——「—次」读起来像个错字 */}
@@ -894,6 +894,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
             className={`ledger-field is-scrubbable${scrub.scrubbing ? ' is-scrubbing' : ''}${
               edited?.[m as 'weight' | 'reps'] ? ' is-edited' : ''
             }`}
+            style={{ ['--ledger-chars' as string]: Math.max(display.length, 1) }}
             {...scrub.handlers}
           >
             {/* 档位角标只在拖动时出现，与母组同 */}

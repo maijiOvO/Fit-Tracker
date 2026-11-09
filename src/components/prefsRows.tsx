@@ -68,8 +68,8 @@ export const Name: React.FC<{ name: React.ReactNode; sub?: React.ReactNode; bad?
 );
 
 const ROW = 'w-full min-h-[52px] py-2.5 flex justify-between items-center gap-3';
-// 按下的底色铺满卡片左右内边距（卡 px-4）
-const PRESS = 'transition-colors duration-tap ease-paper active:bg-card-hover -mx-4 px-4 w-[calc(100%+2rem)]';
+// 按下的底色铺满卡片左右内边距（卡 px-4）。画在伪元素上：行本身要和 Line / Stack 同宽，控件右缘和分隔线才对齐
+const PRESS = 'relative isolate before:absolute before:inset-y-0 before:-inset-x-4 before:-z-10 before:transition-colors before:duration-tap before:ease-paper active:before:bg-card-hover';
 
 /** 名称 … 控件 */
 export const Line: React.FC<{ name: React.ReactNode; children: React.ReactNode }> = ({ name, children }) => (

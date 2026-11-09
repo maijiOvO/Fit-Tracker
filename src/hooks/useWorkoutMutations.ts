@@ -214,7 +214,7 @@ export interface UseWorkoutMutationsResult {
   colophon: ColophonState | null;
   dismissColophon: () => void;
   /**
-   * 结束训练。askFirst=false：训练页的「再点一次结束」已经是二次确认，不再弹框；
+   * 结束训练。askFirst=false：训练页的「确认结束」已经是二次确认，不再弹框；
    * 首页「进行中 → 结束」那条路（askFirst 默认 true）仍问一句。一组都没做完时两条路都问「放弃？」。
    */
   handleFinishWithConfirmation: (askFirst?: boolean) => Promise<void>;

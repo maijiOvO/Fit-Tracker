@@ -8,9 +8,6 @@ import {
   CopyPlus,
   Merge,
   Trash2,
-  CalendarDays,
-  CalendarRange,
-  CalendarClock,
   CalendarSearch,
   MapPin,
   MoreHorizontal,
@@ -37,7 +34,6 @@ interface TimelineViewProps {
   lang: Language;
   workouts: WorkoutSession[];
   granularity: TimelineGranularity;
-  onGranularityChange: (g: TimelineGranularity) => void;
   renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
   onEditWorkout: (workoutId: string) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
@@ -118,28 +114,6 @@ function getGroupInfo(
   const y = date.getFullYear();
   return { key: `${y}`, label: isCN ? `${y}年` : `${y}`, sortKey: `${y}` };
 }
-
-interface GranularityChipProps {
-  active: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}
-
-const GranularityChip: React.FC<GranularityChipProps> = ({ active, icon, label, onClick }) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={`flex-1 min-h-[40px] flex items-center justify-center gap-1.5 rounded-control text-xs font-bold transition-ui ${
-      active
-        ? 'seg-on'
-        : 'bg-transparent text-secondary hover:text-primary'
-    }`}
-  >
-    {icon}
-    <span>{label}</span>
-  </button>
-);
 
 interface SessionCardProps {
   w: WorkoutSession;
@@ -539,19 +513,19 @@ const SessionCard: React.FC<SessionCardProps> = ({
           {(w.exercises || []).map((ex, idx) => {
             const sets = realSets(ex);
             return (
-              <div key={`${ex.id}-${idx}`} className="bg-inset/60 p-3 rounded-control space-y-2">
+              <div key={`${ex.id}-${idx}`} className={`space-y-1 ${idx > 0 ? 'border-t border-divider pt-2' : ''}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-small text-primary truncate">
                     {liftKey(ex)}
                   </span>
-                  <span className="text-micro font-normal text-tertiary bg-card px-2 py-0.5 rounded-chip">
+                  <span className="text-micro font-normal text-tertiary">
                     {sets.length} {isCN ? '组' : plural(sets.length, 'set')}
                   </span>
                 </div>
                 {sets.length > 0 && (
                   // 一组一整行：以前是胶囊时代的 flex-wrap，每行按内容收窄（254 / 218px 各不相同），
                   // 同一个动作里 41.89 和 132.28 的列宽不一样，数字和单位对不齐（2026-10-22 界面审查）
-                  <div className="flex flex-col gap-1.5 [&>*]:w-full">
+                  <div className="flex flex-col [&>*]:w-full">
                     {sets.map((s, i) => renderSetCapsule(s, ex.name, i))}
                   </div>
                 )}
@@ -590,7 +564,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   lang,
   workouts,
   granularity,
-  onGranularityChange,
   renderSetCapsule,
   onEditWorkout,
   onAddExerciseToWorkout,
@@ -656,35 +629,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   return (
     <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
-      {/* 颛粒度切换 */}
-      {/* 灰槽，不是卡：上面「按时间 / 按动作」已经是页内标签，这里是它下面的一层筛选（2026-10-22） */}
-      <div className="bg-inset rounded-control p-1 flex items-center gap-1">
-        <GranularityChip
-          active={granularity === 'day'}
-          icon={<Calendar size={13} strokeWidth={2} />}
-          label={isCN ? '天' : 'Day'}
-          onClick={() => onGranularityChange('day')}
-        />
-        <GranularityChip
-          active={granularity === 'week'}
-          icon={<CalendarRange size={13} strokeWidth={2} />}
-          label={isCN ? '周' : 'Week'}
-          onClick={() => onGranularityChange('week')}
-        />
-        <GranularityChip
-          active={granularity === 'month'}
-          icon={<CalendarDays size={13} strokeWidth={2} />}
-          label={isCN ? '月' : 'Month'}
-          onClick={() => onGranularityChange('month')}
-        />
-        <GranularityChip
-          active={granularity === 'year'}
-          icon={<CalendarClock size={13} strokeWidth={2} />}
-          label={isCN ? '年' : 'Year'}
-          onClick={() => onGranularityChange('year')}
-        />
-      </div>
-
       {/* 分组列表。
           天粒度下一个组就是一天 —— 组头与卡片会把日期和计数各说两遍。所以天粒度
           不要组头，日期由卡片最左边那一列承担，月份降级成一条轻标题（见 mergedGroup）。

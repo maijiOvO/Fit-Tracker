@@ -2,7 +2,7 @@ import React, { useState, lazy, useMemo } from 'react';
 import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import {
   Camera, ShieldAlert, Trash2, ChevronRight,
-  ChevronUp, Plus, Edit2, History, Ruler, Scale, Activity,
+  ChevronUp, Plus, Edit2, History, Ruler, Activity,
 } from 'lucide-react';
 import { PrefsSheet } from './PrefsSheet';
 import type { SyncStatus } from '../hooks/useFitlogSync';
@@ -104,44 +104,32 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
   return (
     <div className="space-y-6 anim-tab-enter">
-      {/* Profile Header */}
-      <div className="flex flex-col items-center justify-center py-10 relative overflow-hidden">
-        <div className="absolute inset-0 bg-accent/5 rounded-control blur-3xl scale-150" />
-
-        {/* Avatar Container */}
-        <div 
-          className="relative group cursor-pointer" 
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={onAvatarUpload} 
-            className="hidden" 
-            accept="image/*"
-          />
-          
-          <div className="w-28 h-28 bg-accent rounded-full flex items-center justify-center shadow-elevated mb-6 ring-4 ring-base overflow-hidden relative">
+      {/* 身份只是页头，一行就够；累计训练跟它同行，不再单占一张卡 */}
+      <div className="flex items-center gap-4">
+        <div className="relative flex-shrink-0 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+          <input type="file" ref={fileInputRef} onChange={onAvatarUpload} className="hidden" accept="image/*" />
+          <div className="w-14 h-14 bg-accent rounded-full flex items-center justify-center overflow-hidden">
             {user.avatarUrl ? (
               <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-4xl font-display font-semibold text-on-accent">
+              <span className="text-data-md font-display text-on-accent">
                 {user.username?.charAt(0)?.toUpperCase() || 'U'}
               </span>
             )}
-            
-            <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="text-on-accent" size={28} strokeWidth={1.75} />
-            </div>
           </div>
-
-          <div className="absolute bottom-6 right-0 bg-accent text-on-accent p-2 rounded-full ring-4 ring-base shadow-elevated">
-            <Camera size={16} />
+          <div className="absolute -bottom-0.5 -right-0.5 bg-card text-secondary p-1 rounded-full ring-2 ring-base">
+            <Camera size={10} />
           </div>
         </div>
-
-        <h2 className="font-display text-display-sm text-primary">{user.username}</h2>
-        <p className="text-secondary font-medium mt-1">{user.email}</p>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-display text-display-sm text-primary truncate">{user.username}</h2>
+          <p className="text-label text-secondary truncate">{user.email}</p>
+        </div>
+        <div className="flex-shrink-0 text-right">
+          {/* 一组都没做完的空场不算一场 */}
+          <div className="font-mono text-data-md text-primary tabular-nums">{workouts.filter(hasDoneSets).length}</div>
+          <div className="text-micro text-tertiary">{lang === Language.CN ? '累计训练' : 'Workouts'}</div>
+        </div>
       </div>
 
       {/* Training Heatmap */}
@@ -198,43 +186,18 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </div>
       )}
 
-      {/* Stats Overview */}
-      <div className="w-full">
-        <div className="bg-card p-6 rounded-card border border-divider flex flex-col items-center justify-center gap-2 w-full">
-          {/* 一组都没做完的空场不算一场 */}
-          <span className="text-3xl font-semibold text-primary">{workouts.filter(hasDoneSets).length}</span>
-          <span className="text-micro font-semibold uppercase text-secondary tracking-widest">
-            {lang === Language.CN ? '累计训练' : 'Workouts'}
-          </span>
-        </div>
-      </div>
-
-      {/* 记一笔体重：首页体重卡 ＋ 的快捷入口。以前是全站唯一带大阴影（shadow-lg）的卡，
-          还配大图标块和大写字距的副标题，比页面上任何东西都抢眼；改成和其它卡同一层的普通一行（2026-10-22 界面审查） */}
-      <button
-        onClick={onShowWeightInput}
-        className="ui-card-interactive w-full px-4 min-h-[56px] flex items-center justify-between gap-3"
-      >
-        <span className="flex items-center gap-3 text-small font-bold text-primary">
-          <Scale size={18} strokeWidth={2} className="text-accent" />
-          {translations.logWeight[lang]}
-        </span>
-        <span className="w-10 h-10 flex items-center justify-center rounded-control bg-btn border border-divider text-accent">
-          <Plus size={18} strokeWidth={2} />
-        </span>
-      </button>
-
       {/* Body Metrics Section */}
       <div className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest">
             {lang === Language.CN ? '身体数据 & 指标' : 'Body Metrics'}
           </h3>
-          <button 
-            onClick={onShowMeasureModal} 
-            className="text-accent text-xs font-semibold flex items-center gap-1 hover:text-accent"
+          {/* 新增指标在列表末尾的虚线格；这里只放体重，首页体重卡 ＋ 的同一入口 */}
+          <button
+            onClick={onShowWeightInput}
+            className="tap-44 text-accent text-xs font-semibold flex items-center gap-1"
           >
-            <Plus size={14} /> {lang === Language.CN ? '添加' : 'Add'}
+            <Plus size={14} /> {translations.logWeight[lang]}
           </button>
         </div>
 
