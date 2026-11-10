@@ -17,11 +17,15 @@ import { gymMachineKey, useLoadInfoOf, type LoadInfo } from './useLoadKind';
 import { barWeight, plateUnitOf, type PlateUnit } from '../utils/plates';
 import {
   bracket,
+  gymSpecOf,
   incIn,
   isLoadable,
+  machineSpecOf,
   nearest,
   profileIn,
   r2,
+  rigKind,
+  rigListKey,
   startIn,
   snap,
   stepOf,
@@ -30,6 +34,7 @@ import {
   type IncSpec,
   type LoadCtx,
 } from '../utils/loadable';
+import type { ResolvedAppPrefs } from '../../services/appPrefs';
 import { fromSignedKg, setSign, signedKg, usesSignedLoad } from '../utils/load';
 
 const K = KG_TO_LBS;
@@ -68,8 +73,8 @@ export type RounderFor = (
   unitOverride?: PlateUnit,
   /** 刚存的馆档案（context 里的 appPrefs 还没刷新） */
   gymsOverride?: Record<string, GymProfile>,
-  /** 刚存的单台器械设置（同上；恢复馆默认 / 换这一台的单位时格子单位会变） */
-  overridesOverride?: Record<string, IncSpec>,
+  /** 刚存的单台器械设置（同上；恢复馆默认 / 换一台 / 换这一台的单位时格子单位会变） */
+  fresh?: Partial<Pick<ResolvedAppPrefs, 'gymOverrides' | 'gymRigs' | 'gymRigPick'>>,
 ) => ExRounder | null;
 
 export function useLoadRounder(): RounderFor {
@@ -77,12 +82,11 @@ export function useLoadRounder(): RounderFor {
   const { barOf, signedLoadOf, getActiveMetrics, resolveName } = useExercisePrefs();
   const infoOf = useLoadInfoOf();
   const gyms = appPrefs.gyms;
-  const savedOverrides = appPrefs.gymOverrides;
-  const gymTares = appPrefs.gymTares;
+  const { gymOverrides, gymTares, gymRigs, gymRigPick } = appPrefs;
 
   return useCallback(
-    (ex, gym, unitOverride, gymsOverride, overridesOverride) => {
-      const overrides = overridesOverride ?? savedOverrides;
+    (ex, gym, unitOverride, gymsOverride, fresh) => {
+      const overrides = fresh?.gymOverrides ?? gymOverrides;
       if (!getActiveMetrics(resolveName(ex.name)).includes('weight')) return null;
       const du: PlateUnit = (unitOverride ?? unit) === 'lbs' ? 'lbs' : 'kg';
       const signed = usesSignedLoad(ex, signedLoadOf(ex));
@@ -92,7 +96,11 @@ export function useLoadRounder(): RounderFor {
       // 格子按这件器械的片子单位算（显示 lb 的 kg 馆，± / 取整照样落在这个馆挂得出的重量上，审查 A9）
       const profile = gym ? (gymsOverride ?? gyms)[gym] : undefined;
       const okey = gymMachineKey(gym, info);
-      const ov = okey ? overrides[okey] : undefined;
+      // 这一台的刻度：选中的台（这件器材在这个馆存的几台之一）→ 以前按动作单独设的 → 馆默认
+      const rkey = rigListKey(gym, info);
+      const ov = okey
+        ? machineSpecOf(rkey ? (fresh?.gymRigs ?? gymRigs)[rkey] : undefined, (fresh?.gymRigPick ?? gymRigPick)[okey], overrides[okey])
+        : undefined;
       const u: PlateUnit = ownUnitOf(info, profile, ov) ?? profile?.plateUnit ?? du;
       // 挂片式器械的自重（gymTares）：这一台选了「算进记录」才当空杠算进总重（2026-11-08 用户定），按馆的片子单位换算
       const tspec = okey ? gymTares[okey] : undefined;
@@ -119,7 +127,7 @@ export function useLoadRounder(): RounderFor {
       };
       return makeRounder(info, u, ctx, signed, du);
     },
-    [unit, gyms, savedOverrides, gymTares, barOf, signedLoadOf, getActiveMetrics, resolveName, infoOf],
+    [unit, gyms, gymOverrides, gymTares, gymRigs, gymRigPick, barOf, signedLoadOf, getActiveMetrics, resolveName, infoOf],
   );
 }
 
@@ -134,16 +142,9 @@ export function ownUnitOf(
   profile: GymProfile | undefined,
   ov: IncSpec | undefined,
 ): PlateUnit | null {
-  const k = info.kind;
-  if (k !== 'pin' && k !== 'pair' && k !== 'bell' && k !== 'fixed') return null;
+  if (!rigKind(info.kind)) return null;
   if (ov) return ov.u;
-  if (!profile) return null;
-  const spec =
-    k === 'pair' ? profile.dumbbell
-    : k === 'bell' ? profile.kettlebell
-    : k === 'fixed' ? profile.fixedBar
-    : info.stack === 'cable' ? profile.cable : profile.machine;
-  return spec?.u ?? profile.plateUnit;
+  return profile ? gymSpecOf(profile, info.kind, info.stack).u : null;
 }
 
 /** 单边挂片的开关存在这一台的 gymOverrides 里，键是这一台的键 + '|one'（值 { v: 1 }，删键＝两边挂） */
@@ -213,11 +214,6 @@ export function withKind(r: ExRounder, kind: LoadInfo['kind']): ExRounder {
 /** 同一个取整器换一档（⋯ 里改「这台器械一档多重」那一刻，档案还没刷新）；起始照旧 */
 export function withInc(r: ExRounder, inc: number): ExRounder {
   return makeRounder(r.info, r.unit, { ...r.ctx, inc }, r.signed, r.display);
-}
-
-/** 同一个取整器换一档和起始（大图上改「最轻一格 · 每格」那一刻） */
-export function withStack(r: ExRounder, inc: number, start: number): ExRounder {
-  return makeRounder(r.info, r.unit, { ...r.ctx, inc, start }, r.signed, r.display);
 }
 
 /** 同一个取整器开 / 关单边挂片（大图上拨「单边」那一刻，档案还没刷新） */

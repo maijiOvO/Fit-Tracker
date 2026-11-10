@@ -188,7 +188,7 @@
 .bar-short-w b { font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
 
 /* 配重片刻度（docs/demos/stack-scale.html）：图上方一枚小药丸，点开是「动作设置」弹窗里「在 X」那一段 */
-.stack-tagrow { display: flex; padding: 0 12px 6px; }
+.stack-tagrow { display: flex; min-width: 0; padding: 0 12px 6px; }
 .stack-tag {
   display: inline-flex; align-items: center; gap: 5px;
   min-height: 30px; padding: 0 10px; border-radius: 999px;
@@ -197,6 +197,18 @@
 }
 .stack-tag svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .stack-tag:active { background: var(--bg-inset); }
+/* 这件器材在这个馆存的几台（2026-11-10）：一排药丸，多了横滚；选中的那台描主色 */
+.stack-rigs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.stack-rigs::-webkit-scrollbar { display: none; }
+.stack-rigs .stack-tag { flex-shrink: 0; white-space: nowrap; }
+.stack-tag.is-on { border-color: var(--accent); color: var(--accent-text); }
+.stack-face .stack-rigs { padding: 4px 0 6px; }
+.stack-name {
+  width: 150px; min-height: 40px; padding: 0 10px; text-align: right;
+  background: var(--bg-base); border: 1px solid var(--divider); border-radius: var(--radius-control);
+  font-size: var(--fs-small); color: var(--text-primary); outline: none;
+}
+.stack-name:focus { border-color: var(--accent); }
 .stack-face { padding: 2px 14px 10px; min-height: 176px; }
 .stack-fhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 /* 面板标题正文字号、副标题标签字号；行名和开关同为 small（2026-10-22：原来标题 14 / 行名 14 / 开关 12 / 空载占位 18，大小不一） */
@@ -223,9 +235,14 @@
   font: 800 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary);
 }
 .stack-seg small { width: 22px; padding-left: 3px; font-size: var(--fs-micro); color: var(--text-tertiary); }
-.stack-mini { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; font: 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-tertiary); }
-.stack-mini i { font-style: normal; padding: 3px 6px; border-radius: 6px; background: var(--bg-base); border: 1px solid var(--divider); }
-.stack-mini i.is-first { border-color: var(--accent); color: var(--accent-text); font-weight: 800; }
+/* 每格 / 最轻一格下方常驻的预设：点一下填进选中的那一行（.stack-stp.is-on），横划也在这几格里跳 */
+.stack-stp.is-on > span:first-child { color: var(--accent-text); font-weight: 700; }
+.stack-stp.is-on .stack-seg { border-color: var(--accent); }
+.stack-presets { display: flex; gap: 6px; align-items: center; margin-top: 4px; font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+.stack-presets button { flex: 1; min-height: 40px; border-radius: 6px; background: var(--bg-base); border: 1px solid var(--divider); color: var(--text-secondary); }
+.stack-presets button[aria-pressed='true'] { border-color: var(--accent); color: var(--accent-text); }
+.stack-presets button:active { background: var(--bg-inset); }
+.stack-presets small { width: 18px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-foot button { min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
 

@@ -9,7 +9,7 @@
  * 没升级的设备也只认它们），但胜负按这里的时间戳定。
  */
 import { storage } from './appStorage';
-import type { GymProfile, IncSpec } from '../src/utils/loadable';
+import type { GymProfile, IncSpec, Rig } from '../src/utils/loadable';
 
 export interface AppPrefs {
   unit?: 'kg' | 'lbs';
@@ -46,6 +46,13 @@ export interface AppPrefs {
    */
   gymTares?: Record<string, TareSpec | ''>;
   /**
+   * 这个馆、这件器材存的几台（2026-11-10）：键「馆名|器材 id」，这件器材的所有动作共用。
+   * 按键合并（新的一边整张列表赢）；删光＝空数组，照样压住另一边的旧列表。
+   */
+  gymRigs?: Record<string, Rig[]>;
+  /** 这个动作在这个馆上次用的哪一台：键同 gymOverrides，值是台子 id；'' 是「回到馆默认」的墓碑 */
+  gymRigPick?: Record<string, string>;
+  /**
    * 「按动作」顶上的特别关注（2026-10-20）：动作的稳定键「定义 id|做法 id」，最多 4 个、按显示顺序。
    * 没设过（undefined）＝自动取三大项；设成空数组＝用户清空了。存 id 不存名字：改名、切语言都不失效。
    */
@@ -79,6 +86,8 @@ const APP_PREF_DEFAULTS = {
   gymKinds: {},
   gymNotes: {},
   gymTares: {},
+  gymRigs: {},
+  gymRigPick: {},
   featuredMode: 'weight',
   inheritAltGroup: true,
 } as const satisfies Omit<Required<AppPrefs>, 'unit' | 'lang' | 'featuredLifts'>;
@@ -95,6 +104,9 @@ export type ResolvedAppPrefs = {
   gymKinds: Record<string, GymKind>;
   gymNotes: Record<string, string>;
   gymTares: Record<string, TareSpec>;
+  gymRigs: Record<string, Rig[]>;
+  /** 墓碑已滤掉 */
+  gymRigPick: Record<string, string>;
   /** null＝没设过，用默认（三大项） */
   featuredLifts: string[] | null;
   featuredMode: 'weight' | 'e1rm';
@@ -129,6 +141,14 @@ function cleanOverrides(raw: unknown): Record<string, IncSpec> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([, c]) => isInc(c))) as Record<string, IncSpec>;
 }
+/** 台子列表：坏的那一台丢掉，别的照留 */
+function cleanRigs(raw: unknown): Record<string, Rig[]> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, Rig[]> = {};
+  for (const [k, list] of Object.entries(raw as Record<string, unknown>))
+    if (Array.isArray(list)) out[k] = list.filter((r): r is Rig => isInc(r) && isText((r as Rig).id));
+  return out;
+}
 
 /** 按键表：只留合法值，墓碑 '' 当作没有 */
 function cleanKeyed<T>(raw: unknown, ok: (v: unknown) => v is T): Record<string, T> {
@@ -160,6 +180,8 @@ export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
     gymKinds: cleanKeyed(p?.gymKinds, isGymKind),
     gymNotes: cleanKeyed(p?.gymNotes, isText),
     gymTares: cleanKeyed(p?.gymTares, isTare),
+    gymRigs: cleanRigs(p?.gymRigs),
+    gymRigPick: cleanKeyed(p?.gymRigPick, isText),
     featuredLifts: Array.isArray(p?.featuredLifts)
       ? p.featuredLifts.filter((k): k is string => typeof k === 'string').slice(0, MAX_FEATURED)
       : null,
@@ -209,10 +231,10 @@ export function invalidateAppPrefsCache(): void {
 }
 
 /**
- * 改按键表（gymKinds / gymNotes）里的一条：在**存储里的原表**上改（保留墓碑），value 为 '' 表示删除。
+ * 改按键表（gymKinds / gymNotes / gymTares / gymRigPick）里的一条：在**存储里的原表**上改（保留墓碑），value 为 '' 表示删除。
  * 原来没有这个键、又要删 → 不写墓碑（另一边也没有）。返回给 changeAppPrefs 的补丁。
  */
-export function keyedPatch<F extends 'gymKinds' | 'gymNotes' | 'gymTares'>(
+export function keyedPatch<F extends 'gymKinds' | 'gymNotes' | 'gymTares' | 'gymRigPick'>(
   field: F,
   key: string,
   value: string | TareSpec,
@@ -225,10 +247,23 @@ export function keyedPatch<F extends 'gymKinds' | 'gymNotes' | 'gymTares'>(
 }
 
 /**
+ * 新建动作时就选好在这个馆用哪一台（2026-11-10）：还没存的那台（弹窗里现给的另一种单位）顺手存进列表。
+ * machineKey：馆|动作|做法。返回给 changeAppPrefs 的补丁。
+ */
+export function rigPickPatch(rigs: Record<string, Rig[]>, listKey: string, rig: Rig, machineKey: string): Pick<AppPrefs, 'gymRigs' | 'gymRigPick'> {
+  const list = rigs[listKey] ?? [];
+  return {
+    gymRigs: { ...rigs, [listKey]: list.some(r => r.id === rig.id) ? list : [...list, rig] },
+    ...keyedPatch('gymRigPick', machineKey, rig.id),
+  };
+}
+
+/**
  * 存一个馆的档案（renamedFrom：这次顺手把它从这个名字改过来，2026-10-21 用户要的改名）。
  * 在**存储里的原表**上改：上下文里的馆表是洗过的、没有墓碑，拿它整张写回会把墓碑冲掉。
  * 改名时：档案挪到新名字、旧名字留墓碑 ''；这个馆每台器械的设置（键 `馆|动作|做法`）一起挪到新名字，
- * 一档多重整块取新的一边、直接改键；器械形式 / 本馆备注 / 空载按键合并，旧键写墓碑压住另一台设备上的旧值。
+ * 一档多重整块取新的一边、直接改键；器械形式 / 本馆备注 / 空载 / 选的哪一台按键合并，旧键写墓碑压住另一台设备上的旧值；
+ * 存的几台（键 `馆|器材`）挪到新名字，旧键留空列表。
  * 纯函数（raw 由调用方给），prefs-check 直接测；历史训练上的馆名由调用方另改。
  */
 export function renameGymIn(
@@ -236,7 +271,7 @@ export function renameGymIn(
   name: string,
   profile: GymProfile,
   renamedFrom?: string,
-): Pick<AppPrefs, 'gyms'> & Partial<Pick<AppPrefs, 'gymOverrides' | 'gymKinds' | 'gymNotes' | 'gymTares'>> {
+): Pick<AppPrefs, 'gyms'> & Partial<Pick<AppPrefs, 'gymOverrides' | 'gymKinds' | 'gymNotes' | 'gymTares' | 'gymRigs' | 'gymRigPick'>> {
   const gyms: Record<string, GymProfile | ''> = { ...(raw?.gyms ?? {}), [name]: profile };
   if (!renamedFrom || renamedFrom === name) return { gyms };
   gyms[renamedFrom] = '';
@@ -253,12 +288,20 @@ export function renameGymIn(
     }
     return out;
   };
+  const rigs: Record<string, Rig[]> = { ...(raw?.gymRigs ?? {}) };
+  for (const [k, v] of Object.entries(raw?.gymRigs ?? {})) {
+    if (!k.startsWith(pre)) continue;
+    rigs[k] = [];
+    if (v.length) rigs[moved(k)] = v;
+  }
   return {
     gyms,
     gymOverrides: overrides,
     gymKinds: rekey(raw?.gymKinds) as AppPrefs['gymKinds'],
     gymNotes: rekey(raw?.gymNotes) as AppPrefs['gymNotes'],
     gymTares: rekey(raw?.gymTares) as AppPrefs['gymTares'],
+    gymRigs: rigs,
+    gymRigPick: rekey(raw?.gymRigPick) as AppPrefs['gymRigPick'],
   };
 }
 
@@ -295,8 +338,9 @@ export function mergeAppPrefs(
     const newer = remoteWins ? remote?.gyms : local?.gyms;
     appPrefs.gyms = { ...(older ?? {}), ...(newer ?? {}) };
   }
-  // 器械形式、本馆备注、空载同理按键合并（2026-10-20）；它们有删除，删除写成墓碑 ''，按键比时照样压住旧的一边
-  for (const f of ['gymKinds', 'gymNotes', 'gymTares'] as const) {
+  // 器械形式、本馆备注、空载同理按键合并（2026-10-20）；它们有删除，删除写成墓碑 ''，按键比时照样压住旧的一边。
+  // 存的几台、选的哪一台也一样（2026-11-10）：台子按「馆|器材」整张列表取新的一边，删光是空数组
+  for (const f of ['gymKinds', 'gymNotes', 'gymTares', 'gymRigs', 'gymRigPick'] as const) {
     if (!local?.[f] && !remote?.[f]) continue;
     const older = remoteWins ? local?.[f] : remote?.[f];
     const newer = remoteWins ? remote?.[f] : local?.[f];

@@ -398,6 +398,32 @@ t('loadable：就近取整、等距取轻、不规则片、空杠下限、跨 0�
   assert.equal(L.stepTo('pair', 2.5, 1, 1, db), 5);
 });
 
+t('存的几台：选中的台 → 以前按动作单独设的 → 馆默认；选的台删了＝没选；只有自带器材的画法能存', () => {
+  const L = W.L;
+  const lb = { id: 'a', v: 5, u: 'lbs', s: 12.5 };
+  const kg = { id: 'b', v: 2.5, u: 'kg', s: 5 };
+  const own = { v: 10, u: 'lbs' };
+  assert.equal(L.machineSpecOf([lb, kg], 'b', own), kg, 'picked rig beats the per-exercise override');
+  assert.equal(L.machineSpecOf([lb, kg], '', own), own, 'no pick → the old per-exercise override');
+  assert.equal(L.machineSpecOf([lb], 'b', own), own, 'picked rig was deleted → as if not picked');
+  assert.equal(L.machineSpecOf([lb], 'b', undefined), undefined, 'nothing → gym default');
+  assert.equal(L.machineSpecOf(undefined, 'b', undefined), undefined);
+  assert.equal(L.rigListKey('A', { kind: 'pin', equipment: 'tagCable' }), 'A|tagCable');
+  assert.equal(L.rigListKey('A', { kind: 'pair' }), 'A|~pair', 'no equipment → by kind');
+  assert.equal(L.rigListKey('A', { kind: 'loaded', equipment: 'tagMachine' }), null, 'plate-loaded uses the gym plates');
+  assert.equal(L.rigListKey('A', { kind: 'signed', equipment: 'x' }), null);
+  assert.equal(L.rigListKey(undefined, { kind: 'pin', equipment: 'tagCable' }), null, 'no gym, nowhere to remember');
+  assert.ok(L.sameSpec({ v: 5, u: 'kg' }, { v: 5, u: 'kg', s: 0 }));
+  assert.ok(!L.sameSpec({ v: 5, u: 'kg', s: 5 }, { v: 5, u: 'kg' }));
+  assert.ok(!L.sameSpec({ v: 5, u: 'kg' }, { v: 5, u: 'lbs' }));
+  const prof = { plateUnit: 'lbs', plates: [45], cable: { v: 5, u: 'lbs', s: 12.5 }, machine: { v: 10, u: 'lbs' }, dumbbell: { v: 5, u: 'lbs' } };
+  assert.deepEqual(L.gymSpecOf(prof, 'pin', 'cable'), { v: 5, u: 'lbs', s: 12.5 });
+  assert.deepEqual(L.gymSpecOf(prof, 'pin', 'machine'), { v: 10, u: 'lbs' });
+  assert.deepEqual(L.gymSpecOf(prof, 'bell', 'machine'), { v: 5, u: 'lbs' }, 'old profile without kettlebell → default for its unit');
+  // 每格不再限于档位表：15 kg 一格照样落在格子上
+  assert.deepEqual(L.bracket('pin', 40, { unit: 'kg', plates: [], bar: 0, inc: 15, start: 5 }), { lo: 35, hi: 50 });
+});
+
 t('退回只给刚做完的那组', () => {
   let exs = [ex('A', [[50, 10], [50, 10]])];
   exs = tap(exs, 'A1').exs;

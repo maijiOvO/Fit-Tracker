@@ -330,7 +330,7 @@ async function runProbes(M) {
         toD: sample.map(v => r.toD(v)), fromD: sample.map(v => r.fromD(v)), kgOfD: sample.map(v => r.kgOfD(v)), snapD: sample.map(v => r.snapD(v)),
         loadableD: sample.map(v => r.loadableD(v)), stepD: sample.map(v => r.stepD(v)), bracketD: sample.map(v => r.bracketD(v)), snapKg: sample.map(v => r.snapKg(v)),
         stepTo: sample.flatMap(v => [r.stepToD(v, 1), r.stepToD(v, -1), r.stepToD(v, 1, 3), r.stepToD(v, -1, 2)]),
-        withInc: sample.map(v => M.LR.withInc(r, 1.25).snapD(v)), withStack: sample.map(v => M.LR.withStack(r, 5, 7.5).stepD(v)), withOne: sample.map(v => M.LR.withOneSide(r, true).snapD(v)),
+        withInc: sample.map(v => M.LR.withInc(r, 1.25).snapD(v)), withOne: sample.map(v => M.LR.withOneSide(r, true).snapD(v)),
       };
     });
   }

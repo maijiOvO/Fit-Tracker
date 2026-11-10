@@ -39,6 +39,8 @@ export const PREFS_SENTINEL = {
     gymKinds: { '哨兵馆|EX_sentinel|': 'loaded' },
     gymNotes: { '哨兵馆|EX_sentinel|': '哨兵本馆备注' },
     gymTares: { '哨兵馆|EX_sentinel|': { v: -7.5, u: 'lbs' } },
+    gymRigs: { '哨兵馆|tagCable': [{ id: 'rig_sentinel', v: 2.5, u: 'kg', s: 5, n: '哨兵台' }] },
+    gymRigPick: { '哨兵馆|EX_sentinel|': 'rig_sentinel' },
     featuredLifts: ['EX_sentinel|', 'EX_sentinel|V_sentinel'],
     featuredMode: 'e1rm',
     inheritAltGroup: false,

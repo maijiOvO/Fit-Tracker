@@ -73,7 +73,8 @@ import {
   WeightInputModal,
 } from './src/components/modals';
 import type { NoteModalData } from './src/components/modals/NoteModal';
-import { appPrefsNow, gymSavePatch, keyedPatch } from './services/appPrefs';
+import { appPrefsNow, gymSavePatch, keyedPatch, rigPickPatch } from './services/appPrefs';
+import type { NewExerciseRig } from './src/components/modals/AddCustomExerciseModal';
 
 import {
   AuthProvider,
@@ -227,6 +228,7 @@ const AppWithAuthShell: React.FC = () => {
   const [newExerciseName, setNewExerciseName] = useState('');
   /** 新动作的器材与阻力（resistance 不写 = 跟器材默认） */
   const [newExerciseEquip, setNewExerciseEquip] = useState<{ equipment: string; resistance?: Resistance }>({ equipment: '' });
+  const [newExerciseRig, setNewExerciseRig] = useState<NewExerciseRig | null>(null);
   /** 新动作的细分（第 3 条）；'' = 未细分 */
   const [newExerciseRegions, setNewExerciseRegions] = useState<string[]>([]);
   const [newExerciseBodyPart, setNewExerciseBodyPart] = useState<string>('');
@@ -1032,9 +1034,13 @@ const AppWithAuthShell: React.FC = () => {
         newExerciseRegions={newExerciseRegions}
         setNewExerciseRegions={setNewExerciseRegions}
         addsTo={createdExerciseTargetRef.current ? 'plan' : 'workout'}
+        gym={createdExerciseTargetRef.current ? undefined : currentWorkout.gym}
+        newExerciseRig={newExerciseRig}
+        setNewExerciseRig={setNewExerciseRig}
         onClose={() => {
           createdExerciseTargetRef.current = null;
           setShowAddExerciseModal(false);
+          setNewExerciseRig(null);
         }}
         onConfirm={() => {
           if (!newExerciseName.trim()) return;
@@ -1090,6 +1096,12 @@ const AppWithAuthShell: React.FC = () => {
           prefs.addCustomExercise(ex);
           // 有氧：记录项按首选项「有氧默认记录」先定好（不然交给计划的、动作库里看的都还是重量 × 次数）
           if (currentCat === 'CARDIO') prefs.seedMetricsIfUnset(ex.name.cn, appPrefsNow().cardioMetrics);
+
+          // 建的时候就选了在这个馆用哪一台：先记下，加进训练时取整器已经按它算（换器材时弹窗已经把选的清掉）
+          const gym = createdExerciseTargetRef.current ? undefined : currentWorkout.gym;
+          if (gym && newExerciseRig)
+            settingsCtx.changeAppPrefs(rigPickPatch(settingsCtx.appPrefs.gymRigs, newExerciseRig.listKey, newExerciseRig.rig, `${gym}|${ex.id}|`));
+          setNewExerciseRig(null);
 
           deliverCreatedExercise(ex);
           setShowAddExerciseModal(false);
