@@ -272,6 +272,8 @@ const MAIN_STEPS = [
   ['global-undo', ['cold-load'], H],
   // 配重片刻度轨：只有轨能竖拖、一档一片；重量再大插销也画得出来
   ['weight-stack-rail', ['cold-load'], H],
+  // 同馆存几台器械：卡片上一点就切、刻度跟着换；预设格点一下填进选中的那一行
+  ['rig-switch', ['cold-load'], H],
   // 接回「最近结束的那一场」（10 分钟内）：至少要有计划那场
   ['resume-recent-workout', ['plan-to-linked-workout'], H],
   ['no-real-backend-calls', [], { always: true }],
@@ -1570,6 +1572,59 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.locator('[data-testid="unit-toggle"]').click();
       await backAndDiscard(page);
       return `rail +3 plates (${w0} → ${w1}) · stack drag ignored · ${inc * 60} still labelled · label follows ${u0} → ${u1} · rail ±3 plates in ${u1}`;
+    });
+
+    // 同馆存几台（2026-11-10）：卡片大图上方「＋」加一台 → 设置里换单位、点预设 → 回卡片一点切回默认、再一点切回来；
+    // 列表存 gymRigs[馆|器材]、这个动作选的哪一台存 gymRigPick（'' ＝回到默认的墓碑）
+    await s('rig-switch', async () => {
+      await toDashboard();
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
+      await page.locator('[data-testid="open-picker-sheet"]').click();
+      const sheet = page.locator('[data-testid="picker-sheet"]');
+      await sheet.locator('input[type="text"]').fill('高位下拉');
+      await sheet.locator('[data-testid="picker-sheet-exercise"]').first().click();
+      await page.locator('[data-testid="picker-sheet-close"]').click();
+      const hero = page.locator('[data-testid="load-hero"]').first();
+      const chip = hero.locator('[data-testid="stack-chip"]');
+      const t0 = (await chip.innerText()).trim();
+      if (!/^(默认|Default)/.test(t0)) throw new Error(`fresh exercise should sit on the gym default: ${t0}`);
+      const u0 = /lb/.test(t0) ? 'lbs' : 'kg';
+      const other = u0 === 'kg' ? 'lbs' : 'kg';
+      await hero.locator('[data-testid="rig-add"]').click();
+      const face = page.locator('[data-testid="settings-gym"]');
+      await face.locator(`[data-testid="gym-machine-unit-${other}"]`).click();
+      // 预设：默认填「每格」；点一下「最轻一格」那行再点预设，填的是最轻一格
+      await face.locator('[data-testid="stack-preset-2.5"]').click();
+      await face.locator('[data-testid="stack-start-row"] > span').first().click();
+      await face.locator('[data-testid="stack-preset-5"]').click();
+      const num = async id => Number(await face.locator(`[data-testid="${id}-scrub"] input`).inputValue());
+      if ((await num('stack-step')) !== 2.5 || (await num('stack-start')) !== 5) throw new Error(`presets: step ${await num('stack-step')} start ${await num('stack-start')}`);
+      // ＋ 也在预设里跳：5 → 10，每格不跟着变
+      await face.locator('[data-testid="stack-start-inc"]').click();
+      if ((await num('stack-start')) !== 10 || (await num('stack-step')) !== 2.5) throw new Error(`start + : ${await num('stack-start')} / ${await num('stack-step')}`);
+      await face.locator('[data-testid="stack-preset-5"]').click();
+      await page.locator('[data-testid="metric-modal-done"]').click();
+      await page.waitForTimeout(200);
+      const want = other === 'kg' ? 'kg' : 'lb';
+      const t1 = (await chip.innerText()).trim();
+      if (!t1.includes(`5 起 · 每格 2.5 ${want}`) && !t1.includes(`From 5 · +2.5 ${want}`)) throw new Error(`new machine chip: ${t1}`);
+      const prefs = () => page.evaluate(() => JSON.parse(localStorage.getItem(lsKey('fitlog_app_prefs')) || '{}'));
+      const rigs = Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'));
+      if (rigs.length !== 1 || rigs[0][1].length !== 1) throw new Error(`gymRigs: ${JSON.stringify(rigs)}`);
+      const rig = rigs[0][1][0];
+      if (rig.v !== 2.5 || rig.s !== 5 || rig.u !== other) throw new Error(`stored machine: ${JSON.stringify(rig)}`);
+      const pick = async () => Object.entries((await prefs()).gymRigPick ?? {}).filter(([k]) => k.startsWith('E2E Gym|')).map(([, v]) => v).join(',');
+      if ((await pick()) !== rig.id) throw new Error(`gymRigPick: ${await pick()}`);
+      // 卡片上一点切回默认，再一点切回来
+      await hero.locator('[data-testid="rig-chip"]').first().click();
+      await page.waitForTimeout(150);
+      if ((await chip.innerText()).trim() !== t0 || (await pick()) !== '') throw new Error(`back to default: ${await chip.innerText()} / pick "${await pick()}"`);
+      await hero.locator('[data-testid="rig-chip"]').first().click();
+      await page.waitForTimeout(150);
+      if ((await chip.innerText()).trim() !== t1 || (await pick()) !== rig.id) throw new Error(`back to the machine: ${await chip.innerText()}`);
+      await backAndDiscard(page);
+      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

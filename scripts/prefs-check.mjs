@@ -193,6 +193,33 @@ t('馆改名：档案挪到新名字、旧名留墓碑；这个馆每台器械�
   assert.deepEqual(Object.keys(P.renameGymIn(raw, '楼下', prof)), ['gyms']);
 });
 
+t('存的几台：坏的那台丢掉；按「馆|器材」合并，新的一边整张列表赢、删光（空数组）压住旧的；选的哪一台按键合并带墓碑', () => {
+  const lb = { id: 'a', v: 5, u: 'lbs', s: 12.5 };
+  const kg = { id: 'b', v: 2.5, u: 'kg', s: 5, n: '靠窗' };
+  const r = P.resolveAppPrefs({
+    gymRigs: { 'A|tagCable': [lb, kg, { id: '', v: 5, u: 'kg' }, { id: 'c', v: 0, u: 'kg' }, { id: 'd', v: 5 }], 'A|x': 'nope' },
+    gymRigPick: { 'A|row|': 'b', 'A|fly|': '' },
+  });
+  assert.deepEqual(r.gymRigs, { 'A|tagCable': [lb, kg] });
+  assert.deepEqual(r.gymRigPick, { 'A|row|': 'b' });
+  const older = { gymRigs: { 'A|tagCable': [lb, kg], 'A|tagDumbbell': [lb] }, gymRigPick: { 'A|row|': 'a', 'A|fly|': 'b' } };
+  const newer = { gymRigs: { 'A|tagCable': [kg], 'A|tagDumbbell': [], 'B|tagCable': [lb] }, gymRigPick: { 'A|row|': '', 'A|curl|': 'b' } };
+  for (const [a, am, b, bm] of [[newer, 300, older, 100], [older, 100, newer, 300]]) {
+    const m = P.resolveAppPrefs(P.mergeAppPrefs(a, am, b, bm).appPrefs);
+    assert.deepEqual(m.gymRigs, { 'A|tagCable': [kg], 'A|tagDumbbell': [], 'B|tagCable': [lb] });
+    assert.deepEqual(m.gymRigPick, { 'A|fly|': 'b', 'A|curl|': 'b' });
+  }
+});
+
+t('馆改名：存的几台、选的哪一台一起挪到新名字，旧键留空列表 / 墓碑', () => {
+  const prof = { plateUnit: 'kg', plates: [20], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } };
+  const rig = { id: 'a', v: 2.5, u: 'kg', s: 5 };
+  const raw = { gyms: { 楼下: prof }, gymRigs: { '楼下|tagCable': [rig], '江边|tagCable': [rig] }, gymRigPick: { '楼下|row|': 'a', '江边|row|': 'a' } };
+  const p = P.renameGymIn(raw, '公司楼下', prof, '楼下');
+  assert.deepEqual(p.gymRigs, { '楼下|tagCable': [], '公司楼下|tagCable': [rig], '江边|tagCable': [rig] });
+  assert.deepEqual(p.gymRigPick, { '楼下|row|': '', '公司楼下|row|': 'a', '江边|row|': 'a' });
+});
+
 t('馆改名同步：新的一边带墓碑，另一台设备上的旧名档案不复活', () => {
   const prof = { plateUnit: 'kg', plates: [20], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } };
   const older = { gyms: { 楼下: prof } };

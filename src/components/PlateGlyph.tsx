@@ -28,7 +28,7 @@ import {
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { INC_CHOICES, sidePlates } from '../utils/loadable';
+import { RIG_STEPS, sidePlates, type Rig } from '../utils/loadable';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
 import { STACK_PITCH } from '../utils/scrubFeel';
 
@@ -164,8 +164,20 @@ export interface MachineCtl {
   onKind: (k: 'pin' | 'loaded') => void;
   /** 配重片：每格 + 最轻一格一起改（最轻一格 0＝没设） */
   onStack?: (step: number, start: number) => void;
-  /** 一档（配重片 / 哑铃 / 壶铃 / 辅助）：恢复馆默认用 */
-  inc?: { overridden: boolean; onSet: (n: number) => void; onReset: () => void };
+  /** 一档（哑铃 / 壶铃 / 固定杠铃 / 辅助）。onReset：按动作单独设过（辅助）才有，恢复馆默认 */
+  inc?: { onSet: (n: number) => void; onReset?: () => void };
+  /**
+   * 这件器材在这个馆存的几台（2026-11-10）：list 第一格是馆默认（id ''），sel 是这个动作眼下用的。
+   * 改刻度改的是选中那台（在默认上改＝另存一台）；onName / onRemove 只有选中的是存下来的一台才有。
+   */
+  rigs?: {
+    list: Rig[];
+    sel: string;
+    onPick: (id: string) => void;
+    onAdd: () => void;
+    onName?: (n: string) => void;
+    onRemove?: () => void;
+  };
   /** 挂片式器械的空载（馆的片子单位；null＝不知道） */
   tare?: { value: number | null; onSet: (n: number | null) => void };
   /** 挂片式器械只有一边能挂（T 杠、地雷架）：总重＝一边的片 */
@@ -547,73 +559,162 @@ function displayConv(rounder: ExRounder, unit: PlateUnit) {
   const toG = (d: number) => (gu === unit ? d : Math.round(convert(d, unit, gu) * 100) / 100);
   const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
   /**
-   * 设置面、小药丸按显示单位（2026-10-23 用户：调重量的界面都要能实时切单位）。
-   * 存的仍是这台器械上印的单位（gu）——只在显示和输入时换算，切来切去不丢精度，和杠铃片说明（plateLabel）一个做法。
+   * 设置面里的器械自重、说明里的总重按显示单位（2026-10-23 用户：调重量的界面都要能实时切单位）；
+   * 存的仍是这台器械上印的单位（gu）。每格 / 最轻一格不换算（见 MachineFace）。
    */
   const conv = gu !== unit;
   // 换算过来的数留一位小数（10 lb → 4.5 kg）：两位在输入框里放不下，也不比一位更有用
   const toD = (g: number) => (conv ? Math.round(convert(g, gu, unit) * 10) / 10 : g);
   const fromD = (d: number) => (conv ? Math.round(convert(d, unit, gu) * 20) / 20 : d);
   const fmtD = (g: number) => fmt(toD(g));
-  /** 每格只能是这个单位的档位：换算回来落到最近一档 */
-  const incFromD = (d: number) => {
-    if (!conv) return d;
-    const g = convert(d, unit, gu);
-    return INC_CHOICES[gu].reduce((b, x) => (Math.abs(x - g) < Math.abs(b - g) ? x : b), INC_CHOICES[gu][0]);
-  };
-  const incStepFn = listStepFn(INC_CHOICES[gu].map(toD));
-  return { u, gu, toG, fmt, conv, toD, fromD, fmtD, incFromD, incStepFn };
+  return { u, gu, toG, fmt, toD, fromD, fmtD };
+}
+
+/** 一台的名字：起了名的写名字，馆默认写「默认」，后面跟刻度（按这台器械上印的单位，一台 kg 一台 lb 靠它分辨） */
+export function rigLabel(r: Rig, kind: LoadKind, isCn: boolean): string {
+  const f = (n: number) => String(Math.round(n * 100) / 100);
+  const u = r.u === 'lbs' ? 'lb' : 'kg';
+  const spec = kind === 'pin'
+    ? isCn ? `${f(r.s && r.s > 0 ? r.s : r.v)} 起 · 每格 ${f(r.v)} ${u}` : `From ${f(r.s && r.s > 0 ? r.s : r.v)} · +${f(r.v)} ${u}`
+    : isCn ? `每档 ${f(r.v)} ${u}` : `+${f(r.v)} ${u}`;
+  const head = r.id === '' ? (isCn ? '默认' : 'Default') : r.n;
+  return head ? `${head} · ${spec}` : spec;
 }
 
 /**
- * 「这台器械」的设置行：加重方式 / 这台的片子 / 最轻一格 · 每格 / 单边 / 器械自重 / 每档 / 恢复馆默认。
+ * 这件器材在这个馆存的几台，一排可横滚的药丸（2026-11-10 用户定：切哪一台要在一级界面，不进 ⋯ 或动作设置）。
+ * 卡片大图上方、动作设置「这一台」、新建动作弹窗三处共用。点没选中的＝切过去；
+ * onEdit（只有大图给）：点选中的那台＝打开它的设置。onAdd 不给就没有「＋」。
+ */
+export function RigChips({ kind, isCn, list, sel, onPick, onAdd, onEdit }: {
+  kind: LoadKind;
+  isCn: boolean;
+  list: Rig[];
+  sel: string;
+  onPick: (id: string) => void;
+  onAdd?: () => void;
+  onEdit?: () => void;
+}) {
+  return (
+    <div className="stack-rigs" role="group" aria-label={isCn ? '用哪一台' : 'Which machine'} data-testid="rig-chips">
+      {list.map(r => {
+        const on = r.id === sel;
+        return (
+          <button
+            key={r.id}
+            type="button"
+            className={`stack-tag${on ? ' is-on' : ''}`}
+            aria-pressed={on}
+            onClick={() => (on ? onEdit?.() : onPick(r.id))}
+            data-testid={on ? 'stack-chip' : 'rig-chip'}
+          >
+            {on && onEdit && <svg viewBox="0 0 24 24" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /></svg>}
+            {rigLabel(r, kind, isCn)}
+          </button>
+        );
+      })}
+      {onAdd && (
+        <button type="button" className="stack-tag" aria-label={isCn ? '加一台' : 'Add a machine'} onClick={onAdd} data-testid="rig-add">
+          ＋
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** 给一台起名：失焦才存（每打一个字存一次会一直推同步） */
+const RigName: React.FC<{ name: string; isCn: boolean; onName: (n: string) => void }> = ({ name, isCn, onName }) => {
+  const [text, setText] = useState(name);
+  return (
+    <input
+      className="stack-name"
+      value={text}
+      maxLength={12}
+      placeholder={isCn ? '不填就用刻度当名字' : 'Optional'}
+      aria-label={isCn ? '这一台的名字' : 'Machine name'}
+      onChange={e => setText(e.target.value)}
+      onBlur={() => onName(text.trim())}
+      onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+      data-testid="rig-name"
+    />
+  );
+};
+
+/**
+ * 「这台器械」的设置行：用哪一台 / 加重方式 / 这台的片子 / 最轻一格 · 每格 + 预设 / 单边 / 器械自重 / 每档 / 删掉这一台。
  * 大图里原地展开、渲染进「动作设置」弹窗（slot）、交替组卡（没有大图，只有这几行）三处共用一份。
  * 状态都在 machine（useMachineSettings）里，这里只画。
  */
 export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: LoadKind; unit: PlateUnit; isCn: boolean; rounder: ExRounder; machine: MachineCtl }) {
   const ctx = rounder.ctx;
   const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
-  const { u, gu, toD, fromD, fmtD, incFromD, incStepFn } = displayConv(rounder, unit);
+  const { u, gu, toD, fromD } = displayConv(rounder, unit);
+  /**
+   * 每格 / 最轻一格按这台器械上印的单位写，不换算成显示单位（2026-11-10，原来 10-23 定的是跟显示单位）：
+   * 一台 kg、一台 lb 靠它分辨，下方的预设（1 · 2.5 · 5…）也只有在器械自己的单位下才是整数。
+   */
+  const gl = gu === 'lbs' ? 'lb' : 'kg';
   const oneSide = kind === 'loaded' && !!ctx.oneSide;
   const lightest = stackStart > 0 ? stackStart : ctx.inc;
-  const nudgeStart = (dir: 1 | -1) => {
-    if (!machine?.onStack) return;
-    const cur = stackStart > 0 ? stackStart : ctx.inc;
-    // 最轻一格的颗粒度 kg / lb 都是 0.5（2026-10-21 用户定：用不着更细）
-    const next = Math.round((cur + dir * 0.5) * 100) / 100;
-    if (next < 0.5) return;
-    machine.onStack(ctx.inc, next);
+  // 预设填进哪一格（2026-11-10 用户定）：点一下那一行就选中，默认是「每格」
+  const [field, setField] = useState<'start' | 'step'>('step');
+  // 横划和 − / ＋ 也只在预设这几格里跳（下方那排不动、只挪高亮）；别的数手打
+  const presetFn = listStepFn(RIG_STEPS);
+  // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
+  const setStart = (n: number) => { if (n > 0 && Math.abs(n - lightest) > 1e-9) machine.onStack?.(ctx.inc, n); };
+  const setStep = (n: number) => {
+    if (n <= 0 || Math.abs(n - ctx.inc) < 1e-9) return;
+    if (kind === 'pin') machine.onStack?.(n, lightest);
+    else machine.inc?.onSet(n);
   };
-  const stepStack = (dir: 1 | -1) => {
-    if (!machine?.onStack) return;
-    const list = INC_CHOICES[gu];
-    const nextV = dir > 0 ? list.find(x => x > ctx.inc + 1e-9) : [...list].reverse().find(x => x < ctx.inc - 1e-9);
-    if (nextV === undefined) return;
-    // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
-    machine.onStack(nextV, stackStart > 0 ? stackStart : ctx.inc);
-  };
-  const incRow = (label: string) =>
-    machine?.inc && (
-      <div className="stack-stp">
-        <span>{label}</span>
-        <span className="stack-seg">
-          <button type="button" aria-label={isCn ? '一档轻一点' : 'Smaller step'} onClick={() => { const n = listStepFn(INC_CHOICES[gu])(ctx.inc, -1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-dec">−</button>
-          <ScrubNumber
-            value={toD(ctx.inc)}
-            onCommit={n => { if (n === null || n <= 0) return; const g = incFromD(n); if (Math.abs(g - ctx.inc) > 1e-9) machine.inc!.onSet(g); }}
-            min={0.1}
-            stepFn={incStepFn}
-            steps={[1, 2, 4]}
-            testId="gym-inc-value"
-            ariaLabel={label}
-          />
-          <small>{u}</small>
-          <button type="button" aria-label={isCn ? '一档重一点' : 'Bigger step'} onClick={() => { const n = listStepFn(INC_CHOICES[gu])(ctx.inc, 1, 1); if (n !== ctx.inc) machine.inc!.onSet(n); }} data-testid="gym-inc-inc">＋</button>
-        </span>
-      </div>
-    );
+  const numRow = (id: 'start' | 'step', label: string, value: number, set: (n: number) => void, testId: string) => (
+    <div className={`stack-stp${kind === 'pin' && field === id ? ' is-on' : ''}`} onPointerDownCapture={() => setField(id)} data-testid={`${testId}-row`}>
+      <span>{label}</span>
+      <span className="stack-seg">
+        <button type="button" aria-label={isCn ? `${label}轻一点` : `${label} down`} onClick={() => set(presetFn(value, -1, 1))} data-testid={`${testId}-dec`}>−</button>
+        <ScrubNumber
+          value={value}
+          onCommit={n => n !== null && set(n)}
+          min={0.1}
+          stepFn={presetFn}
+          steps={[1, 2, 3]}
+          testId={testId}
+          ariaLabel={label}
+        />
+        <small>{gl}</small>
+        <button type="button" aria-label={isCn ? `${label}重一点` : `${label} up`} onClick={() => set(presetFn(value, 1, 1))} data-testid={`${testId}-inc`}>＋</button>
+      </span>
+    </div>
+  );
+  const presets = (value: number, set: (n: number) => void) => (
+    <div className="stack-presets" role="group" aria-label={isCn ? '常见的一格' : 'Common steps'} data-testid="stack-presets">
+      {RIG_STEPS.map(x => (
+        <button key={x} type="button" aria-pressed={Math.abs(x - value) < 1e-9} onClick={() => set(x)} data-testid={`stack-preset-${x}`}>
+          {x}
+        </button>
+      ))}
+      <small>{gl}</small>
+    </div>
+  );
+  const rigs = machine.rigs;
   return (
     <>
+      {rigs && (
+        <>
+          <RigChips kind={kind} isCn={isCn} list={rigs.list} sel={rigs.sel} onPick={rigs.onPick} onAdd={rigs.onAdd} />
+          <p className="stack-note" data-testid="rig-note">
+            {rigs.onName
+              ? isCn ? '改的是这一台：选了它的动作一起变。' : 'Edits apply to this machine, for every exercise that uses it.'
+              : isCn ? '在这上面改刻度会另存成一台，默认还留着。' : 'Editing saves a new machine; the default stays.'}
+          </p>
+          {rigs.onName && (
+            <div className="stack-stp">
+              <span>{isCn ? '名字' : 'Name'}</span>
+              <RigName key={rigs.sel} name={rigs.list.find(r => r.id === rigs.sel)?.n ?? ''} isCn={isCn} onName={rigs.onName} />
+            </div>
+          )}
+        </>
+      )}
       {machine.canSwitch && (
         <div className="stack-stp">
           {/* 写明和做法（所有馆的默认）的关系：两层说的是同一件事，以前看不出这一台改没改过（2026-10-22；10-23 起默认在做法那层） */}
@@ -669,45 +770,9 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
       )}
       {kind === 'pin' && machine.onStack && (
         <>
-          <div className="stack-stp">
-            <span>{isCn ? '最轻一格' : 'Lightest'}</span>
-            <span className="stack-seg">
-              <button type="button" aria-label={isCn ? '最轻一格轻一点' : 'Lighter'} onClick={() => nudgeStart(-1)} data-testid="stack-start-dec">−</button>
-              <ScrubNumber
-                value={toD(lightest)}
-                onCommit={n => { if (n === null || n <= 0) return; const g = fromD(n); if (Math.abs(g - lightest) > 1e-9) machine.onStack!(ctx.inc, g); }}
-                min={0.2}
-                steps={[0.5, 1, 2.5, 5]}
-                testId="stack-start"
-                ariaLabel={isCn ? '最轻一格多重' : 'Lightest plate weight'}
-              />
-              <small>{u}</small>
-              <button type="button" aria-label={isCn ? '最轻一格重一点' : 'Heavier'} onClick={() => nudgeStart(1)} data-testid="stack-start-inc">＋</button>
-            </span>
-          </div>
-          <div className="stack-stp">
-            <span>{isCn ? '每格' : 'Step'}</span>
-            <span className="stack-seg">
-              <button type="button" aria-label={isCn ? '每格轻一点' : 'Smaller step'} onClick={() => stepStack(-1)} data-testid="stack-step-dec">−</button>
-              <ScrubNumber
-                value={toD(ctx.inc)}
-                onCommit={n => { if (n === null || n <= 0) return; const g = incFromD(n); if (Math.abs(g - ctx.inc) > 1e-9) machine.onStack!(g, lightest); }}
-                min={0.1}
-                stepFn={incStepFn}
-                steps={[1, 2, 4]}
-                testId="stack-step"
-                ariaLabel={isCn ? '每格多重' : 'Step'}
-              />
-              <small>{u}</small>
-              <button type="button" aria-label={isCn ? '每格重一点' : 'Bigger step'} onClick={() => stepStack(1)} data-testid="stack-step-inc">＋</button>
-            </span>
-          </div>
-          <div className="stack-mini" aria-hidden>
-            {Array.from({ length: 7 }, (_, i) => (
-              <i key={i} className={i === 0 ? 'is-first' : ''}>{fmtD(lightest + i * ctx.inc)}</i>
-            ))}
-            <span>…</span>
-          </div>
+          {numRow('start', isCn ? '最轻一格' : 'Lightest', lightest, setStart, 'stack-start')}
+          {numRow('step', isCn ? '每格' : 'Step', ctx.inc, setStep, 'stack-step')}
+          {field === 'start' ? presets(lightest, setStart) : presets(ctx.inc, setStep)}
         </>
       )}
       {kind === 'loaded' && machine.oneSide && (
@@ -756,13 +821,25 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           </p>
         </>
       )}
-      {(kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed') && incRow(isCn ? '每档' : 'Step')}
-      {machine.inc?.overridden && (
+      {kind !== 'pin' && machine.inc && (
+        <>
+          {numRow('step', isCn ? '每档' : 'Step', ctx.inc, setStep, 'gym-inc')}
+          {presets(ctx.inc, setStep)}
+        </>
+      )}
+      {(machine.inc?.onReset || rigs?.onRemove) && (
         <div className="stack-foot">
           <span />
-          <button type="button" onClick={() => machine.inc!.onReset()} data-testid="stack-reset">
-            {isCn ? '每格恢复成馆默认' : 'Use gym default step'}
-          </button>
+          {machine.inc?.onReset && (
+            <button type="button" onClick={machine.inc.onReset} data-testid="stack-reset">
+              {isCn ? '每格恢复成馆默认' : 'Use gym default step'}
+            </button>
+          )}
+          {rigs?.onRemove && (
+            <button type="button" onClick={rigs.onRemove} data-testid="rig-remove">
+              {isCn ? '删掉这一台' : 'Delete this machine'}
+            </button>
+          )}
         </div>
       )}
     </>
@@ -856,39 +933,39 @@ function GymHero({
     onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
   const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
 
-  const lightest = stackStart > 0 ? stackStart : ctx.inc;
   const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
   // 有弹窗位置（slot）时不在原地展开：设置行渲染进「动作设置」里
   const faceOpen = stackOpen && hasMachine && !machine?.slot;
-  const incName =
-    kind === 'pair' ? (isCn ? '哑铃' : 'Dumbbells')
-    : kind === 'bell' ? (isCn ? '壶铃' : 'Kettlebells')
-    : kind === 'fixed' ? (isCn ? '固定杠铃' : 'Fixed bars')
-    : isCn ? '辅助' : 'Assist';
+  const openFace = () => (machine?.onOpen ? machine.onOpen() : setStackOpen(() => true));
+  // 有自己器材的（配重片 / 哑铃 / 壶铃 / 固定杠铃）药丸是一排台子（RigChips）；这里只剩挂片和辅助
   const pillText = !machine
     ? ''
-    : kind === 'pin'
-      ? isCn ? `${fmtD(lightest)} 起 · 每格 ${fmtD(ctx.inc)} ${u}` : `From ${fmtD(lightest)} · +${fmtD(ctx.inc)} ${u}`
-      : kind === 'loaded'
-        ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
-          (machine.tare?.value != null
-            ? isCn ? ` · 器械自重 ${fmtD(machine.tare.value)} ${u}` : ` · machine ${fmtD(machine.tare.value)} ${u}`
-            : isCn ? ' · 自重没填' : ' · weight unknown')
-        : isCn ? `${incName} · 每档 ${fmtD(ctx.inc)} ${u}` : `${incName} · +${fmtD(ctx.inc)} ${u}`;
+    : kind === 'loaded'
+      ? (oneSide ? (isCn ? '单边' : 'One side') : isCn ? '挂片' : 'Plate-loaded') +
+        (machine.tare?.value != null
+          ? isCn ? ` · 器械自重 ${fmtD(machine.tare.value)} ${u}` : ` · machine ${fmtD(machine.tare.value)} ${u}`
+          : isCn ? ' · 自重没填' : ' · weight unknown')
+      : isCn ? `辅助 · 每档 ${fmtD(ctx.inc)} ${u}` : `Assist · +${fmtD(ctx.inc)} ${u}`;
   return (
     <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}${faceOpen ? ' is-face' : ''}`} data-testid="load-hero">
       {hasMachine && !faceOpen && (
         <div className="stack-tagrow">
-          <button
-            type="button"
-            className="stack-tag"
-            onClick={() => (machine?.onOpen ? machine.onOpen() : setStackOpen(() => true))}
-            aria-expanded={false}
-            data-testid="stack-chip"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /></svg>
-            {pillText}
-          </button>
+          {machine?.rigs ? (
+            <RigChips
+              kind={kind}
+              isCn={isCn}
+              list={machine.rigs.list}
+              sel={machine.rigs.sel}
+              onPick={machine.rigs.onPick}
+              onEdit={openFace}
+              onAdd={() => { machine.rigs!.onAdd(); openFace(); }}
+            />
+          ) : (
+            <button type="button" className="stack-tag" onClick={openFace} aria-expanded={false} data-testid="stack-chip">
+              <svg viewBox="0 0 24 24" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /></svg>
+              {pillText}
+            </button>
+          )}
         </div>
       )}
       {faceOpen && machine ? (

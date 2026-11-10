@@ -28,6 +28,8 @@ export interface LoadInfo {
   kind: LoadKind;
   /** 配重片的是龙门架 / 绳索还是固定器械（馆档案里两者各有一档）；辅助器械按固定器械算 */
   stack: 'cable' | 'machine';
+  /** 器材 id：这个馆里这件器材存的几台（gymRigs）按它分 */
+  equipment?: string;
   /** 动作定义 id + 做法 id：馆里单独设一档时的键 */
   defId?: string;
   variantId?: string;
@@ -91,7 +93,7 @@ export function useLoadInfoOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, sign
       const stack = attrs.equipment === EQ_CABLE ? 'cable' : 'machine';
       const key = gymSwitchableKind(libKind) ? gymMachineKey(gym, { defId: def.id, variantId: vid }) : null;
       const kind = (key && gymKinds[key]) || libKind;
-      return { kind, libKind, stack, defId: def.id, variantId: vid };
+      return { kind, libKind, stack, equipment: attrs.equipment, defId: def.id, variantId: vid };
     },
     [findExerciseDef, exerciseOverrides, variantIdOf, attrsOf, gymKinds],
   );

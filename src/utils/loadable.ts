@@ -55,6 +55,48 @@ export const DEFAULT_FIXED_BAR_INC: Record<PlateUnit, IncSpec> = {
   lbs: { v: 5, u: 'lbs' },
 };
 
+/**
+ * 馆里的一台器械（2026-11-10 用户定：同一个馆可以存两种龙门架，练不同动作时直接切）：
+ * 存 AppPrefs.gymRigs[馆|器材]，这件器材的所有动作共用；每个动作记住上次用的哪一台（gymRigPick[馆|动作|做法]）。
+ * 改一台的刻度，所有选了它的动作一起变。n：起的名字，不写就拿刻度当名字。
+ */
+export interface Rig extends IncSpec {
+  id: string;
+  n?: string;
+}
+
+/** 「每格 / 最轻一格」下方常驻的预设（kg / lb 同一排）：点一下填进去，横划也只在这几格里跳；别的数手打 */
+export const RIG_STEPS = [1, 2.5, 5, 10, 15, 20];
+
+export const newRigId = () => `r${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+
+/** 能存成「一台」的画法：一档就是器械自己的器材（配重片 / 哑铃 / 壶铃 / 固定杠铃），有自己的单位 */
+export function rigKind(kind: LoadKind): kind is 'pin' | 'pair' | 'bell' | 'fixed' {
+  return kind === 'pin' || kind === 'pair' || kind === 'bell' || kind === 'fixed';
+}
+
+/** 台子列表的键：馆|器材（没填器材的按画法分） */
+export function rigListKey(gym: string | undefined, info: { kind: LoadKind; equipment?: string }): string | null {
+  return gym && rigKind(info.kind) ? `${gym}|${info.equipment || `~${info.kind}`}` : null;
+}
+
+/** 这个动作在这个馆实际用的刻度：选中的台 → 以前按动作单独设的（gymOverrides）→ undefined（馆默认）。选的台删了＝没选 */
+export function machineSpecOf(rigs: Rig[] | undefined, pick: string | undefined, own: IncSpec | undefined): IncSpec | undefined {
+  return (pick ? rigs?.find(r => r.id === pick) : undefined) ?? own;
+}
+
+export function sameSpec(a: IncSpec, b: IncSpec): boolean {
+  return a.u === b.u && Math.abs(a.v - b.v) < 1e-9 && Math.abs((a.s ?? 0) - (b.s ?? 0)) < 1e-9;
+}
+
+/** 馆档案里这一类器材的一档（旧档案没有壶铃 / 固定杠铃，按默认） */
+export function gymSpecOf(profile: GymProfile, kind: 'pin' | 'pair' | 'bell' | 'fixed', stack: 'cable' | 'machine'): IncSpec {
+  return kind === 'pair' ? profile.dumbbell
+    : kind === 'bell' ? profile.kettlebell ?? DEFAULT_KETTLEBELL_INC[profile.plateUnit]
+    : kind === 'fixed' ? profile.fixedBar ?? DEFAULT_FIXED_BAR_INC[profile.plateUnit]
+    : stack === 'cable' ? profile.cable : profile.machine;
+}
+
 /** 没设过档案的馆（或没标馆）：常用的标准片（DEFAULT_PLATES）+ 常见档位 */
 export function defaultProfile(unit: PlateUnit): GymProfile {
   return unit === 'kg'
