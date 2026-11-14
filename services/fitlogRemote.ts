@@ -344,9 +344,25 @@ function pickArray<T>(local: T[], remote: T[], localWins: boolean, union: boolea
   return localWins ? local : remote;
 }
 
+/**
+ * 合并选项。unionPrefs：从备份合并恢复（mergeBackup）用 —— 首选项按 id / 键取并集、同一条以较新的一边为准，
+ * 「两边都留」（2026-11-14 用户定）。服务端同步不传：仍整块取新的一边（见上面 pickObject 的注释）。
+ * 墓碑（'' ＝改名 / 清空 / 回到默认）也是一个值，照样按较新的一边取；删键表达的删除会被另一边带回来。
+ */
+export interface MergeOptions {
+  unionPrefs?: boolean;
+}
+
+/** 按 id 取并集，同 id 以较新的一边为准；顺序照较新的一边，另一边独有的接在后面 */
+function unionById<T extends { id: string }>(newer: T[], older: T[]): T[] {
+  const ids = new Set(newer.map(x => x.id));
+  return [...newer, ...older.filter(x => !ids.has(x.id))];
+}
+
 export function mergeFitlogPrefs(
   localLs: FitlogSyncedPrefs,
   remote: FitlogSyncedPrefs,
+  opts: MergeOptions = {},
 ): FitlogSyncedPrefs {
   let finalStarred = localLs.starredExercises;
   let finalMetricConfigs = localLs.exerciseMetricConfigs;
@@ -383,6 +399,43 @@ export function mergeFitlogPrefs(
     remote.appPrefs,
     remote.appPrefsUpdatedMs ?? 0,
   );
+
+  if (opts.unionPrefs) {
+    // 星标 / 记录项各有各的时间戳，各按各的判较新
+    const starLocalNewer = localStarTs >= remoteStarTs;
+    const metLocalNewer = localMetTs >= remoteMetTs;
+    const byKey = <T extends object>(l: T | undefined, r: T | undefined, localNewer: boolean): T =>
+      (localNewer ? { ...(r ?? {}), ...(l ?? {}) } : { ...(l ?? {}), ...(r ?? {}) }) as T;
+    const byId = <T extends { id: string }>(l: T[] | undefined, r: T[] | undefined): T[] =>
+      localWins ? unionById(l ?? [], r ?? []) : unionById(r ?? [], l ?? []);
+    // 馆档案、器械形式、备注、空载、台子、选台 mergeAppPrefs 已经按键合并；只有「这个馆这个动作的一档」还是整块取新的
+    const appLocalNewer = !(remote.appPrefs && (!localLs.appPrefs || (remote.appPrefsUpdatedMs ?? 0) > (localLs.appPrefsUpdatedMs ?? 0)));
+    const appPrefs =
+      app.appPrefs && (localLs.appPrefs?.gymOverrides || remote.appPrefs?.gymOverrides)
+        ? { ...app.appPrefs, gymOverrides: byKey(localLs.appPrefs?.gymOverrides, remote.appPrefs?.gymOverrides, appLocalNewer) }
+        : app.appPrefs;
+    return {
+      customTags: byId(localLs.customTags, remote.customTags),
+      customExercises: byId(localLs.customExercises, remote.customExercises),
+      exerciseNotes: byKey(localLs.exerciseNotes, remote.exerciseNotes, localWins),
+      starredExercises: byKey(localLs.starredExercises, remote.starredExercises, starLocalNewer),
+      exerciseMetricConfigs: byKey(localLs.exerciseMetricConfigs, remote.exerciseMetricConfigs, metLocalNewer),
+      tagRenameOverrides: byKey(localLs.tagRenameOverrides, remote.tagRenameOverrides, localWins),
+      exerciseOverrides: byKey(localLs.exerciseOverrides, remote.exerciseOverrides, localWins),
+      starredLastUpdateMs: Math.max(localStarTs, remoteStarTs),
+      metricsLastUpdateMs: Math.max(localMetTs, remoteMetTs),
+      prefsLastUpdateMs: Math.max(localPrefsTs, remotePrefsTs),
+      lang: app.appPrefs?.lang ?? (localWins ? (localLs.lang ?? remote.lang) : (remote.lang ?? localLs.lang)),
+      unit: app.appPrefs?.unit ?? (localWins ? (localLs.unit ?? remote.unit) : (remote.unit ?? localLs.unit)),
+      // 头像只有一张，谈不上并集：照同步口径取较新的一边（删掉的 null 不被另一边捞回来）；
+      // 本机从没打过时间戳时本机的 null 是「还没有」，同步口径一样回落到另一边
+      avatarDataUrl: union
+        ? (localWins ? (localLs.avatarDataUrl ?? remote.avatarDataUrl) : (remote.avatarDataUrl ?? localLs.avatarDataUrl))
+        : (localWins ? localLs.avatarDataUrl : remote.avatarDataUrl),
+      appPrefs,
+      appPrefsUpdatedMs: app.appPrefsUpdatedMs,
+    };
+  }
 
   return {
     customTags: pickArray(localLs.customTags ?? [], remote.customTags ?? [], localWins, union),
@@ -518,14 +571,15 @@ function mergeEntityList<T extends { id: string }>(
   return filterByTombstones(mergeByIdPreferNewer(local, remote, getTs), deleted);
 }
 
+/** 纯函数：只算合并结果，不写本机。墓碑随 applySnapshotToLocalIndexedDb 一起落地 */
 export function mergeLocalWithRemote(
   local: FitlogRemoteSnapshot,
   remote: FitlogRemoteSnapshot,
+  opts: MergeOptions = {},
 ): FitlogRemoteSnapshot {
   const tombstones = mergeTombstoneSets(local.tombstones ?? readTombstones(), remote.tombstones ?? {});
-  writeTombstones(tombstones);
 
-  const mergedPrefs = mergeFitlogPrefs(local.prefs, remote.prefs);
+  const mergedPrefs = mergeFitlogPrefs(local.prefs, remote.prefs, opts);
   return {
     schemaVersion: 2,
     clientExportedAt: new Date().toISOString(),
@@ -562,6 +616,43 @@ export function mergeLocalWithRemote(
     prefs: mergedPrefs,
     tombstones,
   };
+}
+
+/** 键排好序的 JSON；null 与缺省当成一样（本机读出来的头像是 null，合并结果里可能是 undefined） */
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(',')}]`;
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .filter(k => o[k] != null)
+      .sort()
+      .map(k => `${JSON.stringify(k)}:${stableJson(o[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+
+const SNAPSHOT_TABLES = ['workouts', 'goals', 'weightLogs', 'customMetrics', 'prs', 'customExerciseDefsFromDb', 'scheduledWorkouts'] as const;
+
+/**
+ * 合并结果和本机原样有没有不同（任何一行、首选项、墓碑）。没有不同，拉取就什么都没带来：
+ * 不必整库重写，撤销历史也仍然对得上本机（审查 E7 / D9）。拿不准一律算「变了」。
+ */
+export function mergeChangesLocal(local: FitlogRemoteSnapshot, merged: FitlogRemoteSnapshot): boolean {
+  for (const k of SNAPSHOT_TABLES) {
+    const a = (local[k] ?? []) as { id: string }[];
+    const b = (merged[k] ?? []) as { id: string }[];
+    if (a.length !== b.length) return true;
+    const byId = new Map(a.map(x => [x.id, x]));
+    for (const row of b) {
+      const mine = byId.get(row.id);
+      if (!mine || (mine !== row && stableJson(mine) !== stableJson(row))) return true;
+    }
+  }
+  if (stableJson(local.prefs) !== stableJson(merged.prefs)) return true;
+  const tomb = (t: FitlogRemoteSnapshot['tombstones']) =>
+    stableJson(Object.fromEntries(Object.entries(t ?? {}).filter(([, ids]) => ids?.length).map(([key, ids]) => [key, [...(ids ?? [])].sort()])));
+  return tomb(local.tombstones) !== tomb(merged.tombstones);
 }
 
 function mergeExerciseDefs(

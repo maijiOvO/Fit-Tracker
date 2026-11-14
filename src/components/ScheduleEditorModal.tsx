@@ -10,10 +10,10 @@ import { useExercisePrefs, useScheduleContext } from '../contexts';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { ExerciseCategory } from '../constants/exercises';
 import { parseWeight } from '../utils/format';
-import Modal from './Modal';
+import Modal, { ModalFooter } from './Modal';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { ScrubNumber } from './ScrubNumber';
-import { formatWeight } from './SetCapsule';
+import { formatLoad } from '../utils/setWrite';
 
 type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string };
 
@@ -42,6 +42,20 @@ interface ScheduleEditorModalProps {
   pickerHost: PlanPickerHost;
 }
 
+/**
+ * 按返回键 / × 关掉没保存的计划：草稿留在模块里，再打开同一份接着填（审查 D5；不弹确认框，确认只留给删整场那几处）。
+ * 点「取消」或保存才丢。按「哪份计划 + 它的版本」存，新建和编辑旧计划互不串；目标重量是显示单位下的数，换了单位就不用。
+ */
+interface Draft {
+  unit: 'kg' | 'lbs';
+  title: string;
+  date: string;
+  exercises: ScheduledExercise[];
+  notes: string;
+}
+const drafts = new Map<string, Draft>();
+const draftKey = (s: ScheduledWorkout | null) => (s ? `${s.id}@${s.updatedAt}` : 'new');
+
 function makeId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -60,17 +74,32 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
   const isEdit = !!editingSchedule;
   const isCn = lang === Language.CN;
 
-  const [title, setTitle] = useState<string>(editingSchedule?.title ?? '');
-  const [date, setDate] = useState<string>(editingSchedule?.date ?? defaultDate);
+  const key = draftKey(editingSchedule);
+  const [draft] = useState(() => {
+    const d = drafts.get(key);
+    return d && d.unit === unit ? d : undefined;
+  });
+  const [title, setTitle] = useState<string>(draft?.title ?? editingSchedule?.title ?? '');
+  // 新建的草稿换到这次点开的那天
+  const [date, setDate] = useState<string>(editingSchedule ? (draft?.date ?? editingSchedule.date) : defaultDate);
   // 编辑中的目标重量是当前单位下的数（plan-target-weight-unit：库里存 kg，进来换算、保存时换回去）。
   // 换算到一位小数（60 kg 显示 132.3 lb，不是 132.28）；没改过的保存时原样写回 kg，来回存不会越存越漂（审查 C）
-  const shownWeight = (kg: number) => Math.round(Number(formatWeight(kg, unit)) * 10) / 10;
+  const shownWeight = (kg: number) => Math.round(Number(formatLoad(kg, unit)) * 10) / 10;
   const [exercises, setExercises] = useState<ScheduledExercise[]>(() =>
+    draft?.exercises ??
     (editingSchedule?.exercises ?? []).map(e =>
       e.targetWeight != null ? { ...e, targetWeight: shownWeight(e.targetWeight) } : e,
     ),
   );
-  const [notes, setNotes] = useState<string>(editingSchedule?.notes ?? '');
+  const [notes, setNotes] = useState<string>(draft?.notes ?? editingSchedule?.notes ?? '');
+  const keepDraft = () => {
+    drafts.set(key, { unit, title, date, exercises, notes });
+    onClose();
+  };
+  const discard = () => {
+    drafts.delete(key);
+    onClose();
+  };
   const [saving, setSaving] = useState(false);
 
   // 当前已选动作里出现过的 bodyPart 集合 —— 自动聚合，无需用户单独勾选
@@ -222,7 +251,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
       };
       if (isEdit) await updateSchedule(payload);
       else await addSchedule(payload);
-      onClose();
+      discard();
     } finally {
       setSaving(false);
     }
@@ -232,28 +261,21 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
     <>
     <Modal
       isOpen
-      onClose={onClose}
+      onClose={keepDraft}
+      // 全 App 填得最久的一张表：手指碰到遮罩边不该关
+      dismissOnScrim={false}
       title={translations.scheduleEditTitle[lang]}
       size="lg"
-      // 加到 3–4 个动作后保存按钮会被挤出屏：按钮放 footer 常驻，正文区限高自己滚
-      bodyClassName="max-h-[calc(100dvh-12rem)] overflow-y-auto overscroll-contain custom-scrollbar"
+      // 加到 3–4 个动作后保存按钮会被挤出屏：按钮放 footer 常驻，正文区由 Modal 限高自己滚
       footer={
-        <div className="flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-control border border-divider text-secondary hover:text-primary hover:bg-card-hover transition text-small"
-          >
-            {isCn ? '取消' : 'Cancel'}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !date}
-            data-testid="schedule-save-btn"
-            className="px-4 py-2 rounded-control bg-accent text-on-accent text-small font-medium hover:opacity-90 active:scale-press-sm transition disabled:opacity-50"
-          >
-            {saving ? '...' : (isCn ? '保存' : 'Save')}
-          </button>
-        </div>
+        <ModalFooter
+          cancelLabel={isCn ? '取消' : 'Cancel'}
+          confirmLabel={saving ? '...' : (isCn ? '保存' : 'Save')}
+          onCancel={discard}
+          onConfirm={handleSave}
+          confirmDisabled={saving || !date}
+          confirmTestId="schedule-save-btn"
+        />
       }
     >
       <div className="space-y-4" data-testid="schedule-editor">
@@ -307,7 +329,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
               <button
                 onClick={openPicker}
                 data-testid="schedule-pick-library"
-                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-btn text-primary border border-divider active:scale-press-sm transition [&>svg]:text-accent"
+                className="tap-44 inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip bg-btn text-primary border border-divider active:scale-press-sm transition [&>svg]:text-accent"
               >
                 <Library size={14} strokeWidth={1.75} />
                 {translations.scheduleFromLibrary[lang]}
@@ -315,7 +337,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
               <button
                 onClick={addExercise}
                 data-testid="schedule-add-exercise"
-                className="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip border border-divider text-secondary hover:text-primary hover:bg-card-hover transition"
+                className="tap-44 inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-chip border border-divider text-secondary hover:text-primary hover:bg-card-hover transition"
               >
                 <Plus size={14} strokeWidth={1.75} />
                 {translations.scheduleManualRow[lang]}
@@ -355,7 +377,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                   </select>
                   <button
                     onClick={() => removeExercise(ex.id)}
-                    className="p-1.5 text-tertiary hover:text-danger hover:bg-danger/10 rounded-chip transition-colors"
+                    className="tap-44 p-1.5 text-tertiary hover:text-danger hover:bg-danger/10 rounded-chip transition-colors"
                     aria-label="remove-exercise"
                   >
                     <Trash2 size={14} strokeWidth={1.75} />

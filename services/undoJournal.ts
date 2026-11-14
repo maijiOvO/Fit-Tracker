@@ -337,6 +337,11 @@ export const undoJournal = {
     notify();
   },
 
+  /** 等还在路上的写入全部落下（撤销写回前、切换数据环境前） */
+  async settle() {
+    while (inflight.size) await Promise.allSettled([...inflight]);
+  },
+
   async undo(): Promise<UndoApplied | null> {
     return apply('undo');
   },
@@ -358,7 +363,7 @@ async function apply(direction: 'undo' | 'redo'): Promise<UndoApplied | null> {
   busy = true;
   try {
     // 还在路上的写入（刚点的那一下的落盘）：等它们落下再收尾、写回
-    while (inflight.size) await Promise.allSettled([...inflight]);
+    await undoJournal.settle();
     finalize();
     const from = direction === 'undo' ? undoStack : redoStack;
     const to = direction === 'undo' ? redoStack : undoStack;

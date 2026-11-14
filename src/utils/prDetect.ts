@@ -24,6 +24,8 @@ export interface PRHit {
   unitLabel: string;
   /** 次数纪录：在多重的时候（带符号 kg；辅助为负） */
   atKg?: number;
+  /** 按馆比的器械：在哪个馆破的（'' = 没标馆）；跨馆比的动作没有 */
+  gym?: string;
 }
 
 export interface PRResult {
@@ -105,6 +107,7 @@ export function detectPRs({
       delta: top.next - top.prev,
       unitLabel: top.kind === 'reps' && !rule.tracksWeight ? '' : unitLabel,
       ...(top.atKg !== undefined ? { atKg: top.atKg } : {}),
+      ...(rule.machine ? { gym: session.gym ?? '' } : {}),
     });
   }
 

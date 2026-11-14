@@ -29,8 +29,8 @@ export const RECORD_PRIORITY: RecordKind[] = ['weight', 'e1rm', 'reps', 'volume'
 /** 比重量时的容差（kg）：挡 kg ⇄ lb 换算的浮点噪声 */
 const TOL = 0.01;
 
-/** 超过这个次数的组不估 1RM */
-const E1RM_MAX_REPS = 10;
+/** 超过这个次数的组不估 1RM（界面上的说明从这里取，别手写数字） */
+export const E1RM_MAX_REPS = 10;
 
 /** Epley：w × (1 + r/30)；1 次就是本身。估不了返回 null */
 export function e1rmOf(kg: number, reps: number): number | null {

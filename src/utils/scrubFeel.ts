@@ -67,6 +67,28 @@ export function heroScrubAxis(kind: string | undefined): 'x' | 'y' {
 }
 
 /**
+ * 大图画哪一组、拖动能不能写它（2026-11-13 用户定）：选中的组在这张卡上就是它（能写），否则第一组待做（能写），
+ * 都做完了画最后一组但不能写——滚页面时拇指落在做完的卡上，一斜划就静默改了入册的重量，做完的组又没有「改回」。
+ * 要改做完的组先点组号选中它。idx −1＝一组都没有。
+ */
+export function heroFocus(sets: { id: string | number; ghost?: boolean }[], selectedId: string | null): { idx: number; live: boolean } {
+  const sel = selectedId ? sets.findIndex(s => String(s.id) === selectedId) : -1;
+  if (sel >= 0) return { idx: sel, live: true };
+  const pending = sets.findIndex(s => s.ghost);
+  if (pending >= 0) return { idx: pending, live: true };
+  return { idx: sets.length - 1, live: false };
+}
+
+/**
+ * 拖动走一档后的落点夹在 [min, max]：越界就停在边界上；已经在边界（或超限的旧数据还要往外走）原地不动，
+ * 调用方看值没变就不算一档（不震、不回调）。往回走照常。
+ */
+export function boundDetent(prev: number, next: number, dir: 1 | -1, min: number, max: number): number {
+  if (dir > 0) return next > max ? Math.max(prev, max) : next;
+  return next < min ? Math.min(prev, min) : next;
+}
+
+/**
  * 配重片刻度轨（2026-10-25 用户选定，示意 docs/demos/weight-stack-directions.html 方向 B）：
  * 只有右侧那条轨能起拖，图本身和两侧照常滚页面。起手位置已经挑过，起拖阈值可以比格子低；
  * 一档＝一片＝片距，手指走多少插销走多少；不吃速度跳档（片是离散的，甩一下跳十片只会是误触）。

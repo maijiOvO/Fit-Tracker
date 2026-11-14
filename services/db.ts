@@ -32,6 +32,19 @@ function txDone(tx: IDBTransaction): Promise<void> {
   });
 }
 
+/**
+ * 写失败要看得见（审查 E4 / F2）：自动落盘是 fire-and-forget，撤销日志的 track 又给 promise 挂了处理器，
+ * 失败原本彻底无声 —— 存储写满时界面照常记组，App 被回收后那一段就没了。
+ * 只在「好 → 坏」「坏 → 好」翻转时派发，App 据此提示一次、顶栏图标变红 / 复位。
+ */
+let writeFailing = false;
+function reportWrite(ok: boolean, err?: unknown): void {
+  if (ok !== writeFailing) return;
+  writeFailing = !ok;
+  if (!ok) console.error('[db] 写入失败（已重试一次）:', err);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(ok ? 'fitlog:db-write-ok' : 'fitlog:db-write-failed'));
+}
+
 export class FitLogDB {
   private db: IDBDatabase | null = null;
   /** 当前连接对应的库名；与 dbName() 不一致时说明环境切换了，需要重开 */
@@ -123,6 +136,21 @@ export class FitLogDB {
     await this.init();
   }
 
+  /** 经撤销日志的写都走这里：失败先重试一次（getStore 会重开被关掉的连接），仍失败报出去并照样 reject */
+  private async guarded(write: () => Promise<void>): Promise<void> {
+    try {
+      await write();
+    } catch {
+      try {
+        await write();
+      } catch (err) {
+        reportWrite(false, err);
+        throw err;
+      }
+    }
+    reportWrite(true);
+  }
+
   private async getStore(name: string, mode: IDBTransactionMode): Promise<IDBObjectStore> {
     if (this.opening) await this.opening;
     // 环境切换后若有代码路径漏掉 reopen()，这里兜底，绝不让读写落到另一个环境的库
@@ -163,10 +191,10 @@ export class FitLogDB {
     });
   }
 
-  /** 写入一条并等事务提交（oncomplete）；事务出错或被中止都会 reject。先记进撤销日志（services/undoJournal.ts） */
+  /** 写入一条并等事务提交（oncomplete）；重试一次仍出错或被中止才 reject。先记进撤销日志（services/undoJournal.ts） */
   save(storeName: string, item: any): Promise<void> {
     return undoJournal.track(
-      undoJournal.recordRows(storeName, [{ id: String(item?.id), after: item }]).then(() => this.rawPut(storeName, item)),
+      undoJournal.recordRows(storeName, [{ id: String(item?.id), after: item }]).then(() => this.guarded(() => this.rawPut(storeName, item))),
     );
   }
 
@@ -180,7 +208,7 @@ export class FitLogDB {
 
   delete(storeName: string, id: string): Promise<void> {
     return undoJournal.track(
-      undoJournal.recordRows(storeName, [{ id: String(id), after: undefined }]).then(() => this.rawDelete(storeName, id)),
+      undoJournal.recordRows(storeName, [{ id: String(id), after: undefined }]).then(() => this.guarded(() => this.rawDelete(storeName, id))),
     );
   }
 
@@ -192,7 +220,7 @@ export class FitLogDB {
   }
 
   clear(storeName: string): Promise<void> {
-    return undoJournal.track(undoJournal.recordReplace(storeName, []).then(() => this.rawClear(storeName)));
+    return undoJournal.track(undoJournal.recordReplace(storeName, []).then(() => this.guarded(() => this.rawClear(storeName))));
   }
 
   private async rawClear(storeName: string): Promise<void> {
@@ -207,7 +235,7 @@ export class FitLogDB {
    * 要么全换成功，要么（任一条失败 → 事务中止）原数据原样保留 —— 不会停在「清空了一半」。
    */
   replaceAll(storeName: string, rows: readonly any[]): Promise<void> {
-    return undoJournal.track(undoJournal.recordReplace(storeName, rows).then(() => this.rawReplaceAll(storeName, rows)));
+    return undoJournal.track(undoJournal.recordReplace(storeName, rows).then(() => this.guarded(() => this.rawReplaceAll(storeName, rows))));
   }
 
   private async rawReplaceAll(storeName: string, rows: readonly any[]): Promise<void> {

@@ -30,6 +30,8 @@ const FOLDER_KEY = 'fitlog_backup_folder';
 const STATUS_KEY = 'fitlog_backup_status';
 /** 恢复 / 导入之后 reload，新页面起来要补一份备份 —— 用这个标记跨过那次 reload */
 const PENDING_KEY = 'fitlog_backup_pending';
+/** 结束训练后该写的那份还没写成（进程被杀、没权限、和别的备份撞上）：下次启动 / 回前台补（审查 E3） */
+const DUE_KEY = 'fitlog_backup_due';
 
 export const BACKUP_STATUS_EVENT = 'fitlog:backup-status';
 
@@ -78,8 +80,11 @@ function emit(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(BACKUP_STATUS_EVENT));
 }
 
+/** 标记的值是打标记的时刻：备份跑的过程中又打了一次，跑完不能把新的那次一起清掉 */
+const mark = (key: string) => storage.setItem(key, String(Date.now()));
+
 export function markBackupPending(): void {
-  storage.setItem(PENDING_KEY, '1');
+  mark(PENDING_KEY);
 }
 
 // ============ 命名 ============
@@ -308,34 +313,57 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
     fileCount,
     shrinkWarning,
   });
+  storage.removeItem(ANNOUNCED_KEY);
   return { kind: 'ok', name: written.name ?? name, workouts, pruned, shrinkWarning };
 }
 
 // ============ 时机 ============
 
-let debounce: ReturnType<typeof setTimeout> | null = null;
+/**
+ * 跑一次备份，做成了（或确实不用做：数据没变 / 没训练 / 没文件夹）才清掉标记。
+ * 失败、或撞上另一次正在跑的（busy：那次的快照可能早于这次的改动）都留着，下次启动 / 回前台再来。
+ */
+function runMarked(key: string, reason: BackupReason): void {
+  const at = storage.getItem(key);
+  void backupNow(reason).then(o => {
+    announceAutoFailure(o);
+    const done = o.kind === 'ok' || (o.kind === 'skipped' && o.why !== 'busy');
+    if (done && storage.getItem(key) === at) storage.removeItem(key);
+  });
+}
 
-/** 结束训练后调：防抖 5 秒，连续操作只写一份 */
-export function scheduleAutoBackup(reason: BackupReason = 'workout-finished'): void {
+/** 自动备份失败、且这个原因还没报过：DataSafetyHost 弹一次（审查 D11 / E2） */
+export const AUTO_BACKUP_FAILED_EVENT = 'fitlog:auto-backup-failed';
+/** 报过的失败原因。同一原因不重报：回到前台每次都会重试，每次都弹就成了噪音；成功一次清掉 */
+const ANNOUNCED_KEY = 'fitlog_backup_fail_announced';
+
+function announceAutoFailure(o: BackupOutcome): void {
+  if (o.kind !== 'failed' || storage.getItem(ANNOUNCED_KEY) === o.code) return;
+  storage.setItem(ANNOUNCED_KEY, o.code);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent<BackupErrorCode>(AUTO_BACKUP_FAILED_EVENT, { detail: o.code }));
+}
+
+/**
+ * 结束训练后调：先在本机记一笔再立即写（finishWorkout 已经等库写完）。不靠内存定时器：
+ * 练完锁屏 / 划掉 App 进程被回收，定时器就没了，而 24 小时内 maybeDailyBackup 不补（审查 E3）。
+ */
+export function scheduleAutoBackup(): void {
   if (!folderSupported() || !getBackupFolder()) return;
-  if (debounce) clearTimeout(debounce);
-  debounce = setTimeout(() => {
-    debounce = null;
-    void backupNow(reason);
-  }, 5000);
+  mark(DUE_KEY);
+  runMarked(DUE_KEY, 'workout-finished');
 }
 
 const DAY_MS = 24 * 3600 * 1000;
 
-/** 启动 / 回到前台时调：距上次成功超过 24 小时才写（数据没变也不写，见 doBackup 的指纹） */
+/**
+ * 启动 / 回到前台时调：先补没写成的（恢复后的、练完的），否则距上次成功超过 24 小时才写
+ * （数据没变也不写，见 doBackup 的指纹）。练完的那份按 workout-finished 补：指纹没变就跳过，不像恢复后那样强制写。
+ */
 export function maybeDailyBackup(): void {
   if (!folderSupported() || !getBackupFolder()) return;
-  if (storage.getItem(PENDING_KEY) === '1') {
-    storage.removeItem(PENDING_KEY);
-    void backupNow('after-restore');
-    return;
-  }
+  if (storage.getItem(PENDING_KEY)) return runMarked(PENDING_KEY, 'after-restore');
+  if (storage.getItem(DUE_KEY)) return runMarked(DUE_KEY, 'workout-finished');
   const last = getBackupStatus().lastOkAt;
   if (last && Date.now() - new Date(last).getTime() < DAY_MS) return;
-  void backupNow('daily');
+  void backupNow('daily').then(announceAutoFailure);
 }

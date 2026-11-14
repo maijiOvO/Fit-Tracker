@@ -16,13 +16,15 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, newGroupId, normalizeGroups, setHasValue, stripWorkbenchSet } from '../utils/workbench';
+import { groupExercises, newGroupId, normalizeGroups, recordedExercises } from '../utils/workbench';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
-import { findLastAltGroup, findLastIn } from '../utils/prefillSource';
+import { findLastAltGroup, findLastIn, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
 import { sessionDurationMin } from '../utils/sessionDuration';
+import { isBackdated, redateLiveSession, sessionsBefore } from '../utils/sessionDate';
+import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
 
@@ -103,54 +105,6 @@ export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLo
     }));
 }
 
-/**
- * 入册的样子（§12.6 红线：底稿永远不会静默变成数据）。
- * 剥掉没动过的 ghost 行（抄来的底稿＝这次没做）；整动作只剩底稿的，连动作一起丢。
- * 改过数的待做组（touched）算做完入册（2026-10-20 用户定）：点「结束训练」「保存修改」就说明练完了，
- * 手动填过数的那组是做了的，没必要再弹「有 N 组没点完成，返回补点」。训练中按「添加组」手加的待做组（added）同理
- * （2026-11-02：加出来的不是抄来的）。没动过的底稿照旧不入册 —— 那条红线防的是「抄来的数」冒充数据，用户亲手填 / 加的不在此列。
- * prefillFrom / prefillGym 只服务工作台眉批；fromGhost（已停写）、touched、seq 都是工作台上的标记，不跟进历史。
- * 结束训练、保存修改、判「编辑态改没改」共用这一份。
- */
-function toRecordedExercises(exercises: Exercise[] | undefined): Exercise[] {
-  return normalizeGroups(
-    (exercises ?? [])
-      .map(ex => {
-        const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
-        return {
-          ...rest,
-          sets: (ex.sets ?? [])
-            .filter(s => !s.ghost || s.added || isTouchedGhost(s))
-            .map(s => {
-              const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet({ ...s, ghost: false });
-              return set.subSets?.length
-                ? { ...set, subSets: set.subSets.map(({ touched: _st, ...sub }) => sub) }
-                : set;
-            }),
-        };
-      })
-      .filter(ex => ex.sets.length > 0),
-  );
-}
-
-/** 改过数但没点完成的组（第 4 条）：结束 / 保存时按做完入册（见 toRecordedExercises） */
-function isTouchedGhost(s: SetLog): boolean {
-  const touched = (t: Record<string, boolean | undefined> | undefined) => Object.values(t ?? {}).some(Boolean);
-  return !!s.ghost && (touched(s.touched) || (s.subSets ?? []).some(sub => touched(sub.touched)));
-}
-
-/** 结束时丢掉的待做组里填了数的（手加的、改过的会入册，全零的空行记不下东西，都不算）：刊末页提醒用，规则本身不变 */
-function countDroppedPending(exercises: Exercise[] | undefined): number {
-  return (exercises ?? []).reduce(
-    (n, ex) => n + (ex.sets ?? []).filter(s => s.ghost && !s.added && !isTouchedGhost(s) && setHasValue(s)).length,
-    0,
-  );
-}
-
-function countTouchedGhosts(exercises: Exercise[] | undefined): number {
-  return (exercises ?? []).reduce((n, ex) => n + (ex.sets ?? []).filter(isTouchedGhost).length, 0);
-}
-
 /** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
 function stableJson(v: unknown): string {
   return JSON.stringify(v, (k, val) => {
@@ -162,7 +116,7 @@ function stableJson(v: unknown): string {
   });
 }
 
-/** 编辑旧训练「改没改」的比较键：只看会进库的东西（只加了一个没做的底稿动作不算改动） */
+/** 编辑旧训练「改没改」的比较键：只看会进库的东西（recordedExercises） */
 function editKey(w: WorkoutSession): string {
   return stableJson({
     title: w.title ?? '',
@@ -170,7 +124,7 @@ function editKey(w: WorkoutSession): string {
     gym: w.gym ?? null,
     notes: w.notes ?? '',
     tags: w.tags ?? [],
-    exercises: toRecordedExercises(w.exercises),
+    exercises: recordedExercises(w.exercises),
   });
 }
 
@@ -197,8 +151,8 @@ export interface ColophonState {
   unitLabel: string;
   stamps: PRHit[];
   extraCount: number;
-  /** 结束时还待做、填了数、却没点做完也没改过的组数：按规则不入册，刊末页说一声（2026-11-02，以前静默丢） */
-  droppedCount: number;
+  /** 没破纪录时的「比上次」：每个动作这场与上一场的最好一组（带符号 kg，显示时再换单位）；破了纪录就是空的 */
+  vsLast: { name: string; signed: boolean; now: VsSet; last: VsSet }[];
 }
 
 export interface UseWorkoutMutationsResult {
@@ -218,6 +172,8 @@ export interface UseWorkoutMutationsResult {
    * 首页「进行中 → 结束」那条路（askFirst 默认 true）仍问一句。一组都没做完时两条路都问「放弃？」。
    */
   handleFinishWithConfirmation: (askFirst?: boolean) => Promise<void>;
+  /** 训练页顶栏改这场的日期时间：旧训练只改 date；训练中的场挪到那个时刻＝补录（见 redateLiveSession） */
+  changeWorkoutDate: (date: Date) => void;
 
   handleEditWorkout: (
     workoutId: string,
@@ -233,13 +189,7 @@ export interface UseWorkoutMutationsResult {
    * 只做检查和确认，返回「选好馆之后怎么铺这一场」；App 交给 startAtGym（先选馆，审查 A12）。null＝不开。
    */
   handleCopyWorkoutToToday: (workoutId: string) => Promise<StartMaker | null>;
-  handleDeleteExerciseRecord: (
-    e: React.MouseEvent,
-    workoutId: string,
-    exerciseId: string,
-    exerciseName: string,
-    date: string,
-  ) => Promise<void>;
+  handleDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string) => Promise<void>;
 
   /** 从计划开练：同上，返回选好馆之后怎么铺这一场（App 交给 startAtGym）；null＝不开 */
   handleStartScheduledSession: (scheduleId: string) => Promise<StartMaker | null>;
@@ -263,8 +213,8 @@ export interface UseWorkoutMutationsResult {
   /** 「继续这场」接回来的训练 id：删光动作时不整场删 */
   resumedWorkoutIdsRef: React.MutableRefObject<Set<string>>;
 
-  /** 放弃进行中的这场（一组都没做完时）：删掉 + 写墓碑 + 清空工作台 */
-  discardCurrentWorkout: () => Promise<void>;
+  /** 训练页的「放弃这场」：问一句，确认后删掉 + 写墓碑 + 清空工作台（做过组之后也能放弃） */
+  handleDiscardWorkout: () => Promise<void>;
   /** 切换一张卡的练法（第 8 条）；undefined＝标准 */
   switchExerciseVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
   /**
@@ -274,7 +224,7 @@ export interface UseWorkoutMutationsResult {
    */
   addExerciseToWorkout: (
     ex: { id: string; name: { en: string; cn: string }; category?: ExerciseCategory; exerciseConfig?: any },
-    opts?: { altGroup?: string | null; variantId?: string; onCreated?: (ids: string[], partnerNames: string[]) => void },
+    opts?: { altGroup?: string | null; variantId?: string; altFrom?: LastHit; replaceIds?: string[]; onCreated?: (ids: string[], partnerNames: string[]) => void },
   ) => string;
 }
 
@@ -377,8 +327,7 @@ export function useWorkoutMutations({
   const hasUnsavedChanges = useMemo(() => {
     const orig = editOriginalRef.current;
     if (!editingWorkoutId || !orig || orig.id !== currentWorkout.id) return false;
-    // 改过数没点完成的行入册时算做完（toRecordedExercises），editKey 已经认得它；这里再兜一道，别让「改了数」显示成没改
-    return editKey(currentWorkout) !== orig.key || countTouchedGhosts(currentWorkout.exercises) > 0;
+    return editKey(currentWorkout) !== orig.key;
   }, [currentWorkout, editingWorkoutId]);
 
   /** 离开编辑态（保存完 / 放弃）：工作台换回空场，回到进来前的页面，把进行中的那场接回来 */
@@ -393,7 +342,30 @@ export function useWorkoutMutations({
   }, [getPreviousTab, setActiveTab, setCurrentWorkout, workoutCtx]);
 
   /**
-   * 放弃进行中的这场（一组都没做完时）：从库里删掉 + 写墓碑（防拉取复活），工作台清空。
+   * 切换数据环境（只在未锁定的构建里）时 WorkoutContext 把工作台换成新环境那边的场；编辑态得一起放掉，
+   * 否则顶栏还写「编辑训练」，结束时会把新环境那场当成旧训练去「保存修改」（审查 Em0）
+   */
+  const { setDraftWorkoutId } = workoutCtx;
+  useEffect(() => {
+    const onSwitched = () => {
+      setDraftWorkoutId(null);
+      editOriginalRef.current = null;
+      setEditingWorkoutId(null);
+    };
+    window.addEventListener(ENV_SWITCHED_EVENT, onSwitched);
+    return () => window.removeEventListener(ENV_SWITCHED_EVENT, onSwitched);
+  }, [setDraftWorkoutId]);
+
+  const changeWorkoutDate = useCallback(
+    (date: Date) => {
+      setCurrentWorkout(p => (editingWorkoutId ? { ...p, date: date.toISOString() } : redateLiveSession(p, date)));
+      onPersist?.();
+    },
+    [editingWorkoutId, onPersist, setCurrentWorkout],
+  );
+
+  /**
+   * 放弃进行中的这场：从库里删掉 + 写墓碑（防拉取复活），工作台清空。
    * 不留「N 动作 0 组」的空场在时间线里（workbench-not-restored 的连带后果）。
    */
   const discardCurrentWorkout = useCallback(async () => {
@@ -406,12 +378,51 @@ export function useWorkoutMutations({
     try {
       await db.delete('workouts', id);
       recordTombstone('workouts', id);
+      // 「继续这场」接回来的那场可能已挂在计划上（同 handleDeleteWorkout）；新开的场没挂，这里是空操作
+      unlinkPlanOf(id);
       await refreshFromDb();
       scheduleDebouncedFitlogPush();
     } catch (err) {
       console.error('[useWorkoutMutations] 放弃训练失败:', err);
     }
-  }, [currentWorkout.id, refreshFromDb, setActiveTab, setCurrentWorkout, workoutCtx]);
+  }, [currentWorkout.id, refreshFromDb, setActiveTab, setCurrentWorkout, unlinkPlanOf, workoutCtx]);
+
+  /**
+   * 问一句再放弃（「放弃训练」在确认弹窗的例外名单里）。hasSets：卡上有会入册的组 ——
+   * 训练页的放弃入口（做过组之后也能放弃）；没有＝结束时发现没东西可记。
+   */
+  const confirmDiscard = useCallback(
+    async (hasSets: boolean) => {
+      const ok = await confirm({
+        message: hasSets
+          ? isCn ? '放弃这场训练？记过的组也不保存。' : 'Discard this workout? Logged sets are not kept.'
+          : isCn ? '还没有填数的组。放弃这场训练？' : 'No sets logged yet. Discard this workout?',
+        confirmLabel: isCn ? '放弃' : 'Discard',
+        cancelLabel: isCn ? '接着练' : 'Keep going',
+        danger: true,
+      });
+      if (ok) await discardCurrentWorkout();
+    },
+    [confirm, discardCurrentWorkout, isCn],
+  );
+
+  /**
+   * 「继续这场」接回来的训练已经结束过一次、入过册：放弃它＝删掉整场旧训练，按删整场的话问
+   * （删光动作时都不整场删它，见 resumedWorkoutIdsRef）。
+   */
+  const handleDiscardWorkout = useCallback(async () => {
+    if (!resumedWorkoutIdsRef.current.has(currentWorkout.id)) {
+      await confirmDiscard(recordedExercises(currentWorkout.exercises).length > 0);
+      return;
+    }
+    const dateLabel = new Date(currentWorkout.date).toLocaleDateString(isCn ? 'zh-CN' : 'en-US');
+    const ok = await confirm({
+      message: isCn ? `确定要删除 ${dateLabel} 的整场训练吗？` : `Delete the entire workout from ${dateLabel}?`,
+      danger: true,
+      confirmLabel: isCn ? '删除' : 'Delete',
+    });
+    if (ok) await discardCurrentWorkout();
+  }, [confirm, confirmDiscard, currentWorkout.date, currentWorkout.exercises, currentWorkout.id, discardCurrentWorkout, isCn]);
 
   /**
    * 结束训练：标记 finishedAt → 写 DB → 清空 workbench → 跳转
@@ -425,22 +436,16 @@ export function useWorkoutMutations({
         return;
       }
 
-      const cleanedExercises = toRecordedExercises(currentWorkout.exercises);
+      const cleanedExercises = recordedExercises(currentWorkout.exercises);
 
       if (cleanedExercises.length === 0) {
         setSaveStatus('idle');
-        // 一组都没做完：没有可入册的东西。编辑旧训练时只提示；新训练问一句要不要放弃这场（不留空场在库里）
+        // 卡上一组有数的都没有：没有可入册的东西。编辑旧训练时只提示；新训练问一句要不要放弃这场（不留空场在库里）
         if (editingWorkoutId) {
           toast(isCn ? '没有组可保存；删整场请去时间线' : 'No sets left to save — delete the whole workout from the timeline', 'info');
           return;
         }
-        const ok = await confirm({
-          message: isCn ? '还没有做完任何一组。放弃这场训练？' : 'No sets done yet. Discard this workout?',
-          confirmLabel: isCn ? '放弃' : 'Discard',
-          cancelLabel: isCn ? '接着练' : 'Keep going',
-          danger: true,
-        });
-        if (ok) await discardCurrentWorkout();
+        await confirmDiscard(false);
         return;
       }
 
@@ -456,19 +461,22 @@ export function useWorkoutMutations({
 
       // 计划关联：开练时记在这场上的 fromSchedule 为准（App 被回收后接回来的也认得），ref 兜旧数据
       const scheduleId = currentWorkout.fromSchedule?.scheduleId ?? activeScheduleIdRef.current;
+      const date = currentWorkout.date || new Date().toISOString();
       const finalWorkout: WorkoutSession = {
         ...currentWorkout,
         exercises: cleanedExercises,
-        title: currentWorkout.title || defaultWorkoutTitle(isCn),
-        date: currentWorkout.date || new Date().toISOString(),
+        title: currentWorkout.title || defaultWorkoutTitle(isCn, new Date(date)),
+        date,
         ...(scheduleId ? { fromSchedule: { scheduleId } } : {}),
       };
 
       // PR 判定必须在写库【之前】算：写完之后 workouts 里就含本场了，
       // 拿它当「历史」会把自己和自己比，永远不可能破纪录。
+      // 只和这场日期之前的比（补录到过去的场不能和它之后练的比），和按动作历史逐场判纪录同一口径
+      const earlier = sessionsBefore(workouts, finalWorkout);
       const pr = detectPRs({
         session: finalWorkout,
-        history: workouts.filter(w => w.id !== finalWorkout.id),
+        history: earlier,
         editingWorkoutId,
         resolveName,
         keyOf: liftKey,
@@ -477,16 +485,30 @@ export function useWorkoutMutations({
         isSigned: ex => usesSignedLoad(ex, signedLoadOf(ex)),
         gymScoped,
       });
+      // 「比上次」（D6）：上一场按底稿的口径找（同做法，器械本馆优先），在写库之前找，免得找到这场自己
+      const isSignedEx = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex));
+      const vsLast = pr.stamps.length
+        ? []
+        : vsLastSession(
+            finalWorkout.exercises,
+            ex =>
+              findLastIn(earlier, resolveName, variantIdOf, ex.name, variantIdOf(ex) ?? '', finalWorkout.id,
+                finalWorkout.gym && gymScoped(ex) ? finalWorkout.gym : undefined),
+            isSignedEx,
+          ).map(r => {
+            const ex = finalWorkout.exercises.find(e => e.id === r.exId)!;
+            return { name: resolveName(ex.name), signed: isSignedEx(ex), now: r.now, last: r.last };
+          });
       const summary = sessionSummary(finalWorkout);
       const volume = unit === 'lbs' ? summary.volumeKg * KG_TO_LBS : summary.volumeKg;
-      // ctxFinishWorkout 才写 finishedAt；刊末页要的就是「到现在为止」，口径和时间线一致
+      // ctxFinishWorkout 才写 finishedAt；刊末页要的就是「到现在为止」，口径和时间线一致（补录的场没有 startTime，不显示）
       const durationMin = sessionDurationMin({ ...finalWorkout, finishedAt: new Date().toISOString() });
 
       await ctxFinishWorkout(finalWorkout);
 
       setColophon({
-        // 期号＝第几场真正练过的训练（空场、本场自己不算）
-        issueNo: workouts.filter(w => w.id !== finalWorkout.id && hasDoneSets(w)).length + 1,
+        // 期号＝这场之前有几场真正练过的训练 + 1（空场不算；补录的场按日期排进去）
+        issueNo: earlier.filter(hasDoneSets).length + 1,
         title: finalWorkout.title,
         dateISO: finalWorkout.date,
         exerciseCount: summary.exerciseCount,
@@ -496,7 +518,7 @@ export function useWorkoutMutations({
         unitLabel: unit,
         stamps: stampsInUnit(pr.stamps, unit, KG_TO_LBS),
         extraCount: pr.extraCount,
-        droppedCount: countDroppedPending(currentWorkout.exercises),
+        vsLast,
       });
 
       // 回写要的是刚结束的这一场（plan-session-leaks-schedule-id：原来拿 workouts[0]，可能是别的场），
@@ -534,14 +556,14 @@ export function useWorkoutMutations({
     getActiveMetrics,
     unit,
     signedLoadOf,
-    confirm,
-    discardCurrentWorkout,
+    variantIdOf,
+    gymScoped,
+    confirmDiscard,
     exitEditing,
   ]);
 
   const handleFinishWithConfirmation = useCallback(async (askFirst = true) => {
-    // 改过数但没点完成的组按做完入册（toRecordedExercises），这里不再提醒「返回补点」（2026-10-20 用户定：
-    // 点结束 / 保存就是练完了）。没动过的底稿行静默不入册，本来就是「没做」。
+    // 卡上有数的组全部入册，不论点没点过组号（2026-11 用户定，recordedExercises），结束时不再提醒哪些组没入册。
 
     // 编辑旧训练：「保存修改」不用确认
     if (editingWorkoutId) {
@@ -550,15 +572,9 @@ export function useWorkoutMutations({
       return;
     }
 
-    // 一组都没做完（改过数的也算做了）：直接问要不要放弃这场（不留空场在库里）
-    if (!hasDoneSets(currentWorkout) && countTouchedGhosts(currentWorkout.exercises) === 0) {
-      const ok = await confirm({
-        message: isCn ? '还没有做完任何一组。放弃这场训练？' : 'No sets done yet. Discard this workout?',
-        confirmLabel: isCn ? '放弃' : 'Discard',
-        cancelLabel: isCn ? '接着练' : 'Keep going',
-        danger: true,
-      });
-      if (ok) await discardCurrentWorkout();
+    // 卡上一个有数的组都没有：直接问要不要放弃这场（不留空场在库里）
+    if (recordedExercises(currentWorkout.exercises).length === 0) {
+      await confirmDiscard(false);
       return;
     }
 
@@ -571,7 +587,7 @@ export function useWorkoutMutations({
       if (!ok) return;
     }
     await finishWorkout();
-  }, [confirm, currentWorkout, discardCurrentWorkout, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
+  }, [confirm, confirmDiscard, currentWorkout.exercises, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => {
@@ -752,18 +768,15 @@ export function useWorkoutMutations({
       const vname = variant
         ? variant.name || variantsOf(name).find(v => v.id === variant.id)?.name
         : last?.ex.variantName || (vid ? variantsOf(name).find(v => v.id === vid)?.name : undefined);
+      // 只抄号（旧记录上的递增递减配置不再往下带，见 types.Exercise.instanceConfig）
       const instanceConfig = last?.ex.instanceConfig
-        ? { ...last.ex.instanceConfig }
+        ? { bodyweightMode: last.ex.instanceConfig.bodyweightMode }
         : {
-            // 递增递减组不再默认开启（旧逻辑把库里 supportsPyramid 当成了默认启用）
-            enablePyramid: false,
-            pyramidMode: 'decreasing',
             // 只保留负重/辅助两个有语义的标记；'bodyweight' 折叠为标准
             bodyweightMode:
               defConfig?.bodyweightType === 'weighted' || defConfig?.bodyweightType === 'assisted'
                 ? defConfig.bodyweightType
                 : 'none',
-            autoCalculateSubSets: false,
           };
       // 「杠铃片」：底稿按今天的馆和单位就近取整，记下上一次的原值当参考（递减档一起）
       const ghostSets = rawGhosts
@@ -847,7 +860,7 @@ export function useWorkoutMutations({
             ...(src.date ? { prefillFrom: src.date } : {}),
             // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
             ...(src.date && src.gym ? { prefillGym: src.gym } : {}),
-            ...(ex.instanceConfig ? { instanceConfig: { ...ex.instanceConfig } } : {}),
+            ...(ex.instanceConfig ? { instanceConfig: { bodyweightMode: ex.instanceConfig.bodyweightMode } } : {}),
             ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
           }))
           .map(e => ({ ...e, sets: roundPrefill(e.sets, e as Exercise, rounderFor(e as Exercise, targetGym, undefined, gyms)) }))
@@ -866,16 +879,9 @@ export function useWorkoutMutations({
   );
 
   const handleDeleteExerciseRecord = useCallback(
-    async (
-      e: React.MouseEvent,
-      workoutId: string,
-      exerciseId: string,
-      exerciseName: string,
-      date: string,
-    ) => {
+    async (e: React.MouseEvent, workoutId: string, exerciseId: string) => {
       e.stopPropagation();
-      // 不确认：点错了用顶栏的全局撤销（2026-10-25）
-      void date;
+      // 不确认：点错了用顶栏的全局撤销（2026-10-25）。删的是最后一个动作＝删整场，走 handleDeleteWorkout 先确认（审查 D10）
 
       try {
         const allWorkouts = await db.getAll<WorkoutSession>('workouts');
@@ -891,28 +897,23 @@ export function useWorkoutMutations({
         }
 
         const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
-        const deletedWholeWorkout = updatedExercises.length === 0;
-
-        if (deletedWholeWorkout) {
-          await db.delete('workouts', workoutId);
-          recordTombstone('workouts', workoutId);
-          unlinkPlanOf(workoutId);
-        } else {
-          await db.save('workouts', {
-            ...workout,
-            exercises: updatedExercises,
-            userId: workout.userId,
-          });
+        if (updatedExercises.length === 0) {
+          await handleDeleteWorkout(workoutId);
+          return;
         }
+        await db.save('workouts', {
+          ...workout,
+          exercises: updatedExercises,
+          userId: workout.userId,
+        });
         await refreshFromDb();
         scheduleDebouncedFitlogPush();
-        void exerciseName;
       } catch (error) {
         console.error('Error deleting exercise record:', error);
         toast(isCn ? '删除失败，请重试' : 'Delete failed, please try again', 'error');
       }
     },
-    [confirm, isCn, refreshFromDb, toast, unlinkPlanOf],
+    [handleDeleteWorkout, isCn, refreshFromDb, toast],
   );
 
   const handleStartScheduledSession = useCallback(
@@ -958,7 +959,7 @@ export function useWorkoutMutations({
                 }
               : { weight: kg };
           const n = pe.targetSets && pe.targetSets > 0 ? pe.targetSets : ex.sets.length;
-          // 计划里的组是「打算做的」，不是做完的：一律待做（第 4 条），点组号才入册
+          // 计划里的组是「打算做的」，不是做完的：一律待做（第 4 条）；有数的结束时照样入册（willRecord），不做的删掉
           const sets = Array.from({ length: n }, (_, j): SetLog => {
             const src = ex.sets[Math.min(j, ex.sets.length - 1)];
             const id = `${ex.id}_p${j}`;
@@ -1053,14 +1054,17 @@ export function useWorkoutMutations({
       opts: {
         altGroup?: string | null;
         variantId?: string;
+        /** 选动作列表里点的某种搭配：按这一场带搭档，不看最近一次 */
+        altFrom?: LastHit;
+        /** 这次要顶掉的卡（弹层里刚加的，点另一种搭配时）：和新卡同一次写入，且不算「本场已有」 */
+        replaceIds?: string[];
         /** 真的新建了卡片才回调：本次建出的全部 id（含连带进来的交替搭档）+ 搭档名（给「已连带加入，撤销」用） */
         onCreated?: (ids: string[], partnerNames: string[]) => void;
       } = {},
     ) => {
-      const exerciseTime =
-        editingWorkoutId && currentWorkout.date
-          ? currentWorkout.date
-          : new Date().toISOString();
+      // 旧训练和补录的场：动作时间落在那一场的时刻上，不是现在
+      const pastSession = !!editingWorkoutId || isBackdated(currentWorkout);
+      const exerciseTime = pastSession ? currentWorkout.date : new Date().toISOString();
 
       const exerciseName = ex.name[lang];
       const resolvedTarget = resolveName(exerciseName);
@@ -1091,8 +1095,8 @@ export function useWorkoutMutations({
        */
       // 跳过今天这一场自己：工作台上的这场也存在 workouts 里，不能把今天刚做的抄成今天的底稿
       // 同一个馆的上一次优先（器械的数各馆不通用）；本馆没练过才抄别的馆的，眉批写明在哪个馆
-      // 给旧训练补加动作：只抄那一场之前练的（之后的数那天还没有）
-      const before = editingWorkoutId ? currentWorkout.date : undefined;
+      // 给旧训练补加动作、补录的场：只抄那一场之前练的（之后的数那天还没有）
+      const before = pastSession ? currentWorkout.date : undefined;
       const last = findLast(
         exerciseName,
         opts.variantId ?? null,
@@ -1123,20 +1127,19 @@ export function useWorkoutMutations({
       const partners: Exercise[] = [];
       const joinIds: string[] = [];
       let gid: string | undefined = opts.altGroup ?? undefined;
-      // 搭档关系看最近一次交替做的那场，不一定是上一次（上一次单练了也能把搭档找回来，2026-11-02 用户指出）
-      const altHit =
-        !gid && appPrefsNow().inheritAltGroup
-          ? last?.ex.altGroup
-            ? last
-            : findLastAltGroup(workouts, resolveName, exerciseName, currentWorkout.id || undefined, before)
-          : null;
+      // 搭档关系看最近一次交替做的那场，不一定是上一次（上一次单练了也能把搭档找回来，2026-11-02 用户指出）；
+      // 必须和选动作列表的第 0 种搭配同一个口径，否则行下面列出来的会和点行带的重复
+      const altHit = gid
+        ? null
+        : opts.altFrom ?? (appPrefsNow().inheritAltGroup ? findLastAltGroup(workouts, resolveName, exerciseName, currentWorkout.id || undefined, before) : null);
+      const replaced = new Set(opts.replaceIds);
       if (altHit) {
         const mates = altHit.workout.exercises.filter(e => e.altGroup === altHit.ex.altGroup && e !== altHit.ex);
         if (mates.length) {
           gid = newGroupId();
           for (const m of mates) {
             const mName = resolveName(m.name);
-            const inSession = (currentWorkout.exercises ?? []).find(e => resolveName(e.name) === mName);
+            const inSession = (currentWorkout.exercises ?? []).find(e => !replaced.has(e.id) && resolveName(e.name) === mName);
             if (inSession) {
               if (!inSession.altGroup) joinIds.push(inSession.id);
               continue;
@@ -1162,7 +1165,7 @@ export function useWorkoutMutations({
           ? { ...p, id: workoutId, startTime: p.startTime || new Date().toISOString() }
           : p;
         // 追加到末尾（训练内按添加顺序排列；配合弹层关闭后的定位高亮）；交替组成员由 normalize 挪到一起
-        let list = normalizeGroups([...(base.exercises || []), ...fresh]);
+        let list = normalizeGroups([...(base.exercises || []).filter(e => !replaced.has(e.id)), ...fresh]);
         if (gid && joinIds.length) list = groupExercises(list, [...fresh.map(e => e.id), ...joinIds]);
         return { ...base, exercises: list };
       });
@@ -1209,7 +1212,7 @@ export function useWorkoutMutations({
           variantId ?? '',
           p.id,
           preferGymFor(ex.name, variantId, p.gym),
-          editingWorkoutId ? p.date : undefined,
+          editingWorkoutId || isBackdated(p) ? p.date : undefined,
         );
         const stamp = Date.now();
         if (hit) {
@@ -1262,7 +1265,7 @@ export function useWorkoutMutations({
   );
 
   return {
-    discardCurrentWorkout,
+    handleDiscardWorkout,
     switchExerciseVariant,
     saveStatus,
     editingWorkoutId,
@@ -1271,6 +1274,7 @@ export function useWorkoutMutations({
     colophon,
     dismissColophon,
     handleFinishWithConfirmation,
+    changeWorkoutDate,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,

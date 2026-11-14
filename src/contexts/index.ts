@@ -3,7 +3,7 @@
  * 统一导出所有 Context Providers
  */
 
-export { AuthProvider, useAuthContext } from './AuthContext';
+export { AvatarProvider, useAvatar } from './AvatarContext';
 export { WorkoutProvider, useWorkoutContext } from './WorkoutContext';
 export { GoalsProvider, useGoalsContext } from './GoalsContext';
 export { ScheduleProvider, useScheduleContext } from './ScheduleContext';

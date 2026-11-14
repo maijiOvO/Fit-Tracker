@@ -182,17 +182,19 @@ async function backAndDiscard(page) {
     await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
   }
   // 空的新训练返回就没了，不留「进行中」：首页画好（底栏在）之后看一眼就够
+  // 有数的组结束时都入册（D3），首页「结束」会把这场记进历史、污染后面的用例：接回训练，用卡片列表最下面的「放弃这场」
   if (await row.waitFor({ state: 'visible', timeout: 1_000 }).then(() => true, () => false)) {
-    await page.locator('[data-testid="in-progress-end"]').click();
+    await row.locator('button').first().click();
+    await page.locator('[data-testid="discard-workout"]').click();
     const dlg = page.locator('[role="dialog"]');
     await dlg.waitFor({ state: 'visible', timeout: 5_000 });
-    const btn = dlg.locator('button').filter({ hasText: /^(放弃|Discard|结束训练|End Workout)$/ }).last();
-    const finishing = /结束训练|End Workout/.test(await btn.innerText());
-    await btn.click();
+    await dlg.locator('button').filter({ hasText: /^(放弃|Discard)$/ }).last().click();
     await dlg.waitFor({ state: 'detached', timeout: 5_000 });
+    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
+    if (!(await row.isVisible().catch(() => false))) {
+      await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    }
     await row.waitFor({ state: 'detached', timeout: 3_000 });
-    // 按做完入册的会出刊末页（结束落库之后才弹）：等它出来再点掉
-    if (finishing) await dismissColophon(page);
   }
 }
 
@@ -292,11 +294,12 @@ const SEEDED_STEPS = [
   ['seeded-resumed-emptied-keeps-workout', ['seeded-load'], H],
   ['seeded-plan-target-unit', ['seeded-load'], H],
   ['seeded-gym-profile-and-switch', ['seeded-load'], H],
+  ['seeded-alt-combos', ['seeded-load'], H],
 ];
 /** 分片：每片一个 context。按耗时大致摊平 */
 const SEEDED_SHARDS = [
   ['seeded-history-edit', 'seeded-sync-contract', 'seeded-profile-data'],
-  ['seeded-picker-and-library', 'seeded-resumed-emptied-keeps-workout'],
+  ['seeded-picker-and-library', 'seeded-resumed-emptied-keeps-workout', 'seeded-alt-combos'],
   ['seeded-plan-target-unit', 'seeded-gym-profile-and-switch'],
 ];
 
@@ -395,12 +398,25 @@ const W_HEAT = seedWorkout('seed_heat', torontoAt(torontoYmd(1), 21, 15), 'E2E �
 ]);
 const W_DATE = seedWorkout('seed_date', torontoAt(threeDaysAgo, 14, 33), 'E2E 改时间', '哑铃平板卧推', [[20, 10]]);
 const W_DEL = seedWorkout('seed_del', torontoAt(torontoYmd(5), 10, 0), 'E2E 待删', '杠铃深蹲', [[60, 5]]);
+// 同一个动作的两种交替搭配：最近一次两个动作，更早一次三个
+const seedAlt = (id, days, names) => ({
+  ...seedWorkout(id, torontoAt(torontoYmd(days), 10, 0), 'E2E 交替', names[0], []),
+  exercises: names.map((name, i) => ({
+    id: `${id}_ex${i}`,
+    name,
+    category: 'STRENGTH',
+    altGroup: `${id}_g`,
+    sets: [{ id: `${id}_s${i}`, weight: 10, reps: 12 }],
+  })),
+});
+const W_ALT_NEW = seedAlt('seed_alt_new', 8, ['悬垂举腿', '平板支撑']);
+const W_ALT_OLD = seedAlt('seed_alt_old', 9, ['悬垂举腿', '卷腹', '平板支撑']);
 // 自建动作 C：动作库删除 / 同名新建恢复的靶子
 const DEF_C = { id: '1779000000000', name: { cn: 'E2E自建甲', en: 'E2E自建甲' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
 
 const seedSnapshot = () => ({
   schemaVersion: 2,
-  workouts: [W_HEAT, W_DATE, W_DEL],
+  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD],
   goals: [],
   weightLogs: [],
   customMetrics: [],
@@ -1082,6 +1098,26 @@ const SEEDED = {
     await backAndDiscard(page);
     return `kg gym → kg · typed 60 → lb plates ${w2.join('/')} · ${GA} ${wA} → ${GB} ${wB} → ${GC} ${wC} (from ${GB})`;
   },
+
+  // 防两种下层测不到的错：搭配从列表到添加入口的四层传参断掉；点行之后换搭配，把刚带进来的搭档当「本场已有」弄丢
+  'seeded-alt-combos': async ({ page, startWorkout }) => {
+    await startWorkout();
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    const sheet = page.locator('[data-testid="picker-sheet"]');
+    await sheet.locator('input[type="text"]').fill('悬垂举腿');
+    const combo = sheet.locator('[data-testid="picker-alt-combo"]');
+    await combo.first().waitFor({ timeout: 3_000 });
+    if ((await combo.count()) !== 1) throw new Error(`row should list only the older combo, got ${await combo.count()}`);
+    const members = n =>
+      page.waitForFunction(k => document.querySelectorAll('[data-testid="alt-member"]').length === k, n, { timeout: 3_000 });
+    await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '悬垂举腿' }).first().click();
+    await members(2);
+    await combo.click();
+    await members(3);
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await backAndDiscard(page);
+    return 'row → latest pair · older combo → replaced with all three';
+  },
 };
 
 /** 跑一片：自己的 context、自己的计划状态 */
@@ -1214,14 +1250,14 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await pickStartGym(page);
       const names = await page.locator('.ui-card h3').allInnerTexts();
       if (!names.some(n => n.includes('E2E Bench Press'))) throw new Error(`planned exercise not on the bench: ${names.join(' | ')}`);
-      // 计划里的组是待做：填个次数、点组号才算做完，否则「底稿不入册」结束不了
+      // 计划里的组是待做：填个次数、点组号做完（有数就入册，点组号只管指针和选中）
       const firstRow = page.locator('.ledger-row').first();
       await firstRow.locator('[data-testid="ledger-field-reps"] input').fill('5');
-      // 没手动点过：第一组是默认选中（指针下面那组待做），点它必须做完，不能当成「再点选中的组」吞掉
-      if (!((await firstRow.getAttribute('class')) || '').includes('is-selected')) throw new Error('fresh workout: first set is not default-selected');
+      // 没手动点过时不默认选中（组号空心）；点指针下面那组待做必须做完，不能当成「再点选中的组」吞掉
+      if (((await firstRow.getAttribute('class')) || '').includes('is-selected')) throw new Error('fresh workout: first set should not be selected before any tap');
       await firstRow.locator('.set-num').click();
       await firstRow.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 }).catch(() => {
-        throw new Error('tapping the default-selected to-do set did not mark it done');
+        throw new Error('tapping the to-do set under the pointer did not mark it done');
       });
       await endWorkout(page);
       await dismissColophon(page);
@@ -1411,31 +1447,20 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
       const title = card.locator('h3').first();
       const before = (await title.textContent())?.trim();
-      // 改名走 ⋯ → 动作设置 → 名称（2026-11-03 菜单里的「重命名」删了）；改名弹窗叠在动作设置上面，按「确定」按钮认它
+      // 改名走 ⋯ → 动作设置 → 名称输入框（就地改，回车或失焦就存；重名被拒、输入框留着草稿）
       await card.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
       await card.getByRole('menuitem', { name: /动作设置|Settings/ }).click();
-      const renameRow = page.locator('[data-testid="settings-rename"]');
-      await renameRow.waitFor({ state: 'visible', timeout: 3_000 });
-      const openRename = async () => {
-        await renameRow.click();
-        const dlg = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }) });
-        await dlg.waitFor({ state: 'visible', timeout: 3_000 });
-        return dlg;
-      };
-      let dlg = await openRename();
-      await dlg.locator('input').fill('哑铃平板卧推');
-      await dlg.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }).click();
-      // 拒绝＝出提示、弹窗留着；接受＝弹窗关掉。哪个先发生等哪个，再判
-      await until(async () => (await page.locator('[data-testid="toast"]').count()) > 0 || !(await dlg.isVisible()), 'the rename to be rejected or accepted');
-      if (!(await dlg.isVisible())) throw new Error("renaming to another exercise's name was accepted");
-      await dlg.getByRole('button', { name: /^(取消|Cancel)$/ }).click();
-      await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+      const renameIn = page.locator('[data-testid="settings-rename"]');
+      await renameIn.waitFor({ state: 'visible', timeout: 3_000 });
+      await renameIn.fill('哑铃平板卧推');
+      await renameIn.press('Enter');
+      await until(async () => (await page.locator('[data-testid="toast"]').count()) > 0, 'the duplicate rename to be rejected');
+      if ((await title.textContent())?.trim() !== before) throw new Error("renaming to another exercise's name was accepted");
+      if ((await renameIn.inputValue()) !== '哑铃平板卧推') throw new Error('a rejected rename should keep the draft in the input');
       const fresh = 'E2E 改名卧推';
-      dlg = await openRename();
-      await dlg.locator('input').fill(fresh);
-      await dlg.getByRole('button', { name: /^(确定|确认|OK|Confirm)$/ }).click();
-      await dlg.waitFor({ state: 'detached', timeout: 3_000 });
-      if ((await title.textContent())?.trim() !== fresh) throw new Error('card title did not follow the rename');
+      await renameIn.fill(fresh);
+      await renameIn.press('Enter');
+      await until(async () => (await title.textContent())?.trim() === fresh, 'card title to follow the rename');
       const settingsDone = page.getByRole('dialog').getByRole('button', { name: /^(完成|Done)$/ });
       if (await settingsDone.count()) {
         await settingsDone.click();
@@ -1464,6 +1489,11 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const wIn = page.locator('[data-testid="ledger-field-weight"] input').first();
       const state = async () => `${await rows.count()} rows · w=${await wIn.inputValue()} · inked=${await page.locator('.ledger-row.is-inked').count()}`;
       const settle = () => page.waitForTimeout(250);
+      // 前面的用例结束时有数的组都入册（D3），底稿可能不止一行：删到只剩一行再开始数步
+      for (let n = await rows.count(); n > 1; n--) {
+        await rows.nth(n - 1).locator('[data-testid="set-remove"]').click();
+        await until(async () => (await rows.count()) === n - 1, 'the extra draft row to be removed');
+      }
 
       await wIn.click();
       await page.waitForTimeout(80); // 全选放在下一帧
@@ -1499,8 +1529,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
 
       // 结束训练 → 首页 → 撤销：那场回到工作台，做完的组还在
       await endWorkout(page);
-      // 第 2 组是「添加组」手加的、没点做完：结束时照样入册（SetLog.added，2026-11-02），刊末页数 2 组。
-      // 老规则下它是没动过的底稿、静默丢掉，这里会读到 1 —— 核心动作每场只剩 1 组就是这么来的
+      // 第 2 组是「添加组」手加的、没点做完：有数就入册（willRecord），刊末页数 2 组
       await page.locator('[data-testid="colophon-sets"]').waitFor({ state: 'visible', timeout: 5_000 });
       const colSets = (await page.locator('[data-testid="colophon-sets"]').innerText()).trim();
       if (colSets !== '2') throw new Error(`colophon set count ${colSets}: the hand-added pending set was dropped at finish`);
@@ -1535,7 +1564,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
         await page.waitForTimeout(150);
       };
       await typeW(45);
-      const inc = Number((await page.locator('[data-testid="stack-chip"]').innerText()).match(/每格\s*([\d.]+)/)?.[1]);
+      const inc = Number((await page.locator('[data-testid="stack-chip"]').innerText()).match(/\+\s*([\d.]+)/)?.[1]);
       if (!(inc > 0)) throw new Error('stack chip shows no step');
       const w = async () => Number(await wIn.inputValue());
       const drag = async (box, dy) => {
@@ -1559,28 +1588,27 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const label = page.locator('.pin-label');
       if (!(await label.isVisible()) || !(await label.innerText()).startsWith(String(inc * 60)))
         throw new Error(`heavy stack lost its pin label: ${await label.count()}`);
-      // 切显示单位：插销旁的数和单位跟着换（原来写的是器械上印的单位，切了不变）
+      // 切顶栏单位：有自己单位的器械整卡按器械单位写（D1，2026-11 用户定），插销旁的数、单位和组行都不变
       const unitNow = async () => (await page.locator('[data-testid="unit-toggle"]').innerText()).trim();
       const u0 = await unitNow();
+      const unitTxt0 = (await label.locator('small').innerText()).trim();
       await page.locator('[data-testid="unit-toggle"]').click();
       await page.waitForTimeout(200);
       const u1 = await unitNow();
       const unitTxt = (await label.locator('small').innerText()).trim();
-      const want = /lb/i.test(u1) ? 'lb' : 'kg';
-      if (u1 === u0 || unitTxt !== want) throw new Error(`pin label unit after switching ${u0} → ${u1}: ${unitTxt}`);
-      // 切了显示单位还能连着拖：下三片、上三片，每片都按器械上的格子走（2026-10-25 用户报：切 kg 后拖不动 / 只走一下）。
-      // 显示值只有两位小数，换回器械单位比对
-      const toGym = d => (want === 'lb' ? d / 2.20462 : d * 2.20462);
+      if (u1 === u0 || unitTxt !== unitTxt0) throw new Error(`pin label unit should stay ${unitTxt0} after switching ${u0} → ${u1}: ${unitTxt}`);
+      if ((await w()) !== inc * 60) throw new Error(`machine card row should stay in the machine unit after switching ${u0} → ${u1}: ${await w()}`);
+      // 切了顶栏单位还能连着拖：下三片、上三片，每片都按器械上的格子走（2026-10-25 用户报：切 kg 后拖不动 / 只走一下）
       const rail = await page.locator('[data-testid="hero-rail"]').boundingBox();
       await drag(rail, 44);
-      const g1 = toGym(await w());
+      const g1 = await w();
       await drag(rail, -44);
-      const g2 = toGym(await w());
-      if (Math.abs(g1 - inc * 63) > 0.02 || Math.abs(g2 - inc * 60) > 0.02)
-        throw new Error(`after switching to ${u1}, rail drag ${inc * 60} → ${g1.toFixed(3)} → ${g2.toFixed(3)}, want ${inc * 63} → ${inc * 60}`);
+      const g2 = await w();
+      if (Math.abs(g1 - inc * 63) > 1e-6 || Math.abs(g2 - inc * 60) > 1e-6)
+        throw new Error(`after switching to ${u1}, rail drag ${inc * 60} → ${g1} → ${g2}, want ${inc * 63} → ${inc * 60}`);
       await page.locator('[data-testid="unit-toggle"]').click();
       await backAndDiscard(page);
-      return `rail +3 plates (${w0} → ${w1}) · stack drag ignored · ${inc * 60} still labelled · label follows ${u0} → ${u1} · rail ±3 plates in ${u1}`;
+      return `rail +3 plates (${w0} → ${w1}) · stack drag ignored · ${inc * 60} still labelled · ${u0} → ${u1} leaves the card in ${unitTxt0} · rail ±3 plates`;
     });
 
     // 同馆存几台（2026-11-10）：卡片大图上方「＋」加一台 → 设置里换单位、点预设 → 回卡片一点切回默认、再一点切回来；
@@ -1617,7 +1645,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.waitForTimeout(200);
       const want = other === 'kg' ? 'kg' : 'lb';
       const t1 = (await chip.innerText()).trim();
-      if (!t1.includes(`5 起 · 每格 2.5 ${want}`) && !t1.includes(`From 5 · +2.5 ${want}`)) throw new Error(`new machine chip: ${t1}`);
+      if (!t1.includes(`5 + 2.5 ${want}`)) throw new Error(`new machine chip: ${t1}`);
       const prefs = () => page.evaluate(() => JSON.parse(localStorage.getItem(lsKey('fitlog_app_prefs')) || '{}'));
       const rigs = Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'));
       if (rigs.length !== 1 || rigs[0][1].length !== 1) throw new Error(`gymRigs: ${JSON.stringify(rigs)}`);

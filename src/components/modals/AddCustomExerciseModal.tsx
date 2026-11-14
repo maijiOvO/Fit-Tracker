@@ -32,8 +32,8 @@ interface AddCustomExerciseModalProps {
   /** 细分，主细分在前；[] = 未细分 */
   newExerciseRegions: string[];
   setNewExerciseRegions: (ids: string[]) => void;
-  /** 建好的动作加到哪：训练页弹层 / 计划编辑器的选动作弹层 */
-  addsTo?: 'workout' | 'plan';
+  /** 建好的动作加到哪：训练页弹层 / 计划编辑器的选动作弹层 / 只进动作库（「动作库与标签」，不写副标题） */
+  addsTo?: 'workout' | 'plan' | 'library';
   /**
    * 这场训练的馆（加进训练时才给）：器材有自己的刻度（配重片 / 哑铃 / 壶铃 / 固定杠铃）就多一行「用哪一台」，
    * 建的时候直接选对——原来只能先按馆默认的单位建出来，再进动作设置改（2026-11-10 用户报）。null＝馆默认。
@@ -93,9 +93,11 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
       onClose={onClose}
       title={translations.addCustomExercise[lang]}
       subtitle={
-        addsTo === 'plan'
-          ? isCn ? '创建后将加入计划' : 'Will be added to the plan'
-          : isCn ? '创建后将加入本次训练' : 'Will be added to this workout'
+        addsTo === 'library'
+          ? undefined
+          : addsTo === 'plan'
+            ? isCn ? '创建后将加入计划' : 'Will be added to the plan'
+            : isCn ? '创建后将加入本次训练' : 'Will be added to this workout'
       }
       size="md"
       layer="modal-2"

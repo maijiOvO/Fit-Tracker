@@ -4,8 +4,8 @@
  * 一条规则：全场一个指针，落在最后一组做完的后面。
  *   - 指针不存状态，由组的状态推出来：最后一条做完的行之后。所以拖指针、点做完、退回、删组之后，
  *     它自己就落在对的地方；重开工作台（App 被回收、继续这场）也接得上。
- *   - 组的状态只有两种：做完（ghost=false）/ 待做（ghost=true）。待做不入册，结束训练时丢掉 ——
- *     不想做的组不点就是了（2026-10-15 用户定，删掉了「跳过」）。所以指针上面也可以留着待做组
+ *   - 组的状态只有两种：做完（ghost=false）/ 待做（ghost=true），只管指针和选中。入不入册另看 willRecord：
+ *     有数就入册，不论点没点过（2026-11 用户定）；不想记的组删掉。指针上面也可以留着待做组
  *     （扫过时没填数的、练一半换动作时没做完的），点组号原地补做。
  *   - 旧数据里的 skipped 标记一律当待做读，做完 / 退回时顺手剥掉。
  *
@@ -16,7 +16,7 @@
  * 全部是纯函数：输入 exercises，输出新的 exercises。UI（NewWorkoutTab）只管调用和渲染。
  */
 import type { Exercise, SetLog, SubSetLog } from '../../types';
-import { fromSignedKg, signedKg } from './load';
+import { fromSignedKg, setSign, signedKg } from './load';
 import { segmentName } from './nameSegments';
 
 const isPending = (s: SetLog): boolean => !!s.ghost;
@@ -119,7 +119,7 @@ export function findSet(exs: Exercise[], r: RowRef): SetLog | undefined {
   return exs.find(e => e.id === r.exId)?.sets.find(s => String(s.id) === r.setId);
 }
 
-/** 全场做完了几组（底栏计数、拖书签的落定提示共用一个口径：底稿行不算） */
+/** 全场点过几组＝指针进度（底栏计数、拖书签的落定提示共用；不是入册数，入册看 willRecord） */
 export function doneCount(exs: Exercise[]): number {
   return exs.reduce((n, e) => n + e.sets.filter(s => !isPending(s)).length, 0);
 }
@@ -169,7 +169,7 @@ export function nextSeq(exs: Exercise[]): number {
 
 /**
  * 做完：剥掉工作台上的待做标记。改过的格子（touched，含递减档的）留着 —— 做完的组上它不显示也不参与跟随，
- * 只为点错退回待做时还认得「这组改过数」，结束训练照样提醒；入册时 toRecordedExercises 统一剥掉。
+ * 只为拖书签退回待做时还认得「这组改过数」，不再被前面的组带着跟；入册时 recordedExercises 统一剥掉。
  */
 function asDone(s: SetLog, seq: number): SetLog {
   const { fromGhost: _fg, skipped: _sk, ...rest } = s;
@@ -246,8 +246,6 @@ function rowSeat(exs: Exercise[], r: RowRef): { card: WorkbenchCard; idx: number
 export type TapOutcome =
   /** 这一组做完（指针落在它正下方，经过的有数的待做组一并做完；或在指针上面原地补做） */
   | 'done'
-  /** 刚做完的那组退回待做 */
-  | 'revert'
   /** 全零的组：只选中，不动指针 */
   | 'empty'
   /** 只选中，什么都不改：点的是做完的组（编辑旧训练时点记录里的组也是） */
@@ -299,14 +297,14 @@ export function tapSetNum(exs: Exercise[], r: RowRef): TapResult {
  * 编辑旧训练时点组号（2026-10-15）：**只动被点的这一组，不挪卡、不扫别的组。**
  * 练完的训练没有「做到哪了」：指针停在最后一组下面，套 tapSetNum 会把点到的待做组当成「换到另一张卡」、
  * 把点到的旧组当成「书签往上拖」—— 后面的组全退回待做，保存时被当底稿剥掉，记录就丢了。
- *   - 记录里的组（没有 seq：入册时 seq 被剥掉）：只选中，用来改数。
- *   - 这次编辑里点实的组（有 seq）：退回待做 —— 点错了再点一下就撤。
+ *   - 做完的组（记录里的、这次编辑里点实的）：只选中，用来改数。不退回 —— 退回过的组隔一会儿点回来
+ *     想改数时会被悄悄退成待做（审查 A3）；点错的做完用顶栏撤销。
  *   - 待做 / 跳过（编辑时加的组）：原地做完；全零的点不实。
  */
 export function tapSetNumEditing(exs: Exercise[], r: RowRef): TapResult {
   const s = findSet(exs, r);
   if (!s) return { exs, outcome: 'noop' };
-  if (!s.ghost) return s.seq ? { exs: revertSet(exs, r), outcome: 'revert' } : { exs, outcome: 'select' };
+  if (!s.ghost) return { exs, outcome: 'select' };
   if (!setHasValue(s)) return { exs, outcome: 'empty' };
   return { exs: patchSet(exs, r, x => asDone(x, nextSeq(exs))), outcome: 'done' };
 }
@@ -329,12 +327,15 @@ export type SetUpdate = Partial<SetLog> & {
  *   - 重量（2026-10-15 用户定）：**保持差值** —— 这组 +5，后面的组都 +5，原值不同的也跟。
  *     上次留下的金字塔（145/185/185/165）整体平移成 150/190/190/170，结构不被压平。和递减档同一条规则。
  *     在带符号的数上算（辅助 −10 +5 → −5），普通重量不低于 0。
- *   - 次数（2026-10-11 用户定）：只跟「原值和这组改之前一样」的组。
+ *   - 次数（2026-11 用户定）：不跟。改一组（或一档）的次数，后面任何组都不变 —— 以前「原值相同才跟」
+ *     会途经吸入（8/8/8/6 的第 1 组一下一下减到 5，途经 6 时把第 4 组也吸进来），结果取决于手速。
+ *   - 时长：仍是「原值和这组改之前一样」才跟。
+ *   - 只换号（辅助 ⇄ 负重）：后面同号的组一起换号、绝对值不动（followFlip）。
  * 做完的组改、待做的组改都触发 —— 但改的若不是这个动作里最新做完的那组（后面还有做完的组），后面一律不跟（2026-10-25）；
- * 跟着变的仍是底稿（不记 touched），所以结束时不当「改过数但没点完成」提醒，之后还会继续跟。
+ * 跟着变的仍是底稿（不记 touched），之后还会继续跟。
  *
  * 递减档（2026-10-15 用户定：和普通组完全一样）：
- *   - 改某一组第 j 档的重量 / 次数，后面各组的第 j 档照上面同一套跟（重量保持差值，次数原值相同才跟）。
+ *   - 改某一组第 j 档的重量，后面各组的第 j 档照上面同一套跟（重量保持差值）；次数同样不跟。
  *   - 改第 j 档的重量，同一组里它下面没改过的档保持差值一起挪（2026-10-25 用户定：60→50→40 改第一档成 45 → 60→45→35）。
  *   - 母组重量变了，它自己的递减档保持差值一起挪（60→55→50 改成 70 → 70→65→60）；档上改过的重量不动。
  *     跟着变的母组也一样带着自己的递减档挪。
@@ -408,12 +409,12 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
       sets[i] = shiftSubs(edited, before, shift, e, signed, snap);
       if (!frozen) followWeight(sets, i, shift, e, signed, snap);
     }
+    if (!frozen && 'bodyweightMode' in updates && !('weight' in updates)) followFlip(sets, i, before, edited, e);
     if (frozen) {
       // 同一组里的递减链照样保持差值（只管这一组自己），后面的组不动
       if (updates.subSets && !holdFollow) sets[i] = cascadeEditedSub(sets[i], before, e, snap);
       return { ...e, sets };
     }
-    if ('reps' in updates) followReps(sets, i, e, Number(before.reps) || 0, updates.reps);
     // 时长（有氧 / 计时组）照次数的规矩跟：后面待做、没改过、原值一样的组跟着变（审查 A5）
     if ('duration' in updates) followDuration(sets, i, Number(before.duration) || 0, Number(updates.duration) || 0);
     if (updates.subSets && !holdFollow) sets[i] = cascadeEditedSub(sets[i], before, e, snap);
@@ -462,18 +463,34 @@ function followWeight(sets: SetLog[], i: number, shift: number, e: Exercise, sig
   }
 }
 
-/** 次数：后面待做、没改过、原值和这组改之前一样的组跟着变 */
-function followReps(sets: SetLog[], i: number, _e: Exercise, oldV: number, reps: SetLog['reps'] | undefined) {
-  if (oldV === (Number(reps) || 0)) return;
+/**
+ * 只换号（辅助 ⇄ 负重，审查 C6）：后面待做、重量和号都没改过、和这组换号前同号的组一起换号，绝对值不动。
+ * 不按带符号差值平移：−20 换成 +20 差 40，后面 −15 的组会变成 +25。递减档的号不动（它们没写号的跟着母组）。
+ */
+function followFlip(sets: SetLog[], i: number, before: SetLog, edited: SetLog, e: Exercise) {
+  if (!(Number(before.weight) > 0)) return;
+  const from = setSign(before, e);
+  if (setSign(edited, e) === from) return;
   for (let k = i + 1; k < sets.length; k++) {
     const s = sets[k];
-    const why = !s.ghost ? 'done' : s.touched?.reps ? 'touched'
-      : (Number(s.reps) || 0) !== oldV ? 'value-differs' : 'followed';
-    if (why === 'followed') sets[k] = { ...s, reps: reps! };
+    if (!s.ghost || s.touched?.weight || s.touched?.bodyweightMode) continue;
+    if (!(Number(s.weight) > 0) || setSign(s, e) !== from) continue;
+    sets[k] = { ...s, bodyweightMode: edited.bodyweightMode, draftAuto: false };
   }
 }
 
-/** 时长：同次数，后面待做、没改过、原值和这组改之前一样的组跟着变 */
+/**
+ * 带正负的动作里一组的号（审查 C6）：组上写了按组；重量是 0 的组（没有号可言）沿用这个动作里
+ * 前面最近一组有重量的号 —— 0 的组打正数，辅助 20 后面接着记辅助；前面都没有重量按动作实例（旧数据整场一个号）。
+ */
+export function carrySign(ex: Exercise, s: SetLog): -1 | 1 {
+  if (Number(s.weight) > 0) return setSign(s, ex);
+  const i = ex.sets.findIndex(x => x.id === s.id);
+  for (let k = i - 1; k >= 0; k--) if (Number(ex.sets[k].weight) > 0) return setSign(ex.sets[k], ex);
+  return setSign(s, ex);
+}
+
+/** 时长：后面待做、没改过、原值和这组改之前一样的组跟着变 */
 function followDuration(sets: SetLog[], i: number, oldV: number, v: number) {
   if (oldV === v) return;
   for (let k = i + 1; k < sets.length; k++) {
@@ -505,25 +522,12 @@ function followSubWeight(sets: SetLog[], i: number, j: number, shift: number, si
   }
 }
 
-/** 第 i 组的递减档从 prev 改成 next：后面各组的同一档照普通组的规则跟。加档 / 删档不跟；hold＝打字中途，重量先不跟 */
+/** 第 i 组的递减档从 prev 改成 next：后面各组的同一档重量照普通组的规则跟（次数不跟）。加档 / 删档不跟；hold＝打字中途，重量先不跟 */
 function followSubs(sets: SetLog[], i: number, prev: SetLog, next: SetLog, ex: Exercise, hold: boolean, snap?: (kg: number) => number) {
   const oldSubs = prev.subSets ?? [];
   const newSubs = next.subSets ?? [];
-  if (oldSubs.length !== newSubs.length) return;
-  newSubs.forEach((nu, j) => {
-    const old = oldSubs[j];
-    if (!hold) followSubWeight(sets, i, j, signedKg(nu, ex, next) - signedKg(old, ex, prev), !!nu.bodyweightMode, ex, snap);
-    const oldReps = Number(old.reps) || 0;
-    if (oldReps === (Number(nu.reps) || 0)) return;
-    for (let k = i + 1; k < sets.length; k++) {
-      const s = sets[k];
-      const sub = s.subSets?.[j];
-      if (!sub || !isPending(s) || sub.touched?.reps || (Number(sub.reps) || 0) !== oldReps) continue;
-      const subSets = [...s.subSets!];
-      subSets[j] = { ...sub, reps: nu.reps };
-      sets[k] = { ...s, subSets };
-    }
-  });
+  if (hold || oldSubs.length !== newSubs.length) return;
+  newSubs.forEach((nu, j) => followSubWeight(sets, i, j, signedKg(nu, ex, next) - signedKg(oldSubs[j], ex, prev), !!nu.bodyweightMode, ex, snap));
 }
 
 /** 退回待做：只给指针正上方那一组（刚做完的那组），值保留 */
@@ -715,6 +719,36 @@ export function memberAbbrs(names: string[]): string[] {
     return cs.find(c => !taken.has(lower(c))) ?? '';
   });
   return picked.map((a, i) => a || String.fromCharCode(65 + (i % 26)));
+}
+
+/**
+ * 这组结束训练 / 保存修改时入不入册（2026-11 用户定）：卡上有数的组都入册，不论点没点过组号；全零的不入册。
+ * 组号的「做完」只管指针和选中。不想记的组删掉（行尾删除）。
+ */
+export function willRecord(s: SetLog): boolean {
+  return setHasValue(s);
+}
+
+/**
+ * 入册的样子：只留 willRecord 的组，剥掉工作台标记；一组都不剩的动作整个丢掉，只剩一个成员的交替组拆掉。
+ * prefillFrom / prefillGym 只服务工作台眉批；fromGhost（已停写）、touched、seq、added 都是工作台上的标记，不跟进历史。
+ * 结束训练、保存修改、判「编辑态改没改」共用这一份；刊末页的组数也从它来。
+ */
+export function recordedExercises(exercises: Exercise[] | undefined): Exercise[] {
+  return normalizeGroups(
+    (exercises ?? [])
+      .map(ex => {
+        const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
+        return {
+          ...rest,
+          sets: (ex.sets ?? []).filter(willRecord).map(s => {
+            const { fromGhost: _fg, touched: _t, ...set } = stripWorkbenchSet({ ...s, ghost: false });
+            return set.subSets?.length ? { ...set, subSets: set.subSets.map(({ touched: _st, ...sub }) => sub) } : set;
+          }),
+        };
+      })
+      .filter(ex => ex.sets.length > 0),
+  );
 }
 
 /** 结束训练：剥掉工作台标记；只剩一个成员的交替组拆掉 */

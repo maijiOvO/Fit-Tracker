@@ -38,23 +38,36 @@ await build({
     contents: [
       "export * from './src/utils/weightSummary.ts';",
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
-      "export { findLastIn, findLastAltGroup } from './src/utils/prefillSource.ts';",
+      "export { findLastIn, findLastAltGroup, altCombosByName, vsLastSession } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
       "export { migrateWarmRegions } from './src/utils/warmRegionMigration.ts';",
-      "export { makeRounder, ownUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
+      "export { makeRounder, ownUnitOf, cardUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
       "export * as A from './src/utils/exerciseAttrs.ts';",
       "export { mergeOverride, mergedName } from './src/utils/exerciseOverride.ts';",
       "export { detectPRs } from './src/utils/prDetect.ts';",
       "export * as R from './src/utils/prRecords.ts';",
-      "export { buildLiftSummaries, trendPoints } from './src/utils/liftHistory.ts';",
+      "export { buildLiftSummaries, trendPoints, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
+      "export * as G from './src/utils/goalProgress.ts';",
       "export { moveSetToExercise } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
+      "export { rowLastSession, browseRank } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
+      "export { sessionsBefore, redateLiveSession, isBackdated } from './src/utils/sessionDate.ts';",
       "export * as SS from './src/utils/setStep.ts';",
+      "export * as SW from './src/utils/setWrite.ts';",
+      "export * as LD from './src/utils/load.ts';",
+      "export * as LB from './src/utils/loadable.ts';",
+      "export { boundDetent, heroFocus } from './src/utils/scrubFeel.ts';",
+      "export { cardToRevisit } from './src/utils/pickerRevisit.ts';",
+      "export { FitLogDB } from './services/db.ts';",
+      "export * as WP from './services/workbenchPersist.ts';",
+      "export * as FR from './services/fitlogRemote.ts';",
+      "export * as FB from './services/fitlogBackup.ts';",
+      "export * as FS from './services/fitlogSyncScheduler.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -161,6 +174,18 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
   assert.equal(L.findLastAltGroup(wa, id, '举腿').workout.id, 'alt_ok', 'skip the solo session and the ghost-only one');
   assert.equal(L.findLastAltGroup(wa, id, '举腿', 'alt_ok'), null, 'a group with no other member does not count');
   assert.equal(L.findLastAltGroup(wa, id, '深蹲'), null);
+  // 同一个动作的几种搭配都要列得出来（2026-11-10 用户指出）：最近的在前（第 0 个＝点动作行带的），成员相同的不管先后只留最近一次
+  const wc = [
+    W('c_now', 'A', [alt('磕头机', 'n', [done(0)]), alt('举腿', 'n', [done(0)])]),
+    W('c_13', 'A', [alt('磕头机', 'g3', [done(0)]), alt('举腿', 'g3', [done(0)])]),
+    W('c_123', 'B', [alt('磕头机', 'g2', [done(0)]), alt('卷腹', 'g2', [done(0)]), alt('举腿', 'g2', [done(0)])]),
+    W('c_31', 'A', [alt('举腿', 'g1', [done(0)]), alt('磕头机', 'g1', [done(0)])]),
+  ];
+  const combos = L.altCombosByName(wc, id, 'c_now');
+  assert.deepEqual(combos.get('磕头机').map(c => c.workout.id), ['c_13', 'c_123'], 'newest first, same members once');
+  assert.deepEqual(combos.get('磕头机')[1].mates, ['卷腹', '举腿'], 'mates keep the order of that session');
+  assert.deepEqual(combos.get('卷腹').map(c => c.workout.id), ['c_123'], 'each exercise only sees its own groups');
+  assert.equal(L.findLastAltGroup(wc, id, '磕头机', 'c_now').workout.id, 'c_13', 'row tap brings combo 0');
   // 做法：'' = 标准做法，别的做法不算
   const wv = [W('v1', 'A', [ex('推肩', [done(30)], 'wide')]), W('v0', 'A', [ex('推肩', [done(20)])])];
   assert.equal(L.findLastIn(wv, id, vOf, '推肩', '', undefined, 'A').workout.id, 'v0');
@@ -168,6 +193,26 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
   assert.equal(L.findLastIn(wv, id, vOf, '推肩', null, undefined, 'A').workout.id, 'v1', 'null = any variant');
   // 名字按 resolveName 认（改过名的动作）
   assert.equal(L.findLastIn([W('r', 'A', [ex('旧名', [done(10)])])], n => (n === '旧名' ? '新名' : n), vOf, '新名').workout.id, 'r');
+});
+
+t('刊末页「比上次」：每个动作这场与上一场的最好一组（最重，同重比次数，递减档也算）；底稿、全零、没上一场的不列', () => {
+  // 防的错：拿第一组或最后一组比（热身 / 递减把对比带偏），把底稿行当成做过，带正负的动作按绝对值比（辅助 20 比辅助 10「重」）
+  const S = (w, r, extra = {}) => ({ id: `${w}x${r}`, weight: w, reps: r, ...extra });
+  const bench = { id: 'b', name: '卧推', category: 'STRENGTH', sets: [S(60, 10), S(80, 8), S(80, 6), S(90, 1, { ghost: true })] };
+  const pull = { id: 'p', name: '引体', category: 'STRENGTH', sets: [S(10, 8, { bodyweightMode: 'assisted' }), S(5, 6, { bodyweightMode: 'assisted' })] };
+  const fresh = { id: 'f', name: '新动作', category: 'STRENGTH', sets: [S(20, 10)] };
+  const empty = { id: 'e', name: '空', category: 'STRENGTH', sets: [S(0, 0)] };
+  const last = {
+    卧推: { id: 'lb', name: '卧推', category: 'STRENGTH', sets: [S(80, 7), S(70, 10, { subSets: [{ id: 's', weight: 82.5, reps: 2 }] })] },
+    引体: { id: 'lp', name: '引体', category: 'STRENGTH', sets: [S(10, 8, { bodyweightMode: 'assisted' })] },
+    空: { id: 'le', name: '空', category: 'STRENGTH', sets: [S(50, 5)] },
+  };
+  const findLast = e => (last[e.name] ? { ex: last[e.name], workout: { id: 'w0', date: '', exercises: [] } } : null);
+  const got = L.vsLastSession([bench, pull, fresh, empty], findLast, e => e.name === '引体');
+  assert.deepEqual(got, [
+    { exId: 'b', now: { kg: 80, reps: 8 }, last: { kg: 82.5, reps: 2 } },
+    { exId: 'p', now: { kg: -5, reps: 6 }, last: { kg: -10, reps: 8 } },
+  ]);
 });
 
 // ── 龙门架标签迁移（cableTagMigration）──────────────────────────────
@@ -288,6 +333,35 @@ t('递减一档：纯数字 ∓ 递减步长（残留先取整）、下限 0、�
   assert.equal(L.SS.nextDropShown(12.5, -1, L.makeRounder(pinInfo, 'lbs', lbCtx(5, 12.5), false), 5, false), 12.5);
 });
 
+// ── 显示值写回一组（setWrite）：组行、底栏操作条、大图三处共用，防一处改了另两处还是旧口径 ──
+t('写回一组：显示值 ⇄ 存储 kg（两位小数去尾零；lb 换回 kg；有取整器存格子的精确 kg；带正负写号；按显示单位夹上限）', () => {
+  assert.equal(L.SW.formatLoad(62.25, 'kg'), '62.25');
+  assert.equal(L.SW.formatLoad(20, 'kg'), '20');
+  assert.equal(L.SW.formatLoad(100 * LB, 'lbs'), '100');
+  assert.equal(L.SW.shownWeight(10, -1, 'kg'), -10);
+  assert.deepEqual(L.SW.weightFromShown(62.5, 'kg', null, false), { weight: 62.5, plateUnit: 'kg' });
+  const lb = L.SW.weightFromShown(100, 'lbs', null, false);
+  assert.equal(lb.plateUnit, 'lbs');
+  assert.ok(Math.abs(lb.weight - 100 / 2.20462) < 1e-9);
+  assert.deepEqual(L.SW.weightFromShown(-10, 'kg', null, true), { weight: 10, plateUnit: 'kg', bodyweightMode: 'assisted' });
+  assert.equal(L.SW.weightFromShown(0, 'kg', null, true).bodyweightMode, 'normal');
+  assert.equal(L.SW.weightFromShown(5, 'kg', null, true).bodyweightMode, 'weighted');
+  assert.equal(L.SW.weightFromShown(9999, 'kg', null, false).weight, 500);
+  const r = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false);
+  const w = L.SW.weightFromShown(30, 'lbs', r, false);
+  assert.deepEqual([w.weight, w.plateUnit], [r.kgOfD(30), r.unit]);
+});
+t('写回一组：待做组改了哪个值字段就记进 touched（含号），plateUnit 不算；做完的组原样不记', () => {
+  const ghost = { id: 'g', weight: 20, reps: 8, ghost: true, touched: { reps: true } };
+  assert.deepEqual(L.SW.markTouched(ghost, { weight: 10, plateUnit: 'kg', bodyweightMode: 'assisted' }).touched, { reps: true, weight: true, bodyweightMode: true });
+  assert.deepEqual(L.SW.markTouched(ghost, { subSets: [] }).touched, { reps: true, subSets: true });
+  const u = { plateUnit: 'kg' };
+  assert.equal(L.SW.markTouched(ghost, u), u);
+  const done = { id: 'd', weight: 20, reps: 8 };
+  const u2 = { weight: 10 };
+  assert.equal(L.SW.markTouched(done, u2), u2);
+});
+
 t('递减档保持方向：递增档（比上一档重）吸到同一格时往重的方向挪', () => {
   const r = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false);
   const s = { id: 's', weight: 18 * LB, reps: 9, ghost: true, subSets: [{ weight: 23.4 * LB, reps: 6 }] };
@@ -327,6 +401,59 @@ t('名字索引：两个自建动作原名都是「悍马卧推」、一个改�
   }
   // 都没改名：同名按 id 从新到旧，先到的是后建的那个
   assert.equal(L.buildNameIndex([], [B, A], {}).get('悍马卧推')?.id, A.id);
+});
+t('名字索引：把改过名的那个（原名悍马卧推）并进别的动作，「悍马卧推」仍归还在库里的 A，不被并入目标认走', () => {
+  const def = (id, cn) => ({ id, name: { cn, en: cn }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' });
+  const A = def('1781149667255', '悍马卧推');
+  const B = def('1779420343792', '悍马卧推');
+  const T = def('1770000000000', '蝴蝶机夹胸');
+  const over = { [B.id]: { name: { cn: '曲肘蝴蝶机', en: '曲肘蝴蝶机' }, mergedInto: T.id, hidden: true } };
+  const idx = L.buildNameIndex([], [A, B, T], over);
+  assert.equal(idx.get('悍马卧推')?.id, A.id);
+  assert.equal(idx.get('曲肘蝴蝶机')?.id, T.id);
+});
+t('名字索引：连环并入 A→B→C 之后，A 的名字沿链解析到 C（不成孤儿）；成环时不登记、不死循环', () => {
+  const def = (id, cn) => ({ id, name: { cn, en: cn }, bodyPart: 'subBack', tags: [], category: 'STRENGTH' });
+  const A = def('3', '窄距高位下拉');
+  const B = def('2', '宽握高位下拉');
+  const C = def('1', '高位下拉');
+  const over = { [A.id]: { mergedInto: B.id, hidden: true }, [B.id]: { mergedInto: C.id, hidden: true } };
+  const idx = L.buildNameIndex([], [A, B, C], over);
+  assert.equal(idx.get('窄距高位下拉')?.id, C.id);
+  assert.equal(idx.get('宽握高位下拉')?.id, C.id);
+  const loop = { [A.id]: { mergedInto: B.id }, [B.id]: { mergedInto: A.id } };
+  assert.equal(L.buildNameIndex([], [A, B, C], loop).get('窄距高位下拉'), undefined);
+});
+
+// ── 添加动作行的「上次」与点行铺的底稿同一场（审查 C1）─────────────────────
+t('添加动作行：小灰字的来源场次 = 点行铺底稿的来源（不分做法取最近、带出做法；器械本馆优先）', () => {
+  const ex = (id, sets, variantId) => ({ id, name: '高位下拉', category: 'STRENGTH', sets, ...(variantId ? { variantId } : {}) });
+  const w = (id, d, gym, e) => ({ id, date: ago(d), gym, exercises: [e] });
+  // 新的在前（WorkoutContext 的顺序）：B 馆 3 天前宽握、A 馆 10 天前宽握、A 馆 20 天前标准
+  const ws = [
+    w('b-wide', 3, 'B', ex('e1', [{ weight: 70, reps: 8 }], 'v_wide')),
+    w('a-wide', 10, 'A', ex('e2', [{ weight: 60, reps: 10 }], 'v_wide')),
+    w('a-std', 20, 'A', ex('e3', [{ weight: 50, reps: 12 }])),
+  ];
+  const vidOf = e => e.variantId;
+  const lifts = L.buildLiftSummaries({
+    workouts: ws,
+    stableIdOf: e => `def|${e.variantId ?? ''}`,
+    liftKey: e => `${e.name}|${e.variantId ?? ''}`,
+    resolveName: n => n,
+    signedLoadOf: () => false,
+    getActiveMetrics: () => ['weight', 'reps'],
+  });
+  const byId = new Map(lifts.map(l => [l.stableId, l]));
+  for (const [vid, gym] of [[undefined, 'A'], [undefined, undefined], ['v_wide', 'A'], ['', 'A']]) {
+    const prefill = L.findLastIn(ws, n => n, vidOf, '高位下拉', vid ?? null, undefined, gym);
+    const row = L.rowLastSession(ws, byId, n => n, vidOf, { id: 'def', name: '高位下拉' }, vid, undefined, gym);
+    assert.equal(row?.session.workoutId, prefill?.workout.id, `vid=${vid} gym=${gym}`);
+    assert.equal(row?.variantId, prefill && (vidOf(prefill.ex) || undefined));
+  }
+  // 母行在 A 馆：写的是 A 馆 10 天前的宽握 60×10，不是标准做法 20 天前、也不是 B 馆 3 天前
+  const r = L.rowLastSession(ws, byId, n => n, vidOf, { id: 'def', name: '高位下拉' }, undefined, undefined, 'A');
+  assert.deepEqual([r.session.workoutId, r.variantId, r.session.top.kg], ['a-wide', 'v_wide', 60]);
 });
 
 // ── 配重片拖动的下限（用户报：改了最轻一格还能拖到更轻）────────────────────
@@ -500,6 +627,68 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     assert.deepEqual(pts.map(p => [p.workoutId, p.pr]), [['a1', false], ['b1', false], ['b2', true]]);
   });
 
+  // 审查 G4：判定按馆，展示也得按馆 —— 否则 B 馆破的纪录点落在 A 馆 200 的纪录线下面
+  t('按馆比的器械：A 馆 200、B 馆 120 → 130 —— B 馆视图的最好是 130、阶梯线不含 A 馆；列表取最近的馆；牌上带馆', () => {
+    const ws = [
+      W('a1', ago(40), 'A', [exOf('腿举', [st(200, 8)])]),
+      W('u1', ago(30), '', [exOf('腿举', [st(90, 8)])]),
+      W('b1', ago(20), 'B', [exOf('腿举', [st(120, 8)])]),
+      W('b2', ago(10), 'B', [exOf('腿举', [st(130, 8)])]),
+    ];
+    const summaries = gymScoped => L.buildLiftSummaries({
+      workouts: ws,
+      stableIdOf: e => e.name,
+      liftKey: e => e.name,
+      resolveName: id,
+      signedLoadOf: () => false,
+      getActiveMetrics: () => ['weight', 'reps'],
+      gymScoped,
+    })[0];
+    const lift = summaries(() => true);
+    // 最近练的馆在前；没标馆的旧训练也是一项，否则这些场次从视图里消失
+    assert.deepEqual(L.gymChoices(lift), ['B', '', 'A']);
+    const b = L.inGym(lift, 'B');
+    assert.equal(b.best.weight.value, 130);
+    assert.deepEqual(b.sessions.map(s => s.workoutId), ['b1', 'b2']);
+    assert.deepEqual(L.trendPoints(b.sessions, 'weight').map(p => p.best), [120, 130]);
+    assert.equal(L.inGym(lift, '').best.weight.value, 90);
+    assert.equal(L.latestGymView(lift).best.weight.value, 130);
+    // 跨馆比的动作不分馆
+    const free = summaries(() => false);
+    assert.deepEqual(L.gymChoices(free), []);
+    assert.equal(L.latestGymView(free).best.weight.value, 200);
+    const machine = { gymScoped: () => true };
+    assert.equal(pr(ws.slice(0, 3), ws[3], machine).stamps[0].gym, 'B');
+    assert.equal(pr(ws.slice(0, 3), ws[3]).stamps.length, 0, '跨馆比：130 没过 200');
+  });
+
+  // 审查 Gm0：逐场「最好一组」和纪录判定同一份组（递减 / 递增档也算）
+  t('逐场最好一组含递增档；次数图只在全场最多次数真涨了才标 PR', () => {
+    const build = workouts => L.buildLiftSummaries({
+      workouts,
+      stableIdOf: e => e.name,
+      liftKey: e => e.name,
+      resolveName: id,
+      signedLoadOf: () => false,
+      getActiveMetrics: () => ['weight', 'reps'],
+    })[0];
+    const up = build([
+      W('h', ago(9), '', [exOf('卧推', [st(100, 5)])]),
+      W('n', ago(0), '', [exOf('卧推', [st(100, 5, { subSets: [{ id: 'x', weight: 105, reps: 2 }] })])]),
+    ]);
+    const n = up.sessions[1];
+    assert.deepEqual(n.records.includes('weight'), true);
+    assert.equal(n.top.kg, 105, '破纪录的是递增档，逐场行写的也得是它');
+    assert.equal(up.best.weight.value, 105);
+    // 历史 40×15、80×8，本场 80×9：是次数纪录，但全场最多次数（15）没涨 —— 次数图上不标
+    const reps = build([
+      W('h', ago(9), '', [exOf('深蹲', [st(40, 15), st(80, 8)])]),
+      W('n', ago(0), '', [exOf('深蹲', [st(80, 9)])]),
+    ]);
+    assert.equal(reps.sessions[1].records.includes('reps'), true);
+    assert.deepEqual(L.trendPoints(reps.sessions, 'reps').map(p => p.pr), [false, false]);
+  });
+
   t('PR：自由重量跨馆比 —— A 馆 100，B 馆 95 不算、102.5 算；没历史不算；编辑旧训练不算；最多 2 枚牌', () => {
     const h = [W('a', ago(9), 'A', [exOf('卧推', [st(100, 5)])])];
     assert.equal(pr(h, W('n', ago(0), 'B', [exOf('卧推', [st(95, 5)])])).stamps.length, 0);
@@ -524,6 +713,33 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     assert.equal(top.at, 1);
   });
 }
+
+// ── 目标进度（审查 D7）：按起点算，减重也成立；力量 / 频率从训练记录现算 ─────────
+t('目标进度：体重 80 → 75 刚建是 0、到 77.5 是一半、过了封顶；增重同理；起点不明不画', () => {
+  assert.equal(L.G.goalProgress(80, 80, 75), 0);
+  assert.equal(L.G.goalProgress(77.5, 80, 75), 0.5);
+  assert.equal(L.G.goalProgress(74, 80, 75), 1);
+  assert.equal(L.G.goalProgress(82, 80, 75), 0, '反方向不出负数');
+  assert.equal(L.G.goalProgress(110, 100, 120), 0.5);
+  assert.equal(L.G.goalProgress(80, null, 75), null);
+});
+t('目标起点：体重取建目标那一刻之前最近的一次（换成目标单位），之前没有就取之后最早的一次', () => {
+  const e = (d, kg) => ({ id: String(d), userId: 'u', date: ago(d), weight: kg, unit: 'kg' });
+  const entries = [e(1, 78), e(20, 80), e(40, 85)];
+  assert.equal(L.G.weightAtStart(entries, ago(10), 'kg'), 80);
+  assert.equal(Math.round(L.G.weightAtStart(entries, ago(10), 'lbs') * 10) / 10, 176.4);
+  assert.equal(L.G.weightAtStart(entries, ago(60), 'kg'), 85);
+  assert.equal(L.G.weightAtStart([], ago(10), 'kg'), null);
+});
+t('频率目标：本周（周一起）练了几场，上周日那场不算', () => {
+  // NOW 是 2026-10-21（周三）
+  const w = d => ({ id: d, date: d, exercises: [] });
+  const n = L.G.workoutsThisWeek(
+    [w('2026-10-18T10:00:00'), w('2026-10-19T08:00:00'), w('2026-10-21T08:00:00'), w('2026-10-21T18:00:00')],
+    new Date('2026-10-21T20:00:00'),
+  );
+  assert.equal(n, 3);
+});
 
 // ── 体重变化那一行（审查 A22）──────────────────────────────────────
 t('体重变化：最新一次超过 30 天不显示；基线就是最新那条不显示；都在 30 天内按实际天数；先取整再定号', () => {
@@ -618,6 +834,24 @@ t('一台器械一种片：配重片 / 哑铃按这一台（或馆档案里这�
   assert.equal(r.kgOfD(d), 25);
   assert.equal(r.stepToD(55.12, -1), 44.09);
 });
+t('器械整卡按器械单位（D1）：lb 器械在 kg 显示下整卡写 lb，± 键一档恒为 5 lb；杠铃照旧跟顶栏', () => {
+  const kgGym = { plateUnit: 'kg', plates: [20, 10, 5, 2.5], cable: { v: 5, u: 'kg' }, machine: { v: 5, u: 'kg' } };
+  const cable = { kind: 'pin', stack: 'cable' };
+  assert.equal(L.cardUnitOf(cable, kgGym, { v: 5, u: 'lbs' }, 'kg'), 'lbs', '这一台设的是 lb');
+  assert.equal(L.cardUnitOf(cable, kgGym, undefined, 'lbs'), 'kg', 'kg 器械在 lb 显示下同理');
+  assert.equal(L.cardUnitOf({ kind: 'plates' }, kgGym, undefined, 'lbs'), 'lbs', '杠铃挂馆的片子，跟顶栏');
+  assert.equal(L.cardUnitOf({ kind: 'signed' }, kgGym, undefined, 'lbs'), 'lbs');
+  assert.equal(L.cardUnitOf(cable, undefined, undefined, 'lbs'), 'lbs', '没设档案跟顶栏');
+  // 换成 kg 显示时键上在 2.26 / 2.27 之间跳（审查 B9 核实）；按器械单位就是整数
+  const r = L.makeRounder(cable, 'lbs', lbCtx(5, 10), false, L.cardUnitOf(cable, kgGym, { v: 5, u: 'lbs' }, 'kg'));
+  let d = 110;
+  for (let i = 0; i < 4; i++) {
+    assert.equal(L.SS.stepShown(d, 1, r, 5), 5, `${d} lb 上键写 5`);
+    d = L.SS.bumpShown(d, 1, r, 5, false);
+  }
+  assert.equal(d, 130);
+  assert.equal(r.kgOfD(130), 130 / K, '存的仍是精确 kg');
+});
 t('单边挂片：总重＝一边的片，一档＝最小一片', () => {
   const ctx = { unit: 'kg', plates: [20, 10, 5, 2.5], bar: 0, inc: 5 };
   const two = L.makeRounder({ kind: 'loaded' }, 'kg', ctx, false);
@@ -696,6 +930,31 @@ t('搜索：pushup / pull up / dips / rdl / ohp / bss 都找得到；中文照�
   assert.ok(!hit(e('杠铃推举', 'Overhead Press'), 'squat'));
 });
 
+// ── 拼音字典不进首屏（审查 F11）：载入前拼音字段留空、不缓存，载入后重建就有 ─────────────
+t('搜索：拼音字典载入前中文照样命中、拼音不命中且不把空结果缓存住', () => {
+  const hit = (q, tags = []) => L.S.scoreEntry(L.S.buildSearchEntry('杠铃卧推', 'Bench Press', tags), L.S.tokenize(q)) > 0;
+  assert.ok(hit('卧推'));
+  assert.ok(hit('bench'));
+  assert.ok(!hit('wotui'));
+});
+await L.S.loadPinyin();
+t('搜索：拼音字典载入后全拼 / 首字母 / 标签拼音都命中（载入前那次没缓存空拼音）', () => {
+  const hit = (q, tags = []) => L.S.scoreEntry(L.S.buildSearchEntry('杠铃卧推', 'Bench Press', tags), L.S.tokenize(q)) > 0;
+  assert.ok(hit('wotui'));
+  assert.ok(hit('glwt'));
+  assert.ok(hit('xiongbu', ['胸部']));
+});
+
+// ── 分部位浏览的组内顺序（审查 C2）─────────────────────────────────
+t('浏览排序：收藏（星多在前）→ 练过的按上次练的时间倒序 → 没练过的照库序', () => {
+  const items = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id }));
+  const star = { e: 2, c: 1 };
+  const last = { b: 100, d: 300, c: 999 };
+  const rank = L.browseRank(items, x => star[x.id], x => last[x.id] ?? 0);
+  const order = [...items].sort((x, y) => rank.get(x.id) - rank.get(y.id)).map(x => x.id);
+  assert.deepEqual(order, ['e', 'c', 'd', 'b', 'a', 'f']);
+});
+
 // ── 旧覆盖层只有 region（审查 A15）──────────────────────────────────
 t('覆盖层合并：旧覆盖层只改了主细分，定义原来的主细分不再混成次要细分', () => {
   const def = { id: 'sq', name: { cn: '深蹲', en: 'Squat' }, region: 'legQuad', regions: ['legQuad', 'legGlute'], category: 'STRENGTH' };
@@ -754,6 +1013,267 @@ t('训练时长：finishedAt − startTime 按整分截断（计时器的读法�
   assert.equal(L.sessionDurationMin({ duration: 30 }), null);
   assert.equal(L.sessionDurationMin({ startTime: T0 }), null);
   assert.equal(L.sessionDurationMin({}), null);
+});
+
+// ── 补录（训练中把这场改到过去）──────────────────────────
+t('补录：挪到过去后不显示时长（结束时刻减录入时刻不是练了多久）、动作时间跟着平移；判纪录 / 期号 / 上次只看这场日期之前的', () => {
+  const live = {
+    id: 'now', date: '2026-11-13T10:00:00.000Z', startTime: '2026-11-13T10:00:00.000Z',
+    exercises: [{ id: 'e1', exerciseTime: '2026-11-13T10:05:00.000Z', sets: [] }, { id: 'e2', sets: [] }],
+  };
+  assert.equal(L.isBackdated(live), false);
+  const moved = L.redateLiveSession(live, new Date('2026-11-12T18:00:00.000Z'));
+  assert.equal(moved.date, '2026-11-12T18:00:00.000Z');
+  assert.equal(moved.exercises[0].exerciseTime, '2026-11-12T18:05:00.000Z');
+  assert.equal(moved.exercises[1].exerciseTime, undefined);
+  assert.equal(L.isBackdated(moved), true);
+  assert.equal(L.sessionDurationMin({ ...moved, finishedAt: '2026-11-13T10:12:00.000Z' }), null);
+  // 再挪一次：从挪过的时刻接着平移
+  assert.equal(L.redateLiveSession(moved, new Date('2026-11-11T18:00:00.000Z')).exercises[0].exerciseTime, '2026-11-11T18:05:00.000Z');
+  // 没分到 id 的空工作台不算补录
+  assert.equal(L.isBackdated({ id: '', date: live.date, exercises: [] }), false);
+  const ws = [
+    { id: 'later', date: '2026-11-12T20:00:00.000Z' },
+    { id: 'moved', date: '2026-11-12T18:00:00.000Z' },
+    { id: 'earlier', date: '2026-11-10T18:00:00.000Z' },
+  ];
+  assert.deepEqual(L.sessionsBefore(ws, { id: 'moved', date: '2026-11-12T18:00:00.000Z' }).map(w => w.id), ['earlier']);
+});
+
+// ── 器械与重量（2026-11-13）：上限、最重一格、大图只写待做 / 选中的组、换台不漂、固定器械按动作分台 ──────────
+t('重量上限按显示单位夹：500 kg / 1100 lb，带正负 ±300 kg（660 lb），普通重量不低于 0；体重 20~300 kg（44~660 lb）', () => {
+  assert.equal(L.LD.clampLoadD(1000, 'kg', false), 500);
+  assert.equal(L.LD.clampLoadD(2000, 'lbs', false), 1100);
+  assert.equal(L.LD.clampLoadD(137.5, 'kg', false), 137.5);
+  assert.equal(L.LD.clampLoadD(-5, 'kg', false), 0);
+  assert.equal(L.LD.clampLoadD(-400, 'kg', true), -300);
+  assert.equal(L.LD.clampLoadD(700, 'lbs', true), 660);
+  assert.equal(L.LD.clampBodyweightD(0, 'kg'), 20);
+  assert.equal(L.LD.clampBodyweightD(750, 'kg'), 300);
+  assert.equal(L.LD.clampBodyweightD(181.5, 'lbs'), 181.5);
+  assert.equal(L.LD.clampBodyweightD(7, 'lbs'), 44);
+});
+t('拖动到顶 / 到底：落在边界上，已经在边界就原地（不震不回调）；超限的旧数据往回拖照常走、往外拖不动', () => {
+  assert.equal(L.boundDetent(495, 505, 1, 0, 500), 500);
+  assert.equal(L.boundDetent(500, 505, 1, 0, 500), 500);
+  assert.equal(L.boundDetent(600, 602.5, 1, 0, 500), 600);
+  assert.equal(L.boundDetent(600, 597.5, -1, 0, 500), 597.5);
+  assert.equal(L.boundDetent(2.5, -2.5, -1, 0, 500), 0);
+  assert.equal(L.boundDetent(0, -2.5, -1, 0, 500), 0);
+});
+t('配重片最重一格：± / 拖动到它为止，自动取整吸到它；不在格子上的最重一格按它以下最近的一格算', () => {
+  const r = L.makeRounder(pinInfo, 'lbs', { ...lbCtx(5, 12.5), end: 52.5 }, false);
+  assert.equal(r.stepToD(47.5, 1), 52.5);
+  assert.equal(r.stepToD(52.5, 1), 52.5);
+  assert.equal(r.stepToD(42.5, 1, 4), 52.5);
+  assert.equal(r.snapD(60), 52.5);
+  assert.equal(r.stepToD(52.5, -1), 47.5);
+  const odd = L.makeRounder(pinInfo, 'lbs', { ...lbCtx(5, 12.5), end: 50 }, false);
+  assert.equal(odd.stepToD(47.5, 1), 47.5);
+  // 手打的超过最重一格照原样记（不是自动生成的）
+  assert.equal(r.loadableD(60), false);
+});
+t('大图画哪一组、能不能写：选中的组 → 第一组待做（能写）；全做完又没选中画最后一组但不能写；选中做完的组能写', () => {
+  const done = [{ id: 'a' }, { id: 'b' }];
+  const half = [{ id: 'a' }, { id: 'b', ghost: true }, { id: 'c', ghost: true }];
+  assert.deepEqual(L.heroFocus(done, null), { idx: 1, live: false });
+  assert.deepEqual(L.heroFocus(done, 'a'), { idx: 0, live: true });
+  assert.deepEqual(L.heroFocus(half, null), { idx: 1, live: true });
+  assert.deepEqual(L.heroFocus(half, 'zz'), { idx: 1, live: true });
+  assert.deepEqual(L.heroFocus([], null), { idx: -1, live: false });
+});
+t('换台：没动过的底稿从上一次的原值重取整，lb 台 ⇄ kg 台来回切回到原值；填过自重平移过的底稿之后从当前值算', () => {
+  const ex = { id: 'e', name: '器械推肩', sets: [] };
+  const lbRig = L.makeRounder(pinInfo, 'lbs', lbCtx(5, 12.5), false);
+  const kgRig = L.makeRounder(pinInfo, 'kg', { unit: 'kg', plates: [20, 10, 5, 2.5], bar: 20, inc: 5, start: 0 }, false, 'lbs');
+  const [s0] = L.roundPrefill([{ id: 's', weight: 17.5 * LB, reps: 8, ghost: true }], ex, lbRig);
+  const back = L.reRoundPending(L.reRoundPending([s0], ex, kgRig), ex, lbRig);
+  assert.equal(Math.round(back[0].weight * K * 100) / 100, 17.5);
+  // 自重平移过：不再是从上一次纯换算来的
+  const ctx = { unit: 'kg', plates: [20, 10, 5, 2.5], bar: 20, inc: 5 };
+  const loaded = { id: 'e', name: '史密斯推肩', sets: [] };
+  const bare = L.makeRounder({ kind: 'loaded' }, 'kg', ctx, false);
+  const [p] = L.roundPrefill([{ id: 'p', weight: 40, reps: 8, ghost: true }], loaded, bare);
+  const shifted = L.snapUntouched([p], loaded, L.makeRounder({ kind: 'loaded' }, 'kg', { ...ctx, tare: 15 }, false), 15);
+  assert.equal(shifted[0].draftAuto, false);
+  assert.equal(L.reRoundPending(shifted, loaded, L.makeRounder({ kind: 'loaded' }, 'kg', { ...ctx, tare: 15, oneSide: true }, false))[0].weight, 55);
+});
+t('台子列表：固定器械按动作分（馆|器材|动作），龙门架 / 哑铃照旧同馆共用；按动作的还没存过时只接过旧共用列表里这个动作选着的那一台', () => {
+  const mach = { kind: 'pin', equipment: 'tagMachine', defId: 'leg_ext' };
+  assert.equal(L.LB.rigListKey('A', mach), 'A|tagMachine|leg_ext');
+  assert.equal(L.LB.rigListKey('A', { kind: 'pin', equipment: 'tagCable', defId: 'pulldown' }), 'A|tagCable');
+  assert.equal(L.LB.rigListKey('A', { kind: 'pair', equipment: 'tagDumbbell', defId: 'db_press' }), 'A|tagDumbbell');
+  const r1 = { id: 'r1', v: 5, u: 'lbs', s: 12.5 };
+  const r2 = { id: 'r2', v: 10, u: 'kg' };
+  const old = { 'A|tagMachine': [r1, r2] };
+  assert.deepEqual(L.LB.rigsOf(old, 'A', mach, 'r2'), [r2]);
+  assert.deepEqual(L.LB.rigsOf(old, 'A', mach, undefined), []);
+  assert.deepEqual(L.LB.rigsOf({ ...old, 'A|tagMachine|leg_ext': [] }, 'A', mach, 'r2'), [], '自己的列表存过（哪怕删空了）就不再看旧的');
+  assert.deepEqual(L.LB.rigsOf({ 'A|tagCable': [r1] }, 'A', { kind: 'pin', equipment: 'tagCable', defId: 'x' }, undefined), [r1]);
+});
+
+const ta = async (name, fn) => {
+  await fn();
+  n++;
+  console.log(`  ✓ ${name}`);
+};
+
+// ── 落盘失败要看得见（审查 E4 / F2）：db 写路径自己重试一次，仍失败派发事件；之后任意一次写成功复位 ──────
+await ta('db 写入：rawPut 抛错先重试一次；两次都失败派发 db-write-failed 并照样 reject；之后写成功派发一次 db-write-ok，再成功不重复派发', async () => {
+  const events = [];
+  globalThis.window = new EventTarget();
+  for (const e of ['fitlog:db-write-failed', 'fitlog:db-write-ok']) window.addEventListener(e, () => events.push(e));
+  const d = new L.FitLogDB();
+  let failures = 1;
+  d.rawPut = async () => {
+    if (failures-- > 0) throw new Error('QuotaExceededError');
+  };
+  await d.save('workouts', { id: 'w1' }); // 第一次失败、重试成功：不算失败
+  assert.deepEqual(events, []);
+  failures = 2;
+  await assert.rejects(d.save('workouts', { id: 'w1' }));
+  assert.deepEqual(events, ['fitlog:db-write-failed']);
+  failures = 2;
+  await assert.rejects(d.save('workouts', { id: 'w1' })); // 连着失败：不再派发（只提示一次）
+  assert.deepEqual(events, ['fitlog:db-write-failed']);
+  await d.save('workouts', { id: 'w1' });
+  await d.save('workouts', { id: 'w2' });
+  assert.deepEqual(events, ['fitlog:db-write-failed', 'fitlog:db-write-ok']);
+  delete globalThis.window;
+});
+
+// ── 忘了结束的训练要真的过期（审查 Fm0）：内容没变的自动落盘不重写、不刷新 updatedAt ──────────
+await ta('工作台落盘：接回来的那场只切后台 / 列表刷新不重写；改了内容才写并刷新 updatedAt；写失败下次同一份照原 updatedAt 重写；13 小时没改过的不再接回', async () => {
+  const H = 3600000;
+  const at = h => new Date(Date.now() - h * H).toISOString();
+  const writes = [];
+  let fail = false;
+  const saver = L.WP.createWorkbenchSaver(async w => {
+    writes.push(w);
+    if (fail) throw new Error('quota');
+  });
+  const ex = [{ id: 'e', name: '深蹲', sets: [] }];
+  const old = { id: 'w_old', date: at(14), startTime: at(14), updatedAt: at(11), exercises: ex };
+  saver.adopt(old);
+  saver.save(old); // 切后台
+  saver.save(old); // 列表刷新让 App 的落盘 effect 再跑一次
+  assert.equal(writes.length, 0, '内容没变不该写');
+  // 库里那份因此停在 13 小时前：不再接回（哪怕它是记着的 activeId）
+  assert.equal(L.WP.findInProgress([{ ...old, updatedAt: at(13) }], 'w_old'), null);
+  assert.equal(L.WP.findInProgress([old], 'w_old')?.id, 'w_old');
+
+  const edited = { ...old, notes: '改了' };
+  saver.save(edited);
+  assert.equal(writes.length, 1);
+  assert.ok(Date.now() - Date.parse(writes[0].updatedAt) < 1000, '改了内容 → updatedAt 是现在');
+  await Promise.resolve();
+  saver.save(edited);
+  assert.equal(writes.length, 1, '同一份写成功后不再写');
+
+  fail = true;
+  const edited2 = { ...edited, notes: '又改' };
+  saver.save(edited2);
+  await new Promise(r => setTimeout(r, 0));
+  fail = false;
+  saver.save(edited2); // 上次没写进去：重写，updatedAt 不变
+  assert.equal(writes.length, 3);
+  assert.equal(writes[2].updatedAt, writes[1].updatedAt);
+});
+
+// ── 一台器械换单位 / 关设置时收掉白加的台（审查 B4、B5）──────────────────
+t('换这一台的单位：最轻一格没单独设过（＝一档）跟新的一档走，不出现「11 + 10 lb」；设过的按实重换算；最重一格照换', () => {
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg', s: 5 }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined });
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg' }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined });
+  assert.deepEqual(L.LB.rigInUnit({ v: 2.5, u: 'kg', s: 5, e: 50 }, 'lbs'), { v: 5, u: 'lbs', s: 11, e: 110.25 });
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'lbs', s: 12.5 }, 'kg'), { v: 2.5, u: 'kg', s: 5.65, e: undefined });
+});
+
+t('关设置时收台：只收「＋」出来、没起名、和默认或前面某台一模一样的；选着它的改指那一台；配重片没设最轻一格按一档比', () => {
+  const def = { v: 5, u: 'kg' };
+  const a = { id: 'a', v: 5, u: 'kg', s: 5 };
+  const b = { id: 'b', v: 10, u: 'lbs' };
+  const b2 = { id: 'b2', v: 10, u: 'lbs', s: 10 };
+  const named = { id: 'n', v: 5, u: 'kg', s: 5, n: '左边' };
+  const fresh = new Set(['a', 'b2', 'n']);
+  assert.deepEqual(L.LB.dropTwins([a, b, b2, named], fresh, def, 'b2', true), { list: [b, named], pick: 'b' });
+  assert.deepEqual(L.LB.dropTwins([a], fresh, def, 'a', true), { list: [], pick: '' });
+  // 不是这次加的（别的动作可能选着它）不动
+  assert.deepEqual(L.LB.dropTwins([a, b, b2], new Set(), def, 'a', true), { list: [a, b, b2], pick: 'a' });
+  // 改过刻度的留着
+  const a2 = { ...a, v: 2.5 };
+  assert.deepEqual(L.LB.dropTwins([a2], fresh, def, 'a', true), { list: [a2], pick: 'a' });
+  // 不是配重片：没有最轻一格，s 不补
+  assert.deepEqual(L.LB.dropTwins([{ id: 'a', v: 2.5, u: 'kg' }], fresh, { v: 2.5, u: 'kg' }, 'a', false), { list: [], pick: '' });
+});
+
+// ── 拉取合并有没有改动本机（审查 E7 / D9）：判错成「没变」远端改动落不了地，判错成「变了」撤销历史白丢 ──
+t('拉取合并：本机已含远端一切判「没变」；远端多一行 / 新一版 / 墓碑 / 首选项更新判「变了」；合并本身不写本机', () => {
+  const w = (id, updatedAt = '2026-10-01T00:00:00.000Z', title = id) => ({ id, date: updatedAt, updatedAt, title, exercises: [] });
+  // 本机首选项的形状照 readPrefsFromLocalStorage：每个键都在
+  const P = {
+    customTags: [], customExercises: [], exerciseNotes: { a: 'x' }, starredExercises: { s: true }, exerciseMetricConfigs: {}, tagRenameOverrides: {}, exerciseOverrides: {},
+    starredLastUpdateMs: 100, metricsLastUpdateMs: 100, prefsLastUpdateMs: 100, lang: undefined, unit: 'kg', avatarDataUrl: null,
+    appPrefs: { gyms: { A: {} }, unit: 'kg' }, appPrefsUpdatedMs: 100,
+  };
+  const snap = (workouts, tombstones = {}, prefs = P) => ({
+    schemaVersion: 2, workouts, goals: [], weightLogs: [], customMetrics: [], prs: [], customExerciseDefsFromDb: [], scheduledWorkouts: [],
+    prefs, tombstones,
+  });
+  const changed = (local, remote) => L.FR.mergeChangesLocal(local, L.FR.mergeLocalWithRemote(local, remote));
+  localStorage.removeItem('fitlog_tombstones');
+  const local = snap([w('a'), w('b'), w('c')], { workouts: ['gone'] });
+  // 远端是本机的旧子集；首选项内容相同、键顺序不同、头像缺省 vs null
+  assert.equal(changed(local, snap([w('a'), w('b')], {}, { appPrefsUpdatedMs: 100, appPrefs: { unit: 'kg', gyms: { A: {} } }, exerciseNotes: { a: 'x' }, prefsLastUpdateMs: 50 })), false);
+  assert.equal(changed(local, snap([w('a'), w('b'), w('c'), w('d')])), true, 'remote row');
+  assert.equal(changed(local, snap([w('a', '2026-10-02T00:00:00.000Z', '改过')])), true, 'newer remote version');
+  assert.equal(changed(local, snap([], { workouts: ['a'] })), true, 'remote tombstone hides a local row');
+  assert.equal(changed(local, snap([], { goals: ['g_x'] })), true, 'tombstone set grows');
+  assert.equal(changed(local, snap([], {}, { ...P, prefsLastUpdateMs: 200, exerciseNotes: { a: 'y' } })), true, 'newer remote prefs');
+  assert.equal(changed(local, snap([], {}, { ...P, appPrefs: { gyms: { A: {}, B: {} }, unit: 'kg' }, appPrefsUpdatedMs: 50 })), true, 'older remote still adds a gym');
+  assert.equal(localStorage.getItem('fitlog_tombstones'), null, 'mergeLocalWithRemote must not write tombstones itself');
+});
+
+// ── 备份文件版本（审查 E10）：更新版本 App 写的备份不能被半懂地接受 ──
+t('备份解析：formatVersion / schemaVersion 比本版新的拒绝（newer-version）；本版和缺 schemaVersion 的照收', () => {
+  const file = (fv, sv) => JSON.stringify({ app: 'Fit Tracker', formatVersion: fv, exportedAt: 'x', snapshot: { ...(sv == null ? {} : { schemaVersion: sv }), workouts: [] } });
+  assert.equal(L.FB.parseBackupFile(file(2, 2)).legacy, false);
+  assert.equal(L.FB.parseBackupFile(file(2, null)).legacy, false);
+  assert.throws(() => L.FB.parseBackupFile(file(3, 2)), e => e instanceof L.FB.BackupParseError && e.message === 'newer-version');
+  assert.throws(() => L.FB.parseBackupFile(file(2, 3)), e => e instanceof L.FB.BackupParseError && e.message === 'newer-version');
+});
+
+// ── 后台推送失败的提示（审查 E1）：没网时一次离线期间只报一次，推上去之后再失败才再报；配置错误每次都报 ──
+t('推送失败提示：网络类失败在推成功前只报一次；403 / 409 / env-guard 每次都报', () => {
+  const R = L.FS.shouldAnnouncePushFailure;
+  L.FS.notePushSucceeded();
+  assert.equal(R('unreachable'), true);
+  assert.equal(R('unreachable'), false);
+  assert.equal(R('http'), false);
+  assert.equal(R('forbidden-endpoint'), true);
+  assert.equal(R('env-mismatch'), true);
+  assert.equal(R('env-guard'), true);
+  L.FS.notePushSucceeded();
+  assert.equal(R('http'), true);
+});
+
+// ── 弹层点「×N」跳到本场的卡（审查 C12）：跳的那张要和 ×N 数的是同一批 ──
+t('选动作点已有的行：做法行只认同做法；母行跳过有自己一行的做法；多张取最后一张；没有＝照常加', () => {
+  const R = L.cardToRevisit;
+  const cards = [
+    { id: 'a', key: '高位下拉' },
+    { id: 'b', key: '高位下拉', vid: 'wide' },
+    { id: 'c', key: '卧推' },
+    { id: 'd', key: '高位下拉', vid: 'close' },
+    { id: 'e', key: '高位下拉' },
+  ];
+  assert.equal(R(cards, '高位下拉', 'wide', []), 'b');
+  assert.equal(R(cards, '高位下拉', undefined, ['wide', 'close']), 'e');
+  // 搜索里母行照总数写（不跳过做法）
+  assert.equal(R(cards.slice(0, 4), '高位下拉', undefined, []), 'd');
+  assert.equal(R(cards, '高位下拉', 'narrow', []), null);
+  assert.equal(R(cards, '深蹲', undefined, []), null);
+  // 母行的 ×N 全来自做法行（行上显示 ＋）：照常加，不跳
+  assert.equal(R(cards.filter(c => c.key !== '高位下拉' || c.vid), '高位下拉', undefined, ['wide', 'close']), null);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

@@ -22,6 +22,7 @@ import { toGhostSets } from './useWorkoutMutations';
 import { findLastIn, isPristineDraftCard } from '../utils/prefillSource';
 import type { GymProfile } from '../utils/loadable';
 import { useGymScopedPR } from './useLoadKind';
+import { isBackdated } from '../utils/sessionDate';
 import type { PlateUnit } from '../utils/plates';
 
 export function useGymSwitch() {
@@ -43,8 +44,10 @@ export function useGymSwitch() {
       exercises: (w.exercises ?? []).map((e, i) => {
         const r = rounderFor(e, gym, u, gyms);
         if (repick && isPristineDraftCard(e.sets)) {
-          // 本馆优先只给器械类（审查 A11）；别的器材不按馆重挑，最近一次就是最近一次
-          const hit = gymScoped(e) ? findLastIn(workouts, resolveName, variantIdOf, e.name, variantIdOf(e) ?? '', w.id, gym) : null;
+          // 本馆优先只给器械类（审查 A11）；别的器材不按馆重挑，最近一次就是最近一次。补录的场只找那天之前的
+          const hit = gymScoped(e)
+            ? findLastIn(workouts, resolveName, variantIdOf, e.name, variantIdOf(e) ?? '', w.id, gym, isBackdated(w) ? w.date : undefined)
+            : null;
           if (hit && hit.workout.date !== e.prefillFrom) {
             const { prefillGym: _pg, ...rest } = e;
             const sets = roundPrefill(toGhostSets(hit.ex.sets, `${Date.now()}_${i}`), e, r);

@@ -9,7 +9,7 @@
  *
  * manage：从动作库（添加动作弹层的动作面板）进来时只管理 —— 改名 / 删除 / 新建，
  * 外加每个做法自己的细分和器材（2.3：不同的杆子、握法练不同的肌肉）。带细分的做法在添加动作的细分格里
- * 单独成一张小卡、落在那一列。点行展开它的细分 / 器材，不切换。
+ * 单独成一张小卡、落在那一列。点行展开它的细分 / 器材，不切换；并入生成的做法展开后还能拆回成独立动作。
  */
 import React, { useState } from 'react';
 import { Check, ChevronDown, PencilLine, Plus, Trash2 } from 'lucide-react';
@@ -59,6 +59,8 @@ export const VariantModal: React.FC<VariantModalProps> = ({
     updateVariant,
     setVariantAttrs,
     attrsOf,
+    mergedSourcesOf,
+    unmergeExercise,
   } = useExercisePrefs();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; value: string } | null>(null);
@@ -234,6 +236,18 @@ export const VariantModal: React.FC<VariantModalProps> = ({
                     />
                   );
                 })()}
+                {/* 并入生成的做法：并错了隔天才发现，顶栏撤销已经够不着 */}
+                {mergedSourcesOf(exerciseName, v.id).map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => unmergeExercise(s.id)}
+                    className="mt-2 min-h-[36px] px-3 rounded-control text-xs font-bold text-secondary border border-divider active:bg-card-hover"
+                    data-testid="variant-unmerge"
+                  >
+                    {isCn ? `拆成独立动作「${s.name}」` : `Split out "${s.name}"`}
+                  </button>
+                ))}
               </div>
             )}
           </React.Fragment>

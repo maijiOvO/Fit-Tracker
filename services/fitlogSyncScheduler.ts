@@ -1,7 +1,25 @@
 import { markPushDirty, markPushFailed, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
-import { isRemoteConfigured, RemoteError } from './fitlogRemote';
+import { isRemoteConfigured, RemoteError, type RemoteFailureKind } from './fitlogRemote';
 
 let t: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * 没网 / 服务器不通这类失败，在下一次推成功之前只报一次（审查 E1）：
+ * 回到前台就补推，离线时每次亮屏都弹一条红条，又没有能做的事，只会让人学会无视它。
+ * 改动在本机是安全的，顶栏图标和首选项「同步」一行一直如实显示「待同步」。配置错误（403 / 409 / 环境守卫）每次都报。
+ */
+let networkFailureAnnounced = false;
+
+export function shouldAnnouncePushFailure(kind: RemoteFailureKind): boolean {
+  if (kind !== 'unreachable' && kind !== 'http') return true;
+  if (networkFailureAnnounced) return false;
+  networkFailureAnnounced = true;
+  return true;
+}
+
+export function notePushSucceeded(): void {
+  networkFailureAnnounced = false;
+}
 
 /** 远端推送失败时通过 DOM 事件通知 UI，比改所有 call site 更干净 */
 function notifyPushFailed(err: unknown): void {
@@ -9,7 +27,7 @@ function notifyPushFailed(err: unknown): void {
   const kind = err instanceof RemoteError ? err.kind : 'unreachable';
   console.warn('[fitlog] background push failed:', err);
   markPushFailed();
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && shouldAnnouncePushFailure(kind)) {
     window.dispatchEvent(
       new CustomEvent('fitlog:push-failed', { detail: { message: detail, kind } }),
     );
@@ -23,6 +41,7 @@ function notifyPushFailed(err: unknown): void {
 async function pushWithRetry(attempt = 1): Promise<void> {
   try {
     await pushFitlogRemoteSnapshot();
+    notePushSucceeded();
   } catch (err) {
     // 403（key 用错端点）/ 409（环境标记不符）是配置错误，重试永远不会成功，
     // 而且每次重试都是一次注定被拒的写入 —— 立刻失败并报给用户。

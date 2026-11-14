@@ -12,8 +12,9 @@
  *
  * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
  * 一个馆都没有就直接进「新的馆」表单（新用户不用先去别处设馆）。关掉＝这次不开练。
+ * 档案表单里有没存的改动时，点遮罩 / 返回键 / × 不关（提示一句），只有表单自己的「回到馆列表 / 先不练了」才放弃改动。
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, MapPin, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
@@ -23,6 +24,7 @@ import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOI
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
 
 import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
+import { GYM_INC_MAX, PLATE_MAX, RIG_NUM_MAX } from '../../utils/load';
 
 type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell' | 'fixedBar';
 /** 后加的档（旧档案没有这一项）按各自的默认 */
@@ -65,6 +67,9 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   const isCn = lang === Language.CN;
   /** 正在编辑的馆：null＝列表；''＝新的馆 */
   const [editing, setEditing] = useState<string | null>(null);
+  /** 表单里有没存的改动（GymProfileForm 报上来）；有的话点遮罩 / 返回键 / × 不关，表单里提示一句 */
+  const dirtyRef = useRef(false);
+  const [nudge, setNudge] = useState(false);
 
   /** 开练时一个馆都没有：直接进新建表单，表单就是整个弹层（关表单＝不开练） */
   const noGyms = options.length === 0 && Object.keys(profiles).length === 0;
@@ -73,6 +78,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   useEffect(() => {
     if (open) setEditing(formOnly ? '' : null);
   }, [open]);
+  useEffect(() => setNudge(false), [editing]);
 
   const commit = (gym: string | undefined) => {
     onPick(gym);
@@ -84,16 +90,20 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
 
   const allGyms = [...options, ...Object.keys(profiles).filter(g => !options.includes(g))];
 
+  /** 表单自己的「回到馆列表 / 先不练了」：明说要走，不拦；开练时一个馆都没有就没有列表可回，整个关掉 */
+  const leaveForm = () => (formOnly ? onClose() : setEditing(null));
   if (editing !== null) {
     return (
       <Modal
         isOpen={open}
-        // 点背景 / 关闭＝回馆列表，不把没存的改动连同整个弹层一起丢掉；开练时一个馆都没有就没有列表可回，整个关掉
-        onClose={() => (formOnly ? onClose() : setEditing(null))}
+        // 返回键 / ×：有没存的改动就留在表单上提示一句（表单的草稿在 GymProfileForm 里，一关就没了），没改过同「回到馆列表」
+        onClose={() => (dirtyRef.current ? setNudge(true) : leaveForm())}
         title={editing ? (isCn ? `「${editing}」的器材` : `${editing} · equipment`) : isCn ? '新的馆' : 'New gym'}
         size="sm"
         variant="sheet"
         layer="modal-2"
+        // 不给下拉关：拉走时面板先划出去，有草稿时 onClose 只是提示、并不关，面板就停在屏幕外下不来；点背景也不关
+        dismissOnScrim={false}
         testId="gym-profile"
       >
         <GymProfileForm
@@ -101,7 +111,11 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
           name={editing}
           initial={profiles[editing] ?? defaultProfile(unit === 'lbs' ? 'lbs' : 'kg')}
           taken={allGyms}
-          onBack={() => (formOnly ? onClose() : setEditing(null))}
+          onBack={leaveForm}
+          onDirty={d => {
+            dirtyRef.current = d;
+          }}
+          unsavedHint={nudge}
           starting={formOnly}
           onSave={(name, p) => {
             onSaveProfile(name, p, !editing, editing && name !== editing ? editing : undefined);
@@ -190,6 +204,8 @@ function GymProfileForm({
   taken,
   onBack,
   onSave,
+  onDirty,
+  unsavedHint,
   starting = false,
 }: {
   isCn: boolean;
@@ -199,6 +215,10 @@ function GymProfileForm({
   taken: string[];
   onBack: () => void;
   onSave: (name: string, p: GymProfile) => void;
+  /** 有没有没存的改动（每次变了报一次，卸载时报 false） */
+  onDirty: (dirty: boolean) => void;
+  /** 有改动时想关掉表单：提示一句 */
+  unsavedHint: boolean;
   /** 开练前一个馆都没有、直接进的这张表：存好就开练，退出就是这次先不练 */
   starting?: boolean;
 }) {
@@ -224,12 +244,19 @@ function GymProfileForm({
    */
   const [cw, setCw] = useState('');
   const [cu, setCu] = useState<PlateUnit>(initial.plateUnit);
+  const dirty = nm !== name || cw.trim() !== '' || JSON.stringify(p) !== JSON.stringify(initial);
+  useEffect(() => {
+    onDirty(dirty);
+    return () => onDirty(false);
+  }, [dirty]);
   const cwNum = Number.parseFloat(cw.replace(',', '.'));
+  /** 一片最重 PLATE_MAX（馆的单位）；输入框的上限按这片自己的单位换算（kg 馆里填 lb 片最多 220） */
+  const customMax = cu === p.plateUnit ? PLATE_MAX : Math.floor(cu === 'lbs' ? PLATE_MAX / KG_PER_LB : PLATE_MAX * KG_PER_LB);
   const customIn = (() => {
     if (!(cwNum > 0)) return null;
     const v = cu === p.plateUnit ? cwNum : cu === 'lbs' ? cwNum * KG_PER_LB : cwNum / KG_PER_LB;
     const r = Math.round(v * 20) / 20;
-    return r > 0 && r <= 100 ? r : null;
+    return r > 0 && r <= PLATE_MAX ? r : null;
   })();
   const addCustom = () => {
     if (customIn === null) return;
@@ -244,11 +271,20 @@ function GymProfileForm({
     // 打过表外的数（3）：按大小走到表里紧挨着的那一格（审查 C：原来从表头算起，3 点 ＋ 跳成 1）
     setP({ ...p, [key]: { ...c, v: listStepFn(INC_CHOICES[c.u])(c.v, d, 1) } });
   };
+  // 换这一档的单位＝换成那种单位的默认，最轻一格一起清掉（器械上印的是新单位，旧的那格换算过来不是整数）
   const setIncUnit = (key: IncKey, u: PlateUnit) => {
     const c = incOf(key);
     if (c.u === u) return;
     const def = defaultProfile(u)[key] ?? LATE_INC[key]![u];
     setP({ ...p, [key]: { u, v: def.v } as IncSpec });
+  };
+  /**
+   * 龙门架 / 固定器械的最轻一格（审查 B6：12.5 lb 起、每格 5 的龙门架设在馆默认上，就不用每个动作各存一台）。
+   * 空着＝从一档起。取整和换单位都已认 s（profileIn / withPlateUnit）。
+   */
+  const setStart = (key: 'cable' | 'machine', n: number | null) => {
+    const { s: _old, ...c } = incOf(key);
+    setP({ ...p, [key]: n !== null && n > 0 && n <= RIG_NUM_MAX ? { ...c, s: Math.round(n * 100) / 100 } : c });
   };
 
   const save = () => {
@@ -279,8 +315,9 @@ function GymProfileForm({
         <button type="button" onClick={() => stepInc(key, -1)} aria-label={isCn ? '轻一点' : 'Smaller'}>−</button>
         <ScrubNumber
           value={incOf(key).v}
-          onCommit={n => n !== null && n > 0 && setP({ ...p, [key]: { ...incOf(key), v: n } })}
+          onCommit={n => n !== null && n > 0 && n <= GYM_INC_MAX && setP({ ...p, [key]: { ...incOf(key), v: n } })}
           min={0.25}
+          max={GYM_INC_MAX}
           stepFn={listStepFn(INC_CHOICES[incOf(key).u])}
           steps={[1, 2, 4]}
           testId={`gym-inc-${key}`}
@@ -293,6 +330,27 @@ function GymProfileForm({
         </span>
       </div>
       </div>
+      {(key === 'cable' || key === 'machine') && (
+        <div className="gym-row">
+          <span className="text-label text-secondary">{isCn ? '最轻一格' : 'Lightest'}</span>
+          <div className="gym-inc-stepper">
+            <ScrubNumber
+              value={incOf(key).s ?? null}
+              onCommit={n => setStart(key, n)}
+              allowEmpty
+              min={0.1}
+              max={RIG_NUM_MAX}
+              // 空着时从 min 起拖：第一档落在一档本身（不是 0.1 + 一档）
+              stepFn={(v, d, m) => (v < incOf(key).v - 1e-9 ? incOf(key).v : Math.max(incOf(key).v, v + d * m * incOf(key).v))}
+              steps={[1, 2, 4]}
+              placeholder={fmt(incOf(key).v)}
+              testId={`gym-start-${key}`}
+              ariaLabel={isCn ? `${label}最轻一格` : `${label} lightest`}
+            />
+            <small className="text-label text-tertiary">{incOf(key).u === 'kg' ? 'kg' : 'lb'}</small>
+          </div>
+        </div>
+      )}
       {hint && <span className="text-micro text-tertiary">{hint}</span>}
     </div>
   );
@@ -371,7 +429,7 @@ function GymProfileForm({
               allowEmpty
               live
               min={0.05}
-              max={200}
+              max={customMax}
               steps={cu === 'kg' ? [0.25, 0.5, 1, 2.5] : [0.5, 1, 2.5, 5]}
               placeholder={p.plateUnit === 'kg' ? '0.5' : '51'}
               ariaLabel={isCn ? '这片多重' : 'Plate weight'}
@@ -403,11 +461,16 @@ function GymProfileForm({
         )}
       </div>
       {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
-      {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '个别动作在 ⋯ 里单独设' : 'Set odd ones in the exercise ⋯ menu')}
+      {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '个别器械在动作卡上另存一台' : 'Save odd machines on the exercise card')}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
       {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}
       {err && <p className="text-label text-warning">{err}</p>}
+      {unsavedHint && dirty && !err && (
+        <p className="text-label text-warning" data-testid="gym-profile-unsaved">
+          {isCn ? '改动还没存' : 'Unsaved changes'}
+        </p>
+      )}
       <button type="button" className="ui-btn-primary w-full min-h-[48px] mt-2" onClick={save} data-testid="gym-profile-save">
         {name ? (isCn ? '存好' : 'Save') : starting ? (isCn ? '存好，开练' : 'Save and start') : isCn ? '存好，用这个馆' : 'Save and use it'}
       </button>

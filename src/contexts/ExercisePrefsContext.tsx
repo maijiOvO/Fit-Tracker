@@ -128,9 +128,13 @@ interface ExercisePrefsContextValue {
   /**
    * 并入另一个动作（2.5 整理用）：source 变成 target 的一个做法（带着 source 的细分和器材），source 从动作库消失。
    * 历史记录一条不改：source 的名字从此解析到 target、做法按 variantAliases 认；纪录也就并到 target 的那个做法下。
-   * 点错了用全局撤销。返回 false＝没并成（已 toast）。
+   * 点错了用全局撤销，或在 target 的做法管理里拆回（unmergeExercise）。返回 false＝没并成（已 toast）。
    */
   mergeExerciseInto: (sourceId: string, targetId: string) => boolean;
+  /** 并进这个动作、成了它这个做法的旧动作（做法管理里拆回用） */
+  mergedSourcesOf: (exerciseName: string, variantId: string) => { id: string; name: string }[];
+  /** 把并入的动作拆回成独立动作：清掉它的并入 / 隐藏，目标的 variantAliases 去掉它的名字；做法留在目标上 */
+  unmergeExercise: (sourceId: string) => void;
   /** 一条记录的练法名：现名优先，练法被删了用记录里当时的名字；标准返回 '' */
   variantLabel: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /**
@@ -183,11 +187,6 @@ interface ExercisePrefsContextValue {
   restoreLibraryExercise: (exerciseId: string) => void;
   addCustomExercise: (ex: ExerciseDefinition) => void;
   /**
-   * 批量写细分与列内顺序（拖到细分 / 撤销都走这里）。regionRank 不给＝去掉手动顺序。
-   * 内置动作写覆盖层、自建动作写定义本身，一次写完、一次推送。
-   */
-  applyRegionLayout: (changes: { id: string; region: string; regionRank?: number }[]) => void;
-  /**
    * 新建自建细分，返回新 id；同一部位下重名返回 null（已 toast）。
    * 撞上这个部位被删掉（隐藏）的系统细分：直接把它恢复，返回它的 id，不再建一个同名的。
    */
@@ -229,6 +228,13 @@ const LS_KEYS = {
 /** 系统细分 id → 它所在的部位（自建细分看 CustomTag.parentPart） */
 function systemRegionPart(id: string): string | undefined {
   return Object.keys(BODY_REGIONS).find(p => BODY_REGIONS[p].includes(id));
+}
+
+/** 并入时写进目标 variantAliases 的名字（已合并覆盖层的 source）；拆回时按同一份删 */
+function mergeNamesOf(s: ExerciseDefinition): string[] {
+  return [s.name.cn, s.name.en, ...(s.aliases ?? []), ...Object.keys(s.variantAliases ?? {})]
+    .map(n => (n || '').trim())
+    .filter(Boolean);
 }
 
 function readJSON<T>(key: string, fallback: T): T {
@@ -519,10 +525,11 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       // 主细分被删了（或部位换了）就算未细分，次要的不顶上来：删细分的提示说的是「回到未细分」
       if (!regionsOf(ex.bodyPart).some(r => r.id === ex.region)) return [];
       // 次要细分可以是别的部位的（2026-10-21 用户定）：哪个部位下还在就算，删掉的才丢
-      const ok = new Set(BODY_PARTS.flatMap(p => regionsOf(p).map(r => r.id)));
+      const parts = [...BODY_PARTS, ...customTags.filter(t => t.category === 'bodyPart').map(t => t.id)];
+      const ok = new Set(parts.flatMap(p => regionsOf(p).map(r => r.id)));
       return regionList(ex).filter(r => ok.has(r));
     },
-    [regionsOf],
+    [customTags, regionsOf],
   );
   const effectiveRegion = useCallback(
     (ex: ExerciseDefinition): string | null => effectiveRegions(ex)[0] ?? null,
@@ -979,52 +986,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     scheduleDebouncedFitlogPush();
   }, []);
 
-  /**
-   * 拖到 / 归到另一列＝换主细分（movePrimary：原来是次要细分的提上来，不是的顶替原来的主细分）。
-   * base 是要写的那一层（自建定义 / 覆盖层），内置动作的次要细分从定义上补进来算。
-   */
-  const regionMove = useCallback(
-    (id: string, base: Partial<ExerciseDefinition>, target: string) => {
-      const def = DEFAULT_EXERCISES.find(d => d.id === id);
-      const cur = regionList({
-        region: base.region !== undefined ? base.region : def?.region,
-        regions: base.regions !== undefined ? base.regions : def?.regions,
-      });
-      return regionsPatch(movePrimary(cur, target));
-    },
-    [],
-  );
-
-  const applyRegionLayout = useCallback(
-    (changes: { id: string; region: string; regionRank?: number }[]) => {
-      if (!changes.length) return;
-      const byId = new Map(changes.map(c => [c.id, c]));
-      const customIds = new Set(customExercises.map(c => c.id));
-      const put = <T extends Partial<ExerciseDefinition>>(base: T, ch: { id: string; region: string; regionRank?: number }): T => {
-        const { regionRank: _old, ...rest } = base;
-        return { ...rest, ...regionMove(ch.id, base, ch.region), ...(ch.regionRank != null ? { regionRank: ch.regionRank } : {}) } as T;
-      };
-      if (changes.some(c => customIds.has(c.id))) {
-        setCustomExercises(prev => {
-          const next = prev.map(c => (byId.has(c.id) ? put(c, byId.get(c.id)!) : c));
-          writeJSON(LS_KEYS.customExercises, next);
-          return next;
-        });
-      }
-      if (changes.some(c => !customIds.has(c.id))) {
-        setExerciseOverrides(prev => {
-          const updated = { ...prev };
-          for (const c of changes) if (!customIds.has(c.id)) updated[c.id] = put(prev[c.id] || {}, c);
-          writeJSON(LS_KEYS.exerciseOverrides, updated);
-          return updated;
-        });
-      }
-      markPrefsUpdated();
-      scheduleDebouncedFitlogPush();
-    },
-    [customExercises, regionMove],
-  );
-
   /** 写某个部位的细分布局（upsert 那一条 regionLayout） */
   const writeLayout = useCallback((part: string, patch: { order?: string[]; hidden?: string[] }) => {
     setCustomTags(prev => {
@@ -1271,11 +1232,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       };
       if (variant.resistance === undefined) delete variant.resistance;
       // source 认得的全部名字（含曾用名、它自己并进来的旧名）都指向这个做法
-      const srcNames = [
-        s.name.cn, s.name.en, ...(s.aliases ?? []), ...Object.keys(s.variantAliases ?? {}),
-      ].filter(Boolean) as string[];
       const aliases = { ...(t.variantAliases ?? {}) };
-      for (const n of srcNames) aliases[n.trim()] = vid;
+      for (const n of mergeNamesOf(s)) aliases[n] = vid;
       const variants = existing ? t.variants ?? [] : [...(t.variants ?? []), variant];
 
       writeDefField(tgt.id, { variants, variantAliases: aliases });
@@ -1290,6 +1248,45 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       return true;
     },
     [customExercises, exerciseOverrides, lang, toast, withVariantNames, writeDefField],
+  );
+
+  const mergedSourcesOf = useCallback(
+    (exerciseName: string, variantId: string) => {
+      const def = findExerciseDef(exerciseName);
+      if (!def) return [];
+      const aliases = variantAliasesOf(def);
+      return [...DEFAULT_EXERCISES, ...customExercises]
+        .filter(d => exerciseOverrides[d.id]?.mergedInto === def.id)
+        .map(d => mergeOverride(d, exerciseOverrides[d.id]))
+        .filter(s => mergeNamesOf(s).some(n => aliases[n] === variantId))
+        .map(s => ({ id: s.id, name: s.name[lang] || s.name.cn }));
+    },
+    [customExercises, exerciseOverrides, findExerciseDef, lang, variantAliasesOf],
+  );
+
+  /** mergeExerciseInto 反过来做：做法和并入后记在它名下的记录留在目标上（同删做法：记录带着当时的名字） */
+  const unmergeExercise = useCallback(
+    (sourceId: string) => {
+      const src = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === sourceId);
+      const tgtId = exerciseOverrides[sourceId]?.mergedInto;
+      const tgt = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === tgtId);
+      if (!src || !tgt) return;
+      const s = mergeOverride(src, exerciseOverrides[src.id]);
+      const aliases = { ...(mergeOverride(tgt, exerciseOverrides[tgt.id]).variantAliases ?? {}) };
+      for (const n of mergeNamesOf(s)) delete aliases[n];
+      writeDefField(tgt.id, { variantAliases: aliases });
+      setExerciseOverrides(prev => {
+        const { mergedInto: _m, hidden: _h, ...rest } = prev[src.id] || {};
+        const updated = { ...prev, [src.id]: rest };
+        writeJSON(LS_KEYS.exerciseOverrides, updated);
+        return updated;
+      });
+      markPrefsUpdated();
+      scheduleDebouncedFitlogPush();
+      const name = s.name[lang] || s.name.cn;
+      toast(lang === Language.CN ? `「${name}」已拆回成独立动作` : `"${name}" is its own exercise again`, 'info');
+    },
+    [customExercises, exerciseOverrides, lang, toast, writeDefField],
   );
 
   const reorderRegions = useCallback(
@@ -1426,6 +1423,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       attrsOf,
       withVariantNames,
       mergeExerciseInto,
+      mergedSourcesOf,
+      unmergeExercise,
       variantLabel,
       liftKey,
       effectiveRegion,
@@ -1447,7 +1446,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addTag,
       setEquipmentResistance,
       addCustomExercise,
-      applyRegionLayout,
       addRegionTag,
       reorderRegions,
       sortParts,
@@ -1484,6 +1482,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       attrsOf,
       withVariantNames,
       mergeExerciseInto,
+      mergedSourcesOf,
+      unmergeExercise,
       variantLabel,
       liftKey,
       effectiveRegion,
@@ -1505,7 +1505,6 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       addTag,
       setEquipmentResistance,
       addCustomExercise,
-      applyRegionLayout,
       addRegionTag,
       reorderRegions,
       sortParts,

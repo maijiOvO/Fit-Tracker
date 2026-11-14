@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { Language, Measurement, WeightEntry } from '../../types';
 import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { storage } from '../../services/appStorage';
 import { isDemo, isSolo } from '../../services/appEnv';
@@ -47,10 +46,7 @@ interface UserSettingsContextType {
 
 export const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);
 
-export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: string }> = ({
-  children,
-  userId,
-}) => {
+export const UserSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [lang, setLangState] = useState<Language>(() => {
     const saved = storage.getItem('fitlog_lang');
     if (saved === Language.EN || saved === Language.CN) return saved;
@@ -86,27 +82,17 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode; userId?: stri
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
 
   const reloadFromIndexedDb = useCallback(async () => {
-    const uid = userId || FITLOG_SOLO_USER_ID;
     const wAll = await db.getAll<WeightEntry>('weightLogs');
     const mAll = await db.getAll<Measurement>('custom_metrics');
-    const wFiltered =
-      uid === FITLOG_SOLO_USER_ID || uid === 'u_guest'
-        ? wAll
-        : wAll.filter((w) => w.userId === uid);
-    const mFiltered =
-      uid === FITLOG_SOLO_USER_ID || uid === 'u_guest'
-        ? mAll
-        : mAll.filter((m) => m.userId === uid);
-
     setWeightEntries(
-      wFiltered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      wAll.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     );
-    setMeasurements(mFiltered);
-  }, [userId]);
+    setMeasurements(mAll);
+  }, []);
 
   useEffect(() => {
     void reloadFromIndexedDb();
-  }, [userId, reloadFromIndexedDb]);
+  }, [reloadFromIndexedDb]);
 
   /**
    * <html lang> 跟着语言走。index.html 里写死的是 zh-CN，切到英文后一直没人改它 ——

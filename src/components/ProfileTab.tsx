@@ -1,13 +1,15 @@
 import React, { useState, lazy, useMemo } from 'react';
 import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import {
-  Camera, ShieldAlert, Trash2, ChevronRight,
+  Camera, Trash2, ChevronRight,
   ChevronUp, Plus, Edit2, History, Ruler, Activity,
 } from 'lucide-react';
 import { PrefsSheet } from './PrefsSheet';
+import { BackupGlance } from './data/DataSafetySection';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { User, WorkoutSession, Measurement, Language } from '../../types';
+import { WorkoutSession, Measurement, Language } from '../../types';
+import { FITLOG_SOLO_USER } from '../../services/fitlogSolo';
 import { hasDoneSets } from '../contexts/WorkoutContext';
 import { translations } from '../../translations';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -21,7 +23,7 @@ const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.Me
 type HeatmapValue = HeatmapDay;
 
 interface ProfileTabProps {
-  user: User;
+  avatarUrl: string | undefined;
   workouts: WorkoutSession[];
   measurements: Measurement[];
   lang: Language;
@@ -29,7 +31,6 @@ interface ProfileTabProps {
   latestMetrics: Array<{ name: string; value: string; unit: string; date: string }>;
   expandedMetric: string | null;
   onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onLogout?: () => void;
   onShowWeightInput: () => void;
   onShowMeasureModal: () => void;
   onToggleMetric: (metricName: string | null) => void;
@@ -37,7 +38,6 @@ interface ProfileTabProps {
   onDeleteMeasurement: (e: React.MouseEvent, id: string) => void;
   onAddMeasurementEntry: (name: string) => void;
   setShowResetAccountModal: (show: boolean) => void;
-  onCreateAccount?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   /** 开发模式隔离开关，仅开发机可见 */
   devMode?: boolean;
@@ -58,7 +58,7 @@ interface ProfileTabProps {
 }
 
 export const ProfileTab: React.FC<ProfileTabProps> = ({
-  user,
+  avatarUrl,
   workouts,
   measurements,
   lang,
@@ -66,7 +66,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   latestMetrics,
   expandedMetric,
   onAvatarUpload,
-  onLogout,
   onShowWeightInput,
   onShowMeasureModal,
   onToggleMetric,
@@ -74,7 +73,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onDeleteMeasurement,
   onAddMeasurementEntry,
   setShowResetAccountModal,
-  onCreateAccount,
   fileInputRef,
   devMode,
   onToggleDevMode,
@@ -109,11 +107,11 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         <div className="relative flex-shrink-0 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
           <input type="file" ref={fileInputRef} onChange={onAvatarUpload} className="hidden" accept="image/*" />
           <div className="w-14 h-14 bg-accent rounded-full flex items-center justify-center overflow-hidden">
-            {user.avatarUrl ? (
-              <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <span className="text-data-md font-display text-on-accent">
-                {user.username?.charAt(0)?.toUpperCase() || 'U'}
+                {FITLOG_SOLO_USER.username.charAt(0).toUpperCase()}
               </span>
             )}
           </div>
@@ -122,8 +120,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           </div>
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="font-display text-display-sm text-primary truncate">{user.username}</h2>
-          <p className="text-label text-secondary truncate">{user.email}</p>
+          <h2 className="font-display text-display-sm text-primary truncate">{FITLOG_SOLO_USER.username}</h2>
+          <p className="text-label text-secondary truncate">{FITLOG_SOLO_USER.email}</p>
         </div>
         <div className="flex-shrink-0 text-right">
           {/* 一组都没做完的空场不算一场 */}
@@ -160,31 +158,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           }
         />
       </div>
-
-      {/* Guest Mode Warning */}
-      {user.id === 'u_guest' && (
-        <div className="mx-2 p-5 bg-warning/10 border border-warning/20 rounded-card flex items-start gap-4 anim-reveal">
-          <div className="p-3 bg-warning/20 text-warning rounded-card flex-shrink-0">
-            <ShieldAlert size={24} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <h4 className="text-small font-semibold text-warning uppercase tracking-wide">
-              {translations.guestWarningTitle[lang]}
-            </h4>
-            <p className="text-micro font-bold text-warning leading-relaxed">
-              {translations.guestWarningDesc[lang]}
-            </p>
-            {onCreateAccount && (
-              <button
-                onClick={onCreateAccount}
-                className="mt-2 text-micro font-semibold text-primary bg-warning/40 hover:bg-warning/60 px-3 py-1.5 rounded-chip self-start transition-colors"
-              >
-                {translations.createAccount[lang]}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Body Metrics Section */}
       <div className="space-y-4">
@@ -315,7 +288,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </div>
       </div>
 
-      {/* 首选项入口（原设置卡和时间线底部的备份卡都搬进了弹层）。右侧是当前值摘要，是状态不是说明 */}
+      {/* 备份状态留在一级页面上：数据在哪、上次备份是什么时候，一眼能看到（docs/positioning.md） */}
+      <BackupGlance />
+
+      {/* 首选项入口（原设置卡搬进了弹层）。右侧是当前值摘要，是状态不是说明 */}
       <div className="ui-card">
         <button
           type="button"
@@ -349,7 +325,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         }}
         onToggleLanguage={onToggleLanguage}
         onResetAccount={() => setShowResetAccountModal(true)}
-        onLogout={onLogout}
         devMode={devMode}
         onToggleDevMode={onToggleDevMode}
       />

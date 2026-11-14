@@ -12,6 +12,7 @@ import { translations } from '../../translations';
 import { Language } from '../../types';
 import { FAN_PARTS, type BodyPartKey } from './BodyPartPicker';
 import { haptic, H } from '../utils/haptics';
+import { useBackClose } from '../hooks/useBackClose';
 
 type TabType = 'dashboard' | 'new' | 'plan' | 'profile';
 
@@ -115,6 +116,8 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
     setHovered(null);
     setCommitting(null);
   }, []);
+  // 安卓返回键先收起点选态的印谱（审查 D3）。'open' 是手指还按着，不登记：那时的返回会和松手收尾打架
+  useBackClose(fanState === 'tapmode', closeFan);
 
   const openFan = useCallback(() => {
     openTimerRef.current = null;

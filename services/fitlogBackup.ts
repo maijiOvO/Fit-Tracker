@@ -51,7 +51,7 @@ const ROLLBACK_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * 写回本机失败。rolledBack：已经自动换回写之前的样子（「数据未改动」这句话才是真的）；
- * false：回滚也没成，可能停在改了一半——提示要说实话，并指向「撤销上次导入」（审查 A25）
+ * false：回滚也没成，可能停在改了一半——提示要说实话，并指向「撤销上次恢复、导入或重置」（审查 A25）
  */
 class OverwriteFailedError extends Error {
   constructor(readonly rolledBack: boolean, cause: unknown) {
@@ -214,6 +214,13 @@ export function parseBackupFile(raw: string): ParsedBackup {
   if (json.snapshot && typeof json.snapshot === 'object') {
     const s = json.snapshot as FitlogRemoteSnapshot;
     if (!Array.isArray(s.workouts)) throw new BackupParseError('not-a-backup');
+    // 更新版本的 App 写的：结构可能变了，半懂地接受会用它覆盖本机（远端那条路同样不认，见 fetchRemoteSnapshotResult）
+    if (
+      (typeof json.formatVersion === 'number' && json.formatVersion > BACKUP_FORMAT_VERSION) ||
+      (typeof s.schemaVersion === 'number' && s.schemaVersion > 2)
+    ) {
+      throw new BackupParseError('newer-version');
+    }
     return {
       snapshot: s,
       legacy: false,
@@ -307,7 +314,9 @@ export async function applyBackup(parsed: ParsedBackup): Promise<'pushed' | 'not
 }
 
 /**
- * 合并式恢复：和服务端同步同一套规则（按 id 取较新 + 墓碑过滤），删过的不会被旧备份捞回来。
+ * 合并式恢复：记录和服务端同步同一套规则（按 id 取较新 + 墓碑过滤），删过的不会被旧备份捞回来。
+ * 首选项和同步不同：两边按 id / 键取并集、同键较新的一边为准（unionPrefs，2026-11-14 用户定），
+ * 本机删掉的键（没有墓碑的那几类）会被备份带回来 —— 按钮上写的就是「两边都留」。
  *
  * **只对新格式（v2，带墓碑）可用。** 旧格式没有墓碑，按 id 合并会把用户删掉的训练捞回来，
  * 而且界面上看不出来 —— 那种文件只能走 applyBackup 覆盖。调用方按 parsed.legacy 决定给不给这个选项。
@@ -316,13 +325,53 @@ export async function mergeBackup(parsed: ParsedBackup): Promise<'pushed' | 'not
   if (parsed.legacy) throw new Error('legacy-cannot-merge');
   const current = await collectLocalSnapshot();
   await saveRollbackSlot(current);
-  const merged = mergeLocalWithRemote(current, parsed.snapshot);
+  const merged = mergeLocalWithRemote(current, parsed.snapshot, { unionPrefs: true });
   return overwriteLocal(merged, current);
 }
 
 /**
+ * 重置账户：清空全部数据，只留语言和单位。和覆盖恢复同样的顺序安全性：先存回滚槽（失败直接抛、不重置），
+ * 「撤销上次恢复、导入或重置」7 天内能撤回（2026-11-14 用户定，为了数据安全）。
+ * 走 overwriteLocal：删掉的每一条记墓碑、以本机为准推上去（原来清空墓碑，下次启动拉取会把服务器上的合并回来，审查 A24）。
+ */
+export async function resetAccount(): Promise<'pushed' | 'not-configured' | 'failed'> {
+  const before = await collectLocalSnapshot();
+  await saveRollbackSlot(before);
+  const keepApp = before.prefs.appPrefs;
+  const empty: FitlogRemoteSnapshot = {
+    schemaVersion: 2,
+    clientExportedAt: new Date().toISOString(),
+    workouts: [],
+    goals: [],
+    weightLogs: [],
+    customMetrics: [],
+    prs: [],
+    scheduledWorkouts: [],
+    customExerciseDefsFromDb: [],
+    prefs: {
+      customTags: [],
+      customExercises: [],
+      exerciseNotes: {},
+      starredExercises: {},
+      exerciseMetricConfigs: {},
+      tagRenameOverrides: {},
+      exerciseOverrides: {},
+      starredLastUpdateMs: 0,
+      metricsLastUpdateMs: 0,
+      prefsLastUpdateMs: 0,
+      lang: before.prefs.lang,
+      unit: before.prefs.unit,
+      avatarDataUrl: null,
+      // 训练计划、馆档案等首选项一起清掉，只留语言和单位
+      appPrefs: { ...(keepApp?.lang ? { lang: keepApp.lang } : {}), ...(keepApp?.unit ? { unit: keepApp.unit } : {}) },
+    },
+  };
+  return overwriteLocal(empty, before);
+}
+
+/**
  * 把外来记录（Strong / Hevy 导入）加进现有数据：只新增 / 覆盖同 id 的训练和新建的自定义动作，别的不动。
- * 和覆盖恢复一样先存回滚槽，「撤销上次导入」能撤回。
+ * 和覆盖恢复一样先存回滚槽，「撤销上次恢复、导入或重置」能撤回。
  *
  * 同一份文件再导一次 id 相同（见 fitlogCsvImport 的 hash），只是覆盖那几条；
  * 用户之前删过的导入训练，这次是明确要再导进来 —— 从墓碑里摘掉，否则下一次同步又会把它过滤掉。
@@ -406,7 +455,7 @@ export async function readRollback(): Promise<RollbackInfo | null> {
   return { createdAt: row.createdAt, workouts: row.snapshot.workouts?.length ?? 0, newer };
 }
 
-/** 撤销上一次导入。回滚槽用掉即清空 —— 留着会让人以为还能再撤一次。 */
+/** 撤销上一次恢复 / 导入 / 重置。回滚槽用掉即清空 —— 留着会让人以为还能再撤一次。 */
 export async function rollbackImport(): Promise<'pushed' | 'not-configured' | 'failed'> {
   const row = await findRollbackRow();
   if (!row?.snapshot || !rollbackFresh(row)) throw new Error('no-rollback');

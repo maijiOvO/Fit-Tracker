@@ -1,5 +1,6 @@
 /**
- * 选中组操作条：−/+ 一档、次数 ±1、递减一档，固定在底栏「添加动作」上方（2026-10-27 用户定）。
+ * 选中组操作条：−/+ 一档、次数 ±1、递减（带正负的动作多一颗辅助 ⇄ 负重），固定在底栏「添加动作」上方（2026-10-27 用户定）。
+ * 没手动选中时改的是指针下面那一条待做组（组号不实心，小字写明第几组）。
  *
  * 原来这一行跟着选中的组长在卡片里：换一组它就换一个位置，每次按之前都得先找再瞄；
  * 固定之后四颗键永远在同一个坐标（拇指区），卡片布局也不再因选中换组而抖。
@@ -13,20 +14,20 @@ import { Exercise, Language, SetLog, SubSetLog } from '../../types';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { formatWeight } from './SetCapsule';
-import { parseWeight } from '../utils/format';
-import { getLoadMode } from '../utils/exerciseConfig';
+import { markTouched, shownWeight, weightFromShown } from '../utils/setWrite';
 import { haptic, H } from '../utils/haptics';
 import { bumpShown, nextDropShown, stepShown } from '../utils/setStep';
+import { carrySign } from '../utils/workbench';
 
 interface Props {
   exercise: Exercise;
   set: SetLog;
-  /** 这个动作里的第几组（交替组里按动作各数各的） */
+  /** 行上显示的组号（交替组里按动作各数各的，口径同组行） */
   setNo: number;
   /** 当前语言的动作名 */
   name: string;
   activeMetrics: string[];
+  /** 顶栏的显示单位；有取整器时按 rounder.display（器械有自己的单位就按它，口径同组行） */
   unit: string;
   lang: Language;
   /** 带正负的负荷：辅助为负、自重 0、负重为正，± 可以跨过 0 */
@@ -37,38 +38,25 @@ interface Props {
 
 type Signable = { weight: number; bodyweightMode?: SetLog['bodyweightMode'] };
 
-export const SetActionStrip: React.FC<Props> = ({ exercise, set, setNo, name, activeMetrics, unit, lang, signed, rounder, onUpdate }) => {
+export const SetActionStrip: React.FC<Props> = ({ exercise, set, setNo, name, activeMetrics, unit: shownUnit, lang, signed, rounder, onUpdate }) => {
   const isCn = lang === Language.CN;
+  const unit = rounder ? rounder.display : shownUnit;
   const { weightStep, dropStep } = useContext(UserSettingsContext)?.appPrefs ?? appPrefsNow();
   const hasWeight = activeMetrics.includes('weight');
   const hasReps = activeMetrics.includes('reps');
   if (!hasWeight && !hasReps) return null;
 
-  // 号按组算（组上没写按动作实例），显示绝对值；运算在带符号的数上做 —— 口径同 SetCapsule.signOf
+  // 号按组算（组上没写：重量是 0 沿用上一组，其余按动作实例），显示绝对值；运算在带符号的数上做 —— 口径同 SetCapsule.signOf
   const signOf = (x: Signable, parent?: Signable): -1 | 1 => {
     if (!signed) return 1;
     if (x.bodyweightMode === 'assisted') return -1;
     if (x.bodyweightMode === 'weighted') return 1;
-    return parent ? signOf(parent) : getLoadMode(exercise) === 'assisted' ? -1 : 1;
+    return parent ? signOf(parent) : carrySign(exercise, x as SetLog);
   };
-  const toDisplay = (kg: number, sign: -1 | 1) => sign * Number(formatWeight(Number(kg) || 0, unit));
-  // 改重量就记下这一组挂的是哪种片：有馆档案按这个馆的片子，纯数字的动作按显示单位 —— 口径同 SetCapsule.fromDisplay
-  const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
-  const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'plateUnit'> & { bodyweightMode?: SetLog['bodyweightMode'] } => {
-    const kg = rounder ? Math.abs(rounder.kgOfD(v)) : parseWeight(Math.abs(v), unit === 'lbs' ? 'lbs' : 'kg');
-    if (!signed) return { weight: kg, plateUnit };
-    return { weight: kg, plateUnit, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
-  };
-  /** 待做行上改了值就记 touched（格子变实墨，结束时提醒），不描实 */
-  const update = (updates: Partial<SetLog>) => {
-    if (!set.ghost) {
-      onUpdate(updates);
-      return;
-    }
-    const touched = { ...(set.touched || {}) };
-    for (const k of ['weight', 'reps', 'subSets'] as const) if (k in updates) touched[k] = true;
-    onUpdate({ ...updates, touched });
-  };
+  // 显示 ⇄ 存储、待做行记 touched：和组行同一份（utils/setWrite）
+  const toDisplay = (kg: number, sign: -1 | 1) => shownWeight(kg, sign, unit);
+  const fromDisplay = (raw: number) => weightFromShown(raw, unit, rounder, signed);
+  const update = (updates: Partial<SetLog>) => onUpdate(markTouched(set, updates));
 
   const rowSign = signOf(set);
   const shown = toDisplay(set.weight, rowSign);
@@ -83,6 +71,14 @@ export const SetActionStrip: React.FC<Props> = ({ exercise, set, setNo, name, ac
     const cur = Number(set.reps) || 0;
     const next = Math.max(0, cur + dir);
     if (next !== cur) update({ reps: next });
+  };
+  /**
+   * 辅助 ⇄ 负重（审查 C6）：绝对值不动，后面同号、没改过的待做组一起换（workbench.followFlip）。
+   * 重量是 0 时没有号可显示，点它定下接下来打的数记成哪一边。
+   */
+  const flip = () => {
+    haptic(H.tap);
+    update({ bodyweightMode: rowSign < 0 ? 'weighted' : 'assisted' });
   };
   /** 加一档递减：从上一行（最后一档，没有就是母组）走一档；次数跟上一行 */
   const addDrop = () => {
@@ -129,6 +125,17 @@ export const SetActionStrip: React.FC<Props> = ({ exercise, set, setNo, name, ac
         {hasWeight && (
           <button type="button" className="ledger-step-drop" onClick={addDrop} aria-label={isCn ? '加一档递减' : 'Add a drop set'} data-testid="add-drop-set">
             {isCn ? '递减' : 'Drop'}
+          </button>
+        )}
+        {hasWeight && signed && (
+          <button
+            type="button"
+            className="ledger-step-drop"
+            onClick={flip}
+            aria-label={isCn ? (rowSign < 0 ? '改成负重' : '改成辅助') : rowSign < 0 ? 'Switch to weighted' : 'Switch to assisted'}
+            data-testid="flip-sign"
+          >
+            {rowSign < 0 ? (isCn ? '⇄ 负重' : '⇄ Wtd') : isCn ? '⇄ 辅助' : '⇄ Asst'}
           </button>
         )}
       </div>

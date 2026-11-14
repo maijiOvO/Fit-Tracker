@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
-import { scrubFeel, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
+import { boundDetent, scrubFeel, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
 
 /**
  * 每跨这么多像素落一档（首选项「滑动手感」：细 / 中 / 粗 ＝ 14 / 10 / 7，默认 10）。
@@ -64,6 +64,8 @@ interface Options {
   onChange: (next: number) => void;
   /** 下限，默认 0 */
   min?: number;
+  /** 上限（重量的全站上限，loadCapD）；到顶和到下限一样：不震、不回调 */
+  max?: number;
   /** 档位表，默认重量的 1/2/5/10。次数传 SCRUB_STEPS_REPS。 */
   steps?: number[];
   disabled?: boolean;
@@ -114,6 +116,7 @@ export function useValueScrub({
   value,
   onChange,
   min = 0,
+  max = Infinity,
   steps = SCRUB_STEPS_WEIGHT,
   disabled = false,
   axis = 'x',
@@ -256,18 +259,17 @@ export function useValueScrub({
       let next = valueRef.current;
       for (const sign of r.detents) {
         const fn = stepFnRef.current;
-        if (fn) {
-          next = Math.max(min, fn(next, sign, nextStep));
-        } else if (!d.snapped && offGrid(next)) {
-          // 切过单位后的 132.28 这种值，第一档先取整（往右 ceil、往左 floor）并吃掉这一档，
-          // 之后再照常 ±1/2/5/10 —— 否则会一路拖出 133.28、134.28。
-          // 只在拖动时取整：切单位、打字都保留原值。
-          next = Math.max(min, toGrid(next, sign));
-        } else {
-          next = Math.max(min, Math.round((next + sign * nextStep) * 10) / 10);
-        }
+        // 切过单位后的 132.28 这种值，第一档先取整（往右 ceil、往左 floor）并吃掉这一档，
+        // 之后再照常 ±1/2/5/10 —— 否则会一路拖出 133.28、134.28。
+        // 只在拖动时取整：切单位、打字都保留原值。
+        const cand = fn
+          ? fn(next, sign, nextStep)
+          : !d.snapped && offGrid(next)
+            ? toGrid(next, sign)
+            : Math.round((next + sign * nextStep) * 10) / 10;
+        next = boundDetent(next, cand, sign, min, max);
         d.snapped = true;
-        // 到了下限 / 空杠再往下拖：值没变就不算一档（不震、不回调）
+        // 到了上下限 / 空杠再往外拖：值没变就不算一档（不震、不回调）
         if (next !== valueRef.current) moved = sign;
       }
       if (moved) {
@@ -277,7 +279,7 @@ export function useValueScrub({
         else haptic(H.tap); // 每档＝点击感
       }
     },
-    [min, onChange, step, stepsKey, vel, axis, grid, fixedPx, engagePx, onDetent],
+    [min, max, onChange, step, stepsKey, vel, axis, grid, fixedPx, engagePx, onDetent],
   );
 
   const end = useCallback(() => {

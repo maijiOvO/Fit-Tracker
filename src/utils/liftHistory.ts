@@ -31,7 +31,7 @@ export interface LiftSession {
   exercise: Exercise;
   /** 不含底稿行 */
   sets: any[];
-  /** 最重的一组（同重取次数多的） */
+  /** 以下三个在全部组里挑，递减 / 递增档各算一组 —— 最重的一组（同重取次数多的） */
   top: SetRef | null;
   /** 估算 1RM 最高的一组 */
   e1rm: (SetRef & { value: number }) | null;
@@ -56,6 +56,8 @@ export interface LiftSummary {
   baseName: string;
   /** 按带正负的负荷记（自重类） */
   signed: boolean;
+  /** 器械类：纪录只和同一个馆比（gymChoices / inGym 按馆看） */
+  machine: boolean;
   hasWeight: boolean;
   /** 历史里有过一组负荷不为 0（带号动作：加过负重或辅助）；纯自重练的动作为 false */
   loaded: boolean;
@@ -95,9 +97,8 @@ function buildSession(w: WorkoutSession, ex: Exercise, signed: boolean): LiftSes
   let top: SetRef | null = null;
   let e1rm: LiftSession['e1rm'] = null;
   let mostReps: SetRef | null = null;
-  for (const s of sets) {
-    const kg = signed ? signedKg(s, ex) : Number(s.weight) || 0;
-    const reps = Number(s.reps) || 0;
+  // 和纪录判定同一份组（递减 / 递增档各算一组，审查 Gm0）：否则递增档破了纪录，逐场行和图上写的还是母组
+  for (const { kg, reps } of prSetsOf(ex, w.gym, signed)) {
     if (!top || kg > top.kg || (kg === top.kg && reps > top.reps)) top = { kg, reps };
     if (reps > 0 && (!mostReps || reps > mostReps.reps || (reps === mostReps.reps && kg > mostReps.kg))) {
       mostReps = { kg, reps };
@@ -138,6 +139,40 @@ function bestOf(
   return best;
 }
 
+function bestsOf(sessions: LiftSession[], signed: boolean): LiftSummary['best'] {
+  return {
+    weight: bestOf(sessions, s => (s.top ? { value: s.top.kg, set: s.top } : null)),
+    e1rm: signed ? null : bestOf(sessions, s => (s.e1rm ? { value: s.e1rm.value, set: s.e1rm } : null)),
+    reps: bestOf(sessions, s => (s.mostReps ? { value: s.mostReps.reps, set: s.mostReps } : null)),
+  };
+}
+
+/**
+ * 按馆比的器械练过的馆，最近练的在前（'' = 没标馆的旧训练，它们彼此算一组）。
+ * 跨馆比的动作返回空。带正负的动作只有辅助段按馆比，先不分馆看（审查 G4）。
+ */
+export function gymChoices(lift: LiftSummary): string[] {
+  if (!lift.machine || lift.signed) return [];
+  const out: string[] = [];
+  for (let i = lift.sessions.length - 1; i >= 0; i--) {
+    const g = lift.sessions[i].gym ?? '';
+    if (!out.includes(g)) out.push(g);
+  }
+  return out;
+}
+
+/** 只看 gym 这个馆的场次：纪录卡、阶梯线、逐场都按这个馆算（跨馆的器械重量本来就不可比）。逐场的纪录本就按馆判，不用重算 */
+export function inGym(lift: LiftSummary, gym: string): LiftSummary {
+  const sessions = lift.sessions.filter(s => (s.gym ?? '') === gym);
+  return { ...lift, sessions, lastTs: sessions[sessions.length - 1].ts, best: bestsOf(sessions, lift.signed) };
+}
+
+/** 列表、特别关注用：按馆比的器械看最近练的那个馆，其余原样 */
+export function latestGymView(lift: LiftSummary): LiftSummary {
+  const gyms = gymChoices(lift);
+  return gyms.length ? inGym(lift, gyms[0]) : lift;
+}
+
 interface BuildParams {
   workouts: WorkoutSession[];
   stableIdOf: (ex: Exercise) => string;
@@ -171,6 +206,7 @@ export function buildLiftSummaries({
           stableId: stableIdOf(ex),
           baseName,
           signed: false,
+          machine: false,
           hasWeight: getActiveMetrics(baseName).includes('weight'),
           loaded: false,
           sessions: [],
@@ -197,7 +233,8 @@ export function buildLiftSummaries({
     lift.sessions.sort((a, b) => a.ts - b.ts);
     lift.lastTs = lift.sessions[lift.sessions.length - 1].ts;
     // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）
-    const rule = { tracksWeight: lift.hasWeight, signed: lift.signed, machine: !!gymScoped?.(lift.sessions[0].exercise) };
+    lift.machine = !!gymScoped?.(lift.sessions[0].exercise);
+    const rule = { tracksWeight: lift.hasWeight, signed: lift.signed, machine: lift.machine };
     const hist: PRSet[] = [];
     for (const s of lift.sessions) {
       const cur = prSetsOf(s.exercise, s.gym, lift.signed);
@@ -206,11 +243,7 @@ export function buildLiftSummaries({
     }
     lift.loaded = lift.sessions.some(s => s.sets.some((set: any) =>
       (lift.signed ? signedKg(set, s.exercise) : Number(set.weight) || 0) !== 0));
-    lift.best = {
-      weight: bestOf(lift.sessions, s => (s.top ? { value: s.top.kg, set: s.top } : null)),
-      e1rm: lift.signed ? null : bestOf(lift.sessions, s => (s.e1rm ? { value: s.e1rm.value, set: s.e1rm } : null)),
-      reps: bestOf(lift.sessions, s => (s.mostReps ? { value: s.mostReps.reps, set: s.mostReps } : null)),
-    };
+    lift.best = bestsOf(lift.sessions, lift.signed);
     out.push(lift);
   }
   return out;
@@ -260,7 +293,8 @@ export interface TrendPoint {
 function isRecordOn(s: LiftSession, metric: string, rose: boolean): boolean {
   if (metric === 'weight') return s.records.includes('weight') || (s.signed && rose && s.records.includes('reps'));
   if (metric === E1RM) return s.records.includes('e1rm');
-  if (metric === 'reps') return s.records.includes('reps');
+  // 次数图上的点是全场最多次数：只有它真涨了才标（80×9 胜过 80×8 是次数纪录，但点还是那组 40×15，审查 Gm0）
+  if (metric === 'reps') return rose && s.records.includes('reps');
   return rose;
 }
 

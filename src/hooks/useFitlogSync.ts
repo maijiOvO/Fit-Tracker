@@ -24,7 +24,8 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { useAuthContext } from '../contexts/AuthContext';
+import { useAvatar } from '../contexts/AvatarContext';
+import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
@@ -40,40 +41,24 @@ class PullFailedError extends Error {
 /**
  * 对本地训练 / 目标做一次性数据迁移，确保字段齐全
  */
-async function migrateLocalData(userId: string): Promise<void> {
-  if (!userId) return;
+async function migrateLocalData(): Promise<void> {
+  const userId = FITLOG_SOLO_USER_ID;
 
   const [allW, allG] = await Promise.all([
     db.getAll<WorkoutSession>('workouts'),
     db.getAll<Goal>('goals'),
   ]);
 
-  // 训练记录迁移：补齐 exerciseTime / instanceConfig
+  // 训练记录迁移：补齐 exerciseTime（没有 instanceConfig 的读时按标准算，见 exerciseConfig.getLoadMode）
   const userW = allW.filter(w => w.userId === userId);
   let hasDataMigration = false;
   const migratedWorkouts = userW.map(workout => {
     let workoutChanged = false;
     const updatedExercises = workout.exercises.map(exercise => {
-      let exerciseChanged = false;
-      const updatedExercise = { ...exercise };
-
       if (!exercise.exerciseTime) {
-        updatedExercise.exerciseTime = new Date(workout.date).toISOString();
-        exerciseChanged = true;
-      }
-      if (!exercise.instanceConfig) {
-        updatedExercise.instanceConfig = {
-          enablePyramid: false,
-          bodyweightMode: 'none',
-          pyramidMode: 'decreasing',
-          autoCalculateSubSets: false,
-        };
-        exerciseChanged = true;
-      }
-      if (exerciseChanged) {
         workoutChanged = true;
         hasDataMigration = true;
-        return updatedExercise;
+        return { ...exercise, exerciseTime: new Date(workout.date).toISOString() };
       }
       return exercise;
     });
@@ -145,20 +130,18 @@ export interface UseFitlogSyncResult {
   /** 推送这一头的实况：有改动没推上去 / 最近一次推送失败 / 都推上去了（首选项「同步」一行，审查 B12） */
   pushState: SyncState;
   performFullSync: () => Promise<void>;
-  loadLocalData: (userId: string) => Promise<void>;
+  loadLocalData: () => Promise<void>;
 }
 
 /**
  * 应用启动期的同步 / 加载逻辑
- *
- * @param resolvedUserId  当前用户 ID（单机版固定为 FITLOG_SOLO_USER_ID）
  */
-export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
+export function useFitlogSync(): UseFitlogSyncResult {
   const { applyPrefsFromSnapshot } = useExercisePrefs();
   const workoutCtx = useWorkoutContext();
   const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
-  const authCtx = useAuthContext();
+  const { setAvatarUrl } = useAvatar();
   const { toast } = useUiOverlay();
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
@@ -179,10 +162,9 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
   const didInitRef = useRef(false);
 
   const loadLocalData = useCallback(
-    async (userId: string) => {
-      if (!userId) return;
+    async () => {
       try {
-        await migrateLocalData(userId);
+        await migrateLocalData();
         await Promise.all([
           workoutCtx.refreshFromDb(),
           goalsCtx.refreshFromDb(),
@@ -202,14 +184,10 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
       if (p.unit) settingsCtx.setUnit(p.unit);
       settingsCtx.reloadAppPrefs();
       if (typeof p.avatarDataUrl === 'string' && p.avatarDataUrl) {
-        authCtx.setUser(
-          authCtx.user
-            ? { ...authCtx.user, avatarUrl: p.avatarDataUrl as string }
-            : authCtx.user,
-        );
+        setAvatarUrl(p.avatarDataUrl);
       }
     },
-    [applyPrefsFromSnapshot, settingsCtx, authCtx],
+    [applyPrefsFromSnapshot, settingsCtx, setAvatarUrl],
   );
 
   // 应用初始化（仅一次）
@@ -240,7 +218,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
           }
         }
         handleSnapshotApply(readPrefsFromLocalStorage());
-        await loadLocalData(resolvedUserId);
+        await loadLocalData();
       } catch (e) {
         console.error('[fitlog] 应用初始化失败:', e);
       } finally {
@@ -261,7 +239,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     };
     const onPulled = () => {
       handleSnapshotApply(readPrefsFromLocalStorage());
-      void loadLocalData(resolvedUserId);
+      void loadLocalData();
     };
     document.addEventListener('visibilitychange', retry);
     window.addEventListener('online', retry);
@@ -274,7 +252,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
       window.removeEventListener('online', retry);
       window.removeEventListener('fitlog:pulled', onPulled);
     };
-  }, [handleSnapshotApply, loadLocalData, resolvedUserId]);
+  }, [handleSnapshotApply, loadLocalData]);
 
   const performFullSync = useCallback(async () => {
     if (!isRemoteConfigured()) {
@@ -304,8 +282,11 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
         setSyncStatus('idle');
         return;
       }
-      handleSnapshotApply(pulled.kind === 'merged' ? pulled.prefs : readPrefsFromLocalStorage());
-      await loadLocalData(resolvedUserId);
+      // 拉取什么都没带来：本机没被改写，不必重读
+      if (pulled.kind !== 'merged' || pulled.changed) {
+        handleSnapshotApply(pulled.kind === 'merged' ? pulled.prefs : readPrefsFromLocalStorage());
+        await loadLocalData();
+      }
       if (pulled.kind === 'failed') {
         // 没读到远端就推送 = 拿本地盖掉一份没合并进来的远端（另一台设备的新记录就此丢失）
         throw new PullFailedError(pulled.reason);
@@ -332,7 +313,7 @@ export function useFitlogSync(resolvedUserId: string): UseFitlogSyncResult {
     } finally {
       syncLockRef.current = false;
     }
-  }, [handleSnapshotApply, loadLocalData, resolvedUserId, settingsCtx.lang, toast]);
+  }, [handleSnapshotApply, loadLocalData, settingsCtx.lang, toast]);
 
   return { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData };
 }

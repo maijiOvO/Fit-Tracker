@@ -6,12 +6,13 @@
  *      格子都在馆的片子单位下，显示单位只是换算着标（useLoadRounder 负责换算）。
  *   2. 自动生成的重量（底稿、带动后面、递减默认、切单位 / 换馆）严格取最近能挂的重量，等距取轻。
  *      手打的数照原样记。
- *   3. 一档 = 这个馆、这件器材的一档（馆档案）；个别器械在动作 ⋯ 里单独设（gymOverrides）。
+ *   3. 一档 = 这个馆、这件器材的一档（馆档案）；个别器械存成一台（Rig，卡片大图上方的药丸）。
  *
  * 全部是纯函数：值一律是「ctx.unit（馆的片子单位）下带符号的数」，调用方负责换算。
  */
 import type { LoadKind } from '../hooks/useLoadKind';
 import { DEFAULT_PLATES, convert, type PlateUnit } from './plates';
+import { EQ_CABLE } from './exerciseAttrs';
 
 export interface IncSpec {
   v: number;
@@ -21,6 +22,11 @@ export interface IncSpec {
    * 没有或 0＝从 0 起（一档的整数倍）。只对配重片（插销）生效（2026-10-20 用户定）。
    */
   s?: number;
+  /**
+   * 配重片的最重一格（和 v 同单位，2026-11-13 用户定）：拖动和 ± 到它为止，自动取整吸到它。没有＝不设限。
+   * 只存在存下来的台（Rig）上：馆档案的默认那一格不带它，在默认上设＝另存一台。
+   */
+  e?: number;
 }
 
 /** 一个馆的器材档案（存 AppPrefs.gyms[馆名]） */
@@ -57,8 +63,8 @@ export const DEFAULT_FIXED_BAR_INC: Record<PlateUnit, IncSpec> = {
 
 /**
  * 馆里的一台器械（2026-11-10 用户定：同一个馆可以存两种龙门架，练不同动作时直接切）：
- * 存 AppPrefs.gymRigs[馆|器材]，这件器材的所有动作共用；每个动作记住上次用的哪一台（gymRigPick[馆|动作|做法]）。
- * 改一台的刻度，所有选了它的动作一起变。n：起的名字，不写就拿刻度当名字。
+ * 存 AppPrefs.gymRigs（键见 rigListKey）；每个动作记住上次用的哪一台（gymRigPick[馆|动作|做法]）。
+ * 改一台的刻度，同一份列表里选了它的动作一起变。n：起的名字，不写就拿刻度当名字。
  */
 export interface Rig extends IncSpec {
   id: string;
@@ -75,9 +81,37 @@ export function rigKind(kind: LoadKind): kind is 'pin' | 'pair' | 'bell' | 'fixe
   return kind === 'pin' || kind === 'pair' || kind === 'bell' || kind === 'fixed';
 }
 
-/** 台子列表的键：馆|器材（没填器材的按画法分） */
-export function rigListKey(gym: string | undefined, info: { kind: LoadKind; equipment?: string }): string | null {
-  return gym && rigKind(info.kind) ? `${gym}|${info.equipment || `~${info.kind}`}` : null;
+/** 这件器材在这个馆共用的那份列表：馆|器材（没填器材的按画法分） */
+function sharedRigKey(gym: string, info: { kind: LoadKind; equipment?: string }): string {
+  return `${gym}|${info.equipment || `~${info.kind}`}`;
+}
+
+/**
+ * 台子列表的键。龙门架、哑铃、壶铃、固定杠铃同馆共用（一台龙门架上做好多动作）：馆|器材。
+ * 配重片的固定器械一个动作就是一台实体器械（2026-11-13 用户定，原来也共用：腿屈伸的台出现在推胸的药丸排里，
+ * 改一台还会带动别的器械）：馆|器材|动作。还没登记进动作库的（新建动作弹窗里）没有动作 id，退回共用的键，
+ * 选的那台由 rigsOf 接过去。
+ */
+export function rigListKey(gym: string | undefined, info: { kind: LoadKind; equipment?: string; defId?: string }): string | null {
+  if (!gym || !rigKind(info.kind)) return null;
+  return perExercise(info) ? `${sharedRigKey(gym, info)}|${info.defId}` : sharedRigKey(gym, info);
+}
+
+function perExercise(info: { kind: LoadKind; equipment?: string; defId?: string }): boolean {
+  return info.kind === 'pin' && info.equipment !== EQ_CABLE && !!info.defId;
+}
+
+/**
+ * 这个动作在这个馆能选的几台。按动作分的列表还没存过（2026-11-13 之前都存在共用的键上）：
+ * 只从旧的共用列表接过这个动作眼下选着的那一台，别的动作建的台不带过来；第一次改动就存成自己的列表。
+ */
+export function rigsOf(all: Record<string, Rig[]>, gym: string | undefined, info: { kind: LoadKind; equipment?: string; defId?: string }, pick: string | undefined): Rig[] {
+  const key = rigListKey(gym, info);
+  if (!key) return [];
+  const own = all[key];
+  if (own || !gym || !perExercise(info)) return own ?? [];
+  const hit = pick ? all[sharedRigKey(gym, info)]?.find(r => r.id === pick) : undefined;
+  return hit ? [hit] : [];
 }
 
 /** 这个动作在这个馆实际用的刻度：选中的台 → 以前按动作单独设的（gymOverrides）→ undefined（馆默认）。选的台删了＝没选 */
@@ -86,7 +120,25 @@ export function machineSpecOf(rigs: Rig[] | undefined, pick: string | undefined,
 }
 
 export function sameSpec(a: IncSpec, b: IncSpec): boolean {
-  return a.u === b.u && Math.abs(a.v - b.v) < 1e-9 && Math.abs((a.s ?? 0) - (b.s ?? 0)) < 1e-9;
+  return a.u === b.u && Math.abs(a.v - b.v) < 1e-9 && Math.abs((a.s ?? 0) - (b.s ?? 0)) < 1e-9 && Math.abs((a.e ?? 0) - (b.e ?? 0)) < 1e-9;
+}
+
+/**
+ * 关掉设置时收掉白加的台（审查 B5）：fresh 里（这次「＋」出来的）、没起名、和馆默认或排在前面的某台刻度一样的去掉，
+ * 选着它的改指那一台（'' ＝馆默认）。配重片没设最轻一格＝从一档起，比较前按这个口径补上。
+ */
+export function dropTwins(list: Rig[], fresh: ReadonlySet<string>, def: IncSpec | null, pick: string, pin: boolean): { list: Rig[]; pick: string } {
+  const norm = (x: IncSpec): IncSpec => (pin && !(x.s && x.s > 0) ? { ...x, s: x.v } : x);
+  const kept: Rig[] = [];
+  let sel = pick;
+  for (const r of list) {
+    const twin = !fresh.has(r.id) || r.n ? undefined
+      : def && sameSpec(norm(r), norm(def)) ? ''
+      : kept.find(k => sameSpec(norm(k), norm(r)))?.id;
+    if (twin === undefined) kept.push(r);
+    else if (sel === r.id) sel = twin;
+  }
+  return { list: kept, pick: sel };
 }
 
 /** 馆档案里这一类器材的一档（旧档案没有壶铃 / 固定杠铃，按默认） */
@@ -115,6 +167,23 @@ export function incIn(c: IncSpec, unit: PlateUnit): number {
 export function startIn(c: IncSpec | undefined, unit: PlateUnit): number {
   if (!c?.s || c.s <= 0) return 0;
   return Math.round(convert(c.s, c.u, unit) * 20) / 20;
+}
+
+/** 最重一格换到当前单位，口径同 startIn；0＝没设 */
+export function endIn(c: IncSpec | undefined, unit: PlateUnit): number {
+  if (!c?.e || c.e <= 0) return 0;
+  return Math.round(convert(c.e, c.u, unit) * 20) / 20;
+}
+
+/**
+ * 换一台的片子单位（2026-10-25 用户定：一台器械只有一种片）：每格取新单位里最近的档位；最轻一格单独设过的按实重换算，
+ * 没设过（或等于一档）的跟新的一档走——5 kg 一档换成 lb 是 10 + 10，不是按实重换出来的 11 + 10（审查 B4）。
+ * s / e 显式给 undefined：调用方拿它覆盖旧的那台。
+ */
+export function rigInUnit(c: IncSpec, u: PlateUnit): IncSpec {
+  const s = c.s && Math.abs(c.s - c.v) > 1e-9 ? startIn(c, u) : 0;
+  const e = endIn(c, u);
+  return { v: incIn(c, u), u, s: s > 0 ? s : undefined, e: e > 0 ? e : undefined };
 }
 
 const INC_KEYS = ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar'] as const;
@@ -160,6 +229,8 @@ export interface LoadCtx {
   inc: number;
   /** 配重片的起始（最轻一格，当前单位）；0 / 没有＝一档的整数倍 */
   start?: number;
+  /** 配重片的最重一格（当前单位）；0 / 没有＝不设限 */
+  end?: number;
   /**
    * 单边挂片（T 杠划船、地雷架、单边的挂片器械，2026-10-22 用户定）：只有一边能挂，总重＝底座 + 一边，
    * 一档＝最小的一片（不 ×2）。只对挂片式器械（loaded）生效，存这一台的 gymOverrides（键 + '|one'）。
@@ -276,9 +347,11 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
   if (s0 > 0) {
     if (v <= 1e-9) return { lo: 0, hi: 0 };
     if (v < s0 - 1e-9) return { lo: r2(s0), hi: r2(s0) };
+    // 最重一格：比它重的格子不存在，上下两档都落在它（不在格子上的最重一格按它以下最近的一格）
+    const top = kind === 'pin' && ctx.end && ctx.end >= s0 ? s0 + Math.floor((ctx.end - s0) / st + 1e-9) * st : Infinity;
     return {
-      lo: r2(s0 + Math.floor((v - s0) / st + 1e-9) * st),
-      hi: r2(s0 + Math.ceil((v - s0) / st - 1e-9) * st),
+      lo: r2(Math.min(top, s0 + Math.floor((v - s0) / st + 1e-9) * st)),
+      hi: r2(Math.min(top, s0 + Math.ceil((v - s0) / st - 1e-9) * st)),
     };
   }
   let lo = Math.floor(v / st + 1e-9) * st;

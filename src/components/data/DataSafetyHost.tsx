@@ -3,6 +3,7 @@
  *   - 启动 / 回到前台时跑每日兜底备份（距上次成功超过 24 小时、数据有变化才写）
  *   - 恢复 / 导入之后那次 reload 起来，弹出跨 reload 的提示
  *   - 第一次有了训练记录、还没选备份文件夹时，引导一次
+ *   - 自动备份失败时提示一次（同一原因不重复）
  *   - 承载从各处打开的「从备份恢复」「从 Strong / Hevy 导入」弹窗（openDataFlow）
  */
 import React, { useEffect, useState } from 'react';
@@ -12,10 +13,10 @@ import { Modal } from '../Modal';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { useUiOverlay } from '../../contexts/UiOverlayContext';
 import { useWorkoutContext } from '../../contexts/WorkoutContext';
-import { maybeDailyBackup } from '../../../services/fitlogAutoBackup';
+import { AUTO_BACKUP_FAILED_EVENT, maybeDailyBackup, type BackupErrorCode } from '../../../services/fitlogAutoBackup';
 import { storage } from '../../../services/appStorage';
 import { isDemo } from '../../../services/appEnv';
-import { OPEN_DATA_FLOW_EVENT, useBackupState, useChooseBackupFolder, type DataFlow } from '../../hooks/useDataSafety';
+import { OPEN_DATA_FLOW_EVENT, backupErrorText, useBackupState, useChooseBackupFolder, type DataFlow } from '../../hooks/useDataSafety';
 import { RestoreBackupModal } from './RestoreBackupModal';
 import { ImportCsvModal } from './ImportCsvModal';
 import { takeFlash } from './flash';
@@ -53,6 +54,14 @@ export const DataSafetyHost: React.FC = () => {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
+
+  // 自动备份失败：同一原因只报一次（去重在 fitlogAutoBackup），首选项和「我的」页那一行一直是红的
+  useEffect(() => {
+    const on = (e: Event) =>
+      toast(`${t('自动备份失败：', 'Auto backup failed: ')}${backupErrorText((e as CustomEvent<BackupErrorCode>).detail, isCn)}`, 'error');
+    window.addEventListener(AUTO_BACKUP_FAILED_EVENT, on);
+    return () => window.removeEventListener(AUTO_BACKUP_FAILED_EVENT, on);
+  }, [isCn, toast]);
 
   // 第一次有了结束的训练、还没选文件夹 → 引导一次（只一次；之后设置页里一直有「未开启」的提示）
   const hasFinished = workouts.some(w => w.finishedAt || w.status === 'completed');

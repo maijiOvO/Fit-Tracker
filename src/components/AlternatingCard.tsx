@@ -10,10 +10,11 @@
  *   - ⋯：加一个动作（打开同一个添加动作弹层，加进这个组）、拆开
  *   - 卡底按动作分开的「＋ 动作名」：新的组插到轮换里该在的位置
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MachineFace, MachineMissingNote } from './PlateGlyph';
-import { useMachineSettings } from '../hooks/useMachineSettings';
+import { MachineFace, MachineMissingNote, RigChips, rigLabel } from './PlateGlyph';
+import { ALT_RIG, useMachineSettings } from '../hooks/useMachineSettings';
+import { useBackClose } from '../hooks/useBackClose';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
@@ -26,8 +27,10 @@ import { gymMachineKey, useLoadInfoOf } from '../hooks/useLoadKind';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useLoadRounder } from '../hooks/useLoadRounder';
 import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
-import { memberAbbrs, RowRef } from '../utils/workbench';
-import { setVolumeKg } from '../utils/load';
+import { carrySign, memberAbbrs, RowRef } from '../utils/workbench';
+import { setVolumeKg, signedKg } from '../utils/load';
+import { formatLoad } from '../utils/liftDisplay';
+import { prSetIndex, type PRPool } from './ExerciseCard';
 import { haptic, H } from '../utils/haptics';
 import { formatVolume, plural } from '../utils/format';
 
@@ -60,7 +63,8 @@ interface Props {
   onSwitchRowExercise: (r: RowRef, toExId: string) => void;
   onSwitchVariant: (exId: string, variantId: string | undefined, name?: string) => void;
   onToggleNote: (name: string, gymKey?: string) => void;
-  onOpenMetricModal: (name: string, exId: string) => void;
+  /** focus 'gym'：打开后滚到「这一台」那一段（成员面板里点选中的那台进来） */
+  onOpenMetricModal: (name: string, exId: string, focus?: 'gym') => void;
   /** 动作设置弹窗开着、改的是这个成员：弹窗里「这一台」的挂载点，成员把器械设置行 portal 进去（单卡是 settingsSlot） */
   settingsFor?: { exId: string; el: HTMLElement | null } | null;
   /** 「这一台」改了刻度之后，把这个成员没做完、没改过的组吸到新刻度上 */
@@ -68,6 +72,10 @@ interface Props {
   onOpenTimePicker: (exId: string, setId: string) => void;
   /** 这一场训练记的馆：组行的 ± / 拖动 / 递减档按这个馆的档案走（各动作各按各的器材） */
   gym?: string;
+  /** 每个成员上次那一场（成员面板里的参考行，同单卡「参考 · 上次」） */
+  lastSessionFor?: (ex: Exercise) => { date: string; sets: SetLog[] } | null;
+  /** 训练中标 PB：每个成员按自己的历史判（同单卡）；编辑旧训练不传 */
+  prPoolFor?: (ex: Exercise) => PRPool;
   dragHandle?: {
     handlers: React.DOMAttributes<HTMLElement>;
     pressing: boolean;
@@ -76,75 +84,104 @@ interface Props {
   };
 }
 
-const panelBtn =
+export const panelBtn =
   'w-full min-h-[48px] px-4 rounded-card bg-card border border-divider text-small font-bold text-primary flex items-center gap-2.5 active:bg-card-hover transition-colors disabled:opacity-40';
 
-/** 底部面板（同添加动作弹层里的动作面板：bg-inset + 全宽 bg-card 描边按钮） */
-const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; cancel: string; children: React.ReactNode; testId?: string }> = ({
+/** 底部面板（同添加动作弹层里的动作面板：bg-inset + 全宽 bg-card 描边按钮）；训练页「和…交替做」也用它 */
+export const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => void; cancel: string; children: React.ReactNode; testId?: string }> = ({
   title,
   subtitle,
   onClose,
   cancel,
   children,
   testId,
-}) => (
-  <div className="fixed inset-0 z-[90] bg-scrim flex items-end sm:items-center justify-center anim-fade" onClick={onClose} data-testid={testId}>
-    <div
-      className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
-      style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
-      onClick={e => e.stopPropagation()}
-    >
-      <p className="px-2 pb-1 text-small font-semibold text-primary">
-        {title}
-        {subtitle && <span className="block text-xs font-medium text-tertiary">{subtitle}</span>}
-      </p>
-      {children}
-      <button
-        type="button"
-        onClick={onClose}
-        className="w-full min-h-[48px] px-4 rounded-card text-small font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+}) => {
+  // 只在开着时渲染：挂上就登记一层，返回键先关它
+  useBackClose(true, onClose);
+  return (
+    <div className="fixed inset-0 z-[90] bg-scrim flex items-end sm:items-center justify-center anim-fade" onClick={onClose} data-testid={testId}>
+      <div
+        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
+        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+        onClick={e => e.stopPropagation()}
       >
-        {cancel}
-      </button>
+        <p className="px-2 pb-1 text-small font-semibold text-primary">
+          {title}
+          {subtitle && <span className="block text-xs font-medium text-tertiary">{subtitle}</span>}
+        </p>
+        {children}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full min-h-[48px] px-4 rounded-card text-small font-bold text-secondary flex items-center justify-center active:bg-card-hover transition-colors"
+        >
+          {cancel}
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 /**
- * 交替组成员的「这一台」：卡上没有重量大图，动作设置弹窗开着时把器械设置行（或缺什么的说明）portal 进弹窗的挂载点。
- * 原来这里只给一句「要在单独的卡片上设」，改器械刻度得先拆开交替组（2026-11-02 用户指出）。
- * 独立成组件是因为 hook 不能按条件调：成员换了就整个重挂。
+ * 交替组成员的「这一台」（审查 B7）：卡上没有重量大图，一个成员一份 useMachineSettings，常驻挂着——
+ *   - 卡上写明眼下用的哪一台（存过几台、有得选时才写）
+ *   - 成员面板里一排药丸，一点就切；点选中的那台＝打开动作设置、滚到「这一台」
+ *   - 动作设置开着、改的是这个成员时，把器械设置行（或缺什么的说明）portal 进弹窗
+ * 常驻也让别的卡改了同一台时这里跟着吸（同单卡，审查 B8）。独立成组件是因为 hook 不能按条件调。
  */
-const MemberMachineSettings: React.FC<{
+const MemberRig: React.FC<{
   member: Exercise;
+  abbr: string;
   gym?: string;
   signed: boolean;
-  unit: string;
   isCn: boolean;
   activeMetrics: string[];
-  el: HTMLElement;
+  /** 成员面板开着、开的是这个成员：药丸排的挂载点 */
+  chipSlot: HTMLElement | null;
+  /** 动作设置开着、改的是这个成员：「这一台」的挂载点 */
+  settingsEl: HTMLElement | null;
+  onOpenPanel: () => void;
+  onOpenSettings: () => void;
   onSets: (sets: SetLog[]) => void;
-}> = ({ member, gym, signed, unit, isCn, activeMetrics, el, onSets }) => {
+}> = ({ member, abbr, gym, signed, isCn, activeMetrics, chipSlot, settingsEl, onOpenPanel, onOpenSettings, onSets }) => {
   const ms = useMachineSettings(member, gym, signed, onSets);
   const hasWeight = activeMetrics.includes('weight');
   const hasSet = member.sets.length > 0;
-  const ctl = hasWeight && hasSet ? ms.machineCtl(el) : undefined;
-  return createPortal(
-    ctl && ms.rounder ? (
-      <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
-        <MachineFace kind={ms.loadKind} unit={unit === 'lbs' ? 'lbs' : 'kg'} isCn={isCn} rounder={ms.rounder} machine={ctl} />
-      </div>
-    ) : (
-      <MachineMissingNote isCn={isCn} hasWeight={hasWeight} gym={gym} hasSet={hasSet} loadKind={ms.loadKind} />
-    ),
-    el,
+  const ctl = hasWeight && hasSet ? ms.machineCtl(settingsEl, onOpenSettings) : undefined;
+  const rigs = ctl?.rigs;
+  const sel = rigs?.list.find(r => r.id === rigs.sel);
+  // 只有默认（和那枚另一种单位的候选）时没得选，不占卡面
+  const choice = !!rigs && rigs.list.some(r => r.id !== '' && r.id !== ALT_RIG);
+  return (
+    <>
+      {choice && sel && (
+        <button type="button" onClick={onOpenPanel} className="marginalia text-label text-tertiary whitespace-nowrap" data-testid="alt-member-rig">
+          {abbr} · {rigLabel(sel, ms.loadKind, isCn)}
+        </button>
+      )}
+      {chipSlot && rigs && createPortal(
+        <RigChips kind={ms.loadKind} isCn={isCn} list={rigs.list} sel={rigs.sel} onPick={rigs.onPick} onEdit={onOpenSettings} />,
+        chipSlot,
+      )}
+      {settingsEl && createPortal(
+        ctl && ms.rounder ? (
+          <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
+            <MachineFace kind={ms.loadKind} unit={ms.rounder.display} isCn={isCn} rounder={ms.rounder} machine={ctl} />
+          </div>
+        ) : (
+          <MachineMissingNote isCn={isCn} hasWeight={hasWeight} gym={gym} hasSet={hasSet} loadKind={ms.loadKind} />
+        ),
+        settingsEl,
+      )}
+    </>
   );
 };
 
 /** 交替组组行的首列宽（简称叠在组号上方） */
 const ALT_FIRST_COL = 44;
 
-export const AlternatingCard: React.FC<Props> = ({
+/** 包了 memo（审查 F4，同 ExerciseCard）：回调要身份稳定；isSigned / lastSessionFor / prPoolFor 渲染时就调，必须传它们本身 */
+export const AlternatingCard = React.memo(function AlternatingCard({
   cardKey,
   cardNo,
   members,
@@ -176,8 +213,10 @@ export const AlternatingCard: React.FC<Props> = ({
   onUpdateMemberSets,
   onOpenTimePicker,
   gym,
+  lastSessionFor,
+  prPoolFor,
   dragHandle,
-}) => {
+}: Props) {
   const isCn = lang === Language.CN;
   const rounderFor = useLoadRounder();
   const { variantLabel } = useExercisePrefs();
@@ -198,7 +237,10 @@ export const AlternatingCard: React.FC<Props> = ({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  useBackClose(menuOpen, () => setMenuOpen(false));
   const [memberFor, setMemberFor] = useState<string | null>(null);
+  // 成员面板里药丸排的挂载点（MemberRig portal 进来）
+  const [chipSlot, setChipSlot] = useState<HTMLElement | null>(null);
   const [badgeFor, setBadgeFor] = useState<RowRef | null>(null);
   const [variantFor, setVariantFor] = useState<string | null>(null);
 
@@ -221,6 +263,32 @@ export const AlternatingCard: React.FC<Props> = ({
   const planned = rows.filter(r => setOf(r)).length;
   const volume = members.reduce((n, ex) => n + ex.sets.reduce((v, s) => (s.ghost ? v : v + setVolumeKg(s, ex)), 0), 0);
   const volText = formatVolume(volume, unit);
+
+  /**
+   * 每个成员破了纪录的那一组（同单卡 prSetIndex，一个动作至多一组）。交替着做不该看不到 PB（审查 A7）
+   */
+  const prSetId = useMemo(() => {
+    const out = new Map<string, string>();
+    if (prPoolFor) {
+      for (const m of members) {
+        const at = prSetIndex(m, prPoolFor(m));
+        if (at >= 0 && m.sets[at]) out.set(m.id, String(m.sets[at].id));
+      }
+    }
+    return out;
+  }, [members, prPoolFor]);
+  /** 成员的组行按什么单位写：器械有自己的单位就按它（D1，同单卡），否则顶栏 */
+  const unitOf = (m: Exercise): 'kg' | 'lbs' => rounderFor(m, gym)?.display ?? (unit === 'lbs' ? 'lbs' : 'kg');
+  /** 成员上次那一场：「上次 10/4 · 60×8、60×8 kg」（递减档不展开，详情在单卡和历史里）；单位同这个成员的组行 */
+  const lastLineOf = (m: Exercise): string | null => {
+    const last = lastSessionFor?.(m);
+    if (!last) return null;
+    const d = new Date(last.date);
+    const signed = isSigned(m);
+    const u = unitOf(m);
+    const sets = last.sets.map(s => `${formatLoad(signedKg(s, m), u, signed, isCn)}×${Number(s.reps) || 0}`).join(isCn ? '、' : ', ');
+    return `${isCn ? '上次' : 'Last'} ${d.getMonth() + 1}/${d.getDate()} · ${sets} ${u === 'lbs' ? 'lb' : 'kg'}`;
+  };
 
   const counter = new Map<string, number>();
   const notes = members.filter(m => exerciseNotes[resolveName(m.name)] || gymNoteOf(m));
@@ -247,11 +315,13 @@ export const AlternatingCard: React.FC<Props> = ({
             {members.map((m, i) => (
               <React.Fragment key={m.id}>
                 {i > 0 && <span className="text-tertiary font-sans font-medium mx-1">⇄</span>}
+                {/* data-reorder-ok：按满也能拖排序（短按照常开成员面板，见 useCardReorder 文件头） */}
                 <button
                   type="button"
                   onClick={() => setMemberFor(m.id)}
                   className="marginalia"
                   data-testid="alt-member"
+                  data-reorder-ok
                 >
                   {names[i]}
                   {variantLabel(m) && <span className="text-accent text-label font-sans font-medium ml-1">{variantLabel(m)}</span>}
@@ -331,6 +401,28 @@ export const AlternatingCard: React.FC<Props> = ({
             {isCn ? '组' : ` ${plural(done < planned ? planned : done, 'set')}`} · {volText}
           </span>
         </div>
+        {/* 各成员眼下用的哪一台（有得选时才写，见 MemberRig）；点开成员面板切 */}
+        <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 empty:hidden">
+          {members.map((m, i) => (
+            <MemberRig
+              key={m.id}
+              member={m}
+              abbr={abbrs[i]}
+              gym={gym}
+              signed={isSigned(m)}
+              isCn={isCn}
+              activeMetrics={getActiveMetrics(names[i])}
+              chipSlot={memberFor === m.id ? chipSlot : null}
+              settingsEl={settingsFor?.exId === m.id ? settingsFor.el : null}
+              onOpenPanel={() => setMemberFor(m.id)}
+              onOpenSettings={() => {
+                setMemberFor(null);
+                onOpenMetricModal(names[i], m.id, 'gym');
+              }}
+              onSets={sets => onUpdateMemberSets(m.id, sets)}
+            />
+          ))}
+        </div>
       </div>
 
       {notes.map(m => (
@@ -351,8 +443,8 @@ export const AlternatingCard: React.FC<Props> = ({
       <div className="grid items-center px-3 pt-2.5 pb-1 text-micro font-medium text-tertiary" style={{ gridTemplateColumns: cols }}>
         <span>#</span>
         {headMetrics.map(m => {
-          // 列名让出单位宽，落在数字正上方（同 ExerciseCard 表头）
-          const u = metricUnitLabel(m, unit, isCn);
+          // 列名让出单位宽，落在数字正上方（同 ExerciseCard 表头）；单位按第一个成员（同表头的记录项）
+          const u = metricUnitLabel(m, members[0] ? unitOf(members[0]) : unit, isCn);
           return (
             <span
               key={m}
@@ -394,8 +486,9 @@ export const AlternatingCard: React.FC<Props> = ({
                   onClick: () => setBadgeFor(r),
                 }}
                 selected={selectedSetId === r.setId}
+                isPR={prSetId.get(r.exId) === r.setId}
                 onNumTap={() => onNumTap(r)}
-                signed={isSigned(ex) ? { sign: () => (getLoadMode(ex) === 'assisted' ? -1 : 1) } : undefined}
+                signed={isSigned(ex) ? { sign: s => carrySign(ex, s) } : undefined}
                 loadKind={loadKindOf(ex, isSigned(ex))}
                 rounder={rounderFor(ex, gym)}
                 onUpdate={u => onSetUpdate(r, u)}
@@ -435,6 +528,13 @@ export const AlternatingCard: React.FC<Props> = ({
           cancel={isCn ? '取消' : 'Cancel'}
           testId="alt-member-panel"
         >
+          {lastLineOf(memberEx) && (
+            <p className="px-2 pb-1 font-mono text-label text-secondary tabular-nums break-words" data-testid="alt-member-last">
+              {lastLineOf(memberEx)}
+            </p>
+          )}
+          {/* 这个成员用哪一台：一点就切（MemberRig portal 进来；没得设的动作这里是空的） */}
+          <div ref={setChipSlot} className="empty:hidden" />
           <div className="flex gap-2">
             <button
               type="button"
@@ -499,15 +599,16 @@ export const AlternatingCard: React.FC<Props> = ({
             <LogOut size={16} className="text-accent" />
             {isCn ? '移出交替' : 'Take out of the group'}
           </button>
+          {/* 墨色，同单卡的删除菜单项：危险不靠颜色（§6.6），删了用顶栏撤销 */}
           <button
             type="button"
             onClick={() => {
               setMemberFor(null);
               onDeleteMember(memberFor);
             }}
-            className="w-full min-h-[48px] px-4 rounded-card bg-danger/10 text-small font-bold text-danger flex items-center gap-2.5 active:bg-danger/20 transition-colors"
+            className={panelBtn}
           >
-            <Trash2 size={16} />
+            <Trash2 size={16} className="text-accent" />
             {isCn ? '从本场删除' : 'Remove from this workout'}
           </button>
         </Panel>
@@ -537,19 +638,6 @@ export const AlternatingCard: React.FC<Props> = ({
         </Panel>
       )}
 
-      {settingsFor?.el && byId.get(settingsFor.exId) && (
-        <MemberMachineSettings
-          member={byId.get(settingsFor.exId)!}
-          gym={gym}
-          signed={isSigned(byId.get(settingsFor.exId)!)}
-          unit={unit}
-          isCn={isCn}
-          activeMetrics={getActiveMetrics(resolveName(byId.get(settingsFor.exId)!.name))}
-          el={settingsFor.el}
-          onSets={sets => onUpdateMemberSets(settingsFor.exId, sets)}
-        />
-      )}
-
       {variantFor && byId.get(variantFor) && (
         <VariantModal
           open
@@ -562,4 +650,4 @@ export const AlternatingCard: React.FC<Props> = ({
       )}
     </div>
   );
-};
+});

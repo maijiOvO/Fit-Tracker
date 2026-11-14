@@ -29,6 +29,7 @@ import React, {
 
 import { Exercise, ExerciseDefinition, Goal, Language, type WorkoutSession } from './types';
 import type { GymProfile } from './src/utils/loadable';
+import type { LastHit } from './src/utils/prefillSource';
 import { translations } from './translations';
 import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
@@ -44,6 +45,7 @@ import {
 import { attrsPatch, regionsPatch, type Resistance } from './src/utils/exerciseAttrs';
 import { applySetUpdate, normalizeGroups } from './src/utils/workbench';
 import { listGyms } from './src/utils/gyms';
+import { sessionsBefore } from './src/utils/sessionDate';
 import { mergeOverride } from './src/utils/exerciseOverride';
 import { usesSignedLoad } from './src/utils/load';
 import { prSetsOf } from './src/utils/prRecords';
@@ -53,9 +55,9 @@ import TabNavigation from './src/components/TabNavigation';
 import { bodyPartTagFor } from './src/components/BodyPartPicker';
 import { NewWorkoutTab } from './src/components/NewWorkoutTab';
 import { DateTimePicker } from './src/components/DateTimePicker';
-import { ExerciseAttrsModal } from './src/components/ExerciseAttrsModal';
 import type { PlanPickerHost } from './src/components/ScheduleEditorModal';
 import { AppHeader } from './src/components/AppHeader';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { useUndoGestures } from './src/hooks/useUndoGestures';
 import { useGlobalUndoHost } from './src/hooks/useGlobalUndo';
 import {
@@ -68,7 +70,6 @@ import {
   MeasurementModal,
   MetricSettingsModal,
   NoteModal,
-  RenameModal,
   ResetAccountModal,
   WeightInputModal,
 } from './src/components/modals';
@@ -77,14 +78,14 @@ import { appPrefsNow, gymSavePatch, keyedPatch, rigPickPatch } from './services/
 import type { NewExerciseRig } from './src/components/modals/AddCustomExerciseModal';
 
 import {
-  AuthProvider,
+  AvatarProvider,
   ExercisePrefsProvider,
   GoalsProvider,
   ScheduleProvider,
   UiOverlayProvider,
   UserSettingsProvider,
   WorkoutProvider,
-  useAuthContext,
+  useAvatar,
   useExercisePrefs,
   useScheduleContext,
   useUiOverlay,
@@ -146,10 +147,9 @@ const AppWithAuth: React.FC = () => {
 };
 
 const AppWithAuthShell: React.FC = () => {
-  const resolvedUserId = FITLOG_SOLO_USER_ID;
   const { toast } = useUiOverlay();
 
-  const authCtx = useAuthContext();
+  const { avatarUrl, setAvatarUrl } = useAvatar();
   const workoutCtx = useWorkoutContext();
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
@@ -159,8 +159,6 @@ const AppWithAuthShell: React.FC = () => {
   const isCn = lang === Language.CN;
   const unit = settingsCtx.unit;
   const measurements = settingsCtx.measurements;
-
-  const user = authCtx.user;
 
   const workouts = workoutCtx.workouts;
   const currentWorkout = workoutCtx.currentWorkout;
@@ -188,9 +186,10 @@ const AppWithAuthShell: React.FC = () => {
   });
 
   /**
-   * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）。
+   * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）；
+   * 'library'＝从「动作库与标签」建的，只进动作库（审查 Cm2：原来传空回调，弹窗副标题说成「加入计划」）。
    */
-  const createdExerciseTargetRef = useRef<((ex: ExerciseDefinition) => void) | null>(null);
+  const createdExerciseTargetRef = useRef<((ex: ExerciseDefinition) => void) | 'library' | null>(null);
 
   // ============== 训练页「添加动作」弹层 ==============
   /** 首选项「动作库与标签 ›」打开的那一个：只管动作库，一打开就是整理态 */
@@ -217,13 +216,6 @@ const AppWithAuthShell: React.FC = () => {
   const lastAddedExerciseIdRef = useRef<string | null>(null);
 
 
-  const [showRenameExerciseModal, setShowRenameExerciseModal] = useState(false);
-  const [exerciseToRename, setExerciseToRename] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [newExerciseNameInput, setNewExerciseNameInput] = useState('');
-
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   /** 新动作的器材与阻力（resistance 不写 = 跟器材默认） */
@@ -244,18 +236,9 @@ const AppWithAuthShell: React.FC = () => {
   const [showMetricModal, setShowMetricModal] = useState<{ name: string; exIdx?: number; focus?: 'gym' } | null>(null);
   /** 动作设置弹窗里「在 X 的这一台」的挂载点（卡片把这台器械的设置 portal 进去） */
   const [metricGymSlot, setMetricGymSlot] = useState<HTMLElement | null>(null);
-  // 「动作设置」里的名称 / 部位器械：库里有这个动作才能改（合并覆盖层后的定义，显示的是现在的标签）
-  const metricModalDef = useMemo(() => {
-    const def = showMetricModal?.name ? prefs.findExerciseDef(showMetricModal.name) : undefined;
-    return def ? mergeOverride(def, prefs.exerciseOverrides[def.id]) : undefined;
-  }, [showMetricModal?.name, prefs]);
   const [noteModalData, setNoteModalData] = useState<NoteModalData | null>(null);
 
-  // ============== 编辑动作标签 / 单组时长 / 单条动作时间 弹窗 ==============
-  const [editExerciseTagsTarget, setEditExerciseTagsTarget] =
-    useState<ExerciseDefinition | null>(null);
-  /** 从动作设置的「部位 ›」进来：只改类型 / 部位 / 细分（器材、阻力在动作设置里就地改） */
-  const [editTagsPartOnly, setEditTagsPartOnly] = useState(false);
+  // ============== 单组时长 / 单条动作时间 弹窗 ==============
   const [showTimePicker, setShowTimePicker] = useState<{
     exIdx: number;
     setIdx: number;
@@ -283,7 +266,7 @@ const AppWithAuthShell: React.FC = () => {
 
   // ============== 业务 hooks ==============
   const { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData } =
-    useFitlogSync(resolvedUserId);
+    useFitlogSync();
   /** 导出 / 导入在忙：自己一个状态，不再借同步的（原来导出时首选项那一行会显示「同步中」，审查 B12） */
   const [dataBusy, setDataBusy] = useState<'idle' | 'syncing' | 'error'>('idle');
 
@@ -295,6 +278,8 @@ const AppWithAuthShell: React.FC = () => {
     colophon,
     dismissColophon,
     handleFinishWithConfirmation,
+    changeWorkoutDate,
+    handleDiscardWorkout,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,
@@ -419,12 +404,8 @@ const AppWithAuthShell: React.FC = () => {
       if (refreshedPrefs.lang) settingsCtx.setLang(refreshedPrefs.lang as Language);
       if (refreshedPrefs.unit) settingsCtx.setUnit(refreshedPrefs.unit);
       settingsCtx.reloadAppPrefs();
-      authCtx.setUser(
-        authCtx.user
-          ? { ...authCtx.user, avatarUrl: refreshedPrefs.avatarDataUrl ?? undefined }
-          : authCtx.user,
-      );
-      await loadLocalData(resolvedUserId);
+      setAvatarUrl(refreshedPrefs.avatarDataUrl ?? undefined);
+      await loadLocalData();
       toast(
         isCn
           ? (next ? '已切换到开发环境（state-dev）' : '已切换到用户环境（state）')
@@ -435,7 +416,7 @@ const AppWithAuthShell: React.FC = () => {
       // switchDataEnv 已回滚到原环境，UI 状态保持不变即可
       console.error('[fitlog] 切换数据环境失败:', e);
       setDevModeState(isDevMode());
-      await loadLocalData(resolvedUserId);
+      await loadLocalData();
       toast(
         isCn
           ? '切换失败，已回到原环境'
@@ -445,7 +426,7 @@ const AppWithAuthShell: React.FC = () => {
     } finally {
       setSyncStatus('idle');
     }
-  }, [devMode, envLocked, isCn, toast, loadLocalData, resolvedUserId, prefs, settingsCtx, authCtx, setSyncStatus]);
+  }, [devMode, envLocked, isCn, toast, loadLocalData, prefs, settingsCtx, setAvatarUrl, setSyncStatus]);
 
   const {
     showResetAccountModal,
@@ -576,6 +557,22 @@ const AppWithAuthShell: React.FC = () => {
     return () => window.removeEventListener('fitlog:storage-write-failed', handler);
   }, [isCn, toast]);
 
+  // 本机库（IndexedDB）写不进去：db.ts 重试过一次仍失败才发，连败只发一次；之后任意一次写成功复位。失败期间顶栏同步图标变红
+  const [localWriteFailed, setLocalWriteFailed] = useState(false);
+  useEffect(() => {
+    const failed = () => {
+      setLocalWriteFailed(true);
+      toast(isCn ? '刚才的记录没存进本机' : "Your last change wasn't saved on this device", 'error');
+    };
+    const ok = () => setLocalWriteFailed(false);
+    window.addEventListener('fitlog:db-write-failed', failed);
+    window.addEventListener('fitlog:db-write-ok', ok);
+    return () => {
+      window.removeEventListener('fitlog:db-write-failed', failed);
+      window.removeEventListener('fitlog:db-write-ok', ok);
+    };
+  }, [isCn, toast]);
+
   /** 工作台里有一场进行中的训练（不是在编辑旧训练）：FAB 变「回到训练」，首页顶上一行「进行中」 */
   const inProgress = !editingWorkoutId && !!currentWorkout.id && (currentWorkout.exercises?.length ?? 0) > 0;
 
@@ -583,6 +580,7 @@ const AppWithAuthShell: React.FC = () => {
     () => ({
       onResumeWorkout: () => setActiveTab('new'),
       onEndInProgress: () => void handleFinishWithConfirmation(),
+      onStartScheduledSession: (id: string) => void handleStartScheduledSession(id),
       onStartNewWorkout: () => {
         if (inProgress) {
           setActiveTab('new');
@@ -615,6 +613,7 @@ const AppWithAuthShell: React.FC = () => {
       handleDeleteWorkout,
       handleMergeIntoPrevious,
       handleCopyWorkoutToToday,
+      handleStartScheduledSession,
       handleDeleteExerciseRecord,
       handleDeleteWeightEntry,
       triggerEditWeight,
@@ -664,11 +663,11 @@ const AppWithAuthShell: React.FC = () => {
 
   // ============== 目标的增 / 改 ==============
   const handleAddGoal = useCallback(async () => {
-    if (!newGoal.label || !newGoal.targetValue || !user) return;
+    if (!newGoal.label || !newGoal.targetValue) return;
     const now = new Date().toISOString();
     const goal: Goal = {
       id: Date.now().toString(),
-      userId: user.id,
+      userId: FITLOG_SOLO_USER_ID,
       type: newGoal.type!,
       category: newGoal.type as string,
       title: newGoal.label!,
@@ -678,8 +677,9 @@ const AppWithAuthShell: React.FC = () => {
       unit: newGoal.type === 'weight' || newGoal.type === 'strength' ? unit : 'times/week',
       startDate: now,
       targetDate: undefined,
-      dataSource: 'manual',
-      autoUpdateRule: undefined,
+      // 力量目标绑了动作就从训练记录现算（GoalsTab），不用手抄当前值
+      dataSource: newGoal.autoUpdateRule ? 'auto' : 'manual',
+      autoUpdateRule: newGoal.autoUpdateRule,
       progressHistory: [],
       isActive: true,
       createdAt: now,
@@ -689,22 +689,22 @@ const AppWithAuthShell: React.FC = () => {
       deadline: undefined,
     };
     await db.save('goals', goal);
-    await loadLocalData(resolvedUserId);
+    await loadLocalData();
     setShowGoalModal(false);
     scheduleDebouncedFitlogPush();
-  }, [loadLocalData, newGoal, resolvedUserId, unit, user]);
+  }, [loadLocalData, newGoal, unit]);
 
   const handleSaveEditedGoal = useCallback(async () => {
-    if (!editingGoal || !user) return;
+    if (!editingGoal) return;
     const updatedGoal: Goal = {
       ...editingGoal,
       updatedAt: new Date().toISOString(),
     };
     await db.save('goals', updatedGoal);
-    await loadLocalData(resolvedUserId);
+    await loadLocalData();
     setShowEditGoalModal(false);
     scheduleDebouncedFitlogPush();
-  }, [editingGoal, loadLocalData, resolvedUserId, user]);
+  }, [editingGoal, loadLocalData]);
 
   const handleCancelEditGoal = () => {
     setEditingGoal(null);
@@ -761,29 +761,42 @@ const AppWithAuthShell: React.FC = () => {
     return currentWorkout.exercises?.[exIdx]?.sets?.[setIdx]?.duration || 0;
   })();
 
-  /** C2：这张卡的底稿抄自哪一场、那次做了哪几组（prefillFrom 原来只写不读） */
-  const lastSessionFor = useCallback(
-    (ex: { name: string; prefillFrom?: string }) => {
+  /**
+   * C2：这张卡的底稿抄自哪一场、那次做了哪几组（prefillFrom 原来只写不读）。取的是这个日期里第一场有这个动作的、
+   * 那场里第一张同名卡。按「日期 + 动作名」第一次调用时建一次索引、结果按键缓存（审查 F4：原来每张卡每次渲染都线性扫全部训练），
+   * 同一键回同一个对象，卡片的 memo 才比得住。
+   */
+  const lastSessionFor = useMemo(() => {
+    let index: Map<string, { date: string; ex: Exercise }> | null = null;
+    const hits = new Map<string, { date: string; sets: Exercise['sets'] } | null>();
+    return (ex: { name: string; prefillFrom?: string }) => {
       if (!ex.prefillFrom) return null;
-      const name = prefs.resolveName(ex.name);
-      const w = workouts.find(x => x.date === ex.prefillFrom && x.exercises?.some(e => prefs.resolveName(e.name) === name));
-      const we = w?.exercises.find(e => prefs.resolveName(e.name) === name);
-      if (!w || !we) return null;
-      return { date: w.date, sets: (we.sets ?? []).filter(s => !s.ghost) };
-    },
-    [prefs, workouts],
-  );
+      const k = `${ex.prefillFrom}\n${prefs.resolveName(ex.name)}`;
+      if (hits.has(k)) return hits.get(k)!;
+      if (!index) {
+        index = new Map();
+        for (const w of workouts)
+          for (const e of w.exercises ?? []) {
+            const wk = `${w.date}\n${prefs.resolveName(e.name)}`;
+            if (!index.has(wk)) index.set(wk, { date: w.date, ex: e });
+          }
+      }
+      const at = index.get(k);
+      const hit = at ? { date: at.date, sets: (at.ex.sets ?? []).filter(s => !s.ghost) } : null;
+      hits.set(k, hit);
+      return hit;
+    };
+  }, [workouts, prefs.resolveName]);
 
   /**
    * 「杠铃片」§1 训练中实时标 PB：每个项目（同一练法，prefs.liftKey）以前做完的每一组（带上那场的馆）。
-   * 比法在 utils/prRecords（和结束训练的 PB 牌、历史纪录点同一份）：底稿行不算、本场不算（按 id 排除）。
+   * 比法在 utils/prRecords（和结束训练的 PB 牌、历史纪录点同一份）：底稿行不算、本场不算，只看这场日期之前的（补录的场）。
    */
   const gymScopedPR = useGymScopedPR();
   const isSignedEx = useCallback((e: Exercise) => usesSignedLoad(e, prefs.signedLoadOf(e)), [prefs.signedLoadOf]);
   const prHistoryByLift = useMemo(() => {
     const out = new Map<string, { ex: Exercise; gym?: string }[]>();
-    for (const w of workouts) {
-      if (w.id === currentWorkout.id) continue;
+    for (const w of sessionsBefore(workouts, { id: currentWorkout.id, date: currentWorkout.date })) {
       for (const e of w.exercises ?? []) {
         const key = prefs.liftKey(e).trim();
         if (!out.has(key)) out.set(key, []);
@@ -792,39 +805,61 @@ const AppWithAuthShell: React.FC = () => {
     }
     return out;
     // 只依赖 liftKey：依赖整个 prefs 会让改备注 / 换杠这类无关偏好也触发全历史重算
-  }, [workouts, currentWorkout.id, prefs.liftKey]);
-  const prPoolFor = useCallback(
-    (ex: Exercise): PRPool => {
+  }, [workouts, currentWorkout.id, currentWorkout.date, prefs.liftKey]);
+  /**
+   * 摊平的历史按「项目 + 正负」、整个 pool 按它的全部输入缓存（审查 F4：原来每张卡每次渲染都把这个动作的全部历史组重摊一遍）。
+   * 依赖一变整个缓存作废；同样的输入回同一个对象，卡片里 prSetIndex 的 useMemo 才比得住。
+   */
+  const prPoolFor = useMemo(() => {
+    const histories = new Map<string, PRPool['history']>();
+    const pools = new Map<string, PRPool>();
+    return (ex: Exercise): PRPool => {
       const signed = isSignedEx(ex);
-      const past = prHistoryByLift.get(prefs.liftKey(ex).trim()) ?? [];
-      return {
-        rule: {
-          tracksWeight: prefs.getActiveMetrics(prefs.resolveName(ex.name)).includes('weight'),
-          signed,
-          machine: gymScopedPR(ex),
-        },
-        history: past.flatMap(p => prSetsOf(p.ex, p.gym, signed)),
-        gym: currentWorkout.gym,
-      };
-    },
-    [prHistoryByLift, isSignedEx, prefs.liftKey, prefs.getActiveMetrics, prefs.resolveName, gymScopedPR, currentWorkout.gym],
-  );
+      const key = prefs.liftKey(ex).trim();
+      const tracksWeight = prefs.getActiveMetrics(prefs.resolveName(ex.name)).includes('weight');
+      const machine = gymScopedPR(ex);
+      const pk = `${key}\n${signed}\n${tracksWeight}\n${machine}`;
+      const cached = pools.get(pk);
+      if (cached) return cached;
+      const hk = `${key}\n${signed}`;
+      let history = histories.get(hk);
+      if (!history) {
+        history = (prHistoryByLift.get(key) ?? []).flatMap(p => prSetsOf(p.ex, p.gym, signed));
+        histories.set(hk, history);
+      }
+      const pool: PRPool = { rule: { tracksWeight, signed, machine }, history, gym: currentWorkout.gym };
+      pools.set(pk, pool);
+      return pool;
+    };
+  }, [prHistoryByLift, isSignedEx, prefs.liftKey, prefs.getActiveMetrics, prefs.resolveName, gymScopedPR, currentWorkout.gym]);
 
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
   /** 本次打开弹层里每次点选建出的卡片 id（按「动作::做法」分组、后进先出）：再点一下＝取消这次添加 */
   const sheetPicksRef = useRef<Map<string, string[][]>>(new Map());
   const handlePickFromSheet = useCallback(
-    (ex: ExerciseDefinition, variantId?: string): boolean => {
+    (ex: ExerciseDefinition, variantId: string | undefined, altFrom: LastHit | undefined, existingId: string | null): boolean => {
       const key = variantId ? `${ex.id}::${variantId}` : ex.id;
       const stack = sheetPicksRef.current.get(key) ?? [];
       const prev = stack.pop();
-      if (prev) {
+      // C12：本场打开弹层前就有的（行上 ×N）再点＝关弹层、跳到那张卡并闪一下，不再加一张。
+      // 这次打开里刚加的仍走下面的「取消」；搭配（altFrom）要带搭档进来、交替组「加一个动作」要往组里加，这两种照常加
+      // 这次打开里建出的卡（连带进来的搭档、刚新建的自建动作）不算「原来就有」：跳过去会被 NewWorkoutTab 改落到这批最前那张，照常加
+      const madeHere = (id: string) => id === lastAddedExerciseIdRef.current || [...sheetPicksRef.current.values()].some(s => s.some(ids => ids.includes(id)));
+      if (!prev && !altFrom && existingId && !pickerTargetGroup && !madeHere(existingId)) {
+        // 同关弹层那条路（handlePickerSheetOpenChange）：打开前就有的卡在 NewWorkoutTab 的快照里，不改落点
+        lastAddedExerciseIdRef.current = null;
+        setFlashExerciseId(existingId);
+        setPickerSheetOpen(false);
+        return false;
+      }
+      // 点的是行下面的某种搭配：不是取消，把刚加的换成这一种（addExerciseToWorkout 的 replaceIds）
+      if (prev && !altFrom) {
         // B2（2026-10-11）：本次打开里加过的再点一下＝取消（原来是再加一份、没撤销）；真要两份，卡上「添加组」
         const ids = new Set(prev);
         setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups((w.exercises ?? []).filter(e => !ids.has(e.id))) }));
         sheetPicksRef.current.set(key, stack);
         setSheetSessionAdded(n => Math.max(0, n - 1));
-        if (lastAddedExerciseIdRef.current && ids.has(lastAddedExerciseIdRef.current)) lastAddedExerciseIdRef.current = null;
+        // 取消的正是最后加的那张也不清：关弹层时 NewWorkoutTab 落到这批里排在最前、还在的那张（审查 G7）
         return false;
       }
       let created: string[] = [];
@@ -832,14 +867,16 @@ const AppWithAuthShell: React.FC = () => {
       const newId = addExerciseToWorkout(ex, {
         altGroup: pickerTargetGroup,
         variantId,
+        altFrom,
+        replaceIds: prev,
         onCreated: (ids, partners) => {
           created = ids;
           partnerNames = partners;
         },
       });
       lastAddedExerciseIdRef.current = newId;
-      if (partnerNames.length) {
-        // 上次是交替做的：搭档连带进来了，说一声，附「只要这个」把刚建出来的搭档卡删掉（都是全底稿，不走撤销条）
+      if (partnerNames.length && !altFrom) {
+        // 上次是交替做的：搭档连带进来了，说一声，附「只要这个」把刚建出来的搭档卡删掉（都是全底稿，不走撤销条）；自己点的搭配不用说
         const partnerIds = new Set(created.filter(id => id !== newId));
         toast(
           isCn ? `已连带加入 ${partnerNames.join('、')}（上次交替做的）` : `Also added ${partnerNames.join(', ')} (alternated last time)`,
@@ -854,7 +891,7 @@ const AppWithAuthShell: React.FC = () => {
       if (created.length) {
         stack.push(created);
         sheetPicksRef.current.set(key, stack);
-        setSheetSessionAdded(n => n + 1);
+        if (!prev) setSheetSessionAdded(n => n + 1);
       }
       return true;
     },
@@ -870,7 +907,7 @@ const AppWithAuthShell: React.FC = () => {
       sheetPicksRef.current = new Map();
       lastAddedExerciseIdRef.current = null;
     } else if (lastAddedExerciseIdRef.current) {
-      // 关闭后滚动定位到最新添加的动作卡
+      // 关闭后滚动定位：这次加了几张时落在排在最前的那张（NewWorkoutTab 按弹层打开时的快照认）
       setFlashExerciseId(lastAddedExerciseIdRef.current);
       lastAddedExerciseIdRef.current = null;
     }
@@ -905,6 +942,7 @@ const AppWithAuthShell: React.FC = () => {
   const deliverCreatedExercise = (ex: ExerciseDefinition) => {
     const target = createdExerciseTargetRef.current;
     createdExerciseTargetRef.current = null;
+    if (target === 'library') return;
     if (target) {
       target(ex);
       return;
@@ -916,14 +954,18 @@ const AppWithAuthShell: React.FC = () => {
     }
   };
 
-  /** preset：弹层眼下停的部位 / 有氧栏，新动作照它预填（审查 A16：原来一律清空成力量、无部位） */
+  /** preset：弹层眼下停的部位 / 细分 / 有氧栏、只筛了一样的器材，新动作照它预填（审查 A16 / C5：原来一律清空成力量、无部位） */
   const openCreateCustomExerciseModal = useCallback(
-    (prefilledName?: string, onCreated?: (ex: ExerciseDefinition) => void, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => {
+    (
+      prefilledName?: string,
+      onCreated?: ((ex: ExerciseDefinition) => void) | 'library',
+      preset?: { bodyPart?: string; category?: string; regions?: string[]; equipment?: string },
+    ) => {
       createdExerciseTargetRef.current = onCreated ?? null;
       setNewExerciseName(prefilledName?.trim() || '');
       setNewExerciseBodyPart(preset?.bodyPart ?? '');
-      setNewExerciseEquip({ equipment: '' });
-      // 细分：从选动作弹层某一列的「在这一列新建动作」进来时带上那一列（new-ex-no-part-prefill）
+      setNewExerciseEquip({ equipment: preset?.equipment ?? '' });
+      // 细分：竖栏正停在哪个细分组就带上那一组（new-ex-no-part-prefill）
       setNewExerciseRegions(preset?.regions ?? []);
       const cat = preset?.category;
       setNewExerciseCategory(cat === 'CARDIO' || cat === 'FREE' || cat === 'OTHER' ? cat : 'STRENGTH');
@@ -1000,26 +1042,6 @@ const AppWithAuthShell: React.FC = () => {
         }}
       />
 
-      <RenameModal
-        open={showRenameExerciseModal}
-        lang={lang}
-        title={isCn ? '重命名动作' : 'Rename Exercise'}
-        placeholder={exerciseToRename?.name}
-        value={newExerciseNameInput}
-        setValue={setNewExerciseNameInput}
-        onClose={() => setShowRenameExerciseModal(false)}
-        onConfirm={() => {
-          if (!exerciseToRename || !newExerciseNameInput) return;
-          // 重名会被拒（toast 说明），弹窗留着让人改
-          if (!prefs.renameExercise(exerciseToRename.id, newExerciseNameInput)) return;
-          // 从「动作设置」里改的：设置弹窗还开着，标题换成新名（旧名照样解析得到，这里只是显示）
-          if (showMetricModal) setShowMetricModal({ ...showMetricModal, name: newExerciseNameInput.trim() });
-          setShowRenameExerciseModal(false);
-          setExerciseToRename(null);
-          setNewExerciseNameInput('');
-        }}
-      />
-
       <AddCustomExerciseModal
         open={showAddExerciseModal}
         lang={lang}
@@ -1033,7 +1055,7 @@ const AppWithAuthShell: React.FC = () => {
         setNewExerciseEquip={setNewExerciseEquip}
         newExerciseRegions={newExerciseRegions}
         setNewExerciseRegions={setNewExerciseRegions}
-        addsTo={createdExerciseTargetRef.current ? 'plan' : 'workout'}
+        addsTo={createdExerciseTargetRef.current === 'library' ? 'library' : createdExerciseTargetRef.current ? 'plan' : 'workout'}
         gym={createdExerciseTargetRef.current ? undefined : currentWorkout.gym}
         newExerciseRig={newExerciseRig}
         setNewExerciseRig={setNewExerciseRig}
@@ -1112,22 +1134,6 @@ const AppWithAuthShell: React.FC = () => {
         }}
       />
 
-      <ExerciseAttrsModal
-        open={!!editExerciseTagsTarget}
-        exercise={editExerciseTagsTarget}
-        lang={lang}
-        rows={editTagsPartOnly ? ['category', 'part', 'region'] : undefined}
-        onClose={() => {
-          setEditExerciseTagsTarget(null);
-          setEditTagsPartOnly(false);
-        }}
-        onSave={(exerciseId, v) => {
-          prefs.saveExerciseAttrs(exerciseId, v);
-          setEditExerciseTagsTarget(null);
-          setEditTagsPartOnly(false);
-        }}
-      />
-
       <AddGoalModal
         open={showGoalModal}
         lang={lang}
@@ -1150,9 +1156,10 @@ const AppWithAuthShell: React.FC = () => {
         <AppHeader
           lang={lang}
           unit={unit}
-          syncStatus={syncStatus}
-          syncDisabled={syncStatus === 'syncing' || !user || !isRemoteConfigured()}
-          onSync={() => user && performFullSync()}
+          syncStatus={localWriteFailed ? 'error' : syncStatus}
+          pushState={pushState}
+          syncDisabled={syncStatus === 'syncing'}
+          onSync={() => performFullSync()}
           onToggleUnit={handleUnitToggle}
         />
       )}
@@ -1165,6 +1172,8 @@ const AppWithAuthShell: React.FC = () => {
             : { paddingBottom: 'calc(7rem + env(safe-area-inset-bottom))' }
         }
       >
+        {/* 每个 Tab 一层兜底（以 activeTab 为 key，换页即重置）：一页渲染出错，底栏还在，能回首页结束 / 放弃那一场 */}
+        <ErrorBoundary key={activeTab} onHome={activeTab === 'dashboard' ? undefined : () => setActiveTab('dashboard')}>
         {activeTab === 'dashboard' && (
           <Suspense fallback={<TabSuspenseFallback />}>
             <Dashboard
@@ -1191,6 +1200,7 @@ const AppWithAuthShell: React.FC = () => {
             getActiveMetrics={prefs.getActiveMetrics}
             onBack={handleNewWorkoutBack}
             onSave={() => void handleFinishWithConfirmation(false)}
+            onDiscard={() => void handleDiscardWorkout()}
             onToggleUnit={handleUnitToggle}
             pickerOpen={pickerSheetOpen}
             onPickerOpenChange={handlePickerSheetOpenChange}
@@ -1282,7 +1292,7 @@ const AppWithAuthShell: React.FC = () => {
         {activeTab === 'profile' && (
           <Suspense fallback={<TabSuspenseFallback />}>
             <ProfileTab
-              user={user}
+              avatarUrl={avatarUrl}
               workouts={workouts}
               measurements={measurements}
               lang={lang}
@@ -1305,13 +1315,14 @@ const AppWithAuthShell: React.FC = () => {
               lastSyncedAt={lastSyncedAt}
               pushState={pushState}
               dataBusy={dataBusy === 'syncing'}
-              onSync={syncStatus === 'syncing' || !user || !isRemoteConfigured() ? undefined : () => void performFullSync()}
+              onSync={syncStatus === 'syncing' || !isRemoteConfigured() ? undefined : () => void performFullSync()}
               onExportData={handleExportData}
               onImportData={handleImportData}
               onOpenLibrary={() => setLibrarySheetOpen(true)}
             />
           </Suspense>
         )}
+        </ErrorBoundary>
       </main>
 
       {libraryMounted && createPortal(
@@ -1323,7 +1334,7 @@ const AppWithAuthShell: React.FC = () => {
             addedCounts={NO_ADDED_COUNTS}
             sessionAdded={0}
             onPickExercise={() => false}
-            onCreateCustomExercise={(name, preset) => planPickerHost.onCreateCustomExercise(name, () => {}, preset)}
+            onCreateCustomExercise={(name, preset) => openCreateCustomExerciseModal(name, 'library', preset)}
             onDeleteExercise={planPickerHost.onDeleteExercise}
             onOpenNote={planPickerHost.onOpenNote}
             onOpenMetrics={planPickerHost.onOpenMetrics}
@@ -1369,24 +1380,8 @@ const AppWithAuthShell: React.FC = () => {
         }
         gymSlotRef={setMetricGymSlot}
         focusGym={showMetricModal?.focus === 'gym'}
-        onRename={
-          metricModalDef
-            ? () => {
-                const name = prefs.resolveName(showMetricModal!.name);
-                setExerciseToRename({ id: metricModalDef.id, name });
-                setNewExerciseNameInput(name);
-                setShowRenameExerciseModal(true);
-              }
-            : undefined
-        }
-        onEditPart={
-          metricModalDef
-            ? () => {
-                setEditTagsPartOnly(true);
-                setEditExerciseTagsTarget(metricModalDef);
-              }
-            : undefined
-        }
+        // 设置弹窗里改了名：标题换成新名（旧名照样解析得到，这里只是显示）
+        onRenamed={name => setShowMetricModal(m => (m ? { ...m, name } : m))}
       />
 
       <DurationPickerModal
@@ -1426,11 +1421,7 @@ const AppWithAuthShell: React.FC = () => {
         lang={lang}
         initialDate={currentWorkout.date ? new Date(currentWorkout.date) : new Date()}
         onClose={() => setShowWorkoutDatePicker(false)}
-        onConfirm={(date) => {
-          setCurrentWorkout({ ...currentWorkout, date: date.toISOString() });
-          workoutCtx.persistCurrentWorkout();
-          setShowWorkoutDatePicker(false);
-        }}
+        onConfirm={changeWorkoutDate}
       />
 
       {/* ============== 场地选择器（§12.11）============== */}
@@ -1526,7 +1517,7 @@ const AppWithAuthShell: React.FC = () => {
         }}
       />
 
-      {user && activeTab !== 'new' && (
+      {activeTab !== 'new' && (
         <TabNavigation
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -1582,7 +1573,7 @@ const AppWithAuthShell: React.FC = () => {
         unitLabel={colophon?.unitLabel ?? 'kg'}
         stamps={colophon?.stamps ?? []}
         extraCount={colophon?.extraCount ?? 0}
-        droppedCount={colophon?.droppedCount ?? 0}
+        vsLast={colophon?.vsLast ?? []}
         onDone={dismissColophon}
       />
     </div>
@@ -1597,17 +1588,17 @@ const ThemeRoot: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const AppWithProviders: React.FC = () => (
   <ThemeRoot>
-    <AuthProvider>
-      <UserSettingsProvider userId={FITLOG_SOLO_USER_ID}>
-        <WorkoutProvider userId={FITLOG_SOLO_USER_ID}>
-          <GoalsProvider userId={FITLOG_SOLO_USER_ID}>
-            <ScheduleProvider userId={FITLOG_SOLO_USER_ID}>
+    <AvatarProvider>
+      <UserSettingsProvider>
+        <WorkoutProvider>
+          <GoalsProvider>
+            <ScheduleProvider>
               <AppWithAuth />
             </ScheduleProvider>
           </GoalsProvider>
         </WorkoutProvider>
       </UserSettingsProvider>
-    </AuthProvider>
+    </AvatarProvider>
   </ThemeRoot>
 );
 

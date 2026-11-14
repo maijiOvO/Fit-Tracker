@@ -6,29 +6,32 @@
  * 删除动作只保留一处——刊头右侧的 ⋯ 溢出菜单（§6.6：列表里的删除入口
  * 一律降级为菜单内的墨色文字项，不靠颜色区分危险）。
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Shuffle, Repeat } from 'lucide-react';
+import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Shuffle, Repeat, History } from 'lucide-react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
-import { SetCapsule, formatWeight, weightScrubFor } from './SetCapsule';
+import { SetCapsule, weightScrubFor } from './SetCapsule';
+import { formatLoad, markTouched, shownWeight, weightFromShown } from '../utils/setWrite';
 import { useValueScrub } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
 import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
-import { setVolumeKg, signedKg } from '../utils/load';
+import { loadCapD, setVolumeKg, signedKg } from '../utils/load';
 import { haptic, H } from '../utils/haptics';
 import { formatVolume, plural } from '../utils/format';
-import { KG_TO_LBS } from '../constants';
 import { LoadHero, MachineMissingNote } from './PlateGlyph';
 import { useMachineSettings } from '../hooks/useMachineSettings';
-import { plateUnitOf } from '../utils/plates';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
 import { tick } from '../utils/tick';
+import { heroFocus } from '../utils/scrubFeel';
+import { carrySign } from '../utils/workbench';
+import { useBackClose } from '../hooks/useBackClose';
+import { ExerciseHistorySheet } from './LiftDetailSheet';
 
 
 /** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法 + 今天的馆 */
@@ -41,9 +44,9 @@ export interface PRPool {
 /**
  * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。和结束训练的 PB 牌、历史纪录点同一份口径（utils/prRecords）：
  * 最大重量 / 估算 1RM / 次数纪录 / 单组容量，挑最硬的那一种；历史为空不算；器械只比同一个馆。
- * 一张卡至多标一行：破了那项纪录的那一组。
+ * 一张卡至多标一行：破了那项纪录的那一组。交替卡每个成员也按它判。
  */
-function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
+export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
   if (!pool) return -1;
   const top = findRecords(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.gym)[0];
   return top?.at ?? -1;
@@ -60,6 +63,7 @@ interface ExerciseCardProps {
   exercise: Exercise;
   exIdx: number;
   lang: Language;
+  /** 顶栏的显示单位；器械有自己的单位时整张卡按器械的（rounder.display，D1） */
   unit: string;
   exerciseNotes: Record<string, string>;
   getActiveMetrics: (name: string) => string[];
@@ -102,7 +106,7 @@ interface ExerciseCardProps {
   cardNo?: number;
   /** 训练中标 PB（编辑旧训练不传） */
   prPool?: PRPool | null;
-  /** ⋯ 菜单：和下一个动作交替做（没有下一个时不传） */
+  /** ⋯ 菜单：和…交替做（场上两张时直接和下一张；更多时由调用方弹选卡面板）。不传则没有这一项 */
   onAlternateWithNext?: () => void;
   /** ⋯ 菜单：加入上面的交替组（上一张不是交替组时不传） */
   onJoinGroupAbove?: () => void;
@@ -117,11 +121,15 @@ interface ExerciseCardProps {
   };
 }
 
-export const ExerciseCard: React.FC<ExerciseCardProps> = ({
+/**
+ * 包了 memo（审查 F4）：录一组 / 拖一档只重渲染被改的那张卡。所以 props 里的回调要身份稳定（NewWorkoutTab.cardFn），
+ * 渲染时就要调用的函数（getActiveMetrics、resolveName）必须是它们本身，不能套一层转发，否则它们变了卡不会跟着重画。
+ */
+export const ExerciseCard = React.memo(function ExerciseCard({
   exercise,
   exIdx,
   lang,
-  unit,
+  unit: shownUnit,
   exerciseNotes,
   getActiveMetrics,
   resolveName,
@@ -149,7 +157,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onJoinGroupAbove,
   gym,
   dragHandle,
-}) => {
+}: ExerciseCardProps) {
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
   const { variantsOf, variantLabel, findExerciseDef, barOf, setBar } = useExercisePrefs();
@@ -162,40 +170,37 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   // 「杠铃片」§3：这个动作怎么画、怎么拖、这一台怎么设（hooks/useMachineSettings）
   const ms = useMachineSettings(exercise, gym, signed, sets => onUpdateExercise(exIdx, { sets }));
   const { loadKind, gymKey, rounder } = ms;
+  // 这张卡按什么单位写：组行、大图、上次、容量都用它（lb 器械在 kg 显示下整卡写 lb，见 useLoadRounder.cardUnitOf）
+  const unit = rounder ? rounder.display : shownUnit;
   // 两层备注（design-plates.md「换馆重量」B）：通用（按动作名）+ 本馆（馆|动作|做法），本馆的在前
   const { appPrefs } = useUserSettingsContext();
   const gymNote = gymKey ? appPrefs.gymNotes[gymKey] : undefined;
   const hasNote = !!exerciseNotes[exerciseName] || !!gymNote;
-  const prIdx = prSetIndex(exercise, prPool);
+  const prIdx = useMemo(() => prSetIndex(exercise, prPool), [exercise, prPool]);
   /**
    * 顶部器材大图每张卡都画（2026-10-18 审查后用户定：只画选中那张时，做完一个动作大图跳到下一张卡，
    * 页面一跳容易点错组）。画哪一组：选中的组在这张卡上就画它，否则画这张卡下一组待做的，都做完了画最后一组。
+   * 拖动 / 「改成能挂的」只写待做的或选中的组（heroLive）：全做完又没选中的卡，图照画、不接手势（2026-11-13 用户定）。
    */
-  const selIdx = selectedSetId ? exercise.sets.findIndex(s => String(s.id) === selectedSetId) : -1;
-  const pendingIdx = exercise.sets.findIndex(s => s.ghost);
-  const focusIdx = selIdx >= 0 ? selIdx : pendingIdx >= 0 ? pendingIdx : exercise.sets.length - 1;
+  const { idx: focusIdx, live: heroLive } = heroFocus(exercise.sets, selectedSetId);
   const focusSet = focusIdx >= 0 ? exercise.sets[focusIdx] : undefined;
   const focusValue = focusSet
-    ? Number(formatWeight(Number(focusSet.weight) || 0, unit)) *
-      (signed && (focusSet.bodyweightMode === 'assisted' || (!focusSet.bodyweightMode && loadMode === 'assisted')) ? -1 : 1)
+    ? shownWeight(
+        focusSet.weight,
+        signed && (focusSet.bodyweightMode === 'assisted' || (!focusSet.bodyweightMode && loadMode === 'assisted')) ? -1 : 1,
+        unit,
+      )
     : 0;
   /**
    * 大图也能拖（2026-10-18 用户定）：步长 / 方向 / 吸附和组行重量格同一份（weightScrubFor），
-   * 改的是选中那一组；写回的口径照 SetCapsule.update：显示单位换回 kg，带正负的按号写 bodyweightMode，
-   * 底稿行记 touched（改值只改值，不描实）。
+   * 改的是选中那一组；写回和组行同一份（utils/setWrite：显示单位换回 kg、按上限夹、带正负的写号、底稿行记 touched）。
    */
   const heroFeel = weightScrubFor(rounder);
-  /** 大图拖动 / 点「改成能挂的」：写回选中（或画着的）那一组 */
-  const writeHero = (next: number) => {
+  const du = unit === 'lbs' ? 'lbs' : 'kg';
+  /** 大图拖动 / 点「改成能挂的」：写回选中的（或待做的）那一组 */
+  const writeHero = (raw: number) => {
     if (!focusSet) return;
-    const kg = rounder ? Math.abs(rounder.kgOfD(next)) : unit === 'lbs' ? Math.abs(next) / KG_TO_LBS : Math.abs(next);
-    // 改重量就记下这一组挂的是哪种片：这个馆的片子（审查 A8），纯数字的动作按显示单位；口径同 SetCapsule.fromDisplay
-    const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
-    const updates: Partial<SetLog> = signed
-      ? { weight: kg, plateUnit, bodyweightMode: next < 0 ? 'assisted' : next > 0 ? 'weighted' : 'normal' }
-      : { weight: kg, plateUnit };
-    if (focusSet.ghost) (updates as any).touched = { ...(focusSet.touched || {}), weight: true };
-    onSetUpdate(exIdx, focusIdx, updates);
+    onSetUpdate(exIdx, focusIdx, markTouched(focusSet, weightFromShown(raw, unit, rounder, signed)));
   };
   const heroScrub = useValueScrub({
     value: focusValue,
@@ -207,8 +212,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
     engagePx: heroFeel.engagePx,
     // 配重片刻度轨每过一片：咔哒 + 短振（其余大图照旧一下点击感）
     ...(heroFeel.axis === 'y' ? { onDetent: tick } : {}),
-    disabled: !focusSet,
-    ...(signed ? { min: -9999 } : {}),
+    disabled: !heroLive,
+    max: loadCapD(du, signed),
+    ...(signed ? { min: -loadCapD(du, signed) } : {}),
   });
   // 底稿行不计入「M组」——它还不是数据（§12.6）
   const realSetCount = exercise.sets.filter(s => !s.ghost).length;
@@ -223,6 +229,11 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  useBackClose(menuOpen, () => setMenuOpen(false));
+  // ⋯ →「历史」：只在训练中、这个动作以前做过时有；第一次打开才挂上（要算整份历史），之后留着放退场动画
+  const hasHistory = !!prPool?.history.length;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyMounted, setHistoryMounted] = useState(false);
 
   /**
    * 哪些组行是「刚添加出来的」——只有它们播「写下一组」入场（§5.3）。
@@ -262,9 +273,9 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
   const [lastOpen, setLastOpen] = useState(false);
   // 带正负的动作带上号（辅助 −30、负重 +10），否则辅助和负重读起来一样（审查 C）
   const lastW = (x: SetLog | NonNullable<SetLog['subSets']>[number], parent?: SetLog) => {
-    if (!signed) return formatWeight(Number(x.weight) || 0, unit);
+    if (!signed) return formatLoad(Number(x.weight) || 0, unit);
     const kg = signedKg(x, exercise, parent);
-    return `${kg < 0 ? '−' : kg > 0 ? '+' : ''}${formatWeight(Math.abs(kg), unit)}`;
+    return `${kg < 0 ? '−' : kg > 0 ? '+' : ''}${formatLoad(Math.abs(kg), unit)}`;
   };
   const lastLine = lastSession
     ? lastSession.sets
@@ -329,7 +340,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               <MoreHorizontal size={20} strokeWidth={1.75} />
             </button>
 
-            {/* 条目按训练中用的频率排：备注、换做法、交替，再到动作设置；改名走动作设置里的「名称」（2026-11-03 用户定，菜单里不再重复） */}
+            {/* 条目按训练中用的频率排：备注、换做法、交替，再到历史、动作设置；改名走动作设置里的「名称」（2026-11-03 用户定，菜单里不再重复） */}
             {menuOpen && (
               <div
                 role="menu"
@@ -373,7 +384,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                     data-testid="alternate-with-next"
                   >
                     <Repeat size={16} strokeWidth={1.75} className="text-tertiary" />
-                    {isCn ? '和下一个动作交替做' : 'Alternate with next'}
+                    {isCn ? '和…交替做' : 'Alternate with…'}
                   </button>
                 )}
                 {onJoinGroupAbove && (
@@ -388,6 +399,22 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
                   >
                     <Repeat size={16} strokeWidth={1.75} className="text-tertiary" />
                     {isCn ? '加入上面的交替组' : 'Join the group above'}
+                  </button>
+                )}
+                {hasHistory && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={menuItem}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setHistoryMounted(true);
+                      setHistoryOpen(true);
+                    }}
+                    data-testid="card-history"
+                  >
+                    <History size={16} strokeWidth={1.75} className="text-tertiary" />
+                    {isCn ? '历史' : 'History'}
                   </button>
                 )}
                 <button
@@ -500,18 +527,20 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
           kind={loadKind}
           value={focusValue}
           unit={unit === 'lbs' ? 'lbs' : 'kg'}
-          plateUnit={plateUnitOf(focusSet, unit === 'lbs' ? 'lbs' : 'kg')}
           bar={barOf(exercise.name)}
           onBarChange={hasDef ? bar => setBar(exercise.name, bar) : undefined}
           isCn={isCn}
-          pinStep={unit === 'lbs' ? 10 : 5}
-          scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis }}
+          scrub={{ handlers: heroScrub.handlers, scrubbing: heroScrub.scrubbing, step: heroScrub.step, axis: heroFeel.axis, live: heroLive }}
           rounder={rounder}
           machine={ms.machineCtl(settingsSlot, () => onOpenMetricModal(exerciseName, 'gym'))}
-          onPick={next => {
-            haptic(H.tap);
-            writeHero(next);
-          }}
+          onPick={
+            heroLive
+              ? next => {
+                  haptic(H.tap);
+                  writeHero(next);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -585,7 +614,7 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
               // 书签落在第 k 条缝 → 它正下方那一行是第 k 组（下标 k）
               selected={selectedSetId === String(set.id)}
               onNumTap={onNumTap ? () => onNumTap(String(set.id)) : undefined}
-              signed={signed ? { sign: () => (getLoadMode(exercise) === 'assisted' ? -1 : 1) } : undefined}
+              signed={signed ? { sign: s => carrySign(exercise, s) } : undefined}
               onDurationClick={() => handleDurationClick(setIdx)}
               loadKind={loadKind}
               rounder={rounder}
@@ -611,6 +640,8 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
         />
       )}
 
+      {historyMounted && <ExerciseHistorySheet exercise={exercise} open={historyOpen} onClose={() => setHistoryOpen(false)} />}
+
       {/* ── 页脚：只剩一个通栏虚线按钮 ── */}
       <div className="p-3 pt-2">
         <button
@@ -626,4 +657,4 @@ export const ExerciseCard: React.FC<ExerciseCardProps> = ({
       </div>
     </div>
   );
-};
+});

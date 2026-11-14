@@ -107,6 +107,7 @@ export function ScrubNumber({
       onCommit(v);
     },
     min: Number.isFinite(min) ? min : -1e9,
+    max,
     steps,
     stepFn: stepFn ? (v, d, m) => clamp(stepFn(v, d, m)) : undefined,
     // 定步长：网格就是最小一档，拖第一下先把不齐的值吸齐

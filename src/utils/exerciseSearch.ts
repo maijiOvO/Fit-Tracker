@@ -12,8 +12,28 @@
  * 英文不计空格 / 连字符 / 间隔号（2026-10-22，审查 C）：pushup 找得到 Push-ups、pull up 找得到 Pull-up；
  * 复数 s 可有可无（dips → Chest Dip）；词首字母也认（bss → Bulgarian Split Squat），
  * 再加几条健身房里的通用缩写（rdl、ohp…，ABBR）。归一化后的命中排在英文名包含之后（60 / 58）。
+ *
+ * 拼音字典（pinyin-pro，三百多 KB）不进首屏（审查 F11）：loadPinyin 第一次被调到才去拿，
+ * 拿到之前中文名的拼音字段留空（中文 / 英文 / 子序列照样命中），调用方拿到后重建一次索引。
  */
-import { pinyin } from 'pinyin-pro';
+type PinyinFn = typeof import('pinyin-pro').pinyin;
+let pinyinFn: PinyinFn | null = null;
+let pinyinLoading: Promise<void> | null = null;
+
+export const pinyinLoaded = () => pinyinFn !== null;
+
+/** 载入拼音字典；chunk 拿不到（离线包缺文件）就当没有拼音，下次再试 */
+export function loadPinyin(): Promise<void> {
+  pinyinLoading ??= import('pinyin-pro').then(
+    m => {
+      pinyinFn = m.pinyin;
+    },
+    () => {
+      pinyinLoading = null;
+    },
+  );
+  return pinyinLoading;
+}
 
 export interface ExerciseSearchEntry {
   /** 中文名（小写） */
@@ -58,10 +78,13 @@ function pinyinOf(text: string): { py: string; pyi: string } {
     // 无中文：拼音即原文（小写去空格），避免调用开销
     const flat = text.toLowerCase().replace(/\s+/g, '');
     out = { py: flat, pyi: flat };
+  } else if (!pinyinFn) {
+    // 字典还没到：留空、不进缓存，到了重建索引时再算
+    return { py: '', pyi: '' };
   } else {
     out = {
-      py: pinyin(text, { toneType: 'none', type: 'array' }).join('').toLowerCase(),
-      pyi: pinyin(text, { pattern: 'first', toneType: 'none', type: 'array' }).join('').toLowerCase(),
+      py: pinyinFn(text, { toneType: 'none', type: 'array' }).join('').toLowerCase(),
+      pyi: pinyinFn(text, { pattern: 'first', toneType: 'none', type: 'array' }).join('').toLowerCase(),
     };
   }
   pinyinCache.set(text, out);

@@ -7,7 +7,8 @@
  * 第一个是主细分（标「主」，本部位选了两个以上时下面多一行「主练」明着选）：添加动作里它正常排在那一组，其余细分收在「兼练」里。
  * 次要细分可以是别的部位的（2026-10-21 用户定：硬拉＝下背 + 臀 + 腿后侧）：下面「其他部位」展开按部位列，
  * 先选了自己部位的才点得上（主细分一定是自己部位的），已经选了别的部位的就默认展开。
- * 末尾「新建细分」就地展开一个输入框，建完直接加上。只有力量动作、且部位有细分时才出现（全身 / 有氧 / 自由不分细分）。
+ * 末尾「新建细分」就地展开一个输入框，建完直接加上。只有力量动作、且部位有细分时才出现（有氧 / 自由不分细分；
+ * 全身和自建部位在编辑部位里建过细分后才出现）。
  */
 import React, { useState } from 'react';
 import { Language } from '../../types';
@@ -27,25 +28,29 @@ interface RegionChooserProps {
   variantOptions?: string[];
 }
 
-/** 这个部位 / 类别下要不要出「细分」这一节 */
-export function hasRegionSection(part: string, category: string): boolean {
-  return (category || 'STRENGTH') === 'STRENGTH' && !!BODY_REGIONS[part];
+/**
+ * 这个部位 / 类别下要不要出「细分」这一节：力量动作，且部位有系统细分、或用户在它下面建过细分
+ *（自建部位和全身在编辑部位里能建细分，这里不认就归不进去）
+ */
+export function hasRegionSection(part: string, category: string, regionsOf: (part: string) => unknown[]): boolean {
+  return (category || 'STRENGTH') === 'STRENGTH' && (!!BODY_REGIONS[part] || regionsOf(part).length > 0);
 }
 
 export const RegionChooser: React.FC<RegionChooserProps> = ({ part, category, value, onChange, lang, variantOptions }) => {
-  const { regionsOf, getTagName, addRegionTag } = useExercisePrefs();
+  const { regionsOf, getTagName, addRegionTag, customTags, sortParts } = useExercisePrefs();
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const [showOthers, setShowOthers] = useState<boolean | null>(null);
-  if (!variantOptions && !hasRegionSection(part, category)) return null;
+  if (!variantOptions && !hasRegionSection(part, category, regionsOf)) return null;
 
   const isCn = lang === Language.CN;
   const regs = variantOptions
     ? variantOptions.map(id => ({ id, custom: !(BODY_REGIONS[part] ?? []).includes(id) }))
     : regionsOf(part);
   const own = regs.map(r => r.id);
-  /** 别的部位和它们的细分（有细分的系统部位，删掉的系统细分不在内） */
-  const otherParts = BODY_PARTS.filter(p => p !== part && BODY_REGIONS[p])
+  /** 别的部位和它们的细分（系统 + 自建部位，没有细分的不列；删掉的系统细分不在内） */
+  const otherParts = sortParts([...BODY_PARTS, ...customTags.filter(t => t.category === 'bodyPart').map(t => t.id)])
+    .filter(p => p !== part)
     .map(p => ({ part: p, regs: regionsOf(p) }))
     .filter(g => g.regs.length);
   const known = new Set([...own, ...otherParts.flatMap(g => g.regs.map(r => r.id))]);

@@ -7,17 +7,21 @@
  * 浏览轴 = 部位（系统 + 自定义部位标签，单选）∪ 有氧(CARDIO) ∪ 自由(FREE)。
  * 「分类」不再作为独立筛选 UI，但 category 字段照旧存在（决定记录维度）。
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { DEFAULT_EXERCISES } from '../constants/exercises';
 import { regionList, variantAttrs } from '../utils/exerciseAttrs';
-import { ExerciseDefinition } from '../../types';
+import type { Exercise, ExerciseDefinition, WorkoutSession } from '../../types';
+import type { LiftSession, LiftSummary } from '../utils/liftHistory';
+import { findLastIn } from '../utils/prefillSource';
 import { mergeOverride } from '../utils/exerciseOverride';
 import { translations } from '../../translations';
 import {
   ExerciseSearchEntry,
   buildSearchEntry,
+  loadPinyin,
+  pinyinLoaded,
   scoreEntry,
   tokenize,
 } from '../utils/exerciseSearch';
@@ -55,6 +59,51 @@ export function equipmentsOf(ex: ExerciseDefinition): string[] {
     if (a?.equipment) out.add(a.equipment.toLowerCase());
   }
   return [...out];
+}
+
+/**
+ * 行上小灰字「上次 …」那一场：和点这一行铺的底稿同一场（useWorkoutMutations 加动作 = findLastIn，
+ * 母行不分做法、做法行只认那个做法；preferGym 由调用方按器械类本馆优先给，同 preferGymFor）。
+ * 返回那一场在逐场数据里的样子（最重一组）和它的做法 —— 母行据此写出做法名（审查 C1）。
+ * liftsById：useLiftSummaries 按稳定键「定义 id|做法 id」。
+ */
+export function rowLastSession(
+  workouts: WorkoutSession[],
+  liftsById: Map<string, LiftSummary>,
+  resolveName: (n: string) => string,
+  variantIdOf: (ex: Exercise) => string | undefined,
+  ex: { id: string; name: string },
+  vid: string | undefined,
+  skipWorkoutId: string | undefined,
+  preferGym: string | undefined,
+): { session: LiftSession; variantId?: string } | null {
+  const hit = findLastIn(workouts, resolveName, variantIdOf, ex.name, vid ?? null, skipWorkoutId, preferGym);
+  if (!hit) return null;
+  const variantId = variantIdOf(hit.ex) || undefined;
+  const session = liftsById
+    .get(`${ex.id}|${variantId ?? ''}`)
+    ?.sessions.find(s => s.workoutId === hit.workout.id && s.exerciseId === hit.ex.id);
+  return session ? { session, variantId } : null;
+}
+
+/**
+ * 分部位浏览时组内的顺序（审查 C2）：收藏（星多的在前）→ 练过的按上次练的时间倒序 → 没练过的照库序。
+ * 不用全局「最近 12 个」：练胸那天它装的是前两场腿、背的动作，胸的组里一个都不算最近，常用的自建动作沉到组尾。
+ * items 按库序给；返回 id → 名次。
+ */
+export function browseRank<T extends { id: string }>(
+  items: T[],
+  starOf: (x: T) => number | undefined,
+  lastTsOf: (x: T) => number,
+): Map<string, number> {
+  const keyed = items.map((x, i) => ({ x, i, star: starOf(x), ts: lastTsOf(x) }));
+  keyed.sort((a, b) => {
+    if ((a.star !== undefined) !== (b.star !== undefined)) return a.star !== undefined ? -1 : 1;
+    if (a.star !== undefined && b.star !== undefined && a.star !== b.star) return b.star - a.star;
+    if (a.star === undefined && a.ts !== b.ts) return b.ts - a.ts;
+    return a.i - b.i;
+  });
+  return new Map(keyed.map((k, i) => [k.x.id, i]));
 }
 
 function matchEquips(ex: ExerciseDefinition, equips: ReadonlySet<string>): boolean {
@@ -105,6 +154,12 @@ export function useExercisePickerData({
     [merged, effectivePart],
   );
 
+  // 拼音字典随弹层第一次挂上才去拿，到了重建一次索引（exerciseSearch 头注）
+  const [pyReady, setPyReady] = useState(pinyinLoaded);
+  useEffect(() => {
+    if (!pyReady) loadPinyin().then(() => setPyReady(pinyinLoaded()));
+  }, [pyReady]);
+
   /** 搜索索引（名字/拼音/标签名），随库或标签名变化重建 */
   const index = useMemo(() => {
     const m = new Map<string, ExerciseSearchEntry>();
@@ -132,7 +187,8 @@ export function useExercisePickerData({
       m.set(ex.id, buildSearchEntry(ex.name.cn ?? '', ex.name.en ?? '', tagNames));
     }
     return m;
-  }, [merged, getTagName, effectiveRegions]);
+    // pyReady 不在函数体里读：放进依赖是为了字典到了重算（buildSearchEntry 读的是模块里的字典）
+  }, [merged, getTagName, effectiveRegions, pyReady]);
 
   const tokens = useMemo(() => tokenize(query), [query]);
 

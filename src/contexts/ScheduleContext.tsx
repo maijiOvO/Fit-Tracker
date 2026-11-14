@@ -2,7 +2,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { ScheduledWorkout } from '../../types';
 import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 
 interface ScheduleContextType {
@@ -16,25 +15,17 @@ interface ScheduleContextType {
 
 const ScheduleContext = createContext<ScheduleContextType | undefined>(undefined);
 
-export const ScheduleProvider: React.FC<{ children: ReactNode; userId?: string }> = ({
-  children,
-  userId,
-}) => {
+export const ScheduleProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [schedules, setSchedules] = useState<ScheduledWorkout[]>([]);
 
   const refreshFromDb = useCallback(async () => {
     const rows = await db.getAll<ScheduledWorkout>('scheduledWorkouts');
-    const uid = userId || FITLOG_SOLO_USER_ID;
-    const filtered =
-      uid === FITLOG_SOLO_USER_ID || uid === 'u_guest'
-        ? rows
-        : rows.filter(r => r.userId === uid);
-    setSchedules(filtered.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
-  }, [userId]);
+    setSchedules(rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
+  }, []);
 
   useEffect(() => {
     void refreshFromDb();
-  }, [userId, refreshFromDb]);
+  }, [refreshFromDb]);
 
   const addSchedule = async (s: ScheduledWorkout) => {
     await db.save('scheduledWorkouts', s);

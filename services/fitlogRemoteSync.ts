@@ -2,6 +2,7 @@ import {
   collectLocalSnapshot,
   fetchRemoteSnapshotResult,
   mergeLocalWithRemote,
+  mergeChangesLocal,
   putRemoteSnapshot,
   applySnapshotToLocalIndexedDb,
   writePrefsToLocalStorage,
@@ -79,7 +80,7 @@ export function markLocalAuthoritative(): void {
  * 等于拿本地去盖一份没合并进来的远端。
  */
 export type PullOutcome =
-  | { kind: 'merged'; prefs: FitlogSyncedPrefs }
+  | { kind: 'merged'; prefs: FitlogSyncedPrefs; changed: boolean }
   | { kind: 'remote-empty' }
   | { kind: 'failed'; reason: 'unreachable' | 'incompatible' }
   | { kind: 'locked' }
@@ -98,13 +99,16 @@ export async function pullAndMergeFitlogRemoteDetailed(): Promise<PullOutcome> {
     if (remote.status === 'failed') return { kind: 'failed', reason: remote.reason };
     const local = await collectLocalSnapshot();
     const merged = mergeLocalWithRemote(local, remote.snapshot);
+    // 远端没有本机不知道的东西（单设备的常态）：不整库重写，撤销历史也留着 —— 它仍然对得上本机，
+    // 撤销不会盖掉任何别处的改动。原先无条件清，手动点一下同步撤销就没了（审查 D9 / E7）
+    if (!mergeChangesLocal(local, merged)) return { kind: 'merged', prefs: merged.prefs, changed: false };
     // 拉进来的是别处的改动：不进撤销日志，而且之前的撤销历史作废（撤销会把它们盖掉）
     await undoJournal.withoutJournal(async () => {
       writePrefsToLocalStorage(merged.prefs);
       await applySnapshotToLocalIndexedDb(merged);
     });
     undoJournal.clear();
-    return { kind: 'merged', prefs: merged.prefs };
+    return { kind: 'merged', prefs: merged.prefs, changed: true };
   })();
   try {
     const r = await inflight;
@@ -132,7 +136,7 @@ export async function pushFitlogRemoteSnapshot(): Promise<void> {
     if (!pullOk) {
       const r = await pullAndMergeFitlogRemoteDetailed();
       // 拉进来了别的设备 / 服务器上的东西：界面重读本地库（useFitlogSync 接）
-      if (r.kind === 'merged' && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('fitlog:pulled'));
+      if (r.kind === 'merged' && r.changed && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('fitlog:pulled'));
       if (!pullOk) {
         throw new RemoteError(
           `pull ${r.kind}${r.kind === 'failed' ? ` (${r.reason})` : ''} before push; push skipped so the server copy is not overwritten`,
@@ -153,6 +157,9 @@ export async function pushFitlogRemoteSnapshot(): Promise<void> {
   setSyncState(dirtyAt <= startedAt ? 'synced' : 'pending', Date.now());
 }
 
+/** switchDataEnv 成功后派发：工作台（WorkoutContext）换成新环境那边进行中的那场 */
+export const ENV_SWITCHED_EVENT = 'fitlog:env-switched';
+
 /**
  * 切换数据环境（dev ⇄ prod）。
  *
@@ -166,12 +173,15 @@ export async function pushFitlogRemoteSnapshot(): Promise<void> {
  * 两个环境的数据各自躺在自己的库里，切换只是换一个视图。
  *
  * 任一步失败都回滚到原环境，绝不停在「标记已翻转但数据没跟上」的错配状态。
+ *
+ * 翻转之前先等还在路上的写入落下：它们的 getStore 发现库名对不上会改开新环境的库，旧环境的数据就写到新环境里了（审查 Em0）。
  */
 export async function switchDataEnv(next: DataEnv): Promise<void> {
   const previous = getDataEnv();
   if (previous === next) return;
 
   cancelPendingFitlogPush();
+  await undoJournal.settle();
   undoJournal.clear();
   setDataEnv(next);
 
@@ -185,6 +195,7 @@ export async function switchDataEnv(next: DataEnv): Promise<void> {
       if (isLocalAuthoritative()) await pushFitlogRemoteSnapshot().catch(e => console.warn('[fitlog] 切换环境后推送失败:', e));
       else await pullAndMergeFitlogRemote();
     }
+    window.dispatchEvent(new CustomEvent(ENV_SWITCHED_EVENT));
   } catch (e) {
     // 回滚：环境标记与本地库必须重新对齐到切换前的状态
     setDataEnv(previous);

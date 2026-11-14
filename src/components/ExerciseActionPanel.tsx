@@ -7,7 +7,7 @@
  *   - 用途：训练 / 热身可以都开，至少留一个（蝴蝶机夹胸＝内侧的训练动作，也在胸部热身里）
  *   - 训练：属性表（类型 · 部位 · 细分 · 器材 · 阻力），即点即存；细分多选、选两个以上多一行「主练」（RegionChooser）
  *   - 热身：热身部位多选＝出现在哪几个部位的热身里；只当热身时属性表只剩器材 / 阻力
- *   - 做法 / 备注 / 记录项：打开现有的同一批弹窗；并入另一个动作就地展开；从动作库删除：先执行 + 撤销
+ *   - 做法 / 备注 / 动作设置：打开现有的同一批弹窗；并入另一个动作就地展开；从动作库删除：先执行 + 撤销
  *
  * 长按满 500ms 时面板就弹出来了，手指还按着：松手补发的那次 click 不带新的 pointerdown，
  * 会落到面板里正好在指下的按钮上（无头触摸模拟里必现：直接点中「删除」）。
@@ -15,11 +15,12 @@
  * 这是吞一次就作废的条件版，不会把以后的正常点击吃掉。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { FileText, GitMerge, ListChecks, Search, Shuffle, Star, Trash2 } from 'lucide-react';
+import { FileText, GitMerge, Search, Settings as SettingsIcon, Shuffle, Star, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { useBackClose } from '../hooks/useBackClose';
 import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 import { regionList } from '../utils/exerciseAttrs';
 import { ExerciseAttrFields, type AttrValue } from './ExerciseAttrFields';
@@ -69,6 +70,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
     saveExerciseAttrs,
     clearSignedLoad,
     setWarmUse,
+    regionsOf,
   } = useExercisePrefs();
   const { toast } = useUiOverlay();
   const isCn = lang === Language.CN;
@@ -78,6 +80,8 @@ export const ExerciseActionPanel: React.FC<Props> = ({
   /** 并入另一个动作：null＝没打开；字符串＝搜索词 */
   const [mergeQ, setMergeQ] = useState<string | null>(null);
   const ghostRef = useRef(true);
+  // 面板挂着＝开着：安卓返回键先关它
+  useBackClose(true, onClose);
 
   const starred = Object.keys(starredExercises).some(k => k.toLowerCase() === name.toLowerCase());
   const warmParts = ex.warmParts ?? [];
@@ -104,7 +108,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
   };
   const saveAttrs = (nv: AttrValue) => {
     // 部位换了、细分没跟着选：存成未细分（细分只认当前部位下的，同属性弹窗）
-    saveExerciseAttrs(ex.id, { ...nv, regions: hasRegionSection(nv.bodyPart, nv.category) ? nv.regions : [] });
+    saveExerciseAttrs(ex.id, { ...nv, regions: hasRegionSection(nv.bodyPart, nv.category, regionsOf) ? nv.regions : [] });
     // 改了器材 / 阻力：旧的「负荷记法」开关作废，以后跟着阻力走（同动作设置）
     if (nv.equipment !== attrs.equipment || nv.resistance !== attrs.resistance) clearSignedLoad(name);
   };
@@ -278,8 +282,8 @@ export const ExerciseActionPanel: React.FC<Props> = ({
             {isCn ? '备注' : 'Note'}
           </button>
           <button type="button" className={btn} onClick={then(() => onMetrics(name))}>
-            <ListChecks size={16} className="text-accent" />
-            {isCn ? '记录项' : 'Metrics'}
+            <SettingsIcon size={16} className="text-accent" />
+            {isCn ? '动作设置' : 'Settings'}
           </button>
           <button
             type="button"

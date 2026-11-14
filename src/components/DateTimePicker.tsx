@@ -101,7 +101,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
                   setCurrentYear(currentYear - 1);
                 } else setCurrentMonth(currentMonth - 1);
               }}
-              className="p-2 hover:bg-inset rounded-control transition-colors"
+              className="tap-44 p-2 hover:bg-inset rounded-control transition-colors"
               aria-label={lang === Language.CN ? '上个月' : 'Previous month'}
             >
               {/* 换月是左右，不是上下（审查 B13） */}
@@ -117,7 +117,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
                   setCurrentYear(currentYear + 1);
                 } else setCurrentMonth(currentMonth + 1);
               }}
-              className="p-2 hover:bg-inset rounded-control transition-colors"
+              className="tap-44 p-2 hover:bg-inset rounded-control transition-colors"
               aria-label={lang === Language.CN ? '下个月' : 'Next month'}
             >
               <ChevronRight size={20} className="text-secondary" />
@@ -165,7 +165,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
           <div className="flex flex-col items-center space-y-2">
             <button
               onClick={() => setSelectedHour(selectedHour === 23 ? 0 : selectedHour + 1)}
-              className="p-2 hover:bg-inset rounded-control"
+              className="tap-44 p-2 hover:bg-inset rounded-control"
             >
               <ChevronUp size={20} className="text-secondary" />
             </button>
@@ -177,7 +177,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
             </div>
             <button
               onClick={() => setSelectedHour(selectedHour === 0 ? 23 : selectedHour - 1)}
-              className="p-2 hover:bg-inset rounded-control"
+              className="tap-44 p-2 hover:bg-inset rounded-control"
             >
               <ChevronDown size={20} className="text-secondary" />
             </button>
@@ -189,7 +189,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
             <button
               // 吸到 5 分钟的格子上走（原来 3 分往下减出 -2，审查 B13）
               onClick={() => setSelectedMinute((Math.floor(selectedMinute / 5) * 5 + 5) % 60)}
-              className="p-2 hover:bg-inset rounded-control"
+              className="tap-44 p-2 hover:bg-inset rounded-control"
             >
               <ChevronUp size={20} className="text-secondary" />
             </button>
@@ -201,7 +201,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
             </div>
             <button
               onClick={() => setSelectedMinute((Math.ceil(selectedMinute / 5) * 5 + 55) % 60)}
-              className="p-2 hover:bg-inset rounded-control"
+              className="tap-44 p-2 hover:bg-inset rounded-control"
             >
               <ChevronDown size={20} className="text-secondary" />
             </button>

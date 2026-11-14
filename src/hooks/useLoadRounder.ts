@@ -6,7 +6,7 @@
  * 画法（useLoadInfoOf）、带符号负荷、有没有重量这一项，收成一个按动作取用的取整器。
  * 纯数字的动作（含没有重量这一项的）拿到 null：调用方照旧走首选项的步长，什么都不取整。
  *
- * 换算常数和 SetCapsule.formatWeight 用同一个（2.20462），否则 kg → 显示值 → kg 来回会在等距点上翻转。
+ * 换算常数和 setWrite.formatLoad 用同一个（2.20462），否则 kg → 显示值 → kg 来回会在等距点上翻转。
  */
 import { useCallback } from 'react';
 import { KG_TO_LBS } from '../constants';
@@ -17,6 +17,7 @@ import { gymMachineKey, useLoadInfoOf, type LoadInfo } from './useLoadKind';
 import { barWeight, plateUnitOf, type PlateUnit } from '../utils/plates';
 import {
   bracket,
+  endIn,
   gymSpecOf,
   incIn,
   isLoadable,
@@ -25,7 +26,7 @@ import {
   profileIn,
   r2,
   rigKind,
-  rigListKey,
+  rigsOf,
   startIn,
   snap,
   stepOf,
@@ -43,7 +44,7 @@ export interface ExRounder {
   info: LoadInfo;
   /** 这个馆的片子单位（ctx 里的数都按它）；没标馆 / 没设过档案＝显示单位 */
   unit: PlateUnit;
-  /** 显示单位：…D 那几个函数的进出都按它 */
+  /** 这张卡的显示单位（器械有自己的单位就是它，见 cardUnitOf）：…D 那几个函数的进出都按它，卡上的数也按它写 */
   display: PlateUnit;
   ctx: LoadCtx;
   signed: boolean;
@@ -73,8 +74,8 @@ export type RounderFor = (
   unitOverride?: PlateUnit,
   /** 刚存的馆档案（context 里的 appPrefs 还没刷新） */
   gymsOverride?: Record<string, GymProfile>,
-  /** 刚存的单台器械设置（同上；恢复馆默认 / 换一台 / 换这一台的单位时格子单位会变） */
-  fresh?: Partial<Pick<ResolvedAppPrefs, 'gymOverrides' | 'gymRigs' | 'gymRigPick'>>,
+  /** 刚存的按动作设置（同上；辅助恢复馆默认那一刻） */
+  fresh?: Partial<Pick<ResolvedAppPrefs, 'gymOverrides'>>,
 ) => ExRounder | null;
 
 export function useLoadRounder(): RounderFor {
@@ -97,11 +98,10 @@ export function useLoadRounder(): RounderFor {
       const profile = gym ? (gymsOverride ?? gyms)[gym] : undefined;
       const okey = gymMachineKey(gym, info);
       // 这一台的刻度：选中的台（这件器材在这个馆存的几台之一）→ 以前按动作单独设的 → 馆默认
-      const rkey = rigListKey(gym, info);
-      const ov = okey
-        ? machineSpecOf(rkey ? (fresh?.gymRigs ?? gymRigs)[rkey] : undefined, (fresh?.gymRigPick ?? gymRigPick)[okey], overrides[okey])
-        : undefined;
+      const pick = okey ? gymRigPick[okey] : undefined;
+      const ov = okey ? machineSpecOf(rigsOf(gymRigs, gym, info, pick), pick, overrides[okey]) : undefined;
       const u: PlateUnit = ownUnitOf(info, profile, ov) ?? profile?.plateUnit ?? du;
+      const cardU = cardUnitOf(info, profile, ov, du);
       // 挂片式器械的自重（gymTares）：这一台选了「算进记录」才当空杠算进总重（2026-11-08 用户定），按馆的片子单位换算
       const tspec = okey ? gymTares[okey] : undefined;
       const tare = tspec?.counted ? tareIn(tspec, u) : undefined;
@@ -122,10 +122,12 @@ export function useLoadRounder(): RounderFor {
                 ? ov ? incIn(ov, u) : prof.fixedBar
                 : stackInc,
         start: info.kind === 'pin' ? stackStart : 0,
+        // 最重一格只在存下来的台上（馆默认没有）
+        ...(info.kind === 'pin' && ov && endIn(ov, u) > 0 ? { end: endIn(ov, u) } : {}),
         ...(info.kind === 'loaded' && okey && overrides[oneSideKey(okey)] ? { oneSide: true } : {}),
         ...(tare !== undefined ? { tare } : {}),
       };
-      return makeRounder(info, u, ctx, signed, du);
+      return makeRounder(info, u, ctx, signed, cardU);
     },
     [unit, gyms, gymOverrides, gymTares, gymRigs, gymRigPick, barOf, signedLoadOf, getActiveMetrics, resolveName, infoOf],
   );
@@ -145,6 +147,20 @@ export function ownUnitOf(
   if (!rigKind(info.kind)) return null;
   if (ov) return ov.u;
   return profile ? gymSpecOf(profile, info.kind, info.stack).u : null;
+}
+
+/**
+ * 这张卡按什么单位显示（2026-11-13 用户定，推翻 10-25「插销数字跟着显示单位换」）：器械有自己的单位（ownUnitOf）
+ * 就整张卡按它——组行、插销、± 键、上次参考，顶栏单位开关对这张卡不生效；存储照旧是精确 kg。
+ * 不然 lb 龙门架在 kg 显示下写 49.9 / 52.16，键上的一档在 2.26 和 2.27 之间跳。杠铃、挂片、带正负的跟顶栏。
+ */
+export function cardUnitOf(
+  info: Pick<LoadInfo, 'kind' | 'stack'>,
+  profile: GymProfile | undefined,
+  ov: IncSpec | undefined,
+  du: PlateUnit,
+): PlateUnit {
+  return ownUnitOf(info, profile, ov) ?? du;
 }
 
 /** 单边挂片的开关存在这一台的 gymOverrides 里，键是这一台的键 + '|one'（值 { v: 1 }，删键＝两边挂） */
@@ -324,20 +340,24 @@ export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null
  * 换了一档（单独设 / 恢复馆默认）：没做完、这一格没改过的组吸到新的一档上（递减档一起）。
  * 改过的照原样（打的数照原样记）；做完的不动。
  * shiftKg：先平移再吸（填 / 改 / 清空器械自重，2026-11-08）—— 挂的片不变，数字连自重一起增减；空着的组（0）不动。
+ * 平移过的就不再是「从上一次纯换算来的」（draftAuto 摘掉，口径同 workbench.shiftWeight）：之后换台 / 换馆从当前值算，
+ * 不退回上一次的原值把自重丢掉。
  */
 export function snapUntouched(sets: SetLog[], ex: Exercise, r: ExRounder | null, shiftKg = 0): SetLog[] {
   if (!r || !sets) return sets;
   const moved = (kg: number) => (Math.abs(kg) < 1e-9 ? 0 : kg + shiftKg);
+  const shifted = (kg: number) => (shiftKg !== 0 && Math.abs(kg) > 1e-9 ? { draftAuto: false } : {});
   return sets.map(s => {
     if (!s.ghost) return s;
+    const kg0 = signedKg(s, ex);
     // 改过的那组也要新对象：下面会给它换 subSets，不能写进上一份 state
-    const next: SetLog = s.touched?.weight ? { ...s } : { ...writeKg(s, r.snapKg(moved(signedKg(s, ex))), r.signed), plateUnit: r.unit };
+    const next: SetLog = s.touched?.weight ? { ...s } : { ...writeKg(s, r.snapKg(moved(kg0)), r.signed), plateUnit: r.unit, ...shifted(kg0) };
     if (s.subSets?.length) {
       const orig = s.subSets.map(sub => signedKg(sub, ex, s));
       const subs = s.subSets.map((sub, i) =>
-        sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(moved(orig[i])), r.signed), plateUnit: r.unit },
+        sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(moved(orig[i])), r.signed), plateUnit: r.unit, ...shifted(orig[i]) },
       );
-      next.subSets = keepSubOrder(subs, orig, signedKg(s, ex), signedKg(next, ex), ex, next, r);
+      next.subSets = keepSubOrder(subs, orig, kg0, signedKg(next, ex), ex, next, r);
     }
     return next;
   });

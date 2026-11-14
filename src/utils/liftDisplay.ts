@@ -92,6 +92,9 @@ export function shortDate(ts: number, isCn: boolean): string {
     : { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/** 按馆看器械时的馆名；没标馆的旧训练归在一起 */
+export const gymLabel = (gym: string | undefined, isCn: boolean) => gym || (isCn ? '未标馆' : 'No gym');
+
 /** 上次练是多久之前：今天 / 昨天 / 5 天前 / 3 周前 / 2 个月前 */
 export function agoLabel(ts: number, isCn: boolean, now = Date.now()): string {
   const startOf = (t: number) => {

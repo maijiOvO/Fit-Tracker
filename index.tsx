@@ -17,6 +17,7 @@ import {
 } from './services/fitlogBackup';
 import { installFontGuard } from './src/utils/fontGuard';
 import DemoBanner from './src/components/DemoBanner';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 // 更新后首次冷启动可能整会话掉回系统字（optional 的语义），探测到就重载一次挽回
 installFontGuard();
@@ -119,7 +120,9 @@ function mount(): void {
   root.render(
     <React.StrictMode>
       {isDemo() && <DemoBanner />}
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </React.StrictMode>
   );
 }

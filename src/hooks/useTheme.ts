@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { storage } from '../../services/appStorage';
 import { isDemo } from '../../services/appEnv';
 
@@ -10,8 +10,6 @@ const ACCENTS: readonly AccentPreference[] = ['teal', 'rose', 'violet', 'orange'
 
 const STORAGE_KEY = 'theme-pref';
 const ACCENT_KEY = 'accent-pref';
-/** useTheme 有好几个实例（App / 设置页 / 图表），换强调色时广播给其它实例，图表才会重读颜色 */
-const ACCENT_EVENT = 'fitlog:accent-change';
 
 /** 状态栏 / 闪屏底色 = 各组合的 --bg-base，和 index.css 保持一致 */
 const BASE_COLOR: Record<ResolvedTheme, Record<AccentPreference, string>> = {
@@ -53,43 +51,69 @@ function applyThemeClass(resolved: ResolvedTheme, accent: AccentPreference) {
   meta.content = color;
 }
 
+interface ThemeState {
+  preference: ThemePreference;
+  accent: AccentPreference;
+  resolved: ResolvedTheme;
+}
+
+/**
+ * 主题是模块级的一份（审查 F3）：useTheme 有好几个实例（App / 首选项 / 三张图表），
+ * 原来各存各的 state、各自往 <html> 贴 dark 类 —— 在首选项改了主题，App 那个实例还拿着旧主题，
+ * 再点强调色时它用旧主题把 dark 类摘掉。现在只有这一份状态、只在这里贴类，各实例只读。
+ */
+let systemDark = getSystemDark();
+let state: ThemeState | null = null;
+const listeners = new Set<() => void>();
+
+function compute(preference: ThemePreference, accent: AccentPreference): ThemeState {
+  return { preference, accent, resolved: preference === 'auto' ? (systemDark ? 'dark' : 'light') : preference };
+}
+
+function current(): ThemeState {
+  if (!state) {
+    state = compute(readPreference(), readAccent());
+    applyThemeClass(state.resolved, state.accent);
+  }
+  return state;
+}
+
+/** 先贴类再广播给各实例：图表重渲染时要读到新的 CSS 变量 */
+function commit(next: ThemeState) {
+  state = next;
+  applyThemeClass(next.resolved, next.accent);
+  listeners.forEach(l => l());
+}
+
+function onSystem(e: MediaQueryListEvent) {
+  if (e.matches === systemDark) return;
+  systemDark = e.matches;
+  const s = current();
+  commit(compute(s.preference, s.accent));
+}
+
+function subscribe(listener: () => void) {
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  // 系统深浅只需要一个监听；第一个订阅者挂上，最后一个走时摘掉
+  if (!listeners.size) mq.addEventListener('change', onSystem);
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (!listeners.size) mq.removeEventListener('change', onSystem);
+  };
+}
+
+const setPreference = (pref: ThemePreference) => {
+  storage.setItem(STORAGE_KEY, pref);
+  commit(compute(pref, current().accent));
+};
+
+const setAccent = (a: AccentPreference) => {
+  storage.setItem(ACCENT_KEY, a);
+  commit(compute(current().preference, a));
+};
+
 export function useTheme() {
-  const [preference, setPreferenceState] = useState<ThemePreference>(readPreference);
-  const [accent, setAccentState] = useState<AccentPreference>(readAccent);
-  const [systemDark, setSystemDark] = useState(getSystemDark);
-
-  const resolved: ResolvedTheme =
-    preference === 'auto' ? (systemDark ? 'dark' : 'light') : preference;
-
-  useEffect(() => {
-    applyThemeClass(resolved, accent);
-  }, [resolved, accent]);
-
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  useEffect(() => {
-    const onAccent = () => setAccentState(readAccent());
-    window.addEventListener(ACCENT_EVENT, onAccent);
-    return () => window.removeEventListener(ACCENT_EVENT, onAccent);
-  }, []);
-
-  const setPreference = useCallback((pref: ThemePreference) => {
-    storage.setItem(STORAGE_KEY, pref);
-    setPreferenceState(pref);
-  }, []);
-
-  const setAccent = useCallback((a: AccentPreference) => {
-    storage.setItem(ACCENT_KEY, a);
-    setAccentState(a);
-    // 先贴属性再广播：其它实例收到事件就重渲染，图表要读到新的 CSS 变量
-    document.documentElement.setAttribute('data-accent', a);
-    window.dispatchEvent(new Event(ACCENT_EVENT));
-  }, []);
-
+  const { preference, resolved, accent } = useSyncExternalStore(subscribe, current);
   return { preference, setPreference, resolved, accent, setAccent };
 }

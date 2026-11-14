@@ -13,7 +13,7 @@ export const translations: TranslationStrings = {
   scheduleCompleted: { en: 'Completed', cn: '已完成' },
   scheduleSkipped: { en: 'Skipped', cn: '已跳过' },
   scheduleAdd: { en: 'Plan a session', cn: '安排训练' },
-  scheduleEmptyDay: { en: 'Nothing planned for this day.', cn: '今天没有安排训练。' },
+  scheduleEmptyDay: { en: 'Nothing planned for this day.', cn: '这天没有安排训练。' },
   scheduleEditTitle: { en: 'Plan training', cn: '安排训练' },
   scheduleTitleLabel: { en: 'Session title', cn: '训练标题' },
   scheduleDateLabel: { en: 'Date', cn: '日期' },
@@ -57,7 +57,6 @@ export const translations: TranslationStrings = {
   scheduleFromLibrary: { en: 'Pick from library', cn: '从动作库选择' },
   scheduleManualRow: { en: 'Manual entry', cn: '手动添加' },
   planBadgeFaithful: { en: 'From plan', cn: '来自计划' },
-  logout: { en: 'Logout', cn: '退出登录' },
   weight: { en: 'Weight', cn: '重量' },
   reps: { en: 'Reps', cn: '次数' },
   subChest: { en: 'Chest', cn: '胸部' },
@@ -98,7 +97,6 @@ export const translations: TranslationStrings = {
   tagCable: { en: 'Cable Machine', cn: '龙门架' },
   tagKettlebell: { en: 'Kettlebell', cn: '壶铃' },
   tagBand: { en: 'Band', cn: '弹力带' },
-  createAccount: { en: "Create One", cn: "去注册" },
   setGoal: { en: 'Add Goal', cn: '添加目标' },
   goalWeight: { en: 'Body Weight', cn: '体重目标' },
   goalStrength: { en: 'Strength PR', cn: '力量目标' },
@@ -130,12 +128,6 @@ export const translations: TranslationStrings = {
   dashboardEmptyDesc: { en: 'Log your first workout to see trends and records here', cn: '练完第一场，这里会显示趋势和个人纪录' },
   logWeight: { en: 'Log Weight', cn: '记录体重' },
   weightTrend: { en: 'Weight Trend', cn: '体重趋势' },
-  // 在 translations.ts 中添加
-  guestWarningTitle: { cn: '访客模式 (仅本地存储)', en: 'Guest Mode (Local Only)' },
-  guestWarningDesc: { 
-  cn: '数据仅存本机。注册账号可防丢失、跨设备同步。', 
-  en: 'Data is only saved on this device. To prevent data loss and sync across devices, please register.' 
-},
   strengthTraining: { cn: '力量训练', en: 'Strength' },
   cardioTraining: { cn: '有氧训练', en: 'Cardio' },
   freeTraining: { cn: '自由训练', en: 'Free' },
@@ -148,10 +140,10 @@ export const translations: TranslationStrings = {
 
   exportSuccess: { cn: '导出成功！', en: 'Export Successful!' },
   importDesc: {
-    cn: '从 JSON 文件恢复，当前数据将被替换（导入前自动存可撤销副本）',
-    en: 'Restore from an exported JSON file. Current data is replaced; an undoable copy is saved first',
+    cn: '当前数据整份替换，不合并（先自动存可撤销副本）',
+    en: 'Replaces current data entirely, no merge. An undoable copy is saved first',
   },
-  undoImport: { cn: '撤销上次导入', en: 'Undo last import' },
+  undoImport: { cn: '撤销上次恢复、导入或重置', en: 'Undo last restore, import or reset' },
   
 
   // --- 新增器材/环境标签 ---
@@ -166,8 +158,8 @@ export const translations: TranslationStrings = {
   resetAccount: { en: 'Reset Account', cn: '重置账户' },
   resetAccountWarning: { en: 'Reset Account Data', cn: '重置账户数据' },
   resetAccountDesc: { 
-    en: 'This will permanently delete ALL your data including:\n\n• All workout records\n• Goals and progress\n• Custom exercises and tags\n• Body weight logs\n• Personal settings and notes\n• Profile picture\n\nThis action cannot be undone!', 
-    cn: '这将永久删除您的所有数据，包括：\n\n• 所有训练记录\n• 目标和进度\n• 自定义动作和标签\n• 体重记录\n• 个人设置和备注\n• 头像图片\n\n此操作无法撤销！' 
+    en: 'This will delete ALL your data including:\n\n• All workout records\n• Goals and progress\n• Custom exercises and tags\n• Body weight logs\n• Personal settings and notes\n• Profile picture',
+    cn: '这将删除您的所有数据，包括：\n\n• 所有训练记录\n• 目标和进度\n• 自定义动作和标签\n• 体重记录\n• 个人设置和备注\n• 头像图片'
   },
   resetConfirmText: { en: 'Type "RESET" to confirm', cn: '输入"重置"确认' },
   resetConfirmPlaceholder: { en: 'Type RESET here...', cn: '在此输入"重置"...' },

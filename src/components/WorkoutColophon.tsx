@@ -2,7 +2,7 @@
  * 刊末页 —— 规格 §5.3 / §9
  *
  * 翻到刊末页：期号（历史训练总数 + 1）、本期摘要、日期逐行 clip 揭示（stagger 60ms），
- * 总容量 count-up，底部朱砂线从中心展开＝付印。
+ * 总容量 count-up，底部朱砂线从中心展开＝付印。没破纪录的场次多一段「比上次」，总容量降成和组数同级（D6）。
  *
  * ⚠️ **非 PR 日也必须有收尾。** 90% 的训练不刷 PR，
  * 只为 PR 设计仪式是原方案最大的功能性空白。
@@ -17,6 +17,8 @@ import { PRHit } from '../utils/prDetect';
 import { useCountUp } from '../hooks/useCountUp';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
+import { formatSet, gymLabel } from '../utils/liftDisplay';
+import type { ColophonState } from '../hooks/useWorkoutMutations';
 import { useBackClose } from '../hooks/useBackClose';
 
 interface Props {
@@ -36,10 +38,13 @@ interface Props {
   stamps: PRHit[];
   /** >2 枚时合并的「另 N 项刷新」 */
   extraCount: number;
-  /** 填了数却没点做完、按规则没入册的组数；0 不显示 */
-  droppedCount: number;
+  /** 没破纪录时：每个动作这场与上一场的最好一组 */
+  vsLast: ColophonState['vsLast'];
   onDone: () => void;
 }
+
+/** 「比上次」最多列几个动作：1.9 秒的页，多了读不完 */
+const VS_LAST_MAX = 3;
 
 const KIND_LABEL: Record<PRHit['kind'], { cn: string; en: string }> = {
   weight: { cn: '最大重量', en: 'Heaviest' },
@@ -72,7 +77,7 @@ export const WorkoutColophon: React.FC<Props> = ({
   unitLabel,
   stamps,
   extraCount,
-  droppedCount,
+  vsLast,
   onDone,
 }) => {
   const isCn = lang === Language.CN;
@@ -166,19 +171,31 @@ export const WorkoutColophon: React.FC<Props> = ({
           </span>
         )}
         <span className="text-center">
-          <span className="block font-mono font-semibold text-data-xl text-primary tabular-nums">{volumeText}</span>
+          {/* 破纪录那天总容量还是主角；平常的日子降成和组数同级，主角让给下面的「比上次」（D6） */}
+          <span className={`block font-mono font-semibold ${hasPR ? 'text-data-xl' : 'text-data-md'} text-primary tabular-nums`}>{volumeText}</span>
           <span className="text-micro text-tertiary">
             {isCn ? '总容量' : 'volume'} {unitLabel}
           </span>
         </span>
       </div>
-      {/* 待做组没点做完就结束，以前静默丢（核心动作每场只剩 1 组就是这么来的）；这里说一声，要补去时间线编辑 */}
-      {droppedCount > 0 && (
-        <p className="anim-stagger text-label text-secondary mt-3" style={{ ['--i' as string]: 4 }} data-testid="colophon-dropped">
-          {isCn
-            ? `${droppedCount} 组填了数但没点做完，没有入册；要补的话去时间线里编辑这场。`
-            : `${droppedCount} ${plural(droppedCount, 'set')} had numbers but ${droppedCount === 1 ? 'was' : 'were'} never marked done, so ${droppedCount === 1 ? 'it was' : 'they were'} left out. Edit this workout from the timeline to add ${droppedCount === 1 ? 'it' : 'them'}.`}
-        </p>
+
+      {/* 比上次：只陈述这场和上一场同动作的最好一组，不给建议、不落章 */}
+      {!hasPR && vsLast.length > 0 && (
+        <div className="anim-stagger mt-8 space-y-1 text-center" style={{ ['--i' as string]: 4 }} data-testid="colophon-vs-last">
+          {vsLast.slice(0, VS_LAST_MAX).map((v, i) => {
+            const u = unitLabel === 'lbs' ? 'lbs' : 'kg';
+            return (
+              <p key={i} className="text-label text-secondary">
+                {v.name}{' '}
+                <span className="font-mono text-primary tabular-nums">{formatSet(v.now, u, v.signed, isCn)}</span>
+                <span className="text-tertiary">
+                  {' · '}
+                  {isCn ? '上次' : 'last'} <span className="font-mono tabular-nums">{formatSet(v.last, u, v.signed, isCn)}</span>
+                </span>
+              </p>
+            );
+          })}
+        </div>
       )}
 
       {/* PR 落章。全 App 只有这里和结束训练允许盖章语汇。 */}
@@ -202,6 +219,8 @@ export const WorkoutColophon: React.FC<Props> = ({
               >
                 {s.exercise}
                 <br />
+                {/* 按馆比的器械：写明是在哪个馆破的（别的馆的数不算进来） */}
+                {s.gym !== undefined && (s.gym ? (isCn ? `在 ${s.gym} · ` : `at ${s.gym} · `) : `${gymLabel('', isCn)} · `)}
                 <span className="font-mono text-primary tabular-nums">
                   {trim(s.prev)} → {trim(s.next)}
                 </span>{' '}

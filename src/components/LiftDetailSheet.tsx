@@ -3,24 +3,35 @@
  *
  * 以前在列表里原地展开，图下面的「历史」还要再点开一次，每场是一整排组胶囊外加常驻的编辑 / 删除按钮。
  * 现在逐场一行（日期 · 这场最好的一组 · 组数 · 破纪录打 PR），点一行才展开全部组和操作。
+ *
+ * 两处打开：首页「按动作」（Dashboard），训练卡 ⋯ →「历史」（ExerciseHistorySheet，审查 D8）。
+ * 训练页上只看不改：不给「编辑这场 / 删除这条 / 改时间」——编辑旧训练会把进行中的这场暂存起来。
  */
 import React, { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, Edit2, Trash2 } from 'lucide-react';
 import { Modal } from './Modal';
-import { Language } from '../../types';
+import { Exercise, Language } from '../../types';
 import { translations } from '../../translations';
 import {
   E1RM,
   type ChartRange,
   type LiftSummary,
   chartMetricsFor,
+  gymChoices,
+  inGym,
   prSessionIds,
   sessionMetric,
   sessionMetricSet,
 } from '../utils/liftHistory';
-import { CHART_RANGES, formatLoad, formatMetric, formatSet, metricLabel, metricUnit, rangeLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { CHART_RANGES, formatLoad, formatMetric, formatSet, gymLabel, metricLabel, metricUnit, rangeLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { E1RM_MAX_REPS } from '../utils/prRecords';
 import { plural } from '../utils/format';
 import { storage } from '../../services/appStorage';
+import { formatExerciseTime } from '../utils/dateUtils';
+import { SetCapsule } from './SetCapsule';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useUserSettingsContext } from '../contexts/UserSettingsContext';
+import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 
 const LiftTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.LiftTrendChart })));
 
@@ -39,7 +50,7 @@ const autoRange = (lift: LiftSummary): ChartRange =>
  * 点「编辑这场」进编辑、改完回来（审查 B5）：详情接着开着，展开的那一场、滚到哪儿都和走之前一样。
  * 首页（连同这张详情）在训练页时是卸掉的，状态只能记在模块里；用一次就清。
  */
-let resumeAt: { key: string; expanded: string | null; scrollTop: number } | null = null;
+let resumeAt: { key: string; expanded: string | null; scrollTop: number; gym: string | null } | null = null;
 
 interface LiftDetailSheetProps {
   lift: LiftSummary | null;
@@ -49,12 +60,11 @@ interface LiftDetailSheetProps {
   activeMetrics: string[];
   metric: string | undefined;
   onMetricChange: (metric: string) => void;
-  renderSetCapsule: (s: any, exerciseName: string, idx: number) => React.ReactNode;
-  formatExerciseTime: (iso: string, lang: 'cn' | 'en') => { time: string };
-  onEditExerciseTime: (workoutId: string, exerciseId: string, initial: Date) => void;
+  /** 下面三个不传＝只看（训练页上打开）：时间只显示，没有编辑 / 删除 */
+  onEditExerciseTime?: (workoutId: string, exerciseId: string, initial: Date) => void;
   /** exerciseId：编辑页打开后滚到这个动作 */
-  onEditWorkout: (workoutId: string, exerciseId?: string) => void;
-  onDeleteRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string, date: string) => void;
+  onEditWorkout?: (workoutId: string, exerciseId?: string) => void;
+  onDeleteRecord?: (e: React.MouseEvent, workoutId: string, exerciseId: string) => void;
 }
 
 export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
@@ -65,13 +75,12 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
   activeMetrics,
   metric: preferred,
   onMetricChange,
-  renderSetCapsule,
-  formatExerciseTime,
   onEditExerciseTime,
   onEditWorkout,
   onDeleteRecord,
 }) => {
   const isCn = lang === Language.CN;
+  const { getActiveMetrics } = useExercisePrefs();
   // 关闭动画期间 lift 已经是 null：留住最后一个，内容别在退场时闪空
   const [shown, setShown] = useState<LiftSummary | null>(lift);
   useEffect(() => {
@@ -79,13 +88,19 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
   }, [lift]);
   const [chosenRange, setChosenRange] = useState<ChartRange | null>(savedRange);
   const [expanded, setExpanded] = useState<string | null>(null);
-  useEffect(() => setExpanded(null), [lift?.key]);
+  // 按馆比的器械看哪个馆；null＝最近练的那个
+  const [chosenGym, setChosenGym] = useState<string | null>(null);
+  useEffect(() => {
+    setExpanded(null);
+    setChosenGym(null);
+  }, [lift?.key]);
   const bodyRef = useRef<HTMLDivElement>(null);
   const scroller = () => bodyRef.current?.parentElement ?? null;
   // 从编辑回来：接着展开那一场、滚回原处（在上面那个清空之后跑）
   useEffect(() => {
     if (!lift || resumeAt?.key !== lift.key) return;
     setExpanded(resumeAt.expanded);
+    setChosenGym(resumeAt.gym);
   }, [lift?.key]);
   useLayoutEffect(() => {
     if (!lift || resumeAt?.key !== lift.key || expanded !== resumeAt.expanded) return;
@@ -103,7 +118,11 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
     storage.setItem(RANGE_STORAGE_KEY, r);
   };
 
-  const l = lift ?? shown;
+  const whole = lift ?? shown;
+  // 按馆比的器械：纪录卡、阶梯线、逐场都只算选中的那个馆（审查 G4）；图上不加换馆记号（§12.11）
+  const gyms = useMemo(() => (whole ? gymChoices(whole) : []), [whole]);
+  const gym = chosenGym !== null && gyms.includes(chosenGym) ? chosenGym : gyms[0];
+  const l = useMemo(() => (whole && gym !== undefined ? inGym(whole, gym) : whole), [whole, gym]);
   const metrics = l ? chartMetricsFor(l, activeMetrics) : [];
   const metric = preferred && metrics.includes(preferred) ? preferred : metrics[0];
   const prIds = useMemo(() => (l && metric ? prSessionIds(l.sessions, metric) : new Set<string>()), [l, metric]);
@@ -173,6 +192,21 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
       testId="lift-detail"
     >
       <div ref={bodyRef} className="contents" />
+      {gyms.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap mb-3" role="group" data-testid="lift-gyms">
+          {gyms.map(g => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => setChosenGym(g)}
+              aria-pressed={g === gym}
+              className={`tap-44 px-2.5 py-1 rounded-chip text-xs font-medium ${g === gym ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'}`}
+            >
+              {gymLabel(g, isCn)}
+            </button>
+          ))}
+        </div>
+      )}
       {cards.length > 0 && (
         <div className={`grid gap-2 ${cards.length >= 3 ? 'grid-cols-3' : cards.length === 2 ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {cards.map(c => (
@@ -228,7 +262,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
           {isCn
             ? '线：历史最好 · 点：每场最好 · 实心：破纪录'
             : 'Line: all-time best · Dots: best set each session · Filled: new record'}
-          {metric === E1RM && (isCn ? ' · 仅算 12 次以内' : ' · Est. 1RM uses sets of ≤12 reps')}
+          {metric === E1RM && (isCn ? ` · 仅算 ${E1RM_MAX_REPS} 次以内` : ` · Est. 1RM uses sets of ≤${E1RM_MAX_REPS} reps`)}
         </p>
       </div>
 
@@ -270,19 +304,34 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                           {translations.planBadgeFaithful[lang]}
                         </span>
                       )}
-                      {s.exerciseTime && (
-                        <button
-                          type="button"
-                          onClick={() => onEditExerciseTime(s.workoutId, s.exerciseId, new Date(s.exerciseTime!))}
-                          className="px-2 py-0.5 rounded-chip bg-inset border border-divider font-mono text-secondary"
-                        >
-                          {formatExerciseTime(s.exerciseTime, isCn ? 'cn' : 'en').time}
-                        </button>
-                      )}
+                      {s.exerciseTime &&
+                        (onEditExerciseTime ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditExerciseTime(s.workoutId, s.exerciseId, new Date(s.exerciseTime!))}
+                            className="px-2 py-0.5 rounded-chip bg-inset border border-divider font-mono text-secondary"
+                          >
+                            {formatExerciseTime(s.exerciseTime, isCn ? 'cn' : 'en').time}
+                          </button>
+                        ) : (
+                          <span className="px-2 py-0.5 font-mono text-secondary">{formatExerciseTime(s.exerciseTime, isCn ? 'cn' : 'en').time}</span>
+                        ))}
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {s.sets.map((set, i) => renderSetCapsule(set, s.exercise.name, i))}
+                    {s.sets.map((set, i) => (
+                      <SetCapsule
+                        key={`${set.id ?? 'set'}-${i}`}
+                        set={set}
+                        setIdx={i}
+                        activeMetrics={getActiveMetrics(s.exercise.name)}
+                        unit={unit}
+                        lang={lang}
+                        readOnly
+                        onUpdate={() => {}}
+                        onRemove={() => {}}
+                      />
+                    ))}
                   </div>
                   {l.hasWeight && !l.signed && s.e1rm && (
                     <p className="text-xs text-tertiary">
@@ -291,11 +340,12 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                       {formatLoad(s.e1rm.kg, unit, false, isCn)}×{s.e1rm.reps}
                     </p>
                   )}
+                  {onEditWorkout && onDeleteRecord && (
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        resumeAt = { key: l.key, expanded, scrollTop: scroller()?.scrollTop ?? 0 };
+                        resumeAt = { key: l.key, expanded, scrollTop: scroller()?.scrollTop ?? 0, gym: chosenGym };
                         onEditWorkout(s.workoutId, s.exerciseId);
                       }}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-control bg-inset text-small font-medium text-primary"
@@ -303,15 +353,17 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                       <Edit2 size={14} strokeWidth={1.75} />
                       {isCn ? '编辑这场' : 'Edit workout'}
                     </button>
+                    {/* §6.6：删除是墨色文字项，不靠颜色喊危险。删的是那场最后一个动作＝删整场，外面先确认（审查 D10） */}
                     <button
                       type="button"
-                      onClick={e => onDeleteRecord(e, s.workoutId, s.exerciseId, s.date)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-control text-small font-medium text-danger"
+                      onClick={e => onDeleteRecord(e, s.workoutId, s.exerciseId)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-control text-small font-medium text-secondary"
                     >
                       <Trash2 size={14} strokeWidth={1.75} />
                       {isCn ? '删除这条' : 'Delete entry'}
                     </button>
                   </div>
+                  )}
                 </div>
               )}
             </div>
@@ -319,5 +371,31 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         })}
       </div>
     </Modal>
+  );
+};
+
+/**
+ * 训练卡 ⋯ →「历史」：在训练页上直接开这个动作的详情（审查 D8），关掉还在训练页原处。
+ * 只看不改，在这里点什么都不留痕：进行中的这场不算（useDoneWorkouts 已排除），不给编辑 / 删除。
+ * 图表指标只记在这一次打开里（首页那份偏好在 App，不往训练页拉）。
+ */
+export const ExerciseHistorySheet: React.FC<{ exercise: Exercise; open: boolean; onClose: () => void }> = ({ exercise, open, onClose }) => {
+  const { lang, unit } = useUserSettingsContext();
+  const prefs = useExercisePrefs();
+  const { workouts } = useDoneWorkouts();
+  const lifts = useLiftSummaries(workouts);
+  const key = prefs.liftKey(exercise);
+  const lift = open ? lifts.find(l => l.key === key) ?? null : null;
+  const [metric, setMetric] = useState<string | undefined>(undefined);
+  return (
+    <LiftDetailSheet
+      lift={lift}
+      onClose={onClose}
+      lang={lang}
+      unit={unit}
+      activeMetrics={lift ? prefs.getActiveMetrics(lift.baseName) : []}
+      metric={metric}
+      onMetricChange={setMetric}
+    />
   );
 };

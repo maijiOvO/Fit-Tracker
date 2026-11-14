@@ -21,8 +21,11 @@ import {
   bestAsOf,
   chartMetricsFor,
   featuredStats,
+  gymChoices,
+  latestGymView,
 } from '../utils/liftHistory';
-import { agoLabel, formatLoad, formatSet, metricLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { E1RM_MAX_REPS } from '../utils/prRecords';
+import { agoLabel, formatLoad, formatSet, gymLabel, metricLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { KG_TO_LBS } from '../constants';
 
 const DAY = 86400000;
@@ -84,7 +87,11 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
   const [editing, setEditing] = useState(false);
   const ids = chosen ?? BIG_THREE;
 
-  const byId = useMemo(() => new Map(lifts.map(l => [l.stableId, l])), [lifts]);
+  // 按馆比的器械只看最近练的那个馆（跨馆的重量不可比，审查 G4）；三大项是杠铃，原样
+  const views = useMemo(() => lifts.map(latestGymView), [lifts]);
+  const byId = useMemo(() => new Map(views.map(l => [l.stableId, l])), [views]);
+  /** 在不止一个馆练过的器械：卡上写是哪个馆的成绩 */
+  const multiGym = useMemo(() => new Set(lifts.filter(l => gymChoices(l).length > 1).map(l => l.stableId)), [lifts]);
   const featured = ids.map(id => byId.get(id)).filter((l): l is LiftSummary => !!l);
 
   // 1RM 模式下能估的（普通负重动作）换成估算 1RM；自重 / 带号的动作估不了，照旧按默认指标
@@ -136,7 +143,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
         <FeaturedEditor
           open={editing}
           onClose={() => setEditing(false)}
-          lifts={lifts}
+          lifts={views}
           ids={ids}
           onSave={onChange}
           lang={lang}
@@ -223,7 +230,10 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
             data-testid="featured-card"
           >
             <span className="flex-1 min-w-0">
-              <span className="block text-small text-secondary truncate">{lift.key}</span>
+              <span className="block text-small text-secondary truncate">
+                {lift.key}
+                {multiGym.has(lift.stableId) && <span className="text-tertiary"> · {gymLabel(lift.sessions[lift.sessions.length - 1].gym, isCn)}</span>}
+              </span>
               <span className="flex items-baseline gap-1">
                 <span className="font-mono font-bold text-2xl leading-tight text-primary tabular-nums">{big}</span>
                 <span className="text-xs text-secondary">{bigSuffix}</span>
@@ -270,15 +280,15 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
       {mode === 'e1rm' && (
         <p className="text-micro font-normal text-tertiary leading-snug border-t border-divider py-2.5">
           {isCn
-            ? '估算 1RM＝重量 ×（1 + 次数 / 30），仅算 12 次以内的组，非实测'
-            : 'Est. 1RM = weight × (1 + reps / 30), sets of ≤12 reps; not a tested max'}
+            ? `估算 1RM＝重量 ×（1 + 次数 / 30），仅算 ${E1RM_MAX_REPS} 次以内的组，非实测`
+            : `Est. 1RM = weight × (1 + reps / 30), sets of ≤${E1RM_MAX_REPS} reps; not a tested max`}
         </p>
       )}
 
       <FeaturedEditor
         open={editing}
         onClose={() => setEditing(false)}
-        lifts={lifts}
+        lifts={views}
         ids={ids}
         onSave={onChange}
         lang={lang}

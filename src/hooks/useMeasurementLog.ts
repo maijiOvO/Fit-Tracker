@@ -6,7 +6,7 @@ import { Language, Measurement } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { useAuthContext } from '../contexts/AuthContext';
+import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 
@@ -39,14 +39,12 @@ export interface UseMeasurementLogResult {
 }
 
 export function useMeasurementLog(): UseMeasurementLogResult {
-  const authCtx = useAuthContext();
   const settingsCtx = useUserSettingsContext();
   const { toast } = useUiOverlay();
 
   const lang = settingsCtx.lang;
   const isCn = lang === Language.CN;
   const measurements = settingsCtx.measurements;
-  const user = authCtx.user;
 
   const [showMeasureModal, setShowMeasureModal] = useState(false);
   const [editingMeasurementId, setEditingMeasurementId] = useState<string | null>(null);
@@ -74,7 +72,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
 
   const handleSaveMeasurement = useCallback(async () => {
     const name = measureForm.name.trim();
-    if (!name || !measureForm.value || !user) {
+    if (!name || !measureForm.value) {
       toast(isCn ? '请填写完整信息' : 'Please fill in all fields', 'error');
       return;
     }
@@ -89,7 +87,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
 
       const entry: Measurement = {
         id: editingMeasurementId || Date.now().toString(),
-        userId: user.id,
+        userId: FITLOG_SOLO_USER_ID,
         // 名字去掉首尾空格：「腰围 」和「腰围」原来会成两个指标
         name,
         value: parseFloat(measureForm.value),
@@ -111,7 +109,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
         'error',
       );
     }
-  }, [editingMeasurementId, isCn, measureForm, measurements, settingsCtx, toast, user]);
+  }, [editingMeasurementId, isCn, measureForm, measurements, settingsCtx, toast]);
 
   const handleDeleteMeasurement = useCallback(
     async (e: React.MouseEvent, id: string) => {

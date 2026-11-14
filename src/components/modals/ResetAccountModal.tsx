@@ -3,6 +3,8 @@ import { Trash2 } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
+import { useWorkoutContext } from '../../contexts/WorkoutContext';
+import { workbenchDropNote } from '../data/flash';
 
 interface ResetAccountModalProps {
   open: boolean;
@@ -24,7 +26,9 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
   onClose,
   onConfirmRequested,
 }) => {
-  const confirmWord = lang === Language.CN ? '重置' : 'RESET';
+  const isCn = lang === Language.CN;
+  const confirmWord = isCn ? '重置' : 'RESET';
+  const { currentWorkout } = useWorkoutContext();
   return (
     <Modal
       isOpen={open}
@@ -59,6 +63,13 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
         </h2>
         <p className="text-body text-secondary whitespace-pre-line">
           {translations.resetAccountDesc[lang]}
+        </p>
+        {/* 重置前先存回滚槽（services/fitlogBackup.ts resetAccount） */}
+        <p className="text-body text-secondary mt-3">
+          {isCn
+            ? '重置前自动存一份副本，7 天内可在首选项里「撤销上次恢复、导入或重置」。'
+            : 'A copy is saved first — you can undo it from Preferences within 7 days.'}
+          {currentWorkout.exercises.length > 0 && (isCn ? '' : ' ') + workbenchDropNote(isCn)}
         </p>
       </div>
       <label className="block text-label font-medium text-secondary mb-1.5">

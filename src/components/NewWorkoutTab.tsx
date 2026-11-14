@@ -4,15 +4,17 @@
  * 添加动作走底部常驻栏唤起的 ExercisePickerSheet（弹层），页面本体只保留动作卡列表。
  * 本页隐藏全局 AppHeader，自己的 sticky 头部是唯一顶栏（含状态栏留白）。
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
+  CalendarDays,
   Check,
   Flag,
   MapPin,
   Plus,
   X,
   Scale,
+  StickyNote,
 } from 'lucide-react';
 import {
   Exercise,
@@ -24,7 +26,7 @@ import {
 } from '../../types';
 import { translations } from '../../translations';
 import { ExerciseCard, type PRPool } from './ExerciseCard';
-import { AlternatingCard } from './AlternatingCard';
+import { AlternatingCard, Panel, panelBtn } from './AlternatingCard';
 import {
   applySetUpdate,
   buildCards,
@@ -43,11 +45,16 @@ import {
   splitGroup,
   tapSetNum as tapSetNumPure,
   tapSetNumEditing,
+  willRecord,
 } from '../utils/workbench';
 import { usesSignedLoad } from '../utils/load';
 import { useLoadRounder } from '../hooks/useLoadRounder';
 import { haptic, H } from '../utils/haptics';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { altCombosByName, type LastHit } from '../utils/prefillSource';
+import { isBackdated } from '../utils/sessionDate';
+import { isToday } from '../utils/dateUtils';
 import { BodyPartPicker, isPartTitle, partTitleFor } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
 import { ReorderStrip } from './ReorderStrip';
@@ -71,6 +78,8 @@ export interface NewWorkoutTabProps {
   resolveName: (name: string) => string;
   onBack: () => void;
   onSave: () => void;
+  /** 放弃这场（问一句再删）：做过组之后也能放弃 */
+  onDiscard: () => void;
   /** kg ⇄ lbs 显示切换（训练页隐藏了全局 AppHeader，入口在本页头部） */
   onToggleUnit: () => void;
   onOpenTimePicker: (exIdx: number, setIdx: number) => void;
@@ -86,7 +95,7 @@ export interface NewWorkoutTabProps {
   /** 动作设置弹窗里「在 X」一段的挂载点，交给弹窗所属的那张卡 */
   metricSlot?: { exIdx: number; el: HTMLElement | null } | null;
   onDeleteExerciseFromSession: (exIdx: number) => void;
-  /** 编辑模式下触发日期选择器（仅 editingWorkoutId 非空时显示日期区域） */
+  /** 打开日期时间选择器：编辑旧训练改日期；训练中改到过去＝补录 */
   onChangeDate?: () => void;
   /** 打开场地选择器（§12.11）。编辑旧训练时同样可用 —— 那是补标历史的唯一入口。 */
   onChangeGym?: () => void;
@@ -106,8 +115,8 @@ export interface NewWorkoutTabProps {
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数 */
   sessionAdded: number;
-  onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
-  onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => void;
+  onPickExercise: (ex: ExerciseDefinition, variantId: string | undefined, altFrom: LastHit | undefined, existingId: string | null) => boolean | void;
+  onCreateCustomExercise: (prefilled?: string, preset?: { bodyPart?: string; category?: string; regions?: string[]; equipment?: string }) => void;
   /** 弹层动作面板里的「部位与器材」（转发到 App 层的弹窗） */
   /** 换练法（第 8 条） */
   onSwitchVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
@@ -135,6 +144,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   resolveName,
   onBack,
   onSave,
+  onDiscard,
   onToggleUnit,
   onOpenTimePicker,
   onOpenExerciseTime,
@@ -160,8 +170,18 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onFlashDone,
   partPrechosenId = null,
 }) => {
-  const isCn = lang === Language.CN;
-  const { signedLoadOf } = useExercisePrefs();
+  const isCn = lang === Language.CN;  const { signedLoadOf } = useExercisePrefs();
+  const { workouts } = useWorkoutContext();
+  // 训练中改过日期的场（补录）：和编辑旧训练一样，只看那一场之前的
+  const backdated = !editingWorkoutId && isBackdated(currentWorkout);
+  // 选动作列表里的交替搭配：范围和点行时带搭档的一样（跳过这一场自己，补加旧训练 / 补录只看那一场之前的）
+  const altCombos = useMemo(
+    () =>
+      pickerOpen
+        ? altCombosByName(workouts, resolveName, currentWorkout.id || undefined, editingWorkoutId || backdated ? currentWorkout.date : undefined)
+        : undefined,
+    [pickerOpen, workouts, resolveName, currentWorkout.id, currentWorkout.date, editingWorkoutId, backdated],
+  );
   const rounderFor = useLoadRounder();
   const { toast, toastUndo } = useUiOverlay();
   const flashTimerRef = useRef<number | null>(null);
@@ -179,14 +199,14 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    * 结束训练不弹确认框（§12.5 通则 3：结束不在例外名单里，结束后能从时间线接回 / 编辑）。
    * 顶栏的按钮离拇指远、容易误触，所以同一键再点一次才结束：第一下只把按钮改成「再点一次结束」，4 秒没点回去。
    * 第二下落在同一处，不用重新瞄准（2026-10-26 按记录开销计分改：确认弹窗每场多一次等待、一次想、一次瞄准）。
-   * 一组都没做完时不上膛，直接交给下面问「放弃？」。
+   * 卡上一个有数的组都没有（没东西可入册）时不上膛，直接交给下面问「放弃？」。
    */
   const [endArmed, setEndArmed] = useState(false);
   const endArmTimer = useRef<number | null>(null);
   useEffect(() => () => window.clearTimeout(endArmTimer.current ?? undefined), []);
   const onFinishClick = () => {
-    const anyDone = (currentWorkout.exercises ?? []).some(e => e.sets.some(s => !s.ghost || s.touched));
-    if (editingWorkoutId || !anyDone) {
+    const anyRecorded = (currentWorkout.exercises ?? []).some(e => e.sets.some(willRecord));
+    if (editingWorkoutId || !anyRecorded) {
       onSave();
       return;
     }
@@ -208,23 +228,30 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    */
   const [noteOpen, setNoteOpen] = useState(false);
   useEffect(() => setNoteOpen(false), [currentWorkout.id]);
+  /** 吸顶页头里的备注入口（审查 A8）：练到后半场不用滚回页顶找眉批 */
+  const openNoteFromHeader = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setNoteOpen(true);
+  };
+
+  /** 「和…交替做」选目标的面板开着：给的是发起的那张单卡的动作 id */
+  const [pairFor, setPairFor] = useState<string | null>(null);
 
   /**
    * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
    * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
    *
-   * 选中：组号实心 + ±5。默认选中指针下面那一组；点哪一组的组号，哪一组就选中，
-   * 点的是指针下面的待做组，指针同时前进到它正下方（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）；
-   * 点做完的组只选中，指针不往回跳（2026-10-25）。
-   * 只存「手动选中的那一组」，删掉 / 拖书签之后清空，回到默认。
+   * 选中：组号实心 = 我点过的那一组（审查 A5：没手动选中时任何组号都不实心，「实心」只有一种来历）。
+   * 点哪一组的组号，哪一组就选中；点的是指针下面的待做组，指针同时前进到它正下方
+   *（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）；点做完的组只选中，指针不往回跳（2026-10-25）。
+   * 删掉 / 拖书签之后清空。没选中时底栏操作条改的是指针下面那一条待做组，小字写明第几组。
    */
   const exs = currentWorkout.exercises ?? [];
   const [pickedSetId, setPickedSetId] = useState<string | null>(null);
   const seam = pointerSeam(exs);
-  const defaultRow = nextPendingRow(exs);
   const pickedValid = !!pickedSetId && exs.some(e => e.sets.some(s => String(s.id) === pickedSetId));
-  const selectedSetId = pickedValid ? pickedSetId : defaultRow?.setId ?? null;
+  const selectedSetId = pickedValid ? pickedSetId : null;
   const cards = buildCards(exs);
 
   /**
@@ -240,30 +267,80 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   }, [exs]);
 
   /**
-   * 选中组操作条（SetActionStrip）固定在底栏上方，改的是选中那一组。
-   * 正在打字（软键盘起来了）和添加动作弹层开着时收掉：前者让键盘上方只剩正在改的那行，后者弹层盖住了它。
+   * 选中组操作条（SetActionStrip）固定在底栏上方，改的是选中那一组；没选中时是指针下面那一条待做组。
+   * 软键盘起来时和添加动作弹层开着时收掉：前者让键盘上方只剩正在改的那行，后者弹层盖住了它。
    */
-  const selectedRow = selectedSetId
-    ? exs.flatMap(e => e.sets.filter(s => String(s.id) === selectedSetId).map(s => ({ ex: e, set: s }))).at(0)
+  const stripRef = pickedValid ? exs.flatMap(e => e.sets.filter(s => String(s.id) === pickedSetId).map(s => ({ exId: e.id, setId: String(s.id) }))).at(0) : nextPendingRow(exs);
+  const selectedRow = stripRef
+    ? exs.flatMap(e => (e.id === stripRef.exId ? e.sets.filter(s => String(s.id) === stripRef.setId).map(s => ({ ex: e, set: s })) : [])).at(0)
     : undefined;
-  const [typing, setTyping] = useState(false);
+  /** 行上显示的组号：单卡是第几组，交替卡里按动作各数各的（同 AlternatingCard 按行序数） */
+  const rowNo = (r: RowRef): number => {
+    const card = cards.find(c => c.exIds.includes(r.exId));
+    let n = 0;
+    for (const x of card ? cardRows(card, exs) : []) {
+      if (x.exId !== r.exId) continue;
+      n++;
+      if (x.setId === r.setId) return n;
+    }
+    return n;
+  };
+  /**
+   * 键盘在不在（审查 A9）：不看输入框焦点 —— 用系统的收起键盘收掉键盘后，输入框还拿着焦点，操作条会一直不回来。
+   * 看可见视口比见过的最高矮了多少：Capacitor adjustResize 下 innerHeight 跟着缩，和它比不出来。宽度变了（转屏）重新记。
+   */
+  const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
-    const isField = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
-    const onIn = (e: FocusEvent) => { if (isField(e.target)) setTyping(true); };
-    const onOut = (e: FocusEvent) => { if (isField(e.target)) setTyping(false); };
-    document.addEventListener('focusin', onIn);
-    document.addEventListener('focusout', onOut);
-    return () => {
-      document.removeEventListener('focusin', onIn);
-      document.removeEventListener('focusout', onOut);
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let tallest = vv.height;
+    let width = vv.width;
+    const sync = () => {
+      if (vv.width !== width) {
+        width = vv.width;
+        tallest = vv.height;
+      }
+      tallest = Math.max(tallest, vv.height);
+      setKeyboardUp(tallest - vv.height > 150);
     };
+    vv.addEventListener('resize', sync);
+    return () => vv.removeEventListener('resize', sync);
   }, []);
-  const stripRow = selectedRow && !typing && !pickerOpen ? selectedRow : null;
+  const stripRow = selectedRow && !keyboardUp && !pickerOpen ? selectedRow : null;
 
   const setExs = (fn: (list: Exercise[]) => Exercise[]) =>
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(fn(w.exercises ?? [])) }));
 
-  const isSigned = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex));
+  // 交替卡渲染时就调它：身份只跟 signedLoadOf 变（卡包了 memo，见下面 cardFn）
+  const isSigned = useCallback((ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex)), [signedLoadOf]);
+
+  /**
+   * 两种卡都包了 memo（审查 F4：录一组 / 拖一档原来整页每张卡都重渲染）。传给卡的回调每次渲染都是新闭包，memo 就白包了：
+   * cardFn 按名字给一个身份不变的转发，调用时转给这一次渲染的闭包。在渲染里就写进去 —— 子组件的 effect 先于这里的 effect 跑，
+   * 放进 effect 会让卡在 effect 里调到上一次的闭包。只用于事件 / effect 里才调的回调；渲染时就调的（isSigned、lastSessionFor、
+   * prPoolFor）传本身，否则它们变了卡不跟着重画。传 undefined 回 undefined：卡上靠有没有来决定出不出那个菜单项。
+   */
+  const fnBoxes = useRef(new Map<string, { f: ((...a: any[]) => unknown) | undefined; stable: (...a: any[]) => unknown }>());
+  function cardFn<F extends (...a: any[]) => any>(name: string, f: F): F;
+  function cardFn<F extends (...a: any[]) => any>(name: string, f: F | undefined): F | undefined;
+  function cardFn<F extends (...a: any[]) => any>(name: string, f: F | undefined): F | undefined {
+    let box = fnBoxes.current.get(name);
+    if (!box) {
+      const b: { f: F | undefined; stable: (...a: any[]) => unknown } = { f, stable: (...a) => b.f!(...a) };
+      box = b;
+      fnBoxes.current.set(name, box);
+    }
+    box.f = f;
+    return f ? (box.stable as F) : undefined;
+  }
+  /** 每次渲染新建、内容常常没变的对象 / 数组（交替卡的成员、组行、拖动柄）：和上一次一样就还给上一次那个 */
+  const keptVals = useRef(new Map<string, unknown>());
+  const keep = <T,>(name: string, v: T, same: (a: T, b: T) => boolean): T => {
+    const prev = keptVals.current.get(name) as T | undefined;
+    if (prev !== undefined && same(prev, v)) return prev;
+    keptVals.current.set(name, v);
+    return v;
+  };
 
   /**
    * 点组号：一下＝选中这一组；待做的组顺带做完、指针前进（语义全在 workbench.tapSetNum）。
@@ -272,7 +349,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    */
   const tapSetNum = (r: RowRef) => {
     // 已经实心（选中）的做完组再点：什么都不变（2026-10-25 用户定）。
-    // 只挡做完的：没点过时默认实心的是指针下面那一组待做，点它就是「这组做完了」
+    // 选中的待做组（点的时候还没填数）填了数再点照常做完
     if (r.setId === selectedSetId && findSet(exs, r)?.ghost === false) return;
     const res = editingWorkoutId ? tapSetNumEditing(exs, r) : tapSetNumPure(exs, r);
     if (res.outcome === 'noop') return;
@@ -346,20 +423,19 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       exercises: applySetUpdate(w.exercises ?? [], r, updates, e => rounderFor(e, w.gym)?.snapKg ?? null),
     }));
 
-  /** 添加组：克隆这个动作最后一组的值，新行从待做开始，但标 added —— 结束时照样入册（types.ts SetLog.added） */
+  /** 添加组：克隆这个动作最后一组的值，新行从待做开始；有数就入册（workbench.willRecord），全零的不入册 */
   const addSetTo = (exId: string) =>
     setCurrentWorkout(w => ({
       ...w,
       exercises: (w.exercises ?? []).map(e => {
         if (e.id !== exId) return e;
         const lastSet = e.sets.length > 0 ? e.sets[e.sets.length - 1] : null;
-        // 克隆上一行的值，新行从【待做】开始（第 4 条）：指针、±5、底稿跟随都照旧；加出来的组结束时不丢，靠 added 标记。
+        // 克隆上一行的值，新行从【待做】开始（第 4 条）：指针、±5、底稿跟随都照旧。
         // 力竭是当日这一组的事实，不跟着抄；touched / 跳过 / 先后号同理。
         // 递减档照抄（2026-10-15 用户定：和普通组一样继承；不做那档就删掉），换新 id、去掉改过标记。
         const newId = `${Date.now()}`;
-        // 编辑旧训练时加的组是补记做过的（审查 B3）：直接按做完入册，不用再点一下组号；新训练照旧从待做开始
+        // 编辑旧训练时加的组是补记做过的（审查 B3）：直接按做完，不用再点一下组号；新训练照旧从待做开始
         const asDone = !!editingWorkoutId;
-        const seq = asDone ? {} : { added: true as const };
         const newSet: SetLog = lastSet
           ? (() => {
               // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」，不是「从上一次纯换算来的」；
@@ -370,7 +446,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 ...base,
                 id: newId,
                 ghost: !asDone,
-                ...seq,
                 ...(Number(base.weight) > 0 ? { plateUnit: pu } : {}),
                 ...(subSets?.length
                   ? {
@@ -383,7 +458,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   : {}),
               };
             })()
-          : { id: newId, weight: 0, reps: 0, ghost: !asDone, ...seq };
+          : { id: newId, weight: 0, reps: 0, ghost: !asDone };
         return { ...e, sets: [...e.sets, newSet] };
       }),
     }));
@@ -424,8 +499,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   };
 
   const exerciseCount = exs.length;
-  // 底稿行不算数据（§12.6）：口径必须跟刊头的 realSetCount 一致，
-  // 否则刊头写「3组」底栏写「4组」，其中一个在说假话。
+  // 分子是指针进度（点过的组），不是入册数：有数的组结束时都入册（willRecord），抄来的底稿几乎都有数，
+  // 按入册口径数开场就是满的。口径跟刊头的 realSetCount 一致，入册数看刊末页。
   const setCount = doneCount(exs);
   // 分母同刊头的 plannedCount：台上全部的组。做完数和台上的组数不一样时人才看得见「还有组没点完」
   const plannedCount = exs.reduce((s, ex) => s + (ex.sets?.length || 0), 0);
@@ -477,10 +552,27 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     },
   });
 
-  // 弹层关闭后：滚到最新添加的动作卡并高亮
+  /**
+   * 一次加完几个动作（审查 G7）：弹层打开时记下已有的动作，关掉时落在这批里排在最前、还在的那张卡 ——
+   * 开场一次点 5 个，要做的是第 1 张，不是最后点的那张。中途补加一个时和原来一样。换一场就作废。
+   */
+  const pickSnapRef = useRef<Set<string> | null>(null);
+  // 先作废再记：开场长按 FAB 时换场和开弹层落在同一次提交里
+  useEffect(() => {
+    pickSnapRef.current = null;
+  }, [currentWorkout.id]);
+  useEffect(() => {
+    if (pickerOpen) pickSnapRef.current = new Set(exs.map(e => e.id));
+  }, [pickerOpen]);
+
+  // 弹层关闭后：滚到这次添加的动作卡并高亮
   useEffect(() => {
     if (!flashExerciseId) return;
-    const el = document.querySelector<HTMLElement>(`[data-ex-card="${flashExerciseId}"]`);
+    const snap = pickSnapRef.current;
+    pickSnapRef.current = null;
+    const target = (snap && !snap.has(flashExerciseId) && exs.find(e => !snap.has(e.id))?.id) || flashExerciseId;
+    const key = buildCards(exs).find(c => c.exIds.includes(target))?.key;
+    const el = key ? document.querySelector<HTMLElement>(`[data-card-key="${key}"]`) : null;
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       // §5.5：anim-ring（1.6s 的 box-shadow 光晕）已废弃——那是 Material 的辐射语汇，
@@ -520,23 +612,30 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
           <div className="flex-1 min-w-0 space-y-1">
             {/* 编辑态五项挤不下一行，整项折到第二行（每项 nowrap，否则压成一字一行）。
-                训练中只有馆和单位两项：不折行，馆名让位，头部高度不随按钮状态跳。 */}
+                训练中只有日期、馆和单位：不折行，馆名让位，头部高度不随按钮状态跳。
+                手机宽度下这一行夹在撤销列和结束键之间只剩约 100px：今天的日期只给图标、备注图标放到标题行，
+                否则馆名被压成 0 宽、点不到。 */}
             <div className={`flex ${editingWorkoutId ? 'flex-wrap' : ''} items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap`}>
               {/* 「新建训练」字样拿掉了（2026-10-25）：顶栏要给撤销 / 重做让一列，训练页本身就说明了是新的一场；
                   编辑旧训练还写「编辑训练」—— 那时保存语义不一样，得看得出来 */}
               {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit Workout'}</span>}
-              {editingWorkoutId && currentWorkout.date && (
+              {/* 训练中也能改：忘了记、回头补录就把这场挪到那天（补录不新开首页入口，D2） */}
+              {!!currentWorkout.id && (
                 <button
                   type="button"
                   onClick={onChangeDate}
-                  className="normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1"
+                  className="relative before:absolute before:-top-4 before:-bottom-1 before:-inset-x-1 flex-shrink-0 normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1"
                   title={isCn ? '修改训练日期' : 'Change workout date'}
+                  aria-label={isCn ? '修改训练日期' : 'Change workout date'}
+                  data-testid="workout-date-button"
                 >
-                  ·{' '}
-                  {new Date(currentWorkout.date).toLocaleDateString(
-                    isCn ? 'zh-CN' : 'en-US',
-                    { month: 'numeric', day: 'numeric', weekday: 'short' },
-                  )}
+                  {editingWorkoutId && '· '}
+                  {!editingWorkoutId && isToday(new Date(currentWorkout.date))
+                    ? <CalendarDays size={10} strokeWidth={2} />
+                    : new Date(currentWorkout.date).toLocaleDateString(
+                        isCn ? 'zh-CN' : 'en-US',
+                        { month: 'numeric', day: 'numeric', weekday: 'short' },
+                      )}
                 </button>
               )}
               {/* §12.11 场地：日期右边一格。没标过时只是个淡图标，
@@ -546,7 +645,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   type="button"
                   onClick={onChangeGym}
                   // 没选馆时只剩一个图标，以前再降到 45% 透明度，约 1.9:1 看不见能点（2026-10-22 颜色审查）
-                  className="relative before:absolute before:-top-4 before:-bottom-1 before:-inset-x-2 min-w-0 normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
+                  className="relative before:absolute before:-top-4 before:-bottom-1 before:-inset-x-2 min-w-[10px] normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
                   title={translations.gymPickTitle[lang] as string}
                   aria-label={translations.gymPickTitle[lang] as string}
                   data-testid="gym-button"
@@ -574,15 +673,28 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 </span>
               )}
             </div>
-            <input
-              ref={titleInputRef}
-              className="w-full bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
-              value={currentWorkout.title}
-              onChange={e =>
-                setCurrentWorkout({ ...currentWorkout, title: e.target.value })
-              }
-              placeholder={translations.trainingTitlePlaceholder[lang]}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                ref={titleInputRef}
+                className="flex-1 min-w-0 bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
+                value={currentWorkout.title}
+                onChange={e =>
+                  setCurrentWorkout({ ...currentWorkout, title: e.target.value })
+                }
+                placeholder={translations.trainingTitlePlaceholder[lang]}
+              />
+              <button
+                type="button"
+                onClick={openNoteFromHeader}
+                className="relative before:absolute before:-inset-3 flex-shrink-0 inline-flex items-center text-tertiary hover:text-secondary transition-colors"
+                aria-label={isCn ? '整场备注' : 'Workout note'}
+                data-testid="workout-notes-jump"
+              >
+                <StickyNote size={12} strokeWidth={2} />
+                {/* 有备注时带一个点 */}
+                {currentWorkout.notes && <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-accent" />}
+              </button>
+            </div>
           </div>
 
           {/* 全局撤销 / 重做：独占一列、上下两行都不伸到它下面，纵向没有别的按钮（2026-10-25） */}
@@ -680,10 +792,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         {cards.map((card, ci) => {
           // 编辑旧训练不画书签：拖它往上会把后面的组退回待做，保存时整段被剥掉
           const pointerGap = !editingWorkoutId && seam?.cardKey === card.key ? seam.gap : null;
-          const wrap = (body: React.ReactNode, flashId: string) => (
+          const wrap = (body: React.ReactNode) => (
             <div
               key={card.key}
-              data-ex-card={flashId}
               data-card-key={card.key}
               ref={reorder.itemRef(ci)}
               // scroll-mt：自动跟到下一张卡时别钻到吸顶页头底下
@@ -692,25 +803,48 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               {body}
             </div>
           );
-          const dragHandle =
-            cards.length > 1
-              ? {
-                  handlers: reorder.handleProps(ci),
+          const at = (name: string) => `${card.key}|${name}`;
+          const handleProps = cards.length > 1 ? reorder.handleProps(ci) : null;
+          const dragHandle = handleProps
+            ? keep(
+                at('drag'),
+                {
+                  handlers: {
+                    onPointerDown: cardFn(at('drag.down'), handleProps.onPointerDown),
+                    onPointerMove: cardFn(at('drag.move'), handleProps.onPointerMove),
+                    onPointerUp: cardFn(at('drag.up'), handleProps.onPointerUp),
+                    onPointerCancel: cardFn(at('drag.cancel'), handleProps.onPointerCancel),
+                    onContextMenu: cardFn(at('drag.menu'), handleProps.onContextMenu),
+                  },
                   pressing: reorder.pressingIdx === ci,
                   hinting: reorder.hintingIdx === ci,
                   drawMs: reorder.drawMs,
-                }
-              : undefined;
+                },
+                (a, b) => a.pressing === b.pressing && a.hinting === b.hinting && a.drawMs === b.drawMs,
+              )
+            : undefined;
 
           if (card.group) {
-            const members = card.exIds.map(id => exs.find(e => e.id === id)!).filter(Boolean);
+            const members = keep(
+              at('members'),
+              card.exIds.map(id => exs.find(e => e.id === id)!).filter(Boolean),
+              (a, b) => a.length === b.length && a.every((m, i) => m === b[i]),
+            );
             const indexOf = (exId: string) => exs.findIndex(e => e.id === exId);
+            const settingsFor =
+              metricSlot && members.some(m => indexOf(m.id) === metricSlot.exIdx)
+                ? { exId: exs[metricSlot.exIdx].id, el: metricSlot.el }
+                : null;
             return wrap(
               <AlternatingCard
                 cardKey={card.key}
                 cardNo={ci + 1}
                 members={members}
-                rows={cardRows(card, exs)}
+                rows={keep(
+                  at('rows'),
+                  cardRows(card, exs),
+                  (a, b) => a.length === b.length && a.every((r, i) => r.exId === b[i].exId && r.setId === b[i].setId),
+                )}
                 lang={lang}
                 unit={unit}
                 exerciseNotes={exerciseNotes}
@@ -718,37 +852,35 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 resolveName={resolveName}
                 isSigned={isSigned}
                 pointerGap={pointerGap}
-                onMovePointer={movePointer}
+                onMovePointer={cardFn('movePointer', movePointer)}
                 selectedSetId={selectedSetId}
-                onNumTap={tapSetNum}
-                onSetUpdate={updateSet}
-                onRemoveSet={removeSet}
-                onRemoveSubSet={removeSubSet}
-                onAddSet={addSetTo}
+                onNumTap={cardFn('tapSetNum', tapSetNum)}
+                onSetUpdate={cardFn('updateSet', updateSet)}
+                onRemoveSet={cardFn('removeSet', removeSet)}
+                onRemoveSubSet={cardFn('removeSubSet', removeSubSet)}
+                onAddSet={cardFn('addSetTo', addSetTo)}
                 gym={currentWorkout.gym}
-                onMoveMember={(exId, dir) => setExs(list => moveGroupMember(list, exId, dir))}
-                onRemoveMember={exId => setExs(list => removeFromGroup(list, exId))}
-                onDeleteMember={exId => onDeleteExerciseFromSession(indexOf(exId))}
-                onSplit={() => setExs(list => splitGroup(list, card.group!))}
-                onAddMember={() => onPickerOpenChange(true, null, card.group)}
-                onSwitchRowExercise={(r, to) => setExs(list => moveSetToExercise(list, r, to, isSigned))}
-                onSwitchVariant={(exId, v, name) => onSwitchVariant(exId, v, name)}
-                onToggleNote={onToggleNote}
-                onOpenMetricModal={(name, exId) => onOpenMetricModal(name, indexOf(exId))}
-                settingsFor={
-                  metricSlot && members.some(m => indexOf(m.id) === metricSlot.exIdx)
-                    ? { exId: exs[metricSlot.exIdx].id, el: metricSlot.el }
-                    : null
-                }
-                onUpdateMemberSets={(exId, sets) => setExs(list => list.map(e => (e.id === exId ? { ...e, sets } : e)))}
-                onOpenTimePicker={(exId, setId) => {
+                lastSessionFor={lastSessionFor}
+                // 编辑旧训练不判纪录（同单卡）
+                prPoolFor={!editingWorkoutId ? prPoolFor : undefined}
+                onMoveMember={cardFn(at('moveMember'), (exId: string, dir: -1 | 1) => setExs(list => moveGroupMember(list, exId, dir)))}
+                onRemoveMember={cardFn(at('removeMember'), (exId: string) => setExs(list => removeFromGroup(list, exId)))}
+                onDeleteMember={cardFn(at('deleteMember'), (exId: string) => onDeleteExerciseFromSession(indexOf(exId)))}
+                onSplit={cardFn(at('split'), () => setExs(list => splitGroup(list, card.group!)))}
+                onAddMember={cardFn(at('addMember'), () => onPickerOpenChange(true, null, card.group))}
+                onSwitchRowExercise={cardFn(at('switchRow'), (r: RowRef, to: string) => setExs(list => moveSetToExercise(list, r, to, isSigned)))}
+                onSwitchVariant={cardFn('switchVariant', onSwitchVariant)}
+                onToggleNote={cardFn('toggleNote', onToggleNote)}
+                onOpenMetricModal={cardFn(at('metric'), (name: string, exId: string, focus?: 'gym') => onOpenMetricModal(name, indexOf(exId), focus))}
+                settingsFor={keep(at('settingsFor'), settingsFor, (a, b) => a === b || (!!a && !!b && a.exId === b.exId && a.el === b.el))}
+                onUpdateMemberSets={cardFn(at('memberSets'), (exId: string, sets: SetLog[]) => setExs(list => list.map(e => (e.id === exId ? { ...e, sets } : e))))}
+                onOpenTimePicker={cardFn(at('timePicker'), (exId: string, setId: string) => {
                   const ei = indexOf(exId);
                   const si = exs[ei]?.sets.findIndex(s => String(s.id) === setId) ?? -1;
                   if (ei >= 0 && si >= 0) onOpenTimePicker(ei, si);
-                }}
+                })}
                 dragHandle={dragHandle}
               />,
-              members[members.length - 1]?.id ?? card.key,
             );
           }
 
@@ -767,52 +899,73 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               getActiveMetrics={getActiveMetrics}
               resolveName={resolveName}
               pointerGap={pointerGap}
-              onMovePointer={movePointer}
+              onMovePointer={cardFn('movePointer', movePointer)}
               selectedSetId={selectedSetId}
-              onNumTap={setId => tapSetNum({ exId: ex.id, setId })}
+              onNumTap={cardFn(at('numTap'), (setId: string) => tapSetNum({ exId: ex.id, setId }))}
               signed={isSigned(ex)}
               gym={currentWorkout.gym}
-              onAlternateWithNext={
-                next ? () => setExs(list => groupExercises(list, [ex.id, ...next.exIds])) : undefined
-              }
-              onJoinGroupAbove={
-                prev?.group ? () => setExs(list => groupExercises(list, [...prev.exIds, ex.id])) : undefined
-              }
-              onUpdateExercise={(idx, updates) => {
+              // 场上三张及以上：先问和哪一张（不相邻的也能直接组，审查 A8；最后一张也有）；只有两张就直接和下一张
+              onAlternateWithNext={cardFn(
+                at('altNext'),
+                cards.length > 2
+                  ? () => setPairFor(ex.id)
+                  : next
+                    ? () => setExs(list => groupExercises(list, [ex.id, ...next.exIds]))
+                    : undefined,
+              )}
+              onJoinGroupAbove={cardFn(
+                at('joinAbove'),
+                prev?.group ? () => setExs(list => groupExercises(list, [...prev.exIds, ex.id])) : undefined,
+              )}
+              onUpdateExercise={cardFn('updateExercise', (idx: number, updates: Partial<Exercise>) => {
                 setCurrentWorkout(w => {
                   const list = [...(w.exercises ?? [])];
                   list[idx] = { ...list[idx], ...updates };
                   return { ...w, exercises: list };
                 });
-              }}
-              onDeleteExercise={onDeleteExerciseFromSession}
+              })}
+              onDeleteExercise={cardFn('deleteExercise', onDeleteExerciseFromSession)}
               dragHandle={dragHandle}
-              onOpenTimePicker={onOpenTimePicker}
-              onOpenExerciseTime={onOpenExerciseTime ? () => onOpenExerciseTime(ex.id) : undefined}
+              onOpenTimePicker={cardFn('openTimePicker', onOpenTimePicker)}
+              onOpenExerciseTime={cardFn(at('exTime'), onOpenExerciseTime ? () => onOpenExerciseTime(ex.id) : undefined)}
+              // 两个都按输入缓存（App.tsx）：同样的输入回同一个对象，memo 比得住
               lastSession={lastSessionFor ? lastSessionFor(ex) : null}
               // 编辑旧训练不判纪录（和结束训练时的 detectPRs 同一口径）
               prPool={!editingWorkoutId && prPoolFor ? prPoolFor(ex) : null}
-              onToggleNote={onToggleNote}
-              onOpenMetricModal={(name, focus) => onOpenMetricModal(name, exIdx, focus)}
+              onToggleNote={cardFn('toggleNote', onToggleNote)}
+              onOpenMetricModal={cardFn(at('metric'), (name: string, focus?: 'gym') => onOpenMetricModal(name, exIdx, focus))}
               settingsSlot={metricSlot?.exIdx === exIdx ? metricSlot.el : null}
-              onSwitchVariant={(v, name) => onSwitchVariant(ex.id, v, name)}
-              onSetUpdate={(_eIdx, setIdx, updates) => {
+              onSwitchVariant={cardFn(at('variant'), (v: string | undefined, name?: string) => onSwitchVariant(ex.id, v, name))}
+              onSetUpdate={cardFn(at('setUpdate'), (_eIdx: number, setIdx: number, updates: Partial<SetLog>) => {
                 const s = ex.sets[setIdx];
                 if (s) updateSet({ exId: ex.id, setId: String(s.id) }, updates);
-              }}
-              onAddSet={() => addSetTo(ex.id)}
-              onRemoveSet={(_eIdx, setIdx) => {
+              })}
+              onAddSet={cardFn(at('addSet'), () => addSetTo(ex.id))}
+              onRemoveSet={cardFn(at('removeSet'), (_eIdx: number, setIdx: number) => {
                 const s = ex.sets[setIdx];
                 if (s) removeSet({ exId: ex.id, setId: String(s.id) });
-              }}
-              onRemoveSubSet={(_eIdx, setIdx, subIdx) => {
+              })}
+              onRemoveSubSet={cardFn(at('removeSub'), (_eIdx: number, setIdx: number, subIdx: number) => {
                 const s = ex.sets[setIdx];
                 if (s) removeSubSet({ exId: ex.id, setId: String(s.id) }, subIdx);
-              }}
+              })}
             />,
-            ex.id,
           );
         })}
+
+        {/* 放弃这场：放在所有卡下面、离拇指和顶栏都远，点了还要确认（「放弃训练」在确认弹窗的例外名单里） */}
+        {!editingWorkoutId && exerciseCount > 0 && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={onDiscard}
+              className="min-h-[44px] px-4 text-label text-tertiary hover:text-danger transition-colors"
+              data-testid="discard-workout"
+            >
+              {isCn ? '放弃这场' : 'Discard workout'}
+            </button>
+          </div>
+        )}
 
         {exerciseCount === 0 &&
           (needsBodyPart ? (
@@ -857,7 +1010,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <SetActionStrip
             exercise={stripRow.ex}
             set={stripRow.set}
-            setNo={stripRow.ex.sets.indexOf(stripRow.set) + 1}
+            setNo={rowNo({ exId: stripRow.ex.id, setId: String(stripRow.set.id) })}
             name={resolveName(stripRow.ex.name)}
             activeMetrics={getActiveMetrics(stripRow.ex.name)}
             unit={unit}
@@ -885,6 +1038,37 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         </div>
       </div>
 
+      {pairFor && (() => {
+        const from = exs.find(e => e.id === pairFor);
+        if (!from) return null;
+        return (
+          <Panel
+            title={isCn ? `「${resolveName(from.name)}」和哪个交替做` : `Alternate "${resolveName(from.name)}" with`}
+            onClose={() => setPairFor(null)}
+            cancel={isCn ? '取消' : 'Cancel'}
+            testId="alt-pair-panel"
+          >
+            {cards
+              .filter(c => !c.exIds.includes(pairFor))
+              .map(c => (
+                <button
+                  key={c.key}
+                  type="button"
+                  className={panelBtn}
+                  onClick={() => {
+                    setPairFor(null);
+                    setExs(list => groupExercises(list, [pairFor, ...c.exIds]));
+                  }}
+                >
+                  <span className="min-w-0 truncate">
+                    {c.exIds.map(id => resolveName(exs.find(e => e.id === id)?.name ?? '')).join(' ⇄ ')}
+                  </span>
+                </button>
+              ))}
+          </Panel>
+        );
+      })()}
+
       {/* 添加动作弹层（常驻挂载，open 控制显隐 → 筛选记忆） */}
       <ExercisePickerSheet
         open={pickerOpen}
@@ -895,6 +1079,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         addedCounts={addedCounts}
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
+        altCombos={altCombos}
         onPartChange={bodyPart => {
           // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改。
           // 只在还一个动作都没加的时候（审查 A14）：加了胸的动作再去背那一栏找一个，是在找动作，不是改主意；

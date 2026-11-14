@@ -8,7 +8,7 @@ import { translations } from '../../translations';
 import { useScheduleContext } from '../contexts';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import ScheduleEditorModal, { type PlanPickerHost } from './ScheduleEditorModal';
-import { formatWeight } from './SetCapsule';
+import { formatLoad } from '../utils/setWrite';
 import { MiniPlates, planSide, plateWords } from './MiniPlates';
 import { barWeight } from '../utils/plates';
 import { EQ_BARBELL } from '../utils/exerciseAttrs';
@@ -53,6 +53,15 @@ function formatMonthLabel(d: Date, lang: Language): string {
     return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`;
   }
   return d.toLocaleString('en-US', { year: 'numeric', month: 'long' });
+}
+
+/** 当日详情的标题：「11月13日 周四」/「Thu, Nov 13」（审查 D12：原来直接显示 2026-11-13） */
+function formatDayLabel(ymd: string, lang: Language): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return lang === Language.CN
+    ? date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' })
+    : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
 }
 
 function statusBadge(status: ScheduledWorkout['status'], lang: Language) {
@@ -333,13 +342,13 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-secondary text-small">
             <CalendarClock size={16} strokeWidth={1.75} />
-            <span className="font-mono">{selectedDate}</span>
+            <span data-testid="day-detail-date">{formatDayLabel(selectedDate, lang)}</span>
           </div>
           <button
             onClick={openNew}
             data-testid="schedule-add-btn"
             // 次要样式：实心强调色留给日历上的选中日、计划卡的「开始」和右下角「开练」（2026-10-22 界面审查：一屏一个主操作）
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-btn text-primary border border-divider text-small font-medium active:scale-press-sm transition [&>svg]:text-accent"
+            className="tap-44 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-btn text-primary border border-divider text-small font-medium active:scale-press-sm transition [&>svg]:text-accent"
           >
             <Plus size={16} strokeWidth={2} />
             {translations.scheduleAdd[lang]}
@@ -380,18 +389,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* 32px 的按钮补到 44 热区，两颗至少隔 12px 才不互相盖住（审查 D13）；删错了用顶栏全局撤销 */}
+                  <div className="flex items-center gap-3 shrink-0">
                     <button
                       onClick={() => openEdit(s)}
                       aria-label="edit"
-                      className="p-2 text-tertiary hover:text-accent hover:bg-accent-soft rounded-chip transition-colors"
+                      className="tap-44 p-2 text-tertiary hover:text-accent hover:bg-accent-soft rounded-chip transition-colors"
                     >
                       <Edit2 size={16} strokeWidth={1.75} />
                     </button>
                     <button
                       onClick={() => onDelete(s)}
                       aria-label="delete"
-                      className="p-2 text-tertiary hover:text-danger hover:bg-danger/10 rounded-chip transition-colors"
+                      className="tap-44 p-2 text-tertiary hover:text-danger hover:bg-danger/10 rounded-chip transition-colors"
                     >
                       <Trash2 size={16} strokeWidth={1.75} />
                     </button>
@@ -420,7 +430,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                               <span>
                                 {ex.targetSets ? `${ex.targetSets}×` : ''}
                                 {ex.targetReps ?? ''}
-                                {ex.targetWeight ? ` · ${Math.round(Number(formatWeight(ex.targetWeight, unit)) * 10) / 10}${unit === 'lbs' ? 'lb' : 'kg'}` : ''}
+                                {ex.targetWeight ? ` · ${Math.round(Number(formatLoad(ex.targetWeight, unit)) * 10) / 10}${unit === 'lbs' ? 'lb' : 'kg'}` : ''}
                               </span>
                             </span>
                           </div>
@@ -443,18 +453,18 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                 {s.notes && <p className="text-xs text-secondary whitespace-pre-line">{s.notes}</p>}
 
                 {s.status === 'planned' && (
-                  <div className="flex items-center gap-2 pt-1">
+                  <div className="flex items-center gap-3 pt-1">
                     <button
                       onClick={() => onStartScheduledSession(s.id)}
                       data-testid={`schedule-start-${s.id}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-small font-medium hover:opacity-90 active:scale-press-sm transition"
+                      className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control bg-accent text-on-accent text-small font-medium hover:opacity-90 active:scale-press-sm transition"
                     >
                       <Play size={14} strokeWidth={2} />
                       {translations.scheduleStartSession[lang]}
                     </button>
                     <button
                       onClick={() => markSkipped(s)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-small hover:text-primary hover:bg-card-hover transition"
+                      className="min-h-[44px] inline-flex items-center gap-1.5 px-3 py-1.5 rounded-control border border-divider text-secondary text-small hover:text-primary hover:bg-card-hover transition"
                     >
                       <Ban size={14} strokeWidth={1.75} />
                       {translations.scheduleMarkSkipped[lang]}

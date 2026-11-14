@@ -6,10 +6,12 @@
  *   - 头部 → 搜索行（搜索 · 器材 · 新动作）→ 部位下划线标签 → 左竖栏 + 右行列表 → 完成
  *   - 竖栏永远列「当前这一级的下一级」：全部＝收藏 · 最近 · 热身 · 各部位；部位＝热身 · 各细分 · 未细分；
  *     有氧 / 自由没有下一级，不出竖栏。点竖栏跳到那组，滚动时竖栏跟着亮
- *   - 行：器材剪影 | 名字（做法、收藏星、兼）+ 上次成绩 · 几天前 | ＋（已加＝主色 ×N）
+ *   - 行：器材剪影 | 名字（做法、收藏星、兼）+ 上次成绩 · 几天前 | ＋（已加＝主色 ×N）。
+ *     「上次」就是点这一行铺底稿的那一场；带细分或自己设了器材的做法有自己一行，器材筛选按行的器材
  *   - 复合动作在它挂的每个细分里都找得到：主细分里照常排，别的细分里收在组尾「兼练 N」，点开才铺
  *   - 热身是动作自己的热身用途（warmParts），挂在哪几个部位就出现在哪几个部位的「热身」组里
- *   - 点＝添加，弹层不关：闪一下 + 头部「本次已加 N」+ 震动；450ms 双击防误触；长按＝动作面板
+ *   - 点＝添加，弹层不关：闪一下 + 头部「✓ N」+ 震动；450ms 双击防误触；长按＝动作面板。
+ *     训练页里本场原来就有的（×N）再点＝关弹层、跳到那张卡（审查 C12），本次打开里刚加的再点＝取消
  *   - 「整理」：行右侧换成 ›、小灰字换成归类；点行＝动作面板。原来的按住拖进细分列（浮卡磁吸落位）删了：
  *     拖只表达得了「换到一列」，表达不了「同时属于几列」。全部＝待办（未分部位 · 未细分 · 已删除）；
  *     竖栏底部「编辑部位」「器材」
@@ -19,24 +21,28 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Filter, Lock, Plus, Search, Star, Trash2, X } from 'lucide-react';
-import { ExerciseDefinition, ExerciseVariant, Language } from '../../types';
+import { Exercise, ExerciseDefinition, ExerciseVariant, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
-import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf } from '../hooks/useExercisePickerData';
-import { EQ_BARBELL, RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, type Resistance } from '../utils/exerciseAttrs';
+import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf, rowLastSession, browseRank } from '../hooks/useExercisePickerData';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { useGymScopedPR } from '../hooks/useLoadKind';
+import { EQ_BARBELL, RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, variantAttrs, type Resistance } from '../utils/exerciseAttrs';
 import { agoLabel, formatSet } from '../utils/liftDisplay';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { haptic, H } from '../utils/haptics';
+import type { AltCombo, LastHit } from '../utils/prefillSource';
 import { LongPressAffordance } from './LongPressAffordance';
 import { ExerciseActionPanel } from './ExerciseActionPanel';
 import { EditPartsPanel } from './EditPartsPanel';
 import { VariantModal } from './modals/VariantModal';
 import { useBackClose } from '../hooks/useBackClose';
+import { cardToRevisit } from '../utils/pickerRevisit';
 
 const NO_EQUIPS: ReadonlySet<string> = new Set();
 
@@ -135,6 +141,7 @@ interface NamePanelProps {
  */
 const NamePanel: React.FC<NamePanelProps> = ({ testId, title, subtitle, initial, placeholder, isCn, onCommit, onClose, children }) => {
   const [draft, setDraft] = useState(initial);
+  useBackClose(true, onClose);
   const dirty = !!draft.trim() && draft.trim() !== initial;
   const commit = () => {
     if (dirty && onCommit(draft.trim())) onClose();
@@ -208,12 +215,17 @@ interface ExercisePickerSheetProps {
   addedCounts: Record<string, number>;
   /** 本次弹层会话累计添加数（App 维护，含新建动作路径） */
   sessionAdded: number;
-  /** 点行。返回 false＝这是「取消本次添加」（本次打开里刚加过的再点一下），不播添加动画 */
-  onPickExercise: (ex: ExerciseDefinition, variantId?: string) => boolean | void;
+  /**
+   * 点行。返回 false＝没有加（取消本次添加 / 跳到本场已有的卡），不播添加动画；altFrom＝点的是行下面的某种交替搭配。
+   * existingId：本场里算进这一行 ×N 的最后一张卡（cardToRevisit），训练页拿它关弹层跳过去；计划编辑器不接这个参数
+   */
+  onPickExercise: (ex: ExerciseDefinition, variantId: string | undefined, altFrom: LastHit | undefined, existingId: string | null) => boolean | void;
+  /** 每个动作交替做过的各种搭配（第 0 种＝点这一行带的，其余列在行下面）；只有训练页传 */
+  altCombos?: Map<string, AltCombo[]>;
   /** 普通态里换了部位（部位标签，如 subChest）：训练名没手动改过时跟着改 */
   onPartChange?: (bodyPart: string) => void;
-  /** preset：弹层眼下停的部位 / 有氧栏（「新动作」照它预填，审查 A16） */
-  onCreateCustomExercise: (prefilledName?: string, preset?: { bodyPart?: string; category?: string; regions?: string[] }) => void;
+  /** preset：弹层眼下停的部位 / 细分 / 有氧栏、只筛了一样的器材（「新动作」照它预填，审查 A16 / C5） */
+  onCreateCustomExercise: (prefilledName?: string, preset?: { bodyPart?: string; category?: string; regions?: string[]; equipment?: string }) => void;
   /** 从交替组「加一个动作」打开：头部写「加到 X ⇄ Y」，选的动作加进那个组 */
   targetLabel?: string | null;
   /**
@@ -255,6 +267,8 @@ interface Group {
 const warmPartsOf = (ex: ExerciseDefinition) => (ex.warmParts ?? []).map(p => p.toLowerCase());
 const isWarmOnly = (ex: ExerciseDefinition) => !!ex.warmOnly && (ex.warmParts ?? []).length > 0;
 const isStrength = (ex: ExerciseDefinition) => (ex.category || 'STRENGTH') === 'STRENGTH';
+/** 有自己一行的做法（审查 C1）：带细分的（落在那个细分组）、自己设了器材的（紧跟母行，加「罗马尼亚硬拉 · 哑铃」一下就到） */
+const rowVariantsOf = (ex: ExerciseDefinition) => (ex.variants ?? []).filter(v => v.region || variantAttrs(v));
 
 export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   open,
@@ -266,6 +280,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   addedCounts,
   sessionAdded,
   onPickExercise,
+  altCombos,
   onPartChange,
   onCreateCustomExercise,
   onDeleteExercise,
@@ -289,6 +304,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     deleteTag,
     restoreLibraryExercise,
     attrsOf,
+    variantIdOf,
+    variantLabel,
   } = useExercisePrefs();
   const { dismissToasts } = useUiOverlay();
   const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
@@ -322,21 +339,42 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const { results, equipCounts, axisAvailable, equipIds, customPartIds, merged, byId, deleted, noPart } =
     useExercisePickerData({ query, axis, equips: arranging ? NO_EQUIPS : equips });
 
-  // 每个动作 / 做法最近一场的最重一组（行的小灰字「上次 80 kg×5 · 3 天前」）；键同 useLiftSummaries 的稳定键
+  // 行的小灰字「上次 宽握 80 kg×5 · 3 天前」：点这一行铺的底稿是哪一场，就写哪一场（rowLastSession）
   const { workouts: doneWorkouts } = useDoneWorkouts();
+  const { currentWorkout } = useWorkoutContext();
   const lifts = useLiftSummaries(doneWorkouts);
+  const gymScoped = useGymScopedPR();
   const lastOf = useMemo(() => {
-    const m = new Map<string, { line: string; ts: number }>();
+    const liftsById = new Map(lifts.map(l => [l.stableId, l]));
+    const cache = new Map<string, ReturnType<typeof rowLastSession>>();
+    return (ex: ExerciseDefinition, vid?: string) => {
+      const k = `${ex.id}|${vid ?? ''}`;
+      if (!cache.has(k)) {
+        const name = ex.name[lang] || ex.name.cn;
+        // 同 useWorkoutMutations.preferGymFor：只有器械类（配重片 / 挂片）本馆优先
+        const preferGym = gym && gymScoped({ id: '', name, category: 'STRENGTH', sets: [], ...(vid ? { variantId: vid } : {}) } as Exercise) ? gym : undefined;
+        cache.set(k, rowLastSession(doneWorkouts, liftsById, resolveName, variantIdOf, { id: ex.id, name }, vid, currentWorkout.id || undefined, preferGym));
+      }
+      return cache.get(k)!;
+    };
+  }, [lifts, doneWorkouts, currentWorkout.id, gym, gymScoped, lang, resolveName, variantIdOf]);
+  /** 每个动作（任一做法）上次练的时间：分部位浏览的组内排序用（browseRank） */
+  const lastTsById = useMemo(() => {
+    const m = new Map<string, number>();
     for (const l of lifts) {
-      const s = l.sessions[l.sessions.length - 1];
-      if (s) m.set(l.stableId, { line: s.top ? formatSet(s.top, unit, l.signed, isCn) : '', ts: s.ts });
+      const id = l.stableId.slice(0, l.stableId.indexOf('|'));
+      if (l.stableId.startsWith('name:') || !id) continue;
+      m.set(id, Math.max(m.get(id) ?? 0, l.lastTs));
     }
     return m;
-  }, [lifts, unit, isCn]);
+  }, [lifts]);
 
   const inset = useKeyboardInset(open);
   // 安卓返回键关弹层（审查 B11）
   useBackClose(open, onClose);
+  // 弹层里叠的面板：返回键先关面板（器材面板、动作面板自己登记）
+  useBackClose(editParts !== undefined, () => setEditParts(undefined));
+  useBackClose(equipList, () => setEquipList(false));
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLElement | null>(null);
@@ -533,7 +571,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     else if (sc.scrollLeft < r) sc.scrollLeft = r;
   }, [axis, arranging]);
 
-  // ===== 排序：收藏 → 最近 → 其余（库内顺序） =====
+  // ===== 排序：「全部」页的收藏 / 最近两组；各部位组内见 browseRank =====
   const q = query.trim();
   const { starredGroup, recentGroup, flatGroup, rank } = useMemo(() => {
     const starScore = new Map<string, number>(Object.entries(starredExercises).map(([k, v]) => [k.toLowerCase(), Number(v ?? 0)]));
@@ -548,29 +586,25 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     }
     const starred: ExerciseDefinition[] = [];
     const recent: ExerciseDefinition[] = [];
-    const other: ExerciseDefinition[] = [];
     for (const { ex } of results) {
       const key = keyOf(ex);
       if (starScore.has(key)) starred.push(ex);
       else if (recentIdx.has(key)) recent.push(ex);
-      else other.push(ex);
     }
     starred.sort((a, b) => (starScore.get(keyOf(b)) ?? 0) - (starScore.get(keyOf(a)) ?? 0));
     const seen = new Set<string>();
     const dedupedRecent = recent
       .filter(ex => !seen.has(keyOf(ex)) && !!seen.add(keyOf(ex)))
       .sort((a, b) => (recentIdx.get(keyOf(a)) ?? 0) - (recentIdx.get(keyOf(b)) ?? 0));
-    const rank = new Map<string, number>();
-    [...starred, ...dedupedRecent, ...other].forEach((ex, i) => rank.set(ex.id, i));
+    const rank = browseRank<ExerciseDefinition>(
+      results.map(r => r.ex),
+      ex => starScore.get(keyOf(ex)),
+      ex => lastTsById.get(ex.id) ?? 0,
+    );
     return { starredGroup: starred, recentGroup: dedupedRecent, flatGroup: [], rank };
-  }, [q, results, starredExercises, recentExerciseNames, resolveName, lang]);
-  /** 组内顺序：手动排过的（regionRank）在前按序号，没排过的接在后面按默认 */
-  const byRank = (arr: ExerciseDefinition[]) =>
-    [...arr].sort((a, b) => {
-      if ((a.regionRank != null) !== (b.regionRank != null)) return a.regionRank != null ? -1 : 1;
-      if (a.regionRank != null && b.regionRank != null) return a.regionRank - b.regionRank;
-      return (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0);
-    });
+  }, [q, results, starredExercises, recentExerciseNames, resolveName, lang, lastTsById]);
+  /** 组内顺序：browseRank（旧数据里的手动序号 regionRank 不再读：10-27 起没有写入口，读了就是改不掉的置顶） */
+  const byRank = (arr: ExerciseDefinition[]) => [...arr].sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
 
   // ===== 部位标签（系统部位 + 自建部位按用户排的顺序，再接有氧 / 自由） =====
   const axisChips = useMemo(() => {
@@ -582,19 +616,44 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     return getTagName(chip.v);
   };
 
+  /** 搜索时每个结果命中的做法（做法名对上、动作名对不上的那些） */
+  const variantHitOf = useMemo(
+    () => new Map(results.filter(r => r.variant).map(r => [r.ex.id, r.variant!] as const)),
+    [results],
+  );
+
   // ===== 分组：竖栏的每一项 = 右边的一组 =====
   const groups = useMemo<Group[]>(() => {
-    const items = (arr: ExerciseDefinition[]) => arr.map(ex => ({ ex }));
+    // 器材筛选按行的实际器材（审查 C1）：母行看动作的，做法行看做法生效的（没设就跟动作走）。
+    // results 按「动作 + 各做法」的并集放进来，到这里再按行筛
+    const equipOk = (ex: ExerciseDefinition, vid?: string) =>
+      arranging || !equips.size || equips.has(attrsOf(ex, vid).equipment.toLowerCase());
+    const items = (arr: ExerciseDefinition[]): Item[] => arr.filter(ex => equipOk(ex)).map(ex => ({ ex }));
+    /** 母行 + 紧跟着的做法行；regionIds＝细分组里：带本部位细分的做法落在自己那组，这里不重复 */
+    const rows = (arr: ExerciseDefinition[], regionIds?: ReadonlySet<string>): Item[] =>
+      arr.flatMap(ex => [
+        ...items([ex]),
+        ...(arranging ? [] : rowVariantsOf(ex))
+          .filter(v => !(regionIds && v.region && regionIds.has(v.region)) && equipOk(ex, v.id))
+          .map(v => ({ ex, v })),
+      ]);
     const inResults = new Set(results.map(r => r.ex.id));
-    const equipOk = (ex: ExerciseDefinition) => arranging || !equips.size || equipmentsOf(ex).some(t => equips.has(t));
     if (q) {
-      // 搜索：当前部位的排前面、其他的接在下面
+      // 搜索：当前部位的排前面、其他的接在下面。命中做法名的那一行就是那个做法（renderRow 认 variantHitOf）；
+      // 母行器材对不上筛选时，换成器材对得上的做法行；搜中的是做法名时只看那个做法，不换成没搜中的做法
+      const hits = (arr: ExerciseDefinition[]): Item[] =>
+        arr.flatMap(ex => {
+          const hv = variantHitOf.get(ex.id);
+          if (equipOk(ex, hv?.id)) return [{ ex }];
+          if (hv) return [];
+          return rowVariantsOf(ex).filter(v => equipOk(ex, v.id)).map(v => ({ ex, v }));
+        });
       const here = axis ? flatGroup.filter(ex => matchAxis(ex, axis)) : flatGroup;
       const rest = axis ? flatGroup.filter(ex => !matchAxis(ex, axis)) : [];
       const title = axis ? axisLabel(axis) : isCn ? '搜索结果' : 'Results';
       return [
-        { key: 'here', title, items: items(here) },
-        { key: 'rest', title: axis?.kind === 'part' ? (isCn ? '其他部位' : 'Other parts') : isCn ? '其他' : 'Others', items: items(rest) },
+        { key: 'here', title, items: hits(here) },
+        { key: 'rest', title: axis?.kind === 'part' ? (isCn ? '其他部位' : 'Other parts') : isCn ? '其他' : 'Others', items: hits(rest) },
       ];
     }
     if (!axis) {
@@ -612,18 +671,18 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       }
       const train = results.map(r => r.ex).filter(ex => !isWarmOnly(ex));
       return [
-        { key: 'star', title: isCn ? '收藏' : 'Starred', items: items(starredGroup) },
-        { key: 'recent', title: isCn ? '最近' : 'Recent', items: items(recentGroup) },
+        { key: 'star', title: isCn ? '收藏' : 'Starred', items: rows(starredGroup) },
+        { key: 'recent', title: isCn ? '最近' : 'Recent', items: rows(recentGroup) },
         { key: 'warm', title: isCn ? '热身' : 'Warm-up', items: items(byRank(results.map(r => r.ex).filter(ex => warmPartsOf(ex).length))), warmAll: true },
         ...axisChips.map(chip => ({
           key: chip.kind + chip.v,
           title: axisLabel(chip),
-          items: items(byRank(train.filter(ex => (chip.kind === 'part' ? (ex.bodyPart || '').toLowerCase() === chip.v.toLowerCase() : (ex.category || 'STRENGTH') === chip.v)))),
+          items: rows(byRank(train.filter(ex => (chip.kind === 'part' ? (ex.bodyPart || '').toLowerCase() === chip.v.toLowerCase() : (ex.category || 'STRENGTH') === chip.v)))),
         })),
-        { key: 'nopart', title: isCn ? '未分部位' : 'No part', items: items(noPart.filter(ex => inResults.has(ex.id) && !isWarmOnly(ex))) },
+        { key: 'nopart', title: isCn ? '未分部位' : 'No part', items: rows(noPart.filter(ex => inResults.has(ex.id) && !isWarmOnly(ex))) },
       ];
     }
-    if (axis.kind === 'cat') return [{ key: 'cat', title: axisLabel(axis), items: items(byRank(results.map(r => r.ex))) }];
+    if (axis.kind === 'cat') return [{ key: 'cat', title: axisLabel(axis), items: rows(byRank(results.map(r => r.ex))) }];
 
     const part = axis.v;
     const lower = part.toLowerCase();
@@ -631,7 +690,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const warm: Group = { key: 'warm', title: isCn ? '热身' : 'Warm-up', items: items(byRank(all.filter(ex => warmPartsOf(ex).includes(lower)))) };
     const train = all.filter(ex => !isWarmOnly(ex) && (ex.bodyPart || '').toLowerCase() === lower);
     const regs = regionsOf(part);
-    if (!regs.length) return [warm, { key: 'all', title: axisLabel(axis), items: items(byRank(train)) }];
+    if (!regs.length) return [warm, { key: 'all', title: axisLabel(axis), items: rows(byRank(train)) }];
+    const regIds = new Set(regs.map(r => r.id));
     // 兼练可以来自别的部位（硬拉＝下背主、兼腿后侧和臀）：从整个库里找，器材筛选照样算
     const pool = merged.filter(ex => isStrength(ex) && !isWarmOnly(ex) && equipOk(ex));
     return [
@@ -639,39 +699,47 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       ...regs.map(({ id }) => {
         const main = byRank(train.filter(ex => isStrength(ex) && effectiveRegion(ex) === id));
         // 带细分的做法单独一行落在自己那组（「高位下拉 · 宽握」在背阔、「· V 把」在中背）：用户找的是「练到这块肌肉的动作」
-        const variants = train.flatMap(ex => (ex.variants ?? []).filter(v => v.region === id).map(v => ({ ex, v })));
+        const variants = train.flatMap(ex => (ex.variants ?? []).filter(v => v.region === id && equipOk(ex, v.id)).map(v => ({ ex, v })));
         const also = byRank(pool.filter(ex => effectiveRegions(ex).indexOf(id) > 0));
-        return { key: id, title: getTagName(id), region: true, items: [...items(main), ...variants, ...also.map(ex => ({ ex, also: true }))] };
+        return { key: id, title: getTagName(id), region: true, items: [...rows(main, regIds), ...variants, ...also.map(ex => ({ ex, also: true }))] };
       }),
-      { key: 'un', title: isCn ? '未细分' : 'Unassigned', items: items(byRank(train.filter(ex => !isStrength(ex) || !effectiveRegion(ex)))), todo: true },
+      { key: 'un', title: isCn ? '未细分' : 'Unassigned', items: rows(byRank(train.filter(ex => !isStrength(ex) || !effectiveRegion(ex))), regIds), todo: true },
     ];
-  }, [q, axis, arranging, results, flatGroup, starredGroup, recentGroup, merged, noPart, deleted, axisChips, equips, rank, regionsOf, effectiveRegion, effectiveRegions, effectivePart, getTagName, isCn]);
+  }, [q, axis, arranging, results, flatGroup, starredGroup, recentGroup, merged, noPart, deleted, axisChips, equips, rank, variantHitOf, attrsOf, regionsOf, effectiveRegion, effectiveRegions, effectivePart, getTagName, isCn]);
 
   // 普通态只列有动作的组；整理态细分空着也列（看得到才知道往哪归）
   const visible = groups.filter(g => g.items.length || (arranging && g.region));
   const showRail = !q && (arranging || visible.length > 1);
   const totalCount = results.length;
 
-  /** 「新动作」按眼下停的那一栏预填：部位栏 → 这个部位；有氧 / 自由栏 → 那一类 */
-  const createPreset = () =>
-    axis?.kind === 'part' ? { bodyPart: axis.v } : axis?.kind === 'cat' ? { category: axis.v } : undefined;
-  /** 搜索时每个结果命中的做法（做法名对上、动作名对不上的那些） */
-  const variantHitOf = useMemo(
-    () => new Map(results.filter(r => r.variant).map(r => [r.ex.id, r.variant!] as const)),
-    [results],
-  );
+  /**
+   * 「新动作」按眼下停的那一栏预填：部位栏 → 这个部位，竖栏正停在某个细分组就带上那个细分；有氧 / 自由栏 → 那一类。
+   * 器材正好只筛了一样就带上它（整理态不按器材筛，不带）。审查 C5
+   */
+  const createPreset = () => {
+    const equipment = !arranging && equips.size === 1 ? equipIds.find(id => equips.has(id.toLowerCase())) : undefined;
+    if (axis?.kind === 'cat') return { category: axis.v, equipment };
+    if (axis?.kind !== 'part') return equipment ? { equipment } : undefined;
+    const g = !q ? visible[railOn] : undefined;
+    return { bodyPart: axis.v, regions: g?.region ? [g.key] : undefined, equipment };
+  };
   const hasExactMatch = q.length > 0 && results.some(r => resolveName(r.ex.name[lang]).toLowerCase() === q.toLowerCase());
   const selectedEquipNames = equipIds.filter(id => equips.has(id.toLowerCase())).map(getTagName).filter(Boolean);
 
   // ===== 添加 =====
-  const handlePick = (ex: ExerciseDefinition, variantId?: string) => {
+  const handlePick = (ex: ExerciseDefinition, variantId?: string, altFrom?: AltCombo) => {
     const now = Date.now();
     const pickKey = variantId ? `${ex.id}::${variantId}` : ex.id;
-    if (lastPickRef.current.id === pickKey && now - lastPickRef.current.t < 450) return;
-    lastPickRef.current = { id: pickKey, t: now };
+    const tapKey = altFrom ? `${pickKey}|${altFrom.ex.id}` : pickKey;
+    if (lastPickRef.current.id === tapKey && now - lastPickRef.current.t < 450) return;
+    lastPickRef.current = { id: tapKey, t: now };
     haptic(H.pick);
-    // 本次打开里加过的再点一下＝取消这次添加（App 里判），那一下不播「添加」的墨迹
-    if (onPickExercise(ex, variantId) === false) return;
+    // 本次打开里加过的再点一下＝取消这次添加、本场原来就有的＝跳过去（都在 App 里判），那一下不播「添加」的墨迹。
+    // 跳哪张和行上 ×N 同口径：母行跳过有自己一行的做法，搜索里不跳过（motherCount）
+    const cards = (currentWorkout.exercises ?? []).map(e => ({ id: e.id, key: resolveName(e.name).toLowerCase(), vid: variantIdOf(e) }));
+    const skipVids = variantId || q ? [] : rowVariantsOf(ex).map(v => v.id);
+    const existingId = cardToRevisit(cards, resolveName(ex.name[lang]).toLowerCase(), variantId, skipVids);
+    if (onPickExercise(ex, variantId, altFrom, existingId) === false) return;
     const row = rowRefs.current.get(pickKey);
     if (row) {
       // remove → offsetWidth → add 的强制重排触发法保留（写得对，能重放同一条动画）
@@ -743,10 +811,21 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     );
   };
   const lastLine = (ex: ExerciseDefinition, vid?: string) => {
-    const last = lastOf.get(`${ex.id}|${vid ?? ''}`);
+    const last = lastOf(ex, vid);
     if (!last) return isCn ? '还没练过' : 'Not done yet';
-    return `${isCn ? '上次' : 'Last'} ${last.line ? `${last.line} · ` : ''}${agoLabel(last.ts, isCn)}`;
+    const { session: s } = last;
+    // 母行不分做法：上次是哪个做法就写出来（点下去带的就是它）
+    const vName = !vid && last.variantId ? variantLabel(s.exercise) : '';
+    const head = [vName, s.top ? formatSet(s.top, unit, s.signed, isCn) : ''].filter(Boolean).join(' ');
+    return `${isCn ? '上次' : 'Last'} ${head ? `${head} · ` : ''}${agoLabel(s.ts, isCn)}`;
   };
+
+  /**
+   * 母行的 ×N：App 按动作数全部卡片（含各做法），有自己一行的做法各记在自己那行，母行减掉它们，不重复（审查 C1）。
+   * 搜索里做法行不全列，照总数写
+   */
+  const motherCount = (ex: ExerciseDefinition, key: string) =>
+    (addedCounts[key] || 0) - (q ? 0 : rowVariantsOf(ex).reduce((n, v) => n + (addedCounts[`${key}::${v.id}`] || 0), 0));
 
   const renderRow = (it: Item, g: Group) => {
     const { ex, also } = it;
@@ -761,41 +840,62 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       : g.warmAll
         ? `${isCn ? '挂在' : 'For'} ${(ex.warmParts ?? []).map(getTagName).join(' · ')}`
         : lastLine(ex, vid);
+    // 搭配按动作名记、不分做法：只挂在母行下，做法行不再各挂一份
+    const combos = !it.v && !arranging && !g.deleted && !targetLabel && appPrefs.inheritAltGroup ? altCombos?.get(baseName)?.slice(1, 4) : undefined;
     return (
-      <PickerRow
-        key={`${g.key}:${pickKey}${also ? ':also' : ''}`}
-        name={baseName}
-        sub={v?.name}
-        isStarred={!vid && !g.deleted && isStarredName(baseName)}
-        also={also}
-        equip={equipOf(ex, vid)}
-        meta={g.deleted ? (isCn ? '已删除' : 'Deleted') : meta}
-        right={g.deleted ? 'restore' : arranging ? 'more' : 'add'}
-        added={(vid ? addedCounts[`${key}::${vid}`] : addedCounts[key]) || 0}
-        isCn={isCn}
-        bindRef={bindItemRef(pickKey)}
-        onPick={() => {
-          if (swallowed()) return;
-          if (g.deleted) {
-            restoreLibraryExercise(ex.id);
-            haptic(H.tap);
-            return;
+      <React.Fragment key={`${g.key}:${pickKey}${also ? ':also' : ''}`}>
+        <PickerRow
+          name={baseName}
+          sub={v?.name}
+          isStarred={!vid && !g.deleted && isStarredName(baseName)}
+          also={also}
+          equip={equipOf(ex, vid)}
+          meta={g.deleted ? (isCn ? '已删除' : 'Deleted') : meta}
+          right={g.deleted ? 'restore' : arranging ? 'more' : 'add'}
+          added={vid ? addedCounts[`${key}::${vid}`] || 0 : motherCount(ex, key)}
+          isCn={isCn}
+          bindRef={bindItemRef(pickKey)}
+          onPick={() => {
+            if (swallowed()) return;
+            if (g.deleted) {
+              restoreLibraryExercise(ex.id);
+              haptic(H.tap);
+              return;
+            }
+            if (arranging) {
+              openActionPanel(ex.id);
+              return;
+            }
+            handlePick(ex, vid);
+          }}
+          onLongPress={
+            arranging || g.deleted
+              ? undefined
+              : () => {
+                  suppressClickRef.current = performance.now(); // 松手后的 click 不再当作「添加」
+                  openActionPanel(ex.id);
+                }
           }
-          if (arranging) {
-            openActionPanel(ex.id);
-            return;
-          }
-          handlePick(ex, vid);
-        }}
-        onLongPress={
-          arranging || g.deleted
-            ? undefined
-            : () => {
-                suppressClickRef.current = performance.now(); // 松手后的 click 不再当作「添加」
-                openActionPanel(ex.id);
-              }
-        }
-      />
+        />
+        {/* 按钮里不能套按钮，搭配排在行的下面 */}
+        {!!combos?.length && (
+          <div className="picker-combos">
+            {combos.map(c => (
+              <button
+                key={c.ex.id}
+                type="button"
+                className="picker-combo"
+                onClick={() => {
+                  if (!swallowed()) handlePick(ex, vid, c);
+                }}
+                data-testid="picker-alt-combo"
+              >
+                + {c.mates.join(' · ')}
+              </button>
+            ))}
+          </div>
+        )}
+      </React.Fragment>
     );
   };
 
@@ -1038,7 +1138,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           <div className="w-12 h-1.5 rounded-full bg-divider mx-auto" />
         </div>
 
-        {/* 头部：普通态「添加动作 [本次已加 N] … [整理] [×]」；整理态「整理 [完成]」。整行（按钮除外）也是拖拽关闭的热区 */}
+        {/* 头部：普通态「添加动作 [✓ N] [连带交替搭档] … [整理] [×]」；整理态「整理 [完成]」。整行（按钮除外）也是拖拽关闭的热区 */}
         <div
           className="flex items-center gap-2.5 px-4 pt-1.5 pb-0.5 flex-shrink-0 select-none cursor-grab active:cursor-grabbing min-h-[52px]"
           style={{ touchAction: 'none' }}
@@ -1050,15 +1150,22 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
         >
-          <h2 className="font-display text-lg font-semibold text-primary whitespace-nowrap truncate">
+          {/* 375 宽下这一行挤满（标题 · 已加 · 连带交替搭档 · 整理 · ×）：标题不让位；只有「加到 X ⇄ Y」长了才截断 */}
+          <h2
+            className={`font-display text-lg font-semibold text-primary whitespace-nowrap ${
+              targetLabel && !arranging ? 'min-w-0 truncate' : 'flex-shrink-0'
+            }`}
+          >
             {arranging ? (isCn ? '整理' : 'Arrange') : targetLabel ? `${isCn ? '加到' : 'Add to'} ${targetLabel}` : isCn ? '添加动作' : 'Add Exercise'}
           </h2>
+          {/* 只写「✓ N」：完整的「本次已加 N」在底部「完成」上 */}
           {sessionAdded > 0 && !arranging && (
             <span
               key={sessionAdded}
-              className="anim-ink-mark inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-success/15 text-success text-micro font-bold whitespace-nowrap"
+              aria-label={isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
+              className="anim-ink-mark flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-control bg-success/15 text-success text-micro font-bold whitespace-nowrap tabular-nums"
             >
-              ✓ {isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
+              ✓ {sessionAdded}
             </span>
           )}
           {/* 首选项「连带交替搭档」：动作上次在交替组里练的，同组搭档一起建出来。往现成的组里加（targetLabel）时不相干，不显示 */}
@@ -1123,7 +1230,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 type="button"
                 onClick={() => {
                   setQuery('');
-                  searchInputRef.current?.focus();
+                  // 键盘开着＝在换一个词搜，留住焦点；收着＝不搜了，直接回到分部位浏览（审查 C11）。
+                  // 不看 activeElement：按下 ✕ 时焦点已经到按钮上了
+                  if (kbOpen) searchInputRef.current?.focus();
                 }}
                 className="absolute right-1 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-control text-tertiary active:bg-card-hover"
                 aria-label={isCn ? '清除搜索' : 'Clear search'}

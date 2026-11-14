@@ -55,9 +55,8 @@ export interface SetLog {
 
   /**
    * 底稿行（§12.6 预填）：添加练过的动作时，上次同动作的每一组
-   * 以「淡墨底稿」预填进来。底稿不是事实 ——
-   *   点组号照抄 / 改任何一格 都会把它转正（ghost 清掉）；
-   *   结束训练时仍是 ghost 的行整组丢弃，绝不静默入册。
+   * 以「淡墨底稿」预填进来。ghost＝待做，只管指针和选中；入不入册看 workbench.willRecord ——
+   * 有数就入册，不论点没点过组号，全零的不入册（2026-11 用户定）。
    * 可选字段，远端旧快照天然兼容。
    */
   ghost?: boolean;
@@ -79,9 +78,7 @@ export interface SetLog {
   /**
    * 待做行上改过哪几格（第 4 条，2026-10）。工作台专用，结束训练时剥掉。
    *
-   * 改值不再顺手描实（只有点组号 / 点竭才算做完），于是会出现「改过但没点完成」的行 ——
-   * 它结束训练时照规矩丢弃，确认框要单独点出来（「N 组改过但没点完成」），并给「返回补点」。
-   * 也给格子墨色用：改过的格子变实墨，组号仍是虚线印。
+   * 改过的格子不再被前面的组带着跟随；也给格子墨色用：改过的格子变实墨，组号仍是虚线印。
    * 键是 VALUE_KEYS 里的字段名。⚠️ fromGhost 已停写，旧数据里读到忽略。
    */
   touched?: Partial<Record<string, boolean>>;
@@ -97,9 +94,7 @@ export interface SetLog {
    */
   seq?: number;
   /**
-   * 这一组是训练中按「添加组」手加的（工作台专用，结束训练时剥掉）。待做的手加组结束时照样入册 ——
-   * 底稿只预填上一次的组数，底稿之外的每组都靠手加，用户做完一组再加一组、不再点组号，以前结束时静默丢掉
-   * （核心动作从 2026-09 起每场只剩 1 组）。没动过的底稿照旧不入册，指针 / 底稿跟随都不受它影响。
+   * 已停写（2026-11：有数的组都入册，不再靠它区分手加组）。只留着兼容进行中工作台里的旧数据，入册时剥掉。
    */
   added?: boolean;
 
@@ -171,12 +166,12 @@ export interface Exercise {
    */
   prefillGym?: string;
 
-  // ✅ 增强：动作实例的特殊配置（用户可自定义）
+  /**
+   * 旧的整场号：组上没写 bodyweightMode 时按它算（load.setSign）。
+   * 旧记录里还可能带着 enablePyramid / pyramidMode / autoCalculateSubSets（递增递减组的早期配置），已停写、没有读取方。
+   */
   instanceConfig?: {
-    enablePyramid: boolean;       // 本次训练是否启用递增递减组
-    pyramidMode?: 'increasing' | 'decreasing' | 'mixed'; // 递增递减模式
-    bodyweightMode: 'none' | 'bodyweight' | 'assisted' | 'weighted'; // 本次训练的自重模式
-    autoCalculateSubSets?: boolean; // 是否自动计算子组重量/次数
+    bodyweightMode: 'none' | 'bodyweight' | 'assisted' | 'weighted';
   };
 }
 
@@ -238,10 +233,7 @@ export interface ExerciseDefinition {
    * 见 src/utils/exerciseAttrs.ts regionList。
    */
   regions?: string[];
-  /**
-   * 细分列里的手动顺序（拖到细分，2026-10）。用户在某一列拖过一次，这一列每个动作都写上序号；
-   * 没有序号的接在后面按默认（收藏 → 最近 → 其余）。
-   */
+  /** 停用：旧版「拖到细分」写的列内手动顺序。拖排序 10-27 已删，留在旧数据里不读不写 */
   regionRank?: number;
   /**
    * 热身用途（2026-10-27，原各部位的「热身」细分）：这个动作出现在哪几个部位的热身里（部位 id）。
@@ -278,13 +270,9 @@ export interface ExerciseDefinition {
   // ✅ 新增这一行，允许存储分类信息
   category?: ExerciseCategory;
   
-  // ✅ 增强：动作特殊属性配置
+  // 内置动作的特殊属性
   exerciseConfig?: {
-    supportsPyramid: boolean;     // 是否支持递增递减组
-    pyramidModes?: ('increasing' | 'decreasing' | 'mixed')[]; // 支持的递增递减模式
     bodyweightType: 'none' | 'bodyweight' | 'assisted' | 'weighted'; // 自重类型
-    defaultBodyweightMode?: BodyweightMode; // 默认自重模式
-    maxSubSets?: number; // 最大子组数量限制
   };
 }
 

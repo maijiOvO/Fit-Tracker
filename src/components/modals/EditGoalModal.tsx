@@ -69,6 +69,8 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
           />
 
           <div className="grid grid-cols-2 gap-3">
+            {/* 绑了动作的力量目标、频率目标：当前值从训练记录现算（GoalsTab），这里填了也不生效 */}
+            {!(editingGoal.type === 'frequency' || (editingGoal.type === 'strength' && editingGoal.autoUpdateRule)) && (
             <ScrubNumber
               value={editingGoal.currentValue ? Number(editingGoal.currentValue) : null}
               onCommit={n => setEditingGoal({ ...editingGoal, currentValue: n ?? 0 })}
@@ -82,6 +84,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
               fill
               className="ui-input"
             />
+            )}
             <ScrubNumber
               value={editingGoal.targetValue ? Number(editingGoal.targetValue) : null}
               onCommit={n => setEditingGoal({ ...editingGoal, targetValue: n ?? 0 })}

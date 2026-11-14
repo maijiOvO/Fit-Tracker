@@ -58,7 +58,7 @@ type RowKey = 'part' | 'region' | 'equipment' | 'resistance';
 export type AttrRow = 'category' | RowKey;
 
 export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, variant, testId, rows, flat }) => {
-  const { getTagName, customTags, equipmentIds, addTag } = useExercisePrefs();
+  const { getTagName, customTags, equipmentIds, addTag, regionsOf } = useExercisePrefs();
   const [open, setOpen] = useState<RowKey | null>(null);
   /** 就地新建器材（新动作用的器材库里还没有时，不用先退出去建）：名字 + 默认阻力 */
   const [newEquip, setNewEquip] = useState<{ name: string; res: Resistance } | null>(null);
@@ -87,7 +87,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
   const resLocked = following || !resistanceSelectable(value.equipment);
 
   const partIds = [...BODY_PARTS, ...customTags.filter(t => t.category === 'bodyPart').map(t => t.id)];
-  const showRegion = shows('region') && (variant ? variant.regions.length > 0 : hasRegionSection(value.bodyPart, value.category));
+  const showRegion = shows('region') && (variant ? variant.regions.length > 0 : hasRegionSection(value.bodyPart, value.category, regionsOf));
 
   const noneEquipLabel = variant
     ? isCn ? '跟动作走' : 'Same as exercise'

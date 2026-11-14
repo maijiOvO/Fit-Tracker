@@ -8,7 +8,8 @@
  * 两个 variant：
  *   center —— 入场是 paper-drop（一张纸轻轻落下并摆正）；
  *             退场只用 opacity，不反向播 clip（那看起来像倒带）。
- *   sheet  —— 底部弹层，从下缘推上来。手势骨架沿用 ExercisePickerSheet 已跑通的那套。
+ *   sheet  —— 底部弹层，从下缘推上来。能点遮罩关的，整张也能下拉关（手势骨架在 useSheetSwipeClose）；
+ *             不许误关的（dismissOnScrim=false）不画抓手条，免得抓手条暗示能拉。
  *   full   —— 整屏（动作库）。不透明底、无遮罩，内容区自己滚。
  *
  * 遮罩统一用 --scrim（墨色 45%），取代原先 bg-base/80 与 bg-black/45、/50 三种写法。
@@ -22,13 +23,14 @@
  * 底部导航（z-50，但在全局层）直接盖在保存按钮上——e2e 点不到，实测过。
  * portal 之后弹窗与导航在同一层比较，100 > 50 才真的成立。
  */
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useDismissAnimation } from '../hooks/useDismissAnimation';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
 import { Language } from '../../types';
 import { useBackClose } from '../hooks/useBackClose';
+import { useSheetSwipeClose } from '../hooks/useSheetSwipeClose';
 
 export type ModalVariant = 'center' | 'sheet' | 'full';
 /** z 轴层级。语义常量见 tailwind.config.js 的 zIndex。 */
@@ -102,10 +104,22 @@ export const Modal: React.FC<ModalProps> = ({
     return () => document.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  if (!mounted) return null;
-
   const isSheet = variant === 'sheet';
   const isFull = variant === 'full';
+  const swipe = isSheet && dismissOnScrim;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  // 面板在 mounted 之后才有节点，所以等 mounted 再挂；退场时摘掉
+  const gripDrag = useSheetSwipeClose(panelRef, bodyRef, swipe && isOpen && mounted, onClose);
+  // 拖过又回弹的面板身上留着内联 animation:none，之后点 × / 遮罩关时退场动画放不出来、面板直接消失；
+  // 不是被拉走的（拉走的已自己划出去），退场前把它摘掉
+  useLayoutEffect(() => {
+    const el = panelRef.current;
+    if (leaving && el && el.style.animation === 'none' && el.style.transform !== 'translateY(100%)') el.style.animation = '';
+  }, [leaving]);
+
+  if (!mounted) return null;
+
   // 调用方自己定了高度（成绩详情 92dvh、特别关注 85dvh）就用它的，不再叠一条 max-h 打架
   const capSheet = isSheet && !/(^|\s)(max-)?h-/.test(className);
 
@@ -114,7 +128,10 @@ export const Modal: React.FC<ModalProps> = ({
     : `relative w-full ${sizeStyles[size]} bg-card border border-divider shadow-overlay ${
         // 底部弹层封顶 88dvh、里面自己滚：内容比屏幕高时（新建馆的档案表）原来整块往上长，
         // 标题和第一行（馆名）顶出屏幕、压到状态栏底下，滚也滚不回来（2026-10-21 真机）
-        isSheet ? `rounded-t-sheet border-b-0 flex flex-col${capSheet ? ' max-h-[88dvh]' : ''}` : 'rounded-card'
+        isSheet
+          ? `rounded-t-sheet border-b-0 flex flex-col${capSheet ? ' max-h-[88dvh]' : ''}`
+          : // 居中弹窗也封顶、内容区自己滚：日期选择器在矮屏上底部的「确定」被裁、又滚不动（审查 D14）
+            'rounded-card flex flex-col max-h-[calc(100dvh-3rem)]'
       }`;
   const panelAnim = leaving
     ? isFull
@@ -148,6 +165,7 @@ export const Modal: React.FC<ModalProps> = ({
       )}
 
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -155,8 +173,8 @@ export const Modal: React.FC<ModalProps> = ({
         onClick={e => e.stopPropagation()}
         style={isSheet ? { paddingBottom: 'env(safe-area-inset-bottom)' } : undefined}
       >
-        {isSheet && (
-          <div className="pt-2.5 pb-1 flex justify-center flex-none" aria-hidden>
+        {swipe && (
+          <div className="pt-2.5 pb-1 flex justify-center flex-none cursor-grab" aria-hidden {...gripDrag}>
             <span className="w-9 h-1 rounded-chip bg-divider" />
           </div>
         )}
@@ -165,10 +183,11 @@ export const Modal: React.FC<ModalProps> = ({
           <div
             className={`flex justify-between gap-3 px-5 ${
               isSheet
-                ? 'items-start pt-1 flex-none'
+                ? // 不画抓手条时标题直接顶着上沿，补回那段距离
+                  `items-start flex-none ${swipe ? 'pt-1' : 'pt-5'}`
                 : isFull
                   ? 'items-center py-3 border-b border-divider flex-shrink-0'
-                  : 'items-start pt-5'
+                  : 'items-start pt-5 flex-none'
             }`}
           >
             <div className="min-w-0">
@@ -191,12 +210,11 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         <div
+          ref={bodyRef}
           className={
             isFull
               ? `flex-1 overflow-y-auto custom-scrollbar px-4 pt-4 pb-10 ${bodyClassName}`
-              : `px-5 ${title || showCloseButton ? 'pt-4' : 'pt-5'} ${footer ? '' : 'pb-5'} ${
-                  isSheet ? 'min-h-0 overflow-y-auto overscroll-contain custom-scrollbar' : ''
-                } ${bodyClassName}`
+              : `px-5 ${title || showCloseButton ? 'pt-4' : 'pt-5'} ${footer ? '' : 'pb-5'} min-h-0 overflow-y-auto overscroll-contain custom-scrollbar ${bodyClassName}`
           }
         >
           {children}
@@ -227,7 +245,8 @@ export const ModalFooter: React.FC<{
   /** 真·危险确认。仅用于「删号/清空」这类不可逆动作。 */
   danger?: boolean;
   confirmIcon?: React.ReactNode;
-}> = ({ cancelLabel, confirmLabel, onCancel, onConfirm, confirmDisabled, danger, confirmIcon }) => (
+  confirmTestId?: string;
+}> = ({ cancelLabel, confirmLabel, onCancel, onConfirm, confirmDisabled, danger, confirmIcon, confirmTestId }) => (
   <div className="flex gap-3">
     <button
       type="button"
@@ -240,6 +259,7 @@ export const ModalFooter: React.FC<{
       type="button"
       onClick={onConfirm}
       disabled={confirmDisabled}
+      data-testid={confirmTestId}
       className={`flex-[2] min-h-[52px] rounded-control font-semibold flex items-center justify-center gap-2 transition-opacity duration-tap ease-paper disabled:opacity-40 ${
         danger ? 'bg-danger text-on-accent' : 'bg-accent text-on-accent'
       }`}

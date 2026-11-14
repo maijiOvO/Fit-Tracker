@@ -3,17 +3,17 @@
  *
  *   做法 [窄握 ▾]                        单位 kg|lb
  *   ─ 这个动作 · 所有做法、所有馆共用
- *       名称 ›   部位 ›   记录哪些数（标签 + 自定义 + 恢复默认）
+ *       名称（输入框）  类型 / 部位 / 细分（属性表）  记录哪些数（标签 + 自定义 + 恢复默认）
  *   ─ 做法「窄握」 · 只管这个做法          （只有标准时叫「器材与阻力」）
  *       器材 ›   阻力 ›                    ← 阻力是「自重」＝带正负记（原「负荷记法」并进来）
- *   ─ 在 X 的这一台 · 只改这里             （训练里从卡片打开才有）
+ *   ─ 在 X 的这一台 · 只在这个馆           （训练里从卡片打开才有）
  *       卡片把这台器械的设置 portal 进来；条件不够时卡片放一句缺什么
  *
  * 做法切换只换编辑对象，不换卡片上的做法。「这一台」只给卡片上正用的做法设（状态在卡片上）。
- * 每项都是点了就存，底栏只有「完成」。
+ * 每项都是点了就存（名称失焦 / 回车存），底栏只有「完成」。和添加动作里的动作面板同一种提交方式（审查 C4）。
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
@@ -22,6 +22,7 @@ import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { mergeOverride } from '../../utils/exerciseOverride';
 import { regionList, variantAttrs } from '../../utils/exerciseAttrs';
 import { ExerciseAttrFields, type AttrValue } from '../ExerciseAttrFields';
+import { hasRegionSection } from '../RegionChooser';
 
 interface MetricSettingsModalProps {
   open: boolean;
@@ -30,10 +31,8 @@ interface MetricSettingsModalProps {
   /** 记录项恢复默认（外面弹确认框） */
   onResetMetrics: () => Promise<void> | void;
   onClose: () => void;
-  /** 改名：打开动作库里同一个改名弹窗。动作不在库里时不传 */
-  onRename?: () => void;
-  /** 部位（类型 / 部位 / 细分）：打开属性弹窗的「只改部位」版 */
-  onEditPart?: () => void;
+  /** 在这里改了名：外面把打开的名字换成新名（标题、按名字取的记录项跟着对上） */
+  onRenamed: (name: string) => void;
   /** 训练里从卡片打开（单卡或交替组成员）：卡片上正用的做法、这场的馆。不传＝从动作库等处打开，没有「这一台」。 */
   card?: { variantId?: string; gym?: string };
   /** 「这一台」的挂载点：卡片把这台器械的设置行 portal 进来 */
@@ -48,8 +47,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   lang,
   onResetMetrics,
   onClose,
-  onRename,
-  onEditPart,
+  onRenamed,
   card,
   gymSlotRef,
   focusGym,
@@ -61,14 +59,18 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
     exerciseOverrides,
     variantsOf,
     attrsOf,
-    getTagName,
     saveExerciseAttrs,
     setVariantAttrs,
     clearSignedLoad,
     signedLoadOf,
+    renameExercise,
+    resolveName,
+    regionsOf,
   } = useExercisePrefs();
   const isCn = lang === Language.CN;
   const isOpen = open && !!exerciseName;
+  const name = exerciseName ?? '';
+  const def = name ? findExerciseDef(name) : undefined;
 
   // 正在改的做法（undefined＝标准）。每次打开从卡片上正用的那个开始
   const [editing, setEditing] = useState<string | undefined>(undefined);
@@ -76,13 +78,18 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const [customOpen, setCustomOpen] = useState(false);
   const [newCustom, setNewCustom] = useState('');
   const [shownFor, setShownFor] = useState<string | null>(null);
-  const openKey = isOpen ? exerciseName : null;
+  const shownName = def ? resolveName(name) : name;
+  const [nameDraft, setNameDraft] = useState(shownName);
+  // 按动作认：在这里改了名，外面换成新名时不算重新打开（正在改的做法等不清掉）
+  const openKey = isOpen ? (def?.id ?? exerciseName) : null;
   if (openKey !== shownFor) {
     setShownFor(openKey);
     setEditing(card?.variantId);
     setMenuOpen(false);
     setCustomOpen(false);
     setNewCustom('');
+    // 上次重名被拒、没改就关掉的草稿不留到下一次
+    setNameDraft(shownName);
   }
 
   const gymRef = useRef<HTMLDivElement | null>(null);
@@ -98,8 +105,6 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
     return () => window.clearTimeout(t);
   }, [isOpen, focusGym]);
 
-  const name = exerciseName ?? '';
-  const def = name ? findExerciseDef(name) : undefined;
   const merged = def ? mergeOverride(def, exerciseOverrides[def.id]) : undefined;
   const variants = merged ? variantsOf(name) : [];
   const v = editing ? variants.find(x => x.id === editing) : undefined;
@@ -109,13 +114,22 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const activeMetrics = name ? getActiveMetrics(name) : [];
   const metricName = (m: string) => translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '');
 
-  const partSummary = merged
-    ? [merged.bodyPart ? getTagName(merged.bodyPart) : '', ...regionList(merged).map(getTagName)].filter(Boolean).join(' · ')
-    : '';
+  /* ── 名称：输入框，失焦 / 回车存（同动作面板） ── */
+  useEffect(() => setNameDraft(shownName), [shownName]);
+  const commitRename = () => {
+    const next = nameDraft.trim();
+    if (!def || !next || next === shownName) {
+      setNameDraft(shownName);
+      return;
+    }
+    // 重名会被拒（已 toast），输入框留着让人改
+    if (renameExercise(def.id, next)) onRenamed(next);
+  };
+
   const variantLabel = (id: string | undefined) =>
     id ? variants.find(x => x.id === id)?.name ?? '' : isCn ? '标准' : 'Standard';
 
-  /* ── 做法这一层：器材 / 阻力 ── */
+  /* ── 动作本身的属性：第一层改类型 / 部位 / 细分，第二层「标准」改器材 / 阻力 ── */
   const exAttrs: AttrValue | null = merged
     ? {
         category: merged.category || 'STRENGTH',
@@ -131,6 +145,12 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const byResistance = effective?.resistance === 'bodyweight';
   const attrRows = cardio ? (['equipment'] as const) : (['equipment', 'resistance'] as const);
 
+  /** 动作这一层的类型 / 部位 / 细分：部位换了、细分没跟着选，存成未细分（细分只认当前部位下的，同动作面板） */
+  const savePart = (nv: AttrValue) => {
+    if (!def || !exAttrs) return;
+    const regions = hasRegionSection(nv.bodyPart, nv.category, regionsOf) ? nv.regions : [];
+    saveExerciseAttrs(def.id, { ...exAttrs, category: nv.category, bodyPart: nv.bodyPart, regions });
+  };
   const saveStandard = (nv: AttrValue) => {
     if (!def || !exAttrs) return;
     if (nv.equipment === exAttrs.equipment && nv.resistance === exAttrs.resistance) return;
@@ -230,19 +250,21 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
         {/* ── 第一层：这个动作 ── */}
         <section className="metric-sec">
           {sectionHead(isCn ? '这个动作' : 'This exercise', merged ? (isCn ? '所有做法、所有馆共用' : 'Every variant and gym') : undefined)}
-          {onRename && (
-            <button type="button" onClick={onRename} className="metric-prop" data-testid="settings-rename">
-              <span className="k">{isCn ? '名称' : 'Name'}</span>
-              <span className="v">{exerciseName}</span>
-              <ChevronRight size={16} className="text-tertiary flex-shrink-0" />
-            </button>
+          {def && (
+            <input
+              className="ui-input w-full font-semibold mb-2"
+              value={nameDraft}
+              onChange={e => setNameDraft(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+              }}
+              onBlur={commitRename}
+              aria-label={isCn ? '动作名称' : 'Exercise name'}
+              data-testid="settings-rename"
+            />
           )}
-          {onEditPart && (
-            <button type="button" onClick={onEditPart} className="metric-prop" data-testid="settings-edit-tags">
-              <span className="k">{isCn ? '部位' : 'Part'}</span>
-              <span className={`v ${partSummary ? '' : 'text-tertiary'}`}>{partSummary || (isCn ? '未设置' : 'None')}</span>
-              <ChevronRight size={16} className="text-tertiary flex-shrink-0" />
-            </button>
+          {exAttrs && (
+            <ExerciseAttrFields lang={lang} flat rows={['category', 'part', 'region']} value={exAttrs} onChange={savePart} testId="settings-edit-tags" />
           )}
 
           <div className="metric-sub-head">
@@ -349,7 +371,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
           <section className="metric-sec" ref={gymRef} data-testid="settings-gym">
             {sectionHead(
               card.gym ? (isCn ? `在 ${card.gym} 的这一台` : `This machine at ${card.gym}`) : isCn ? '这一台器械' : 'This machine',
-              isCn ? '只改这里' : 'Only here',
+              isCn ? '只在这个馆' : 'This gym only',
             )}
             {gymNote && <p className="metric-note">{gymNote}</p>}
             {/* 挂载点一直在（卡片的 portal 不用跟着做法切换重挂），不是卡片上的做法时藏起来 */}

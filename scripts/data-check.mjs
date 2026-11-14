@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * 数据安全的自检（docs/design-backup.md）：自动备份的保留规则 / 读回核对 / 写坏和没权限算失败、
- * CSV 导出、合并式恢复不捞回删过的、Strong / Hevy 导入（单位、热身组、递减组、重复导入不翻倍）。
+ * CSV 导出、合并式恢复不捞回删过的 / 首选项两边都留、重置先存回滚槽且撤销得回来、Strong / Hevy 导入（单位、热身组、递减组、重复导入不翻倍）。
  *
  * 这些原先是 e2e-backup.mjs 里一步一步点界面验的；规则全在 services 里，界面只是转一手。
  * 这里照 prefs-check 的写法：esbuild 打成临时 ESM，node:assert 直接跑。浏览器才有的两样换成内存版 ——
@@ -56,7 +56,9 @@ await build({
       "export * from './services/fitlogAutoBackup.ts';",
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
       "export { parseImportCsv, materialize } from './services/fitlogCsvImport.ts';",
-      "export { mergeLocalWithRemote } from './services/fitlogRemote.ts';",
+      "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
+      "export { mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport } from './services/fitlogBackup.ts';",
+      "export { isLocalAuthoritative } from './services/fitlogRemoteSync.ts';",
       "export { db } from './services/db';",
       "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
@@ -195,6 +197,38 @@ await t('备份：写的是完整快照（prs / 计划 / prefs / 墓碑都在）
   assert.equal(D.getBackupStatus().lastError, undefined);
 });
 
+// ── 练完的备份没写成要补（审查 E3）：标记记在本机，24 小时内也补；恢复后的那份失败了标记也不丢 ──────
+await t('备份时机：结束训练那次没写成（进程被杀 / 没权限），下次回前台即使距上次成功不到 24 小时也补写；恢复后的补备份失败了，下次照样补', async () => {
+  const until = async (cond, what) => {
+    for (let i = 0; i < 100 && !cond(); i++) await new Promise(r => setTimeout(r, 10));
+    assert.ok(cond(), what);
+  };
+  await seedDb();
+  useMockFolder();
+  assert.equal((await D.backupNow('first-setup')).kind, 'ok');
+  await D.db.save('workouts', seedWorkout('new_one', 0, '刚练完', '杠铃深蹲', [[150, 3]]));
+
+  fault('deny');
+  D.scheduleAutoBackup();
+  await until(() => D.getBackupStatus().lastError, '结束训练那次应该马上开始写（这里写失败）');
+  fault('');
+  D.maybeDailyBackup();
+  await until(() => D.getBackupStatus().lastOkWorkouts === 5, '回前台要补上刚练完那场');
+  D.maybeDailyBackup();
+  await new Promise(r => setTimeout(r, 30));
+  assert.equal(D.getBackupStatus().lastError, undefined);
+
+  D.markBackupPending();
+  fault('deny');
+  D.maybeDailyBackup();
+  await until(() => D.getBackupStatus().lastError, '恢复后的补备份（这里写失败）');
+  fault('');
+  const before = D.getBackupStatus().lastOkAt;
+  await new Promise(r => setTimeout(r, 5));
+  D.maybeDailyBackup();
+  await until(() => !D.getBackupStatus().lastError && D.getBackupStatus().lastOkAt !== before, '恢复后的补备份失败了，下次要再补');
+});
+
 // ── CSV 导出 ─────────────────────────────────────────────────────────
 await t('CSV：BOM + 中文表头、一组一行、重量带单位和 kg 两列', () => {
   const { text, rows } = D.buildWorkoutsCsv(SEED, {
@@ -233,6 +267,106 @@ await t('合并恢复：本机删过的（墓碑）不被旧备份捞回来，�
   const backup = snap(SEED, {});
   const ids = D.mergeLocalWithRemote(local, backup).workouts.map(w => w.id).sort();
   assert.deepEqual(ids, ['local_new', 'seed_a', 'seed_b', 'seed_c']);
+});
+
+const PREFS = (ts, extra = {}) => ({
+  customTags: [], customExercises: [], exerciseNotes: {}, starredExercises: {}, exerciseMetricConfigs: {},
+  tagRenameOverrides: {}, exerciseOverrides: {}, starredLastUpdateMs: ts, metricsLastUpdateMs: ts, prefsLastUpdateMs: ts,
+  avatarDataUrl: null, appPrefsUpdatedMs: ts, ...extra,
+});
+const tag = (id, name) => ({ id, name, category: 'equipment' });
+const def = (id, cn) => ({ id, name: { en: cn, cn }, category: 'STRENGTH', bodyPart: 'chest', tags: [] });
+const snapP = (prefs, workouts = []) => ({
+  schemaVersion: 2, workouts, goals: [], weightLogs: [], customMetrics: [], prs: [], customExerciseDefsFromDb: [], scheduledWorkouts: [],
+  prefs, tombstones: {},
+});
+// 本机较新（200）：有自己的标签 / 动作 / 备注 / 馆，本机馆卧推的选台清成了墓碑 ''；备份较旧（100）各有各的
+const LOCAL_P = PREFS(200, {
+  customTags: [tag('t_local', '本机标签'), tag('t_both', '本机改的名')],
+  customExercises: [def('x_local', '本机动作')],
+  exerciseNotes: { 卧推: '本机备注' },
+  tagRenameOverrides: { a: '本机改名' },
+  appPrefs: { unit: 'kg', gyms: { 本机馆: { unit: 'kg' } }, gymRigPick: { '本机馆|bench|': '' }, gymOverrides: { '本机馆|bench|': { step: 2.5 } } },
+});
+const BACKUP_P = PREFS(100, {
+  customTags: [tag('t_both', '备份的旧名'), tag('t_backup', '备份标签')],
+  customExercises: [def('x_backup', '备份动作')],
+  exerciseNotes: { 卧推: '备份旧备注', 深蹲: '备份备注' },
+  tagRenameOverrides: { b: '备份改名' },
+  appPrefs: { unit: 'lbs', gyms: { 备份馆: { unit: 'lbs' } }, gymRigPick: { '本机馆|bench|': 'rig_old' }, gymOverrides: { '备份馆|squat|': { step: 5 } } },
+});
+
+await t('合并恢复（备份）：首选项两边独有的标签 / 动作 / 备注 / 馆都留；同 id / 同键取较新那边；较新的墓碑不被旧备份捞回', async () => {
+  // 走真的 mergeBackup：本机写进 localStorage，备份走解析，合并后读回
+  D.writePrefsToLocalStorage(LOCAL_P);
+  const file = JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(5), snapshot: snapP(BACKUP_P) });
+  await D.mergeBackup(D.parseBackupFile(file));
+  const m = D.readPrefsFromLocalStorage();
+  assert.deepEqual(m.customTags.map(x => `${x.id}:${x.name}`).sort(), ['t_backup:备份标签', 't_both:本机改的名', 't_local:本机标签']);
+  assert.deepEqual(m.customExercises.map(x => x.id).sort(), ['x_backup', 'x_local']);
+  assert.deepEqual(m.exerciseNotes, { 卧推: '本机备注', 深蹲: '备份备注' });
+  assert.deepEqual(m.tagRenameOverrides, { a: '本机改名', b: '备份改名' });
+  assert.deepEqual(Object.keys(m.appPrefs.gyms).sort(), ['备份馆', '本机馆']);
+  assert.equal(m.appPrefs.gymRigPick['本机馆|bench|'], '', '本机较新的墓碑（回到默认）不能被备份里的旧选台捞回');
+  assert.deepEqual(Object.keys(m.appPrefs.gymOverrides).sort(), ['备份馆|squat|', '本机馆|bench|']);
+  assert.equal(m.unit, 'kg', '单值照旧取较新的一边');
+});
+
+await t('合并恢复（备份）：备份那边较新时，同键冲突以备份为准，本机独有的照样留', () => {
+  const m = D.mergeLocalWithRemote(snapP(LOCAL_P), snapP({ ...BACKUP_P, prefsLastUpdateMs: 300, appPrefsUpdatedMs: 300 }), { unionPrefs: true }).prefs;
+  assert.deepEqual(m.exerciseNotes, { 卧推: '备份旧备注', 深蹲: '备份备注' });
+  assert.equal(m.customTags.find(x => x.id === 't_both').name, '备份的旧名');
+  assert.ok(m.customTags.some(x => x.id === 't_local'));
+  assert.equal(m.appPrefs.gymRigPick['本机馆|bench|'], 'rig_old');
+  assert.deepEqual(Object.keys(m.appPrefs.gymOverrides).sort(), ['备份馆|squat|', '本机馆|bench|']);
+});
+
+await t('合并恢复（备份）：本机从没打过时间戳（新装）时，本机没有头像不算删掉，用备份里的那张', () => {
+  const m = D.mergeLocalWithRemote(snapP(PREFS(0)), snapP(PREFS(0, { avatarDataUrl: 'data:image/png;base64,AA' })), { unionPrefs: true }).prefs;
+  assert.equal(m.avatarDataUrl, 'data:image/png;base64,AA');
+});
+
+await t('服务端同步（不带 unionPrefs）：首选项仍整块取较新的一边 —— 旧的一边独有的标签 / 备注 / 一档不并进来', () => {
+  const m = D.mergeLocalWithRemote(snapP(LOCAL_P), snapP(BACKUP_P)).prefs;
+  assert.deepEqual(m.customTags.map(x => x.id), ['t_local', 't_both']);
+  assert.deepEqual(m.exerciseNotes, { 卧推: '本机备注' });
+  assert.deepEqual(m.tagRenameOverrides, { a: '本机改名' });
+  assert.deepEqual(Object.keys(m.appPrefs.gymOverrides), ['本机馆|bench|']);
+});
+
+// ── 重置账户 ─────────────────────────────────────────────────────────
+await t('重置：先存回滚槽（重置前的样子），清空并给每条记墓碑；撤销把训练带回来、墓碑摘掉、以本机为准推送', async () => {
+  for (const w of SEED) await D.db.save('workouts', w);
+  D.writePrefsToLocalStorage(LOCAL_P);
+  await D.resetAccount();
+  assert.equal((await D.db.getAll('workouts')).length, 0);
+  const after = await D.collectLocalSnapshot();
+  assert.deepEqual([...after.tombstones.workouts].sort(), SEED.map(w => w.id).sort());
+  assert.deepEqual(after.prefs.customTags, []);
+  assert.equal((await D.readRollback())?.workouts, SEED.length, '重置前的样子要在回滚槽里');
+
+  await D.rollbackImport();
+  assert.deepEqual((await D.db.getAll('workouts')).map(w => w.id).sort(), SEED.map(w => w.id).sort());
+  const back = await D.collectLocalSnapshot();
+  assert.deepEqual(back.tombstones.workouts ?? [], [], '撤销回来的训练还挂着墓碑，下次合并会被服务器那份墓碑再删一次');
+  assert.ok(D.isLocalAuthoritative(), '撤销后要以本机为准推（先推不拉），不然启动拉取把服务器上的墓碑并回来');
+  assert.ok(back.prefs.customTags.some(x => x.id === 't_local'));
+  assert.equal(await D.readRollback(), null, '回滚槽用掉即清空');
+});
+
+await t('重置：回滚槽存不进去就中止，数据一条不动', async () => {
+  for (const w of SEED) await D.db.save('workouts', w);
+  const save = D.db.save;
+  D.db.save = async (n, x) => {
+    if (n === 'backups') throw new Error('quota');
+    return save.call(D.db, n, x);
+  };
+  try {
+    await assert.rejects(D.resetAccount(), /quota/);
+  } finally {
+    D.db.save = save;
+  }
+  assert.equal((await D.db.getAll('workouts')).length, SEED.length);
 });
 
 // ── Strong / Hevy 导入 ───────────────────────────────────────────────

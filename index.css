@@ -1262,6 +1262,7 @@ button {
 }
 /* 行间分隔线从名字起，剪影那一列不画（同时间线的行） */
 .picker-row + .picker-row::before,
+.picker-combos + .picker-row::before,
 .picker-also-tog + .picker-row::before {
   content: '';
   position: absolute;
@@ -1323,6 +1324,28 @@ button {
   color: var(--text-on-accent);
   font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
 }
+/* 行下面的其他交替搭配：从名字那一列起，排不下换行 */
+.picker-combos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 8px 8px 36px;
+}
+.picker-combo {
+  max-width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  background: var(--bg-btn);
+  color: var(--accent-text);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  touch-action: pan-y;
+  transition: background-color var(--dur-tap) var(--ease-paper);
+}
+.picker-combo:active { background: var(--bg-card-hover); }
 /* 兼练：收在组尾一行，点开才铺 */
 .picker-also-tog {
   display: flex;

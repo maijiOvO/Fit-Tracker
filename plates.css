@@ -188,7 +188,7 @@
 .bar-short-w b { font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
 
 /* 配重片刻度（docs/demos/stack-scale.html）：图上方一枚小药丸，点开是「动作设置」弹窗里「在 X」那一段 */
-.stack-tagrow { display: flex; min-width: 0; padding: 0 12px 6px; }
+.stack-tagrow { display: flex; min-width: 0; padding: 8px 12px 6px; }
 .stack-tag {
   display: inline-flex; align-items: center; gap: 5px;
   min-height: 30px; padding: 0 10px; border-radius: 999px;
@@ -196,13 +196,19 @@
   font-size: var(--fs-label); font-weight: 600; color: var(--text-secondary);
 }
 .stack-tag svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.stack-tag:active { background: var(--bg-inset); }
-/* 这件器材在这个馆存的几台（2026-11-10）：一排药丸，多了横滚；选中的那台描主色 */
-.stack-rigs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+/* 热区补到 44px，外观不变。横滚条会裁掉溢出的 ::after，所以 .stack-rigs 上下留 7px padding、再用负 margin 抵回 */
+.stack-tag { position: relative; }
+.stack-tag::after { content: ''; position: absolute; inset: -7px 0; }
+/* 这件器材在这个馆存的几台（2026-11-10）：一排药丸，多了横滚；选中的那台铺淡主色、字重加粗 */
+.stack-rigs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-block: 7px; margin-block: -7px; }
 .stack-rigs::-webkit-scrollbar { display: none; }
 .stack-rigs .stack-tag { flex-shrink: 0; white-space: nowrap; }
-.stack-tag.is-on { border-color: var(--accent); color: var(--accent-text); }
-.stack-face .stack-rigs { padding: 4px 0 6px; }
+.stack-tag.is-on { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); font-weight: 700; }
+.stack-tag.is-add { min-width: 44px; justify-content: center; }
+/* 写在 .is-on 后面：选中的那台按下时也要有反馈 */
+.stack-tag:active { background: var(--bg-inset); }
+/* 版面上仍是上 4 下 6（padding 7 减去 margin） */
+.stack-face .stack-rigs { margin-block: -3px -1px; }
 .stack-name {
   width: 150px; min-height: 40px; padding: 0 10px; text-align: right;
   background: var(--bg-base); border: 1px solid var(--divider); border-radius: var(--radius-control);
@@ -210,16 +216,6 @@
 }
 .stack-name:focus { border-color: var(--accent); }
 .stack-face { padding: 2px 14px 10px; min-height: 176px; }
-.stack-fhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-/* 面板标题正文字号、副标题标签字号；行名和开关同为 small（2026-10-22：原来标题 14 / 行名 14 / 开关 12 / 空载占位 18，大小不一） */
-.stack-fhead b { display: block; font-size: var(--fs-body); font-weight: 700; color: var(--text-primary); }
-.stack-fhead small { display: block; font-size: var(--fs-label); color: var(--text-tertiary); }
-/* 「完成」是次要按钮：这一屏的主操作是底部「添加动作」，两个实心按钮会抢眼 */
-.stack-done {
-  min-height: 36px; padding: 0 16px; border-radius: var(--radius-control);
-  background: var(--bg-btn); border: 1px solid var(--divider);
-  color: var(--text-primary); font-size: var(--fs-small); font-weight: 700;
-}
 .stack-stp {
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 0; border-top: 1px solid var(--divider); font-size: var(--fs-small); color: var(--text-secondary);
@@ -238,13 +234,17 @@
 /* 每格 / 最轻一格下方常驻的预设：点一下填进选中的那一行（.stack-stp.is-on），横划也在这几格里跳 */
 .stack-stp.is-on > span:first-child { color: var(--accent-text); font-weight: 700; }
 .stack-stp.is-on .stack-seg { border-color: var(--accent); }
-.stack-presets { display: flex; gap: 6px; align-items: center; margin-top: 4px; font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
-.stack-presets button { flex: 1; min-height: 40px; border-radius: 6px; background: var(--bg-base); border: 1px solid var(--divider); color: var(--text-secondary); }
-.stack-presets button[aria-pressed='true'] { border-color: var(--accent); color: var(--accent-text); }
+.stack-presets { display: flex; gap: 6px; align-items: center; margin-top: 4px; font: 700 var(--fs-body)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+/* 预设只排在「每格」下面，选中「最轻一格」时靠这行字说清填进哪一格 */
+.stack-presets-to { display: block; margin-top: 8px; font-size: var(--fs-label); font-weight: 600; color: var(--accent-text); }
+.stack-presets button { flex: 1; min-height: 40px; border-radius: var(--radius-control); background: var(--bg-base); border: 1px solid var(--divider); color: var(--text-secondary); }
+/* 选中靠实底对描边，不靠字重：Barlow 600 / 700 是两个字体文件，font-display: optional 时 700 可能回退成别的字面，一排数字宽窄不一 */
+.stack-presets button[aria-pressed='true'] { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); }
 .stack-presets button:active { background: var(--bg-inset); }
 .stack-presets small { width: 18px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 .stack-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; font-size: var(--fs-micro); color: var(--text-tertiary); }
-.stack-foot button { min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
+.stack-foot button { position: relative; min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
+.stack-foot button::after { content: ''; position: absolute; inset: -6px 0; }
 
 /* 动作设置（2026-10-23）分三层：这个动作 / 做法 / 这一台。最后一层由卡片 portal 进 .metric-gym-slot。
    段与段之间用实线分开、段内行用浅线（组间距 > 组内距）；段标题是小标签，不跟内容抢。 */
@@ -259,10 +259,6 @@
 .metric-sec-head { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 8px; margin-bottom: 4px; }
 .metric-sec-head b { font-size: var(--fs-small); font-weight: 700; color: var(--text-primary); }
 .metric-sec-head small { font-size: var(--fs-label); color: var(--text-tertiary); }
-.metric-prop { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 12px; text-align: left; border-top: 1px solid var(--divider); }
-.metric-sec-head + .metric-prop { border-top: 0; }
-.metric-prop .k { width: 56px; flex-shrink: 0; font-size: var(--fs-label); color: var(--text-secondary); }
-.metric-prop .v { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-small); font-weight: 600; color: var(--text-primary); }
 .metric-sub-head { display: flex; align-items: center; padding: 12px 0 8px; border-top: 1px solid var(--divider); font-size: var(--fs-label); color: var(--text-secondary); }
 .metric-link { margin-left: auto; min-height: 32px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); }
 .metric-chip { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border-radius: var(--radius-control); border: 1px solid var(--divider); font-size: var(--fs-small); color: var(--text-secondary); }
@@ -466,6 +462,10 @@
 }
 .load-hero.is-scrubbing .pin-rail { border-color: var(--accent); background: var(--accent-soft); touch-action: none; }
 .load-hero.is-scrubbing .pin-rail b { background: var(--accent); }
+/* 这张卡上没有能改的组（全做完、没选中）：轨照画、不接手势，竖划照常滚页面 */
+.pin-rail.is-idle { touch-action: auto; cursor: auto; }
+/* 最重一格：摞子到这里为止 */
+.pin-floor { position: absolute; left: 0; right: 0; height: 2px; border-radius: 1px; background: var(--text-tertiary); }
 
 /* 哑铃：不上色，片子的颜色只给杠铃 */
 .db-pair {
@@ -609,7 +609,9 @@
 .dark .ledger-row.is-pr { background: var(--accent-soft); }
 .dark .ledger-row.is-pr .ledger-input { color: var(--text-primary); }
 .dark .ledger-row.is-pr .set-num { color: var(--accent-text); }
-.dark .ledger-row.is-pr.is-selected .set-num { color: var(--text-on-accent); }
+/* 选中的组号是实心强调色底：深浅都用强调色上的字（浅色配玫红 / 紫时 --text-on-chalk 的黑字压上去不到 4.5:1，审查 F8）。
+   放在 .dark 那条之后：同特异性靠顺序赢 */
+.ledger-row.is-pr.is-selected .set-num { color: var(--text-on-accent); }
 /* 「上次 x」：底稿抄自上一次、单位不同或取整过时，标出上一次挂的原值（只做参考，2026-10-18 用户定） */
 .ref-tag {
   /* 行下标：落在格子下沿虚线和行底之间那 10px 里。放格子里面（左上 / 右上）都会压到大号数字或小数 */
@@ -635,6 +637,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 .ref-tag.is-restore:active { opacity: .6; }
+/* 点的范围补到约 32px 高（审查 F9：误改之后的兜底却是全页最小的目标之一）：字和位置不动，
+   往上不盖本行输入区太多，往下只伸进下一行重量格顶上一点（那里是数字上方的空白，不是组号） */
+.ref-tag.is-restore::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  bottom: -7px;
+  left: -6px;
+  right: -6px;
+}
 /* 交替组的动作简称：叠在组号上方一行小字（两个字 / 五个字母，memberAbbrs 保证不更长），点它改记到别的动作 */
 .set-badge {
   display: block;
@@ -642,6 +654,16 @@
   font: 600 10px/1.3 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-secondary);
   white-space: nowrap;
+}
+/* 交替组的组号只有 30px：点的范围往左右、往下补到约 44×37（审查 F9），样子不变。
+   不往上扩 —— 正上方 2px 就是简称按钮（点它是改记到别的动作），盖住它就点不到了 */
+.set-badge + .set-num::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: -7px;
+  left: -7px;
+  right: -7px;
 }
 .pb-tag {
   position: absolute;
@@ -700,5 +722,5 @@
 .bar-short-w .scrub-num.is-scrubbing input { border-bottom-style: solid; color: var(--accent-text); }
 /* 刻度设置面的数字也按整数位钉住（.stack-seg input 原来右对齐，12 ⇄ 12.5 时整数位会跳） */
 .stack-seg .scrub-num input { text-align: left; font-variant-numeric: tabular-nums; }
-.stack-note { font-size: var(--fs-micro); color: var(--text-tertiary); margin-top: 2px; }
+.stack-note { font-size: var(--fs-label); color: var(--text-tertiary); margin-top: 2px; }
 .stack-stp .gym-seg { flex-shrink: 0; }

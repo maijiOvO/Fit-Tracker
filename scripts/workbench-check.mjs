@@ -204,7 +204,7 @@ t('改不是最新做完的组：同一组里的递减链照样保持差值，�
   assert.equal(exs[0].sets.map(st => [st.weight, ...st.subSets.map(x => x.weight)].join('/')).join(' '), '70/55/45 60/50/40 60/50/40');
 });
 
-t('点组号：改过数的组做完再退回，仍认得改过（结束训练要提醒）；没改过的退回还是底稿', () => {
+t('点组号：改过数的组做完再退回，仍认得改过（不再被前面的组带着跟）；没改过的退回还是底稿', () => {
   let exs = [ex('A', [[50, 10], [50, 10]])];
   exs = fill(exs, 'A1', { weight: 55, touched: { weight: true }, subSets: [{ weight: 40, reps: 8, touched: { reps: true } }] });
   exs = tap(exs, 'A2').exs;
@@ -262,7 +262,42 @@ t('交替组行序：待做的从「最后一条做完（seq 最大）的成员�
   assert.equal(read(exs), 'B1[D] A1[D] | B2[p] A2[p]');
 });
 
-t('改值：重量保持差值带后面没动过的待做底稿，次数只带原值相同的；改过的、做完的不跟', () => {
+t('次数不跟随（2026-11 用户定）：改第 1 组次数，后面组不变；递减档的次数同样不跟，重量照旧跟', () => {
+  const r = exs => W.flatRows(exs)[0];
+  // 上次 8/8/8/6：改成 9 后面不动；一下一下减到 5（途经 6）也不把第 4 组吸进来
+  let exs = [ex('A', [[60, 8], [60, 8], [60, 8], [60, 6]])];
+  exs = W.applySetUpdate(exs, r(exs), { reps: 9 });
+  assert.deepEqual(exs[0].sets.map(s => s.reps), [9, 8, 8, 6]);
+  for (const v of [8, 7, 6, 5]) exs = W.applySetUpdate(exs, r(exs), { reps: v });
+  assert.deepEqual(exs[0].sets.map(s => s.reps), [5, 8, 8, 6]);
+  // 递减档：第 1 组第 1 档次数改了，后面组的第 1 档不变；重量照旧保持差值
+  exs = [ex('A', [[60, 8], [60, 8]])];
+  exs[0].sets.forEach((st, i) => (st.subSets = [{ id: `d${i}`, weight: 50, reps: 8 }]));
+  const s0 = exs[0].sets[0];
+  exs = W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], reps: 6 }] });
+  assert.deepEqual(exs[0].sets.map(s => s.subSets[0].reps), [6, 8]);
+  exs = W.applySetUpdate(exs, r(exs), { subSets: [{ ...exs[0].sets[0].subSets[0], weight: 45 }] });
+  assert.deepEqual(exs[0].sets.map(s => s.subSets[0].weight), [45, 45]);
+});
+
+t('入册口径（2026-11 用户定）：有数的组都入册，不论点没点过组号；全零的不入册', () => {
+  const s = (patch) => ({ id: 'x', weight: 0, reps: 0, ...patch });
+  assert.equal(W.willRecord(s({ weight: 60, reps: 8, ghost: true })), true, 'untapped draft with numbers');
+  assert.equal(W.willRecord(s({ weight: 60, reps: 8 })), true, 'done');
+  assert.equal(W.willRecord(s({ ghost: true, added: true })), false, 'empty added row');
+  assert.equal(W.willRecord(s({ ghost: true, touched: { weight: true } })), false, 'touched but all zero');
+  assert.equal(W.willRecord(s({})), false, 'done but all zero');
+  assert.equal(W.willRecord(s({ ghost: true, subSets: [{ id: 'd', weight: 0, reps: 5 }] })), true, 'only a drop has numbers');
+  // 整场：入册的组数＝有数的组数（刊末页的组数从这里来）；只剩全零组的动作整个不入册；工作台标记剥掉
+  const exs = [ex('A', [[60, 8], [60, 8], [0, 0]]), ex('B', [[0, 0]])];
+  exs[0].sets[0] = { ...exs[0].sets[0], ghost: false, seq: 5, touched: { reps: true } };
+  const rec = W.recordedExercises(exs);
+  assert.deepEqual(rec.map(e => e.id), ['A']);
+  assert.deepEqual(rec[0].sets.map(x => x.id), ['A1', 'A2']);
+  assert.ok(rec[0].sets.every(x => !x.ghost && x.seq === undefined && x.touched === undefined));
+});
+
+t('改值：重量保持差值带后面没动过的待做底稿，次数不跟；改过的、做完的不跟', () => {
   const r = exs => W.flatRows(exs)[0];
   // 全是 60：改第 1 组（待做）→ 后面全跟；跟着变的不记 touched
   let exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
@@ -270,12 +305,12 @@ t('改值：重量保持差值带后面没动过的待做底稿，次数只带�
   assert.deepEqual(exs[0].sets.map(s => s.weight), [62.5, 62.5, 62.5]);
   assert.equal(exs[0].sets[1].touched, undefined, 'followers stay drafts');
   assert.deepEqual(exs[0].sets.map(s => s.reps), [8, 8, 8], 'reps untouched by a weight edit');
-  // 金字塔：重量整体平移（原值不同的也跟），结构不被压平；次数只跟原值相同的
+  // 金字塔：重量整体平移（原值不同的也跟），结构不被压平；次数不跟
   exs = [ex('A', [[60, 8], [65, 6], [60, 8]])];
   exs = W.applySetUpdate(exs, r(exs), { weight: 70 });
   assert.deepEqual(exs[0].sets.map(s => s.weight), [70, 75, 70]);
   exs = W.applySetUpdate(exs, r(exs), { reps: 10 });
-  assert.deepEqual(exs[0].sets.map(s => s.reps), [10, 6, 10]);
+  assert.deepEqual(exs[0].sets.map(s => s.reps), [10, 6, 8]);
   // 手动改过的不跟；做完的不跟
   exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
   exs[0].sets[1].touched = { weight: true };
@@ -460,14 +495,10 @@ t('编辑旧训练点组号：只动被点的这一组，不挪卡、不扫别�
   assert.ok(a3.seq > 0, 'tapped-done set gets a seq');
   assert.deepEqual(r.exs[1], base[1]);
   assert.deepEqual(r.exs[0].sets.filter(s => s.id !== 'A3'), base[0].sets.filter(s => s.id !== 'A3'));
-  // 这次编辑点实的组（有 seq）再点：退回待做，值保留
-  const r2 = tapE(r.exs, 'A3');
-  assert.equal(r2.outcome, 'revert');
-  const back = W.findSet(r2.exs, { exId: 'A', setId: 'A3' });
-  assert.equal(back.ghost, true);
-  assert.equal(back.seq, undefined);
-  assert.equal(back.weight, 55);
-  assert.equal(ids(r2.exs), ids(base));
+  // 这次编辑点实的组（有 seq）选过别的再点回来：只选中，不退回（审查 A3：退回的组保存时会被剥掉）
+  const r2 = tapE(tapE(r.exs, 'B1').exs, 'A3');
+  assert.equal(r2.outcome, 'select');
+  assert.equal(r2.exs, r.exs);
 });
 
 t('带正负的负荷：号按组、没写按动作实例；辅助不算容量', () => {
@@ -481,6 +512,50 @@ t('带正负的负荷：号按组、没写按动作实例；辅助不算容量',
     W.setVolumeKg({ weight: 10, reps: 5, bodyweightMode: 'weighted', subSets: [{ weight: 5, reps: 5, bodyweightMode: 'assisted' }] }, null),
     50,
   );
+});
+
+t('辅助 ⇄ 负重：换号时后面待做、没改过、同号的组一起换号，绝对值不动', () => {
+  // 防的错：换号只换这一组（后面要逐组点），或按带符号差值平移（−20 换成 +20 是 +40，后面 −15 的组变成 +25）
+  const A = { weight: 20, bodyweightMode: 'assisted' };
+  const base = [
+    ex('P', [[0, 8], [0, 8], [0, 8], [0, 8], [0, 8]], {
+      instanceConfig: { bodyweightMode: 'assisted' },
+    }),
+  ];
+  base[0].sets = [
+    { ...base[0].sets[0], ...A },
+    { ...base[0].sets[1], weight: 15, bodyweightMode: 'assisted' },
+    { ...base[0].sets[2], weight: 20, bodyweightMode: 'assisted', touched: { weight: true } },
+    { ...base[0].sets[3], weight: 10, bodyweightMode: 'weighted' },
+    { ...base[0].sets[4], weight: 20, bodyweightMode: 'assisted' },
+  ];
+  const r = W.applySetUpdate(base, { exId: 'P', setId: 'P1' }, { bodyweightMode: 'weighted' });
+  const got = r[0].sets.map(s => `${s.bodyweightMode === 'assisted' ? '-' : '+'}${s.weight}`);
+  // P2 同号没改过 → 换；P3 改过重量 → 不动；P4 本来就是负重 → 不动；P5 同号没改过 → 换
+  assert.deepEqual(got, ['+20', '+15', '-20', '+10', '+20']);
+  // 改过号的组也不跟
+  const t2 = structuredClone(base);
+  t2[0].sets[1].touched = { bodyweightMode: true };
+  assert.equal(W.applySetUpdate(t2, { exId: 'P', setId: 'P1' }, { bodyweightMode: 'weighted' })[0].sets[1].bodyweightMode, 'assisted');
+  // 做完的组不跟
+  const t3 = structuredClone(base);
+  t3[0].sets[1].ghost = false;
+  assert.equal(W.applySetUpdate(t3, { exId: 'P', setId: 'P1' }, { bodyweightMode: 'weighted' })[0].sets[1].bodyweightMode, 'assisted');
+});
+
+t('重量是 0 的组没有号：打正数沿用前面最近一组有重量的号，第 1 组按动作实例', () => {
+  // 防的错：0 的组打 5 一律按卡片旧标记记（上一组是辅助 20，这一组打 5 却记成负重 5）
+  const e = ex('P', [[20, 8], [0, 8], [0, 8]], { instanceConfig: { bodyweightMode: 'weighted' } });
+  e.sets[0].bodyweightMode = 'assisted';
+  e.sets[1].bodyweightMode = 'normal';
+  assert.equal(W.carrySign(e, e.sets[1]), -1);
+  assert.equal(W.carrySign(e, e.sets[2]), -1, '隔着一组 0 也往前找');
+  const first = ex('Q', [[0, 8], [10, 8]], { instanceConfig: { bodyweightMode: 'assisted' } });
+  assert.equal(W.carrySign(first, first.sets[0]), -1, '第 1 组回落到动作实例');
+  // 有重量但没写号的旧数据：照旧按动作实例
+  const old = ex('R', [[20, 8], [10, 8]], { instanceConfig: { bodyweightMode: 'weighted' } });
+  old.sets[0].bodyweightMode = 'assisted';
+  assert.equal(W.carrySign(old, old.sets[1]), 1);
 });
 
 t('交替组成员简称：从后往前找别人没有的词，中文 ≤2 字、英文 ≤5 字母', () => {

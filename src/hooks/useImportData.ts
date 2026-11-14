@@ -1,15 +1,14 @@
 /**
- * 从备份文件恢复（覆盖式）+ 撤销上一次导入。
+ * 从单个备份文件恢复（覆盖式）+ 撤销上一次恢复 / 导入。
  *
- * 覆盖不合并，是刻意的：导出文件里**没有墓碑**（见 fitlogSnapshotTypes 的
- * FitlogTombstones —— 它只存在于同步快照里）。按 id 合并会把用户删掉的训练
- * 从旧备份里捞回来，而且界面上看不出来。覆盖则语义干净：
- * 「把 app 恢复成备份里的样子」。代价由导入前的回滚槽兜住。
+ * 这条路只做覆盖：「把 app 恢复成这份文件里的样子」，代价由导入前的回滚槽兜住。
+ * 要合并、要看摘要和多份备份，走「从备份恢复」（RestoreBackupModal，合并用的是快照里带的墓碑）。
  */
 import { useCallback } from 'react';
 import { Language } from '../../types';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
 import {
   BackupParseError,
   applyBackup,
@@ -17,7 +16,7 @@ import {
   rollbackImport,
 } from '../../services/fitlogBackup';
 import type { ExportStatus } from './useExportData';
-import { overwriteFailedText, overwriteNote, setFlash } from '../components/data/flash';
+import { overwriteFailedText, overwriteNote, setFlash, workbenchDropNote } from '../components/data/flash';
 import { blockBack } from './useBackClose';
 
 /**
@@ -55,6 +54,7 @@ export function useImportData(
 ): () => Promise<void> {
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
+  const { currentWorkout, discardWorkbenchWith } = useWorkoutContext();
 
   return useCallback(async () => {
     const lang = settingsCtx.lang;
@@ -67,10 +67,13 @@ export function useImportData(
     try {
       parsed = parseBackupFile(await file.text());
     } catch (error) {
+      const code = error instanceof BackupParseError ? error.message : '';
       const why =
-        error instanceof BackupParseError && error.message === 'not-json'
+        code === 'not-json'
           ? isCn ? '这不是一个 JSON 文件' : 'Not a JSON file'
-          : isCn ? '这不是 Fit Tracker 的备份文件' : 'Not a Fit Tracker backup';
+          : code === 'newer-version'
+            ? isCn ? '这份备份来自更新版本的 App，请先升级' : 'This backup is from a newer version of the app — update first'
+            : isCn ? '这不是 Fit Tracker 的备份文件' : 'Not a Fit Tracker backup';
       toast(why, 'error');
       return;
     }
@@ -81,8 +84,8 @@ export function useImportData(
       : `Backup has ${counts.workouts} workouts, ${counts.weightLogs} weight entries, ${counts.goals} goals, ${counts.scheduledWorkouts} scheduled.`;
     const legacyNote = parsed.legacy
       ? isCn
-        ? '\n\n旧版文件不含 PR 和训练计划，这两项保留现有数据。'
-        : '\n\nOld-format file: current PRs and schedule are kept.'
+        ? '\n\n旧版文件不含训练计划，保留现有计划。'
+        : '\n\nOld-format file: your schedule is kept as it is.'
       : '';
     // 确认弹窗是纯文本渲染（UiOverlayContext 里就是 <p>{message}</p>），
     // markdown 的 ** 会原样显示给用户。强调只能靠措辞，不能靠标记。
@@ -92,7 +95,7 @@ export function useImportData(
 
     const go = await confirm({
       title: isCn ? '用备份覆盖当前数据？' : 'Restore from backup?',
-      message: summary + legacyNote + warning,
+      message: summary + legacyNote + warning + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
       confirmLabel: isCn ? '覆盖恢复' : 'Restore',
       danger: true,
     });
@@ -101,7 +104,7 @@ export function useImportData(
     try {
       setSyncStatus('syncing');
       blockBack(true);
-      const pushed = await applyBackup(parsed).finally(() => blockBack(false));
+      const pushed = await discardWorkbenchWith(() => applyBackup(parsed)).finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
       if (note) setFlash((isCn ? '已恢复' : 'Restored') + note, 'info');
       // 所有 context 都是启动时从存储水化的，只能靠重载让它们看到新数据
@@ -111,10 +114,10 @@ export function useImportData(
       toast(overwriteFailedText(error, isCn, { cn: '导入', en: 'Import' }), 'error');
       setSyncStatus('error');
     }
-  }, [confirm, setSyncStatus, settingsCtx, toast]);
+  }, [confirm, currentWorkout, discardWorkbenchWith, setSyncStatus, settingsCtx, toast]);
 }
 
-/** newer：导入之后新记的训练数（撤销会一起丢掉，确认框里要说，审查 A25） */
+/** newer：恢复 / 导入 / 重置之后新记的训练数（撤销会一起丢掉，确认框里要说，审查 A25） */
 export function useRollbackImport(): (newer?: number) => Promise<void> {
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
@@ -122,13 +125,13 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
   return useCallback(async (newer = 0) => {
     const isCn = settingsCtx.lang === Language.CN;
     const go = await confirm({
-      title: isCn ? '撤销上次导入？' : 'Undo last import?',
+      title: isCn ? '撤销上次恢复、导入或重置？' : 'Undo last restore, import or reset?',
       message:
-        (isCn ? '恢复到导入前的状态，仅能撤销一次。' : 'Restore the state before that import. Works only once.') +
+        (isCn ? '回到恢复 / 导入 / 重置之前的样子，仅能撤销一次。' : 'Go back to how things were before. Works only once.') +
         (newer > 0
           ? isCn
-            ? `\n\n导入之后新记的 ${newer} 场训练也会一起丢掉。`
-            : `\n\nThe ${newer} workout${newer > 1 ? 's' : ''} logged since the import will be lost too.`
+            ? `\n\n之后新记的 ${newer} 场训练也会一起丢掉。`
+            : `\n\nThe ${newer} workout${newer > 1 ? 's' : ''} logged since then will be lost too.`
           : ''),
       confirmLabel: isCn ? '撤销' : 'Undo',
       danger: true,
@@ -138,13 +141,13 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
       blockBack(true);
       const pushed = await rollbackImport().finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
-      if (note) setFlash((isCn ? '已撤销导入' : 'Import undone') + note, 'info');
+      if (note) setFlash((isCn ? '已撤销' : 'Undone') + note, 'info');
       window.location.reload();
     } catch (error) {
       console.error('Rollback failed:', error);
       toast(
         error instanceof Error && error.message === 'no-rollback'
-          ? isCn ? '导入前的副本已过期（只留 7 天）' : 'The pre-import copy has expired (kept 7 days)'
+          ? isCn ? '之前的副本已过期（只留 7 天）' : 'The saved copy has expired (kept 7 days)'
           : overwriteFailedText(error, isCn, { cn: '撤销', en: 'Undo' }),
         'error',
       );

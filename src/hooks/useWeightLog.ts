@@ -5,8 +5,9 @@ import React, { useCallback, useState } from 'react';
 import { Language, WeightEntry } from '../../types';
 import { db } from '../../services/db';
 import { KG_TO_LBS } from '../constants';
+import { clampBodyweightD } from '../utils/load';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { useAuthContext } from '../contexts/AuthContext';
+import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -28,7 +29,6 @@ export function useWeightLog(
   /** 触发 dashboard 切到该项目，沿用旧行为 */
   onWeightSaved?: () => void,
 ): UseWeightLogResult {
-  const authCtx = useAuthContext();
   const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
   const { toast } = useUiOverlay();
@@ -38,7 +38,6 @@ export function useWeightLog(
   const unit = settingsCtx.unit;
   const weightEntries = settingsCtx.weightEntries;
   const goals = goalsCtx.goals;
-  const user = authCtx.user;
 
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [weightInputValue, setWeightInputValue] = useState('');
@@ -47,8 +46,9 @@ export function useWeightLog(
   const parseWeightToKg = (val: number) => (unit === 'kg' ? val : val / KG_TO_LBS);
 
   const handleLogWeight = useCallback(async () => {
-    if (!weightInputValue || !user) return;
+    if (!weightInputValue) return;
     const w = Number(weightInputValue);
+    if (!Number.isFinite(w)) return;
     let dateToUse = new Date().toISOString();
     if (editingWeightId) {
       const old = weightEntries.find(we => we.id === editingWeightId);
@@ -57,8 +57,9 @@ export function useWeightLog(
 
     const entry: WeightEntry = {
       id: editingWeightId || Date.now().toString(),
-      userId: user.id,
-      weight: parseWeightToKg(w),
+      userId: FITLOG_SOLO_USER_ID,
+      // 20~300 kg（显示单位下的等值）以外的不是体重，是手滑：输入框失焦也夹，这里是写进库前的最后一道
+      weight: parseWeightToKg(clampBodyweightD(w, unit === 'lbs' ? 'lbs' : 'kg')),
       date: dateToUse,
       unit,
       updatedAt: new Date().toISOString(),
@@ -101,7 +102,6 @@ export function useWeightLog(
     onWeightSaved,
     settingsCtx,
     unit,
-    user,
     weightEntries,
     weightInputValue,
   ]);

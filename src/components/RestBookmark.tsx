@@ -190,23 +190,26 @@ export const RestBookmark: React.FC<Props> = ({ lang, onMove }) => {
       if (!raf) raf = requestAnimationFrame(autoScroll);
     };
 
-    const onUpEv = () => {
+    const finish = (commit: boolean) => {
       window.removeEventListener('pointermove', onMoveEv);
       window.removeEventListener('pointerup', onUpEv);
-      window.removeEventListener('pointercancel', onUpEv);
+      window.removeEventListener('pointercancel', onCancelEv);
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
       killFloaters();
       seam.classList.remove('is-dragging');
-      if (moved && pick) {
+      if (commit && moved && pick) {
         haptic(H.longpress);
         onMove(pick.exId, pick.gap, pick.label);
       }
     };
+    const onUpEv = () => finish(true);
+    // 被系统打断（边缘返回手势、来电）：只收浮层，不落定 —— 被打断的手势不该改组的状态（§12.5 通则 4，审查 A9）
+    const onCancelEv = () => finish(false);
 
     window.addEventListener('pointermove', onMoveEv);
     window.addEventListener('pointerup', onUpEv);
-    window.addEventListener('pointercancel', onUpEv);
+    window.addEventListener('pointercancel', onCancelEv);
   };
 
   return (

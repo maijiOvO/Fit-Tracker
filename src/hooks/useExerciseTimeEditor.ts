@@ -1,5 +1,5 @@
 /**
- * 动作训练时间编辑（含历史训练写回 + 时间格式化展示）
+ * 动作训练时间编辑（历史训练写回）
  */
 import { useCallback } from 'react';
 import { Language, WorkoutSession } from '../../types';
@@ -8,7 +8,6 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
-import { formatExerciseTime as fmtExerciseTime } from '../utils/dateUtils';
 
 export interface UseExerciseTimeEditorResult {
   updateExerciseTime: (
@@ -16,11 +15,6 @@ export interface UseExerciseTimeEditorResult {
     exerciseId: string,
     newTime: string,
   ) => Promise<void>;
-  /** 第二个参数仅为兼容旧调用方签名，函数内部以 ctx 的 lang 为准 */
-  formatExerciseTime: (
-    time: string,
-    _lang?: Language | string,
-  ) => { date: string; time: string };
 }
 
 export function useExerciseTimeEditor(): UseExerciseTimeEditorResult {
@@ -54,10 +48,5 @@ export function useExerciseTimeEditor(): UseExerciseTimeEditorResult {
     [isCn, toast, workoutCtx],
   );
 
-  const formatExerciseTime = useCallback(
-    (time: string, _lang?: Language | string) => fmtExerciseTime(time, isCn ? 'cn' : 'en'),
-    [isCn],
-  );
-
-  return { updateExerciseTime, formatExerciseTime };
+  return { updateExerciseTime };
 }

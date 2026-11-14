@@ -1,29 +1,40 @@
 /**
- * 「在 X 的这一台」（design-plates.md「换馆重量」）：这个馆这台器械的加重方式 / 每格 / 最轻一格 / 片子单位 / 单边 / 空载，
- * 存 AppPrefs.gymRigs（键：馆|器材，刻度）/ gymRigPick / gymKinds / gymTares（键：馆|动作|做法），
- * 改完把没做完、没改过的组吸到新刻度上（snapUntouched）。
+ * 「在 X 的这一台」（design-plates.md「换馆重量」）：这个馆这台器械的加重方式 / 每格 / 最轻一格 / 最重一格 / 片子单位 / 单边 / 空载，
+ * 存 AppPrefs.gymRigs（键见 rigListKey，刻度）/ gymRigPick / gymKinds / gymTares（键：馆|动作|做法），
+ * 改完把没做完、没改过的组吸到新刻度上：口径同换馆（reRoundPending），没动过的底稿从上一次的原值重算，来回切不漂；
+ * 只有平移器械自重从当前值走（snapUntouched）。
  * 2026-11-02 从 ExerciseCard 抽出来：交替组卡没有重量大图，以前只能先拆开再设（动作设置改版时记下的复议条件）。
  * 单卡传大图的 slot / onOpen 拼成 MachineCtl 给 LoadHero；交替卡只把 MachineFace portal 进动作设置弹窗。
  */
+import { useEffect, useRef } from 'react';
 import { KG_TO_LBS } from '../constants';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { keyedPatch } from '../../services/appPrefs';
-import type { Exercise, SetLog } from '../../types';
+import type { Exercise, SetLog, SubSetLog } from '../../types';
 import { gymMachineKey, gymSwitchableKind, useLoadInfoOf } from './useLoadKind';
-import { oneSideKey, snapUntouched, tareIn, useLoadRounder, withInc, withKind, withOneSide, withTare, type ExRounder } from './useLoadRounder';
-import { defaultProfile, gymSpecOf, incIn, newRigId, rigKind, rigListKey, sameSpec, startIn, type IncSpec, type Rig } from '../utils/loadable';
+import { oneSideKey, reRoundPending, snapUntouched, tareIn, useLoadRounder, withInc, withKind, withOneSide, withTare, type ExRounder } from './useLoadRounder';
+import { defaultProfile, dropTwins, gymSpecOf, newRigId, rigInUnit, rigKind, rigListKey, rigsOf, sameSpec, type IncSpec, type Rig } from '../utils/loadable';
 import type { PlateUnit } from '../utils/plates';
 import { haptic, H } from '../utils/haptics';
 import type { MachineCtl } from '../components/PlateGlyph';
 
 /** 以前按动作单独设的那份，在台子列表里占的位置（不是存下来的 id） */
 export const OWN_RIG = '~own';
+/** 还没存过台时那枚另一种单位的候选（点了才存，见 altSpec）；交替卡据此判「有没有存过台」 */
+export const ALT_RIG = '~alt';
+
+/** 重新取整前后重量一样（reRoundPending 对没变的组也给新对象）：一样就不写，免得白推一次更新 */
+function sameLoads(a: SetLog[], b: SetLog[]): boolean {
+  const same = (x: SetLog | SubSetLog, y: SetLog | SubSetLog | undefined) =>
+    !!y && x.weight === y.weight && x.bodyweightMode === y.bodyweightMode && x.plateUnit === y.plateUnit;
+  return a.every((s, i) => s === b[i] || (same(s, b[i]) && (s.subSets ?? []).every((x, j) => same(x, b[i].subSets?.[j]))));
+}
 
 export function useMachineSettings(exercise: Exercise, gym: string | undefined, signed: boolean, onSets: (sets: SetLog[]) => void) {
   // 「杠铃片」§3：这个动作的重量怎么画、怎么拖（带上馆：这台在这个馆是插销还是挂片）
   const loadInfo = useLoadInfoOf()(exercise, signed, gym);
   const loadKind = loadInfo.kind;
-  const { appPrefs, changeAppPrefs } = useUserSettingsContext();
+  const { unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
   const gymKey = gymMachineKey(gym, loadInfo);
   // 馆档案取整器：纯数字的动作（含没有重量这一项的）是 null，组行照旧走首选项的步长
   const rounderFor = useLoadRounder();
@@ -36,35 +47,36 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
   const incKey = rounder && gym && (rigKind(loadKind) || loadKind === 'signed') ? gymMachineKey(gym, rounder.info) : null;
   /**
    * 这件器材在这个馆存的几台（2026-11-10 用户定：同馆一台 lb、一台 kg 的龙门架，练不同动作时一点就切）：
-   * 列表存 gymRigs[馆|器材]、这件器材的动作共用，每个动作记住上次用的哪一台（gymRigPick）。
+   * 列表存 gymRigs（龙门架等同馆共用，固定器械按动作分，见 rigListKey），每个动作记住上次用的哪一台（gymRigPick）。
    * 以前按动作单独设的（gymOverrides）不迁移、照常生效，在这里显示成选中的一台；
    * 一旦切走或改它，就收进列表（刻度一样的并成一台）并删掉旧键——不收的话切走就找不回来了。
    * 带正负的辅助没有自己的单位，照旧按动作存 gymOverrides。
    */
   const rigKey = incKey ? rigListKey(gym, loadInfo) : null;
-  const rigs = rigKey ? appPrefs.gymRigs[rigKey] ?? [] : [];
-  /** 馆档案里这类器材的一档（列表第一格「默认」）；没设过档案＝按显示单位的常见档位，和取整器同一个口径 */
+  const rigs = rigKey && incKey ? rigsOf(appPrefs.gymRigs, gym, loadInfo, appPrefs.gymRigPick[incKey]) : [];
+  /**
+   * 馆档案里这类器材的一档（列表第一格「默认」）；没设过档案＝按顶栏显示单位的常见档位，和取整器同一个口径。
+   * 不用 rounder.display：选了一台 lb 的之后那是这台的单位（cardUnitOf），默认那格会跟着变
+   */
   const gymSpec = rigKey && rounder && rigKind(loadKind)
-    ? gymSpecOf((gym && appPrefs.gyms[gym]) || defaultProfile(rounder.display), loadKind, loadInfo.stack)
+    ? gymSpecOf((gym && appPrefs.gyms[gym]) || defaultProfile(unit), loadKind, loadInfo.stack)
     : null;
   const picked = incKey ? rigs.find(r => r.id === appPrefs.gymRigPick[incKey]) : undefined;
   const legacy = rigKey && incKey && !picked ? appPrefs.gymOverrides[incKey] : undefined;
-  /** 存一次：列表、这个动作选的哪一台（'' ＝馆默认），旧的按动作设置一并删掉；没做完、没改过的组吸到新刻度上 */
+  /** 存一次：列表、这个动作选的哪一台（'' ＝馆默认），旧的按动作设置一并删掉；组的重新取整交给下面的 effect */
   const commitRigs = (list: Rig[], pick: string) => {
     if (!rigKey || !incKey) return;
     haptic(H.tap);
     const gymOverrides = { ...appPrefs.gymOverrides };
     delete gymOverrides[incKey];
-    const gymRigs = { ...appPrefs.gymRigs, [rigKey]: list };
-    changeAppPrefs({ gymRigs, ...keyedPatch('gymRigPick', incKey, pick), ...(legacy ? { gymOverrides } : {}) });
-    const fresh = rounderFor(exercise, gym, undefined, undefined, { gymOverrides, gymRigs, gymRigPick: { ...appPrefs.gymRigPick, [incKey]: pick } });
-    onSets(snapUntouched(exercise.sets, exercise, fresh));
+    changeAppPrefs({ gymRigs: { ...appPrefs.gymRigs, [rigKey]: list }, ...keyedPatch('gymRigPick', incKey, pick), ...(legacy ? { gymOverrides } : {}) });
   };
   /** 眼下的刻度（馆默认 / 旧的按动作设置）。配重片的最轻一格没设过时把显示的那格（＝一档）钉住，免得它跟着每格一起变（2026-10-21 修） */
   const curSpec = (r: ExRounder): IncSpec => ({
     v: r.ctx.inc,
     u: r.unit,
     ...(loadKind === 'pin' ? { s: r.ctx.start && r.ctx.start > 0 ? r.ctx.start : r.ctx.inc } : {}),
+    ...(loadKind === 'pin' && r.ctx.end ? { e: r.ctx.end } : {}),
   });
   /** 旧的按动作设置收进列表（刻度一样的那台直接用） */
   const withLegacy = (): { list: Rig[]; rig?: Rig } => {
@@ -73,14 +85,63 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     const rig = hit ?? { ...legacy, id: newRigId() };
     return { list: hit ? rigs : [...rigs, rig], rig };
   };
-  const pickRig = (id: string) => commitRigs(withLegacy().list, id);
-  /** 加一台：照眼下的刻度抄一份、选中它，接着在设置里改 */
+  /**
+   * 这个动作用的那台换了（切台、改刻度、删掉）：没做完、没改过的组吸到新刻度上。
+   * 放在 effect 里而不是 commitRigs：同一场里别的卡选的是同一台、在那张卡上改的，这张卡也得跟着吸（审查 B8）。
+   * 只认同一个馆、同一个动作下「选的哪台 / 那台的刻度」变了；换馆、换做法、切显示单位各有自己的重新取整，不在这里。
+   * 没选过台时不看馆默认刻度（legacy）：它只在保存馆档案时变，那条路由 switchGym 重新取整，这里再跑一遍会叠两次（60 kg 吸成 135 lb 而不是 130）。
+   */
+  const rigSig = rigKey && incKey ? [rigKey, incKey, appPrefs.gymRigPick[incKey] ?? '', picked ? JSON.stringify(picked) : ''] : null;
+  const rigSigKey = rigSig ? rigSig.join('\n') : null;
+  const rigSigRef = useRef(rigSig);
+  useEffect(() => {
+    const prev = rigSigRef.current;
+    rigSigRef.current = rigSig;
+    // 挂载时 prev 就是这一次：什么都没换，不动组（切 tab 回来重挂不该改底稿）
+    if (!prev || !rigSig || !rounder || prev.join('\n') === rigSigKey || prev[0] !== rigSig[0] || prev[1] !== rigSig[1]) return;
+    const next = reRoundPending(exercise.sets, exercise, rounder);
+    if (!sameLoads(exercise.sets, next)) onSets(next);
+  }, [rigSigKey]);
+  /** 加一台：照眼下的刻度抄一份、选中它，接着在设置里改（记进 freshRef，关设置时没改过就收掉） */
+  const freshRef = useRef(new Set<string>());
   const addRig = () => {
     if (!rounder) return;
     const { list } = withLegacy();
     const rig: Rig = { ...curSpec(rounder), id: newRigId() };
+    freshRef.current.add(rig.id);
     commitRigs([...list, rig], rig.id);
   };
+  /**
+   * 这件器材在这个馆一台都没存过：药丸排里多给一枚另一种单位的常见刻度（kg 馆里的 10 + 10 lb 龙门架），
+   * 一点就存成一台并选中（审查 B4，和新建动作弹窗同一个做法）。
+   */
+  const altSpec = gymSpec && rigKind(loadKind) && !rigs.length && !legacy
+    ? gymSpecOf(defaultProfile(gymSpec.u === 'kg' ? 'lbs' : 'kg'), loadKind, loadInfo.stack)
+    : null;
+  const pickRig = (id: string) => {
+    if (id !== ALT_RIG || !altSpec) return commitRigs(withLegacy().list, id);
+    const rig: Rig = { ...altSpec, id: newRigId() };
+    commitRigs([rig], rig.id);
+  };
+  /**
+   * 设置行收起（动作设置弹窗关了）：这次「＋」出来、没起名、刻度又和默认或别的台一样的收掉（审查 B5），
+   * 免得误点或中途放弃留下一枚和默认分不清的药丸。slotRef 由 machineCtl 每次渲染写入，没调用＝没开。
+   */
+  const slotRef = useRef<HTMLElement | null | undefined>(null);
+  slotRef.current = null;
+  const openRef = useRef(false);
+  useEffect(() => {
+    const open = !!slotRef.current;
+    const left = openRef.current && !open;
+    openRef.current = open;
+    if (!left || !freshRef.current.size || !rigKey || !incKey) return;
+    const fresh = freshRef.current;
+    freshRef.current = new Set();
+    const pick = appPrefs.gymRigPick[incKey] ?? '';
+    const next = dropTwins(rigs, fresh, gymSpec, pick, loadKind === 'pin');
+    if (next.list.length === rigs.length) return;
+    changeAppPrefs({ gymRigs: { ...appPrefs.gymRigs, [rigKey]: next.list }, ...(next.pick !== pick ? keyedPatch('gymRigPick', incKey, next.pick) : {}) });
+  });
   /** 改选中这一台的刻度：在馆默认上改＝另存一台（馆默认留着随时切回去） */
   const editRig = (patch: Partial<IncSpec>) => {
     if (!rounder) return;
@@ -105,23 +166,20 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     if (next === null) delete gymOverrides[signedKey];
     else gymOverrides[signedKey] = { v: next, u: rounder.unit };
     changeAppPrefs({ gymOverrides });
-    onSets(snapUntouched(exercise.sets, exercise, next === null ? rounderFor(exercise, gym, undefined, undefined, { gymOverrides }) : withInc(rounder, next)));
+    onSets(reRoundPending(exercise.sets, exercise, next === null ? rounderFor(exercise, gym, undefined, undefined, { gymOverrides }) : withInc(rounder, next)));
   };
-  /**
-   * 换这一台的片子单位（2026-10-25 用户定：一台器械只有一种片，同一个馆里可以一台 lb、一台 kg）：
-   * 每格换成新单位里最接近的档位，最轻一格按实际重量换算。
-   */
+  /** 换这一台的片子单位（同一个馆里可以一台 lb、一台 kg）：换算口径见 rigInUnit */
   const setMachineUnit = (u: PlateUnit) => {
     if (!rounder || u === rounder.unit) return;
-    const cur = curSpec(rounder);
-    const s = startIn(cur, u);
-    editRig({ v: incIn(cur, u), u, s: s > 0 ? s : undefined });
+    editRig(rigInUnit(curSpec(rounder), u));
   };
   /**
    * 改「最轻一格 · 每格」（2026-10-20 用户定：从 12.5 起、每格 +5 的龙门架）。最轻一格也是下限：
    * 和一档对齐（每格 5、最轻 15）照样要存；恰好等于一档也要存——不存就读回成「没设」＝跟着每格走。
    */
   const setStack = (step: number, start: number) => editRig({ v: step, s: start > 0 ? Math.round(start * 100) / 100 : undefined });
+  /** 最重一格（2026-11-13 用户定）：null＝不设限。在馆默认上设＝另存一台（馆默认那一格存不了它） */
+  const setStackEnd = (end: number | null) => editRig({ e: end !== null && end > 0 ? Math.round(end * 100) / 100 : undefined });
 
   /**
    * ⋯「在 X，这台是 插销 / 挂片」（design-plates.md「换馆重量」A2）：库里是配重片或挂片式器械的动作才给。
@@ -166,19 +224,20 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     if (on) ov[sideKey] = { v: 1, u: rounder.unit };
     else delete ov[sideKey];
     changeAppPrefs({ gymOverrides: ov });
-    onSets(snapUntouched(exercise.sets, exercise, withOneSide(rounder, on)));
+    onSets(reRoundPending(exercise.sets, exercise, withOneSide(rounder, on)));
   };
   const setGymKind = (k: 'pin' | 'loaded') => {
     if (!rounder || !kindKey || k === loadKind) return;
     haptic(H.tap);
     changeAppPrefs(keyedPatch('gymKinds', kindKey, k === loadInfo.libKind ? '' : k));
-    onSets(snapUntouched(exercise.sets, exercise, withKind(rounder, k)));
+    onSets(reRoundPending(exercise.sets, exercise, withKind(rounder, k)));
   };
   /** 这台能不能设：标了馆、有取整器、至少有一项能改（杠铃按馆的片子算、纯数字动作都没有） */
   const canSet = !!(gym && rounder && (kindKey || incKey));
   /** 给 LoadHero / MachineFace 的控制面；slot＝渲染进动作设置弹窗的挂载点，onOpen＝大图小药丸打开弹窗 */
-  const machineCtl = (slot: HTMLElement | null | undefined, onOpen?: () => void): MachineCtl | undefined =>
-    gym && rounder && (kindKey || incKey)
+  const machineCtl = (slot: HTMLElement | null | undefined, onOpen?: () => void): MachineCtl | undefined => {
+    slotRef.current = slot;
+    return gym && rounder && (kindKey || incKey)
       ? {
           gym,
           canSwitch: !!kindKey,
@@ -187,6 +246,7 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
           onOpen,
           onKind: setGymKind,
           onStack: rigKey && loadKind === 'pin' ? setStack : undefined,
+          onStackEnd: rigKey && loadKind === 'pin' ? setStackEnd : undefined,
           inc: rigKey
             ? { onSet: v => editRig({ v }) }
             : signedKey
@@ -194,7 +254,7 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
               : undefined,
           rigs: rigKey
             ? {
-                list: [...(gymSpec ? [{ ...gymSpec, id: '' }] : []), ...rigs, ...(legacy ? [{ ...legacy, id: OWN_RIG }] : [])],
+                list: [...(gymSpec ? [{ ...gymSpec, id: '' }] : []), ...rigs, ...(legacy ? [{ ...legacy, id: OWN_RIG }] : []), ...(altSpec ? [{ ...altSpec, id: ALT_RIG }] : [])],
                 sel: picked?.id ?? (legacy ? OWN_RIG : ''),
                 onPick: pickRig,
                 onAdd: addRig,
@@ -207,5 +267,6 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
           onUnit: rigKey ? setMachineUnit : undefined,
         }
       : undefined;
+  };
   return { loadInfo, loadKind, gymKey, rounder, canSet, machineCtl };
 }

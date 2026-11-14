@@ -1,10 +1,10 @@
 /**
- * 从备份文件夹恢复（设计见 docs/design-backup.md §3）。
+ * 从备份恢复（设计见 docs/design-backup.md §3）。自动备份页和导入页的「从备份恢复」都打开这里。
  *
  * 重装后的典型路径：系统选择器打开在「文档/fitlog」→ 点「使用此文件夹」→ 这里列出能用的备份，
  * 默认取最新一份，先给摘要（几次训练、最后一次哪天、哪天备份的）→ 确认才写。
  *
- * 本地没数据：直接覆盖。本地有数据：新格式给「合并（推荐）/ 覆盖」，旧格式只能覆盖
+ * 本地没数据：直接覆盖。本地有数据：新格式给「合并 / 覆盖」，旧格式只能覆盖
  * （旧格式没有墓碑，按 id 合并会把删掉的训练捞回来）。两条路都先存回滚槽。
  */
 import React, { useCallback, useEffect, useState } from 'react';
@@ -36,7 +36,7 @@ import {
   parseAutoBackupName,
   setBackupFolder,
 } from '../../../services/fitlogAutoBackup';
-import { overwriteFailedText, overwriteNote, setFlash } from './flash';
+import { overwriteFailedText, overwriteNote, setFlash, workbenchDropNote } from './flash';
 import { blockBack } from '../../hooks/useBackClose';
 
 interface Entry {
@@ -70,7 +70,7 @@ function toEntries(files: FolderFile[]): Entry[] {
 export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang } = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
-  const { workouts } = useWorkoutContext();
+  const { workouts, currentWorkout, discardWorkbenchWith } = useWorkoutContext();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
@@ -183,7 +183,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
         message: t(
           `现有 ${workouts.length} 次训练将被备份整体替换，恢复前自动存可撤销副本。`,
           `Your current ${workouts.length} workouts will be replaced. An undoable copy is saved first.`,
-        ),
+        ) + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
         confirmLabel: t('覆盖恢复', 'Replace'),
         danger: true,
       });
@@ -193,7 +193,8 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     // 写数据的这段时间返回键不理（审查 B11）：写到一半把页面关了只会更糟
     blockBack(true);
     try {
-      const pushed = mode === 'merge' ? await mergeBackup(parsed) : await applyBackup(parsed);
+      // 覆盖时工作台上那场跟着丢；合并不动它（它在库里，合并照样留着）
+      const pushed = mode === 'merge' ? await mergeBackup(parsed) : await discardWorkbenchWith(() => applyBackup(parsed));
       // 授权刚拿到：这个文件夹顺手设成备份文件夹，重载后补一份备份
       setBackupFolder(folder);
       markBackupPending();
@@ -269,7 +270,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
               </p>
               {cur.dev && <p className="text-danger text-xs">{t('这是测试数据环境的备份', 'This is a dev-environment backup')}</p>}
               {parsed.legacy && (
-                <p className="text-xs">{t('旧版文件不含 PR 和训练计划，这两项保留现有数据。', 'Old-format file: PRs and schedule are kept as they are.')}</p>
+                <p className="text-xs">{t('旧版文件不含训练计划，保留现有计划。', 'Old-format file: your schedule is kept as it is.')}</p>
               )}
             </div>
 
@@ -311,7 +312,8 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
                 </p>
                 {!parsed.legacy && (
                   <button type="button" className="ui-btn-primary w-full py-3.5" onClick={() => void apply('merge')} data-testid="restore-merge">
-                    {t('合并（推荐）：两边都保留', 'Merge (recommended): keep both')}
+                    {/* 训练按条合并、首选项按 id / 键取并集（mergeBackup 的 unionPrefs），同一条两边都改过时较新的为准；不标「推荐」（审查 E8） */}
+                    {t('合并：训练和设置两边都留', 'Merge: keep workouts and settings from both')}
                   </button>
                 )}
                 <button type="button" className="ui-btn-secondary w-full py-3" onClick={() => void apply('overwrite')} data-testid="restore-overwrite">

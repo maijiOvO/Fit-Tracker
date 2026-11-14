@@ -16,6 +16,9 @@
  *     不能把半悬的位置条或吃掉下一次点按的状态留在后面。
  *  3. 指针捕获在热区上：位置条本身 pointer-events: none，move / up 照旧落回热区。
  *
+ * 刊头里的控件自己响应、不起拖；标了 data-reorder-ok 的按钮（交替卡标题里的动作名，审查 A7）例外：
+ * 短按照常是点它，按满抬起之后松手带出的那次 click 吞掉（§12.5 通则 4），也不闪「按住拖动排序」。
+ *
  * 自解释沿用全站长按语言：120ms 静默 + 进度线 + 标签（LongPressAffordance），
  * 短按闪一次「按住拖动排序」把手势教给用户。
  */
@@ -100,14 +103,29 @@ export function useCardReorder({ count, onReorder }: Options): Result {
     y0: number;
     el: HTMLElement;
     timer: number;
+    /** 按在可起拖的按钮上：短按是点按钮，不闪提示 */
+    onButton: boolean;
   } | null>(null);
-  const dragRef = useRef<{ pid: number; from: number; to: number; top: number; n: number } | null>(null);
+  /** 拖完之后这一刻之前的 click 吞掉（按在按钮上起的拖，松手会带出一次 click） */
+  const swallowUntilRef = useRef(0);
+  const dragRef = useRef<{ pid: number; from: number; to: number; top: number; n: number; onButton: boolean } | null>(null);
   const hintTimerRef = useRef<number | null>(null);
 
   const countRef = useRef(count);
   countRef.current = count;
   const onReorderRef = useRef(onReorder);
   onReorderRef.current = onReorder;
+
+  useEffect(() => {
+    const eat = (e: MouseEvent) => {
+      if (performance.now() >= swallowUntilRef.current) return;
+      swallowUntilRef.current = 0;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('click', eat, true);
+    return () => window.removeEventListener('click', eat, true);
+  }, []);
 
   /** 抬起之后才拦页面滚动 —— 长按满之前绝不碰滚动 */
   useEffect(() => {
@@ -135,7 +153,7 @@ export function useCardReorder({ count, onReorder }: Options): Result {
     const n = countRef.current;
     if (n < 2) return;
     const top = stripTopFor(p.y0, p.idx, n, window.innerHeight);
-    dragRef.current = { pid: p.pid, from: p.idx, to: p.idx, top, n };
+    dragRef.current = { pid: p.pid, from: p.idx, to: p.idx, top, n, onButton: p.onButton };
     try {
       p.el.setPointerCapture(p.pid);
     } catch {
@@ -160,6 +178,8 @@ export function useCardReorder({ count, onReorder }: Options): Result {
     if (!d) return;
     dragRef.current = null;
     setStrip(null);
+    // 只吞按钮上起的拖带出的那次 click：从刊头空白处起的拖松手不带 click，别把之后的点按吞掉
+    if (d.onButton) swallowUntilRef.current = performance.now() + 400;
     const { from, to } = d;
     if (to !== from) {
       onReorderRef.current(from, to);
@@ -172,9 +192,11 @@ export function useCardReorder({ count, onReorder }: Options): Result {
   }, []);
 
   const abort = useCallback(() => {
-    if (!dragRef.current) return;
+    const d = dragRef.current;
+    if (!d) return;
     dragRef.current = null;
     setStrip(null);
+    if (d.onButton) swallowUntilRef.current = performance.now() + 400;
   }, []);
 
   // 卸载复位
@@ -198,8 +220,9 @@ export function useCardReorder({ count, onReorder }: Options): Result {
     (i: number): CardReorderHandle => ({
       onPointerDown: e => {
         if (!e.isPrimary || dragRef.current || pressRef.current) return;
-        // 刊头里的 ⋯ 菜单等控件自己响应，不参与拖动
-        if ((e.target as HTMLElement).closest('button, input, a')) return;
+        // 刊头里的 ⋯ 菜单等控件自己响应，不参与拖动；标了 data-reorder-ok 的按钮例外（见文件头）
+        const ctl = (e.target as HTMLElement).closest('button, input, a');
+        if (ctl && !ctl.hasAttribute('data-reorder-ok')) return;
         pressRef.current = {
           idx: i,
           pid: e.pointerId,
@@ -207,6 +230,7 @@ export function useCardReorder({ count, onReorder }: Options): Result {
           y0: e.clientY,
           el: e.currentTarget as HTMLElement,
           timer: window.setTimeout(lift, HOLD_MS),
+          onButton: !!ctl,
         };
         setHintingIdx(null);
         setPressingIdx(i);
@@ -225,6 +249,7 @@ export function useCardReorder({ count, onReorder }: Options): Result {
         const p = pressRef.current;
         if (p && e.pointerId === p.pid) {
           clearPress();
+          if (p.onButton) return;
           // 有意的短按：闪一次自解释提示，把手势教给用户
           setHintingIdx(i);
           if (hintTimerRef.current !== null) window.clearTimeout(hintTimerRef.current);

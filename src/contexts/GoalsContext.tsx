@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { Goal } from '../../types';
 import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { recordTombstone } from '../../services/fitlogTombstones';
 
 interface GoalsContextType {
@@ -15,25 +14,16 @@ interface GoalsContextType {
 
 const GoalsContext = createContext<GoalsContextType | undefined>(undefined);
 
-export const GoalsProvider: React.FC<{ children: ReactNode; userId?: string }> = ({
-  children,
-  userId,
-}) => {
+export const GoalsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [goals, setGoals] = useState<Goal[]>([]);
 
   const refreshFromDb = useCallback(async () => {
-    const localGoals = await db.getAll<Goal>('goals');
-    const uid = userId || FITLOG_SOLO_USER_ID;
-    const filtered =
-      uid === FITLOG_SOLO_USER_ID || uid === 'u_guest'
-        ? localGoals
-        : localGoals.filter((g) => g.userId === uid);
-    setGoals(filtered);
-  }, [userId]);
+    setGoals(await db.getAll<Goal>('goals'));
+  }, []);
 
   useEffect(() => {
     void refreshFromDb();
-  }, [userId, refreshFromDb]);
+  }, [refreshFromDb]);
 
   const addGoal = async (goal: Goal) => {
     await db.save('goals', goal);

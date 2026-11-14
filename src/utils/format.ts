@@ -7,9 +7,9 @@ import { KG_TO_LBS } from '../constants';
 export const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /**
- * 格式化体重值
+ * 格式化体重值（一位小数）；一组的重量用 setWrite.formatLoad
  */
-export const formatWeight = (val: number, unit: 'kg' | 'lbs'): string => {
+export const formatBodyWeight = (val: number, unit: 'kg' | 'lbs'): string => {
   const converted = unit === 'kg' ? val : val * KG_TO_LBS;
   return converted.toFixed(1);
 };

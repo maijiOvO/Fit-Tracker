@@ -2,7 +2,7 @@
  * 首选项弹层（审查 2026-10-06 第一节第 3 点；demo 是 docs/demos/prefs-sheet.html，2026-10-26 用户拍板第二版结构）。
  *
  * 入口是「我的」页底部一行「首选项 ›」。外壳照 ExercisePickerSheet：整页高、顶部 22px 圆角、抓手、标题、右上 ×，
- * 整张弹层可下拉关闭（同一套原生非被动 touchmove，见 ExercisePickerSheet 的注释）。
+ * 整张弹层可下拉关闭（hooks/useSheetSwipeClose，和 Modal 的底部弹层同一份）。
  *
  * 分五组：单位与记录 / 手感 / 外观与地区 / 数据 / 账户，按「这一项管什么」分。行的积木在 prefsRows.tsx。
  * 自动备份 / 导出 / 导入是弹层里的二级页（标题栏左侧返回，安卓返回键先回主页）。
@@ -10,7 +10,7 @@
  * 跟设备走的（外观、动效、振动、滑动手感、删组撤销）各自存在本机。
  * 界面里不写说明文字（单人自用），导入的后果说明和导入前副本那行是状态，保留。
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, Moon, RefreshCw, Smartphone, Sun, X, AlertCircle } from 'lucide-react';
 import { Language } from '../../types';
@@ -29,6 +29,7 @@ import { useGymSwitch } from '../hooks/useGymSwitch';
 import { BackupPage, BackupRow, ExportPage, ImportPage } from './data/DataSafetySection';
 import { Go, Group, Line, Seg, Stack, Toggle, type Opt } from './prefsRows';
 import { useBackClose } from '../hooks/useBackClose';
+import { useSheetSwipeClose } from '../hooks/useSheetSwipeClose';
 
 interface PrefsSheetProps {
   open: boolean;
@@ -46,7 +47,6 @@ interface PrefsSheetProps {
   /** 切语言走 App 的 handleToggleLanguage：它顺手把选中的纪录项目换成另一语言的名字 */
   onToggleLanguage: () => void;
   onResetAccount: () => void;
-  onLogout?: () => void;
   devMode?: boolean;
   /** 仅未锁定的构建传（手机 APK / release 包永远不渲染数据环境一行） */
   onToggleDevMode?: () => void;
@@ -68,7 +68,6 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   onOpenLibrary,
   onToggleLanguage,
   onResetAccount,
-  onLogout,
   devMode,
   onToggleDevMode,
 }) => {
@@ -93,7 +92,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   const [haptics, setHaptics] = useState(hapticsEnabled);
   const [feel, setFeel] = useState<ScrubFeel>(scrubFeel);
 
-  // 撤销上次导入：有副本才出这一行
+  // 撤销上次恢复、导入或重置：有副本才出这一行
   const rollbackImport = useRollbackImport();
   const [rollback, setRollback] = useState<RollbackInfo | null>(null);
   useEffect(() => {
@@ -113,117 +112,26 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
     return () => window.clearInterval(id);
   }, [open]);
 
-  // ===== 整张下拉关闭（ExercisePickerSheet 同一套） =====
+  // ===== 整张下拉关闭（和 Modal 的底部弹层同一份手势，hooks/useSheetSwipeClose） =====
   const sheetRef = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const openRef = useRef(open);
-  openRef.current = open;
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  const dragRef = useRef<{ startY: number; y: number } | null>(null);
-
-  const endDrag = () => {
+  const swipe = useSheetSwipeClose(sheetRef, bodyRef, open, onClose);
+  // 鼠标只从抓手和头部拖（桌面调试用）；头部的返回 / × 不起拖，否则指针被抓走、点不中按钮
+  const dragHandlers = {
+    ...swipe,
+    onPointerDown: (e: React.PointerEvent) => {
+      if (!(e.target as HTMLElement).closest('button')) swipe.onPointerDown(e);
+    },
+  };
+  // 这张弹层关了不卸载：拉走时留下的内联位移 / 透明 / 过渡（划出去那一下）在下次打开前摘掉，交还给 class 的滑入
+  useLayoutEffect(() => {
     const el = sheetRef.current;
-    const d = dragRef.current;
-    dragRef.current = null;
-    if (!el) return;
-    el.style.transition = '';
+    if (!open || !el) return;
     el.style.transform = '';
-    if (d && d.y > 90) closeRef.current();
-  };
-  const endDragRef = useRef(endDrag);
-  endDragRef.current = endDrag;
-
-  useEffect(() => {
-    const el = sheetRef.current;
-    if (!el) return;
-    const DECIDE_PX = 4;
-    let t: { x0: number; y0: number; mode: 'undecided' | 'drag' | 'pass' } | null = null;
-    let swallowClick = false;
-    let swallowTimer: number | undefined;
-    const onStart = (e: TouchEvent) => {
-      swallowClick = false;
-      t = openRef.current && e.touches.length === 1
-        ? { x0: e.touches[0].clientX, y0: e.touches[0].clientY, mode: 'undecided' }
-        : null;
-    };
-    const onMove = (e: TouchEvent) => {
-      if (!t || t.mode === 'pass') return;
-      if (e.touches.length !== 1) {
-        if (t.mode === 'drag') endDragRef.current();
-        t = null;
-        return;
-      }
-      const dx = e.touches[0].clientX - t.x0;
-      const dy = e.touches[0].clientY - t.y0;
-      if (t.mode === 'undecided') {
-        if (Math.abs(dx) < DECIDE_PX && Math.abs(dy) < DECIDE_PX) return;
-        const atTop = (bodyRef.current?.scrollTop ?? 0) <= 0;
-        if (dy > 0 && Math.abs(dy) > Math.abs(dx) && atTop) {
-          t.mode = 'drag';
-          t.y0 = e.touches[0].clientY;
-          dragRef.current = { startY: t.y0, y: 0 };
-          el.style.transition = 'none';
-        } else {
-          t.mode = 'pass';
-          return;
-        }
-      }
-      e.preventDefault();
-      const d = dragRef.current;
-      if (!d) return;
-      d.y = Math.max(0, e.touches[0].clientY - d.startY);
-      el.style.transform = `translateY(${d.y}px)`;
-    };
-    const onEnd = () => {
-      if (t?.mode === 'drag') {
-        if ((dragRef.current?.y ?? 0) > DECIDE_PX) {
-          swallowClick = true;
-          window.clearTimeout(swallowTimer);
-          swallowTimer = window.setTimeout(() => (swallowClick = false), 400);
-        }
-        endDragRef.current();
-      }
-      t = null;
-    };
-    const onClickCapture = (e: MouseEvent) => {
-      if (!swallowClick) return;
-      swallowClick = false;
-      e.stopPropagation();
-      e.preventDefault();
-    };
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd);
-    el.addEventListener('touchcancel', onEnd);
-    el.addEventListener('click', onClickCapture, true);
-    return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-      el.removeEventListener('touchcancel', onEnd);
-      el.removeEventListener('click', onClickCapture, true);
-      window.clearTimeout(swallowTimer);
-    };
-  }, []);
-
-  // 鼠标：只在抓手和头部拖（桌面调试用）
-  const mouseDown = (e: React.PointerEvent) => {
-    if (e.pointerType !== 'mouse' || (e.target as HTMLElement).closest('button')) return;
-    dragRef.current = { startY: e.clientY, y: 0 };
-    if (sheetRef.current) sheetRef.current.style.transition = 'none';
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  };
-  const mouseMove = (e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (e.pointerType !== 'mouse' || !d || !sheetRef.current) return;
-    d.y = Math.max(0, e.clientY - d.startY);
-    sheetRef.current.style.transform = `translateY(${d.y}px)`;
-  };
-  const mouseUp = (e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse' && dragRef.current) endDrag();
-  };
-  const dragHandlers = { onPointerDown: mouseDown, onPointerMove: mouseMove, onPointerUp: mouseUp, onPointerCancel: mouseUp };
+    el.style.opacity = '';
+    el.style.transition = '';
+    el.style.animation = '';
+  }, [open]);
 
   useEffect(() => {
     if (open) setView('main');
@@ -492,8 +400,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     name={translations.undoImport[lang]}
                     tone="accent"
                     sub={t(
-                      `导入前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
-                      `Pre-import copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
+                      `恢复 / 导入 / 重置前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
+                      `Pre-restore/reset copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
                     )}
                     chevron={false}
                     onClick={() => { void rollbackImport(rollback.newer); }}
@@ -520,7 +428,6 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     onClick={onToggleDevMode}
                   />
                 )}
-                {onLogout && <Go name={translations.logout[lang]} tone="danger" onClick={onLogout} />}
                 <Go name={translations.resetAccount[lang]} tone="danger" onClick={onResetAccount} testId="prefs-reset-account" />
               </Group>
             </>

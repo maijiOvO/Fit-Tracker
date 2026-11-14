@@ -8,8 +8,8 @@
 import React, { useMemo, useState } from 'react';
 import { Search, Star, X } from 'lucide-react';
 import { Language } from '../../types';
-import { E1RM, type LiftSummary, chartMetricsFor, sessionMetric } from '../utils/liftHistory';
-import { agoLabel, formatMetric, formatSet, metricUnit } from '../utils/liftDisplay';
+import { E1RM, type LiftSummary, chartMetricsFor, gymChoices, latestGymView, sessionMetric } from '../utils/liftHistory';
+import { agoLabel, formatMetric, formatSet, gymLabel, metricUnit } from '../utils/liftDisplay';
 
 /** 动作多到要翻屏时才出搜索框 */
 const SEARCH_THRESHOLD = 8;
@@ -80,7 +80,10 @@ export const LiftList: React.FC<LiftListProps> = ({
         <p className="py-6 text-center text-small text-tertiary">{isCn ? '没有匹配的动作' : 'No matching exercises'}</p>
       )}
 
-      {shown.map(lift => {
+      {shown.map(whole => {
+        // 按馆比的器械：大数和场数都是最近那个馆的（跨馆的重量不可比，审查 G4）；练过不止一个馆才写馆名
+        const lift = latestGymView(whole);
+        const gym = gymChoices(whole).length > 1 ? gymLabel(lift.sessions[lift.sessions.length - 1].gym, isCn) : null;
         const isStarred = !!starred[lift.baseName];
         const metric = chartMetricsFor(lift, getActiveMetrics(lift.baseName))[0];
 
@@ -118,7 +121,13 @@ export const LiftList: React.FC<LiftListProps> = ({
             >
               <span className="flex-1 min-w-0">
                 <span className="block font-semibold text-primary truncate">{lift.key}</span>
-                <span className="block text-label text-tertiary">
+                <span className="block text-label text-tertiary truncate">
+                  {gym && (
+                    <>
+                      {gym}
+                      <span className="mx-1">·</span>
+                    </>
+                  )}
                   {isCn ? '上次 ' : 'Last '}
                   {agoLabel(lift.lastTs, isCn)}
                   <span className="mx-1">·</span>

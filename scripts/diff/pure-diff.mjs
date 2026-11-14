@@ -69,7 +69,7 @@ async function bundle(treeDir, tag) {
       b.onResolve({ filter: /^\.(\/services)?\/db$/ }, () => ({ path: 'db', namespace: 'stub' }));
       b.onResolve({ filter: /^@capacitor\// }, () => ({ path: 'cap', namespace: 'stub' }));
       b.onLoad({ filter: /^ctx$/, namespace: 'stub' }, () => ({
-        contents: 'const no = () => { throw new Error("context used"); }; export const useExercisePrefs = no; export const useUserSettingsContext = no; export const useAuthContext = no; export const useWorkoutContext = no; export const UserSettingsContext = null;',
+        contents: 'const no = () => { throw new Error("context used"); }; export const useExercisePrefs = no; export const useUserSettingsContext = no; export const useAvatar = no; export const useWorkoutContext = no; export const UserSettingsContext = null;',
         loader: 'js',
       }));
       b.onLoad({ filter: /^cap$/, namespace: 'stub' }, () => ({

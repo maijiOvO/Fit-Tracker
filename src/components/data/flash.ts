@@ -15,14 +15,21 @@ export function overwriteNote(pushed: 'pushed' | 'not-configured' | 'failed', is
   return isCn ? '（服务器暂时没连上，联网后会自动补推）' : ' (server unreachable — it will sync once online)';
 }
 
-/** 写回本机失败的那一句：自动换回去了才说「数据未改动」，没换回去如实说并指向「撤销上次导入」 */
+/** 写回本机失败的那一句：自动换回去了才说「数据未改动」，没换回去如实说并指向「撤销上次恢复、导入或重置」 */
 export function overwriteFailedText(e: unknown, isCn: boolean, what: { cn: string; en: string }): string {
   const rolledBack = !(e && typeof e === 'object' && 'rolledBack' in e) || (e as { rolledBack: boolean }).rolledBack;
   return rolledBack
     ? isCn ? `${what.cn}失败，数据未改动` : `${what.en} failed, nothing changed`
     : isCn
-      ? `${what.cn}失败，部分数据可能已改动——请在首选项里点「撤销上次导入」换回去`
-      : `${what.en} failed and some data may have changed — use "Undo last import" in Preferences`;
+      ? `${what.cn}失败，部分数据可能已改动——请在首选项里点「撤销上次恢复、导入或重置」换回去`
+      : `${what.en} failed and some data may have changed — use "Undo last restore, import or reset" in Preferences`;
+}
+
+/** 覆盖恢复 / 重置的确认里那一句：工作台上有没结束的训练（或编辑旧训练没保存的改动）才说，它会跟着丢（2026-11-14 用户定） */
+export function workbenchDropNote(isCn: boolean): string {
+  return isCn
+    ? '训练页上没结束的训练、没保存的修改也会一起清掉。'
+    : 'The unfinished workout on the Workout tab (and any unsaved edits) will be cleared too.';
 }
 
 export function setFlash(message: string, variant: 'success' | 'error' | 'info'): void {

@@ -18,7 +18,6 @@ import {
   SHORT_BAR_DEFAULT,
   barWeight,
   convert,
-  loadBarbell,
   loadSide,
   plateLabel,
   plateSpec,
@@ -31,6 +30,7 @@ import type { ExRounder } from '../hooks/useLoadRounder';
 import { RIG_STEPS, baseOf, sidePlates, type Rig } from '../utils/loadable';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
 import { STACK_PITCH } from '../utils/scrubFeel';
+import { RIG_NUM_MAX, SHORT_BAR_MAX, loadCapD } from '../utils/load';
 
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
@@ -164,6 +164,8 @@ export interface MachineCtl {
   onKind: (k: 'pin' | 'loaded') => void;
   /** 配重片：每格 + 最轻一格一起改（最轻一格 0＝没设） */
   onStack?: (step: number, start: number) => void;
+  /** 配重片的最重一格（null＝不设限） */
+  onStackEnd?: (end: number | null) => void;
   /** 一档（哑铃 / 壶铃 / 固定杠铃 / 辅助）。onReset：按动作单独设过（辅助）才有，恢复馆默认 */
   inc?: { onSet: (n: number) => void; onReset?: () => void };
   /**
@@ -182,13 +184,13 @@ export interface MachineCtl {
   tare?: { value: number | null; onSet: (n: number | null) => void; counted: boolean; onCounted: (on: boolean) => void };
   /** 挂片式器械只有一边能挂（T 杠、地雷架）：总重＝一边的片 */
   oneSide?: { on: boolean; onSet: (on: boolean) => void };
-  /** 这一台的片子单位（配重片 / 哑铃 / 壶铃 / 固定杠铃）：格子按它算，显示照样换算成显示单位 */
+  /** 这一台的片子单位（配重片 / 哑铃 / 壶铃 / 固定杠铃）：格子按它算，整张卡也按它写（D1，见 useLoadRounder.cardUnitOf） */
   onUnit?: (u: PlateUnit) => void;
   /** 动作库里的形式（所有馆的默认）：「加重方式」行写明这一台是跟着它，还是改过 */
   libKind?: 'pin' | 'loaded';
   /**
    * 2026-10-22 合并入口：这几行设置渲染进「动作设置」弹窗里「在 X」那一段（React portal），
-   * 小药丸改成打开那个弹窗。不传（交替组等）就照旧在大图位置原地展开。
+   * 小药丸打开那个弹窗（onOpen）。交替组卡没有大图，自己把 MachineFace portal 进 slot。
    */
   slot?: HTMLElement | null;
   onOpen?: () => void;
@@ -209,6 +211,7 @@ export function PinStackGlyph({
   value,
   step,
   start = 0,
+  end = 0,
   unit,
   label,
   rail,
@@ -216,16 +219,22 @@ export function PinStackGlyph({
   value: number;
   step: number;
   start?: number;
-  /** 插销那格写的单位：显示单位（2026-10-25 用户：切单位时这里要跟着换） */
+  /** 最重一格（和 value 同单位）：摞子画到它为止，底下一道线；0＝不设限 */
+  end?: number;
+  /** 插销那格写的单位：这张卡的单位，即这台器械自己的单位（2026-11-13 用户定，顶栏切单位不再换它） */
   unit?: PlateUnit;
-  /** 插销那格写的数（显示单位）；不传＝value。value 按器械上印的单位定位插销 */
+  /** 插销那格写的数（这张卡的单位）；不传＝value。value 按器械上印的单位定位插销 */
   label?: number;
-  /** 刻度轨的拖动手势（useValueScrub）；不传＝只画图 */
-  rail?: { handlers: Record<string, unknown> };
+  /** 刻度轨的拖动手势（useValueScrub）；不传＝没有轨。idle：轨照画但不接手势（这张卡上没有能改的组） */
+  rail?: { handlers: Record<string, unknown>; idle: boolean };
 }) {
   // 带起始的配重片（12.5 起、每格 5）：第 1 片就是最轻一格，往下每片 +一档
   const s0 = start > 0 ? start : 0;
   const at = s0 > 0 ? (value >= s0 - 1e-9 ? Math.round((value - s0) / step) + 1 : 0) : Math.max(0, Math.round(value / step));
+  // 最重一格是第几片（不在格子上的按它以下最近的一格，同 loadable.bracket）
+  // 比最轻一格还轻的（后来把最轻一格调到它上面了）同 bracket：当没设
+  const firstAt = s0 > 0 ? s0 : step;
+  const last = end >= firstAt - 1e-9 ? (s0 > 0 ? Math.floor((end - s0) / step + 1e-9) + 1 : Math.floor(end / step + 1e-9)) : Infinity;
   const topRef = useRef(1);
   let top = topRef.current;
   if (at > 0 && at < top + 1) top = Math.max(1, at - 1);
@@ -236,7 +245,7 @@ export function PinStackGlyph({
   // 插销那一排在窗口里的纵坐标（片的中线）；0＝还没插，插销停在顶板下
   const pinY = at > 0 ? (at - top) * P + 5 : -4;
   const plates = [];
-  for (let i = Math.max(1, top - 2); i <= top + STACK_WIN + 1; i++)
+  for (let i = Math.max(1, top - 2); i <= Math.min(last, top + STACK_WIN + 1); i++)
     plates.push(<span key={i} className={`pin-slab${i < at ? ' is-up' : i === at ? ' is-at' : ''}`} style={{ top: (i - 1) * P }} />);
   return (
     <div className="pin-stack" aria-hidden style={{ ['--pin-y' as string]: `${pinY}px` }}>
@@ -244,7 +253,10 @@ export function PinStackGlyph({
       <span className="pin-rod is-l" />
       <span className="pin-rod is-r" />
       <span className={`pin-win${top > 1 ? ' is-more-up' : ''}`}>
-        <span className="pin-plates" style={{ transform: `translateY(${-(top - 1) * P}px)` }}>{plates}</span>
+        <span className="pin-plates" style={{ transform: `translateY(${-(top - 1) * P}px)` }}>
+          {plates}
+          {last < Infinity && last > 0 && <span className="pin-floor" style={{ top: (last - 1) * P + 11 }} data-testid="pin-floor" />}
+        </span>
         {/* 中间的选重杆只穿过被提起来的那几片 */}
         <span className="pin-sel" style={{ height: Math.max(0, pinY + 5) }} />
       </span>
@@ -256,7 +268,7 @@ export function PinStackGlyph({
       )}
       <span className="pin-pin" />
       {rail && (
-        <span className="pin-rail" data-testid="hero-rail" {...rail.handlers}>
+        <span className={`pin-rail${rail.idle ? ' is-idle' : ''}`} data-testid="hero-rail" {...rail.handlers}>
           {Array.from({ length: STACK_WIN }, (_, i) => (
             <i key={i} style={{ top: i * P + 5 }} />
           ))}
@@ -357,194 +369,26 @@ function SignedGlyph({ value, unit, plateUnit, belt: beltIn }: { value: number; 
 
 /* ── 一张卡顶部的器材图 + 说明 ────────────────────────────────── */
 
-export function LoadHero({
-  kind,
-  value,
-  unit,
-  plateUnit,
-  bar,
-  onBarChange,
-  isCn,
-  pinStep,
-  scrub,
-  rounder,
-  onPick,
-  machine,
-}: {
-  kind: LoadKind;
-  /** 选中那一组的重量（显示单位，带符号） */
-  value: number;
-  /** 显示单位 */
-  unit: PlateUnit;
-  /** 这一组挂的是哪种片（登记时的单位） */
-  plateUnit: PlateUnit;
-  bar?: BarChoice;
-  /** 改这个动作的杠（库里查不到的动作不传，杠名不可点） */
-  onBarChange?: (bar: BarChoice) => void;
-  isCn: boolean;
-  pinStep: number;
-  /** 大图本身也是拖动区（2026-10-18 用户定）：和数字格同一套 useValueScrub，改的是选中那一组 */
-  scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
-  /**
-   * 馆档案取整器（2026-10-18）：图按「这个馆的片子 + 当前单位」画；记的数挂不整时画最接近的配法，
-   * 下面给上下两个能挂的重量（onPick 改成它）。绝不出现「配不出」。不传＝旧画法（标准片、按登记单位）。
-   */
-  rounder?: ExRounder | null;
-  onPick?: (displayValue: number) => void;
-  /** 这台器械在这个馆的设置（大图上方小药丸，点开是「动作设置」弹窗里「在 X」那一段）；没标馆的训练不传 */
-  machine?: MachineCtl;
-}) {
-  const [barOpen, setBarOpen] = useState(false);
-  if (kind === 'plain') return null;
-  if (rounder) return <GymHero {...{ kind, value, unit, bar, onBarChange, isCn, scrub, rounder, onPick, barOpen, setBarOpen, machine }} />;
-
-  const barKind: BarKind = bar?.kind ?? 'standard';
-  const barW = barWeight(bar, plateUnit);
-  const total = Math.round(convert(value, unit, plateUnit) * 20) / 20;
-  const L = kind === 'plates' || kind === 'loaded' ? loadBarbell(total, plateUnit, kind === 'loaded' ? 0 : barW) : null;
-  const u = unit === 'lbs' ? 'lb' : 'kg';
-
-  let caption = '';
-  let warn = false;
-  if ((kind === 'plates' || kind === 'loaded') && L) {
-    const sideTxt = L.perSide.map((w) => plateLabel(w, plateUnit, unit)).join(' + ');
-    // 片子和显示单位不一致时点明挂的是哪种片（按 kg 登记的组在 lbs 下看 → 公斤片，反之磅片）
-    const mixed =
-      plateUnit !== unit
-        ? isCn
-          ? plateUnit === 'lbs' ? '（磅片）' : '（公斤片）'
-          : plateUnit === 'lbs' ? ' (lb plates)' : ' (kg plates)'
-        : '';
-    if (L.underBar) {
-      caption = isCn ? '比空杠还轻' : 'Lighter than the empty bar';
-      warn = true;
-    } else
-      // 挂不整的余数不再报「配不出」（2026-10-18 用户定）：图上是凑得到的那部分，数照原样记
-      caption = L.perSide.length
-        ? isCn
-          ? `每边 ${sideTxt} ${u}${mixed}`
-          : `Per side ${sideTxt} ${u}${mixed}`
-        : isCn
-          ? '空杠'
-          : 'Empty bar';
-  } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句
-  else if (kind === 'pair') caption = isCn ? `每只 ${fmt1(value)} ${u}` : `${fmt1(value)} ${u} each`;
-  else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt1(value)} ${u}` : `Kettlebell ${fmt1(value)} ${u}`;
-  // 固定杠铃是一根的总重，不写「每只」
-  else if (kind === 'fixed') caption = isCn ? `固定杠铃 ${fmt1(value)} ${u}` : `Fixed barbell ${fmt1(value)} ${u}`;
-  else if (kind === 'signed') {
-    if (value < 0) caption = isCn ? `辅助 ${fmt1(-value)} ${u}` : `Assisted ${fmt1(-value)} ${u}`;
-    else if (value === 0) caption = isCn ? '纯自重' : 'Bodyweight';
-    else {
-      const belt = loadSide(convert(value, unit, plateUnit), plateUnit).perSide.map((w) => plateLabel(w, plateUnit, unit));
-      caption = isCn ? `腰挂 ${belt.join(' + ')} ${u}` : `Belt ${belt.join(' + ')} ${u}`;
-    }
-  }
-
-  const barName = isCn ? BAR_LABEL[barKind].cn : BAR_LABEL[barKind].en;
-  const barTxt = `${barName} ${plateLabel(barW, plateUnit, unit)} ${u}`;
-  const shortU: PlateUnit = bar?.kind === 'short' ? (bar.unit ?? plateUnit) : plateUnit;
-  const shortW = bar?.kind === 'short' ? (bar.weight ?? SHORT_BAR_DEFAULT[shortU]) : SHORT_BAR_DEFAULT[plateUnit];
-  const pick = (k: BarKind) =>
-    onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
-
-  return (
-    <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}`} data-testid="load-hero">
-      {/* 拖动区只包图形；下面的说明栏里有按钮，不能被拖动手势吃掉 */}
-      <div
-        className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
-        {...(scrub?.axis === 'x' ? scrub.handlers : {})}
-      >
-        {scrub?.scrubbing && (
-          <span className="load-hero-step" aria-hidden>
-            ×{scrub.step}
-          </span>
-        )}
-        {(kind === 'plates' || kind === 'loaded') && L && <BarbellGlyph perSide={L.perSide} plateUnit={plateUnit} display={unit} kind={barKind} machine={kind === 'loaded'} />}
-        {kind === 'pin' && <PinStackGlyph value={value} step={pinStep} unit={unit} rail={scrub?.axis === 'y' ? scrub : undefined} />}
-        {kind === 'pair' && <DumbbellGlyph value={value} unit={unit} />}
-        {kind === 'bell' && <KettlebellGlyph value={value} unit={unit} />}
-        {kind === 'fixed' && <FixedBarGlyph value={value} unit={unit} />}
-        {kind === 'signed' && <SignedGlyph value={value} unit={unit} plateUnit={plateUnit} />}
-      </div>
-      <div className="load-caption-row">
-        {kind === 'plates' && (
-          <button
-            type="button"
-            className="bar-chip"
-            onClick={() => onBarChange && setBarOpen((o) => !o)}
-            disabled={!onBarChange}
-            aria-expanded={barOpen}
-            data-testid="bar-chip"
-          >
-            {barTxt}
-          </button>
-        )}
-        {caption && <p className={`load-caption${warn ? ' is-warn' : ''}`}>{caption}</p>}
-      </div>
-      {barOpen && kind === 'plates' && onBarChange && (
-        <div className="bar-menu" role="group" aria-label={isCn ? '这个动作用哪根杠' : 'Bar for this exercise'}>
-          {(['standard', 'women', 'short'] as BarKind[]).map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={barKind === k}
-              onClick={() => {
-                pick(k);
-                if (k !== 'short') setBarOpen(false);
-              }}
-            >
-              {isCn ? BAR_LABEL[k].cn : BAR_LABEL[k].en}
-              <small>
-                {k === 'short'
-                  ? `${fmt1(shortW)} ${shortU === 'lbs' ? 'lb' : 'kg'}`
-                  : `${plateLabel(barWeight({ kind: k }, plateUnit), plateUnit, unit)} ${u}`}
-              </small>
-            </button>
-          ))}
-          {barKind === 'short' && (
-            <span className="bar-short-w">
-              <button
-                type="button"
-                aria-label={isCn ? '短杠轻一点' : 'Lighter short bar'}
-                onClick={() => onBarChange({ kind: 'short', unit: shortU, weight: Math.max(1, shortW - (shortU === 'kg' ? 0.5 : 1)) })}
-              >
-                −
-              </button>
-              <ScrubNumber
-                value={shortW}
-                onCommit={n => n !== null && n >= 1 && onBarChange({ kind: 'short', unit: shortU, weight: n })}
-                min={1}
-                steps={shortU === 'kg' ? [0.5, 1, 2.5] : [1, 2, 5]}
-                ariaLabel={isCn ? '短杠多重' : 'Short bar weight'}
-                inputClassName="bar-short-num"
-              />
-              <button
-                type="button"
-                aria-label={isCn ? '短杠重一点' : 'Heavier short bar'}
-                onClick={() => onBarChange({ kind: 'short', unit: shortU, weight: shortW + (shortU === 'kg' ? 0.5 : 1) })}
-              >
-                ＋
-              </button>
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  );
+/** 大图的拖动手势；live＝这张卡上有能改的组（待做的或选中的），否则图和刻度轨照画、不接手势（scrubFeel.heroFocus） */
+interface HeroScrub {
+  handlers: Record<string, unknown>;
+  scrubbing: boolean;
+  step: number;
+  axis: 'x' | 'y';
+  live: boolean;
 }
+/** 横拖挂在整块图上，竖拖（配重片）只挂刻度轨 */
+const dragProps = (scrub: HeroScrub | undefined) => ({
+  className: `load-hero-drag${scrub?.live ? ` is-draggable is-axis-${scrub.axis}` : ''}`,
+  ...(scrub?.live && scrub.axis === 'x' ? scrub.handlers : {}),
+});
+const railOf = (scrub: HeroScrub | undefined) =>
+  scrub?.axis === 'y' ? { handlers: scrub.live ? scrub.handlers : {}, idle: !scrub.live } : undefined;
 
-/**
- * 有馆档案时的大图（docs/design-plates.md §3「馆档案」，示意 docs/demos/gym-workbench.html）：
- *   - 单位就是片子：一律按当前单位、这个馆有的片画（做完时挂的是另一种片，组行上另有标注）
- *   - 记的数挂不整（手打的 61、换算来的 132.28）：图上画最接近的配法，说明写「按 61 kg 记 · 图上是最接近的配法」，
- *     再给上下两个能挂的重量，点一下改成它
- *   - 挂片式器械（史密斯、倒蹬…）照杠铃算，只算片子（没有空杠）
- */
 /**
  * 显示单位 ↔ 这台器械的片子单位（gu）的换算小工具（2026-10-23 用户：调重量的界面都要能实时切单位）。
  * 存的仍是这台器械上印的单位（gu）——只在显示和输入时换算，切来切去不丢精度，和杠铃片说明（plateLabel）一个做法。
- * 大图（GymHero）和设置行（MachineFace）共用。
+ * 大图（LoadHero）和设置行（MachineFace）共用。
  */
 function displayConv(rounder: ExRounder, unit: PlateUnit) {
   const u = unit === 'lbs' ? 'lb' : 'kg';
@@ -567,15 +411,16 @@ function displayConv(rounder: ExRounder, unit: PlateUnit) {
   return { u, gu, toG, fmt, toD, fromD, fmtD };
 }
 
-/** 一台的名字：起了名的写名字，馆默认写「默认」，后面跟刻度（按这台器械上印的单位，一台 kg 一台 lb 靠它分辨） */
+/**
+ * 药丸上的字：起了名的只写名字，否则写刻度（按这台器械上印的单位，一台 kg 一台 lb 靠它分辨），馆默认在刻度前加「默认」。
+ * 配重片写成「最轻一格 + 每格」：每枚都写「起 · 每格」太宽，多一台就挤出屏幕，完整说法在设置里。
+ */
 export function rigLabel(r: Rig, kind: LoadKind, isCn: boolean): string {
+  if (r.n) return r.n;
   const f = (n: number) => String(Math.round(n * 100) / 100);
   const u = r.u === 'lbs' ? 'lb' : 'kg';
-  const spec = kind === 'pin'
-    ? isCn ? `${f(r.s && r.s > 0 ? r.s : r.v)} 起 · 每格 ${f(r.v)} ${u}` : `From ${f(r.s && r.s > 0 ? r.s : r.v)} · +${f(r.v)} ${u}`
-    : isCn ? `每档 ${f(r.v)} ${u}` : `+${f(r.v)} ${u}`;
-  const head = r.id === '' ? (isCn ? '默认' : 'Default') : r.n;
-  return head ? `${head} · ${spec}` : spec;
+  const spec = kind === 'pin' ? `${f(r.s && r.s > 0 ? r.s : r.v)} + ${f(r.v)} ${u}` : `+${f(r.v)} ${u}`;
+  return r.id === '' ? `${isCn ? '默认' : 'Default'} · ${spec}` : spec;
 }
 
 /**
@@ -592,8 +437,19 @@ export function RigChips({ kind, isCn, list, sel, onPick, onAdd, onEdit }: {
   onAdd?: () => void;
   onEdit?: () => void;
 }) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  // 选中的那台不在视野里就滚到中间：组重量按它的刻度取整，看不见就不知道眼下是哪台。
+  // 只动这一排的 scrollLeft：scrollIntoView 会连带滚页面
+  useEffect(() => {
+    const strip = stripRef.current;
+    const on = strip?.querySelector('[aria-pressed="true"]');
+    if (!strip || !on) return;
+    const a = on.getBoundingClientRect();
+    const b = strip.getBoundingClientRect();
+    if (a.left < b.left || a.right > b.right) strip.scrollLeft += a.left - b.left - (b.width - a.width) / 2;
+  }, [sel, list.length]);
   return (
-    <div className="stack-rigs" role="group" aria-label={isCn ? '用哪一台' : 'Which machine'} data-testid="rig-chips">
+    <div ref={stripRef} className="stack-rigs" role="group" aria-label={isCn ? '用哪一台' : 'Which machine'} data-testid="rig-chips">
       {list.map(r => {
         const on = r.id === sel;
         return (
@@ -611,7 +467,7 @@ export function RigChips({ kind, isCn, list, sel, onPick, onAdd, onEdit }: {
         );
       })}
       {onAdd && (
-        <button type="button" className="stack-tag" aria-label={isCn ? '加一台' : 'Add a machine'} onClick={onAdd} data-testid="rig-add">
+        <button type="button" className="stack-tag is-add" aria-label={isCn ? '加一台' : 'Add a machine'} onClick={onAdd} data-testid="rig-add">
           ＋
         </button>
       )}
@@ -639,7 +495,7 @@ const RigName: React.FC<{ name: string; isCn: boolean; onName: (n: string) => vo
 
 /**
  * 「这台器械」的设置行：用哪一台 / 加重方式 / 这台的片子 / 最轻一格 · 每格 + 预设 / 单边 / 器械自重 / 每档 / 删掉这一台。
- * 大图里原地展开、渲染进「动作设置」弹窗（slot）、交替组卡（没有大图，只有这几行）三处共用一份。
+ * 单卡的大图、交替组卡（没有大图，只有这几行）都把它渲染进「动作设置」弹窗（slot），共用一份。
  * 状态都在 machine（useMachineSettings）里，这里只画。
  */
 export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: LoadKind; unit: PlateUnit; isCn: boolean; rounder: ExRounder; machine: MachineCtl }) {
@@ -658,9 +514,9 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
   // 横划和 − / ＋ 也只在预设这几格里跳（下方那排不动、只挪高亮）；别的数手打
   const presetFn = listStepFn(RIG_STEPS);
   // 传的是图上显示的最轻一格：没设过时它等于一档，按 stackStart(=0) 传会让它跟着「每格」一起变
-  const setStart = (n: number) => { if (n > 0 && Math.abs(n - lightest) > 1e-9) machine.onStack?.(ctx.inc, n); };
+  const setStart = (n: number) => { if (n > 0 && n <= RIG_NUM_MAX && Math.abs(n - lightest) > 1e-9) machine.onStack?.(ctx.inc, n); };
   const setStep = (n: number) => {
-    if (n <= 0 || Math.abs(n - ctx.inc) < 1e-9) return;
+    if (n <= 0 || n > RIG_NUM_MAX || Math.abs(n - ctx.inc) < 1e-9) return;
     if (kind === 'pin') machine.onStack?.(n, lightest);
     else machine.inc?.onSet(n);
   };
@@ -673,6 +529,7 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           value={value}
           onCommit={n => n !== null && set(n)}
           min={0.1}
+          max={RIG_NUM_MAX}
           stepFn={presetFn}
           steps={[1, 2, 3]}
           testId={testId}
@@ -683,16 +540,21 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
       </span>
     </div>
   );
-  const presets = (value: number, set: (n: number) => void) => (
-    <div className="stack-presets" role="group" aria-label={isCn ? '常见的一格' : 'Common steps'} data-testid="stack-presets">
-      {RIG_STEPS.map(x => (
-        <button key={x} type="button" aria-pressed={Math.abs(x - value) < 1e-9} onClick={() => set(x)} data-testid={`stack-preset-${x}`}>
-          {x}
-        </button>
-      ))}
-      <small>{gl}</small>
-    </div>
+  const presets = (value: number, set: (n: number) => void, target?: string) => (
+    <>
+      {target && <small className="stack-presets-to" data-testid="stack-presets-target">{isCn ? `填入${target}` : `Fill: ${target}`}</small>}
+      <div className="stack-presets" role="group" aria-label={isCn ? '常见的一格' : 'Common steps'} data-testid="stack-presets">
+        {RIG_STEPS.map(x => (
+          <button key={x} type="button" aria-pressed={Math.abs(x - value) < 1e-9} onClick={() => set(x)} data-testid={`stack-preset-${x}`}>
+            {x}
+          </button>
+        ))}
+        <small>{gl}</small>
+      </div>
+    </>
   );
+  const startLabel = isCn ? '最轻一格' : 'Lightest';
+  const stepLabel = isCn ? '每格' : 'Step';
   const rigs = machine.rigs;
   return (
     <>
@@ -747,7 +609,7 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
         <div className="stack-stp">
           <span>
             {isCn ? '这台的片子' : 'Marked in'}
-            <small className="block text-label text-tertiary">{isCn ? '格子按它算，显示照样换算' : 'Steps follow it; display converts'}</small>
+            <small className="block text-label text-tertiary">{isCn ? '格子和卡上的数都按它' : 'Steps and numbers follow it'}</small>
           </span>
           <span className="gym-seg" role="group" data-testid="gym-machine-unit">
             {(['kg', 'lbs'] as const).map(x => (
@@ -767,10 +629,30 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
       )}
       {kind === 'pin' && machine.onStack && (
         <>
-          {numRow('start', isCn ? '最轻一格' : 'Lightest', lightest, setStart, 'stack-start')}
-          {numRow('step', isCn ? '每格' : 'Step', ctx.inc, setStep, 'stack-step')}
-          {field === 'start' ? presets(lightest, setStart) : presets(ctx.inc, setStep)}
+          {numRow('start', startLabel, lightest, setStart, 'stack-start')}
+          {numRow('step', stepLabel, ctx.inc, setStep, 'stack-step')}
+          {field === 'start' ? presets(lightest, setStart, startLabel) : presets(ctx.inc, setStep, stepLabel)}
         </>
+      )}
+      {kind === 'pin' && machine.onStackEnd && (
+        <div className="stack-stp">
+          <span>{isCn ? '最重一格' : 'Heaviest'}</span>
+          <span className="stack-seg">
+            <ScrubNumber
+              value={ctx.end ?? null}
+              onCommit={n => (n === null ? ctx.end && machine.onStackEnd!(null) : n >= lightest && Math.abs(n - (ctx.end ?? 0)) > 1e-9 && machine.onStackEnd!(n))}
+              allowEmpty
+              min={lightest}
+              max={loadCapD(gu, false)}
+              stepFn={(v, d, m) => lightest + Math.max(0, Math.round((v - lightest) / ctx.inc) + d * m) * ctx.inc}
+              steps={[1, 2, 5]}
+              placeholder="—"
+              testId="stack-end"
+              ariaLabel={isCn ? '最重一格' : 'Heaviest'}
+            />
+            <small>{gl}</small>
+          </span>
+        </div>
       )}
       {kind === 'loaded' && machine.oneSide && (
         <div className="stack-stp">
@@ -830,11 +712,8 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
               </span>
             </div>
           )}
-          <p className="stack-note">
-            {isCn
-              ? '不挂片时这台器械本身多重（倒蹬的滑台、史密斯的杠）。默认只做参考：说明里加一句「连器械共多少」，记录只算片子。杠上标得清楚的（史密斯）可以切成「算进记录」：记的数＝自重 + 片子，没做完、没改过的组跟着加上。不知道就空着。'
-              : 'What the machine weighs with no plates (leg-press sled, Smith bar). By default it is reference only: the caption adds a "with the machine" total and the log counts plates. If the bar is clearly marked (Smith), switch to "Count it": logged = machine + plates, and pending untouched sets shift with it. Leave empty if unsure.'}
-          </p>
+          {/* 填了值之后下面的「只做参考 | 算进记录」自己说明白了，这句只在没填时有用 */}
+          {machine.tare.value == null && <p className="stack-note">{isCn ? '默认不计入记录' : 'Not counted in the log by default'}</p>}
         </>
       )}
       {kind !== 'pin' && machine.inc && (
@@ -862,7 +741,16 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
   );
 }
 
-function GymHero({
+/**
+ * 重量大图（docs/design-plates.md §3「馆档案」，示意 docs/demos/gym-workbench.html）：
+ *   - 单位就是片子：一律按当前单位、这个馆有的片画（做完时挂的是另一种片，组行上另有标注）
+ *   - 记的数挂不整（手打的 61、换算来的 132.28）：图上画最接近的配法，说明写「按 61 kg 记 · 图上是最接近的配法」，
+ *     再给上下两个能挂的重量，点一下改成它
+ *   - 挂片式器械（史密斯、倒蹬…）照杠铃算，只算片子（没有空杠）
+ * 没有取整器（纯数字的动作）不画：卡片只在有重量这一项时渲染它，那时取整器只在 plain 时为 null，
+ * 原来那套「按标准片、登记单位」的旧画法走不到，2026-11-13 删掉（审查 B10）。
+ */
+export function LoadHero({
   kind,
   value,
   unit,
@@ -872,25 +760,28 @@ function GymHero({
   scrub,
   rounder,
   onPick,
-  barOpen,
-  setBarOpen,
   machine,
 }: {
   kind: LoadKind;
+  /** 选中那一组的重量（这张卡的单位，带符号） */
   value: number;
+  /** 这张卡的单位（rounder.display：器械有自己的单位就是它） */
   unit: PlateUnit;
   bar?: BarChoice;
+  /** 改这个动作的杠（库里查不到的动作不传，杠名不可点） */
   onBarChange?: (bar: BarChoice) => void;
   isCn: boolean;
-  scrub?: { handlers: Record<string, unknown>; scrubbing: boolean; step: number; axis: 'x' | 'y' };
-  rounder: ExRounder;
+  /** 大图本身也是拖动区（2026-10-18 用户定）：和数字格同一套 useValueScrub，改的是选中那一组 */
+  scrub?: HeroScrub;
+  /** 馆档案取整器（2026-10-18）：图按「这个馆的片子 + 当前单位」画 */
+  rounder: ExRounder | null;
   onPick?: (displayValue: number) => void;
-  barOpen: boolean;
-  setBarOpen: (f: (o: boolean) => boolean) => void;
+  /** 这台器械在这个馆的设置（大图上方的药丸，点开是「动作设置」弹窗里「在 X」那一段）；没标馆的训练不传 */
   machine?: MachineCtl;
 }) {
+  const [barOpen, setBarOpen] = useState(false);
+  if (kind === 'plain' || !rounder) return null;
   const ctx = rounder.ctx;
-  const [stackOpen, setStackOpen] = useState(false);
   const stackStart = ctx.start && ctx.start > 0 ? ctx.start : 0;
   const { u, gu, toG, fmt, fmtD } = displayConv(rounder, unit);
   // 0＝还没填：不算「挂不整」，图上画空杠 / 空着，不给两档
@@ -953,9 +844,8 @@ function GymHero({
   const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
 
   const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
-  // 有弹窗位置（slot）时不在原地展开：设置行渲染进「动作设置」里
-  const faceOpen = stackOpen && hasMachine && !machine?.slot;
-  const openFace = () => (machine?.onOpen ? machine.onOpen() : setStackOpen(() => true));
+  // 设置行一律在「动作设置」弹窗里（machine.slot），药丸只负责打开它
+  const openFace = () => machine?.onOpen?.();
   // 有自己器材的（配重片 / 哑铃 / 壶铃 / 固定杠铃）药丸是一排台子（RigChips）；这里只剩挂片和辅助
   const pillText = !machine
     ? ''
@@ -966,8 +856,8 @@ function GymHero({
           : isCn ? ' · 自重没填' : ' · weight unknown')
       : isCn ? `辅助 · 每档 ${fmtD(ctx.inc)} ${u}` : `Assist · +${fmtD(ctx.inc)} ${u}`;
   return (
-    <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}${faceOpen ? ' is-face' : ''}`} data-testid="load-hero">
-      {hasMachine && !faceOpen && (
+    <div className={`load-hero is-${kind}${scrub?.scrubbing ? ' is-scrubbing' : ''}`} data-testid="load-hero">
+      {hasMachine && (
         <div className="stack-tagrow">
           {machine?.rigs ? (
             <RigChips
@@ -987,74 +877,54 @@ function GymHero({
           )}
         </div>
       )}
-      {faceOpen && machine ? (
-        <div className="stack-face" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
-          <div className="stack-fhead">
-            <div>
-              <b>{isCn ? '这台器械' : 'This machine'}</b>
-              <small>{isCn ? `只改 ${machine.gym} 的这一台` : `Only this one at ${machine.gym}`}</small>
-            </div>
-            <button type="button" className="stack-done" onClick={() => setStackOpen(() => false)} data-testid="stack-done">
-              {isCn ? '完成' : 'Done'}
-            </button>
-          </div>
-          <MachineFace kind={kind} unit={unit} isCn={isCn} rounder={rounder} machine={machine} />
-        </div>
-      ) : (
-        <>
-          {/* 合并入口：设置行渲染进「动作设置」弹窗的「在 X」一段（状态还在这张卡上，所以用 portal） */}
-          {hasMachine && machine && machine.slot &&
-            createPortal(
-              // 段标题（在 X 的这一台）和单位开关在弹窗那边（2026-10-23 三层）
-              <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
-                <MachineFace kind={kind} unit={unit} isCn={isCn} rounder={rounder} machine={machine} />
-              </div>,
-              machine.slot,
-            )}
-          <div
-            className={`load-hero-drag${scrub ? ` is-draggable is-axis-${scrub.axis}` : ''}`}
-            {...(scrub?.axis === 'x' ? scrub.handlers : {})}
+      {/* 合并入口：设置行渲染进「动作设置」弹窗的「在 X」一段（状态还在这张卡上，所以用 portal） */}
+      {hasMachine && machine && machine.slot &&
+        createPortal(
+          // 段标题（在 X 的这一台）和单位开关在弹窗那边（2026-10-23 三层）
+          <div className="stack-face is-sheet" role="group" aria-label={isCn ? '这台器械' : 'This machine'} data-testid="stack-menu">
+            <MachineFace kind={kind} unit={unit} isCn={isCn} rounder={rounder} machine={machine} />
+          </div>,
+          machine.slot,
+        )}
+      <div {...dragProps(scrub)}>
+        {scrub?.scrubbing && (
+          <span className="load-hero-step" aria-hidden>
+            ×{fmt(rounder.stepD(v) * scrub.step)}
+          </span>
+        )}
+        {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
+        {kind === 'pin' && (
+          <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} end={ctx.end ?? 0} unit={unit} label={Math.round(v * 10) / 10} rail={railOf(scrub)} />
+        )}
+        {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
+        {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}
+        {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
+        {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
+      </div>
+      <div className="load-caption-row">
+        {kind === 'plates' && (
+          <button
+            type="button"
+            className="bar-chip"
+            onClick={() => onBarChange && setBarOpen((o) => !o)}
+            disabled={!onBarChange}
+            aria-expanded={barOpen}
+            data-testid="bar-chip"
           >
-            {scrub?.scrubbing && (
-              <span className="load-hero-step" aria-hidden>
-                ×{fmt(rounder.stepD(v) * scrub.step)}
-              </span>
-            )}
-            {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
-            {kind === 'pin' && (
-              <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} unit={unit} label={Math.round(v * 10) / 10} rail={scrub?.axis === 'y' ? scrub : undefined} />
-            )}
-            {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
-            {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}
-            {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
-            {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
-              </div>
-          <div className="load-caption-row">
-            {kind === 'plates' && (
-              <button
-                type="button"
-                className="bar-chip"
-                onClick={() => onBarChange && setBarOpen((o) => !o)}
-                disabled={!onBarChange}
-                aria-expanded={barOpen}
-                data-testid="bar-chip"
-              >
-                {barTxt}
-              </button>
-            )}
-            {caption && <p className="load-caption" data-testid="load-caption">{caption}</p>}
-          </div>
-          {near && onPick && (
-            <div className="load-near" data-testid="load-near">
-              <span>{isCn ? '改成能挂的：' : 'Snap to:'}</span>
-              {[near.lo, ...(near.hi !== near.lo ? [near.hi] : [])].map((n) => (
-                <button key={n} type="button" onClick={() => onPick(n)}>
-                  {nearLabel(n)}
-                </button>
-              ))}
-            </div>
-          )}
-        </>
+            {barTxt}
+          </button>
+        )}
+        {caption && <p className="load-caption" data-testid="load-caption">{caption}</p>}
+      </div>
+      {near && onPick && (
+        <div className="load-near" data-testid="load-near">
+          <span>{isCn ? '改成能挂的：' : 'Snap to:'}</span>
+          {[near.lo, ...(near.hi !== near.lo ? [near.hi] : [])].map((n) => (
+            <button key={n} type="button" onClick={() => onPick(n)}>
+              {nearLabel(n)}
+            </button>
+          ))}
+        </div>
       )}
       {barOpen && kind === 'plates' && onBarChange && (
         <div className="bar-menu" role="group" aria-label={isCn ? '这个动作用哪根杠' : 'Bar for this exercise'}>
@@ -1065,7 +935,7 @@ function GymHero({
               aria-pressed={barKind === k}
               onClick={() => {
                 pick(k);
-                if (k !== 'short') setBarOpen(() => false);
+                if (k !== 'short') setBarOpen(false);
               }}
             >
               {isCn ? BAR_LABEL[k].cn : BAR_LABEL[k].en}
@@ -1087,8 +957,9 @@ function GymHero({
               </button>
               <ScrubNumber
                 value={shortW}
-                onCommit={n => n !== null && n >= 1 && onBarChange({ kind: 'short', unit: shortU, weight: n })}
+                onCommit={n => n !== null && n >= 1 && n <= SHORT_BAR_MAX[shortU] && onBarChange({ kind: 'short', unit: shortU, weight: n })}
                 min={1}
+                max={SHORT_BAR_MAX[shortU]}
                 steps={shortU === 'kg' ? [0.5, 1, 2.5] : [1, 2, 5]}
                 ariaLabel={isCn ? '短杠多重' : 'Short bar weight'}
                 inputClassName="bar-short-num"
@@ -1096,7 +967,7 @@ function GymHero({
               <button
                 type="button"
                 aria-label={isCn ? '短杠重一点' : 'Heavier short bar'}
-                onClick={() => onBarChange({ kind: 'short', unit: shortU, weight: shortW + (shortU === 'kg' ? 0.5 : 1) })}
+                onClick={() => onBarChange({ kind: 'short', unit: shortU, weight: Math.min(SHORT_BAR_MAX[shortU], shortW + (shortU === 'kg' ? 0.5 : 1)) })}
               >
                 ＋
               </button>

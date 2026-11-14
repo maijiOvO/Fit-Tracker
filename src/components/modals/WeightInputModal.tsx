@@ -4,6 +4,7 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
 import { ScrubNumber } from '../ScrubNumber';
+import { bodyweightRangeD } from '../../utils/load';
 
 interface WeightInputModalProps {
   open: boolean;
@@ -52,6 +53,8 @@ export const WeightInputModal: React.FC<WeightInputModalProps> = ({
           onCommit={n => setWeightInputValue(n === null ? '' : String(n))}
           allowEmpty
           live
+          min={bodyweightRangeD(unit)[0]}
+          max={bodyweightRangeD(unit)[1]}
           decimals={1}
           steps={[0.1, 0.5, 1, 5]}
           placeholder="0.0"

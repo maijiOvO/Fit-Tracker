@@ -23,6 +23,7 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { realSets } from '../utils/prDetect';
 import { sessionDurationMin } from '../utils/sessionDuration';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { useBackClose } from '../hooks/useBackClose';
 
 /** 刚结束 10 分钟内：长按菜单给「继续这场」 */
 const justEnded = (w: { finishedAt?: string }) =>
@@ -30,12 +31,36 @@ const justEnded = (w: { finishedAt?: string }) =>
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
 
+/**
+ * 卡片上的日期 / 时间 / 星期格式化器按语言各建一次：每张卡现建三个 Intl 格式化器，
+ * 几百张卡回首页时就是上千次（审查 F10）。
+ * 时间用 24 小时制：日期柱只有 40px，英文的「06:09 PM」会折成两行把每张卡撑高（2026-10-22 界面审查）。中文本来就是 24 小时制
+ */
+const formatsByLocale = new Map<string, { date: Intl.DateTimeFormat; time: Intl.DateTimeFormat; weekday: Intl.DateTimeFormat }>();
+function cardFormats(isCN: boolean) {
+  const locale = isCN ? 'zh-CN' : 'en-US';
+  let f = formatsByLocale.get(locale);
+  if (!f) {
+    f = {
+      date: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', weekday: 'short' }),
+      time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false }),
+      weekday: new Intl.DateTimeFormat(locale, { weekday: 'short' }),
+    };
+    formatsByLocale.set(locale, f);
+  }
+  return f;
+}
+
+/** 首页先渲染这么多场，滚到底再续一段（审查 F10：三年六百来张卡全量挂载，回首页随年限线性变慢） */
+const PAGE_SESSIONS = 60;
+
 interface TimelineViewProps {
   lang: Language;
   workouts: WorkoutSession[];
   granularity: TimelineGranularity;
   renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
-  onEditWorkout: (workoutId: string) => void;
+  /** 进编辑页并滚到这个动作、闪一下（审查 D15） */
+  onEditWorkout: (workoutId: string, focusExerciseId: string | undefined) => void;
   onAddExerciseToWorkout: (workoutId: string) => void;
   /** 删整场：一律先确认（2026-10-25） */
   onDeleteWorkout: (workoutId: string) => void;
@@ -121,7 +146,7 @@ interface SessionCardProps {
   isExpanded: boolean;
   onToggleExpand: () => void;
   renderSetCapsule: (s: any, exerciseName: string, setIdx?: number) => React.ReactNode;
-  onEdit: () => void;
+  onEdit: (focusExerciseId: string | undefined) => void;
   onAppend: () => void;
   onDelete: () => void;
   onMerge: () => void;
@@ -245,6 +270,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
       document.removeEventListener('keydown', onKey);
     };
   }, [menuOpen]);
+  // 安卓返回键先关菜单（审查 D3），不然首页上会直接把 App 收到后台
+  useBackClose(menuOpen, () => setMenuOpen(false));
 
   /**
    * 菜单默认从卡片右上角往下长；靠近屏幕底部的卡片往下长会钻到底部 tab 栏底下，
@@ -284,18 +311,10 @@ const SessionCard: React.FC<SessionCardProps> = ({
   const exerciseCount = w.exercises?.length || 0;
   const setCount = w.exercises?.reduce((s, ex) => s + realSets(ex).length, 0) || 0;
   const when = new Date(w.date);
-  const dateStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', {
-    month: 'short',
-    day: 'numeric',
-    weekday: 'short',
-  });
-  // 24 小时制：日期柱只有 40px，英文的「06:09 PM」会折成两行把每张卡撑高（2026-10-22 界面审查）。中文本来就是 24 小时制
-  const timeStr = when.toLocaleTimeString(isCN ? 'zh-CN' : 'en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const weekdayStr = when.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
+  const fmt = cardFormats(isCN);
+  const dateStr = fmt.date.format(when);
+  const timeStr = fmt.time.format(when);
+  const weekdayStr = fmt.weekday.format(when);
   // 练了多久归「什么时候在哪」那一层，跟时间同一组三级字；算不出就不占位
   const durationMin = sessionDurationMin(w);
   const durationStr = durationMin === null ? '' : isCN ? `${durationMin} 分` : `${durationMin} min`;
@@ -448,7 +467,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             type="button"
             role="menuitem"
             className={menuItem}
-            onClick={() => runMenuAction(onEdit)}
+            onClick={() => runMenuAction(() => onEdit(undefined))}
           >
             <Edit2 size={16} strokeWidth={1.75} className="text-tertiary" />
             {isCN ? '编辑这次训练' : 'Edit workout'}
@@ -514,14 +533,25 @@ const SessionCard: React.FC<SessionCardProps> = ({
             const sets = realSets(ex);
             return (
               <div key={`${ex.id}-${idx}`} className={`space-y-1 ${idx > 0 ? 'border-t border-divider pt-2' : ''}`}>
-                <div className="flex items-center justify-between">
+                {/* 点动作名进编辑、直接停在这个动作上（审查 D15）。按下不冒泡：不然会顺带起长按菜单 */}
+                <button
+                  type="button"
+                  onPointerDown={e => e.stopPropagation()}
+                  onClick={e => {
+                    e.stopPropagation();
+                    if (swallowingClick()) return;
+                    onEdit(ex.id);
+                  }}
+                  className="tap-44 w-full flex items-center justify-between gap-2 text-left rounded-chip active:bg-card-hover"
+                  data-testid="timeline-exercise-edit"
+                >
                   <span className="font-semibold text-small text-primary truncate">
                     {liftKey(ex)}
                   </span>
-                  <span className="text-micro font-normal text-tertiary">
+                  <span className="flex-none text-micro font-normal text-tertiary">
                     {sets.length} {isCN ? '组' : plural(sets.length, 'set')}
                   </span>
-                </div>
+                </button>
                 {sets.length > 0 && (
                   // 一组一整行：以前是胶囊时代的 flex-wrap，每行按内容收窄（254 / 218px 各不相同），
                   // 同一个动作里 41.89 和 132.28 的列宽不一样，数字和单位对不齐（2026-10-22 界面审查）
@@ -610,6 +640,23 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       .sort((a, b) => b.sortKey.localeCompare(a.sortKey));
   }, [workouts, granularity, lang, weekStart]);
 
+  // 分段渲染：组头的场数 / 组数照旧按整组算，只是卡片先挂前 limit 场；哨兵进视口（提前 800px）就续一段
+  const [limit, setLimit] = useState(PAGE_SESSIONS);
+  const hasMore = workouts.length > limit;
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!hasMore || !el) return;
+    const io = new IntersectionObserver(
+      entries => {
+        if (entries.some(e => e.isIntersecting)) setLimit(n => n + PAGE_SESSIONS);
+      },
+      { rootMargin: '800px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, limit]);
+
   if (workouts.length === 0) {
     return (
       <div className="ui-card p-8 text-center text-secondary text-small">
@@ -617,6 +664,12 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       </div>
     );
   }
+
+  // 段落标题看「本周」：每组都要比，提到循环外算一次
+  const thisWeek = getISOWeekKey(new Date()).key;
+  // 每组之前已经排了多少场，用来按 limit 截卡片
+  const cardsBefore: number[] = [];
+  grouped.reduce((n, g, i) => ((cardsBefore[i] = n), n + g.workouts.length), 0);
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups((prev) => {
@@ -636,6 +689,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           周/月/年粒度仍然走原来的组头。 */}
       <div className={granularity === 'day' ? 'space-y-2' : 'space-y-5'}>
       {grouped.map((group, gi) => {
+        const before = cardsBefore[gi];
+        if (before >= limit) return null;
+        const shown = group.workouts.slice(0, limit - before);
         const totalExercises = group.workouts.reduce(
           (s, w) => s + (w.exercises?.length || 0),
           0,
@@ -650,7 +706,6 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         // 天粒度下段落（本周 / 某年某月）换了就起一条轻标题，不管下面是单场卡片还是一天多场的组头 ——
         // 多场组头只说是哪天，不说属于哪一段，漏了标题，后面上周的卡会读成还在「本周」下面。
         // 本周的几场标「本周」（2026-10-15 用户定）：标「2026 年 10 月」会让人以为下面几张卡是同一天。
-        const thisWeek = getISOWeekKey(new Date()).key;
         const sectionOf = (d: Date) =>
           getISOWeekKey(d).key === thisWeek ? 'this-week' : `${d.getFullYear()}-${d.getMonth()}`;
         const monthLabel = (() => {
@@ -674,7 +729,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           return (
             <div key={group.key} className="space-y-2">
               {sectionTitle}
-              {group.workouts.map((w) => (
+              {shown.map((w) => (
                 <SessionCard
                   key={w.id}
                   w={w}
@@ -685,7 +740,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
                   }
                   renderSetCapsule={renderSetCapsule}
-                  onEdit={() => onEditWorkout(w.id)}
+                  onEdit={exId => onEditWorkout(w.id, exId)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
                   onDelete={() => onDeleteWorkout(w.id)}
                   onMerge={() => onMergeIntoPrevious(w.id)}
@@ -739,7 +794,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
             </button>
 
             {!isCollapsed &&
-              group.workouts.map((w) => (
+              shown.map((w) => (
                 <SessionCard
                   key={w.id}
                   w={w}
@@ -749,7 +804,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                     setExpandedWorkoutId(expandedWorkoutId === w.id ? null : w.id)
                   }
                   renderSetCapsule={renderSetCapsule}
-                  onEdit={() => onEditWorkout(w.id)}
+                  onEdit={exId => onEditWorkout(w.id, exId)}
                   onAppend={() => onAddExerciseToWorkout(w.id)}
                   onDelete={() => onDeleteWorkout(w.id)}
                   onMerge={() => onMergeIntoPrevious(w.id)}
@@ -764,6 +819,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
         );
       })}
       </div>
+      {hasMore && <div ref={sentinelRef} aria-hidden className="h-px" />}
     </div>
   );
 };

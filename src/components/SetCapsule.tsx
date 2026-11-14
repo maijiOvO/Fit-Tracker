@@ -17,8 +17,9 @@ import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT, SCRUB_MULTS } from
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
-import { fromSignedKg } from '../utils/load';
-import { pad2, parseWeight, secondsToHMS } from '../utils/format';
+import { fromSignedKg, loadCapD } from '../utils/load';
+import { pad2, secondsToHMS } from '../utils/format';
+import { formatLoad, markTouched, shownWeight, weightFromShown } from '../utils/setWrite';
 import { KG_TO_LBS } from '../constants';
 import { heroScrubAxis, STACK_PITCH, STACK_ENGAGE_PX } from '../utils/scrubFeel';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
@@ -60,6 +61,7 @@ interface SetCapsuleProps {
   loadMode?: LoadMode;
   /** 这一行是刚添加出来的 → 播「写下一组」入场（§5.3） */
   isNew?: boolean;
+  /** 顶栏的显示单位；有取整器时按 rounder.display（器械有自己的单位就整张卡按它，D1） */
   unit: string;
   lang: Language;
   readOnly?: boolean;
@@ -68,7 +70,7 @@ interface SetCapsuleProps {
   onDurationClick?: () => void;
   /**
    * 选中（2026-10 指针）：组号实心；± / 递减键在底栏上方的 SetActionStrip 里改这一组。全场至多一行。
-   * 默认选中的是指针下面那一组；点别的组号先选中它。
+   * 只有点过的那组实心，没点过时谁都不实心（审查 A5）。
    */
   selected?: boolean;
   /**
@@ -84,9 +86,9 @@ interface SetCapsuleProps {
   firstCol?: number;
   /**
    * 带正负的负荷（变体第二层）：重量格按「辅助为负、自重 0、负重为正」记，±5 / 横拖可以跨过 0；
-   * 单位前的 + / − 可点，换号。sign 给出旧数据（组上没写号）时的号。
+   * 单位前的 + / − 可点，换号。sign 给出组上没写号时的号（旧数据；重量是 0 的组沿用上一组，见 workbench.carrySign）。
    */
-  signed?: { sign: (s: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] }) => -1 | 1 };
+  signed?: { sign: (s: SetLog) => -1 | 1 };
   /** 删一档递减：交给工作台做 */
   onRemoveSub?: (subIdx: number) => void;
   /** 「杠铃片」§3：这个动作的重量怎么画、怎么拖。不传＝纯数字（只读历史视图） */
@@ -99,16 +101,6 @@ interface SetCapsuleProps {
    */
   rounder?: ExRounder | null;
 }
-
-/**
- * 值字段。待做行上改了其中任何一个，就记进 touched（「改过但没点完成」）——
- * 改值只改值，不再顺手描实（第 4 条）；touched 只给结束训练时的提醒和格子墨色用。
- */
-const VALUE_KEYS: (keyof SetLog)[] = [
-  'weight', 'reps', 'duration', 'score', 'time', 'timeUnit',
-  'distance', 'distanceUnit', 'bodyweightMode', 'subSets',
-];
-const touchedKeys = (updates: Partial<SetLog>) => VALUE_KEYS.filter(k => k in updates);
 
 /**
  * 点进格子即全选（2026-10-11 用户定：底稿一半时候要改、一半时候照用）：打字直接替换，不打字旧值留着。
@@ -133,12 +125,9 @@ const focusNextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
   else cur.blur();
 };
 
-export function formatWeight(kg: number, targetUnit: string): string {
-  if (targetUnit === 'lbs') {
-    return (kg * KG_TO_LBS).toFixed(2).replace(/\.?0+$/, '');
-  }
-  return kg.toFixed(2).replace(/\.?0+$/, '');
-}
+/** 打进来的次数：非负整数，不设上限（D4） */
+const wholeReps = (n: number) => Math.max(0, Math.round(n));
+
 
 export const SetCapsule: React.FC<SetCapsuleProps> = ({
   set,
@@ -146,7 +135,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   activeMetrics,
   loadMode,
   isNew = false,
-  unit,
+  unit: shownUnit,
   lang,
   readOnly = false,
   onUpdate,
@@ -163,6 +152,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   rounder,
 }) => {
   const isCn = lang === Language.CN;
+  const unit = rounder ? rounder.display : shownUnit;
   // 首选项：递减每档（当前单位下的数，kg / lbs 共用）。只读历史视图里也拿得到，拿不到用存储里的值
   const { dropStep } = useContext(UserSettingsContext)?.appPrefs ?? appPrefsNow();
   // §11 坑 1：动画跑完必须摘掉入场类，否则它会盖住后续的反馈动画，
@@ -182,14 +172,11 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
    * 带正负的负荷：号按组算（组上没写按动作实例），显示的是绝对值，号在单位前（+kg / −kg）；
    * 运算（±5、横拖、递减）在带符号的数上做，所以能从 −5 走到 0 再走到 +5。
    */
-  const signOf = (
-    x: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] },
-    parent?: { weight: number; bodyweightMode?: SetLog['bodyweightMode'] },
-  ): -1 | 1 => {
+  const signOf = (x: SetLog | SubSetLog, parent?: SetLog): -1 | 1 => {
     if (!signed) return 1;
     if (x.bodyweightMode === 'assisted') return -1;
     if (x.bodyweightMode === 'weighted') return 1;
-    return parent ? signOf(parent) : signed.sign(x);
+    return parent ? signOf(parent) : signed.sign(x as SetLog);
   };
   const rowSign = signOf(set);
   // 组上写了号（带正负的负荷记下来的）：历史视图没传 signed 也照样显示 + / −
@@ -229,16 +216,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     if (base && base.sub === subIdx && base.kg !== nowKg) onUpdate({ followFrom: base } as SetUpdate);
   };
 
-  const update = (updates: SetUpdate) => {
-    const keys = isGhost ? touchedKeys(updates) : [];
-    if (!keys.length) {
-      onUpdate(updates);
-      return;
-    }
-    const touched = { ...(set.touched || {}) };
-    for (const k of keys) touched[k] = true;
-    onUpdate({ ...updates, touched });
-  };
+  const update = (updates: SetUpdate) => onUpdate(isGhost ? markTouched(set, updates) : updates);
 
   /** 长按加递减达成后，松手带出的那次 click 不能再被读成「点组号」 */
   const longPressAtRef = React.useRef(-Infinity);
@@ -251,17 +229,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     onNumTap?.();
   };
 
-  /** 显示单位下的带符号重量 ⇄ 存储（kg，非负 + 号） */
-  const toDisplay = (kg: number, sign: -1 | 1) => sign * Number(formatWeight(Number(kg) || 0, unit));
-  // 「杠铃片」：改重量就记下这一组挂的是哪种片 —— 有馆档案的器材按这个馆的片子（审查 A8；显示单位只是换算着看），
-  // 纯数字的动作按显示单位
-  const plateUnitNow: SetLog['plateUnit'] = rounder ? rounder.unit : unit === 'lbs' ? 'lbs' : 'kg';
-  const fromDisplay = (v: number): Pick<SetLog, 'weight' | 'bodyweightMode' | 'plateUnit'> => {
-    // 有取整器：落在格子上的存格子的精确 kg（显示的两位小数换回去会差一点，见 ExRounder.kgOfD）
-    const kg = rounder ? Math.abs(rounder.kgOfD(v)) : parseWeight(Math.abs(v), unit === 'lbs' ? 'lbs' : 'kg');
-    if (!signed) return { weight: kg, plateUnit: plateUnitNow };
-    return { weight: kg, plateUnit: plateUnitNow, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
-  };
+  /** 显示单位下的带符号重量 ⇄ 存储（kg，非负 + 号）；打字、横拖、加递减档都走这里，口径在 utils/setWrite */
+  const toDisplay = (kg: number, sign: -1 | 1) => shownWeight(kg, sign, unit);
+  const fromDisplay = (raw: number) => weightFromShown(raw, unit, rounder, !!signed);
+  const du = unit === 'lbs' ? 'lbs' : 'kg';
 
   // 重量格横向拖动改值。hook 不能在下面的 map 里调，所以在这里调一次，
   // 再把 handlers 单独摊到 weight 那一格上。
@@ -269,6 +240,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
   const weightDisplay = toDisplay(set.weight, rowSign);
   const weightFeel = weightScrubFor(rounder);
+  // 做完且没选中的组不接横拖（审查 B1 核实：翻页时拇指带出 20px 就悄悄改了做完的数）；打字照常。
+  // 待做的组和选中的组照旧能拖
+  const weightLocked = !isGhost && !selected;
   const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：待做行上横拖只改值、记 touched，不描实
@@ -277,9 +251,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     // 组行格子一律横拖（见 weightScrubFor 注释），竖拖只给配重片的大图
     axis: 'x',
     stepFn: weightFeel.stepFn,
-    disabled: readOnly,
+    disabled: readOnly || weightLocked,
+    max: loadCapD(du, !!signed),
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
-    ...(signed ? { min: -9999 } : {}),
+    ...(signed ? { min: -loadCapD(du, true) } : {}),
   });
   // 次数格同一套手势（§12.6 提到的一致性补全）：档位 1/2/5，没有 ×10 ——
   // 一次训练里 reps 的动态范围比重量小得多，最高档给到 5 就够跨一整个区间。
@@ -472,7 +447,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             {no}
             <LongPressAffordance
               active={addSub.pressing}
-              label={isCn ? '加子组' : 'Drop set'}
+              label={isCn ? '递减' : 'Drop'}
               drawMs={addSub.drawMs}
             />
           </span>
@@ -509,7 +484,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             // 数字靠右：同一列的个位、单位各自排成一条竖线，不再随位数左右跳（2026-10-22 界面审查）
             const display =
               m === 'weight'
-                ? (Math.round(Number(formatWeight(Number(raw) || 0, unit)) * 10) / 10).toString()
+                ? (Math.round(Number(formatLoad(Number(raw) || 0, unit)) * 10) / 10).toString()
                 : raw === 0 || raw === undefined
                   ? '—'
                   : String(Math.round(distToDisplay(m, Number(raw)) * 100) / 100);
@@ -536,14 +511,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             raw === 0 || raw === undefined
               ? ''
               : m === 'weight'
-                ? formatWeight(Number(raw), unit)
+                ? formatLoad(Number(raw), unit)
                 : distToDisplay(m, Number(raw)).toFixed(2).replace(/\.?0+$/, '');
           const unitTap = m === 'weight' && signed && Number(set.weight) > 0;
           return (
             <label
               key={m}
               data-testid={`ledger-field-${m}`}
-              className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
+              className={`ledger-field ledger-fit${scrub && !(m === 'weight' && weightLocked) ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
               }${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
@@ -579,8 +554,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                     onClick={restoreRef}
                     aria-label={
                       isCn
-                        ? `改回 ${formatWeight(Math.abs(refTag.restoreKg), unit)} ${unit === 'lbs' ? 'lb' : 'kg'}`
-                        : `Restore ${formatWeight(Math.abs(refTag.restoreKg), unit)} ${unit === 'lbs' ? 'lb' : 'kg'}`
+                        ? `改回 ${formatLoad(Math.abs(refTag.restoreKg), unit)} ${unit === 'lbs' ? 'lb' : 'kg'}`
+                        : `Restore ${formatLoad(Math.abs(refTag.restoreKg), unit)} ${unit === 'lbs' ? 'lb' : 'kg'}`
                     }
                   >
                     <span aria-hidden>↺ </span>
@@ -614,14 +589,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 onChange={e => {
                   const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
                   if (m === 'weight') {
-                    // 带正负：打负数＝辅助；打正数沿用这一组现在的号（辅助的组改数还是辅助）
+                    // 带正负：打负数＝辅助；打正数沿用这一组现在的号（辅助的组改数还是辅助；0 的组沿用上一组的号）
                     const v = signed && inputValue >= 0 ? inputValue * rowSign : inputValue;
                     // 打字中途只改这一格，离开输入框时再按总差值带后面（commitTypedWeight）
                     update({ ...fromDisplay(signed ? v : Math.max(0, v)), holdFollow: true });
                     return;
                   }
-                  // 距离 / 速度按首选项的距离单位打，存回 km、km/h
-                  update({ [m]: distFromDisplay(m, inputValue) });
+                  // 次数只夹成非负整数、不设上限（跳绳会很大）；距离 / 速度按首选项的距离单位打，存回 km、km/h
+                  update({ [m]: m === 'reps' ? wholeReps(inputValue) : distFromDisplay(m, inputValue) });
                 }}
               />
               {unitLabel &&
@@ -724,6 +699,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             isCn={isCn}
             readOnly={readOnly}
             ghost={isGhost}
+            weightLocked={weightLocked}
             label={subLabel(ssi)}
             weightDisplay={toDisplay(sub.weight, sign)}
             signed={!!signed}
@@ -756,7 +732,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             className="min-h-[44px]"
             data-testid="subset-add-drop"
           >
-            + {isCn ? '递减一档' : 'Drop'}
+            + {isCn ? '递减' : 'Drop'}
           </button>
           <button
             type="button"
@@ -767,7 +743,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             className="min-h-[44px]"
             data-testid="subset-add-up"
           >
-            + {isCn ? '递增一档' : 'Step up'}
+            + {isCn ? '递增' : 'Up'}
           </button>
         </div>
       )}
@@ -790,6 +766,8 @@ interface SubSetRowProps {
   readOnly: boolean;
   /** 母组还是待做 → 子组跟着显示淡墨 */
   ghost: boolean;
+  /** 母组做完且没选中：重量格不接横拖，打字照常（同母组） */
+  weightLocked: boolean;
   /** 比上一档轻＝递减，重＝递增 */
   label: 'drop' | 'up';
   /** 显示单位下的带符号重量（普通重量就是非负的显示值） */
@@ -824,6 +802,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   isCn,
   readOnly,
   ghost,
+  weightLocked,
   label,
   weightDisplay,
   signed,
@@ -836,13 +815,15 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   onRemove,
 }) => {
   const subFeel = weightScrubFor(rounder);
+  const du = unit === 'lbs' ? 'lbs' : 'kg';
   const weightScrub = useValueScrub({
     value: weightDisplay,
     onChange: next => onWeight(next),
     steps: subFeel.steps,
     stepFn: subFeel.stepFn,
-    disabled: readOnly,
-    ...(signed ? { min: -9999 } : {}),
+    disabled: readOnly || weightLocked,
+    max: loadCapD(du, signed),
+    ...(signed ? { min: -loadCapD(du, true) } : {}),
   });
   const repsScrub = useValueScrub({
     value: Number(sub.reps) || 0,
@@ -873,7 +854,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
         const unitLabel = unitLabels[m] || '';
         const value = m === 'weight' ? sub.weight : sub.reps;
         const display =
-          m === 'weight' ? formatWeight(sub.weight || 0, unit) : String(sub.reps || '');
+          m === 'weight' ? formatLoad(sub.weight || 0, unit) : String(sub.reps || '');
 
         if (readOnly) {
           return (
@@ -891,7 +872,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
           <label
             key={m}
             data-testid={`subset-field-${m}`}
-            className={`ledger-field is-scrubbable${scrub.scrubbing ? ' is-scrubbing' : ''}${
+            className={`ledger-field${m === 'weight' && weightLocked ? '' : ' is-scrubbable'}${scrub.scrubbing ? ' is-scrubbing' : ''}${
               edited?.[m as 'weight' | 'reps'] ? ' is-edited' : ''
             }`}
             style={{ ['--ledger-chars' as string]: Math.max(display.length, 1) }}
@@ -910,7 +891,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               enterKeyHint={m === 'weight' ? 'next' : 'done'}
               className="ledger-input ledger-input-sm"
               placeholder="0"
-              data-undo-label={`${label === 'up' ? (isCn ? '递增' : 'Step-up') : isCn ? '递减' : 'Drop'}${isCn ? (m === 'weight' ? '重量' : '次数') : m === 'weight' ? ' weight' : ' reps'}`}
+              data-undo-label={`${label === 'up' ? (isCn ? '递增' : 'Up') : isCn ? '递减' : 'Drop'}${isCn ? (m === 'weight' ? '重量' : '次数') : m === 'weight' ? ' weight' : ' reps'}`}
               onFocus={e => {
                 selectOnFocus(e);
                 if (m === 'weight') onTypeStart();
@@ -919,14 +900,14 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               onKeyDown={focusNextOnEnter}
               aria-label={
                 m === 'weight'
-                  ? isCn ? '子组重量' : 'Sub-set weight'
-                  : isCn ? '子组次数' : 'Sub-set reps'
+                  ? isCn ? `${label === 'up' ? '递增' : '递减'}重量` : `${label === 'up' ? 'Up' : 'Drop'} weight`
+                  : isCn ? `${label === 'up' ? '递增' : '递减'}次数` : `${label === 'up' ? 'Up' : 'Drop'} reps`
               }
               value={value ? display : ''}
               onChange={e => {
                 const val = e.target.value === '' ? 0 : Number(e.target.value);
                 if (m === 'weight') onWeight(val, true);
-                else onUpdate({ reps: val });
+                else onUpdate({ reps: wholeReps(val) });
               }}
             />
             {unitLabel && <span className="ledger-unit">{unitLabel}</span>}

@@ -15,7 +15,7 @@ function newestCustomFirst(a: ExerciseDefinition, b: ExerciseDefinition): number
 }
 
 /**
- * 三轮登记、先到先得：现名（覆盖层）→ 原名（中英）→ 曾用名。
+ * 四轮登记、先到先得：现名（覆盖层）→ 原名（中英）→ 已并入动作的全部名字（归并入目标）→ 曾用名。
  * 现名优先，是为了曾用名和别的动作现名撞车时，以现名为准。
  *
  * 同一轮里撞名（name-index-order-dependent：真实数据里两个自建动作原名都是「悍马卧推」）
@@ -42,17 +42,27 @@ export function buildNameIndex(
     put(over?.name?.cn, d);
     put(over?.name?.en, d);
   }
+  for (const d of defs) {
+    put(d.name.cn, d);
+    put(d.name.en, d);
+  }
+  // 并进来的名字排在还在库里的动作的原名之后：被并入的动作的原名 / 曾用名撞上别人的原名时归还在库里的那个
+  //（真实数据：改过名的「曲肘蝴蝶机」原名悍马卧推，并进别处后不能把另一个「悍马卧推」的历史带走）
+  const live = new Map(defs.map(d => [d.id, d]));
   for (const d of merged) {
-    const target = defs.find(x => x.id === exerciseOverrides[d.id]?.mergedInto);
+    // 连环并入（A→B 之后 B→C）：A 只记着 B，沿链走到还在库里的那个；成环（数据坏了）就不登记
+    let target: ExerciseDefinition | undefined;
+    const seen = new Set<string>();
+    for (let id = exerciseOverrides[d.id]?.mergedInto; id && !seen.has(id); id = exerciseOverrides[id]?.mergedInto) {
+      seen.add(id);
+      target = live.get(id);
+      if (target) break;
+    }
     if (!target) continue;
     const over = exerciseOverrides[d.id];
     for (const n of [over?.name?.cn, over?.name?.en, d.name.cn, d.name.en, ...(d.aliases ?? []), ...(over?.aliases ?? [])]) {
       put(n, target);
     }
-  }
-  for (const d of defs) {
-    put(d.name.cn, d);
-    put(d.name.en, d);
   }
   for (const d of defs) {
     for (const a of d.aliases ?? []) put(a, d);

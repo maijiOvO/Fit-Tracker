@@ -188,9 +188,10 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
         </p>
       </Modal>
 
-      {/* Toast 栈 */}
+      {/* Toast 栈。底边让开底栏（h-16 + 安全区）和往上凸 20px 的开练键，再留 12px（审查 D14：原来 bottom-20 压着开练键上半截） */}
       <div
-        className="fixed bottom-20 left-0 right-0 z-toast flex flex-col items-center gap-2 px-4 pointer-events-none"
+        className="fixed left-0 right-0 z-toast flex flex-col items-center gap-2 px-4 pointer-events-none"
+        style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
         aria-live="polite"
       >
         {toasts.map(item => (
@@ -232,7 +233,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
             <button
               type="button"
               onClick={() => dismissToast(item.id)}
-              className="p-1 text-tertiary hover:text-primary flex-shrink-0"
+              className="tap-44 p-1 text-tertiary hover:text-primary flex-shrink-0"
               aria-label="dismiss"
             >
               <X size={16} />

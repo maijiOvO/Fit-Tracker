@@ -103,6 +103,44 @@ export const BackupRow: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
   );
 };
 
+/**
+ * 「我的」页上的一行备份状态（审查 D11 / E2：备份状态要一眼能看到，不藏在首选项第四组）。
+ * 正常时是上次备份的时间和位置；没开 / 失败时红字，附上能修好它的那颗按钮。
+ * 时间是上次真正写成的那份：数据没变就不重写，所以很久没练时这里是很久以前，那份仍是最新的。
+ * 浏览器里（不支持文件夹）不出。
+ */
+export const BackupGlance: React.FC = () => {
+  const { isCn, t } = useT();
+  const { supported, folder, status, errNewer } = useBackupView();
+  const choose = useChooseBackupFolder();
+  if (!supported) return null;
+
+  const fix = !folder || (errNewer && status.lastError?.code === 'no-access');
+  const bad = !folder || errNewer;
+  const value = !folder
+    ? t('未开启', 'Off')
+    : errNewer
+      ? backupErrorText(status.lastError!.code, isCn)
+      : `${status.lastOkAt ? ago(status.lastOkAt, isCn) : t('还没有备份', 'No backup yet')} · ${displayPath(folder, isCn)}`;
+
+  return (
+    <div className="ui-card p-4 flex justify-between items-center gap-3" data-testid="profile-backup">
+      <span className="font-bold text-primary whitespace-nowrap">{t('自动备份', 'Auto backup')}</span>
+      <span className="flex items-center gap-2 min-w-0">
+        <span className={`truncate text-xs font-medium flex items-center gap-1 ${bad ? 'text-danger' : 'text-secondary'}`}>
+          {bad && <AlertCircle size={14} className="flex-shrink-0" />}
+          <span className="truncate">{value}</span>
+        </span>
+        {fix && (
+          <Primary onClick={() => void choose()} testId="profile-backup-choose">
+            {folder ? t('重新选择', 'Choose again') : t('选择文件夹', 'Choose folder')}
+          </Primary>
+        )}
+      </span>
+    </div>
+  );
+};
+
 /** 二级页：自动备份 */
 export const BackupPage: React.FC = () => {
   const { isCn, t } = useT();
@@ -154,7 +192,7 @@ export const BackupPage: React.FC = () => {
             testId="backup-change-folder"
           />
         )}
-        <Go name={t('从备份文件夹恢复', 'Restore from backup folder')} onClick={() => openDataFlow('restore')} testId="backup-restore" />
+        <Go name={t('从备份恢复', 'Restore from backup')} onClick={() => openDataFlow('restore')} testId="backup-restore" />
       </Group>
     </>
   );
@@ -176,12 +214,17 @@ export const ExportPage: React.FC<{ onExportJson: () => void; busy: boolean }> =
   );
 };
 
-/** 二级页：导入。JSON 那行的副文字是后果（会替换当前数据），不是说明 */
+/**
+ * 二级页：导入。想恢复的人先点的是「导入」，所以能合并、有摘要的「从备份恢复」放第一行（和自动备份页那行是同一个弹窗，审查 E8）；
+ * 单个 JSON 文件只能整份覆盖，名字直说。副文字是后果，不是说明
+ */
 export const ImportPage: React.FC<{ onImportJson: () => void; busy: boolean }> = ({ onImportJson, busy }) => {
   const { lang, t } = useT();
+  const { supported } = useBackupState();
   return (
     <Group>
-      <Go name={t('完整备份（JSON）', 'Full backup (JSON)')} sub={translations.importDesc[lang]} onClick={onImportJson} disabled={busy} testId="import-json" />
+      {supported && <Go name={t('从备份恢复', 'Restore from backup')} onClick={() => openDataFlow('restore')} testId="import-restore" />}
+      <Go name={t('用备份文件覆盖（JSON）', 'Replace from a backup file (JSON)')} sub={translations.importDesc[lang]} onClick={onImportJson} disabled={busy} testId="import-json" />
       <Go name={t('从 Strong / Hevy 导入', 'Import from Strong / Hevy')} onClick={() => openDataFlow('import-csv')} testId="import-csv" />
     </Group>
   );

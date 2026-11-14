@@ -4,11 +4,11 @@ import { SetCapsule } from './SetCapsule';
 import {
   Trophy, PlusCircle, Plus, Trash2, Edit2,
   Scale, TrendingUp, History, ChevronDown, ChevronUp,
-  Clock
+  Clock, CalendarCheck
 } from 'lucide-react';
 import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
-import { formatWeight, plural } from '../utils/format';
+import { formatBodyWeight, plural } from '../utils/format';
 import { CHART_RANGES, rangeLabel } from '../utils/liftDisplay';
 import { type ChartRange } from '../utils/liftHistory';
 import { LiftList } from './LiftList';
@@ -22,6 +22,8 @@ import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 import { weightBaseline, weightDelta } from '../utils/weightSummary';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
+import { useScheduleContext } from '../contexts/ScheduleContext';
+import { localYmd } from '../utils/dateUtils';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -37,6 +39,8 @@ export interface DashboardActions {
   onResumeWorkout: () => void;
   /** 结束进行中的训练（一组都没做完时＝问要不要放弃） */
   onEndInProgress: () => void;
+  /** 按今天的计划开练：和计划页「开始这次训练」同一条路（先选馆） */
+  onStartScheduledSession: (scheduleId: string) => void;
   onEditWorkout: (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => void;
   onAddExerciseToPastWorkout: (workoutId: string) => void;
   onDeleteWorkout: (workoutId: string) => void | Promise<void>;
@@ -44,13 +48,7 @@ export interface DashboardActions {
   onCopyWorkoutToToday: (workoutId: string) => void | Promise<void>;
   /** 刚结束 10 分钟内的那场接回工作台（时间线长按菜单） */
   onResumeFinishedWorkout: (workoutId: string) => void;
-  onDeleteExerciseRecord: (
-    e: React.MouseEvent,
-    workoutId: string,
-    exerciseId: string,
-    exerciseName: string,
-    date: string,
-  ) => void;
+  onDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string) => void;
   onDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
   onLogWeight: () => void;
   onEditWeight: (entry: WeightEntry) => void;
@@ -86,7 +84,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     selectedPRProject && selectedPRProject !== '__WEIGHT__'
       ? lifts.find(l => l.key === selectedPRProject) ?? null
       : null;
-  const { formatExerciseTime, updateExerciseTime } = useExerciseTimeEditor();
+  const { updateExerciseTime } = useExerciseTimeEditor();
+  // 今天排了还没练的计划（审查 D6）：没有进行中的训练时，首页顶上直接给开练入口
+  const { schedulesByDate } = useScheduleContext();
+  const todayPlans = inProgress ? [] : schedulesByDate(localYmd(new Date())).filter(s => s.status === 'planned');
 
   const renderSetCapsule = useCallback(
     // setIdx 是这一组在它所在列表里的下标：组号显示 setIdx + 1（set-number-all-one：以前写死 0，全是「1」）
@@ -137,14 +138,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     if (!s) return null;
     const d = weightDelta(weightEntries, unit);
     return {
-      value: formatWeight(s.latest.weight, unit),
+      value: formatBodyWeight(s.latest.weight, unit),
       delta: d?.text ?? null,
       days: d?.days ?? 30,
     };
   }, [weightEntries, unit]);
 
   // 进行中的训练要能接回去：哪怕还没有任何历史，也别落到空状态页（那里没有「进行中」那一行）
-  if (workouts.length === 0 && weightEntries.length === 0 && !inProgress) {
+  if (workouts.length === 0 && weightEntries.length === 0 && !inProgress && todayPlans.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 anim-tab-enter">
         <div className="bg-accent-soft p-8 rounded-control mb-8">
@@ -201,6 +202,28 @@ const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
       )}
+
+      {todayPlans.map(s => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => actions.onStartScheduledSession(s.id)}
+          className="ui-card w-full min-h-[56px] px-4 flex items-center gap-3 text-left active:bg-card-hover"
+          data-testid="today-plan"
+        >
+          <CalendarCheck size={16} strokeWidth={2} className="text-accent flex-shrink-0" />
+          <span className="flex-1 min-w-0">
+            <span className="block text-label font-semibold text-accent">{isCn ? '今天的计划' : "Today's plan"}</span>
+            <span className="block font-semibold text-primary truncate">
+              {s.title || (isCn ? '未命名训练' : 'Untitled session')}
+              <span className="font-mono text-label text-tertiary tabular-nums ml-2">
+                {s.exercises.length} {isCn ? '动作' : 'ex'}
+              </span>
+            </span>
+          </span>
+          <span className="text-small font-bold text-accent whitespace-nowrap">{isCn ? '开始 ›' : 'Start ›'}</span>
+        </button>
+      ))}
 
       {/* 体重：单行摘要，点击展开趋势 */}
       <div className="ui-card px-4 py-3">
@@ -279,24 +302,27 @@ const Dashboard: React.FC<DashboardProps> = ({
                   key={entry.id}
                   className="bg-inset p-3 rounded-control flex justify-between items-center"
                 >
-                  <div className="flex items-center gap-2">
+                  {/* 热区补到 44（tap-44）且两颗间隔 16px，补出来的热区才不互相盖住（审查 D13）；删错了用顶栏全局撤销 */}
+                  <div className="flex items-center gap-4">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         actions.onEditWeight(entry);
                       }}
-                      className="p-2 text-accent bg-accent-soft rounded-chip hover:opacity-80 transition-opacity"
+                      className="tap-44 p-2 text-accent bg-accent-soft rounded-chip hover:opacity-80 transition-opacity"
+                      aria-label={isCn ? '编辑' : 'Edit'}
                     >
                       <Edit2 size={12} strokeWidth={1.75} />
                     </button>
                     <button
                       onClick={(e) => actions.onDeleteWeightEntry(e, entry.id)}
-                      className="p-2 text-danger bg-danger/10 rounded-chip hover:opacity-80 transition-opacity"
+                      className="tap-44 p-2 text-danger bg-danger/10 rounded-chip hover:opacity-80 transition-opacity"
+                      aria-label={isCn ? '删除' : 'Delete'}
                     >
                       <Trash2 size={12} strokeWidth={1.75} />
                     </button>
                     <span className="font-mono font-medium text-small text-primary tabular-nums ml-1">
-                      {formatWeight(entry.weight, unit)}
+                      {formatBodyWeight(entry.weight, unit)}
                       <span className="text-tertiary text-xs ml-1">{unit}</span>
                     </span>
                   </div>
@@ -376,7 +402,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           workouts={workouts}
           granularity={granularity}
           renderSetCapsule={renderSetCapsule}
-          onEditWorkout={(id) => actions.onEditWorkout(id)}
+          onEditWorkout={(id, exerciseId) => actions.onEditWorkout(id, exerciseId ? { focusExerciseId: exerciseId } : undefined)}
           onAddExerciseToWorkout={actions.onAddExerciseToPastWorkout}
           onDeleteWorkout={actions.onDeleteWorkout}
           onMergeIntoPrevious={actions.onMergeIntoPrevious}
@@ -421,14 +447,10 @@ const Dashboard: React.FC<DashboardProps> = ({
         activeMetrics={openLift ? prefs.getActiveMetrics(openLift.baseName) : []}
         metric={openLift ? chartMetricPreference[openLift.key] : undefined}
         onMetricChange={m => openLift && setChartMetricPreference(prev => ({ ...prev, [openLift.key]: m }))}
-        renderSetCapsule={renderSetCapsule}
-        formatExerciseTime={formatExerciseTime}
         onEditExerciseTime={(workoutId, exerciseId, initial) => setExerciseTimeEdit({ workoutId, exerciseId, initial })}
         // 详情不关（审查 B5）：改完回到首页，详情还开着、停在原处；编辑页滚到这个动作
         onEditWorkout={(id, exerciseId) => actions.onEditWorkout(id, exerciseId ? { focusExerciseId: exerciseId } : undefined)}
-        onDeleteRecord={(e, workoutId, exerciseId, date) =>
-          actions.onDeleteExerciseRecord(e, workoutId, exerciseId, openLift?.baseName ?? '', date)
-        }
+        onDeleteRecord={actions.onDeleteExerciseRecord}
       />
 
       <DateTimePicker

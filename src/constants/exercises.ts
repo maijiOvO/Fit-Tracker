@@ -28,21 +28,21 @@ export const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'spee
  */
 const BASE_EXERCISES: ExerciseDefinition[] = [
   // === 胸部 (Chest) ===
-  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', equipment: 'tagBarbell', category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
-  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '上斜杠铃卧推' }, aliases: ['杠铃上斜卧推'], bodyPart: 'subChest', equipment: 'tagBarbell', category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing'] } },
+  { id: 'bp_barbell', name: { en: 'Barbell Bench Press', cn: '杠铃平板卧推' }, bodyPart: 'subChest', equipment: 'tagBarbell', category: 'STRENGTH', exerciseConfig: { bodyweightType: 'none' } },
+  { id: 'bp_incline_barbell', name: { en: 'Incline Barbell Bench Press', cn: '上斜杠铃卧推' }, aliases: ['杠铃上斜卧推'], bodyPart: 'subChest', equipment: 'tagBarbell', category: 'STRENGTH', exerciseConfig: { bodyweightType: 'none' } },
   { id: 'bp_dumbbell', name: { en: 'Dumbbell Bench Press', cn: '哑铃平板卧推' }, bodyPart: 'subChest', equipment: 'tagDumbbell', category: 'STRENGTH' },
   { id: 'bp_incline_dumbbell', name: { en: 'Incline Dumbbell Bench Press', cn: '上斜哑铃卧推' }, aliases: ['哑铃上斜卧推'], bodyPart: 'subChest', equipment: 'tagDumbbell', category: 'STRENGTH' },
   { id: 'fly_cable', name: { en: 'Cable Fly', cn: '绳索夹胸' }, bodyPart: 'subChest', equipment: 'tagCable', category: 'STRENGTH' },
   { id: 'press_machine_chest', name: { en: 'Machine Chest Press', cn: '器械推胸' }, bodyPart: 'subChest', equipment: 'tagMachine', category: 'STRENGTH' },
-  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', equipment: 'tagBodyweight', category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'mixed'] } },
-  { id: 'pushup', name: { en: 'Push-ups', cn: '俯卧撑' }, bodyPart: 'subChest', equipment: 'tagBodyweight', category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'bodyweight', pyramidModes: ['decreasing', 'increasing'] } },
+  { id: 'chest_dip', name: { en: 'Chest Dip', cn: '胸部双杠臂屈伸' }, bodyPart: 'subChest', equipment: 'tagBodyweight', category: 'STRENGTH', exerciseConfig: { bodyweightType: 'bodyweight' } },
+  { id: 'pushup', name: { en: 'Push-ups', cn: '俯卧撑' }, bodyPart: 'subChest', equipment: 'tagBodyweight', category: 'STRENGTH', exerciseConfig: { bodyweightType: 'bodyweight' } },
   
   // === 背部 (Back) ===
   { id: 'dl_barbell', name: { en: 'Deadlift', cn: '硬拉' }, bodyPart: 'subBack', equipment: 'tagBarbell', category: 'STRENGTH' },
   { id: 'row_barbell', name: { en: 'Barbell Row', cn: '杠铃划船' }, bodyPart: 'subBack', equipment: 'tagBarbell', category: 'STRENGTH' },
   { id: 'lat_pulldown', name: { en: 'Lat Pulldown', cn: '高位下拉' }, bodyPart: 'subBack', equipment: 'tagCable', category: 'STRENGTH' },
   { id: 'row_seated_cable', name: { en: 'Seated Cable Row', cn: '坐姿划船' }, bodyPart: 'subBack', equipment: 'tagCable', category: 'STRENGTH' },
-  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', equipment: 'tagBodyweight', category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'weighted', pyramidModes: ['decreasing', 'mixed'] } },
+  { id: 'pu_weighted', name: { en: 'Weighted Pull-up', cn: '加重引体向上' }, bodyPart: 'subBack', equipment: 'tagBodyweight', category: 'STRENGTH', exerciseConfig: { bodyweightType: 'weighted' } },
   { id: 'single_arm_db_row', name: { en: 'Single Arm Dumbbell Row', cn: '哑铃单臂划船' }, bodyPart: 'subBack', equipment: 'tagDumbbell', category: 'STRENGTH' },
   { id: 'tbar_row', name: { en: 'T-Bar Row', cn: 'T杠划船' }, bodyPart: 'subBack', equipment: 'tagMachine', resistance: 'plates', category: 'STRENGTH' },
   { id: 'hyperextension', name: { en: 'Hyperextension', cn: '山羊挺身' }, bodyPart: 'subBack', equipment: 'tagMachine', resistance: 'bodyweight', category: 'STRENGTH' },
@@ -57,7 +57,7 @@ const BASE_EXERCISES: ExerciseDefinition[] = [
   { id: 'front_raise_db', name: { en: 'Dumbbell Front Raise', cn: '哑铃前平举' }, bodyPart: 'subShoulder', equipment: 'tagDumbbell', category: 'STRENGTH' },
   
   // === 腿部 (Legs) ===
-  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', equipment: 'tagBarbell', category: 'STRENGTH', exerciseConfig: { supportsPyramid: true, bodyweightType: 'none', pyramidModes: ['increasing', 'decreasing', 'mixed'] } },
+  { id: 'sq_barbell', name: { en: 'Barbell Squat', cn: '深蹲' }, bodyPart: 'subLegs', equipment: 'tagBarbell', category: 'STRENGTH', exerciseConfig: { bodyweightType: 'none' } },
   { id: 'goblet_squat', name: { en: 'Goblet Squat', cn: '高杯深蹲' }, bodyPart: 'subLegs', equipment: 'tagDumbbell', category: 'STRENGTH' },
   { id: 'leg_press', name: { en: 'Leg Press', cn: '倒蹬/腿举' }, bodyPart: 'subLegs', equipment: 'tagMachine', resistance: 'plates', category: 'STRENGTH' },
   { id: 'leg_extension', name: { en: 'Leg Extension', cn: '腿屈伸' }, bodyPart: 'subLegs', equipment: 'tagMachine', category: 'STRENGTH' },
