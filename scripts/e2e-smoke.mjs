@@ -1598,6 +1598,17 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const unitTxt = (await label.locator('small').innerText()).trim();
       if (u1 === u0 || unitTxt !== unitTxt0) throw new Error(`pin label unit should stay ${unitTxt0} after switching ${u0} → ${u1}: ${unitTxt}`);
       if ((await w()) !== inc * 60) throw new Error(`machine card row should stay in the machine unit after switching ${u0} → ${u1}: ${await w()}`);
+      // 换算预览（2026-11-16）：顶栏单位和器械单位不一样时，重量下面标出顶栏单位下的数；一样就不标
+      const lab = u => (/lb/i.test(u) ? 'lb' : 'kg');
+      const alt = page.locator('.ledger-row [data-testid="alt-load"]').first();
+      const altWant = lab(u1) !== lab(unitTxt0);
+      if (altWant ? !(await alt.innerText().catch(() => '')).endsWith(` ${lab(u1)}`) : (await alt.count()) > 0)
+        throw new Error(`conversion preview with top unit ${u1} on a ${unitTxt0} machine: ${await alt.count() ? await alt.innerText() : '(none)'}`);
+      await page.locator('[data-testid="unit-toggle"]').click();
+      if (altWant ? (await alt.count()) > 0 : !(await alt.innerText().catch(() => '')).endsWith(` ${lab(u0)}`))
+        throw new Error(`conversion preview should flip with the top unit (${u1} → ${u0}): ${await alt.count() ? await alt.innerText() : '(none)'}`);
+      await page.locator('[data-testid="unit-toggle"]').click();
+      await page.waitForTimeout(200);
       // 切了顶栏单位还能连着拖：下三片、上三片，每片都按器械上的格子走（2026-10-25 用户报：切 kg 后拖不动 / 只走一下）
       const rail = await page.locator('[data-testid="hero-rail"]').boundingBox();
       await drag(rail, 44);

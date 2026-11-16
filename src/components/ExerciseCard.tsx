@@ -606,7 +606,8 @@ export const ExerciseCard = React.memo(function ExerciseCard({
               activeMetrics={activeMetrics}
               loadMode={loadMode}
               isNew={newSetIds.has(String(set.id))}
-              unit={unit}
+              // 传顶栏的单位：组行自己按 rounder 换成这张卡的单位，两个不一样时在重量下标出换算预览
+              unit={shownUnit}
               lang={lang}
               onUpdate={updates => onSetUpdate(exIdx, setIdx, updates)}
               onRemove={() => onRemoveSet(exIdx, setIdx)}

@@ -19,7 +19,7 @@ import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { fromSignedKg, loadCapD } from '../utils/load';
 import { pad2, secondsToHMS } from '../utils/format';
-import { formatLoad, markTouched, shownWeight, weightFromShown } from '../utils/setWrite';
+import { altLoadLabel, formatLoad, markTouched, shownWeight, weightFromShown } from '../utils/setWrite';
 import { KG_TO_LBS } from '../constants';
 import { heroScrubAxis, STACK_PITCH, STACK_ENGAGE_PX } from '../utils/scrubFeel';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
@@ -384,6 +384,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     const same = ref.unit === (unit === 'lbs' ? 'lbs' : 'kg') && Math.abs(inRef - Math.abs(weightDisplay)) < 0.01;
     return same ? none : { text };
   })();
+  // 换算预览：这张卡按器械单位写、顶栏是另一种单位时，重量下面标出顶栏单位下的数（只读历史本来就跟顶栏，不用）
+  const altLabel = readOnly ? '' : altLoadLabel(Number(set.weight) || 0, unit, shownUnit);
+  const altTag = altLabel && <span data-testid="alt-load">{altLabel}</span>;
   /** 点「上次 x」改回默认值：待做的组顺手把「改过重量」也撤掉（回到底稿，之后照常被前面带着走） */
   const restoreRef = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -543,6 +546,8 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                   ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
                 </span>
               )}
+              {/* 行下标：「上次 x」和换算预览排在同一行（各占一处会在窄格子里叠字）；PB 行不出「上次」，换算照出 */}
+              {m === 'weight' && !(refTag.text && !(isPR && !isGhost)) && altTag && <span className="ref-tag">{altTag}</span>}
               {m === 'weight' && refTag.text && !(isPR && !isGhost) && (
                 refTag.restoreKg !== undefined ? (
                   <button
@@ -560,9 +565,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                   >
                     <span aria-hidden>↺ </span>
                     {refTag.text}
+                    {altTag && <span className="ref-alt"> · {altTag}</span>}
                   </button>
                 ) : (
-                  <span className="ref-tag" data-testid="prefill-ref">{refTag.text}</span>
+                  <span className="ref-tag" data-testid="prefill-ref">{refTag.text}{altTag && <> · {altTag}</>}</span>
                 )
               )}
               {m === 'weight' && isPR && !isGhost && (
@@ -696,6 +702,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             unitLabels={{ ...unitLabels, weight: metricUnitLabel('weight', unit, isCn, subMode) }}
             colStyle={colStyle}
             unit={unit}
+            altLabel={readOnly ? '' : altLoadLabel(Number(sub.weight) || 0, unit, shownUnit)}
             isCn={isCn}
             readOnly={readOnly}
             ghost={isGhost}
@@ -762,6 +769,8 @@ interface SubSetRowProps {
   unitLabels: Record<string, string>;
   colStyle: React.CSSProperties;
   unit: string;
+  /** 换算预览（同母组）：顶栏单位下的数，没有＝'' */
+  altLabel: string;
   isCn: boolean;
   readOnly: boolean;
   /** 母组还是待做 → 子组跟着显示淡墨 */
@@ -799,6 +808,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   unitLabels,
   colStyle,
   unit,
+  altLabel,
   isCn,
   readOnly,
   ghost,
@@ -884,6 +894,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
                 ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
               </span>
             )}
+            {m === 'weight' && altLabel && <span className="ref-tag" data-testid="alt-load">{altLabel}</span>}
             <input
               type="number"
               step={m === 'weight' ? 'any' : undefined}
