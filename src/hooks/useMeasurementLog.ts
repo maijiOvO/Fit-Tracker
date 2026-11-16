@@ -9,30 +9,32 @@ import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler'
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
+import { localYmd } from '../utils/dateUtils';
+import { MetricGlance, latestByMetric, moveToLocalDay } from '../utils/measurementLog';
 
 export interface MeasurementForm {
   name: string;
   value: string;
   unit: string;
+  /** 这条记在哪一天（本地日期 YYYY-MM-DD）：新记默认今天，可以往前补记 */
+  date: string;
 }
 
 export interface UseMeasurementLogResult {
   showMeasureModal: boolean;
   editingMeasurementId: string | null;
+  /** 弹窗里名字不给改：往已有指标里记一条、或改某一条时（改名会把这条挪到另一个指标里去） */
+  measureNameFixed: boolean;
   measureForm: MeasurementForm;
   setMeasureForm: React.Dispatch<React.SetStateAction<MeasurementForm>>;
   expandedMetric: string | null;
   setExpandedMetric: React.Dispatch<React.SetStateAction<string | null>>;
 
-  latestMetrics: {
-    name: string;
-    value: string;
-    unit: string;
-    date: string;
-  }[];
+  latestMetrics: MetricGlance[];
 
   handleSaveMeasurement: () => Promise<void>;
-  handleDeleteMeasurement: (e: React.MouseEvent, id: string) => Promise<void>;
+  /** 删掉正在改的那一条（入口只在「修改记录」弹窗里） */
+  handleDeleteMeasurement: () => Promise<void>;
   triggerEditMeasurement: (item: Measurement) => void;
   openAddMeasurementEntry: (presetName?: string) => void;
   closeMeasureModal: () => void;
@@ -48,42 +50,29 @@ export function useMeasurementLog(): UseMeasurementLogResult {
 
   const [showMeasureModal, setShowMeasureModal] = useState(false);
   const [editingMeasurementId, setEditingMeasurementId] = useState<string | null>(null);
+  const [measureNameFixed, setMeasureNameFixed] = useState(false);
   const [measureForm, setMeasureForm] = useState<MeasurementForm>({
     name: '',
     value: '',
     unit: 'cm',
+    date: localYmd(new Date()),
   });
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
 
-  /** 每个指标的最新数据（用于 Profile 展示） */
-  const latestMetrics = useMemo(() => {
-    const map = new Map<string, Measurement>();
-    const sorted = [...measurements].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-    sorted.forEach(m => map.set(m.name, m));
-    return Array.from(map.values()).map(m => ({
-      name: m.name,
-      value: String(m.value),
-      unit: m.unit,
-      date: m.date,
-    }));
-  }, [measurements]);
+  const latestMetrics = useMemo(() => latestByMetric(measurements), [measurements]);
 
   const handleSaveMeasurement = useCallback(async () => {
     const name = measureForm.name.trim();
-    if (!name || !measureForm.value) {
+    if (!name || !measureForm.value || !measureForm.date) {
       toast(isCn ? '请填写完整信息' : 'Please fill in all fields', 'error');
       return;
     }
 
     try {
       const now = new Date().toISOString();
-      let dateToUse = now;
-      if (editingMeasurementId) {
-        const existing = measurements.find(m => m.id === editingMeasurementId);
-        if (existing) dateToUse = existing.date;
-      }
+      // 改某一条：日期没动就保留原来的时刻；新记：今天＝现在，补记＝那天的这个钟点
+      const existing = editingMeasurementId ? measurements.find(m => m.id === editingMeasurementId) : undefined;
+      const dateToUse = moveToLocalDay(existing?.date ?? now, measureForm.date);
 
       const entry: Measurement = {
         id: editingMeasurementId || Date.now().toString(),
@@ -101,7 +90,6 @@ export function useMeasurementLog(): UseMeasurementLogResult {
       scheduleDebouncedFitlogPush();
 
       setShowMeasureModal(false);
-      setMeasureForm({ name: '', value: '', unit: measureForm.unit });
       setEditingMeasurementId(null);
     } catch (error: any) {
       toast(
@@ -111,24 +99,24 @@ export function useMeasurementLog(): UseMeasurementLogResult {
     }
   }, [editingMeasurementId, isCn, measureForm, measurements, settingsCtx, toast]);
 
-  const handleDeleteMeasurement = useCallback(
-    async (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      try {
-        await db.delete('custom_metrics', id);
-        recordTombstone('customMetrics', id);
-        await settingsCtx.reloadFromIndexedDb();
-        scheduleDebouncedFitlogPush();
-      } catch (err) {
-        console.error(err);
-      }
-    },
-    [settingsCtx],
-  );
+  const handleDeleteMeasurement = useCallback(async () => {
+    if (!editingMeasurementId) return;
+    try {
+      await db.delete('custom_metrics', editingMeasurementId);
+      recordTombstone('customMetrics', editingMeasurementId);
+      await settingsCtx.reloadFromIndexedDb();
+      scheduleDebouncedFitlogPush();
+      setShowMeasureModal(false);
+      setEditingMeasurementId(null);
+    } catch (err) {
+      console.error(err);
+    }
+  }, [editingMeasurementId, settingsCtx]);
 
   const triggerEditMeasurement = useCallback((item: Measurement) => {
     setEditingMeasurementId(item.id);
-    setMeasureForm({ name: item.name, value: item.value.toString(), unit: item.unit });
+    setMeasureNameFixed(true);
+    setMeasureForm({ name: item.name, value: item.value.toString(), unit: item.unit, date: localYmd(new Date(item.date)) });
     setShowMeasureModal(true);
   }, []);
 
@@ -139,8 +127,14 @@ export function useMeasurementLog(): UseMeasurementLogResult {
   const openAddMeasurementEntry = useCallback(
     (presetName?: string) => {
       setEditingMeasurementId(null);
+      setMeasureNameFixed(!!presetName);
       const latest = presetName ? latestMetrics.find(m => m.name === presetName) : undefined;
-      setMeasureForm(f => ({ name: presetName || '', value: '', unit: latest?.unit ?? (presetName ? '' : f.unit) }));
+      setMeasureForm(f => ({
+        name: presetName || '',
+        value: '',
+        unit: latest?.unit ?? (presetName ? '' : f.unit),
+        date: localYmd(new Date()),
+      }));
       setShowMeasureModal(true);
     },
     [latestMetrics],
@@ -155,6 +149,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
   return {
     showMeasureModal,
     editingMeasurementId,
+    measureNameFixed,
     measureForm,
     setMeasureForm,
     expandedMetric,

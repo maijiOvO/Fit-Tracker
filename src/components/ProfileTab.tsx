@@ -1,7 +1,7 @@
-import React, { useState, lazy, useMemo } from 'react';
+import React, { useState, lazy, useMemo, Suspense } from 'react';
 import { ActivityHeatmap, HeatmapDay } from './ActivityHeatmap';
 import {
-  Camera, Trash2, ChevronRight,
+  Camera, ChevronRight,
   ChevronUp, Plus, Edit2, History, Ruler, Activity,
 } from 'lucide-react';
 import { PrefsSheet } from './PrefsSheet';
@@ -9,9 +9,9 @@ import { BackupGlance } from './data/DataSafetySection';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { WorkoutSession, Measurement, Language } from '../../types';
+import type { MetricGlance } from '../utils/measurementLog';
 import { FITLOG_SOLO_USER } from '../../services/fitlogSolo';
 import { hasDoneSets } from '../contexts/WorkoutContext';
-import { translations } from '../../translations';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { plural } from '../utils/format';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
@@ -28,14 +28,12 @@ interface ProfileTabProps {
   measurements: Measurement[];
   lang: Language;
   heatmapData: HeatmapValue[];
-  latestMetrics: Array<{ name: string; value: string; unit: string; date: string }>;
+  latestMetrics: MetricGlance[];
   expandedMetric: string | null;
   onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onShowWeightInput: () => void;
   onShowMeasureModal: () => void;
   onToggleMetric: (metricName: string | null) => void;
   onEditMeasurement: (measurement: Measurement) => void;
-  onDeleteMeasurement: (e: React.MouseEvent, id: string) => void;
   onAddMeasurementEntry: (name: string) => void;
   setShowResetAccountModal: (show: boolean) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -66,11 +64,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   latestMetrics,
   expandedMetric,
   onAvatarUpload,
-  onShowWeightInput,
   onShowMeasureModal,
   onToggleMetric,
   onEditMeasurement,
-  onDeleteMeasurement,
   onAddMeasurementEntry,
   setShowResetAccountModal,
   fileInputRef,
@@ -165,13 +161,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
           <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest">
             {lang === Language.CN ? '身体数据 & 指标' : 'Body Metrics'}
           </h3>
-          {/* 新增指标在列表末尾的虚线格；这里只放体重，首页体重卡 ＋ 的同一入口 */}
-          <button
-            onClick={onShowWeightInput}
-            className="tap-44 text-accent text-xs font-semibold flex items-center gap-1"
-          >
-            <Plus size={14} /> {translations.logWeight[lang]}
-          </button>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -192,7 +181,25 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                       <Ruler size={14} className="text-accent flex-shrink-0" />
                       <span className="text-xs font-bold text-secondary truncate">{metric.name}</span>
                     </div>
-                    {isExpanded && <ChevronUp size={16} className="text-secondary" />}
+                    {/* 记一条只有这一个入口：点开卡片 → 看到曲线 → 「记录 xx」。按钮写明记的是哪个指标；
+                        收起的卡面上不放 ＋（光一个加号看不出它管什么），新记和改旧的也不在同一处 */}
+                    {isExpanded && (
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); onAddMeasurementEntry(metric.name); }}
+                        className="tap-44 text-accent text-xs font-semibold flex items-center gap-1"
+                        aria-label={lang === Language.CN ? `记录${metric.name}` : `Log ${metric.name}`}
+                        data-testid="metric-add"
+                      >
+                        <Plus size={14} />
+                        <span className="truncate max-w-[10rem]">
+                          {lang === Language.CN ? `记录${metric.name}` : `Log ${metric.name}`}
+                        </span>
+                      </button>
+                      <ChevronUp size={16} className="text-secondary" />
+                    </div>
+                    )}
                   </div>
                   
                   {/* Value */}
@@ -202,6 +209,10 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   </div>
                   <p className="text-micro font-normal text-tertiary mt-1">
                     {new Date(metric.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
+                    {/* 比上一条的变化：卡面只有最新一条，带上它才看得出以前的还在 */}
+                    {!!metric.delta && (
+                      <span data-testid="metric-delta"> · {metric.delta > 0 ? '+' : '−'}{Math.abs(metric.delta)}</span>
+                    )}
                   </p>
 
                   {/* Expanded Content */}
@@ -209,15 +220,19 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                     <div className="mt-4 border-t border-divider pt-4" onClick={(e) => e.stopPropagation()}>
                       {/* Chart */}
                       <div className="mb-6">
-                        <MetricChart
-                          metricName={metric.name}
-                          measurements={measurements}
-                          lang={lang}
-                        />
+                        {/* 图表代码是按需加载的：占位必须包在这里、和图一样高。不包的话第一次展开会冒到
+                            整页那层 Suspense，整个标签页被换成加载占位再跳回来 */}
+                        <Suspense fallback={<div className="h-[180px] mt-4" />}>
+                          <MetricChart
+                            metricName={metric.name}
+                            measurements={measurements}
+                            lang={lang}
+                          />
+                        </Suspense>
                       </div>
 
                       {/* History List */}
-                      <div className="mb-6 space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                      <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                         <h4 className="text-micro font-semibold text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
                           <History size={10} /> {lang === Language.CN ? '历史记录' : 'History'}
                         </h4>
@@ -225,46 +240,29 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                           .filter(m => m.name === metric.name)
                           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                           .map((historyItem) => (
-                            <div key={historyItem.id} className="flex justify-between items-center bg-inset/30 p-3 rounded-control border border-divider group">
-                              <div className="flex items-center gap-3">
-                                <div className="flex flex-col">
-                                  <span className="text-small font-bold text-primary">
-                                    {historyItem.value} <span className="text-micro font-normal text-secondary uppercase">{historyItem.unit}</span>
-                                  </span>
-                                  <span className="text-micro font-normal text-tertiary">
-                                    {new Date(historyItem.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                </div>
+                            // 整行点开「修改记录」（值、日期、删除都在那里面）；行上不放删除键
+                            <button
+                              type="button"
+                              key={historyItem.id}
+                              onClick={() => onEditMeasurement(historyItem)}
+                              className="w-full flex justify-between items-center text-left bg-inset/30 p-3 rounded-control border border-divider active:bg-card-hover transition-ui"
+                              data-testid="metric-entry"
+                            >
+                              <div className="flex flex-col">
+                                <span className="text-small font-bold text-primary">
+                                  {historyItem.value} <span className="text-micro font-normal text-secondary uppercase">{historyItem.unit}</span>
+                                </span>
+                                <span className="text-micro font-normal text-tertiary">
+                                  {new Date(historyItem.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', {
+                                    // 补记能跨年：不是今年的带上年份
+                                    year: new Date(historyItem.date).getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+                                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                                  })}
+                                </span>
                               </div>
-                              
-                              {/* Action Buttons */}
-                              <div className="flex gap-2">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); onEditMeasurement(historyItem); }} 
-                                  className="p-2 bg-accent/10 text-accent rounded-chip hover:bg-accent/20 active:scale-press-sm transition-ui"
-                                >
-                                  <Edit2 size={12} />
-                                </button>
-                                <button 
-                                  onClick={(e) => onDeleteMeasurement(e, historyItem.id)} 
-                                  className="p-2 bg-danger/10 text-danger rounded-chip hover:bg-danger/20 active:scale-press-sm transition-ui"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </div>
-                            </div>
+                              <Edit2 size={12} className="text-tertiary flex-shrink-0" />
+                            </button>
                           ))}
-                      </div>
-                      
-                      {/* Add Entry Button */}
-                      <div className="flex justify-end pt-2 border-t border-divider">
-                        <button 
-                          onClick={() => onAddMeasurementEntry(metric.name)} 
-                          className="ui-btn-primary flex items-center gap-2 text-xs active:scale-press-sm"
-                        >
-                          <Plus size={14} />
-                          {lang === Language.CN ? '记录新数据' : 'Add Entry'}
-                        </button>
                       </div>
                     </div>
                   )}

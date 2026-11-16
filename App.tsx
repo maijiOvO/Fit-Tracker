@@ -369,6 +369,7 @@ const AppWithAuthShell: React.FC = () => {
   const {
     showMeasureModal,
     editingMeasurementId,
+    measureNameFixed,
     measureForm,
     setMeasureForm,
     expandedMetric,
@@ -1009,10 +1010,12 @@ const AppWithAuthShell: React.FC = () => {
         open={showMeasureModal}
         lang={lang}
         editingMeasurementId={editingMeasurementId}
+        nameFixed={measureNameFixed}
         measureForm={measureForm}
         setMeasureForm={setMeasureForm}
         onClose={closeMeasureModal}
         onSubmit={handleSaveMeasurement}
+        onDelete={handleDeleteMeasurement}
       />
 
       <ExerciseDateTimePickerModal
@@ -1302,11 +1305,9 @@ const AppWithAuthShell: React.FC = () => {
               fileInputRef={fileInputRef}
               onAvatarUpload={handleAvatarUpload}
               onToggleLanguage={handleToggleLanguage}
-              onShowWeightInput={() => setShowWeightInput(true)}
               onShowMeasureModal={() => openAddMeasurementEntry()}
               onToggleMetric={name => setExpandedMetric(name)}
               onEditMeasurement={m => triggerEditMeasurement(m)}
-              onDeleteMeasurement={(e, id) => handleDeleteMeasurement(e, id)}
               onAddMeasurementEntry={name => openAddMeasurementEntry(name)}
               setShowResetAccountModal={setShowResetAccountModal}
               devMode={devMode}

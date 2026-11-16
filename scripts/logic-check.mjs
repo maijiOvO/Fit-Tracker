@@ -68,6 +68,7 @@ await build({
       "export * as FR from './services/fitlogRemote.ts';",
       "export * as FB from './services/fitlogBackup.ts';",
       "export * as FS from './services/fitlogSyncScheduler.ts';",
+      "export * as ML from './src/utils/measurementLog.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -1282,6 +1283,36 @@ t('选动作点已有的行：做法行只认同做法；母行跳过有自己�
   assert.equal(R(cards, '深蹲', undefined, []), null);
   // 母行的 ×N 全来自做法行（行上显示 ＋）：照常加，不跳
   assert.equal(R(cards.filter(c => c.key !== '高位下拉' || c.vid), '高位下拉', undefined, ['wide', 'close']), null);
+});
+
+t('身体指标改日期：同一天原样返回（不动钟点、不改写原串）；换一天落在那天、钟点照旧', () => {
+  const base = new Date(2026, 10, 16, 0, 49, 9, 434).toISOString();
+  assert.equal(L.ML.moveToLocalDay(base, '2026-11-16'), base);
+  const moved = new Date(L.ML.moveToLocalDay(base, '2026-06-11'));
+  assert.deepEqual(
+    [moved.getFullYear(), moved.getMonth(), moved.getDate(), moved.getHours(), moved.getMinutes(), moved.getSeconds()],
+    [2026, 5, 11, 0, 49, 9],
+  );
+});
+
+t('身体指标卡面：按记录日期取最新，后补记的旧日期不顶上来；变化量对上一条；单位不同 / 只有一条不出', () => {
+  const m = (id, name, value, unit, date) => ({ id, userId: 'u', name, value, unit, date });
+  // 39 先录、37 是后来补记到 6 月的（id 更大）：卡面仍是 39
+  const out = L.ML.latestByMetric([
+    m('3', '臂围', 39, 'cm', '2026-11-16T05:49:09.434Z'),
+    m('9', '臂围', 37, 'cm', '2026-06-11T10:31:50.495Z'),
+    m('1', '身高', 184, 'cm', '2026-05-22T07:40:19.466Z'),
+    m('4', '腰围', 31.5, 'in', '2026-07-01T00:00:00.000Z'),
+    m('5', '腰围', 80.3, 'cm', '2026-08-01T00:00:00.000Z'),
+    m('6', '体脂', 15.2, '%', '2026-08-01T00:00:00.000Z'),
+    m('7', '体脂', 14.9, '%', '2026-09-01T00:00:00.000Z'),
+  ]);
+  assert.deepEqual(out.map(x => [x.name, x.value, x.delta]), [
+    ['身高', 184, null],
+    ['臂围', 39, 2],
+    ['腰围', 80.3, null],
+    ['体脂', 14.9, -0.3],
+  ]);
 });
 
 console.log(`\nlogic-check: ${n} passed`);
