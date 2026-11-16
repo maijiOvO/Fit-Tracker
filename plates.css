@@ -637,6 +637,8 @@
   -webkit-tap-highlight-color: transparent;
 }
 .ref-tag.is-restore:active { opacity: .6; }
+/* 「改回」按钮里跟着的换算预览：只是参考，不带按钮的强调色 */
+.ref-tag.is-restore .ref-alt { color: var(--text-tertiary); }
 /* 点的范围补到约 32px 高（审查 F9：误改之后的兜底却是全页最小的目标之一）：字和位置不动，
    往上不盖本行输入区太多，往下只伸进下一行重量格顶上一点（那里是数字上方的空白，不是组号） */
 .ref-tag.is-restore::before {

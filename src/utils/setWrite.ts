@@ -6,12 +6,22 @@ import type { SetLog } from '../../types';
 import { KG_TO_LBS } from '../constants';
 import type { ExRounder } from '../hooks/useLoadRounder';
 import { parseWeight } from './format';
+import { trimNum } from './liftDisplay';
 import { clampLoadD } from './load';
 
 /** 一组的重量按显示单位写：两位小数、去尾零（体重用的是 format.formatBodyWeight，一位小数） */
 export function formatLoad(kg: number, targetUnit: string): string {
   const v = targetUnit === 'lbs' ? kg * KG_TO_LBS : kg;
   return v.toFixed(2).replace(/\.?0+$/, '');
+}
+
+/**
+ * 换算预览（2026-11-16 用户定）：卡按器械单位写（useLoadRounder.cardUnitOf）、顶栏选的是另一种单位时，
+ * 重量下面的小字「= 110.2 lb」。一位小数——只是给人看个大概，卡上的数和加减仍按器械单位。同单位 / 没填重量＝''。
+ */
+export function altLoadLabel(kg: number, cardUnit: string, shownUnit: string): string {
+  if (cardUnit === shownUnit || !(kg > 0)) return '';
+  return `= ${trimNum(shownUnit === 'lbs' ? kg * KG_TO_LBS : kg)} ${shownUnit === 'lbs' ? 'lb' : 'kg'}`;
 }
 
 /** 存储（kg，非负）→ 显示单位下的带符号数 */

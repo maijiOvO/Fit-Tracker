@@ -351,6 +351,14 @@ t('写回一组：显示值 ⇄ 存储 kg（两位小数去尾零；lb 换回 kg
   const w = L.SW.weightFromShown(30, 'lbs', r, false);
   assert.deepEqual([w.weight, w.plateUnit], [r.kgOfD(30), r.unit]);
 });
+t('换算预览：卡按器械单位写、顶栏是另一种单位时给一位小数的换算；同单位、空重量不给', () => {
+  assert.equal(L.SW.altLoadLabel(50, 'kg', 'lbs'), '= 110.2 lb');
+  assert.equal(L.SW.altLoadLabel(100 * LB, 'lbs', 'kg'), '= 45.4 kg');
+  assert.equal(L.SW.altLoadLabel(20, 'lbs', 'kg'), '= 20 kg');
+  assert.equal(L.SW.altLoadLabel(50, 'kg', 'kg'), '');
+  assert.equal(L.SW.altLoadLabel(50, 'lbs', 'lbs'), '');
+  assert.equal(L.SW.altLoadLabel(0, 'kg', 'lbs'), '');
+});
 t('写回一组：待做组改了哪个值字段就记进 touched（含号），plateUnit 不算；做完的组原样不记', () => {
   const ghost = { id: 'g', weight: 20, reps: 8, ghost: true, touched: { reps: true } };
   assert.deepEqual(L.SW.markTouched(ghost, { weight: 10, plateUnit: 'kg', bodyweightMode: 'assisted' }).touched, { reps: true, weight: true, bodyweightMode: true });
