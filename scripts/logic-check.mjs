@@ -332,6 +332,9 @@ t('递减一档：纯数字 ∓ 递减步长（残留先取整）、下限 0、�
   assert.equal(L.SS.nextDropShown(2, -1, null, 5, false), 0);
   assert.equal(L.SS.nextDropShown(2, -1, null, 5, true), -3);
   assert.equal(L.SS.nextDropShown(20, -1, L.makeRounder(pinInfo, 'lbs', lbCtx(10), false), 5, false), 10);
+  // 2026-11-18 用户定：有馆档案的器材也减「递减每档」（卡的单位下的 5），再吸到能挂的；不是只减一格（每格 2.5 时只降 2.5）
+  assert.equal(L.SS.nextDropShown(20, -1, L.makeRounder(pinInfo, 'lbs', lbCtx(2.5), false), 5, false), 15);
+  assert.equal(L.SS.nextDropShown(20, 1, L.makeRounder(pinInfo, 'lbs', lbCtx(2.5), false), 5, false), 25);
   assert.equal(L.SS.nextDropShown(12.5, -1, L.makeRounder(pinInfo, 'lbs', lbCtx(5, 12.5), false), 5, false), 12.5);
 });
 

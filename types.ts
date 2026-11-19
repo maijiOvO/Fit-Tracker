@@ -29,6 +29,8 @@ export interface SetLog {
   prefillRef?: { kg: number; unit: 'kg' | 'lbs'; /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */ plan?: boolean };
   /** 工作台专用（入册时剥掉）：这个数完全是从 prefillRef 换算取整来的（没打过、没拖过、没被带着平移过） */
   draftAuto?: boolean;
+  /** 工作台专用（入册时剥掉）：被带着平移时让 0 或上一行截住了，本来该是多少（带符号的 kg）；截它的让开了就回去（workbench.shiftRow / holdTouchedSubs） */
+  want?: number;
   /** 工作台专用（入册时剥掉）：换了做法、新做法没练过，剩下的底稿是按新器材硬取整的 —— 标「换了做法，确认一下重量」 */
   checkWeight?: boolean;
   reps: number;
@@ -115,6 +117,8 @@ export interface SubSetLog {
   prefillRef?: { kg: number; unit: 'kg' | 'lbs'; /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */ plan?: boolean };
   /** 工作台专用（入册时剥掉）：这个数完全是从 prefillRef 换算取整来的（没打过、没拖过、没被带着平移过） */
   draftAuto?: boolean;
+  /** 工作台专用（入册时剥掉）：被带着平移时让 0 或上一行截住了，本来该是多少（带符号的 kg）；截它的让开了就回去（workbench.shiftRow / holdTouchedSubs） */
+  want?: number;
   /** 工作台专用（入册时剥掉）：换了做法、新做法没练过，剩下的底稿是按新器材硬取整的 —— 标「换了做法，确认一下重量」 */
   checkWeight?: boolean;
   reps: number;      // 独立的次数设置

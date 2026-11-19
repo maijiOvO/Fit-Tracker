@@ -40,6 +40,7 @@ import {
   nextPendingRow,
   normalizeGroups,
   pointerSeam,
+  shownSeam,
   removeFromGroup,
   RowRef,
   splitGroup,
@@ -239,19 +240,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
   /**
    * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
-   * 指针以上＝做完或跳过。指针不存状态，由组的状态推出来（workbench.pointerSeam），
+   * 真实进度不存状态，由组的状态推出来（workbench.pointerSeam：最后一条做完的组之后），
    * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
    *
    * 选中：组号实心 = 我点过的那一组（审查 A5：没手动选中时任何组号都不实心，「实心」只有一种来历）。
-   * 点哪一组的组号，哪一组就选中；点的是指针下面的待做组，指针同时前进到它正下方
-   *（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）；点做完的组只选中，指针不往回跳（2026-10-25）。
-   * 删掉 / 拖书签之后清空。没选中时底栏操作条改的是指针下面那一条待做组，小字写明第几组。
+   * 点哪一组的组号，哪一组就选中，**页面上的指针画在它正下方**（workbench.shownSeam，2026-11-18 用户定：
+   * 往回点也跟过去，哪怕真实进度在更后面）；点的是待做组，这一组同时做完
+   *（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）。
+   * 删掉 / 拖书签之后清空，指针回到真实进度。没选中时底栏操作条改的是真实进度下面那一条待做组，小字写明第几组。
    */
   const exs = currentWorkout.exercises ?? [];
   const [pickedSetId, setPickedSetId] = useState<string | null>(null);
   const seam = pointerSeam(exs);
-  const pickedValid = !!pickedSetId && exs.some(e => e.sets.some(s => String(s.id) === pickedSetId));
+  const pickedRow: RowRef | null =
+    (pickedSetId && exs.flatMap(e => e.sets.filter(s => String(s.id) === pickedSetId).map(s => ({ exId: e.id, setId: String(s.id) }))).at(0)) || null;
+  const pickedValid = !!pickedRow;
   const selectedSetId = pickedValid ? pickedSetId : null;
+  const seamShown = shownSeam(exs, pickedRow);
   const cards = buildCards(exs);
 
   /**
@@ -270,7 +275,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
    * 选中组操作条（SetActionStrip）固定在底栏上方，改的是选中那一组；没选中时是指针下面那一条待做组。
    * 软键盘起来时和添加动作弹层开着时收掉：前者让键盘上方只剩正在改的那行，后者弹层盖住了它。
    */
-  const stripRef = pickedValid ? exs.flatMap(e => e.sets.filter(s => String(s.id) === pickedSetId).map(s => ({ exId: e.id, setId: String(s.id) }))).at(0) : nextPendingRow(exs);
+  const stripRef = pickedRow ?? nextPendingRow(exs);
   const selectedRow = stripRef
     ? exs.flatMap(e => (e.id === stripRef.exId ? e.sets.filter(s => String(s.id) === stripRef.setId).map(s => ({ ex: e, set: s })) : [])).at(0)
     : undefined;
@@ -399,6 +404,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   };
 
   const movePointer = (cardKey: string, gap: number) => {
+    // 书签拎起来又放回原处：画的位置可能不是真实进度（选中了更上面的组），照 movePointerTo 算会把后面做完的组退回待做
+    if (seamShown?.cardKey === cardKey && seamShown.gap === gap) return;
     const after = movePointerTo(exs, cardKey, gap);
     // 拖指针做完的组同样记下做完时挂的片
     setCurrentWorkout(w => ({ ...w, exercises: stampDoneUnit(w.exercises ?? [], after) }));
@@ -783,7 +790,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       <div className={`space-y-6 ${stripRow ? 'pb-48' : 'pb-32'}`}>
         {cards.map((card, ci) => {
           // 编辑旧训练不画书签：拖它往上会把后面的组退回待做，保存时整段被剥掉
-          const pointerGap = !editingWorkoutId && seam?.cardKey === card.key ? seam.gap : null;
+          const pointerGap = !editingWorkoutId && seamShown?.cardKey === card.key ? seamShown.gap : null;
           const wrap = (body: React.ReactNode) => (
             <div
               key={card.key}

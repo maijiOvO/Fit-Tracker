@@ -28,14 +28,15 @@ export function stepShown(shown: number, dir: 1 | -1, rounder: ExRounder | null 
 }
 
 /**
- * 加一档子组（递减 dir = −1 / 递增 dir = 1）的重量，从【上一行】（最后一档，没有就是母组）走一档：
- * 有馆档案的器材 ∓ 一档再吸到最近能挂的（片子不规则时按能挂的下一个走）；已经是最轻一档的不降到 0，和上一档一样。
- * 纯数字的动作 ∓「递减每档」（首选项，默认 5），上一行是换算残留（132.28）先取整再走。
+ * 加一档子组（递减 dir = −1 / 递增 dir = 1）的重量，从【上一行】（最后一档，没有就是母组）走「递减每档」
+ *（首选项，默认 5，按这张卡的单位：磅就 5 磅、公斤就 5 公斤，2026-11-18 用户定）：
+ * 有馆档案的器材走完再吸到最近能挂的（每格比它粗、吸回原处时按能挂的下一个走）；已经是最轻一档的不降到 0，和上一档一样。
+ * 以前有馆档案的只减一格，每格 2.5 的器材一档只降 2.5。纯数字的动作上一行是换算残留（132.28）先取整再走。
  */
 export function nextDropShown(prevShown: number, dir: 1 | -1, rounder: ExRounder | null | undefined, dropStep: number, signed: boolean): number {
   let next: number;
   if (rounder) {
-    next = rounder.snapD(prevShown + dir * rounder.stepD(prevShown));
+    next = rounder.snapD(prevShown + dir * dropStep);
     // 吸回了原处（空杠再往下、片子太粗）：按「能挂的下一个」走
     if (Math.abs(next - prevShown) < 0.01) next = rounder.stepToD(prevShown, dir);
     // 已经是最轻的一档（哑铃最小那对、空杠）：不降到 0，和上一档一样，自己再改

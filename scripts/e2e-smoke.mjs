@@ -1434,7 +1434,8 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if ((await w1in.inputValue()) !== wBefore) throw new Error('draft below should hold while typing');
       await page.keyboard.press('Enter');
       if ((await w0in.inputValue()) !== '77') throw new Error('a typed weight must stay as typed');
-      if ((await w1in.inputValue()) !== '75') throw new Error(`draft below should follow and snap to 75 on Enter, got ${await w1in.inputValue()}`);
+      // 2026-11-18 用户定：手打的数不在格子上，跟着的组原样平移，不再吸到能挂的 75（吸格的规则在 workbench-check 里）
+      if ((await w1in.inputValue()) !== '77') throw new Error(`draft below should follow as typed (77) on Enter, got ${await w1in.inputValue()}`);
       if (await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) throw new Error('a follower must stay a draft');
       if (!/^reps/.test(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || ''))) throw new Error('Enter in the weight cell should focus reps');
       await page.keyboard.press('Enter');
