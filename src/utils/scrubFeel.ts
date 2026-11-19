@@ -1,12 +1,13 @@
 /**
- * 横拖改数的手感（首选项「滑动手感」，审查 2026-10-06 第一节第 3 点）：细 / 中 / 粗 ＝ 每档 14 / 10 / 7 px，
- * 速度阈值梯按同比例缩放（每档越宽，跳档要甩得越快）。起拖阈值（ENGAGE_PX）不跟着变。
+ * 横拖改数的手感（首选项「滑动手感」，审查 2026-10-06 第一节第 3 点）：细 / 中 / 粗 ＝ 每档 18 / 14 / 10 px
+ * （2026-11-18 整体加宽一号：10px 一档时用户摸不准滑多远是一格），
+ * 速度阈值按同比例缩放（每档越宽，跳档要甩得越快）。起拖阈值（ENGAGE_PX）不跟着变。
  *
  * 跟设备走（同振动、撤销开关），不进同步：屏幕密度和手指是这台手机自己的事。
  */
 export type ScrubFeel = 'fine' | 'mid' | 'coarse';
 
-export const SCRUB_FEEL_PX: Record<ScrubFeel, number> = { fine: 14, mid: 10, coarse: 7 };
+export const SCRUB_FEEL_PX: Record<ScrubFeel, number> = { fine: 18, mid: 14, coarse: 10 };
 
 const KEY = 'fitlog_scrub_feel';
 let cached: ScrubFeel | null = null;
@@ -30,6 +31,45 @@ export function setScrubFeel(v: ScrubFeel): void {
   } catch {
     /* 写不进去时内存里的值仍然生效 */
   }
+}
+
+/**
+ * 甩快了一下走两档（首选项「快滑加速」，默认开）。关掉＝无论多快都一格一格走：同样的距离永远是同样的格数。
+ * 和滑动手感一样跟设备走。
+ */
+const ACCEL_KEY = 'fitlog_scrub_accel';
+let accel: boolean | null = null;
+
+export function scrubAccel(): boolean {
+  if (accel === null) {
+    try {
+      accel = localStorage.getItem(ACCEL_KEY) !== '0';
+    } catch {
+      accel = true;
+    }
+  }
+  return accel;
+}
+
+export function setScrubAccel(on: boolean): void {
+  accel = on;
+  try {
+    localStorage.setItem(ACCEL_KEY, on ? '1' : '0');
+  } catch {
+    /* 写不进去时内存里的值仍然生效 */
+  }
+}
+
+/**
+ * 这一下走几倍（2026-11-18 用户反馈「不知道滑多少才是一格」后收紧：原来四档 ×1/2/5/10、0.55 px/ms 就跳，
+ * 正常手速也会一格变两格）。只留两档，门槛抬到 1.2 px/ms（每档 14px 时），慢拖和正常拖永远是 tiers[0]。
+ * v：平滑后的速度（px/ms）；px：每档像素。纯函数，logic-check 直接测。
+ */
+export const ACCEL_VELOCITY = 1.2;
+export function scrubTier(v: number, tiers: number[], px: number, on: boolean): number {
+  const base = tiers[0] ?? 1;
+  if (!on || tiers.length < 2) return base;
+  return v >= ACCEL_VELOCITY * (px / SCRUB_FEEL_PX.mid) ? tiers[1] : base;
 }
 
 /**

@@ -443,7 +443,7 @@ t('存的几台：选中的台 → 以前按动作单独设的 → 馆默认；�
   assert.equal(L.machineSpecOf([lb], 'b', own), own, 'picked rig was deleted → as if not picked');
   assert.equal(L.machineSpecOf([lb], 'b', undefined), undefined, 'nothing → gym default');
   assert.equal(L.machineSpecOf(undefined, 'b', undefined), undefined);
-  assert.equal(L.rigListKey('A', { kind: 'pin', equipment: 'tagCable' }), 'A|tagCable');
+  assert.equal(L.rigListKey('A', { kind: 'pin', equipment: 'tagCable' }), 'A|~stack', 'stack formats are one list per gym');
   assert.equal(L.rigListKey('A', { kind: 'pair' }), 'A|~pair', 'no equipment → by kind');
   assert.equal(L.rigListKey('A', { kind: 'loaded', equipment: 'tagMachine' }), null, 'plate-loaded uses the gym plates');
   assert.equal(L.rigListKey('A', { kind: 'signed', equipment: 'x' }), null);

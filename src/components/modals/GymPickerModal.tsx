@@ -20,7 +20,9 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
-import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, INC_CHOICES, withPlateUnit, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, distinctRigs, INC_CHOICES, rigsOf, rigsPatch, sameSpec, withPlateUnit, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
+import { rigLabel } from '../PlateGlyph';
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
 
 import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } from '../../utils/plates';
@@ -196,6 +198,46 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
 };
 
 /* ── 一个馆的档案：新建 / 编辑同一张表 ── */
+
+/**
+ * 这个馆存的配重片形式（2026-11-18，loadable.rigListKey）：在动作卡上建和改，这里只管看和删 ——
+ * 别的动作还在用的形式在动作卡上删不掉（那里只是「这个动作不用了」），要删到这里来。
+ * 删了立刻生效（不跟着表单的「保存」）：用着它的动作回到馆默认。
+ */
+const StackForms: React.FC<{ gym: string; isCn: boolean }> = ({ gym, isCn }) => {
+  const { appPrefs, changeAppPrefs } = useUserSettingsContext();
+  const pin = { kind: 'pin' as const };
+  const all = rigsOf(appPrefs.gymRigs, gym, pin, undefined);
+  const shown = distinctRigs(all, '');
+  if (!shown.length) return null;
+  const usedBy = (id: string) => Object.entries(appPrefs.gymRigPick).filter(([k, v]) => v === id && k.startsWith(`${gym}|`)).length;
+  return (
+    <div className="gym-field" data-testid="gym-stack-forms">
+      <span className="text-label text-secondary">{isCn ? '存的配重片形式' : 'Saved stack formats'}</span>
+      {shown.map(r => {
+        // 刻度一样、没起名的几份在这里算一种：一起数、一起删
+        const twins = all.filter(x => x.id === r.id || (!x.n && !r.n && sameSpec(x, r)));
+        const n = twins.reduce((sum, x) => sum + usedBy(x.id), 0);
+        return (
+          <div key={r.id} className="gym-row">
+            <span className="text-small text-primary">
+              {rigLabel(r, 'pin', isCn)}
+              <small className="block text-micro text-tertiary">{isCn ? (n ? `${n} 个动作在用` : '没有动作在用') : n ? `${n} in use` : 'Unused'}</small>
+            </span>
+            <button
+              type="button"
+              className="text-label font-semibold text-danger px-2 min-h-[44px]"
+              onClick={() => changeAppPrefs({ gymRigs: rigsPatch(appPrefs.gymRigs, gym, pin, all.filter(x => !twins.includes(x))) })}
+              data-testid="gym-stack-form-remove"
+            >
+              {isCn ? '删掉' : 'Delete'}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 function GymProfileForm({
   isCn,
@@ -461,7 +503,8 @@ function GymProfileForm({
         )}
       </div>
       {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
-      {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '个别器械在动作卡上另存一台' : 'Save odd machines on the exercise card')}
+      {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '别的刻度在动作卡上存成一种配重片形式，全馆的插销器械都能选' : 'Save other formats on an exercise card; every pin-loaded exercise here can pick them')}
+      {name && <StackForms gym={name} isCn={isCn} />}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
       {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}

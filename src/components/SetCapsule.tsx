@@ -12,8 +12,9 @@ import React, { useContext, useState } from 'react';
 import { Minus } from 'lucide-react';
 import { Language, SubSetLog, SetLog } from '../../types';
 import { ledgerCols, metricUnitLabel, LoadMode, distToDisplay, distFromDisplay } from '../utils/exerciseConfig';
-import { useLongPress } from '../hooks/useLongPress';
-import { useValueScrub, SCRUB_STEPS_REPS, SCRUB_STEPS_WEIGHT, SCRUB_MULTS } from '../hooks/useValueScrub';
+import { useLongPress, LONGPRESS_TOTAL_MS } from '../hooks/useLongPress';
+import { useTap } from '../hooks/useTap';
+import { useValueScrub } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
@@ -39,19 +40,45 @@ import { nextDropShown } from '../utils/setStep';
 export function weightScrubFor(
   rounder: ExRounder | null | undefined,
 ): {
-  steps: number[];
+  /** 不给＝默认档位表（useValueScrub.SCRUB_TIERS） */
+  steps?: number[];
   axis: 'x' | 'y';
   stepFn?: (v: number, dir: 1 | -1, mult: number) => number;
   px?: number;
   engagePx?: number;
 } {
-  if (!rounder) return { steps: SCRUB_STEPS_WEIGHT, axis: 'x' };
+  if (!rounder) return { axis: 'x' };
   const axis = heroScrubAxis(rounder.info.kind);
   const stepFn = (v: number, dir: 1 | -1, mult: number) => rounder.stepToD(v, dir, mult);
   // 配重片刻度轨：一档一片、跟手、不跳档（scrubFeel.STACK_PITCH）
   if (axis === 'y') return { steps: [1], axis, stepFn, px: STACK_PITCH, engagePx: STACK_ENGAGE_PX };
-  return { steps: SCRUB_MULTS, axis, stepFn };
+  return { axis, stepFn };
 }
+
+/**
+ * 横拖时浮在格子上方的量规（2026-11-18 用户反馈「不知道滑多少才是一格」）：三根刻度＝上一格 / 现在 / 下一格，
+ * 两头写着到了那一格是多少；朱砂游标跟手从中间往一侧走，走到刻度＝落一格、弹回中间。
+ * 放在格子上方是因为手指盖着格子和下面。游标位置读 useValueScrub 写在格子上的 --scrub-acc / --scrub-px。
+ */
+const ScrubGauge: React.FC<{
+  value: number;
+  /** 这一下走几档（甩快了是 2） */
+  mult: number;
+  /** 按器材走一格（weightScrubFor 的 stepFn）；不给＝加减 mult */
+  stepTo?: (v: number, dir: 1 | -1, mult: number) => number;
+  min: number;
+}> = ({ value, mult, stepTo, min }) => {
+  const at = (dir: 1 | -1) => Math.round(Math.max(min, stepTo ? stepTo(value, dir, mult) : value + dir * mult) * 100) / 100;
+  return (
+    <span className="scrub-gauge" aria-hidden data-testid="scrub-gauge">
+      <span>{at(-1)}</span>
+      <span className="scrub-gauge-track">
+        <i />
+      </span>
+      <span>{at(1)}</span>
+    </span>
+  );
+};
 
 interface SetCapsuleProps {
   set: any;
@@ -218,16 +245,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
 
   const update = (updates: SetUpdate) => onUpdate(isGhost ? markTouched(set, updates) : updates);
 
-  /** 长按加递减达成后，松手带出的那次 click 不能再被读成「点组号」 */
-  const longPressAtRef = React.useRef(-Infinity);
-  const onSetNumClick = () => {
-    // 只吞松手带出的那一次：吞完立即作废，否则紧跟着的一次正常点击也会被吃掉
-    if (performance.now() - longPressAtRef.current < 600) {
-      longPressAtRef.current = -Infinity;
-      return;
-    }
-    onNumTap?.();
-  };
+  // 点组号不等浏览器的 click（hooks/useTap）：随手一点带出几像素滑动时 click 会被取消，表现为「点了没反应」。
+  // 按满长按的时长归长按（加递减档），这里不再算点击
+  const numTap = useTap(() => onNumTap?.(), LONGPRESS_TOTAL_MS);
 
   /** 显示单位下的带符号重量 ⇄ 存储（kg，非负 + 号）；打字、横拖、加递减档都走这里，口径在 utils/setWrite */
   const toDisplay = (kg: number, sign: -1 | 1) => shownWeight(kg, sign, unit);
@@ -256,12 +276,10 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
     ...(signed ? { min: -loadCapD(du, true) } : {}),
   });
-  // 次数格同一套手势（§12.6 提到的一致性补全）：档位 1/2/5，没有 ×10 ——
-  // 一次训练里 reps 的动态范围比重量小得多，最高档给到 5 就够跨一整个区间。
+  // 次数格同一套手势（§12.6 提到的一致性补全）
   const repsScrub = useValueScrub({
     value: Number(set.reps) || 0,
     onChange: next => update({ reps: next }),
-    steps: SCRUB_STEPS_REPS,
     disabled: readOnly,
   });
   const scrubFor = (m: string) =>
@@ -310,10 +328,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 长按组号＝加一档递减（§6.4，极低频动作）。轻点有了自己的意思（选中 / 做完），
   // 所以不再闪「按住加子组」的提示。
   const addSub = useLongPress({
-    onLongPress: () => {
-      longPressAtRef.current = performance.now();
-      handleAddSubSet(-1);
-    },
+    onLongPress: () => handleAddSubSet(-1),
     disabled: readOnly,
   });
 
@@ -416,7 +431,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
         }}
       >
         {/* 组号：36×36 胶囊。点 = 选中，选中的再点 = 做完（指针移到它下面）；
-            长按 = 加一档递减（达成后吞掉松手那次 click）。
+            长按 = 加一档递减。点击由 useTap 自己判，热区比看到的框各边大一圈（.set-num::before）。
             交替组在组号上方叠一行动作简称（「卧推」「飞鸟」，2026-10-21 起一个词；原来一个字、放在组号左边） */}
         <span className={badge ? 'flex flex-col items-center min-w-0' : 'flex items-center gap-1 min-w-0'}>
           {badge && (
@@ -433,7 +448,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
           )}
           <span
             className={`set-num relative ${badge ? 'w-[30px] h-[30px]' : readOnly ? 'w-6 h-6' : 'w-9 h-9'} flex-none flex items-center justify-center select-none font-mono font-semibold text-label text-accent tabular-nums touch-pan-y`}
-            onClick={readOnly ? undefined : onSetNumClick}
             role={readOnly ? undefined : 'button'}
             aria-pressed={readOnly ? undefined : selected}
             aria-label={
@@ -445,7 +459,20 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                     : isCn ? `第 ${no} 组` : `Set ${no}`
                   : isCn ? `选中第 ${no} 组` : `Select set ${no}`
             }
-            {...addSub.handlers}
+            {...(readOnly
+              ? {}
+              : {
+                  ...addSub.handlers,
+                  ...numTap,
+                  onPointerDown: (e: React.PointerEvent) => {
+                    addSub.handlers.onPointerDown(e);
+                    numTap.onPointerDown(e);
+                  },
+                  onPointerUp: (e: React.PointerEvent) => {
+                    addSub.handlers.onPointerUp();
+                    numTap.onPointerUp(e);
+                  },
+                })}
           >
             {no}
             <LongPressAffordance
@@ -539,12 +566,14 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               }}
               {...(scrub ? scrub.handlers : {})}
             >
-              {/* 档位角标只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
+              {/* 量规只在拖动时出现：不拖的时候这一格必须是干净的数字。 */}
               {scrub?.scrubbing && (
-                <span className="scrub-step" aria-hidden>
-                  {/* 有馆档案时档位表是倍数（1/2/4），角标换成这一下实际走多少 */}
-                  ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
-                </span>
+                <ScrubGauge
+                  value={m === 'weight' ? weightDisplay : Number(set.reps) || 0}
+                  mult={scrub.step}
+                  stepTo={m === 'weight' ? weightFeel.stepFn : undefined}
+                  min={m === 'weight' && signed ? -Infinity : 0}
+                />
               )}
               {/* 行下标：「上次 x」和换算预览排在同一行（各占一处会在窄格子里叠字）；PB 行不出「上次」，换算照出 */}
               {m === 'weight' && !(refTag.text && !(isPR && !isGhost)) && altTag && <span className="ref-tag">{altTag}</span>}
@@ -838,7 +867,6 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   const repsScrub = useValueScrub({
     value: Number(sub.reps) || 0,
     onChange: next => onUpdate({ reps: next }),
-    steps: SCRUB_STEPS_REPS,
     disabled: readOnly,
   });
 
@@ -888,11 +916,13 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
             style={{ ['--ledger-chars' as string]: Math.max(display.length, 1) }}
             {...scrub.handlers}
           >
-            {/* 档位角标只在拖动时出现，与母组同 */}
             {scrub.scrubbing && (
-              <span className="scrub-step" aria-hidden>
-                ×{m === 'weight' && rounder ? Math.round(rounder.stepD(weightDisplay) * scrub.step * 100) / 100 : scrub.step}
-              </span>
+              <ScrubGauge
+                value={m === 'weight' ? weightDisplay : Number(sub.reps) || 0}
+                mult={scrub.step}
+                stepTo={m === 'weight' ? subFeel.stepFn : undefined}
+                min={m === 'weight' && signed ? -Infinity : 0}
+              />
             )}
             {m === 'weight' && altLabel && <span className="ref-tag" data-testid="alt-load">{altLabel}</span>}
             <input

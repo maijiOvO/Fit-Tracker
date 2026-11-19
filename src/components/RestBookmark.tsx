@@ -30,8 +30,8 @@ interface Seam {
 
 interface Props {
   lang: Language;
-  /** 落定后把新位置交回去（全场唯一，所以 exId 也可能变）；label 是缝的叫法，落定提示里念出来 */
-  onMove: (exId: string, gap: number, label: string) => void;
+  /** 落定后把新位置交回去（全场唯一，所以 exId 也可能变） */
+  onMove: (exId: string, gap: number) => void;
 }
 
 /** 起拖阈值：低于它当没拖过，避免手指一抖就跳格 */
@@ -200,7 +200,7 @@ export const RestBookmark: React.FC<Props> = ({ lang, onMove }) => {
       seam.classList.remove('is-dragging');
       if (commit && moved && pick) {
         haptic(H.longpress);
-        onMove(pick.exId, pick.gap, pick.label);
+        onMove(pick.exId, pick.gap);
       }
     };
     const onUpEv = () => finish(true);

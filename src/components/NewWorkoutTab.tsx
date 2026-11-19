@@ -398,21 +398,13 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     });
   };
 
-  const movePointer = (cardKey: string, gap: number, label: string) => {
-    const before = exs;
-    const after = movePointerTo(before, cardKey, gap);
+  const movePointer = (cardKey: string, gap: number) => {
+    const after = movePointerTo(exs, cardKey, gap);
     // 拖指针做完的组同样记下做完时挂的片
     setCurrentWorkout(w => ({ ...w, exercises: stampDoneUnit(w.exercises ?? [], after) }));
     setPickedSetId(null);
-    // 落定了就说一声落在哪、动了几组：书签吸附到最近的缝，落点和手感差一截时人看不出来，
-    // 一组都没扫到也得说（2026-10-29 「拖到底了」其实没动，底栏少 4 组到结束都没发现）
-    const delta = doneCount(after) - doneCount(before);
-    const what = delta > 0
-      ? isCn ? `${delta} 组记做完` : `${delta} ${plural(delta, 'set')} done`
-      : delta < 0
-        ? isCn ? `${-delta} 组退回待做` : `${-delta} ${plural(-delta, 'set')} back to pending`
-        : isCn ? '没有组变化' : 'no sets changed';
-    toast(`${label} · ${what}`, 'info');
+    // 落定后不弹底部提示（2026-11-18 用户定）：10-29 加它是因为「拖到底了」其实没动；
+    // 那个根因已由拖动时自动滚页（RestBookmark）修掉，落点在拖动中的书签上写着，改错了走顶栏撤销
   };
 
   /** 更新一组（按 id，交替组和单卡共用）；后面同值、没动过的底稿跟着变（workbench.applySetUpdate） */

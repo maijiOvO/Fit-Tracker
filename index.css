@@ -1004,28 +1004,45 @@ button {
   touch-action: none;
   user-select: none;
 }
-/* 刻度间距 10px＝一档，与 PX_PER_DETENT 对齐：看得见「又跨过一格」。 */
-.ledger-field.is-scrubbing::before {
-  content: '';
+/* 量规（SetCapsule.ScrubGauge）：浮在格子上方，手指盖不到。三根刻度间距＝一档（--scrub-px），
+   游标 = 中间那根 + 还没凑够一档的位移（--scrub-acc），两个变量由 useValueScrub 写在格子上。 */
+.scrub-gauge {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 6px;
-  background: repeating-linear-gradient(to right, var(--accent) 0 1px, transparent 1px 10px);
-  opacity: 0.45;
-  pointer-events: none;
-}
-.scrub-step {
-  position: absolute;
-  top: -3px;
-  right: 0;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-card);
+  background: var(--bg-base);
+  box-shadow: var(--shadow-overlay);
   font-family: 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
-  font-size: var(--fs-micro);
+  font-size: var(--fs-small, 13px);
   font-weight: 600;
   line-height: 1;
-  color: var(--accent-text);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+.scrub-gauge-track {
+  position: relative;
+  flex: none;
+  width: calc(var(--scrub-px, 14px) * 2 + 2px);
+  height: 14px;
+  background: linear-gradient(to right, var(--text-tertiary) 0 2px, transparent 2px) 0 0 / var(--scrub-px, 14px) 100% repeat-x;
+}
+.scrub-gauge-track i {
+  position: absolute;
+  top: 3px;
+  left: calc(var(--scrub-px, 14px) + var(--scrub-acc, 0px) - 3px);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 /* 单位：11px 内嵌在数值右下角，取代原来 10px 的表头副行 */
@@ -1455,6 +1472,13 @@ button {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--text-on-accent);
+}
+/* 组号的热区比 36px 的框大一圈（2026-11-18：随手点容易点在框边上）。只在工作台里放大，历史视图的组号不可点 */
+.ledger-row.is-ghost .set-num::before,
+.ledger-row.is-inked .set-num::before {
+  content: '';
+  position: absolute;
+  inset: -6px -5px;
 }
 /* 带正负的负荷：单位前的 + / − 可点（换号），虚线下划线＝可点的批注 */
 .ledger-unit.marginalia {

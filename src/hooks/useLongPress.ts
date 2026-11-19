@@ -22,7 +22,8 @@ import { haptic, H } from '../utils/haptics';
 export const LONGPRESS_DELAY_MS = 120;
 /** 进度线画出的时长。总时长 = 120 + 380 = 500ms。 */
 const LONGPRESS_DRAW_MS = 380;
-const TOTAL_MS = LONGPRESS_DELAY_MS + LONGPRESS_DRAW_MS;
+/** 按满这么久＝长按达成；同一个元素上的点击（useTap）以它为界 */
+export const LONGPRESS_TOTAL_MS = LONGPRESS_DELAY_MS + LONGPRESS_DRAW_MS;
 
 /** 手指抖动不取消，移出这个距离（＝开始滚动了）才取消。 */
 const CANCEL_DISTANCE_PX = 10;
@@ -108,7 +109,7 @@ export function useLongPress({ onLongPress, disabled = false }: Options): Result
         // 而这里的语义时刻就是「达成」这一帧。
         haptic(H.longpress);
         cbRef.current();
-      }, TOTAL_MS);
+      }, LONGPRESS_TOTAL_MS);
     },
     [cancel, disabled],
   );

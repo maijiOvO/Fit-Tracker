@@ -61,7 +61,8 @@ await build({
       "export * as SW from './src/utils/setWrite.ts';",
       "export * as LD from './src/utils/load.ts';",
       "export * as LB from './src/utils/loadable.ts';",
-      "export { boundDetent, heroFocus } from './src/utils/scrubFeel.ts';",
+      "export { boundDetent, heroFocus, scrubTier, ACCEL_VELOCITY, SCRUB_FEEL_PX } from './src/utils/scrubFeel.ts';",
+      "export * as TAP from './src/utils/tap.ts';",
       "export { cardToRevisit } from './src/utils/pickerRevisit.ts';",
       "export { FitLogDB } from './services/db.ts';",
       "export * as WP from './services/workbenchPersist.ts';",
@@ -1107,18 +1108,75 @@ t('换台：没动过的底稿从上一次的原值重取整，lb 台 ⇄ kg 台
   assert.equal(shifted[0].draftAuto, false);
   assert.equal(L.reRoundPending(shifted, loaded, L.makeRounder({ kind: 'loaded' }, 'kg', { ...ctx, tare: 15, oneSide: true }, false))[0].weight, 55);
 });
-t('台子列表：固定器械按动作分（馆|器材|动作），龙门架 / 哑铃照旧同馆共用；按动作的还没存过时只接过旧共用列表里这个动作选着的那一台', () => {
+t('配重片形式全馆一份（馆|~stack）：龙门架和固定器械看到同一份；旧键里的读的时候折进来；第一次存就整份落进新键、旧键清空', () => {
   const mach = { kind: 'pin', equipment: 'tagMachine', defId: 'leg_ext' };
-  assert.equal(L.LB.rigListKey('A', mach), 'A|tagMachine|leg_ext');
-  assert.equal(L.LB.rigListKey('A', { kind: 'pin', equipment: 'tagCable', defId: 'pulldown' }), 'A|tagCable');
+  const cable = { kind: 'pin', equipment: 'tagCable', defId: 'pulldown' };
+  assert.equal(L.LB.rigListKey('A', mach), 'A|~stack');
+  assert.equal(L.LB.rigListKey('A', cable), 'A|~stack');
   assert.equal(L.LB.rigListKey('A', { kind: 'pair', equipment: 'tagDumbbell', defId: 'db_press' }), 'A|tagDumbbell');
   const r1 = { id: 'r1', v: 5, u: 'lbs', s: 12.5 };
   const r2 = { id: 'r2', v: 10, u: 'kg' };
-  const old = { 'A|tagMachine': [r1, r2] };
-  assert.deepEqual(L.LB.rigsOf(old, 'A', mach, 'r2'), [r2]);
-  assert.deepEqual(L.LB.rigsOf(old, 'A', mach, undefined), []);
-  assert.deepEqual(L.LB.rigsOf({ ...old, 'A|tagMachine|leg_ext': [] }, 'A', mach, 'r2'), [], '自己的列表存过（哪怕删空了）就不再看旧的');
-  assert.deepEqual(L.LB.rigsOf({ 'A|tagCable': [r1] }, 'A', { kind: 'pin', equipment: 'tagCable', defId: 'x' }, undefined), [r1]);
+  const r3 = { id: 'r3', v: 5, u: 'lbs', s: 2.5 };
+  const db = { id: 'd1', v: 2.5, u: 'kg' };
+  // 升级前的样子：龙门架共用一份、腿屈伸自己一份、11-13 前固定器械共用的一份；哑铃、别的馆不相干
+  const old = { 'A|tagCable': [r1], 'A|tagMachine|leg_ext': [r3], 'A|tagMachine': [r2, r1], 'A|tagDumbbell': [db], 'B|tagCable': [{ id: 'x', v: 1, u: 'kg' }] };
+  const ids = list => list.map(r => r.id).sort();
+  // 新动作（没选过台）在哪种器材上都看到全馆的三种，同一个 id 只算一次
+  assert.deepEqual(ids(L.LB.rigsOf(old, 'A', mach, undefined)), ['r1', 'r2', 'r3']);
+  assert.deepEqual(ids(L.LB.rigsOf(old, 'A', cable, undefined)), ['r1', 'r2', 'r3']);
+  assert.deepEqual(L.LB.rigsOf(old, 'A', { kind: 'pair', equipment: 'tagDumbbell' }, undefined), [db]);
+  // 自定义器材的旧键认不出是不是配重片：只接这个动作选着的那一台
+  const custom = { kind: 'pin', equipment: 'tag_custom', defId: 'c' };
+  const withCustom = { ...old, 'A|tag_custom': [{ id: 'c1', v: 4, u: 'kg' }, { id: 'c2', v: 6, u: 'kg' }] };
+  assert.deepEqual(ids(L.LB.rigsOf(withCustom, 'A', custom, 'c2')), ['c2', 'r1', 'r2', 'r3']);
+  assert.deepEqual(ids(L.LB.rigsOf(withCustom, 'A', mach, undefined)), ['r1', 'r2', 'r3']);
+  // 删掉 r2 存一次：新键只有剩下的两种，旧的配重片键清空（不清的话 r2 下次读又从旧键折回来）；哑铃、别的馆不动
+  const saved = L.LB.rigsPatch(old, 'A', mach, [r1, r3]);
+  assert.deepEqual(saved['A|~stack'], [r1, r3]);
+  assert.deepEqual([saved['A|tagCable'], saved['A|tagMachine|leg_ext'], saved['A|tagMachine']], [[], [], []]);
+  assert.deepEqual(saved['A|tagDumbbell'], [db]);
+  assert.equal(saved['B|tagCable'].length, 1);
+  assert.deepEqual(ids(L.LB.rigsOf(saved, 'A', cable, undefined)), ['r1', 'r3']);
+  // 哑铃照旧只写自己的键
+  assert.deepEqual(L.LB.rigsPatch(old, 'A', { kind: 'pair', equipment: 'tagDumbbell' }, []), { ...old, 'A|tagDumbbell': [] });
+  // 各动作各建过一份同样刻度的：药丸排只出一枚，选着的那枚优先；起了名的各算各的
+  const twin = { id: 't', v: 5, u: 'lbs', s: 12.5 };
+  const named = { id: 'n', v: 5, u: 'lbs', s: 12.5, n: '高位下拉' };
+  assert.deepEqual(ids(L.LB.distinctRigs([r1, twin, named, r2], '')), ['n', 'r1', 'r2']);
+  assert.deepEqual(ids(L.LB.distinctRigs([r1, twin, named, r2], 't')), ['n', 'r2', 't']);
+});
+
+t('配重片加片：能到的重量＝插销格子 + 任选几块；± 一下走到紧挨着的下一个；到顶以后只能靠加片；大图拆成插销 + 加片', () => {
+  const base = { unit: 'lbs', plates: [], bar: 0, inc: 5, start: 5 };
+  const one = { ...base, addons: [2.5] };
+  // 一块 2.5：5、7.5、10、12.5…
+  assert.deepEqual(L.LB.bracket('pin', 11, one), { lo: 10, hi: 12.5 });
+  assert.deepEqual(L.LB.bracket('pin', 12.5, one), { lo: 12.5, hi: 12.5 });
+  assert.equal(L.LB.isLoadable('pin', 17.5, one), true);
+  assert.equal(L.LB.isLoadable('pin', 17.5, base), false, '没有加片时 17.5 挂不出来');
+  assert.equal(L.LB.stepTo('pin', 15, 1, 1, one), 17.5);
+  assert.equal(L.LB.stepTo('pin', 15, -1, 1, one), 12.5);
+  assert.equal(L.LB.nearest('pin', 16, one), 15);
+  // 插销至少插在最轻一格：只挂加片（2.5）不算一个重量
+  assert.deepEqual(L.LB.bracket('pin', 3, one), { lo: 5, hi: 5 });
+  assert.equal(L.LB.stepTo('pin', 5, -1, 1, one), 5);
+  // 一档 10、两块 2.5：10、12.5、15、20…（17.5 到不了）
+  const two = { unit: 'lbs', plates: [], bar: 0, inc: 10, start: 10, addons: [2.5, 2.5] };
+  assert.deepEqual(L.LB.addonSums(two.addons), [0, 2.5, 5]);
+  assert.deepEqual(L.LB.bracket('pin', 17, two), { lo: 15, hi: 20 });
+  // 最重一格 50：往上还有 52.5、55，再往上没有了
+  const capped = { ...two, end: 50 };
+  assert.deepEqual(L.LB.bracket('pin', 51, capped), { lo: 50, hi: 52.5 });
+  assert.deepEqual(L.LB.bracket('pin', 80, capped), { lo: 55, hi: 55 });
+  assert.equal(L.LB.stepTo('pin', 55, 1, 1, capped), 55);
+  assert.deepEqual(L.LB.splitStack(15, two), { pin: 10, add: [2.5, 2.5] });
+  assert.deepEqual(L.LB.splitStack(12.5, two), { pin: 10, add: [2.5] });
+  assert.deepEqual(L.LB.splitStack(20, two), { pin: 20, add: [] }, '格子上的重量不挂加片');
+  assert.deepEqual(L.LB.splitStack(17, two), { pin: 17, add: [] }, '拆不出来就全算插销');
+  // 加片不一样就不是同一种形式；换单位按实重换算
+  assert.ok(!L.LB.sameSpec({ v: 5, u: 'lbs' }, { v: 5, u: 'lbs', a: [2.5] }));
+  assert.ok(L.LB.sameSpec({ v: 5, u: 'lbs', a: [2.5, 1] }, { v: 5, u: 'lbs', a: [1, 2.5] }));
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg', a: [1.25] }, 'lbs').a, [2.75]);
 });
 
 const ta = async (name, fn) => {
@@ -1191,10 +1249,10 @@ await ta('工作台落盘：接回来的那场只切后台 / 列表刷新不重�
 
 // ── 一台器械换单位 / 关设置时收掉白加的台（审查 B4、B5）──────────────────
 t('换这一台的单位：最轻一格没单独设过（＝一档）跟新的一档走，不出现「11 + 10 lb」；设过的按实重换算；最重一格照换', () => {
-  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg', s: 5 }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined });
-  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg' }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined });
-  assert.deepEqual(L.LB.rigInUnit({ v: 2.5, u: 'kg', s: 5, e: 50 }, 'lbs'), { v: 5, u: 'lbs', s: 11, e: 110.25 });
-  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'lbs', s: 12.5 }, 'kg'), { v: 2.5, u: 'kg', s: 5.65, e: undefined });
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg', s: 5 }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined, a: undefined });
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg' }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined, a: undefined });
+  assert.deepEqual(L.LB.rigInUnit({ v: 2.5, u: 'kg', s: 5, e: 50 }, 'lbs'), { v: 5, u: 'lbs', s: 11, e: 110.25, a: undefined });
+  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'lbs', s: 12.5 }, 'kg'), { v: 2.5, u: 'kg', s: 5.65, e: undefined, a: undefined });
 });
 
 t('关设置时收台：只收「＋」出来、没起名、和默认或前面某台一模一样的；选着它的改指那一台；配重片没设最轻一格按一档比', () => {
@@ -1313,6 +1371,36 @@ t('身体指标卡面：按记录日期取最新，后补记的旧日期不顶�
     ['腰围', 80.3, null],
     ['体脂', 14.9, -0.3],
   ]);
+});
+
+t('自判点击：随手点带出的几像素滑动仍算点击；滑远了、按到长按那么久不算', () => {
+  const { judgeTap, TAP_SLOP_PX, isLostTap } = L.TAP;
+  assert.equal(judgeTap(0, 0, 80, 500), 'tap');
+  // 浏览器的触摸容差约 8dp：滑了 10px 它不发 click，这里要接住
+  assert.equal(judgeTap(6, 8, 120, 500), 'tap');
+  assert.equal(judgeTap(TAP_SLOP_PX + 1, 0, 120, 500), 'moved');
+  assert.equal(judgeTap(0, 40, 120, 500), 'moved');
+  // 按满长按的时长归长按，哪怕没动
+  assert.equal(judgeTap(0, 0, 500, 500), 'held');
+  const rec = (o) => ({ at: 0, label: '1', kind: 'touch', move: 3, ms: 90, click: false, saved: false, ...o });
+  assert.equal(isLostTap(rec({}), 500), true);
+  assert.equal(isLostTap(rec({ click: true }), 500), false);
+  assert.equal(isLostTap(rec({ saved: true }), 500), false);
+  // 一划翻页 / 长按没发 click 是正常的，不算丢
+  assert.equal(isLostTap(rec({ move: 60 }), 500), false);
+  assert.equal(isLostTap(rec({ ms: 800 }), 500), false);
+});
+
+t('横拖加速：正常手速永远一格；甩过门槛才两格；关掉后多快都一格；门槛跟每格宽度同比例', () => {
+  const px = L.SCRUB_FEEL_PX.mid;
+  // 0.55 px/ms 是改之前的第二档门槛：正常手速就会跳，现在必须还是一格
+  assert.equal(L.scrubTier(0.55, [1, 2], px, true), 1);
+  assert.equal(L.scrubTier(L.ACCEL_VELOCITY - 0.01, [1, 2], px, true), 1);
+  assert.equal(L.scrubTier(L.ACCEL_VELOCITY, [1, 2], px, true), 2);
+  assert.equal(L.scrubTier(9, [1, 2], px, false), 1);
+  // 配重片刻度轨只给一档：不跳
+  assert.equal(L.scrubTier(9, [1], px, true), 1);
+  assert.equal(L.scrubTier(L.ACCEL_VELOCITY, [1, 2], L.SCRUB_FEEL_PX.fine, true), 1);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

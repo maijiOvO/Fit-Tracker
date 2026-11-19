@@ -27,13 +27,15 @@ import {
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { RIG_STEPS, baseOf, sidePlates, type Rig } from '../utils/loadable';
+import { ADDON_MAX, RIG_STEPS, baseOf, sidePlates, splitStack, type Rig } from '../utils/loadable';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
 import { STACK_PITCH } from '../utils/scrubFeel';
 import { RIG_NUM_MAX, SHORT_BAR_MAX, loadCapD } from '../utils/load';
 
 
 const fmt1 = (n: number) => (Math.round(n * 10) / 10).toString();
+/** 加片常见 1.25：保留两位 */
+const fmt2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
 /* ── 一摞片：按前缀比对做进出动画 ───────────────────────────────── */
 
@@ -166,6 +168,8 @@ export interface MachineCtl {
   onStack?: (step: number, start: number) => void;
   /** 配重片的最重一格（null＝不设限） */
   onStackEnd?: (end: number | null) => void;
+  /** 配重片的加片：每块多重、几块（0 块＝没有） */
+  onAddons?: (each: number, count: number) => void;
   /** 一档（哑铃 / 壶铃 / 固定杠铃 / 辅助）。onReset：按动作单独设过（辅助）才有，恢复馆默认 */
   inc?: { onSet: (n: number) => void; onReset?: () => void };
   /**
@@ -175,6 +179,8 @@ export interface MachineCtl {
   rigs?: {
     list: Rig[];
     sel: string;
+    /** 选中的这种别的动作也在用（配重片形式）：改刻度会另存一种，删除只是这个动作不用了 */
+    shared?: boolean;
     onPick: (id: string) => void;
     onAdd: () => void;
     onName?: (n: string) => void;
@@ -215,6 +221,7 @@ export function PinStackGlyph({
   unit,
   label,
   rail,
+  addons = [],
 }: {
   value: number;
   step: number;
@@ -227,6 +234,8 @@ export function PinStackGlyph({
   label?: number;
   /** 刻度轨的拖动手势（useValueScrub）；不传＝没有轨。idle：轨照画但不接手势（这张卡上没有能改的组） */
   rail?: { handlers: Record<string, unknown>; idle: boolean };
+  /** 这一下挂着的加片（每块的重量）：画成顶板上的小片。value 只是插销那一格，不含它们 */
+  addons?: number[];
 }) {
   // 带起始的配重片（12.5 起、每格 5）：第 1 片就是最轻一格，往下每片 +一档
   const s0 = start > 0 ? start : 0;
@@ -250,6 +259,11 @@ export function PinStackGlyph({
   return (
     <div className="pin-stack" aria-hidden style={{ ['--pin-y' as string]: `${pinY}px` }}>
       <span className="pin-head" />
+      {addons.map((w, i) => (
+        <span key={i} className="pin-addon" style={{ ['--i' as string]: i }} data-testid="pin-addon">
+          {fmt2(w)}
+        </span>
+      ))}
       <span className="pin-rod is-l" />
       <span className="pin-rod is-r" />
       <span className={`pin-win${top > 1 ? ' is-more-up' : ''}`}>
@@ -419,7 +433,9 @@ export function rigLabel(r: Rig, kind: LoadKind, isCn: boolean): string {
   if (r.n) return r.n;
   const f = (n: number) => String(Math.round(n * 100) / 100);
   const u = r.u === 'lbs' ? 'lb' : 'kg';
-  const spec = kind === 'pin' ? `${f(r.s && r.s > 0 ? r.s : r.v)} + ${f(r.v)} ${u}` : `+${f(r.v)} ${u}`;
+  // 加片写在后面：「5 + 5 lb · 加 2.5×2」
+  const add = r.a?.length ? ` · ${isCn ? '加' : 'add'} ${f(r.a[0])}${r.a.length > 1 ? `×${r.a.length}` : ''}` : '';
+  const spec = kind === 'pin' ? `${f(r.s && r.s > 0 ? r.s : r.v)} + ${f(r.v)} ${u}${add}` : `+${f(r.v)} ${u}`;
   return r.id === '' ? `${isCn ? '默认' : 'Default'} · ${spec}` : spec;
 }
 
@@ -449,7 +465,7 @@ export function RigChips({ kind, isCn, list, sel, onPick, onAdd, onEdit }: {
     if (a.left < b.left || a.right > b.right) strip.scrollLeft += a.left - b.left - (b.width - a.width) / 2;
   }, [sel, list.length]);
   return (
-    <div ref={stripRef} className="stack-rigs" role="group" aria-label={isCn ? '用哪一台' : 'Which machine'} data-testid="rig-chips">
+    <div ref={stripRef} className="stack-rigs" role="group" aria-label={kind === 'pin' ? (isCn ? '用哪种配重片' : 'Which stack') : isCn ? '用哪一台' : 'Which machine'} data-testid="rig-chips">
       {list.map(r => {
         const on = r.id === sel;
         return (
@@ -467,7 +483,7 @@ export function RigChips({ kind, isCn, list, sel, onPick, onAdd, onEdit }: {
         );
       })}
       {onAdd && (
-        <button type="button" className="stack-tag is-add" aria-label={isCn ? '加一台' : 'Add a machine'} onClick={onAdd} data-testid="rig-add">
+        <button type="button" className="stack-tag is-add" aria-label={kind === 'pin' ? (isCn ? '加一种配重片' : 'Add a stack') : isCn ? '加一台' : 'Add a machine'} onClick={onAdd} data-testid="rig-add">
           ＋
         </button>
       )}
@@ -556,15 +572,24 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
   const startLabel = isCn ? '最轻一格' : 'Lightest';
   const stepLabel = isCn ? '每格' : 'Step';
   const rigs = machine.rigs;
+  // 加片在界面上按「每块一样重 × 几块」设（存的是一块一项，见 IncSpec.a）
+  const addEach = ctx.addons?.[0] ?? 0;
+  const addCount = ctx.addons?.length ?? 0;
   return (
     <>
       {rigs && (
         <>
           <RigChips kind={kind} isCn={isCn} list={rigs.list} sel={rigs.sel} onPick={rigs.onPick} onAdd={rigs.onAdd} />
           <p className="stack-note" data-testid="rig-note">
-            {rigs.onName
-              ? isCn ? '改的是这一台：选了它的动作一起变。' : 'Edits apply to this machine, for every exercise that uses it.'
-              : isCn ? '在这上面改刻度会另存成一台，默认还留着。' : 'Editing saves a new machine; the default stays.'}
+            {kind === 'pin'
+              ? rigs.shared
+                ? isCn ? '这个馆的配重片形式，别的动作也在用：在这上面改刻度会另存一种，别的动作不跟着变。' : 'Shared with other exercises here: editing saves a copy, the others stay as they are.'
+                : rigs.onName
+                  ? isCn ? '这个馆的配重片形式：别的插销器械也能直接选它。' : 'A stack format for this gym: any pin-loaded exercise can pick it.'
+                  : isCn ? '在这上面改刻度会另存一种，默认还留着。' : 'Editing saves a new format; the default stays.'
+              : rigs.onName
+                ? isCn ? '改的是这一台：选了它的动作一起变。' : 'Edits apply to this machine, for every exercise that uses it.'
+                : isCn ? '在这上面改刻度会另存成一台，默认还留着。' : 'Editing saves a new machine; the default stays.'}
           </p>
           {rigs.onName && (
             <div className="stack-stp">
@@ -654,6 +679,50 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           </span>
         </div>
       )}
+      {kind === 'pin' && machine.onAddons && (
+        <>
+          <div className="stack-stp" data-testid="stack-addon-row">
+            <span>
+              {isCn ? '加片' : 'Add-on plates'}
+              <small className="block text-label text-tertiary">{isCn ? '另挂在摞子上的小片，每块多重' : 'Small plates added on top: weight each'}</small>
+            </span>
+            <span className="stack-seg">
+              <ScrubNumber
+                value={addEach || null}
+                onCommit={n => (n === null ? addEach && machine.onAddons!(0, 0) : Math.abs(n - addEach) > 1e-9 && machine.onAddons!(n, Math.max(1, addCount)))}
+                allowEmpty
+                min={0.25}
+                max={ctx.inc}
+                stepFn={(v, d) => Math.max(0.25, Math.round((v + d * (gu === 'kg' ? 0.25 : 0.5)) * 100) / 100)}
+                steps={[1]}
+                placeholder="—"
+                testId="stack-addon"
+                ariaLabel={isCn ? '每块加片多重' : 'Add-on plate weight'}
+              />
+              <small>{gl}</small>
+            </span>
+          </div>
+          {addEach > 0 && (
+            <div className="stack-stp">
+              <span>{isCn ? '有几块' : 'How many'}</span>
+              <span className="gym-seg" role="group" data-testid="stack-addon-count">
+                {Array.from({ length: ADDON_MAX }, (_, i) => i + 1).map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`min-h-[36px] px-3 text-small font-semibold ${addCount === n ? 'seg-on' : 'text-secondary'}`}
+                    aria-pressed={addCount === n}
+                    aria-label={isCn ? `${n} 块` : `${n} plates`}
+                    onClick={() => addCount !== n && machine.onAddons!(addEach, n)}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </span>
+            </div>
+          )}
+        </>
+      )}
       {kind === 'loaded' && machine.oneSide && (
         <div className="stack-stp">
           <span>{isCn ? '挂片' : 'Sides'}</span>
@@ -732,7 +801,11 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           )}
           {rigs?.onRemove && (
             <button type="button" onClick={rigs.onRemove} data-testid="rig-remove">
-              {isCn ? '删掉这一台' : 'Delete this machine'}
+              {kind === 'pin'
+                ? rigs.shared
+                  ? isCn ? '这个动作不用这种了' : 'Stop using this format'
+                  : isCn ? '删掉这种形式' : 'Delete this format'
+                : isCn ? '删掉这一台' : 'Delete this machine'}
             </button>
           )}
         </div>
@@ -797,6 +870,8 @@ export function LoadHero({
   const perSide = isBar && vG > base + 1e-9 ? sidePlates((vG - base) / (oneSide ? 1 : 2), ctx.plates, gu) : [];
   const belt = kind === 'signed' && vG > 0 ? sidePlates(vG, ctx.plates, gu) : [];
   const near = onGrid ? null : rounder.bracketD(value);
+  // 配重片：这个重量是「插销哪一格 + 哪几块加片」
+  const stack = kind === 'pin' ? splitStack(vG, ctx) : { pin: vG, add: [] };
   const plateTxt = (ps: number[]) => ps.map(w => plateLabel(w, gu, unit)).join(' + ');
   const mixed = gu !== unit ? (isCn ? (gu === 'lbs' ? '（磅片）' : '（公斤片）') : gu === 'lbs' ? ' (lb plates)' : ' (kg plates)') : '';
 
@@ -819,7 +894,12 @@ export function LoadHero({
             ? isCn ? ` · 连器械共 ${fmtD(vG + ref)} ${u}` : ` · ${fmtD(vG + ref)} ${u} with the machine`
             : isCn ? ' · 只算片子' : ' · plates only';
     }
-  } else if (kind === 'pin') caption = ''; // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）
+  } else if (kind === 'pin') {
+    // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）；挂了加片才写怎么凑的
+    caption = stack.add.length
+      ? isCn ? `插销 ${fmt2(stack.pin)} + 加片 ${stack.add.map(fmt2).join(' + ')} ${gu === 'lbs' ? 'lb' : 'kg'}` : `Pin ${fmt2(stack.pin)} + add-on ${stack.add.map(fmt2).join(' + ')} ${gu === 'lbs' ? 'lb' : 'kg'}`
+      : '';
+  }
   else if (kind === 'pair') caption = isCn ? `每只 ${fmt(v)} ${u}` : `${fmt(v)} ${u} each`;
   else if (kind === 'bell') caption = isCn ? `壶铃 ${fmt(v)} ${u}` : `Kettlebell ${fmt(v)} ${u}`;
   // 固定杠铃是一根的总重，不写「每只」
@@ -894,7 +974,7 @@ export function LoadHero({
         )}
         {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
         {kind === 'pin' && (
-          <PinStackGlyph value={vG} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} end={ctx.end ?? 0} unit={unit} label={Math.round(v * 10) / 10} rail={railOf(scrub)} />
+          <PinStackGlyph value={stack.pin} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} end={ctx.end ?? 0} unit={unit} label={Math.round(v * 10) / 10} rail={railOf(scrub)} addons={stack.add} />
         )}
         {kind === 'pair' && <DumbbellGlyph value={v} unit={unit} />}
         {kind === 'bell' && <KettlebellGlyph value={v} unit={unit} />}

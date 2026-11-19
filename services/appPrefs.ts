@@ -9,7 +9,7 @@
  * 没升级的设备也只认它们），但胜负按这里的时间戳定。
  */
 import { storage } from './appStorage';
-import type { GymProfile, IncSpec, Rig } from '../src/utils/loadable';
+import { ADDON_MAX, type GymProfile, type IncSpec, type Rig } from '../src/utils/loadable';
 
 export interface AppPrefs {
   unit?: 'kg' | 'lbs';
@@ -46,8 +46,8 @@ export interface AppPrefs {
    */
   gymTares?: Record<string, TareSpec | ''>;
   /**
-   * 这个馆、这件器材存的几台（2026-11-10）：键见 loadable.rigListKey —— 龙门架等「馆名|器材 id」，这件器材的所有动作共用；
-   * 配重片固定器械「馆名|器材 id|动作 id」，一个动作一份（2026-11-13）。
+   * 这个馆存的几种刻度（2026-11-10）：键见 loadable.rigListKey —— 配重片的形式「馆名|~stack」全馆共用，哑铃等「馆名|器材 id」；
+   * 2026-11-18 前配重片存在「馆名|器材 id」「馆名|器材 id|动作 id」，读的时候折进来（loadable.rigsOf）。
    * 按键合并（新的一边整张列表赢）；删光＝空数组，照样压住另一边的旧列表。
    */
   gymRigs?: Record<string, Rig[]>;
@@ -142,12 +142,20 @@ function cleanOverrides(raw: unknown): Record<string, IncSpec> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   return Object.fromEntries(Object.entries(raw as Record<string, unknown>).filter(([, c]) => isInc(c))) as Record<string, IncSpec>;
 }
-/** 台子列表：坏的那一台丢掉，别的照留 */
+/** 台子列表：坏的那一台丢掉，别的照留；加片（a）只留正数、最多 ADDON_MAX 块，坏了就当没有 */
 function cleanRigs(raw: unknown): Record<string, Rig[]> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const out: Record<string, Rig[]> = {};
   for (const [k, list] of Object.entries(raw as Record<string, unknown>))
-    if (Array.isArray(list)) out[k] = list.filter((r): r is Rig => isInc(r) && isText((r as Rig).id));
+    if (Array.isArray(list))
+      out[k] = list
+        .filter((r): r is Rig => isInc(r) && isText((r as Rig).id))
+        .map(r => {
+          if (r.a === undefined) return r;
+          const { a, ...rest } = r;
+          const ok = Array.isArray(a) ? a.filter(x => typeof x === 'number' && x > 0 && x <= 50).slice(0, ADDON_MAX) : [];
+          return ok.length ? { ...rest, a: ok } : rest;
+        });
   return out;
 }
 
@@ -264,7 +272,7 @@ export function rigPickPatch(rigs: Record<string, Rig[]>, listKey: string, rig: 
  * 在**存储里的原表**上改：上下文里的馆表是洗过的、没有墓碑，拿它整张写回会把墓碑冲掉。
  * 改名时：档案挪到新名字、旧名字留墓碑 ''；这个馆每台器械的设置（键 `馆|动作|做法`）一起挪到新名字，
  * 一档多重整块取新的一边、直接改键；器械形式 / 本馆备注 / 空载 / 选的哪一台按键合并，旧键写墓碑压住另一台设备上的旧值；
- * 存的几台（键 `馆|器材` 或 `馆|器材|动作`）挪到新名字，旧键留空列表。
+ * 存的几台（键 `馆|~stack` / `馆|器材`，以及 2026-11-18 前的 `馆|器材|动作`）挪到新名字，旧键留空列表。
  * 纯函数（raw 由调用方给），prefs-check 直接测；历史训练上的馆名由调用方另改。
  */
 export function renameGymIn(

@@ -3,7 +3,7 @@
  *
  * 用在账本行的重量格与次数格上：整个格子就是 scrub 区，
  *   - 点一下 → 照旧聚焦输入框、弹键盘（键盘路径一点没变）
- *   - 横向拖 → 按速度分档改值，慢拖 ×1、甩起来最大 ×10
+ *   - 横向拖 → 一格一格改值，甩起来一下两格（首选项可关）
  *
  * 为什么不做一条独立轨道（原型里是那样）：账本行只有 52px 高、
  * 列宽在 375px 上已经吃紧（2 指标每列 100.5px），再切一条轨道要么
@@ -17,28 +17,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
-import { boundDetent, scrubFeel, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
+import { boundDetent, scrubAccel, scrubFeel, scrubTier, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
 
-/**
- * 每跨这么多像素落一档（首选项「滑动手感」：细 / 中 / 粗 ＝ 14 / 10 / 7，默认 10）。
- * 间距固定，加成全部来自档位本身（读的是模块缓存，每次移动取一下不费事）。
- */
+/** 每跨这么多像素落一档（首选项「滑动手感」，读的是模块缓存，每次移动取一下不费事） */
 const pxPerDetent = () => SCRUB_FEEL_PX[scrubFeel()];
 
-/**
- * 速度（px/ms）阈值梯。阈值是按台式机手感定的初值，
- * ⚠️ 真机手速与屏幕密度不同，值得在手机上再调一轮。
- *
- * 档位表可以按格子给（重量 1/2/5/10、次数 1/2/5），但阈值梯全站共用一条：
- * 「甩这么快＝跳第二档」这件事在哪一格都该是同一个手感，
- * 只是次数没有 ×10 这一档，早一档到顶而已。
- */
-const VELOCITY_LADDER = [0, 0.55, 1.3, 2.5];
-
-/** 重量格的档位表（§12.3） */
-export const SCRUB_STEPS_WEIGHT = [1, 2, 5, 10];
-/** 次数格的档位表：一次训练里 reps 的动态范围比重量小得多，×10 没有用武之地 */
-export const SCRUB_STEPS_REPS = [1, 2, 5];
+/** 档位表：慢拖一档、甩起来两档（门槛见 scrubFeel.scrubTier）。给了 stepFn 时是倍数，否则是加减的数 */
+export const SCRUB_TIERS = [1, 2];
 
 /** 速度平滑系数。不平滑的话档位会在阈值边界反复横跳。 */
 const EMA = 0.7;
@@ -49,14 +34,6 @@ const EMA = 0.7;
  */
 const isResidue = (v: number) => Math.abs(v * 2 - Math.round(v * 2)) > 1e-6;
 
-function tierFor(v: number, steps: number[], scale: number): number {
-  let step = steps[0] ?? 1;
-  for (let i = 0; i < steps.length && i < VELOCITY_LADDER.length; i++) {
-    if (v >= VELOCITY_LADDER[i] * scale) step = steps[i];
-  }
-  return step;
-}
-
 interface Options {
   /** 当前【显示值】（已按当前单位换算过） */
   value: number;
@@ -66,7 +43,7 @@ interface Options {
   min?: number;
   /** 上限（重量的全站上限，loadCapD）；到顶和到下限一样：不震、不回调 */
   max?: number;
-  /** 档位表，默认重量的 1/2/5/10。次数传 SCRUB_STEPS_REPS。 */
+  /** 档位表，默认 SCRUB_TIERS；配重片刻度轨传 [1]（不跳档） */
   steps?: number[];
   disabled?: boolean;
   /**
@@ -81,8 +58,8 @@ interface Options {
    */
   grid?: number;
   /**
-   * 「杠铃片」馆档案：按器材走一下（ExRounder.stepToD）。给了它，steps 就是「一下走几档」的倍数表
-   * （[1, 2, 4]），落点由它决定（第一下先吸到那个方向最近能挂的重量，片子不规则时按能挂的下一个走）；
+   * 「杠铃片」馆档案：按器材走一下（ExRounder.stepToD）。给了它，steps 就是「一下走几档」的倍数表，
+   * 落点由它决定（第一下先吸到那个方向最近能挂的重量，片子不规则时按能挂的下一个走）；
    * grid / 残留取整都不再用。不给＝原来的定步长（纯数字的动作）。
    */
   stepFn?: (v: number, dir: 1 | -1, mult: number) => number;
@@ -93,9 +70,6 @@ interface Options {
   /** 每走一档的反馈；不传＝一下点击感振动 */
   onDetent?: (dir: 1 | -1) => void;
 }
-
-/** 给了 stepFn 时的倍数档：慢拖一档、甩起来两档 / 四档 */
-export const SCRUB_MULTS = [1, 2, 4];
 
 interface Result {
   handlers: {
@@ -117,7 +91,7 @@ export function useValueScrub({
   onChange,
   min = 0,
   max = Infinity,
-  steps = SCRUB_STEPS_WEIGHT,
+  steps = SCRUB_TIERS,
   disabled = false,
   axis = 'x',
   grid,
@@ -156,6 +130,8 @@ export function useValueScrub({
     samples: [number, number][];
     /** 本次拖动已经落过第一档 —— 残留取整只在第一档做 */
     snapped: boolean;
+    /** 接管后记下这一格：量规的 CSS 变量写在它上面，松手时清掉 */
+    el?: HTMLElement;
   } | null>(null);
   /**
    * 拖过之后要吞掉紧跟着的那次 click，否则松手会顺手聚焦输入框、弹出键盘。
@@ -240,16 +216,21 @@ export function useValueScrub({
         // 已经聚焦时把键盘收掉：拖着改数值的同时键盘杵在下面，
         // 既挡视线又会因为 visualViewport 变化让行跳一下。
         (document.activeElement as HTMLElement | null)?.blur?.();
+        // 接管那一下单独震一次（比走格的重一点）：从这里开始算格（2026-11-18，起拖 20px 不算档，原来没有任何提示）
+        haptic(H.pick);
+        d.el = e.currentTarget as HTMLElement;
+        d.el.style.setProperty('--scrub-px', `${px}px`);
       }
       Object.assign(d, r.t);
+      // 量规上的游标跟手：离下一格还差多少（.scrub-gauge 读这个变量，不走 React 重渲染）
+      d.el?.style.setProperty('--scrub-acc', `${d.acc}px`);
 
       const p = pos(e);
       d.samples.push([performance.now(), p]);
       if (d.samples.length > 8) d.samples.shift();
 
       d.vs = d.vs * EMA + vel() * (1 - EMA);
-      // 速度阈值按每档宽度同比例缩放：每档越宽，跳档要甩得越快
-      const nextStep = tierFor(d.vs, stepsKey.split(',').map(Number), px / 10);
+      const nextStep = scrubTier(d.vs, stepsKey.split(',').map(Number), px, scrubAccel());
       if (nextStep !== step) {
         setStep(nextStep);
         haptic(H.longpress); // §5.7 两档：换档＝确认感
@@ -284,6 +265,7 @@ export function useValueScrub({
 
   const end = useCallback(() => {
     if (drag.current?.engaged) scrubEndedAt.current = performance.now();
+    drag.current?.el?.style.removeProperty('--scrub-acc');
     drag.current = null;
     setScrubbing(false);
     setStep(Number(stepsKey.split(',')[0]) || 1);

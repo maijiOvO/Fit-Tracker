@@ -12,8 +12,8 @@ import { undoJournal } from '../../services/undoJournal';
 
 const TARGETS = 'button,[role="button"],[role="menuitem"],[role="tab"],a,input,textarea,select,label,[data-undo-label]';
 
-/** 这一步叫什么：按下的那个控件的字（「添加组」「+5 kg」），输入框取它的 aria-label / placeholder */
-function undoLabelOf(el: Element | null): string {
+/** 这一步叫什么：按下的那个控件的字（「添加组」「+5 kg」），输入框取它的 aria-label / placeholder；点按记录（utils/tap）也用它认控件 */
+export function undoLabelOf(el: Element | null): string {
   const t = el?.closest(TARGETS) as HTMLElement | null;
   if (!t) return '';
   const raw =

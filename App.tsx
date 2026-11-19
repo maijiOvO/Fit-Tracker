@@ -58,7 +58,8 @@ import { DateTimePicker } from './src/components/DateTimePicker';
 import type { PlanPickerHost } from './src/components/ScheduleEditorModal';
 import { AppHeader } from './src/components/AppHeader';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
-import { useUndoGestures } from './src/hooks/useUndoGestures';
+import { undoLabelOf, useUndoGestures } from './src/hooks/useUndoGestures';
+import { installTapLog } from './src/utils/tap';
 import { useGlobalUndoHost } from './src/hooks/useGlobalUndo';
 import {
   AddCustomExerciseModal,
@@ -179,6 +180,8 @@ const AppWithAuthShell: React.FC = () => {
 
   // ============== 全局撤销 / 重做（services/undoJournal.ts） ==============
   useUndoGestures();
+  // 点按记录：按下了却没触发的那几下留个底（首选项「点按记录」）
+  useEffect(() => installTapLog(undoLabelOf), []);
   useGlobalUndoHost({
     activeTab,
     goTo: tab => setActiveTab(tab),

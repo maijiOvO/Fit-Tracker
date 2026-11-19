@@ -409,6 +409,12 @@
   position: absolute; top: 6px; left: calc(50% - 88px); width: 176px; height: 6px;
   border-radius: 3px; background: var(--rule-strong);
 }
+/* 加片（2026-11-18）：压在顶板上的小片，一块一枚，写着每块的重量；怎么凑的在图下说明里 */
+.pin-addon {
+  position: absolute; top: 0; left: calc(50% - 70px + var(--i) * 37px); width: 34px; height: 12px;
+  border-radius: 2px; background: var(--text-primary); color: var(--bg-base);
+  font: 700 9px/12px 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; text-align: center;
+}
 .pin-rod {
   position: absolute; top: 8px; height: 124px; width: 2px; border-radius: 1px; background: var(--rule-strong);
 }

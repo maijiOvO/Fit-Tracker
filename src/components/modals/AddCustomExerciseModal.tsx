@@ -9,7 +9,7 @@ import { RigChips } from '../PlateGlyph';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { loadKindOf } from '../../hooks/useLoadKind';
-import { defaultProfile, gymSpecOf, newRigId, rigKind, rigListKey, type Rig } from '../../utils/loadable';
+import { defaultProfile, distinctRigs, gymSpecOf, newRigId, rigKind, rigListKey, rigsOf, type Rig } from '../../utils/loadable';
 
 /** 新建时选的那一台：listKey＝馆|器材（换了器材弹窗会清掉） */
 export interface NewExerciseRig {
@@ -77,7 +77,7 @@ export const AddCustomExerciseModal: React.FC<AddCustomExerciseModalProps> = ({
   const gymSpec = rigKind(kind) ? gymSpecOf(profile, kind, stack) : null;
   // 这件器材在这个馆一台都没存过：现给一台另一种单位的（lb 馆里的 kg 龙门架），选了才存
   const otherId = useMemo(newRigId, [listKey]);
-  const saved = listKey ? appPrefs.gymRigs[listKey] ?? [] : [];
+  const saved = distinctRigs(rigsOf(appPrefs.gymRigs, gym, { kind, equipment }, undefined), newExerciseRig?.rig.id ?? '');
   const rigList: Rig[] =
     gymSpec && rigKind(kind)
       ? [

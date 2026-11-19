@@ -1377,10 +1377,10 @@ async function mainFlow(browser, escapedRemoteCalls) {
         await page.waitForTimeout(350);
         return Number(await wIn.inputValue());
       };
-      // 接管阈值 20px（scrubFeel.ENGAGE_PX），接管那一刻不算档，之后每 10px 一档
-      const right1 = await slow([22, 32]);
+      // 接管阈值 20px（scrubFeel.ENGAGE_PX），接管那一刻不算档，之后每 14px 一档（滑动手感「中」）
+      const right1 = await slow([22, 36]);
       if (right1 !== 65) throw new Error(`61.24 dragged right one detent should snap up to 65, got ${right1}`);
-      const left2 = await slow([-22, -32, -42]);
+      const left2 = await slow([-22, -36, -50]);
       if (left2 !== 55) throw new Error(`65 dragged left two detents should be 55, got ${left2}`);
       await wIn.fill('61.24');
       const nb = await page.locator('.ledger-row .set-num').first().boundingBox();

@@ -17,6 +17,7 @@ import { gymMachineKey, useLoadInfoOf, type LoadInfo } from './useLoadKind';
 import { barWeight, plateUnitOf, type PlateUnit } from '../utils/plates';
 import {
   bracket,
+  addonsIn,
   endIn,
   gymSpecOf,
   incIn,
@@ -124,6 +125,7 @@ export function useLoadRounder(): RounderFor {
         start: info.kind === 'pin' ? stackStart : 0,
         // 最重一格只在存下来的台上（馆默认没有）
         ...(info.kind === 'pin' && ov && endIn(ov, u) > 0 ? { end: endIn(ov, u) } : {}),
+        ...(info.kind === 'pin' && ov?.a?.length ? { addons: addonsIn(ov, u) } : {}),
         ...(info.kind === 'loaded' && okey && overrides[oneSideKey(okey)] ? { oneSide: true } : {}),
         ...(tare !== undefined ? { tare } : {}),
       };

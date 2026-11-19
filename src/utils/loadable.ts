@@ -12,7 +12,7 @@
  */
 import type { LoadKind } from '../hooks/useLoadKind';
 import { DEFAULT_PLATES, convert, type PlateUnit } from './plates';
-import { EQ_CABLE } from './exerciseAttrs';
+import { EQ_CABLE, EQ_MACHINE } from './exerciseAttrs';
 
 export interface IncSpec {
   v: number;
@@ -27,6 +27,11 @@ export interface IncSpec {
    * 只存在存下来的台（Rig）上：馆档案的默认那一格不带它，在默认上设＝另存一台。
    */
   e?: number;
+  /**
+   * 配重片的加片（和 v 同单位，2026-11-18 用户定）：插销之外另挂在摞子上的小片，一块写一项（两块 2.5 写 [2.5, 2.5]）。
+   * 能到的重量＝插销的格子 + 任选几块加片。只存在存下来的形式（Rig）上，同 e。
+   */
+  a?: number[];
 }
 
 /** 一个馆的器材档案（存 AppPrefs.gyms[馆名]） */
@@ -62,9 +67,10 @@ export const DEFAULT_FIXED_BAR_INC: Record<PlateUnit, IncSpec> = {
 };
 
 /**
- * 馆里的一台器械（2026-11-10 用户定：同一个馆可以存两种龙门架，练不同动作时直接切）：
- * 存 AppPrefs.gymRigs（键见 rigListKey）；每个动作记住上次用的哪一台（gymRigPick[馆|动作|做法]）。
- * 改一台的刻度，同一份列表里选了它的动作一起变。n：起的名字，不写就拿刻度当名字。
+ * 馆里存的一种刻度（存 AppPrefs.gymRigs，键见 rigListKey）；每个动作记住自己用的哪一种（gymRigPick[馆|动作|做法]）。
+ * 配重片的叫「形式」，全馆一份（2026-11-18 用户定）：最轻 5 每格 5、最轻 2.5 每格 5……凡是插销负载的动作，
+ * 不分龙门架还是固定器械，选一种就能用。哑铃 / 壶铃 / 固定杠铃是「一台」，按器材共用。
+ * n：起的名字，不写就拿刻度当名字。
  */
 export interface Rig extends IncSpec {
   id: string;
@@ -81,37 +87,80 @@ export function rigKind(kind: LoadKind): kind is 'pin' | 'pair' | 'bell' | 'fixe
   return kind === 'pin' || kind === 'pair' || kind === 'bell' || kind === 'fixed';
 }
 
+type RigInfo = { kind: LoadKind; equipment?: string };
+
 /** 这件器材在这个馆共用的那份列表：馆|器材（没填器材的按画法分） */
-function sharedRigKey(gym: string, info: { kind: LoadKind; equipment?: string }): string {
+function sharedRigKey(gym: string, info: RigInfo): string {
   return `${gym}|${info.equipment || `~${info.kind}`}`;
 }
 
 /**
- * 台子列表的键。龙门架、哑铃、壶铃、固定杠铃同馆共用（一台龙门架上做好多动作）：馆|器材。
- * 配重片的固定器械一个动作就是一台实体器械（2026-11-13 用户定，原来也共用：腿屈伸的台出现在推胸的药丸排里，
- * 改一台还会带动别的器械）：馆|器材|动作。还没登记进动作库的（新建动作弹窗里）没有动作 id，退回共用的键，
- * 选的那台由 rigsOf 接过去。
+ * 列表的键。配重片的形式全馆一份：馆|~stack（2026-11-18；原来龙门架按「馆|器材」共用、固定器械按「馆|器材|动作」各存各的，
+ * 新动作总要重新建，见 legacyStackKeys）。哑铃、壶铃、固定杠铃按器材共用：馆|器材。
  */
-export function rigListKey(gym: string | undefined, info: { kind: LoadKind; equipment?: string; defId?: string }): string | null {
+export function rigListKey(gym: string | undefined, info: RigInfo): string | null {
   if (!gym || !rigKind(info.kind)) return null;
-  return perExercise(info) ? `${sharedRigKey(gym, info)}|${info.defId}` : sharedRigKey(gym, info);
-}
-
-function perExercise(info: { kind: LoadKind; equipment?: string; defId?: string }): boolean {
-  return info.kind === 'pin' && info.equipment !== EQ_CABLE && !!info.defId;
+  return info.kind === 'pin' ? `${gym}|~stack` : sharedRigKey(gym, info);
 }
 
 /**
- * 这个动作在这个馆能选的几台。按动作分的列表还没存过（2026-11-13 之前都存在共用的键上）：
- * 只从旧的共用列表接过这个动作眼下选着的那一台，别的动作建的台不带过来；第一次改动就存成自己的列表。
+ * 2026-11-18 之前配重片存过的那些键：馆|龙门架、馆|器械（11-13 前固定器械也共用）、馆|~pin、馆|器材|动作。
+ * 自定义器材的「馆|器材」从键上认不出是不是配重片，不在这里（rigsOf 只接动作选着的那一台）。
  */
-export function rigsOf(all: Record<string, Rig[]>, gym: string | undefined, info: { kind: LoadKind; equipment?: string; defId?: string }, pick: string | undefined): Rig[] {
+function legacyStackKeys(all: Record<string, Rig[]>, gym: string): string[] {
+  const pre = `${gym}|`;
+  return Object.keys(all)
+    .filter(k => {
+      if (!k.startsWith(pre)) return false;
+      const rest = k.slice(pre.length);
+      return rest !== '~stack' && (rest === EQ_CABLE || rest === EQ_MACHINE || rest === '~pin' || rest.includes('|'));
+    })
+    .sort();
+}
+
+/**
+ * 这个动作在这个馆能选的几种。配重片：全馆那一份，再把旧键里的折进来（按 id 去重）——读的时候折，不另跑迁移：
+ * 两台设备各自升级、同步谁先谁后都得到同一份。第一次改动时整份写进新键、旧键清空（rigsPatch）。
+ */
+export function rigsOf(all: Record<string, Rig[]>, gym: string | undefined, info: RigInfo, pick: string | undefined): Rig[] {
   const key = rigListKey(gym, info);
-  if (!key) return [];
-  const own = all[key];
-  if (own || !gym || !perExercise(info)) return own ?? [];
-  const hit = pick ? all[sharedRigKey(gym, info)]?.find(r => r.id === pick) : undefined;
-  return hit ? [hit] : [];
+  if (!key || !gym) return [];
+  if (info.kind !== 'pin') return all[key] ?? [];
+  const out = [...(all[key] ?? [])];
+  const seen = new Set(out.map(r => r.id));
+  const take = (list: Rig[] | undefined) => {
+    for (const r of list ?? []) {
+      if (seen.has(r.id)) continue;
+      seen.add(r.id);
+      out.push(r);
+    }
+  };
+  for (const k of legacyStackKeys(all, gym)) take(all[k]);
+  if (pick && !seen.has(pick)) take(all[sharedRigKey(gym, info)]?.filter(r => r.id === pick));
+  return out;
+}
+
+/**
+ * 存这份列表的补丁（整张 gymRigs）。配重片：写进全馆那一份，旧键清成空数组 —— 不清的话删掉的形式下次读又从旧键折回来；
+ * 空数组也是同步用的墓碑（另一台设备上的旧列表按键合并时被它压住）。
+ */
+export function rigsPatch(all: Record<string, Rig[]>, gym: string, info: RigInfo, list: Rig[]): Record<string, Rig[]> {
+  const key = rigListKey(gym, info);
+  if (!key) return all;
+  const next = { ...all, [key]: list };
+  if (info.kind === 'pin') for (const k of legacyStackKeys(all, gym)) next[k] = [];
+  return next;
+}
+
+/** 药丸排上显示哪几枚：刻度一样又都没起名的只留一枚（旧键折进来时各动作各建过一份同样的），选中的那枚优先留 */
+export function distinctRigs(list: Rig[], sel: string): Rig[] {
+  const out: Rig[] = [];
+  for (const r of list) {
+    const at = r.n ? -1 : out.findIndex(k => !k.n && sameSpec(k, r));
+    if (at < 0) out.push(r);
+    else if (r.id === sel) out[at] = r;
+  }
+  return out;
 }
 
 /** 这个动作在这个馆实际用的刻度：选中的台 → 以前按动作单独设的（gymOverrides）→ undefined（馆默认）。选的台删了＝没选 */
@@ -120,7 +169,8 @@ export function machineSpecOf(rigs: Rig[] | undefined, pick: string | undefined,
 }
 
 export function sameSpec(a: IncSpec, b: IncSpec): boolean {
-  return a.u === b.u && Math.abs(a.v - b.v) < 1e-9 && Math.abs((a.s ?? 0) - (b.s ?? 0)) < 1e-9 && Math.abs((a.e ?? 0) - (b.e ?? 0)) < 1e-9;
+  const add = (x: IncSpec) => [...(x.a ?? [])].sort((p, q) => p - q).join(',');
+  return a.u === b.u && Math.abs(a.v - b.v) < 1e-9 && Math.abs((a.s ?? 0) - (b.s ?? 0)) < 1e-9 && Math.abs((a.e ?? 0) - (b.e ?? 0)) < 1e-9 && add(a) === add(b);
 }
 
 /**
@@ -175,15 +225,31 @@ export function endIn(c: IncSpec | undefined, unit: PlateUnit): number {
   return Math.round(convert(c.e, c.u, unit) * 20) / 20;
 }
 
+/** 加片换到当前单位，口径同 startIn */
+export function addonsIn(c: IncSpec | undefined, unit: PlateUnit): number[] {
+  return (c?.a ?? []).filter(x => x > 0).map(x => Math.round(convert(x, c!.u, unit) * 20) / 20);
+}
+
+/** 加片最多几块（能凑出的组合是 2 的块数次方，bracket 每次都要扫一遍） */
+export const ADDON_MAX = 4;
+
+/** 几块加片能凑出的各种合计（含 0），从小到大、去重 */
+export function addonSums(addons: readonly number[] | undefined): number[] {
+  let sums = [0];
+  for (const x of (addons ?? []).slice(0, ADDON_MAX)) sums = [...sums, ...sums.map(s => r2(s + x))];
+  return [...new Set(sums)].sort((p, q) => p - q);
+}
+
 /**
  * 换一台的片子单位（2026-10-25 用户定：一台器械只有一种片）：每格取新单位里最近的档位；最轻一格单独设过的按实重换算，
  * 没设过（或等于一档）的跟新的一档走——5 kg 一档换成 lb 是 10 + 10，不是按实重换出来的 11 + 10（审查 B4）。
- * s / e 显式给 undefined：调用方拿它覆盖旧的那台。
+ * s / e / a 显式给 undefined：调用方拿它覆盖旧的那台。加片按实重换算。
  */
 export function rigInUnit(c: IncSpec, u: PlateUnit): IncSpec {
   const s = c.s && Math.abs(c.s - c.v) > 1e-9 ? startIn(c, u) : 0;
   const e = endIn(c, u);
-  return { v: incIn(c, u), u, s: s > 0 ? s : undefined, e: e > 0 ? e : undefined };
+  const a = addonsIn(c, u);
+  return { v: incIn(c, u), u, s: s > 0 ? s : undefined, e: e > 0 ? e : undefined, a: a.length ? a : undefined };
 }
 
 const INC_KEYS = ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar'] as const;
@@ -231,6 +297,8 @@ export interface LoadCtx {
   start?: number;
   /** 配重片的最重一格（当前单位）；0 / 没有＝不设限 */
   end?: number;
+  /** 配重片的加片（当前单位，一块一项）：能到的重量＝格子 + 任选几块 */
+  addons?: number[];
   /**
    * 单边挂片（T 杠划船、地雷架、单边的挂片器械，2026-10-22 用户定）：只有一边能挂，总重＝底座 + 一边，
    * 一档＝最小的一片（不 ×2）。只对挂片式器械（loaded）生效，存这一台的 gymOverrides（键 + '|one'）。
@@ -349,10 +417,22 @@ export function bracket(kind: LoadKind, v: number, ctx: LoadCtx): { lo: number; 
     if (v < s0 - 1e-9) return { lo: r2(s0), hi: r2(s0) };
     // 最重一格：比它重的格子不存在，上下两档都落在它（不在格子上的最重一格按它以下最近的一格）
     const top = kind === 'pin' && ctx.end && ctx.end >= s0 ? s0 + Math.floor((ctx.end - s0) / st + 1e-9) * st : Infinity;
-    return {
-      lo: r2(Math.min(top, s0 + Math.floor((v - s0) / st + 1e-9) * st)),
-      hi: r2(Math.min(top, s0 + Math.ceil((v - s0) / st - 1e-9) * st)),
-    };
+    // 加片：每种合计 a 各看一遍「插销格子 + a」，下面取最重的、上面取最轻的。没有加片时只有 a = 0 这一遍。
+    // 插销至少插在最轻一格上（只挂加片不算一个重量）；格子到顶以后再往上只能靠加片
+    let lo = -Infinity;
+    let hi = Infinity;
+    for (const a of addonSums(kind === 'pin' ? ctx.addons : undefined)) {
+      const x = v - a;
+      if (x < s0 - 1e-9) {
+        hi = Math.min(hi, s0 + a);
+        continue;
+      }
+      lo = Math.max(lo, Math.min(top, s0 + Math.floor((x - s0) / st + 1e-9) * st) + a);
+      const up = s0 + Math.ceil((x - s0) / st - 1e-9) * st;
+      if (up <= top + 1e-9) hi = Math.min(hi, up + a);
+    }
+    if (hi === Infinity) hi = lo;
+    return { lo: r2(lo), hi: r2(hi) };
   }
   let lo = Math.floor(v / st + 1e-9) * st;
   let hi = Math.ceil(v / st - 1e-9) * st;
@@ -421,4 +501,21 @@ export function stepTo(kind: LoadKind, cur: number, dir: 1 | -1, mult: number, c
   if (dir > 0 && next < cur) next = cur;
   // + 0：把 -0 收成 0（−5 往上走一档落在 -0）
   return Math.max(min, r2(next)) + 0;
+}
+
+/**
+ * 配重片上的一个重量拆成「插销插在哪一格 + 挂了哪几块加片」（大图和说明用）：加片用得越少越好。
+ * 拆不出来（不在格子上）＝全算在插销上、不挂加片。
+ */
+export function splitStack(v: number, ctx: LoadCtx): { pin: number; add: number[] } {
+  const none = { ...ctx, addons: undefined };
+  if (isLoadable('pin', v, none)) return { pin: v, add: [] };
+  const list = (ctx.addons ?? []).slice(0, ADDON_MAX);
+  let best: number[] | null = null;
+  for (let mask = 1; mask < 1 << list.length; mask++) {
+    const add = list.filter((_, i) => mask & (1 << i));
+    const pin = r2(v - add.reduce((p, q) => p + q, 0));
+    if (pin > 0 && isLoadable('pin', pin, none) && (!best || add.length < best.length)) best = add;
+  }
+  return best ? { pin: r2(v - best.reduce((p, q) => p + q, 0)), add: best } : { pin: v, add: [] };
 }

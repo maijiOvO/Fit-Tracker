@@ -19,7 +19,9 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useTheme, ThemePreference, AccentPreference } from '../hooks/useTheme';
 import { useMotionPreference, MotionPreference } from '../hooks/useMotionPreference';
 import { hapticsEnabled, setHapticsEnabled, haptic, H } from '../utils/haptics';
-import { scrubFeel, setScrubFeel, ScrubFeel } from '../utils/scrubFeel';
+import { scrubAccel, scrubFeel, setScrubAccel, setScrubFeel, ScrubFeel } from '../utils/scrubFeel';
+import { clearTapLog, isLostTap, readTapLog, type TapRec } from '../utils/tap';
+import { LONGPRESS_TOTAL_MS } from '../hooks/useLongPress';
 import { WEIGHT_STEP_OPTIONS, DROP_STEP_OPTIONS } from '../../services/appPrefs';
 import { useRollbackImport } from '../hooks/useImportData';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
@@ -53,7 +55,54 @@ interface PrefsSheetProps {
 }
 
 /** 弹层里的页：主页 + 三个二级页（标题栏左侧出返回） */
-type View = 'main' | 'backup' | 'export' | 'import';
+/**
+ * 点按记录（utils/tap）：这台设备最近几十次按在按钮上的那一下。「没触发」＝短按、几乎没动，浏览器却没发 click，
+ * 也没被自判点击接住 —— 用来查「随手点了没反应」到底出在哪些控件上。
+ */
+const TapLogPage: React.FC<{ isCn: boolean }> = ({ isCn }) => {
+  const [log, setLog] = useState<TapRec[]>(readTapLog);
+  const lost = log.filter(r => isLostTap(r, LONGPRESS_TOTAL_MS));
+  const hhmm = (at: number) => new Date(at).toLocaleTimeString(isCn ? 'zh-CN' : 'en-US', { hour12: false });
+  const how = (r: TapRec) =>
+    isLostTap(r, LONGPRESS_TOTAL_MS)
+      ? isCn ? '没触发' : 'lost'
+      : r.saved
+        ? r.click ? (isCn ? '触发' : 'ok') : isCn ? '触发（浏览器没发，自判接住）' : 'ok (rescued)'
+        : r.click ? (isCn ? '触发' : 'ok') : isCn ? '不算点击（滑动 / 长按）' : 'not a tap';
+  return (
+    <>
+      <Group>
+        <Line name={isCn ? `最近 ${log.length} 次，没触发 ${lost.length} 次` : `${log.length} recent, ${lost.length} lost`}>
+          <button
+            type="button"
+            className="text-label font-semibold text-accent px-2 min-h-[44px]"
+            onClick={() => {
+              clearTapLog();
+              setLog([]);
+            }}
+            data-testid="tap-log-clear"
+          >
+            {isCn ? '清空' : 'Clear'}
+          </button>
+        </Line>
+      </Group>
+      <Group>
+        {[...log].reverse().map((r, i) => (
+          <div key={i} className="py-2.5 flex flex-col gap-0.5" data-testid="tap-log-row">
+            <span className={`text-small font-medium ${isLostTap(r, LONGPRESS_TOTAL_MS) ? 'text-danger' : 'text-primary'}`}>
+              {r.label} · {how(r)}
+            </span>
+            <span className="text-label text-tertiary tabular-nums">
+              {hhmm(r.at)} · {r.kind} · {r.ms} ms · {r.move} px
+            </span>
+          </div>
+        ))}
+      </Group>
+    </>
+  );
+};
+
+type View = 'main' | 'backup' | 'export' | 'import' | 'taps';
 
 export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   open,
@@ -85,12 +134,14 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
     backup: t('自动备份', 'Auto backup'),
     export: t('导出', 'Export'),
     import: t('导入', 'Import'),
+    taps: t('点按记录', 'Tap log'),
   };
 
   const theme = useTheme();
   const motion = useMotionPreference();
   const [haptics, setHaptics] = useState(hapticsEnabled);
   const [feel, setFeel] = useState<ScrubFeel>(scrubFeel);
+  const [accel, setAccel] = useState(scrubAccel);
 
   // 撤销上次恢复、导入或重置：有副本才出这一行
   const rollbackImport = useRollbackImport();
@@ -326,6 +377,15 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                   />
                 </Line>
                 <Toggle
+                  name={t('快滑加速', 'Fast-swipe boost')}
+                  on={accel}
+                  onChange={next => {
+                    setScrubAccel(next);
+                    setAccel(next);
+                  }}
+                  testId="prefs-scrub-accel"
+                />
+                <Toggle
                   name={t('振动反馈', 'Haptics')}
                   on={haptics}
                   onChange={next => {
@@ -338,6 +398,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 <Line name={t('动效', 'Motion')}>
                   <Seg inline opts={motionOpts} value={motion.preference} onPick={motion.setPreference} />
                 </Line>
+                <Go name={t('点按记录', 'Tap log')} onClick={() => setView('taps')} testId="prefs-open-taps" />
               </Group>
 
               <Group title={t('外观与地区', 'Appearance & region')}>
@@ -435,6 +496,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
           {view === 'backup' && <BackupPage />}
           {view === 'export' && <ExportPage onExportJson={onExportData} busy={dataBusy} />}
           {view === 'import' && <ImportPage onImportJson={onImportData} busy={dataBusy} />}
+          {view === 'taps' && <TapLogPage isCn={lang === Language.CN} />}
         </div>
       </section>
     </div>,
