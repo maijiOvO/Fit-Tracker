@@ -1,5 +1,6 @@
 import { dbName } from './appEnv';
 import { undoJournal } from './undoJournal';
+import { noteFreshDb } from './localCensus';
 
 // 库名按数据环境派生：prod = FitLogDB，dev = FitLogDB-dev（见 services/appEnv.ts）。
 // 两个库物理独立，开发模式产生的记录不可能出现在真实库里。
@@ -35,7 +36,7 @@ function txDone(tx: IDBTransaction): Promise<void> {
 /**
  * 写失败要看得见（审查 E4 / F2）：自动落盘是 fire-and-forget，撤销日志的 track 又给 promise 挂了处理器，
  * 失败原本彻底无声 —— 存储写满时界面照常记组，App 被回收后那一段就没了。
- * 只在「好 → 坏」「坏 → 好」翻转时派发，App 据此提示一次、顶栏图标变红 / 复位。
+ * 只在「好 → 坏」「坏 → 好」翻转时派发，App 据此提示一次、常驻红签亮起 / 撤掉（LocalDataAlert）。
  */
 let writeFailing = false;
 function reportWrite(ok: boolean, err?: unknown): void {
@@ -44,6 +45,23 @@ function reportWrite(ok: boolean, err?: unknown): void {
   if (!ok) console.error('[db] 写入失败（已重试一次）:', err);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(ok ? 'fitlog:db-write-ok' : 'fitlog:db-write-failed'));
 }
+
+/**
+ * 读失败同理（上架审查 C14）：开库 / 读取报错时首页原来显示成全新用户的空状态，数据其实还在库里。
+ * 首页是懒加载的，会错过之前派发的事件，所以另给 getter 读当前状态。
+ */
+let readFailing = false;
+function reportRead(ok: boolean, err?: unknown): void {
+  if (ok !== readFailing) return;
+  readFailing = !ok;
+  if (!ok) console.error('[db] 读取失败:', err);
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(ok ? 'fitlog:db-read-ok' : 'fitlog:db-read-failed'));
+}
+export const dbReadFailing = () => readFailing;
+export const dbWriteFailing = () => writeFailing;
+
+/** 开库超过这么久不回话（异常关机后 LevelDB 恢复、库被别处占着）就当读不出，界面给「重试」，不一直停在空白 */
+const OPEN_TIMEOUT_MS = 10_000;
 
 export class FitLogDB {
   private db: IDBDatabase | null = null;
@@ -92,15 +110,33 @@ export class FitLogDB {
   private open(): Promise<void> {
     const name = dbName();
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        settled = true;
+        reject(new DOMException('IndexedDB open timed out', 'TimeoutError'));
+      }, OPEN_TIMEOUT_MS);
       const request = indexedDB.open(name, DB_VERSION);
       request.onupgradeneeded = (event) => {
         this.applySchema((event.target as IDBOpenDBRequest).result);
+        // 库是这次新建的：本机记着有训练的话，就是被系统清掉 / 损坏重建了（上架审查 C12，见 localCensus）
+        if ((event as IDBVersionChangeEvent).oldVersion === 0) noteFreshDb();
       };
       request.onsuccess = (event) => {
-        this.adopt((event.target as IDBOpenDBRequest).result, name);
+        const conn = (event.target as IDBOpenDBRequest).result;
+        clearTimeout(timer);
+        // 超时之后才开好的：调用方已经按失败处理了，这条连接不接管，免得和重试开的那条成了两条
+        if (settled) return conn.close();
+        settled = true;
+        this.adopt(conn, name);
         resolve();
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = () => {
+        clearTimeout(timer);
+        if (settled) return;
+        settled = true;
+        reject(request.error);
+      };
+      request.onblocked = () => console.warn('[db] 开库被别的连接挡住（等它关掉）');
     });
   }
 
@@ -172,22 +208,38 @@ export class FitLogDB {
     }
   }
 
-  async getAll<T>(storeName: string): Promise<T[]> {
-    const store = await this.getStore(storeName, 'readonly');
-    return new Promise((resolve, reject) => {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+  /** 读都走这里：成败翻转时报出去（reportRead），照样 resolve / reject */
+  private async readGuarded<T>(read: () => Promise<T>): Promise<T> {
+    try {
+      const v = await read();
+      reportRead(true);
+      return v;
+    } catch (err) {
+      reportRead(false, err);
+      throw err;
+    }
+  }
+
+  getAll<T>(storeName: string): Promise<T[]> {
+    return this.readGuarded(async () => {
+      const store = await this.getStore(storeName, 'readonly');
+      return new Promise<T[]>((resolve, reject) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 
   /** 读一条（撤销日志读「写之前的样子」用） */
-  async get<T>(storeName: string, id: string): Promise<T | undefined> {
-    const store = await this.getStore(storeName, 'readonly');
-    return new Promise((resolve, reject) => {
-      const request = store.get(id);
-      request.onsuccess = () => resolve(request.result as T | undefined);
-      request.onerror = () => reject(request.error);
+  get<T>(storeName: string, id: string): Promise<T | undefined> {
+    return this.readGuarded(async () => {
+      const store = await this.getStore(storeName, 'readonly');
+      return new Promise<T | undefined>((resolve, reject) => {
+        const request = store.get(id);
+        request.onsuccess = () => resolve(request.result as T | undefined);
+        request.onerror = () => reject(request.error);
+      });
     });
   }
 

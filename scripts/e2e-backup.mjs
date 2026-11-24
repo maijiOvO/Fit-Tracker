@@ -25,6 +25,8 @@ export const BACKUP_STEPS = [
   // 坏数据让整页崩了：兜底页直接给「撤销上次恢复」（上架审查 C08 / gap-r3-2#1：原来撤销挂在崩掉的「我的」页里）。
   // 组件测不了这层接线，只能在这里测
   ['crash-undo-restore', []],
+  // 开库失败：首页显示「读不出本机数据」和重试，顶栏有红签，不是新用户的空状态（上架审查 C14）；读失败回落成空状态这条接线只能在这里测
+  ['read-failure-not-empty', []],
 ];
 
 const iso = daysAgo => new Date(Date.now() - daysAgo * 86400000).toISOString();
@@ -105,6 +107,19 @@ export async function runBackup(browser, plan) {
     return u.startsWith(BASE) || u.startsWith('data:') || u.startsWith('blob:') ? route.continue() : route.abort();
   });
   await context.addInitScript(() => {
+    // 模拟本机库开不了（存储写满、后备存储出错）：read-failure-not-empty 那一步用
+    if (sessionStorage.getItem('__idb_fail') === '1') {
+      const realOpen = indexedDB.open.bind(indexedDB);
+      indexedDB.open = (name, ver) => {
+        if (!/^FitLogDB/.test(name)) return realOpen(name, ver);
+        const req = {};
+        setTimeout(() => {
+          Object.defineProperty(req, 'error', { value: new DOMException('simulated backing store error', 'UnknownError') });
+          req.onerror?.(new Event('error'));
+        });
+        return req;
+      };
+    }
     if (!sessionStorage.getItem('__e2e_init')) {
       sessionStorage.setItem('__e2e_init', '1');
       localStorage.clear();
@@ -137,7 +152,15 @@ export async function runBackup(browser, plan) {
     });
 
     await step(page, 'uninstall-then-restore', async () => {
-      // 卸载：App 自己的数据全没了，公共目录里的文件还在
+      // 先只删库、localStorage 留着 = 系统清掉了 WebView 的库：首页要报「N 场不见了」，不是新用户的空状态（上架审查 C12）
+      await page.evaluate(async () => {
+        const dbs = (await indexedDB.databases?.()) ?? [];
+        await Promise.all(dbs.map(d => new Promise(r => { const q = indexedDB.deleteDatabase(d.name); q.onsuccess = q.onerror = q.onblocked = r; })));
+      });
+      await reloadAndSettle(page);
+      await page.locator('[data-testid="local-loss"]').waitFor({ timeout: 10_000 });
+      if (await page.locator('[data-testid="empty-restore"]').count()) throw new Error('local loss should not fall back to the new-user empty state');
+      // 再照卸载来：App 自己的数据全没了（localStorage 也没了），公共目录里的文件还在；这时不该误报丢失
       await page.evaluate(async () => {
         const keep = {};
         for (const k of ['fitlog_mock_folder', 'fitlog_mock_folder_fs']) keep[k] = localStorage.getItem(k);
@@ -149,6 +172,7 @@ export async function runBackup(browser, plan) {
       await reloadAndSettle(page);
       const n0 = await page.evaluate(async () => (await window.__t.snap()).workouts.length);
       if (n0 !== 0) throw new Error(`after uninstall there are still ${n0} workouts`);
+      if (await page.locator('[data-testid="local-loss"]').count()) throw new Error('a real uninstall must not be reported as data loss');
       // 空库首页的「从备份恢复」→ 读到文件夹里那份 → 覆盖（整页重载）
       await page.locator('[data-testid="empty-restore"]').click({ timeout: 10_000 });
       await page.locator('[data-testid="restore-summary"]').waitFor({ timeout: 10_000 });
@@ -207,6 +231,30 @@ export async function runBackup(browser, plan) {
       const ids = await page.evaluate(async () => (await window.__t.snap()).workouts.map(w => w.id).sort());
       if (ids.join(',') !== good.map(w => w.id).sort().join(',')) throw new Error(`after undo: ${ids}`);
       return `undo from error page → ${ids.length} workouts`;
+    });
+  } catch {
+    // step 已经记过
+  }
+
+  try {
+    await step(page, 'read-failure-not-empty', async () => {
+      if (!page.url().startsWith(BASE)) await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('header', { timeout: 15_000 });
+      await installHelpers(page);
+      const seeded = await page.evaluate(async () => (await window.__t.snap()).workouts.length);
+      if (!seeded) throw new Error('need workouts in the db before this step');
+      await page.evaluate(() => sessionStorage.setItem('__idb_fail', '1'));
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('[data-testid="local-read-error"]').waitFor({ timeout: 15_000 });
+      await page.locator('[data-testid="local-read-failed"]').waitFor({ timeout: 5_000 });
+      if (await page.locator('[data-testid="empty-restore"]').count()) throw new Error('read failure fell back to the new-user empty state');
+      await page.evaluate(() => sessionStorage.removeItem('__idb_fail'));
+      await page.locator('[data-testid="local-read-retry"]').click();
+      await page.waitForEvent('load', { timeout: 15_000 });
+      await page.waitForSelector('header', { timeout: 15_000 });
+      await page.locator('[data-testid^="timeline-session-"]').first().waitFor({ timeout: 10_000 });
+      if (await page.locator('[data-testid="local-read-error"]').count()) throw new Error('still showing the read error after retry');
+      return `read error card + badge, retry → ${seeded} workouts back`;
     });
   } catch {
     // step 已经记过

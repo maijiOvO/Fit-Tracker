@@ -256,14 +256,15 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
     return { kind: 'failed', code, message };
   };
 
+  // 先查授权再读库比指纹：换机 / 系统还原后授权没跟过来，数据没变也得报出来（上架审查 C58），也省一次注定白读的整库读
+  if (!(await hasAccess(folder))) return fail('no-access', 'no persisted permission');
+
   const file = await buildBackupFile();
   const workouts = file.snapshot.workouts.length;
   const manual = reason === 'manual' || reason === 'first-setup' || reason === 'after-restore';
   if (!manual && workouts === 0) return { kind: 'skipped', why: 'empty' };
   const fp = snapshotFingerprint(file);
   if (!manual && fp === status.fingerprint && !status.lastError) return { kind: 'skipped', why: 'unchanged' };
-
-  if (!(await hasAccess(folder))) return fail('no-access', 'no persisted permission');
 
   const name = autoBackupName(new Date(file.exportedAt));
   let written: { uri: string; name: string | null };
@@ -360,10 +361,20 @@ const DAY_MS = 24 * 3600 * 1000;
  * （数据没变也不写，见 doBackup 的指纹）。练完的那份按 workout-finished 补：指纹没变就跳过，不像恢复后那样强制写。
  */
 export function maybeDailyBackup(): void {
-  if (!folderSupported() || !getBackupFolder()) return;
+  const folder = getBackupFolder();
+  if (!folderSupported() || !folder) return;
   if (storage.getItem(PENDING_KEY)) return runMarked(PENDING_KEY, 'after-restore');
   if (storage.getItem(DUE_KEY)) return runMarked(DUE_KEY, 'workout-finished');
   const last = getBackupStatus().lastOkAt;
-  if (last && Date.now() - new Date(last).getTime() < DAY_MS) return;
+  if (last && Date.now() - new Date(last).getTime() < DAY_MS) {
+    // 24 小时内不用写，但授权要查：换机 / 系统还原后授权没跟过来，原来要等下一次真写才发现（上架审查 C58）
+    void hasAccess(folder).then(ok => {
+      if (ok) return;
+      const o: BackupOutcome = { kind: 'failed', code: 'no-access', message: 'no persisted permission' };
+      setBackupStatus({ ...getBackupStatus(), lastError: { at: new Date().toISOString(), code: o.code, message: o.message } });
+      announceAutoFailure(o);
+    });
+    return;
+  }
   void backupNow('daily').then(announceAutoFailure);
 }

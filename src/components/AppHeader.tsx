@@ -16,6 +16,7 @@ import type { SyncStatus } from '../hooks/useFitlogSync';
 import type { SyncState } from '../../services/fitlogRemoteSync';
 import { isRemoteConfigured } from '../../services/fitlogRemote';
 import { UndoRedoButtons } from './UndoRedoButtons';
+import { LocalDataAlert } from './LocalDataAlert';
 
 interface AppHeaderProps {
   lang: Language;
@@ -46,6 +47,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
     <div className="flex items-center gap-2">
       {/* 全局撤销 / 重做：顶栏上方是状态栏留白、下方是分隔线，纵向没有别的按钮 */}
+      <LocalDataAlert isCn={lang === Language.CN} />
       <UndoRedoButtons isCn={lang === Language.CN} />
       {/* 没有服务器（单机版 / 演示版）就没有同步这回事：不出这颗按钮（同首选项「同步」一行） */}
       {isRemoteConfigured() && (

@@ -576,20 +576,12 @@ const AppWithAuthShell: React.FC = () => {
     return () => window.removeEventListener('fitlog:storage-write-failed', handler);
   }, [isCn, toast]);
 
-  // 本机库（IndexedDB）写不进去：db.ts 重试过一次仍失败才发，连败只发一次；之后任意一次写成功复位。失败期间顶栏同步图标变红
-  const [localWriteFailed, setLocalWriteFailed] = useState(false);
+  // 本机库（IndexedDB）写不进去：db.ts 重试过一次仍失败才发，连败只发一次。这里只弹一次提示；
+  // 失败期间常驻的是顶栏和训练页头部的红签（LocalDataAlert，上架审查 C13：原来是让同步图标变红，单机版没有那颗按钮）
   useEffect(() => {
-    const failed = () => {
-      setLocalWriteFailed(true);
-      toast(isCn ? '刚才的记录没存进本机' : "Your last change wasn't saved on this device", 'error');
-    };
-    const ok = () => setLocalWriteFailed(false);
+    const failed = () => toast(isCn ? '刚才的记录没存进本机' : "Your last change wasn't saved on this device", 'error');
     window.addEventListener('fitlog:db-write-failed', failed);
-    window.addEventListener('fitlog:db-write-ok', ok);
-    return () => {
-      window.removeEventListener('fitlog:db-write-failed', failed);
-      window.removeEventListener('fitlog:db-write-ok', ok);
-    };
+    return () => window.removeEventListener('fitlog:db-write-failed', failed);
   }, [isCn, toast]);
 
   /** 工作台里有一场进行中的训练（不是在编辑旧训练）：FAB 变「回到训练」，首页顶上一行「进行中」 */
@@ -1186,7 +1178,7 @@ const AppWithAuthShell: React.FC = () => {
         <AppHeader
           lang={lang}
           unit={unit}
-          syncStatus={localWriteFailed ? 'error' : syncStatus}
+          syncStatus={syncStatus}
           pushState={pushState}
           syncDisabled={syncStatus === 'syncing'}
           onSync={() => performFullSync()}

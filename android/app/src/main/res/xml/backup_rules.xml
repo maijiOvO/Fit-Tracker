@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 及以下的整机备份规则：同 data_extraction_rules.xml，不还原 WebView 里的旧数据（上架审查 C58） -->
+<full-backup-content>
+    <exclude domain="root" path="app_webview/" />
+</full-backup-content>

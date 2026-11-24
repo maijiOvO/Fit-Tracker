@@ -62,6 +62,7 @@ import { ReorderStrip } from './ReorderStrip';
 import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { UndoRedoButtons } from './UndoRedoButtons';
+import { LocalDataAlert } from './LocalDataAlert';
 import { SetActionStrip } from './SetActionStrip';
 
 export interface NewWorkoutTabProps {
@@ -647,6 +648,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   {isCn ? '已修改' : 'Edited'}
                 </span>
               )}
+              {/* 存不进本机时常驻（上架审查 C13）：训练页没有顶栏，这里是唯一看得到的地方 */}
+              <LocalDataAlert isCn={isCn} />
             </div>
             <div className="flex items-center gap-2">
               <input

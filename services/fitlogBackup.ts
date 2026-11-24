@@ -33,6 +33,7 @@ import {
 import { db } from './db';
 import { undoJournal } from './undoJournal';
 import { langOf, unitOf } from './appPrefs';
+import { clearLocalLoss, recordLocalWorkouts } from './localCensus';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
 
 /** 备份文件的格式版本。与 snapshot.schemaVersion 是两件事，别混。 */
@@ -143,6 +144,9 @@ export async function overwriteLocal(
     }
     throw new OverwriteFailedError(rolledBack, err);
   }
+  // 本机训练数的水位跟着新内容走，丢失标记随之清掉：不然重置后那次重载会被当成「库被清空」（localCensus）
+  recordLocalWorkouts(snap.workouts.length);
+  clearLocalLoss();
   markLocalAuthoritative();
   if (!isRemoteConfigured()) return 'not-configured';
   try {

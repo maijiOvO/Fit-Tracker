@@ -65,7 +65,8 @@ await build({
       "export { boundDetent, heroFocus, scrubTier, ACCEL_VELOCITY, SCRUB_FEEL_PX } from './src/utils/scrubFeel.ts';",
       "export * as TAP from './src/utils/tap.ts';",
       "export { cardToRevisit } from './src/utils/pickerRevisit.ts';",
-      "export { FitLogDB } from './services/db.ts';",
+      "export { FitLogDB, dbReadFailing, dbWriteFailing } from './services/db.ts';",
+      "export * as LC from './services/localCensus.ts';",
       "export * as WP from './services/workbenchPersist.ts';",
       "export * as FR from './services/fitlogRemote.ts';",
       "export * as FB from './services/fitlogBackup.ts';",
@@ -1249,7 +1250,92 @@ await ta('db 写入：rawPut 抛错先重试一次；两次都失败派发 db-wr
   await d.save('workouts', { id: 'w1' });
   await d.save('workouts', { id: 'w2' });
   assert.deepEqual(events, ['fitlog:db-write-failed', 'fitlog:db-write-ok']);
+  assert.equal(L.dbWriteFailing(), false, '晚挂载的组件靠 getter 读当前状态');
   delete globalThis.window;
+});
+
+// ── 本机库读不出 / 被清空要看得见（上架审查 C14 / C12）──────────────────
+/** 假 indexedDB：open 的行为由 mode 定；store 只有 getAll */
+function fakeIdb(mode, { oldVersion = 8 } = {}) {
+  const store = { getAll: () => { const r = {}; setTimeout(() => { r.result = []; r.onsuccess?.(); }); return r; } };
+  const db = { version: 8, objectStoreNames: { contains: () => true }, transaction: () => ({ objectStore: () => store }), close() {} };
+  return {
+    open: () => {
+      const req = {};
+      setTimeout(() => {
+        if (mode === 'error') { req.error = new DOMException('backing store', 'UnknownError'); req.onerror?.(); }
+        else if (mode === 'ok') {
+          if (oldVersion === 0) req.onupgradeneeded?.({ oldVersion: 0, target: { result: db } });
+          req.result = db;
+          req.onsuccess?.({ target: { result: db } });
+        }
+        // 'hang'：永不回调
+      });
+      return req;
+    },
+  };
+}
+
+await ta('读库：开库报错时读 reject、只派发一次 db-read-failed，getter 跟着翻转；之后读成功派发 db-read-ok', async () => {
+  const events = [];
+  globalThis.window = new EventTarget();
+  for (const e of ['fitlog:db-read-failed', 'fitlog:db-read-ok']) window.addEventListener(e, () => events.push(e));
+  globalThis.indexedDB = fakeIdb('error');
+  const d = new L.FitLogDB();
+  await assert.rejects(d.getAll('workouts'));
+  await assert.rejects(d.getAll('workouts'));
+  assert.deepEqual(events, ['fitlog:db-read-failed']);
+  assert.equal(L.dbReadFailing(), true);
+  globalThis.indexedDB = fakeIdb('ok');
+  assert.deepEqual(await d.getAll('workouts'), []);
+  assert.deepEqual(events, ['fitlog:db-read-failed', 'fitlog:db-read-ok']);
+  assert.equal(L.dbReadFailing(), false);
+  delete globalThis.window;
+  delete globalThis.indexedDB;
+});
+
+await ta('开库挂住：超时后读以 TimeoutError reject，下一次读重新开库（不卡在同一个 open 上）', async () => {
+  globalThis.window = new EventTarget();
+  const realTimeout = globalThis.setTimeout;
+  let opens = 0;
+  const idb = fakeIdb('hang');
+  globalThis.indexedDB = { open: (...a) => { opens++; return idb.open(...a); } };
+  // 计时器立即到点（只缩短超时，fake 自己的回调照常）
+  globalThis.setTimeout = (fn, ms, ...rest) => realTimeout(fn, ms >= 1000 ? 0 : ms, ...rest);
+  try {
+    const d = new L.FitLogDB();
+    await assert.rejects(d.getAll('workouts'), e => e?.name === 'TimeoutError');
+    await assert.rejects(d.getAll('workouts'), e => e?.name === 'TimeoutError');
+    assert.equal(opens, 2);
+  } finally {
+    globalThis.setTimeout = realTimeout;
+    delete globalThis.window;
+    delete globalThis.indexedDB;
+  }
+});
+
+await ta('库是这次新建的（被系统清掉 / 数据损坏重建）而本机记着有训练：记下丢失标记；新装、重置过（水位 0）、正常升级都不记', async () => {
+  globalThis.window = new EventTarget();
+  const lost = [];
+  window.addEventListener('fitlog:local-loss', () => lost.push(1));
+  const run = async (watermark, oldVersion) => {
+    localStorage.clear();
+    if (watermark != null) L.storage.setItem('fitlog_local_workouts', String(watermark));
+    globalThis.indexedDB = fakeIdb('ok', { oldVersion });
+    await new L.FitLogDB().getAll('workouts');
+    return L.LC.readLocalLoss();
+  };
+  try {
+    assert.equal((await run(5, 0))?.expected, 5);
+    assert.equal(lost.length, 1);
+    assert.equal(await run(null, 0), null, '新装');
+    assert.equal(await run(0, 0), null, '重置过');
+    assert.equal(await run(5, 8), null, '正常打开');
+  } finally {
+    localStorage.clear();
+    delete globalThis.window;
+    delete globalThis.indexedDB;
+  }
 });
 
 // ── 忘了结束的训练要真的过期（审查 Fm0）：内容没变的自动落盘不重写、不刷新 updatedAt ──────────

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from 'react';
 import { WorkoutSession } from '../../types';
-import { db } from '../../services/db';
+import { db, dbWriteFailing } from '../../services/db';
+import { clearLocalLoss, readLocalLoss, recordLocalWorkouts } from '../../services/localCensus';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { scheduleAutoBackup } from '../../services/fitlogAutoBackup';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
@@ -97,6 +98,11 @@ interface WorkoutContextType {
    * 返回工作台这场是不是被收掉了（FAB「回到训练」据此改成开新的一场）。
    */
   settleStale: () => Promise<boolean>;
+  /**
+   * 启动时从本机库读训练：loading 读着、ready 读到了、error 读不出（上架审查 C14）。
+   * 读不出时首页不能显示成全新用户的空状态（数据其实还在库里）；读着的时候也不闪「还没有训练记录」。
+   */
+  hydration: 'loading' | 'ready' | 'error';
 }
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
@@ -155,14 +161,19 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     saverRef.current!.save(w);
   };
 
-  const refreshFromDb = useCallback(async () => {
+  const [hydration, setHydration] = useState<'loading' | 'ready' | 'error'>('loading');
+
+  /** 读成了返回 true。失败只打日志不抛：结束训练存成功之后刷新失败，不能报成「结束训练失败」 */
+  const refreshFromDb = useCallback(async (): Promise<boolean> => {
     try {
       const localWorkouts = await db.getAll<WorkoutSession>('workouts');
       setWorkouts(
         localWorkouts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
       );
+      return true;
     } catch (err) {
       console.error('[WorkoutContext] 刷新训练列表失败:', err);
+      return false;
     }
   }, []);
 
@@ -256,10 +267,32 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     return benchSettled;
   }, [refreshFromDb]);
 
-  // 启动：先收掉过期的未结束场，再接回还在练的那场
+  // 启动：读库 → 收掉过期的未结束场 → 接回还在练的那场；读不出就是 error（首页显示「读不出本机数据」）
   useEffect(() => {
-    void refreshFromDb().then(settleStale).then(restoreInProgress);
+    void (async () => {
+      const ok = await refreshFromDb();
+      if (ok) {
+        await settleStale();
+        await restoreInProgress();
+      }
+      setHydration(ok ? 'ready' : 'error');
+    })();
   }, [refreshFromDb, settleStale, restoreInProgress]);
+
+  // 之后任何一次读库失败（目标、计划、撤销日志……）也算：首页同样不能把读不出当成没数据
+  useEffect(() => {
+    const onReadFailed = () => setHydration('error');
+    window.addEventListener('fitlog:db-read-failed', onReadFailed);
+    return () => window.removeEventListener('fitlog:db-read-failed', onReadFailed);
+  }, []);
+
+  // 本机训练数的水位：读到了就记下；库被清空后恢复回来（覆盖恢复、自用版从 NAS 拉回）够数了就撤掉丢失标记（localCensus）
+  useEffect(() => {
+    if (hydration !== 'ready') return;
+    recordLocalWorkouts(workouts.length);
+    const loss = readLocalLoss();
+    if (loss && workouts.length >= loss.expected) clearLocalLoss();
+  }, [hydration, workouts]);
 
   // 回前台：进程活着时工作台那场也要会过期（C03），收掉之后工作台空了，库里若还有在练的照常接回
   useEffect(() => {
@@ -284,9 +317,10 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [restoreInProgress]);
 
   // ==================== visibilitychange：后台保活 ====================
+  // 写失败期间回到前台也补写一次：腾出空间后不用等下一次改动（saver 照原 updatedAt 重写没写成的那份，上架审查 C13）
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.hidden) autoPersist();
+      if (document.hidden || dbWriteFailing()) autoPersist();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -390,8 +424,9 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       discardWorkbenchWith,
       settleWorkbench,
       settleStale,
+      hydration,
     }),
-    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith, settleWorkbench, settleStale],
+    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith, settleWorkbench, settleStale, hydration],
   );
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;

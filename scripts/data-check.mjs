@@ -60,6 +60,8 @@ await build({
       "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport } from './services/fitlogBackup.ts';",
       "export { readText as folderReadText, writeText as folderWriteText } from './services/fitlogFolder.ts';",
       "export { migrateLocalData } from './services/fitlogRemote.ts';",
+      "export * as LC from './services/localCensus.ts';",
+      "export { storage } from './services/appStorage.ts';",
       "export { isLocalAuthoritative } from './services/fitlogRemoteSync.ts';",
       "export { db } from './services/db';",
       "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
@@ -229,6 +231,61 @@ await t('备份时机：结束训练那次没写成（进程被杀 / 没权限�
   await new Promise(r => setTimeout(r, 5));
   D.maybeDailyBackup();
   await until(() => !D.getBackupStatus().lastError && D.getBackupStatus().lastOkAt !== before, '恢复后的补备份失败了，下次要再补');
+});
+
+// ── 文件夹授权没了（上架审查 C58：换机 / 云还原后授权没跟过来）──────────
+await t('备份文件夹授权没了：数据没变、24 小时内也要报 no-access（只报一次）；有改动的那次备份也报 no-access 而不是跳过', async () => {
+  const until = async (cond, what) => {
+    for (let i = 0; i < 100 && !cond(); i++) await new Promise(r => setTimeout(r, 10));
+    assert.ok(cond(), what);
+  };
+  await seedDb();
+  useMockFolder();
+  assert.equal((await D.backupNow('first-setup')).kind, 'ok');
+  const announced = [];
+  const on = () => announced.push(1);
+  globalThis.window = new EventTarget();
+  window.addEventListener(D.AUTO_BACKUP_FAILED_EVENT, on);
+  try {
+    fault('deny');
+    D.maybeDailyBackup();
+    await until(() => D.getBackupStatus().lastError?.code === 'no-access', '24 小时内、数据没变也要查授权');
+    D.maybeDailyBackup();
+    await new Promise(r => setTimeout(r, 30));
+    assert.equal(announced.length, 1, '同一原因只报一次');
+    const o = await D.backupNow('workout-finished');
+    assert.deepEqual([o.kind, o.code], ['failed', 'no-access']);
+  } finally {
+    fault('');
+    delete globalThis.window;
+  }
+});
+
+await t('安卓清单：系统云备份 / 旧版整机备份都排除 WebView 目录（重装不被还原成旧数据，C58）；设备直传不排除', async () => {
+  const { readFileSync } = await import('node:fs');
+  const main = join(ROOT, 'android/app/src/main');
+  const manifest = readFileSync(join(main, 'AndroidManifest.xml'), 'utf8');
+  assert.match(manifest, /android:dataExtractionRules="@xml\/data_extraction_rules"/);
+  assert.match(manifest, /android:fullBackupContent="@xml\/backup_rules"/);
+  const rules = readFileSync(join(main, 'res/xml/data_extraction_rules.xml'), 'utf8');
+  assert.match(rules, /<cloud-backup>[\s\S]*<exclude domain="root" path="app_webview\/"\s*\/>[\s\S]*<\/cloud-backup>/);
+  assert.doesNotMatch(rules, /<device-transfer>[\s\S]*app_webview/);
+  assert.match(readFileSync(join(main, 'res/xml/backup_rules.xml'), 'utf8'), /<exclude domain="root" path="app_webview\/"\s*\/>/);
+});
+
+// ── 本机训练数的水位跟着整份改写走（上架审查 C12）──────────────────────
+await t('水位：恢复 / 合并 / 重置 / 撤销之后跟着新内容走，丢失标记随恢复成功清掉（不然那次重载会被当成库被清空）', async () => {
+  for (const w of SEED) await D.db.save('workouts', w);
+  D.LC.recordLocalWorkouts(SEED.length);
+  D.storage.setItem('fitlog_local_loss', JSON.stringify({ expected: 4, at: iso(0) }));
+  const two = JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(0), snapshot: { schemaVersion: 2, workouts: SEED.slice(0, 2), prefs: {} } });
+  await D.applyBackup(D.parseBackupFile(two));
+  assert.equal(D.storage.getItem('fitlog_local_workouts'), '2');
+  assert.equal(D.LC.readLocalLoss(), null);
+  await D.resetAccount();
+  assert.equal(D.storage.getItem('fitlog_local_workouts'), '0');
+  await D.rollbackImport();
+  assert.equal(D.storage.getItem('fitlog_local_workouts'), '2');
 });
 
 // ── CSV 导出 ─────────────────────────────────────────────────────────

@@ -24,7 +24,8 @@ export const ScheduleProvider: React.FC<{ children: ReactNode }> = ({ children }
   }, []);
 
   useEffect(() => {
-    void refreshFromDb();
+    // 读不出来由 db.ts 报出去（首页显示「读不出本机数据」），这里只记日志，不留没人接的 rejection
+    refreshFromDb().catch(err => console.error('[ScheduleContext] 读计划失败:', err));
   }, [refreshFromDb]);
 
   const addSchedule = async (s: ScheduledWorkout) => {

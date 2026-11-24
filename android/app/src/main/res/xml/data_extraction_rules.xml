@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ 的备份规则（上架审查 C58）。
+  训练数据在 WebView 的 IndexedDB 里（app_webview/）。系统云备份是隔一阵才拍的旧照：重装 / 换机时把它还原回来，
+  之后练的场次悄悄消失，App 却以为一切正常、不出恢复入口。所以云备份排除 WebView 目录：重装就是空库，从备份文件夹恢复。
+  设备直传（新旧手机对拷）带的是当时的数据，无害，不排除。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="app_webview/" />
+    </cloud-backup>
+</data-extraction-rules>

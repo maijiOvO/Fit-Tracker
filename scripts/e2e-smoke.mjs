@@ -1440,10 +1440,12 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (!(await cls(row0)).includes('is-inked')) throw new Error('tapping the set number did not mark it done');
       if (!(await cls(row0)).includes('is-selected')) throw new Error('the set just tapped done is not the selected one');
       // 再点刚做完、已选中的组：跟点完那一刻比，什么都不变（做完的行本来就不带 is-edited）
-      const doneCls = await cls(row0);
+      // 只比状态类：is-inkin / is-entering 是 700ms 的动画类，由 effect 在点完之后才挂上，负载高时第一次读不到、第二次读到（偶发红）
+      const stateCls = async row => (await cls(row)).split(/\s+/).filter(c => c !== 'is-inkin' && c !== 'is-entering').join(' ');
+      const doneCls = await stateCls(row0);
       const doneEdited = await row0.locator('.ledger-field.is-edited').count();
       await row0.locator('.set-num').click();
-      if ((await cls(row0)) !== doneCls) throw new Error(`tapping the selected set changed it: ${doneCls} → ${await cls(row0)}`);
+      if ((await stateCls(row0)) !== doneCls) throw new Error(`tapping the selected set changed it: ${doneCls} → ${await stateCls(row0)}`);
       if ((await row0.locator('.ledger-field.is-edited').count()) !== doneEdited) throw new Error('re-tapping the selected set changed the is-edited marks');
 
       const steps = page.locator('[data-testid="weight-step"]');

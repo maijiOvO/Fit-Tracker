@@ -24,6 +24,9 @@ import { weightBaseline, weightDelta } from '../utils/weightSummary';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 import { useScheduleContext } from '../contexts/ScheduleContext';
 import { localYmd } from '../utils/dateUtils';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { useLocalDataHealth } from '../hooks/useLocalDataHealth';
+import { LocalLossCard, LocalReadErrorCard } from './data/LocalDataCards';
 
 const WeightTrendChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.WeightTrendChart })));
 
@@ -78,6 +81,8 @@ const Dashboard: React.FC<DashboardProps> = ({
    * 一组都没做完的空场（练到一半放弃留下的「N 动作 0 组」）也不进时间线 —— 它不是数据。
    */
   const { workouts, inProgress } = useDoneWorkouts();
+  const { hydration } = useWorkoutContext();
+  const health = useLocalDataHealth();
   // 「按动作」的逐场数据：列表、详情、趋势图共用一份口径（见 utils/liftHistory；「我的」页也用同一个钩子）
   const lifts = useLiftSummaries(workouts);
   const openLift =
@@ -144,8 +149,32 @@ const Dashboard: React.FC<DashboardProps> = ({
     };
   }, [weightEntries, unit]);
 
+  // 本机数据读不出：数据还在库里，不能显示成全新用户的空状态（上架审查 C14）
+  if (health.readFailing || hydration === 'error') {
+    return (
+      <div className="space-y-4 anim-tab-enter">
+        {health.loss && <LocalLossCard loss={health.loss} isCn={isCn} />}
+        <LocalReadErrorCard isCn={isCn} />
+      </div>
+    );
+  }
+  // 还在读：留空，不闪「还没有训练记录」
+  if (hydration === 'loading') return <div className="min-h-[60vh]" data-testid="dashboard-loading" />;
+
   // 进行中的训练要能接回去：哪怕还没有任何历史，也别落到空状态页（那里没有「进行中」那一行）
   if (workouts.length === 0 && weightEntries.length === 0 && !inProgress && todayPlans.length === 0) {
+    // 本机数据不见了（上架审查 C12）：给丢失卡和恢复入口，不是新用户的空状态
+    if (health.loss) {
+      return (
+        <div className="space-y-4 anim-tab-enter">
+          <LocalLossCard loss={health.loss} isCn={isCn} />
+          <button onClick={actions.onStartNewWorkout} className="ui-btn-secondary w-full flex items-center justify-center gap-2 px-6 py-3">
+            <PlusCircle size={22} strokeWidth={1.75} />
+            {translations.newWorkout[lang]}
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 anim-tab-enter">
         <div className="bg-accent-soft p-8 rounded-control mb-8">
@@ -169,6 +198,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-5 anim-tab-enter">
+      {health.loss && <LocalLossCard loss={health.loss} isCn={isCn} />}
       {/* 进行中的训练（workbench-not-restored）：练到一半出来看一眼，从这里接回去 */}
       {inProgress && (
         <div className="ui-card flex items-stretch overflow-hidden shadow-[inset_4px_0_0_var(--text-primary)]" data-testid="in-progress">

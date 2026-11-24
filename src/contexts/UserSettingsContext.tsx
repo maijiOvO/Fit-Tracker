@@ -80,7 +80,8 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode }> = ({ childr
   }, []);
 
   useEffect(() => {
-    void reloadFromIndexedDb();
+    // 读不出来由 db.ts 报出去（首页显示「读不出本机数据」），这里只记日志，不留没人接的 rejection
+    reloadFromIndexedDb().catch(err => console.error('[UserSettingsContext] 读体重 / 围度失败:', err));
   }, [reloadFromIndexedDb]);
 
   /**
