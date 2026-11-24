@@ -923,6 +923,9 @@ export function LoadHero({
     onBarChange?.(k === 'short' ? { kind: 'short', weight: shortW, unit: shortU } : { kind: k });
   const nearLabel = (n: number) => (kind === 'signed' && n < 0 ? `${isCn ? '辅助 ' : '−'}${fmt(-n)}` : fmt(n));
 
+  // 存的是一块一项、每块一样重（见 IncSpec.a）
+  const addEach = ctx.addons?.[0] ?? 0;
+  const addCount = ctx.addons?.length ?? 0;
   const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
   // 设置行一律在「动作设置」弹窗里（machine.slot），药丸只负责打开它
   const openFace = () => machine?.onOpen?.();
@@ -954,6 +957,14 @@ export function LoadHero({
               <svg viewBox="0 0 24 24" aria-hidden><path d="M4 20h4L19 9l-4-4L4 16v4z" /></svg>
               {pillText}
             </button>
+          )}
+          {/* 加片有几块在一级界面直接改（2026-11-24 用户定）：每块多重还在设置里；钉在药丸排右边，不跟着横滚 */}
+          {kind === 'pin' && machine?.onAddons && addEach > 0 && (
+            <span className="stack-addn" role="group" aria-label={isCn ? '加片有几块' : 'Add-on plates'} data-testid="hero-addon-count">
+              <button type="button" disabled={addCount <= 1} aria-label={isCn ? '加片少一块' : 'One fewer add-on'} onClick={() => machine.onAddons!(addEach, addCount - 1)} data-testid="hero-addon-dec">−</button>
+              <b>{isCn ? `加片×${addCount}` : `Add×${addCount}`}</b>
+              <button type="button" disabled={addCount >= ADDON_MAX} aria-label={isCn ? '加片多一块' : 'One more add-on'} onClick={() => machine.onAddons!(addEach, addCount + 1)} data-testid="hero-addon-inc">＋</button>
+            </span>
           )}
         </div>
       )}

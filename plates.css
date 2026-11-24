@@ -205,6 +205,18 @@
 .stack-rigs .stack-tag { flex-shrink: 0; white-space: nowrap; }
 .stack-tag.is-on { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); font-weight: 700; }
 .stack-tag.is-add { min-width: 44px; justify-content: center; }
+/* 加片块数（2026-11-24）：钉在药丸排右边，高度同药丸；− / ＋ 的热区同样用 ::after 补到 44px */
+.stack-tagrow { gap: 8px; }
+.stack-tagrow .stack-rigs { flex: 1; }
+.stack-addn {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  min-height: 30px; border-radius: 999px; border: 1px solid var(--divider); background: var(--bg-base);
+}
+.stack-addn b { font-size: var(--fs-label); font-weight: 700; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stack-addn button { position: relative; width: 30px; min-height: 30px; font-size: var(--fs-body); color: var(--text-secondary); }
+.stack-addn button::after { content: ''; position: absolute; inset: -7px -7px; }
+.stack-addn button:disabled { opacity: 0.3; }
+.stack-addn button:active:not(:disabled) { background: var(--bg-inset); border-radius: 999px; }
 /* 写在 .is-on 后面：选中的那台按下时也要有反馈 */
 .stack-tag:active { background: var(--bg-inset); }
 /* 版面上仍是上 4 下 6（padding 7 减去 margin） */

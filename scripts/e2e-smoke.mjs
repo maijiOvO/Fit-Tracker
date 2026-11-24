@@ -1672,8 +1672,26 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await hero.locator('[data-testid="rig-chip"]').first().click();
       await page.waitForTimeout(150);
       if ((await chip.innerText()).trim() !== t1 || (await pick()) !== rig.id) throw new Error(`back to the machine: ${await chip.innerText()}`);
+      // 加片：每块多重在设置里填，有几块在大图上直接 − / ＋（没设加片时大图上没有这一枚）
+      const addn = hero.locator('[data-testid="hero-addon-count"]');
+      if (await addn.count()) throw new Error('add-on stepper should be hidden without add-ons');
+      await chip.click();
+      const addIn = face.locator('[data-testid="stack-addon-scrub"] input');
+      await addIn.fill('1');
+      await addIn.press('Enter');
+      await page.locator('[data-testid="metric-modal-done"]').click();
+      await page.waitForTimeout(200);
+      const stored = async () => Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'))[0][1][0].a;
+      if (JSON.stringify(await stored()) !== '[1]') throw new Error(`add-on stored: ${JSON.stringify(await stored())}`);
+      if (!(await hero.locator('[data-testid="hero-addon-dec"]').isDisabled())) throw new Error('− should stop at one add-on');
+      await hero.locator('[data-testid="hero-addon-inc"]').click();
+      await page.waitForTimeout(150);
+      if (JSON.stringify(await stored()) !== '[1,1]' || !/×2/.test(await addn.innerText())) throw new Error(`add-on +1: ${JSON.stringify(await stored())} / ${await addn.innerText()}`);
+      await hero.locator('[data-testid="hero-addon-dec"]').click();
+      await page.waitForTimeout(150);
+      if (JSON.stringify(await stored()) !== '[1]') throw new Error(`add-on −1: ${JSON.stringify(await stored())}`);
       await backAndDiscard(page);
-      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored`;
+      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored · add-on count from the hero`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉
