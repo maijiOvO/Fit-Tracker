@@ -15,11 +15,17 @@
  */
 import { Capacitor } from '@capacitor/core';
 
-/** 用户最终拿到文件了没有 —— 调用方必须按它决定提示什么，不能一律报成功 */
+/**
+ * 文件交到哪一步了 —— 调用方按它出提示（flash.ts 的 saveOutcomeText），不能一律报成功。
+ * 分享面板只告诉我们「交给了哪个应用」，那个应用存没存下来不知道，所以原生这边最多只能说「已交给」。
+ */
 export type SaveOutcome =
-  | { kind: 'downloaded' }          // 浏览器触发了下载
-  | { kind: 'shared' }              // 原生：用户在分享面板里完成了选择
-  | { kind: 'cancelled' };          // 原生：用户关掉了分享面板，什么都没保存
+  | { kind: 'downloaded' }              // 浏览器触发了下载
+  | { kind: 'handed' }                  // 原生：分享面板报了接收的应用（activityType 是它的包名）
+  // 原生：分享 resolve 了但没报是哪个应用。OEM 面板可能不发 EXTRA_CHOSEN_COMPONENT（真交出去了也是空串），
+  // 分享面板被系统收掉、锁屏回来关掉也是这样 —— 只能说「没能确认」，不能说成功也不能说取消
+  | { kind: 'unconfirmed' }
+  | { kind: 'cancelled' };              // 原生：用户关掉了分享面板，什么都没交出
 
 export async function saveTextFile(
   filename: string,
@@ -52,8 +58,8 @@ export async function saveTextFile(
   const { uri } = await Filesystem.getUri({ path: filename, directory: Directory.Cache });
 
   try {
-    await Share.share({ title: filename, files: [uri] });
-    return { kind: 'shared' };
+    const { activityType } = await Share.share({ title: filename, files: [uri] });
+    return { kind: activityType ? 'handed' : 'unconfirmed' };
   } catch (error) {
     // 用户关掉分享面板走的是 reject。这**不是**错误，但也绝不能当成功报 ——
     // 分不清这两者，就等于又造了一个「提示成功但文件不存在」的信号。

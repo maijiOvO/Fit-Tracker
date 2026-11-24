@@ -24,12 +24,20 @@ const stubs = {
   name: 'stub-browser',
   setup(b) {
     b.onResolve({ filter: /^@capacitor\/core$/ }, () => ({ path: 'capacitor', namespace: 'stub' }));
+    b.onResolve({ filter: /^@capacitor\/(filesystem|share)$/ }, a => ({ path: a.path.slice('@capacitor/'.length), namespace: 'stub' }));
     b.onResolve({ filter: /^\.(\/services)?\/db$/ }, () => ({ path: 'db', namespace: 'stub' }));
+    // isNativePlatform 读全局开关：saveTextFile 的原生分支（分享）要能测；getPlatform 一直是 web，文件夹照旧走 mock
     b.onLoad({ filter: /^capacitor$/, namespace: 'stub' }, () => ({
-      contents: `export const Capacitor = { isNativePlatform: () => false, getPlatform: () => 'web' };
+      contents: `export const Capacitor = { isNativePlatform: () => !!globalThis.__native, getPlatform: () => 'web' };
         export const registerPlugin = () => new Proxy({}, { get: () => () => { throw new Error('native plugin used in data-check'); } });`,
       loader: 'js',
     }));
+    b.onLoad({ filter: /^filesystem$/, namespace: 'stub' }, () => ({
+      contents: `export const Filesystem = { writeFile: async () => ({}), getUri: async () => ({ uri: 'file:///cache/x' }) };
+        export const Directory = { Cache: 'CACHE' }; export const Encoding = { UTF8: 'utf8' };`,
+      loader: 'js',
+    }));
+    b.onLoad({ filter: /^share$/, namespace: 'stub' }, () => ({ contents: `export const Share = { share: o => globalThis.__share(o) };`, loader: 'js' }));
     // 内存版 IndexedDB：每个 store 一张 id → 行的表
     b.onLoad({ filter: /^db$/, namespace: 'stub' }, () => ({
       contents: `const stores = new Map();
@@ -71,7 +79,10 @@ async function bundle(env, file) {
       "export { PrefsWriteError } from './services/fitlogRemote.ts';",
       "export { writeTombstones } from './services/fitlogTombstones.ts';",
       "export { defaultProfile } from './src/utils/loadable.ts';",
-      "export { readText as folderReadText, writeText as folderWriteText } from './services/fitlogFolder.ts';",
+      "export { readText as folderReadText, writeText as folderWriteText, routeRestoredPick } from './services/fitlogFolder.ts';",
+      "export { saveTextFile } from './services/fitlogSaveFile.ts';",
+      "export { pickFile } from './services/fitlogPickFile.ts';",
+      "export { backupErrorText, needsRepick } from './src/components/data/flash.ts';",
       "export { migrateLocalData, migrateRecordsToSoloUserId } from './services/fitlogRemote.ts';",
       "export { undoJournal } from './services/undoJournal.ts';",
       "export * as LC from './services/localCensus.ts';",
@@ -294,6 +305,178 @@ const putFiles = entries => {
   localStorage.setItem('fitlog_mock_folder_fs', JSON.stringify(fs));
 };
 const ws = ids => ids.map((id, i) => seedWorkout(id, 30 - i, id, '杠铃深蹲', [[100, 5]]));
+
+// ── 原生层和系统交接处的结果（上架审查第 15 批：C55 / C63 / C64 / android-native#2 #3 #5 #6 / i18n-settings#9）──
+/** 把上次成功拨到 2 天前，让 daily 真的跑；其余字段原样 */
+const ageStatus = () => D.storage.setItem('fitlog_backup_status', JSON.stringify({ ...D.getBackupStatus(), lastOkAt: iso(2) }));
+
+// 防：数据没变就只比指纹、不看文件夹 —— 目录被删 / 改名，或用户删光了备份，界面一直报「上次备份」那个早没了的文件（C55）
+await t('备份文件夹没了：数据没变也报 folder-missing；用户删光了备份就补写一份、份数按实际；有改动那次报 folder-missing 不是写入失败', async () => {
+  await seedDb();
+  useMockFolder();
+  assert.equal((await D.backupNow('first-setup')).kind, 'ok');
+
+  ageStatus();
+  localStorage.setItem('fitlog_mock_folder_fs', '{}');
+  const b = await D.backupNow('daily');
+  assert.equal(b.kind, 'ok', `删光了备份要补写，实际 ${JSON.stringify(b)}`);
+  assert.equal(Object.keys(folderFs()).length, 1);
+  assert.equal(D.getBackupStatus().fileCount, 1);
+
+  ageStatus();
+  const okName = D.getBackupStatus().lastOkName;
+  fault('missing');
+  const a = await D.backupNow('daily');
+  assert.deepEqual([a.kind, a.code], ['failed', 'folder-missing']);
+  assert.equal(D.getBackupStatus().lastError?.code, 'folder-missing');
+  assert.equal(D.getBackupStatus().lastOkName, okName);
+
+  await D.db.save('workouts', seedWorkout('new_one', 0, '刚练完', '杠铃深蹲', [[150, 3]]));
+  const c = await D.backupNow('workout-finished');
+  assert.deepEqual([c.kind, c.code], ['failed', 'folder-missing']);
+  fault('');
+});
+
+// 防：失败文案按笼统类别给（persist / mkdir / list 都落成「写入失败」）、英文界面出中文（原生 message 原样拼进提示），
+// 或者目录没了也不给「重新选择」（i18n-settings#9 / C55 / android-native#3）
+await t('备份失败文案只按 code 出：英文里没有中文，权限 / 建目录 / 打开 / 列目录 / 目录没了各说各的；只有没权限、目录没了要重选', () => {
+  const codes = ['no-access', 'folder-missing', 'persist-failed', 'mkdir-failed', 'open-failed', 'list-failed', 'create-failed', 'write-failed',
+    'read-failed', 'delete-failed', 'unsupported', 'unknown', 'verify-failed', 'no-folder', 'bad-args'];
+  for (const c of codes) {
+    assert.ok(D.backupErrorText(c, true), `${c} 没有中文文案`);
+    assert.doesNotMatch(D.backupErrorText(c, false), /[㐀-鿿]/, `${c} 的英文文案里有中文`);
+  }
+  for (const c of ['persist-failed', 'mkdir-failed', 'open-failed', 'list-failed', 'folder-missing'])
+    assert.notEqual(D.backupErrorText(c, true), D.backupErrorText('write-failed', true), `${c} 落成了「写入失败」`);
+  assert.deepEqual(codes.filter(D.needsRepick).sort(), ['folder-missing', 'no-access']);
+});
+
+// 防：写坏的 0 字节文件被当成「当天最新 / 当月最早」留下，好备份反被删掉；大小未知（-1）的被当 0 删掉（android-native#6）
+await t('保留：0 字节的不当代表、直接删；大小未知（-1）的照常参与', () => {
+  const f = (mo, d, h, mi, size) => {
+    const name = `fitlog-backup-2026-${p2(mo)}-${p2(d)}-${p2(h)}${p2(mi)}.json`;
+    return { uri: name, name, size, modified: 0 };
+  };
+  const files = [
+    f(11, 1, 20, 5, 0), f(11, 1, 20, 10, 0), f(11, 1, 20, 15, 0),
+    f(11, 2, 12, 0, 4e6), f(11, 6, 12, 0, 4e6), f(11, 12, 12, 0, 4e6), f(11, 20, 12, 0, 4e6),
+    f(12, 20, 12, 0, 4e6), f(10, 5, 12, 0, -1),
+  ];
+  const del = D.selectBackupsToDelete(files, new Date(2026, 11, 20, 18, 0), 'prod').map(x => x.name).sort();
+  assert.deepEqual(del, [
+    'fitlog-backup-2026-11-01-2005.json', 'fitlog-backup-2026-11-01-2010.json', 'fitlog-backup-2026-11-01-2015.json',
+    'fitlog-backup-2026-11-06-1200.json', 'fitlog-backup-2026-11-12-1200.json', 'fitlog-backup-2026-11-20-1200.json',
+  ]);
+});
+
+// 防：写到一半进程没了，半截文件一直留在文件夹里（原生 catch 不会执行）；或者清理时把核对通过的那份也删了（android-native#6）
+await t('写到一半进程没了：下次备份先删掉写前标记指着的同名文件（含「 (n)」），不碰上次核对通过的那份和用户自己的文件', async () => {
+  await seedDb();
+  useMockFolder();
+  assert.equal((await D.backupNow('first-setup')).kind, 'ok');
+  // 把那份好备份挪到 3 天前（14 天内每天一份，不会被日历规则清掉）
+  const fs0 = folderFs();
+  const [first] = Object.keys(fs0);
+  const good = autoName(new Date(Date.now() - 3 * DAY));
+  const half = autoName(new Date(Date.now() - DAY));
+  const half1 = half.replace(/\.json$/, ' (1).json');
+  localStorage.setItem('fitlog_mock_folder_fs', JSON.stringify({ [good]: fs0[first] }));
+  D.storage.setItem('fitlog_backup_status', JSON.stringify({ ...D.getBackupStatus(), lastOkName: good }));
+  putFiles([[half, fs0[first].text.slice(0, 40)], [half1, ''], ['mine.json', '{}']]);
+  D.storage.setItem('fitlog_backup_writing', half);
+
+  await D.db.save('workouts', seedWorkout('new_one', 0, '刚练完', '杠铃深蹲', [[150, 3]]));
+  const o = await D.backupNow('manual');
+  assert.equal(o.kind, 'ok');
+  const names = Object.keys(folderFs());
+  assert.ok(!names.includes(half) && !names.includes(half1), `半截文件还在：${names}`);
+  assert.ok(names.includes(good) && names.includes('mine.json') && names.includes(o.name), `该留的没了：${names}`);
+  assert.equal(D.storage.getItem('fitlog_backup_writing'), null);
+
+  // 标记正好指着上次核对通过的那份（核对通过后、清标记前没了）：不删
+  D.storage.setItem('fitlog_backup_writing', o.name);
+  ageStatus();
+  assert.equal((await D.backupNow('daily')).kind, 'skipped');
+  assert.ok(Object.keys(folderFs()).includes(o.name));
+  assert.equal(D.storage.getItem('fitlog_backup_writing'), null);
+});
+
+// 防：分享面板 resolve 了、却没报交给了谁（OEM 面板 / 面板被系统收掉），照样报「已导出」（C64 / android-native#2）
+await t('分享结果分四种：报了接收应用 → handed；空串 → unconfirmed；用户取消 → cancelled；别的错往外抛', async () => {
+  globalThis.__native = true;
+  try {
+    const kind = async r => {
+      globalThis.__share = async () => r;
+      return (await D.saveTextFile('a.json', '{}')).kind;
+    };
+    assert.equal(await kind({ activityType: 'com.google.android.gm' }), 'handed');
+    assert.equal(await kind({ activityType: '' }), 'unconfirmed');
+    globalThis.__share = async () => { throw new Error('Share canceled'); };
+    assert.equal((await D.saveTextFile('a.json', '{}')).kind, 'cancelled');
+    globalThis.__share = async () => { throw new Error('boom'); };
+    await assert.rejects(D.saveTextFile('a.json', '{}'), /boom/);
+  } finally {
+    delete globalThis.__native;
+    delete globalThis.__share;
+  }
+});
+
+// 防：选文件的结果靠「拿回焦点后 400ms 内有没有 change」去猜 —— change 晚到就把选中的文件丢了；只派发 cancel 时永远没结论（C63）
+await t('选文件只认 input 的事件：晚到的 change 不丢，cancel 立刻给 null；上一次没结论时再选一次，上一次按取消收掉', async () => {
+  const win = new EventTarget();
+  win.setTimeout = setTimeout;
+  const inputs = [];
+  globalThis.window = win;
+  globalThis.document = {
+    createElement: () => {
+      const el = new EventTarget();
+      Object.assign(el, { style: {}, files: null, click() {}, remove() { el.removed = true; } });
+      Object.defineProperty(el, 'onchange', { set: fn => el.addEventListener('change', fn) });
+      inputs.push(el);
+      return el;
+    },
+    body: { appendChild() {} },
+  };
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const within = (p, ms) => Promise.race([p, sleep(ms).then(() => 'pending')]);
+  try {
+    const a = D.pickFile('.json');
+    win.dispatchEvent(new Event('focus'));
+    await sleep(450);
+    inputs.at(-1).files = [{ name: 'backup.json' }];
+    inputs.at(-1).dispatchEvent(new Event('change'));
+    assert.deepEqual(await within(a, 100), { name: 'backup.json' });
+
+    const b = D.pickFile('.json');
+    inputs.at(-1).dispatchEvent(new Event('cancel'));
+    assert.equal(await within(b, 100), null);
+    assert.ok(inputs.at(-1).removed);
+
+    const c1 = D.pickFile('.json');
+    const first = inputs.at(-1);
+    const c2 = D.pickFile('.json');
+    assert.equal(await within(c1, 100), null);
+    assert.ok(first.removed);
+    inputs.at(-1).dispatchEvent(new Event('cancel'));
+    assert.equal(await within(c2, 100), null);
+  } finally {
+    delete globalThis.window;
+    delete globalThis.document;
+  }
+});
+
+// 防：有人改了 purpose 的字面量或事件字段名，进程被回收后补回来的选择结果又被静默丢掉（android-native#5）
+await t('进程重建后补回的选文件夹结果：按 purpose 分给开启备份 / 恢复；取消、别的插件或方法不认；失败保住 code', () => {
+  const folder = { treeUri: 'content://t', dirUri: 'content://t/d', dirDocId: 'primary:Documents/fitlog' };
+  const ev = (data, extra = {}) => ({ pluginId: 'FitlogFolder', methodName: 'pickFolder', success: true, data, ...extra });
+  assert.deepEqual(D.routeRestoredPick(ev({ ...folder, purpose: 'setup' })), { purpose: 'setup', folder });
+  assert.deepEqual(D.routeRestoredPick(ev({ ...folder, purpose: 'restore' })), { purpose: 'restore', folder });
+  assert.equal(D.routeRestoredPick(ev({ cancelled: true, purpose: 'setup' })), null);
+  assert.equal(D.routeRestoredPick(ev({ ...folder, purpose: 'setup' }, { pluginId: 'Share' })), null);
+  assert.equal(D.routeRestoredPick(ev({ ...folder, purpose: 'setup' }, { methodName: 'list' })), null);
+  assert.deepEqual(D.routeRestoredPick(ev(undefined, { success: false, error: { code: 'persist-failed', message: 'x' } })), { code: 'persist-failed' });
+});
+
 const soloFolder = () => {
   localStorage.setItem('fitlog_mock_folder', '1');
   S.setBackupFolder(FOLDER);

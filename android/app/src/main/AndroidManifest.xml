@@ -14,12 +14,15 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- singleTop 而不是模板默认的 singleTask：没有深链用不着 singleTask，而 singleTask 从桌面图标回来会清掉任务里
+             压在上面的分享目标页和系统选择器（写到一半的邮件、开着的文件夹选择器都没了）。
+             「安装器里点打开、再点桌面图标」叠出第二个实例的情形由 MainActivity.load() 的 isTaskRoot 守卫挡住 -->
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density|fontScale|fontWeightAdjustment|layoutDirection"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
-            android:launchMode="singleTask"
+            android:launchMode="singleTop"
             android:exported="true">
 
             <intent-filter>

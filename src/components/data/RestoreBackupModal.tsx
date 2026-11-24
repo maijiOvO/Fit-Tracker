@@ -3,6 +3,9 @@
  *
  * 重装后的典型路径：系统选择器打开在「文档/fitlog」→ 点「使用此文件夹」→ 这里列出能用的备份，
  * 先给摘要（几次训练、最后一次哪天、哪天备份的）→ 确认才写。
+ * 第二条路：取消选文件夹、文件夹里没有、读不了时，都给「选一个备份文件」—— 换手机时备份常在「下载」根目录，
+ * 安卓 11+ 选不了那里当文件夹，但能选里面的文件（上架审查 solo-isolation#4）。单个文件走同一套摘要和合并 / 覆盖，
+ * 不设备份文件夹：重载后「开启自动备份？」会问。
  * 打开时读最新 40 份，内存里只留摘要（大文件全留着太占），恢复时按 uri 重新读选中的那份。
  * 默认项见 pickDefaultBackup：优先带着本机没有的记录的，跳过空的、时间在未来的、读不出的（上架审查 C53 / C66 / C67）。
  * 恢复后只在还没有能用的备份文件夹时，才把这个文件夹设成备份目的地（adoptRestoreFolder，C56）。
@@ -13,22 +16,25 @@
  * 只记过体重 / 只建过馆的手机会被直接覆盖，不给合并也不确认。
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FolderOpen, RefreshCw } from 'lucide-react';
+import { FileText, FolderOpen, RefreshCw } from 'lucide-react';
 import { Language } from '../../../types';
 import { Modal } from '../Modal';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { useUiOverlay } from '../../contexts/UiOverlayContext';
 import { useWorkoutContext } from '../../contexts/WorkoutContext';
 import {
+  BackupParseError,
   applyBackup,
   lastWorkoutDate,
   localDataSummary,
   mergeBackup,
   parseBackupFile,
+  type ParsedBackup,
 } from '../../../services/fitlogBackup';
 import { collectLocalSnapshot } from '../../../services/fitlogRemote';
 import type { FitlogRemoteSnapshot } from '../../../services/fitlogSnapshotTypes';
 import {
+  FolderError,
   displayPath,
   hasAccess,
   listFiles,
@@ -36,6 +42,7 @@ import {
   readText,
   type FolderRef,
 } from '../../../services/fitlogFolder';
+import { pickFile } from '../../../services/fitlogPickFile';
 import {
   adoptRestoreFolder,
   backupInFuture,
@@ -45,18 +52,23 @@ import {
   orderBackups,
   pickDefaultBackup,
   uncoveredRecords,
+  type BackupErrorCode,
   type ListedBackup,
 } from '../../../services/fitlogAutoBackup';
-import { overwriteFailedText, overwriteNote, setFlash, workbenchDropNote } from './flash';
+import { backupErrorText, backupParseErrorText, overwriteFailedText, overwriteNote, setFlash, workbenchDropNote } from './flash';
 import { blockBack } from '../../hooks/useBackClose';
 
-/** 一份备份的摘要（读过才有后几项）；完整内容不留在内存里 */
+/** 一份备份的摘要（读过才有后几项）；文件夹里的完整内容不留在内存里，单个文件那份没处再读，留着 parsed */
 interface Entry extends ListedBackup {
   workouts?: number;
   lastDate?: string | null;
   legacy?: boolean;
   skipped?: number;
+  parsed?: ParsedBackup;
 }
+
+/** 备份从哪来：文件夹（列出多份、恢复后可能设成备份文件夹），或用户直接选的一个文件 */
+type Source = { kind: 'folder'; folder: FolderRef } | { kind: 'file'; name: string };
 
 /** 打开时读最新几份：读得越多默认项挑得越准，也越慢 */
 const SCAN_LIMIT = 40;
@@ -66,8 +78,12 @@ type Phase =
   | { kind: 'loading' }
   | { kind: 'ready' }
   | { kind: 'none' }
-  | { kind: 'error'; message: string }
+  /** 选文件夹那一步取消了：停在这里给两条路，不关弹窗 */
+  | { kind: 'cancelled' }
+  | { kind: 'error'; code: BackupErrorCode }
   | { kind: 'applying' };
+
+const codeOf = (e: unknown): BackupErrorCode => (e instanceof FolderError ? e.code : 'unknown');
 
 type LocalSummary = ReturnType<typeof localDataSummary>;
 
@@ -88,27 +104,31 @@ function summaryText(s: LocalSummary, isCn: boolean): string {
     .join(isCn ? '、' : ', ');
 }
 
+function summaryOf(e: Entry, parsed: ParsedBackup, local: FitlogRemoteSnapshot): Entry {
+  const ms = parsed.exportedAt ? Date.parse(parsed.exportedAt) : NaN;
+  return {
+    ...e,
+    exportedAt: Number.isFinite(ms) ? ms : undefined,
+    records: Object.values(localDataSummary(parsed.snapshot)).reduce((a, b) => a + b, 0),
+    foreign: uncoveredRecords(parsed.snapshot, local).length,
+    workouts: parsed.counts.workouts,
+    lastDate: lastWorkoutDate(parsed),
+    legacy: parsed.legacy,
+    skipped: parsed.skipped,
+  };
+}
+
 /** 读一份、只留摘要；读不出的标 bad */
 async function summarize(e: Entry, local: FitlogRemoteSnapshot): Promise<Entry> {
   try {
-    const parsed = parseBackupFile(await readText(e.file.uri));
-    const ms = parsed.exportedAt ? Date.parse(parsed.exportedAt) : NaN;
-    return {
-      ...e,
-      exportedAt: Number.isFinite(ms) ? ms : undefined,
-      records: Object.values(localDataSummary(parsed.snapshot)).reduce((a, b) => a + b, 0),
-      foreign: uncoveredRecords(parsed.snapshot, local).length,
-      workouts: parsed.counts.workouts,
-      lastDate: lastWorkoutDate(parsed),
-      legacy: parsed.legacy,
-      skipped: parsed.skipped,
-    };
+    return summaryOf(e, parseBackupFile(await readText(e.file.uri)), local);
   } catch {
     return { ...e, bad: true };
   }
 }
 
-export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+/** initialFolder：进程被回收后补回来的、为恢复选的文件夹（DataSafetyHost）—— 直接列，不再弹选择器 */
+export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void; initialFolder?: FolderRef }> = ({ open, onClose, initialFolder }) => {
   const { lang } = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
   const { currentWorkout, discardWorkbenchWith } = useWorkoutContext();
@@ -116,7 +136,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
   const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
-  const [folder, setFolder] = useState<FolderRef | null>(null);
+  const [source, setSource] = useState<Source | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sel, setSel] = useState(0);
   const [showList, setShowList] = useState(false);
@@ -132,6 +152,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
 
   /** 列出文件夹里的备份，读最新 SCAN_LIMIT 份的摘要，挑默认项 */
   const scan = useCallback(async (f: FolderRef) => {
+    setSource({ kind: 'folder', folder: f });
     setPhase({ kind: 'loading' });
     try {
       const listed: Entry[] = listBackups(await listFiles(f));
@@ -148,27 +169,48 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       setSel(all.indexOf(def));
       setPhase({ kind: 'ready' });
     } catch (e) {
-      setPhase({ kind: 'error', message: (e as Error).message });
+      console.warn('Restore scan failed:', e);
+      setPhase({ kind: 'error', code: codeOf(e) });
     }
   }, []);
 
   const choose = useCallback(async () => {
     setPhase({ kind: 'picking' });
     try {
-      const f = await pickFolder('Documents/fitlog');
-      if (!f) {
-        // 取消：没选到就关掉，什么都没动
-        onClose();
-        return;
-      }
-      setFolder(f);
-      await scan(f);
+      const f = await pickFolder('Documents/fitlog', 'restore');
+      // 取消：什么都没动，停在这里给「选文件夹 / 选一个备份文件」（备份可能根本不在文件夹里）
+      if (!f) setPhase({ kind: 'cancelled' });
+      else await scan(f);
     } catch (e) {
-      setPhase({ kind: 'error', message: (e as Error).message });
+      console.warn('Restore pickFolder failed:', e);
+      setPhase({ kind: 'error', code: codeOf(e) });
     }
-  }, [onClose, scan]);
+  }, [scan]);
 
-  // 打开时：已经有授权的备份文件夹就直接列，没有就弹选择器
+  /**
+   * 选一个备份文件。必须在点击处理里第一时间调 pickFile，前面不能有 await：丢了用户激活，WebView 不弹选择器。
+   * 没选就留在原来那一步；解析不了就报原因，也留在原来那一步
+   */
+  const chooseFile = async () => {
+    const picked = await pickFile('application/json,.json');
+    if (!picked) return;
+    let parsed: ParsedBackup;
+    try {
+      parsed = parseBackupFile(await picked.text());
+    } catch (e) {
+      toast(backupParseErrorText(e instanceof BackupParseError ? e.message : '', isCn), 'error');
+      return;
+    }
+    const file = { uri: `file:${picked.name}`, name: picked.name, size: picked.size, modified: picked.lastModified };
+    const entry = summaryOf({ file, at: picked.lastModified, seq: 0, dev: false }, parsed, await localSnap.current!);
+    setSource({ kind: 'file', name: picked.name });
+    setEntries([{ ...entry, parsed }]);
+    setSel(0);
+    setShowList(false);
+    setPhase({ kind: 'ready' });
+  };
+
+  // 打开时：补回来的文件夹、或已经有授权的备份文件夹就直接列，没有就弹选择器
   useEffect(() => {
     if (!open) return;
     setShowList(false);
@@ -177,16 +219,15 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     localSnap.current = p;
     p.then(
       s => setLocal(localDataSummary(s)),
-      e => setPhase({ kind: 'error', message: (e as Error).message }),
+      e => {
+        console.warn('Restore local snapshot failed:', e);
+        setPhase({ kind: 'error', code: 'unknown' });
+      },
     );
     void (async () => {
-      const f = getBackupFolder();
-      if (f && (await hasAccess(f))) {
-        setFolder(f);
-        await scan(f);
-      } else {
-        await choose();
-      }
+      const f = initialFolder ?? getBackupFolder();
+      if (f && (f === initialFolder || (await hasAccess(f)))) await scan(f);
+      else await choose();
     })();
   }, [open]);
 
@@ -208,14 +249,16 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
   const localHas = !!local && Object.values<number>(local).some(n => n > 0);
 
   const apply = async (mode: 'overwrite' | 'merge') => {
-    if (!cur || !loaded || !folder || !local) return;
-    // 摘要之后文件可能被改过 / 删了：恢复的是现在读到的这份
-    let parsed;
-    try {
-      parsed = parseBackupFile(await readText(cur.file.uri));
-    } catch {
-      toast(t('这份文件读不出来，换一份', 'Could not read that file — pick another'), 'error');
-      return;
+    if (!cur || !loaded || !source || !local) return;
+    // 文件夹里的：摘要之后文件可能被改过 / 删了，恢复的是现在读到的这份。单个文件：用选的时候读到的那份
+    let parsed = cur.parsed;
+    if (!parsed) {
+      try {
+        parsed = parseBackupFile(await readText(cur.file.uri));
+      } catch {
+        toast(t('这份文件读不出来，换一份', 'Could not read that file — pick another'), 'error');
+        return;
+      }
     }
     if (mode === 'overwrite' && localHas) {
       const go = await confirm({
@@ -245,13 +288,16 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
             : '') +
           overwriteNote(pushed, isCn);
       } else {
-        const pushed = await discardWorkbenchWith(() => applyBackup(parsed));
+        const backup = parsed;
+        const pushed = await discardWorkbenchWith(() => applyBackup(backup));
         message = t(`已恢复：${parsed.counts.workouts} 场训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn);
       }
-      // 还没有能用的备份文件夹才顺手设成这个（授权刚拿到）；已有的不改。重载后补一份备份
-      const prior = getBackupFolder();
-      if ((await adoptRestoreFolder(folder)) && prior && prior.dirUri !== folder.dirUri) {
-        message += t(`；以后备份到「${where}」`, `; backups now go to "${where}"`);
+      // 从文件夹恢复的：还没有能用的备份文件夹才顺手设成这个（授权刚拿到）；已有的不改。单个文件不设。重载后补一份备份
+      if (source.kind === 'folder') {
+        const prior = getBackupFolder();
+        if ((await adoptRestoreFolder(source.folder)) && prior && prior.dirUri !== source.folder.dirUri) {
+          message += t(`；以后备份到「${where}」`, `; backups now go to "${where}"`);
+        }
       }
       markBackupPending();
       setFlash(message, 'success');
@@ -265,8 +311,20 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     }
   };
 
-  const where = folder ? displayPath(folder, isCn) : '';
+  const where = !source ? '' : source.kind === 'folder' ? displayPath(source.folder, isCn) : source.name;
   const now = Date.now();
+
+  const pickFileButton = (
+    <button
+      type="button"
+      className="ui-btn-secondary w-full py-3 flex items-center justify-center gap-2"
+      onClick={() => void chooseFile()}
+      data-testid="restore-pick-file"
+    >
+      <FileText size={18} strokeWidth={1.75} className="text-accent" />
+      {t('选一个备份文件', 'Pick a backup file')}
+    </button>
+  );
 
   /** 列表里每份的标注：读不出 / 空 / 时间在未来 / dev */
   const tags = (e: Entry): string[] =>
@@ -299,6 +357,17 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
           </p>
         )}
 
+        {phase.kind === 'cancelled' && (
+          <>
+            <p data-testid="restore-cancelled">{t('没有选文件夹', 'No folder chosen')}</p>
+            <button type="button" className="ui-btn-secondary w-full py-3 flex items-center justify-center gap-2" onClick={() => void choose()}>
+              <FolderOpen size={18} strokeWidth={1.75} className="text-accent" />
+              {t('选文件夹', 'Choose folder')}
+            </button>
+            {pickFileButton}
+          </>
+        )}
+
         {phase.kind === 'none' && (
           <>
             <p data-testid="restore-none">
@@ -308,15 +377,17 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
               <FolderOpen size={18} strokeWidth={1.75} className="text-accent" />
               {t('换个文件夹', 'Choose another folder')}
             </button>
+            {pickFileButton}
           </>
         )}
 
         {phase.kind === 'error' && (
           <>
-            <p className="text-danger">{t('读不了这个文件夹：', 'Could not read that folder: ') + phase.message}</p>
+            <p className="text-danger">{t('读不了这个文件夹：', 'Could not read that folder: ') + backupErrorText(phase.code, isCn)}</p>
             <button type="button" className="ui-btn-secondary w-full py-3" onClick={() => void choose()}>
               {t('重新选择文件夹', 'Choose folder again')}
             </button>
+            {pickFileButton}
           </>
         )}
 
@@ -363,7 +434,11 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
                         {tags(e).length > 0 && <span className="text-danger"> · {tags(e).join(' · ')}</span>}
                       </span>
                       <span className="text-tertiary whitespace-nowrap">
-                        {e.workouts !== undefined ? t(`${e.workouts} 场`, `${e.workouts} workouts`) : e.bad ? '' : `${Math.round(e.file.size / 1024)} KB`}
+                        {e.workouts !== undefined
+                          ? t(`${e.workouts} 场`, `${e.workouts} workouts`)
+                          : e.bad || e.file.size < 0
+                            ? ''
+                            : `${Math.round(e.file.size / 1024)} KB`}
                       </span>
                     </button>
                   </li>

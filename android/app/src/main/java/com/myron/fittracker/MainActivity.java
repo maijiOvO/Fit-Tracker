@@ -1,5 +1,6 @@
 package com.myron.fittracker;
 
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -60,6 +61,21 @@ public class MainActivity extends BridgeActivity {
                 return true;
             }
         });
+    }
+
+    /**
+     * 清单是 singleTop：先在安装器里点「打开」（实例落在安装器的任务里）、再点桌面图标，系统会在 App 的任务里再起一个
+     * MainActivity —— 两个 WebView 同时写 IndexedDB。不是任务根、又是桌面图标那种 MAIN + LAUNCHER 启动的，直接结束，不建 Bridge。
+     * BridgeActivity 的各个生命周期方法都判了 bridge 为空，跳过 load 是安全的。
+     */
+    @Override
+    protected void load() {
+        Intent intent = getIntent();
+        if (!isTaskRoot() && intent != null && Intent.ACTION_MAIN.equals(intent.getAction()) && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+            finish();
+            return;
+        }
+        super.load();
     }
 
     @Override

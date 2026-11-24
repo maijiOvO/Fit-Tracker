@@ -217,6 +217,7 @@ npm run build:release; if ($?) { npx cap sync android }; if ($?) { npm run apk:p
 分享面板里**没有「保存到文件」**：`Share.share()` 发的是 `ACTION_SEND`（交给另一个 app），
 而 Android 的系统文件管理器不接 SEND ——「存到本地」要用 SAF 的 `ACTION_CREATE_DOCUMENT`，
 是另一个 intent。所以手动「导出」能不能存到本机，取决于用户装没装会接 SEND 的文件管理器。
+分享也只能告诉 App「交给了哪个应用」，那个应用存没存下来不知道，所以手动导出最多报「已交给所选应用」；面板没报接收应用（OEM 面板、面板被系统收掉）时报「没能确认文件已交出」。
 要把备份稳妥留在本机，走自动备份：它用自写的 `FitlogFolder` 插件直接写进用户选定的文件夹，不经分享面板（`docs/design-backup.md`）。
 详见知识库 `troubleshooting\Android 分享面板里没有「保存到文件」…md`。
 

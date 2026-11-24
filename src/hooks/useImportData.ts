@@ -17,38 +17,9 @@ import {
 } from '../../services/fitlogBackup';
 import { markBackupPending } from '../../services/fitlogAutoBackup';
 import type { ExportStatus } from './useExportData';
-import { overwriteFailedText, overwriteNote, setFlash, undoImportWarning, workbenchDropNote } from '../components/data/flash';
+import { backupParseErrorText, overwriteFailedText, overwriteNote, setFlash, undoImportWarning, workbenchDropNote } from '../components/data/flash';
 import { blockBack } from './useBackClose';
-
-/**
- * 打开系统文件选择器。
- * 用户取消时 change 事件不会触发，靠 window focus 兜底 resolve(null)，
- * 否则调用方会永远停在 await 上（界面不卡，但状态永远转不回 idle）。
- */
-export function pickFile(accept: string): Promise<File | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = accept;
-    input.style.display = 'none';
-    let settled = false;
-    const finish = (f: File | null): void => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener('focus', onFocus);
-      input.remove();
-      resolve(f);
-    };
-    const onFocus = (): void => {
-      // 选择器关闭后 focus 先回到窗口，change 才派发 —— 留一拍再判定取消
-      window.setTimeout(() => finish(input.files?.[0] ?? null), 400);
-    };
-    input.onchange = () => finish(input.files?.[0] ?? null);
-    window.addEventListener('focus', onFocus);
-    document.body.appendChild(input);
-    input.click();
-  });
-}
+import { pickFile } from '../../services/fitlogPickFile';
 
 export function useImportData(
   setSyncStatus: (status: ExportStatus) => void,
@@ -68,14 +39,7 @@ export function useImportData(
     try {
       parsed = parseBackupFile(await file.text());
     } catch (error) {
-      const code = error instanceof BackupParseError ? error.message : '';
-      const why =
-        code === 'not-json'
-          ? isCn ? '这不是一个 JSON 文件' : 'Not a JSON file'
-          : code === 'newer-version'
-            ? isCn ? '这份备份来自更新的版本，先升级 App' : 'This backup is from a newer version of the app — update first'
-            : isCn ? '这不是 Fit Tracker 的备份文件' : 'Not a Fit Tracker backup';
-      toast(why, 'error');
+      toast(backupParseErrorText(error instanceof BackupParseError ? error.message : '', isCn), 'error');
       return;
     }
 

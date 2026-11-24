@@ -35,6 +35,11 @@ const STATUS_KEY = 'fitlog_backup_status';
 const PENDING_KEY = 'fitlog_backup_pending';
 /** 结束训练后该写的那份还没写成（进程被杀、没权限、和别的备份撞上）：下次启动 / 回前台补（审查 E3） */
 const DUE_KEY = 'fitlog_backup_due';
+/**
+ * 正在写的那份（文件名）：写到一半进程没了，原生 catch 来不及删，文件夹里留下半截 / 0 字节的文件。
+ * 核对通过、或坏文件删掉时清；下次 doBackup 开头看到它还在，就去删同名的那份（上架审查 android-native#6）
+ */
+const WRITING_KEY = 'fitlog_backup_writing';
 
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -48,7 +53,7 @@ export interface BackupStatus {
   lastOkName?: string;
   /** 只给界面看；不再当清理的基线（存在本机，重装后归零） */
   lastOkWorkouts?: number;
-  /** 上一次成功备份时的数据指纹：没变就不再写 */
+  /** 上一次成功备份时的数据指纹：没变、且上次那份还在，就不再写 */
   fingerprint?: string;
   /** 文件夹里的备份份数（清理之后） */
   fileCount?: number;
@@ -147,6 +152,8 @@ const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
  *   - 同一天只留最新一份；
  *   - 最近 14 天每天一份；
  *   - 再往前每月留当月最早那份，留 12 个月。
+ * 0 字节的（写到一半、存储满时建出来的空壳）不当「当天最新 / 当月最早」，直接进删除表；
+ * 大小未知（-1，provider 没报）的照常参与。
  * 只产生候选：真删之前 doBackup 还要读内容确认已被新备份覆盖（uncoveredRecords）。纯函数。
  */
 export function selectBackupsToDelete(files: FolderFile[], now = new Date(), env = getDataEnv()): FolderFile[] {
@@ -159,7 +166,7 @@ export function selectBackupsToDelete(files: FolderFile[], now = new Date(), env
   const keep = new Set<string>();
   // 每天最新一份
   const newestOfDay = new Map<string, NamedBackup>();
-  for (const b of mine) if (!newestOfDay.has(dayKey(b.at))) newestOfDay.set(dayKey(b.at), b);
+  for (const b of mine) if (b.file.size !== 0 && !newestOfDay.has(dayKey(b.at))) newestOfDay.set(dayKey(b.at), b);
 
   const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const cutoff14 = new Date(today0.getTime() - 13 * 86400000);
@@ -330,6 +337,7 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
 
   // 先查授权再读库比指纹：换机 / 系统还原后授权没跟过来，数据没变也得报出来（上架审查 C58），也省一次注定白读的整库读
   if (!(await hasAccess(folder))) return fail('no-access', 'no persisted permission');
+  await dropUnfinishedWrite(folder, status.lastOkName);
 
   const file = await buildBackupFile();
   const workouts = file.snapshot.workouts.length;
@@ -338,29 +346,54 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
   if (!hasUserData(file.snapshot)) return { kind: 'skipped', why: 'empty' };
   const manual = reason === 'manual' || reason === 'first-setup' || reason === 'after-restore';
   const fp = snapshotFingerprint(file);
-  if (!manual && fp === status.fingerprint && !status.lastError) return { kind: 'skipped', why: 'unchanged' };
+  if (!manual && fp === status.fingerprint && !status.lastError) {
+    // 数据没变也要看一眼文件夹（上架审查 C55）：目录被删 / 改名、或用户删光了备份，只比指纹会一直报「上次备份」那个早没了的文件。
+    // 只有目录没了 / 没权限记成失败；别的列不出（网盘 provider 抖一下）照旧算没变，免得无故报红
+    let files: FolderFile[];
+    try {
+      files = await listFiles(folder);
+    } catch (e) {
+      const code = (e as FolderError).code;
+      if (code === 'folder-missing' || code === 'no-access') return fail(code, (e as Error).message);
+      return { kind: 'skipped', why: 'unchanged' };
+    }
+    if (files.some(f => f.name === status.lastOkName)) {
+      const count = files.filter(f => parseAutoBackupName(f)).length;
+      if (count !== status.fileCount) setBackupStatus({ ...status, fileCount: count });
+      return { kind: 'skipped', why: 'unchanged' };
+    }
+    // 上次那份不在了：照常写一份
+  }
 
   const name = autoBackupName(new Date(file.exportedAt));
+  storage.setItem(WRITING_KEY, name);
   let written: { uri: string; name: string | null };
   try {
     written = await writeText(folder, name, JSON.stringify(file));
   } catch (e) {
+    // 标记留着：原生 catch 里删建了一半的那份是尽力而为，没删掉的下次开头再删
     const err = e as FolderError;
-    return fail(err.code ?? 'write-failed', err.message);
+    return fail(err.code, err.message);
   }
 
-  // 读回核对：不过就删掉这份坏文件（删不掉也无妨，它不符合也不会被当成好备份 —— 恢复前会再解析）
+  // 读回核对：不过就删掉这份坏文件（删不掉也无妨，它不符合也不会被当成好备份 —— 恢复前会再解析；标记留着，下次再删）
+  const dropWritten = async () => {
+    if (await deleteFile(written.uri).catch(() => false)) storage.removeItem(WRITING_KEY);
+  };
   let back: string;
   try {
     back = await readText(written.uri);
   } catch (e) {
+    await dropWritten();
     return fail('verify-failed', `read back: ${(e as Error).message}`);
   }
   const mismatch = verifyReadBack(file, back);
   if (mismatch) {
-    await deleteFile(written.uri).catch(() => false);
+    await dropWritten();
     return fail('verify-failed', mismatch);
   }
+  // 核对通过就清，不等清理完：清理途中进程没了时标记还指着这份，下次开头会把这份好备份当半截文件删掉
+  storage.removeItem(WRITING_KEY);
 
   // 通过之后才清理。恢复后补的这份只写不清：恢复的可能是较旧的一份，当天更早那份里有它没有的（gap-1），
   // 之前留着的也清空，让下一次正常备份对着恢复后的内容重新判
@@ -390,6 +423,25 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
   return { kind: 'ok', name: written.name ?? name, workouts, pruned, held: held.length };
 }
 
+/**
+ * 上次写到一半进程没了（WRITING_KEY 还在）：删掉同名（含系统加的「 (n)」）、且不是上次核对通过那份的文件，再清标记。
+ * 列不出 / 删不掉就留着标记下次再来，不挡这次备份。
+ */
+async function dropUnfinishedWrite(folder: FolderRef, lastOkName: string | undefined): Promise<void> {
+  const name = storage.getItem(WRITING_KEY);
+  if (!name) return;
+  const base = name.replace(/\.json$/, '');
+  const same = (n: string) => n === name || (n.startsWith(`${base} (`) && /^ \(\d+\)\.json$/.test(n.slice(base.length)));
+  try {
+    for (const f of await listFiles(folder)) {
+      if (same(f.name) && f.name !== lastOkName && !(await deleteFile(f.uri))) return;
+    }
+    storage.removeItem(WRITING_KEY);
+  } catch {
+    // 下次再清
+  }
+}
+
 /** 每次清理最多读几份候选：文件大时读一份要几百毫秒，剩下的下次再判 */
 const PRUNE_READS = 8;
 
@@ -407,12 +459,15 @@ async function prune(files: FolderFile[], writtenUri: string, snap: FitlogRemote
   const out = [...held];
   let pruned = 0;
   for (const f of cands.slice(0, PRUNE_READS)) {
-    let keep: boolean;
-    try {
-      const old = parseBackupFile(await readText(f.uri)).snapshot;
-      keep = uncoveredRecords(old, snap).length > 0 || recordCount(old) > 2 * total;
-    } catch {
-      keep = true;
+    // 0 字节的里面什么都没有，不用读：按「读不出就留」会让它永远进 held
+    let keep = false;
+    if (f.size !== 0) {
+      try {
+        const old = parseBackupFile(await readText(f.uri)).snapshot;
+        keep = uncoveredRecords(old, snap).length > 0 || recordCount(old) > 2 * total;
+      } catch {
+        keep = true;
+      }
     }
     if (keep) out.push(f.name);
     else if (await deleteFile(f.uri).catch(() => false)) pruned++;

@@ -9,15 +9,16 @@
  */
 import React from 'react';
 import { backupFileName, buildBackupFile, readRollback, rollbackImport, type RollbackInfo } from '../../services/fitlogBackup';
-import { saveTextFile } from '../../services/fitlogSaveFile';
+import { saveTextFile, type SaveOutcome } from '../../services/fitlogSaveFile';
 import { resolveLang } from '../../services/appPrefs';
 import { folderSupported } from '../../services/fitlogFolder';
 import { openDataFlow } from '../hooks/useDataSafety';
-import { overwriteFailedText, overwriteNote, setFlash, undoImportWarning } from './data/flash';
+import { overwriteFailedText, overwriteNote, saveOutcomeText, setFlash, undoImportWarning } from './data/flash';
 import { translations } from '../../translations';
 import { Language } from '../../types';
 
-type ExportState = 'idle' | 'busy' | 'done' | 'cancelled' | 'failed';
+/** 导出完了就是 saveTextFile 的结局（下载 / 已交给 / 没能确认 / 取消），文案和首选项里同一份 */
+type ExportState = 'idle' | 'busy' | 'failed' | SaveOutcome['kind'];
 /** 撤销：idle → confirm（原地展开确认，不用 UiOverlay 的弹窗）→ busy → 成功即重载；失败留在 failed */
 type UndoState = 'idle' | 'confirm' | 'busy' | 'failed';
 
@@ -58,7 +59,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     try {
       const file = await buildBackupFile();
       const outcome = await saveTextFile(backupFileName(), JSON.stringify(file, null, 2));
-      this.setState({ exportState: outcome.kind === 'cancelled' ? 'cancelled' : 'done' });
+      this.setState({ exportState: outcome.kind });
     } catch (e) {
       console.error('[ErrorBoundary] 导出失败:', e);
       this.setState({ exportState: 'failed' });
@@ -88,13 +89,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
     // 和首帧同一套（上架审查 i18n-settings#3）：英文系统没手动选过语言的，崩了也看英文
     const cn = resolveLang() === Language.CN;
     const detail = `${error.name}: ${error.message}\n${error.stack ?? ''}`.trim();
-    const exportNote = {
-      idle: null,
-      busy: cn ? '正在导出…' : 'Exporting…',
-      done: cn ? '已导出' : 'Exported',
-      cancelled: cn ? '已取消' : 'Cancelled',
-      failed: cn ? '导出失败' : 'Export failed',
-    }[exportState];
+    const exportNote =
+      exportState === 'idle'
+        ? null
+        : exportState === 'busy'
+          ? cn ? '正在导出…' : 'Exporting…'
+          : exportState === 'failed'
+            ? cn ? '导出失败' : 'Export failed'
+            : saveOutcomeText(exportState, cn, cn ? '已导出' : 'Exported').message;
     const btn = 'w-full min-h-[52px] rounded-control font-semibold transition-opacity duration-tap ease-paper disabled:opacity-40';
     const quiet = `${btn} bg-card border border-divider text-primary`;
 

@@ -12,6 +12,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { backupFileName, buildBackupFile } from '../../services/fitlogBackup';
 import { saveTextFile } from '../../services/fitlogSaveFile';
+import { saveOutcomeText } from '../components/data/flash';
 
 export type ExportStatus = 'idle' | 'syncing' | 'error';
 
@@ -28,13 +29,10 @@ export function useExportData(
       const file = await buildBackupFile();
       const outcome = await saveTextFile(backupFileName(), JSON.stringify(file, null, 2));
       setSyncStatus('idle');
-      // 只有真的交出去了才报成功。取消分享 = 用户手上没有文件，
-      // 这时弹「导出成功」就是又造一个假信号 —— 这条路正是这么坏过一次的。
-      if (outcome.kind === 'cancelled') {
-        toast(lang === Language.CN ? '已取消' : 'Cancelled', 'info');
-      } else {
-        toast(String(translations.exportSuccess[lang]), 'success');
-      }
+      // 只有真的交出去了才报成功：取消分享、没报接收应用都不是「导出成功」，
+      // 一律报成功就是又造一个假信号 —— 这条路正是这么坏过一次的
+      const { message, variant } = saveOutcomeText(outcome.kind, lang === Language.CN, String(translations.exportSuccess[lang]));
+      toast(message, variant);
     } catch (error) {
       console.error('Export failed:', error);
       toast(lang === Language.CN ? '导出失败' : 'Export failed', 'error');

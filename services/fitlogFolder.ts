@@ -21,24 +21,33 @@ export interface FolderRef {
 export interface FolderFile {
   uri: string;
   name: string;
+  /** 字节；-1 = provider 没报（未知） */
   size: number;
   /** 毫秒时间戳；拿不到时为 0 */
   modified: number;
 }
 
-/** 插件 reject 时带的 code，UI 按它说人话 */
-export type FolderErrorCode =
-  | 'no-access'
-  | 'persist-failed'
-  | 'mkdir-failed'
-  | 'open-failed'
-  | 'list-failed'
-  | 'create-failed'
-  | 'write-failed'
-  | 'read-failed'
-  | 'delete-failed'
-  | 'unsupported'
-  | 'unknown';
+/** 插件 reject 时带的 code，UI 只按它出文案（reject 的 message 是英文诊断，只进 console） */
+const FOLDER_ERROR_CODES = [
+  'no-access',
+  /** 目录被删、改名、存储卡拔了：授权还在，目录没了 */
+  'folder-missing',
+  'persist-failed',
+  'mkdir-failed',
+  'open-failed',
+  'list-failed',
+  'create-failed',
+  'write-failed',
+  'read-failed',
+  'delete-failed',
+  'bad-args',
+  'unsupported',
+  'unknown',
+] as const;
+export type FolderErrorCode = (typeof FOLDER_ERROR_CODES)[number];
+
+/** 选文件夹是为了哪条流程：选择器开着时进程被回收，结果靠它分流（routeRestoredPick） */
+export type PickPurpose = 'setup' | 'restore';
 
 export class FolderError extends Error {
   constructor(public code: FolderErrorCode, message: string) {
@@ -47,7 +56,7 @@ export class FolderError extends Error {
 }
 
 interface FitlogFolderPlugin {
-  pickFolder(o: { initial?: string; subfolder?: string }): Promise<{ cancelled?: boolean } & Partial<FolderRef>>;
+  pickFolder(o: { initial?: string; subfolder?: string; purpose: PickPurpose }): Promise<{ cancelled?: boolean } & Partial<FolderRef>>;
   hasAccess(o: { treeUri: string }): Promise<{ ok: boolean }>;
   list(o: { treeUri: string; dirUri: string }): Promise<{ files: FolderFile[] }>;
   writeText(o: { dirUri: string; name: string; text: string; mimeType?: string }): Promise<{ uri: string; name: string | null }>;
@@ -61,7 +70,7 @@ const Native = registerPlugin<FitlogFolderPlugin>('FitlogFolder');
 
 const MOCK_FLAG = 'fitlog_mock_folder';
 const MOCK_FS = 'fitlog_mock_folder_fs';
-/** e2e 控制：'cancel' 取消选择 / 'corrupt-write' 写进去的内容和给的不一样（模拟读回不一致） / 'deny' 没权限 */
+/** e2e 控制：'cancel' 取消选择 / 'corrupt-write' 写进去的内容和给的不一样（模拟读回不一致） / 'deny' 没权限 / 'missing' 目录没了（授权还在） */
 const MOCK_FAULT = 'fitlog_mock_folder_fault';
 
 function mockOn(): boolean {
@@ -94,6 +103,7 @@ const Mock: FitlogFolderPlugin = {
   },
   async list() {
     if (fault() === 'deny') throw new FolderError('no-access', 'mock deny');
+    if (fault() === 'missing') throw new FolderError('folder-missing', 'mock missing');
     const fs = readMock();
     return {
       files: Object.entries(fs).map(([name, f]) => ({
@@ -106,6 +116,7 @@ const Mock: FitlogFolderPlugin = {
   },
   async writeText({ name, text }) {
     if (fault() === 'deny') throw new FolderError('no-access', 'mock deny');
+    if (fault() === 'missing') throw new FolderError('folder-missing', 'mock missing');
     const fs = readMock();
     let actual = name;
     for (let i = 1; fs[actual]; i++) actual = name.replace(/(\.\w+)$/, ` (${i})$1`);
@@ -140,26 +151,54 @@ function impl(): FitlogFolderPlugin {
   throw new FolderError('unsupported', 'folder not supported on this platform');
 }
 
+/** 原生给的 code 认得就保住，认不得（插件以外的异常、以后新加的）归 unknown */
+const folderCode = (c: unknown): FolderErrorCode =>
+  (FOLDER_ERROR_CODES as readonly unknown[]).includes(c) ? (c as FolderErrorCode) : 'unknown';
+
 /** 把插件的 reject 统一成 FolderError，code 保住 */
 async function wrap<T>(p: () => Promise<T>): Promise<T> {
   try {
     return await p();
   } catch (e) {
     if (e instanceof FolderError) throw e;
-    const code = ((e as { code?: string })?.code as FolderErrorCode) || 'unknown';
-    throw new FolderError(code, String((e as Error)?.message ?? e));
+    throw new FolderError(folderCode((e as { code?: unknown })?.code), String((e as Error)?.message ?? e));
   }
 }
+
+const toRef = (r: Partial<FolderRef>): FolderRef | null =>
+  r.treeUri && r.dirUri ? { treeUri: r.treeUri, dirUri: r.dirUri, dirDocId: r.dirDocId ?? '' } : null;
 
 /**
  * 弹系统选择器。initial 是打开的位置（只是提示），subfolder 规则见原生侧：
  * 选中的文件夹叫这个名字、或里面已有备份 → 直接用；否则在里面建 / 复用这个子目录。
- * 用户取消返回 null。
+ * purpose 原样带回，进程被回收后靠它把结果补给对的流程。用户取消返回 null。
  */
-export async function pickFolder(initial: 'Documents' | 'Documents/fitlog'): Promise<FolderRef | null> {
-  const r = await wrap(() => impl().pickFolder({ initial, subfolder: 'fitlog' }));
-  if (r.cancelled || !r.treeUri || !r.dirUri) return null;
-  return { treeUri: r.treeUri, dirUri: r.dirUri, dirDocId: r.dirDocId ?? '' };
+export async function pickFolder(initial: 'Documents' | 'Documents/fitlog', purpose: PickPurpose): Promise<FolderRef | null> {
+  const r = await wrap(() => impl().pickFolder({ initial, subfolder: 'fitlog', purpose }));
+  return r.cancelled ? null : toRef(r);
+}
+
+/** @capacitor/app 的 appRestoredResult 事件里用得到的几项 */
+export interface RestoredPick {
+  pluginId: string;
+  methodName: string;
+  success: boolean;
+  data?: { cancelled?: boolean; purpose?: string } & Partial<FolderRef>;
+  error?: { code?: string; message?: string };
+}
+
+/**
+ * 选择器开着时进程被回收，选好的结果由 appRestoredResult 补回来（原来等着的 Promise 早没了）。
+ * 只认 FitlogFolder.pickFolder：成功 → 按 purpose 分给开启备份 / 恢复；失败 → code；取消、别的插件、认不出 purpose → null。
+ */
+export function routeRestoredPick(e: RestoredPick): { purpose: PickPurpose; folder: FolderRef } | { code: FolderErrorCode } | null {
+  if (e.pluginId !== 'FitlogFolder' || e.methodName !== 'pickFolder') return null;
+  if (!e.success) return { code: folderCode(e.error?.code) };
+  const d = e.data ?? {};
+  const purpose = d.purpose;
+  if (d.cancelled || (purpose !== 'setup' && purpose !== 'restore')) return null;
+  const folder = toRef(d);
+  return folder && { purpose, folder };
 }
 
 export async function hasAccess(f: FolderRef): Promise<boolean> {

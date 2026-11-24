@@ -11,7 +11,7 @@ import { Modal } from '../Modal';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { useUiOverlay } from '../../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
-import { pickFile } from '../../hooks/useImportData';
+import { pickFile } from '../../../services/fitlogPickFile';
 import {
   CsvImportError,
   importDefs,
@@ -39,13 +39,16 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
   const [warmups, setWarmups] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // 打开就弹文件选择器；取消 / 认不出 → 关掉并说明
+  // 打开就弹文件选择器；取消 / 认不出 → 关掉并说明。
+  // live：同一个流程再点一次会换一个 key 重新挂载，新的那次 pickFile 把这次按取消收掉 —— 这时不能再 onClose 把新的关了
   useEffect(() => {
     if (!open) return;
+    let live = true;
     setPlan(null);
     setWarmups(false);
     void (async () => {
       const file = await pickFile('text/csv,.csv,text/comma-separated-values,text/plain');
+      if (!live) return;
       if (!file) {
         onClose();
         return;
@@ -66,6 +69,9 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
         onClose();
       }
     })();
+    return () => {
+      live = false;
+    };
   }, [open]);
 
   /** 做法按当前生效的做法表认（用户删过 / 自建过同器材的做法）；内置做法补上当前语言的器材名，记录上的 variantName 才和 App 里记的一样 */

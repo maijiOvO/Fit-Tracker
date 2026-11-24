@@ -22,6 +22,9 @@ const OUT = path.resolve('test-artifacts', 'backup');
 export const BACKUP_STEPS = [
   ['seed-and-first-backup', []],
   ['uninstall-then-restore'],
+  // 换手机时备份在「下载」根目录，选不了文件夹（上架审查 solo-isolation#4）：取消选文件夹后停在弹窗里，选一个备份文件走摘要 → 恢复，
+  // 不设备份文件夹。「取消后不关」「单文件走同一套摘要」「恢复不要求文件夹」是弹窗的状态机，下层测不到
+  ['restore-from-file'],
   // 再卸载一次、在「我的」页选回原来的文件夹：不写空备份，转去恢复，默认项是带着记录的那份（上架审查 C11 / C53）。
   // 选完文件夹 → 先看文件夹里有没有本机没有的 → 写 / 跳过 → 开恢复弹窗，这段 hook 接线 data-check 测不到
   ['reinstall-choose-old-folder'],
@@ -190,6 +193,42 @@ export async function runBackup(browser, plan) {
       const st = await page.evaluate(() => JSON.parse(localStorage.getItem(window.__t.key('fitlog_backup_status'))));
       if (!st.lastOkAt || st.lastOkWorkouts !== SEED.length) throw new Error(`post-restore backup status: ${JSON.stringify(st)}`);
       return `restored ${n1} workouts, folder re-armed`;
+    });
+
+    await step(page, 'restore-from-file', async () => {
+      const text = await page.evaluate(async () => {
+        const fs = window.__t.fs();
+        const newest = Object.keys(fs).sort().at(-1);
+        const keep = {};
+        for (const k of ['fitlog_mock_folder', 'fitlog_mock_folder_fs']) keep[k] = localStorage.getItem(k);
+        localStorage.clear();
+        for (const [k, v] of Object.entries(keep)) localStorage.setItem(k, v);
+        const dbs = (await indexedDB.databases?.()) ?? [];
+        await Promise.all(dbs.map(d => new Promise(r => { const q = indexedDB.deleteDatabase(d.name); q.onsuccess = q.onerror = q.onblocked = r; })));
+        return fs[newest].text;
+      });
+      await reloadAndSettle(page);
+      await page.evaluate(() => window.__t.fault('cancel'));
+      try {
+        await page.locator('[data-testid="empty-restore"]').click({ timeout: 10_000 });
+        // 选文件夹取消了：弹窗还开着，给「选一个备份文件」
+        await page.locator('[data-testid="restore-pick-file"]').waitFor({ timeout: 10_000 });
+        if (!(await page.locator('[data-testid="restore-modal"]').isVisible())) throw new Error('restore modal closed after cancelling the folder picker');
+        const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('[data-testid="restore-pick-file"]').click()]);
+        await chooser.setFiles({ name: 'fitlog-backup.json', mimeType: 'application/json', buffer: Buffer.from(text) });
+        await page.locator('[data-testid="restore-summary"]').waitFor({ timeout: 10_000 });
+        await page.locator('[data-testid="restore-apply"]').click();
+        await page.waitForEvent('load', { timeout: 15_000 });
+      } finally {
+        await page.evaluate(() => localStorage.removeItem('fitlog_mock_folder_fault')).catch(() => {});
+      }
+      await page.waitForSelector('header', { timeout: 15_000 });
+      await installHelpers(page);
+      const n = await page.evaluate(async () => (await window.__t.snap()).workouts.length);
+      if (n !== SEED.length) throw new Error(`restored ${n} workouts from the file, want ${SEED.length}`);
+      const folder = await page.evaluate(() => localStorage.getItem(window.__t.key('fitlog_backup_folder')));
+      if (folder) throw new Error(`restoring from a single file set a backup folder: ${folder}`);
+      return `restored ${n} workouts from a single file, no folder set`;
     });
 
     await step(page, 'reinstall-choose-old-folder', async () => {

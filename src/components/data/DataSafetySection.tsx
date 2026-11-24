@@ -14,13 +14,13 @@ import { translations } from '../../../translations';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { displayPath } from '../../../services/fitlogFolder';
 import {
-  backupErrorText,
   openDataFlow,
   useBackupNow,
   useBackupState,
   useChooseBackupFolder,
   useExportCsv,
 } from '../../hooks/useDataSafety';
+import { backupErrorText, needsRepick } from './flash';
 import { Go, Group, Name, Primary, Stack } from '../prefsRows';
 
 function ago(iso: string, isCn: boolean): string {
@@ -109,7 +109,8 @@ export const BackupRow: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
 
 /**
  * 「我的」页上的一行备份状态（审查 D11 / E2：备份状态要一眼能看到，不藏在首选项第四组）。
- * 正常时是上次备份的时间和位置；没开 / 失败时红字，附上能修好它的那颗按钮。
+ * 正常时是上次备份的时间和位置；没开 / 失败时红字，附上能修好它的那颗按钮（design-backup §4）：
+ * 任何失败都给「重新选择」—— 重选本身就是一次核对过的立即备份，权限、目录、写入哪种坏了都修得好或报得出。
  * 时间是上次真正写成的那份：数据没变就不重写，所以很久没练时这里是很久以前，那份仍是最新的。
  * 浏览器里（不支持文件夹）不出。
  */
@@ -119,7 +120,6 @@ export const BackupGlance: React.FC = () => {
   const choose = useChooseBackupFolder();
   if (!supported) return null;
 
-  const fix = !folder || (errNewer && status.lastError?.code === 'no-access');
   const bad = !folder || errNewer;
   const value = !folder
     ? t('未开启', 'Off')
@@ -135,7 +135,7 @@ export const BackupGlance: React.FC = () => {
           {bad && <AlertCircle size={14} className="flex-shrink-0" />}
           <span className="truncate">{value}</span>
         </span>
-        {fix && (
+        {bad && (
           <Primary onClick={() => void choose()} testId="profile-backup-choose">
             {folder ? t('重新选择', 'Choose again') : t('选择文件夹', 'Choose folder')}
           </Primary>
@@ -152,7 +152,8 @@ export const BackupPage: React.FC = () => {
   const choose = useChooseBackupFolder();
   const backup = useBackupNow();
 
-  const noAccess = errNewer && status.lastError?.code === 'no-access';
+  // 没权限 / 目录没了：「立即备份」只会再失败一次，主按钮换成重选
+  const repick = errNewer && needsRepick(status.lastError!.code);
   const head = !folder ? (
     <Name name={t('未开启', 'Off')} sub={t('卸载会丢全部记录', 'Uninstalling loses all records')} bad />
   ) : errNewer ? (
@@ -177,7 +178,7 @@ export const BackupPage: React.FC = () => {
               {t('，可用「从备份恢复」合并回来', ' — "Restore from backup" can merge them back')}
             </p>
           )}
-          {!folder || noAccess ? (
+          {!folder || repick ? (
             <Primary wide onClick={() => void choose()} testId={folder ? 'backup-change-folder' : 'backup-choose-folder'}>
               {folder ? t('重新选择文件夹', 'Choose folder again') : t('选择文件夹', 'Choose folder')}
             </Primary>
@@ -189,7 +190,7 @@ export const BackupPage: React.FC = () => {
         </Stack>
       </Group>
       <Group>
-        {folder && !noAccess && (
+        {folder && !repick && (
           <Go
             name={t('备份文件夹', 'Backup folder')}
             value={displayPath(folder, isCn)}

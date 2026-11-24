@@ -19,34 +19,19 @@ import {
   getBackupFolder,
   getBackupStatus,
   setBackupFolder,
-  type BackupErrorCode,
   type BackupOutcome,
   type BackupStatus,
 } from '../../services/fitlogAutoBackup';
 import { FolderError, folderSupported, pickFolder, readText, writeText, type FolderRef } from '../../services/fitlogFolder';
 import { buildWorkoutsCsv, csvFileName } from '../../services/fitlogCsvExport';
 import { saveTextFile } from '../../services/fitlogSaveFile';
+import { backupErrorText, saveOutcomeText } from '../components/data/flash';
 
 export const OPEN_DATA_FLOW_EVENT = 'fitlog:open-data-flow';
 export type DataFlow = 'restore' | 'import-csv' | 'setup';
 
 export function openDataFlow(flow: DataFlow): void {
   window.dispatchEvent(new CustomEvent(OPEN_DATA_FLOW_EVENT, { detail: flow }));
-}
-
-export function backupErrorText(code: BackupErrorCode, isCn: boolean): string {
-  switch (code) {
-    case 'no-access':
-      return isCn ? '文件夹权限已失效，重新选择' : 'Folder access was lost — choose it again';
-    case 'verify-failed':
-      return isCn ? '备份校验失败，这份备份不可用' : 'Backup failed verification and cannot be used';
-    case 'no-folder':
-      return isCn ? '还没有选备份文件夹' : 'No backup folder chosen';
-    case 'unsupported':
-      return isCn ? '这台设备不支持备份文件夹' : 'Backup folder is not supported here';
-    default:
-      return isCn ? '写入失败' : 'Write failed';
-  }
 }
 
 /** 备份文件夹 + 状态，变了自动刷新 */
@@ -91,36 +76,51 @@ function useReportBackup(): (o: BackupOutcome) => void {
 }
 
 /**
- * 选（或更换）备份文件夹，选完立刻备份一份并核对。
+ * 选好文件夹之后那一段：设成备份文件夹，立刻备份一份并核对。选文件夹、进程被回收后补回来的结果（DataSafetyHost）共用。
  * 文件夹里的备份带着这台手机没有的记录（重装后选回了原来的文件夹）→ 转去恢复，不只报「已备份 3 场」（上架审查 C11）。
  */
-export function useChooseBackupFolder(): () => Promise<boolean> {
+export function useAdoptBackupFolder(): (f: FolderRef) => Promise<void> {
   const { lang } = useUserSettingsContext();
   const { toast } = useUiOverlay();
   const report = useReportBackup();
   const isCn = lang === Language.CN;
+  return useCallback(
+    async (f: FolderRef) => {
+      setBackupFolder(f);
+      // 先看再写：刚写的那份会是文件夹里最新的，写完再看就只看得到本机自己
+      const foreign = await foreignInFolder(f);
+      const o = await backupNow('first-setup');
+      if (foreign > 0) openDataFlow('restore');
+      else if (o.kind === 'skipped' && o.why === 'empty')
+        toast(isCn ? '已选好文件夹，有了记录会自动备份到这里' : 'Folder set — records will be backed up here automatically', 'success');
+      else report(o);
+    },
+    [isCn, report, toast],
+  );
+}
+
+/** 选（或更换）备份文件夹，选完交给 useAdoptBackupFolder */
+export function useChooseBackupFolder(): () => Promise<boolean> {
+  const { lang } = useUserSettingsContext();
+  const { toast } = useUiOverlay();
+  const adopt = useAdoptBackupFolder();
+  const isCn = lang === Language.CN;
   return useCallback(async () => {
     let f: FolderRef | null;
     try {
-      f = await pickFolder('Documents');
+      f = await pickFolder('Documents', 'setup');
     } catch (e) {
-      toast((isCn ? '没能使用这个文件夹：' : 'Could not use that folder: ') + (e as Error).message, 'error');
+      console.warn('pickFolder failed:', e);
+      toast(backupErrorText((e as FolderError).code, isCn), 'error');
       return false;
     }
     if (!f) {
       toast(isCn ? '已取消' : 'Cancelled', 'info');
       return false;
     }
-    setBackupFolder(f);
-    // 先看再写：刚写的那份会是文件夹里最新的，写完再看就只看得到本机自己
-    const foreign = await foreignInFolder(f);
-    const o = await backupNow('first-setup');
-    if (foreign > 0) openDataFlow('restore');
-    else if (o.kind === 'skipped' && o.why === 'empty')
-      toast(isCn ? '已选好文件夹，有了记录会自动备份到这里' : 'Folder set — records will be backed up here automatically', 'success');
-    else report(o);
+    await adopt(f);
     return true;
-  }, [isCn, report, toast]);
+  }, [adopt, isCn, toast]);
 }
 
 export function useBackupNow(): () => Promise<void> {
@@ -132,7 +132,7 @@ export function useBackupNow(): () => Promise<void> {
 
 /**
  * 导出 CSV。target = 'share' 走系统分享面板；'folder' 写进备份文件夹并读回核对。
- * 两条路都只在用户真拿到文件时报成功（分享面板取消 = 没导出）。
+ * 文件夹那条读回核对过才报成功；分享那条按 saveOutcomeText 只报到「已交给所选应用」，没报接收应用的说「没能确认」。
  */
 export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
   const { lang, unit } = useUserSettingsContext();
@@ -181,15 +181,11 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
           toast(`${ok} → ${w.name ?? name}`, 'success');
           return;
         }
-        const outcome = await saveTextFile(name, text, 'text/csv');
-        if (outcome.kind === 'cancelled') {
-          toast(isCn ? '已取消' : 'Cancelled', 'info');
-          return;
-        }
-        toast(ok, 'success');
+        const { message, variant } = saveOutcomeText((await saveTextFile(name, text, 'text/csv')).kind, isCn, ok);
+        toast(message, variant);
       } catch (e) {
         console.error('CSV export failed:', e);
-        const msg = e instanceof FolderError ? backupErrorText(e.code === 'no-access' ? 'no-access' : 'write-failed', isCn) : '';
+        const msg = e instanceof FolderError ? backupErrorText(e.code, isCn) : '';
         toast((isCn ? '导出失败' : 'Export failed') + (msg ? (isCn ? `：${msg}` : `: ${msg}`) : ''), 'error');
       }
     },

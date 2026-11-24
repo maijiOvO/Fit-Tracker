@@ -5,21 +5,25 @@
  *   - 第一次有了训练记录、还没选备份文件夹时，引导一次
  *   - 自动备份失败时提示一次（同一原因不重复）
  *   - 承载从各处打开的「从备份恢复」「从 Strong / Hevy 导入」弹窗（openDataFlow）
+ *   - 选文件夹时进程被回收、回来后补到的结果（appRestoredResult）：按用途接着开启备份，或直接出恢复摘要
  */
 import React, { useEffect, useState } from 'react';
 import { FolderOpen, ShieldCheck } from 'lucide-react';
+import { App as CapApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { Language } from '../../../types';
 import { Modal } from '../Modal';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { useUiOverlay } from '../../contexts/UiOverlayContext';
 import { useWorkoutContext } from '../../contexts/WorkoutContext';
 import { AUTO_BACKUP_FAILED_EVENT, maybeDailyBackup, type BackupErrorCode } from '../../../services/fitlogAutoBackup';
+import { routeRestoredPick, type FolderRef } from '../../../services/fitlogFolder';
 import { storage } from '../../../services/appStorage';
 import { isDemo } from '../../../services/appEnv';
-import { OPEN_DATA_FLOW_EVENT, backupErrorText, useBackupState, useChooseBackupFolder, type DataFlow } from '../../hooks/useDataSafety';
+import { OPEN_DATA_FLOW_EVENT, useAdoptBackupFolder, useBackupState, useChooseBackupFolder, type DataFlow } from '../../hooks/useDataSafety';
 import { RestoreBackupModal } from './RestoreBackupModal';
 import { ImportCsvModal } from './ImportCsvModal';
-import { takeFlash } from './flash';
+import { backupErrorText, takeFlash } from './flash';
 
 const PROMPTED_KEY = 'fitlog_backup_setup_prompted';
 
@@ -29,16 +33,43 @@ export const DataSafetyHost: React.FC = () => {
   const { workouts } = useWorkoutContext();
   const { supported, folder } = useBackupState();
   const choose = useChooseBackupFolder();
+  const adopt = useAdoptBackupFolder();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
   const [flow, setFlow] = useState<DataFlow | null>(null);
+  /**
+   * 每打开一次加一，当两个弹窗的 key：同一个流程再点一次也重新挂载、重新弹选择器
+   * （万一系统选择器关了却没派发 cancel，原来那次一直等着，再点入口照样能用，上架审查 C63）。关掉时不变，不打断关的动画
+   */
+  const [seq, setSeq] = useState(0);
+  /** 进程被回收后补回来的恢复用文件夹：恢复弹窗拿它直接列，不再弹选择器 */
+  const [restoreFolder, setRestoreFolder] = useState<FolderRef>();
+  const openFlow = (kind: DataFlow, f?: FolderRef) => {
+    setRestoreFolder(f);
+    setSeq(s => s + 1);
+    setFlow(kind);
+  };
 
   useEffect(() => {
-    const on = (e: Event) => setFlow((e as CustomEvent<DataFlow>).detail);
+    const on = (e: Event) => openFlow((e as CustomEvent<DataFlow>).detail);
     window.addEventListener(OPEN_DATA_FLOW_EVENT, on);
     return () => window.removeEventListener(OPEN_DATA_FLOW_EVENT, on);
   }, []);
+
+  // 选文件夹时进程被回收（系统选择器开着、内存紧）：原来那次的 Promise 没了，结果由 appRestoredResult 补回来。
+  // 结果会留到有人接为止，晚挂也收得到。文件输入（导入 JSON / CSV、选一个备份文件）的结果 WebView 自己会丢，接不回（design-backup §7）
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handle = CapApp.addListener('appRestoredResult', e => {
+      const r = routeRestoredPick(e);
+      if (!r) return;
+      if ('code' in r) toast(backupErrorText(r.code, isCn), 'error');
+      else if (r.purpose === 'setup') void adopt(r.folder);
+      else openFlow('restore', r.folder);
+    });
+    return () => void handle.then(h => h.remove());
+  }, [adopt, isCn, toast]);
 
   useEffect(() => {
     const f = takeFlash();
@@ -78,8 +109,8 @@ export const DataSafetyHost: React.FC = () => {
 
   return (
     <>
-      <RestoreBackupModal open={flow === 'restore'} onClose={() => setFlow(null)} />
-      <ImportCsvModal open={flow === 'import-csv'} onClose={() => setFlow(null)} />
+      <RestoreBackupModal key={`r${seq}`} open={flow === 'restore'} initialFolder={restoreFolder} onClose={() => setFlow(null)} />
+      <ImportCsvModal key={`c${seq}`} open={flow === 'import-csv'} onClose={() => setFlow(null)} />
       <Modal
         isOpen={flow === 'setup'}
         onClose={closeSetup}
