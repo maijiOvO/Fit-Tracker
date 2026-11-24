@@ -34,11 +34,22 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
 
   if (!open) return null;
 
-  const columns: Array<{ label: string; key: 'h' | 'm' | 's'; max: number }> = [
-    { label: isCn ? '时' : 'Hour', key: 'h', max: 23 },
-    { label: isCn ? '分' : 'Min', key: 'm', max: 59 },
-    { label: isCn ? '秒' : 'Sec', key: 's', max: 59 },
+  /**
+   * wrap：箭头走到头回绕的值；max：打字的上限。分、秒打字放到 999（上架审查 C39）：原来上限 59，
+   * 打 90 秒、75 分钟直接点确定会被静默夹成 59。确定时本来就按总秒数算，下次打开 secondsToHMS 会折回 01:30。
+   */
+  const columns: Array<{ label: string; key: 'h' | 'm' | 's'; wrap: number; max: number }> = [
+    { label: isCn ? '时' : 'Hour', key: 'h', wrap: 23, max: 23 },
+    { label: isCn ? '分' : 'Min', key: 'm', wrap: 59, max: 999 },
+    { label: isCn ? '秒' : 'Sec', key: 's', wrap: 59, max: 999 },
   ];
+  /** 箭头之前先把超过 59 的格子折算进上一格，再按 wrap 走一格 */
+  const stepCol = (key: 'h' | 'm' | 's', wrap: number, d: 1 | -1) =>
+    setTempHMS(p => {
+      const n = p.m > 59 || p.s > 59 ? secondsToHMS(p.h * 3600 + p.m * 60 + p.s) : p;
+      const v = n[key] + d;
+      return { ...n, [key]: v > wrap ? 0 : v < 0 ? wrap : v };
+    });
 
   return (
     <Modal
@@ -61,12 +72,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
           {columns.map(col => (
             <div key={col.key} className="flex flex-col items-center gap-4 flex-1">
               <button
-                onClick={() =>
-                  setTempHMS(p => ({
-                    ...p,
-                    [col.key]: p[col.key] + 1 > col.max ? 0 : p[col.key] + 1,
-                  }))
-                }
+                onClick={() => stepCol(col.key, col.wrap, 1)}
                 className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-ui"
               >
                 <ChevronUp size={28} strokeWidth={3} />
@@ -103,12 +109,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
               </div>
 
               <button
-                onClick={() =>
-                  setTempHMS(p => ({
-                    ...p,
-                    [col.key]: p[col.key] - 1 < 0 ? col.max : p[col.key] - 1,
-                  }))
-                }
+                onClick={() => stepCol(col.key, col.wrap, -1)}
                 className="w-full py-4 bg-card rounded-card flex justify-center text-accent active:bg-accent-ink active:text-on-accent transition-ui"
               >
                 <ChevronDown size={28} strokeWidth={3} />
