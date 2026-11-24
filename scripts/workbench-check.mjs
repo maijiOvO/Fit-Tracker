@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts'; export * as SW from './src/utils/setWrite.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts'; export * as SW from './src/utils/setWrite.ts'; export * as V from './src/utils/setValues.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -378,6 +378,52 @@ t('入册口径（2026-11 用户定）：有数的组都入册，不论点没点
   assert.deepEqual(rec.map(e => e.id), ['A']);
   assert.deepEqual(rec[0].sets.map(x => x.id), ['A1', 'A2']);
   assert.ok(rec[0].sets.every(x => !x.ghost && x.seq === undefined && x.touched === undefined));
+});
+
+t('入册口径认速度和自定义记录项（上架审查 C21）：只记速度 / RPE / 坡度的组也入册；seq、want、added、只点了竭都不算数', () => {
+  const s = patch => ({ id: 'x', weight: 0, reps: 0, ...patch });
+  assert.equal(W.willRecord(s({ speed: 9.5 })), true, 'speed only');
+  assert.equal(W.willRecord(s({ custom_高度: 55 })), true, 'custom only');
+  assert.equal(W.willRecord(s({ custom_角度: -15 })), true, 'custom may be negative');
+  assert.equal(W.willRecord(s({ ghost: true, seq: 1795505657792, want: 60, added: true, toFailure: true })), false, 'non-value fields');
+  const run = { id: 'T', name: '跑步机', sets: [{ id: 'T1', weight: 0, reps: 0, speed: 10, ghost: false, seq: 3 }, { id: 'T2', weight: 0, reps: 0, speed: 11, ghost: true, touched: { speed: true } }] };
+  const rec = W.recordedExercises([run, ex('B', [[100, 5]])]);
+  assert.deepEqual(rec.map(e => e.id), ['T', 'B'], '跑步机整个动作不能被丢');
+  assert.equal(rec[0].sets.length, 2);
+  assert.ok(rec[0].sets.every(x => x.seq === undefined && x.touched === undefined));
+});
+
+t('换做法重铺底稿（上架审查 C43）：卡上有做完 / 改过的行就保留在原位、组数不变，不把新做法上次多出来的组接在后面；全是没动过的底稿才整套换', () => {
+  const f = n => Array.from({ length: n }, (_, i) => ({ id: `f${i}`, weight: 50, reps: 5, ghost: true }));
+  const done = id => ({ id, weight: 60, reps: 8 });
+  const draft = id => ({ id, weight: 60, reps: 8, ghost: true });
+  assert.deepEqual(W.refillDraft([done('a'), done('b')], f(4)).map(x => x.id), ['a', 'b']);
+  assert.deepEqual(W.refillDraft([draft('a'), draft('b')], f(4)).map(x => x.id), ['f0', 'f1', 'f2', 'f3']);
+  assert.deepEqual(W.refillDraft([done('a'), draft('b')], f(3)).map(x => x.id), ['a', 'f1']);
+  assert.deepEqual(W.refillDraft([{ ...draft('a'), toFailure: true }, draft('b')], f(2)).map(x => x.id), ['a', 'f1'], '只点了竭也算动过');
+  assert.deepEqual(W.refillDraft([{ ...draft('a'), touched: { custom_RPE: true } }, draft('b')], f(2)).map(x => x.id), ['a', 'f1'], '只改了自定义项也算动过');
+});
+
+t('底稿 / 添加组只抄开着的记录项（上架审查 gap-2#2、gap-5#1 #2）：关掉的次数、重量不再藏在组里入册；速度和自定义项照抄；改速度记进 touched', () => {
+  const last = { id: 'L', weight: 40, reps: 10, duration: 1800, distance: 5, distanceUnit: 'km', speed: 12, custom_坡度: 3, toFailure: true, seq: 9, touched: { reps: true } };
+  const cardio = W.V.copyValues(last, ['duration', 'distance', 'speed', 'custom_坡度']);
+  assert.deepEqual(cardio, { weight: 0, reps: 0, duration: 1800, distance: 5, distanceUnit: 'km', speed: 12, custom_坡度: 3 });
+  assert.deepEqual(W.V.copyValues(last, ['weight', 'reps']), { weight: 40, reps: 10 });
+  const ghosts = W.V.toGhostSets([last, { id: 'g', weight: 1, reps: 1, ghost: true }], 'p', ['reps']);
+  assert.deepEqual(ghosts, [{ id: 'p_0', weight: 0, reps: 10, ghost: true }], '底稿只抄开着的、先滤掉 ghost、力竭不继承');
+  assert.deepEqual(W.SW.markTouched({ id: 's', weight: 0, reps: 0, ghost: true }, { speed: 11 }).touched, { speed: true });
+  assert.deepEqual(W.SW.markTouched({ id: 's', weight: 0, reps: 0, ghost: true }, { custom_RPE: 8 }).touched, { custom_RPE: true });
+});
+
+t('训练中关掉记录项（上架审查 gap-2#2）：目标动作指针以下、没改过的那一格清掉；做完的行、改过的格子、别的动作不动；没变化返回原数组', () => {
+  const exs = [
+    { id: 'A', name: '农夫行走', sets: [{ id: 'a0', weight: 40, reps: 20, distance: 30 }, { id: 'a1', weight: 40, reps: 20, distance: 30, ghost: true }, { id: 'a2', weight: 40, reps: 25, distance: 30, ghost: true, touched: { reps: true } }] },
+    { id: 'B', name: '深蹲', sets: [{ id: 'b0', weight: 100, reps: 5, ghost: true }] },
+  ];
+  const out = W.V.pruneDraftToMetrics(exs, e => e.name === '农夫行走', ['weight', 'distance']);
+  assert.deepEqual(out[0].sets.map(s => s.reps), [20, 0, 25], '做完的不动、没改过的清掉、改过的留着');
+  assert.equal(out[1], exs[1], '别的动作原样');
+  assert.equal(W.V.pruneDraftToMetrics(exs, e => e.name === '农夫行走', ['weight', 'reps', 'distance']), exs, '没变化不换对象');
 });
 
 t('改值只改这一组（2026-11-23 用户定）：重量、次数、时长、正负号，别的组一律不变', () => {

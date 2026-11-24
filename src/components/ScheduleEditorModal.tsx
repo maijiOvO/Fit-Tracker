@@ -145,7 +145,8 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
           name,
           category: cat,
           targetSets: 3,
-          targetReps: 10,
+          // 有氧不默认「次数 10」：开练时不记次数的动作本来也不会写进组（上架审查 gap-5#1），编辑器里就别写着
+          ...(cat === 'CARDIO' ? {} : { targetReps: 10 }),
           ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
           ...(ex.equipment ? { tags: [ex.equipment] } : {}),
         },

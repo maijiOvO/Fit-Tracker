@@ -16,7 +16,8 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, newGroupId, normalizeGroups, recordedExercises, toRecorded } from '../utils/workbench';
+import { groupExercises, newGroupId, normalizeGroups, recordedExercises, refillDraft, toRecorded } from '../utils/workbench';
+import { rowEdited, toGhostSets } from '../utils/setValues';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
@@ -47,45 +48,6 @@ export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
  */
 export const RESUME_WINDOW_MS = 10 * 60 * 1000;
 
-/**
- * 把一串既有的组铺成底稿行（§12.6）。
- *
- * 只抄数值字段，递减子组也照抄（和母组一样是上次的数据，跟着母组一起描实 / 丢弃）。
- * 力竭是当日事实，不继承。
- * 上次若本身是未收尾的草稿，先滤掉它的 ghost —— 别把底稿再抄成底稿。
- *
- * 添加单个动作（底稿预填）和整场复制共用这一份，两处的语义必须是同一套：
- * §12.6 说的就是「不发明新机制」。
- */
-export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string): SetLog[] {
-  return (sets ?? [])
-    .filter(s => !s.ghost)
-    .map((s, j) => ({
-      id: `${idPrefix}_${j}`,
-      weight: s.weight ?? 0,
-      reps: s.reps ?? 0,
-      // 带正负的负荷：号跟着抄，否则辅助的组 / 降进辅助的递减档下次会变成负重
-      ...(s.bodyweightMode ? { bodyweightMode: s.bodyweightMode } : {}),
-      // 「杠铃片」：挂的是哪种片跟着抄，否则下一场的底稿又得靠推断（推断不了的会退回显示单位）
-      ...(s.plateUnit ? { plateUnit: s.plateUnit } : {}),
-      ...(s.duration ? { duration: s.duration } : {}),
-      ...(s.time ? { time: s.time, timeUnit: s.timeUnit } : {}),
-      ...(s.distance ? { distance: s.distance, distanceUnit: s.distanceUnit } : {}),
-      ...(s.subSets?.length
-        ? {
-            subSets: s.subSets.map((sub, k) => ({
-              id: `${idPrefix}_${j}_sub${k}`,
-              weight: sub.weight ?? 0,
-              reps: sub.reps ?? 0,
-              ...(sub.bodyweightMode ? { bodyweightMode: sub.bodyweightMode } : {}),
-              // 递减档的登记单位也抄（原先只抄了母组的，子组下一场又得靠推断）
-              ...(sub.plateUnit ?? s.plateUnit ? { plateUnit: sub.plateUnit ?? s.plateUnit } : {}),
-            })),
-          }
-        : {}),
-      ghost: true,
-    }));
-}
 
 /** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
 function stableJson(v: unknown): string {
@@ -710,7 +672,8 @@ export function useWorkoutMutations({
       gyms?: Record<string, GymProfile>,
     ): Exercise => {
       const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      const rawGhosts = last?.ex.sets?.length ? toGhostSets(last.ex.sets, stamp) : null;
+      // 只抄开着的记录项：关掉的次数 / 重量不再藏在底稿里入册（上架审查 gap-2#2）
+      const rawGhosts = last?.ex.sets?.length ? toGhostSets(last.ex.sets, stamp, getActiveMetrics(name)) : null;
       const vid = variant ? variant.id : last ? variantIdOf(last.ex) : undefined;
       const vname = variant
         ? variant.name || variantsOf(name).find(v => v.id === variant.id)?.name
@@ -801,7 +764,7 @@ export function useWorkoutMutations({
             category: ex.category,
             ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
             tags: ex.tags ?? [],
-            sets: toGhostSets(ex.sets, `${stamp}_${i}`),
+            sets: toGhostSets(ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name)),
             ...(ex.variantId ? { variantId: ex.variantId, variantName: ex.variantName } : {}),
             exerciseTime: new Date().toISOString(),
             ...(src.date ? { prefillFrom: src.date } : {}),
@@ -893,6 +856,8 @@ export function useWorkoutMutations({
           const category = pe.category || def?.category || 'STRENGTH';
           const last = findLast(pe.name, null, undefined, preferGymFor(pe.name, undefined, g));
           if (category === 'CARDIO' && !last) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
+          // 和上面 seed 的是同一份：没练过的有氧按首选项的有氧默认记录（seed 写进状态要等下一次渲染）
+          const metrics = category === 'CARDIO' && !last ? appPrefsNow().cardioMetrics : getActiveMetrics(pe.name);
           const ex = buildExercise(pe.name, category, last, now, def?.exerciseConfig, undefined, g, gyms);
           const r = rounderFor(ex, g, undefined, gyms);
           // 计划里的目标重量也按这个馆就近取整；记一份 plan 参考（标「计划 x」，切单位从它重算，不会越换越漂）
@@ -916,8 +881,9 @@ export function useWorkoutMutations({
               ghost: true,
               ...(src.subSets?.length ? { subSets: src.subSets.map((sub, k) => ({ ...sub, id: `${id}_sub${k}` })) } : {}),
             };
-            if (pe.targetReps && pe.targetReps > 0) row = { ...row, reps: pe.targetReps };
-            if (pe.targetWeight && pe.targetWeight > 0) row = { ...row, ...planWeight(pe.targetWeight) };
+            // 只写这个动作记着的项：有氧 / 计时动作不记次数，计划里的「次数 10」原来藏进组里入册，出「0 → 10 次」的假 PB（上架审查 gap-5#1）
+            if (pe.targetReps && pe.targetReps > 0 && metrics.includes('reps')) row = { ...row, reps: pe.targetReps };
+            if (pe.targetWeight && pe.targetWeight > 0 && metrics.includes('weight')) row = { ...row, ...planWeight(pe.targetWeight) };
             return row;
           });
           return {
@@ -1147,10 +1113,10 @@ export function useWorkoutMutations({
          * 2026-10-18（馆档案）：做完的、改过的组不动；没动过的底稿按新做法上一次的组重填（做法可能换了器材：
          * 杠铃 → 哑铃，原来的数没法用）。新做法没练过：全是底稿 → 一行空的待做（不借别的做法的数，原规则）；
          * 已经有做完 / 改过的 → 剩下的底稿留着，按新做法的器材取整。
+         * 卡上有做完 / 改过的行时组数不变（上架审查 C43：原来把新做法上次多出来的组接在后面，结束时作为有数的底稿入册）。
+         * 「改过」含速度 / 自定义项、点了力竭（setValues.rowEdited）。
          */
-        const isKept = (st: SetLog) => !st.ghost || Object.values(st.touched ?? {}).some(Boolean)
-          || (st.subSets ?? []).some(sub => Object.values(sub.touched ?? {}).some(Boolean));
-        const kept = ex.sets.filter(isKept);
+        const kept = ex.sets.filter(st => !st.ghost || rowEdited(st));
         const nextEx = { ...ex, ...(variantId ? { variantId } : { variantId: undefined }) } as Exercise;
         const r = rounderFor(nextEx, p.gym);
         let sets = ex.sets;
@@ -1165,10 +1131,9 @@ export function useWorkoutMutations({
         );
         const stamp = Date.now();
         if (hit) {
-          // 做完 / 改过的组留在原来的位置（审查 A6：原来全挪到最前面），其余位置换成新做法上一次同位置的那组，多出来的接在后面
-          const fill = roundPrefill(toGhostSets(hit.ex.sets, `${stamp}`), nextEx, r);
-          sets = ex.sets.flatMap((st, i) => (isKept(st) ? [st] : fill[i] ? [fill[i]] : []));
-          sets.push(...fill.slice(ex.sets.length));
+          // 做完 / 改过的组留在原来的位置（审查 A6：原来全挪到最前面），其余位置换成新做法上一次同位置的那组（refillDraft）
+          const fill = roundPrefill(toGhostSets(hit.ex.sets, `${stamp}`, getActiveMetrics(ex.name)), nextEx, r);
+          sets = refillDraft(ex.sets, fill);
           if (!sets.length) sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = hit.workout.date;
           prefillGym = hit.workout.gym;
@@ -1178,7 +1143,7 @@ export function useWorkoutMutations({
           prefillGym = undefined;
         } else if (r) {
           sets = ex.sets.map(st => {
-            if (isKept(st)) return st;
+            if (!st.ghost || rowEdited(st)) return st;
             const snapOne = <T extends { weight: number; bodyweightMode?: SetLog['bodyweightMode'] }>(x: T, parent?: SetLog): T => {
               const kg = signedKg(x, nextEx, parent);
               const v = r.snapKg(kg);

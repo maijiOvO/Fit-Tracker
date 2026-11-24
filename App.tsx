@@ -94,6 +94,7 @@ import {
   useWorkoutContext,
 } from './src/contexts';
 import { WORKOUTS_SETTLED_EVENT, type SettledLink } from './src/contexts/WorkoutContext';
+import { pruneDraftToMetrics } from './src/utils/setValues';
 
 import { useKeyboardScroll } from './src/hooks/useKeyboardScroll';
 import { useTheme } from './src/hooks/useTheme';
@@ -735,6 +736,22 @@ const AppWithAuthShell: React.FC = () => {
     // 不再确认：点错了用顶栏的全局撤销（2026-10-25）
     prefs.resetMetricsToDefault(showMetricModal.name);
   }, [prefs, showMetricModal]);
+
+  /**
+   * 训练中关掉一个记录项：这个动作指针以下、没改过的那一格清掉（上架审查 gap-2#2）。不清的话旧值藏在组里照样入册、
+   * 算进容量 / 1RM，还一场场抄下去。和改设置在同一次点按里，全局撤销一步把两边一起退回。没变化就不换对象（不进撤销）
+   */
+  const handleMetricsNarrowed = useCallback(
+    (name: string, keep: string[]) => {
+      const target = prefs.resolveName(name);
+      setCurrentWorkout(w => {
+        const exs = w.exercises ?? [];
+        const next = pruneDraftToMetrics(exs, e => prefs.resolveName(e.name) === target, keep);
+        return next === exs ? w : { ...w, exercises: next };
+      });
+    },
+    [prefs, setCurrentWorkout],
+  );
 
   // ============== Time picker（单组时长） ==============
   const openTimePicker = (exIdx: number, setIdx: number) => {
@@ -1386,6 +1403,7 @@ const AppWithAuthShell: React.FC = () => {
         exerciseName={showMetricModal?.name || null}
         lang={lang}
         onResetMetrics={handleResetMetricsToDefault}
+        onMetricsNarrowed={handleMetricsNarrowed}
         onClose={() => setShowMetricModal(null)}
         card={
           showMetricModal?.exIdx != null

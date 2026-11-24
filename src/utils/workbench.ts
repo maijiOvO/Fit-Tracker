@@ -19,6 +19,7 @@
 import type { Exercise, SetLog, SubSetLog, WorkoutSession } from '../../types';
 import { fromSignedKg, setSign, signedKg } from './load';
 import { segmentName } from './nameSegments';
+import { rowEdited, setHasValue } from './setValues';
 
 const isPending = (s: SetLog): boolean => !!s.ghost;
 
@@ -34,13 +35,14 @@ export interface RowRef {
   setId: string;
 }
 
-/** 有没有填数：全零的组做完也记不下任何东西 */
-export function setHasValue(s: SetLog): boolean {
-  const n = (v: unknown) => Number(v) > 0;
-  return (
-    ['weight', 'reps', 'duration', 'distance', 'score', 'time'].some(k => n((s as any)[k])) ||
-    (s.subSets ?? []).some(sub => n(sub.weight) || n(sub.reps))
-  );
+/**
+ * 换做法 / 换馆重铺底稿（上架审查 C43）：卡上做完或亲手动过的行留在原位，其余底稿原位换成新做法的；
+ * 新做法上次多出来的组不接在后面（原来接上去，结束时作为有数的底稿记进这场）。一行保留的都没有，就整套换成 fill。
+ */
+export function refillDraft(sets: SetLog[], fill: SetLog[]): SetLog[] {
+  const kept = (s: SetLog) => !s.ghost || rowEdited(s);
+  if (!sets.some(kept)) return fill;
+  return sets.flatMap((s, i) => (kept(s) ? [s] : fill[i] ? [fill[i]] : []));
 }
 
 /** 把交替组成员挪到一起（以第一个成员的位置为准），只剩一个成员的组拆掉 */
@@ -634,6 +636,7 @@ export function memberAbbrs(names: string[]): string[] {
  * 组号的「做完」只管指针和选中。不想记的组删掉（行尾删除）。
  */
 export function willRecord(s: SetLog): boolean {
+  // 值字段表在 setValues：速度、自定义记录项也算数（上架审查 C21）
   return setHasValue(s);
 }
 

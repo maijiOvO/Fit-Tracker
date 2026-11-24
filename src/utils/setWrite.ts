@@ -8,6 +8,7 @@ import type { ExRounder } from '../hooks/useLoadRounder';
 import { parseWeight } from './format';
 import { trimNum } from './liftDisplay';
 import { clampLoadD, fromSignedKg } from './load';
+import { isTouchKey } from './setValues';
 
 /** 一组的重量按显示单位写：两位小数、去尾零（体重用的是 format.formatBodyWeight，一位小数） */
 export function formatLoad(kg: number, targetUnit: string): string {
@@ -70,18 +71,13 @@ export function restoreUpdate(set: SetLog, kg: number, signed: boolean): Partial
 }
 
 /**
- * 值字段。指针下面的组上改了其中任何一个，就记进 touched ——
- * touched 只管格子墨色，和递减档「手改过就不跟母组」（workbench.shiftSubs）。
+ * 指针下面的组：把这次改到的值字段记进 touched；指针上面的组原样返回。
+ * 键表在 setValues.isTouchKey（含速度和自定义记录项）。touched 管格子墨色、递减档「手改过就不跟母组」（workbench.shiftSubs），
+ * 也是「这一行动过没有」（setValues.rowEdited）的依据：换做法、换馆重铺时动过的行保留。
  */
-const VALUE_KEYS: (keyof SetLog)[] = [
-  'weight', 'reps', 'duration', 'score', 'time', 'timeUnit',
-  'distance', 'distanceUnit', 'bodyweightMode', 'subSets',
-];
-
-/** 指针下面的组：把这次改到的值字段记进 touched；指针上面的组原样返回 */
 export function markTouched<U extends Partial<SetLog>>(set: SetLog, updates: U): U {
   if (!set.ghost) return updates;
-  const keys = VALUE_KEYS.filter(k => k in updates);
+  const keys = Object.keys(updates).filter(isTouchKey);
   if (!keys.length) return updates;
   const touched = { ...(set.touched || {}) };
   for (const k of keys) touched[k] = true;

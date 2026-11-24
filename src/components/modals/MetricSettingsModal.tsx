@@ -30,6 +30,8 @@ interface MetricSettingsModalProps {
   lang: Language;
   /** 记录项恢复默认（外面弹确认框） */
   onResetMetrics: () => Promise<void> | void;
+  /** 关掉了一个记录项（还剩 keep）：外面把工作台上这个动作指针以下、没改过的那一格清掉（上架审查 gap-2#2） */
+  onMetricsNarrowed: (name: string, keep: string[]) => void;
   onClose: () => void;
   /** 在这里改了名：外面把打开的名字换成新名（标题、按名字取的记录项跟着对上） */
   onRenamed: (name: string) => void;
@@ -46,6 +48,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   exerciseName,
   lang,
   onResetMetrics,
+  onMetricsNarrowed,
   onClose,
   onRenamed,
   card,
@@ -281,7 +284,11 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
                   key={m}
                   type="button"
                   aria-pressed={on}
-                  onClick={() => toggleMetric(name, m)}
+                  onClick={() => {
+                    toggleMetric(name, m);
+                    // 关掉的不是最后一项（最后一项关不掉，toggleMetric 会留一项）：工作台上藏着的旧值跟着清
+                    if (on && activeMetrics.length > 1) onMetricsNarrowed(name, activeMetrics.filter(x => x !== m));
+                  }}
                   className={`metric-chip ${on ? 'is-on' : ''}`}
                 >
                   {on && <Check size={14} strokeWidth={2.5} />}

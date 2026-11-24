@@ -63,6 +63,7 @@ import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { UndoRedoButtons } from './UndoRedoButtons';
 import { LocalDataAlert } from './LocalDataAlert';
+import { copyValues } from '../utils/setValues';
 import { SetActionStrip } from './SetActionStrip';
 
 export interface NewWorkoutTabProps {
@@ -414,9 +415,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         const asDone = !!editingWorkoutId;
         const newSet: SetLog = lastSet
           ? (() => {
-              // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」，不是「从上一次纯换算来的」；
+              // 只抄值、只抄开着的记录项（setValues.copyValues）：关掉的次数 / 重量不再藏在新组里入册（上架审查 gap-2#2）；
+              // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」。
               // 片子单位按这个馆的片子（这一组还没做，挂的就是今天的片）
-              const { subSets, touched: _t, fromGhost: _fg, toFailure: _tf, skipped: _sk, seq: _q, draftAuto: _da, checkWeight: _cw, prefillRef: _pr, ...base } = lastSet;
+              const { subSets } = lastSet;
+              const base = copyValues(lastSet, getActiveMetrics(e.name));
               const pu: SetLog['plateUnit'] = rounderFor(e, w.gym)?.unit ?? (unit === 'lbs' ? 'lbs' : 'kg');
               return {
                 ...base,

@@ -18,7 +18,7 @@ import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { reRoundPending, roundPrefill, useLoadRounder } from './useLoadRounder';
-import { toGhostSets } from './useWorkoutMutations';
+import { toGhostSets } from '../utils/setValues';
 import { findLastIn, isPristineDraftCard } from '../utils/prefillSource';
 import type { GymProfile } from '../utils/loadable';
 import { useGymScopedPR } from './useLoadKind';
@@ -28,7 +28,7 @@ import type { PlateUnit } from '../utils/plates';
 export function useGymSwitch() {
   const { workouts } = useWorkoutContext();
   const { unit, changeUnit, appPrefs } = useUserSettingsContext();
-  const { resolveName, variantIdOf } = useExercisePrefs();
+  const { resolveName, variantIdOf, getActiveMetrics } = useExercisePrefs();
   const rounderFor = useLoadRounder();
   const gymScoped = useGymScopedPR();
 
@@ -50,7 +50,7 @@ export function useGymSwitch() {
             : null;
           if (hit && hit.workout.date !== e.prefillFrom) {
             const { prefillGym: _pg, ...rest } = e;
-            const sets = roundPrefill(toGhostSets(hit.ex.sets, `${Date.now()}_${i}`), e, r);
+            const sets = roundPrefill(toGhostSets(hit.ex.sets, `${Date.now()}_${i}`, getActiveMetrics(e.name)), e, r);
             return {
               ...rest,
               sets,

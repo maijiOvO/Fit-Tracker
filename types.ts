@@ -42,6 +42,8 @@ export interface SetLog {
   timeUnit?: 's' | 'm' | 'h';
   distance?: number;
   distanceUnit?: 'km' | 'm';
+  /** 速度（km/h 或 mph，跟距离单位走）。值字段表见 src/utils/setValues.ts */
+  speed?: number;
   bodyweightMode?: BodyweightMode;
   /**
    * 这一组做到力竭。
