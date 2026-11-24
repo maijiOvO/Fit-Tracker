@@ -26,6 +26,7 @@
     "android:live": "powershell -ExecutionPolicy Bypass -File scripts/live-android.ps1",
     "apk:solo": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1 -Flavor solo",
     "apk:personal": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1 -Flavor personal",
+    "gym:ship": "powershell -ExecutionPolicy Bypass -File scripts/gym-ship.ps1",
     "check-remote": "node scripts/check-remote.mjs",
     "remote-detail": "node scripts/remote-detail.mjs"
   },

@@ -491,6 +491,12 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 )}
                 <Go name={translations.resetAccount[lang]} tone="danger" onClick={onResetAccount} testId="prefs-reset-account" />
               </Group>
+              {/* 只有 scripts/gym-ship.ps1 打的包带这行：和下载页上的戳对一眼，确认装上的是刚打的那个 */}
+              {import.meta.env.VITE_BUILD_STAMP && (
+                <p className="text-center text-label text-tertiary tabular-nums" data-testid="build-stamp">
+                  {import.meta.env.VITE_BUILD_STAMP}
+                </p>
+              )}
             </>
           )}
           {view === 'backup' && <BackupPage />}

@@ -18,6 +18,8 @@ interface ImportMetaEnv {
   readonly VITE_FITLOG_DEMO?: string;
   /** 单机发行版：断网 + **持久保存**。由 `npm run build:solo` 经 .env.solo 注入 */
   readonly VITE_FITLOG_SOLO?: string;
+  /** 构建戳「MMdd-HHmm 提交号」，只由 scripts/gym-ship.ps1 经进程环境变量注入；不走 vite define，免得普通构建和 scripts/diff 的产物对照每次都不同 */
+  readonly VITE_BUILD_STAMP?: string;
 }
 
 interface ImportMeta {

@@ -26,6 +26,8 @@ description: 把 fitlog 装到安卓手机上验证 —— 选路（静态包 / 
 | 手机上是正式签名包，想真机试一个分支 | **同上，单机版测试包**，和正式版并存；别卸正式版去装 `npm run android` 的 debug 包 |
 | 改动合进 main 了，装进正式 App | `npm run build:release; npx cap sync android; npm run apk:personal`，再 `adb install -r` 覆盖，不卸载 |
 
+用户不在电脑旁（人在健身房、手机没插线）要装新版：走 `gym-hotfix` skill，`npm run gym:ship` 把包发到 tailnet 下载页。
+
 `npm run android` 打的是 **prod 数据环境**的静态包，连 NAS 真实数据。
 
 ⚠️ **原来的 `android:dev` 装到手机上照样是 prod、照样连真实 NAS。** 构建戳是 dev，但运行时
