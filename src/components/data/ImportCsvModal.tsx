@@ -14,6 +14,7 @@ import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { pickFile } from '../../hooks/useImportData';
 import {
   CsvImportError,
+  importDefs,
   materialize,
   parseImportCsv,
   previewMatches,
@@ -22,7 +23,6 @@ import {
 } from '../../../services/fitlogCsvImport';
 import { addImportedRecords } from '../../../services/fitlogBackup';
 import { markBackupPending } from '../../../services/fitlogAutoBackup';
-import { DEFAULT_EXERCISES } from '../../constants/exercises';
 import { FITLOG_SOLO_USER_ID } from '../../../services/fitlogSolo';
 import { overwriteFailedText, overwriteNote, setFlash } from './flash';
 import { blockBack } from '../../hooks/useBackClose';
@@ -30,7 +30,7 @@ import { blockBack } from '../../hooks/useBackClose';
 export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang, unit } = useUserSettingsContext();
   const { toast } = useUiOverlay();
-  const { customExercises, findExerciseDef, exerciseOverrides } = useExercisePrefs();
+  const { customExercises, findExerciseDef, exerciseOverrides, withVariantNames, liftKey } = useExercisePrefs();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
@@ -68,10 +68,10 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
     })();
   }, [open]);
 
-  /** 名字解析要绕开已并入别的动作的定义；内置在前，和 ExercisePrefsContext 的名字索引一致 */
+  /** 做法按当前生效的做法表认（用户删过 / 自建过同器材的做法）；内置做法补上当前语言的器材名，记录上的 variantName 才和 App 里记的一样 */
   const defs = useMemo(
-    () => [...DEFAULT_EXERCISES, ...customExercises].filter(d => !exerciseOverrides[d.id]?.mergedInto && !exerciseOverrides[d.id]?.hidden),
-    [customExercises, exerciseOverrides],
+    () => importDefs(customExercises, exerciseOverrides).map(d => (d.variants ? { ...d, variants: withVariantNames(d.variants) } : d)),
+    [customExercises, exerciseOverrides, withVariantNames],
   );
   const rows = useMemo(() => (plan ? previewMatches(plan, defs, findExerciseDef) : []), [plan, defs, findExerciseDef]);
   const asking = rows.some(r => r.needsUnit);
@@ -166,7 +166,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
             {rows.map(r => (
               <li key={r.srcName} className="px-3 py-2.5 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-primary font-medium truncate">{r.def ? r.def.name[isCn ? 'cn' : 'en'] : r.srcName}</p>
+                  <p className="text-primary font-medium truncate">{r.def ? liftKey({ name: r.def.name.en, variantId: r.variant?.id }) : r.srcName}</p>
                   {/* 「最重」放最前：判断单位全靠它，名字太长被截掉的应该是来源名 */}
                   <p className="text-xs text-tertiary truncate">
                     {r.maxWeight > 0 && `${t('最重', 'max')} ${r.maxWeight}${r.needsUnit ? '' : ` ${uLabel(plan.fileUnit ?? 'kg')}`} · `}

@@ -17,8 +17,11 @@
  *
  * 这里全是纯函数：解析 → ImportPlan（给确认页看）→ materialize（按用户选的单位生成记录）。写库在 hook 里。
  */
-import type { Exercise, ExerciseDefinition, SetLog, SubSetLog, WorkoutSession } from '../types';
+import type { Exercise, ExerciseDefinition, ExerciseVariant, SetLog, SubSetLog, WorkoutSession } from '../types';
 import { KG_PER_LB } from '../src/utils/plates';
+import { DEFAULT_EXERCISES } from '../src/constants/exercises';
+import { mergeOverride } from '../src/utils/exerciseOverride';
+import { EQ_BAND, EQ_BARBELL, EQ_BODYWEIGHT, EQ_CABLE, EQ_DUMBBELL, EQ_KETTLEBELL, EQ_MACHINE, variantAttrs } from '../src/utils/exerciseAttrs';
 
 export type ImportSource = 'strong' | 'hevy';
 export type WeightUnit = 'kg' | 'lbs';
@@ -453,33 +456,76 @@ function tokens(name: string): string {
       n = n.slice(0, m.index);
     }
   }
+  // 留各种文字的字母 / 组合符号 / 数字（只留 a-z0-9 时中文名整段变空串，全撞成同一个）；
+  // 其余标点删掉而不是换空格，否则 Farmers Walk 对不上 Farmer's Walk
   const words = `${n} ${equip}`
     .replace(/[-_/]/g, ' ')
-    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/[^\p{L}\p{M}\p{N} ]/gu, '')
     .split(/\s+/)
     .filter(Boolean)
     .map(w => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w));
   return [...new Set(words)].sort().join(' ');
 }
 
+/** 括号后缀 → 内置器材 id（KNOWN 命中后核对做法用）。smith machine / assisted 没有对应的内置器材，不列 */
+const SUFFIX_EQUIP: Record<string, string> = {
+  barbell: EQ_BARBELL,
+  dumbbell: EQ_DUMBBELL,
+  cable: EQ_CABLE,
+  machine: EQ_MACHINE,
+  kettlebell: EQ_KETTLEBELL,
+  band: EQ_BAND,
+  bodyweight: EQ_BODYWEIGHT,
+};
+
+const EQUIP_TOKENS = new Set(Object.values(EQUIP_WORDS).filter(Boolean));
+
+interface ExerciseMatch {
+  def: ExerciseDefinition;
+  /** 括号里的器材和动作本身的不同、对上了同器材的做法 */
+  variant?: ExerciseVariant;
+}
+
 /**
- * 外来动作名 → fitlog 的动作定义。先看已有的名字（用户之前导入 / 自建过同名的），
- * 再看手工表，最后按词集合比对内置英文名和曾用名。对不上返回 undefined（调用方新建自定义动作）。
+ * 外来动作名 → fitlog 的动作定义（+ 做法）。先看已有的名字（用户之前导入 / 自建过同名的），
+ * 再看手工表：括号里的器材和动作本身的不同时，记到当前做法表里同器材的做法，没有这个做法就不用这条。
+ * 最后按词集合比对内置英文名和曾用名。
+ * 拿不准就返回 undefined（调用方新建自定义动作）：名字剥完没剩可比的（emoji），或只剩器材词（「卧推 (Barbell)」
+ * 曾经只剩 barbell），都不比 —— 否则会和同样剥空的名字判成相等，全并进同一个动作。
  */
 function matchExercise(
   srcName: string,
   defs: ExerciseDefinition[],
   findByName: (name: string) => ExerciseDefinition | undefined,
-): ExerciseDefinition | undefined {
+): ExerciseMatch | undefined {
   const direct = findByName(srcName);
-  if (direct) return direct;
+  if (direct) return { def: direct };
   const known = KNOWN[srcName.trim().toLowerCase()];
-  if (known) {
-    const d = defs.find(x => x.id === known);
-    if (d) return d;
+  const d = known ? defs.find(x => x.id === known) : undefined;
+  if (d) {
+    const suffix = /\(([^)]*)\)\s*$/.exec(srcName.toLowerCase())?.[1].trim();
+    const eq = suffix ? SUFFIX_EQUIP[suffix] : undefined;
+    if (!eq || (d.equipment ?? '').toLowerCase() === eq.toLowerCase()) return { def: d };
+    const variant = d.variants?.find(v => variantAttrs(v)?.equipment.toLowerCase() === eq.toLowerCase());
+    if (variant) return { def: d, variant };
   }
   const t = tokens(srcName);
-  return defs.find(d => tokens(d.name.en) === t || (d.aliases ?? []).some(a => tokens(a) === t));
+  if (!t || t.split(' ').every(w => EQUIP_TOKENS.has(w))) return undefined;
+  const def = defs.find(x => tokens(x.name.en) === t || (x.aliases ?? []).some(a => tokens(a) === t));
+  return def ? { def } : undefined;
+}
+
+/**
+ * 导入时比对用的动作表：内置 + 自建，去掉已并入别处 / 隐藏的（名字交给并入的目标），合上覆盖层
+ * （改过的器材、用户删 / 加的做法都按现状认）。内置在前，和 ExercisePrefsContext 的名字索引一致。
+ */
+export function importDefs(
+  customExercises: ExerciseDefinition[],
+  exerciseOverrides: Record<string, Partial<ExerciseDefinition>>,
+): ExerciseDefinition[] {
+  return [...DEFAULT_EXERCISES, ...customExercises]
+    .filter(d => !exerciseOverrides[d.id]?.mergedInto && !exerciseOverrides[d.id]?.hidden)
+    .map(d => mergeOverride(d, exerciseOverrides[d.id]));
 }
 
 // ============ 生成记录 ============
@@ -515,7 +561,7 @@ export interface MaterializeResult {
 
 /** 确认页用：每个外来动作会落到哪（内置名 / 新建） */
 export function previewMatches(plan: ImportPlan, defs: ExerciseDefinition[], findByName: MaterializeOptions['findByName']) {
-  return plan.exercises.map(e => ({ ...e, def: matchExercise(e.srcName, defs, findByName) }));
+  return plan.exercises.map(e => ({ ...e, ...matchExercise(e.srcName, defs, findByName) }));
 }
 
 export function materialize(plan: ImportPlan, o: MaterializeOptions): MaterializeResult {
@@ -523,16 +569,22 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
   const newDefs = new Map<string, ExerciseDefinition>();
   // 没有原型：外来动作名是 constructor / __proto__ 也只是普通的键（上架审查 C09）
   const metricSeeds: Record<string, string[]> = Object.create(null);
-  const nameFor = new Map<string, { name: string; category: string }>();
+  type Resolved = { name: string; category: string; variantId?: string; variantName?: string };
+  const nameFor = new Map<string, Resolved>();
   let setCount = 0;
 
   const resolve = (src: string, sets: DraftSet[]) => {
     const hit = nameFor.get(src);
     if (hit) return hit;
-    const def = matchExercise(src, o.defs, o.findByName);
-    let r: { name: string; category: string };
-    if (def) {
+    const m = matchExercise(src, o.defs, o.findByName);
+    let r: Resolved;
+    if (m) {
+      const { def, variant } = m;
       r = { name: def.name[o.isCn ? 'cn' : 'en'] || def.name.en, category: def.category ?? 'STRENGTH' };
+      if (variant) {
+        r.variantId = variant.id;
+        if (variant.name) r.variantName = variant.name;
+      }
     } else {
       const cardio = sets.every(s => !s.weight && !s.reps) && sets.some(s => s.seconds || s.distanceKm);
       const id = `imp_${hash(plan.source + src)}`;
@@ -560,7 +612,7 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
     const exercises: Exercise[] = [];
     const extra: string[] = [];
     w.exercises.forEach((e, ei) => {
-      const { name, category } = resolve(e.srcName, e.sets);
+      const { name, category, variantId, variantName } = resolve(e.srcName, e.sets);
       const sets: SetLog[] = [];
       const extraNotes: string[] = [...e.notes];
       e.sets.forEach((s, si) => {
@@ -592,7 +644,14 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
         setCount++;
       });
       if (!sets.length) return;
-      exercises.push({ id: `${wid}_${ei}`, name, category, sets, exerciseTime: w.start.toISOString() });
+      exercises.push({
+        id: `${wid}_${ei}`,
+        name,
+        category,
+        ...(variantId ? { variantId, ...(variantName ? { variantName } : {}) } : {}),
+        sets,
+        exerciseTime: w.start.toISOString(),
+      });
       // fitlog 没有 RPE 和单组备注字段：原文并进这一场的备注，不丢
       if (extraNotes.length) extra.push(`${name}: ${extraNotes.join('; ')}`);
     });

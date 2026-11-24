@@ -55,7 +55,7 @@ await build({
     contents: [
       "export * from './services/fitlogAutoBackup.ts';",
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
-      "export { parseImportCsv, materialize } from './services/fitlogCsvImport.ts';",
+      "export { parseImportCsv, materialize, importDefs } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
       "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport } from './services/fitlogBackup.ts';",
       "export { readText as folderReadText, writeText as folderWriteText } from './services/fitlogFolder.ts';",
@@ -500,17 +500,28 @@ const STRONG_ANDROID = `Date;Workout Name;Duration;Exercise Name;Set Order;Weigh
 const HEVY = `"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_lbs","reps","distance_miles","duration_seconds","rpe"
 "Upper","18 Oct 2025, 08:47","18 Oct 2025, 09:50","","Bench Press (Barbell)","","",0,"normal",185,5,,,
 `;
-const importOpts = plan => {
-  const idx = D.buildNameIndex(D.DEFAULT_EXERCISES, [], {});
+/** defs / findByName 和导入弹窗同一套接法：importDefs 合覆盖层，名字索引认自建动作 */
+const importOpts = (plan, customs = [], overrides = {}) => {
+  const idx = D.buildNameIndex(D.DEFAULT_EXERCISES, customs, overrides);
   return {
     unitByExercise: Object.fromEntries(plan.exercises.filter(e => e.needsUnit).map(e => [e.srcName, 'lbs'])),
     includeWarmups: false,
     isCn: true,
     userId: 'u_solo',
-    defs: D.DEFAULT_EXERCISES,
+    defs: D.importDefs(customs, overrides),
     findByName: name => idx.get(name.trim()),
   };
 };
+/** 一场 Hevy 训练，每个名字一组（kg） */
+const hevyOf = names =>
+  `"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n` +
+  names.map((n, i) => `"Day","18 Oct 2025, 08:47","18 Oct 2025, 09:50","","${n}","","",${i},"normal",40,8,,,`).join('\n') +
+  '\n';
+const importAs = (names, customs, overrides) => {
+  const plan = D.parseImportCsv(hevyOf(names));
+  return D.materialize(plan, importOpts(plan, customs, overrides));
+};
+const recs = r => r.workouts.flatMap(w => w.exercises);
 
 await t('Strong：文件没写单位要问；按 lb 导入 225 → 102.06 kg、热身组默认不导、递减组挂在下面、认不出的动作新建自定义', () => {
   const plan = D.parseImportCsv(STRONG_ANDROID);
@@ -543,6 +554,51 @@ await t('Hevy：单位来自文件（weight_lbs）不问；185 lb → 83.91 kg',
   const w = D.materialize(plan, importOpts(plan)).workouts[0];
   assert.ok(w.id.startsWith('imp_hevy_'));
   assert.ok(Math.abs(w.exercises[0].sets[0].weight - 83.91) < 0.01);
+});
+
+// 防：名字只留 a-z0-9 时非拉丁文字整段剥成空串，全并进同样剥空的中文曾用名「杠铃上斜卧推」。
+// 后三个是对照：中文曾用名 / 英文名照旧认得；标点删而不是换空格（换了 Farmers Walk 就对不上 Farmer's Walk）
+await t('导入：非拉丁文字的动作名各自新建，不再并进上斜杠铃卧推；中文曾用名和英文名照旧认得', () => {
+  const r = importAs(['悍马卧推', 'Жим лёжа', 'ベンチプレス', '🔥🔥', '杠铃上斜卧推', 'Bench Press (Barbell)', 'Farmers Walk']);
+  assert.deepEqual(recs(r).map(e => e.name), ['悍马卧推', 'Жим лёжа', 'ベンチプレス', '🔥🔥', '上斜杠铃卧推', '杠铃平板卧推', '农夫行走']);
+  assert.deepEqual(r.newDefs.map(d => d.name.en), ['悍马卧推', 'Жим лёжа', 'ベンチプレス', '🔥🔥']);
+});
+
+// 防：剥到只剩器材词（「卧推 (Barbell)」→ barbell）也拿去比，第二次导入时新名字被第一次建的自建动作吞掉。
+// 只放宽字符集、不加守卫的半截修法，💪 (Barbell) 会并进 🔥 (Barbell)
+await t('导入：第二次导入时已有的自建动作不吞新名字，同名的认回自己', () => {
+  const first = importAs(['卧推 (Barbell)', '🔥 (Barbell)']);
+  const customs = [
+    ...first.newDefs,
+    { id: '1700000000001', name: { en: '史密斯 Squat', cn: '史密斯 Squat' }, bodyPart: 'subLegs', tags: [], category: 'STRENGTH' },
+  ];
+  const r = importAs(['架上拉 (Barbell)', '💪 (Barbell)', 'Squat', '卧推 (Barbell)'], customs);
+  assert.deepEqual(recs(r).map(e => e.name), ['架上拉 (Barbell)', '💪 (Barbell)', 'Squat', '卧推 (Barbell)']);
+  assert.deepEqual(r.newDefs.map(d => d.name.en), ['架上拉 (Barbell)', '💪 (Barbell)', 'Squat']);
+});
+
+// 防：手工表只给动作 id、不看括号里的器材 —— 器械提踵落到自重的标准做法（画成自重 +80）、
+// 哑铃牧师凳弯举进了杠铃那条纪录线；以及 materialize 没把做法写到记录上
+await t('导入：带器材后缀的名字记到同器材的做法，动作没有这个做法就新建', () => {
+  const r = importAs(['Calf Raise (Machine)', 'Standing Calf Raise (Machine)', 'Preacher Curl (Dumbbell)', 'Preacher Curl (Barbell)']);
+  const pick = e => ({ name: e.name, variantId: e.variantId });
+  assert.deepEqual(recs(r).map(pick), [
+    { name: '提踵', variantId: 'eq_machine' },
+    { name: '提踵', variantId: 'eq_machine' },
+    { name: 'Preacher Curl (Dumbbell)', variantId: undefined },
+    { name: '牧师凳弯举', variantId: undefined },
+  ]);
+  assert.deepEqual(r.newDefs.map(d => d.name.en), ['Preacher Curl (Dumbbell)']);
+});
+
+// 防：做法写死成内置的 eq_machine、或弹窗拿没合覆盖层的动作表 —— 用户删掉的做法还往上记、
+// 用户早先自建的同器材做法（combineVariants 认成同一个）记不上
+await t('导入：做法按合上覆盖层后的做法表认 —— 删掉的不记、自建的同器材做法认它', () => {
+  const removed = importAs(['Calf Raise (Machine)'], [], { calf_raise: { variants: [], removedVariants: ['eq_machine'] } });
+  assert.deepEqual(recs(removed).map(e => [e.name, e.variantId]), [['Calf Raise (Machine)', undefined]]);
+  assert.deepEqual(removed.newDefs.map(d => d.name.en), ['Calf Raise (Machine)']);
+  const own = importAs(['Calf Raise (Machine)'], [], { calf_raise: { variants: [{ id: 'v_1', name: '固定器械' }] } });
+  assert.deepEqual(recs(own).map(e => [e.name, e.variantId, e.variantName]), [['提踵', 'v_1', '固定器械']]);
 });
 
 console.log(`\ndata-check: ${n} passed`);
