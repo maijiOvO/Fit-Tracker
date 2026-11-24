@@ -111,6 +111,7 @@ function BarbellGlyph({
   kind,
   oneSide,
   machine,
+  label,
 }: {
   perSide: number[];
   plateUnit: PlateUnit;
@@ -123,6 +124,8 @@ function BarbellGlyph({
    * 原来和杠铃同一张图，用户看着就是一根杠铃（2026-10-22）。杆长、片子比例照旧按标准杠的尺寸。
    */
   machine?: boolean;
+  /** 机身正中写的器械自重（只有 machine 用） */
+  label?: string;
 }) {
   const g = BAR_GEOMETRY[kind];
   const half = (side: 'l' | 'r') => (
@@ -146,7 +149,7 @@ function BarbellGlyph({
           ['--sleeve-dia' as string]: g.sleeveDia,
         }}
       >
-        {machine ? <span className="bar-machine" /> : <span className="bar-shaft" />}
+        {machine ? <span className="bar-machine" data-testid="bar-machine-label">{label}</span> : <span className="bar-shaft" />}
         {half('l')}
         {half('r')}
       </div>
@@ -876,24 +879,12 @@ export function LoadHero({
   const mixed = gu !== unit ? (isCn ? (gu === 'lbs' ? '（磅片）' : '（公斤片）') : gu === 'lbs' ? ' (lb plates)' : ' (kg plates)') : '';
 
   let caption = '';
-  if (isBar) {
+  // 挂片器械：机身正中写器械自重（片上自带数字），图下不写任何说明（2026-11-23 用户定）
+  const tare = kind === 'loaded' ? machine?.tare?.value ?? ctx.tare : undefined;
+  if (kind === 'plates') {
     caption = perSide.length
-      ? oneSide
-        ? isCn ? `单边 ${plateTxt(perSide)} ${u}${mixed}` : `One side ${plateTxt(perSide)} ${u}${mixed}`
-        : isCn ? `每边 ${plateTxt(perSide)} ${u}${mixed}` : `Per side ${plateTxt(perSide)} ${u}${mixed}`
-      : kind === 'plates'
-        ? isCn ? '空杠' : 'Empty bar'
-        : isCn ? '还没挂片' : 'No plates yet';
-    // 自重算进记录的（ctx.tare），记的数已经连它一起算，说明里点明含了多少；只做参考的，给个「连器械共」的总数；没填的只算片子
-    if (kind === 'loaded') {
-      const ref = machine?.tare?.value;
-      caption +=
-        ctx.tare !== undefined
-          ? isCn ? ` · 含器械自重 ${fmtD(ctx.tare)} ${u}` : ` · incl. machine ${fmtD(ctx.tare)} ${u}`
-          : ref != null
-            ? isCn ? ` · 连器械共 ${fmtD(vG + ref)} ${u}` : ` · ${fmtD(vG + ref)} ${u} with the machine`
-            : isCn ? ' · 只算片子' : ' · plates only';
-    }
+      ? isCn ? `每边 ${plateTxt(perSide)} ${u}${mixed}` : `Per side ${plateTxt(perSide)} ${u}${mixed}`
+      : isCn ? '空杠' : 'Empty bar';
   } else if (kind === 'pin') {
     // 插销那格已经写着重量，不再重复一句（2026-10-20 用户定）；挂了加片才写怎么凑的
     caption = stack.add.length
@@ -914,6 +905,7 @@ export function LoadHero({
     const shown = kind === 'signed' && value < 0 ? `${isCn ? '辅助 ' : 'assisted '}${fmt(-value)}` : fmt(Math.abs(value));
     caption = isCn ? `按 ${shown} ${u} 记 · 图上是最接近的配法` : `Logged as ${shown} ${u} · drawn as the closest load`;
   }
+  if (kind === 'loaded') caption = '';
 
   const barName = isCn ? BAR_LABEL[barKind].cn : BAR_LABEL[barKind].en;
   const barTxt = `${barName} ${plateLabel(ctx.bar, gu, unit)} ${u}`;
@@ -976,7 +968,7 @@ export function LoadHero({
             ×{fmt(rounder.stepD(v) * scrub.step)}
           </span>
         )}
-        {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} />}
+        {isBar && <BarbellGlyph perSide={perSide} plateUnit={gu} display={unit} kind={kind === 'loaded' ? 'standard' : barKind} oneSide={oneSide} machine={kind === 'loaded'} label={tare != null ? `${fmtD(tare)} ${u}` : undefined} />}
         {kind === 'pin' && (
           <PinStackGlyph value={stack.pin} step={ctx.inc > 0 ? ctx.inc : 1} start={stackStart} end={ctx.end ?? 0} unit={unit} label={Math.round(v * 10) / 10} rail={railOf(scrub)} addons={stack.add} />
         )}

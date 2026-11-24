@@ -316,11 +316,21 @@
   left: 50%;
   top: 50%;
   width: calc(var(--mm) * var(--S) + 2px);
-  height: max(18px, calc(var(--mm) * 140));
+  height: max(22px, calc(var(--mm) * 150));
   transform: translate(-50%, -50%);
   border-radius: 4px;
   background: var(--bg-inset);
   box-shadow: inset 0 0 0 1px var(--rule-strong);
+  /* 正中写器械自重 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-label);
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-primary);
 }
 /* 一侧：从中线开始往外量；左侧整体镜像，片上的字再镜像回来 */
 .bar-side {
