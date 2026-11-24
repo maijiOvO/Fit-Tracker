@@ -651,6 +651,19 @@ await t('合并时两边各一条同名自建动作：归成 id 较老的那条�
   S.writePrefsToLocalStorage(PREFS(200, { customExercises: [def('3000', '悍马卧推'), def('3001', '悍马卧推')] }));
   await S.mergeBackup(S.parseBackupFile(JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(3), snapshot: snapP(PREFS(100)) })));
   assert.deepEqual(S.readPrefsFromLocalStorage().exerciseOverrides, {});
+
+  // 从动作库删掉的（只打 hidden，定义还在）不参与配对：否则较老的已删那条赢，正在用的被藏，两条都看不见
+  for (const [bk, loc, gone] of [['4000', '5000', '4000'], ['6000', '5500', '5500']]) {
+    mem.clear();
+    S.db.__reset();
+    const hid = (id) => (id === gone ? { exerciseOverrides: { [id]: { hidden: true } } } : {});
+    S.writePrefsToLocalStorage(PREFS(200, { customExercises: [def(loc, '删过的臀桥')], ...hid(loc) }));
+    await S.mergeBackup(S.parseBackupFile(JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(3), snapshot: snapP(PREFS(100, { customExercises: [def(bk, '删过的臀桥')], ...hid(bk) })) })));
+    const o = S.readPrefsFromLocalStorage().exerciseOverrides;
+    const using = gone === bk ? loc : bk;
+    assert.ok(!o[using]?.hidden && !o[using]?.mergedInto, `正在用的 ${using} 不该被藏`);
+    assert.ok(!o[gone]?.mergedInto, `已删的 ${gone} 不该被配对`);
+  }
 });
 
 await t('撤销导入：之后补记的旧日期训练算进「会丢」，进行中那场不算、撤销后保留这期间记的组、回滚槽清掉（C62）', async () => {

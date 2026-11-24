@@ -529,7 +529,7 @@ export async function mergeBackup(
 
 /**
  * 合并时两边各带来一条同名自建动作（上架审查 C34 #9）：按 id 取并集会两条并存，选动作时出两个「臀桥」，历史和设置各挂一半。
- * 只管这次合并带进来的撞名 —— 现名（覆盖层优先）中文或英文相同、都是自建、都没并入别处、一条只在本机一条只在备份；
+ * 只管这次合并带进来的撞名 —— 现名（覆盖层优先）中文或英文相同、都是自建、都没并入别处也没从动作库删掉、一条只在本机一条只在备份；
  * 本机原有的重名不碰（真实数据里就有两条原名都叫「悍马卧推」的）。
  * 留 id 较老的那条（一般设置多、历史长），另一条标 mergedInto + hidden：名字解析把它的名字交给留下的那条，
  * 训练、备注、星标、记录项都按名字存，不用动。不走 mergeExerciseInto：它会建出同名做法，历史变成「臀桥（臀桥）」。
@@ -538,7 +538,8 @@ export async function mergeBackup(
 export function dedupeSameNameCustoms(merged: FitlogRemoteSnapshot, localIds: Set<string>, backupIds: Set<string>): FitlogRemoteSnapshot {
   const over = merged.prefs.exerciseOverrides ?? {};
   const names = (d: ExerciseDefinition) => [(over[d.id]?.name?.cn || d.name.cn || '').trim(), (over[d.id]?.name?.en || d.name.en || '').trim()];
-  const live = merged.prefs.customExercises.filter(d => !over[d.id]?.mergedInto);
+  // 从动作库删掉的只打 hidden、定义还在：让它参与配对，较老的已删那条会赢，正在用的那条反被藏起来
+  const live = merged.prefs.customExercises.filter(d => !over[d.id]?.mergedInto && !over[d.id]?.hidden);
   const onlyLocal = live.filter(d => localIds.has(d.id) && !backupIds.has(d.id));
   const onlyBackup = live.filter(d => backupIds.has(d.id) && !localIds.has(d.id));
   /** id 是创建时刻：数小的老；不是纯数字的按字符串比 */
