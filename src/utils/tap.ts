@@ -129,3 +129,38 @@ export function installTapLog(labelOf: (el: Element | null) => string): () => vo
     document.removeEventListener('click', onClick, true);
   };
 }
+
+/**
+ * 连点的第二下（审查 C40）：删组 / 删档是单击即删，删完下一行立刻补到指下（滚到底时是上面的行被夹回来），
+ * 手抖连点的第二下就会多删一行。离上一次真正执行的删除不到 400ms、落点相距不到 22px（44px 删除键的一半；
+ * 相邻两行的删除键至少隔 44px）就判为连点。故意快速删相邻几行时手指会挪开 ≥44px，不受影响。
+ */
+const REPEAT_TAP_MS = 400;
+const REPEAT_TAP_PX = 22;
+export function isRepeatTap(prev: { t: number; x: number; y: number } | null, cur: { t: number; x: number; y: number }): boolean {
+  return !!prev && cur.t - prev.t < REPEAT_TAP_MS && Math.hypot(cur.x - prev.x, cur.y - prev.y) < REPEAT_TAP_PX;
+}
+
+/**
+ * 吞手势补发的那次 click（审查 navigation-overlays#5）：限时、吞一次就作废，**下一次按下也作废**。
+ * 真点击一定先有 pointerdown，补发的 click 没有；安卓上不补发时，第一下真点按带着 pointerdown 当场把窗口作废，
+ * 不会被误吞（DevNotes patterns「吞掉手势补发的 click」）。状态放在调用方的 ref 里。
+ */
+export interface ClickSwallow {
+  at: number;
+}
+export const newClickSwallow = (): ClickSwallow => ({ at: -Infinity });
+/** 手势达成：武装 */
+export function armSwallow(s: ClickSwallow, now: number): void {
+  s.at = now;
+}
+/** 来了一次真按下：作废 */
+export function disarmSwallow(s: ClickSwallow): void {
+  s.at = -Infinity;
+}
+/** click 来了：在窗口内返回 true 并立刻作废（只吞一次）；超时返回 false */
+export function takeSwallow(s: ClickSwallow, now: number, ms: number): boolean {
+  const hit = now - s.at < ms;
+  s.at = -Infinity;
+  return hit;
+}

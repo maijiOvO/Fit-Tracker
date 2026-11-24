@@ -18,6 +18,7 @@ import { Language, WorkoutSession } from '../../types';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
+import { armSwallow, disarmSwallow, newClickSwallow, takeSwallow } from '../utils/tap';
 import { dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
 import { realSets } from '../utils/prDetect';
@@ -208,15 +209,16 @@ const SessionCard: React.FC<SessionCardProps> = ({
    *
    * 两处共用一个时间戳，而不是各自一个布尔（§12.5 三件套）：布尔是粘滞的 ——
    * 手势若以 pointercancel 结束就没有 click 来清它，它会一直挂着，
-   * 把用户下一次正常点击吃掉。时间戳会自己过期。
+   * 把用户下一次正常点击吃掉。时间戳会自己过期。吞一次就作废，下一次按下（卡片上的 pointerdown）也作废：
+   * 真点击一定先有 pointerdown，补发的 click 没有 —— 松手后紧接着点菜单项不会被吞（审查 navigation-overlays#5）。
    *
    * ⚠️ 静默期从【松手】那一刻起算，不是从菜单出现那一刻：菜单在按满 500ms 时
    * 就长出来了，而手指可以再压半秒才抬 —— 按菜单出现起算的话，
    * 按得久一点就直接绕过了这道闸门。
    */
-  const armedAt = useRef(-Infinity);
+  const swallow = useRef(newClickSwallow());
   const MENU_ARM_MS = 350;
-  const swallowingClick = () => performance.now() - armedAt.current < MENU_ARM_MS;
+  const swallowingClick = () => takeSwallow(swallow.current, performance.now(), MENU_ARM_MS);
 
   /** 这一次手势按满了长按 —— 只有它的那次松手才需要武装静默期 */
   const becameLongPress = useRef(false);
@@ -241,7 +243,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
     ...press.handlers,
     onPointerUp: () => {
       press.handlers.onPointerUp();
-      if (becameLongPress.current) armedAt.current = performance.now();
+      if (becameLongPress.current) armSwallow(swallow.current, performance.now());
       becameLongPress.current = false;
     },
     onPointerCancel: () => {
@@ -340,6 +342,8 @@ const SessionCard: React.FC<SessionCardProps> = ({
         isExpanded ? 'ring-2 ring-accent/60' : ''
       }${menuOpen ? ' z-30 shadow-overlay' : ''}`}
       {...pressHandlers}
+      // 捕获阶段：动作名按钮在冒泡阶段 stopPropagation，挂在 pressHandlers 上收不到它的按下
+      onPointerDownCapture={() => disarmSwallow(swallow.current)}
     >
       {/* 点按有自己的意思（展开详情），所以不闪「按住出菜单」的提示 —— 原来每次点击都闪 1.4 秒（2026-10-11） */}
       <LongPressAffordance

@@ -51,7 +51,7 @@ await build({
       "export * as G from './src/utils/goalProgress.ts';",
       "export { moveSetToExercise, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
-      "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
+      "export { trackScrub, scrubGate, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
       "export { buildNameIndex, byDisplayName, ownValue } from './src/utils/nameIndex.ts';",
       "export * as GY from './src/utils/gyms.ts';",
@@ -1026,6 +1026,52 @@ t('横划：走够 20px 才接管、接管那一下不算档；之后每 10px �
   assert.equal(run([[110, 75]]).released, true);
 });
 
+// 防的是：拖动状态又只有一份、不分手指（审查 C41）。按 useValueScrub 的顺序驱动 scrubGate + trackScrub
+t('横划多指：两指同压 / 捏合不走档；起拖后第二指乱动、先抬起不接管也不收尾；丢了 up 下一次主指针照样接上', () => {
+  const px = 10;
+  const run = (events, d = null) => {
+    let net = 0;
+    for (const ev of events) {
+      const g = L.scrubGate(d && { pid: d.pid, engaged: d.engaged }, ev);
+      if (g === 'abort' || g === 'end') d = null;
+      else if (g === 'start') d = { pid: ev.pid, x0: ev.x, c0: 50, x: ev.x, acc: 0, engaged: false };
+      else if (g === 'track') {
+        const r = L.trackScrub(d, ev.x, 50, px);
+        if (r.go === 'release') d = null;
+        else if (r.go === 'move') {
+          d = { ...d, ...r.t };
+          net += r.detents.reduce((a, b) => a + b, 0);
+        }
+      }
+    }
+    return { net, d };
+  };
+  const down = (pid, x, primary = pid === 1) => ({ type: 'down', pid, x, primary });
+  const move = (pid, x) => ({ type: 'move', pid, x, primary: pid === 1 });
+  const up = pid => ({ type: 'up', pid, x: 0, primary: pid === 1 });
+  // a. 两指同压一格、原地各自 ±1px 抖动，先抬第二指：一档都不走，抬完没有活动拖动
+  const jitter = [];
+  for (let i = 0; i < 10; i++) jitter.push(move(1, 100 + (i % 2 ? 1 : -1)), move(2, 160 + (i % 2 ? -1 : 1)));
+  const a = run([down(1, 100), down(2, 160), ...jitter, up(2), up(1)]);
+  assert.equal(a.net, 0);
+  assert.equal(a.d, null);
+  // b. 捏合：两指各往外走 8px/步，共 8 步
+  const pinch = [];
+  for (let i = 1; i <= 8; i++) pinch.push(move(1, 100 - i * 8), move(2, 140 + i * 8));
+  assert.equal(run([down(1, 100), down(2, 140), ...pinch, up(1), up(2)]).net, 0);
+  // c. 起拖后第二指落下乱动、先抬起：只算第一指的 2 档，第二指抬起不收掉拖动
+  const c = run([down(1, 100), move(1, 125), move(1, 135), down(2, 300), move(2, 250), move(1, 145), move(2, 330), up(2)]);
+  assert.equal(c.net, 2);
+  assert.ok(c.d && c.d.engaged, '第二指抬起后拖动还在');
+  // d. 单指对照：3 档
+  assert.equal(run([down(1, 100), move(1, 120), move(1, 130), move(1, 140), move(1, 150), up(1)]).net, 3);
+  // e. 丢了 up 的旧状态：下一次主指针按下重新开始，从新的按下点起算
+  const stale = run([down(1, 100), move(1, 130)]).d;
+  const e = run([down(3, 200, true), move(3, 220), move(3, 230), move(1, 400)], stale);
+  assert.equal(e.net, 1);
+  assert.equal(e.d.pid, 3);
+});
+
 // ── 训练时长（刊末页 / 时间线 / CSV 同一口径）──────────────────────────
 t('训练时长：finishedAt − startTime 按整分截断（计时器的读法，不四舍五入）；不到 1 分（补记）和超过 12 小时（忘了结束）都不显示；没 finishedAt 的退回导入写的 duration 秒；什么都没有就没有', () => {
   const T0 = '2026-10-21T18:00:00.000Z';
@@ -1687,6 +1733,32 @@ t('自判点击：随手点带出的几像素滑动仍算点击；滑远了、�
   // 一划翻页 / 长按没发 click 是正常的，不算丢
   assert.equal(isLostTap(rec({ move: 60 }), 500), false);
   assert.equal(isLostTap(rec({ ms: 800 }), 500), false);
+});
+
+// 防的是：删除键连点的阈值被改松（误拦故意删相邻行），或改回按 setId / 按组件判（审查 C40）
+t('连点删除：同一点 400ms 内的第二下算连点；相邻一行（隔 44px+）、超时、没有上一下都不算', () => {
+  const { isRepeatTap } = L.TAP;
+  const prev = { t: 0, x: 100, y: 200 };
+  assert.equal(isRepeatTap(prev, { t: 120, x: 100, y: 205 }), true);
+  assert.equal(isRepeatTap(prev, { t: 399, x: 100, y: 200 }), true);
+  assert.equal(isRepeatTap(prev, { t: 400, x: 100, y: 200 }), false);
+  assert.equal(isRepeatTap(prev, { t: 120, x: 100, y: 148 }), false);
+  assert.equal(isRepeatTap(null, { t: 120, x: 100, y: 200 }), false);
+});
+
+// 防的是：吞补发 click 的闸又变回只看时限（安卓不补发时吃掉第一下真点按）或吞过不作废（审查 navigation-overlays#5）
+t('吞补发 click：只吞一次；下一次按下作废；过了时限不吞', () => {
+  const { newClickSwallow, armSwallow, disarmSwallow, takeSwallow } = L.TAP;
+  const s = newClickSwallow();
+  assert.equal(takeSwallow(s, 100, 350), false, '没武装不吞');
+  armSwallow(s, 0);
+  assert.equal(takeSwallow(s, 100, 350), true);
+  assert.equal(takeSwallow(s, 150, 350), false, '只吞一次');
+  armSwallow(s, 0);
+  disarmSwallow(s);
+  assert.equal(takeSwallow(s, 100, 350), false, '真点击先有 pointerdown');
+  armSwallow(s, 0);
+  assert.equal(takeSwallow(s, 351, 350), false, '限时兜底');
 });
 
 t('横拖加速：正常手速永远一格；甩过门槛才两格；关掉后多快都一格；门槛跟每格宽度同比例', () => {

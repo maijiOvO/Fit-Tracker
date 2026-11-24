@@ -443,8 +443,26 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
   const dragEndRef = useRef(handleDragEnd);
   dragEndRef.current = handleDragEnd;
+  /**
+   * 被打断的拖动：原地回弹，不按拉了多远去关（§12.5 通则 4）。内联 transition / transform 都清掉，交还给 class 过渡。
+   * 拖动中落下第二指、或拖到一半弹层被关掉时走这里（审查 navigation-overlays#3）：原来第二指一落就把手势状态丢了，
+   * 弹层停在半路，关掉后内联 transform 还压着 class 的 translate-y-[103%]，留下看得见、点不动的幽灵弹层。
+   */
+  const cancelDrag = () => {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    const el = sheetRef.current;
+    if (el) {
+      el.style.transition = '';
+      el.style.transform = '';
+    }
+  };
   const openRef = useRef(open);
   openRef.current = open;
+  // 正常下拉关闭时 handleDragEnd 已先清掉 dragRef；这里只兜「拖动没收尾就被关掉」
+  useEffect(() => {
+    if (!open) cancelDrag();
+  }, [open]);
 
   /**
    * 手指下拉关闭：整张弹层都是热区，不用再够到顶上那根横条。
@@ -471,6 +489,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const onStart = (e: TouchEvent) => {
       swallowClick = false;
       if (!openRef.current || e.touches.length !== 1) {
+        if (t?.mode === 'drag') cancelDrag();
         t = null;
         return;
       }
@@ -481,7 +500,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const onMove = (e: TouchEvent) => {
       if (!t || t.mode === 'pass') return;
       if (e.touches.length !== 1) {
-        if (t.mode === 'drag') dragEndRef.current();
+        if (t.mode === 'drag') cancelDrag();
         t = null;
         return;
       }

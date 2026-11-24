@@ -270,8 +270,74 @@ async function sessionMenu(page, card, itemRe) {
   await longPress(page, card);
   const menu = page.locator('[data-testid="timeline-session-menu"]');
   await menu.waitFor({ state: 'visible', timeout: 3_000 });
-  await page.waitForTimeout(400); // 菜单项的 350ms 静默期（防长按松手误触）
   await menu.getByRole('menuitem').filter({ hasText: itemRe }).click();
+}
+
+/**
+ * 书签热区不盖住相邻行的控件（审查 C42）：取书签上下 60px 内 sel 命中的每个盒子，各取 24×24 网格点做 elementFromPoint，
+ * 数有几个点落在 .rest-grab 上；再看色块中心、左 10px、上下 20px 还按得到书签（还拖得起来）。
+ * 命中测试只有真浏览器的布局给得出来，下层测不到；一次 evaluate，不加时间。
+ */
+async function seamCover(page, sel) {
+  const r = await page.evaluate(sel => {
+    const seam = document.querySelector('[data-rest-seam]');
+    if (!seam) return null;
+    seam.scrollIntoView({ block: 'center' });
+    const y0 = seam.getBoundingClientRect().top;
+    const grab = (x, y) => !!document.elementFromPoint(x, y)?.closest('.rest-grab');
+    let covered = 0, total = 0;
+    for (const el of seam.closest('.ledger-paper').querySelectorAll(sel)) {
+      const b = el.getBoundingClientRect();
+      if (b.bottom < y0 - 60 || b.top > y0 + 60) continue;
+      for (let i = 0; i < 24; i++) for (let j = 0; j < 24; j++) {
+        total++;
+        if (grab(b.left + ((i + 0.5) * b.width) / 24, b.top + ((j + 0.5) * b.height) / 24)) covered++;
+      }
+    }
+    const t = seam.querySelector('.tab').getBoundingClientRect();
+    const cx = t.left + t.width / 2, cy = t.top + t.height / 2;
+    const miss = [['center', cx, cy], ['left 10', t.left - 10, cy], ['up 20', cx, cy - 20], ['down 20', cx, cy + 20]]
+      .filter(([, x, y]) => !grab(x, y))
+      .map(([k, x, y]) => `${k} → ${document.elementFromPoint(x, y)?.className || 'nothing'}`);
+    return { covered, total, miss };
+  }, sel);
+  if (!r) throw new Error('no rest bookmark on the page');
+  if (!r.total) throw new Error(`no ${sel} next to the rest bookmark`);
+  if (r.covered) throw new Error(`the rest bookmark's hit area covers ${r.covered}/${r.total} points of ${sel} next to it`);
+  if (r.miss.length) throw new Error(`the rest bookmark tab no longer catches a press: ${r.miss.join('; ')}`);
+  return r.total;
+}
+
+/**
+ * 弹层拖到一半落下第二指（审查 navigation-overlays#3）：一指在弹层头部按下、下拉 60px，第二指落下，两指抬起。
+ * 弹层得回弹归位、不留内联 transform；再点 × 能完整划出屏外，不留看得见、点不动的半截弹层。
+ * 要防的是原生 touch 监听在第二指落下时不收尾，只有真实 TouchEvent 序列走得到，下层测不到。
+ */
+async function twoFingerPull(page, sel, closeSel) {
+  const sheet = page.locator(sel);
+  const top = () => sheet.evaluate(el => el.getBoundingClientRect().top);
+  const top0 = await top();
+  const box = await sheet.boundingBox();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  try {
+    const x = box.x + box.width / 2, y = box.y + 12;
+    const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([px, py], id) => ({ x: px, y: py, id })) });
+    await touch('touchStart', [[x, y]]);
+    for (let dy = 10; dy <= 60; dy += 10) await touch('touchMove', [[x, y + dy]]);
+    if ((await top()) < top0 + 30) throw new Error(`${sel} did not follow the one-finger pull`);
+    await touch('touchStart', [[x, y + 60], [x + 60, y + 240]]);
+    await touch('touchMove', [[x, y + 70], [x + 60, y + 250]]);
+    await touch('touchEnd', []);
+  } finally {
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+    await cdp.detach();
+  }
+  await until(async () => Math.abs((await top()) - top0) < 1, `${sel} to spring back after a second finger landed`);
+  const inline = await sheet.evaluate(el => el.style.transform);
+  if (inline) throw new Error(`${sel} kept an inline transform after the interrupted pull: ${inline}`);
+  await page.locator(closeSel).click();
+  await until(async () => (await top()) >= (await page.evaluate(() => innerHeight)) - 1, `${sel} to slide fully off screen after closing`);
 }
 
 /**
@@ -849,6 +915,11 @@ const SEEDED = {
     if (!up.jpeg || up.len > 80_000) throw new Error(`uploaded avatar not shrunk: ${JSON.stringify(up)}`);
     if (up.userHasAvatar) throw new Error('upload wrote a second avatar copy into fitlog_current_user');
     if (!(await page.locator('img[alt="Avatar"]').getAttribute('src'))?.startsWith('data:image/jpeg')) throw new Error('profile does not show the shrunk avatar');
+    // 首选项弹层（useSheetSwipeClose，Modal 底部弹层同一份）：拖到一半落下第二指
+    await page.locator('[data-testid="prefs-entry"]').click();
+    const prefsSheet = page.locator('[data-testid="prefs-sheet"]');
+    await until(async () => Math.abs(await prefsSheet.evaluate(el => el.getBoundingClientRect().bottom - innerHeight)) < 1, 'the prefs sheet to finish sliding in');
+    await twoFingerPull(page, '[data-testid="prefs-sheet"]', '[data-testid="prefs-sheet-close"]');
     return `avatar legacy ${bigDataUrl.length} → ${legacy.len}, upload → ${up.len}; goal current ${goal.currentValue} lbs`;
   },
 
@@ -882,9 +953,10 @@ const SEEDED = {
     if (!(await hidden())) throw new Error('delete did not mark it hidden');
     if (await row.isVisible().catch(() => false)) throw new Error('hidden exercise still listed');
     if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('library delete still shows an undo toast');
-    // 弹层盖着顶栏：关掉弹层再按全局撤销
+    // 弹层盖着顶栏：关掉弹层再按全局撤销（顺带：拖到一半落下第二指，弹层回弹、关得干净）
     await search.fill('');
-    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await search.blur();
+    await twoFingerPull(page, '[data-testid="picker-sheet"]', '[data-testid="picker-sheet-close"]');
     await page.locator('[data-testid="global-undo"]').last().click();
     await until(async () => !(await hidden()), 'global undo to unhide the deleted exercise');
     if ((await customIds()) !== before) throw new Error('undo changed the custom list order');
@@ -1225,6 +1297,9 @@ const SEEDED = {
     await combo.click();
     await members(3);
     await page.locator('[data-testid="picker-sheet-close"]').click();
+    // 交替卡的简称紧挨书签：书签的热区不能盖住它（审查 C42）。弹层关闭动画期间整页盖着一层挡点击的罩子，等它撤掉
+    await page.locator('[data-testid="picker-settle"]').waitFor({ state: 'detached', timeout: 3_000 });
+    await seamCover(page, '.set-badge');
     await backAndDiscard(page);
     return 'row → latest pair · older combo → replaced with all three';
   },
@@ -1452,7 +1527,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (await newWorkoutPage.first().isVisible().catch(() => false)) throw new Error('长按松手误触了菜单第一项 —— 直接进了编辑页');
       if (!(await menu.isVisible())) throw new Error('menu closed on the release click');
 
-      await page.waitForTimeout(400); // 菜单项的 350ms 静默期
+      // 不等 350ms 静默期：点菜单项带着自己的 pointerdown，补发 click 的窗口当场作废（审查 navigation-overlays#5）
       await menu.getByRole('menuitem').filter({ hasText: /删除|Delete/ }).click();
       // 删整场要确认（2026-10-25：只有删训练、清空账户留确认框）
       await acceptAppConfirm(page);
@@ -1571,6 +1646,8 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if ((await stateCls(row0)) !== doneCls) throw new Error(`tapping the selected set changed it: ${doneCls} → ${await stateCls(row0)}`);
       if ((await row0.locator('.ledger-field.is-edited').count()) !== doneEdited) throw new Error('re-tapping the selected set changed the is-edited marks');
 
+      const seamPts = await seamCover(page, '.set-num, [data-testid="ledger-field-weight"] input');
+
       const steps = page.locator('[data-testid="weight-step"]');
       if ((await steps.count()) !== 1) throw new Error(`expected exactly one ±5 strip, got ${await steps.count()}`);
       const plus = steps.getByRole('button', { name: /重量加|Weight \+/ });
@@ -1601,9 +1678,11 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (!/^reps/.test(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || ''))) throw new Error('Enter in the weight cell should focus reps');
       await page.keyboard.press('Enter');
 
+      // 连点删组（审查 C40）：删的是下面还有行的那一行，下一行补到指下，第二下不该再删一行
       const n1 = await rows.count();
-      await rows.nth(n1 - 1).locator('[data-testid="set-remove"]').click();
-      await until(async () => (await rows.count()) === n1 - 1, 'the set row to be removed');
+      if (n1 < 2) throw new Error(`need two set rows to test a double tap on delete, got ${n1}`);
+      await rows.nth(n1 - 2).locator('[data-testid="set-remove"]').dblclick();
+      await until(async () => (await rows.count()) === n1 - 1, 'the set row to be removed (a double tap must remove only one)');
       if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('deleting a set still shows an undo toast');
 
       const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
@@ -1631,7 +1710,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const aliases = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem(lsKey('fitlog_exercise_overrides')) || '{}')).flatMap(o => o.aliases || []));
       if (!aliases.includes(before)) throw new Error(`old name "${before}" not kept as alias`);
       await backAndDiscard(page);
-      return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/re-tap noop · + ${w0}→${w1} · 77, set below holds · rename (clash rejected, alias kept)`;
+      return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/re-tap noop · + ${w0}→${w1} · 77, set below holds · rename (clash rejected, alias kept) · bookmark clear of ${seamPts} cell points`;
     });
 
     await s('global-undo', async () => {
@@ -1652,8 +1731,10 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const state = async () => `${await rows.count()} rows · w=${await wIn.inputValue()} · inked=${await page.locator('.ledger-row.is-inked').count()}`;
       const settle = () => page.waitForTimeout(250);
       // 前面的用例结束时有数的组都入册（D3），底稿可能不止一行：删到只剩一行再开始数步
+      // 用回车按删除键：这里只是备料，接连删最后一行时下一个删除键会被夹回同一坐标，400ms 内的点按会被当成连点拦下（审查 C40）；
+      // 键盘触发的 click 不参与连点判定
       for (let n = await rows.count(); n > 1; n--) {
-        await rows.nth(n - 1).locator('[data-testid="set-remove"]').click();
+        await rows.nth(n - 1).locator('[data-testid="set-remove"]').press('Enter');
         await until(async () => (await rows.count()) === n - 1, 'the extra draft row to be removed');
       }
 

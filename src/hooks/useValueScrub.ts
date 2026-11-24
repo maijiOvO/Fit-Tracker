@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type React from 'react';
 import { haptic, H } from '../utils/haptics';
-import { boundDetent, scrubAccel, scrubFeel, scrubTier, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
+import { boundDetent, scrubAccel, scrubFeel, scrubGate, scrubTier, trackScrub, SCRUB_FEEL_PX } from '../utils/scrubFeel';
 
 /** 每跨这么多像素落一档（首选项「滑动手感」，读的是模块缓存，每次移动取一下不费事） */
 const pxPerDetent = () => SCRUB_FEEL_PX[scrubFeel()];
@@ -76,7 +76,7 @@ interface Result {
     onPointerDown: (e: React.PointerEvent) => void;
     onPointerMove: (e: React.PointerEvent) => void;
     onPointerUp: (e: React.PointerEvent) => void;
-    onPointerCancel: () => void;
+    onPointerCancel: (e: React.PointerEvent) => void;
     onDragStart: (e: React.DragEvent) => void;
     onClickCapture: (e: React.MouseEvent) => void;
   };
@@ -120,6 +120,8 @@ export function useValueScrub({
   }, [stepsKey]);
 
   const drag = useRef<{
+    /** 按下的那根手指：别的手指的事件一律不算这次拖动（scrubGate） */
+    pid: number;
     x0: number;
     /** 按下点在垂直方向的坐标：用来判断这一下是不是在翻页 */
     c0: number;
@@ -167,8 +169,16 @@ export function useValueScrub({
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (disabled) return;
+      const g = scrubGate(drag.current, { type: 'down', pid: e.pointerId, primary: e.isPrimary });
+      if (g === 'abort') {
+        // 两指同压 / 捏合：还没起拖就落下第二指，这一手作废，等手指全抬起、下一次主指针按下再接
+        drag.current = null;
+        return;
+      }
+      if (g !== 'start') return;
       const p = pos(e);
       drag.current = {
+        pid: e.pointerId,
         x0: p,
         c0: cross(e),
         x: p,
@@ -194,7 +204,7 @@ export function useValueScrub({
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       const d = drag.current;
-      if (!d) return;
+      if (!d || scrubGate(d, { type: 'move', pid: e.pointerId, primary: e.isPrimary }) !== 'track') return;
 
       const px = fixedPx ?? pxPerDetent();
       // 计步交给 trackScrub：接管那一刻从当前位置起算，之前走过的那段不算档（scrubFeel.trackScrub）
@@ -271,12 +281,21 @@ export function useValueScrub({
     setStep(Number(stepsKey.split(',')[0]) || 1);
   }, [stepsKey]);
 
+  /** 只有按下那根手指抬起 / 被打断才收尾：第二指先抬起不该把拖动停在半路 */
+  const endFor = useCallback(
+    (e: React.PointerEvent) => {
+      const type = e.type === 'pointercancel' ? 'cancel' : 'up';
+      if (scrubGate(drag.current, { type, pid: e.pointerId, primary: e.isPrimary }) === 'end') end();
+    },
+    [end],
+  );
+
   return {
     handlers: {
       onPointerDown,
       onPointerMove,
-      onPointerUp: end,
-      onPointerCancel: end,
+      onPointerUp: endFor,
+      onPointerCancel: endFor,
       /**
        * 点进格子旧值是全选的（2026-10-11 聚焦即全选）：鼠标在选中的文字上按住一拖，浏览器会起一次
        * 「拖拽选中文字」的原生拖放，这一拖就不再是横拖改值了（Playwright 的鼠标事件还会被它卡死）。

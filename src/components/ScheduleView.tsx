@@ -13,6 +13,7 @@ import { MiniPlates, planSide, plateWords } from './MiniPlates';
 import { barWeight } from '../utils/plates';
 import { EQ_BARBELL } from '../utils/exerciseAttrs';
 import { haptic, H } from '../utils/haptics';
+import { armSwallow, disarmSwallow, newClickSwallow, takeSwallow } from '../utils/tap';
 import { dayOfWeekIndex, localYmd, rotateWeekdays } from '../utils/dateUtils';
 
 /* ── 翻月横滑 §12.9：松手判定与弹层同一套速度投影数学（§5.3） ── */
@@ -102,8 +103,11 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     v: number;
   } | null>(null);
   const animatingRef = useRef(false);
-  /** 拖完吞掉那次 click（时间戳，不用布尔——§12.3 粘滞布尔的教训） */
-  const swallowUntilRef = useRef(0);
+  /**
+   * 拖完吞掉那次 click（时间戳，不用布尔——§12.3 粘滞布尔的教训）。吞一次就作废，下一次按下也作废：
+   * 安卓上横滑翻月后不一定补发 click，那时紧跟着的第一下真点日期带着 pointerdown，不该被吞（审查 navigation-overlays#5）
+   */
+  const swallowRef = useRef(newClickSwallow());
 
   const shiftMonth = (base: Date, k: number) =>
     new Date(base.getFullYear(), base.getMonth() + k, 1);
@@ -198,7 +202,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     if (!d || e.pointerId !== d.pid) return;
     swipeRef.current = null;
     if (!d.engaged) return;
-    swallowUntilRef.current = performance.now() + 300;
+    armSwallow(swallowRef.current, performance.now());
     const W = viewportRef.current?.clientWidth || 1;
     const commitByV = Math.abs(d.v) > SWIPE_COMMIT_VEL;
     const commit = commitByV || Math.abs(d.dx) > W * SWIPE_COMMIT_FRAC;
@@ -210,7 +214,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
     else flip(dir, ms);
   };
   const onSwipeClickCapture = (e: React.MouseEvent) => {
-    if (performance.now() < swallowUntilRef.current) {
+    if (takeSwallow(swallowRef.current, performance.now(), 300)) {
       e.preventDefault();
       e.stopPropagation();
     }
@@ -282,6 +286,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
         <div
           ref={viewportRef}
           className="overflow-hidden touch-pan-y"
+          // 作废挂在捕获阶段、在 onSwipeDown 的 animatingRef 提前返回之外：翻月动画中的那次按下也得清掉窗口
+          onPointerDownCapture={() => disarmSwallow(swallowRef.current)}
           onPointerDown={onSwipeDown}
           onPointerMove={onSwipeMove}
           onPointerUp={onSwipeEnd}

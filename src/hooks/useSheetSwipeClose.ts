@@ -7,6 +7,8 @@
  * - 往下拉且内容区已在顶上才接管；滚到一半往下拉＝往回滚，交给浏览器；往上推、横划不管。
  * - 拖过之后松手补发的 click 吞一次，并且 400ms 作废，免得吃掉下一次正常点击。
  * - pointer 那一路只收鼠标（桌面调试从抓手拖），包括 pointerup：它比 touchend 先到，会抢掉收尾。
+ * - 拖动中落下第二指＝这一手被打断：原地回弹，不按拉了多远去关（§12.5 通则 4）。拖动没收尾就被关掉 / 停用时，
+ *   兜底把内联样式交还给 class，免得留下看得见、点不动的半截弹层（审查 navigation-overlays#3）。
  *
  * Modal 的 sheet 入场动画是 fill-mode both，动画值压过内联 transform——接管时把内联 animation 关掉，
  * 关闭时自己划出去（不再交给 anim-panel-out，那会先跳回原位再淡出）。
@@ -40,12 +42,12 @@ export function useSheetSwipeClose(
     d.y = Math.max(0, y - d.startY);
     el.style.transform = `translateY(${d.y}px)`;
   };
-  const end = () => {
+  const end = (close: boolean) => {
     const el = sheetRef.current;
     const d = dragRef.current;
     dragRef.current = null;
     if (!el || !d) return;
-    if (d.y > CLOSE_PX) {
+    if (close && d.y > CLOSE_PX) {
       el.style.transition = 'transform var(--dur-exit) var(--ease-leave), opacity var(--dur-exit) var(--ease-leave)';
       el.style.transform = 'translateY(100%)';
       el.style.opacity = '0';
@@ -67,12 +69,13 @@ export function useSheetSwipeClose(
 
     const onStart = (e: TouchEvent) => {
       swallowClick = false;
+      if (t?.mode === 'drag' && e.touches.length !== 1) endRef.current(false);
       t = e.touches.length === 1 ? { x0: e.touches[0].clientX, y0: e.touches[0].clientY, mode: 'undecided' } : null;
     };
     const onMove = (e: TouchEvent) => {
       if (!t || t.mode === 'pass') return;
       if (e.touches.length !== 1) {
-        if (t.mode === 'drag') endRef.current();
+        if (t.mode === 'drag') endRef.current(false);
         t = null;
         return;
       }
@@ -102,7 +105,7 @@ export function useSheetSwipeClose(
           window.clearTimeout(swallowTimer);
           swallowTimer = window.setTimeout(() => (swallowClick = false), 400);
         }
-        endRef.current();
+        endRef.current(true);
       }
       t = null;
     };
@@ -125,6 +128,12 @@ export function useSheetSwipeClose(
       el.removeEventListener('touchcancel', onEnd);
       el.removeEventListener('click', onClickCapture, true);
       window.clearTimeout(swallowTimer);
+      // 拖到一半弹层就停用 / 卸下：正常划出关闭时 end 已经清掉 dragRef，故意留着的退场样式不碰
+      if (dragRef.current) {
+        dragRef.current = null;
+        el.style.transform = '';
+        el.style.transition = '';
+      }
     };
   }, [enabled, sheetRef, scrollRef]);
 
@@ -141,10 +150,10 @@ export function useSheetSwipeClose(
       if (e.pointerType === 'mouse' && el) follow(el, e.clientY);
     },
     onPointerUp: (e: React.PointerEvent) => {
-      if (e.pointerType === 'mouse') end();
+      if (e.pointerType === 'mouse') end(true);
     },
     onPointerCancel: (e: React.PointerEvent) => {
-      if (e.pointerType === 'mouse') end();
+      if (e.pointerType === 'mouse') end(false);
     },
   };
   return mouseHandlers;

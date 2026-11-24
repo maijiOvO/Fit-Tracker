@@ -175,3 +175,23 @@ export function trackScrub(
   }
   return { t: { ...t, x: p, acc }, go: 'move', detents };
 }
+
+/**
+ * 这一个指针事件归不归当前这次拖动（审查 C41）。拖动状态只有一份，不分手指的话：两指同压一格时两根手指的 move
+ * 交替喂进来，间距被当成位移乱走档；捏合大图把两指张开读成横拖；第二指先抬起就把拖动收在错值上。
+ * - 主指针按下：新的一手（顺带接管丢了 up 的旧状态，不会卡死）
+ * - 非主指针按下：还没起拖＝这一手作废；已经起拖＝不理它
+ * - move / up / cancel：只认按下那根手指
+ * 纯函数：useValueScrub 和 logic-check 共用。
+ */
+export function scrubGate(
+  cur: { pid: number; engaged: boolean } | null,
+  ev: { type: 'down' | 'move' | 'up' | 'cancel'; pid: number; primary: boolean },
+): 'start' | 'abort' | 'track' | 'end' | 'ignore' {
+  if (ev.type === 'down') {
+    if (ev.primary) return 'start';
+    return cur && !cur.engaged ? 'abort' : 'ignore';
+  }
+  if (!cur || cur.pid !== ev.pid) return 'ignore';
+  return ev.type === 'move' ? 'track' : 'end';
+}
