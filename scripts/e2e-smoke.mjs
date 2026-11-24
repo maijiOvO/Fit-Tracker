@@ -1668,10 +1668,19 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await face.locator('[data-testid="stack-start-row"] > span').first().click();
       await face.locator('[data-testid="stack-preset-5"]').click();
       const num = async id => Number(await face.locator(`[data-testid="${id}-scrub"] input`).inputValue());
-      if ((await num('stack-step')) !== 2.5 || (await num('stack-start')) !== 5) throw new Error(`presets: step ${await num('stack-step')} start ${await num('stack-start')}`);
+      // 点完到输入框换成新值隔着一次渲染：立刻读会读到旧值（报错里再读一遍又是对的）。等到两格都到位，超时才算错。
+      const stackSettled = async (step, start, what) => {
+        await page.waitForFunction(([st, sa]) => {
+          const v = id => Number(document.querySelector(`[data-testid="settings-gym"] [data-testid="${id}-scrub"] input`)?.value);
+          return v('stack-step') === st && v('stack-start') === sa;
+        }, [step, start], { timeout: 3_000 }).catch(async () => {
+          throw new Error(`${what}: step ${await num('stack-step')} start ${await num('stack-start')}（要 ${step} / ${start}）`);
+        });
+      };
+      await stackSettled(2.5, 5, 'presets');
       // ＋ 也在预设里跳：5 → 10，每格不跟着变
       await face.locator('[data-testid="stack-start-inc"]').click();
-      if ((await num('stack-start')) !== 10 || (await num('stack-step')) !== 2.5) throw new Error(`start + : ${await num('stack-start')} / ${await num('stack-step')}`);
+      await stackSettled(2.5, 10, 'start +');
       await face.locator('[data-testid="stack-preset-5"]').click();
       await page.locator('[data-testid="metric-modal-done"]').click();
       await page.waitForTimeout(200);
