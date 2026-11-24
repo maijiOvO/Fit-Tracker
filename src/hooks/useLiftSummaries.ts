@@ -8,7 +8,8 @@ import { useMemo } from 'react';
 import type { WorkoutSession } from '../../types';
 import { buildLiftSummaries, type LiftSummary } from '../utils/liftHistory';
 import { usesSignedLoad } from '../utils/load';
-import { hasDoneSets, useWorkoutContext } from '../contexts/WorkoutContext';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { hasDoneSets } from '../utils/workbench';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useGymScopedPR } from './useLoadKind';
 

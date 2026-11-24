@@ -7,7 +7,7 @@ import { Exercise, Language, SetLog, WorkoutSession } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
-import { hasDoneSets, useWorkoutContext } from '../contexts/WorkoutContext';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useScheduleContext } from '../contexts/ScheduleContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -16,7 +16,7 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
+import { groupExercises, hasDoneSets, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
 import { rowEdited, toGhostSets } from '../utils/setValues';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
@@ -28,10 +28,16 @@ import { isBackdated, redateLiveSession, sessionsBefore } from '../utils/session
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
+import { planMergeIntoPrevious } from '../utils/sessionMerge';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 /** 选好馆之后铺出新的一场（gyms：刚存的馆档案，context 还没刷新） */
 export type StartMaker = (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession;
+/** 开练前检查过的结果：replaces＝问过、用户同意顶掉的那场进行中训练的 id（startAtGym 复查时只放行它） */
+export interface StartPlan {
+  make: StartMaker;
+  replaces: string | null;
+}
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
 
 /**
@@ -130,13 +136,13 @@ export interface UseWorkoutMutationsResult {
   handleMergeIntoPrevious: (workoutId: string) => Promise<void>;
   /**
    * §12.8 菜单项「复制为今天的训练」：整场结构铺成底稿进工作台（§12.6 语义）。
-   * 只做检查和确认，返回「选好馆之后怎么铺这一场」；App 交给 startAtGym（先选馆，审查 A12）。null＝不开。
+   * 只做检查和确认，返回「选好馆之后怎么铺这一场」和同意顶掉的那场；App 交给 startAtGym（先选馆，审查 A12）。null＝不开。
    */
-  handleCopyWorkoutToToday: (workoutId: string) => Promise<StartMaker | null>;
+  handleCopyWorkoutToToday: (workoutId: string) => Promise<StartPlan | null>;
   handleDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string) => Promise<void>;
 
   /** 从计划开练：同上，返回选好馆之后怎么铺这一场（App 交给 startAtGym）；null＝不开 */
-  handleStartScheduledSession: (scheduleId: string) => Promise<StartMaker | null>;
+  handleStartScheduledSession: (scheduleId: string) => Promise<StartPlan | null>;
 
   /**
    * 开新训练前的防误结束拆场闸门（FAB / 案头两个入口共用）。
@@ -240,17 +246,26 @@ export function useWorkoutMutations({
   const editOriginalRef = useRef<{ id: string; key: string } | null>(null);
 
   // 全局撤销：「在编辑哪一场」跟工作台那一场一起撤（services/undoJournal.ts）。
-  // 只撤工作台、不撤这个，会把进行中的那场当成编辑草稿去「保存修改」
-  const editModeRef = useRef<{ id: string | null; original: { id: string; key: string } | null }>({ id: null, original: null });
-  if (editModeRef.current.id !== editingWorkoutId) editModeRef.current = { id: editingWorkoutId, original: editOriginalRef.current };
+  // 只撤工作台、不撤这个，会把进行中的那场当成编辑草稿去「保存修改」。
+  // stash 一起撤：撤回「进编辑 / 保存修改」时，退出编辑要放回的那场也回到当时的样子
+  type EditMode = { id: string | null; original: { id: string; key: string } | null; stash: WorkoutSession | null };
+  /**
+   * 进编辑时被换下工作台的那场进行中训练（上架审查 gap-r3-1#1）：退出编辑时同步放回。
+   * 原来先放一场空训练、再异步整表读库接回，空档里点开练会把它顶掉
+   */
+  const benchStashRef = useRef<WorkoutSession | null>(null);
+  const editModeRef = useRef<EditMode>({ id: null, original: null, stash: null });
+  if (editModeRef.current.id !== editingWorkoutId)
+    editModeRef.current = { id: editingWorkoutId, original: editOriginalRef.current, stash: benchStashRef.current };
   useEffect(
     () =>
       undoJournal.registerSource('editMode', {
         get: () => editModeRef.current,
         set: v => {
-          const m = v as { id: string | null; original: { id: string; key: string } | null };
+          const m = v as EditMode;
           editModeRef.current = m;
           editOriginalRef.current = m.original;
+          benchStashRef.current = m.stash;
           workoutCtx.setDraftWorkoutId(m.id);
           setEditingWorkoutId(m.id);
         },
@@ -271,16 +286,25 @@ export function useWorkoutMutations({
     return editKey(currentWorkout) !== orig.key;
   }, [currentWorkout, editingWorkoutId]);
 
-  /** 离开编辑态（保存完 / 放弃）：工作台换回空场，回到进来前的页面，把进行中的那场接回来 */
+  /** 离开编辑态（保存完 / 放弃）：进来前在练的那场同步放回工作台，回到进来前的页面 */
   const exitEditing = useCallback(() => {
+    const stash = benchStashRef.current;
+    benchStashRef.current = null;
     workoutCtx.setDraftWorkoutId(null);
     editOriginalRef.current = null;
-    setCurrentWorkout(workoutCtx.createNewWorkout());
     setEditingWorkoutId(null);
     const prev = getPreviousTab();
     setActiveTab(prev === 'new' ? 'dashboard' : prev);
+    if (stash) {
+      workoutCtx.replaceWorkbench(stash);
+      // 编辑期间它可能已经闲置过期（库里那份已被收尾）：照回前台的口径再判一次，过期就收掉、不放回在练
+      void workoutCtx.settleStale().then(() => workoutCtx.refreshFromDb());
+      return;
+    }
+    // 冷启动接回之前就进了编辑：没有换下来的那场，照旧从库里接回
+    workoutCtx.replaceWorkbench(workoutCtx.createNewWorkout());
     void workoutCtx.refreshFromDb().then(() => workoutCtx.restoreInProgress());
-  }, [getPreviousTab, setActiveTab, setCurrentWorkout, workoutCtx]);
+  }, [getPreviousTab, setActiveTab, workoutCtx]);
 
   /**
    * 切换数据环境（只在未锁定的构建里）时 WorkoutContext 把工作台换成新环境那边的场；编辑态得一起放掉，
@@ -291,6 +315,8 @@ export function useWorkoutMutations({
     const onSwitched = () => {
       setDraftWorkoutId(null);
       editOriginalRef.current = null;
+      // 换下来的那场属于旧环境，退出编辑时不能放回新环境的工作台
+      benchStashRef.current = null;
       setEditingWorkoutId(null);
     };
     window.addEventListener(ENV_SWITCHED_EVENT, onSwitched);
@@ -441,7 +467,8 @@ export function useWorkoutMutations({
 
       setSaveStatus('saved');
 
-      setCurrentWorkout(workoutCtx.createNewWorkout());
+      // 换上别的 id 才放开结束写库期间的落盘闸（WorkoutContext finishingIdRef，上架审查 C94）
+      workoutCtx.replaceWorkbench(workoutCtx.createNewWorkout());
       setActiveTab('dashboard');
       setEditingWorkoutId(null);
       setTimeout(() => {
@@ -526,14 +553,16 @@ export function useWorkoutMutations({
     (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => {
       const workoutToEdit = workouts.find(w => w.id === workoutId);
       if (workoutToEdit) {
-        // 工作台上还有进行中的一场：它已经落过盘，退出编辑时 restoreInProgress 会接回来；说一声，别让人以为丢了
+        // 工作台上还有进行中的一场：记下来，退出编辑时同步放回（exitEditing）；说一声，别让人以为丢了。
+        // 已经在编辑另一场时不换：放回的仍是最初换下来的那场
+        if (!editingWorkoutId) benchStashRef.current = workoutCtx.getLiveWorkbench();
         if (!editingWorkoutId && hasDoneSets(currentWorkout)) {
           toast(isCn ? '进行中的训练已暂存，退出编辑后接回' : 'Your workout in progress is saved; it comes back after editing', 'info');
         }
         // 先设草稿 id 再换工作台：App 的自动落盘 effect 不能先把这份写回库
         workoutCtx.setDraftWorkoutId(workoutId);
         editOriginalRef.current = { id: workoutId, key: editKey(workoutToEdit) };
-        setCurrentWorkout(structuredClone(workoutToEdit));
+        workoutCtx.replaceWorkbench(structuredClone(workoutToEdit));
         setEditingWorkoutId(workoutId);
         setActiveTab('new');
         onEnterEditWorkout?.(options?.focusExerciseId);
@@ -542,7 +571,7 @@ export function useWorkoutMutations({
         }
       }
     },
-    [currentWorkout, editingWorkoutId, isCn, onEnterEditWorkout, setActiveTab, setCurrentWorkout, toast, workoutCtx, workouts],
+    [currentWorkout, editingWorkoutId, isCn, onEnterEditWorkout, setActiveTab, toast, workoutCtx, workouts],
   );
 
   const handleAddExerciseToPastWorkout = useCallback(
@@ -607,9 +636,10 @@ export function useWorkoutMutations({
   /**
    * 并入上一场（§12.8 菜单项）—— 误结束拆场的事后补救。
    *
-   * 把这场的动作整体追加到时间上紧邻的前一场，本场删除。
+   * 把这场的动作追加到时间上紧邻的前一场，本场删除（挑目标、拼结果见 utils/sessionMerge）。
    * 合并后的那场从更早的 date 开始、到更晚的 finishedAt 结束，
-   * 也就是「本来就该是的那一场」。
+   * 也就是「本来就该是的那一场」。前一场就是工作台上正在练的那场时，动作插在它第一张待做卡前面，
+   * 合并结果放上工作台：只改库的话，工作台下一次落盘会整行盖回去，被并那场已删、墓碑已写，组就永久丢了（上架审查 C04）。
    *
    * ⚠️ 这里【立刻】写 tombstone，和 §12.5 通则 3「撤销窗口期内不写」相反，
    * 是因为两者的失败模式正好反过来：删除若没同步出去，最坏是「没删成」；
@@ -620,50 +650,30 @@ export function useWorkoutMutations({
     async (workoutId: string) => {
       const w = workouts.find(x => x.id === workoutId);
       if (!w) return;
-      // 只并进真正练过的场次（审查 A20）：时间线上藏起来的 0 组空壳不算「上一场」
-      const prev = workouts
-        .filter(x => x.id !== workoutId && hasDoneSets(x) && new Date(x.date).getTime() < new Date(w.date).getTime())
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-      if (!prev) {
+      const plan = planMergeIntoPrevious(workouts, w, workoutCtx.getLiveWorkbench());
+      if (!plan) {
         toast(isCn ? '前面没有训练可并入' : 'No earlier workout to merge into', 'info');
         return;
       }
-
-      /** 两场的收尾时间取更晚的那个：合并后的一场是到那一刻才结束的 */
-      const laterOf = (a?: string, b?: string) => {
-        if (!a) return b;
-        if (!b) return a;
-        return new Date(a).getTime() >= new Date(b).getTime() ? a : b;
-      };
-
       try {
-        const merged: WorkoutSession = {
-          ...prev,
-          exercises: [...(prev.exercises || []), ...(w.exercises || [])],
-          ...(laterOf(prev.finishedAt, w.finishedAt)
-            ? { finishedAt: laterOf(prev.finishedAt, w.finishedAt) }
-            : {}),
-          ...(laterOf(prev.endTime, w.endTime)
-            ? { endTime: laterOf(prev.endTime, w.endTime) }
-            : {}),
-          updatedAt: new Date().toISOString(),
-        };
-        await db.save('workouts', merged);
+        // 先写合并后的那行，再换工作台：换上之后的自动落盘写的也是合并后的样子
+        await db.save('workouts', plan.merged);
+        if (plan.live) workoutCtx.replaceWorkbench(plan.merged);
         await db.delete('workouts', workoutId);
         recordTombstone('workouts', workoutId);
-        unlinkPlanOf(workoutId, prev.id);
+        unlinkPlanOf(workoutId, plan.into.id);
         await refreshFromDb();
         scheduleDebouncedFitlogPush();
 
         // 并到了哪一场在时间线上看不出来：说一声（点错了用顶栏的全局撤销）
-        const intoName = prev.title || (isCn ? '未命名训练' : 'Untitled workout');
+        const intoName = plan.into.title || (isCn ? '未命名训练' : 'Untitled workout');
         toast(isCn ? `已并入「${intoName}」` : `Merged into "${intoName}"`, 'info');
       } catch (err) {
         console.error('Merge workout failed:', err);
         toast(isCn ? '并入失败' : 'Merge failed', 'error');
       }
     },
-    [isCn, refreshFromDb, toast, unlinkPlanOf, workouts],
+    [isCn, refreshFromDb, toast, unlinkPlanOf, workoutCtx, workouts],
   );
 
   /**
@@ -750,7 +760,7 @@ export function useWorkoutMutations({
    * 复制永远不会替用户上报他没做的事。
    */
   const handleCopyWorkoutToToday = useCallback(
-    async (workoutId: string): Promise<StartMaker | null> => {
+    async (workoutId: string): Promise<StartPlan | null> => {
       const src = workouts.find(x => x.id === workoutId);
       if (!src) return null;
       if (!(src.exercises ?? []).some(ex => (ex.sets ?? []).some(s => !s.ghost))) {
@@ -759,7 +769,10 @@ export function useWorkoutMutations({
       }
 
       // 工作台里还有没结束的一场时，复制会把它从工作台上顶掉 —— 这个没有撤销，先问一句。
-      if ((currentWorkout.exercises?.length ?? 0) > 0) {
+      // 先等启动接回落定、读工作台此刻的样子：渲染闭包里可能还是接回之前的空场（上架审查 C06）
+      await workoutCtx.whenHydrated();
+      const live = workoutCtx.getLiveWorkbench();
+      if (live) {
         const ok = await confirm({
           message: isCn
             ? '有一场训练还没结束，复制会先替它结束，记进时间线。'
@@ -770,7 +783,7 @@ export function useWorkoutMutations({
       }
 
       // 和 FAB 一样先选馆（App 的 startAtGym），选好再按那个馆取整铺底稿
-      return (gym, gyms) => {
+      const make: StartMaker = (gym, gyms) => {
         const stamp = Date.now();
         // 交替组跟着复制，换新的组 id（同一个旧 id 映射到同一个新 id）
         const groupMap = new Map<string, string>();
@@ -808,8 +821,9 @@ export function useWorkoutMutations({
           exercises,
         };
       };
+      return { make, replaces: live?.id ?? null };
     },
-    [confirm, currentWorkout.exercises, isCn, rounderFor, toast, workoutCtx, workouts],
+    [confirm, isCn, rounderFor, toast, workoutCtx, workouts],
   );
 
   const handleDeleteExerciseRecord = useCallback(
@@ -851,11 +865,13 @@ export function useWorkoutMutations({
   );
 
   const handleStartScheduledSession = useCallback(
-    async (scheduleId: string): Promise<StartMaker | null> => {
+    async (scheduleId: string): Promise<StartPlan | null> => {
       const target = scheduleCtx.schedules.find(s => s.id === scheduleId);
       if (!target) return null;
       // 进行中的训练现在会一直留在工作台（不再按返回就清空），从计划开练会顶掉它：先问一句（同「复制为今天」）
-      if (!editingWorkoutId && (currentWorkout.exercises?.length ?? 0) > 0) {
+      await workoutCtx.whenHydrated();
+      const live = workoutCtx.getLiveWorkbench();
+      if (live) {
         const ok = await confirm({
           message: isCn
             ? '有一场训练还没结束，从计划开始会先替它结束，记进时间线。'
@@ -870,7 +886,7 @@ export function useWorkoutMutations({
        * 计划写了的才盖上去（组数、次数、目标重量），没写的就是上一次的样子。
        * fromSchedule 开练时就记在这场上：App 被回收、接回来再结束，计划照样标完成。
        */
-      return (gym, gyms) => {
+      const make: StartMaker = (gym, gyms) => {
         const empty = workoutCtx.createNewWorkout();
         const g = gym ?? empty.gym;
         const now = new Date().toISOString();
@@ -944,8 +960,9 @@ export function useWorkoutMutations({
           exercises: normalizeGroups(exercises),
         };
       };
+      return { make, replaces: live?.id ?? null };
     },
-    [buildExercise, confirm, currentWorkout.exercises, editingWorkoutId, findExerciseDef, findLast, isCn, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx, workouts],
+    [buildExercise, confirm, findExerciseDef, findLast, isCn, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx, workouts],
   );
 
   /**
@@ -955,21 +972,22 @@ export function useWorkoutMutations({
    */
   const resumeWorkout = useCallback(
     async (w: WorkoutSession) => {
-      // 工作台上还有正在练的另一场：先替它收尾，别让它被顶下工作台后没人管（上架审查 C05）
-      if (currentWorkout.id !== w.id) await workoutCtx.settleWorkbench();
+      // 工作台上还有正在练的另一场：先替它收尾，别让它被顶下工作台后没人管（上架审查 C05）。
+      // 读工作台此刻的样子，不读渲染闭包：点按之后接回 / 撤销可能才落定
+      if (workoutCtx.getLiveWorkbench()?.id !== w.id) await workoutCtx.settleWorkbench();
       const { finishedAt: _fa, status: _st, ...rest } = w;
       const resumed: WorkoutSession = { ...rest, updatedAt: new Date().toISOString() };
       await db.save('workouts', resumed);
       resumedWorkoutIdsRef.current.add(resumed.id);
       await refreshFromDb();
-      setCurrentWorkout(resumed);
+      workoutCtx.replaceWorkbench(resumed);
       setEditingWorkoutId(null);
       // 计划关联跟着一起回来，否则续练完这场就丢了 fromSchedule
       activeScheduleIdRef.current = w.fromSchedule?.scheduleId ?? null;
       setActiveTab('new');
       scheduleDebouncedFitlogPush();
     },
-    [currentWorkout.id, refreshFromDb, setActiveTab, setCurrentWorkout, workoutCtx],
+    [refreshFromDb, setActiveTab, workoutCtx],
   );
 
   /**

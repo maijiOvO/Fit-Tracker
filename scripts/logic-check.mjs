@@ -58,6 +58,7 @@ await build({
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
       "export { sessionsBefore, redateLiveSession, isBackdated } from './src/utils/sessionDate.ts';",
+      "export { planMergeIntoPrevious } from './src/utils/sessionMerge.ts';",
       "export * as SS from './src/utils/setStep.ts';",
       "export * as SW from './src/utils/setWrite.ts';",
       "export { parseTypedNum } from './src/utils/format.ts';",
@@ -1733,6 +1734,40 @@ t('器材筛选只认还在器材格里的（上架审查 C98）：删掉的器�
   const all = new Set(['barbell']);
   assert.equal(L.liveEquips(all, ['Barbell']), all);
   assert.equal(L.liveEquips(new Set(['gone']), ['Barbell']).size, 0);
+});
+
+t('并入上一场（上架审查 C04）：前一场是工作台那场时并进工作台那份（不是库里的旧副本），不拷结束时刻；只有待做行也算前一场', () => {
+  const day = (d, hm) => new Date(`2026-11-${d}T${hm}:00`).toISOString();
+  const done = id => ({ id, weight: 60, reps: 5 });
+  const ghost = id => ({ id, weight: 60, reps: 5, ghost: true });
+  const ex = (id, sets) => ({ id, name: id, category: 'STRENGTH', sets });
+  const OLD = { id: 'OLD', date: day(15, '10:00'), finishedAt: day(15, '11:00'), exercises: [ex('o', [done('o1')])] };
+  const P_db = { id: 'P', title: '今天', date: day(20, '10:00'), exercises: [ex('a', [done('a1')])] };
+  const Z = { id: 'Z', date: day(20, '10:20'), finishedAt: day(20, '10:40'), endTime: day(20, '10:40'), exercises: [ex('z', [done('z1'), done('z2')])] };
+  const live = { ...P_db, exercises: [ex('a', [done('a1'), done('a2')])] };
+  const all = [Z, P_db, OLD];
+
+  const r = L.planMergeIntoPrevious(all, Z, live);
+  assert.equal(r.live, true);
+  assert.equal(r.merged.id, 'P');
+  const ids = r.merged.exercises.flatMap(e => e.sets.map(s => s.id));
+  assert.deepEqual(ids.sort(), ['a1', 'a2', 'z1', 'z2'], '取的是工作台那份（a2 只在工作台上）');
+  assert.ok(!('finishedAt' in r.merged) && !('endTime' in r.merged), '进行中的那场合并后仍未结束');
+
+  // 工作台那场只有待做行：目标仍是它，不能跳到 5 天前那场
+  const idle = { ...P_db, exercises: [ex('a', [ghost('a1')])] };
+  const r2 = L.planMergeIntoPrevious(all, Z, idle);
+  assert.equal(r2.live, true);
+  assert.equal(r2.into.id, 'P');
+
+  // 没有工作台那场：照旧并进库里的前一场，结束时刻取两场里较晚的
+  const r3 = L.planMergeIntoPrevious(all, Z, null);
+  assert.equal(r3.live, false);
+  assert.equal(r3.merged.id, 'P');
+  assert.equal(r3.merged.finishedAt, Z.finishedAt);
+  assert.deepEqual(r3.merged.exercises.map(e => e.id), ['a', 'z']);
+  // 前面什么都没有
+  assert.equal(L.planMergeIntoPrevious([OLD], OLD, null), null);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

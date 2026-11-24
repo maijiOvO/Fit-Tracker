@@ -23,11 +23,6 @@ export interface SettledLink {
   workoutId: string;
 }
 
-/** 一场里有没有真正做完的组（全是底稿 / 跳过的不算数据） */
-export function hasDoneSets(w: Pick<WorkoutSession, 'exercises'>): boolean {
-  return (w.exercises ?? []).some(ex => (ex.sets ?? []).some(s => !s.ghost));
-}
-
 /** 工作台上那一场的 id（每次自动落盘时记下）：接回进行中的训练只认它，或者真是刚开的（见 findInProgress） */
 const ACTIVE_WORKOUT_KEY = 'fitlog_active_workout';
 const readActiveId = () => storage.getItem(ACTIVE_WORKOUT_KEY);
@@ -81,8 +76,17 @@ interface WorkoutContextType {
   saveEditedWorkout: (workout: WorkoutSession) => Promise<void>;
 
   refreshFromDb: () => Promise<void>;
-  /** 工作台是空的时候，把库里最近一场进行中的训练接回来（启动时自动跑一次；退出编辑旧训练后再跑） */
+  /** 工作台是空的时候，把库里最近一场进行中的训练接回来（启动时自动跑一次；冷启动接回之前就进了编辑的，退出编辑时再跑） */
   restoreInProgress: () => Promise<void>;
+  /**
+   * 工作台上此刻正在练的那场（有 id、有动作、不是编辑草稿、不在整份改写或结束写库中），没有就 null。
+   * 换掉或改写工作台之前读它，不读渲染闭包里的 currentWorkout：接回、撤销可能在点按之后才落定（上架审查 C05 / C06）
+   */
+  getLiveWorkbench: () => WorkoutSession | null;
+  /** 换工作台：先同步写 ref 再 setState，紧接着的 getLiveWorkbench / 自动落盘读到的就是新的这场 */
+  replaceWorkbench: (next: WorkoutSession) => void;
+  /** 启动读库、收尾、接回都落定了（读不出也算落定）。开练入口先等它，免得在接回之前把进行中的那场顶掉（C06） */
+  whenHydrated: () => Promise<void>;
   /**
    * 整份改写本机（覆盖恢复 / 重置）时工作台这场跟着丢（2026-11-14 用户定，编辑旧训练的草稿也一样）：
    * 改写期间停掉自动落盘，成功后清空工作台；改写失败（已换回原样）照常放开，工作台原样留着。
@@ -148,11 +152,17 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
    * 等 ENV_SWITCHED_EVENT 把工作台换成新环境那边的。
    */
   const envRef = useRef(getDataEnv());
-  /** 这一份该不该自动落盘：有 id、有动作、不是编辑草稿、还在接它来的那个环境 */
+  /** 这一份该不该自动落盘：有 id、有动作、不是编辑草稿、不在结束写库中、还在接它来的那个环境 */
   /** 整份改写进行中（见 discardWorkbenchWith）：这时落一次盘，会把被改写掉的那场写回新库、还不挂墓碑 */
   const frozenRef = useRef(false);
+  /**
+   * 正在结束写库的那场（上架审查 C94）：写库期间工作台照样能改，这时落一次盘会把刚写成的已结束记录整行盖回未结束。
+   * 结束写库失败时放开；成功后等 replaceWorkbench 换上别的 id 才放开（继续这场 / 撤销把同一 id 放回工作台时照常落盘）
+   */
+  const finishingIdRef = useRef<string | null>(null);
   const shouldAutoPersist = (w: WorkoutSession) =>
     !frozenRef.current &&
+    w.id !== finishingIdRef.current &&
     !!w.id && (w.exercises?.length ?? 0) > 0 && w.id !== draftIdRef.current && envRef.current === getDataEnv();
   const saverRef = useRef<ReturnType<typeof createWorkbenchSaver> | null>(null);
   saverRef.current ??= createWorkbenchSaver(w => db.save('workouts', w));
@@ -167,7 +177,20 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     saverRef.current!.save(w);
   };
 
+  const replaceWorkbench = useCallback((next: WorkoutSession) => {
+    if (next.id !== finishingIdRef.current) finishingIdRef.current = null;
+    currentWorkoutRef.current = next;
+    setCurrentWorkout(next);
+  }, []);
+
   const [hydration, setHydration] = useState<'loading' | 'ready' | 'error'>('loading');
+  const hydratedRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  if (!hydratedRef.current) {
+    let resolve = () => {};
+    const promise = new Promise<void>(r => (resolve = r));
+    hydratedRef.current = { promise, resolve };
+  }
+  const whenHydrated = useCallback(() => hydratedRef.current!.promise, []);
 
   /** 读成了返回 true。失败只打日志不抛：结束训练存成功之后刷新失败，不能报成「结束训练失败」 */
   const refreshFromDb = useCallback(async (): Promise<boolean> => {
@@ -191,12 +214,13 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       if (hit && (currentWorkoutRef.current.exercises?.length ?? 0) === 0) {
         // 接回来不算「动过」：库里已经是这个样子，接回本身不刷新 updatedAt
         saverRef.current!.adopt(hit);
-        setCurrentWorkout(hit);
+        // 同步写 ref：接回落定之后紧接着的开练复查（getLiveWorkbench）要看得到这场
+        replaceWorkbench(hit);
       }
     } catch (err) {
       console.error('[WorkoutContext] 接回进行中的训练失败:', err);
     }
-  }, []);
+  }, [replaceWorkbench]);
 
   const { lang } = useUserSettingsContext();
   const isCnRef = useRef(lang === Language.CN);
@@ -227,10 +251,10 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   /** 工作台上这场是正在练的（不是编辑草稿、不在整份改写中）：返回它，否则 null */
-  const liveWorkbench = () => {
+  const liveWorkbench = useCallback((): WorkoutSession | null => {
     const w = currentWorkoutRef.current;
     return shouldAutoPersist(w) ? w : null;
-  };
+  }, []);
 
   const settleWorkbench = useCallback(async () => {
     const w = liveWorkbench();
@@ -282,6 +306,8 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
         await restoreInProgress();
       }
       setHydration(ok ? 'ready' : 'error');
+      // 读不出也要放行：否则所有开练入口一直等下去
+      hydratedRef.current!.resolve();
     })();
   }, [refreshFromDb, settleStale, restoreInProgress]);
 
@@ -349,6 +375,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       finishedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
+    finishingIdRef.current = workout.id;
     try {
       await db.save('workouts', completed);
       // 刷新列表，确保 Timeline 立即反映
@@ -358,6 +385,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       scheduleAutoBackup();
     } catch (err) {
       console.error('[WorkoutContext] 结束训练保存失败:', err);
+      finishingIdRef.current = null;
       throw err;
     }
   }, [refreshFromDb]);
@@ -440,13 +468,16 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       saveEditedWorkout,
       refreshFromDb,
       restoreInProgress,
+      getLiveWorkbench: liveWorkbench,
+      replaceWorkbench,
+      whenHydrated,
       discardWorkbenchWith,
       keepWorkbenchWith,
       settleWorkbench,
       settleStale,
       hydration,
     }),
-    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith, keepWorkbenchWith, settleWorkbench, settleStale, hydration],
+    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, liveWorkbench, replaceWorkbench, whenHydrated, discardWorkbenchWith, keepWorkbenchWith, settleWorkbench, settleStale, hydration],
   );
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;

@@ -316,46 +316,70 @@ const AppWithAuthShell: React.FC = () => {
    * 一个馆都没有就直接是「新的馆」表单。关掉＝这次不开练。
    * gymStart 是选好馆之后要跑的那一下；switchGym 在下面才拿到，经 ref 读（这里的闭包在点击时才执行）。
    * make 拿到选的馆：计划开练、复制为今天按这个馆铺底稿（FAB 新建的空场不用）。
+   * expectedLiveId：复制 / 计划问过、用户同意顶掉的那场。工作台上有别的进行中训练（启动接回、撤销在点按之后才落定）
+   * 就不开练、直接回到它（上架审查 C06）；弹层开着时也可能落定，换工作台之前再查一次。
    */
   const [gymStart, setGymStart] = useState<((gym: string | undefined, gyms?: Record<string, GymProfile>) => void) | null>(null);
   const switchGymRef = useRef<((w: WorkoutSession, gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession) | null>(null);
   const startAtGym = useCallback(
-    (make: (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession, after?: (w: WorkoutSession) => void) =>
+    async (
+      make: (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession,
+      after?: (w: WorkoutSession) => void,
+      expectedLiveId: string | null = null,
+    ) => {
+      await workoutCtx.whenHydrated();
+      const backToLive = () => {
+        const live = workoutCtx.getLiveWorkbench();
+        if (!live || live.id === expectedLiveId) return false;
+        setGymStart(null);
+        setActiveTab('new');
+        toast(isCn ? '进行中的训练已接回' : 'Your workout in progress is back', 'info');
+        return true;
+      };
+      if (backToLive()) return;
       setGymStart(() => (gym: string | undefined, gyms?: Record<string, GymProfile>) => {
+        if (backToLive()) return;
         void startWorkoutGuarded(async () => {
           // 复制为今天 / 从计划开始会把工作台上正在练的那场换下来：先替它收尾，别留一场没人管的未结束训练（上架审查 C02）
           await workoutCtx.settleWorkbench();
           const base = make(gym, gyms);
           // 按这个馆的片子切单位（设过档案的馆）；底稿已经按这个馆铺好了，同一个馆不会重挑
           const w = gym && switchGymRef.current ? switchGymRef.current(base, gym, gyms) : base;
-          setCurrentWorkout(w);
+          workoutCtx.replaceWorkbench(w);
           setEditingWorkoutId(null);
           setActiveTab('new');
           after?.(w);
         });
-      }),
-    [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab, workoutCtx],
+      });
+    },
+    [isCn, startWorkoutGuarded, setEditingWorkoutId, setActiveTab, toast, workoutCtx],
   );
 
   /** 复制为今天 / 从计划开练：先检查、确认，再和 FAB 一样先选馆（审查 A12） */
   const handleCopyWorkoutToToday = useCallback(
     async (workoutId: string) => {
-      const make = await prepareCopyToToday(workoutId);
-      if (!make) return;
-      startAtGym(make, () =>
-        toast(isCn ? '已按这场填好参考' : 'Filled in from that workout as reference', 'info'),
+      const plan = await prepareCopyToToday(workoutId);
+      if (!plan) return;
+      await startAtGym(
+        plan.make,
+        () => toast(isCn ? '已按这场填好参考' : 'Filled in from that workout as reference', 'info'),
+        plan.replaces,
       );
     },
     [isCn, prepareCopyToToday, startAtGym, toast],
   );
   const handleStartScheduledSession = useCallback(
     async (scheduleId: string) => {
-      const make = await prepareScheduledSession(scheduleId);
-      if (!make) return;
+      const plan = await prepareScheduledSession(scheduleId);
+      if (!plan) return;
       // 计划关联同时记在 ref（旧口径）和这一场的 fromSchedule 上（make 里写的）
-      startAtGym(make, () => {
-        activeScheduleIdRef.current = scheduleId;
-      });
+      await startAtGym(
+        plan.make,
+        () => {
+          activeScheduleIdRef.current = scheduleId;
+        },
+        plan.replaces,
+      );
     },
     [activeScheduleIdRef, prepareScheduledSession, startAtGym],
   );

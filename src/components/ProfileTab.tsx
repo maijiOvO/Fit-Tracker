@@ -11,7 +11,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { WorkoutSession, Measurement, Language } from '../../types';
 import type { MetricGlance } from '../utils/measurementLog';
 import { FITLOG_SOLO_USER } from '../../services/fitlogSolo';
-import { hasDoneSets } from '../contexts/WorkoutContext';
+import { hasDoneSets } from '../utils/workbench';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { plural } from '../utils/format';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';

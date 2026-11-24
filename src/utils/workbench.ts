@@ -23,6 +23,11 @@ import { rowEdited, setHasValue } from './setValues';
 
 const isPending = (s: SetLog): boolean => !!s.ghost;
 
+/** 一场里有没有真正做完的组（全是底稿 / 跳过的不算数据） */
+export function hasDoneSets(w: Pick<WorkoutSession, 'exercises'>): boolean {
+  return (w.exercises ?? []).some(ex => (ex.sets ?? []).some(s => !s.ghost));
+}
+
 export interface WorkbenchCard {
   /** 单个动作＝动作 id；交替组＝'g:' + 组 id */
   key: string;
@@ -80,6 +85,17 @@ export function buildCards(exs: Exercise[]): WorkbenchCard[] {
   }
   // 只剩一个成员的「组」按单个动作算（normalize 之前的中间态）
   return cards.map(c => (c.group && c.exIds.length < 2 ? { key: c.exIds[0], exIds: c.exIds } : c));
+}
+
+/**
+ * 把另一场做过的动作并进工作台这场（上架审查 C04）：插在第一张还有待做行的卡前面，
+ * 指针以上仍全是做过的行；整场都做完了就接在最后。
+ */
+export function insertDoneCards(base: Exercise[], incoming: Exercise[]): Exercise[] {
+  const card = buildCards(base).find(c => base.some(e => c.exIds.includes(e.id) && e.sets.some(isPending)));
+  if (!card) return [...base, ...incoming];
+  const at = base.findIndex(e => e.id === card.exIds[0]);
+  return [...base.slice(0, at), ...incoming, ...base.slice(at)];
 }
 
 const byId = (exs: Exercise[]) => new Map<string, Exercise>(exs.map(e => [e.id, e] as [string, Exercise]));

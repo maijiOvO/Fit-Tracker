@@ -812,4 +812,20 @@ t('loadable.withPlateUnit：切馆的片子单位，跟着旧片子单位走的�
   assert.equal('fixedBar' in o, false);
 });
 
+t('insertDoneCards：并进工作台的做过的卡插在第一张有待做行的卡前面，指针以上仍全是做过的（上架审查 C04）', () => {
+  const ex = (id, sets) => ({ id, name: id, category: 'STRENGTH', sets });
+  const done = id => ({ id, weight: 60, reps: 5 });
+  const ghost = id => ({ id, weight: 60, reps: 5, ghost: true });
+  const base = [ex('A', [done('a1'), ghost('a2')]), ex('B', [ghost('b1')])];
+  const Z = [ex('Z', [done('z1'), done('z2')])];
+  const r = W.insertDoneCards(base, Z);
+  assert.deepEqual(r.map(e => e.id), ['Z', 'A', 'B']);
+  assert.equal(W.pointerIndex(r), 3, '直接追加时指针跑到 5，A、B 的待做行被挤到指针上面');
+  assert.equal(W.doneCount(r), 3);
+  assert.deepEqual(W.nextPendingRow(r), { exId: 'A', setId: 'a2' });
+  // 整场都做完了：接在最后
+  const full = [ex('A', [done('a1')])];
+  assert.deepEqual(W.insertDoneCards(full, Z).map(e => e.id), ['A', 'Z']);
+});
+
 console.log(`== ${n} passed ==`);

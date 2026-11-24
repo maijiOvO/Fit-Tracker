@@ -621,6 +621,29 @@ const SEEDED = {
   //  edit-history-*：改的是草稿 —— 没改保存键灰着、改了不落库、「放弃修改」真的丢；
   //  「保存修改」才写库，不动日期和 finishedAt、不出刊末页（否则 10 分钟内开练会被问「继续」这场旧训练）
   'seeded-history-edit': async ({ page, card, toDashboard, menuOn, remoteWorkout, dismissToasts }) => {
+    // 后面「启动接回还没落定就点开练」那一段用：带标记重开时，开头一小段时间里读 workouts 表的结果晚 800 ms 才交回，
+    // 并记下这段时间里选馆弹层 / 新用户空状态出没出现过（MutationObserver，不靠等）
+    await page.addInitScript(() => {
+      if (!sessionStorage.getItem('e2e_slow_workouts')) return;
+      sessionStorage.removeItem('e2e_slow_workouts');
+      const t0 = performance.now();
+      const getAll = IDBObjectStore.prototype.getAll;
+      IDBObjectStore.prototype.getAll = function (...args) {
+        const req = getAll.apply(this, args);
+        if (this.name !== 'workouts' || performance.now() - t0 > 1_000) return req;
+        const onsuccess = Object.getOwnPropertyDescriptor(IDBRequest.prototype, 'onsuccess');
+        Object.defineProperty(req, 'onsuccess', {
+          configurable: true,
+          set: fn => onsuccess.set.call(req, ev => setTimeout(() => fn.call(req, ev), 800)),
+        });
+        return req;
+      };
+      window.__e2eSeen = { picker: false, empty: false };
+      new MutationObserver(() => {
+        if (document.querySelector('[data-testid="gym-picker"], [data-testid="gym-profile-form"]')) window.__e2eSeen.picker = true;
+        if (document.body?.textContent?.includes('还没有训练记录')) window.__e2eSeen.empty = true;
+      }).observe(document, { childList: true, subtree: true });
+    });
     await toDashboard();
     await card(W_HEAT.id).click();
     const nums = card(W_HEAT.id).locator('.set-num');
@@ -676,7 +699,46 @@ const SEEDED = {
     }, w.date);
     if (local !== `${threeDaysAgo} 14:33`) throw new Error(`the edit moved the workout to ${local} (was ${threeDaysAgo} 14:33)`);
     await dismissToasts();
-    return 'set nums 1,2,3 · untouched picker clean · draft not persisted · discard drops · save writes reps only';
+
+    // 退出编辑同步放回进行中的那场（上架审查 gap-r3-1#1）：编辑页消失的那一次提交里，首页「进行中」就该在。
+    // 原来那一次提交里工作台是空场、接回要等一次整表读，空档里点开练会把它顶掉。判的是同一次提交的 DOM，不靠等
+    await menuOn(W_HEAT.id, /复制为今天的训练|Copy to today/);
+    await pickStartGym(page);
+    const row0 = page.locator('.ledger-row').first();
+    await row0.locator('.set-num').click();
+    await row0.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
+    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
+    await openEdit();
+    await reps0().fill('13');
+    await dirty.waitFor({ state: 'visible', timeout: 3_000 });
+    await page.evaluate(() => {
+      window.__e2eExit = null;
+      const editing = () => [...document.querySelectorAll('span')].some(el => /^(编辑训练|Edit workout)$/.test(el.textContent || ''));
+      const obs = new MutationObserver(() => {
+        if (editing()) return;
+        window.__e2eExit = !!document.querySelector('[data-testid="in-progress"]');
+        obs.disconnect();
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+    });
+    await save.click();
+    await editPage.first().waitFor({ state: 'detached', timeout: 5_000 });
+    if ((await page.evaluate(() => window.__e2eExit)) !== true) throw new Error('leaving edit mode left the bench empty for a moment (the workout in progress was not put back in the same commit)');
+
+    // 启动接回还没落定就点开练（上架审查 C06）：不能弹选馆去顶掉进行中的那场，要回到它；加载中不闪新用户的空状态
+    await page.evaluate(() => sessionStorage.setItem('e2e_slow_workouts', '1'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+    const landed = page.locator('[data-testid="finish-button"], [data-testid="gym-picker"], [data-testid="gym-profile-form"]');
+    await landed.first().waitFor({ timeout: 8_000 });
+    const seen = await page.evaluate(() => window.__e2eSeen);
+    if (!seen) throw new Error('fixture drift: the slow-read init script did not run');
+    if (seen.picker) throw new Error('tapping start before the in-progress workout was restored opened the gym picker');
+    await page.locator('.ledger-row').first().and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
+    await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
+    if (seen.empty) throw new Error('the dashboard flashed the new-user empty state while loading');
+    await backAndDiscard(page);
+    return 'set nums 1,2,3 · untouched picker clean · draft not persisted · discard drops · save writes reps only · exit puts the live workout back · start waits for restore';
   },
 
   // 同步契约：
@@ -1333,12 +1395,34 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await firstRow.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 }).catch(() => {
         throw new Error('tapping the to-do set under the pointer did not mark it done');
       });
-      await endWorkout(page);
+      // 结束写库期间改一组（上架审查 C94）：结束那一行刚交给 IndexedDB，紧接着同步改次数，自动落盘不能把已结束的记录盖回未结束。
+      // 挂在 put 上而不是等时间：修之前必红（finishedAt 为空、次数变成 7）。计划铺的组有数、在指针下面，结束前会问「全部保存」
+      const fin = page.locator('[data-testid="finish-button"]');
+      await fin.click();
+      await page.locator('[data-testid="finish-button"][data-armed="true"]').waitFor({ timeout: 3_000 });
+      await fin.click();
+      await page.locator('[data-testid="finish-save-all"]').waitFor({ timeout: 3_000 });
+      await page.evaluate(() => {
+        const put = IDBObjectStore.prototype.put;
+        IDBObjectStore.prototype.put = function (...args) {
+          const req = put.apply(this, args);
+          if (args[0]?.status === 'completed' && args[0]?.finishedAt) {
+            IDBObjectStore.prototype.put = put;
+            const input = document.querySelector('.ledger-row [data-testid="ledger-field-reps"] input');
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '7');
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          return req;
+        };
+        document.querySelector('[data-testid="finish-save-all"]').click();
+      });
       await dismissColophon(page);
 
       const snap = await remoteSnap();
       const w = (snap?.workouts || []).find(x => x.fromSchedule?.scheduleId === scheduleId);
       if (!w) throw new Error('no workout linked to the schedule on the remote');
+      if (!w.finishedAt || w.status !== 'completed') throw new Error(`an edit during the finish write reopened the workout: ${JSON.stringify({ finishedAt: w.finishedAt, status: w.status })}`);
+      if (w.exercises[0].sets[0].reps !== 5) throw new Error(`the finished record took an edit made after confirming (reps=${w.exercises[0].sets[0].reps})`);
       if (typeof snap.schemaVersion !== 'number') throw new Error('snapshot.schemaVersion missing');
       const sched = (snap.scheduledWorkouts || []).find(x => x.id === scheduleId);
       if (sched?.status !== 'completed' || sched?.linkedWorkoutId !== w.id) {
@@ -1856,7 +1940,13 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const w = ((await remoteSnap())?.workouts || []).find(x => x.id === resumeId);
       if (!w) throw new Error(`resumed workout ${resumeId} vanished from the snapshot`);
       if (w.finishedAt) throw new Error(`finishedAt not cleared on resume: ${w.finishedAt}`);
-      return `resumed ${resumeId}, finishedAt cleared`;
+      // 接回来之后的改动照常落盘：结束写库时挂的落盘闸（C94）换过别的场就放开了，同一 id 回到工作台不能还拦着
+      await page.locator('.ledger-row').first().locator('[data-testid="ledger-field-reps"] input').fill('9');
+      await until(
+        async () => ((await remoteSnap())?.workouts || []).find(x => x.id === resumeId)?.exercises?.[0]?.sets?.[0]?.reps === 9,
+        'an edit after resuming to reach the db',
+      );
+      return `resumed ${resumeId}, finishedAt cleared, edits persist`;
     });
   } finally {
     await context.close();
