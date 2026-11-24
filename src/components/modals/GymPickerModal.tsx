@@ -20,7 +20,7 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { gymNameIssue, normalizeGym } from '../../utils/gyms';
-import { ADDON_MAX, DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, distinctRigs, INC_CHOICES, RIG_STEPS, rigInUnit, rigsOf, rigsPatch, sameSpec, withPlateUnit, type GymProfile, type IncSpec, type Rig } from '../../utils/loadable';
+import { ADDON_EACH_MAX, ADDON_MAX, DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, distinctRigs, INC_CHOICES, RIG_STEPS, rigInUnit, rigsOf, rigsPatch, sameSpec, withPlateUnit, type GymProfile, type IncSpec, type Rig } from '../../utils/loadable';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { rigLabel } from '../PlateGlyph';
@@ -248,7 +248,7 @@ const SavedRigs: React.FC<{ gym: string; isCn: boolean; plateUnit: PlateUnit }> 
       ))}
     </span>
   );
-  const num = (label: string, value: number | null, onCommit: (n: number | null) => void, u: PlateUnit, testId: string, opts: { allowEmpty?: boolean; placeholder?: string } = {}) => (
+  const num = (label: string, value: number | null, onCommit: (n: number | null) => void, u: PlateUnit, testId: string, opts: { allowEmpty?: boolean; placeholder?: string; max?: number } = {}) => (
     <div className="gym-row">
       <span className="text-label text-secondary">{label}</span>
       <div className="gym-inc-stepper">
@@ -299,7 +299,7 @@ const SavedRigs: React.FC<{ gym: string; isCn: boolean; plateUnit: PlateUnit }> 
                     </div>
                     {num(isCn ? '最轻一格' : 'Lightest', r.s && r.s > 0 ? r.s : r.v, v => v !== null && v > 0 && write({ s: r2(v) }), r.u, 'gym-rig-start')}
                     {num(isCn ? '每格' : 'Step', r.v, v => v !== null && v > 0 && write({ v: r2(v), ...(r.s && r.s > 0 ? {} : { s: r.v }) }), r.u, 'gym-rig-step')}
-                    {num(isCn ? '加片每块' : 'Add-on plate', each || null, v => (v === null ? addons(0, 0) : addons(v, Math.max(1, count))), r.u, 'gym-rig-addon', { allowEmpty: true, placeholder: '—' })}
+                    {num(isCn ? '加片每块' : 'Add-on plate', each || null, v => (v === null ? addons(0, 0) : addons(v, Math.max(1, count))), r.u, 'gym-rig-addon', { allowEmpty: true, placeholder: '—', max: ADDON_EACH_MAX[r.u] })}
                     {each > 0 && (
                       <div className="gym-row">
                         <span className="text-label text-secondary">{isCn ? '加片有几块' : 'How many'}</span>

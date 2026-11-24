@@ -236,6 +236,8 @@ export function addonsIn(c: IncSpec | undefined, unit: PlateUnit): number[] {
 
 /** 加片最多几块（能凑出的组合是 2 的块数次方，bracket 每次都要扫一遍） */
 export const ADDON_MAX = 4;
+/** 加片每块最重多少（按这台自己的单位；馆档案的框和 appPrefs 的清洗共用，上架审查 gap-3#5） */
+export const ADDON_EACH_MAX: Record<'kg' | 'lbs', number> = { kg: 50, lbs: 110 };
 
 /** 几块加片能凑出的各种合计（含 0），从小到大、去重 */
 export function addonSums(addons: readonly number[] | undefined): number[] {
@@ -252,7 +254,8 @@ export function addonSums(addons: readonly number[] | undefined): number[] {
 export function rigInUnit(c: IncSpec, u: PlateUnit): IncSpec {
   const s = c.s && Math.abs(c.s - c.v) > 1e-9 ? startIn(c, u) : 0;
   const e = endIn(c, u);
-  const a = addonsIn(c, u);
+  // 换算后夹到新单位的上限：50 kg 换成 lb 是 110.25，超过 110 会被清洗层丢掉（上架审查 gap-3#5）
+  const a = addonsIn(c, u).map(x => Math.min(x, ADDON_EACH_MAX[u]));
   return { v: incIn(c, u), u, s: s > 0 ? s : undefined, e: e > 0 ? e : undefined, a: a.length ? a : undefined };
 }
 

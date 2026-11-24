@@ -3,6 +3,7 @@ import { ScheduledWorkout } from '../../types';
 import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { recordTombstone } from '../../services/fitlogTombstones';
+import { cleanPlanExercise } from '../utils/load';
 
 interface ScheduleContextType {
   schedules: ScheduledWorkout[];
@@ -20,7 +21,9 @@ export const ScheduleProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const refreshFromDb = useCallback(async () => {
     const rows = await db.getAll<ScheduledWorkout>('scheduledWorkouts');
-    setSchedules(rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
+    // 从库里读进来这一层规整目标值（上架审查 C77）：存量计划、恢复进来的计划都兜住，开练和计划卡不用再各自防
+    const clean = rows.map(r => ({ ...r, exercises: (r.exercises ?? []).map(cleanPlanExercise) }));
+    setSchedules(clean.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
   }, []);
 
   useEffect(() => {

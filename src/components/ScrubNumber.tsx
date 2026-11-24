@@ -14,6 +14,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useValueScrub } from '../hooks/useValueScrub';
+import { parseTypedNum } from '../utils/format';
 
 export interface ScrubNumberProps {
   /** 当前显示值；null ＝ 还没填（显示占位，拖动从 0 / min 起） */
@@ -45,6 +46,11 @@ export interface ScrubNumberProps {
   fill?: boolean;
   /** 打字时就实时提交（弹窗表单：先打字紧接着点「确定」，失焦提交会晚一步） */
   live?: boolean;
+  /**
+   * 打不全或超出范围时不夹值（配 live）：打字中实时提交 null（表单的确定键因此灰着），失焦也不夹、不提交、留住原文。
+   * 只给身体指标的数值格用：误按负号（-74）原来失焦夹成 0 静默存下（上架审查 gap-3#4）。别处照旧「失焦夹到边界」（2026-11-13 定的口径）。
+   */
+  rejectInvalid?: boolean;
   /** 先于默认的「回车 = 收起」执行；preventDefault 掉就不收（时长：回车跳下一格） */
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>;
 }
@@ -77,6 +83,7 @@ export function ScrubNumber({
   inputClassName = '',
   fill = false,
   live = false,
+  rejectInvalid = false,
   onKeyDown,
 }: ScrubNumberProps) {
   const shown = value === null ? '' : fmtNum(value, decimals, pad);
@@ -115,8 +122,16 @@ export function ScrubNumber({
     disabled,
   });
 
+  /** rejectInvalid：这串字是不是一个范围内的完整数 */
+  const validTyped = (s: string) => {
+    const n = parseTypedNum(s);
+    return n !== null && n >= min && n <= max ? n : null;
+  };
+
   const commitText = () => {
     editing.current = false;
+    // 不夹、不提交、留原文：确定键已经因为 live 提交的 null 灰着，用户看得到自己打了什么（上架审查 gap-3#4）
+    if (rejectInvalid && text.trim() !== '' && validTyped(text) === null) return;
     const t = text.trim().replace(',', '.');
     if (t === '') {
       if (allowEmpty) onCommit(null);
@@ -155,6 +170,10 @@ export function ScrubNumber({
           const t = e.target.value.trim().replace(',', '.');
           if (t === '') {
             if (allowEmpty) onCommit(null);
+            return;
+          }
+          if (rejectInvalid) {
+            onCommit(validTyped(e.target.value));
             return;
           }
           const n = Number.parseFloat(t);

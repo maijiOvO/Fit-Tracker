@@ -1707,4 +1707,17 @@ t('重量格打字按聚焦时的号写（C37）：辅助的组清空再打 25 �
   assert.deepEqual(w('600', 1, false), { weight: 500, plateUnit: 'kg' });
 });
 
+t('计划目标值规整（上架审查 C77）：组数 / 次数取整、小于 1 当没写，组数最多 30，次数不设上限；目标重量夹到 500 kg，非正数 / 非数当没写', () => {
+  const c = pe => L.LD.cleanPlanExercise(pe);
+  assert.equal(c({ targetSets: 0.7 }).targetSets, 1);
+  assert.equal(c({ targetSets: 2.5 }).targetSets, 3);
+  assert.equal(c({ targetSets: 3000 }).targetSets, L.LD.PLAN_SETS_MAX);
+  assert.ok(!('targetSets' in c({ targetSets: 0.4 })));
+  assert.equal(c({ targetReps: 9.6 }).targetReps, 10);
+  assert.equal(c({ targetReps: 9999 }).targetReps, 9999);
+  assert.equal(c({ targetWeight: 1000 }).targetWeight, 500);
+  for (const w of [-5, NaN, '12']) assert.ok(!('targetWeight' in c({ targetWeight: w })), String(w));
+  assert.deepEqual(c({ name: '卧推', targetSets: 3, targetReps: 8, targetWeight: 60 }), { name: '卧推', targetSets: 3, targetReps: 8, targetWeight: 60 });
+});
+
 console.log(`\nlogic-check: ${n} passed`);

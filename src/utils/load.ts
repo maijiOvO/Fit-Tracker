@@ -54,6 +54,33 @@ export const GYM_INC_MAX = 50;
 export const PLATE_MAX = 100;
 export const SHORT_BAR_MAX: Record<Unit, number> = { kg: 30, lbs: 65 };
 
+/** 计划里一个动作最多排几组 */
+export const PLAN_SETS_MAX = 30;
+
+/**
+ * 计划里一个动作的目标值规整（上架审查 C77）：组数、次数取整（编辑器显示的就是整数，开练按截断铺行，原来 2.5 组两边对不上），
+ * 小于 1 当没写；组数夹到 PLAN_SETS_MAX；次数不设上限（D4）；目标重量（kg）不是正数当没写，超过训练页的上限夹到 500 kg
+ * —— 原来多打一个 0 绕过上限，开练后原样入册报假 PB。编辑器保存和从库里读计划（ScheduleContext）都过这一道。
+ */
+export function cleanPlanExercise<T extends { targetSets?: number; targetReps?: number; targetWeight?: number }>(pe: T): T {
+  const out = { ...pe };
+  const whole = (v: unknown, max = Infinity) => {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+    const r = Math.round(v);
+    return r < 1 ? undefined : Math.min(r, max);
+  };
+  const sets = whole(pe.targetSets, PLAN_SETS_MAX);
+  const reps = whole(pe.targetReps);
+  const kg = typeof pe.targetWeight === 'number' && Number.isFinite(pe.targetWeight) && pe.targetWeight > 0 ? Math.min(pe.targetWeight, LOAD_CAP.kg) : undefined;
+  if (sets === undefined) delete out.targetSets;
+  else out.targetSets = sets;
+  if (reps === undefined) delete out.targetReps;
+  else out.targetReps = reps;
+  if (kg === undefined) delete out.targetWeight;
+  else out.targetWeight = kg;
+  return out;
+}
+
 /** 这一组重量能到多重（显示单位）；带正负的下限是它的相反数 */
 export function loadCapD(unit: Unit, signed: boolean): number {
   return (signed ? SIGNED_CAP : LOAD_CAP)[unit];

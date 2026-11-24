@@ -27,7 +27,8 @@ import {
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { ADDON_MAX, RIG_STEPS, baseOf, r2, sidePlates, splitStack, type Rig } from '../utils/loadable';
+import { ADDON_EACH_MAX, ADDON_MAX, RIG_STEPS, baseOf, r2, sidePlates, splitStack, type Rig } from '../utils/loadable';
+import { TARE_MAX } from '../../services/appPrefs';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
 import { STACK_PITCH } from '../utils/scrubFeel';
 import { RIG_NUM_MAX, SHORT_BAR_MAX, loadCapD } from '../utils/load';
@@ -695,7 +696,7 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
                 onCommit={n => (n === null ? addEach && machine.onAddons!(0, 0) : Math.abs(n - addEach) > 1e-9 && machine.onAddons!(n, Math.max(1, addCount)))}
                 allowEmpty
                 min={0.25}
-                max={ctx.inc}
+                max={Math.min(ctx.inc, ADDON_EACH_MAX[gu])}
                 stepFn={(v, d) => Math.max(0.25, Math.round((v + d * (gu === 'kg' ? 0.25 : 0.5)) * 100) / 100)}
                 steps={[1]}
                 placeholder="—"
@@ -755,8 +756,8 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
                 value={machine.tare.value == null ? null : toD(machine.tare.value)}
                 onCommit={n => machine.tare!.onSet(n === null ? null : fromD(n))}
                 allowEmpty
-                min={-500}
-                max={500}
+                min={-toD(TARE_MAX)}
+                max={toD(TARE_MAX)}
                 steps={unit === 'kg' ? [0.5, 1, 2.5, 5] : [1, 2.5, 5, 10]}
                 placeholder="—"
                 testId="gym-tare"

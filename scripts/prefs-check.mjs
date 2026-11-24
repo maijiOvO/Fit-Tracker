@@ -25,6 +25,7 @@ await build({
       "export * from './services/fitlogRemote.ts';",
       "export * from './services/appPrefs.ts';",
       "export * from './scripts/prefsSentinel.ts';",
+      "export { rigInUnit } from './src/utils/loadable.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -269,6 +270,17 @@ t('本机从没打过时间戳（新装 / 存储被清）：仍取并集，空�
   const m = P.mergeFitlogPrefs(empty(), remote);
   assert.deepEqual(m.exerciseNotes, { 深蹲: '宽站距' });
   assert.deepEqual(m.customTags, [{ id: 't1' }]);
+});
+
+t('加片每块、器械自重的上限：界面框里填得进的，清洗层都留得住（上架审查 gap-3#5）', () => {
+  const rigs = a => P.resolveAppPrefs({ gymRigs: { 'G|~stack': [{ id: 'r', v: 5, u: 'lbs', a }] } }).gymRigs['G|~stack'][0].a;
+  assert.deepEqual(rigs([110]), [110], 'lb 的加片 110 留下');
+  assert.equal(rigs([110.5]), undefined, '超过上限照样丢');
+  assert.deepEqual(P.rigInUnit({ v: 2.5, u: 'kg', a: [23] }, 'lbs').a, [50.7], '23 kg 换成 lb 是 50.7，留得住');
+  assert.deepEqual(P.rigInUnit({ v: 2.5, u: 'kg', a: [50] }, 'lbs').a, [110], '50 kg 换成 lb 夹到 110，不是 110.25');
+  const tare = v => P.resolveAppPrefs({ gymTares: { k: { v, u: 'lbs' } } }).gymTares.k;
+  assert.deepEqual(tare(P.TARE_MAX), { v: P.TARE_MAX, u: 'lbs' });
+  assert.equal(tare(P.TARE_MAX + 0.5), undefined);
 });
 
 console.log(`== ${n} passed ==`);

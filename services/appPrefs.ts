@@ -11,7 +11,7 @@
 import { storage } from './appStorage';
 import { isDemo, isSolo } from './appEnv';
 import { Language } from '../types';
-import { ADDON_MAX, type GymProfile, type IncSpec, type Rig } from '../src/utils/loadable';
+import { ADDON_EACH_MAX, ADDON_MAX, type GymProfile, type IncSpec, type Rig } from '../src/utils/loadable';
 
 export interface AppPrefs {
   unit?: 'kg' | 'lbs';
@@ -183,7 +183,8 @@ function cleanRigs(raw: unknown): Record<string, Rig[]> {
         .map(r => {
           if (r.a === undefined) return r;
           const { a, ...rest } = r;
-          const ok = Array.isArray(a) ? a.filter(x => typeof x === 'number' && x > 0 && x <= 50).slice(0, ADDON_MAX) : [];
+          // 上限按这台自己的单位（ADDON_EACH_MAX）：原来写死 50，磅片的加片 > 50 lb 填得进去、读回来就被丢（上架审查 gap-3#5）
+          const ok = Array.isArray(a) ? a.filter(x => typeof x === 'number' && x > 0 && x <= ADDON_EACH_MAX[r.u]).slice(0, ADDON_MAX) : [];
           return ok.length ? { ...rest, a: ok } : rest;
         });
   return out;
@@ -200,8 +201,10 @@ const isText = (v: unknown): v is string => typeof v === 'string' && v.trim() !=
 export interface TareSpec extends IncSpec {
   counted?: boolean;
 }
+/** 器械自重的上限（按这一项自己的单位）：PlateGlyph 的自重框用同一个数，框里填得进的这里都留得住（上架审查 gap-3#5） */
+export const TARE_MAX = 500;
 const isTare = (c: unknown): c is TareSpec =>
-  !!c && typeof c === 'object' && Number.isFinite((c as IncSpec).v) && Math.abs((c as IncSpec).v) <= 500 && isUnit((c as IncSpec).u);
+  !!c && typeof c === 'object' && Number.isFinite((c as IncSpec).v) && Math.abs((c as IncSpec).v) <= TARE_MAX && isUnit((c as IncSpec).u);
 
 export function resolveAppPrefs(p: AppPrefs | undefined): ResolvedAppPrefs {
   const num = (v: unknown, d: number) => (typeof v === 'number' && v > 0 ? v : d);

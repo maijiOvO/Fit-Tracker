@@ -10,6 +10,7 @@ import { useExercisePrefs, useScheduleContext } from '../contexts';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { ExerciseCategory } from '../constants/exercises';
 import { parseWeight } from '../utils/format';
+import { cleanPlanExercise, loadCapD, PLAN_SETS_MAX } from '../utils/load';
 import Modal, { ModalFooter } from './Modal';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { ScrubNumber } from './ScrubNumber';
@@ -229,11 +230,14 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
         return o != null && shownWeight(o) === shown ? o : parseWeight(shown, unit);
       };
       const cleaned = exercises
-        .map(e => ({
-          ...e,
-          name: e.name.trim(),
-          ...(e.targetWeight != null ? { targetWeight: toKg(e.id, e.targetWeight) } : {}),
-        }))
+        .map(e =>
+          // 换回 kg 之后再规整一遍：组数 / 次数取整、目标重量夹到 500 kg（上架审查 C77）
+          cleanPlanExercise({
+            ...e,
+            name: e.name.trim(),
+            ...(e.targetWeight != null ? { targetWeight: toKg(e.id, e.targetWeight) } : {}),
+          }),
+        )
         .filter(e => e.name.length > 0);
       const payload: ScheduledWorkout = {
         id: editingSchedule?.id ?? makeId('sw'),
@@ -390,9 +394,10 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                     <span className="text-micro font-normal text-tertiary">{translations.scheduleTargetSets[lang]}</span>
                     <ScrubNumber
                       value={ex.targetSets ?? null}
-                      onCommit={n => updateExercise(ex.id, { targetSets: n ?? undefined })}
+                      onCommit={n => updateExercise(ex.id, { targetSets: n == null ? undefined : Math.round(n) })}
                       allowEmpty
                       live
+                      max={PLAN_SETS_MAX}
                       steps={[1, 2, 5]}
                       decimals={0}
                       inputMode="numeric"
@@ -405,7 +410,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                     <span className="text-micro font-normal text-tertiary">{translations.scheduleTargetReps[lang]}</span>
                     <ScrubNumber
                       value={ex.targetReps ?? null}
-                      onCommit={n => updateExercise(ex.id, { targetReps: n ?? undefined })}
+                      onCommit={n => updateExercise(ex.id, { targetReps: n == null ? undefined : Math.round(n) })}
                       allowEmpty
                       live
                       steps={[1, 2, 5]}
@@ -425,6 +430,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
                       onCommit={n => updateExercise(ex.id, { targetWeight: n ?? undefined })}
                       allowEmpty
                       live
+                      max={loadCapD(unit, false)}
                       steps={[0.5, 1, 2.5, 5]}
                       decimals={2}
                       inputMode="decimal"

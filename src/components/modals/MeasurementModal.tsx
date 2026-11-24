@@ -82,6 +82,7 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
               onCommit={n => setMeasureForm({ ...measureForm, value: n === null ? '' : String(n) })}
               allowEmpty
               live
+              rejectInvalid
               decimals={1}
               steps={[0.1, 0.5, 1, 5]}
               placeholder="0.0"
