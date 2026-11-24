@@ -89,6 +89,12 @@ interface WorkoutContextType {
    */
   discardWorkbenchWith: <T,>(overwrite: () => Promise<T>) => Promise<T>;
   /**
+   * 撤销恢复 / 导入 / 重置时工作台这场留着（上架审查 C62，和 discardWorkbenchWith 对称）：停掉自动落盘，
+   * 把工作台上能落盘的那场（有 id、有动作、不是编辑草稿）交给 overwrite 一起写进去；重载后照常接回来。
+   * 改写失败照常放开。
+   */
+  keepWorkbenchWith: <T,>(overwrite: (live: WorkoutSession | undefined) => Promise<T>) => Promise<T>;
+  /**
    * 工作台上这场要被换掉（复制为今天、从计划开始、继续另一场）：先按入册口径替它收尾，
    * 结束时刻取最后一次改动；没人动过的直接删掉。不清工作台，由调用方换上新的。编辑草稿不碰。
    */
@@ -392,6 +398,19 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     return result;
   }, []);
 
+  const keepWorkbenchWith = useCallback(async <T,>(overwrite: (live: WorkoutSession | undefined) => Promise<T>): Promise<T> => {
+    const w = currentWorkoutRef.current;
+    const live = shouldAutoPersist(w) ? w : undefined;
+    frozenRef.current = true;
+    try {
+      // 成功后不解冻：调用方紧接着整页重载，重载前那次落盘不该再写
+      return await overwrite(live);
+    } catch (err) {
+      frozenRef.current = false;
+      throw err;
+    }
+  }, []);
+
   const createNewWorkout = useCallback((): WorkoutSession => {
     const now = new Date().toISOString();
     // §12.11 场地默认沿用上一场：连着去同一个馆就永远不用碰那个控件。
@@ -422,11 +441,12 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshFromDb,
       restoreInProgress,
       discardWorkbenchWith,
+      keepWorkbenchWith,
       settleWorkbench,
       settleStale,
       hydration,
     }),
-    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith, settleWorkbench, settleStale, hydration],
+    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith, keepWorkbenchWith, settleWorkbench, settleStale, hydration],
   );
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;

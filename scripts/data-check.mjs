@@ -19,7 +19,6 @@ import assert from 'node:assert/strict';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = mkdtempSync(join(tmpdir(), 'data-check-'));
-const out = join(dir, 'data.mjs');
 
 const stubs = {
   name: 'stub-browser',
@@ -42,7 +41,12 @@ const stubs = {
           async upsert(n, x) { s(n).set(x.id, structuredClone(x)); },
           async delete(n, id) { s(n).delete(id); },
           async clear(n) { s(n).clear(); },
-          async replaceAll(n, rows) { s(n).clear(); for (const x of rows) s(n).set(x.id, structuredClone(x)); },
+          // 多表一个事务：同步写完，要么全写要么（抛在写之前）全不写；挂起 / 抛错由用例替换这个方法注入
+          async replaceStores(replace, extra = {}) {
+            for (const [n, rows] of replace) { s(n).clear(); for (const x of rows) s(n).set(x.id, structuredClone(x)); }
+            for (const [n, x] of extra.put ?? []) s(n).set(x.id, structuredClone(x));
+            for (const [n, id] of extra.del ?? []) s(n).delete(id);
+          },
           __reset() { stores.clear(); },
         };`,
       loader: 'js',
@@ -50,14 +54,23 @@ const stubs = {
   },
 };
 
-await build({
+/**
+ * 两份包：D 照 personal 构建打（有服务器的那套：整份改写记墓碑、刷时间戳），S 照单机构建打（VITE_FITLOG_SOLO）。
+ * 原有用例走 D；单机版恢复语义（上架审查 C10 那批）走 S。
+ */
+async function bundle(env, file) {
+  const outfile = join(dir, file);
+  await build({
   stdin: {
     contents: [
       "export * from './services/fitlogAutoBackup.ts';",
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
       "export { parseImportCsv, materialize, importDefs } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
-      "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport } from './services/fitlogBackup.ts';",
+      "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary } from './services/fitlogBackup.ts';",
+      "export { PrefsWriteError } from './services/fitlogRemote.ts';",
+      "export { writeTombstones } from './services/fitlogTombstones.ts';",
+      "export { defaultProfile } from './src/utils/loadable.ts';",
       "export { readText as folderReadText, writeText as folderWriteText } from './services/fitlogFolder.ts';",
       "export { migrateLocalData } from './services/fitlogRemote.ts';",
       "export * as LC from './services/localCensus.ts';",
@@ -73,11 +86,13 @@ await build({
   bundle: true,
   format: 'esm',
   platform: 'node',
-  outfile: out,
+  outfile,
   logLevel: 'silent',
   plugins: [stubs],
-  define: { 'import.meta.env': '{}' },
-});
+  define: { 'import.meta.env': JSON.stringify(env) },
+  });
+  return import(pathToFileURL(outfile).href);
+}
 
 /** 内存版 localStorage（appStorage、mock 文件夹都走它） */
 const mem = new Map();
@@ -92,13 +107,15 @@ globalThis.localStorage = {
   },
 };
 
-const D = await import(pathToFileURL(out).href);
+const D = await bundle({}, 'data.mjs');
+const S = await bundle({ VITE_FITLOG_SOLO: 'true' }, 'data-solo.mjs');
 rmSync(dir, { recursive: true, force: true });
 
 let n = 0;
 const t = async (name, fn) => {
   mem.clear();
   D.db.__reset();
+  S.db.__reset();
   await fn();
   n++;
   console.log(`  ✓ ${name}`);
@@ -413,55 +430,249 @@ await t('重置：先存回滚槽（重置前的样子），清空并给每条�
   assert.equal(await D.readRollback(), null, '回滚槽用掉即清空');
 });
 
-await t('重置：回滚槽存不进去就中止，数据一条不动', async () => {
-  for (const w of SEED) await D.db.save('workouts', w);
-  const save = D.db.save;
-  D.db.save = async (n, x) => {
-    if (n === 'backups') throw new Error('quota');
-    return save.call(D.db, n, x);
-  };
+/** 换掉内存库的 replaceStores（第 i 次调用由 impl(i, 原方法, ...参数) 决定），fn 跑完换回 */
+const withReplace = async (M, impl, fn) => {
+  const orig = M.db.replaceStores;
+  let i = 0;
+  M.db.replaceStores = (...a) => impl(i++, (...b) => orig.apply(M.db, b), ...a);
   try {
-    await assert.rejects(D.resetAccount(), /quota/);
+    return await fn();
   } finally {
-    D.db.save = save;
+    M.db.replaceStores = orig;
   }
-  assert.equal((await D.db.getAll('workouts')).length, SEED.length);
+};
+/** 快照里比得上的部分（导出时刻每次不同） */
+const state = async M => {
+  const { clientExportedAt, ...rest } = await M.collectLocalSnapshot();
+  return { ...rest, backups: await M.db.getAll('backups') };
+};
+
+await t('重置：回滚槽和清空同一个事务，存不进去（配额满）就中止，数据和首选项一条不动', async () => {
+  for (const w of SEED) await D.db.save('workouts', w);
+  D.writePrefsToLocalStorage(LOCAL_P);
+  const before = await state(D);
+  await withReplace(D, async () => { throw new Error('quota'); }, () => assert.rejects(D.resetAccount(), e => /quota/.test(e.message) && e.rolledBack === true));
+  assert.deepEqual(await state(D), before);
 });
 
 // ── 回滚副本不被失败冲掉（上架审查 C54）──────────────────────────────
 const backupOf = workouts => JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(0), snapshot: { schemaVersion: 2, workouts, goals: [], weightLogs: [], customMetrics: [], prs: [], scheduledWorkouts: [], customExerciseDefsFromDb: [], prefs: {} } });
-const failReplace = async (store, times, fn) => {
-  const replaceAll = D.db.replaceAll;
-  let left = times;
-  D.db.replaceAll = async (n, rows) => {
-    if (n === store && left-- > 0) throw new Error('quota');
-    return replaceAll.call(D.db, n, rows);
-  };
-  try {
-    return await fn();
-  } finally {
-    D.db.replaceAll = replaceAll;
-  }
-};
 
 await t('恢复失败、已自动换回（提示「数据未改动」）：上一份回滚副本原样留着，撤销还能回到重置之前', async () => {
   await seedDb();
   await D.resetAccount();
   const before = await D.readRollback();
-  await failReplace('workouts', 1, () => assert.rejects(D.applyBackup(D.parseBackupFile(backupOf(SEED.slice(0, 1)))), e => e.rolledBack === true));
+  await withReplace(D, async (i, orig, ...a) => { if (i === 0) throw new Error('quota'); return orig(...a); },
+    () => assert.rejects(D.applyBackup(D.parseBackupFile(backupOf(SEED.slice(0, 1)))), e => e.rolledBack === true));
   const after = await D.readRollback();
   assert.equal(after?.workouts, SEED.length, '副本被这次失败的恢复换掉了');
   assert.equal(after.createdAt, before.createdAt);
   assert.equal((await D.db.getAll('workouts')).length, 0);
 });
 
-await t('恢复写到一半、换不回来：留新副本（本次操作之前的样子），撤销能回去', async () => {
+await t('库提交了、写首选项抛错、换回也失败：留新副本（本次操作之前的样子），撤销能回去', async () => {
   await seedDb();
   await D.resetAccount();
-  await failReplace('goals', 99, () => assert.rejects(D.applyBackup(D.parseBackupFile(backupOf(SEED.slice(0, 1)))), e => e.rolledBack === false));
+  // 第一次（这次恢复）写成后抛「首选项没写成」；第二次（换回去）配额满
+  await withReplace(D, async (i, orig, ...a) => {
+    if (i > 0) throw new Error('quota');
+    await orig(...a);
+    throw new D.PrefsWriteError(new Error('ls'));
+  }, () => assert.rejects(D.applyBackup(D.parseBackupFile(backupOf(SEED.slice(0, 1)))), e => e.rolledBack === false));
   assert.equal((await D.readRollback())?.workouts, 0);
   await D.rollbackImport();
   assert.equal((await D.db.getAll('workouts')).length, 0);
+});
+
+await t('写到一半被杀（C60）：库那一步没提交，7 张表、首选项、墓碑、回滚槽和写之前一模一样', async () => {
+  for (const w of SEED) await S.db.save('workouts', w);
+  S.writePrefsToLocalStorage(LOCAL_P);
+  S.writeTombstones({ workouts: ['gone'] });
+  const before = await state(S);
+  await withReplace(S, () => new Promise(() => {}), async () => {
+    void S.applyBackup(S.parseBackupFile(backupOf(SEED.slice(0, 1))));
+    for (let k = 0; k < 20; k++) await new Promise(r => setImmediate(r));
+  });
+  assert.deepEqual(await state(S), before);
+});
+
+await t('写到一半被杀（C60）：库已提交、首选项没写完 —— 启动时照标记行补写，下次启动删掉标记行', async () => {
+  S.writePrefsToLocalStorage(LOCAL_P);
+  const pending = { id: 'overwrite-pending', token: 'tk1', prefs: PREFS(500, { exerciseNotes: { 卧推: '标记里的' } }), tombstones: { workouts: ['zz'] } };
+  await S.db.save('backups', pending);
+  await S.finishPendingOverwrite();
+  const p = S.readPrefsFromLocalStorage();
+  assert.deepEqual(p.exerciseNotes, { 卧推: '标记里的' });
+  assert.equal(p.prefsLastUpdateMs, 500);
+  assert.deepEqual((await S.collectLocalSnapshot()).tombstones, { workouts: ['zz'] });
+  assert.equal((await S.db.getAll('backups')).length, 1, '补写的这次还没确认落盘，行先留着');
+  await S.finishPendingOverwrite();
+  assert.deepEqual(await S.db.getAll('backups'), []);
+});
+
+// ── 单机版的恢复语义（上架审查 C10 那批）：整份改写不记墓碑不刷时间戳、合并不用备份的墓碑 ──
+const W = (id, daysAgo = 1, sets = [[100, 5]]) => seedWorkout(id, daysAgo, `E2E ${id}`, '杠铃深蹲', sets);
+const ids = async M => (await M.db.getAll('workouts')).map(w => w.id).sort();
+const fileNow = async M => JSON.stringify(await M.buildBackupFile());
+const putAll = async (M, list) => { for (const w of list) await M.db.save('workouts', w); };
+
+for (const [label, M] of [['单机', S], ['personal', D]]) {
+  await t(`合并恢复（${label}）：备份带的墓碑不删本机还在的行、也不落进本机；本机墓碑照样挡住备份的行；如实报新增 / 挡下几场`, async () => {
+    await putAll(M, [W('a'), W('n')]);
+    M.writeTombstones({ workouts: ['x'] });
+    const B1 = await fileNow(M);
+    M.db.__reset();
+    mem.clear();
+    await putAll(M, [W('a'), W('x')]);
+    M.writeTombstones({ workouts: ['n'] });
+    const r = await M.mergeBackup(M.parseBackupFile(B1));
+    assert.deepEqual(await ids(M), ['a', 'x'], 'x 是本机撤销删除救回来的，被备份的墓碑删掉了');
+    assert.deepEqual((await M.collectLocalSnapshot()).tombstones.workouts, ['n']);
+    assert.equal(r.added, 0);
+    assert.equal(r.blocked, 1);
+  });
+}
+
+await t('单机：存 a b c → 重置 → 记 new1 → 从重置前的备份合并：四场都在，没有墓碑（C10 A）', async () => {
+  await putAll(S, [W('a'), W('b'), W('c')]);
+  const B0 = await fileNow(S);
+  await S.resetAccount();
+  await putAll(S, [W('new1', 0)]);
+  const r = await S.mergeBackup(S.parseBackupFile(B0));
+  assert.deepEqual(await ids(S), ['a', 'b', 'c', 'new1']);
+  assert.deepEqual((await S.collectLocalSnapshot()).tombstones.workouts ?? [], []);
+  assert.equal(r.added, 3);
+});
+
+await t('单机：误用旧备份覆盖后再合并新备份，六场都在；合并 → 撤销 → 再合并结果一样（C10 B）', async () => {
+  const six = ['w1', 'w2', 'w3', 'w4', 'w5', 'w6'].map((id, i) => W(id, 10 - i));
+  await putAll(S, six);
+  const Bnew = S.parseBackupFile(await fileNow(S));
+  await S.applyBackup(S.parseBackupFile(backupOf(six.slice(0, 3))));
+  await S.mergeBackup(Bnew);
+  assert.deepEqual(await ids(S), six.map(w => w.id));
+  await S.rollbackImport();
+  assert.deepEqual(await ids(S), ['w1', 'w2', 'w3']);
+  await S.mergeBackup(Bnew);
+  assert.deepEqual(await ids(S), six.map(w => w.id));
+});
+
+await t('单机：重置 → 记 new1 → 备份 → 撤销重置 → 合并那份备份：a b c new1 都在（C10 C，原来是空库）', async () => {
+  await putAll(S, [W('a'), W('b'), W('c')]);
+  await S.resetAccount();
+  await putAll(S, [W('new1', 0)]);
+  const Bz = await fileNow(S);
+  await S.rollbackImport();
+  await S.mergeBackup(S.parseBackupFile(Bz));
+  assert.deepEqual(await ids(S), ['a', 'b', 'c', 'new1']);
+});
+
+const GYM = (plates, cable = { v: 5, u: 'kg' }, plateUnit = 'kg') => ({ plateUnit, plates, cable, machine: { v: 5, u: plateUnit }, dumbbell: { v: 2.5, u: plateUnit } });
+await t('单机：覆盖成旧备份后合并新备份，按真实的改动时刻取新 —— 改过的组、备注、片都是新的；反过来合并旧的不退回（gap-1#2）', async () => {
+  const t1 = Date.now() - 5 * DAY;
+  const w1 = W('w1', 6);
+  await putAll(S, [w1]);
+  S.writePrefsToLocalStorage(PREFS(t1, { exerciseNotes: { 卧推: '旧备注' }, appPrefs: { gyms: { 铁馆: GYM([20, 10]) } } }));
+  const B1 = await fileNow(S);
+  const t2 = t1 + DAY;
+  await putAll(S, [{ ...W('w1', 6, [[105, 6]]), updatedAt: new Date(t2).toISOString() }, W('w_eve', 0)]);
+  S.writePrefsToLocalStorage(PREFS(t2, { exerciseNotes: { 卧推: '新备注' }, appPrefs: { gyms: { 铁馆: GYM([25, 20, 10]) } } }));
+  const B2 = await fileNow(S);
+  S.db.__reset();
+  mem.clear();
+  await S.applyBackup(S.parseBackupFile(B1));
+  await S.mergeBackup(S.parseBackupFile(B2));
+  const check = async () => {
+    const w = (await S.db.getAll('workouts')).find(x => x.id === 'w1');
+    assert.deepEqual(w.exercises[0].sets.map(s => [s.weight, s.reps]), [[105, 6]]);
+    const p = S.readPrefsFromLocalStorage();
+    assert.equal(p.exerciseNotes.卧推, '新备注');
+    assert.deepEqual(p.appPrefs.gyms.铁馆.plates, [25, 20, 10]);
+    assert.deepEqual(await ids(S), ['w1', 'w_eve']);
+  };
+  await check();
+  await S.mergeBackup(S.parseBackupFile(B1));
+  await check();
+});
+
+await t('单机：本机逐条删过的，合并旧备份不捞回，墓碑照旧（§3.1）', async () => {
+  await putAll(S, [W('a'), W('del')]);
+  const old = await fileNow(S);
+  await S.db.delete('workouts', 'del');
+  S.writeTombstones({ workouts: ['del'] });
+  const r = await S.mergeBackup(S.parseBackupFile(old));
+  assert.deepEqual(await ids(S), ['a']);
+  assert.deepEqual((await S.collectLocalSnapshot()).tombstones.workouts, ['del']);
+  assert.equal(r.blocked, 1);
+});
+
+await t('单机：新装后种下的默认值（默认馆档案、有氧记录项）合并时让给备份里设过的；本机真改过、较新的照旧赢（gap-1#3）', async () => {
+  const old = Date.now() - 30 * DAY;
+  const ironLbs = GYM([45, 25, 10], { v: 7.5, u: 'lbs', s: 12.5 }, 'lbs');
+  const run = ['duration', 'distance', 'speed', 'custom_坡度'];
+  const file = JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(30), snapshot: snapP(PREFS(old, { exerciseMetricConfigs: { 跑步机: run }, appPrefs: { gyms: { 铁馆: ironLbs } } })) });
+  const now = Date.now();
+  S.writePrefsToLocalStorage(PREFS(now, { exerciseMetricConfigs: { 跑步机: ['duration', 'distance'] }, appPrefs: { gyms: { 铁馆: S.defaultProfile('kg') } } }));
+  await S.mergeBackup(S.parseBackupFile(file));
+  let p = S.readPrefsFromLocalStorage();
+  assert.deepEqual(p.appPrefs.gyms.铁馆, ironLbs);
+  assert.deepEqual(p.exerciseMetricConfigs.跑步机, run);
+
+  mem.clear();
+  S.writePrefsToLocalStorage(PREFS(now, { exerciseMetricConfigs: { 跑步机: ['duration'] }, appPrefs: { gyms: { 铁馆: GYM([25, 20]) } } }));
+  await S.mergeBackup(S.parseBackupFile(file));
+  p = S.readPrefsFromLocalStorage();
+  assert.deepEqual(p.appPrefs.gyms.铁馆.plates, [25, 20]);
+  assert.deepEqual(p.exerciseMetricConfigs.跑步机, ['duration']);
+});
+
+await t('合并时两边各一条同名自建动作：归成 id 较老的那条，做法、本馆设置、特别关注跟过去，不建同名做法；本机原有的重名不碰（C34）', async () => {
+  const NAME = '测试臀桥';
+  const v1 = { id: 'v1', name: '窄距' };
+  const goal = { id: 'g1', type: 'strength', title: '臀桥', startDate: iso(9), currentValue: 0, targetValue: 100, unit: 'kg', autoUpdateRule: { sourceType: 'workouts', calculation: 'max', exerciseName: '1000|v1' } };
+  const file = JSON.stringify({
+    app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(3),
+    snapshot: { ...snapP(PREFS(100, { customExercises: [{ ...def('1000', NAME), variants: [v1] }], appPrefs: { gymKinds: { '铁馆|1000|v1': 'pin' }, featuredLifts: ['1000|v1'] } })), goals: [goal] },
+  });
+  S.writePrefsToLocalStorage(PREFS(200, { customExercises: [def('2000', NAME)], appPrefs: { gymNotes: { '铁馆|2000|': '本机备注' }, featuredLifts: ['2000|'] } }));
+  await S.mergeBackup(S.parseBackupFile(file));
+  const p = S.readPrefsFromLocalStorage();
+  assert.equal(S.buildNameIndex(S.DEFAULT_EXERCISES, p.customExercises, p.exerciseOverrides).get(NAME).id, '1000');
+  assert.equal(p.exerciseOverrides['2000'].mergedInto, '1000');
+  const keep = p.customExercises.find(d => d.id === '1000');
+  assert.ok(!(keep.variants ?? []).some(v => v.name === NAME), '不该建出同名做法');
+  assert.deepEqual(p.appPrefs.gymNotes, { '铁馆|1000|': '本机备注' });
+  // 特别关注整块取较新的一边（本机），里面指向本机那条的键换到留下的那条
+  assert.deepEqual(p.appPrefs.featuredLifts, ['1000|']);
+  assert.equal((await S.db.getAll('goals'))[0].autoUpdateRule.exerciseName, '1000|v1');
+
+  mem.clear();
+  S.db.__reset();
+  S.writePrefsToLocalStorage(PREFS(200, { customExercises: [def('3000', '悍马卧推'), def('3001', '悍马卧推')] }));
+  await S.mergeBackup(S.parseBackupFile(JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(3), snapshot: snapP(PREFS(100)) })));
+  assert.deepEqual(S.readPrefsFromLocalStorage().exerciseOverrides, {});
+});
+
+await t('撤销导入：之后补记的旧日期训练算进「会丢」，进行中那场不算、撤销后保留这期间记的组、回滚槽清掉（C62）', async () => {
+  const live1 = W('w_live', 0, [[100, 5]]);
+  await putAll(S, [live1]);
+  await S.addImportedRecords({ workouts: [W('imp', 20)], newDefs: [], metricSeeds: {} });
+  const live3 = { ...live1, exercises: [{ ...live1.exercises[0], sets: [[100, 5], [100, 5], [100, 5]].map(([weight, reps], i) => ({ id: `l${i}`, weight, reps })) }] };
+  await putAll(S, [live3]);
+  await putAll(S, [{ ...W('w_back', 3), id: `w_back_${Date.now()}`, createdAt: iso(0), updatedAt: iso(0) }]);
+  assert.equal((await S.readRollback('w_live')).newer, 1);
+  await S.rollbackImport(live3);
+  const ws = await S.db.getAll('workouts');
+  assert.deepEqual(ws.map(w => w.id), ['w_live']);
+  assert.equal(ws[0].exercises[0].sets.length, 3);
+  assert.equal(await S.readRollback(), null);
+});
+
+await t('本机有没有数据按各表数：只有体重 / 只有馆也算有；只有语言单位和种下的记录项算空（C68）', () => {
+  const has = s => Object.values(S.localDataSummary(s)).some(n => n > 0);
+  assert.equal(has({ ...snapP(PREFS(0)), weightLogs: [{ id: 'b1', weight: 70, date: iso(1) }] }), true);
+  assert.equal(has(snapP(PREFS(0, { appPrefs: { gyms: { 铁馆: GYM([20]) } } }))), true);
+  assert.equal(has(snapP(PREFS(0, { appPrefs: { lang: 'cn', unit: 'kg', gyms: { 旧名: '' } }, exerciseMetricConfigs: { 跑步机: ['duration', 'distance'] } }))), false);
 });
 
 // ── 备份文件夹里带 BOM 的文件（上架审查 C65）─────────────────────────

@@ -411,7 +411,7 @@ const AppWithAuthShell: React.FC = () => {
       if (refreshedPrefs.lang) settingsCtx.setLang(refreshedPrefs.lang as Language);
       if (refreshedPrefs.unit) settingsCtx.setUnit(refreshedPrefs.unit);
       settingsCtx.reloadAppPrefs();
-      setAvatarUrl(refreshedPrefs.avatarDataUrl ?? undefined);
+      setAvatarUrl(refreshedPrefs.avatarDataUrl || undefined);
       await loadLocalData();
       toast(
         isCn

@@ -24,6 +24,7 @@ import { clearTapLog, isLostTap, readTapLog, type TapRec } from '../utils/tap';
 import { LONGPRESS_TOTAL_MS } from '../hooks/useLongPress';
 import { WEIGHT_STEP_OPTIONS, DROP_STEP_OPTIONS } from '../../services/appPrefs';
 import { useRollbackImport } from '../hooks/useImportData';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { isRemoteConfigured } from '../../services/fitlogRemote';
@@ -146,14 +147,16 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   // 撤销上次恢复、导入或重置：有副本才出这一行
   const rollbackImport = useRollbackImport();
   const [rollback, setRollback] = useState<RollbackInfo | null>(null);
+  // 工作台上进行中的那场撤销时保留，不算进「会一起丢掉」的条数
+  const liveId = useWorkoutContext().currentWorkout.id;
   useEffect(() => {
     if (!open) return;
     let alive = true;
-    void readRollback()
+    void readRollback(liveId)
       .then(info => { if (alive) setRollback(info); })
       .catch(() => { /* 读不到就是没有 */ });
     return () => { alive = false; };
-  }, [open]);
+  }, [open, liveId]);
 
   // 「N 分钟前」每分钟走一次
   const [, tick] = useState(0);

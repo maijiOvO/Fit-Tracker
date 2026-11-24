@@ -187,25 +187,30 @@ export class FitLogDB {
     reportWrite(true);
   }
 
-  private async getStore(name: string, mode: IDBTransactionMode): Promise<IDBObjectStore> {
+  /** 开一个跨这几张表的事务：连接没开 / 环境换了 / 缺表 / 连接已被系统关掉，都在这里补好再开 */
+  private async getTx(names: string[], mode: IDBTransactionMode): Promise<IDBTransaction> {
     if (this.opening) await this.opening;
     // 环境切换后若有代码路径漏掉 reopen()，这里兜底，绝不让读写落到另一个环境的库
     if (this.db && this.openedAs !== dbName()) await this.reopen();
     if (!this.db) await this.init();
-    if (!this.db!.objectStoreNames.contains(name)) {
+    if (names.some(n => !this.db!.objectStoreNames.contains(n))) {
       // 旧版本数据库缺少这个 store —— 自我修复
       await this.forceUpgrade();
     }
     try {
-      return this.db!.transaction(name, mode).objectStore(name);
+      return this.db!.transaction(names, mode);
     } catch (err) {
       // 连接已经被关了但 onclose 还没派发到（或者关在 await 的间隙里）：重开一次再试
       if (!(err instanceof DOMException && err.name === 'InvalidStateError')) throw err;
       this.db = null;
       this.openedAs = null;
       await this.init();
-      return this.db!.transaction(name, mode).objectStore(name);
+      return this.db!.transaction(names, mode);
     }
+  }
+
+  private async getStore(name: string, mode: IDBTransactionMode): Promise<IDBObjectStore> {
+    return (await this.getTx([name], mode)).objectStore(name);
   }
 
   /** 读都走这里：成败翻转时报出去（reportRead），照样 resolve / reject */
@@ -283,20 +288,28 @@ export class FitLogDB {
   }
 
   /**
-   * 整表替换：clear + 全部 put 在同一个 readwrite 事务里。
-   * 要么全换成功，要么（任一条失败 → 事务中止）原数据原样保留 —— 不会停在「清空了一半」。
+   * 多表整表替换（恢复 / 导入 / 撤销 / 重置 / 同步拉取写本机用，上架审查 C60）：replace 里每张表 clear + 全部 put，
+   * 外加 extra 里零散的写和删（回滚槽、写到一半的标记），全在**同一个** readwrite 事务里。
+   * 要么全换成功，要么（任一条失败 / 进程在写的时候被杀 → 事务中止）全部原样 —— 原来每张表一个事务，
+   * 中途被杀就停在「训练是新的、目标还是旧的」。不进撤销日志：调用方本来就是整份改写、撤销历史作废。
    */
-  replaceAll(storeName: string, rows: readonly any[]): Promise<void> {
-    return undoJournal.track(undoJournal.recordReplace(storeName, rows).then(() => this.guarded(() => this.rawReplaceAll(storeName, rows))));
+  replaceStores(replace: [string, readonly any[]][], extra: { put?: [string, any][]; del?: [string, string][] } = {}): Promise<void> {
+    return this.guarded(() => this.rawReplaceStores(replace, extra));
   }
 
-  private async rawReplaceAll(storeName: string, rows: readonly any[]): Promise<void> {
-    const store = await this.getStore(storeName, 'readwrite');
-    const tx = store.transaction;
+  private async rawReplaceStores(replace: [string, readonly any[]][], extra: { put?: [string, any][]; del?: [string, string][] }): Promise<void> {
+    const put = extra.put ?? [];
+    const del = extra.del ?? [];
+    const tx = await this.getTx([...new Set([...replace, ...put, ...del].map(([n]) => n))], 'readwrite');
     const done = txDone(tx);
     try {
-      store.clear();
-      for (const row of rows) store.put(row);
+      for (const [n, rows] of replace) {
+        const store = tx.objectStore(n);
+        store.clear();
+        for (const row of rows) store.put(row);
+      }
+      for (const [n, row] of put) tx.objectStore(n).put(row);
+      for (const [n, id] of del) tx.objectStore(n).delete(id);
     } catch (err) {
       // put 同步抛（比如某行缺 id）不会自动中止事务 —— 不手动 abort，排在前面的 clear 照样提交
       done.catch(() => {});

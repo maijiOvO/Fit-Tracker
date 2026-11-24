@@ -4,8 +4,7 @@ import {
   mergeLocalWithRemote,
   mergeChangesLocal,
   putRemoteSnapshot,
-  applySnapshotToLocalIndexedDb,
-  writePrefsToLocalStorage,
+  writeSnapshotLocally,
   migrateRecordsToSoloUserId,
   isRemoteConfigured,
   RemoteError,
@@ -103,10 +102,7 @@ export async function pullAndMergeFitlogRemoteDetailed(): Promise<PullOutcome> {
     // 撤销不会盖掉任何别处的改动。原先无条件清，手动点一下同步撤销就没了（审查 D9 / E7）
     if (!mergeChangesLocal(local, merged)) return { kind: 'merged', prefs: merged.prefs, changed: false };
     // 拉进来的是别处的改动：不进撤销日志，而且之前的撤销历史作废（撤销会把它们盖掉）
-    await undoJournal.withoutJournal(async () => {
-      writePrefsToLocalStorage(merged.prefs);
-      await applySnapshotToLocalIndexedDb(merged);
-    });
+    await undoJournal.withoutJournal(() => writeSnapshotLocally(merged));
     undoJournal.clear();
     return { kind: 'merged', prefs: merged.prefs, changed: true };
   })();

@@ -90,6 +90,11 @@ async function bundle(treeDir, tag) {
             async clear(n) { s(n).clear(); },
             async replaceAll(n, rows) { s(n).clear(); for (const x of rows) s(n).set(x.id, structuredClone(x)); },
             async rawReplaceAll(n, rows) { s(n).clear(); for (const x of rows) s(n).set(x.id, structuredClone(x)); },
+            async replaceStores(replace, extra = {}) {
+              for (const [n, rows] of replace) { s(n).clear(); for (const x of rows) s(n).set(x.id, structuredClone(x)); }
+              for (const [n, x] of extra.put ?? []) s(n).set(x.id, structuredClone(x));
+              for (const [n, id] of extra.del ?? []) s(n).delete(id);
+            },
             __dump() { const o = {}; for (const [n, m] of stores) o[n] = [...m.values()]; return o; },
             __reset() { stores.clear(); },
           };`,

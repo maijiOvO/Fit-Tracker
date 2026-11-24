@@ -164,7 +164,6 @@ export const translations: TranslationStrings = {
   resetConfirm: { en: 'Reset account', cn: '重置账户' },
   resetInProgress: { en: 'Resetting…', cn: '重置中…' },
   resetSuccess: { en: 'Account reset', cn: '已重置' },
-  resetError: { en: 'Reset failed', cn: '重置失败' },
 
   // ✅ 新增：自定义日期时间选择器翻译
   selectDate: { en: 'Date', cn: '日期' },

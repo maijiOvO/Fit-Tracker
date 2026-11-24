@@ -6,6 +6,8 @@
  *
  * 本地没数据：直接覆盖。本地有数据：新格式给「合并 / 覆盖」，旧格式只能覆盖
  * （旧格式没有墓碑，按 id 合并会把删掉的训练捞回来）。两条路都先存回滚槽。
+ * 「本地有没有数据」打开时读库按各表数（localDataSummary，上架审查 C68）：只看训练条数时，
+ * 只记过体重 / 只建过馆的手机会被直接覆盖，不给合并也不确认。
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { FolderOpen, RefreshCw } from 'lucide-react';
@@ -17,10 +19,12 @@ import { useWorkoutContext } from '../../contexts/WorkoutContext';
 import {
   applyBackup,
   lastWorkoutDate,
+  localDataSummary,
   mergeBackup,
   parseBackupFile,
   type ParsedBackup,
 } from '../../../services/fitlogBackup';
+import { collectLocalSnapshot } from '../../../services/fitlogRemote';
 import {
   displayPath,
   hasAccess,
@@ -57,6 +61,25 @@ type Phase =
   | { kind: 'error'; message: string }
   | { kind: 'applying' };
 
+type LocalSummary = ReturnType<typeof localDataSummary>;
+
+/** 本机各类数据非零的条数：「12 场训练、3 条体重」 */
+function summaryText(s: LocalSummary, isCn: boolean): string {
+  const parts: [number, string, string][] = [
+    [s.workouts, '场训练', 'workouts'],
+    [s.weightLogs, '条体重', 'weight entries'],
+    [s.customMetrics, '条身体指标', 'body measurements'],
+    [s.goals, '个目标', 'goals'],
+    [s.scheduledWorkouts, '个计划', 'plans'],
+    [s.customExercises, '个自建动作', 'custom exercises'],
+    [s.gyms, '个馆档案', 'gym profiles'],
+  ];
+  return parts
+    .filter(([n]) => n > 0)
+    .map(([n, cn, en]) => (isCn ? `${n} ${cn}` : `${n} ${en}`))
+    .join(isCn ? '、' : ', ');
+}
+
 function toEntries(files: FolderFile[]): Entry[] {
   return files
     .filter(f => /\.json$/i.test(f.name))
@@ -70,7 +93,7 @@ function toEntries(files: FolderFile[]): Entry[] {
 export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang } = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
-  const { workouts, currentWorkout, discardWorkbenchWith } = useWorkoutContext();
+  const { currentWorkout, discardWorkbenchWith } = useWorkoutContext();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
@@ -79,6 +102,8 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
   const [entries, setEntries] = useState<Entry[]>([]);
   const [sel, setSel] = useState(0);
   const [showList, setShowList] = useState(false);
+  /** 本机现有数据（打开时读库数）；读完之前不出按钮 */
+  const [local, setLocal] = useState<LocalSummary | null>(null);
 
   const fmtDay = (iso: string | number) =>
     new Date(iso).toLocaleDateString(isCn ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -146,6 +171,11 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
   useEffect(() => {
     if (!open) return;
     setShowList(false);
+    setLocal(null);
+    collectLocalSnapshot().then(
+      s => setLocal(localDataSummary(s)),
+      e => setPhase({ kind: 'error', message: (e as Error).message }),
+    );
     void (async () => {
       const f = getBackupFolder();
       if (f && (await hasAccess(f))) {
@@ -170,16 +200,16 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
 
   const cur = entries[sel];
   const parsed = cur?.parsed;
-  const localHas = workouts.length > 0;
+  const localHas = !!local && Object.values<number>(local).some(n => n > 0);
 
   const apply = async (mode: 'overwrite' | 'merge') => {
-    if (!parsed || !folder) return;
+    if (!parsed || !folder || !local) return;
     if (mode === 'overwrite' && localHas) {
       const go = await confirm({
         title: t('用备份覆盖当前数据？', 'Replace current data with the backup?'),
         message: t(
-          `现有 ${workouts.length} 场训练会被备份整份替换（先自动存可撤销副本）。`,
-          `Your current ${workouts.length} workouts will be replaced by the backup (an undoable copy is saved first).`,
+          `现有的 ${summaryText(local, true)} 会被备份整份替换（先自动存可撤销副本）。`,
+          `Your current ${summaryText(local, false)} will be replaced by the backup (an undoable copy is saved first).`,
         ) + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
         confirmLabel: t('覆盖', 'Replace'),
         danger: true,
@@ -191,14 +221,24 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     blockBack(true);
     try {
       // 覆盖时工作台上那场跟着丢；合并不动它（它在库里，合并照样留着）
-      const pushed = mode === 'merge' ? await mergeBackup(parsed) : await discardWorkbenchWith(() => applyBackup(parsed));
+      let message: string;
+      if (mode === 'merge') {
+        // 如实报新增几场、几场因为本机删过没带回（原来报备份里的总场数，没带回来的也算进去，C10）
+        const { pushed, added, blocked } = await mergeBackup(parsed);
+        message =
+          t(`已合并：新增 ${added} 场训练`, `Merged: ${added} new workout${added === 1 ? '' : 's'}`) +
+          (blocked > 0
+            ? t(`；${blocked} 场在这台手机上删过，没有带回`, `; ${blocked} deleted on this phone were not brought back`)
+            : '') +
+          overwriteNote(pushed, isCn);
+      } else {
+        const pushed = await discardWorkbenchWith(() => applyBackup(parsed));
+        message = t(`已恢复：${parsed.counts.workouts} 场训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn);
+      }
       // 授权刚拿到：这个文件夹顺手设成备份文件夹，重载后补一份备份
       setBackupFolder(folder);
       markBackupPending();
-      setFlash(
-        t(`已恢复：${parsed.counts.workouts} 场训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn),
-        'success',
-      );
+      setFlash(message, 'success');
       window.location.reload();
     } catch (e) {
       console.error('Restore failed:', e);
@@ -255,7 +295,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
           </>
         )}
 
-        {phase.kind === 'ready' && parsed && cur && (
+        {phase.kind === 'ready' && parsed && cur && local && (
           <>
             <div className="ui-card p-4 space-y-1" data-testid="restore-summary">
               <p className="text-primary font-semibold text-base">
@@ -310,7 +350,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
             ) : (
               <div className="space-y-2">
                 <p className="text-xs">
-                  {t(`这台手机上已经有 ${workouts.length} 场训练。`, `This phone already has ${workouts.length} workouts.`)}
+                  {t(`这台手机上已经有 ${summaryText(local, true)}。`, `This phone already has ${summaryText(local, false)}.`)}
                 </p>
                 {!parsed.legacy && (
                   <button type="button" className="ui-btn-primary w-full py-3.5" onClick={() => void apply('merge')} data-testid="restore-merge">

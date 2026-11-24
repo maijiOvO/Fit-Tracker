@@ -4,7 +4,8 @@
 import React, { useCallback, useState } from 'react';
 import { translations } from '../../translations';
 import { resetAccount } from '../../services/fitlogBackup';
-import { setFlash } from '../components/data/flash';
+import { Language } from '../../types';
+import { overwriteFailedText, setFlash } from '../components/data/flash';
 import { blockBack } from './useBackClose';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -62,7 +63,8 @@ export function useResetAccount({
       window.location.reload();
     } catch (error) {
       console.error('重置账户失败:', error);
-      toast(String(translations.resetError[settingsCtx.lang]), 'error');
+      // 分清换回去了（数据未改动）和没换回去（指向撤销），C60
+      toast(overwriteFailedText(error, settingsCtx.lang === Language.CN, { cn: '重置', en: 'Reset' }), 'error');
     } finally {
       setIsResetting(false);
     }

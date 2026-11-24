@@ -11,6 +11,7 @@ import { getDataEnv, isEnvLocked, isDemo, isSolo, isOffline, dbName, statePath, 
 import {
   applyBackup,
   buildBackupFile,
+  finishPendingOverwrite,
   parseBackupFile,
   readRollback,
   rollbackImport,
@@ -133,10 +134,31 @@ function mount(): void {
   );
 }
 
+/**
+ * 上一次整份改写（恢复 / 导入 / 撤销 / 重置 / 同步拉取）在「库已提交、首选项还没写」之间被杀的话，先补齐再挂 React
+ * （finishPendingOverwrite，上架审查 C60）：各个 context 挂载时就从存储水化，晚了读到的是新库配旧设置。
+ * 3 秒兜底、出错照样挂：绝不能因为它卡住或白屏，最坏是这一次带着旧设置进去，下次启动再补。
+ */
+function finishPendingThenMount(): void {
+  let done = false;
+  const go = (): void => {
+    if (done) return;
+    done = true;
+    mount();
+  };
+  const bail = setTimeout(go, 3000);
+  finishPendingOverwrite()
+    .catch(err => console.error('[fitlog] 收尾上次没写完的恢复失败:', err))
+    .finally(() => {
+      clearTimeout(bail);
+      go();
+    });
+}
+
 if (webviewBlocked) {
   // 什么都不做：提示已经在 #root 里
 } else if (isDemo()) {
   void resetDemoState().then(mount);
 } else {
-  mount();
+  finishPendingThenMount();
 }

@@ -19,7 +19,8 @@ import type {
   ScheduledWorkout,
 } from '../types';
 import { parseJsonOr, storage } from './appStorage';
-import { langOf, mergeAppPrefs, readAppPrefs, unitOf, writeAppPrefs } from './appPrefs';
+import { langOf, mergeAppPrefs, readAppPrefs, resolveAppPrefs, unitOf, writeAppPrefs } from './appPrefs';
+import { defaultProfile } from '../src/utils/loadable';
 import { getDataEnv, isOffline, statePath } from './appEnv';
 import { migrateCableTags } from '../src/utils/cableTagMigration';
 import { migrateWarmRegions } from '../src/utils/warmRegionMigration';
@@ -414,12 +415,32 @@ export function mergeFitlogPrefs(
       app.appPrefs && (localLs.appPrefs?.gymOverrides || remote.appPrefs?.gymOverrides)
         ? { ...app.appPrefs, gymOverrides: byKey(localLs.appPrefs?.gymOverrides, remote.appPrefs?.gymOverrides, appLocalNewer) }
         : app.appPrefs;
+    // 新装后自动写下的默认值在这里降权（上架审查 gap-1#3）：它们的时间戳是「现在」，按较新取会把备份里真正设过的盖掉。
+    // 本机那一条还等于默认（没动过）就用备份的 —— 同名馆的档案、有氧动作的记录项（seedMetricsIfUnset 种下的）
+    const localGyms = localLs.appPrefs?.gyms;
+    const backupGyms = remote.appPrefs?.gyms;
+    if (appPrefs?.gyms && localGyms && backupGyms) {
+      const gyms = { ...appPrefs.gyms };
+      for (const [name, g] of Object.entries(backupGyms)) {
+        const mine = Object.prototype.hasOwnProperty.call(localGyms, name) ? localGyms[name] : undefined;
+        if (!g || !mine) continue;
+        const clean = resolveAppPrefs({ gyms: { [name]: mine } }).gyms[name];
+        if (clean && stableJson(clean) === stableJson(defaultProfile(clean.plateUnit))) gyms[name] = g;
+      }
+      appPrefs.gyms = gyms;
+    }
+    const metricConfigs = byKey(localLs.exerciseMetricConfigs, remote.exerciseMetricConfigs, metLocalNewer);
+    const seeded = stableJson(resolveAppPrefs(localLs.appPrefs).cardioMetrics);
+    const localMetrics = localLs.exerciseMetricConfigs ?? {};
+    for (const [k, v] of Object.entries(remote.exerciseMetricConfigs ?? {})) {
+      if (Object.prototype.hasOwnProperty.call(localMetrics, k) && stableJson(localMetrics[k]) === seeded) metricConfigs[k] = v;
+    }
     return {
       customTags: byId(localLs.customTags, remote.customTags),
       customExercises: byId(localLs.customExercises, remote.customExercises),
       exerciseNotes: byKey(localLs.exerciseNotes, remote.exerciseNotes, localWins),
       starredExercises: byKey(localLs.starredExercises, remote.starredExercises, starLocalNewer),
-      exerciseMetricConfigs: byKey(localLs.exerciseMetricConfigs, remote.exerciseMetricConfigs, metLocalNewer),
+      exerciseMetricConfigs: metricConfigs,
       tagRenameOverrides: byKey(localLs.tagRenameOverrides, remote.tagRenameOverrides, localWins),
       exerciseOverrides: byKey(localLs.exerciseOverrides, remote.exerciseOverrides, localWins),
       starredLastUpdateMs: Math.max(localStarTs, remoteStarTs),
@@ -427,11 +448,14 @@ export function mergeFitlogPrefs(
       prefsLastUpdateMs: Math.max(localPrefsTs, remotePrefsTs),
       lang: app.appPrefs?.lang ?? (localWins ? (localLs.lang ?? remote.lang) : (remote.lang ?? localLs.lang)),
       unit: app.appPrefs?.unit ?? (localWins ? (localLs.unit ?? remote.unit) : (remote.unit ?? localLs.unit)),
-      // 头像只有一张，谈不上并集：照同步口径取较新的一边（删掉的 null 不被另一边捞回来）；
-      // 本机从没打过时间戳时本机的 null 是「还没有」，同步口径一样回落到另一边
-      avatarDataUrl: union
-        ? (localWins ? (localLs.avatarDataUrl ?? remote.avatarDataUrl) : (remote.avatarDataUrl ?? localLs.avatarDataUrl))
-        : (localWins ? localLs.avatarDataUrl : remote.avatarDataUrl),
+      // 头像只有一张，谈不上并集：取较新的一边。'' 是删掉的墓碑（不被另一边捞回来），null 是从没设过 ——
+      // 本机没设过就用备份那张，不看时间戳（gap-1#3：新手机上动过任何首选项，本机就「较新」，头像原来恢复不回来）
+      avatarDataUrl:
+        localLs.avatarDataUrl == null
+          ? (remote.avatarDataUrl ?? localLs.avatarDataUrl)
+          : localWins
+            ? localLs.avatarDataUrl
+            : (remote.avatarDataUrl ?? localLs.avatarDataUrl),
       appPrefs,
       appPrefsUpdatedMs: app.appPrefsUpdatedMs,
     };
@@ -518,7 +542,8 @@ export function writePrefsToLocalStorage(raw: FitlogSyncedPrefs): void {
   const unit = unitOf(p.unit);
   if (lang) storage.setItem('fitlog_lang', lang);
   if (unit) storage.setItem('fitlog_unit', unit);
-  if (p.avatarDataUrl) storage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);
+  // '' 照存（删掉头像的墓碑，读的各处当「没有头像」）；null / 缺省是从没设过
+  if (typeof p.avatarDataUrl === 'string') storage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);
   else storage.removeItem('fitlog_avatar_data_url');
 }
 
@@ -618,7 +643,7 @@ function mergeEntityList<T extends { id: string }>(
   return filterByTombstones(mergeByIdPreferNewer(local, remote, getTs), deleted);
 }
 
-/** 纯函数：只算合并结果，不写本机。墓碑随 applySnapshotToLocalIndexedDb 一起落地 */
+/** 纯函数：只算合并结果，不写本机。墓碑随 writeSnapshotLocally 一起落地 */
 export function mergeLocalWithRemote(
   local: FitlogRemoteSnapshot,
   remote: FitlogRemoteSnapshot,
@@ -712,16 +737,54 @@ function mergeExerciseDefs(
   return [...map.values()];
 }
 
-export async function applySnapshotToLocalIndexedDb(snapshot: FitlogRemoteSnapshot): Promise<void> {
-  // 每张表一个事务整表替换：中途失败这张表保持原样，不会停在「清空了、只写回一半」
-  const replaceStore = <T extends { id: string }>(name: string, rows: T[]) => db.replaceAll(name, rows);
+/** 写到一半的标记：backups 表里这一行 + localStorage 里同一个 token（见 writeSnapshotLocally / finishPendingOverwrite） */
+export const OVERWRITE_PENDING_ID = 'overwrite-pending';
+export const OVERWRITE_TOKEN_KEY = 'fitlog_overwrite_token';
+export interface OverwritePendingRow {
+  id: typeof OVERWRITE_PENDING_ID;
+  token: string;
+  prefs: FitlogSyncedPrefs;
+  tombstones: FitlogRemoteSnapshot['tombstones'] | null;
+}
 
-  await replaceStore('workouts', snapshot.workouts);
-  await replaceStore('goals', snapshot.goals);
-  await replaceStore('weightLogs', snapshot.weightLogs);
-  await replaceStore('custom_metrics', snapshot.customMetrics);
-  await replaceStore('prs', snapshot.prs);
-  await replaceStore('customExercises', snapshot.customExerciseDefsFromDb || []);
-  await replaceStore('scheduledWorkouts', snapshot.scheduledWorkouts || []);
-  if (snapshot.tombstones) writeTombstones(snapshot.tombstones);
+/**
+ * 整份写进本机（恢复 / 导入 / 撤销 / 重置 / 同步拉取共用，上架审查 C60）：
+ *   1. 7 张表 + extra（回滚槽）+ 一行「写到一半」的标记（带这次的首选项和墓碑）在一个事务里提交 —— 进程在这时被杀，库原样；
+ *   2. 提交后才写 localStorage 的首选项、墓碑和同一个 token。在这两步之间被杀，下次启动 finishPendingOverwrite
+ *      照标记补写首选项和墓碑，不会停在「库是新的、设置是旧的」。
+ * 原来先写首选项、再每张表各一个事务，中途被杀就是新旧混合，下次合并再把混合的那份当真。
+ */
+export async function writeSnapshotLocally(
+  snapshot: FitlogRemoteSnapshot,
+  extra: { put?: [string, unknown][]; del?: [string, string][] } = {},
+): Promise<void> {
+  const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const pending: OverwritePendingRow = { id: OVERWRITE_PENDING_ID, token, prefs: snapshot.prefs, tombstones: snapshot.tombstones ?? null };
+  await db.replaceStores(
+    [
+      ['workouts', snapshot.workouts],
+      ['goals', snapshot.goals],
+      ['weightLogs', snapshot.weightLogs],
+      ['custom_metrics', snapshot.customMetrics],
+      ['prs', snapshot.prs],
+      ['customExercises', snapshot.customExerciseDefsFromDb || []],
+      ['scheduledWorkouts', snapshot.scheduledWorkouts || []],
+    ],
+    { put: [...(extra.put ?? []), ['backups', pending]], del: extra.del },
+  );
+  try {
+    writePrefsToLocalStorage(snapshot.prefs);
+    if (snapshot.tombstones) writeTombstones(snapshot.tombstones);
+    storage.setItem(OVERWRITE_TOKEN_KEY, token);
+  } catch (err) {
+    throw new PrefsWriteError(err);
+  }
+}
+
+/** 库已经提交、写 localStorage 时抛的：调用方据此知道库已经是新的（要换回去得再整份写一次） */
+export class PrefsWriteError extends Error {
+  constructor(readonly cause: unknown) {
+    super(`prefs write failed after db commit: ${cause instanceof Error ? cause.message : String(cause)}`);
+    this.name = 'PrefsWriteError';
+  }
 }

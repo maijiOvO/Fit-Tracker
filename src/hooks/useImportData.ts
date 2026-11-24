@@ -2,7 +2,7 @@
  * 从单个备份文件恢复（覆盖式）+ 撤销上一次恢复 / 导入。
  *
  * 这条路只做覆盖：「把 app 恢复成这份文件里的样子」，代价由导入前的回滚槽兜住。
- * 要合并、要看摘要和多份备份，走「从备份恢复」（RestoreBackupModal，合并用的是快照里带的墓碑）。
+ * 要合并、要看摘要和多份备份，走「从备份恢复」（RestoreBackupModal，合并时本机删过的不捞回，见 mergeBackup）。
  */
 import { useCallback } from 'react';
 import { Language } from '../../types';
@@ -122,23 +122,31 @@ export function useImportData(
   }, [confirm, currentWorkout, discardWorkbenchWith, setSyncStatus, settingsCtx, toast]);
 }
 
-/** newer：恢复 / 导入 / 重置之后新记的训练数（撤销会一起丢掉，确认框里要说，审查 A25） */
+/**
+ * newer：恢复 / 导入 / 重置之后新记、改过的训练数（撤销会一起丢掉，确认框里要说，审查 A25）。
+ * 工作台上进行中的那场不算、也不丢：交给 rollbackImport 一起写进去（keepWorkbenchWith，C62）。
+ */
 export function useRollbackImport(): (newer?: number) => Promise<void> {
   const settingsCtx = useUserSettingsContext();
   const { confirm, toast } = useUiOverlay();
+  const { currentWorkout, keepWorkbenchWith } = useWorkoutContext();
 
   return useCallback(async (newer = 0) => {
     const isCn = settingsCtx.lang === Language.CN;
     const go = await confirm({
       title: isCn ? '撤销上次恢复、导入或重置？' : 'Undo last restore, import or reset?',
-      message: undoImportWarning(newer, isCn),
+      message:
+        undoImportWarning(newer, isCn) +
+        (currentWorkout.exercises.length > 0
+          ? isCn ? '\n\n训练页上进行中的这场会保留。' : '\n\nThe workout in progress on the Workout tab is kept.'
+          : ''),
       confirmLabel: isCn ? '撤销' : 'Undo',
       danger: true,
     });
     if (!go) return;
     try {
       blockBack(true);
-      const pushed = await rollbackImport().finally(() => blockBack(false));
+      const pushed = await keepWorkbenchWith(live => rollbackImport(live)).finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
       if (note) setFlash((isCn ? '已撤销' : 'Undone') + note, 'info');
       window.location.reload();
@@ -151,5 +159,5 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
         'error',
       );
     }
-  }, [confirm, settingsCtx, toast]);
+  }, [confirm, currentWorkout.exercises.length, keepWorkbenchWith, settingsCtx, toast]);
 }
