@@ -54,7 +54,7 @@ await build({
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
       "export { buildNameIndex, byDisplayName, ownValue } from './src/utils/nameIndex.ts';",
       "export * as GY from './src/utils/gyms.ts';",
-      "export { rowLastSession, browseRank } from './src/hooks/useExercisePickerData.ts';",
+      "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
       "export { sessionsBefore, redateLiveSession, isBackdated } from './src/utils/sessionDate.ts';",
@@ -1726,6 +1726,13 @@ t('计划目标值规整（上架审查 C77）：组数 / 次数取整、小于 
   assert.equal(c({ targetWeight: 1000 }).targetWeight, 500);
   for (const w of [-5, NaN, '12']) assert.ok(!('targetWeight' in c({ targetWeight: w })), String(w));
   assert.deepEqual(c({ name: '卧推', targetSets: 3, targetReps: 8, targetWeight: 60 }), { name: '卧推', targetSets: 3, targetReps: 8, targetWeight: 60 });
+});
+
+t('器材筛选只认还在器材格里的（上架审查 C98）：删掉的器材不再暗中筛人；都还在就原样返回', () => {
+  assert.deepEqual([...L.liveEquips(new Set(['barbell', 'gone']), ['Barbell', 'Dumbbell'])], ['barbell']);
+  const all = new Set(['barbell']);
+  assert.equal(L.liveEquips(all, ['Barbell']), all);
+  assert.equal(L.liveEquips(new Set(['gone']), ['Barbell']).size, 0);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

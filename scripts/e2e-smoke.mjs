@@ -1418,6 +1418,8 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await sheet.locator('input[type="text"]').fill('杠铃平板卧推');
       await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first().click();
       await page.locator('[data-testid="picker-sheet-close"]').click();
+      // 弹层滑出期间整层有透明挡板（C35），底层鼠标手势要等它拆掉
+      await page.locator('[data-testid="picker-settle"]').waitFor({ state: 'detached' });
 
       const reps = page.locator('[data-testid="ledger-field-reps"]').first();
       await reps.waitFor({ state: 'visible', timeout: 5_000 });

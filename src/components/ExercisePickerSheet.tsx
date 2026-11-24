@@ -27,6 +27,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExerciseStats } from '../hooks/useFilteredExercises';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
+import { normalizeSearch } from '../utils/exerciseSearch';
 import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf, rowLastSession, browseRank } from '../hooks/useExercisePickerData';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useGymScopedPR } from '../hooks/useLoadKind';
@@ -45,6 +46,8 @@ import { useBackClose } from '../hooks/useBackClose';
 import { cardToRevisit } from '../utils/pickerRevisit';
 
 const NO_EQUIPS: ReadonlySet<string> = new Set();
+/** 弹层滑入 / 滑出的时长；挡板多留 50ms 盖住浏览器补发的 click */
+const SLIDE_MS = 300;
 
 /**
  * 器材小剪影（「杠铃片」阶段二，2026-10-22）：和训练页大图同形 —— 杠铃＝杆＋两片、哑铃＝两头、
@@ -333,11 +336,25 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   // ===== 筛选状态（跨开合保留；仅搜索词随打开重置） =====
   const [query, setQuery] = useState('');
   const [axis, setAxis] = useState<PickerAxis>(null);
-  const [equips, setEquips] = useState<ReadonlySet<string>>(new Set());
+  // 开合动画期间整层盖一块透明挡板（C35）：关的时候第二下点不到页面上的按钮，开的时候没滑到位的行点不到。
+  // 渲染时就按 open 真翻转立起来，和开合同一帧（放在 effect 里会晚一拍漏掉紧跟着的点击）；只靠 timer 拆，不挂 transitionend
+  const [prevOpen, setPrevOpen] = useState(open);
+  const [settling, setSettling] = useState(false);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    setSettling(true);
+  }
+  useEffect(() => {
+    if (!settling) return;
+    const t = setTimeout(() => setSettling(false), SLIDE_MS + 50);
+    return () => clearTimeout(t);
+  }, [settling, open]);
+  const [pickedEquips, setEquips] = useState<ReadonlySet<string>>(new Set());
 
   // 整理：不按器材筛（整理态看不到器材格，筛着会让组缺一块，arrange-hidden-equip-filter）
-  const { results, equipCounts, axisAvailable, equipIds, customPartIds, merged, byId, deleted, noPart } =
-    useExercisePickerData({ query, axis, equips: arranging ? NO_EQUIPS : equips });
+  // equips＝还在器材格里的那几样（删掉的器材不再暗中筛人，C98）；blocked＝搜得到但被器材挡住的（C99）
+  const { searching, results, blocked, activeEquips: equips, equipCounts, axisAvailable, equipIds, customPartIds, merged, byId, deleted, noPart } =
+    useExercisePickerData({ query, axis, equips: arranging ? NO_EQUIPS : pickedEquips });
 
   // 行的小灰字「上次 宽握 80 kg×5 · 3 天前」：点这一行铺的底稿是哪一场，就写哪一场（rowLastSession）
   const { workouts: doneWorkouts } = useDoneWorkouts();
@@ -572,7 +589,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   }, [axis, arranging]);
 
   // ===== 排序：「全部」页的收藏 / 最近两组；各部位组内见 browseRank =====
-  const q = query.trim();
+  // 只按 hook 的口径算「在搜」：只打了撇号时归一化后是空的，不能把整库当搜索结果、还给出「创建「'」」（C104）
+  const q = searching ? query.trim() : '';
   const { starredGroup, recentGroup, flatGroup, rank } = useMemo(() => {
     const starScore = new Map<string, number>(Object.entries(starredExercises).map(([k, v]) => [k.toLowerCase(), Number(v ?? 0)]));
     const recentIdx = new Map<string, number>(recentExerciseNames.map((n, i) => [n.toLowerCase(), i]));
@@ -710,7 +728,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   // 普通态只列有动作的组；整理态细分空着也列（看得到才知道往哪归）
   const visible = groups.filter(g => g.items.length || (arranging && g.region));
   const showRail = !q && (arranging || visible.length > 1);
-  const totalCount = results.length;
+  const totalCount = visible.reduce((n, g) => n + g.items.length, 0);
 
   /**
    * 「新动作」按眼下停的那一栏预填：部位栏 → 这个部位，竖栏正停在某个细分组就带上那个细分；有氧 / 自由栏 → 那一类。
@@ -723,7 +741,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const g = !q ? visible[railOn] : undefined;
     return { bodyPart: axis.v, regions: g?.region ? [g.key] : undefined, equipment };
   };
-  const hasExactMatch = q.length > 0 && results.some(r => resolveName(r.ex.name[lang]).toLowerCase() === q.toLowerCase());
+  // 被器材挡住的同名动作也算「已有」，不然会再建一个同名的（C99）
+  const hasExactMatch = q.length > 0 && [...results, ...blocked].some(r => normalizeSearch(resolveName(r.ex.name[lang])) === normalizeSearch(q));
   const selectedEquipNames = equipIds.filter(id => equips.has(id.toLowerCase())).map(getTagName).filter(Boolean);
 
   // ===== 添加 =====
@@ -1120,10 +1139,10 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       {/* 弹层 */}
       <section
         ref={sheetRef}
-        className={`absolute inset-x-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-sheet shadow-elevated flex flex-col overflow-hidden transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-sheet shadow-elevated flex flex-col overflow-hidden transition-transform ease-out ${
           open ? 'translate-y-0' : 'translate-y-[103%]'
         }`}
-        style={{ bottom: inset, height: '90dvh', maxHeight: `max(300px, calc(100dvh - ${inset + 44}px))` }}
+        style={{ transitionDuration: `${SLIDE_MS}ms`, bottom: inset, height: '90dvh', maxHeight: `max(300px, calc(100dvh - ${inset + 44}px))` }}
         aria-label={isCn ? '添加动作' : 'Add exercise'}
         data-testid="picker-sheet"
       >
@@ -1150,12 +1169,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
         >
-          {/* 375 宽下这一行挤满（标题 · 已加 · 连带交替搭档 · 整理 · ×）：标题不让位；只有「加到 X ⇄ Y」长了才截断 */}
-          <h2
-            className={`font-display text-lg font-semibold text-primary whitespace-nowrap ${
-              targetLabel && !arranging ? 'min-w-0 truncate' : 'flex-shrink-0'
-            }`}
-          >
+          {/* 375 宽下这一行挤满（标题 · 已加 · 连带交替搭档 · 整理 · ×）。放不下时先压「连带交替搭档」，再截标题，× 永远留在屏内（C100：英文、放大字号） */}
+          <h2 className="min-w-0 truncate font-display text-lg font-semibold text-primary whitespace-nowrap">
             {arranging ? (isCn ? '整理' : 'Arrange') : targetLabel ? `${isCn ? '加到' : 'Add to'} ${targetLabel}` : isCn ? '添加动作' : 'Add exercise'}
           </h2>
           {/* 只写「✓ N」：完整的「已加 N」在底部「完成」上 */}
@@ -1174,7 +1189,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               type="button"
               aria-pressed={appPrefs.inheritAltGroup}
               onClick={() => changeAppPrefs({ inheritAltGroup: !appPrefs.inheritAltGroup })}
-              className={`flex-shrink-0 min-h-[32px] px-2.5 py-1 rounded-control text-micro font-bold whitespace-nowrap transition-colors ${
+              className={`min-w-0 shrink-[4] truncate min-h-[32px] px-2.5 py-1 rounded-control text-micro font-bold whitespace-nowrap transition-colors ${
                 appPrefs.inheritAltGroup ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'
               }`}
               data-testid="picker-inherit-alt"
@@ -1353,11 +1368,22 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               <div className="picker-none" data-testid="picker-arrange-clear">{isCn ? '没有待整理的动作' : 'Nothing to arrange'}</div>
             )}
 
-            {!arranging && totalCount === 0 && (
+            {totalCount === 0 && (!arranging || q) && !(q && blocked.length > 0) && (
               <div className="text-center pt-9 pb-2 text-small font-semibold text-secondary">
                 <Search size={32} className="mx-auto mb-2.5 text-tertiary" strokeWidth={1.5} />
                 {q ? (isCn ? '没有匹配的动作' : 'No matching exercises') : isCn ? '当前筛选下没有动作' : 'No exercises match the filters'}
               </div>
+            )}
+
+            {!arranging && q && blocked.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setEquips(new Set())}
+                className="w-full min-h-[46px] mt-3 rounded-card bg-btn text-secondary text-small font-semibold active:bg-card-hover transition-colors"
+                data-testid="picker-blocked-by-equip"
+              >
+                {isCn ? `另有 ${blocked.length} 个被器材筛选挡住 · 清除筛选` : `${blocked.length} more hidden by gear filter · Clear`}
+              </button>
             )}
 
             {!arranging && q && !hasExactMatch && (
@@ -1483,6 +1509,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
 
       {/* 从动作库进的做法：只管理（改名 / 删除 / 新建 / 细分与器材），不切换任何一张训练卡 */}
       <VariantModal open={!!variantFor} lang={lang} exerciseName={variantFor ?? ''} manage onSelect={() => {}} onClose={() => setVariantFor(null)} />
+      {settling && <div className="absolute inset-0 z-10 pointer-events-auto" data-testid="picker-settle" />}
     </div>
   );
 };

@@ -106,6 +106,16 @@ export function browseRank<T extends { id: string }>(
   return new Map(keyed.map((k, i) => [k.x.id, i]));
 }
 
+/**
+ * 器材筛选只认还在的器材（上架审查 C98）：正在筛的自建器材在整理里被删掉后，原来列表一直是空的、筛选也取消不了。
+ * 一个都没剔掉时原样返回（筛选记忆和跨开合保留不变，撤销删除后照旧生效）。
+ */
+export function liveEquips(equips: ReadonlySet<string>, equipIds: readonly string[]): ReadonlySet<string> {
+  const ids = new Set(equipIds.map(x => x.toLowerCase()));
+  const live = [...equips].filter(e => ids.has(e.toLowerCase()));
+  return live.length === equips.size ? equips : new Set(live);
+}
+
 function matchEquips(ex: ExerciseDefinition, equips: ReadonlySet<string>): boolean {
   if (equips.size === 0) return true;
   return equipmentsOf(ex).some(t => equips.has(t));
@@ -229,13 +239,22 @@ export function useExercisePickerData({
     (searching || matchAxis(ex, axis)) &&
     (!boardPart || (ex.category || 'STRENGTH') === 'STRENGTH' || (ex.warmParts ?? []).some(p => p.toLowerCase() === boardPart.toLowerCase()));
 
-  const results = useMemo(
-    () => scored.filter(r => inScope(r.ex) && matchEquips(r.ex, equips)),
-    [scored, axis, equips, searching, boardPart],
-  );
-
   /** 器材 chip 候选：内置器材 + 自建器材 */
   const equipIds = equipmentIds;
+  const activeEquips = useMemo(() => liveEquips(equips, equipIds), [equips, equipIds]);
+
+  const results = useMemo(
+    () => scored.filter(r => inScope(r.ex) && matchEquips(r.ex, activeEquips)),
+    [scored, axis, activeEquips, searching, boardPart],
+  );
+  /**
+   * 搜索时被器材筛选挡掉的（上架审查 C99）：原来逐字同名的动作被挡住时还给「创建」，照做被拒「已经有了」或建出重复的自建动作。
+   * 弹层据此写「另有 N 个被器材筛选挡住」并给清除筛选，判重也算上它们。
+   */
+  const blocked = useMemo(
+    () => (searching && activeEquips.size ? scored.filter(r => inScope(r.ex) && !matchEquips(r.ex, activeEquips)) : []),
+    [scored, axis, activeEquips, searching, boardPart],
+  );
 
   /** 部位轴候选：系统部位在组件侧引入（BODY_PARTS），这里只补自定义部位标签 */
   const customPartIds = useMemo(
@@ -265,16 +284,19 @@ export function useExercisePickerData({
   const axisAvailable = useMemo(() => {
     const avail = new Set<string>();
     for (const { ex } of scored) {
-      if (!matchEquips(ex, equips)) continue;
+      if (!matchEquips(ex, activeEquips)) continue;
       if (ex.bodyPart) avail.add('part:' + ex.bodyPart.toLowerCase());
       for (const p of ex.warmParts ?? []) avail.add('part:' + p.toLowerCase());
       avail.add('cat:' + (ex.category || 'STRENGTH'));
     }
     return avail;
-  }, [scored, equips]);
+  }, [scored, activeEquips]);
 
   return {
+    searching,
     results,
+    blocked,
+    activeEquips,
     equipCounts,
     axisAvailable,
     equipIds,
