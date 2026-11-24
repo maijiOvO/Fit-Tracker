@@ -194,32 +194,34 @@
 .stack-tagrow { display: flex; min-width: 0; padding: 8px 12px 6px; }
 .stack-tag {
   display: inline-flex; align-items: center; gap: 5px;
-  min-height: 30px; padding: 0 10px; border-radius: 999px;
+  min-height: 34px; padding: 0 12px; border-radius: 999px;
   border: 1px solid var(--divider); background: var(--bg-base);
   font-size: var(--fs-label); font-weight: 600; color: var(--text-secondary);
 }
 .stack-tag svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-/* 热区补到 44px，外观不变。横滚条会裁掉溢出的 ::after，所以 .stack-rigs 上下留 7px padding、再用负 margin 抵回 */
+/* 热区补到 44px，外观不变。横滚条会裁掉溢出的 ::after，所以 .stack-rigs 上下留 7px padding、再用负 margin 抵回。
+   药丸 34px 高、间隔 10px（2026-11-24，原来 30 / 6）：点偏到旁边那枚＝换了一种刻度、没做完的组全重新取整 */
 .stack-tag { position: relative; }
-.stack-tag::after { content: ''; position: absolute; inset: -7px 0; }
+.stack-tag::after { content: ''; position: absolute; inset: -5px 0; }
 /* 这件器材在这个馆存的几台（2026-11-10）：一排药丸，多了横滚；选中的那台铺淡主色、字重加粗 */
-.stack-rigs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-block: 7px; margin-block: -7px; }
+.stack-rigs { display: flex; gap: 10px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-block: 7px; margin-block: -7px; }
 .stack-rigs::-webkit-scrollbar { display: none; }
 .stack-rigs .stack-tag { flex-shrink: 0; white-space: nowrap; }
 .stack-tag.is-on { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); font-weight: 700; }
 .stack-tag.is-add { min-width: 44px; justify-content: center; }
-/* 这一组挂了几块加片（2026-11-24）：钉在药丸排右边，高度同药丸；− / ＋ 上写减 / 加多少，热区同样用 ::after 补到 44px */
-.stack-tagrow { gap: 8px; }
-.stack-tagrow .stack-rigs { flex: 1; }
-.stack-addn {
-  display: inline-flex; align-items: center; flex-shrink: 0;
-  min-height: 30px; border-radius: 999px; border: 1px solid var(--divider); background: var(--bg-base);
+/* 这一组挂了几块加片（2026-11-24）：图下面单独一行，两头各一颗 44px 高的键、中间写挂了几块和怎么凑的 */
+.load-addon { display: flex; align-items: center; gap: 10px; padding: 2px 12px 8px; }
+.load-addon p { flex: 1; min-width: 0; margin: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center; }
+.load-addon b { font-size: var(--fs-small); font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.load-addon small { font-size: var(--fs-label); line-height: 1.4; color: var(--text-secondary); }
+.load-addon button {
+  flex: none; min-width: 64px; min-height: 44px; padding: 0 12px;
+  border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--bg-btn);
+  font: 700 17px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary); font-variant-numeric: tabular-nums;
 }
-.stack-addn b { padding: 0 2px; font-size: var(--fs-label); font-weight: 700; color: var(--text-primary); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.stack-addn button { position: relative; min-width: 34px; min-height: 30px; padding: 0 8px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); font-variant-numeric: tabular-nums; }
-.stack-addn button::after { content: ''; position: absolute; inset: -7px -2px; }
-.stack-addn button:disabled { color: var(--text-tertiary); opacity: 0.45; }
-.stack-addn button:active:not(:disabled) { background: var(--bg-inset); border-radius: 999px; }
+.load-addon button:disabled { color: var(--text-tertiary); opacity: 0.45; }
+.load-addon button:active:not(:disabled) { background: var(--bg-inset); }
+.load-addon + .load-caption-row:empty { display: none; }
 /* 写在 .is-on 后面：选中的那台按下时也要有反馈 */
 .stack-tag:active { background: var(--bg-inset); }
 /* 版面上仍是上 4 下 6（padding 7 减去 margin） */

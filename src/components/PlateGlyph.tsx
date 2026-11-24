@@ -926,6 +926,7 @@ export function LoadHero({
   // 存的是一块一项、每块一样重（见 IncSpec.a）
   const addEach = ctx.addons?.[0] ?? 0;
   const addCount = ctx.addons?.length ?? 0;
+  const hasAddons = kind === 'pin' && addEach > 0;
   const hasMachine = !!machine && (kind === 'pin' || kind === 'loaded' || kind === 'pair' || kind === 'bell' || kind === 'fixed' || kind === 'signed');
   // 设置行一律在「动作设置」弹窗里（machine.slot），药丸只负责打开它
   const openFace = () => machine?.onOpen?.();
@@ -958,22 +959,6 @@ export function LoadHero({
               {pillText}
             </button>
           )}
-          {/*
-            这一组挂了几块加片（2026-11-24 用户定：一级界面要一眼看到当前挂了几块，改它和别的改重量的键一个样）：
-            − / ＋ 就是这一组的重量减 / 加一块（插销不动），写法同底部操作条的「−5 lbs / +5 lbs」。
-            一共有几块、每块多重在设置和馆档案里改。钉在药丸排右边，不跟着横滚。
-          */}
-          {kind === 'pin' && addEach > 0 && (
-            <span className="stack-addn" role="group" aria-label={isCn ? '这一组挂了几块加片' : 'Add-on plates on this set'} data-testid="hero-addon-count">
-              <button type="button" disabled={!onPick || !stack.add.length} aria-label={isCn ? `少挂一块加片，减 ${fmt2(addEach)} ${u}` : `One fewer add-on, −${fmt2(addEach)} ${u}`} onClick={() => onPick!(r2(v - addEach))} data-testid="hero-addon-dec">
-                −{fmt2(addEach)}
-              </button>
-              <b>{isCn ? `加片 ${stack.add.length}/${addCount}` : `Add-on ${stack.add.length}/${addCount}`}</b>
-              <button type="button" disabled={!onPick || stack.add.length >= addCount || !rounder.loadableD(r2(v + addEach))} aria-label={isCn ? `多挂一块加片，加 ${fmt2(addEach)} ${u}` : `One more add-on, +${fmt2(addEach)} ${u}`} onClick={() => onPick!(r2(v + addEach))} data-testid="hero-addon-inc">
-                +{fmt2(addEach)}
-              </button>
-            </span>
-          )}
         </div>
       )}
       {/* 合并入口：设置行渲染进「动作设置」弹窗的「在 X」一段（状态还在这张卡上，所以用 portal） */}
@@ -1000,6 +985,26 @@ export function LoadHero({
         {kind === 'fixed' && <FixedBarGlyph value={v} unit={unit} />}
         {kind === 'signed' && <SignedGlyph value={v} unit={unit} plateUnit={gu} belt={belt} />}
       </div>
+      {/*
+        这一组挂了几块加片（2026-11-24 用户定：一级界面要一眼看到当前挂了几块，改它和别的改重量的键一个样）：
+        − / ＋ 就是这一组的重量减 / 加一块（插销不动），写法同底部操作条的「−5 lbs / +5 lbs」。
+        单独占图下面一行、两头各一颗 44px 的键：原来钉在药丸排右边，挤掉药丸、键也小。
+        一共有几块、每块多重在设置和馆档案里改。
+      */}
+      {hasAddons && (
+        <div className="load-addon" role="group" aria-label={isCn ? '这一组挂了几块加片' : 'Add-on plates on this set'} data-testid="hero-addon-count">
+          <button type="button" disabled={!onPick || !stack.add.length} aria-label={isCn ? `少挂一块加片，减 ${fmt2(addEach)} ${u}` : `One fewer add-on, −${fmt2(addEach)} ${u}`} onClick={() => onPick!(r2(v - addEach))} data-testid="hero-addon-dec">
+            −{fmt2(addEach)}
+          </button>
+          <p>
+            <b>{isCn ? `加片 ${stack.add.length} / ${addCount} 块` : `Add-on ${stack.add.length} / ${addCount}`}</b>
+            <small data-testid="load-caption">{caption || (isCn ? `插销 ${fmt2(stack.pin)} ${u}` : `Pin ${fmt2(stack.pin)} ${u}`)}</small>
+          </p>
+          <button type="button" disabled={!onPick || stack.add.length >= addCount || !rounder.loadableD(r2(v + addEach))} aria-label={isCn ? `多挂一块加片，加 ${fmt2(addEach)} ${u}` : `One more add-on, +${fmt2(addEach)} ${u}`} onClick={() => onPick!(r2(v + addEach))} data-testid="hero-addon-inc">
+            +{fmt2(addEach)}
+          </button>
+        </div>
+      )}
       <div className="load-caption-row">
         {kind === 'plates' && (
           <button
@@ -1013,7 +1018,7 @@ export function LoadHero({
             {barTxt}
           </button>
         )}
-        {caption && <p className="load-caption" data-testid="load-caption">{caption}</p>}
+        {caption && !hasAddons && <p className="load-caption" data-testid="load-caption">{caption}</p>}
       </div>
       {near && onPick && (
         <div className="load-near" data-testid="load-near">

@@ -1706,13 +1706,13 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.waitForTimeout(150);
       const addDec = hero.locator('[data-testid="hero-addon-dec"]');
       const addInc = hero.locator('[data-testid="hero-addon-inc"]');
-      if (!/0\/1/.test(await addn.innerText()) || !(await addDec.isDisabled())) throw new Error(`on the pin grid: ${await addn.innerText()}`);
+      if (!/0 \/ 1/.test(await addn.innerText()) || !(await addDec.isDisabled())) throw new Error(`on the pin grid: ${await addn.innerText()}`);
       await addInc.click();
       await page.waitForTimeout(150);
-      if ((await wNow()) !== 11 || !/1\/1/.test(await addn.innerText()) || !(await addInc.isDisabled())) throw new Error(`add-on +1: ${await wNow()} / ${await addn.innerText()}`);
+      if ((await wNow()) !== 11 || !/1 \/ 1/.test(await addn.innerText()) || !(await addInc.isDisabled())) throw new Error(`add-on +1: ${await wNow()} / ${await addn.innerText()}`);
       await addDec.click();
       await page.waitForTimeout(150);
-      if ((await wNow()) !== 10 || !/0\/1/.test(await addn.innerText())) throw new Error(`add-on −1: ${await wNow()} / ${await addn.innerText()}`);
+      if ((await wNow()) !== 10 || !/0 \/ 1/.test(await addn.innerText())) throw new Error(`add-on −1: ${await wNow()} / ${await addn.innerText()}`);
       // 馆档案里存的形式点开就地改（立刻生效）：块数、单位；存之前的单位确认页上也列着它
       await page.locator('[data-testid="gym-button"]').click();
       await page.locator('[data-testid="gym-edit-0"]').click();
