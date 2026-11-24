@@ -157,6 +157,7 @@ async function pickStartGym(page, name = 'E2E Gym') {
   if (await form.isVisible().catch(() => false)) {
     await page.locator('[data-testid="gym-profile-name"]').fill(name);
     await page.locator('[data-testid="gym-profile-save"]').click();
+    await page.locator('[data-testid="gym-review-confirm"]').click();
     await form.waitFor({ state: 'detached', timeout: 3_000 });
   } else if (await picker.isVisible().catch(() => false)) {
     await picker.locator('[data-testid^="gym-option-"]').first().click();
@@ -1016,6 +1017,7 @@ const SEEDED = {
     await page.locator('[data-testid="gym-profile-name"]').fill(gymName);
     await form.getByRole('button', { name: /^公斤片$/ }).click();
     await page.locator('[data-testid="gym-profile-save"]').click();
+    await page.locator('[data-testid="gym-review-confirm"]').click();
     await form.waitFor({ state: 'detached', timeout: 3_000 });
     if ((await unitNow()) !== 'kg') throw new Error(`kg-plate gym should switch the unit to kg, got ${await unitNow()}`);
     if ((await readLs('fitlog_app_prefs'))?.gyms?.[gymName]?.plateUnit !== 'kg') throw new Error('profile not stored in appPrefs.gyms');
@@ -1046,6 +1048,18 @@ const SEEDED = {
     if ((await page.locator('[data-testid="gym-profile-name"]').inputValue()) !== gymName) throw new Error('editing an existing gym should prefill its name');
     await form.getByRole('button', { name: /^磅片$/ }).click();
     await page.locator('[data-testid="gym-profile-save"]').click();
+    // 存之前的单位确认页：某一档和片子单位不一样会标出来，一键改齐；确认了才真的存
+    const review = page.locator('[data-testid="gym-profile-review"]');
+    await review.waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await readLs('fitlog_app_prefs'))?.gyms?.[gymName]?.plateUnit !== 'kg') throw new Error('profile saved before the unit review was confirmed');
+    if (await review.locator('[data-testid="gym-review-align"]').count()) throw new Error('all steps follow the plates: nothing to align');
+    await review.locator('[data-testid="gym-review-unit-fixedBar-kg"]').click();
+    await review.locator('[data-testid="gym-review-align"]').click();
+    if (await review.locator('[data-testid="gym-review-align"]').count()) throw new Error('align should clear the mismatch');
+    await page.locator('[data-testid="gym-review-confirm"]').click();
+    await review.waitFor({ state: 'detached', timeout: 3_000 });
+    const savedGym = (await readLs('fitlog_app_prefs'))?.gyms?.[gymName];
+    if (savedGym?.fixedBar?.u !== 'lbs' || savedGym?.dumbbell?.u !== 'lbs') throw new Error(`units after review: ${JSON.stringify(savedGym)}`);
     await form.waitFor({ state: 'detached', timeout: 3_000 });
     await until(async () => (await unitNow()) === 'lbs' && (await weights()).slice(1).every(w => w === 130), 'the unit switch + re-round after saving lb plates').catch(() => {});
     const w2 = await weights();
@@ -1672,9 +1686,9 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await hero.locator('[data-testid="rig-chip"]').first().click();
       await page.waitForTimeout(150);
       if ((await chip.innerText()).trim() !== t1 || (await pick()) !== rig.id) throw new Error(`back to the machine: ${await chip.innerText()}`);
-      // 加片：每块多重在设置里填，有几块在大图上直接 − / ＋（没设加片时大图上没有这一枚）
+      // 加片：设置里填每块多重；大图上写着这一组挂了几块，− / ＋ 就是这一组减 / 加一块（没设加片时没有这一枚）
       const addn = hero.locator('[data-testid="hero-addon-count"]');
-      if (await addn.count()) throw new Error('add-on stepper should be hidden without add-ons');
+      if (await addn.count()) throw new Error('add-on control should be hidden without add-ons');
       await chip.click();
       const addIn = face.locator('[data-testid="stack-addon-scrub"] input');
       await addIn.fill('1');
@@ -1683,15 +1697,41 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.waitForTimeout(200);
       const stored = async () => Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'))[0][1][0].a;
       if (JSON.stringify(await stored()) !== '[1]') throw new Error(`add-on stored: ${JSON.stringify(await stored())}`);
-      if (!(await hero.locator('[data-testid="hero-addon-dec"]').isDisabled())) throw new Error('− should stop at one add-on');
-      await hero.locator('[data-testid="hero-addon-inc"]').click();
+      const wIn = page.locator('[data-testid="ledger-field-weight"] input').first();
+      const wNow = async () => Number(await wIn.inputValue());
+      await wIn.click();
+      await page.waitForTimeout(80);
+      await page.keyboard.type('10');
+      await page.keyboard.press('Enter');
       await page.waitForTimeout(150);
-      if (JSON.stringify(await stored()) !== '[1,1]' || !/×2/.test(await addn.innerText())) throw new Error(`add-on +1: ${JSON.stringify(await stored())} / ${await addn.innerText()}`);
-      await hero.locator('[data-testid="hero-addon-dec"]').click();
+      const addDec = hero.locator('[data-testid="hero-addon-dec"]');
+      const addInc = hero.locator('[data-testid="hero-addon-inc"]');
+      if (!/0\/1/.test(await addn.innerText()) || !(await addDec.isDisabled())) throw new Error(`on the pin grid: ${await addn.innerText()}`);
+      await addInc.click();
       await page.waitForTimeout(150);
-      if (JSON.stringify(await stored()) !== '[1]') throw new Error(`add-on −1: ${JSON.stringify(await stored())}`);
+      if ((await wNow()) !== 11 || !/1\/1/.test(await addn.innerText()) || !(await addInc.isDisabled())) throw new Error(`add-on +1: ${await wNow()} / ${await addn.innerText()}`);
+      await addDec.click();
+      await page.waitForTimeout(150);
+      if ((await wNow()) !== 10 || !/0\/1/.test(await addn.innerText())) throw new Error(`add-on −1: ${await wNow()} / ${await addn.innerText()}`);
+      // 馆档案里存的形式点开就地改（立刻生效）：块数、单位；存之前的单位确认页上也列着它
+      await page.locator('[data-testid="gym-button"]').click();
+      await page.locator('[data-testid="gym-edit-0"]').click();
+      const gform = page.locator('[data-testid="gym-profile-form"]');
+      await gform.locator('[data-testid="gym-rig-edit"]').first().click();
+      await gform.locator('[data-testid="gym-rig-addon-count"] button').nth(2).click();
+      await page.waitForTimeout(150);
+      if (JSON.stringify(await stored()) !== '[1,1,1]') throw new Error(`gym form add-on count: ${JSON.stringify(await stored())}`);
+      const rigNow = async () => Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'))[0][1][0];
+      await gform.locator('[data-testid="gym-rig-unit"] button').nth(u0 === 'kg' ? 0 : 1).click();
+      await page.waitForTimeout(150);
+      if ((await rigNow()).u !== u0) throw new Error(`gym form rig unit: ${JSON.stringify(await rigNow())}`);
+      await page.locator('[data-testid="gym-profile-save"]').click();
+      const rv = page.locator('[data-testid="gym-profile-review"]');
+      if (!(await rv.locator('[data-testid="gym-rig-edit"]').count())) throw new Error('unit review should list the saved stack formats');
+      await page.locator('[data-testid="gym-review-confirm"]').click();
+      await rv.waitFor({ state: 'detached', timeout: 3_000 });
       await backAndDiscard(page);
-      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored · add-on count from the hero`;
+      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored · add-on plates hung from the hero · stack format edited in the gym form`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

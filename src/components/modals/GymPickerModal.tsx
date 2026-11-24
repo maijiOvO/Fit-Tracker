@@ -20,7 +20,8 @@ import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { normalizeGym } from '../../utils/gyms';
-import { DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, distinctRigs, INC_CHOICES, rigsOf, rigsPatch, sameSpec, withPlateUnit, type GymProfile, type IncSpec } from '../../utils/loadable';
+import { ADDON_MAX, DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, distinctRigs, INC_CHOICES, RIG_STEPS, rigInUnit, rigsOf, rigsPatch, sameSpec, withPlateUnit, type GymProfile, type IncSpec, type Rig } from '../../utils/loadable';
+import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { rigLabel } from '../PlateGlyph';
 import { ScrubNumber, listStepFn } from '../ScrubNumber';
@@ -29,6 +30,7 @@ import { isStandardPlate, KG_PER_LB, plateSpec, PLATE_SPECS, type PlateUnit } fr
 import { GYM_INC_MAX, PLATE_MAX, RIG_NUM_MAX } from '../../utils/load';
 
 type IncKey = 'cable' | 'machine' | 'dumbbell' | 'kettlebell' | 'fixedBar';
+const INC_ROWS: IncKey[] = ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar'];
 /** 后加的档（旧档案没有这一项）按各自的默认 */
 const LATE_INC: Partial<Record<IncKey, Record<PlateUnit, IncSpec>>> = { kettlebell: DEFAULT_KETTLEBELL_INC, fixedBar: DEFAULT_FIXED_BAR_INC };
 
@@ -53,6 +55,8 @@ interface GymPickerModalProps {
 }
 
 const fmt = (n: number) => (Math.round(n * 100) / 100).toString();
+/** 单位和片子不一样的有几档（缺的档跟片子走，不算） */
+const mixedCount = (g: GymProfile) => INC_ROWS.filter(k => g[k] && g[k]!.u !== g.plateUnit).length;
 
 export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   open,
@@ -158,6 +162,12 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
                   {profiles[g].plateUnit === 'lbs' ? (isCn ? '磅片' : 'lb') : isCn ? '公斤片' : 'kg'}
                 </span>
               )}
+              {/* 11-04 前建的馆切了片子单位、各档还停在旧单位（那时不跟着换）：在列表上点出来，进编辑存一遍就能在确认页改齐 */}
+              {profiles[g] && mixedCount(profiles[g]) > 0 && (
+                <span className="text-micro text-warning flex-shrink-0" data-testid="gym-mixed-units">
+                  {isCn ? `${mixedCount(profiles[g])} 档是 ${profiles[g].plateUnit === 'lbs' ? 'kg' : 'lb'}` : `${mixedCount(profiles[g])} in ${profiles[g].plateUnit === 'lbs' ? 'kg' : 'lb'}`}
+                </span>
+              )}
               {i === 0 && options[0] === g && (
                 <span className="ml-auto text-label text-tertiary">
                   {translations.gymLastUsed[lang] as string}
@@ -200,42 +210,146 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
 /* ── 一个馆的档案：新建 / 编辑同一张表 ── */
 
 /**
- * 这个馆存的配重片形式（2026-11-18，loadable.rigListKey）：在动作卡上建和改，这里只管看和删 ——
+ * 这个馆存下来的刻度（gymRigs）：配重片形式（2026-11-18，loadable.rigListKey，全馆一份）和哑铃 / 壶铃 / 固定杠铃的「台」。
+ * 点一行展开就地改（2026-11-24 用户定：药丸上看得到的数这里都能改——最轻一格、每格 / 每档、单位、加片）；
  * 别的动作还在用的形式在动作卡上删不掉（那里只是「这个动作不用了」），要删到这里来。
- * 删了立刻生效（不跟着表单的「保存」）：用着它的动作回到馆默认。
+ * 改和删都立刻生效（不跟着表单的「保存」）：用着它的动作下次取整就按新的；删了的回到馆默认。
+ * 「台」带自己的单位、档案那几行管不到它，所以也列在这里（lb 馆里一台 kg 的固定杠铃只能在这儿看见）。
  */
-const StackForms: React.FC<{ gym: string; isCn: boolean }> = ({ gym, isCn }) => {
+const KIND_NAME: Record<string, { cn: string; en: string }> = {
+  '~pair': { cn: '哑铃', en: 'Dumbbells' },
+  '~bell': { cn: '壶铃', en: 'Kettlebells' },
+  '~fixed': { cn: '固定杠铃', en: 'Fixed barbells' },
+};
+const SavedRigs: React.FC<{ gym: string; isCn: boolean; plateUnit: PlateUnit }> = ({ gym, isCn, plateUnit }) => {
   const { appPrefs, changeAppPrefs } = useUserSettingsContext();
+  const { getTagName } = useExercisePrefs();
+  const [open, setOpen] = useState<string | null>(null);
   const pin = { kind: 'pin' as const };
-  const all = rigsOf(appPrefs.gymRigs, gym, pin, undefined);
-  const shown = distinctRigs(all, '');
-  if (!shown.length) return null;
-  const usedBy = (id: string) => Object.entries(appPrefs.gymRigPick).filter(([k, v]) => v === id && k.startsWith(`${gym}|`)).length;
+  const stacks = rigsOf(appPrefs.gymRigs, gym, pin, undefined);
+  const stackIds = new Set(stacks.map(r => r.id));
+  const pre = `${gym}|`;
+  // 配重片以外的台：馆|器材（没填器材的是 馆|~画法）。旧的配重片键里的台已经折进 stacks，按 id 滤掉
+  const others = Object.entries(appPrefs.gymRigs)
+    .filter(([k]) => k.startsWith(pre) && k !== `${gym}|~stack` && !k.slice(pre.length).includes('|'))
+    .map(([k, list]) => ({ key: k, eq: k.slice(pre.length), list: list.filter(r => !stackIds.has(r.id)) }))
+    .filter(g => g.list.length);
+  if (!stacks.length && !others.length) return null;
+  const usedBy = (id: string) => Object.entries(appPrefs.gymRigPick).filter(([k, v]) => v === id && k.startsWith(pre)).length;
+  const ul = (u: PlateUnit) => (u === 'kg' ? 'kg' : 'lb');
+  const presetFn = listStepFn(RIG_STEPS);
+  const segBtn = (on: boolean) => `min-h-[34px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
+  const unitSeg = (r: Rig, write: (patch: Partial<IncSpec>) => void) => (
+    <span className="gym-seg" role="group" data-testid="gym-rig-unit">
+      {(['kg', 'lbs'] as const).map(x => (
+        <button key={x} type="button" className={segBtn(r.u === x)} aria-pressed={r.u === x} onClick={() => r.u !== x && write(rigInUnit(r, x))}>
+          {ul(x)}
+        </button>
+      ))}
+    </span>
+  );
+  const num = (label: string, value: number | null, onCommit: (n: number | null) => void, u: PlateUnit, testId: string, opts: { allowEmpty?: boolean; placeholder?: string } = {}) => (
+    <div className="gym-row">
+      <span className="text-label text-secondary">{label}</span>
+      <div className="gym-inc-stepper">
+        <ScrubNumber value={value} onCommit={n => n !== value && onCommit(n)} min={0.1} max={RIG_NUM_MAX} stepFn={presetFn} steps={[1, 2, 3]} testId={testId} ariaLabel={label} {...opts} />
+        <small className="text-label text-tertiary">{ul(u)}</small>
+      </div>
+    </div>
+  );
+  const head = (r: Rig, label: string, n: number, onRemove: () => void) => (
+    <div className="gym-row">
+      <button type="button" className="flex-1 min-w-0 text-left text-small text-primary min-h-[44px]" aria-expanded={open === r.id} onClick={() => setOpen(open === r.id ? null : r.id)} data-testid="gym-rig-edit">
+        {label}
+        <small className={`block text-micro ${r.u !== plateUnit ? 'text-warning' : 'text-tertiary'}`}>
+          {isCn ? (n ? `${n} 个动作在用` : '没有动作在用') : n ? `${n} in use` : 'Unused'}
+          {r.u !== plateUnit && (isCn ? ' · 和片子的单位不一样' : ' · differs from the plates')}
+          {open !== r.id && (isCn ? ' · 点一下改' : ' · tap to edit')}
+        </small>
+      </button>
+      <button type="button" className="text-label font-semibold text-danger px-2 min-h-[44px]" onClick={onRemove} data-testid="gym-stack-form-remove">
+        {isCn ? '删掉' : 'Delete'}
+      </button>
+    </div>
+  );
+  const r2 = (n: number) => Math.round(n * 100) / 100;
   return (
-    <div className="gym-field" data-testid="gym-stack-forms">
-      <span className="text-label text-secondary">{isCn ? '存的配重片形式' : 'Saved stack formats'}</span>
-      {shown.map(r => {
-        // 刻度一样、没起名的几份在这里算一种：一起数、一起删
-        const twins = all.filter(x => x.id === r.id || (!x.n && !r.n && sameSpec(x, r)));
-        const n = twins.reduce((sum, x) => sum + usedBy(x.id), 0);
+    <>
+      {stacks.length > 0 && (
+        <div className="gym-field" data-testid="gym-stack-forms">
+          <span className="text-label text-secondary">{isCn ? '存的配重片形式' : 'Saved stack formats'}</span>
+          {distinctRigs(stacks, '').map(r => {
+            // 刻度一样、没起名的几份在这里算一种：一起数、一起改、一起删
+            const twins = stacks.filter(x => x.id === r.id || (!x.n && !r.n && sameSpec(x, r)));
+            const n = twins.reduce((sum, x) => sum + usedBy(x.id), 0);
+            const save = (list: Rig[]) => changeAppPrefs({ gymRigs: rigsPatch(appPrefs.gymRigs, gym, pin, list) });
+            // 显式给 undefined 的键（清掉最轻一格 / 加片）存之前去掉
+            const write = (patch: Partial<IncSpec>) =>
+              save(stacks.map(x => (twins.includes(x) ? (Object.fromEntries(Object.entries({ ...x, ...patch }).filter(([, v]) => v !== undefined)) as unknown as Rig) : x)));
+            const each = r.a?.[0] ?? 0;
+            const count = r.a?.length ?? 0;
+            const addons = (w: number, c: number) => write({ a: w > 0 && c > 0 ? Array.from({ length: c }, () => r2(w)) : undefined });
+            return (
+              <div key={r.id} className="gym-field">
+                {head(r, rigLabel(r, 'pin', isCn), n, () => save(stacks.filter(x => !twins.includes(x))))}
+                {open === r.id && (
+                  <div className="gym-field gym-rig-editor" data-testid="gym-rig-editor">
+                    <div className="gym-row">
+                      <span className="text-label text-secondary">{isCn ? '单位' : 'Unit'}</span>
+                      {unitSeg(r, write)}
+                    </div>
+                    {num(isCn ? '最轻一格' : 'Lightest', r.s && r.s > 0 ? r.s : r.v, v => v !== null && v > 0 && write({ s: r2(v) }), r.u, 'gym-rig-start')}
+                    {num(isCn ? '每格' : 'Step', r.v, v => v !== null && v > 0 && write({ v: r2(v), ...(r.s && r.s > 0 ? {} : { s: r.v }) }), r.u, 'gym-rig-step')}
+                    {num(isCn ? '加片每块' : 'Add-on plate', each || null, v => (v === null ? addons(0, 0) : addons(v, Math.max(1, count))), r.u, 'gym-rig-addon', { allowEmpty: true, placeholder: '—' })}
+                    {each > 0 && (
+                      <div className="gym-row">
+                        <span className="text-label text-secondary">{isCn ? '加片有几块' : 'How many'}</span>
+                        <span className="gym-seg" role="group" data-testid="gym-rig-addon-count">
+                          {Array.from({ length: ADDON_MAX }, (_, i) => i + 1).map(c => (
+                            <button key={c} type="button" className={segBtn(count === c)} aria-pressed={count === c} aria-label={isCn ? `${c} 块` : `${c} plates`} onClick={() => count !== c && addons(each, c)}>
+                              {c}
+                            </button>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {others.map(g => {
+        const write = (id: string, patch: Partial<IncSpec> | null) =>
+          changeAppPrefs({
+            gymRigs: {
+              ...appPrefs.gymRigs,
+              [g.key]: appPrefs.gymRigs[g.key].flatMap(x => (x.id !== id ? [x] : patch ? [{ id: x.id, ...(x.n ? { n: x.n } : {}), v: x.v, u: x.u, ...patch } as Rig] : [])),
+            },
+          });
+        const title = KIND_NAME[g.eq] ? (isCn ? KIND_NAME[g.eq].cn : KIND_NAME[g.eq].en) : getTagName(g.eq) || g.eq;
         return (
-          <div key={r.id} className="gym-row">
-            <span className="text-small text-primary">
-              {rigLabel(r, 'pin', isCn)}
-              <small className="block text-micro text-tertiary">{isCn ? (n ? `${n} 个动作在用` : '没有动作在用') : n ? `${n} in use` : 'Unused'}</small>
-            </span>
-            <button
-              type="button"
-              className="text-label font-semibold text-danger px-2 min-h-[44px]"
-              onClick={() => changeAppPrefs({ gymRigs: rigsPatch(appPrefs.gymRigs, gym, pin, all.filter(x => !twins.includes(x))) })}
-              data-testid="gym-stack-form-remove"
-            >
-              {isCn ? '删掉' : 'Delete'}
-            </button>
+          <div key={g.key} className="gym-field" data-testid="gym-other-rigs">
+            <span className="text-label text-secondary">{isCn ? `存的「${title}」` : `Saved: ${title}`}</span>
+            {g.list.map(r => (
+              <div key={r.id} className="gym-field">
+                {head(r, r.n || `${isCn ? '每档' : 'Step'} ${r2(r.v)} ${ul(r.u)}`, usedBy(r.id), () => write(r.id, null))}
+                {open === r.id && (
+                  <div className="gym-field gym-rig-editor" data-testid="gym-rig-editor">
+                    <div className="gym-row">
+                      <span className="text-label text-secondary">{isCn ? '单位' : 'Unit'}</span>
+                      {unitSeg(r, patch => write(r.id, { v: patch.v, u: patch.u }))}
+                    </div>
+                    {num(isCn ? '每档' : 'Step', r.v, v => v !== null && v > 0 && write(r.id, { v: r2(v) }), r.u, 'gym-rig-step')}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         );
       })}
-    </div>
+    </>
   );
 };
 
@@ -267,6 +381,8 @@ function GymProfileForm({
   const [p, setP] = useState<GymProfile>(() => JSON.parse(JSON.stringify(initial)));
   const [nm, setNm] = useState(name);
   const [err, setErr] = useState('');
+  /** 点了「存好」：先过一遍单位确认页（2026-11-24 用户定），那里确认了才真的存 */
+  const [review, setReview] = useState(false);
 
   const setUnit = (u: PlateUnit) => {
     if (p.plateUnit === u) return;
@@ -344,8 +460,11 @@ function GymProfileForm({
       );
       return;
     }
-    onSave(n, p);
+    setReview(true);
   };
+  /** 单位和片子不一样的档。可以是有意的（kg 馆里一台 lb 的龙门架），所以只标出来、不拦 */
+  const offKeys = INC_ROWS.filter(k => incOf(k).u !== p.plateUnit);
+  const unitName = (u: PlateUnit) => (u === 'kg' ? 'kg' : 'lb');
 
   const seg = (on: boolean) =>
     `min-h-[34px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
@@ -396,6 +515,69 @@ function GymProfileForm({
       {hint && <span className="text-micro text-tertiary">{hint}</span>}
     </div>
   );
+
+  if (review) {
+    const rowLabel: Record<IncKey, string> = isCn
+      ? { cable: '龙门架', machine: '固定器械', dumbbell: '哑铃', kettlebell: '壶铃', fixedBar: '固定杠铃' }
+      : { cable: 'Cable machine', machine: 'Machines', dumbbell: 'Dumbbells', kettlebell: 'Kettlebells', fixedBar: 'Fixed barbells' };
+    const unitSeg = (u: PlateUnit, set: (x: PlateUnit) => void, testId: string) => (
+      <span className="gym-seg" role="group" data-testid={testId}>
+        {(['kg', 'lbs'] as const).map(x => (
+          <button key={x} type="button" className={seg(u === x)} aria-pressed={u === x} onClick={() => set(x)} data-testid={`${testId}-${x}`}>
+            {unitName(x)}
+          </button>
+        ))}
+      </span>
+    );
+    return (
+      <div className="gym-form" data-testid="gym-profile-review">
+        <p className="text-small text-primary font-semibold">{isCn ? `存之前核一遍「${normalizeGym(nm)}」每类器材的单位` : `Check the unit of each kind of equipment at ${normalizeGym(nm)}`}</p>
+        <p className="text-micro text-tertiary">
+          {isCn ? '动作卡上的数、± 一档都按这里的单位走。改单位会把那一档换成该单位的常见值。' : 'Cards and steps follow these units. Switching a unit resets that step to the common value.'}
+        </p>
+        <div className="gym-row">
+          <span className="text-label text-secondary">
+            {isCn ? '杠铃片' : 'Plates'}
+            <small className="block text-micro text-tertiary">{p.plates.map(fmt).join(' · ')}</small>
+          </span>
+          {unitSeg(p.plateUnit, setUnit, 'gym-review-plates')}
+        </div>
+        {INC_ROWS.map(k => {
+          const c = incOf(k);
+          const off = c.u !== p.plateUnit;
+          return (
+            <div key={k} className="gym-row" data-testid={`gym-review-${k}`}>
+              <span className="text-label text-secondary">
+                {rowLabel[k]}
+                <small className={`block text-micro ${off ? 'text-warning' : 'text-tertiary'}`}>
+                  {isCn ? `一档 ${fmt(c.v)} ${unitName(c.u)}` : `Step ${fmt(c.v)} ${unitName(c.u)}`}
+                  {off && (isCn ? ' · 和片子的单位不一样' : ' · differs from the plates')}
+                </small>
+              </span>
+              {unitSeg(c.u, u => setIncUnit(k, u), `gym-review-unit-${k}`)}
+            </div>
+          );
+        })}
+        {offKeys.length > 0 && (
+          <button
+            type="button"
+            className="w-full min-h-[44px] text-label font-semibold text-accent"
+            onClick={() => setP(offKeys.reduce<GymProfile>((q, k) => ({ ...q, [k]: defaultProfile(p.plateUnit)[k] ?? LATE_INC[k]![p.plateUnit] }), p))}
+            data-testid="gym-review-align"
+          >
+            {isCn ? `这 ${offKeys.length} 档都改成 ${unitName(p.plateUnit)}` : `Switch these ${offKeys.length} to ${unitName(p.plateUnit)}`}
+          </button>
+        )}
+        {name && <SavedRigs gym={name} isCn={isCn} plateUnit={p.plateUnit} />}
+        <button type="button" className="ui-btn-primary w-full min-h-[48px] mt-2" onClick={() => onSave(normalizeGym(nm), p)} data-testid="gym-review-confirm">
+          {name ? (isCn ? '没问题，存好' : 'Looks right, save') : starting ? (isCn ? '没问题，开练' : 'Looks right, start') : isCn ? '没问题，用这个馆' : 'Looks right, use it'}
+        </button>
+        <button type="button" className="w-full min-h-[44px] text-label text-secondary" onClick={() => setReview(false)} data-testid="gym-review-back">
+          {isCn ? '← 回去接着改' : '← Keep editing'}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="gym-form" data-testid="gym-profile-form">
@@ -504,7 +686,7 @@ function GymProfileForm({
       </div>
       {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
       {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '别的刻度在动作卡上存成一种配重片形式，全馆的插销器械都能选' : 'Save other formats on an exercise card; every pin-loaded exercise here can pick them')}
-      {name && <StackForms gym={name} isCn={isCn} />}
+      {name && <SavedRigs gym={name} isCn={isCn} plateUnit={p.plateUnit} />}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}
       {inc('fixedBar', isCn ? '固定杠铃一档' : 'Fixed barbell step')}

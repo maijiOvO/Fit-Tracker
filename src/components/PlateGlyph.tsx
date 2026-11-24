@@ -27,7 +27,7 @@ import {
 } from '../utils/plates';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { ADDON_MAX, RIG_STEPS, baseOf, sidePlates, splitStack, type Rig } from '../utils/loadable';
+import { ADDON_MAX, RIG_STEPS, baseOf, r2, sidePlates, splitStack, type Rig } from '../utils/loadable';
 import { ScrubNumber, listStepFn } from './ScrubNumber';
 import { STACK_PITCH } from '../utils/scrubFeel';
 import { RIG_NUM_MAX, SHORT_BAR_MAX, loadCapD } from '../utils/load';
@@ -958,12 +958,20 @@ export function LoadHero({
               {pillText}
             </button>
           )}
-          {/* 加片有几块在一级界面直接改（2026-11-24 用户定）：每块多重还在设置里；钉在药丸排右边，不跟着横滚 */}
-          {kind === 'pin' && machine?.onAddons && addEach > 0 && (
-            <span className="stack-addn" role="group" aria-label={isCn ? '加片有几块' : 'Add-on plates'} data-testid="hero-addon-count">
-              <button type="button" disabled={addCount <= 1} aria-label={isCn ? '加片少一块' : 'One fewer add-on'} onClick={() => machine.onAddons!(addEach, addCount - 1)} data-testid="hero-addon-dec">−</button>
-              <b>{isCn ? `加片×${addCount}` : `Add×${addCount}`}</b>
-              <button type="button" disabled={addCount >= ADDON_MAX} aria-label={isCn ? '加片多一块' : 'One more add-on'} onClick={() => machine.onAddons!(addEach, addCount + 1)} data-testid="hero-addon-inc">＋</button>
+          {/*
+            这一组挂了几块加片（2026-11-24 用户定：一级界面要一眼看到当前挂了几块，改它和别的改重量的键一个样）：
+            − / ＋ 就是这一组的重量减 / 加一块（插销不动），写法同底部操作条的「−5 lbs / +5 lbs」。
+            一共有几块、每块多重在设置和馆档案里改。钉在药丸排右边，不跟着横滚。
+          */}
+          {kind === 'pin' && addEach > 0 && (
+            <span className="stack-addn" role="group" aria-label={isCn ? '这一组挂了几块加片' : 'Add-on plates on this set'} data-testid="hero-addon-count">
+              <button type="button" disabled={!onPick || !stack.add.length} aria-label={isCn ? `少挂一块加片，减 ${fmt2(addEach)} ${u}` : `One fewer add-on, −${fmt2(addEach)} ${u}`} onClick={() => onPick!(r2(v - addEach))} data-testid="hero-addon-dec">
+                −{fmt2(addEach)}
+              </button>
+              <b>{isCn ? `加片 ${stack.add.length}/${addCount}` : `Add-on ${stack.add.length}/${addCount}`}</b>
+              <button type="button" disabled={!onPick || stack.add.length >= addCount || !rounder.loadableD(r2(v + addEach))} aria-label={isCn ? `多挂一块加片，加 ${fmt2(addEach)} ${u}` : `One more add-on, +${fmt2(addEach)} ${u}`} onClick={() => onPick!(r2(v + addEach))} data-testid="hero-addon-inc">
+                +{fmt2(addEach)}
+              </button>
             </span>
           )}
         </div>

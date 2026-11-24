@@ -69,6 +69,9 @@
 .gym-field { display: flex; flex-direction: column; gap: 6px; }
 .gym-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .gym-row .gym-inc-stepper { margin: 0; }
+/* 馆档案里就地改一种存下来的刻度（2026-11-24）：缩进一条竖线；数字会有两位小数（换单位换出来的 2.25），ScrubNumber 默认只留一位的宽度 */
+.gym-rig-editor { padding-left: 12px; border-left: 1px solid var(--divider); }
+.gym-rig-editor .scrub-num input { width: 5ch !important; text-align: right; }
 .gym-seg {
   display: inline-flex;
   align-self: flex-start;
@@ -205,17 +208,17 @@
 .stack-rigs .stack-tag { flex-shrink: 0; white-space: nowrap; }
 .stack-tag.is-on { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); font-weight: 700; }
 .stack-tag.is-add { min-width: 44px; justify-content: center; }
-/* 加片块数（2026-11-24）：钉在药丸排右边，高度同药丸；− / ＋ 的热区同样用 ::after 补到 44px */
+/* 这一组挂了几块加片（2026-11-24）：钉在药丸排右边，高度同药丸；− / ＋ 上写减 / 加多少，热区同样用 ::after 补到 44px */
 .stack-tagrow { gap: 8px; }
 .stack-tagrow .stack-rigs { flex: 1; }
 .stack-addn {
   display: inline-flex; align-items: center; flex-shrink: 0;
   min-height: 30px; border-radius: 999px; border: 1px solid var(--divider); background: var(--bg-base);
 }
-.stack-addn b { font-size: var(--fs-label); font-weight: 700; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.stack-addn button { position: relative; width: 30px; min-height: 30px; font-size: var(--fs-body); color: var(--text-secondary); }
-.stack-addn button::after { content: ''; position: absolute; inset: -7px -7px; }
-.stack-addn button:disabled { opacity: 0.3; }
+.stack-addn b { padding: 0 2px; font-size: var(--fs-label); font-weight: 700; color: var(--text-primary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stack-addn button { position: relative; min-width: 34px; min-height: 30px; padding: 0 8px; font-size: var(--fs-label); font-weight: 700; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.stack-addn button::after { content: ''; position: absolute; inset: -7px -2px; }
+.stack-addn button:disabled { color: var(--text-tertiary); opacity: 0.45; }
 .stack-addn button:active:not(:disabled) { background: var(--bg-inset); border-radius: 999px; }
 /* 写在 .is-on 后面：选中的那台按下时也要有反馈 */
 .stack-tag:active { background: var(--bg-inset); }

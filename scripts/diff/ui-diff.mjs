@@ -146,7 +146,7 @@ async function run(browser, base, tag) {
     const picker = page.locator('[data-testid="gym-picker"]');
     const form = page.locator('[data-testid="gym-profile-form"]');
     await ready.or(picker).or(form).first().waitFor({ timeout: 5_000 });
-    if (await form.isVisible().catch(() => false)) { await page.locator('[data-testid="gym-profile-name"]').fill('对照馆'); await page.locator('[data-testid="gym-profile-save"]').click(); await form.waitFor({ state: 'detached', timeout: 3_000 }); }
+    if (await form.isVisible().catch(() => false)) { await page.locator('[data-testid="gym-profile-name"]').fill('对照馆'); await page.locator('[data-testid="gym-profile-save"]').click(); await page.locator('[data-testid="gym-review-confirm"]').click(); await form.waitFor({ state: 'detached', timeout: 3_000 }); }
     else if (await picker.isVisible().catch(() => false)) await picker.locator('[data-testid^="gym-option-"]').first().click();
     await picker.waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
     await ready.first().waitFor({ timeout: 5_000 });
