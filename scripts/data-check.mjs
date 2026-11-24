@@ -93,7 +93,7 @@ async function bundle(env, file) {
       "export { db } from './services/db';",
       "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
-      "export { resumeGymRenames, renameGymRows, markGymRename } from './services/gymRename.ts';",
+      "export { resumeGymRenames, renameGymRows, markGymRename, unmarkGymRename } from './services/gymRename.ts';",
       "export { readAppPrefs, writeAppPrefs } from './services/appPrefs.ts';",
     ].join('\n'),
     resolveDir: ROOT,
@@ -1326,6 +1326,20 @@ await t('馆改名写库：整批写失败一场都不改、标记留着下次�
   }
   assert.deepEqual(rows.map(w => w.id).sort(), ['a1', 'a2']);
   assert.equal((await gymsOf()).get('live'), 'A');
+});
+
+await t('馆连着改名、前一次写库失败：A→B 标记还挂着时改 B→C，库里还叫 A 的也改成 C，两条标记一起摘；后来又改的 C→A 不被顺手摘', async () => {
+  const profile = D.defaultProfile('kg');
+  D.writeAppPrefs({ gyms: { A: '', B: '', C: profile } }, 1);
+  D.storage.setItem(RENAME_KEY, JSON.stringify([{ from: 'A', to: 'B', profile }, { from: 'B', to: 'C', profile }, { from: 'C', to: 'A', profile }]));
+  for (const [id, gym] of [['a1', 'A'], ['b1', 'B'], ['x1', 'X']]) await D.db.save('workouts', gymRow(id, gym));
+  assert.equal(await D.renameGymRows('B', 'C'), 2);
+  D.unmarkGymRename({ from: 'B', to: 'C' });
+  assert.deepEqual([...(await gymsOf())].sort(), [['a1', 'C'], ['b1', 'C'], ['x1', 'X']]);
+  assert.deepEqual(
+    JSON.parse(D.storage.getItem(RENAME_KEY)).map(m => `${m.from}→${m.to}`),
+    ['C→A'],
+  );
 });
 
 console.log(`\ndata-check: ${n} passed`);

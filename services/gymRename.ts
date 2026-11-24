@@ -43,27 +43,48 @@ export function markGymRename(m: GymRename): void {
   writeMarks([...readMarks(), m]);
 }
 
-/** 这一条的训练写完了：摘掉（只摘最早那条同名的） */
+/**
+ * from→to 这条（最早那条同名的）连同排在它前面、还挂着的前序改名：A→B 写库失败、标记留着时又改 B→C，
+ * 库里那些还叫 A 的训练也得一起改成 C；不然 B→C 摘掉后，下次续 A→B 只会把它们改到已是墓碑的 B 上，再没人改成 C。
+ * 只看排在前面的标记：后来又改回 A 再改名的那条，它的训练还没写，不能被这条顺手摘掉。
+ */
+function lineage(list: GymRename[], m: Pick<GymRename, 'from' | 'to'>): { names: Set<string>; drop: Set<number> } {
+  const at = list.findIndex(x => x.from === m.from && x.to === m.to);
+  const names = new Set([m.from]);
+  const drop = new Set<number>(at < 0 ? [] : [at]);
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (let i = 0; i < at; i++) {
+      if (drop.has(i) || !names.has(list[i].to)) continue;
+      names.add(list[i].from);
+      drop.add(i);
+      grew = true;
+    }
+  }
+  return { names, drop };
+}
+
+/** 这一条的训练写完了：连同它的前序改名一起摘掉 */
 export function unmarkGymRename(m: Pick<GymRename, 'from' | 'to'>): void {
   const list = readMarks();
-  const at = list.findIndex(x => x.from === m.from && x.to === m.to);
-  if (at < 0) return;
-  list.splice(at, 1);
-  writeMarks(list);
+  const { drop } = lineage(list, m);
+  if (!drop.size) return;
+  writeMarks(list.filter((_, i) => !drop.has(i)));
 }
 
 /** 几次改名串成一条链，按顺序写：前一次还没提交，后一次读库就读不到它改的 */
 let chain: Promise<unknown> = Promise.resolve();
 
 /**
- * 把库里还叫 from 的训练整批改成 to（一个事务），返回写了几场。读库里的，不用 React 状态里的副本。
+ * 把库里还叫 from（或它还挂着的前序旧名，见 lineage）的训练整批改成 to（一个事务），返回写了几场。读库里的，不用 React 状态里的副本。
  * skipId：工作台上进行中的那一场，由 switchGym 改名、随落盘写（审查 A3：不能拿库里的旧副本顶掉它）。
  */
 export function renameGymRows(from: string, to: string, skipId?: string): Promise<number> {
   const run = chain.then(async () => {
+    const { names } = lineage(readMarks(), { from, to });
     const stamp = new Date().toISOString();
     const rows = (await db.getAll<WorkoutSession>('workouts'))
-      .filter(w => w.gym === from && w.id !== skipId)
+      .filter(w => !!w.gym && names.has(w.gym) && w.id !== skipId)
       .map(w => ({ ...w, gym: to, updatedAt: stamp }));
     if (rows.length) await db.saveMany('workouts', rows);
     return rows.length;
