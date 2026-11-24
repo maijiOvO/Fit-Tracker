@@ -289,6 +289,7 @@ const MAIN_STEPS = [
   // 全局撤销 / 重做（services/undoJournal.ts）：一下一步，撤销结束训练回到工作台
   ['global-undo', ['cold-load'], H],
   // 配重片刻度轨：只有轨能竖拖、一档一片；重量再大插销也画得出来
+  ['add-exercise-after-finish', ['cold-load'], H],
   ['weight-stack-rail', ['cold-load'], H],
   // 同馆存几台器械：卡片上一点就切、刻度跟着换；预设格点一下填进选中的那一行
   ['rig-switch', ['cold-load'], H],
@@ -1616,6 +1617,36 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if ((await page.locator('.ledger-row.is-inked').count()) !== 1) throw new Error(`undo finish: ${await state()}`);
       await backAndDiscard(page);
       return `${seen.join(' → ')} · redo ×3 · undo finish → back on the bench`;
+    });
+
+    // 同一次运行里练完再「补记动作」（上架审查 C22）：弹层自动打开时要复位上一次的点选记录。
+    // 原来点本场已有的 ×1 行会走「取消」分支，静默删掉已记录的那张卡
+    await s('add-exercise-after-finish', async () => {
+      await toDashboard();
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
+      await page.locator('[data-testid="open-picker-sheet"]').click();
+      const sheet = page.locator('[data-testid="picker-sheet"]');
+      await sheet.locator('input[type="text"]').fill('高位下拉');
+      await sheet.locator('[data-testid="picker-sheet-exercise"]').first().click();
+      await page.locator('[data-testid="picker-sheet-close"]').click();
+      const wIn = page.locator('[data-testid="ledger-field-weight"] input').first();
+      await wIn.click();
+      await page.waitForTimeout(80);
+      await page.keyboard.type('40');
+      await page.keyboard.press('Enter');
+      await endWorkout(page);
+      await dismissColophon(page);
+      const latest = page.locator('[data-testid^="timeline-session-"]:not([data-testid="timeline-session-menu"])').first();
+      await sessionMenu(page, latest, /^(补记动作|Add exercise)$/);
+      await sheet.waitFor({ state: 'visible', timeout: 5_000 });
+      await sheet.locator('input[type="text"]').fill('高位下拉');
+      await sheet.locator('[data-testid="picker-sheet-exercise"]').first().click();
+      // 点本场已有的那一行＝关弹层、跳到那张卡；卡还在
+      await until(async () => (await page.locator('[data-testid="ledger-field-weight"] input').count()) > 0, 'the recorded card to stay');
+      if ((await page.locator('[data-testid="ledger-field-weight"] input').first().inputValue()) !== '40') throw new Error('the recorded set changed after tapping its row in the picker');
+      await backAndDiscard(page);
+      return 'tapping the existing row kept the recorded card';
     });
 
     // 配重片（PinStackGlyph）：只有右侧刻度轨能竖拖改重量，图上别处拖不改（2026-10-25，原来正中一条 pan-x 被翻页误触）；

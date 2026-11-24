@@ -52,6 +52,12 @@ export interface ExerciseSearchEntry {
   enInitials: string[];
 }
 
+/**
+ * 查询和索引两侧都先过这一道（上架审查 C104）：NFKC（全角字母数字 → 半角）、小写、去掉撇号。
+ * 原来全角输入（全角模式、粘贴）一律「没有匹配的动作」；输入法组字途中把「wo'tui」写进输入框也搜不到；Farmer's 要打撇号才中。
+ */
+export const normalizeSearch = (s: string): string => s.normalize('NFKC').toLowerCase().replace(/['’‘＇`]/g, '');
+
 /** 搜索里不算数的分隔：空格、连字符、间隔号、下划线 */
 const flatSearch = (s: string) => s.toLowerCase().replace(/[\s\-‐–—·・_]/g, '');
 
@@ -91,23 +97,24 @@ function pinyinOf(text: string): { py: string; pyi: string } {
   return out;
 }
 
-export function buildSearchEntry(nameCn: string, nameEn: string, tagNames: string[]): ExerciseSearchEntry {
-  const { py, pyi } = pinyinOf(nameCn || '');
+export function buildSearchEntry(nameCnRaw: string, nameEnRaw: string, tagNames: string[]): ExerciseSearchEntry {
+  const nameCn = normalizeSearch(nameCnRaw || '');
+  const { py, pyi } = pinyinOf(nameCn);
   const tagCandidates: string[] = [];
-  for (const t of tagNames) {
-    if (!t) continue;
-    const lower = t.toLowerCase();
-    tagCandidates.push(lower);
+  for (const raw of tagNames) {
+    if (!raw) continue;
+    const t = normalizeSearch(raw);
+    tagCandidates.push(t);
     const tp = pinyinOf(t);
-    if (tp.py && tp.py !== lower) tagCandidates.push(tp.py);
-    if (tp.pyi && tp.pyi !== lower) tagCandidates.push(tp.pyi);
+    if (tp.py && tp.py !== t) tagCandidates.push(tp.py);
+    if (tp.pyi && tp.pyi !== t) tagCandidates.push(tp.pyi);
   }
-  const en = (nameEn || '').toLowerCase();
+  const en = normalizeSearch(nameEnRaw || '');
   const words = en.split(/[\s\-‐–—·・_/()]+/).filter(Boolean);
   const initials = words.map(w => w[0]).join('');
   const abbrs = Object.entries(ABBR).filter(([, full]) => en.includes(full)).map(([a]) => a);
   return {
-    cn: (nameCn || '').toLowerCase(),
+    cn: nameCn,
     en,
     py,
     pyi,
@@ -129,7 +136,7 @@ function isSubsequence(needle: string, hay: string): boolean {
 }
 
 export function tokenize(query: string): string[] {
-  return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return normalizeSearch(query).trim().split(/\s+/).filter(Boolean);
 }
 
 function scoreToken(entry: ExerciseSearchEntry, tok: string): number {

@@ -964,6 +964,14 @@ t('搜索：拼音字典载入后全拼 / 首字母 / 标签拼音都命中（�
   assert.ok(hit('xiongbu', ['胸部']));
 });
 
+t('搜索归一化（上架审查 C104）：全角字母、带撇号的拼音组字、英文撇号都能命中', () => {
+  const hit = (q, cn = '杠铃卧推', en = 'Bench Press', tags = []) => L.S.scoreEntry(L.S.buildSearchEntry(cn, en, tags), L.S.tokenize(q)) > 0;
+  for (const q of ["wo'tui", 'ｗｏｔｕｉ', 'ＷＴ', 'ｂｅｎｃｈ', 'gang’ling']) assert.ok(hit(q), q);
+  assert.ok(hit("xiong'bu", '杠铃卧推', 'Bench Press', ['胸部']));
+  for (const q of ["farmer's", 'farmers', 'fw']) assert.ok(hit(q, '农夫行走', "Farmer's Walk"), q);
+  assert.ok(hit('rdl', 'ＲＤＬ', ''), '全角自建名');
+});
+
 // ── 分部位浏览的组内顺序（审查 C2）─────────────────────────────────
 t('浏览排序：收藏（星多在前）→ 练过的按上次练的时间倒序 → 没练过的照库序', () => {
   const items = ['a', 'b', 'c', 'd', 'e', 'f'].map(id => ({ id }));

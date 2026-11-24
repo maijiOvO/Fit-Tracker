@@ -485,6 +485,10 @@ const AppWithAuthShell: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'new' && pendingScrollToPicker) {
       const timer = setTimeout(() => {
+        // 打开就要复位这次的点选记录和交替组目标，同 handlePickerSheetOpenChange（上架审查 C22）：不复位的话，
+        // 结束后「补记动作」带着上一次的点选记录，点本场已有的 ×1 行会走「取消」分支、把已记录的那张卡删掉
+        sheetPicksRef.current = new Map();
+        setPickerTargetGroup(null);
         setSheetSessionAdded(0);
         lastAddedExerciseIdRef.current = null;
         // FAB 印谱那条路留下部位；「补加动作」等其他入口没有 → 退回这一场开练时选的部位
@@ -983,7 +987,8 @@ const AppWithAuthShell: React.FC = () => {
       target(ex);
       return;
     }
-    const newId = addExerciseToWorkout(ex);
+    // 从交替组「加一个动作」弹层里新建 / 按名恢复的，照样进这个组（上架审查 C101）；弹层关着时 pickerTargetGroup 可能是上一次的残留
+    const newId = addExerciseToWorkout(ex, { altGroup: pickerSheetOpen ? pickerTargetGroup : null });
     if (pickerSheetOpen) {
       lastAddedExerciseIdRef.current = newId;
       setSheetSessionAdded(n => n + 1);
