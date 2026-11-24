@@ -5,12 +5,14 @@
  *   1. 内容只走 buildBackupFile() —— 和手动导出同一份完整快照，不在这里挑字段
  *      （以前手工列字段漏了 prs / scheduledWorkouts，恢复后训练计划没了）。
  *   2. 「备份成功」= 写完读回来、解析、逐项条数和 exportedAt 都对上。写出去不等于写成了。
- *   3. 永远新建文件、核对通过之后才清理旧的；本地没有训练时不自动备份也不清理 ——
- *      重装后还没恢复那段时间，空快照不能把好备份挤掉。
+ *   3. 永远新建文件、核对通过之后才清理旧的；没有任何用户数据时不写；旧文件只在内容已被新备份覆盖时才删 ——
+ *      重装后没恢复、恢复了较旧的一份、时钟跳过，文件名里的时间都会骗人，只有内容不会（上架审查 C11 / gap-1）。
  *
  * 文件夹和状态存在本机 storage（按数据环境分区），**不进同步快照**：这是这台手机的设置。
  */
-import { buildBackupFile, parseBackupFile, type FitlogBackupFile } from './fitlogBackup';
+import { buildBackupFile, hasUserData, parseBackupFile, type FitlogBackupFile } from './fitlogBackup';
+import { collectLocalSnapshot } from './fitlogRemote';
+import type { FitlogRemoteSnapshot, FitlogTombstones } from './fitlogSnapshotTypes';
 import {
   FolderError,
   deleteFile,
@@ -25,6 +27,7 @@ import {
 import { parseJsonOr, storage } from './appStorage';
 import { getDataEnv } from './appEnv';
 import { pad2 } from '../src/utils/format';
+import { fnv1a } from '../src/utils/hash';
 
 const FOLDER_KEY = 'fitlog_backup_folder';
 const STATUS_KEY = 'fitlog_backup_status';
@@ -32,6 +35,8 @@ const STATUS_KEY = 'fitlog_backup_status';
 const PENDING_KEY = 'fitlog_backup_pending';
 /** 结束训练后该写的那份还没写成（进程被杀、没权限、和别的备份撞上）：下次启动 / 回前台补（审查 E3） */
 const DUE_KEY = 'fitlog_backup_due';
+
+const DAY_MS = 24 * 3600 * 1000;
 
 export const BACKUP_STATUS_EVENT = 'fitlog:backup-status';
 
@@ -41,6 +46,7 @@ export interface BackupStatus {
   /** 上一次**核对通过**的备份 */
   lastOkAt?: string;
   lastOkName?: string;
+  /** 只给界面看；不再当清理的基线（存在本机，重装后归零） */
   lastOkWorkouts?: number;
   /** 上一次成功备份时的数据指纹：没变就不再写 */
   fingerprint?: string;
@@ -48,8 +54,8 @@ export interface BackupStatus {
   fileCount?: number;
   /** 最近一次尝试失败（成功会清掉它） */
   lastError?: { at: string; code: BackupErrorCode; message: string };
-  /** 这次备份比上次少了一半以上训练，没有清理旧备份 */
-  shrinkWarning?: boolean;
+  /** 日历规则该删、但内容没被新备份覆盖（或读不出、或比新的大一倍以上）而留下的旧备份（文件名）。换文件夹时清空 */
+  held?: string[];
 }
 
 // ============ 状态 ============
@@ -63,8 +69,25 @@ export function getBackupFolder(): FolderRef | null {
 }
 
 export function setBackupFolder(f: FolderRef): void {
+  // 别的文件夹里的同名文件不是同一份，之前的「留着」判定不能沿用
+  const s = getBackupStatus();
+  if (s.held && getBackupFolder()?.dirUri !== f.dirUri) {
+    delete s.held;
+    storage.setItem(STATUS_KEY, JSON.stringify(s));
+  }
   storage.setItem(FOLDER_KEY, JSON.stringify(f));
   emit();
+}
+
+/**
+ * 恢复时用的文件夹要不要顺手设成备份目的地（上架审查 C56）：还没设过、原来的没权限了、或本来就是它，才设。
+ * 已经有一个能用的文件夹时不动 —— 从别处恢复一份，不该悄悄把以后的备份改写到那里。设了返回 true。
+ */
+export async function adoptRestoreFolder(picked: FolderRef): Promise<boolean> {
+  const cur = getBackupFolder();
+  if (cur && cur.dirUri !== picked.dirUri && (await hasAccess(cur))) return false;
+  setBackupFolder(picked);
+  return true;
 }
 
 export function getBackupStatus(): BackupStatus {
@@ -95,13 +118,15 @@ function autoBackupName(when = new Date(), env = getDataEnv()): string {
   return `fitlog-${env === 'dev' ? 'dev-' : ''}backup-${stamp}.json`;
 }
 
-const NAME_RE = /^fitlog-(dev-)?backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(?: \(\d+\))?\.json$/;
+const NAME_RE = /^fitlog-(dev-)?backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(?: \((\d+)\))?\.json$/;
 
 export interface NamedBackup {
   file: FolderFile;
   dev: boolean;
   /** 本地时间 */
   at: Date;
+  /** 同一分钟撞名时系统加的「 (n)」里的 n，没有为 0：n 大的写得晚 */
+  seq: number;
 }
 
 /** 认得出的自动备份文件（用户自己放进来的文件一概不算） */
@@ -109,7 +134,7 @@ export function parseAutoBackupName(file: FolderFile): NamedBackup | null {
   const m = NAME_RE.exec(file.name);
   if (!m) return null;
   const at = new Date(+m[2], +m[3] - 1, +m[4], +m[5], +m[6]);
-  return { file, dev: !!m[1], at };
+  return { file, dev: !!m[1], at, seq: m[7] ? +m[7] : 0 };
 }
 
 // ============ 保留规则 ============
@@ -118,17 +143,18 @@ const dayKey = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2
 const monthIndex = (d: Date) => d.getFullYear() * 12 + d.getMonth();
 
 /**
- * 该删哪些（只看当前数据环境、命名规则内的文件）：
+ * 按日历该删哪些（只看当前数据环境、命名规则内的文件）：
  *   - 同一天只留最新一份；
  *   - 最近 14 天每天一份；
  *   - 再往前每月留当月最早那份，留 12 个月。
- * 纯函数，e2e 里直接测。
+ * 只产生候选：真删之前 doBackup 还要读内容确认已被新备份覆盖（uncoveredRecords）。纯函数。
  */
 export function selectBackupsToDelete(files: FolderFile[], now = new Date(), env = getDataEnv()): FolderFile[] {
   const mine = files
     .map(parseAutoBackupName)
     .filter((b): b is NamedBackup => !!b && b.dev === (env === 'dev'))
-    .sort((a, b) => b.at.getTime() - a.at.getTime() || b.file.name.localeCompare(a.file.name));
+    // 同一分钟按 seq 比数字：按名字比，「X (1)」排在「X」前面、「(10)」排在「(2)」前面（上架审查 C66）
+    .sort((a, b) => b.at.getTime() - a.at.getTime() || b.seq - a.seq);
 
   const keep = new Set<string>();
   // 每天最新一份
@@ -155,37 +181,82 @@ export function selectBackupsToDelete(files: FolderFile[], now = new Date(), env
   return mine.filter(b => !keep.has(b.file.uri)).map(b => b.file);
 }
 
-// ============ 指纹 ============
+// ============ 按内容判断 ============
 
-function maxStamp(rows: Array<Record<string, unknown>> | undefined): string {
-  let m = '';
-  for (const r of rows ?? []) {
-    const s = String(r.updatedAt ?? r.date ?? '');
-    if (s > m) m = s;
+/**
+ * 能逐条删、删了记墓碑的五张表。prs、自建动作定义、首选项不算：它们没有逐条的墓碑，
+ * 算进来的话正常删一个自建动作，旧备份就永远删不掉了。
+ */
+const RECORD_TABLES = ['workouts', 'weightLogs', 'customMetrics', 'goals', 'scheduledWorkouts'] as const satisfies readonly (keyof FitlogTombstones & keyof FitlogRemoteSnapshot)[];
+
+const rowsOf = (s: FitlogRemoteSnapshot, k: (typeof RECORD_TABLES)[number]) => (s[k] ?? []) as { id: string }[];
+
+/** old 里有、next 里既没有这一行也没有它的墓碑的记录（「表:id」）。为空 = old 的内容 next 都交代过了 */
+export function uncoveredRecords(old: FitlogRemoteSnapshot, next: FitlogRemoteSnapshot): string[] {
+  const out: string[] = [];
+  for (const k of RECORD_TABLES) {
+    const known = new Set([...rowsOf(next, k).map(r => r.id), ...(next.tombstones?.[k] ?? [])]);
+    for (const r of rowsOf(old, k)) if (!known.has(r.id)) out.push(`${k}:${r.id}`);
   }
-  return m;
+  return out;
 }
 
-/** 各表条数 + 最新修改时间 + prefs 时间戳。够判断「这一天有没有动过数据」，不追求精确 */
+const recordCount = (s: FitlogRemoteSnapshot) => RECORD_TABLES.reduce((n, k) => n + rowsOf(s, k).length, 0);
+
+// ============ 排序与默认项（清理、恢复列表、选文件夹共用） ============
+
+export interface ListedBackup {
+  file: FolderFile;
+  /** 名字里的时间（自动备份）或修改时间（手动导出），毫秒 */
+  at: number;
+  /** 同一分钟撞名的序号，见 NamedBackup.seq */
+  seq: number;
+  dev: boolean;
+  /** 以下读过文件才有 —— 文件里写的导出时刻（毫秒）、用户数据条数（同 hasUserData 的口径）、这台手机上没有的记录条数 */
+  exportedAt?: number;
+  records?: number;
+  foreign?: number;
+  bad?: boolean;
+}
+
+/** 新的在前：读过的按文件里的 exportedAt（手动导出的修改时间会被拷贝改掉），没读过的按名字 / 修改时间，同一时刻 seq 大的在前 */
+export function orderBackups<T extends ListedBackup>(list: T[]): T[] {
+  const key = (e: T) => e.exportedAt ?? e.at;
+  return [...list].sort((a, b) => key(b) - key(a) || b.seq - a.seq);
+}
+
+/** 文件夹里的 .json 按新旧排好（还没读内容） */
+export function listBackups(files: FolderFile[]): ListedBackup[] {
+  return orderBackups(
+    files
+      .filter(f => /\.json$/i.test(f.name))
+      .map(f => {
+        const named = parseAutoBackupName(f);
+        return named ? { file: f, at: named.at.getTime(), seq: named.seq, dev: named.dev } : { file: f, at: f.modified, seq: 0, dev: false };
+      }),
+  );
+}
+
+/** 时间比现在晚一天以上：手机时钟调快过时写的，不能当「最新」 */
+export const backupInFuture = (e: ListedBackup, now = Date.now()) => (e.exportedAt ?? e.at) > now + DAY_MS;
+
+/**
+ * 恢复弹窗的默认项（上架审查 C53 / C66 / C67 / C11）。只在读得出的里挑：
+ *   1. 最新一份不空、时间不在未来、且带着这台手机没有的记录的 —— 重装后选回旧文件夹，默认是旧谱系那份，不是刚写的几场；
+ *   2. 没有就取不空、时间不在未来的最新一份；
+ *   3. 再没有就取第一份读得出的。
+ */
+export function pickDefaultBackup<T extends ListedBackup>(entries: T[], now = Date.now()): T | undefined {
+  const ok = orderBackups(entries).filter(e => !e.bad && e.records !== undefined);
+  const usable = (e: T) => e.records! > 0 && !backupInFuture(e, now);
+  return ok.find(e => usable(e) && (e.foreign ?? 0) > 0) ?? ok.find(usable) ?? ok[0];
+}
+
+// ============ 指纹 ============
+
+/** 快照内容的哈希（去掉每次都变的 clientExportedAt）：改一条旧围度、只改记录项也算变了（上架审查 C61） */
 function snapshotFingerprint(file: FitlogBackupFile): string {
-  const s = file.snapshot;
-  const p = s.prefs as unknown as Record<string, unknown>;
-  return JSON.stringify([
-    s.workouts.length,
-    maxStamp(s.workouts as unknown as Array<Record<string, unknown>>),
-    s.goals?.length,
-    maxStamp(s.goals as unknown as Array<Record<string, unknown>>),
-    s.weightLogs?.length,
-    maxStamp(s.weightLogs as unknown as Array<Record<string, unknown>>),
-    s.customMetrics?.length,
-    s.prs?.length,
-    s.scheduledWorkouts?.length,
-    maxStamp(s.scheduledWorkouts as unknown as Array<Record<string, unknown>>),
-    s.customExerciseDefsFromDb?.length,
-    p?.prefsLastUpdateMs,
-    p?.appPrefsUpdatedMs,
-    JSON.stringify(s.tombstones ?? {}).length,
-  ]);
+  return fnv1a(JSON.stringify({ ...file.snapshot, clientExportedAt: undefined }));
 }
 
 // ============ 核对 ============
@@ -230,7 +301,8 @@ export function verifyReadBack(expected: FitlogBackupFile, text: string): string
 export type BackupReason = 'workout-finished' | 'daily' | 'manual' | 'after-restore' | 'first-setup';
 
 export type BackupOutcome =
-  | { kind: 'ok'; name: string; workouts: number; pruned: number; shrinkWarning: boolean }
+  /** held：文件夹里因内容没被覆盖而留着的旧备份份数 */
+  | { kind: 'ok'; name: string; workouts: number; pruned: number; held: number }
   | { kind: 'skipped'; why: 'unsupported' | 'no-folder' | 'empty' | 'unchanged' | 'busy' }
   | { kind: 'failed'; code: BackupErrorCode; message: string };
 
@@ -261,8 +333,10 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
 
   const file = await buildBackupFile();
   const workouts = file.snapshot.workouts.length;
+  // 没有任何用户数据就不写，手动 / 选文件夹 / 恢复后也一样：空文件保护不了什么，还会排到恢复列表最前面（上架审查 C53）。
+  // 只记了体重 / 围度 / 计划的照写（C57）
+  if (!hasUserData(file.snapshot)) return { kind: 'skipped', why: 'empty' };
   const manual = reason === 'manual' || reason === 'first-setup' || reason === 'after-restore';
-  if (!manual && workouts === 0) return { kind: 'skipped', why: 'empty' };
   const fp = snapshotFingerprint(file);
   if (!manual && fp === status.fingerprint && !status.lastError) return { kind: 'skipped', why: 'unchanged' };
 
@@ -288,34 +362,84 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
     return fail('verify-failed', mismatch);
   }
 
-  // 通过之后才清理。训练次数骤减（误删 / 数据出事）或者本地是空的时，一份都不删
-  const prev = status.lastOkWorkouts ?? 0;
-  const shrinkWarning = prev > 0 && workouts < prev * 0.5;
+  // 通过之后才清理。恢复后补的这份只写不清：恢复的可能是较旧的一份，当天更早那份里有它没有的（gap-1），
+  // 之前留着的也清空，让下一次正常备份对着恢复后的内容重新判
   let pruned = 0;
   let fileCount: number | undefined;
+  let held = reason === 'after-restore' ? [] : (status.held ?? []);
   try {
     const files = await listFiles(folder);
-    if (!shrinkWarning && workouts > 0) {
-      const doomed = selectBackupsToDelete(files).filter(f => f.uri !== written.uri);
-      for (const f of doomed) {
-        if (await deleteFile(f.uri).catch(() => false)) pruned++;
-      }
-    }
+    const present = new Set(files.map(f => f.name));
+    held = held.filter(n => present.has(n));
+    if (reason !== 'after-restore') ({ pruned, held } = await prune(files, written.uri, file.snapshot, held));
     fileCount = files.filter(f => parseAutoBackupName(f)).length - pruned;
   } catch {
     // 清理失败不影响「这份备份写成了」
   }
 
+  // 整份重写：held 要带上，漏了每次成功都会把它清掉
   setBackupStatus({
     lastOkAt: new Date().toISOString(),
     lastOkName: written.name ?? name,
     lastOkWorkouts: workouts,
     fingerprint: fp,
     fileCount,
-    shrinkWarning,
+    ...(held.length ? { held } : {}),
   });
   storage.removeItem(ANNOUNCED_KEY);
-  return { kind: 'ok', name: written.name ?? name, workouts, pruned, shrinkWarning };
+  return { kind: 'ok', name: written.name ?? name, workouts, pruned, held: held.length };
+}
+
+/** 每次清理最多读几份候选：文件大时读一份要几百毫秒，剩下的下次再判 */
+const PRUNE_READS = 8;
+
+/**
+ * 日历规则挑出的候选，读内容再决定删不删。留下（进 held）的：
+ *   - 读不出、解析不了、版本比本 App 新的；
+ *   - 有新备份既没有、也没记墓碑的记录（重装后的旧谱系、恢复了较旧一份之后的新内容）；
+ *   - 记录总数比新备份多一倍以上（误删一大片也能挡住）。
+ * 原来按本机 storage 里的上次训练数判骤减：重装后归零、每次成功又被覆盖，只挡得住一次（上架审查 C11），所以改成看候选文件本身。
+ */
+async function prune(files: FolderFile[], writtenUri: string, snap: FitlogRemoteSnapshot, held: string[]): Promise<{ pruned: number; held: string[] }> {
+  const skip = new Set(held);
+  const cands = selectBackupsToDelete(files).filter(f => f.uri !== writtenUri && !skip.has(f.name));
+  const total = recordCount(snap);
+  const out = [...held];
+  let pruned = 0;
+  for (const f of cands.slice(0, PRUNE_READS)) {
+    let keep: boolean;
+    try {
+      const old = parseBackupFile(await readText(f.uri)).snapshot;
+      keep = uncoveredRecords(old, snap).length > 0 || recordCount(old) > 2 * total;
+    } catch {
+      keep = true;
+    }
+    if (keep) out.push(f.name);
+    else if (await deleteFile(f.uri).catch(() => false)) pruned++;
+  }
+  return { pruned, held: out };
+}
+
+/**
+ * 文件夹里最新一份能读的备份（最多试 3 份）有几条这台手机上没有的记录。
+ * 选文件夹时用：> 0 说明这是重装前的备份文件夹，该先去恢复（上架审查 C11）。读不了按 0 算。
+ */
+export async function foreignInFolder(folder: FolderRef): Promise<number> {
+  const env = getDataEnv();
+  try {
+    const mine = listBackups(await listFiles(folder)).filter(b => !parseAutoBackupName(b.file) || b.dev === (env === 'dev'));
+    const local = await collectLocalSnapshot();
+    for (const b of mine.slice(0, 3)) {
+      try {
+        return uncoveredRecords(parseBackupFile(await readText(b.file.uri)).snapshot, local).length;
+      } catch {
+        // 这份读不出，试下一份
+      }
+    }
+  } catch {
+    // 列不出文件：当成没有
+  }
+  return 0;
 }
 
 // ============ 时机 ============
@@ -354,8 +478,6 @@ export function scheduleAutoBackup(): void {
   runMarked(DUE_KEY, 'workout-finished');
 }
 
-const DAY_MS = 24 * 3600 * 1000;
-
 /**
  * 启动 / 回到前台时调：先补没写成的（恢复后的、练完的），否则距上次成功超过 24 小时才写
  * （数据没变也不写，见 doBackup 的指纹）。练完的那份按 workout-finished 补：指纹没变就跳过，不像恢复后那样强制写。
@@ -366,7 +488,9 @@ export function maybeDailyBackup(): void {
   if (storage.getItem(PENDING_KEY)) return runMarked(PENDING_KEY, 'after-restore');
   if (storage.getItem(DUE_KEY)) return runMarked(DUE_KEY, 'workout-finished');
   const last = getBackupStatus().lastOkAt;
-  if (last && Date.now() - new Date(last).getTime() < DAY_MS) {
+  // 上次成功在未来（时钟调快过又调回来）按到期算：不然要等到那个时刻才再备份（上架审查 C67）
+  const age = last ? Date.now() - new Date(last).getTime() : NaN;
+  if (age >= 0 && age < DAY_MS) {
     // 24 小时内不用写，但授权要查：换机 / 系统还原后授权没跟过来，原来要等下一次真写才发现（上架审查 C58）
     void hasAccess(folder).then(ok => {
       if (ok) return;

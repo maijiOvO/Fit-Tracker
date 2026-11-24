@@ -26,6 +26,7 @@ import { WEIGHT_STEP_OPTIONS, DROP_STEP_OPTIONS } from '../../services/appPrefs'
 import { useRollbackImport } from '../hooks/useImportData';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
+import { localYmd } from '../utils/dateUtils';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { isRemoteConfigured } from '../../services/fitlogRemote';
 import { useGymSwitch } from '../hooks/useGymSwitch';
@@ -464,8 +465,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     name={translations.undoImport[lang]}
                     tone="accent"
                     sub={t(
-                      `恢复 / 导入 / 重置前的副本 · ${rollback.workouts} 场训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
-                      `Copy from before restore / import / reset · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
+                      `恢复 / 导入 / 重置前的副本 · ${rollback.workouts} 场训练 · ${localYmd(new Date(rollback.createdAt))} · 留 7 天`,
+                      `Copy from before restore / import / reset · ${rollback.workouts} workouts · ${localYmd(new Date(rollback.createdAt))} · kept 7 days`,
                     )}
                     chevron={false}
                     onClick={() => { void rollbackImport(rollback.newer); }}

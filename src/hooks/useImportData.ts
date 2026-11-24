@@ -15,6 +15,7 @@ import {
   parseBackupFile,
   rollbackImport,
 } from '../../services/fitlogBackup';
+import { markBackupPending } from '../../services/fitlogAutoBackup';
 import type { ExportStatus } from './useExportData';
 import { overwriteFailedText, overwriteNote, setFlash, undoImportWarning, workbenchDropNote } from '../components/data/flash';
 import { blockBack } from './useBackClose';
@@ -111,7 +112,9 @@ export function useImportData(
       blockBack(true);
       const pushed = await discardWorkbenchWith(() => applyBackup(parsed)).finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
-      if (note) setFlash((isCn ? '已恢复' : 'Restored') + note, 'info');
+      // 无条件给提示、补一份自动备份（上架审查 C61）：原来推送正常时什么都不说，重载后像没发生过
+      setFlash((isCn ? '已恢复' : 'Restored') + note, note ? 'info' : 'success');
+      markBackupPending();
       // 所有 context 都是启动时从存储水化的，只能靠重载让它们看到新数据
       window.location.reload();
     } catch (error) {
@@ -148,7 +151,9 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
       blockBack(true);
       const pushed = await keepWorkbenchWith(live => rollbackImport(live)).finally(() => blockBack(false));
       const note = overwriteNote(pushed, isCn);
-      if (note) setFlash((isCn ? '已撤销' : 'Undone') + note, 'info');
+      // 撤销到空状态时，补的那次备份由「没有用户数据不写」跳过，这里不用另判
+      setFlash((isCn ? '已撤销' : 'Undone') + note, note ? 'info' : 'success');
+      markBackupPending();
       window.location.reload();
     } catch (error) {
       console.error('Rollback failed:', error);

@@ -15,6 +15,7 @@ import { mergeOverride } from '../utils/exerciseOverride';
 import {
   BACKUP_STATUS_EVENT,
   backupNow,
+  foreignInFolder,
   getBackupFolder,
   getBackupStatus,
   setBackupFolder,
@@ -69,26 +70,30 @@ function useReportBackup(): (o: BackupOutcome) => void {
     (o: BackupOutcome) => {
       if (o.kind === 'ok') {
         toast(
-          o.shrinkWarning
-            ? isCn
-              ? `已备份 ${o.workouts} 场训练，比上次少很多，旧备份已保留`
-              : `Backed up ${o.workouts} workouts — far fewer than last time, older backups kept`
-            : isCn
-              ? `已备份并核对：${o.workouts} 场训练`
-              : `Backed up and verified: ${o.workouts} workouts`,
+          (isCn ? `已备份并核对：${o.workouts} 场训练` : `Backed up and verified: ${o.workouts} workouts`) +
+            (o.held > 0
+              ? isCn
+                ? `；${o.held} 份旧备份含这台手机没有的记录，已保留`
+                : `; ${o.held} older backup${o.held > 1 ? 's' : ''} with records this phone doesn't have kept`
+              : ''),
           'success',
         );
       } else if (o.kind === 'failed') {
         toast((isCn ? '备份失败：' : 'Backup failed: ') + backupErrorText(o.code, isCn), 'error');
       } else if (o.why === 'no-folder') {
         toast(backupErrorText('no-folder', isCn), 'info');
+      } else if (o.why === 'empty') {
+        toast(isCn ? '还没有可备份的记录' : 'Nothing to back up yet', 'info');
       }
     },
     [isCn, toast],
   );
 }
 
-/** 选（或更换）备份文件夹，选完立刻备份一份并核对 */
+/**
+ * 选（或更换）备份文件夹，选完立刻备份一份并核对。
+ * 文件夹里的备份带着这台手机没有的记录（重装后选回了原来的文件夹）→ 转去恢复，不只报「已备份 3 场」（上架审查 C11）。
+ */
 export function useChooseBackupFolder(): () => Promise<boolean> {
   const { lang } = useUserSettingsContext();
   const { toast } = useUiOverlay();
@@ -107,7 +112,13 @@ export function useChooseBackupFolder(): () => Promise<boolean> {
       return false;
     }
     setBackupFolder(f);
-    report(await backupNow('first-setup'));
+    // 先看再写：刚写的那份会是文件夹里最新的，写完再看就只看得到本机自己
+    const foreign = await foreignInFolder(f);
+    const o = await backupNow('first-setup');
+    if (foreign > 0) openDataFlow('restore');
+    else if (o.kind === 'skipped' && o.why === 'empty')
+      toast(isCn ? '已选好文件夹，有了记录会自动备份到这里' : 'Folder set — records will be backed up here automatically', 'success');
+    else report(o);
     return true;
   }, [isCn, report, toast]);
 }

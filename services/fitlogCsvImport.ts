@@ -21,6 +21,7 @@ import type { Exercise, ExerciseDefinition, ExerciseVariant, SetLog, SubSetLog, 
 import { KG_PER_LB } from '../src/utils/plates';
 import { DEFAULT_EXERCISES } from '../src/constants/exercises';
 import { mergeOverride } from '../src/utils/exerciseOverride';
+import { fnv1a } from '../src/utils/hash';
 import { EQ_BAND, EQ_BARBELL, EQ_BODYWEIGHT, EQ_CABLE, EQ_DUMBBELL, EQ_KETTLEBELL, EQ_MACHINE, variantAttrs } from '../src/utils/exerciseAttrs';
 
 export type ImportSource = 'strong' | 'hevy';
@@ -530,16 +531,6 @@ export function importDefs(
 
 // ============ 生成记录 ============
 
-/** FNV-1a：同一份文件导两次，id 相同，只是覆盖那几条，不会翻倍 */
-function hash(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(36);
-}
-
 export interface MaterializeOptions {
   /** 文件没写单位时按动作选的单位（键是 srcName） */
   unitByExercise: Record<string, WeightUnit>;
@@ -587,7 +578,8 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
       }
     } else {
       const cardio = sets.every(s => !s.weight && !s.reps) && sets.some(s => s.seconds || s.distanceKm);
-      const id = `imp_${hash(plan.source + src)}`;
+      // id 按内容哈希：同一份文件导两次，id 相同，只是覆盖那几条，不会翻倍
+      const id = `imp_${fnv1a(plan.source + src)}`;
       newDefs.set(src, {
         id,
         name: { en: src, cn: src },
@@ -608,7 +600,7 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
   };
 
   const workouts: WorkoutSession[] = plan.workouts.map(w => {
-    const wid = `imp_${plan.source}_${hash(w.key)}`;
+    const wid = `imp_${plan.source}_${fnv1a(w.key)}`;
     const exercises: Exercise[] = [];
     const extra: string[] = [];
     w.exercises.forEach((e, ei) => {

@@ -67,7 +67,7 @@ async function bundle(env, file) {
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
       "export { parseImportCsv, materialize, importDefs } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
-      "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary } from './services/fitlogBackup.ts';",
+      "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary, backupFileName } from './services/fitlogBackup.ts';",
       "export { PrefsWriteError } from './services/fitlogRemote.ts';",
       "export { writeTombstones } from './services/fitlogTombstones.ts';",
       "export { defaultProfile } from './src/utils/loadable.ts';",
@@ -275,6 +275,235 @@ await t('备份文件夹授权没了：数据没变、24 小时内也要报 no-a
   } finally {
     fault('');
     delete globalThis.window;
+  }
+});
+
+// ── 清理按内容放行、写入闸门、默认项（上架审查第 11 批：C11 / gap-1 / C53 / C56 / C57 / C61 / C66 / C67）──
+// 文件名里的时间、本机 storage 里的计数都会骗人：重装、恢复较旧的一份、时钟跳变、同一分钟撞名。下面每条造一种。
+const p2 = x => String(x).padStart(2, '0');
+/** 自动备份的文件名（本地时间；seq = 同一分钟撞名的「 (n)」） */
+const autoName = (d, seq = 0) =>
+  `fitlog-backup-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${seq ? ` (${seq})` : ''}.json`;
+const fileText = (at, snap) =>
+  JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: at.toISOString(), snapshot: { schemaVersion: 2, prefs: {}, workouts: [], ...snap } });
+/** 往 mock 文件夹里直接放文件 */
+const putFiles = entries => {
+  const fs = folderFs();
+  for (const [name, text] of entries) fs[name] = { text, modified: Date.now() };
+  localStorage.setItem('fitlog_mock_folder_fs', JSON.stringify(fs));
+};
+const ws = ids => ids.map((id, i) => seedWorkout(id, 30 - i, id, '杠铃深蹲', [[100, 5]]));
+const soloFolder = () => {
+  localStorage.setItem('fitlog_mock_folder', '1');
+  S.setBackupFolder(FOLDER);
+};
+const workoutsIn = name => JSON.parse(folderFs()[name].text).snapshot.workouts.map(w => w.id);
+const statusOf = () => S.getBackupStatus();
+const setStatus = s => S.storage.setItem('fitlog_backup_status', JSON.stringify(s));
+
+// 防：恢复了较旧的一份后，补写那次 / 下一次清理把当天更早、内容更新的那份删掉（gap-1）。
+// 00:00–00:01 跑时「now−1 分钟」落到昨天，同一天的前提不成立，这条测不到
+await t('新装机恢复较旧的一份：补写不清理；之后当天更早、带着本机没有的训练的那份留着、进 held', async () => {
+  soloFolder();
+  const now = new Date();
+  const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 21, 0);
+  const today = new Date(now.getTime() - 60000);
+  const yText = fileText(yest, { workouts: ws(['w1', 'w2', 'w3']) });
+  putFiles([[autoName(yest), yText], [autoName(today), fileText(today, { workouts: ws(['w1', 'w2', 'w3', 'w4', 'w5']) })]]);
+  await S.applyBackup(S.parseBackupFile(yText));
+  const a = await S.backupNow('after-restore');
+  assert.deepEqual([a.kind, a.pruned], ['ok', 0], '恢复后的补写只写不清');
+  const b = await S.backupNow('manual');
+  assert.equal(b.kind, 'ok');
+  assert.deepEqual(workoutsIn(autoName(today)), ['w1', 'w2', 'w3', 'w4', 'w5'], '今天更早那份还在');
+  assert.ok(folderFs()[autoName(yest)], '昨天那份还在');
+  assert.ok(statusOf().held.includes(autoName(today)));
+});
+
+// 防：重装后没恢复就选回原来的文件夹，first-setup 写了几场新的，日历规则把旧谱系一口气删掉（C11）
+await t('重装后没恢复、选回旧文件夹：旧谱系 25 份一份不删、进 held；选之前看得出文件夹里有 25 条本机没有的', async () => {
+  soloFolder();
+  const old = [];
+  for (let d = 40; d >= 16; d--) {
+    const at = new Date(Date.now() - d * DAY);
+    at.setHours(12, 0, 0, 0);
+    old.push([autoName(at), fileText(at, { workouts: ws(Array.from({ length: 41 - d }, (_, i) => `old${i}`)) })]);
+  }
+  putFiles(old);
+  for (const id of ['n1', 'n2', 'n3']) await S.db.save('workouts', seedWorkout(id, 0, id, '硬拉', [[100, 3]]));
+  assert.equal(await S.foreignInFolder(FOLDER), 25);
+  const first = await S.backupNow('first-setup');
+  assert.equal(first.pruned, 0);
+  await S.backupNow('first-setup');
+  await S.backupNow('first-setup');
+  for (const [name] of old) assert.ok(folderFs()[name], `${name} 被删了`);
+  const held = statusOf().held;
+  assert.ok(held.length >= 16, `每次最多读 8 份，三次下来应留住两轮以上，实际 ${held.length}`);
+  assert.ok(held.every(n => old.some(([o]) => o === n)), 'held 里只有旧谱系的');
+});
+
+// 防：判据写得太严 —— 正常删过、改过训练的用户从此不再清理，文件夹一天涨一份
+await t('同一谱系每天一份、中途删过（有墓碑）改过：照日历清理，held 为空', async () => {
+  soloFolder();
+  const deleted = new Map([[21, 'w2'], [14, 'w9'], [7, 'w16']]);
+  const files = [];
+  let tomb = [];
+  for (let d = 30; d >= 1; d--) {
+    const at = new Date(Date.now() - d * DAY);
+    at.setHours(12, 0, 0, 0);
+    if (deleted.has(d)) tomb = [...tomb, deleted.get(d)];
+    const ids = Array.from({ length: 31 - d }, (_, i) => `w${i + 1}`).filter(id => !tomb.includes(id));
+    const rows = ws(ids).map(w => (w.id === 'w5' && d <= 15 ? { ...w, title: '改过', updatedAt: at.toISOString() } : w));
+    files.push([autoName(at), fileText(at, { workouts: rows, tombstones: { workouts: tomb } })]);
+  }
+  putFiles(files);
+  const last = JSON.parse(files.at(-1)[1]).snapshot;
+  for (const w of last.workouts) await S.db.save('workouts', w);
+  S.writeTombstones({ workouts: tomb });
+  for (let i = 0; i < 3; i++) assert.equal((await S.backupNow('manual')).kind, 'ok');
+  assert.equal(statusOf().held, undefined);
+  const left = Object.keys(folderFs()).map(name => ({ uri: `x/${name}`, name, size: 1, modified: 0 }));
+  // 只看放进去的 30 份：这一分钟连写三份会复用被删掉的名字（「X」又排到「X (1)」后面），那几份内容相同，删哪份都不丢
+  const mine = new Set(files.map(([name]) => name));
+  assert.deepEqual(S.selectBackupsToDelete(left).map(f => f.name).filter(n => mine.has(n)), [], '日历规则该删的都删了');
+});
+
+// 防：拆掉本机 lastOkWorkouts 基线时，把「一次删光」这道防线也一起拆了（重装后基线是 0）
+await t('内容版缩水保险：候选记录数比新备份多一倍以上，即使都有墓碑也不删', async () => {
+  soloFolder();
+  const ids = Array.from({ length: 10 }, (_, i) => `w${i}`);
+  const earlier = new Date(Date.now() - 2 * 60000);
+  putFiles([[autoName(earlier), fileText(earlier, { workouts: ws(ids) })]]);
+  for (const w of ws(ids).slice(0, 2)) await S.db.save('workouts', w);
+  S.writeTombstones({ workouts: ids.slice(2) });
+  assert.equal((await S.backupNow('manual')).kind, 'ok');
+  assert.ok(folderFs()[autoName(earlier)]);
+  assert.deepEqual(statusOf().held, [autoName(earlier)]);
+});
+
+// 防：选文件夹 / 恢复后 / 手动绕过「空就不写」，0 场文件排到恢复列表最前面（C53）
+await t('没有任何用户数据：选文件夹、恢复后、手动都不写', async () => {
+  soloFolder();
+  for (const r of ['first-setup', 'after-restore', 'manual']) {
+    const o = await S.backupNow(r);
+    assert.deepEqual([o.kind, o.why], ['skipped', 'empty'], r);
+  }
+  assert.deepEqual(Object.keys(folderFs()), []);
+});
+
+const until = async (cond, what) => {
+  for (let i = 0; i < 100 && !cond(); i++) await new Promise(r => setTimeout(r, 10));
+  assert.ok(cond(), what);
+};
+
+// 防：「空」只看训练条数 —— 只记体重 / 围度的用户永远不自动备份（C57）
+await t('只有体重 / 围度、0 场训练：每日备份照写，当天更早、内容已覆盖的那份删掉', async () => {
+  soloFolder();
+  const wl = [1, 2, 3].map(i => ({ id: `wl${i}`, userId: 'u', weight: 80 + i, unit: 'kg', date: iso(i) }));
+  for (const r of wl) await S.db.save('weightLogs', r);
+  for (const i of [1, 2]) await S.db.save('custom_metrics', { id: `m${i}`, userId: 'u', name: '腰围', value: 80, unit: 'cm', date: iso(i) });
+  const earlier = new Date(Date.now() - 2 * 60000);
+  putFiles([[autoName(earlier), fileText(earlier, { weightLogs: wl })]]);
+  setStatus({ lastOkAt: new Date(Date.now() - 25 * 3600000).toISOString() });
+  const before = statusOf().lastOkAt;
+  S.maybeDailyBackup();
+  await until(() => statusOf().lastOkAt !== before, '要写一份');
+  assert.equal(JSON.parse(folderFs()[statusOf().lastOkName].text).snapshot.weightLogs.length, 3);
+  assert.equal(folderFs()[autoName(earlier)], undefined, '内容已被覆盖的那份删掉');
+});
+
+// 防：指纹手列字段，改一条旧围度的值指纹不变，每日备份当成「没变」跳过（C61 b）
+await t('指纹按内容：只改一条旧围度的值，每日备份也写新的一份', async () => {
+  soloFolder();
+  const m = { id: 'm1', userId: 'u', name: '腰围', value: 80, unit: 'cm', date: iso(30), updatedAt: iso(30) };
+  await S.db.save('custom_metrics', m);
+  await S.db.save('workouts', SEED[0]);
+  assert.equal((await S.backupNow('manual')).kind, 'ok');
+  await S.db.save('custom_metrics', { ...m, value: 78, updatedAt: iso(29) });
+  setStatus({ ...statusOf(), lastOkAt: new Date(Date.now() - 25 * 3600000).toISOString() });
+  const before = statusOf().lastOkAt;
+  S.maybeDailyBackup();
+  await until(() => statusOf().lastOkAt !== before, '改了值要写');
+  assert.equal(JSON.parse(folderFs()[statusOf().lastOkName].text).snapshot.customMetrics[0].value, 78);
+});
+
+// 防：上次成功的时刻在未来（时钟调快过又调回）时，每日备份要等到那一刻才恢复（C67 ④）
+await t('上次成功在 3 天后：照样按到期写', async () => {
+  soloFolder();
+  await S.db.save('workouts', SEED[0]);
+  setStatus({ lastOkAt: new Date(Date.now() + 3 * DAY).toISOString(), fingerprint: 'x' });
+  S.maybeDailyBackup();
+  await until(() => Object.keys(folderFs()).length === 1, '要写一份');
+});
+
+// 防：同一分钟撞名按名字比 —— 「X (1)」排在「X」前面被当成旧的删掉，「(10)」排在「(2)」前面（C66）
+await t('同一分钟撞名：按序号数字比新旧', () => {
+  const now = new Date();
+  const at = new Date(now.getTime() - 5 * 60000);
+  const f = name => ({ uri: name, name, size: 1, modified: 0 });
+  const del = files => D.selectBackupsToDelete(files.map(f), now, 'prod').map(x => x.name);
+  assert.deepEqual(del([autoName(at), autoName(at, 1)]), [autoName(at)]);
+  assert.deepEqual(del([autoName(at, 2), autoName(at, 10)]), [autoName(at, 2)]);
+});
+
+// 防：默认项取「名字最新 / 修改时间最新 / 第一份读得出的」—— 空的、时间在未来的、拷贝过的旧导出当了默认（C53 / C66 / C67 / C11）
+await t('恢复默认项：跳过空的、未来的、读不出的；按 exportedAt 排；带本机没有的记录的优先；同一分钟序号大的在前', () => {
+  const now = Date.now();
+  const H = 3600000;
+  const e = (k, o) => ({ k, file: { uri: k, name: k, size: 1, modified: 0 }, seq: 0, dev: false, ...o });
+  const list = [
+    e('empty', { at: now - H, exportedAt: now - H, records: 0 }),
+    e('future', { at: now - 5 * H, exportedAt: now + 30 * DAY, records: 5 }),
+    e('bad', { at: now - H / 2, bad: true }),
+    e('copied', { at: now, exportedAt: now - 3 * DAY, records: 5 }),
+    e('same0', { at: now - 2 * DAY, records: 3 }),
+    e('same1', { at: now - 2 * DAY, seq: 1, records: 3 }),
+    e('real', { at: now - 2 * H, exportedAt: now - 2 * H, records: 6 }),
+  ];
+  assert.equal(D.pickDefaultBackup(list, now).k, 'real');
+  const foreign = list.map(x => (x.k.startsWith('same') ? { ...x, foreign: 2 } : x));
+  assert.equal(D.pickDefaultBackup(foreign, now).k, 'same1');
+  assert.equal(D.pickDefaultBackup(list.filter(x => ['empty', 'future', 'bad'].includes(x.k)), now).k, 'future');
+});
+
+// 防：从别的文件夹恢复一份，悄悄把以后的备份目的地改到那里（C56）；换了文件夹沿用旧的 held 判定
+await t('恢复用的文件夹：已有能用的不改；没权限 / 没设过才换；换文件夹清掉 held', async () => {
+  soloFolder();
+  const B = { ...FOLDER, dirUri: 'mock://primary:Download', dirDocId: 'primary:Download' };
+  setStatus({ held: ['a.json'] });
+  assert.equal(await S.adoptRestoreFolder(B), false);
+  assert.equal(S.getBackupFolder().dirUri, FOLDER.dirUri);
+  assert.equal(await S.adoptRestoreFolder({ ...FOLDER, treeUri: 'mock://tree2' }), true);
+  assert.deepEqual(statusOf().held, ['a.json'], '同一个文件夹不清');
+  fault('deny');
+  assert.equal(await S.adoptRestoreFolder(B), true);
+  fault('');
+  assert.equal(S.getBackupFolder().dirUri, B.dirUri);
+  assert.equal(statusOf().held, undefined);
+  S.storage.removeItem('fitlog_backup_folder');
+  assert.equal(await S.adoptRestoreFolder(FOLDER), true);
+  assert.equal(S.getBackupFolder().dirUri, FOLDER.dirUri);
+});
+
+// 防：读到过期的回滚副本就当场删掉 —— 时钟调快过一次，副本就永远没了（C67 ①）
+await t('回滚副本过期只读成没有、不删；时间回到期限内又读得到', async () => {
+  const row = { id: 'pre-import', createdAt: iso(8), snapshot: { workouts: [SEED[0]] } };
+  await S.db.save('backups', row);
+  assert.equal(await S.readRollback(), null);
+  assert.equal((await S.db.getAll('backups')).length, 1);
+  await S.db.save('backups', { ...row, createdAt: iso(1) });
+  assert.equal((await S.readRollback())?.workouts, 1);
+});
+
+// 防：手动导出的文件名用 UTC 日期，多伦多晚上 8 点后导出的写成第二天（C66 / datetime#10）
+await t('手动导出文件名按本地日期', () => {
+  const tz = process.env.TZ;
+  process.env.TZ = 'America/Toronto';
+  try {
+    assert.equal(S.backupFileName(new Date(2026, 10, 23, 20, 30)), 'FitTracker_Backup_2026-11-23.json');
+  } finally {
+    if (tz === undefined) delete process.env.TZ;
+    else process.env.TZ = tz;
   }
 });
 

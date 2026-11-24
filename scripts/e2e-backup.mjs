@@ -22,6 +22,9 @@ const OUT = path.resolve('test-artifacts', 'backup');
 export const BACKUP_STEPS = [
   ['seed-and-first-backup', []],
   ['uninstall-then-restore'],
+  // 再卸载一次、在「我的」页选回原来的文件夹：不写空备份，转去恢复，默认项是带着记录的那份（上架审查 C11 / C53）。
+  // 选完文件夹 → 先看文件夹里有没有本机没有的 → 写 / 跳过 → 开恢复弹窗，这段 hook 接线 data-check 测不到
+  ['reinstall-choose-old-folder'],
   // 坏数据让整页崩了：兜底页直接给「撤销上次恢复」（上架审查 C08 / gap-r3-2#1：原来撤销挂在崩掉的「我的」页里）。
   // 组件测不了这层接线，只能在这里测
   ['crash-undo-restore', []],
@@ -187,6 +190,28 @@ export async function runBackup(browser, plan) {
       const st = await page.evaluate(() => JSON.parse(localStorage.getItem(window.__t.key('fitlog_backup_status'))));
       if (!st.lastOkAt || st.lastOkWorkouts !== SEED.length) throw new Error(`post-restore backup status: ${JSON.stringify(st)}`);
       return `restored ${n1} workouts, folder re-armed`;
+    });
+
+    await step(page, 'reinstall-choose-old-folder', async () => {
+      await page.evaluate(async () => {
+        const keep = {};
+        for (const k of ['fitlog_mock_folder', 'fitlog_mock_folder_fs']) keep[k] = localStorage.getItem(k);
+        localStorage.clear();
+        for (const [k, v] of Object.entries(keep)) localStorage.setItem(k, v);
+        const dbs = (await indexedDB.databases?.()) ?? [];
+        await Promise.all(dbs.map(d => new Promise(r => { const q = indexedDB.deleteDatabase(d.name); q.onsuccess = q.onerror = q.onblocked = r; })));
+      });
+      await reloadAndSettle(page);
+      const before = await page.evaluate(() => Object.keys(window.__t.fs()).length);
+      await page.getByRole('button', { name: /^(我的|Profile)$/ }).click({ timeout: 10_000 });
+      await page.locator('[data-testid="profile-backup-choose"]').click({ timeout: 10_000 });
+      const summary = page.locator('[data-testid="restore-summary"]');
+      await summary.waitFor({ timeout: 10_000 });
+      const n = await summary.getAttribute('data-workouts');
+      if (n !== String(SEED.length)) throw new Error(`default backup has ${n} workouts, want ${SEED.length}`);
+      const after = await page.evaluate(() => Object.keys(window.__t.fs()).length);
+      if (after !== before) throw new Error(`choosing the folder with an empty db wrote a file (${before} → ${after})`);
+      return `no empty backup, restore opened on ${n} workouts`;
     });
   } catch {
     // step 已经记过；下面这步不依赖前面那条链

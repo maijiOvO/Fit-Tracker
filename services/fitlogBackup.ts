@@ -42,6 +42,7 @@ import { isOffline } from './appEnv';
 import { storage } from './appStorage';
 import { clearLocalLoss, recordLocalWorkouts } from './localCensus';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
+import { localYmd } from '../src/utils/dateUtils';
 
 /** 备份文件的格式版本。与 snapshot.schemaVersion 是两件事，别混。 */
 const BACKUP_FORMAT_VERSION = 2;
@@ -215,7 +216,7 @@ export async function buildBackupFile(): Promise<FitlogBackupFile> {
 }
 
 export function backupFileName(when = new Date()): string {
-  return `FitTracker_Backup_${when.toISOString().split('T')[0]}.json`;
+  return `FitTracker_Backup_${localYmd(when)}.json`;
 }
 
 // ============ 解析 ============
@@ -710,7 +711,7 @@ async function findRollbackRow(): Promise<RollbackRow | undefined> {
   return rows.find((r) => r.id === ROLLBACK_ID);
 }
 
-/** 7 天内的才算还在；过期后怎么处理（清掉 / 报错）由调用方定 */
+/** 7 天内的才算还在；过期的读成没有、报错，但不删 —— 时钟调快过的话，调回来它又在期限里了（上架审查 C67） */
 const rollbackFresh = (row: RollbackRow) => Date.now() - new Date(row.createdAt).getTime() < ROLLBACK_MAX_AGE_MS;
 
 export interface RollbackInfo {
@@ -720,14 +721,10 @@ export interface RollbackInfo {
   newer: number;
 }
 
-/** 回滚槽（过了 7 天的当场清掉、当没有）。liveId：工作台上进行中的那场，撤销时保留，不算进 newer */
+/** 回滚槽（过了 7 天的当没有）。liveId：工作台上进行中的那场，撤销时保留，不算进 newer */
 export async function readRollback(liveId?: string): Promise<RollbackInfo | null> {
   const row = await findRollbackRow();
-  if (!row?.snapshot) return null;
-  if (!rollbackFresh(row)) {
-    await db.delete(ROLLBACK_STORE, ROLLBACK_ID).catch(() => undefined);
-    return null;
-  }
+  if (!row?.snapshot || !rollbackFresh(row)) return null;
   const had = new Set((row.snapshot.workouts ?? []).map(w => w.id));
   const now = (await db.getAll<WorkoutSession>('workouts')).filter(w => w.id !== liveId);
   let newer: number;
@@ -788,4 +785,9 @@ export function localDataSummary(s: FitlogRemoteSnapshot) {
     customExercises: s.prefs.customExercises.length,
     gyms: Object.values(s.prefs.appPrefs?.gyms ?? {}).filter(g => g !== '').length,
   };
+}
+
+/** 有没有任何用户数据（各表 + 自建内容；语言、单位不算）：自动备份「空就不写」也按它判 */
+export function hasUserData(s: FitlogRemoteSnapshot): boolean {
+  return Object.values(localDataSummary(s)).some(n => n > 0);
 }

@@ -43,6 +43,10 @@ function useT() {
   return { lang, isCn, t: (cn: string, en: string) => (isCn ? cn : en) };
 }
 
+/** 清理时因内容没被新备份覆盖而留下的旧备份（BackupStatus.held） */
+const heldText = (n: number, t: (cn: string, en: string) => string) =>
+  t(`有 ${n} 份旧备份含这台手机没有的记录，已保留`, `${n} older backup${n > 1 ? 's have' : ' has'} records this phone doesn't — kept`);
+
 /** 错误比成功新 → 算失败；否则看最近一次成功 */
 function useBackupView() {
   const { supported, folder, status } = useBackupState();
@@ -94,7 +98,7 @@ export const BackupRow: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
   return (
     <Go
       name={t('自动备份', 'Auto backup')}
-      sub={status.shrinkWarning ? t('训练场数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept') : undefined}
+      sub={status.held?.length ? heldText(status.held.length, t) : undefined}
       bad
       value={<span data-testid="backup-status">{status.lastOkAt ? ago(status.lastOkAt, isCn) : t('还没有备份', 'No backup yet')}</span>}
       onClick={onOpen}
@@ -167,9 +171,10 @@ export const BackupPage: React.FC = () => {
     <>
       <Group testId="data-safety">
         <Stack name={<span data-testid="backup-status">{head}</span>}>
-          {folder && status.shrinkWarning && !errNewer && (
-            <p className="text-label text-danger -mt-1">
-              {t('训练场数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept')}
+          {folder && !!status.held?.length && !errNewer && (
+            <p className="text-label text-danger -mt-1" data-testid="backup-held">
+              {heldText(status.held.length, t)}
+              {t('，可用「从备份恢复」合并回来', ' — "Restore from backup" can merge them back')}
             </p>
           )}
           {!folder || noAccess ? (
