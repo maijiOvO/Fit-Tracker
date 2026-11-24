@@ -1683,6 +1683,16 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (n1 < 2) throw new Error(`need two set rows to test a double tap on delete, got ${n1}`);
       await rows.nth(n1 - 2).locator('[data-testid="set-remove"]').dblclick();
       await until(async () => (await rows.count()) === n1 - 1, 'the set row to be removed (a double tap must remove only one)');
+      // 删的是最后一组：页脚「添加组」上移到指下，第二下不该把组加回来。落点取决于真实布局，下层测不到
+      if (n1 - 1 < 2) {
+        await page.getByRole('button', { name: /添加组|Add set/ }).first().click();
+        await until(async () => (await rows.count()) === n1, 'a set to be added before the last-row double tap');
+      }
+      const n2 = await rows.count();
+      await page.waitForTimeout(450); // 和上一次删除拉开，免得这次第一下被当成连点
+      await rows.nth(n2 - 1).locator('[data-testid="set-remove"]').dblclick();
+      await page.waitForTimeout(150);
+      if ((await rows.count()) !== n2 - 1) throw new Error(`a double tap on the last set's delete should leave ${n2 - 1} rows, got ${await rows.count()}`);
       if (await page.locator('[data-testid="toast-undo"]').count()) throw new Error('deleting a set still shows an undo toast');
 
       const card = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();

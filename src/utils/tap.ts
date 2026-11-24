@@ -142,6 +142,24 @@ export function isRepeatTap(prev: { t: number; x: number; y: number } | null, cu
 }
 
 /**
+ * 上一次真正执行的删除（组行 / 子组行共用）：删完补到指下的是另一个 SetCapsule 实例、加档键，
+ * 或删的是最后一组时卡片页脚的「添加组」，所以只能放模块级，按 setId 或按组件存都拦不住。
+ */
+let lastRemoveTap: { t: number; x: number; y: number } | null = null;
+type TapEvent = { detail: number; clientX: number; clientY: number };
+/** 删除键的 click：连点的第二下返回 false（不震也不删）。键盘 / 读屏触发的 click 没有坐标（detail 0），不参与 */
+export function removeTapOk(e: TapEvent): boolean {
+  if (e.detail === 0) return true;
+  const cur = { t: performance.now(), x: e.clientX, y: e.clientY };
+  if (isRepeatTap(lastRemoveTap, cur)) return false;
+  lastRemoveTap = cur;
+  return true;
+}
+/** 加组 / 加档键紧跟在删除之后、落在同一点：是连点删除的第二下落到了补上来的加号上，不算 */
+export const afterRemoveTap = (e: TapEvent): boolean =>
+  e.detail > 0 && isRepeatTap(lastRemoveTap, { t: performance.now(), x: e.clientX, y: e.clientY });
+
+/**
  * 吞手势补发的那次 click（审查 navigation-overlays#5）：限时、吞一次就作废，**下一次按下也作废**。
  * 真点击一定先有 pointerdown，补发的 click 没有；安卓上不补发时，第一下真点按带着 pointerdown 当场把窗口作废，
  * 不会被误吞（DevNotes patterns「吞掉手势补发的 click」）。状态放在调用方的 ref 里。

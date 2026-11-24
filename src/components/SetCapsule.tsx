@@ -29,7 +29,7 @@ import { appPrefsNow } from '../../services/appPrefs';
 import type { LoadKind } from '../hooks/useLoadKind';
 import type { ExRounder } from '../hooks/useLoadRounder';
 import { nextDropShown } from '../utils/setStep';
-import { isRepeatTap } from '../utils/tap';
+import { afterRemoveTap, removeTapOk } from '../utils/tap';
 
 /**
  * 「杠铃片」§3 + 馆档案：拖一格多少，跟着「这个馆、这件器材」的一档走（交互只有一套，变的只是落点）。
@@ -153,23 +153,6 @@ const focusNextOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
   if (next) next.focus();
   else cur.blur();
 };
-
-/**
- * 上一次真正执行的删除（组行 / 子组行共用，审查 C40）：删完下一行补到指下，连点的第二下点中的是另一个
- * SetCapsule 实例，所以只能放模块级，按 setId 或按组件存都拦不住。
- */
-let lastRemoveTap: { t: number; x: number; y: number } | null = null;
-/** 删除键的 click：连点的第二下返回 false（不震也不删）。键盘 / 读屏触发的 click 没有坐标（detail 0），不参与 */
-const removeTapOk = (e: React.MouseEvent): boolean => {
-  if (e.detail === 0) return true;
-  const cur = { t: performance.now(), x: e.clientX, y: e.clientY };
-  if (isRepeatTap(lastRemoveTap, cur)) return false;
-  lastRemoveTap = cur;
-  return true;
-};
-/** 「＋再加一档」紧跟在删档之后、落在同一点：是连点删档的第二下落到了补上来的加档键上，不算 */
-const afterRemoveTap = (e: React.MouseEvent): boolean =>
-  e.detail > 0 && isRepeatTap(lastRemoveTap, { t: performance.now(), x: e.clientX, y: e.clientY });
 
 /** 打进来的次数：非负整数，不设上限（D4） */
 const wholeReps = (n: number) => Math.max(0, Math.round(n));

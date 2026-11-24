@@ -28,6 +28,7 @@ import { useMachineSettings } from '../hooks/useMachineSettings';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
 import { tick } from '../utils/tick';
+import { afterRemoveTap } from '../utils/tap';
 import { heroFocus } from '../utils/scrubFeel';
 import { carrySign } from '../utils/workbench';
 import { useBackClose } from '../hooks/useBackClose';
@@ -656,7 +657,9 @@ export const ExerciseCard = React.memo(function ExerciseCard({
       <div className="p-3 pt-2">
         <button
           type="button"
-          onClick={() => {
+          onClick={e => {
+            // 删的是最后一组时，「添加组」上移到删除键底下：连点的第二下不该把组加回来（审查 C40）
+            if (afterRemoveTap(e)) return;
             haptic(H.tap);
             onAddSet(exIdx);
           }}
