@@ -2,7 +2,7 @@
 /**
  * 工作台「做到哪了」与交替组的逻辑自检（src/utils/workbench.ts、src/utils/load.ts）。
  *
- * e2e 只走原有的点组号 / ±5 路径，换卡、补做、交替组、编辑旧训练、带正负的负荷它都没测到（假的成功信号：全绿 ≠ 测到了）。
+ * e2e 只走原有的点组号 / ±5 路径，换卡、往回点、交替组、编辑旧训练、带正负的负荷它都没测到（假的成功信号：全绿 ≠ 测到了）。
  * 这里不起浏览器，用 esbuild 把两个纯函数模块打成临时 ESM 直接跑断言，几百毫秒。
  *
  * 用法：node scripts/workbench-check.mjs
@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts'; export * as SW from './src/utils/setWrite.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -60,11 +60,11 @@ const read = exs => {
     })
     .join(' ') + (P === flat.length ? ' |' : '');
 };
-/** 点组号（2026-10-11）：一下＝选中 + 指针挪到这一组正下方 */
+/** 点组号：指针挪到这一组正下方 */
 const tap = (exs, setId) => {
   const r = W.flatRows(exs).find(x => x.setId === setId);
   const res = W.tapSetNum(exs, r);
-  return { exs: W.normalizeGroups(res.exs), outcome: res.outcome, suggest: res.suggestPair };
+  return { exs: W.normalizeGroups(res.exs), outcome: res.outcome };
 };
 const fill = (exs, setId, patch) => exs.map(e => ({ ...e, sets: e.sets.map(s => (s.id === setId ? { ...s, ...patch } : s)) }));
 
@@ -79,11 +79,11 @@ t('一路往下：指针跟着做完走，默认选中指针下面那组', () =>
   assert.equal(W.nextPendingRow(exs).setId, 'A3');
 });
 
-t('做了一半去做别的：剩下的组原样留着待做，那张卡挪到当前卡下面', () => {
+t('做了一半去做别的：那张卡挪到当前卡下面，当前卡剩下的组落在指针上面', () => {
   let exs = [ex('A', [[50, 10], [50, 10], [50, 10]]), ex('B', [[20, 12]]), ex('C', [[30, 15], [30, 15]])];
   exs = tap(exs, 'A1').exs;
   exs = tap(exs, 'C1').exs;
-  assert.equal(read(exs), 'A1[D] A2[p] A3[p] C1[D] | C2[p] B1[p]');
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] C1[D] | C2[p] B1[p]');
 });
 
 t('还没开始就去做别的：那张卡挪到最前面', () => {
@@ -92,15 +92,16 @@ t('还没开始就去做别的：那张卡挪到最前面', () => {
   assert.equal(read(exs), 'B1[D] | B2[p] A1[p] A2[p]');
 });
 
-t('跳回去补做留下的组：原地做完 + 提示交替；合并后待做的按轮换排', () => {
+t('往回点：指针落回那一组正下方，它后面的全部退到指针下面，卡片不挪', () => {
+  // 防的错：往回点只选中、指针留在原处（2026-11-23 之前的规则），读数和指针对不上
   let exs = [ex('A', [[30, 15], [30, 15], [30, 15]]), ex('B', [[60, 15], [60, 15], [60, 15]])];
   exs = tap(exs, 'A1').exs;
-  exs = tap(exs, 'B1').exs; // A2、A3 留在指针上面待做
+  exs = tap(exs, 'B1').exs;
+  assert.equal(W.doneCount(exs), 4);
   const r = tap(exs, 'A2');
-  assert.deepEqual(r.suggest, { a: 'A', b: 'B' });
-  exs = W.groupExercises(r.exs, ['A', 'B']);
-  // 做完的按实际先后（A1 B1 A2），待做从最后做完那组（A）的下一个动作（B）接着轮
-  assert.equal(read(exs), 'A1[D] B1[D] A2[D] | B2[p] A3[p] B3[p]');
+  assert.equal(r.outcome, 'moved');
+  assert.equal(read(r.exs), 'A1[D] A2[D] | A3[p] B1[p] B2[p] B3[p]');
+  assert.equal(W.doneCount(r.exs), 2);
 });
 
 t('交替组：成员左右移只重排待做，做完的不动；改记到另一个动作', () => {
@@ -124,10 +125,10 @@ t('移出交替 / 拆开：状态原样带走；只剩一个成员的组自动�
   assert.ok(exs.every(e => !e.altGroup), 'a one-member group should dissolve');
 });
 
-t('拖指针：往下经过的做完（全零的留着待做），往上经过的退回待做', () => {
+t('拖指针：缝上面的一律算练过（全零的也算），下面的一律退回', () => {
   let exs = [ex('A', [[50, 10], [0, 0], [50, 10]])];
   exs = W.movePointerTo(exs, 'A', 3);
-  assert.equal(read(exs), 'A1[D] A2[p] A3[D] |');
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] |');
   exs = W.movePointerTo(exs, 'A', 1);
   assert.equal(read(exs), 'A1[D] | A2[p] A3[p]');
 });
@@ -147,35 +148,36 @@ t('拖指针到别的卡的最底：跨卡经过的全做完（含改过数的�
   assert.equal(read(W.movePointerTo(exs, 'B', 0)), '| B1[p] C1[p] A1[p] A2[p] A3[p] A4[p]');
 });
 
-t('点组号：同一张卡里点下面的组，经过的做完（全零的留着待做）、指针落在它正下方', () => {
+t('点组号：同一张卡里点下面的组，经过的都算练过（全零的也算）、指针落在它正下方', () => {
   let exs = [ex('A', [[50, 10], [0, 0], [55, 8], [60, 6]]), ex('B', [[20, 12]])];
   const r = tap(exs, 'A3');
-  assert.equal(r.outcome, 'done');
+  assert.equal(r.outcome, 'moved');
   exs = r.exs;
-  assert.equal(read(exs), 'A1[D] A2[p] A3[D] | A4[p] B1[p]');
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] | A4[p] B1[p]');
   assert.equal(W.nextPendingRow(exs).setId, 'A4');
 });
 
-t('点组号：做完的组再点（刚做完的、更上面的）＝只选中，指针不往回跳、什么都不退回', () => {
+t('点组号：指针正上方那组再点＝什么都不变；点更上面的组＝指针跟过去', () => {
   let exs = [ex('A', [[50, 10], [50, 10], [50, 10]])];
   exs = tap(exs, 'A3').exs;
   assert.equal(read(exs), 'A1[D] A2[D] A3[D] |');
-  for (const id of ['A3', 'A1']) {
-    const r = tap(exs, id);
-    assert.equal(r.outcome, 'select');
-    assert.deepEqual(r.exs, exs);
-  }
+  const same = tap(exs, 'A3');
+  assert.equal(same.outcome, 'select');
+  assert.deepEqual(same.exs, exs);
+  const back = tap(exs, 'A1');
+  assert.equal(back.outcome, 'moved');
+  assert.equal(read(back.exs), 'A1[D] | A2[p] A3[p]');
 });
 
-t('用户流程：点 1、点 2，回头点 1 改手误 → 指针留在 2–3，组 2 不退回、不跟；再点 3 照常前进', () => {
+t('用户流程：点 1、点 2，回头点 1 改数 → 指针回到 1–2，只有组 1 变；再点 3 照常前进', () => {
   const r = id => ({ exId: 'A', setId: id });
   const w = exs => exs[0].sets.map(s => s.weight).join(' ');
   let exs = [ex('A', [[20, 10], [20, 10], [20, 10], [20, 10]])];
   exs = tap(exs, 'A1').exs;
   exs = tap(exs, 'A2').exs;
   assert.equal(read(exs), 'A1[D] A2[D] | A3[p] A4[p]');
-  assert.equal(tap(exs, 'A1').outcome, 'select');
-  // 组 1 改成 25：它后面还有做完的组 2 → 后面全部不动（重量、次数都是）
+  exs = tap(exs, 'A1').exs;
+  assert.equal(read(exs), 'A1[D] | A2[p] A3[p] A4[p]');
   exs = W.applySetUpdate(exs, r('A1'), { weight: 25 });
   exs = W.applySetUpdate(exs, r('A1'), { reps: 12 });
   assert.equal(w(exs), '25 20 20 20');
@@ -184,47 +186,44 @@ t('用户流程：点 1、点 2，回头点 1 改手误 → 指针留在 2–3�
   exs = W.applySetUpdate(exs, r('A1'), { weight: 30, holdFollow: true });
   exs = W.applySetUpdate(exs, r('A1'), { followFrom: { kg: 25 } });
   assert.equal(w(exs), '30 20 20 20');
-  // 改最新做完的组 2：后面待做的照常跟
+  // 改指针下面的组 2：后面的 3、4 也不动
   exs = W.applySetUpdate(exs, r('A2'), { weight: 22.5 });
-  assert.equal(w(exs), '30 22.5 22.5 22.5');
+  assert.equal(w(exs), '30 22.5 20 20');
   exs = tap(exs, 'A3').exs;
   assert.equal(read(exs), 'A1[D] A2[D] A3[D] | A4[p]');
 });
 
-t('画出来的指针：选中哪一组就在哪一组正下方（往回点也跟），组的做完 / 待做不变；没选中＝真实进度', () => {
-  const r = id => ({ exId: id[0], setId: id });
+t('指针的位置：没点过在第一组上方；点哪组就在哪组正下方（往回点、全零的组、另一张卡都一样）', () => {
   let exs = [ex('A', [[20, 10], [20, 10], [20, 10]]), ex('B', [[0, 0], [30, 8]])];
   const [ka, kb] = W.buildCards(exs).map(c => c.key);
-  exs = tap(exs, 'A1').exs;
+  assert.deepEqual(W.pointerSeam(exs), { cardKey: ka, gap: 0 });
+  assert.equal(W.doneCount(exs), 0);
   exs = tap(exs, 'A2').exs;
-  assert.deepEqual(W.shownSeam(exs, null), { cardKey: ka, gap: 2 });
-  assert.deepEqual(W.shownSeam(exs, r('A2')), { cardKey: ka, gap: 2 });
-  // 回头点组 1：指针画在 1–2 之间，真实进度（pointerSeam）还在 2–3
-  assert.deepEqual(W.shownSeam(exs, r('A1')), { cardKey: ka, gap: 1 });
   assert.deepEqual(W.pointerSeam(exs), { cardKey: ka, gap: 2 });
-  assert.equal(read(exs), 'A1[D] A2[D] | A3[p] B1[p] B2[p]');
-  // 另一张卡上没填数的组：点不实，但指针一样到它下面
-  assert.deepEqual(W.shownSeam(exs, r('B1')), { cardKey: kb, gap: 1 });
-  // 选中的组已经不在了（删了）→ 回到真实进度
-  assert.deepEqual(W.shownSeam(exs, { exId: 'A', setId: 'gone' }), { cardKey: ka, gap: 2 });
+  exs = tap(exs, 'A1').exs;
+  assert.deepEqual(W.pointerSeam(exs), { cardKey: ka, gap: 1 });
+  // 另一张卡上没填数的组：指针一样到它下面，读数跟着指针
+  exs = tap(exs, 'B1').exs;
+  assert.deepEqual(W.pointerSeam(exs), { cardKey: kb, gap: 1 });
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] B1[D] | B2[p]');
+  assert.equal(W.doneCount(exs), 4);
 });
 
 // ── 递减继承（2026-11-18）─────────────────────────────────────
 const chain = exs => exs[0].sets.map(st => [W.signedKg(st, exs[0]), ...(st.subSets ?? []).map(x => W.signedKg(x, exs[0], st))].join('/')).join(' ');
 const rA = id => ({ exId: 'A', setId: id });
 
-t('平移被 0 截住的档 / 后面的组记得本来的差值：母组降下去再升回来，原样回来（不入册）', () => {
-  // 防的错：20→10 的递减，母组改成 5 把档截成 0，再改回 20 档成了 15；后面跟着的组同理
+t('平移被 0 截住的档记得本来的差值：母组降下去再升回来，原样回来（不入册）；别的组不动', () => {
+  // 防的错：20→10 的递减，母组改成 5 把档截成 0，再改回 20 档成了 15
   let exs = [ex('A', [[20, 8], [10, 8]])];
   exs[0].sets[0].subSets = [{ id: 'd1', weight: 10, reps: 8 }];
   exs = W.applySetUpdate(exs, rA('A1'), { weight: 5 });
-  assert.equal(chain(exs), '5/0 0');
+  assert.equal(chain(exs), '5/0 10');
   exs = W.applySetUpdate(exs, rA('A1'), { weight: 20 });
   assert.equal(chain(exs), '20/10 10');
   exs = W.applySetUpdate(exs, rA('A1'), { weight: 5 });
   const stripped = W.stripWorkbenchSet(exs[0].sets[0]);
   assert.equal(stripped.subSets[0].want, undefined);
-  assert.equal(W.stripWorkbenchSet(exs[0].sets[1]).want, undefined);
   // 被截住的那一档自己改了数：以后按改的数算，不再回到原来的差值
   exs = W.applySetUpdate(exs, rA('A1'), { subSets: [{ ...exs[0].sets[0].subSets[0], weight: 2, touched: { weight: true } }] });
   exs = W.applySetUpdate(exs, rA('A1'), { weight: 20 });
@@ -244,38 +243,29 @@ t('手改过的档不跟母组，但母组降到它下面时不翻成递增：�
   assert.equal(chain(exs), '80/80');
 });
 
-t('母组只换号（辅助 ⇄ 负重）：自己的递减档保持差值跟过去；后面一起换号的组也带着自己的档', () => {
+t('母组只换号（辅助 ⇄ 负重）：自己的递减档保持差值跟过去；别的组不换', () => {
   const a = (id, w, sub) => ({ id, weight: w, reps: 5, ghost: true, bodyweightMode: 'assisted', subSets: [{ id: `${id}d`, weight: sub, reps: 5, bodyweightMode: 'assisted' }] });
   let exs = [{ id: 'A', name: 'A', category: 'STRENGTH', sets: [a('A1', 20, 25), a('A2', 20, 25)] }];
   exs = W.applySetUpdate(exs, rA('A1'), { bodyweightMode: 'weighted' });
-  assert.equal(chain(exs), '20/15 20/15');
+  assert.equal(chain(exs), '20/15 -20/-25');
 });
 
-t('加一档递减：后面待做、档数一样的组也加上这一档（同样的降幅，次数跟各自上一行）；做完的、档数不同的不加', () => {
-  let exs = [ex('A', [[60, 8], [60, 8], [70, 6], [60, 8], [60, 8]])];
-  exs[0].sets[3].subSets = [{ id: 'own', weight: 30, reps: 8 }];
-  exs[0].sets[4] = { ...exs[0].sets[4], ghost: false };
+t('加一档递减：只加在这一组上，别的组不出现这一档', () => {
+  let exs = [ex('A', [[60, 8], [60, 8], [70, 6]])];
   exs = W.applySetUpdate(exs, rA('A1'), { subSets: [{ id: 'n1', weight: 50, reps: 8 }] });
-  assert.equal(chain(exs), '60/50 60/50 70/60 60/30 60');
-  assert.equal(exs[0].sets[2].subSets[0].reps, 6);
-  const ids = exs[0].sets.flatMap(st => (st.subSets ?? []).map(x => x.id));
-  assert.equal(new Set(ids).size, ids.length, 'sub ids stay unique');
-  // 第二档同理；删档不往后传
-  exs = W.applySetUpdate(exs, rA('A1'), { subSets: [...exs[0].sets[0].subSets, { id: 'n2', weight: 45, reps: 8 }] });
-  assert.equal(chain(exs), '60/50/45 60/50/45 70/60/55 60/30/25 60');
-  exs = W.applySetUpdate(exs, rA('A1'), { subSets: [] });
-  assert.equal(chain(exs), '60 60/50/45 70/60/55 60/30/25 60');
+  assert.equal(chain(exs), '60/50 60 70');
 });
 
-t('手打的数不在格子上：后面跟着的组原样平移，不吸到格子；打的数在格子上才照常吸', () => {
+t('手打的数不在格子上：自己的递减档原样平移，不吸到格子；打的数在格子上才照常吸', () => {
   const snapFor = () => kg => Math.round(kg / 2.5) * 2.5;
-  let exs = [ex('A', [[60, 8], [60, 8], [41, 8]])];
+  let exs = [ex('A', [[60, 8]])];
+  exs[0].sets[0].subSets = [{ id: 'd1', weight: 51, reps: 8 }];
   exs = W.applySetUpdate(exs, rA('A1'), { weight: 61.2, holdFollow: true }, snapFor);
   exs = W.applySetUpdate(exs, rA('A1'), { followFrom: { kg: 60 } }, snapFor);
-  assert.equal(chain(exs), '61.2 61.2 42.2');
+  assert.equal(chain(exs), '61.2/52.2');
   exs = W.applySetUpdate(exs, rA('A1'), { weight: 65, holdFollow: true }, snapFor);
   exs = W.applySetUpdate(exs, rA('A1'), { followFrom: { kg: 61.2 } }, snapFor);
-  assert.equal(chain(exs), '65 65 45');
+  assert.equal(chain(exs), '65/55');
 });
 
 t('改不是最新做完的组：同一组里的递减链照样保持差值，后面组的递减档不动', () => {
@@ -303,30 +293,23 @@ t('点组号：改过数的组做完再退回，仍认得改过（不再被前�
   assert.equal(exs[0].sets[1].touched, undefined, 'an untouched draft stays untouched after done → revert');
 });
 
-t('点组号：全零的组点不实（只选中，指针不动）；指针上面留下的组填了数再点＝原地补做', () => {
+t('点组号：全零的组照样能点，指针落到它下面', () => {
+  // 防的错：全零的组点了没反应、弹「还没填数」（2026-11-23 起指针只是位置，不看有没有数）
   let exs = [ex('A', [[50, 10], [0, 0], [50, 10]])];
   exs = tap(exs, 'A1').exs;
   const r = tap(exs, 'A2');
-  assert.equal(r.outcome, 'empty');
-  assert.equal(read(r.exs), 'A1[D] | A2[p] A3[p]');
-  exs = tap(exs, 'A3').exs; // A2 全零 → 扫过去也留着待做
-  assert.equal(read(exs), 'A1[D] A2[p] A3[D] |');
-  assert.equal(tap(exs, 'A2').outcome, 'empty'); // 在指针上面、全零：还是点不实
-  const f = tap(fill(exs, 'A2', { reps: 8 }), 'A2');
-  assert.equal(f.outcome, 'done');
-  assert.equal(f.suggest, undefined, 'same card: no pairing hint');
-  assert.equal(read(f.exs), 'A1[D] A2[D] A3[D] |');
+  assert.equal(r.outcome, 'moved');
+  assert.equal(read(r.exs), 'A1[D] A2[D] | A3[p]');
 });
 
-t('点组号：点别的卡 → 当前卡剩下的留着待做、那张卡挪上来并扫到被点的组；还没开始就挪到最前', () => {
+t('点组号：点别的卡 → 那张卡挪到当前卡下面、指针到被点的组；往回点不挪卡；还没开始就挪到最前', () => {
   let exs = [ex('A', [[50, 10], [50, 10], [50, 10]]), ex('B', [[20, 12]]), ex('C', [[30, 15], [30, 15], [30, 15]])];
   exs = tap(exs, 'A1').exs;
   exs = tap(exs, 'C2').exs;
-  assert.equal(read(exs), 'A1[D] A2[p] A3[p] C1[D] C2[D] | C3[p] B1[p]');
+  assert.equal(read(exs), 'A1[D] A2[D] A3[D] C1[D] C2[D] | C3[p] B1[p]');
   const r = tap(exs, 'A2');
-  assert.equal(r.outcome, 'done');
-  assert.deepEqual(r.suggest, { a: 'A', b: 'C' });
-  assert.equal(read(r.exs), 'A1[D] A2[D] A3[p] C1[D] C2[D] | C3[p] B1[p]');
+  assert.equal(r.outcome, 'moved');
+  assert.equal(read(r.exs), 'A1[D] A2[D] | A3[p] C1[p] C2[p] C3[p] B1[p]');
 
   let fresh = [ex('A', [[50, 10], [50, 10]]), ex('B', [[20, 12], [20, 12]])];
   fresh = tap(fresh, 'B2').exs;
@@ -349,22 +332,35 @@ t('交替组行序：待做的从「最后一条做完（seq 最大）的成员�
   assert.equal(read(exs), 'B1[D] A1[D] | B2[p] A2[p]');
 });
 
-t('次数不跟随（2026-11 用户定）：改第 1 组次数，后面组不变；递减档的次数同样不跟，重量照旧跟', () => {
+t('递减档：改某一档的次数、重量，别的组的同一档都不变', () => {
   const r = exs => W.flatRows(exs)[0];
-  // 上次 8/8/8/6：改成 9 后面不动；一下一下减到 5（途经 6）也不把第 4 组吸进来
-  let exs = [ex('A', [[60, 8], [60, 8], [60, 8], [60, 6]])];
-  exs = W.applySetUpdate(exs, r(exs), { reps: 9 });
-  assert.deepEqual(exs[0].sets.map(s => s.reps), [9, 8, 8, 6]);
-  for (const v of [8, 7, 6, 5]) exs = W.applySetUpdate(exs, r(exs), { reps: v });
-  assert.deepEqual(exs[0].sets.map(s => s.reps), [5, 8, 8, 6]);
-  // 递减档：第 1 组第 1 档次数改了，后面组的第 1 档不变；重量照旧保持差值
-  exs = [ex('A', [[60, 8], [60, 8]])];
+  let exs = [ex('A', [[60, 8], [60, 8]])];
   exs[0].sets.forEach((st, i) => (st.subSets = [{ id: `d${i}`, weight: 50, reps: 8 }]));
   const s0 = exs[0].sets[0];
   exs = W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], reps: 6 }] });
   assert.deepEqual(exs[0].sets.map(s => s.subSets[0].reps), [6, 8]);
   exs = W.applySetUpdate(exs, r(exs), { subSets: [{ ...exs[0].sets[0].subSets[0], weight: 45 }] });
-  assert.deepEqual(exs[0].sets.map(s => s.subSets[0].weight), [45, 45]);
+  assert.deepEqual(exs[0].sets.map(s => s.subSets[0].weight), [45, 50]);
+});
+
+t('改回上次：重量改离默认值才给目标；默认值＝上次的数按今天的馆取整；换算零头、切单位后的同一个重量不算改过', () => {
+  // 防的错：没改过也亮「改回上次」（切到 lb 后 60 kg 显示成 132.28）；或改回的是没取整的原数
+  const set = (weight, ref) => ({ id: 's', weight, reps: 8, ghost: true, ...(ref ? { prefillRef: ref } : {}) });
+  const snap = kg => Math.round(kg / 2.5) * 2.5;
+  assert.equal(W.SW.restoreKgOf(set(65), 1, 'kg'), undefined, 'first time: nothing to go back to');
+  assert.equal(W.SW.restoreKgOf(set(60, { kg: 60, unit: 'kg' }), 1, 'kg', snap), undefined);
+  assert.equal(W.SW.restoreKgOf(set(65, { kg: 60, unit: 'kg' }), 1, 'kg', snap), 60);
+  // 上次 22 kg、这家馆只能挂 22.5：默认值是 22.5，停在 22.5 或原数 22 都不算改过；改到 25 就改回 22.5
+  assert.equal(W.SW.restoreKgOf(set(22.5, { kg: 22, unit: 'kg' }), 1, 'kg', snap), undefined);
+  assert.equal(W.SW.restoreKgOf(set(22, { kg: 22, unit: 'kg' }), 1, 'kg', snap), undefined);
+  assert.equal(W.SW.restoreKgOf(set(25, { kg: 22, unit: 'kg' }), 1, 'kg', snap), 22.5);
+  // 顶栏切到 lb：同一个 60 kg 显示成 132.28，不算改过
+  assert.equal(W.SW.restoreKgOf(set(60, { kg: 60, unit: 'kg' }), 1, 'lbs'), undefined);
+  // 辅助：上次辅助 20，现在辅助 15 → 改回 −20
+  assert.equal(W.SW.restoreKgOf({ ...set(15, { kg: -20, unit: 'kg' }), bodyweightMode: 'assisted' }, -1, 'kg'), -20);
+  // 改回的写法：带正负的连号一起写，「改过重量」撤掉、别的格子的标记留着
+  const u = W.SW.restoreUpdate({ ...set(15), touched: { weight: true, reps: true } }, -20, true);
+  assert.deepEqual(u, { weight: 20, bodyweightMode: 'assisted', touched: { reps: true } });
 });
 
 t('入册口径（2026-11 用户定）：有数的组都入册，不论点没点过组号；全零的不入册', () => {
@@ -384,56 +380,46 @@ t('入册口径（2026-11 用户定）：有数的组都入册，不论点没点
   assert.ok(rec[0].sets.every(x => !x.ghost && x.seq === undefined && x.touched === undefined));
 });
 
-t('改值：重量保持差值带后面没动过的待做底稿，次数不跟；改过的、做完的不跟', () => {
+t('改值只改这一组（2026-11-23 用户定）：重量、次数、时长、正负号，别的组一律不变', () => {
+  // 防的错：改第 1 组把后面没动过的组一起带着变（10-15 起的「保持差值」），真机上要逐组改回去
   const r = exs => W.flatRows(exs)[0];
-  // 全是 60：改第 1 组（待做）→ 后面全跟；跟着变的不记 touched
-  let exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
-  exs = W.applySetUpdate(exs, r(exs), { weight: 62.5, touched: { weight: true } });
-  assert.deepEqual(exs[0].sets.map(s => s.weight), [62.5, 62.5, 62.5]);
-  assert.equal(exs[0].sets[1].touched, undefined, 'followers stay drafts');
-  assert.deepEqual(exs[0].sets.map(s => s.reps), [8, 8, 8], 'reps untouched by a weight edit');
-  // 金字塔：重量整体平移（原值不同的也跟），结构不被压平；次数不跟
-  exs = [ex('A', [[60, 8], [65, 6], [60, 8]])];
-  exs = W.applySetUpdate(exs, r(exs), { weight: 70 });
-  assert.deepEqual(exs[0].sets.map(s => s.weight), [70, 75, 70]);
+  let exs = [ex('A', [[60, 8], [65, 6], [60, 8]])];
+  exs = W.applySetUpdate(exs, r(exs), { weight: 70, touched: { weight: true } });
   exs = W.applySetUpdate(exs, r(exs), { reps: 10 });
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [70, 65, 60]);
   assert.deepEqual(exs[0].sets.map(s => s.reps), [10, 6, 8]);
-  // 手动改过的不跟；做完的不跟
-  exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
-  exs[0].sets[1].touched = { weight: true };
-  exs[0].sets[2].ghost = false;
-  exs = W.applySetUpdate(exs, r(exs), { weight: 65 });
-  assert.deepEqual(exs[0].sets.map(s => s.weight), [65, 60, 60]);
-  // 做完的组改值也带动后面的底稿（做完第 1 组按 +5 记实际重量）
+  // 指针上面的组改值同样不带
   exs = [ex('A', [[60, 8], [60, 8]])];
   exs[0].sets[0].ghost = false;
   exs = W.applySetUpdate(exs, r(exs), { weight: 65 });
-  assert.deepEqual(exs[0].sets.map(s => s.weight), [65, 65]);
-  // 热身：改第 1 组成 40 全跟（−20）；第 2 组改回 60（+20），3 跟着平移回来
-  exs = [ex('A', [[60, 8], [60, 8], [60, 8]])];
-  exs = W.applySetUpdate(exs, r(exs), { weight: 40 });
-  exs = W.applySetUpdate(exs, W.flatRows(exs)[1], { weight: 60, touched: { weight: true } });
-  assert.deepEqual(exs[0].sets.map(s => s.weight), [40, 60, 60]);
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [65, 60]);
+  // 时长
+  exs = [ex('A', [[0, 0], [0, 0]])];
+  exs[0].sets.forEach(st => (st.duration = 30));
+  exs = W.applySetUpdate(exs, r(exs), { duration: 45 });
+  assert.deepEqual(exs[0].sets.map(s => s.duration), [45, 30]);
+  // 正负号
+  exs = [ex('A', [[20, 8], [20, 8]])];
+  exs[0].sets.forEach(st => (st.bodyweightMode = 'assisted'));
+  exs = W.applySetUpdate(exs, r(exs), { bodyweightMode: 'weighted' });
+  assert.deepEqual(exs[0].sets.map(s => s.bodyweightMode), ['weighted', 'assisted']);
 });
 
-t('改值带 snapFor：跟着平移的组和递减档吸到能挂的，被改的那组照原样', () => {
+t('改值带 snapFor：被母组带着平移的递减档吸到能挂的，被改的那组照原样，别的组不动', () => {
   const r = exs => W.flatRows(exs)[0];
   const snap5 = () => kg => Math.round(kg / 5) * 5;
-  let exs = [ex('A', [[60, 8], [62, 8], [60, 8]])];
+  let exs = [ex('A', [[60, 8], [62, 8]])];
   exs[0].sets[0].subSets = [{ id: 'a1s', weight: 50, reps: 6 }];
   exs[0].sets[1].subSets = [{ id: 'a2s', weight: 52, reps: 6 }];
   exs = W.applySetUpdate(exs, r(exs), { weight: 63 }, snap5);
-  assert.deepEqual(exs[0].sets.map(s => s.weight), [63, 65, 65], 'edited set keeps 63; followers 63/65 snap to 65');
+  assert.deepEqual(exs[0].sets.map(s => s.weight), [63, 62], 'edited set keeps 63');
   assert.equal(exs[0].sets[0].subSets[0].weight, 55, 'own drop 53 → 55');
-  assert.equal(exs[0].sets[1].subSets[0].weight, 55, "follower's drop 55");
-  assert.ok(exs[0].sets.slice(1).every(s => s.draftAuto === false), 'followed sets are no longer auto drafts');
-  // snapFor 返回 null（纯数字的动作）：照原来纯平移
-  let plain = [ex('A', [[60, 8], [62, 8]])];
+  assert.equal(exs[0].sets[1].subSets[0].weight, 52);
+  // snapFor 返回 null（纯数字的动作）：纯平移
+  let plain = [ex('A', [[60, 8]])];
+  plain[0].sets[0].subSets = [{ id: 'p1', weight: 51, reps: 6 }];
   plain = W.applySetUpdate(plain, r(plain), { weight: 63 }, () => null);
-  assert.deepEqual(plain[0].sets.map(s => s.weight), [63, 65]);
-  plain = [ex('A', [[60, 8], [61, 8]])];
-  plain = W.applySetUpdate(plain, r(plain), { weight: 63 }, () => null);
-  assert.deepEqual(plain[0].sets.map(s => s.weight), [63, 64]);
+  assert.equal(plain[0].sets[0].subSets[0].weight, 54);
 });
 
 t('改值清 draftAuto：被改的组；递减档按 id 比，删掉中间一档不误判后面的', () => {
@@ -460,7 +446,7 @@ t('改值清 draftAuto：被改的组；递减档按 id 比，删掉中间一档
   assert.deepEqual(ed[0].sets[0].subSets.map(s => s.draftAuto), [true, false]);
 });
 
-t('改某一档的重量：同一组里下面没改过的档保持差值一起挪，后面待做组的同几档照样跟；打字中途不跟、打完结算', () => {
+t('改某一档的重量：同一组里下面没改过的档保持差值一起挪，别的组不动；打字中途不带、打完结算', () => {
   const r = exs => W.flatRows(exs)[0];
   const mk = () => {
     const exs = [ex('A', [[60, 8], [60, 8]])];
@@ -471,7 +457,7 @@ t('改某一档的重量：同一组里下面没改过的档保持差值一起�
   let exs = mk();
   const s0 = exs[0].sets[0];
   // ± / 横拖：一步到位
-  assert.equal(w(W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], weight: 45 }, s0.subSets[1]] })), '60/45/35 60/45/35');
+  assert.equal(w(W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], weight: 45 }, s0.subSets[1]] })), '60/45/35 60/50/40');
   // 下面那档改过（touched）：不动
   exs = mk();
   exs[0].sets[0].subSets[1].touched = { weight: true };
@@ -482,7 +468,7 @@ t('改某一档的重量：同一组里下面没改过的档保持差值一起�
   exs = W.applySetUpdate(exs, r(exs), { subSets: [{ ...s0.subSets[0], weight: 45 }, s0.subSets[1]], holdFollow: true });
   assert.equal(w(exs), '60/45/40 60/50/40');
   exs = W.applySetUpdate(exs, r(exs), { followFrom: { kg: 50, sub: 0 } });
-  assert.equal(w(exs), '60/45/35 60/45/35');
+  assert.equal(w(exs), '60/45/35 60/50/40');
 });
 
 t('loadable：就近取整、等距取轻、不规则片、空杠下限、跨 0、哑铃下限', () => {
@@ -569,13 +555,10 @@ t('编辑旧训练点组号：只动被点的这一组，不挪卡、不扫别�
   let r = tapE(base, 'B2');
   assert.equal(r.outcome, 'select');
   assert.equal(r.exs, base);
-  // 全零的待做组：点不实
-  r = tapE(base, 'A4');
-  assert.equal(r.outcome, 'empty');
-  assert.equal(r.exs, base);
-  // 编辑时加的待做组：原地做完；卡和组的顺序不变，别的组（含指针下面的 B）不动
+  // 编辑时加的组（全零的也一样）：原地并进记录的样子；卡和组的顺序不变，别的组（含后面的 B）不动
+  assert.equal(tapE(base, 'A4').outcome, 'moved');
   r = tapE(base, 'A3');
-  assert.equal(r.outcome, 'done');
+  assert.equal(r.outcome, 'moved');
   assert.equal(ids(r.exs), ids(base));
   const a3 = W.findSet(r.exs, { exId: 'A', setId: 'A3' });
   assert.equal(a3.ghost, false);
@@ -599,35 +582,6 @@ t('带正负的负荷：号按组、没写按动作实例；辅助不算容量',
     W.setVolumeKg({ weight: 10, reps: 5, bodyweightMode: 'weighted', subSets: [{ weight: 5, reps: 5, bodyweightMode: 'assisted' }] }, null),
     50,
   );
-});
-
-t('辅助 ⇄ 负重：换号时后面待做、没改过、同号的组一起换号，绝对值不动', () => {
-  // 防的错：换号只换这一组（后面要逐组点），或按带符号差值平移（−20 换成 +20 是 +40，后面 −15 的组变成 +25）
-  const A = { weight: 20, bodyweightMode: 'assisted' };
-  const base = [
-    ex('P', [[0, 8], [0, 8], [0, 8], [0, 8], [0, 8]], {
-      instanceConfig: { bodyweightMode: 'assisted' },
-    }),
-  ];
-  base[0].sets = [
-    { ...base[0].sets[0], ...A },
-    { ...base[0].sets[1], weight: 15, bodyweightMode: 'assisted' },
-    { ...base[0].sets[2], weight: 20, bodyweightMode: 'assisted', touched: { weight: true } },
-    { ...base[0].sets[3], weight: 10, bodyweightMode: 'weighted' },
-    { ...base[0].sets[4], weight: 20, bodyweightMode: 'assisted' },
-  ];
-  const r = W.applySetUpdate(base, { exId: 'P', setId: 'P1' }, { bodyweightMode: 'weighted' });
-  const got = r[0].sets.map(s => `${s.bodyweightMode === 'assisted' ? '-' : '+'}${s.weight}`);
-  // P2 同号没改过 → 换；P3 改过重量 → 不动；P4 本来就是负重 → 不动；P5 同号没改过 → 换
-  assert.deepEqual(got, ['+20', '+15', '-20', '+10', '+20']);
-  // 改过号的组也不跟
-  const t2 = structuredClone(base);
-  t2[0].sets[1].touched = { bodyweightMode: true };
-  assert.equal(W.applySetUpdate(t2, { exId: 'P', setId: 'P1' }, { bodyweightMode: 'weighted' })[0].sets[1].bodyweightMode, 'assisted');
-  // 做完的组不跟
-  const t3 = structuredClone(base);
-  t3[0].sets[1].ghost = false;
-  assert.equal(W.applySetUpdate(t3, { exId: 'P', setId: 'P1' }, { bodyweightMode: 'weighted' })[0].sets[1].bodyweightMode, 'assisted');
 });
 
 t('重量是 0 的组没有号：打正数沿用前面最近一组有重量的号，第 1 组按动作实例', () => {

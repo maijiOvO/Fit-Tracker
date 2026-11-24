@@ -33,6 +33,7 @@ import {
   cardRows,
   findSet,
   groupExercises,
+  isJustDone,
   moveGroupMember,
   doneCount,
   movePointerTo,
@@ -40,7 +41,6 @@ import {
   nextPendingRow,
   normalizeGroups,
   pointerSeam,
-  shownSeam,
   removeFromGroup,
   RowRef,
   splitGroup,
@@ -61,7 +61,6 @@ import { useCardReorder } from '../hooks/useCardReorder';
 import { ReorderStrip } from './ReorderStrip';
 import { plural } from '../utils/format';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
-import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { UndoRedoButtons } from './UndoRedoButtons';
 import { SetActionStrip } from './SetActionStrip';
 
@@ -181,7 +180,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     [pickerOpen, workouts, resolveName, currentWorkout.id, currentWorkout.date, editingWorkoutId, backdated],
   );
   const rounderFor = useLoadRounder();
-  const { toast, toastUndo } = useUiOverlay();
   const flashTimerRef = useRef<number | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -237,23 +235,22 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
 
   /**
    * 「做到哪了」（2026-10 指针，demo：docs/demos/set-pointer-alternating.html）：全场一个指针，
-   * 真实进度不存状态，由组的状态推出来（workbench.pointerSeam：最后一条做完的组之后），
-   * 所以重开工作台、接回训练、删组之后它自己就落在对的地方。
+   * 指针以上算练过的，位置记在组上（workbench.pointerSeam），所以重开工作台、接回训练、删组之后它自己就落在对的地方；
+   * 没点过任何组时在第一组上方。
    *
    * 选中：组号实心 = 我点过的那一组（审查 A5：没手动选中时任何组号都不实心，「实心」只有一种来历）。
-   * 点哪一组的组号，哪一组就选中，**页面上的指针画在它正下方**（workbench.shownSeam，2026-11-18 用户定：
-   * 往回点也跟过去，哪怕真实进度在更后面）；点的是待做组，这一组同时做完
-   *（2026-10-11 用户按真机手感定：一次点击顶掉「先选中再点做完」和「拖书签」两件事）。
-   * 删掉 / 拖书签之后清空，指针回到真实进度。没选中时底栏操作条改的是真实进度下面那一条待做组，小字写明第几组。
+   * 点哪一组的组号，哪一组就选中，指针落到它正下方，往回点也一样（2026-11-23 用户定：没有单独的「做完」）。
+   * 删掉 / 拖书签之后清空选中。没选中时底栏操作条改的是指针下面那一组，小字写明第几组。
    */
   const exs = currentWorkout.exercises ?? [];
   const [pickedSetId, setPickedSetId] = useState<string | null>(null);
   const seam = pointerSeam(exs);
-  const pickedRow: RowRef | null =
+  const pickedFound: RowRef | null =
     (pickedSetId && exs.flatMap(e => e.sets.filter(s => String(s.id) === pickedSetId).map(s => ({ exId: e.id, setId: String(s.id) }))).at(0)) || null;
-  const pickedValid = !!pickedRow;
-  const selectedSetId = pickedValid ? pickedSetId : null;
-  const seamShown = shownSeam(exs, pickedRow);
+  // 选中的组就是指针正上方那一组：撤销把指针挪走之后，留着的 pickedSetId 不再算选中（否则组号实心、指针却在别处）。
+  // 编辑旧训练没有指针，点哪组选哪组
+  const pickedRow = pickedFound && (editingWorkoutId || isJustDone(exs, pickedFound)) ? pickedFound : null;
+  const selectedSetId = pickedRow ? pickedSetId : null;
   const cards = buildCards(exs);
 
   /**
@@ -345,41 +342,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   };
 
   /**
-   * 点组号：一下＝选中这一组；待做的组顺带做完、指针前进（语义全在 workbench.tapSetNum）。
-   * 已选中的组再点什么都不变；全零的组点不实，只选中。
+   * 点组号：一下＝选中这一组，指针落到它正下方（语义全在 workbench.tapSetNum）。已选中的组再点什么都不变。
    * 编辑旧训练另走 tapSetNumEditing：只动被点的那一组（练完的训练没有指针可挪）。
    */
   const tapSetNum = (r: RowRef) => {
-    // 已经实心（选中）的做完组再点：什么都不变（2026-10-25 用户定）。
-    // 选中的待做组（点的时候还没填数）填了数再点照常做完
-    if (r.setId === selectedSetId && findSet(exs, r)?.ghost === false) return;
+    if (r.setId === selectedSetId) return;
     const res = editingWorkoutId ? tapSetNumEditing(exs, r) : tapSetNumPure(exs, r);
     if (res.outcome === 'noop') return;
     haptic(H.tap);
-    // 被点的那组就是选中的，做完也一样：刚做完常要回头改这一组的数（2026-10-25 用户定，撤掉审查 A1 的「交给默认」）
     setPickedSetId(r.setId);
     if (res.outcome === 'select') return;
-    if (res.outcome === 'empty') {
-      // 全零的组点不实：一组什么都没填，做完也记不下任何东西
-      toast(isCn ? '这组还没填数' : 'Nothing entered yet', 'info');
-      return;
-    }
     const nextSeam = pointerSeam(res.exs);
     if (nextSeam && nextSeam.cardKey !== seam?.cardKey) scrollToCardRef.current = nextSeam.cardKey;
     setCurrentWorkout(w => ({ ...w, exercises: normalizeGroups(stampDoneUnit(exs, res.exs)) }));
-    if (res.suggestPair) {
-      const { a, b } = res.suggestPair;
-      const other = exs.find(e => e.id === b);
-      toastUndo(
-        isCn ? `和「${other ? resolveName(other.name) : ''}」交替做？` : `Alternate with "${other ? resolveName(other.name) : ''}"?`,
-        () => setExs(list => groupExercises(list, [a, b])),
-        { undoLabel: isCn ? '交替' : 'Alternate', durationMs: 6000 },
-      );
-    }
   };
 
   /**
-   * 「杠铃片」：这一下由待做变成做完的组，记下做完时挂的是哪种片 —— 这个馆的片子单位（审查 A8：原来记显示单位，
+   * 「杠铃片」：这一下落到指针上面的组，记下当时挂的是哪种片 —— 这个馆的片子单位（审查 A8：原来记显示单位，
    * 显示 lb 的 kg 馆会被记成磅片）。纯数字的动作没有片子：已经记过的照留，没记过的按显示单位。
    * 之后切单位，做完的组不动，行下标「做完时挂的是磅片」靠它；下一次抄底稿时「上次 x」的单位也靠它。
    */
@@ -401,21 +380,21 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   };
 
   const movePointer = (cardKey: string, gap: number) => {
-    // 书签拎起来又放回原处：画的位置可能不是真实进度（选中了更上面的组），照 movePointerTo 算会把后面做完的组退回待做
-    if (seamShown?.cardKey === cardKey && seamShown.gap === gap) return;
+    // 书签拎起来又放回原处：不算拖动
+    if (seam?.cardKey === cardKey && seam.gap === gap) return;
     const after = movePointerTo(exs, cardKey, gap);
-    // 拖指针做完的组同样记下做完时挂的片
+    // 拖指针扫过的组同样记下当时挂的片
     setCurrentWorkout(w => ({ ...w, exercises: stampDoneUnit(w.exercises ?? [], after) }));
     setPickedSetId(null);
     // 落定后不弹底部提示（2026-11-18 用户定）：10-29 加它是因为「拖到底了」其实没动；
     // 那个根因已由拖动时自动滚页（RestBookmark）修掉，落点在拖动中的书签上写着，改错了走顶栏撤销
   };
 
-  /** 更新一组（按 id，交替组和单卡共用）；后面同值、没动过的底稿跟着变（workbench.applySetUpdate） */
+  /** 更新一组（按 id，交替组和单卡共用）：只改这一组，同一组的递减档保持差值（workbench.applySetUpdate） */
   const updateSet = (r: RowRef, updates: Partial<SetLog>) =>
     setCurrentWorkout(w => ({
       ...w,
-      // 被带着平移的组 / 递减档按这一场的馆就近取整（docs/design-plates.md §3）；纯数字动作照旧纯平移
+      // 被母组带着平移的递减档按这一场的馆就近取整（docs/design-plates.md §3）；纯数字动作照旧纯平移
       exercises: applySetUpdate(w.exercises ?? [], r, updates, e => rounderFor(e, w.gym)?.snapKg ?? null),
     }));
 
@@ -426,7 +405,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       exercises: (w.exercises ?? []).map(e => {
         if (e.id !== exId) return e;
         const lastSet = e.sets.length > 0 ? e.sets[e.sets.length - 1] : null;
-        // 克隆上一行的值，新行从【待做】开始（第 4 条）：指针、±5、底稿跟随都照旧。
+        // 克隆上一行的值，新行落在指针下面。
         // 力竭是当日这一组的事实，不跟着抄；touched / 跳过 / 先后号同理。
         // 递减档照抄（2026-10-15 用户定：和普通组一样继承；不做那档就删掉），换新 id、去掉改过标记。
         const newId = `${Date.now()}`;
@@ -787,7 +766,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       <div className={`space-y-6 ${stripRow ? 'pb-48' : 'pb-32'}`}>
         {cards.map((card, ci) => {
           // 编辑旧训练不画书签：拖它往上会把后面的组退回待做，保存时整段被剥掉
-          const pointerGap = !editingWorkoutId && seamShown?.cardKey === card.key ? seamShown.gap : null;
+          const pointerGap = !editingWorkoutId && seam?.cardKey === card.key ? seam.gap : null;
           const wrap = (body: React.ReactNode) => (
             <div
               key={card.key}

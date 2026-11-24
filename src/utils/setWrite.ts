@@ -7,7 +7,7 @@ import { KG_TO_LBS } from '../constants';
 import type { ExRounder } from '../hooks/useLoadRounder';
 import { parseWeight } from './format';
 import { trimNum } from './liftDisplay';
-import { clampLoadD } from './load';
+import { clampLoadD, fromSignedKg } from './load';
 
 /** 一组的重量按显示单位写：两位小数、去尾零（体重用的是 format.formatBodyWeight，一位小数） */
 export function formatLoad(kg: number, targetUnit: string): string {
@@ -48,15 +48,37 @@ export function weightFromShown(
 }
 
 /**
- * 值字段。待做组上改了其中任何一个，就记进 touched ——
- * 改值只改值，不顺手描实（第 4 条）；touched 只管「不再被前面的组带着跟随」和格子墨色。
+ * 「改回上次」的默认值（带符号 kg）：上次（或计划）的重量按今天的馆取整。这一组现在的重量和它、和上次的原数
+ * 都不一样才给，否则 undefined —— 换算的零头、切过单位后没取整的同一个重量（60 kg 显示成 132.28 lb）不算改过。
+ * 组行的「上次 x」小字和卡片左下角的「改回上次」共用这一份。
+ */
+export function restoreKgOf(set: SetLog, sign: -1 | 1, unit: string, snapKg?: (kg: number) => number): number | undefined {
+  const ref = set.prefillRef;
+  if (!ref || !(Math.abs(ref.kg) > 0)) return undefined;
+  const defKg = snapKg ? snapKg(ref.kg) : ref.kg;
+  const curD = shownWeight(Number(set.weight) || 0, sign, unit);
+  const offBy = (kg: number) => Math.abs(shownWeight(Math.abs(kg), kg < 0 ? -1 : 1, unit) - curD) >= 0.01;
+  return offBy(defKg) && offBy(ref.kg) ? defKg : undefined;
+}
+
+/** 把一组的重量改回 kg（restoreKgOf 给的）：顺手撤掉「改过重量」，格子回到底稿的墨色 */
+export function restoreUpdate(set: SetLog, kg: number, signed: boolean): Partial<SetLog> {
+  const w = signed ? fromSignedKg(kg) : { weight: Math.abs(kg) };
+  if (!set.touched?.weight) return w;
+  const { weight: _w, bodyweightMode: _b, ...touched } = set.touched;
+  return { ...w, touched };
+}
+
+/**
+ * 值字段。指针下面的组上改了其中任何一个，就记进 touched ——
+ * touched 只管格子墨色，和递减档「手改过就不跟母组」（workbench.shiftSubs）。
  */
 const VALUE_KEYS: (keyof SetLog)[] = [
   'weight', 'reps', 'duration', 'score', 'time', 'timeUnit',
   'distance', 'distanceUnit', 'bodyweightMode', 'subSets',
 ];
 
-/** 待做组：把这次改到的值字段记进 touched；做完的组原样返回 */
+/** 指针下面的组：把这次改到的值字段记进 touched；指针上面的组原样返回 */
 export function markTouched<U extends Partial<SetLog>>(set: SetLog, updates: U): U {
   if (!set.ghost) return updates;
   const keys = VALUE_KEYS.filter(k => k in updates);

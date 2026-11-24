@@ -8,14 +8,14 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Shuffle, Repeat, History } from 'lucide-react';
+import { MoreHorizontal, StickyNote, Settings as SettingsIcon, Trash2, Plus, Shuffle, Repeat, History, RotateCcw } from 'lucide-react';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { formatExerciseTime } from '../utils/dateUtils';
 import { SetCapsule, weightScrubFor } from './SetCapsule';
-import { formatLoad, markTouched, shownWeight, weightFromShown } from '../utils/setWrite';
+import { formatLoad, markTouched, restoreKgOf, restoreUpdate, shownWeight, weightFromShown } from '../utils/setWrite';
 import { useValueScrub } from '../hooks/useValueScrub';
 import { LongPressAffordance } from './LongPressAffordance';
 import { RestBookmark } from './RestBookmark';
@@ -196,6 +196,15 @@ export const ExerciseCard = React.memo(function ExerciseCard({
    * 改的是选中那一组；写回和组行同一份（utils/setWrite：显示单位换回 kg、按上限夹、带正负的写号、底稿行记 touched）。
    */
   const heroFeel = weightScrubFor(rounder);
+  /**
+   * 「改回上次」（2026-11-23 用户定，放卡片左下角：离重量格和组号都远，不易误触）：指针下面、重量改离了默认值的组
+   * 一起改回去；指针上面的是练过的，不动。点错了用顶栏撤销。
+   */
+  const restorable = exercise.sets.flatMap((set, setIdx) => {
+    if (!set.ghost) return [];
+    const kg = restoreKgOf(set, signed ? carrySign(exercise, set) : 1, unit, rounder?.snapKg);
+    return kg === undefined ? [] : [{ set, setIdx, kg }];
+  });
   const du = unit === 'lbs' ? 'lbs' : 'kg';
   /** 大图拖动 / 点「改成能挂的」：写回选中的（或待做的）那一组 */
   const writeHero = (raw: number) => {
@@ -643,7 +652,7 @@ export const ExerciseCard = React.memo(function ExerciseCard({
 
       {historyMounted && <ExerciseHistorySheet exercise={exercise} open={historyOpen} onClose={() => setHistoryOpen(false)} />}
 
-      {/* ── 页脚：只剩一个通栏虚线按钮 ── */}
+      {/* ── 页脚：通栏虚线按钮；有组的重量改离了上次时，左下角多一颗「改回上次」 ── */}
       <div className="p-3 pt-2">
         <button
           type="button"
@@ -655,6 +664,20 @@ export const ExerciseCard = React.memo(function ExerciseCard({
         >
           <Plus size={16} strokeWidth={1.75} /> {isCn ? '添加组' : 'Add set'}
         </button>
+        {restorable.length > 0 && (
+          <button
+            type="button"
+            data-testid="restore-last"
+            onClick={() => {
+              haptic(H.tap);
+              for (const x of restorable) onSetUpdate(exIdx, x.setIdx, restoreUpdate(x.set, x.kg, signed));
+            }}
+            className="mt-1 -mb-1 min-h-[44px] px-1 text-label font-medium text-secondary flex items-center gap-1.5 transition-opacity duration-tap ease-paper active:opacity-60"
+          >
+            <RotateCcw size={14} strokeWidth={1.75} />
+            {restorable.every(x => x.set.prefillRef?.plan) ? (isCn ? '改回计划' : 'Back to plan') : isCn ? '改回上次' : 'Back to last'}
+          </button>
+        )}
       </div>
     </div>
   );

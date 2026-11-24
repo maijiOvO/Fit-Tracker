@@ -6,7 +6,7 @@
  * 固定之后四颗键永远在同一个坐标（拇指区），卡片布局也不再因选中换组而抖。
  * 代价是键离开了那一行，所以上面一行小字写清在改哪一组。
  *
- * 改值口径与组行完全一致：走 workbench.applySetUpdate（后面原值一样、没改过的待做组跟着变），
+ * 改值口径与组行完全一致：走 workbench.applySetUpdate（只改这一组），
  * 待做行记 touched（改值只改值，不描实）；算法在 utils/setStep。
  */
 import React, { useContext } from 'react';

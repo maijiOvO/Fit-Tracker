@@ -15,10 +15,11 @@ import { createPortal } from 'react-dom';
 import { MachineFace, MachineMissingNote, RigChips, rigLabel } from './PlateGlyph';
 import { ALT_RIG, useMachineSettings } from '../hooks/useMachineSettings';
 import { useBackClose } from '../hooks/useBackClose';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Plus, Scissors, Shuffle, StickyNote, Trash2, LogOut, Settings as SettingsIcon, RotateCcw } from 'lucide-react';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
 import { SetCapsule } from './SetCapsule';
+import { restoreKgOf, restoreUpdate } from '../utils/setWrite';
 import { RestBookmark } from './RestBookmark';
 import { LongPressAffordance } from './LongPressAffordance';
 import { VariantModal } from './modals/VariantModal';
@@ -291,7 +292,16 @@ export const AlternatingCard = React.memo(function AlternatingCard({
   };
 
   const counter = new Map<string, number>();
-  const notes = members.filter(m => exerciseNotes[resolveName(m.name)] || gymNoteOf(m));
+  const restorable = rows.flatMap(r => {
+    const ex = byId.get(r.exId);
+    const set = setOf(r);
+    if (!ex || !set?.ghost) return [];
+    const rd = rounderFor(ex, gym);
+    const signed = isSigned(ex);
+    const kg = restoreKgOf(set, signed ? carrySign(ex, set) : 1, rd ? rd.display : unit, rd?.snapKg);
+    return kg === undefined ? [] : [{ r, set, kg, signed }];
+  });
+  const notes =members.filter(m => exerciseNotes[resolveName(m.name)] || gymNoteOf(m));
   const menuItem =
     'w-full min-h-[44px] px-4 flex items-center gap-3 text-left text-body text-primary active:bg-card-hover';
   const memberEx = memberFor ? byId.get(memberFor) : undefined;
@@ -502,7 +512,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
         })}
       </div>
 
-      <div className="p-3 pt-2 flex gap-2">
+      <div className="p-3 pb-0 pt-2 flex gap-2">
         {members.map((m, i) => (
           <button
             key={m.id}
@@ -518,6 +528,23 @@ export const AlternatingCard = React.memo(function AlternatingCard({
             <span className="truncate">{members.length > 2 ? abbrs[i] : names[i]}</span>
           </button>
         ))}
+      </div>
+      {/* 「改回上次」：同单卡（ExerciseCard），指针下面、重量改离了默认值的组一起改回 */}
+      <div className="px-3 pb-3">
+        {restorable.length > 0 && (
+          <button
+            type="button"
+            data-testid="restore-last"
+            onClick={() => {
+              haptic(H.tap);
+              for (const x of restorable) onSetUpdate(x.r, restoreUpdate(x.set, x.kg, x.signed));
+            }}
+            className="mt-1 -mb-1 min-h-[44px] px-1 text-label font-medium text-secondary flex items-center gap-1.5 transition-opacity duration-tap ease-paper active:opacity-60"
+          >
+            <RotateCcw size={14} strokeWidth={1.75} />
+            {restorable.every(x => x.set.prefillRef?.plan) ? (isCn ? '改回计划' : 'Back to plan') : isCn ? '改回上次' : 'Back to last'}
+          </button>
+        )}
       </div>
 
       {memberEx && memberFor && (

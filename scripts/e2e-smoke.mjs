@@ -1043,7 +1043,9 @@ const SEEDED = {
     await page.keyboard.type('60');
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
-    if (!(await weights()).every(w => w === 60)) throw new Error(`typing 60 should carry the drafts below, got ${JSON.stringify(await weights())}`);
+    // 2026-11-23 用户定：改值只改这一组，下面的组不被带着变
+    const w1 = await weights();
+    if (w1[0] !== 60 || w1.slice(1).some((w, i) => w !== w0[i + 1])) throw new Error(`typing 60 should change only that set, got ${JSON.stringify(w1)} from ${JSON.stringify(w0)}`);
 
     await gymBtn.click();
     await picker.waitFor({ state: 'visible', timeout: 3_000 });
@@ -1067,10 +1069,11 @@ const SEEDED = {
     const savedGym = (await readLs('fitlog_app_prefs'))?.gyms?.[gymName];
     if (savedGym?.fixedBar?.u !== 'lbs' || savedGym?.dumbbell?.u !== 'lbs') throw new Error(`units after review: ${JSON.stringify(savedGym)}`);
     await form.waitFor({ state: 'detached', timeout: 3_000 });
-    await until(async () => (await unitNow()) === 'lbs' && (await weights()).slice(1).every(w => w === 130), 'the unit switch + re-round after saving lb plates').catch(() => {});
+    const onLbGrid = v => v >= 45 && Math.abs((v - 45) / 5 - Math.round((v - 45) / 5)) < 1e-6;
+    await until(async () => (await unitNow()) === 'lbs' && (await weights()).slice(1).every(onLbGrid), 'the unit switch + re-round after saving lb plates').catch(() => {});
     const w2 = await weights();
     if ((await unitNow()) !== 'lbs') throw new Error(`saving today's gym with lb plates should switch to lbs, got ${await unitNow()}`);
-    if (w2[0] !== 132.28 || !w2.slice(1).every(w => w === 130)) throw new Error(`typed set stays 132.28 lb, followed sets re-round onto lb plates (130), got ${JSON.stringify(w2)}`);
+    if (w2[0] !== 132.28 || !w2.slice(1).every(onLbGrid)) throw new Error(`typed set stays 132.28 lb, untouched drafts re-round onto lb plates, got ${JSON.stringify(w2)}`);
     await dismissToasts();
     await backAndDiscard(page);
 
@@ -1445,18 +1448,15 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if ((await cls(row1)).includes('is-inked')) throw new Error('a freshly added set started as done');
       const w0in = row0.locator('[data-testid="ledger-field-weight"] input');
       const w1in = row1.locator('[data-testid="ledger-field-weight"] input');
-      const wBefore = await w0in.inputValue();
-      if ((await w1in.inputValue()) !== wBefore) throw new Error('fixture drift: set 2 should start as a clone of set 1');
+      const belowBefore = await w1in.inputValue();
       await w0in.click();
       await page.waitForTimeout(80); // 全选放在下一帧
       await page.keyboard.type('77');
       if ((await w0in.inputValue()) !== '77') throw new Error(`typing into a cell should replace it, got ${await w0in.inputValue()}`);
-      if ((await w1in.inputValue()) !== wBefore) throw new Error('draft below should hold while typing');
       await page.keyboard.press('Enter');
       if ((await w0in.inputValue()) !== '77') throw new Error('a typed weight must stay as typed');
-      // 2026-11-18 用户定：手打的数不在格子上，跟着的组原样平移，不再吸到能挂的 75（吸格的规则在 workbench-check 里）
-      if ((await w1in.inputValue()) !== '77') throw new Error(`draft below should follow as typed (77) on Enter, got ${await w1in.inputValue()}`);
-      if (await row1.locator('[data-testid="ledger-field-weight"].is-edited').count()) throw new Error('a follower must stay a draft');
+      // 2026-11-23 用户定：改值只改这一组，下面的组不被带着变（规则在 workbench-check 里）
+      if ((await w1in.inputValue()) !== belowBefore) throw new Error(`the set below must not follow a typed weight, got ${await w1in.inputValue()} from ${belowBefore}`);
       if (!/^reps/.test(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || ''))) throw new Error('Enter in the weight cell should focus reps');
       await page.keyboard.press('Enter');
 
@@ -1490,7 +1490,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const aliases = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem(lsKey('fitlog_exercise_overrides')) || '{}')).flatMap(o => o.aliases || []));
       if (!aliases.includes(before)) throw new Error(`old name "${before}" not kept as alias`);
       await backAndDiscard(page);
-      return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/re-tap noop · + ${w0}→${w1} · 77 → follower 75 · rename (clash rejected, alias kept)`;
+      return `reps ${r0}→${r1} · 61.24 → ${right1} → ${left2}, drop 55 · done/re-tap noop · + ${w0}→${w1} · 77, set below holds · rename (clash rejected, alias kept)`;
     });
 
     await s('global-undo', async () => {
