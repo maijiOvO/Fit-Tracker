@@ -151,7 +151,8 @@ export default {
         'modal-2': '110',
         'modal-3': '120',
         toast: '190',
-        confirm: '200', // 确认框永远在最上
+        confirm: '200', // 确认框在所有弹层之上
+        'undo-shield': '210', // 撤销写回期间的透明挡板，连确认框一起挡住（App.tsx）
       },
       transitionTimingFunction: {
         DEFAULT: 'var(--ease-paper)',

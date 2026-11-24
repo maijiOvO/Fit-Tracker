@@ -1288,7 +1288,8 @@ async function mainFlow(browser, escapedRemoteCalls) {
     return route.continue();
   });
 
-  const ignoredConsole = ['SW registration failed', 'Failed to load resource', 'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED'];
+  // 'e2e: storage full'：global-undo 故意让 IndexedDB 写不进时打的报错（只有这条用例会带这个标记）
+  const ignoredConsole = ['SW registration failed', 'Failed to load resource', 'ERR_CONNECTION_TIMED_OUT', 'ERR_NAME_NOT_RESOLVED', 'e2e: storage full'];
   page.on('console', msg => {
     if (msg.type() !== 'error') return;
     const text = msg.text();
@@ -1697,7 +1698,24 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (colSets !== '2') throw new Error(`colophon set count ${colSets}: the hand-added pending set was dropped at finish`);
       await dismissColophon(page);
       await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
-      await page.locator('header [data-testid="global-undo"]').click();
+      // 写回失败（上架审查 C18）：界面接线下层测不到 —— 这一步留着（按钮标签不变）、弹没撤成；还原后再按一次能走完
+      const headerUndo = page.locator('header [data-testid="global-undo"]');
+      const labelBefore = await headerUndo.getAttribute('aria-label');
+      await page.evaluate(() => {
+        const P = IDBObjectStore.prototype;
+        window.__realIdb = { put: P.put, delete: P.delete };
+        P.put = P.delete = () => {
+          throw new DOMException('e2e: storage full', 'QuotaExceededError');
+        };
+      });
+      try {
+        await headerUndo.click();
+        await page.locator('[data-testid="toast"]', { hasText: /没撤成|Couldn't undo/ }).waitFor({ timeout: 3_000 });
+      } finally {
+        await page.evaluate(() => Object.assign(IDBObjectStore.prototype, window.__realIdb));
+      }
+      if ((await headerUndo.getAttribute('aria-label')) !== labelBefore) throw new Error(`failed undo moved the step: ${await headerUndo.getAttribute('aria-label')}`);
+      await headerUndo.click();
       await page.locator('[data-testid="finish-button"]').waitFor({ timeout: 3_000 });
       await settle();
       if ((await page.locator('.ledger-row.is-inked').count()) !== 1) throw new Error(`undo finish: ${await state()}`);

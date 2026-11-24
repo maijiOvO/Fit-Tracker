@@ -68,12 +68,14 @@ export function parseJsonOr<T>(raw: string | null, fallback: T): T {
 
 undoJournal.setIo({
   getKey: key => storage.getItem(key),
+  // 撤销写回用：写不进去返回 false，撤销据此把这一步留在原栈、报没撤成（不抛）
   setKey: (key, value) => {
     try {
       if (value === null) localStorage.removeItem(k(key));
       else localStorage.setItem(k(key), value);
+      return true;
     } catch {
-      /* ignore */
+      return false;
     }
   },
 });

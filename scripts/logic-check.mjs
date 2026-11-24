@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
+import { mock } from 'node:test';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = mkdtempSync(join(tmpdir(), 'logic-check-'));
@@ -76,6 +77,7 @@ await build({
       "export * as ML from './src/utils/measurementLog.ts';",
       "export * as AP from './services/appPrefs.ts';",
       "export { storage } from './services/appStorage.ts';",
+      "export { undoJournal } from './services/undoJournal.ts';",
       "export { PREFS_SENTINEL } from './scripts/prefsSentinel.ts';",
     ].join('\n'),
     resolveDir: ROOT,
@@ -1768,6 +1770,246 @@ t('并入上一场（上架审查 C04）：前一场是工作台那场时并进�
   assert.deepEqual(r3.merged.exercises.map(e => e.id), ['a', 'z']);
   // 前面什么都没有
   assert.equal(L.planMergeIntoPrevious([OLD], OLD, null), null);
+});
+
+// ── 全局撤销的读写失败（上架审查 C17 / C18 / C19）：services/undoJournal.ts 的前像标记、写回失败留步、写回期间 busy ──────
+const J = L.undoJournal;
+const tickMs = (ms = 0) => new Promise(r => setTimeout(r, ms));
+/** 内存版底层：行 / 键，故障可注入。db.ts 导入时注册的是真 IndexedDB，这里把 RawIo 全部覆盖 */
+function journalRig() {
+  J.clear();
+  const rows = new Map();
+  const keys = new Map();
+  const s = n => (rows.has(n) ? rows.get(n) : (rows.set(n, new Map()), rows.get(n)));
+  const ctl = { getFail: 0, failIds: null, getDelay: 0, writeFail: 0, writeGate: null, writeCalled: false, keyFail: null };
+  J.setIo({
+    getRow: async (st, id) => {
+      if (ctl.getDelay) await tickMs(ctl.getDelay);
+      if (ctl.failIds?.has(id)) throw new DOMException('read aborted', 'AbortError');
+      if (ctl.getFail > 0) {
+        ctl.getFail--;
+        throw new DOMException('read aborted', 'AbortError');
+      }
+      const r = s(st).get(id);
+      return r ? structuredClone(r) : undefined;
+    },
+    getAllRows: async st => [...s(st).values()].map(x => structuredClone(x)),
+    writeRows: async ops => {
+      ctl.writeCalled = true;
+      if (ctl.writeGate) await ctl.writeGate;
+      if (ctl.writeFail > 0) {
+        ctl.writeFail--;
+        throw new DOMException('quota', 'QuotaExceededError');
+      }
+      for (const o of ops) o.row ? s(o.store).set(o.id, structuredClone(o.row)) : s(o.store).delete(o.id);
+    },
+    getKey: k => (keys.has(k) ? keys.get(k) : null),
+    setKey: (k, v) => {
+      if (ctl.keyFail === k) return false;
+      v === null ? keys.delete(k) : keys.set(k, v);
+      return true;
+    },
+  });
+  // 照 db.ts 的 save / delete：先记前像，再写；写失败照样 reject
+  let writeFailNext = 0;
+  const save = (st, row) =>
+    J.track(
+      J.recordRows(st, [{ id: row.id, after: row }]).then(() => {
+        if (writeFailNext > 0) {
+          writeFailNext--;
+          throw new Error('write failed');
+        }
+        s(st).set(row.id, structuredClone(row));
+      }),
+    );
+  const del = (st, id) => J.track(J.recordRows(st, [{ id, after: undefined }]).then(() => void s(st).delete(id)));
+  const setItem = (k, v) => {
+    J.recordKey(k, v);
+    keys.set(k, v);
+  };
+  const removeItem = k => {
+    J.recordKey(k, null);
+    keys.delete(k);
+  };
+  return { s, keys, ctl, save, del, setItem, removeItem, failNextWrite: () => (writeFailNext = 1) };
+}
+const tj = async (name, fn) => {
+  const warn = console.warn;
+  const error = console.error;
+  console.warn = () => {};
+  console.error = () => {};
+  try {
+    await ta(name, fn);
+  } finally {
+    console.warn = warn;
+    console.error = error;
+    J.clear();
+  }
+};
+
+await tj('撤销 C17：读前像失败、写入成功 → 整步不撤（不把那场当成原来没有去删），更早的历史一起清掉；读写都失败也不删', async () => {
+  const t = journalRig();
+  t.s('workouts').set('w1', { id: 'w1', sets: 3, updatedAt: 'a' });
+  J.beginStep('早一步');
+  await t.save('workouts', { id: 'x', v: 1 });
+  J.beginStep('改组数');
+  t.ctl.getFail = 1;
+  await t.save('workouts', { id: 'w1', sets: 4, updatedAt: 'b' });
+  J.beginStep('');
+  const r = await J.undo();
+  assert.equal(r?.outcome, 'blocked');
+  assert.equal(t.s('workouts').get('w1')?.sets, 4);
+  assert.ok(t.s('workouts').has('x'), '更早那一步也不撤：撤了会盖掉这一步对同一行的改动');
+  assert.equal(J.getState().canUndo, false);
+
+  t.s('workouts').set('w1', { id: 'w1', sets: 3, updatedAt: 'a' });
+  J.beginStep('改组数');
+  t.ctl.getFail = 1;
+  t.failNextWrite();
+  await assert.rejects(t.save('workouts', { id: 'w1', sets: 4, updatedAt: 'b' }));
+  J.beginStep('');
+  await J.undo();
+  assert.equal(t.s('workouts').get('w1')?.sets, 3);
+});
+
+await tj('撤销 C17：「并入上一场」一步两行，任一行读不到前像 → 整步不撤，深蹲恰好一份、上一场不被删（只跳过那一行会丢组或出重复）', async () => {
+  for (const failing of ['w', 'prev']) {
+    const t = journalRig();
+    t.s('workouts').set('prev', { id: 'prev', ex: ['卧推'] });
+    t.s('workouts').set('w', { id: 'w', ex: ['深蹲'] });
+    J.beginStep('并入上一场');
+    t.ctl.failIds = new Set([failing]);
+    await t.save('workouts', { id: 'prev', ex: ['卧推', '深蹲'] });
+    await t.del('workouts', 'w');
+    J.beginStep('');
+    await J.undo();
+    const all = [...t.s('workouts').values()].flatMap(r => r.ex);
+    assert.equal(all.filter(x => x === '深蹲').length, 1, failing + ' 读失败');
+    assert.ok(t.s('workouts').has('prev'), failing + ' 读失败');
+  }
+});
+
+await tj('撤销 C17：删除的前像还没读回这一步就结束了 → 不当成「删了个不存在的」丢掉，撤销把它原样放回', async () => {
+  const t = journalRig();
+  t.s('workouts').set('g1', { id: 'g1', name: '腿日' });
+  t.ctl.getDelay = 20;
+  J.beginStep('删训练');
+  const p = t.del('workouts', 'g1');
+  await tickMs(5);
+  J.beginStep('');
+  await p;
+  t.ctl.getDelay = 0;
+  const r = await J.undo();
+  assert.ok(r);
+  assert.deepEqual(t.s('workouts').get('g1'), { id: 'g1', name: '腿日' });
+});
+
+await tj('撤销 C18：写回失败 → 不抛、报 failed，这一步还在撤销栈、行一行没动（不撤一半）、键没写；再按一次写完，重做也回得去', async () => {
+  const t = journalRig();
+  t.keys.set('fitlog_app_prefs', 'old');
+  for (const i of [1, 2, 3]) t.s('workouts').set('w' + i, { id: 'w' + i, gym: 'old' });
+  J.beginStep('改馆名');
+  t.setItem('fitlog_app_prefs', 'new');
+  for (const i of [1, 2, 3]) await t.save('workouts', { id: 'w' + i, gym: 'new' });
+  J.beginStep('');
+  t.ctl.writeFail = 1;
+  const r = await J.undo();
+  assert.equal(r?.outcome, 'failed');
+  assert.equal(J.getState().undoLabel, '改馆名');
+  assert.deepEqual([1, 2, 3].map(i => t.s('workouts').get('w' + i).gym), ['new', 'new', 'new']);
+  assert.equal(t.keys.get('fitlog_app_prefs'), 'new');
+  assert.equal((await J.undo())?.outcome, 'done');
+  assert.deepEqual([1, 2, 3].map(i => t.s('workouts').get('w' + i).gym), ['old', 'old', 'old']);
+  assert.equal(t.keys.get('fitlog_app_prefs'), 'old');
+  assert.equal(J.getState().redoLabel, '改馆名');
+  await J.redo();
+  assert.deepEqual([1, 2, 3].map(i => t.s('workouts').get('w' + i).gym), ['new', 'new', 'new']);
+  assert.equal(t.keys.get('fitlog_app_prefs'), 'new');
+});
+
+await tj('撤销 C18：键写不回（setKey 返回 false）算没做成，这一步不被挪去重做栈；腾出空间后再按一次写回', async () => {
+  const t = journalRig();
+  t.keys.set('fitlog_avatar_data_url', 'BIG');
+  J.beginStep('删头像');
+  t.removeItem('fitlog_avatar_data_url');
+  J.beginStep('');
+  t.ctl.keyFail = 'fitlog_avatar_data_url';
+  assert.equal((await J.undo())?.outcome, 'failed');
+  assert.equal(J.getState().undoLabel, '删头像');
+  assert.equal(J.getState().canRedo, false);
+  t.ctl.keyFail = null;
+  await J.undo();
+  assert.equal(t.keys.get('fitlog_avatar_data_url'), 'BIG');
+});
+
+await tj('撤销 C19：写回期间 busy=true（界面据此挡输入），结束复位；期间 clear() 过的这一步不复活；写回卡死到超时按 failed、busy 撤掉', async () => {
+  const t = journalRig();
+  t.s('workouts').set('w1', { id: 'w1', sets: 3 });
+  J.beginStep('改组数');
+  await t.save('workouts', { id: 'w1', sets: 4 });
+  J.beginStep('');
+  let open;
+  t.ctl.writeGate = new Promise(r => (open = r));
+  const p = J.undo();
+  while (!t.ctl.writeCalled) await tickMs();
+  assert.equal(J.getState().busy, true);
+  J.clear();
+  open();
+  await p;
+  assert.equal(J.getState().busy, false);
+  assert.equal(J.getState().canRedo, false, '清空过的历史不复活');
+
+  const t2 = journalRig();
+  J.beginStep('改组数');
+  await t2.save('workouts', { id: 'w1', sets: 4 });
+  J.beginStep('');
+  t2.ctl.writeGate = new Promise(() => {});
+  mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    const q = J.undo();
+    while (!t2.ctl.writeCalled) await new Promise(r => setImmediate(r));
+    mock.timers.tick(60_000);
+    const r = await q;
+    assert.equal(r?.outcome, 'failed');
+    assert.equal(J.getState().busy, false);
+    assert.equal(J.getState().undoLabel, '改组数');
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+await ta('db.get（撤销读前像）：一次请求级读错误重试一次就拿到；两次都错才 reject —— 一次瞬时错误不该让整步撤不回', async () => {
+  const error = console.error;
+  console.error = () => {};
+  try {
+    const d = new L.FitLogDB();
+    let calls = 0;
+    let failAll = true;
+    d.getStore = async () => ({
+      get: id => {
+        const req = {};
+        const nth = ++calls;
+        setTimeout(() => {
+          if (failAll || nth === 1) {
+            req.error = new DOMException('read aborted', 'AbortError');
+            req.onerror?.();
+          } else {
+            req.result = { id };
+            req.onsuccess?.();
+          }
+        });
+        return req;
+      },
+    });
+    await assert.rejects(d.get('workouts', 'a'));
+    assert.equal(calls, 2);
+    failAll = false;
+    calls = 0;
+    assert.deepEqual(await d.get('workouts', 'a'), { id: 'a' });
+    assert.equal(calls, 2);
+  } finally {
+    console.error = error;
+  }
 });
 
 console.log(`\nlogic-check: ${n} passed`);

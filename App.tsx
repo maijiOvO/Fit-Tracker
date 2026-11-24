@@ -25,6 +25,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 
 import { Exercise, ExerciseDefinition, Goal, Language, type WorkoutSession } from './types';
@@ -61,6 +62,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { undoLabelOf, useUndoGestures } from './src/hooks/useUndoGestures';
 import { installTapLog } from './src/utils/tap';
 import { useGlobalUndoHost } from './src/hooks/useGlobalUndo';
+import { undoJournal } from './services/undoJournal';
 import {
   AddCustomExerciseModal,
   AddGoalModal,
@@ -188,7 +190,12 @@ const AppWithAuthShell: React.FC = () => {
     activeTab,
     goTo: tab => setActiveTab(tab),
     refreshSchedules: scheduleCtx.refreshFromDb,
+    toast,
+    isCn,
   });
+  /** 写回期间挡住触摸：收尾时状态源整份 set 回去，这段时间里的改动会被盖掉、也不进日志（上架审查 C19）。
+   *  撤销按钮在顶栏和训练页各一份，挡板只在这里渲染一处；写回卡住时 undoJournal 的超时会把 busy 撤掉 */
+  const undoBusy = useSyncExternalStore(undoJournal.subscribe, undoJournal.getState).busy;
 
   /**
    * 新建动作弹窗建好的动作交给谁：null＝加进当前训练；计划编辑器的选动作弹层打开它时放自己的回调（加进计划）；
@@ -1634,6 +1641,7 @@ const AppWithAuthShell: React.FC = () => {
         vsLast={colophon?.vsLast ?? []}
         onDone={dismissColophon}
       />
+      {undoBusy && createPortal(<div className="fixed inset-0 z-undo-shield" data-undo-ignore data-testid="undo-shield" aria-hidden />, document.body)}
     </div>
   );
 };

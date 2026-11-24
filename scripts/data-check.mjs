@@ -72,7 +72,8 @@ async function bundle(env, file) {
       "export { writeTombstones } from './services/fitlogTombstones.ts';",
       "export { defaultProfile } from './src/utils/loadable.ts';",
       "export { readText as folderReadText, writeText as folderWriteText } from './services/fitlogFolder.ts';",
-      "export { migrateLocalData } from './services/fitlogRemote.ts';",
+      "export { migrateLocalData, migrateRecordsToSoloUserId } from './services/fitlogRemote.ts';",
+      "export { undoJournal } from './services/undoJournal.ts';",
       "export * as LC from './services/localCensus.ts';",
       "export { storage } from './services/appStorage.ts';",
       "export { isLocalAuthoritative } from './services/fitlogRemoteSync.ts';",
@@ -1052,6 +1053,29 @@ await t('导入：做法按合上覆盖层后的做法表认 —— 删掉的不
   assert.deepEqual(removed.newDefs.map(d => d.name.en), ['Calf Raise (Machine)']);
   const own = importAs(['Calf Raise (Machine)'], [], { calf_raise: { variants: [{ id: 'v_1', name: '固定器械' }] } });
   assert.deepEqual(recs(own).map(e => [e.name, e.variantId, e.variantName]), [['提踵', 'v_1', '固定器械']]);
+});
+
+await t('启动迁移 userId：读整表的时候不压住撤销日志，这段时间里用户的改动照样能撤（上架审查 C19）', async () => {
+  const J = D.undoJournal;
+  J.clear();
+  await D.db.save('workouts', { id: 'w_solo', userId: 'u_solo', exercises: [] });
+  const getAll = D.db.getAll;
+  let open;
+  const gate = new Promise(r => (open = r));
+  D.db.getAll = async n => (await gate, getAll.call(D.db, n));
+  try {
+    const mig = D.migrateRecordsToSoloUserId();
+    await new Promise(r => setTimeout(r));
+    J.beginStep('改单位');
+    D.storage.setItem('fitlog_unit', 'lbs');
+    await new Promise(r => setTimeout(r));
+    assert.equal(J.getState().canUndo, true);
+    open();
+    await mig;
+  } finally {
+    D.db.getAll = getAll;
+    J.clear();
+  }
 });
 
 console.log(`\ndata-check: ${n} passed`);

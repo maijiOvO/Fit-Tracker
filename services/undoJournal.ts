@@ -16,9 +16,18 @@
  *
  * 只在本机：步数上限 MAX_STEPS，只存在内存里，重启 App 清空。
  * 从服务器拉进来东西、整份改写（恢复备份 / 导入 / 重置）、切换数据环境之后清空 —— 撤销会把那些改动盖掉。
+ * 读不到「写之前的样子」的那一步撤不回，撤销历史也截断在这里：更早的步写回的是绝对值，会盖掉这一步对同一行的改动（和整份改写后清空是同一个理由）。
+ *
+ * 写回没做成（存储写不进 / 超时）：这一步留在原栈不动，库里的行在一个事务里要么全写要么全不写；写回的是绝对值，再按一次就能写完。
  */
 
 const MAX_STEPS = 50;
+
+/**
+ * 撤销 / 重做时等「还在路上的写入」、等前像读回、等写回，各自最多等这么久，超时按没做成处理。
+ * 写回期间 App 盖着挡板（state.busy）：db.ts 开库没处理 onblocked，写入可能一直落不了地，不设上限整个 App 会一直点不动。
+ */
+const APPLY_TIMEOUT_MS = 10_000;
 
 /** 进日志的 localStorage 键（用户数据 / 同步首选项）；各个 *_last_update 时间戳不进，撤销之后统一改成现在 */
 const JOURNALED_KEYS = new Set([
@@ -54,6 +63,8 @@ interface Change<T> {
   after: T | undefined;
   /** 前像读完（行要异步读；同一行的后续写入也得等它，免得先写后读把写之后的样子当成前像） */
   ready?: Promise<void>;
+  /** pending＝前像还在读；unknown＝读失败（db.ts 已重试过）。before 是 undefined 时只有不带标记才表示「原来没有」 */
+  read?: 'pending' | 'unknown';
 }
 
 interface Step {
@@ -87,22 +98,29 @@ export interface StateSource {
 export interface RawIo {
   getRow: (store: string, id: string) => Promise<Row | undefined>;
   getAllRows: (store: string) => Promise<Row[]>;
-  putRow: (store: string, row: Row) => Promise<void>;
-  deleteRow: (store: string, id: string) => Promise<void>;
+  /** 一批行在一个事务里写完（row＝undefined 表示删掉）：要么全写要么全不写 */
+  writeRows: (ops: RowOp[]) => Promise<void>;
   getKey: (key: string) => string | null;
-  setKey: (key: string, value: string | null) => void;
+  /** 写不进去返回 false */
+  setKey: (key: string, value: string | null) => boolean;
 }
+
+export type RowOp = { store: string; id: string; row: Row | undefined };
 
 export interface UndoState {
   canUndo: boolean;
   canRedo: boolean;
   undoLabel: string | null;
   redoLabel: string | null;
+  /** 正在写回：界面据此挡住输入，免得写回收尾时把这段时间里的改动盖掉 */
+  busy: boolean;
 }
 
-/** 撤销 / 重做完成后发给界面的消息：重读哪些表、哪些状态源变了 */
+/** 撤销 / 重做之后发给界面的消息：重读哪些表、哪些状态源变了 */
 export interface UndoApplied {
   direction: 'undo' | 'redo';
+  /** done＝做完；failed＝写回没做成，这一步还在原栈；blocked＝读不到前像，整步撤不回，更早的历史已清掉 */
+  outcome: 'done' | 'failed' | 'blocked';
   label: string;
   stores: string[];
   keys: string[];
@@ -120,6 +138,8 @@ const sources = new Map<string, StateSource>();
 const listeners = new Set<() => void>();
 let io: RawIo | null = null;
 let busy = false;
+/** clear() 一次加一：写回期间被清空过，收尾时就不再把这一步挪到另一个栈 */
+let generation = 0;
 
 const emptyStep = (label: string): Step => ({
   label,
@@ -132,7 +152,7 @@ const emptyStep = (label: string): Step => ({
 
 const isEmpty = (s: Step) => !s.rows.size && !s.keys.size && !s.sources.size;
 
-let state: UndoState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null };
+let state: UndoState = { canUndo: false, canRedo: false, undoLabel: null, redoLabel: null, busy: false };
 
 function computeState(): UndoState {
   const live = !!current && !isEmptyLive(current);
@@ -141,6 +161,7 @@ function computeState(): UndoState {
     canRedo: redoStack.length > 0,
     undoLabel: (live ? current!.label : undoStack[undoStack.length - 1]?.label) || null,
     redoLabel: redoStack[redoStack.length - 1]?.label || null,
+    busy,
   };
 }
 
@@ -151,7 +172,8 @@ function notify() {
     next.canUndo === state.canUndo &&
     next.canRedo === state.canRedo &&
     next.undoLabel === state.undoLabel &&
-    next.redoLabel === state.redoLabel
+    next.redoLabel === state.redoLabel &&
+    next.busy === state.busy
   ) return;
   state = next;
   for (const fn of listeners) fn();
@@ -167,17 +189,21 @@ function finalize() {
     const after = src.get();
     if (s.sourceStart.get(name) !== after) s.sources.set(name, { before: s.sourceCopy.get(name), after: copy(after) });
   }
-  // 行 / 键写回了原样（改了又改回去）：不算改动
-  for (const [store, m] of s.rows) {
-    for (const [id, c] of m) if (sameRow(c.before, c.after)) m.delete(id);
-    if (!m.size) s.rows.delete(store);
-  }
+  // 行 / 键写回了原样（改了又改回去）：不算改动。前像还没读回的行留着，到撤销时再判
+  prune(s);
   for (const [key, c] of s.keys) if (c.before === c.after) s.keys.delete(key);
   if (isEmpty(s)) return;
   undoStack.push(s);
   if (undoStack.length > MAX_STEPS) undoStack.shift();
   redoStack.length = 0;
   notify();
+}
+
+function prune(s: Step) {
+  for (const [store, m] of s.rows) {
+    for (const [id, c] of m) if (!c.read && sameRow(c.before, c.after)) m.delete(id);
+    if (!m.size) s.rows.delete(store);
+  }
 }
 
 function sameRow(a: Row | undefined, b: Row | undefined): boolean {
@@ -224,6 +250,7 @@ export const undoJournal = {
   /** 清空撤销 / 重做历史（拉进了别处的改动、整份改写、切换环境之后） */
   clear() {
     current = null;
+    generation++;
     // 已经在路上的写入还会落下，但不再有步收它们
     undoStack.length = 0;
     redoStack.length = 0;
@@ -248,12 +275,16 @@ export const undoJournal = {
       let c = m.get(w.id);
       if (c) c.after = w.after;
       else {
-        const fresh: Change<Row> = { before: undefined, after: w.after };
+        const fresh: Change<Row> = { before: undefined, after: w.after, read: 'pending' };
         fresh.ready = raw.getRow(store, w.id).then(
           r => {
             fresh.before = r;
+            delete fresh.read;
           },
-          err => console.warn('[undo] 读写之前的样子失败:', err),
+          err => {
+            fresh.read = 'unknown';
+            console.warn('[undo] 读写之前的样子失败（这一步撤不回）:', err);
+          },
         );
         m.set(w.id, (c = fresh));
       }
@@ -358,40 +389,74 @@ function isEmptyLive(s: Step): boolean {
   return true;
 }
 
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new DOMException('undo write-back timed out', 'TimeoutError')), APPLY_TIMEOUT_MS);
+  });
+  return Promise.race([p, late]).finally(() => clearTimeout(timer));
+}
+
+const readsOf = (s: Step) => [...s.rows.values()].flatMap(m => [...m.values()].map(c => c.ready));
+
 async function apply(direction: 'undo' | 'redo'): Promise<UndoApplied | null> {
   if (busy || !io) return null;
   busy = true;
+  notify();
+  const from = direction === 'undo' ? undoStack : redoStack;
+  const to = direction === 'undo' ? redoStack : undoStack;
+  const gen = generation;
+  const out: UndoApplied = { direction, outcome: 'done', label: '', stores: [], keys: [], sources: {} };
   try {
     // 还在路上的写入（刚点的那一下的落盘）：等它们落下再收尾、写回
-    await undoJournal.settle();
-    finalize();
-    const from = direction === 'undo' ? undoStack : redoStack;
-    const to = direction === 'undo' ? redoStack : undoStack;
-    const step = from.pop();
-    if (!step) {
-      notify();
-      return null;
+    try {
+      await withTimeout(undoJournal.settle());
+    } finally {
+      finalize();
     }
+    // 只看栈顶，不先弹：没做成时这一步原样留着。前像读回之后才判得出改没改（前后一样的整步丢掉，看下一步）
+    let step: Step | undefined;
+    while ((step = from[from.length - 1])) {
+      out.label = step.label;
+      await withTimeout(Promise.all(readsOf(step)));
+      if (gen !== generation) return null;
+      prune(step);
+      if (!isEmpty(step)) break;
+      from.pop();
+    }
+    if (!step) return null;
+
+    // 有行读不到前像：整步不撤（只跳过那一行，「并入上一场」会丢组或出重复），更早的步也作废
+    if ([...step.rows.values()].some(m => [...m.values()].some(c => c.read === 'unknown'))) {
+      from.length = 0;
+      out.outcome = 'blocked';
+      return out;
+    }
+
     const pick = <T>(c: Change<T>) => (direction === 'undo' ? c.before : c.after);
     const raw = io;
-    const out: UndoApplied = { direction, label: step.label, stores: [], keys: [], sources: {} };
+    const now = new Date().toISOString();
+    const ops: RowOp[] = [];
+    for (const [store, m] of step.rows) {
+      out.stores.push(store);
+      for (const [id, c] of m) {
+        const v = pick(c);
+        // 写回的行盖上现在的时间：同步合并时这一份是新的
+        ops.push({ store, id, row: v && ('updatedAt' in v ? { ...v, updatedAt: now } : v) });
+      }
+    }
     suppressed++;
     try {
-      const now = new Date().toISOString();
-      for (const [store, m] of step.rows) {
-        out.stores.push(store);
-        for (const [id, c] of m) {
-          const v = pick(c);
-          // 写回的行盖上现在的时间：同步合并时这一份是新的
-          if (v) await raw.putRow(store, 'updatedAt' in v ? { ...v, updatedAt: now } : v);
-          else await raw.deleteRow(store, id);
-        }
-      }
+      if (ops.length) await withTimeout(raw.writeRows(ops));
       for (const [key, c] of step.keys) {
         out.keys.push(key);
-        raw.setKey(key, pick(c) ?? null);
+        if (!raw.setKey(key, pick(c) ?? null)) throw new Error(`localStorage 写不进 ${key}`);
       }
-      if (step.keys.size) for (const k of PREF_TIMESTAMP_KEYS) if (raw.getKey(k) !== null) raw.setKey(k, String(Date.now()));
+      if (step.keys.size) {
+        for (const k of PREF_TIMESTAMP_KEYS) {
+          if (raw.getKey(k) !== null && !raw.setKey(k, String(Date.now()))) throw new Error(`localStorage 写不进 ${k}`);
+        }
+      }
       for (const [name, c] of step.sources) {
         const src = sources.get(name);
         // 交出去的是拷贝：工作台之后原地改它，不能改到日志里存的那一份
@@ -402,10 +467,18 @@ async function apply(direction: 'undo' | 'redo'): Promise<UndoApplied | null> {
     } finally {
       suppressed--;
     }
-    to.push(step);
-    notify();
+    // 写回期间被 clear() 过（拉进了别处的改动）：历史已作废，不把这一步塞回清空了的栈
+    if (gen === generation && from[from.length - 1] === step) {
+      from.pop();
+      to.push(step);
+    }
+    return out;
+  } catch (err) {
+    console.error('[undo] 写回没做成，这一步留在原栈:', err);
+    out.outcome = 'failed';
     return out;
   } finally {
     busy = false;
+    notify();
   }
 }

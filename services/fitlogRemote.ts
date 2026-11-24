@@ -592,19 +592,19 @@ export async function migrateLocalData(): Promise<void> {
 
 export async function migrateRecordsToSoloUserId(): Promise<void> {
   const solo = FITLOG_SOLO_USER_ID;
-  const fixList = async <T extends { id: string; userId?: string }>(store: string, items: T[]) => {
-    for (const item of items) {
-      if (item.userId && item.userId !== 'u_guest' && item.userId !== solo) {
-        await db.save(store, { ...item, userId: solo });
-      }
-    }
-  };
+  const stale = <T extends { id: string; userId?: string }>(items: T[]) =>
+    items.filter(item => item.userId && item.userId !== 'u_guest' && item.userId !== solo);
+  // 整表读放在 withoutJournal 外面：它包着的那段时间全局都不记撤销，启动时用户的第一下改动会漏记（上架审查 C19）
+  const fixes: [string, { id: string; userId?: string }[]][] = [
+    ['workouts', stale(await db.getAll<WorkoutSession>('workouts'))],
+    ['goals', stale(await db.getAll<Goal>('goals'))],
+    ['weightLogs', stale(await db.getAll<WeightEntry>('weightLogs'))],
+    ['custom_metrics', stale(await db.getAll<Measurement>('custom_metrics'))],
+  ];
+  if (!fixes.some(([, items]) => items.length)) return;
   // 数据迁移不是用户动作，不进撤销日志
   await undoJournal.withoutJournal(async () => {
-    await fixList('workouts', await db.getAll<WorkoutSession>('workouts'));
-    await fixList('goals', await db.getAll<Goal>('goals'));
-    await fixList('weightLogs', await db.getAll<WeightEntry>('weightLogs'));
-    await fixList('custom_metrics', await db.getAll<Measurement>('custom_metrics'));
+    for (const [store, items] of fixes) for (const item of items) await db.save(store, { ...item, userId: solo });
   });
 }
 

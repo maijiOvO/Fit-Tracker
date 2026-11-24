@@ -1,5 +1,5 @@
 import { dbName } from './appEnv';
-import { undoJournal } from './undoJournal';
+import { undoJournal, type RowOp } from './undoJournal';
 import { noteFreshDb } from './localCensus';
 
 // 库名按数据环境派生：prod = FitLogDB，dev = FitLogDB-dev（见 services/appEnv.ts）。
@@ -236,16 +236,20 @@ export class FitLogDB {
     });
   }
 
-  /** 读一条（撤销日志读「写之前的样子」用） */
+  /**
+   * 读一条（撤销日志读「写之前的样子」用）。读失败重试一次再 reject：读不到前像，那一步就撤不回、撤销历史截断在那里，
+   * 一次瞬时的请求级错误（AbortError 之类，getStore 只兜连接被关的 InvalidStateError）不该付这个代价。
+   */
   get<T>(storeName: string, id: string): Promise<T | undefined> {
-    return this.readGuarded(async () => {
+    const once = async () => {
       const store = await this.getStore(storeName, 'readonly');
       return new Promise<T | undefined>((resolve, reject) => {
         const request = store.get(id);
         request.onsuccess = () => resolve(request.result as T | undefined);
         request.onerror = () => reject(request.error);
       });
-    });
+    };
+    return this.readGuarded(() => once().catch(() => once()));
   }
 
   /** 写入一条并等事务提交（oncomplete）；重试一次仍出错或被中止才 reject。先记进撤销日志（services/undoJournal.ts） */
@@ -255,7 +259,7 @@ export class FitLogDB {
     );
   }
 
-  /** 不经过撤销日志的写（撤销 / 重做写回用） */
+  /** save 的底层写（不经过撤销日志） */
   async rawPut(storeName: string, item: any): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
     const done = txDone(store.transaction);
@@ -318,6 +322,31 @@ export class FitLogDB {
     }
     return done;
   }
+
+  /**
+   * 撤销 / 重做写回：一步碰过的行跨几张表在**一个** readwrite 事务里写完（row＝undefined 删掉）。
+   * 原来逐行各开一个事务，中途失败就只撤了一半（上架审查 C18）。失败先重试一次，仍失败报出去并 reject。
+   */
+  writeRows(ops: RowOp[]): Promise<void> {
+    return this.guarded(() => this.rawWriteRows(ops));
+  }
+
+  private async rawWriteRows(ops: RowOp[]): Promise<void> {
+    const tx = await this.getTx([...new Set(ops.map(o => o.store))], 'readwrite');
+    const done = txDone(tx);
+    try {
+      for (const o of ops) {
+        if (o.row) tx.objectStore(o.store).put(o.row);
+        else tx.objectStore(o.store).delete(o.id);
+      }
+    } catch (err) {
+      // 同 rawReplaceStores：同步抛不会自动中止，排在前面的写会照样提交
+      done.catch(() => {});
+      tx.abort();
+      throw err;
+    }
+    return done;
+  }
 }
 
 export const db = new FitLogDB();
@@ -325,6 +354,5 @@ export const db = new FitLogDB();
 undoJournal.setIo({
   getRow: (store, id) => db.get(store, id),
   getAllRows: store => db.getAll(store),
-  putRow: (store, row) => db.rawPut(store, row),
-  deleteRow: (store, id) => db.rawDelete(store, id),
+  writeRows: ops => db.writeRows(ops),
 });

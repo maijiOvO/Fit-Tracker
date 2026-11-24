@@ -4,7 +4,8 @@
  *     useFitlogSync 接 fitlog:local-restored），计划单独重读。
  *   - 撤销回来的那一份要推上服务器：标脏 + 排一次推送（推送是整份覆盖，墓碑跟着撤销一起回去；
  *     动到墓碑时以本机为准，见下面）。
- *   - 不弹提示（2026-10-25 用户定：撤销 / 重做本身就是反馈，底部只留报错这类没做成的提示）。
+ *   - 做成了不弹提示（2026-10-25 用户定：撤销 / 重做本身就是反馈，底部只留报错这类没做成的提示）；
+ *     没做成（写不进本机，这一步还在）、撤不回（读不到改之前的记录，更早的历史也清掉了）弹报错。
  *   - 撤销「结束训练」：那场回到进行中，跳回训练页。别的撤销不跳页。
  */
 import { useEffect, useRef } from 'react';
@@ -26,6 +27,8 @@ export interface GlobalUndoDeps {
   activeTab: string;
   goTo: (tab: 'new') => void;
   refreshSchedules: () => Promise<void>;
+  toast: (message: string, variant: 'error') => void;
+  isCn: boolean;
 }
 
 const hasExercises = (w: unknown) => ((w as WorkoutSession | undefined)?.exercises?.length ?? 0) > 0;
@@ -37,7 +40,17 @@ export function useGlobalUndoHost(deps: GlobalUndoDeps): void {
     host = async (d: Direction) => {
       const res = d === 'undo' ? await undoJournal.undo() : await undoJournal.redo();
       if (!res) return;
-      const { activeTab, goTo, refreshSchedules } = ref.current;
+      const { activeTab, goTo, refreshSchedules, toast, isCn } = ref.current;
+      if (res.outcome === 'blocked') {
+        // 什么都没写，不用重读
+        toast(
+          isCn
+            ? '这一步撤不回：读不到改之前的记录，更早的改动也撤不回了'
+            : "Can't undo this step: the earlier version couldn't be read, so older changes can't be undone either",
+          'error',
+        );
+        return;
+      }
       invalidateAppPrefsCache();
       window.dispatchEvent(new CustomEvent('fitlog:local-restored'));
       if (res.stores.includes('scheduledWorkouts')) void refreshSchedules();
@@ -46,6 +59,20 @@ export function useGlobalUndoHost(deps: GlobalUndoDeps): void {
       if (res.keys.includes('fitlog_tombstones')) markLocalAuthoritative();
       else markPushDirty();
       scheduleDebouncedFitlogPush();
+      // 没做成也照上面重读、标脏：库里的行是一个事务、没动，键可能写了一半
+      if (res.outcome === 'failed') {
+        toast(
+          d === 'undo'
+            ? isCn
+              ? '没撤成：本机存储写不进去，这一步还在，腾出空间后再按一次'
+              : "Couldn't undo: device storage wouldn't take the write. The step is still there — free up space and try again"
+            : isCn
+              ? '没重做成：本机存储写不进去，这一步还在，腾出空间后再按一次'
+              : "Couldn't redo: device storage wouldn't take the write. The step is still there — free up space and try again",
+          'error',
+        );
+        return;
+      }
 
       const cw = res.sources.currentWorkout;
       // 工作台从空的变回有一场（撤销结束训练）或换了一场：跳回训练页。别的情况不跳页（2026-10-25 用户定）
