@@ -116,7 +116,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
               type="button"
               onClick={() => setEditingGoal({ ...editingGoal, isActive: !editingGoal.isActive })}
               className={`min-h-[36px] px-4 rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
-                editingGoal.isActive ? 'bg-success text-on-accent' : 'bg-card text-secondary'
+                editingGoal.isActive ? 'bg-success text-on-semantic' : 'bg-card text-secondary'
               }`}
               role="switch"
               aria-checked={!!editingGoal.isActive}

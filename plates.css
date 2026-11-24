@@ -31,7 +31,7 @@
   position: absolute;
   top: 6px;
   right: 10px;
-  font: 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 600 var(--fs-micro)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-secondary);
   pointer-events: none;
 }
@@ -60,7 +60,7 @@
   padding: 0 10px;
   border: 1.5px solid var(--text-primary);
   border-radius: 4px;
-  font: 700 16px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-body)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-primary);
 }
 .load-near button:active { transform: scale(.97); }
@@ -83,7 +83,7 @@
 .gym-row .gym-seg { align-self: center; }
 .gym-seg button { border-radius: var(--radius-chip); }
 .gym-inc-stepper .gym-seg { margin-left: 8px; }
-.gym-inc-stepper .gym-seg button { font: 600 13px/1 system-ui, sans-serif; }
+.gym-inc-stepper .gym-seg button { font: 600 var(--fs-small)/1 system-ui, sans-serif; }
 .gym-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .gym-chips button {
   display: flex;
@@ -93,7 +93,7 @@
   padding: 3px 10px 3px 6px;
   border: 1.5px solid var(--divider);
   border-radius: 4px;
-  font: 600 15px/1 'Barlow Condensed', system-ui, sans-serif;
+  font: 600 var(--fs-body)/1 'Barlow Condensed', system-ui, sans-serif;
   color: var(--text-primary);
 }
 .gym-chips button i { width: 8px; border-radius: 1px; }
@@ -113,13 +113,13 @@
   border: 1px solid var(--divider);
   border-radius: var(--radius-control);
   background: var(--bg-btn);
-  font: 700 18px/1 'Barlow Condensed', system-ui, sans-serif;
+  font: 700 var(--fs-h2)/1 'Barlow Condensed', system-ui, sans-serif;
   color: var(--text-primary);
 }
 .gym-inc-stepper b {
   min-width: 40px;
   text-align: center;
-  font: 700 20px/1 'Barlow Condensed', system-ui, sans-serif;
+  font: 700 var(--fs-h2)/1 'Barlow Condensed', system-ui, sans-serif;
   color: var(--text-primary);
 }
 .gym-inc-stepper span { font-size: var(--fs-label); color: var(--text-secondary); }
@@ -173,7 +173,7 @@
   gap: 6px;
 }
 .bar-menu > button small {
-  font: 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 600 var(--fs-label)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-tertiary);
 }
 .bar-menu > button[aria-pressed='true'] {
@@ -188,7 +188,7 @@
   border-radius: var(--radius-control);
 }
 .bar-short-w button { width: 40px; min-height: 40px; font-size: var(--fs-h2); color: var(--text-secondary); }
-.bar-short-w b { font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
+.bar-short-w b { font: 700 var(--fs-h2)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; min-width: 34px; text-align: center; }
 
 /* 配重片刻度（docs/demos/stack-scale.html）：图上方一枚小药丸，点开是「动作设置」弹窗里「在 X」那一段 */
 .stack-tagrow { display: flex; min-width: 0; padding: 8px 12px 6px; }
@@ -217,7 +217,7 @@
 .load-addon button {
   flex: none; min-width: 64px; min-height: 44px; padding: 0 12px;
   border: 1px solid var(--divider); border-radius: var(--radius-control); background: var(--bg-btn);
-  font: 700 17px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary); font-variant-numeric: tabular-nums;
+  font: 700 var(--fs-h2)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary); font-variant-numeric: tabular-nums;
 }
 .load-addon button:disabled { color: var(--text-tertiary); opacity: 0.45; }
 .load-addon button:active:not(:disabled) { background: var(--bg-inset); }
@@ -245,7 +245,7 @@
 .stack-seg button:active { background: var(--bg-inset); }
 .stack-seg b, .stack-seg input {
   width: 56px; text-align: right; background: transparent; border: 0; outline: none; padding: 0;
-  font: 800 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary);
+  font: 700 var(--fs-h2)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; color: var(--text-primary);
 }
 .stack-seg small { width: 22px; padding-left: 3px; font-size: var(--fs-micro); color: var(--text-tertiary); }
 /* 每格 / 最轻一格下方常驻的预设：点一下填进选中的那一行（.stack-stp.is-on），横划也在这几格里跳 */
@@ -391,7 +391,7 @@
   animation: plate-in var(--dur-exit) var(--ease-paper) both;
 }
 .plate b {
-  font: 700 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; /* 阶梯外：片子图形上的数字 */
   color: var(--plate-num);
   transform: rotate(-90deg);
   white-space: nowrap;
@@ -440,7 +440,7 @@
 .pin-addon {
   position: absolute; top: 0; left: calc(50% - 70px + var(--i) * 37px); width: 34px; height: 12px;
   border-radius: 2px; background: var(--text-primary); color: var(--bg-base);
-  font: 700 9px/12px 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; text-align: center;
+  font: 700 9px/12px 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; text-align: center; /* 阶梯外：加片图形上的数字 */
 }
 .pin-rod {
   position: absolute; top: 8px; height: 124px; width: 2px; border-radius: 1px; background: var(--rule-strong);
@@ -471,7 +471,7 @@
 /* 插销那一片的确切重量：和杠铃片上的数字同一套字（Barlow Condensed） */
 .pin-label {
   position: absolute; right: calc(50% + 96px); top: calc(var(--win-top) + var(--pin-y) - 13px);
-  font: 800 26px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; font-style: normal;
+  font: 700 var(--fs-data-lg)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; font-style: normal;
   color: var(--text-primary); white-space: nowrap;
   transition: top var(--dur-tap) var(--ease-ink);
 }
@@ -522,7 +522,7 @@
   left: 50%;
   bottom: 9px;
   transform: translateX(-50%);
-  font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-body)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-primary);
   white-space: nowrap;
 }
@@ -580,7 +580,7 @@
   left: 50%;
   bottom: 9px;
   transform: translateX(-50%);
-  font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-body)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--bg-base);
   white-space: nowrap;
 }
@@ -607,7 +607,7 @@
   position: absolute;
   top: -18px;
   transform: translateX(-50%);
-  font: 700 14px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-small)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-primary);
   white-space: nowrap;
   transition: left var(--dur-base) var(--ease-paper);
@@ -647,21 +647,28 @@
 .ledger-row.is-pr.is-selected .set-num { color: var(--text-on-accent); }
 /* 「上次 x」：底稿抄自上一次、单位不同或取整过时，标出上一次挂的原值（只做参考，2026-10-18 用户定） */
 .ref-tag {
-  /* 行下标：落在格子下沿虚线和行底之间那 10px 里。放格子里面（左上 / 右上）都会压到大号数字或小数 */
+  /* 行下标：落在格子下沿虚线和行底之间。放格子里面（左上 / 右上）都会压到大号数字或小数 */
   position: absolute;
-  bottom: -10px;
+  bottom: -12px;
   left: 0;
-  font: 600 9.5px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 600 var(--fs-micro)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   letter-spacing: .02em;
   color: var(--text-tertiary);
   white-space: nowrap;
   pointer-events: none;
 }
+/* 带行下标的行在格子下面多留 12px（行高 52 → 61）：下标离虚线 1px、离行底 3px，
+   休息书签骑在行缝上的那条 2px 线才压不到字。
+   不留的话虚线到行底只有 7px，下标会压过分隔线，看着像下一组的标注。
+   上面的 4px 是原来居中时的留白，照样留着：格子往上挪会钻进休息书签的热区（缝下 23px），组号和重量就点不到了。 */
+.ledger-row:has(.ref-tag) { padding-top: 4px; padding-bottom: 12px; }
+/* 子行同理：44 → 48，多出的 4px 全在下面 */
+.ledger-subrow:has(.ref-tag) { min-height: 48px; padding-bottom: 4px; }
 /* 交替组的动作简称：叠在组号上方一行小字（两个字 / 五个字母，memberAbbrs 保证不更长），点它改记到别的动作 */
 .set-badge {
   display: block;
   margin-bottom: 2px;
-  font: 600 10px/1.3 'Noto Sans SC', system-ui, sans-serif;
+  font: 600 var(--fs-micro)/1.3 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-secondary);
   white-space: nowrap;
 }
@@ -682,7 +689,7 @@
   padding: 1px 4px;
   border: 1.5px solid var(--text-on-chalk);
   border-radius: 2px;
-  font: 700 10px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-micro)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   letter-spacing: .06em;
   color: var(--text-on-chalk);
   background: var(--chalk);
@@ -715,7 +722,7 @@
 /* 步进器中间的数换成 ScrubNumber 后保持原来的粗体数字（一档、短杠、刻度设置面） */
 .gym-inc-stepper .scrub-num input,
 .bar-short-w .scrub-num input {
-  font: 700 18px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-h2)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
   text-align: left;
   color: var(--text-primary);

@@ -148,7 +148,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
       data-testid="row-action-menu"
     >
       <div
-        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
+        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-overlay"
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >

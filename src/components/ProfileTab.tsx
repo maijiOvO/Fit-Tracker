@@ -205,7 +205,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   {/* Value */}
                   <div className="flex items-baseline gap-1 mt-1">
                     <span className="text-2xl font-semibold text-primary">{metric.value}</span>
-                    <span className="text-micro font-bold text-tertiary uppercase">{metric.unit}</span>
+                    <span className="text-micro font-bold text-tertiary uppercase tracking-wider">{metric.unit}</span>
                   </div>
                   <p className="text-micro font-normal text-tertiary mt-1">
                     {new Date(metric.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
@@ -250,7 +250,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                             >
                               <div className="flex flex-col">
                                 <span className="text-small font-bold text-primary">
-                                  {historyItem.value} <span className="text-micro font-normal text-secondary uppercase">{historyItem.unit}</span>
+                                  {historyItem.value} <span className="text-micro font-normal text-secondary uppercase tracking-wider">{historyItem.unit}</span>
                                 </span>
                                 <span className="text-micro font-normal text-tertiary">
                                   {new Date(historyItem.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', {

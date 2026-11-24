@@ -76,7 +76,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       <button
         onClick={onToggleUnit}
         data-testid="header-unit-toggle"
-        className="bg-card border border-divider px-3 py-1.5 rounded-control text-xs font-semibold uppercase text-accent hover:bg-card-hover hover:text-primary transition-ui active:scale-press-sm shadow-sm"
+        className="bg-card border border-divider px-3 py-1.5 rounded-control text-xs font-semibold uppercase tracking-wider text-accent hover:bg-card-hover hover:text-primary transition-ui active:scale-press-sm shadow-elevated"
       >
         {unit}
       </button>

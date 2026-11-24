@@ -102,7 +102,7 @@ export const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => 
   return (
     <div className="fixed inset-0 z-[90] bg-scrim flex items-end sm:items-center justify-center anim-fade" onClick={onClose} data-testid={testId}>
       <div
-        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
+        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-overlay"
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >

@@ -261,7 +261,7 @@ export const ModalFooter: React.FC<{
       disabled={confirmDisabled}
       data-testid={confirmTestId}
       className={`flex-[2] min-h-[52px] rounded-control font-semibold flex items-center justify-center gap-2 transition-opacity duration-tap ease-paper disabled:opacity-40 ${
-        danger ? 'bg-danger text-on-accent' : 'bg-accent text-on-accent'
+        danger ? 'bg-danger text-on-semantic' : 'bg-accent text-on-accent'
       }`}
     >
       {confirmIcon}

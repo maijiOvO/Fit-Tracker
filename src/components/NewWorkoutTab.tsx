@@ -685,9 +685,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
-                  ? 'bg-success text-on-accent'
+                  ? 'bg-success text-on-semantic'
                   : saveStatus === 'error'
-                    ? 'bg-danger text-on-accent'
+                    ? 'bg-danger text-on-semantic'
                     : !(currentWorkout.exercises?.length) || (editingWorkoutId && !hasUnsavedChanges)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
                       : editingWorkoutId || endArmed

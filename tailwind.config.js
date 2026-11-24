@@ -84,6 +84,8 @@ export default {
           soft: tok('--danger-soft'),
         },
         warning: tok('--warning'),
+        // → `text-on-semantic`：bg-danger / bg-success 上的字
+        'on-semantic': tok('--text-on-semantic'),
 
         // 统一 black/45 与 black/50
         scrim: tok('--scrim'),

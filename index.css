@@ -125,6 +125,8 @@
   --warning: #7A5A10;
   --danger: #A3241F;
   --danger-soft: #F2DCDA;
+  /* 红底 / 绿底按钮上的字。不能借 --text-on-accent：青、浅蓝、橙三套是深色字，压在深红上只有 2.3:1 */
+  --text-on-semantic: #FFFFFF;
 
   /* 图表：强调色是主序列，其余灰阶 */
   --chart-1: var(--accent);
@@ -246,6 +248,7 @@
   --warning: #D2AE5C;
   --danger: #EF7A70;
   --danger-soft: #331714;
+  --text-on-semantic: #121315; /* 深色的红 / 绿是浅色块，配深字 */
 
   --chart-1: var(--accent);
   --chart-2: #ABAFB6;
@@ -1209,7 +1212,7 @@ button {
 .picker-rail-item i {
   display: block;
   margin-top: 2px;
-  font: normal 600 11px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: normal 600 var(--fs-micro)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
 }
 /* 这一组里本次加了几个 */
 .picker-rail-item em {
@@ -1256,7 +1259,7 @@ button {
   font-weight: 600;
   color: var(--text-tertiary);
 }
-.picker-lbl i { font: normal 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+.picker-lbl i { font: normal 600 var(--fs-label)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
 .picker-block {
   background: var(--bg-card);
   border: 1px solid var(--divider);
@@ -1339,7 +1342,7 @@ button {
 .picker-row.is-added .picker-row-add {
   background: var(--accent);
   color: var(--text-on-accent);
-  font: 700 15px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 700 var(--fs-body)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
 }
 /* 行下面的其他交替搭配：从名字那一列起，排不下换行 */
 .picker-combos {
@@ -1377,7 +1380,7 @@ button {
   font-weight: 600;
   color: var(--text-tertiary);
 }
-.picker-also-tog i { font: normal 600 12px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
+.picker-also-tog i { font: normal 600 var(--fs-label)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif; }
 .picker-also-tog span { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 器材小剪影：名字前一个 14×10 的灰色小图，和训练页大图同形；已添加的行里跟着字色反白 */
@@ -1790,7 +1793,7 @@ button {
   flex: none;
   width: 20px;
   text-align: right;
-  font: 600 13px/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
+  font: 600 var(--fs-label)/1 'Barlow Condensed', 'Noto Sans SC', system-ui, sans-serif;
   color: var(--text-tertiary);
 }
 .reorder-strip li.is-moving .reorder-no { color: var(--accent-text); }

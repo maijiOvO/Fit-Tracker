@@ -136,7 +136,7 @@ export const LiftList: React.FC<LiftListProps> = ({
               </span>
               <span className="w-[76px] flex-shrink-0 text-right">
                 <span className="block font-mono font-semibold text-primary tabular-nums leading-tight">{headline}</span>
-                {headUnit && <span className="block text-micro font-normal text-tertiary uppercase leading-tight">{headUnit}</span>}
+                {headUnit && <span className="block text-micro font-normal text-tertiary uppercase tracking-wider leading-tight">{headUnit}</span>}
               </span>
             </button>
           </div>

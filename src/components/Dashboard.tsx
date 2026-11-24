@@ -233,7 +233,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <span className="font-mono font-bold text-lg text-primary tabular-nums">
               {weightSummary?.value ?? '--'}
             </span>
-            <span className="text-xs text-tertiary uppercase">{unit}</span>
+            <span className="text-xs text-tertiary uppercase tracking-wider">{unit}</span>
             {weightSummary?.delta && (
               <span
                 data-testid="weight-delta-30d"

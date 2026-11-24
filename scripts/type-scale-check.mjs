@@ -4,7 +4,7 @@
  *
  * 拦两种写法：
  *   - className 里手写的 text-[Npx]
- *   - CSS 里写死像素的 font-size（要写 var(--fs-…)）
+ *   - CSS 里写死像素的 font-size 和 font 简写里的字号（要写 var(--fs-…)）
  * 图形上的字（印章、片子数字、账本按列宽自适应的数字）确实不在阶梯上：
  * CSS 在同一行写注释「阶梯外：原因」放行；TSX 列在下面的 ALLOW 里。
  *
@@ -43,7 +43,11 @@ for (const f of files) {
 }
 for (const css of ['index.css', 'plates.css']) {
   readFileSync(join(ROOT, css), 'utf8').split('\n').forEach((line, i) => {
-    if (/font-size:\s*[0-9.]+(px|rem|em)/.test(line) && !line.includes('阶梯外')) {
+    // font 简写里的字号也要拦（以前只认 font-size，简写里写死的十几处一直漏着）。
+    // 「/」后面那个是行高，不算字号。
+    const fixed = /font-size:\s*[0-9.]+(px|rem|em)/.test(line)
+      || /\bfont:[^;]*?(?<![/\w.-])[0-9.]+(px|rem|em)/.test(line);
+    if (fixed && !line.includes('阶梯外')) {
       bad.push(`${css}:${i + 1}  ${line.trim()}`);
     }
   });

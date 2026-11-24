@@ -119,7 +119,7 @@ export const Toggle: React.FC<{ name: React.ReactNode; on: boolean; onChange: (o
       aria-hidden
     >
       <span
-        className={`absolute top-[3px] left-[3px] w-5 h-5 rounded-full shadow-sm transition-transform duration-base ease-paper ${on ? 'translate-x-[18px] bg-white' : 'bg-[var(--seg-pill)]'}`}
+        className={`absolute top-[3px] left-[3px] w-5 h-5 rounded-full shadow-elevated transition-transform duration-base ease-paper ${on ? 'translate-x-[18px] bg-white' : 'bg-[var(--seg-pill)]'}`}
       />
     </span>
   </button>

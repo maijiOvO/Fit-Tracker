@@ -149,7 +149,7 @@ const NamePanel: React.FC<NamePanelProps> = ({ testId, title, subtitle, initial,
   return (
     <div className="absolute inset-0 z-20 bg-scrim flex items-end sm:items-center justify-center anim-fade" onClick={onClose} data-testid={testId}>
       <div
-        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-2xl"
+        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-overlay"
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >
@@ -1051,7 +1051,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   const renderEquipList = () => (
     <div className="absolute inset-0 z-10 bg-scrim flex items-end sm:items-center justify-center anim-fade" onClick={() => setEquipList(false)} data-testid="arrange-equip">
       <div
-        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2.5 shadow-2xl"
+        className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2.5 shadow-overlay"
         style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
         onClick={e => e.stopPropagation()}
       >
@@ -1120,7 +1120,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       {/* 弹层 */}
       <section
         ref={sheetRef}
-        className={`absolute inset-x-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-[22px] shadow-elevated flex flex-col overflow-hidden transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-sheet shadow-elevated flex flex-col overflow-hidden transition-transform duration-300 ease-out ${
           open ? 'translate-y-0' : 'translate-y-[103%]'
         }`}
         style={{ bottom: inset, height: '90dvh', maxHeight: `max(300px, calc(100dvh - ${inset + 44}px))` }}

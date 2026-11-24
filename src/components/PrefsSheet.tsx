@@ -259,7 +259,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
       />
       <section
         ref={sheetRef}
-        className={`absolute inset-x-0 bottom-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-[22px] shadow-elevated flex flex-col transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 bottom-0 mx-auto max-w-2xl bg-base border-t border-divider rounded-t-sheet shadow-elevated flex flex-col transition-transform duration-300 ease-out ${
           open ? 'translate-y-0' : 'translate-y-[103%]'
         }`}
         style={{ height: '92dvh' }}
