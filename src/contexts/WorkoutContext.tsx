@@ -9,7 +9,18 @@ import { storage } from '../../services/appStorage';
 import { undoJournal } from '../../services/undoJournal';
 import { getDataEnv } from '../../services/appEnv';
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
-import { createWorkbenchSaver, findInProgress } from '../../services/workbenchPersist';
+import { createWorkbenchSaver, findInProgress, isStale, lastChangeMs, staleRows } from '../../services/workbenchPersist';
+import { recordTombstone } from '../../services/fitlogTombstones';
+import { hasUserInput, toRecorded } from '../utils/workbench';
+import { useUserSettingsContext } from './UserSettingsContext';
+import { Language } from '../../types';
+
+/** 自动收尾的场里带计划的：App 听这个事件把计划标完成（WorkoutProvider 包在 ScheduleProvider 外面，拿不到计划） */
+export const WORKOUTS_SETTLED_EVENT = 'fitlog:workouts-settled';
+export interface SettledLink {
+  scheduleId: string;
+  workoutId: string;
+}
 
 /** 一场里有没有真正做完的组（全是底稿 / 跳过的不算数据） */
 export function hasDoneSets(w: Pick<WorkoutSession, 'exercises'>): boolean {
@@ -76,6 +87,16 @@ interface WorkoutContextType {
    * 改写期间停掉自动落盘，成功后清空工作台；改写失败（已换回原样）照常放开，工作台原样留着。
    */
   discardWorkbenchWith: <T,>(overwrite: () => Promise<T>) => Promise<T>;
+  /**
+   * 工作台上这场要被换掉（复制为今天、从计划开始、继续另一场）：先按入册口径替它收尾，
+   * 结束时刻取最后一次改动；没人动过的直接删掉。不清工作台，由调用方换上新的。编辑草稿不碰。
+   */
+  settleWorkbench: () => Promise<void>;
+  /**
+   * 收掉过期的未结束场（上架审查 C01–C03）：工作台那场闲置满 12 小时就收尾并清空工作台，库里其余过期的一起收。
+   * 返回工作台这场是不是被收掉了（FAB「回到训练」据此改成开新的一场）。
+   */
+  settleStale: () => Promise<boolean>;
 }
 
 const WorkoutContext = createContext<WorkoutContextType | undefined>(undefined);
@@ -160,9 +181,94 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, []);
 
+  const { lang } = useUserSettingsContext();
+  const isCnRef = useRef(lang === Language.CN);
+  isCnRef.current = lang === Language.CN;
+
+  /**
+   * 替一场没点结束的训练收尾：动过、有可入册的组就按入册口径写成结束的一场（结束时刻＝最后改动）；
+   * 否则删行写墓碑。返回带计划的那条关联，没有就 null。只写库，不动工作台。
+   */
+  const settleOne = async (w: WorkoutSession, lastChange: number): Promise<SettledLink | null> => {
+    const rec = hasUserInput(w.exercises) ? toRecorded(w, { isCn: isCnRef.current, scheduleId: w.fromSchedule?.scheduleId }) : null;
+    if (!rec) {
+      await db.delete('workouts', w.id);
+      recordTombstone('workouts', w.id);
+      return null;
+    }
+    const at = new Date(lastChange).toISOString();
+    await db.save('workouts', { ...rec, status: 'completed', finishedAt: at, updatedAt: new Date().toISOString() });
+    return rec.fromSchedule ? { scheduleId: rec.fromSchedule.scheduleId, workoutId: rec.id } : null;
+  };
+
+  /** 收尾写过库之后：刷新列表、推送、补备份（从不点结束的人也能等到首次备份引导），带计划的交给 App 标完成 */
+  const afterSettle = async (links: SettledLink[]) => {
+    await refreshFromDb();
+    scheduleDebouncedFitlogPush();
+    scheduleAutoBackup();
+    if (links.length) window.dispatchEvent(new CustomEvent<SettledLink[]>(WORKOUTS_SETTLED_EVENT, { detail: links }));
+  };
+
+  /** 工作台上这场是正在练的（不是编辑草稿、不在整份改写中）：返回它，否则 null */
+  const liveWorkbench = () => {
+    const w = currentWorkoutRef.current;
+    return shouldAutoPersist(w) ? w : null;
+  };
+
+  const settleWorkbench = useCallback(async () => {
+    const w = liveWorkbench();
+    if (!w) return;
+    try {
+      const link = await settleOne(w, saverRef.current!.lastChange(w.id) ?? Date.now());
+      await afterSettle(link ? [link] : []);
+    } catch (err) {
+      console.error('[WorkoutContext] 收尾被换下的训练失败:', err);
+    }
+  }, [refreshFromDb]);
+
+  const settleStale = useCallback(async (): Promise<boolean> => {
+    const links: SettledLink[] = [];
+    let wrote = false;
+    let benchSettled = false;
+    try {
+      const w = liveWorkbench();
+      if (w) {
+        const last = saverRef.current!.lastChange(w.id) ?? lastChangeMs(w);
+        if (isStale(last)) {
+          const link = await settleOne(w, last);
+          if (link) links.push(link);
+          const empty = createEmptyWorkout();
+          currentWorkoutRef.current = empty;
+          setCurrentWorkout(empty);
+          wrote = benchSettled = true;
+        }
+      }
+      const benchId = currentWorkoutRef.current.id;
+      for (const row of staleRows(await db.getAll<WorkoutSession>('workouts'), benchId)) {
+        const link = await settleOne(row, lastChangeMs(row));
+        if (link) links.push(link);
+        wrote = true;
+      }
+    } catch (err) {
+      console.error('[WorkoutContext] 收尾过期的训练失败:', err);
+    }
+    if (wrote) await afterSettle(links);
+    return benchSettled;
+  }, [refreshFromDb]);
+
+  // 启动：先收掉过期的未结束场，再接回还在练的那场
   useEffect(() => {
-    void refreshFromDb().then(restoreInProgress);
-  }, [refreshFromDb, restoreInProgress]);
+    void refreshFromDb().then(settleStale).then(restoreInProgress);
+  }, [refreshFromDb, settleStale, restoreInProgress]);
+
+  // 回前台：进程活着时工作台那场也要会过期（C03），收掉之后工作台空了，库里若还有在练的照常接回
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) void settleStale().then(restoreInProgress);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [settleStale, restoreInProgress]);
 
   // 切换数据环境之后：工作台换成新环境那边进行中的那场（没有就空着）。旧环境那场在切换前已落盘，留在旧库里
   useEffect(() => {
@@ -282,8 +388,10 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
       refreshFromDb,
       restoreInProgress,
       discardWorkbenchWith,
+      settleWorkbench,
+      settleStale,
     }),
-    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith],
+    [workouts, currentWorkout, deleteWorkout, createNewWorkout, persistCurrentWorkout, finishWorkout, setDraftWorkoutId, saveEditedWorkout, refreshFromDb, restoreInProgress, discardWorkbenchWith, settleWorkbench, settleStale],
   );
 
   return <WorkoutContext.Provider value={value}>{children}</WorkoutContext.Provider>;

@@ -418,12 +418,18 @@ const seedAlt = (id, days, names) => ({
 });
 const W_ALT_NEW = seedAlt('seed_alt_new', 8, ['悬垂举腿', '平板支撑']);
 const W_ALT_OLD = seedAlt('seed_alt_old', 9, ['悬垂举腿', '卷腹', '平板支撑']);
+// 忘了点结束、两天没动的一场：只填了数、没点组号（上架审查 C01）。冷启动要替它收尾，进时间线
+const W_STALE = (() => {
+  const at = new Date(Date.now() - 2 * 86400000);
+  const { status: _s, finishedAt: _f, ...w } = seedWorkout('seed_stale', at, 'E2E 忘了结束', '杠铃硬拉', [[100, 5]]);
+  return { ...w, exercises: w.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s, ghost: true, touched: { weight: true } })) })) };
+})();
 // 自建动作 C：动作库删除 / 同名新建恢复的靶子
 const DEF_C = { id: '1779000000000', name: { cn: 'E2E自建甲', en: 'E2E自建甲' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
 
 const seedSnapshot = () => ({
   schemaVersion: 2,
-  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD],
+  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD, W_STALE],
   goals: [],
   weightLogs: [],
   customMetrics: [],
@@ -587,7 +593,9 @@ const SEEDED = {
     const unit = await page.evaluate(() => localStorage.getItem(lsKey('fitlog_unit')));
     if (unit !== 'lbs') throw new Error(`seed unit not applied (${unit})`);
     if (!(await readLs('fitlog_custom_exercises'))?.some(d => d.id === DEF_C.id)) throw new Error('seed custom exercise not applied');
-    return `seeded ${W_HEAT.id}… , unit ${unit}, tz ${TZ}`;
+    // C01：过期没结束的那场被收尾成结束的一场，时间线看得见（原来组全是 ghost，读历史的各处都看不见）
+    await card(W_STALE.id).waitFor({ state: 'visible', timeout: 5_000 });
+    return `seeded ${W_HEAT.id}… , unit ${unit}, tz ${TZ}, stale settled`;
   },
 
   // 看历史、改旧训练：

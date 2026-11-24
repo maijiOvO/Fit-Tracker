@@ -93,6 +93,7 @@ import {
   useUserSettingsContext,
   useWorkoutContext,
 } from './src/contexts';
+import { WORKOUTS_SETTLED_EVENT, type SettledLink } from './src/contexts/WorkoutContext';
 
 import { useKeyboardScroll } from './src/hooks/useKeyboardScroll';
 import { useTheme } from './src/hooks/useTheme';
@@ -320,7 +321,9 @@ const AppWithAuthShell: React.FC = () => {
   const startAtGym = useCallback(
     (make: (gym: string | undefined, gyms?: Record<string, GymProfile>) => WorkoutSession, after?: (w: WorkoutSession) => void) =>
       setGymStart(() => (gym: string | undefined, gyms?: Record<string, GymProfile>) => {
-        void startWorkoutGuarded(() => {
+        void startWorkoutGuarded(async () => {
+          // 复制为今天 / 从计划开始会把工作台上正在练的那场换下来：先替它收尾，别留一场没人管的未结束训练（上架审查 C02）
+          await workoutCtx.settleWorkbench();
           const base = make(gym, gyms);
           // 按这个馆的片子切单位（设过档案的馆）；底稿已经按这个馆铺好了，同一个馆不会重挑
           const w = gym && switchGymRef.current ? switchGymRef.current(base, gym, gyms) : base;
@@ -330,7 +333,7 @@ const AppWithAuthShell: React.FC = () => {
           after?.(w);
         });
       }),
-    [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab],
+    [startWorkoutGuarded, setCurrentWorkout, setEditingWorkoutId, setActiveTab, workoutCtx],
   );
 
   /** 复制为今天 / 从计划开练：先检查、确认，再和 FAB 一样先选馆（审查 A12） */
@@ -508,6 +511,19 @@ const AppWithAuthShell: React.FC = () => {
     });
   }, [workouts, scheduleCtx, pendingScheduleCompletion]);
 
+  // 自动收尾的场（WorkoutContext.settle*）带着计划的：同样回写为 completed
+  useEffect(() => {
+    const onSettled = (e: Event) => {
+      for (const { scheduleId, workoutId } of (e as CustomEvent<SettledLink[]>).detail) {
+        const target = scheduleCtx.schedules.find(s => s.id === scheduleId);
+        if (!target || target.status === 'completed') continue;
+        void scheduleCtx.updateSchedule({ ...target, status: 'completed', linkedWorkoutId: workoutId, updatedAt: new Date().toISOString() });
+      }
+    };
+    window.addEventListener(WORKOUTS_SETTLED_EVENT, onSettled);
+    return () => window.removeEventListener(WORKOUTS_SETTLED_EVENT, onSettled);
+  }, [scheduleCtx]);
+
   // ============== 工作台一变就落盘（编辑旧训练的草稿除外，persistCurrentWorkout 自己认） ==============
   useEffect(() => {
     if (currentWorkout.exercises && currentWorkout.exercises.length > 0) {
@@ -579,19 +595,25 @@ const AppWithAuthShell: React.FC = () => {
   /** 工作台里有一场进行中的训练（不是在编辑旧训练）：FAB 变「回到训练」，首页顶上一行「进行中」 */
   const inProgress = !editingWorkoutId && !!currentWorkout.id && (currentWorkout.exercises?.length ?? 0) > 0;
 
+  /**
+   * 「回到训练」之前先看工作台那场过没过期（上架审查 C03）：闲置满 12 小时的已经替它收尾、工作台清空，
+   * 这次就照没有进行中的训练走（start）；没过期才回训练页。
+   */
+  const resumeOrStart = useCallback(
+    (start: () => void) => {
+      if (!inProgress) return start();
+      void workoutCtx.settleStale().then(settled => (settled ? start() : setActiveTab('new')));
+    },
+    [inProgress, workoutCtx, setActiveTab],
+  );
+
   const dashboardActions = useMemo(
     () => ({
-      onResumeWorkout: () => setActiveTab('new'),
+      onResumeWorkout: () => resumeOrStart(() => {}),
       onEndInProgress: () => void handleFinishWithConfirmation(),
       onStartScheduledSession: (id: string) => void handleStartScheduledSession(id),
-      onStartNewWorkout: () => {
-        if (inProgress) {
-          setActiveTab('new');
-          return;
-        }
-        // 和 FAB 同一条路：先选馆，再新建一个带 id / startTime 的对象，别复用上一个 currentWorkout
-        startAtGym(() => workoutCtx.createNewWorkout());
-      },
+      // 和 FAB 同一条路：先选馆，再新建一个带 id / startTime 的对象，别复用上一个 currentWorkout
+      onStartNewWorkout: () => resumeOrStart(() => startAtGym(() => workoutCtx.createNewWorkout())),
       onResumeFinishedWorkout: (id: string) => {
         const w = workouts.find(x => x.id === id);
         if (w) void resumeWorkout(w);
@@ -631,6 +653,7 @@ const AppWithAuthShell: React.FC = () => {
       setEditingWorkoutId,
       setActiveTab,
       inProgress,
+      resumeOrStart,
       handleFinishWithConfirmation,
       setEditingWeightId,
       setWeightInputValue,
@@ -1526,21 +1549,13 @@ const AppWithAuthShell: React.FC = () => {
           onTabChange={setActiveTab}
           lang={lang}
           resume={inProgress}
-          onStartWorkout={() => {
-            // 有进行中的训练：FAB 就是「回到训练」（workbench-not-restored）
-            if (inProgress) {
-              setActiveTab('new');
-              return;
-            }
+          onStartWorkout={() =>
+            // 有进行中的训练：FAB 就是「回到训练」（workbench-not-restored），过期了的先收尾再开新的（resumeOrStart）。
             // 先选馆再开练（startAtGym）。进页后【不】自动弹添加动作弹层：空白页现在先问「今天练哪里」
             // （BodyPartPicker），选完即作为训练名称，再进正常的添加动作流程。
-            startAtGym(() => workoutCtx.createNewWorkout());
-          }}
-          onStartWorkoutWithPart={(partKey, title) => {
-            if (inProgress) {
-              setActiveTab('new');
-              return;
-            }
+            resumeOrStart(() => startAtGym(() => workoutCtx.createNewWorkout()))
+          }
+          onStartWorkoutWithPart={(partKey, title) => resumeOrStart(() => {
             // §12.4 印谱扇开：一笔完成「开练 + 选部位」。
             // 部位印 → 标题已定，进页后 120ms 自动弹动作弹层（复用补加动作的机制）；
             // 「制」 → 不填名，进页聚焦标题（partPrechosenId 抑制页内印谱再问一遍）。
@@ -1557,7 +1572,7 @@ const AppWithAuthShell: React.FC = () => {
                 }
               },
             );
-          }}
+          })}
         />
       )}
 

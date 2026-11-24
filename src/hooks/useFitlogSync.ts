@@ -170,6 +170,8 @@ export function useFitlogSync(): UseFitlogSyncResult {
           goalsCtx.refreshFromDb(),
           settingsCtx.reloadFromIndexedDb(),
         ]);
+        // 拉取 / 恢复进来的行里可能有过期没结束的场：照启动时一样收尾（上架审查 C01）
+        await workoutCtx.settleStale();
       } catch (error) {
         console.error('加载本地数据失败:', error);
       }

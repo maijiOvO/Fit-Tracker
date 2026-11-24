@@ -1,26 +1,47 @@
 import type { WorkoutSession } from '../types';
 
-/** 「进行中」能接回来的时限：超过这么久没动过的未结束训练不再自动接回（早期没有 finishedAt 字段的旧记录也靠它挡掉） */
+/** 「进行中」能接回来的时限：超过这么久没动过的未结束训练不再接回，按入册口径收尾（见 staleRows） */
 const IN_PROGRESS_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * 自动收尾只碰这之后改过的行：2026-11-14（b94fdc8）起入册看「有没有数」，之前的未结束场里混着没动过的底稿，
+ * 按今天的口径收尾会造出假组（作者自用库里有 21 场这样的旧行）。单机版没有这么早的数据。
+ */
+const SETTLE_SINCE_MS = Date.parse('2026-11-14T00:00:00');
+
+/** 一场最后一次改内容的时刻（毫秒）：updatedAt，旧行退回开练时刻 / 日期 */
+export const lastChangeMs = (w: WorkoutSession): number => new Date(w.updatedAt || w.startTime || w.date).getTime() || 0;
+
+/** 闲置满 12 小时：不再当作正在练 */
+export const isStale = (lastChange: number, now = Date.now()): boolean => now - lastChange >= IN_PROGRESS_MAX_AGE_MS;
+
+const isOpen = (w: WorkoutSession) => !w.finishedAt && w.status !== 'completed' && (w.exercises?.length ?? 0) > 0;
 
 /**
  * 库里最近一场「进行中」的训练：没结束、有动作、12 小时内动过。
  * 练到一半按返回 / App 被系统回收 / 刷新之后，靠它把这场接回工作台（workbench-not-restored）。
  *
- * 只看 updatedAt 不够：早期没有 finishedAt 的旧记录，编辑 / 馆改名一下 updatedAt 就新了，会被当成进行中接回来
- * （2026-10-21 审查）。所以还得是工作台上落过盘的那一场（activeId；「继续这场」接回来的旧训练也走这条），
- * 或者开练时间本身就在 12 小时内（旧版本升级上来、还没记过 activeId 的那一场）。
+ * 只认工作台上落过盘的那一场（activeId；「继续这场」接回来的旧训练也走这条）。只看 updatedAt 不够：
+ * 被计划 / 复制顶下工作台的那场、编辑过的旧行，updatedAt 一新就会被当成进行中接回来（2026-10-21 审查、上架审查 C02）。
+ * 还没记过 activeId（旧版本升级上来）时才退一步，认开练时间在 12 小时内的。
  */
 export function findInProgress(list: WorkoutSession[], activeId: string | null): WorkoutSession | null {
   const now = Date.now();
-  const ts = (w: WorkoutSession) => new Date(w.updatedAt || w.startTime || w.date).getTime() || 0;
   const started = (w: WorkoutSession) => new Date(w.startTime || w.createdAt || w.date).getTime() || 0;
   return (
     list
-      .filter(w => !w.finishedAt && w.status !== 'completed' && (w.exercises?.length ?? 0) > 0 && now - ts(w) < IN_PROGRESS_MAX_AGE_MS)
-      .filter(w => w.id === activeId || now - started(w) < IN_PROGRESS_MAX_AGE_MS)
-      .sort((a, b) => ts(b) - ts(a))[0] ?? null
+      .filter(w => isOpen(w) && !isStale(lastChangeMs(w), now))
+      .filter(w => (activeId ? w.id === activeId : !isStale(started(w), now)))
+      .sort((a, b) => lastChangeMs(b) - lastChangeMs(a))[0] ?? null
   );
+}
+
+/**
+ * 该自动收尾的行（上架审查 C01 / C02）：没结束、有动作、不是工作台上那一场、闲置满 12 小时。
+ * 未结束的场只该有一场，就是工作台那场；别的过期了没人会再接回，留着就是读历史的各处都看不见的组。
+ */
+export function staleRows(list: WorkoutSession[], workbenchId: string, now = Date.now()): WorkoutSession[] {
+  return list.filter(w => isOpen(w) && w.id !== workbenchId && isStale(lastChangeMs(w), now) && lastChangeMs(w) >= SETTLE_SINCE_MS);
 }
 
 /**
@@ -50,6 +71,13 @@ export function createWorkbenchSaver(write: (w: WorkoutSession) => Promise<void>
           entry.state = 'failed';
         },
       );
+    },
+    /**
+     * 这一场最后一次改内容的时刻（毫秒）：内存里的 currentWorkout.updatedAt 不随落盘刷新，过期要按这里判。
+     * 这个保存器没见过它（还没落过盘）就是 null。
+     */
+    lastChange(id: string): number | null {
+      return last && last.src.id === id ? Date.parse(last.updatedAt) || null : null;
     },
   };
 }

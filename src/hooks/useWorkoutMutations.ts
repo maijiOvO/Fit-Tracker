@@ -16,7 +16,7 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, newGroupId, normalizeGroups, recordedExercises } from '../utils/workbench';
+import { groupExercises, newGroupId, normalizeGroups, recordedExercises, toRecorded } from '../utils/workbench';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
@@ -46,24 +46,6 @@ export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
  * 挡在产生之前，比事后给撤销便宜得多。
  */
 export const RESUME_WINDOW_MS = 10 * 60 * 1000;
-
-/**
- * 没选部位、也没手打标题时的兜底标题。
- *
- * 原先写死 `Workout ${new Date().toLocaleDateString()}`：中文模式下刊头是英文单词，
- * 而日期又跟着【浏览器】的 locale 走而不是 App 的语言设置 —— 两头都不对。
- * 现在词和日期都由 lang 决定。标题是存进库里的数据，之后不再随语言切换而变，
- * 这符合「记下来的就是当时那句」的直觉。
- */
-function defaultWorkoutTitle(isCn: boolean, now: Date = new Date()): string {
-  return isCn
-    ? `训练 ${now.toLocaleDateString('zh-CN')}`
-    : `Workout ${now.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      })}`;
-}
 
 /**
  * 把一串既有的组铺成底稿行（§12.6）。
@@ -432,14 +414,8 @@ export function useWorkoutMutations({
 
       // 计划关联：开练时记在这场上的 fromSchedule 为准（App 被回收后接回来的也认得），ref 兜旧数据
       const scheduleId = currentWorkout.fromSchedule?.scheduleId ?? activeScheduleIdRef.current;
-      const date = currentWorkout.date || new Date().toISOString();
-      const finalWorkout: WorkoutSession = {
-        ...currentWorkout,
-        exercises: cleanedExercises,
-        title: currentWorkout.title || defaultWorkoutTitle(isCn, new Date(date)),
-        date,
-        ...(scheduleId ? { fromSchedule: { scheduleId } } : {}),
-      };
+      // 和自动收尾（WorkoutContext.settle*）同一个口径；上面已经判过有可入册的组
+      const finalWorkout = toRecorded(currentWorkout, { isCn, scheduleId })!;
 
       // PR 判定必须在写库【之前】算：写完之后 workouts 里就含本场了，
       // 拿它当「历史」会把自己和自己比，永远不可能破纪录。
@@ -799,8 +775,8 @@ export function useWorkoutMutations({
       if ((currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
           message: isCn
-            ? '有一场训练还没结束，复制会替换它（已保存，可在时间线继续编辑）。'
-            : 'A workout is still unfinished; copying replaces it (it is saved — edit it from the timeline).',
+            ? '有一场训练还没结束，复制会先替它结束，记进时间线。'
+            : 'A workout is still unfinished; copying will end it first and put it on the timeline.',
           confirmLabel: isCn ? '继续复制' : 'Copy anyway',
         });
         if (!ok) return null;
@@ -895,8 +871,8 @@ export function useWorkoutMutations({
       if (!editingWorkoutId && (currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
           message: isCn
-            ? '有一场训练还没结束，从计划开始会替换它（已保存，可在时间线继续编辑）。'
-            : 'A workout is still unfinished; starting the plan replaces it (it is saved — edit it from the timeline).',
+            ? '有一场训练还没结束，从计划开始会先替它结束，记进时间线。'
+            : 'A workout is still unfinished; starting the plan will end it first and put it on the timeline.',
           confirmLabel: isCn ? '继续' : 'Continue',
         });
         if (!ok) return null;
@@ -989,6 +965,8 @@ export function useWorkoutMutations({
    */
   const resumeWorkout = useCallback(
     async (w: WorkoutSession) => {
+      // 工作台上还有正在练的另一场：先替它收尾，别让它被顶下工作台后没人管（上架审查 C05）
+      if (currentWorkout.id !== w.id) await workoutCtx.settleWorkbench();
       const { finishedAt: _fa, status: _st, ...rest } = w;
       const resumed: WorkoutSession = { ...rest, updatedAt: new Date().toISOString() };
       await db.save('workouts', resumed);
@@ -1001,7 +979,7 @@ export function useWorkoutMutations({
       setActiveTab('new');
       scheduleDebouncedFitlogPush();
     },
-    [refreshFromDb, setActiveTab, setCurrentWorkout],
+    [currentWorkout.id, refreshFromDb, setActiveTab, setCurrentWorkout, workoutCtx],
   );
 
   /**

@@ -16,7 +16,7 @@
  *
  * 全部是纯函数：输入 exercises，输出新的 exercises。UI（NewWorkoutTab）只管调用和渲染。
  */
-import type { Exercise, SetLog, SubSetLog } from '../../types';
+import type { Exercise, SetLog, SubSetLog, WorkoutSession } from '../../types';
 import { fromSignedKg, setSign, signedKg } from './load';
 import { segmentName } from './nameSegments';
 
@@ -656,6 +656,52 @@ export function recordedExercises(exercises: Exercise[] | undefined): Exercise[]
         };
       })
       .filter(ex => ex.sets.length > 0),
+  );
+}
+
+/**
+ * 没选部位、也没手打标题时的兜底标题。
+ *
+ * 原先写死 `Workout ${new Date().toLocaleDateString()}`：中文模式下刊头是英文单词，
+ * 而日期又跟着【浏览器】的 locale 走而不是 App 的语言设置 —— 两头都不对。
+ * 现在词和日期都由 lang 决定。标题是存进库里的数据，之后不再随语言切换而变，
+ * 这符合「记下来的就是当时那句」的直觉。
+ */
+export function defaultWorkoutTitle(isCn: boolean, now: Date = new Date()): string {
+  return isCn
+    ? `训练 ${now.toLocaleDateString('zh-CN')}`
+    : `Workout ${now.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      })}`;
+}
+
+/**
+ * 一场要入册的样子（不含 status / finishedAt，由写库的一方补）：只留 willRecord 的组、补缺省标题和日期、挂上计划。
+ * 一组可入册的都没有就是 null。手动结束和自动收尾（WorkoutContext.settle*）共用这一份，口径不会分叉。
+ */
+export function toRecorded(w: WorkoutSession, opts: { isCn: boolean; scheduleId?: string | null; fallbackDate?: string }): WorkoutSession | null {
+  const exercises = recordedExercises(w.exercises);
+  if (exercises.length === 0) return null;
+  const date = w.date || opts.fallbackDate || new Date().toISOString();
+  return {
+    ...w,
+    exercises,
+    title: w.title || defaultWorkoutTitle(opts.isCn, new Date(date)),
+    date,
+    ...(opts.scheduleId ? { fromSchedule: { scheduleId: opts.scheduleId } } : {}),
+  };
+}
+
+/**
+ * 这一场有没有人亲手动过：点过组号（指针以上），或改过数、点过力竭。原样的底稿 / 计划行不算。
+ * 自动收尾（用户没点结束）只收动过的场：开了场、加了带底稿的动作就走了，不该凭空记成一场训练。
+ */
+export function hasUserInput(exercises: Exercise[] | undefined): boolean {
+  const touched = (t?: Record<string, boolean | undefined>) => Object.values(t ?? {}).some(Boolean);
+  return (exercises ?? []).some(ex =>
+    (ex.sets ?? []).some(s => !s.ghost || s.toFailure || touched(s.touched) || (s.subSets ?? []).some(sub => touched(sub.touched))),
   );
 }
 

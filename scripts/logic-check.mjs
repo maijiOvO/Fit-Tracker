@@ -48,7 +48,7 @@ await build({
       "export * as R from './src/utils/prRecords.ts';",
       "export { buildLiftSummaries, trendPoints, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
-      "export { moveSetToExercise } from './src/utils/workbench.ts';",
+      "export { moveSetToExercise, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
@@ -1248,6 +1248,59 @@ await ta('工作台落盘：接回来的那场只切后台 / 列表刷新不重�
   saver.save(edited2); // 上次没写进去：重写，updatedAt 不变
   assert.equal(writes.length, 3);
   assert.equal(writes[2].updatedAt, writes[1].updatedAt);
+  // 过期按保存器记下的最后改动判（内存那份的 updatedAt 不随落盘刷新）
+  assert.equal(saver.lastChange('w_old'), Date.parse(writes[2].updatedAt));
+  assert.equal(saver.lastChange('别的'), null);
+});
+
+// ── 未结束的训练没人收尾（上架审查 C01 / C02 / C03）──────────────────
+t('接回只认工作台上那一场：被顶下来的另一场哪怕刚改过也不接；没记过 activeId（旧版升级）才认 12 小时内开练的', () => {
+  const H = 3600000;
+  const at = h => new Date(Date.now() - h * H).toISOString();
+  const ex = [{ id: 'e', name: '深蹲', sets: [{ id: 's', weight: 60, reps: 5 }] }];
+  const A = { id: 'A', date: at(3), startTime: at(3), updatedAt: at(0), exercises: ex };
+  const B = { id: 'B', date: at(1), startTime: at(1), updatedAt: at(0.5), exercises: ex };
+  assert.equal(L.WP.findInProgress([A, B], 'B')?.id, 'B');
+  assert.equal(L.WP.findInProgress([A], 'B'), null);
+  assert.equal(L.WP.findInProgress([A], null)?.id, 'A');
+});
+
+t('该自动收尾的：没结束、有动作、不是工作台那场、闲置满 12 小时；11 小时 59 分的不算；2026-11-14 之前的旧行不碰', () => {
+  const H = 3600000;
+  const now = Date.now();
+  const at = h => new Date(now - h * H).toISOString();
+  const ex = [{ id: 'e', name: '深蹲', sets: [{ id: 's', weight: 60, reps: 5, ghost: true }] }];
+  const rows = [
+    { id: 'old13', date: at(14), updatedAt: at(13), exercises: ex },
+    { id: 'edge', date: at(14), updatedAt: new Date(now - 12 * H + 60000).toISOString(), exercises: ex },
+    { id: 'bench', date: at(14), updatedAt: at(13), exercises: ex },
+    { id: 'done', date: at(14), updatedAt: at(13), finishedAt: at(13), exercises: ex },
+    { id: 'empty', date: at(14), updatedAt: at(13), exercises: [] },
+    { id: 'legacy', date: '2026-10-31T10:00:00Z', updatedAt: '2026-10-31T11:00:00Z', exercises: ex },
+  ];
+  assert.deepEqual(L.WP.staleRows(rows, 'bench', now).map(w => w.id), ['old13']);
+  assert.equal(L.WP.isStale(now - 12 * H + 60000, now), false);
+  assert.equal(L.WP.isStale(now - 12 * H, now), true);
+});
+
+t('入册口径手动结束和自动收尾共用：全零行丢掉、工作台标记剥掉、空标题拿缺省；一组可入册的都没有是 null；只有原样底稿的场算没动过', () => {
+  const typed = { id: 's1', weight: 60, reps: 5, ghost: true, touched: { weight: true }, prefillRef: { kg: 55, unit: 'kg' }, draftAuto: false };
+  const zero = { id: 's2', weight: 0, reps: 0, ghost: true };
+  const draft = { id: 's3', weight: 50, reps: 8, ghost: true, prefillRef: { kg: 50, unit: 'kg' }, draftAuto: true };
+  const w = { id: 'w', title: '', date: '2026-11-20T10:00:00.000Z', exercises: [{ id: 'e', name: '深蹲', sets: [typed, zero, draft] }] };
+  const r = L.toRecorded(w, { isCn: true, scheduleId: 'p1' });
+  assert.equal(r.exercises[0].sets.length, 2);
+  for (const s of r.exercises[0].sets) {
+    assert.equal(s.ghost, false);
+    for (const k of ['touched', 'prefillRef', 'draftAuto']) assert.ok(!(k in s), k + ' 该剥掉');
+  }
+  assert.match(r.title, /^训练 /);
+  assert.deepEqual(r.fromSchedule, { scheduleId: 'p1' });
+  assert.equal(L.toRecorded({ ...w, exercises: [{ id: 'e', name: '深蹲', sets: [zero] }] }, { isCn: true }), null);
+  assert.equal(L.hasUserInput(w.exercises), true);
+  assert.equal(L.hasUserInput([{ id: 'e', name: '深蹲', sets: [draft, zero] }]), false);
+  assert.equal(L.hasUserInput([{ id: 'e', name: '深蹲', sets: [{ ...draft, toFailure: true }] }]), true);
+  assert.equal(L.hasUserInput([{ id: 'e', name: '深蹲', sets: [{ ...draft, ghost: false }] }]), true);
 });
 
 // ── 一台器械换单位 / 关设置时收掉白加的台（审查 B4、B5）──────────────────
