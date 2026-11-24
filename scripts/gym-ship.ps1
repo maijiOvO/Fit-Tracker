@@ -6,10 +6,14 @@
   手机（开着 Tailscale）打开脚本最后打印的网址，下载、覆盖安装。
   流程和注意事项在 .claude/skills/gym-hotfix/SKILL.md。
 
+  跑之前设环境变量 GYM_NOTE 说明这个包改了什么（一行一条），它会写在下载页上：
+
+      $env:GYM_NOTE = "修了递减组不继承重量`n加片按钮挪到大图下面"; npm run gym:ship
+
   打包本身仍走 build-apk.ps1（五道闸门都在那里）。这里多做三件事：
     - 给产物烙一个构建戳（首选项最底下那行），下载页上写同一个戳
     - 发布前从 APK 里把戳读回来，证明要发的这个文件就是这次的代码
-    - 下载目录留最近 4 个包，新包有问题能装回上一个
+    - 下载页只放这一个包和它的改动说明，旧包随即删掉
 
   ⚠️ 本文件必须存成 UTF-8 **with BOM**（理由同 build-apk.ps1 文件头）。
 #>
@@ -23,7 +27,6 @@ Set-Location $repo
 $mainRepo = Split-Path -Parent (Resolve-Path (& git rev-parse --git-common-dir)).Path
 $drop = Join-Path (Split-Path -Parent $mainRepo) 'fitlog-gym'
 $servePort = 8443
-$keep = 4
 
 function Fail($msg, $hint) {
     Write-Host "[X] $msg" -ForegroundColor Red
@@ -33,6 +36,10 @@ function Fail($msg, $hint) {
 function Ok($msg) { Write-Host "[OK] $msg" -ForegroundColor Green }
 
 $watch = [Diagnostics.Stopwatch]::StartNew()
+
+# 下载页上「这个包改了什么」，一行一条，写给拿着手机的人看。走环境变量是因为中文经 npm 传命令行参数会烂码
+$note = "$env:GYM_NOTE".Trim()
+if (-not $note) { Fail "没说这个包改了什么" "先设环境变量 GYM_NOTE（一行一条，用户能看懂的话），再跑 npm run gym:ship" }
 
 # -- 前置 ---------------------------------------------------------
 # 工作树里常缺 .env.local：照样构建成功，但包里没有 NAS 地址，装上去不同步
@@ -102,28 +109,13 @@ if (-not (Test-Path $drop)) { New-Item -ItemType Directory -Path $drop | Out-Nul
 $name = "fit-tracker-$time.apk"
 Copy-Item $apk.FullName (Join-Path $drop $name) -Force
 
-$manifestPath = Join-Path $drop 'builds.json'
-$builds = @()
-# 外面那层括号不能省：PS 5.1 的 ConvertFrom-Json 把整个数组当一个对象吐出来，不先展开就成了「只有一项的数组」
-if (Test-Path $manifestPath) { $builds = @((Get-Content $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json) | ForEach-Object { $_ }) }
-$entry = [pscustomobject]@{
-    file  = $name
-    stamp = $stamp
-    at    = (Get-Date -Format 'MM-dd HH:mm')
-    mb    = [math]::Round($apk.Length / 1MB, 1)
-}
-$builds = @($entry) + @($builds | Where-Object { $_.file -ne $name -and (Test-Path (Join-Path $drop $_.file)) })
-foreach ($old in ($builds | Select-Object -Skip $keep)) { Remove-Item -LiteralPath (Join-Path $drop $old.file) -Force }
-$builds = @($builds | Select-Object -First $keep)
-$utf8 = New-Object System.Text.UTF8Encoding($false)
-[IO.File]::WriteAllText($manifestPath, (ConvertTo-Json -InputObject $builds), $utf8)
+# 下载页上只放这一个包：旧的删掉，免得装错
+Get-ChildItem $drop -Filter 'fit-tracker-*.apk' -File | Where-Object { $_.Name -ne $name } | ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
 
-$rows = for ($i = 0; $i -lt $builds.Count; $i++) {
-    $b = $builds[$i]
-    $cls = if ($i -eq 0) { 'apk new' } else { 'apk' }
-    $tag = if ($i -eq 0) { '最新' } else { '旧包' }
-    "<a class=`"$cls`" href=`"$($b.file)`" download><b>$($b.stamp)</b><span>$tag · $($b.at) · $($b.mb) MB</span></a>"
-}
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+$noteHtml = (($note -split "`n") | ForEach-Object { '<li>' + [System.Net.WebUtility]::HtmlEncode($_.Trim()) + '</li>' }) -join "`n"
+$at = Get-Date -Format 'M 月 d 日 HH:mm'
+$mb = [math]::Round($apk.Length / 1MB, 1)
 $html = @"
 <!doctype html>
 <html lang="zh-CN">
@@ -133,25 +125,29 @@ $html = @"
 <style>
   body { margin: 0; padding: 24px 16px; font: 16px/1.5 system-ui, sans-serif; background: #f4f4f2; color: #1c1c1a; }
   h1 { font-size: 20px; margin: 0 0 4px; }
-  p { margin: 0 0 20px; color: #6b6b66; font-size: 14px; }
-  .apk { display: block; padding: 16px; margin-bottom: 12px; border-radius: 14px; background: #fff; color: inherit; text-decoration: none; border: 1px solid #e2e2de; }
-  .apk.new { background: #1c1c1a; color: #fff; border-color: #1c1c1a; }
-  .apk b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
-  .apk span { font-size: 13px; opacity: .7; }
+  p { margin: 0 0 16px; color: #6b6b66; font-size: 14px; }
+  ul { margin: 0 0 20px; padding: 14px 16px 14px 34px; border-radius: 14px; background: #fff; border: 1px solid #e2e2de; }
+  li + li { margin-top: 6px; }
+  .apk { display: block; padding: 16px; margin-bottom: 12px; border-radius: 14px; background: #1c1c1a; color: #fff; text-decoration: none; text-align: center; font-size: 18px; font-weight: 600; }
+  code { font: inherit; font-variant-numeric: tabular-nums; color: inherit; font-weight: 600; }
   @media (prefers-color-scheme: dark) {
     body { background: #141413; color: #ecece8; }
     p { color: #9a9a94; }
-    .apk { background: #1f1f1d; border-color: #33332f; }
-    .apk.new { background: #ecece8; color: #141413; border-color: #ecece8; }
+    ul { background: #1f1f1d; border-color: #33332f; }
+    .apk { background: #ecece8; color: #141413; }
   }
 </style>
-<h1>Fit Tracker 热修包</h1>
-<p>装完到「我的 › 首选项」最底下，看到同一个戳就是装上了。</p>
-$($rows -join "`n")
+<h1>Fit Tracker 最新包</h1>
+<p>$at 打包 · $mb MB</p>
+<ul>
+$noteHtml
+</ul>
+<a class="apk" href="$name" download>下载安装</a>
+<p>装完到「我的 › 首选项」最底下，看到 <code>$stamp</code> 就是装上了。</p>
 </html>
 "@
 [IO.File]::WriteAllText((Join-Path $drop 'index.html'), $html, $utf8)
-Ok "已发布: $name（下载目录留最近 $($builds.Count) 个）"
+Ok "已发布: $name（已替换掉旧包）"
 
 # -- 下载地址 -----------------------------------------------------
 $tailscale = Get-Command tailscale -ErrorAction SilentlyContinue
