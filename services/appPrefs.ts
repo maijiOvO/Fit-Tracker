@@ -147,6 +147,20 @@ export function resolveLang(): Language {
 }
 const isInc = (c: unknown): c is IncSpec =>
   !!c && typeof c === 'object' && typeof (c as IncSpec).v === 'number' && (c as IncSpec).v > 0 && isUnit((c as IncSpec).u);
+/**
+ * 换单位前那份（IncSpec.was）：只留刻度字段、坏了就丢掉这一项（丢了只是切回去时按换算，不还原）。
+ * 不能留 id / n / 嵌套的 was：SavedRigs 会把还原出来的整份铺到台上
+ */
+function withCleanWas<T extends IncSpec>(c: T): T {
+  if (c.was === undefined) return c;
+  const { was, ...rest } = c;
+  if (!isInc(was)) return rest as T;
+  const num = (x: unknown) => (typeof x === 'number' && x > 0 ? x : undefined);
+  const s = num(was.s);
+  const e = num(was.e);
+  const a = Array.isArray(was.a) ? was.a.filter(x => typeof x === 'number' && x > 0 && x <= ADDON_EACH_MAX[was.u]).slice(0, ADDON_MAX) : [];
+  return { ...rest, was: { v: was.v, u: was.u, ...(s ? { s } : {}), ...(e ? { e } : {}), ...(a.length ? { a } : {}) } } as T;
+}
 /** 同步回来的档案缺字段 / 坏字段时整条丢掉（宁可用默认档位也不要拿 NaN 去取整） */
 function cleanGyms(raw: unknown): Record<string, GymProfile> {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
@@ -158,12 +172,12 @@ function cleanGyms(raw: unknown): Record<string, GymProfile> {
     out[name] = {
       plateUnit: g.plateUnit,
       plates,
-      cable: g.cable,
-      machine: g.machine,
-      dumbbell: g.dumbbell,
+      cable: withCleanWas(g.cable),
+      machine: withCleanWas(g.machine),
+      dumbbell: withCleanWas(g.dumbbell),
       // 壶铃一档是后加的：旧档案没有，坏了也只丢这一项
-      ...(isInc(g.kettlebell) ? { kettlebell: g.kettlebell } : {}),
-      ...(isInc(g.fixedBar) ? { fixedBar: g.fixedBar } : {}),
+      ...(isInc(g.kettlebell) ? { kettlebell: withCleanWas(g.kettlebell) } : {}),
+      ...(isInc(g.fixedBar) ? { fixedBar: withCleanWas(g.fixedBar) } : {}),
     };
   }
   return out;
@@ -180,6 +194,7 @@ function cleanRigs(raw: unknown): Record<string, Rig[]> {
     if (Array.isArray(list))
       out[k] = list
         .filter((r): r is Rig => isInc(r) && isText((r as Rig).id))
+        .map(withCleanWas)
         .map(r => {
           if (r.a === undefined) return r;
           const { a, ...rest } = r;

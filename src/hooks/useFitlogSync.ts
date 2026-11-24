@@ -21,6 +21,7 @@ import {
   type SyncState,
 } from '../../services/fitlogRemoteSync';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
+import { resumeGymRenames } from '../../services/gymRename';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useGoalsContext } from '../contexts/GoalsContext';
@@ -115,6 +116,12 @@ export function useFitlogSync(): UseFitlogSyncResult {
       try {
         await db.init();
         await migrateRecordsToSoloUserId();
+        // 上次馆改名写到一半被杀：续完（首选项和训练两半都会被下面重读）。失败就留着标记下次再续，不拖住启动
+        try {
+          if (await resumeGymRenames()) scheduleDebouncedFitlogPush();
+        } catch (e) {
+          console.error('[fitlog] 续完馆改名失败:', e);
+        }
         if (isRemoteConfigured()) {
           if (isLocalAuthoritative()) {
             // 上次恢复 / 导入 / 重置之后还没推上去：先推本机这一份，不拉（拉了会把服务器上的旧数据合并回来，审查 A23）

@@ -20,7 +20,7 @@ const out = join(dir, 'wb.mjs');
 await build({
   stdin: {
     contents:
-      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts'; export * as SW from './src/utils/setWrite.ts'; export * as V from './src/utils/setValues.ts';",
+      "export * from './src/utils/workbench.ts'; export * from './src/utils/load.ts'; export * as L from './src/utils/loadable.ts'; export * as S from './src/utils/scrubFeel.ts'; export * as A from './src/utils/exerciseAttrs.ts'; export * as X from './src/constants/exercises.ts'; export * as SW from './src/utils/setWrite.ts'; export * as V from './src/utils/setValues.ts'; export * as P from './src/utils/plates.ts';",
     resolveDir: ROOT,
     loader: 'ts',
   },
@@ -785,6 +785,9 @@ t('跨部位多选：自己部位的排前面，主细分永远是自己部位�
   assert.deepEqual(A.toggleRegion(['backLower', 'legGlute'], 'legGlute', own), ['backLower']);
 });
 
+/** 去掉换单位前那份（IncSpec.was）和显式的 undefined：换算出来的值照旧比，记没记 was 由专门的用例管 */
+const noWas = x => Object.fromEntries(Object.entries(x).filter(([k, v]) => k !== 'was' && v !== undefined));
+
 t('loadable.withPlateUnit：切馆的片子单位，跟着旧片子单位走的各档一起换，单独设成别的单位的保留', () => {
   const L = W.L;
   // 新馆按显示单位 kg 起的档案，切成磅片：五档都没动过 → 就是一份 lb 的默认档案（壶铃 4 kg → 5 lb，不是表里最近的 10 lb）
@@ -794,7 +797,7 @@ t('loadable.withPlateUnit：切馆的片子单位，跟着旧片子单位走的�
   // kg 的机器一档带起始点 → 单位、一档和起始一起换
   const mixed = { ...L.defaultProfile('kg'), dumbbell: { v: 2, u: 'kg' }, cable: { v: 10, u: 'lbs', s: 12.5 }, machine: { v: 5, u: 'kg', s: 10 } };
   const m = L.withPlateUnit(mixed, 'lbs');
-  assert.deepEqual(m.dumbbell, { v: 5, u: 'lbs' });
+  assert.deepEqual(noWas(m.dumbbell), { v: 5, u: 'lbs' });
   assert.deepEqual(m.cable, { v: 10, u: 'lbs', s: 12.5 }, '单独设过的保留');
   assert.equal(m.machine.u, 'lbs');
   assert.equal(m.machine.v, 10);
@@ -810,6 +813,48 @@ t('loadable.withPlateUnit：切馆的片子单位，跟着旧片子单位走的�
   const o = L.withPlateUnit(old, 'lbs');
   assert.equal('kettlebell' in o, false);
   assert.equal('fixedBar' in o, false);
+});
+
+// 防 C48：切片子单位只做单向换算（吸到最近的档位），来回切一次各档就回不到原值
+t('loadable.withPlateUnit：磅片馆切成公斤片再切回来，改过的各档原样还原，片子表照旧重置成标准片（上架审查 C48）', () => {
+  const L = W.L;
+  const p = { ...L.defaultProfile('lbs'), plates: [45, 25, 10, 5, 2.5, 1.25], cable: { v: 5, u: 'lbs', s: 12.5 }, machine: { v: 15, u: 'lbs' }, dumbbell: { v: 2.5, u: 'lbs' } };
+  const back = L.withPlateUnit(L.withPlateUnit(p, 'kg'), 'lbs');
+  for (const k of ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar']) assert.deepEqual(noWas(back[k]), p[k], k);
+  // 还原出来的不再挂着 was；片子表按「换馆重量」D 重置，自定义的 1.25 不回来
+  assert.equal(back.cable.was, undefined);
+  assert.deepEqual(back.plates, W.P.DEFAULT_PLATES.lbs);
+});
+
+// 防 C47：stepTo 探 0.001，比格子经 r2 带来的偏差（≤ 0.005）还小，下一格被认回同一格、± 卡住不动
+t('loadable.stepTo：换算过来的短杠、手打三位小数的每格，± 一格一格走，不卡住（上架审查 C47）', () => {
+  const L = W.L;
+  const kgPlates = L.profileIn(L.defaultProfile('kg'), 'kg').plates;
+  const lbPlates = L.profileIn(L.defaultProfile('lbs'), 'lbs').plates;
+  const stuckAt = (bars, c0) => {
+    const stuck = [];
+    for (const [w, bar] of bars) {
+      const c = { ...c0, bar };
+      const g = L.stepTo('plates', L.stepTo('plates', bar, 1, 1, c), 1, 1, c);
+      if (L.stepTo('plates', g, -1, 1, c) >= g) stuck.push(`${w}−`);
+      if (L.stepTo('plates', g, 1, 1, c) <= g) stuck.push(`${w}+`);
+    }
+    return stuck;
+  };
+  // 公斤短杠在磅片馆：1–30 kg 每 0.5 一根（原来 23 根卡「−」、23 根卡「＋」）；ctx.bar 就是 barWeight 换算出来的值
+  const kgBars = Array.from({ length: 59 }, (_, i) => 1 + i * 0.5).map(w => [w, W.P.barWeight({ kind: 'short', weight: w, unit: 'kg' }, 'lbs')]);
+  assert.equal(kgBars[18][1], 10 / 0.45359237, '短杠按实重换算、不取整（这正是偏差的来源）');
+  assert.deepEqual(stuckAt(kgBars, { unit: 'lbs', plates: lbPlates, inc: 10 }), []);
+  // 反方向：10–60 lb 的磅短杠在公斤片馆
+  const lbBars = Array.from({ length: 51 }, (_, i) => 10 + i).map(w => [w, W.P.barWeight({ kind: 'short', weight: w, unit: 'lbs' }, 'kg')]);
+  assert.deepEqual(stuckAt(lbBars, { unit: 'kg', plates: kgPlates, inc: 5 }), []);
+  // 插销手打每格 2.333：往上一格一格走，再原路走回来（原来卡在 7）
+  const c = { unit: 'kg', plates: kgPlates, bar: 20, inc: 2.333, start: 0 };
+  let x = L.stepTo('pin', 2.333, 1, 1, c);
+  const seen = [x];
+  for (let i = 0; i < 4; i++) seen.push((x = L.stepTo('pin', x, 1, 1, c)));
+  for (let i = 0; i < 4; i++) seen.push((x = L.stepTo('pin', x, -1, 1, c)));
+  assert.deepEqual(seen, [4.67, 7, 9.33, 11.67, 14, 11.67, 9.33, 7, 4.67]);
 });
 
 t('insertDoneCards：并进工作台的做过的卡插在第一张有待做行的卡前面，指针以上仍全是做过的（上架审查 C04）', () => {

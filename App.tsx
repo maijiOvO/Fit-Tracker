@@ -78,6 +78,7 @@ import {
 } from './src/components/modals';
 import type { NoteModalData } from './src/components/modals/NoteModal';
 import { appPrefsNow, gymSavePatch, keyedPatch, rigPickPatch } from './services/appPrefs';
+import { markGymRename, renameGymRows, unmarkGymRename } from './services/gymRename';
 import type { NewExerciseRig } from './src/components/modals/AddCustomExerciseModal';
 
 import {
@@ -1521,24 +1522,40 @@ const AppWithAuthShell: React.FC = () => {
         profiles={settingsCtx.appPrefs.gyms}
         unit={unit}
         onSaveProfile={(name, profile, isNew, renamedFrom) => {
+          // 改名先记「进行中」标记、再改首选项（同一个任务里的两笔 localStorage 写）：下面整批改训练之前被杀，下次打开按标记续完（services/gymRename）
+          if (renamedFrom) markGymRename({ from: renamedFrom, to: name, profile });
           // 在存储里的原表上改（保留改名墓碑）；改名时这个馆每台器械的设置一起挪到新名字
           settingsCtx.changeAppPrefs(gymSavePatch(name, profile, renamedFrom));
           // 给 switchGym 用的洗过的馆表（context 还没刷新）
           const gyms = { ...settingsCtx.appPrefs.gyms, [name]: profile };
           if (renamedFrom) {
             delete gyms[renamedFrom];
-            // 历史训练上的馆名一起改：按馆找底稿、按馆比纪录都认馆名，不改就和新名字对不上
+            // 历史训练上的馆名一起改：按馆找底稿、按馆比纪录都认馆名，不改就和新名字对不上。
+            // 一个事务整批写（要么全改要么全没改），提交后才摘标记、报改了几场；失败标记留着，下次打开续完。
             // 直接写库、不走 updateWorkout：那个会拿库里的旧副本顶掉工作台上进行中的那场（审查 A3）。
             // 工作台上那场（进行中的或编辑草稿）由下面 switchGym 换名字，进行中的那场随它落盘
-            const stamp = new Date().toISOString();
-            const hits = workouts.filter(w => w.gym === renamedFrom);
+            const from = renamedFrom;
             const liveId = !editingWorkoutId ? currentWorkout.id : undefined;
-            void Promise.all(
-              hits.filter(w => w.id !== liveId).map(w => db.save('workouts', { ...w, gym: name, updatedAt: stamp })),
-            )
-              .then(() => workoutCtx.refreshFromDb())
-              .then(() => scheduleDebouncedFitlogPush())
-              .catch(err => console.error('Rename gym on workouts failed:', err));
+            void renameGymRows(from, name, liveId).then(
+              n => {
+                unmarkGymRename({ from, to: name });
+                toast(
+                  isCn
+                    ? `已改名为「${name}」${n ? `，${n} 场训练一起改了` : ''}`
+                    : `Renamed to "${name}"${n ? ` — ${n} workouts updated` : ''}`,
+                  'success',
+                );
+                scheduleDebouncedFitlogPush();
+                return workoutCtx.refreshFromDb();
+              },
+              err => {
+                console.error('Rename gym on workouts failed:', err);
+                toast(
+                  isCn ? `已改名为「${name}」，但历史训练没改成，下次打开 App 会接着改` : `Renamed to "${name}", but past workouts weren't updated — will retry next launch`,
+                  'error',
+                );
+              },
+            );
             // 底稿眉批「在 X」记的也是馆名
             const renamePrefill = (w: WorkoutSession): WorkoutSession => ({
               ...w,
@@ -1547,12 +1564,6 @@ const AppWithAuthShell: React.FC = () => {
             if ((currentWorkout.exercises ?? []).some(e => e.prefillGym === renamedFrom)) {
               setCurrentWorkout(w => renamePrefill(w));
             }
-            toast(
-              isCn
-                ? `已改名为「${name}」${hits.length ? `，${hits.length} 场训练一起改了` : ''}`
-                : `Renamed to "${name}"${hits.length ? ` — ${hits.length} workouts updated` : ''}`,
-              'success',
-            );
           }
           // 开练前选馆：新建或改完哪个馆，就在这个馆开这一场（存完弹层会关，不开就等于白选了）。
           // gyms 是刚存的，context 还没刷新

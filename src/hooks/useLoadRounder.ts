@@ -280,11 +280,12 @@ function keepSubOrder(
     const ok = dir === 0 || (dir < 0 ? kg < prevKg - 1e-6 : kg > prevKg + 1e-6);
     let out = sub;
     if (!ok && !sub.touched?.weight) {
+      // 在片子单位里走一格（stepTo 的探测量盖得住换算带来的格子偏差）、存格子的精确 kg：
+      // 原来按显示值探 0.001，kg 片显示成 lb 时探不出下一格，fromD 又会存成 34.9992 这类近似值（上架审查 C50）
       const prevD = r.toD(prevKg);
-      const b = r.bracketD(prevD + dir * 0.001);
-      const cand = dir < 0 ? b.lo : b.hi;
+      const cand = r.stepToD(prevD, dir as 1 | -1);
       if (dir < 0 ? cand < prevD - 1e-6 : cand > prevD + 1e-6) {
-        kg = r.fromD(cand);
+        kg = r.kgOfD(cand);
         out = writeKg(sub, kg, r.signed);
       }
     }

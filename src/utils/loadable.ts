@@ -32,6 +32,11 @@ export interface IncSpec {
    * 能到的重量＝插销的格子 + 任选几块加片。只存在存下来的形式（Rig）上，同 e。
    */
   a?: number[];
+  /**
+   * 换单位之前那份（只带 v / u / s / e / a，上架审查 C48）：换算是吸到最近的档位，单向的，换过去再换回来回不到原值；
+   * 切回原单位、中间又没改过时原样还原它（rigInUnit / withPlateUnit）。数据进来那层（appPrefs cleanRigs / cleanGyms）校验它。
+   */
+  was?: IncSpec;
 }
 
 /** 一个馆的器材档案（存 AppPrefs.gyms[馆名]） */
@@ -249,14 +254,26 @@ export function addonSums(addons: readonly number[] | undefined): number[] {
 /**
  * 换一台的片子单位（2026-10-25 用户定：一台器械只有一种片）：每格取新单位里最近的档位；最轻一格单独设过的按实重换算，
  * 没设过（或等于一档）的跟新的一档走——5 kg 一档换成 lb 是 10 + 10，不是按实重换出来的 11 + 10（审查 B4）。
- * s / e / a 显式给 undefined：调用方拿它覆盖旧的那台。加片按实重换算。
+ * s / e / a / was 显式给 undefined：调用方拿它覆盖旧的那台。加片按实重换算。
+ * 换算是单向的（吸到最近的档位）：换过去时把原来那份记进 was，切回原单位、中间没改过（还等于 was 换过来的样子）就原样还原（上架审查 C48）。
  */
 export function rigInUnit(c: IncSpec, u: PlateUnit): IncSpec {
+  const w = c.was;
+  if (w && w.u === u && c.u !== u && sameSpec(c, rigConv(w, c.u))) return { v: w.v, u, s: w.s, e: w.e, a: w.a ? [...w.a] : undefined, was: undefined };
+  return { ...rigConv(c, u), was: specOnly(c) };
+}
+
+function rigConv(c: IncSpec, u: PlateUnit): IncSpec {
   const s = c.s && Math.abs(c.s - c.v) > 1e-9 ? startIn(c, u) : 0;
   const e = endIn(c, u);
   // 换算后夹到新单位的上限：50 kg 换成 lb 是 110.25，超过 110 会被清洗层丢掉（上架审查 gap-3#5）
   const a = addonsIn(c, u).map(x => Math.min(x, ADDON_EACH_MAX[u]));
   return { v: incIn(c, u), u, s: s > 0 ? s : undefined, e: e > 0 ? e : undefined, a: a.length ? a : undefined };
+}
+
+/** 只留刻度字段（记进 was 用）：不能带 id / n —— 馆档案里的「存的形式」会把补丁铺到每一台刻度一样的上，带了 id 会撞号 */
+function specOnly(c: IncSpec): IncSpec {
+  return { v: c.v, u: c.u, ...(c.s ? { s: c.s } : {}), ...(c.e ? { e: c.e } : {}), ...(c.a?.length ? { a: [...c.a] } : {}) };
 }
 
 const INC_KEYS = ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar'] as const;
@@ -266,22 +283,27 @@ const INC_KEYS = ['cable', 'machine', 'dumbbell', 'kettlebell', 'fixedBar'] as c
  * 片子表重置为那种单位的标准片（自定义片一起清掉，design-plates.md「换馆重量」D）；
  * 各档里还跟着旧片子单位走的（单位 = 旧片子单位）一起换过去：没动过的用新单位的默认，改过的一档取 INC_CHOICES 里最近的、起始按实重换算；
  * 已经单独设成另一种单位的那一档（kg 馆里一台 lb 的龙门架）原样保留。旧档案缺的档不凭空补。
+ * 改过的档换过去时记下原来那份（was），切回来、中间没改过就原样还原（口径同 rigInUnit，上架审查 C48）；默认档换默认档本来就往返恒等。
  */
 export function withPlateUnit(p: GymProfile, unit: PlateUnit): GymProfile {
   if (p.plateUnit === unit) return p;
   const next: GymProfile = { ...p, plateUnit: unit, plates: [...DEFAULT_PLATES[unit]] };
-  const oldDef = defaultProfile(p.plateUnit);
-  const newDef = defaultProfile(unit);
+  // 没动过的档（还是旧单位的默认，没设起始）直接用新单位的默认：4 kg 壶铃换成 5 lb，不是表里最近的 10 lb
+  const isDef = (c: IncSpec, k: (typeof INC_KEYS)[number]) => c.v === defaultProfile(c.u)[k]!.v && !c.s;
+  const incTo = (c: IncSpec, k: (typeof INC_KEYS)[number], to: PlateUnit): IncSpec => {
+    if (isDef(c, k)) return defaultProfile(to)[k]!;
+    const s = startIn(c, to);
+    return { u: to, v: incIn(c, to), ...(s > 0 ? { s } : {}) };
+  };
   for (const k of INC_KEYS) {
     const c = p[k];
     if (!c || c.u !== p.plateUnit) continue;
-    // 没动过的档（还是旧单位的默认，没设起始）直接用新单位的默认：4 kg 壶铃换成 5 lb，不是表里最近的 10 lb
-    if (c.v === oldDef[k]!.v && !c.s) {
-      next[k] = newDef[k];
+    const w = c.was;
+    if (w && w.u === unit && sameSpec(c, incTo(w, k, c.u))) {
+      next[k] = specOnly(w);
       continue;
     }
-    const s = startIn(c, unit);
-    next[k] = { u: unit, v: incIn(c, unit), ...(s > 0 ? { s } : {}) };
+    next[k] = isDef(c, k) ? incTo(c, k, unit) : { ...incTo(c, k, unit), was: specOnly(c) };
   }
   return next;
 }
@@ -476,6 +498,12 @@ export function stepOf(kind: LoadKind, v: number, ctx: LoadCtx): number | null {
 }
 
 /**
+ * 「走一格」往那个方向探多远、多近算同一格：bracket 的格子经 r2 最多偏 0.005（换算过来的杠重、手打三位小数的每格），
+ * 探得比它近就会把下一格认回同一格、± 卡住不动（上架审查 C47）；又要远小于最细的格（0.05）。
+ */
+const PROBE = 0.006;
+
+/**
  * 从 cur 往 dir 走一下（± 一下、拖动一格）：
  * 不在格子上的第一下先落到那个方向最近能挂的重量（吃掉这一下）；在格子上就走 mult 档。
  * 片子组合不规则时（比如只有 20 和 25）按「能挂的下一个」走，不会落进挂不出来的数。
@@ -493,9 +521,9 @@ export function stepTo(kind: LoadKind, cur: number, dir: 1 | -1, mult: number, c
     // 到了下限（空杠、哑铃最小那对、0）原地不动
     let x = cur;
     for (let i = 0; i < mult; i++) {
-      const b = bracket(kind, x + dir * 0.001, ctx);
+      const b = bracket(kind, x + dir * PROBE, ctx);
       const n = dir > 0 ? b.hi : b.lo;
-      if (Math.abs(n - x) < 0.001) break;
+      if (Math.abs(n - x) < PROBE) break;
       x = n;
     }
     next = x;

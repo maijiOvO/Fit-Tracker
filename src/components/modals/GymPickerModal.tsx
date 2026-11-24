@@ -7,7 +7,7 @@
  * 每个馆一行「编辑」：这个馆用公斤片还是磅片、有哪些片、龙门架 / 器械 / 哑铃一档多重。
  * 可以反复进（2026-10-18 用户定）。底部「新的馆…」：起名 + 填档案，存好就用这个馆。
  * 已有的馆可以改名（2026-10-21 用户要的）：馆名记在每一场历史训练和这个馆每台器械的设置上，
- * 改名时一起改（App 的 onSaveProfile + services/appPrefs.ts renameGymIn），按馆比的纪录照样连得上。
+ * 改名时一起改（App 的 onSaveProfile + services/appPrefs.ts renameGymIn；历史训练整批写、被杀能续见 services/gymRename.ts），按馆比的纪录照样连得上。
  * 改成已有的另一个馆的名字直接拦下，不做合并；新名字也不能带半角「|」（gymNameIssue）。没有删除（2026-10-21 用户定：正式版不做）。
  *
  * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
@@ -341,7 +341,7 @@ const SavedRigs: React.FC<{ gym: string; isCn: boolean; plateUnit: PlateUnit }> 
                   <div className="gym-field gym-rig-editor" data-testid="gym-rig-editor">
                     <div className="gym-row">
                       <span className="text-label text-secondary">{isCn ? '单位' : 'Unit'}</span>
-                      {unitSeg(r, patch => write(r.id, { v: patch.v, u: patch.u }))}
+                      {unitSeg(r, patch => write(r.id, { v: patch.v, u: patch.u, ...(patch.was ? { was: patch.was } : {}) }))}
                     </div>
                     {num(isCn ? '每档' : 'Step', r.v, v => v !== null && v > 0 && write(r.id, { v: r2(v) }), r.u, 'gym-rig-step')}
                   </div>

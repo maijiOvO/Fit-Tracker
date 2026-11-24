@@ -2008,6 +2008,28 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await addDec.click();
       await page.waitForTimeout(150);
       if ((await wNow()) !== 10 || !/0 \/ 1/.test(await addn.innerText())) throw new Error(`add-on −1: ${await wNow()} / ${await addn.innerText()}`);
+      const rigNow = async () => Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'))[0][1][0];
+      // 卡上这台换单位再换回，每格还是 15（上架审查 C48）。下层 rigInUnit 的往返测得到，测不到的是接线：
+      // setMachineUnit 若把 curSpec 拼的那份（不带换单位前的 was）交出去，切回来就按换算变成 10
+      const rigSettled = async (want, what) => {
+        await page.waitForFunction(([v, u]) => {
+          const all = JSON.parse(localStorage.getItem(lsKey('fitlog_app_prefs')) || '{}').gymRigs ?? {};
+          const r = Object.entries(all).filter(([k]) => k.startsWith('E2E Gym|'))[0]?.[1]?.[0];
+          return r && (v === undefined || r.v === v) && r.u === u;
+        }, want, { timeout: 3_000 }).catch(async () => {
+          throw new Error(`${what}: ${JSON.stringify(await rigNow())}（要 ${JSON.stringify(want)}）`);
+        });
+      };
+      await chip.click();
+      const stepIn = face.locator('[data-testid="stack-step-scrub"] input');
+      await stepIn.fill('15');
+      await stepIn.press('Enter');
+      await rigSettled([15, other], 'step 15');
+      await face.locator(`[data-testid="gym-machine-unit-${u0}"]`).click();
+      await rigSettled([undefined, u0], 'unit there');
+      await face.locator(`[data-testid="gym-machine-unit-${other}"]`).click();
+      await rigSettled([15, other], 'unit back');
+      await page.locator('[data-testid="metric-modal-done"]').click();
       // 馆档案里存的形式点开就地改（立刻生效）：块数、单位；存之前的单位确认页上也列着它
       await page.locator('[data-testid="gym-button"]').click();
       await page.locator('[data-testid="gym-edit-0"]').click();
@@ -2016,7 +2038,6 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await gform.locator('[data-testid="gym-rig-addon-count"] button').nth(2).click();
       await page.waitForTimeout(150);
       if (JSON.stringify(await stored()) !== '[1,1,1]') throw new Error(`gym form add-on count: ${JSON.stringify(await stored())}`);
-      const rigNow = async () => Object.entries((await prefs()).gymRigs ?? {}).filter(([k]) => k.startsWith('E2E Gym|'))[0][1][0];
       await gform.locator('[data-testid="gym-rig-unit"] button').nth(u0 === 'kg' ? 0 : 1).click();
       await page.waitForTimeout(150);
       if ((await rigNow()).u !== u0) throw new Error(`gym form rig unit: ${JSON.stringify(await rigNow())}`);
@@ -2026,7 +2047,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.locator('[data-testid="gym-review-confirm"]').click();
       await rv.waitFor({ state: 'detached', timeout: 3_000 });
       await backAndDiscard(page);
-      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored · add-on plates hung from the hero · stack format edited in the gym form`;
+      return `${t0} ⇄ ${t1} · presets fill the selected row · gymRigs / gymRigPick stored · add-on plates hung from the hero · unit round trip keeps step 15 · stack format edited in the gym form`;
     });
 
     // 防误结束拆场的另一半：「继续这场」把刚结束的那场接回工作台 —— 同一条记录、finishedAt 清掉

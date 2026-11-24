@@ -149,7 +149,10 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     if (next.list.length === rigs.length) return;
     changeAppPrefs({ gymRigs: rigsPatch(appPrefs.gymRigs, gym!, loadInfo, next.list), ...(next.pick !== pick ? keyedPatch('gymRigPick', incKey, next.pick) : {}) });
   });
-  /** 改选中这一台的刻度：在馆默认上改＝另存一台（馆默认留着随时切回去） */
+  /**
+   * 改选中这一台的刻度：在馆默认上改＝另存一台（馆默认留着随时切回去）。
+   * 另存出来的记进 freshRef：切单位再切回来、和原来那台一模一样时，关设置由 dropTwins 收掉、选中改回原来那台
+   */
   const editRig = (patch: Partial<IncSpec>) => {
     if (!rounder) return;
     const { list, rig } = withLegacy();
@@ -157,9 +160,11 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
       // 另存的那份不带名字：名字是原来那种的
       const { n: _name, ...spec } = rig;
       const fork = { ...spec, ...patch, id: newRigId() };
+      freshRef.current.add(fork.id);
       return commitRigs([...list, fork], fork.id);
     }
     const cur = rig ?? { ...curSpec(rounder), id: newRigId() };
+    if (!rig) freshRef.current.add(cur.id);
     const next = { ...cur, ...patch };
     commitRigs(rig ? list.map(r => (r.id === cur.id ? next : r)) : [...list, next], cur.id);
   };
@@ -182,10 +187,13 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     changeAppPrefs({ gymOverrides });
     onSets(reRoundPending(exercise.sets, exercise, next === null ? rounderFor(exercise, gym, undefined, undefined, { gymOverrides }) : withInc(rounder, next)));
   };
-  /** 换这一台的片子单位（同一个馆里可以一台 lb、一台 kg）：换算口径见 rigInUnit */
+  /**
+   * 换这一台的片子单位（同一个馆里可以一台 lb、一台 kg）：换算口径见 rigInUnit。
+   * 交整台进去（不是 curSpec 拼出来的那份）：上次换单位记下的 was 在台上，切回原单位才还原得了（上架审查 C48）
+   */
   const setMachineUnit = (u: PlateUnit) => {
     if (!rounder || u === rounder.unit) return;
-    editRig(rigInUnit(curSpec(rounder), u));
+    editRig(rigInUnit(withLegacy().rig ?? curSpec(rounder), u));
   };
   /**
    * 改「最轻一格 · 每格」（2026-10-20 用户定：从 12.5 起、每格 +5 的龙门架）。最轻一格也是下限：

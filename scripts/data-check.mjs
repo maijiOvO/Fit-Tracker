@@ -46,6 +46,8 @@ const stubs = {
           async init() {}, async reopen() {},
           async getAll(n) { return [...s(n).values()].map(x => structuredClone(x)); },
           async save(n, x) { s(n).set(x.id, structuredClone(x)); },
+          // 一张表写好几条、一个事务：全成或全不成（抛错由用例替换这个方法注入）；calls 给用例数调了几次
+          async saveMany(n, rows) { this.saveManyCalls = (this.saveManyCalls ?? 0) + 1; for (const x of rows) s(n).set(x.id, structuredClone(x)); },
           async upsert(n, x) { s(n).set(x.id, structuredClone(x)); },
           async delete(n, id) { s(n).delete(id); },
           async clear(n) { s(n).clear(); },
@@ -55,7 +57,7 @@ const stubs = {
             for (const [n, x] of extra.put ?? []) s(n).set(x.id, structuredClone(x));
             for (const [n, id] of extra.del ?? []) s(n).delete(id);
           },
-          __reset() { stores.clear(); },
+          __reset() { stores.clear(); this.saveManyCalls = 0; },
         };`,
       loader: 'js',
     }));
@@ -91,6 +93,8 @@ async function bundle(env, file) {
       "export { db } from './services/db';",
       "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
+      "export { resumeGymRenames, renameGymRows, markGymRename } from './services/gymRename.ts';",
+      "export { readAppPrefs, writeAppPrefs } from './services/appPrefs.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -1259,6 +1263,69 @@ await t('启动迁移 userId：读整表的时候不压住撤销日志，这段�
     D.db.getAll = getAll;
     J.clear();
   }
+});
+
+// ── 馆改名一次写完、被杀了能续（services/gymRename.ts，上架审查 C49）──────────
+// 原来首选项和每场训练各写各的、中间没有「进行中」标记：被杀就停在「档案叫新名字、一部分训练还叫旧名字」
+const RENAME_KEY = 'fitlog_gym_renames';
+const gymRow = (id, gym) => ({ id, userId: 'u_solo', date: iso(1), title: id, gym, exercises: [] });
+const gymsOf = async () => new Map((await D.db.getAll('workouts')).map(w => [w.id, w.gym]));
+
+await t('馆改名续完：标记还在、首选项已挪 —— 库里还叫 A 的整批改成 C（半截已改的不重写），B 不动，标记摘掉；再跑一次什么都不写', async () => {
+  const profile = D.defaultProfile('kg');
+  D.writeAppPrefs({ gyms: { A: '', C: profile } }, 1);
+  D.storage.setItem(RENAME_KEY, JSON.stringify([{ from: 'A', to: 'C', profile }]));
+  for (const [id, gym] of [['a1', 'A'], ['a2', 'A'], ['a3', 'C'], ['b1', 'B']]) await D.db.save('workouts', gymRow(id, gym));
+  assert.equal(await D.resumeGymRenames(), 1);
+  assert.deepEqual([...(await gymsOf())].sort(), [['a1', 'C'], ['a2', 'C'], ['a3', 'C'], ['b1', 'B']]);
+  assert.equal(D.db.saveManyCalls, 1, '剩下的两场一个事务写完');
+  assert.equal(D.storage.getItem(RENAME_KEY), null);
+  assert.equal(await D.resumeGymRenames(), 0);
+  assert.equal(D.db.saveManyCalls, 1, '幂等：第二次不再写库');
+});
+
+await t('馆改名续完：只记下了标记、首选项还没挪 —— 补一次挪档案和器械设置（A 留墓碑、A|… 的键挪到 C|…）', async () => {
+  const profile = { ...D.defaultProfile('kg'), dumbbell: { v: 2, u: 'kg' } };
+  D.writeAppPrefs({ gyms: { A: D.defaultProfile('kg') }, gymOverrides: { 'A|器械推肩|': { v: 4, u: 'kg' } } }, 1);
+  D.storage.setItem(RENAME_KEY, JSON.stringify([{ from: 'A', to: 'C', profile }]));
+  await D.db.save('workouts', gymRow('a1', 'A'));
+  await D.resumeGymRenames();
+  const p = D.readAppPrefs().appPrefs;
+  assert.equal(p.gyms.A, '');
+  assert.deepEqual(p.gyms.C, profile);
+  assert.deepEqual(p.gymOverrides, { 'C|器械推肩|': { v: 4, u: 'kg' } });
+  assert.equal((await gymsOf()).get('a1'), 'C');
+});
+
+await t('馆改名写库：整批写失败一场都不改、标记留着下次续；改名只调一次整批写，工作台上那场（skipId）不在里面', async () => {
+  const profile = D.defaultProfile('kg');
+  D.writeAppPrefs({ gyms: { A: '', C: profile } }, 1);
+  D.storage.setItem(RENAME_KEY, JSON.stringify([{ from: 'A', to: 'C', profile }]));
+  for (const id of ['a1', 'a2', 'live']) await D.db.save('workouts', gymRow(id, 'A'));
+  const saveMany = D.db.saveMany;
+  D.db.saveMany = async () => {
+    throw new Error('QuotaExceededError');
+  };
+  try {
+    await assert.rejects(D.resumeGymRenames(), /QuotaExceededError/);
+  } finally {
+    D.db.saveMany = saveMany;
+  }
+  assert.deepEqual([...(await gymsOf()).values()], ['A', 'A', 'A']);
+  assert.equal(JSON.parse(D.storage.getItem(RENAME_KEY)).length, 1);
+  // 前一次失败不卡住后面的改名链
+  let rows;
+  D.db.saveMany = async (n, r) => {
+    rows = r;
+    return saveMany.call(D.db, n, r);
+  };
+  try {
+    assert.equal(await D.renameGymRows('A', 'C', 'live'), 2);
+  } finally {
+    D.db.saveMany = saveMany;
+  }
+  assert.deepEqual(rows.map(w => w.id).sort(), ['a1', 'a2']);
+  assert.equal((await gymsOf()).get('live'), 'A');
 });
 
 console.log(`\ndata-check: ${n} passed`);

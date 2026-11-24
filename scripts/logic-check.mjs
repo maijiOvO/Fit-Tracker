@@ -389,6 +389,17 @@ t('递减档保持方向：递增档（比上一档重）吸到同一格时往�
   const s = { id: 's', weight: 18 * LB, reps: 9, ghost: true, subSets: [{ weight: 23.4 * LB, reps: 6 }] };
   assert.deepEqual(lbsOf(L.reRoundPending([s], ex1, r)[0]), [20, 30]);
 });
+// 防 C50：挪一格的探针按显示单位探 0.001，片子单位和显示单位不同时探不出下一格；写回用 fromD 存成近似 kg
+t('递减档保持方向：片子单位 ≠ 显示单位时照样挪一格 —— kg 片显示 lb 的 62.5 / 60 → 60 / 55，lb 插销显示 kg 的 22 / 16.6 lb → 20 / 10 lb；存格子的精确 kg（上架审查 C50）', () => {
+  const kgPlates = L.LB.profileIn(L.LB.defaultProfile('kg'), 'kg').plates;
+  const bar = L.makeRounder({ kind: 'plates' }, 'kg', { unit: 'kg', plates: kgPlates, bar: 20, inc: 5 }, false, 'lbs');
+  const [s] = L.roundPrefill([{ id: 's', weight: 62.5, reps: 5, plateUnit: 'kg', subSets: [{ id: 'd', weight: 60, reps: 5 }] }], ex1, bar);
+  assert.deepEqual([s.weight, s.subSets[0].weight], [60, 55], '存的是格子本身的 kg，不是 lb 显示值换回来的 54.9997');
+  const pin = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false, 'kg');
+  const [p] = L.roundPrefill([{ ...dropSet(22, 16.6), ghost: undefined, plateUnit: 'lbs' }], ex1, pin);
+  assert.deepEqual(lbsOf(p), [20, 10]);
+  assert.equal(p.subSets[0].weight, 10 / K, '10 lb 那一格的精确 kg');
+});
 
 // ── 热力图按本地日期归日（heatmap-utc-day）────────────────────────────
 t('热力图：多伦多昨晚 21:15 练的归在昨天（UTC 已经是今天）；只有底稿的场、还在练的那一场不算', () => {
@@ -1488,11 +1499,33 @@ t('入册口径手动结束和自动收尾共用：全零行丢掉、工作台�
 });
 
 // ── 一台器械换单位 / 关设置时收掉白加的台（审查 B4、B5）──────────────────
+/** 去掉换单位前那份（IncSpec.was）：换算值照旧比，记没记 was 由 C48 那条管 */
+const noWas = ({ was: _w, ...rest }) => rest;
 t('换这一台的单位：最轻一格没单独设过（＝一档）跟新的一档走，不出现「11 + 10 lb」；设过的按实重换算；最重一格照换', () => {
-  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg', s: 5 }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined, a: undefined });
-  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'kg' }, 'lbs'), { v: 10, u: 'lbs', s: undefined, e: undefined, a: undefined });
-  assert.deepEqual(L.LB.rigInUnit({ v: 2.5, u: 'kg', s: 5, e: 50 }, 'lbs'), { v: 5, u: 'lbs', s: 11, e: 110.25, a: undefined });
-  assert.deepEqual(L.LB.rigInUnit({ v: 5, u: 'lbs', s: 12.5 }, 'kg'), { v: 2.5, u: 'kg', s: 5.65, e: undefined, a: undefined });
+  assert.deepEqual(noWas(L.LB.rigInUnit({ v: 5, u: 'kg', s: 5 }, 'lbs')), { v: 10, u: 'lbs', s: undefined, e: undefined, a: undefined });
+  assert.deepEqual(noWas(L.LB.rigInUnit({ v: 5, u: 'kg' }, 'lbs')), { v: 10, u: 'lbs', s: undefined, e: undefined, a: undefined });
+  assert.deepEqual(noWas(L.LB.rigInUnit({ v: 2.5, u: 'kg', s: 5, e: 50 }, 'lbs')), { v: 5, u: 'lbs', s: 11, e: 110.25, a: undefined });
+  assert.deepEqual(noWas(L.LB.rigInUnit({ v: 5, u: 'lbs', s: 12.5 }, 'kg')), { v: 2.5, u: 'kg', s: 5.65, e: undefined, a: undefined });
+});
+// 防 C48：换单位只做单向换算（吸到最近的档位），换过去再换回来回不到原值
+t('换这一台的单位再换回：中间没改过就原样还原（12.5 起每格 5、每格 15、最重 200、加片 2.5……）；改过的按改过的换算（上架审查 C48）', () => {
+  const clean = x => Object.fromEntries(Object.entries(noWas(x)).filter(([, v]) => v !== undefined));
+  const specs = [
+    { v: 5, u: 'lbs', s: 12.5 }, { v: 15, u: 'lbs' }, { v: 5, u: 'lbs', s: 12.5, e: 200, a: [2.5] },
+    { v: 15, u: 'kg' }, { v: 20, u: 'kg' }, { v: 1, u: 'kg', s: 3 }, { v: 2.5, u: 'kg', s: 5, e: 50 },
+  ];
+  for (const c of specs) {
+    const back = L.LB.rigInUnit(L.LB.rigInUnit(c, c.u === 'kg' ? 'lbs' : 'kg'), c.u);
+    assert.deepEqual(clean(back), c, JSON.stringify(c));
+    assert.equal(back.was, undefined, '还原出来的不再挂着 was');
+  }
+  // 记下的只有刻度字段：台的 id / 名字不能进 was（馆档案「存的形式」会把补丁铺到每一台刻度一样的上）
+  assert.deepEqual(L.LB.rigInUnit({ id: 'r1', n: '左边', v: 15, u: 'lbs' }, 'kg').was, { v: 15, u: 'lbs' });
+  // 换过去之后把每格改成 10 kg 再换回：按改过的换算（20 lb、起始按实重），不拿旧的那份盖掉
+  const edited = { ...L.LB.rigInUnit({ v: 5, u: 'lbs', s: 12.5 }, 'kg'), v: 10 };
+  const back = L.LB.rigInUnit(edited, 'lbs');
+  assert.equal(back.v, 20);
+  assert.notEqual(back.s, 12.5);
 });
 
 t('关设置时收台：只收「＋」出来、没起名、和默认或前面某台一模一样的；选着它的改指那一台；配重片没设最轻一格按一档比', () => {
