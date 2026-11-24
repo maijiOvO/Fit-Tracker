@@ -24,9 +24,16 @@ description: 把 fitlog 装到安卓手机上验证 —— 选路（静态包 / 
 | APK 没变，只想重装一遍 | `npm run android:reinstall` |
 | 要造假数据 / 不想碰真实记录 | **单机版测试包**，见第 5 节末「独立测试包」（已没有 `android:dev`，见下） |
 | 手机上是正式签名包，想真机试一个分支 | **同上，单机版测试包**，和正式版并存；别卸正式版去装 `npm run android` 的 debug 包 |
-| 改动合进 main 了，装进正式 App | `npm run build:release; npx cap sync android; npm run apk:personal`，再 `adb install -r` 覆盖，不卸载 |
+| 把当前代码装进正式 App | 设好 `GYM_NOTE` 跑 `npm run gym:ship`（打 personal 正式包并换掉内网下载页上的包），再 `adb install -r` 同一个 APK 覆盖，不卸载 |
 
 用户不在电脑旁（人在健身房、手机没插线）要装新版：走 `gym-hotfix` skill，`npm run gym:ship` 把包发到 tailnet 下载页。
+
+**往手机上装正式 App 时，内网下载页的包必须一起换成同一个**（2026-11-23 用户定）：手机上装的和
+下载页上放的永远是同一份代码，不出现「线装了新版、下载页还是旧包」。所以这条路只走 `gym:ship`，
+不单独跑 `apk:personal`；`GYM_NOTE` 写用户看得懂的改动（见 gym-hotfix skill）。装完核对
+`..\fitlog-gym` 里那个 APK 和 `android\app\build\outputs\apk\personal\release\app-personal-release.apk` 哈希一致。
+手机没连上线时照样发布，把下载页地址给用户，让他在手机上下载覆盖安装。
+测试包（soloDebug / live）不是正式 App，不动下载页。
 
 `npm run android` 打的是 **prod 数据环境**的静态包，连 NAS 真实数据。
 
