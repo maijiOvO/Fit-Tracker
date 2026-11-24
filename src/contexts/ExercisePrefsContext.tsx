@@ -32,7 +32,7 @@ import {
 } from '../utils/exerciseAttrs';
 import { migrateCableTags } from '../utils/cableTagMigration';
 import { migrateWarmRegions } from '../utils/warmRegionMigration';
-import { buildNameIndex } from '../utils/nameIndex';
+import { buildNameIndex, byDisplayName, ownValue } from '../utils/nameIndex';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
@@ -260,18 +260,18 @@ function writeJSON(key: string, value: unknown): void {
 function sanitizeMetricConfigs(
   parsed: Record<string, string[]>,
 ): { cleaned: Record<string, string[]>; mutated: boolean } {
-  const cleaned: Record<string, string[]> = {};
   let mutated = false;
-  Object.entries(parsed).forEach(([exerciseName, metrics]) => {
-    if (!Array.isArray(metrics)) return;
-    const cleanedMetrics = metrics
-      .map(m => (typeof m === 'string' ? m.trim() : String(m).trim()))
-      .filter(m => m.length > 0);
-    if (JSON.stringify(metrics) !== JSON.stringify(cleanedMetrics)) {
-      mutated = true;
-    }
-    cleaned[exerciseName] = cleanedMetrics;
-  });
+  // fromEntries 而不是逐个赋值：动作名是 __proto__ 时赋值会改掉对象的原型（C09）
+  const cleaned: Record<string, string[]> = Object.fromEntries(
+    Object.entries(parsed).flatMap(([exerciseName, metrics]) => {
+      if (!Array.isArray(metrics)) return [];
+      const cleanedMetrics = metrics
+        .map(m => (typeof m === 'string' ? m.trim() : String(m).trim()))
+        .filter(m => m.length > 0);
+      if (JSON.stringify(metrics) !== JSON.stringify(cleanedMetrics)) mutated = true;
+      return [[exerciseName, cleanedMetrics]];
+    }),
+  );
   return { cleaned, mutated };
 }
 
@@ -417,7 +417,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       if (ex.variantId) return ex.variantId;
       const def = findExerciseDef(ex.name);
       if (!def) return undefined;
-      return variantAliasesOf(def)[(ex.name || '').trim()] || undefined;
+      // 只认自有键：名字是 constructor 时直接下标会拿到 Object 函数当做法 id，落盘时 IndexedDB 克隆不了（C09）
+      return ownValue(variantAliasesOf(def), (ex.name || '').trim()) || undefined;
     },
     [findExerciseDef, variantAliasesOf],
   );
@@ -442,24 +443,13 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [lang, resolveName, variantLabel],
   );
 
-  /** 原键 → 显示名归并。同一动作有多个原键时，键名正好等于显示名的那个说了算。 */
-  const byDisplayName = useCallback(
-    <T,>(raw: Record<string, T>): Record<string, T> => {
-      const out: Record<string, T> = {};
-      for (const [k, v] of Object.entries(raw)) {
-        const d = resolveName(k);
-        if (!(d in out) || k === d) out[d] = v;
-      }
-      return out;
-    },
-    [resolveName],
-  );
-  const exerciseNotes = useMemo(() => byDisplayName(rawNotes), [byDisplayName, rawNotes]);
+  // 原键 → 显示名归并（没有原型的对象：动作名是 constructor 时查不到继承来的函数，上架审查 C09）
+  const exerciseNotes = useMemo(() => byDisplayName(rawNotes, resolveName), [resolveName, rawNotes]);
   const exerciseMetricConfigs = useMemo(
-    () => byDisplayName(rawMetricConfigs),
-    [byDisplayName, rawMetricConfigs],
+    () => byDisplayName(rawMetricConfigs, resolveName),
+    [resolveName, rawMetricConfigs],
   );
-  const starredExercises = useMemo(() => byDisplayName(rawStarred), [byDisplayName, rawStarred]);
+  const starredExercises = useMemo(() => byDisplayName(rawStarred, resolveName), [resolveName, rawStarred]);
 
   /** 写入用：这个名字在原始存储里对应的全部键（同一动作的旧名 / 另一语言名都算） */
   const rawKeysFor = useCallback(
@@ -569,8 +559,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     (exerciseName: string, metricKey: string) => {
       setExerciseMetricConfigs(prev => {
         // 写回这个动作原来就有的那个键（可能是旧名 / 另一语言名），没有才用显示名新开
-        const key = rawKeysFor(prev, exerciseName)[0] ?? resolveName(exerciseName);
-        const current = prev[key] || defaultMetricsFor(exerciseName);
+        // rawKeysFor 只给自有键：没有就是没配过，别去读 prev[名字]（名字是 constructor 会读到继承来的函数）
+        const own = rawKeysFor(prev, exerciseName)[0];
+        const key = own ?? resolveName(exerciseName);
+        const current = (own !== undefined && prev[own]) || defaultMetricsFor(exerciseName);
         const normalizedCurrent = current.map(m => m.trim());
         const normalizedKey = metricKey.trim();
         const isCurrentlySelected = normalizedCurrent.includes(normalizedKey);
@@ -622,11 +614,12 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   const toggleStarExercise = useCallback((exerciseName: string) => {
     setStarredExercises(prev => {
-      const next = { ...prev };
+      let next = { ...prev };
       const keys = rawKeysFor(prev, exerciseName);
       // 取消收藏要把同一动作的所有原键一起删，否则旧名那个键会让它「取消不掉」
+      // 新键用计算键展开写：名字恰好是 __proto__ 时直接赋值会改掉对象的原型，值静默丢掉（C09）
       if (keys.some(k => next[k])) for (const k of keys) delete next[k];
-      else next[resolveName(exerciseName)] = Date.now();
+      else next = { ...next, [resolveName(exerciseName)]: Date.now() };
       writeJSON(LS_KEYS.starredExercises, next);
       storage.setItem(LS_KEYS.starredLastUpdate, Date.now().toString());
       markPrefsUpdated();
@@ -637,10 +630,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   const saveExerciseNote = useCallback((name: string, note: string) => {
     setExerciseNotes(prev => {
-      const next = { ...prev };
+      let next = { ...prev };
       const keys = rawKeysFor(prev, name);
       for (const k of keys) delete next[k];
-      if (note.trim()) next[resolveName(name)] = note;
+      if (note.trim()) next = { ...next, [resolveName(name)]: note };
       writeJSON(LS_KEYS.exerciseNotes, next);
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
@@ -877,8 +870,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         const keep = keys.includes(oldName) ? oldName : keys[0];
         const val = raw[keep];
         for (const k of keys) delete out[k];
-        out[next] = val;
-        return out;
+        return { ...out, [next]: val };
       };
       const notes = moveKeys(rawNotes);
       const metrics = moveKeys(rawMetricConfigs);
@@ -1232,8 +1224,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       };
       if (variant.resistance === undefined) delete variant.resistance;
       // source 认得的全部名字（含曾用名、它自己并进来的旧名）都指向这个做法
-      const aliases = { ...(t.variantAliases ?? {}) };
-      for (const n of mergeNamesOf(s)) aliases[n] = vid;
+      const aliases = { ...(t.variantAliases ?? {}), ...Object.fromEntries(mergeNamesOf(s).map(n => [n, vid])) };
       const variants = existing ? t.variants ?? [] : [...(t.variants ?? []), variant];
 
       writeDefField(tgt.id, { variants, variantAliases: aliases });

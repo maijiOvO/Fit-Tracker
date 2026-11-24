@@ -543,8 +543,8 @@ export async function addImportedRecords(input: {
 
   const incoming = new Set(input.workouts.map(w => w.id));
   const knownDefs = new Set(current.prefs.customExercises.map(d => d.id));
-  const metrics = { ...current.prefs.exerciseMetricConfigs };
-  for (const [name, m] of Object.entries(input.metricSeeds)) if (!metrics[name]) metrics[name] = m;
+  // 已有的自有键盖住导入的种子（原写法 !metrics[name] 遇到 constructor 会把种子跳过，C09）
+  const metrics = { ...input.metricSeeds, ...current.prefs.exerciseMetricConfigs };
   const now = Date.now();
   const tomb = current.tombstones ?? {};
 

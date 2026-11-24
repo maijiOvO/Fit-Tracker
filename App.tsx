@@ -117,7 +117,7 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { closeTopLayer, isBackBlocked } from './src/hooks/useBackClose';
 
-const NO_ADDED_COUNTS: Record<string, number> = {};
+const NO_ADDED_COUNTS: Record<string, number> = Object.create(null);
 const LibrarySheet = lazy(() =>
   import('./src/components/ExercisePickerSheet').then(m => ({ default: m.ExercisePickerSheet })),
 );
@@ -944,7 +944,8 @@ const AppWithAuthShell: React.FC = () => {
 
   /** 小写显示名 -> 当前训练中出现次数（弹层「已添加 ×N」徽标） */
   const sheetAddedCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+    // 没有原型的对象：键是小写动作名，constructor / tostring 之类不会读到继承来的东西（上架审查 C09）
+    const counts: Record<string, number> = Object.create(null);
     for (const ex of currentWorkout.exercises ?? []) {
       const key = prefs.resolveName(ex.name).toLowerCase();
       counts[key] = (counts[key] || 0) + 1;

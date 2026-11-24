@@ -424,12 +424,19 @@ const W_STALE = (() => {
   const { status: _s, finishedAt: _f, ...w } = seedWorkout('seed_stale', at, 'E2E 忘了结束', '杠铃硬拉', [[100, 5]]);
   return { ...w, exercises: w.exercises.map(ex => ({ ...ex, sets: ex.sets.map(s => ({ ...s, ghost: true, touched: { weight: true } })) })) };
 })();
+// 动作名恰好是 JS 原型键（上架审查 C09）：按名字查普通对象会读到继承来的函数，首页、训练页、我的每次打开都崩。
+// 夹具里一直带着它们，之后所有带夹具的用例都在这种数据下跑
+const DEF_PROTO = { id: '1779000000001', name: { cn: 'constructor', en: 'constructor' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
+const W_PROTO = {
+  ...seedWorkout('seed_proto', torontoAt(torontoYmd(40), 10, 0), 'E2E 原型键', 'constructor', []),
+  exercises: ['constructor', 'toString', '__proto__'].map((name, i) => ({ id: `seed_proto_ex${i}`, name, category: 'STRENGTH', sets: [{ id: `seed_proto_s${i}`, weight: 20, reps: 10 }] })),
+};
 // 自建动作 C：动作库删除 / 同名新建恢复的靶子
 const DEF_C = { id: '1779000000000', name: { cn: 'E2E自建甲', en: 'E2E自建甲' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
 
 const seedSnapshot = () => ({
   schemaVersion: 2,
-  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD, W_STALE],
+  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD, W_STALE, W_PROTO],
   goals: [],
   weightLogs: [],
   customMetrics: [],
@@ -437,7 +444,7 @@ const seedSnapshot = () => ({
   scheduledWorkouts: [],
   prefs: {
     customTags: [],
-    customExercises: [DEF_C],
+    customExercises: [DEF_C, DEF_PROTO],
     exerciseNotes: {},
     starredExercises: {},
     exerciseMetricConfigs: {},

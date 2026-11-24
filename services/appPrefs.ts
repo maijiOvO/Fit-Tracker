@@ -304,6 +304,7 @@ export function rigPickPatch(rigs: Record<string, Rig[]>, listKey: string, rig: 
  * 一档多重整块取新的一边、直接改键；器械形式 / 本馆备注 / 空载 / 选的哪一台按键合并，旧键写墓碑压住另一台设备上的旧值；
  * 存的几台（键 `馆|~stack` / `馆|器材`，以及 2026-11-18 前的 `馆|器材|动作`）挪到新名字，旧键留空列表。
  * 纯函数（raw 由调用方给），prefs-check 直接测；历史训练上的馆名由调用方另改。
+ * 前提：馆名不含半角「|」（gymNameIssue 拦），否则「A」改名会把「A|B」的设置当成自己的一起挪走。
  */
 export function renameGymIn(
   raw: AppPrefs | undefined,

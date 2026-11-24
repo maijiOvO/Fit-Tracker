@@ -521,7 +521,8 @@ export function previewMatches(plan: ImportPlan, defs: ExerciseDefinition[], fin
 export function materialize(plan: ImportPlan, o: MaterializeOptions): MaterializeResult {
   const now = new Date().toISOString();
   const newDefs = new Map<string, ExerciseDefinition>();
-  const metricSeeds: Record<string, string[]> = {};
+  // 没有原型：外来动作名是 constructor / __proto__ 也只是普通的键（上架审查 C09）
+  const metricSeeds: Record<string, string[]> = Object.create(null);
   const nameFor = new Map<string, { name: string; category: string }>();
   let setCount = 0;
 

@@ -52,7 +52,8 @@ await build({
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
-      "export { buildNameIndex } from './src/utils/nameIndex.ts';",
+      "export { buildNameIndex, byDisplayName, ownValue } from './src/utils/nameIndex.ts';",
+      "export * as GY from './src/utils/gyms.ts';",
       "export { rowLastSession, browseRank } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
@@ -1150,6 +1151,42 @@ t('配重片形式全馆一份（馆|~stack）：龙门架和固定器械看到�
   const named = { id: 'n', v: 5, u: 'lbs', s: 12.5, n: '高位下拉' };
   assert.deepEqual(ids(L.LB.distinctRigs([r1, twin, named, r2], '')), ['n', 'r1', 'r2']);
   assert.deepEqual(ids(L.LB.distinctRigs([r1, twin, named, r2], 't')), ['n', 'r2', 't']);
+});
+
+t('固定器械上挂哑铃 / 壶铃的台存在「馆|tagMachine~画法」：不再被当成配重片旧键折进配重片、也不被存配重片清掉（上架审查 gap-3#2）', () => {
+  const db = { id: 'd1', v: 2, u: 'kg' };
+  const st = { id: 's1', v: 5, u: 'kg', s: 5 };
+  const pairM = { kind: 'pair', equipment: 'tagMachine' };
+  const bellM = { kind: 'bell', equipment: 'tagMachine' };
+  const pinC = { kind: 'pin', equipment: 'tagCable' };
+  const all = L.LB.rigsPatch({ 'A|~stack': [st] }, 'A', pairM, [db]);
+  assert.equal(L.LB.rigListKey('A', pairM), 'A|tagMachine~pair');
+  assert.deepEqual(L.LB.rigsOf(all, 'A', pinC, undefined).map(r => r.id), ['s1']);
+  const after = L.LB.rigsPatch(all, 'A', pinC, [st]);
+  assert.deepEqual(L.LB.rigsOf(after, 'A', pairM, 'd1'), [db]);
+  assert.deepEqual(L.LB.rigsOf(all, 'A', bellM, undefined), []);
+});
+
+t('名字作键的表只认自有键（上架审查 C09）：动作名是 constructor / toString 查不到继承来的函数，__proto__ 是普通的键', () => {
+  const resolveMap = new Map([['Bench Press', '卧推']]);
+  const resolveName = n => resolveMap.get(n) ?? n;
+  const raw = JSON.parse('{"__proto__":["reps"],"卧推":["weight"],"Bench Press":["weight","reps"]}');
+  const t2 = L.byDisplayName(raw, resolveName);
+  for (const k of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', '__defineGetter__']) assert.equal(t2[k], undefined, k);
+  assert.deepEqual(t2['__proto__'], ['reps']);
+  assert.ok(Object.keys(t2).includes('__proto__'));
+  assert.deepEqual(t2['卧推'], ['weight'], '键名正好等于显示名的那个说了算');
+  assert.equal(L.ownValue(JSON.parse('{}'), 'constructor'), undefined);
+  assert.equal(L.ownValue(JSON.parse('{"__proto__":"v1"}'), '__proto__'), 'v1');
+});
+
+t('馆名不能新带半角「|」（上架审查 C51：「力健」和「力健|二楼」的键前缀分不开）；全角放行，存量名字不改时照样能存', () => {
+  assert.equal(L.GY.gymNameIssue('力健|二楼', '', ['力健']), 'pipe');
+  assert.equal(L.GY.gymNameIssue('新|名', '老馆', ['老馆']), 'pipe');
+  assert.equal(L.GY.gymNameIssue('力健｜二楼', '', []), null);
+  assert.equal(L.GY.gymNameIssue('老馆|A', '老馆|A', ['老馆|A']), null);
+  assert.equal(L.GY.gymNameIssue('  ', '', []), 'empty');
+  assert.equal(L.GY.gymNameIssue('力健', '', ['力健']), 'taken');
 });
 
 t('配重片加片：能到的重量＝插销格子 + 任选几块；± 一下走到紧挨着的下一个；到顶以后只能靠加片；大图拆成插销 + 加片', () => {

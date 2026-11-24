@@ -8,7 +8,7 @@
  * 可以反复进（2026-10-18 用户定）。底部「新的馆…」：起名 + 填档案，存好就用这个馆。
  * 已有的馆可以改名（2026-10-21 用户要的）：馆名记在每一场历史训练和这个馆每台器械的设置上，
  * 改名时一起改（App 的 onSaveProfile + services/appPrefs.ts renameGymIn），按馆比的纪录照样连得上。
- * 改成已有的另一个馆的名字直接拦下，不做合并。没有删除（2026-10-21 用户定：正式版不做）。
+ * 改成已有的另一个馆的名字直接拦下，不做合并；新名字也不能带半角「|」（gymNameIssue）。没有删除（2026-10-21 用户定：正式版不做）。
  *
  * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
  * 一个馆都没有就直接进「新的馆」表单（新用户不用先去别处设馆）。关掉＝这次不开练。
@@ -19,7 +19,7 @@ import { Check, MapPin, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
-import { normalizeGym } from '../../utils/gyms';
+import { gymNameIssue, normalizeGym } from '../../utils/gyms';
 import { ADDON_MAX, DEFAULT_FIXED_BAR_INC, DEFAULT_KETTLEBELL_INC, defaultProfile, distinctRigs, INC_CHOICES, RIG_STEPS, rigInUnit, rigsOf, rigsPatch, sameSpec, withPlateUnit, type GymProfile, type IncSpec, type Rig } from '../../utils/loadable';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
@@ -327,7 +327,10 @@ const SavedRigs: React.FC<{ gym: string; isCn: boolean; plateUnit: PlateUnit }> 
               [g.key]: appPrefs.gymRigs[g.key].flatMap(x => (x.id !== id ? [x] : patch ? [{ id: x.id, ...(x.n ? { n: x.n } : {}), v: x.v, u: x.u, ...patch } as Rig] : [])),
             },
           });
-        const title = KIND_NAME[g.eq] ? (isCn ? KIND_NAME[g.eq].cn : KIND_NAME[g.eq].en) : getTagName(g.eq) || g.eq;
+        // 键是「器材」「~画法」，或固定器械上的「tagMachine~画法」（rigListKey）：后者写成「固定器械 · 哑铃」
+        const kindName = (k: string) => (KIND_NAME[k] ? (isCn ? KIND_NAME[k].cn : KIND_NAME[k].en) : '');
+        const [eqPart, kindPart] = g.eq.startsWith('~') ? ['', g.eq] : [g.eq.split('~')[0], g.eq.includes('~') ? '~' + g.eq.split('~')[1] : ''];
+        const title = [eqPart && (getTagName(eqPart) || eqPart), kindPart && (kindName(kindPart) || kindPart)].filter(Boolean).join(' · ');
         return (
           <div key={g.key} className="gym-field" data-testid="gym-other-rigs">
             <span className="text-label text-secondary">{isCn ? `存的「${title}」` : `Saved: ${title}`}</span>
@@ -445,18 +448,23 @@ function GymProfileForm({
   };
 
   const save = () => {
-    const n = normalizeGym(nm);
-    if (!n) {
+    const n = normalizeGym(nm) ?? '';
+    // 空名、新建撞上已有的馆 / 改名改成另一个已有的馆（不做合并）、新名字带半角「|」：都拦下（gymNameIssue）
+    const issue = gymNameIssue(nm, name, taken);
+    if (issue === 'empty') {
       setErr(isCn ? '先给这个馆起个名字' : 'Give this gym a name first');
       return;
     }
-    // 新建撞上已有的馆、改名改成另一个已有的馆：都拦下（不做合并）
-    if (n !== name && taken.includes(n)) {
+    if (issue === 'taken') {
       setErr(
         name
           ? isCn ? `已有「${n}」，换个名字` : `"${n}" already exists — pick another name`
           : isCn ? `已有「${n}」，请回列表编辑它` : `"${n}" already exists — edit it from the list`,
       );
+      return;
+    }
+    if (issue === 'pipe') {
+      setErr(isCn ? '馆名里不能有「|」' : "Gym names can't contain |");
       return;
     }
     setReview(true);

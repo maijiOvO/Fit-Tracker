@@ -15,6 +15,20 @@ export function normalizeGym(raw: string | undefined | null): string | undefined
 }
 
 /**
+ * 新建 / 改名时馆名哪里不行：空的、和另一个已有的馆重名、带半角「|」。
+ * 「|」是馆档案各张表的键里馆名和器材的分隔符：「力健」和「力健|二楼」的键前缀分不开，改一个会清掉 / 挪走另一个的设置（上架审查 C51）。
+ * 只拦有变化的名字：存量带「|」的馆（自用版、旧备份恢复来的）照样能存档案，也能改成不带「|」的名字。全角「｜」放行。
+ * 不在 normalizeGym 里替换：它也用来读历史训练上的馆名，一替换就和 workouts.gym 对不上。
+ */
+export function gymNameIssue(raw: string, current: string, taken: string[]): 'empty' | 'taken' | 'pipe' | null {
+  const n = normalizeGym(raw);
+  if (!n) return 'empty';
+  if (n !== current && taken.includes(n)) return 'taken';
+  if (n !== current && n.includes('|')) return 'pipe';
+  return null;
+}
+
+/**
  * 用过的场地，按「最近一次使用」倒序。
  * workouts 由 WorkoutContext 按 date 倒序给出；这里不再排序，直接按遇到的先后去重，
  * 于是列表天然就是「最近用的排最前」——选择器里最常点的那个永远在第一行。

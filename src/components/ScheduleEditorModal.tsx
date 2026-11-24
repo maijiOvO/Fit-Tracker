@@ -199,7 +199,8 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
 
   /** 小写显示名 -> 计划里出现次数（弹层「已添加 ×N」） */
   const addedCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+    // 没有原型的对象：键是小写动作名，constructor / tostring 之类不会读到继承来的东西（上架审查 C09）
+    const counts: Record<string, number> = Object.create(null);
     for (const ex of exercises) {
       if (!ex.name.trim()) continue;
       const key = resolveName(ex.name.trim()).toLowerCase();

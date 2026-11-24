@@ -97,15 +97,19 @@ function sharedRigKey(gym: string, info: RigInfo): string {
 /**
  * 列表的键。配重片的形式全馆一份：馆|~stack（2026-11-18；原来龙门架按「馆|器材」共用、固定器械按「馆|器材|动作」各存各的，
  * 新动作总要重新建，见 legacyStackKeys）。哑铃、壶铃、固定杠铃按器材共用：馆|器材。
+ * 例外：固定器械上挂哑铃 / 壶铃 / 固定杠铃存在「馆|tagMachine~画法」—— 「馆|tagMachine」是 11-18 前配重片的旧键，
+ * 存在那里会被当成配重片形式折进配重片、存一次配重片就被清掉（上架审查 gap-3#2）。
  */
 export function rigListKey(gym: string | undefined, info: RigInfo): string | null {
   if (!gym || !rigKind(info.kind)) return null;
-  return info.kind === 'pin' ? `${gym}|~stack` : sharedRigKey(gym, info);
+  if (info.kind === 'pin') return `${gym}|~stack`;
+  return info.equipment === EQ_MACHINE ? `${gym}|${EQ_MACHINE}~${info.kind}` : sharedRigKey(gym, info);
 }
 
 /**
  * 2026-11-18 之前配重片存过的那些键：馆|龙门架、馆|器械（11-13 前固定器械也共用）、馆|~pin、馆|器材|动作。
  * 自定义器材的「馆|器材」从键上认不出是不是配重片，不在这里（rigsOf 只接动作选着的那一台）。
+ * 前提：馆名不含半角「|」（gymNameIssue 拦），否则「A」和「A|B」的键前缀分不开。
  */
 function legacyStackKeys(all: Record<string, Rig[]>, gym: string): string[] {
   const pre = `${gym}|`;

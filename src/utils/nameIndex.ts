@@ -70,3 +70,25 @@ export function buildNameIndex(
   }
   return m;
 }
+
+/**
+ * 按名字查的普通对象只认自有键（上架审查 C09）：动作名恰好是 constructor / toString 时，`obj[name]` 读到的是继承来的函数，
+ * getActiveMetrics 拿它当数组 .includes 就崩，而且首页、训练页、我的、目标每次打开都崩。
+ * 不用 Object.hasOwn：它从 Chrome 93 才有，旧 WebView 上每页都会崩。
+ */
+export function ownValue<T>(obj: Record<string, T> | undefined, key: string): T | undefined {
+  return obj && Object.prototype.hasOwnProperty.call(obj, key) ? obj[key] : undefined;
+}
+
+/**
+ * 原键 → 显示名归并（备注 / 收藏 / 记录项三张表）。同一动作有多个原键时，键名正好等于显示名的那个说了算。
+ * 结果是没有原型的对象：查 constructor 得到 undefined，名字是 __proto__ 也只是普通的自有键（C09）。
+ */
+export function byDisplayName<T>(raw: Record<string, T>, resolveName: (name: string) => string): Record<string, T> {
+  const out: Record<string, T> = Object.create(null);
+  for (const [k, v] of Object.entries(raw)) {
+    const d = resolveName(k);
+    if (!(d in out) || k === d) out[d] = v;
+  }
+  return out;
+}
