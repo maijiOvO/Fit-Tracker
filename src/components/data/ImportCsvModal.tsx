@@ -95,7 +95,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
       const pushed = await addImportedRecords(r).finally(() => blockBack(false));
       markBackupPending();
       setFlash(
-        t(`已导入 ${r.workouts.length} 次训练（${r.sets} 组）`, `Imported ${r.workouts.length} workouts (${r.sets} sets)`) + overwriteNote(pushed, isCn),
+        t(`已导入 ${r.workouts.length} 场训练（${r.sets} 组）`, `Imported ${r.workouts.length} workouts (${r.sets} sets)`) + overwriteNote(pushed, isCn),
         'success',
       );
       window.location.reload();
@@ -129,12 +129,12 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
       size="md"
       dismissOnScrim={false}
       title={plan ? t(`从 ${plan.source === 'strong' ? 'Strong' : 'Hevy'} 导入`, `Import from ${plan.source === 'strong' ? 'Strong' : 'Hevy'}`) : ''}
-      subtitle={plan ? t(`${plan.workouts.length} 次训练 · ${fmtDay(plan.firstDate)} 至 ${fmtDay(plan.lastDate)}`, `${plan.workouts.length} workouts · ${fmtDay(plan.firstDate)} – ${fmtDay(plan.lastDate)}`) : ''}
+      subtitle={plan ? t(`${plan.workouts.length} 场训练 · ${fmtDay(plan.firstDate)} 至 ${fmtDay(plan.lastDate)}`, `${plan.workouts.length} workouts · ${fmtDay(plan.firstDate)} – ${fmtDay(plan.lastDate)}`) : ''}
       testId="import-csv-modal"
       footer={
         <button type="button" className="ui-btn-primary w-full py-3.5 flex items-center justify-center gap-2" disabled={busy} onClick={() => void run()} data-testid="import-csv-run">
           {busy && <RefreshCw size={16} className="animate-spin" />}
-          {plan ? t(`导入 ${plan.workouts.length} 次训练`, `Import ${plan.workouts.length} workouts`) : ''}
+          {plan ? t(`导入 ${plan.workouts.length} 场训练`, `Import ${plan.workouts.length} workouts`) : ''}
         </button>
       }
     >
@@ -143,7 +143,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
           {asking ? (
             <div className="space-y-3">
               <p className="text-primary font-medium" data-testid="import-unit-ask">
-                {t('文件没写单位，请确认每个动作是 kg 还是 lb', 'This file has no units — confirm kg or lb for each exercise')}
+                {t('文件没写单位：确认每个动作是 kg 还是 lb', 'No units in this file: confirm kg or lb for each exercise')}
               </p>
               <div className="flex items-center justify-between">
                 <span>{t('全部设为', 'Set all to')}</span>
@@ -190,8 +190,8 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
           )}
           <p className="text-xs text-tertiary">
             {t(
-              '不影响现有记录，导入前自动存可撤销副本。对错的动作可在动作库「并入另一个动作」。',
-              'Existing records stay as they are. Mismatched exercises can be merged later in the library. An undoable copy is saved first.',
+              '不影响现有记录，导入前自动存可撤销副本。对错的动作之后可在动作库并入。',
+              'Existing records stay as they are; an undoable copy is saved first. Mismatched exercises can be merged in the library later.',
             )}
           </p>
         </div>

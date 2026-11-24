@@ -31,7 +31,7 @@ export function useExportData(
       // 只有真的交出去了才报成功。取消分享 = 用户手上没有文件，
       // 这时弹「导出成功」就是又造一个假信号 —— 这条路正是这么坏过一次的。
       if (outcome.kind === 'cancelled') {
-        toast(lang === Language.CN ? '已取消，没有导出文件' : 'Cancelled, nothing exported', 'info');
+        toast(lang === Language.CN ? '已取消' : 'Cancelled', 'info');
       } else {
         toast(String(translations.exportSuccess[lang]), 'success');
       }

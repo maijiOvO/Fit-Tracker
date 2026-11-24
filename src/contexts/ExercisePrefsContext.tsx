@@ -828,14 +828,14 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         tag.category === 'region'
           ? cn
             ? `已删除细分「${name}」${affected ? `，${affected} 个动作回到未细分` : ''}`
-            : `Region deleted${affected ? ` — ${affected} back to unassigned` : ''}`
+            : `Region "${name}" deleted${affected ? ` — ${affected} back to unassigned` : ''}`
           : tag.category === 'bodyPart'
             ? cn
               ? `已删除部位「${name}」${affected ? `，${affected} 个动作回到未分部位` : ''}`
-              : `Part deleted${affected ? ` — ${affected} now without a part` : ''}`
+              : `Part "${name}" deleted${affected ? ` — ${affected} now without a part` : ''}`
             : cn
               ? `已删除器材「${name}」${affected ? `，${affected} 个动作改为无器材` : ''}`
-              : `Gear deleted${affected ? ` — ${affected} now without gear` : ''}`;
+              : `Gear "${name}" deleted${affected ? ` — ${affected} now without gear` : ''}`;
       // 有几个动作跟着变了在当前页面看不全：说一声（点错了用顶栏的全局撤销，2026-10-25 拆掉撤销条）
       toast(msg, 'info');
     },
@@ -863,7 +863,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         toast(
           lang === Language.CN
             ? `「${next}」已经是另一个动作的名字（或曾用名）`
-            : `"${next}" is already used by another exercise`,
+            : `"${next}" is already the name (or a former name) of another exercise`,
           'error',
         );
         return false;
@@ -1244,7 +1244,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       });
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
-      toast(cn ? `「${srcName}」已并入「${tgtName}」，成为做法「${variant.name}」` : `"${srcName}" merged into "${tgtName}"`, 'info');
+      toast(cn ? `「${srcName}」已并入「${tgtName}」，成为做法「${variant.name}」` : `"${srcName}" merged into "${tgtName}" as variant "${variant.name}"`, 'info');
       return true;
     },
     [customExercises, exerciseOverrides, lang, toast, withVariantNames, writeDefField],
@@ -1361,7 +1361,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       toast(
         lang === Language.CN
           ? `已删除细分「${name}」${n ? `，${n} 个动作回到未细分` : ''}`
-          : `Region removed${n ? ` — ${n} back to unassigned` : ''}`,
+          : `Region "${name}" deleted${n ? ` — ${n} back to unassigned` : ''}`,
         'info',
       );
     },

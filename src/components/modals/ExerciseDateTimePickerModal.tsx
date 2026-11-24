@@ -57,14 +57,14 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
     <Modal
       isOpen={open}
       onClose={onClose}
-      title={isCn ? '设置训练时间' : 'Set Exercise Time'}
+      title={isCn ? '改动作时间' : 'Change exercise time'}
       size="md"
       dismissOnScrim={false}
       bodyClassName="space-y-6"
       footer={
         <ModalFooter
           cancelLabel={isCn ? '取消' : 'Cancel'}
-          confirmLabel={isCn ? '确定' : 'Confirm'}
+          confirmLabel={isCn ? '确定' : 'OK'}
           onCancel={onClose}
           onConfirm={handleConfirm}
         />
@@ -264,7 +264,7 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 }}
                 className="px-3 py-2 bg-card border border-divider rounded-chip text-xs font-bold hover:bg-card-hover transition-colors"
               >
-                {isCn ? '早上8点' : '8:00 AM'}
+                {isCn ? '早上 8 点' : '8:00 AM'}
               </button>
               <button
                 onClick={() => {
@@ -273,14 +273,14 @@ export const ExerciseDateTimePickerModal: React.FC<ExerciseDateTimePickerModalPr
                 }}
                 className="px-3 py-2 bg-card border border-divider rounded-chip text-xs font-bold hover:bg-card-hover transition-colors"
               >
-                {isCn ? '晚上6点' : '6:00 PM'}
+                {isCn ? '晚上 6 点' : '6:00 PM'}
               </button>
             </div>
           </div>
 
           <div className="bg-card/50 border border-divider rounded-control p-4">
             <div className="text-xs font-bold text-secondary mb-1">
-              {isCn ? '选择的时间' : 'Selected Time'}
+              {isCn ? '已选' : 'Selected'}
             </div>
             <div className="text-lg font-bold text-primary">
               {selectedDate.getFullYear()}/

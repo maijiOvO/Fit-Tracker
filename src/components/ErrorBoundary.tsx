@@ -62,7 +62,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       idle: null,
       busy: cn ? '正在导出…' : 'Exporting…',
       done: cn ? '已导出' : 'Exported',
-      cancelled: cn ? '已取消，没有导出文件' : 'Cancelled, nothing exported',
+      cancelled: cn ? '已取消' : 'Cancelled',
       failed: cn ? '导出失败' : 'Export failed',
     }[exportState];
     const btn = 'w-full min-h-[52px] rounded-control font-semibold transition-opacity duration-tap ease-paper disabled:opacity-40';

@@ -134,7 +134,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
         </span>
         <span className="text-tertiary">
           {isCn ? `近 ${shownWeeks} 周` : `Last ${shownWeeks}w`} · {activeDays}{' '}
-          {isCn ? '天有训练' : 'active'} · {totalSets} {isCn ? '组' : plural(totalSets, 'set')}
+          {isCn ? '天有训练' : 'active days'} · {totalSets} {isCn ? '组' : plural(totalSets, 'set')}
         </span>
       </div>
 

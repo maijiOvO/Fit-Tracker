@@ -368,7 +368,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="font-semibold text-primary truncate">
-                        {s.title || (lang === Language.CN ? '未命名训练' : 'Untitled session')}
+                        {s.title || (lang === Language.CN ? '未命名训练' : 'Untitled workout')}
                       </h4>
                       <span className={`text-micro font-normal px-2 py-0.5 rounded-chip ${badge.cls}`}>{badge.label}</span>
                     </div>

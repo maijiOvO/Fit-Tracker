@@ -208,7 +208,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   ];
   // 档名自己说清楚（审查 teaching-text-candidates：删掉每档下面那行说明）
   const motionOpts: Opt<MotionPreference>[] = [
-    { v: 'auto', label: t('跟系统', 'System') },
+    { v: 'auto', label: t('跟随系统', 'System') },
     { v: 'off', label: t('总有动效', 'Always') },
     { v: 'on', label: t('减弱', 'Reduce') },
   ];
@@ -320,7 +320,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 <Stack
                   name={
                     <span className="text-small font-medium text-primary">
-                      {t('未标器材的动作', 'No equipment set')}
+                      {t('未标器材的动作', 'Exercises with no gear')}
                       <span className="ml-1.5 font-mono text-small font-semibold text-tertiary">{unit}</span>
                     </span>
                   }
@@ -344,7 +344,7 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     />
                   </div>
                 </Stack>
-                <Stack name={t('有氧默认记录', 'Cardio records')}>
+                <Stack name={t('有氧默认记录', 'Cardio defaults')}>
                   <Seg
                     opts={cardioOpts}
                     values={appPrefs.cardioMetrics}
@@ -461,8 +461,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     name={translations.undoImport[lang]}
                     tone="accent"
                     sub={t(
-                      `恢复 / 导入 / 重置前的副本 · ${rollback.workouts} 次训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
-                      `Pre-restore/reset copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
+                      `恢复 / 导入 / 重置前的副本 · ${rollback.workouts} 场训练 · ${rollback.createdAt.split('T')[0]} · 留 7 天`,
+                      `Copy from before restore / import / reset · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]} · kept 7 days`,
                     )}
                     chevron={false}
                     onClick={() => { void rollbackImport(rollback.newer); }}
@@ -474,10 +474,10 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
               <Group title={t('账户', 'Account')}>
                 {onToggleDevMode && (
                   <Go
-                    name={t('数据环境', 'Data Environment')}
+                    name={t('数据环境', 'Data environment')}
                     sub={
                       devMode
-                        ? t('state-dev · FitLogDB-dev · 与真实数据完全隔离', 'state-dev · FitLogDB-dev · fully isolated')
+                        ? t('state-dev · FitLogDB-dev · 与真实数据隔离', 'state-dev · FitLogDB-dev · isolated from real data')
                         : t('state · FitLogDB · 真实用户数据', 'state · FitLogDB · real user data')
                     }
                     value={

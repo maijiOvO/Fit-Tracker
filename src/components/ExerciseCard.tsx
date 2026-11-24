@@ -427,7 +427,7 @@ export const ExerciseCard = React.memo(function ExerciseCard({
                   }}
                 >
                   <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary" />
-                  {isCn ? '动作设置' : 'Settings'}
+                  {isCn ? '动作设置' : 'Exercise settings'}
                 </button>
                 {/* §6.6：删除入口降级为墨色文字项，不靠颜色喊危险。单击即删、不弹确认；
                     已经有做完的组时删完给一条撤销（App.tsx onDeleteExerciseFromSession），全是底稿的删了加回来就行。 */}
@@ -653,7 +653,7 @@ export const ExerciseCard = React.memo(function ExerciseCard({
           }}
           className="w-full min-h-[44px] border border-dashed border-divider rounded-control text-secondary font-medium flex items-center justify-center gap-2 transition-colors duration-tap ease-paper active:bg-card-hover"
         >
-          <Plus size={16} strokeWidth={1.75} /> {isCn ? '添加组' : 'Add Set'}
+          <Plus size={16} strokeWidth={1.75} /> {isCn ? '添加组' : 'Add set'}
         </button>
       </div>
     </div>

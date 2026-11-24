@@ -499,7 +499,7 @@ const RigName: React.FC<{ name: string; isCn: boolean; onName: (n: string) => vo
       className="stack-name"
       value={text}
       maxLength={12}
-      placeholder={isCn ? '不填就用刻度当名字' : 'Optional'}
+      placeholder={isCn ? '不填就用刻度当名字' : 'Blank = named by its steps'}
       aria-label={isCn ? '这一台的名字' : 'Machine name'}
       onChange={e => setText(e.target.value)}
       onBlur={() => onName(text.trim())}
@@ -583,13 +583,13 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           <p className="stack-note" data-testid="rig-note">
             {kind === 'pin'
               ? rigs.shared
-                ? isCn ? '这个馆的配重片形式，别的动作也在用：在这上面改刻度会另存一种，别的动作不跟着变。' : 'Shared with other exercises here: editing saves a copy, the others stay as they are.'
+                ? isCn ? '别的动作也在用这种配重片：改刻度会另存一种，它们不跟着变。' : 'Other exercises use this stack too: editing saves a copy, theirs stay as they are.'
                 : rigs.onName
-                  ? isCn ? '这个馆的配重片形式：别的插销器械也能直接选它。' : 'A stack format for this gym: any pin-loaded exercise can pick it.'
-                  : isCn ? '在这上面改刻度会另存一种，默认还留着。' : 'Editing saves a new format; the default stays.'
+                  ? isCn ? '存在这个馆里，别的插销器械也能选。' : 'Saved to this gym; other pin-loaded exercises can pick it too.'
+                  : isCn ? '改刻度会另存一种，默认还留着。' : 'Editing the steps saves a new format; the default stays.'
               : rigs.onName
-                ? isCn ? '改的是这一台：选了它的动作一起变。' : 'Edits apply to this machine, for every exercise that uses it.'
-                : isCn ? '在这上面改刻度会另存成一台，默认还留着。' : 'Editing saves a new machine; the default stays.'}
+                ? isCn ? '改的是这一台：选了它的动作一起变。' : 'Edits apply to this machine: every exercise using it changes too.'
+                : isCn ? '改刻度会另存成一台，默认还留着。' : 'Editing the steps saves a new machine; the default stays.'}
           </p>
           {rigs.onName && (
             <div className="stack-stp">
@@ -607,7 +607,7 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
             {machine.libKind && (
               <small className="block text-label text-tertiary" data-testid="gym-kind-lib">
                 {kind === machine.libKind
-                  ? isCn ? `跟默认一样：${machine.libKind === 'pin' ? '配重片' : '杠铃片'}` : 'Same as the default'
+                  ? isCn ? `跟默认一样：${machine.libKind === 'pin' ? '配重片' : '杠铃片'}` : `Same as the default: ${machine.libKind === 'pin' ? 'pin stack' : 'plate-loaded'}`
                   : isCn
                     ? `这一台改过 · 默认是${machine.libKind === 'pin' ? '配重片' : '杠铃片'}`
                     : `Changed here; the default is ${machine.libKind === 'pin' ? 'pin stack' : 'plate-loaded'}`}
@@ -633,8 +633,8 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
       {machine.onUnit && (
         <div className="stack-stp">
           <span>
-            {isCn ? '这台的片子' : 'Marked in'}
-            <small className="block text-label text-tertiary">{isCn ? '格子和卡上的数都按它' : 'Steps and numbers follow it'}</small>
+            {isCn ? '这台的片子' : "This machine's plates"}
+            <small className="block text-label text-tertiary">{isCn ? '格子和卡上的数都按它' : 'Steps and card numbers follow it'}</small>
           </span>
           <span className="gym-seg" role="group" data-testid="gym-machine-unit">
             {(['kg', 'lbs'] as const).map(x => (
@@ -684,7 +684,7 @@ export function MachineFace({ kind, unit, isCn, rounder, machine }: { kind: Load
           <div className="stack-stp" data-testid="stack-addon-row">
             <span>
               {isCn ? '加片' : 'Add-on plates'}
-              <small className="block text-label text-tertiary">{isCn ? '另挂在摞子上的小片，每块多重' : 'Small plates added on top: weight each'}</small>
+              <small className="block text-label text-tertiary">{isCn ? '另挂在摞子上的小片，每块多重' : 'Small plates hung on the stack: weight each'}</small>
             </span>
             <span className="stack-seg">
               <ScrubNumber
@@ -1088,14 +1088,14 @@ export function MachineMissingNote({ isCn, hasWeight, gym, hasSet, loadKind }: {
   return (
     <p className="metric-note" data-testid="gym-missing">
       {!hasWeight
-        ? isCn ? '记录项里开了「重量」，才有这台器械的设置。' : 'Turn on Weight above to set up this machine.'
+        ? isCn ? '记录项里打开「重量」后才能设。' : 'Turn on Weight in the tracked metrics first.'
         : !gym
-          ? isCn ? '这场训练还没选馆。在训练页顶上选了馆，这台器械的设置才记得住。' : 'Pick a gym at the top of the workout first, so this machine can be remembered.'
+          ? isCn ? '这场还没选馆，选了才记得住这台的设置。' : 'No gym picked for this workout; pick one so this machine is remembered.'
           : !hasSet
             ? isCn ? '加一组之后就能设。' : 'Add a set first.'
             : loadKind === 'plates'
-              ? isCn ? '杠铃按这个馆的片子算，这里不用单独设。' : "Barbells use this gym's plates; nothing to set here."
-              : isCn ? '这种阻力没有器械刻度要设。' : 'Nothing to set for this load type.'}
+              ? isCn ? '杠铃按这个馆的片子算，不用单独设。' : "Barbells use this gym's plates; nothing to set here."
+              : isCn ? '这种阻力不用设刻度。' : 'No steps to set for this load type.'}
     </p>
   );
 }

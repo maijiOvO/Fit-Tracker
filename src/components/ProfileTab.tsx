@@ -159,7 +159,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       <div className="space-y-4">
         <div className="flex justify-between items-center px-2">
           <h3 className="text-xs font-semibold text-secondary uppercase tracking-widest">
-            {lang === Language.CN ? '身体数据 & 指标' : 'Body Metrics'}
+            {lang === Language.CN ? '身体指标' : 'Body metrics'}
           </h3>
         </div>
 
@@ -280,7 +280,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               <Plus size={16} />
             </div>
             <span className="text-micro font-bold text-secondary">
-              {lang === Language.CN ? '新指标' : 'New Metric'}
+              {lang === Language.CN ? '新指标' : 'New metric'}
             </span>
           </button>
         </div>

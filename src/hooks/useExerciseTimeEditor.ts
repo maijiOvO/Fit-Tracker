@@ -39,10 +39,10 @@ export function useExerciseTimeEditor(): UseExerciseTimeEditorResult {
 
         await workoutCtx.refreshFromDb();
         scheduleDebouncedFitlogPush();
-        toast(isCn ? '训练时间已更新' : 'Exercise time updated', 'success');
+        toast(isCn ? '动作时间已更新' : 'Exercise time updated', 'success');
       } catch (error) {
         console.error('Error updating exercise time:', error);
-        toast(isCn ? '更新失败，请重试' : 'Update failed, please try again', 'error');
+        toast(isCn ? '更新失败' : 'Update failed', 'error');
       }
     },
     [isCn, toast, workoutCtx],

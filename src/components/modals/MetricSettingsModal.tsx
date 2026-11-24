@@ -177,7 +177,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const gymNote =
     card && !onCardVariant
       ? isCn
-        ? `这一台的设置跟着卡片上的做法（${variantLabel(card.variantId)}）。在卡片上换成「${variantLabel(editingId)}」再来设。`
+        ? `这一台的设置跟卡片上的做法（${variantLabel(card.variantId)}）走，要设「${variantLabel(editingId)}」先在卡片上换过去。`
         : `Machine settings follow the card's variant (${variantLabel(card.variantId)}). Switch the card to "${variantLabel(editingId)}" to set them.`
       : null;
 

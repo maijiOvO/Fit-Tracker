@@ -104,7 +104,7 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
         isOpen={open}
         // 返回键 / ×：有没存的改动就留在表单上提示一句（表单的草稿在 GymProfileForm 里，一关就没了），没改过同「回到馆列表」
         onClose={() => (dirtyRef.current ? setNudge(true) : leaveForm())}
-        title={editing ? (isCn ? `「${editing}」的器材` : `${editing} · equipment`) : isCn ? '新的馆' : 'New gym'}
+        title={editing ? (isCn ? `「${editing}」的器材` : `${editing} · gear`) : isCn ? '新的馆' : 'New gym'}
         size="sm"
         variant="sheet"
         layer="modal-2"
@@ -264,7 +264,6 @@ const SavedRigs: React.FC<{ gym: string; isCn: boolean; plateUnit: PlateUnit }> 
         <small className={`block text-micro ${r.u !== plateUnit ? 'text-warning' : 'text-tertiary'}`}>
           {isCn ? (n ? `${n} 个动作在用` : '没有动作在用') : n ? `${n} in use` : 'Unused'}
           {r.u !== plateUnit && (isCn ? ' · 和片子的单位不一样' : ' · differs from the plates')}
-          {open !== r.id && (isCn ? ' · 点一下改' : ' · tap to edit')}
         </small>
       </button>
       <button type="button" className="text-label font-semibold text-danger px-2 min-h-[44px]" onClick={onRemove} data-testid="gym-stack-form-remove">
@@ -468,7 +467,7 @@ function GymProfileForm({
 
   const seg = (on: boolean) =>
     `min-h-[34px] px-3 text-label font-semibold ${on ? 'seg-on' : 'text-secondary'}`;
-  const inc = (key: IncKey, label: string, hint?: string) => (
+  const inc = (key: IncKey, label: string) => (
     <div className="gym-field">
       <div className="gym-row">
       <span className="text-label text-secondary">{label}</span>
@@ -512,7 +511,6 @@ function GymProfileForm({
           </div>
         </div>
       )}
-      {hint && <span className="text-micro text-tertiary">{hint}</span>}
     </div>
   );
 
@@ -531,9 +529,9 @@ function GymProfileForm({
     );
     return (
       <div className="gym-form" data-testid="gym-profile-review">
-        <p className="text-small text-primary font-semibold">{isCn ? `存之前核一遍「${normalizeGym(nm)}」每类器材的单位` : `Check the unit of each kind of equipment at ${normalizeGym(nm)}`}</p>
+        <p className="text-small text-primary font-semibold">{isCn ? `核对「${normalizeGym(nm)}」每类器材的单位` : `Check the unit of each kind of gear at ${normalizeGym(nm)}`}</p>
         <p className="text-micro text-tertiary">
-          {isCn ? '动作卡上的数、± 一档都按这里的单位走。改单位会把那一档换成该单位的常见值。' : 'Cards and steps follow these units. Switching a unit resets that step to the common value.'}
+          {isCn ? '动作卡上的数和 ± 一档都按这里的单位。改单位会把那一档换成该单位的常见值。' : 'Card numbers and ± steps follow these units. Changing a unit resets that step to its common value.'}
         </p>
         <div className="gym-row">
           <span className="text-label text-secondary">
@@ -685,7 +683,7 @@ function GymProfileForm({
         )}
       </div>
       {inc('cable', isCn ? '龙门架一档' : 'Cable machine step')}
-      {inc('machine', isCn ? '固定器械一档' : 'Machine step', isCn ? '别的刻度在动作卡上存成一种配重片形式，全馆的插销器械都能选' : 'Save other formats on an exercise card; every pin-loaded exercise here can pick them')}
+      {inc('machine', isCn ? '固定器械一档' : 'Machine step')}
       {name && <SavedRigs gym={name} isCn={isCn} plateUnit={p.plateUnit} />}
       {inc('dumbbell', isCn ? '哑铃一档' : 'Dumbbell step')}
       {inc('kettlebell', isCn ? '壶铃一档' : 'Kettlebell step')}

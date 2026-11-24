@@ -115,7 +115,7 @@ const PickerRow: React.FC<PickerRowProps> = ({ name, sub, isStarred, also, equip
         <span className="flex-shrink-0 px-1.5 text-xs font-bold text-accent">{isCn ? '恢复' : 'Restore'}</span>
       )}
       {onLongPress && (
-        <LongPressAffordance active={press.pressing} hint={press.hinting} label={isCn ? '管理这个动作' : 'Manage'} drawMs={press.drawMs} placement="down" />
+        <LongPressAffordance active={press.pressing} hint={press.hinting} label={isCn ? '管理这个动作' : 'Manage exercise'} drawMs={press.drawMs} placement="down" />
       )}
     </button>
   );
@@ -812,7 +812,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   };
   const lastLine = (ex: ExerciseDefinition, vid?: string) => {
     const last = lastOf(ex, vid);
-    if (!last) return isCn ? '还没练过' : 'Not done yet';
+    if (!last) return isCn ? '还没练过' : 'Never done';
     const { session: s } = last;
     // 母行不分做法：上次是哪个做法就写出来（点下去带的就是它）
     const vName = !vid && last.variantId ? variantLabel(s.exercise) : '';
@@ -1076,7 +1076,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                   {RESISTANCE_NAMES[res][isCn ? 'cn' : 'en']}
                   {locked && <Lock size={11} className="flex-shrink-0 text-tertiary" aria-label={isCn ? '随器材' : 'Set by gear'} />}
                 </span>
-                <span className="flex-shrink-0 text-xs tabular-nums text-tertiary">{n ? (isCn ? `${n} 个动作` : `${n}`) : '—'}</span>
+                <span className="flex-shrink-0 text-xs tabular-nums text-tertiary">{n ? (isCn ? `${n} 个动作` : `${n} ex.`) : '—'}</span>
                 <ChevronRight size={15} className="flex-shrink-0 text-tertiary" />
               </button>
             );
@@ -1156,13 +1156,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               targetLabel && !arranging ? 'min-w-0 truncate' : 'flex-shrink-0'
             }`}
           >
-            {arranging ? (isCn ? '整理' : 'Arrange') : targetLabel ? `${isCn ? '加到' : 'Add to'} ${targetLabel}` : isCn ? '添加动作' : 'Add Exercise'}
+            {arranging ? (isCn ? '整理' : 'Arrange') : targetLabel ? `${isCn ? '加到' : 'Add to'} ${targetLabel}` : isCn ? '添加动作' : 'Add exercise'}
           </h2>
-          {/* 只写「✓ N」：完整的「本次已加 N」在底部「完成」上 */}
+          {/* 只写「✓ N」：完整的「已加 N」在底部「完成」上 */}
           {sessionAdded > 0 && !arranging && (
             <span
               key={sessionAdded}
-              aria-label={isCn ? `本次已加 ${sessionAdded}` : `Added ${sessionAdded}`}
+              aria-label={isCn ? `已加 ${sessionAdded}` : `${sessionAdded} added`}
               className="anim-ink-mark flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-control bg-success/15 text-success text-micro font-bold whitespace-nowrap tabular-nums"
             >
               ✓ {sessionAdded}
@@ -1199,7 +1199,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               type="button"
               onClick={onClose}
               className="w-11 h-11 flex-shrink-0 flex items-center justify-center rounded-control text-secondary hover:bg-card-hover active:scale-press-sm transition-ui"
-              aria-label={isCn ? '完成并关闭' : 'Done'}
+              aria-label={isCn ? '完成' : 'Done'}
               data-testid="picker-sheet-close"
             >
               <X size={21} />
@@ -1350,13 +1350,13 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
           >
             {visible.map((g, i) => renderGroup(g, i))}
             {arranging && !axis && !q && visible.length === 0 && (
-              <div className="picker-none" data-testid="picker-arrange-clear">{isCn ? '没有待整理的动作' : 'Nothing to tidy up'}</div>
+              <div className="picker-none" data-testid="picker-arrange-clear">{isCn ? '没有待整理的动作' : 'Nothing to arrange'}</div>
             )}
 
             {!arranging && totalCount === 0 && (
               <div className="text-center pt-9 pb-2 text-small font-semibold text-secondary">
                 <Search size={32} className="mx-auto mb-2.5 text-tertiary" strokeWidth={1.5} />
-                {q ? (isCn ? '动作库里没有匹配的动作' : 'No matching exercise') : isCn ? '当前筛选下没有动作' : 'No exercises under current filters'}
+                {q ? (isCn ? '没有匹配的动作' : 'No matching exercises') : isCn ? '当前筛选下没有动作' : 'No exercises match the filters'}
               </div>
             )}
 
@@ -1367,7 +1367,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 className="w-full min-h-[46px] mt-3 border border-dashed border-divider rounded-card text-accent text-small font-bold flex items-center justify-center gap-2 active:bg-card-hover transition-colors"
               >
                 <Plus size={15} strokeWidth={2.5} />
-                {isCn ? `没找到？创建「${q}」` : `Create "${q}"`}
+                {isCn ? `创建「${q}」` : `Create "${q}"`}
               </button>
             )}
           </div>
@@ -1385,7 +1385,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
             >
               {isCn ? '完成' : 'Done'}
               {sessionAdded > 0 && (
-                <span className="text-xs font-semibold tabular-nums">· {isCn ? `本次已加 ${sessionAdded}` : `${sessionAdded} added`}</span>
+                <span className="text-xs font-semibold tabular-nums">· {isCn ? `已加 ${sessionAdded}` : `${sessionAdded} added`}</span>
               )}
             </button>
           </div>
@@ -1424,7 +1424,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 return (
                   <p className="px-2 py-1 text-xs text-tertiary" data-testid="equip-resistance">
                     {isCn ? '阻力' : 'Load'}：{resName(cur)}
-                    {resistanceSelectable(id) ? (isCn ? '（默认，动作上可改）' : ' (default, per exercise)') : ''}
+                    {resistanceSelectable(id) ? (isCn ? '（默认）' : ' (default)') : ''}
                   </p>
                 );
               }
@@ -1459,7 +1459,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
                 className={dangerBtn}
               >
                 <Trash2 size={16} />
-                {isCn ? '删除这个器材' : 'Delete gear'}
+                {isCn ? '删除器材' : 'Delete gear'}
               </button>
             )}
           </NamePanel>

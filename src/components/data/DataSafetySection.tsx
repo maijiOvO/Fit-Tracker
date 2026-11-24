@@ -64,7 +64,7 @@ export const BackupRow: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
         <button type="button" onClick={onOpen} className="flex-1 min-w-0 text-left" data-testid="prefs-open-backup">
           <Name
             name={t('自动备份', 'Auto backup')}
-            sub={<span data-testid="backup-status">{t('未开启 · 卸载 App 会丢失全部记录', 'Off · uninstalling the app loses everything')}</span>}
+            sub={<span data-testid="backup-status">{t('未开启 · 卸载会丢全部记录', 'Off · uninstalling loses all records')}</span>}
             bad
           />
         </button>
@@ -94,7 +94,7 @@ export const BackupRow: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
   return (
     <Go
       name={t('自动备份', 'Auto backup')}
-      sub={status.shrinkWarning ? t('训练次数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept') : undefined}
+      sub={status.shrinkWarning ? t('训练场数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept') : undefined}
       bad
       value={<span data-testid="backup-status">{status.lastOkAt ? ago(status.lastOkAt, isCn) : t('还没有备份', 'No backup yet')}</span>}
       onClick={onOpen}
@@ -150,7 +150,7 @@ export const BackupPage: React.FC = () => {
 
   const noAccess = errNewer && status.lastError?.code === 'no-access';
   const head = !folder ? (
-    <Name name={t('未开启', 'Off')} sub={t('卸载 App 会丢失全部记录', 'Uninstalling the app loses everything')} bad />
+    <Name name={t('未开启', 'Off')} sub={t('卸载会丢全部记录', 'Uninstalling loses all records')} bad />
   ) : errNewer ? (
     <Name name={t('上次备份失败', 'Last backup failed')} sub={backupErrorText(status.lastError!.code, isCn)} bad />
   ) : (
@@ -169,7 +169,7 @@ export const BackupPage: React.FC = () => {
         <Stack name={<span data-testid="backup-status">{head}</span>}>
           {folder && status.shrinkWarning && !errNewer && (
             <p className="text-label text-danger -mt-1">
-              {t('训练次数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept')}
+              {t('训练场数比上次少很多，旧备份已保留', 'Far fewer workouts than last time — older backups kept')}
             </p>
           )}
           {!folder || noAccess ? (
@@ -205,7 +205,7 @@ export const ExportPage: React.FC<{ onExportJson: () => void; busy: boolean }> =
   const exportCsv = useExportCsv();
   return (
     <Group>
-      <Go name={t('分享 CSV 表格', 'Share CSV')} onClick={() => void exportCsv('share')} testId="export-csv" />
+      <Go name={t('分享 CSV', 'Share CSV')} onClick={() => void exportCsv('share')} testId="export-csv" />
       {supported && folder && (
         <Go name={t('CSV 存到备份文件夹', 'Save CSV to backup folder')} onClick={() => void exportCsv('folder')} testId="export-csv-folder" />
       )}

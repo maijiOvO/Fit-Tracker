@@ -601,7 +601,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 )
               )}
               {m === 'weight' && isPR && !isGhost && (
-                <span className="pb-tag" aria-label={isCn ? '新纪录' : 'Personal best'}>
+                <span className="pb-tag" aria-label={isCn ? '新纪录' : 'New PR'}>
                   PB
                 </span>
               )}

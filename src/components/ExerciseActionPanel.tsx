@@ -246,7 +246,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
               return (
                 <div className="rounded-card border border-divider bg-card p-2 space-y-1.5" data-testid="merge-panel">
                   <div className="px-1 text-xs font-medium text-tertiary">
-                    {isCn ? `把「${name}」并入哪个动作？它会成为该动作的一个做法，历史和纪录一并带过去` : `Merge "${name}" into which exercise? It becomes a variant; history follows.`}
+                    {isCn ? `「${name}」并入哪个动作？并入后是它的一个做法，历史和纪录一起带过去` : `Merge "${name}" into which exercise? It becomes a variant there; history and records move with it.`}
                   </div>
                   <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
@@ -254,8 +254,8 @@ export const ExerciseActionPanel: React.FC<Props> = ({
                       className="ui-input w-full pl-8"
                       value={mergeQ}
                       onChange={e => setMergeQ(e.target.value)}
-                      placeholder={isCn ? '搜动作名' : 'Search'}
-                      aria-label={isCn ? '搜动作名' : 'Search'}
+                      placeholder={isCn ? '搜索动作' : 'Search exercises'}
+                      aria-label={isCn ? '搜索动作' : 'Search exercises'}
                     />
                   </div>
                   {list.map(d => (
@@ -272,7 +272,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
                       {d.bodyPart && <span className="ml-auto text-xs font-medium text-tertiary">{getTagName(d.bodyPart)}</span>}
                     </button>
                   ))}
-                  {!list.length && <div className="px-1 py-2 text-xs text-tertiary">{isCn ? '没有匹配的动作' : 'No match'}</div>}
+                  {!list.length && <div className="px-1 py-2 text-xs text-tertiary">{isCn ? '没有匹配的动作' : 'No matching exercises'}</div>}
                 </div>
               );
             })()
@@ -283,7 +283,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
           </button>
           <button type="button" className={btn} onClick={then(() => onMetrics(name))}>
             <SettingsIcon size={16} className="text-accent" />
-            {isCn ? '动作设置' : 'Settings'}
+            {isCn ? '动作设置' : 'Exercise settings'}
           </button>
           <button
             type="button"

@@ -44,7 +44,7 @@ export const DurationPickerModal: React.FC<DurationPickerModalProps> = ({
     <Modal
       isOpen={open}
       onClose={onClose}
-      title={isCn ? '设置时长' : 'Set Duration'}
+      title={isCn ? '设置时长' : 'Set duration'}
       size="md"
       layer="modal-2"
       dismissOnScrim={false}

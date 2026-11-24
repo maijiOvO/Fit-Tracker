@@ -67,8 +67,8 @@ export const ResetAccountModal: React.FC<ResetAccountModalProps> = ({
         {/* 重置前先存回滚槽（services/fitlogBackup.ts resetAccount） */}
         <p className="text-body text-secondary mt-3">
           {isCn
-            ? '重置前自动存一份副本，7 天内可在首选项里「撤销上次恢复、导入或重置」。'
-            : 'A copy is saved first — you can undo it from Preferences within 7 days.'}
+            ? '重置前自动存副本，7 天内可在首选项「撤销上次恢复、导入或重置」。'
+            : 'A copy is saved first; within 7 days, "Undo last restore, import or reset" in Preferences brings it back.'}
           {currentWorkout.exercises.length > 0 && (isCn ? '' : ' ') + workbenchDropNote(isCn)}
         </p>
       </div>

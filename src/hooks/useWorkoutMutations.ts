@@ -212,9 +212,6 @@ export interface UseWorkoutMutationsResult {
   pendingScheduleCompletion: React.MutableRefObject<{ scheduleId: string; workoutId: string } | null>;
   /** 「继续这场」接回来的训练 id：删光动作时不整场删 */
   resumedWorkoutIdsRef: React.MutableRefObject<Set<string>>;
-
-  /** 训练页的「放弃这场」：问一句，确认后删掉 + 写墓碑 + 清空工作台（做过组之后也能放弃） */
-  handleDiscardWorkout: () => Promise<void>;
   /** 切换一张卡的练法（第 8 条）；undefined＝标准 */
   switchExerciseVariant: (exerciseId: string, variantId: string | undefined, name?: string) => void;
   /**
@@ -387,42 +384,16 @@ export function useWorkoutMutations({
     }
   }, [currentWorkout.id, refreshFromDb, setActiveTab, setCurrentWorkout, unlinkPlanOf, workoutCtx]);
 
-  /**
-   * 问一句再放弃（「放弃训练」在确认弹窗的例外名单里）。hasSets：卡上有会入册的组 ——
-   * 训练页的放弃入口（做过组之后也能放弃）；没有＝结束时发现没东西可记。
-   */
-  const confirmDiscard = useCallback(
-    async (hasSets: boolean) => {
-      const ok = await confirm({
-        message: hasSets
-          ? isCn ? '放弃这场训练？记过的组也不保存。' : 'Discard this workout? Logged sets are not kept.'
-          : isCn ? '还没有填数的组。放弃这场训练？' : 'No sets logged yet. Discard this workout?',
-        confirmLabel: isCn ? '放弃' : 'Discard',
-        cancelLabel: isCn ? '接着练' : 'Keep going',
-        danger: true,
-      });
-      if (ok) await discardCurrentWorkout();
-    },
-    [confirm, discardCurrentWorkout, isCn],
-  );
-
-  /**
-   * 「继续这场」接回来的训练已经结束过一次、入过册：放弃它＝删掉整场旧训练，按删整场的话问
-   * （删光动作时都不整场删它，见 resumedWorkoutIdsRef）。
-   */
-  const handleDiscardWorkout = useCallback(async () => {
-    if (!resumedWorkoutIdsRef.current.has(currentWorkout.id)) {
-      await confirmDiscard(recordedExercises(currentWorkout.exercises).length > 0);
-      return;
-    }
-    const dateLabel = new Date(currentWorkout.date).toLocaleDateString(isCn ? 'zh-CN' : 'en-US');
+  /** 结束时卡上一个有数的组都没有：问一句再放弃（「放弃训练」在确认弹窗的例外名单里） */
+  const confirmDiscard = useCallback(async () => {
     const ok = await confirm({
-      message: isCn ? `确定要删除 ${dateLabel} 的整场训练吗？` : `Delete the entire workout from ${dateLabel}?`,
+      message: isCn ? '还没有填数的组。放弃这场训练？' : 'No sets logged yet. Discard this workout?',
+      confirmLabel: isCn ? '放弃' : 'Discard',
+      cancelLabel: isCn ? '接着练' : 'Keep going',
       danger: true,
-      confirmLabel: isCn ? '删除' : 'Delete',
     });
     if (ok) await discardCurrentWorkout();
-  }, [confirm, confirmDiscard, currentWorkout.date, currentWorkout.exercises, currentWorkout.id, discardCurrentWorkout, isCn]);
+  }, [confirm, discardCurrentWorkout, isCn]);
 
   /**
    * 结束训练：标记 finishedAt → 写 DB → 清空 workbench → 跳转
@@ -445,7 +416,7 @@ export function useWorkoutMutations({
           toast(isCn ? '没有组可保存；删整场请去时间线' : 'No sets left to save — delete the whole workout from the timeline', 'info');
           return;
         }
-        await confirmDiscard(false);
+        await confirmDiscard();
         return;
       }
 
@@ -539,7 +510,7 @@ export function useWorkoutMutations({
     } catch (error) {
       console.error('[useWorkoutMutations] 结束训练失败:', error);
       setSaveStatus('error');
-      toast(isCn ? '结束训练失败，请重试' : 'Failed to end workout, please try again', 'error');
+      toast(isCn ? '结束训练失败' : 'Failed to end workout', 'error');
     }
   }, [
     currentWorkout,
@@ -574,15 +545,15 @@ export function useWorkoutMutations({
 
     // 卡上一个有数的组都没有：直接问要不要放弃这场（不留空场在库里）
     if (recordedExercises(currentWorkout.exercises).length === 0) {
-      await confirmDiscard(false);
+      await confirmDiscard();
       return;
     }
 
     if (askFirst) {
       const ok = await confirm({
         // 2026-10-11：去掉「当前单位设置」「将被添加到历史记录」两行 —— 都是常识，每场都读一遍是噪音
-        message: isCn ? '确认结束当前训练吗？' : 'Confirm ending this workout?',
-        confirmLabel: isCn ? '结束训练' : 'End Workout',
+        message: isCn ? '结束这场训练？' : 'End this workout?',
+        confirmLabel: isCn ? '结束训练' : 'End workout',
       });
       if (!ok) return;
     }
@@ -650,7 +621,7 @@ export function useWorkoutMutations({
       // 时间线长按菜单原来跳过确认、靠撤销条兜底，撤销条拆掉了）
       const ok = await confirm({
         message: isCn
-          ? `确定要删除 ${dateLabel} 的整场训练吗？`
+          ? `删除 ${dateLabel} 的整场训练？`
           : `Delete the entire workout from ${dateLabel}?`,
         danger: true,
         confirmLabel: isCn ? '删除' : 'Delete',
@@ -723,7 +694,7 @@ export function useWorkoutMutations({
         scheduleDebouncedFitlogPush();
 
         // 并到了哪一场在时间线上看不出来：说一声（点错了用顶栏的全局撤销）
-        const intoName = prev.title || (isCn ? '未命名训练' : 'Untitled');
+        const intoName = prev.title || (isCn ? '未命名训练' : 'Untitled workout');
         toast(isCn ? `已并入「${intoName}」` : `Merged into "${intoName}"`, 'info');
       } catch (err) {
         console.error('Merge workout failed:', err);
@@ -828,8 +799,8 @@ export function useWorkoutMutations({
       if ((currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
           message: isCn
-            ? '工作台里有未结束的训练，复制会替换它（已保存，可在时间线继续编辑）。'
-            : 'Copying replaces the unfinished workout on the bench (it is saved; edit it from the timeline).',
+            ? '有一场训练还没结束，复制会替换它（已保存，可在时间线继续编辑）。'
+            : 'A workout is still unfinished; copying replaces it (it is saved — edit it from the timeline).',
           confirmLabel: isCn ? '继续复制' : 'Copy anyway',
         });
         if (!ok) return null;
@@ -910,7 +881,7 @@ export function useWorkoutMutations({
         scheduleDebouncedFitlogPush();
       } catch (error) {
         console.error('Error deleting exercise record:', error);
-        toast(isCn ? '删除失败，请重试' : 'Delete failed, please try again', 'error');
+        toast(isCn ? '删除失败' : 'Delete failed', 'error');
       }
     },
     [handleDeleteWorkout, isCn, refreshFromDb, toast],
@@ -924,8 +895,8 @@ export function useWorkoutMutations({
       if (!editingWorkoutId && (currentWorkout.exercises?.length ?? 0) > 0) {
         const ok = await confirm({
           message: isCn
-            ? '工作台里有未结束的训练，从计划开始会替换它（已保存，可在时间线继续编辑）。'
-            : 'Starting the plan replaces the unfinished workout on the bench (it is saved; edit it from the timeline).',
+            ? '有一场训练还没结束，从计划开始会替换它（已保存，可在时间线继续编辑）。'
+            : 'A workout is still unfinished; starting the plan replaces it (it is saved — edit it from the timeline).',
           confirmLabel: isCn ? '继续' : 'Continue',
         });
         if (!ok) return null;
@@ -1265,7 +1236,6 @@ export function useWorkoutMutations({
   );
 
   return {
-    handleDiscardWorkout,
     switchExerciseVariant,
     saveStatus,
     editingWorkoutId,

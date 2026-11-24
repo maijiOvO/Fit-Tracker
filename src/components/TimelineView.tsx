@@ -346,7 +346,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
         active={press.pressing}
         hint={false}
         label={isCN ? '更多操作' : 'Actions'}
-        hintLabel={isCN ? '按住出菜单 · 点按看详情' : 'Hold for actions'}
+        hintLabel={isCN ? '按住出菜单' : 'Hold for actions'}
         drawMs={press.drawMs}
         placement="down"
       />
@@ -395,7 +395,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           <div className="flex items-center gap-2 min-w-0">
             {/* data-user-text：存下来的标题是数据（默认标题按结束时的语言生成），不随界面语言变 */}
             <h4 className="font-bold text-primary truncate" data-user-text={w.title ? '' : undefined}>
-              {w.title || (isCN ? '未命名训练' : 'Untitled')}
+              {w.title || (isCN ? '未命名训练' : 'Untitled workout')}
             </h4>
             {w.fromSchedule && (
               <span className="flex-none text-micro px-1.5 py-0.5 rounded-chip font-bold bg-accent-soft text-accent">
@@ -459,8 +459,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               data-testid="timeline-resume"
             >
               <Play size={16} strokeWidth={1.75} className="text-tertiary" />
-              <span className="flex-1">{isCN ? '继续这场' : 'Resume'}</span>
-              <span className="text-micro font-normal text-tertiary">{isCN ? '刚结束' : 'Just ended'}</span>
+              {isCN ? '继续这场' : 'Resume'}
             </button>
           )}
           <button
@@ -470,7 +469,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             onClick={() => runMenuAction(() => onEdit(undefined))}
           >
             <Edit2 size={16} strokeWidth={1.75} className="text-tertiary" />
-            {isCN ? '编辑这次训练' : 'Edit workout'}
+            {isCN ? '编辑这场' : 'Edit workout'}
           </button>
           <button
             type="button"
@@ -490,8 +489,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             onClick={() => runMenuAction(onCopy)}
           >
             <CopyPlus size={16} strokeWidth={1.75} className="text-tertiary" />
-            <span className="flex-1">{isCN ? '复制为今天的训练' : 'Copy to today'}</span>
-            <span className="text-micro font-normal text-tertiary">{isCN ? '作参考' : 'As reference'}</span>
+            {isCN ? '复制为今天的训练' : 'Copy to today'}
           </button>
           {/* 误结束拆场的事后补救：把这场并回紧邻的前一场。点了就并，手滑了用顶栏的全局撤销。 */}
           {canMerge && (
@@ -502,8 +500,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
               onClick={() => runMenuAction(onMerge)}
             >
               <Merge size={16} strokeWidth={1.75} className="text-tertiary" />
-              <span className="flex-1">{isCN ? '并入上一场' : 'Merge into previous'}</span>
-              <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+              {isCN ? '并入上一场' : 'Merge into previous'}
             </button>
           )}
           {/* §6.6：删除入口是墨色文字项，不靠颜色喊危险；点了先弹确认框（删整场是少数留确认的操作） */}
@@ -514,8 +511,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
             onClick={() => runMenuAction(onDelete)}
           >
             <Trash2 size={16} strokeWidth={1.75} className="text-tertiary" />
-            <span className="flex-1">{isCN ? '删除' : 'Delete'}</span>
-            <span className="text-micro font-normal text-tertiary">{isCN ? '可撤销' : 'Undoable'}</span>
+            {isCN ? '删除' : 'Delete'}
           </button>
         </div>
       )}
@@ -564,7 +560,7 @@ const SessionCard: React.FC<SessionCardProps> = ({
           })}
           {exerciseCount === 0 && (
             <div className="text-center text-xs text-tertiary py-2">
-              {isCN ? '这场训练还没有动作' : 'No exercises yet'}
+              {isCN ? '还没有动作' : 'No exercises yet'}
             </div>
           )}
           {/* 看得见的入口（审查 B4）：长按出菜单没人知道，展开之后给一颗按钮，开的是同一个菜单 */}

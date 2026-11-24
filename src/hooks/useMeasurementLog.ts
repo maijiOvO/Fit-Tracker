@@ -64,7 +64,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
   const handleSaveMeasurement = useCallback(async () => {
     const name = measureForm.name.trim();
     if (!name || !measureForm.value || !measureForm.date) {
-      toast(isCn ? '请填写完整信息' : 'Please fill in all fields', 'error');
+      toast(isCn ? '还没填完' : 'Some fields are empty', 'error');
       return;
     }
 

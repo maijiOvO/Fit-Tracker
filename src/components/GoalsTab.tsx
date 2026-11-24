@@ -70,8 +70,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
   return (
     <div className="space-y-5 anim-tab-enter">
       {/* 标题不写：上面的子页标签已经是「训练目标」。添加用次要样式，实色 ＋ 只留给右下角开练 */}
-      <div className="flex justify-between items-center gap-3">
-        <p className="text-secondary text-small">{translations.goalsSubtitle[lang]}</p>
+      <div className="flex justify-end items-center gap-3">
         {goals.length > 0 && addButton}
       </div>
 

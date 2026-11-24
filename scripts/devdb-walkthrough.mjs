@@ -90,7 +90,7 @@ await sheet.evaluate(() => document.querySelector('[data-testid="picker-sheet"] 
 for (const name of ['上斜哑铃卧推', '龙门架夹胸']) {
   await sheet.locator('[data-testid="picker-region-card"]', { hasText: name }).first().tap(); await sleep(400);
 }
-note('added pill', await sheet.locator('text=/本次已加/').first().innerText().catch(() => null));
+note('added pill', await sheet.locator('text=/已加/').first().innerText().catch(() => null));
 await shot('picked-two');
 await sheet.locator('[data-testid="picker-sheet-close"]').tap(); await sleep(700);
 await shot('bench');

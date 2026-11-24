@@ -523,7 +523,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
       {memberEx && memberFor && (
         <Panel
           title={resolveName(memberEx.name)}
-          subtitle={isCn ? `交替组里的第 ${idx(memberFor) + 1} 个 · 共 ${members.length} 个` : `${idx(memberFor) + 1} of ${members.length}`}
+          subtitle={isCn ? `第 ${idx(memberFor) + 1} 个 · 共 ${members.length} 个` : `${idx(memberFor) + 1} of ${members.length}`}
           onClose={() => setMemberFor(null)}
           cancel={isCn ? '取消' : 'Cancel'}
           testId="alt-member-panel"
@@ -585,7 +585,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
             }}
           >
             <SettingsIcon size={16} className="text-accent" />
-            {isCn ? '动作设置' : 'Settings'}
+            {isCn ? '动作设置' : 'Exercise settings'}
           </button>
           <button
             type="button"

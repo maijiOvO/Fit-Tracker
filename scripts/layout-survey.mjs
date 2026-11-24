@@ -171,7 +171,7 @@ for (const lang of LANGS) for (const unit of UNITS) for (const w of WIDTHS) {
     await page.mouse.wheel(0, 900); await snap('dashboard-scrolled');
     await page.locator('nav button', { hasText: /训练计划|Plan/ }).click(); await snap('plan');
     await page.locator('nav button', { hasText: /我的|Profile/ }).click(); await snap('profile');
-    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    await page.locator('nav button', { hasText: /个人记录|Records|Dashboard/ }).click();
     await page.waitForTimeout(300);
     const card = page.locator('[data-testid="timeline-session-w_fix_today"]');
     await card.scrollIntoViewIfNeeded();

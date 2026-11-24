@@ -42,7 +42,7 @@ export const FirstRunNotice: React.FC = () => {
       size="sm"
       showCloseButton={false}
       dismissOnScrim={false}
-      title={isCn ? '你的数据在你手里' : 'Your data stays with you'}
+      title={isCn ? '数据只存在这台手机上' : 'Your data lives on this phone only'}
       footer={
         <div className="space-y-2">
           <button onClick={dismiss} className="ui-btn-primary w-full py-3.5">
@@ -73,18 +73,18 @@ export const FirstRunNotice: React.FC = () => {
 
         <p>
           {isCn
-            ? '没有账号、没有联网权限（可在系统权限页核实），记录只存在这台手机上。'
-            : 'No account, no network permission (check system app permissions). Your logs stay on this phone.'}
+            ? '没有账号，也没有联网权限（系统权限页可查）。'
+            : 'No account and no network permission (see the system permissions page).'}
         </p>
         <p className="text-primary font-medium">
           {isCn
             ? '卸载或换手机，数据不会跟过去。'
-            : 'Uninstalling or switching phones will not carry your data over.'}
+            : 'Uninstalling or switching phones does not carry the data over.'}
         </p>
         <p>
           {isCn
-            ? '所以第一次练完会请你选一个备份文件夹，之后每次练完自动备份，重装后可恢复。也可在首选项导出 CSV。'
-            : 'So after your first workout you will pick a backup folder; every workout is backed up there and can be restored after reinstalling. CSV export is in Preferences.'}
+            ? '第一次练完会让你选备份文件夹，之后每次练完自动备份，重装可恢复。'
+            : 'After your first workout you pick a backup folder; every workout is then backed up there and can be restored after reinstalling.'}
         </p>
       </div>
     </Modal>

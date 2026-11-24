@@ -21,8 +21,8 @@ export function overwriteFailedText(e: unknown, isCn: boolean, what: { cn: strin
   return rolledBack
     ? isCn ? `${what.cn}失败，数据未改动` : `${what.en} failed, nothing changed`
     : isCn
-      ? `${what.cn}失败，部分数据可能已改动——请在首选项里点「撤销上次恢复、导入或重置」换回去`
-      : `${what.en} failed and some data may have changed — use "Undo last restore, import or reset" in Preferences`;
+      ? `${what.cn}失败，部分数据可能已改动，可在首选项「撤销上次恢复、导入或重置」换回去`
+      : `${what.en} failed and some data may have changed — "Undo last restore, import or reset" in Preferences puts it back`;
 }
 
 /** 覆盖恢复 / 重置的确认里那一句：工作台上有没结束的训练（或编辑旧训练没保存的改动）才说，它会跟着丢（2026-11-14 用户定） */

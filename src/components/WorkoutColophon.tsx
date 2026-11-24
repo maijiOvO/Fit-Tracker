@@ -242,10 +242,6 @@ export const WorkoutColophon: React.FC<Props> = ({
 
       {/* 付印：底部朱砂线从中心向两端展开 */}
       <span className="anim-press-line mt-12 h-px w-40 bg-accent" aria-hidden />
-
-      <p className="mt-4 text-micro text-tertiary">
-        {isCn ? '今天多记住了一点' : 'A little more remembered today'}
-      </p>
     </div>,
     document.body,
   );

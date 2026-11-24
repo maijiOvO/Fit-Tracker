@@ -36,9 +36,9 @@ export function openDataFlow(flow: DataFlow): void {
 export function backupErrorText(code: BackupErrorCode, isCn: boolean): string {
   switch (code) {
     case 'no-access':
-      return isCn ? '文件夹权限已失效，请重新选择' : 'Folder access was lost — choose it again';
+      return isCn ? '文件夹权限已失效，重新选择' : 'Folder access was lost — choose it again';
     case 'verify-failed':
-      return isCn ? '备份校验失败，这份备份不可用' : 'The written file did not read back correctly';
+      return isCn ? '备份校验失败，这份备份不可用' : 'Backup failed verification and cannot be used';
     case 'no-folder':
       return isCn ? '还没有选备份文件夹' : 'No backup folder chosen';
     case 'unsupported':
@@ -71,10 +71,10 @@ function useReportBackup(): (o: BackupOutcome) => void {
         toast(
           o.shrinkWarning
             ? isCn
-              ? `已备份 ${o.workouts} 次训练，比上次少很多，旧备份已保留`
-              : `Backed up (${o.workouts} workouts). Much fewer than last time — older backups kept`
+              ? `已备份 ${o.workouts} 场训练，比上次少很多，旧备份已保留`
+              : `Backed up ${o.workouts} workouts — far fewer than last time, older backups kept`
             : isCn
-              ? `已备份并核对：${o.workouts} 次训练`
+              ? `已备份并核对：${o.workouts} 场训练`
               : `Backed up and verified: ${o.workouts} workouts`,
           'success',
         );
@@ -103,7 +103,7 @@ export function useChooseBackupFolder(): () => Promise<boolean> {
       return false;
     }
     if (!f) {
-      toast(isCn ? '已取消，没有选文件夹' : 'Cancelled, no folder chosen', 'info');
+      toast(isCn ? '已取消' : 'Cancelled', 'info');
       return false;
     }
     setBackupFolder(f);
@@ -134,7 +134,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
     async (target: 'share' | 'folder') => {
       const done = workouts.filter(w => (w.exercises ?? []).length);
       if (!done.length) {
-        toast(isCn ? '还没有训练记录可以导出' : 'No workouts to export yet', 'info');
+        toast(isCn ? '没有可导出的训练' : 'No workouts to export', 'info');
         return;
       }
       const { text, rows } = buildWorkoutsCsv(done, {
@@ -153,8 +153,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
         fallbackUnit: unit,
       });
       const name = csvFileName(isCn);
-      const ok = isCn ? `已导出 ${rows} 组（${done.length} 次训练）` : `Exported ${rows} sets (${done.length} workouts)`;
-      const aiHint = isCn ? '，可直接发给 AI 分析' : ' — ready for AI analysis';
+      const ok = isCn ? `已导出 ${rows} 组（${done.length} 场训练）` : `Exported ${rows} sets (${done.length} workouts)`;
       try {
         if (target === 'folder') {
           const folder = getBackupFolder();
@@ -165,18 +164,18 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
           const w = await writeText(folder, name, text, 'text/csv');
           const back = await readText(w.uri);
           if (back.replace(/^﻿/, '') !== text.replace(/^﻿/, '')) {
-            toast(isCn ? 'CSV 写进去读回来对不上，请重试' : 'CSV did not read back correctly', 'error');
+            toast(isCn ? 'CSV 写入校验失败' : 'CSV failed verification after writing', 'error');
             return;
           }
-          toast(`${ok} → ${w.name ?? name}${aiHint}`, 'success');
+          toast(`${ok} → ${w.name ?? name}`, 'success');
           return;
         }
         const outcome = await saveTextFile(name, text, 'text/csv');
         if (outcome.kind === 'cancelled') {
-          toast(isCn ? '已取消，没有导出文件' : 'Cancelled, nothing exported', 'info');
+          toast(isCn ? '已取消' : 'Cancelled', 'info');
           return;
         }
-        toast(ok + aiHint, 'success');
+        toast(ok, 'success');
       } catch (e) {
         console.error('CSV export failed:', e);
         const msg = e instanceof FolderError ? backupErrorText(e.code === 'no-access' ? 'no-access' : 'write-failed', isCn) : '';

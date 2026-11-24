@@ -282,7 +282,6 @@ const AppWithAuthShell: React.FC = () => {
     dismissColophon,
     handleFinishWithConfirmation,
     changeWorkoutDate,
-    handleDiscardWorkout,
     handleEditWorkout,
     handleAddExerciseToPastWorkout,
     handleNewWorkoutBack,
@@ -340,7 +339,7 @@ const AppWithAuthShell: React.FC = () => {
       const make = await prepareCopyToToday(workoutId);
       if (!make) return;
       startAtGym(make, () =>
-        toast(isCn ? '已按这场填好参考——点组号照抄' : 'Filled in as reference — tap a set number to confirm', 'info'),
+        toast(isCn ? '已按这场填好参考' : 'Filled in from that workout as reference', 'info'),
       );
     },
     [isCn, prepareCopyToToday, startAtGym, toast],
@@ -541,8 +540,8 @@ const AppWithAuthShell: React.FC = () => {
       if (message) console.warn('[fitlog] push failed:', message);
       toast(
         isCn
-          ? '云端同步失败，改动先存在本机，联网后会自动补推'
-          : 'Sync failed — changes are kept on this device and will sync once online',
+          ? '同步失败，改动已存在本机，联网后自动补推'
+          : 'Sync failed — changes are saved on this device and will sync once online',
         'error',
       );
     };
@@ -1061,7 +1060,6 @@ const AppWithAuthShell: React.FC = () => {
         setNewExerciseEquip={setNewExerciseEquip}
         newExerciseRegions={newExerciseRegions}
         setNewExerciseRegions={setNewExerciseRegions}
-        addsTo={createdExerciseTargetRef.current === 'library' ? 'library' : createdExerciseTargetRef.current ? 'plan' : 'workout'}
         gym={createdExerciseTargetRef.current ? undefined : currentWorkout.gym}
         newExerciseRig={newExerciseRig}
         setNewExerciseRig={setNewExerciseRig}
@@ -1090,7 +1088,9 @@ const AppWithAuthShell: React.FC = () => {
                 ? clashName === newExerciseName.trim()
                   ? `已经有「${clashName}」了`
                   : `「${newExerciseName.trim()}」是「${clashName}」以前的名字`
-                : `"${newExerciseName.trim()}" is already taken`,
+                : clashName === newExerciseName.trim()
+                  ? `"${clashName}" already exists`
+                  : `"${newExerciseName.trim()}" is a former name of "${clashName}"`,
               'error',
             );
             return;
@@ -1206,7 +1206,6 @@ const AppWithAuthShell: React.FC = () => {
             getActiveMetrics={prefs.getActiveMetrics}
             onBack={handleNewWorkoutBack}
             onSave={() => void handleFinishWithConfirmation(false)}
-            onDiscard={() => void handleDiscardWorkout()}
             onToggleUnit={handleUnitToggle}
             pickerOpen={pickerSheetOpen}
             onPickerOpenChange={handlePickerSheetOpenChange}
@@ -1412,7 +1411,7 @@ const AppWithAuthShell: React.FC = () => {
             handleResetAccount();
           } else {
             toast(
-              isCn ? '请输入"重置"确认' : 'Please type "RESET" to confirm',
+              isCn ? '输入"重置"确认' : 'Type "RESET" to confirm',
               'error',
             );
           }
@@ -1507,7 +1506,7 @@ const AppWithAuthShell: React.FC = () => {
           toast(
             isCn
               ? isNew
-                ? `已存「${name}」，这场训练按它算`
+                ? `已存「${name}」，这场按它算`
                 : today
                   ? `「${name}」改好了：没做完的组按新档案重新取整`
                   : `「${name}」改好了（今天不在这个馆，不影响这场）`
@@ -1515,7 +1514,7 @@ const AppWithAuthShell: React.FC = () => {
                 ? `Saved "${name}" — this workout uses it`
                 : today
                   ? `"${name}" updated — unfinished sets re-rounded`
-                  : `"${name}" updated (not today's gym)`,
+                  : `"${name}" updated (not today's gym, this workout is unaffected)`,
             'success',
           );
         }}

@@ -72,7 +72,7 @@ export function useImportData(
         code === 'not-json'
           ? isCn ? '这不是一个 JSON 文件' : 'Not a JSON file'
           : code === 'newer-version'
-            ? isCn ? '这份备份来自更新版本的 App，请先升级' : 'This backup is from a newer version of the app — update first'
+            ? isCn ? '这份备份来自更新的版本，先升级 App' : 'This backup is from a newer version of the app — update first'
             : isCn ? '这不是 Fit Tracker 的备份文件' : 'Not a Fit Tracker backup';
       toast(why, 'error');
       return;
@@ -80,23 +80,23 @@ export function useImportData(
 
     const { counts } = parsed;
     const summary = isCn
-      ? `备份包含 ${counts.workouts} 次训练、${counts.weightLogs} 条体重、${counts.goals} 个目标、${counts.scheduledWorkouts} 条计划。`
+      ? `备份包含 ${counts.workouts} 场训练、${counts.weightLogs} 条体重、${counts.goals} 个目标、${counts.scheduledWorkouts} 条计划。`
       : `Backup has ${counts.workouts} workouts, ${counts.weightLogs} weight entries, ${counts.goals} goals, ${counts.scheduledWorkouts} scheduled.`;
     const legacyNote = parsed.legacy
       ? isCn
         ? '\n\n旧版文件不含训练计划，保留现有计划。'
-        : '\n\nOld-format file: your schedule is kept as it is.'
+        : '\n\nOld-format file has no schedule; yours is kept.'
       : '';
     // 确认弹窗是纯文本渲染（UiOverlayContext 里就是 <p>{message}</p>），
     // markdown 的 ** 会原样显示给用户。强调只能靠措辞，不能靠标记。
     const warning = isCn
-      ? '\n\n当前数据将被整体替换（不是合并），导入前自动存可撤销副本。'
-      : '\n\nThis replaces your current data entirely — it does not merge. An undoable copy is saved first.';
+      ? '\n\n当前数据会被整份替换，不合并（先自动存可撤销副本）。'
+      : '\n\nThis replaces your current data entirely, no merge (an undoable copy is saved first).';
 
     const go = await confirm({
-      title: isCn ? '用备份覆盖当前数据？' : 'Restore from backup?',
+      title: isCn ? '用备份覆盖当前数据？' : 'Replace current data with the backup?',
       message: summary + legacyNote + warning + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
-      confirmLabel: isCn ? '覆盖恢复' : 'Restore',
+      confirmLabel: isCn ? '覆盖' : 'Replace',
       danger: true,
     });
     if (!go) return;
@@ -127,7 +127,7 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
     const go = await confirm({
       title: isCn ? '撤销上次恢复、导入或重置？' : 'Undo last restore, import or reset?',
       message:
-        (isCn ? '回到恢复 / 导入 / 重置之前的样子，仅能撤销一次。' : 'Go back to how things were before. Works only once.') +
+        (isCn ? '回到恢复 / 导入 / 重置之前的样子，只能撤销一次。' : 'Go back to how things were before the restore / import / reset. Works only once.') +
         (newer > 0
           ? isCn
             ? `\n\n之后新记的 ${newer} 场训练也会一起丢掉。`

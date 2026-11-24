@@ -119,7 +119,7 @@ async function acceptAppConfirm(page) {
   await dlg.waitFor({ state: 'visible', timeout: 5_000 });
   await dlg
     .locator('button')
-    .filter({ hasText: /^(确定|OK|保存|Save|Delete|删除|结束训练|End Workout)$/ })
+    .filter({ hasText: /^(确定|OK|保存|Save|Delete|删除|结束训练|End workout)$/ })
     .last()
     .click();
   await dlg.waitFor({ state: 'detached', timeout: 5_000 });
@@ -168,7 +168,7 @@ async function pickStartGym(page, name = 'E2E Gym') {
 
 /**
  * 离开工作台并结束这场：按返回只离开页面、工作台原样留着（首页顶上「进行中」），
- * 再从首页「进行中 → 结束」：一组都没做完＝放弃；有改过数的组＝按做完入册（出刊末页，点掉）。
+ * 再从首页「进行中 → 结束」：一组都没做完＝放弃；有数的组会入册（出刊末页，点掉），入了册的那场再从时间线删掉。
  */
 async function backAndDiscard(page) {
   await page.getByLabel(/^返回$|^Back$/).first().click();
@@ -180,20 +180,26 @@ async function backAndDiscard(page) {
   const row = page.locator('[data-testid="in-progress"]');
   // 返回落在来源页（比如计划页）时，「进行中」那一行在首页：去首页找
   if (!(await row.isVisible().catch(() => false))) {
-    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    await page.locator('nav button', { hasText: /个人记录|Records|Dashboard/ }).click();
   }
   // 空的新训练返回就没了，不留「进行中」：首页画好（底栏在）之后看一眼就够
-  // 有数的组结束时都入册（D3），首页「结束」会把这场记进历史、污染后面的用例：接回训练，用卡片列表最下面的「放弃这场」
+  // 有数的组结束时都入册（D3），会留在历史里污染后面的用例。训练页没有「放弃这场」了（2026-11-23）：
+  // 从首页结束，入了册的那场（时间线上新冒出来的那张卡）再走长按菜单删掉
   if (await row.waitFor({ state: 'visible', timeout: 1_000 }).then(() => true, () => false)) {
-    await row.locator('button').first().click();
-    await page.locator('[data-testid="discard-workout"]').click();
-    const dlg = page.locator('[role="dialog"]');
-    await dlg.waitFor({ state: 'visible', timeout: 5_000 });
-    await dlg.locator('button').filter({ hasText: /^(放弃|Discard)$/ }).last().click();
-    await dlg.waitFor({ state: 'detached', timeout: 5_000 });
-    await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
-    if (!(await row.isVisible().catch(() => false))) {
-      await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    const cardIds = () =>
+      page.locator('[data-testid^="timeline-session-"]').evaluateAll(els => els.map(e => e.getAttribute('data-testid')).filter(t => t !== 'timeline-session-menu'));
+    const before = new Set(await cardIds());
+    await page.locator('[data-testid="in-progress-end"]').click();
+    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End workout)$/);
+    const colo = page.locator('[data-testid="workout-colophon"]');
+    if (await colo.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true, () => false)) {
+      await colo.click();
+      await colo.waitFor({ state: 'detached', timeout: 3_000 });
+      const fresh = page.locator('[data-testid^="timeline-session-"]:not([data-testid="timeline-session-menu"])' + [...before].map(t => `:not([data-testid="${t}"])`).join(''));
+      await fresh.first().waitFor({ state: 'visible', timeout: 5_000 });
+      await sessionMenu(page, fresh.first(), /^(删除|Delete)$/);
+      await acceptAppConfirm(page);
+      await fresh.first().waitFor({ state: 'detached', timeout: 3_000 });
     }
     await row.waitFor({ state: 'detached', timeout: 3_000 });
   }
@@ -232,11 +238,11 @@ async function resetHome(page) {
   if (await page.locator('[data-testid="ledger-field-weight"], [data-testid="open-picker-sheet"]').first().isVisible().catch(() => false)) {
     await backAndDiscard(page);
   }
-  await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+  await page.locator('nav button', { hasText: /个人记录|Records|Dashboard/ }).click();
   const row = page.locator('[data-testid="in-progress"]');
   if (await row.isVisible().catch(() => false)) {
     await page.locator('[data-testid="in-progress-end"]').click();
-    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End Workout)$/);
+    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End workout)$/);
     if (await colo.isVisible().catch(() => false)) await colo.click();
   }
 }
@@ -513,7 +519,7 @@ async function openSeeded(browser, escapedRemoteCalls, tag) {
   const card = id => page.locator(`[data-testid="timeline-session-${id}"]`);
   // 种子里的 W_HEAT 全程都在：它出现＝首页（时间线）画好了
   const toDashboard = async () => {
-    await page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+    await page.locator('nav button', { hasText: /个人记录|Records|Dashboard/ }).click();
     await card(W_HEAT.id).waitFor({ state: 'visible', timeout: 5_000 });
   };
   /**
@@ -598,13 +604,13 @@ const SEEDED = {
     if (got.join(',') !== '1,2,3') throw new Error(`set numbers ${JSON.stringify(got)}, expected 1,2,3`);
     await card(W_HEAT.id).click(); // 收起
 
-    const editPage = page.locator('text=/编辑训练|Edit Workout/');
+    const editPage = page.locator('text=/编辑训练|Edit workout/');
     const dirty = page.locator('[data-testid="edit-dirty"]');
     const save = page.locator('[data-testid="finish-button"]');
     const reps0 = () => page.locator('.ledger-row').first().locator('[data-testid="ledger-field-reps"] input');
     const repsInDb = async () => (await remoteWorkout(W_DATE.id))?.exercises?.[0]?.sets?.[0]?.reps;
     const openEdit = async () => {
-      await menuOn(W_DATE.id, /编辑这次训练|Edit/);
+      await menuOn(W_DATE.id, /编辑这场|Edit/);
       await editPage.first().waitFor({ timeout: 5_000 });
     };
 
@@ -612,7 +618,7 @@ const SEEDED = {
     await page.getByTitle(/修改训练日期|Change workout date/).click();
     const dlg = page.locator('[role="dialog"]');
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
-    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await dlg.getByRole('button', { name: /^(确定|OK)$/ }).click();
     // 「确定」在同一个处理函数里写日期、关弹窗：弹窗没了时「已修改」该亮早就亮了
     await dlg.waitFor({ state: 'detached', timeout: 3_000 });
     if (await dirty.count()) throw new Error('confirming the untouched date picker changed the workout (edit shows 已修改)');
@@ -878,10 +884,10 @@ const SEEDED = {
     await dismissToasts();
     await search.fill('');
     await search.fill('E2E自建甲');
-    await sheet.getByRole('button', { name: /没找到？创建「E2E自建甲」/ }).click();
+    await sheet.getByRole('button', { name: /创建「E2E自建甲」/ }).click();
     const dlg = page.locator('[role="dialog"]').filter({ has: page.locator('input') }).last();
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
-    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await dlg.getByRole('button', { name: /^(确定|OK)$/ }).click();
     // 建好＝弹窗关掉；被拒的话弹窗留着
     await dlg.waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
     if (await dlg.isVisible().catch(() => false)) throw new Error('create with a deleted name was refused');
@@ -964,10 +970,10 @@ const SEEDED = {
     if ((await rows.count()) !== 2) throw new Error(`tapping 哈克深蹲 again should cancel it, got ${await rows.count()} rows`);
     const newName = 'E2E计划新动作';
     await search.fill(newName);
-    await sheet.getByRole('button', { name: new RegExp(`没找到？创建「${newName}」`) }).click();
+    await sheet.getByRole('button', { name: new RegExp(`创建「${newName}」`) }).click();
     const dlg = page.locator('[role="dialog"]').filter({ has: page.locator('input') }).last();
     await dlg.waitFor({ state: 'visible', timeout: 3_000 });
-    await dlg.getByRole('button', { name: /^(确定|Confirm)$/ }).click();
+    await dlg.getByRole('button', { name: /^(确定|OK)$/ }).click();
     await until(async () => (await rows.count()) === 3, 'the created exercise to join the plan').catch(() => {});
     if (!(await rows.nth(2).locator('[data-testid="schedule-exercise-name"]').inputValue()).includes(newName)) throw new Error('created exercise did not join the plan');
     await page.locator('[data-testid="picker-done"]').click();
@@ -1025,7 +1031,7 @@ const SEEDED = {
     await addExercise('杠铃平板卧推');
     await page.locator('.ledger-row').first().waitFor({ state: 'visible', timeout: 3_000 });
     for (let n = (await weights()).length; n < 3; n++) {
-      await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
+      await page.getByRole('button', { name: /^\+?\s*添加组$|Add set/ }).first().click();
       await until(async () => (await weights()).length > n, 'the added set row');
     }
     const w0 = await weights();
@@ -1223,7 +1229,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await window.__fitlog.flush();
       return window.__fitlog.fetchRemote();
     });
-  const toDashboard = () => page.locator('nav button', { hasText: /个人记录|PR Hub|Dashboard/ }).click();
+  const toDashboard = () => page.locator('nav button', { hasText: /个人记录|Records|Dashboard/ }).click();
   const newWorkoutPage = page.locator('[data-testid="finish-button"]');
   /** plan-to-linked-workout 落下的那场训练，时间线那条拿它当靶子 */
   let finishedWorkoutId = null;
@@ -1433,7 +1439,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (Math.abs(w1 - want) > 0.011) throw new Error(`+ went ${w0} → ${w1}, want ${want}`);
 
       const n0 = await rows.count();
-      await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
+      await page.getByRole('button', { name: /^\+?\s*添加组$|Add set/ }).first().click();
       await until(async () => (await rows.count()) > n0, 'the added set row');
       const row1 = rows.nth(1);
       if ((await cls(row1)).includes('is-inked')) throw new Error('a freshly added set started as done');
@@ -1515,7 +1521,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.keyboard.type('60');
       await page.keyboard.press('Enter');
       await settle();
-      await page.getByRole('button', { name: /^\+?\s*添加组$|Add Set/ }).first().click();
+      await page.getByRole('button', { name: /^\+?\s*添加组$|Add set/ }).first().click();
       await settle();
       await rows.first().locator('.set-num').click();
       await settle();

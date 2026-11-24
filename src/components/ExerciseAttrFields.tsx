@@ -149,7 +149,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
   return (
     <div className="space-y-3" data-testid={testId}>
       {!variant && shows('category') && (
-        <div className="flex gap-2" role="group" aria-label={isCn ? '训练类型' : 'Category'}>
+        <div className="flex gap-2" role="group" aria-label={isCn ? '训练类型' : 'Type'}>
           {(['STRENGTH', 'CARDIO', 'FREE'] as ExerciseCategory[]).map(cat => (
             <button
               key={cat}
@@ -241,7 +241,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
                           commitNewEquip();
                         }
                       }}
-                      placeholder={isCn ? '器材名称，如：史密斯' : 'Gear name'}
+                      placeholder={isCn ? '器材名称' : 'Gear name'}
                       aria-label={isCn ? '新器材名称' : 'New gear name'}
                       autoFocus
                     />

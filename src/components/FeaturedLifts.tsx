@@ -138,7 +138,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
         >
           <span className="font-semibold text-primary">{isCn ? '特别关注' : 'Spotlight'}</span>
           <span className="mx-2">·</span>
-          {isCn ? '挑几个动作放这里看成绩' : 'Pick the lifts you care about most'}
+          {isCn ? '还没选动作' : 'No lifts picked'}
         </button>
         <FeaturedEditor
           open={editing}
@@ -186,14 +186,14 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
           <div className="flex items-baseline gap-2">
             <span className="font-mono font-bold text-3xl leading-none text-primary tabular-nums">{toUnit(total.now)}</span>
             <span className="text-small text-secondary">
-              {unit} · {mode === 'e1rm' ? (isCn ? '三项 1RM 总和' : 'Big 3 est. 1RM total') : isCn ? '三项总和' : 'Big 3 total'}
+              {unit} · {mode === 'e1rm' ? (isCn ? '三项估算 1RM 总和' : 'Big 3 est. 1RM total') : isCn ? '三项总和' : 'Big 3 total'}
             </span>
           </div>
           {(total.ratio || total.pastTotal) && (
             <div className="text-xs text-secondary mt-1.5">
               {total.ratio && (isCn ? `体重的 ${trimNum(total.ratio)} 倍` : `${trimNum(total.ratio)}× bodyweight`)}
               {total.ratio && total.pastTotal && <span className="mx-1">·</span>}
-              {total.pastTotal && (isCn ? `半年前是 ${toUnit(total.pastTotal)} ${unit}` : `${toUnit(total.pastTotal)} ${unit} six months ago`)}
+              {total.pastTotal && (isCn ? `半年前 ${toUnit(total.pastTotal)} ${unit}` : `${toUnit(total.pastTotal)} ${unit} six months ago`)}
             </div>
           )}
         </div>

@@ -26,13 +26,13 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
     <Modal
       isOpen={open && !!editingGoal}
       onClose={onCancel}
-      title={isCn ? '编辑目标' : 'Edit Goal'}
+      title={isCn ? '编辑目标' : 'Edit goal'}
       size="sm"
       dismissOnScrim={false}
       footer={
         <ModalFooter
           cancelLabel={isCn ? '取消' : 'Cancel'}
-          confirmLabel={isCn ? '保存更改' : 'Save Changes'}
+          confirmLabel={isCn ? '保存' : 'Save'}
           onCancel={onCancel}
           onConfirm={onSave}
         />
@@ -110,7 +110,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
 
           <div className="flex items-center justify-between px-4 py-3 bg-inset border border-divider rounded-control">
             <span className="text-body font-medium text-primary">
-              {isCn ? '目标状态' : 'Goal Status'}
+              {isCn ? '状态' : 'Status'}
             </span>
             <button
               type="button"
@@ -121,7 +121,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
               role="switch"
               aria-checked={!!editingGoal.isActive}
             >
-              {editingGoal.isActive ? (isCn ? '活跃' : 'Active') : isCn ? '暂停' : 'Paused'}
+              {editingGoal.isActive ? (isCn ? '进行中' : 'Active') : isCn ? '暂停' : 'Paused'}
             </button>
           </div>
         </div>

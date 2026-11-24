@@ -30,7 +30,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({ open, lang, data, setData,
     <Modal
       isOpen={open && !!data}
       onClose={onClose}
-      title={isCn ? '动作备注' : 'Exercise Note'}
+      title={isCn ? '动作备注' : 'Exercise note'}
       subtitle={data?.name}
       size="sm"
       // 从计划编辑器的选动作弹层（modal-2）里也会打开
@@ -61,7 +61,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({ open, lang, data, setData,
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-label text-secondary">{isCn ? '通用（哪个馆都显示）' : 'Everywhere'}</span>
+            <span className="text-label text-secondary">{isCn ? '通用（哪个馆都显示）' : 'General (shown at every gym)'}</span>
             <textarea
               className="ui-input min-h-[80px] resize-none"
               placeholder={isCn ? '例如：激活背阔，单侧重量' : 'E.g. Engage lats, weight per side'}

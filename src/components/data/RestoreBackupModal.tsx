@@ -168,7 +168,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     if (e.parsed) {
       setSel(i);
       setShowList(false);
-    } else toast(t('这份文件读不出来，换一份', 'Could not read that file'), 'error');
+    } else toast(t('这份文件读不出来，换一份', 'Could not read that file — pick another'), 'error');
   };
 
   const cur = entries[sel];
@@ -179,12 +179,12 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     if (!parsed || !folder) return;
     if (mode === 'overwrite' && localHas) {
       const go = await confirm({
-        title: t('用备份覆盖当前数据？', 'Replace current data?'),
+        title: t('用备份覆盖当前数据？', 'Replace current data with the backup?'),
         message: t(
-          `现有 ${workouts.length} 次训练将被备份整体替换，恢复前自动存可撤销副本。`,
-          `Your current ${workouts.length} workouts will be replaced. An undoable copy is saved first.`,
+          `现有 ${workouts.length} 场训练会被备份整份替换（先自动存可撤销副本）。`,
+          `Your current ${workouts.length} workouts will be replaced by the backup (an undoable copy is saved first).`,
         ) + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
-        confirmLabel: t('覆盖恢复', 'Replace'),
+        confirmLabel: t('覆盖', 'Replace'),
         danger: true,
       });
       if (!go) return;
@@ -199,7 +199,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
       setBackupFolder(folder);
       markBackupPending();
       setFlash(
-        t(`已恢复：${parsed.counts.workouts} 次训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn),
+        t(`已恢复：${parsed.counts.workouts} 场训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn),
         'success',
       );
       window.location.reload();
@@ -230,7 +230,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
           <p className="flex items-center gap-2 py-6 justify-center">
             <RefreshCw size={16} className="animate-spin" />
             {phase.kind === 'picking'
-              ? t('在系统窗口里选「文档/fitlog」，点「使用此文件夹」', 'Pick Documents/fitlog in the system window')
+              ? t('在系统窗口里选「文档/fitlog」，点「使用此文件夹」', 'Pick Documents/fitlog in the system window, then tap "Use this folder"')
               : phase.kind === 'applying'
                 ? t('正在恢复…', 'Restoring…')
                 : t('正在读取备份…', 'Reading backups…')}
@@ -240,7 +240,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
         {phase.kind === 'none' && (
           <>
             <p data-testid="restore-none">
-              {t(`「${where}」里没有找到能用的备份。`, `No usable backup found in "${where}".`)}
+              {t(`「${where}」里没有能用的备份`, `No usable backup in "${where}"`)}
             </p>
             <button type="button" className="ui-btn-secondary w-full py-3 flex items-center justify-center gap-2" onClick={() => void choose()}>
               <FolderOpen size={18} strokeWidth={1.75} className="text-accent" />
@@ -262,15 +262,15 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
           <>
             <div className="ui-card p-4 space-y-1" data-testid="restore-summary">
               <p className="text-primary font-semibold text-base">
-                {t(`找到备份：${parsed.counts.workouts} 次训练`, `Found: ${parsed.counts.workouts} workouts`)}
+                {t(`找到备份：${parsed.counts.workouts} 场训练`, `Found: ${parsed.counts.workouts} workouts`)}
               </p>
-              {last && <p>{t(`最后一次训练 ${fmtDay(last)}`, `Last workout ${fmtDay(last)}`)}</p>}
+              {last && <p>{t(`最后一场 ${fmtDay(last)}`, `Last workout ${fmtDay(last)}`)}</p>}
               <p className="text-tertiary text-xs">
                 {t('备份于 ', 'Backed up ') + fmtTime(cur.exportedAt ?? cur.at)} · {where}
               </p>
-              {cur.dev && <p className="text-danger text-xs">{t('这是测试数据环境的备份', 'This is a dev-environment backup')}</p>}
+              {cur.dev && <p className="text-danger text-xs">{t('这是开发环境的备份', 'This is a dev-environment backup')}</p>}
               {parsed.legacy && (
-                <p className="text-xs">{t('旧版文件不含训练计划，保留现有计划。', 'Old-format file: your schedule is kept as it is.')}</p>
+                <p className="text-xs">{t('旧版文件不含训练计划，保留现有计划。', 'Old-format file has no schedule; yours is kept.')}</p>
               )}
             </div>
 
@@ -293,7 +293,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
                         {e.dev && <span className="text-danger"> · dev</span>}
                       </span>
                       <span className="text-tertiary">
-                        {e.bad ? t('读不出', 'unreadable') : e.parsed ? t(`${e.parsed.counts.workouts} 次`, `${e.parsed.counts.workouts}`) : `${Math.round(e.file.size / 1024)} KB`}
+                        {e.bad ? t('读不出', 'unreadable') : e.parsed ? t(`${e.parsed.counts.workouts} 场`, `${e.parsed.counts.workouts} workouts`) : `${Math.round(e.file.size / 1024)} KB`}
                       </span>
                     </button>
                   </li>
@@ -308,7 +308,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
             ) : (
               <div className="space-y-2">
                 <p className="text-xs">
-                  {t(`这台手机上已经有 ${workouts.length} 次训练。`, `This phone already has ${workouts.length} workouts.`)}
+                  {t(`这台手机上已经有 ${workouts.length} 场训练。`, `This phone already has ${workouts.length} workouts.`)}
                 </p>
                 {!parsed.legacy && (
                   <button type="button" className="ui-btn-primary w-full py-3.5" onClick={() => void apply('merge')} data-testid="restore-merge">

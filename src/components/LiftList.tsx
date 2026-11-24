@@ -68,7 +68,7 @@ export const LiftList: React.FC<LiftListProps> = ({
               type="button"
               onClick={() => setQuery('')}
               className="absolute right-1 top-1/2 mt-1 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-tertiary"
-              aria-label={isCn ? '清空' : 'Clear'}
+              aria-label={isCn ? '清除搜索' : 'Clear search'}
             >
               <X size={15} />
             </button>

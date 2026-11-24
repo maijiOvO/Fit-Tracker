@@ -77,7 +77,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
     <Modal
       isOpen
       onClose={onClose}
-      title={lang === Language.CN ? '选择日期和时间' : 'Select Date & Time'}
+      title={lang === Language.CN ? '选择日期和时间' : 'Select date & time'}
       size="md"
       layer="modal-2"
       dismissOnScrim={false}
@@ -85,7 +85,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
       footer={
         <ModalFooter
           cancelLabel={lang === Language.CN ? '取消' : 'Cancel'}
-          confirmLabel={lang === Language.CN ? '确定' : 'Confirm'}
+          confirmLabel={lang === Language.CN ? '确定' : 'OK'}
           onCancel={onClose}
           onConfirm={handleConfirm}
         />
@@ -219,14 +219,14 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
               },
             },
             {
-              label: lang === Language.CN ? '早上8点' : '8:00 AM',
+              label: lang === Language.CN ? '早上 8 点' : '8:00 AM',
               action: () => {
                 setSelectedHour(8);
                 setSelectedMinute(0);
               },
             },
             {
-              label: lang === Language.CN ? '晚上6点' : '6:00 PM',
+              label: lang === Language.CN ? '晚上 6 点' : '6:00 PM',
               action: () => {
                 setSelectedHour(18);
                 setSelectedMinute(0);

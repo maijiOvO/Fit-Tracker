@@ -146,7 +146,7 @@ export async function runBackup(browser, plan) {
       await reloadAndSettle(page);
       const n0 = await page.evaluate(async () => (await window.__t.snap()).workouts.length);
       if (n0 !== 0) throw new Error(`after uninstall there are still ${n0} workouts`);
-      // 空库首页的「从备份恢复」→ 读到文件夹里那份 → 覆盖恢复（整页重载）
+      // 空库首页的「从备份恢复」→ 读到文件夹里那份 → 覆盖（整页重载）
       await page.locator('[data-testid="empty-restore"]').click({ timeout: 10_000 });
       await page.locator('[data-testid="restore-summary"]').waitFor({ timeout: 10_000 });
       await page.locator('[data-testid="restore-apply"]').click();

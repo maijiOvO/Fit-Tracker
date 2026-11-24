@@ -32,7 +32,7 @@ export const WeightInputModal: React.FC<WeightInputModalProps> = ({
     <Modal
       isOpen={open}
       onClose={onClose}
-      title={editingWeightId ? (isCn ? '编辑体重记录' : 'Edit Weight Entry') : translations.logWeight[lang]}
+      title={editingWeightId ? (isCn ? '修改体重' : 'Edit weight') : translations.logWeight[lang]}
       size="sm"
       dismissOnScrim={false}
       footer={

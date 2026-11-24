@@ -87,7 +87,7 @@ export const DataSafetyHost: React.FC = () => {
         size="sm"
         dismissOnScrim={false}
         showCloseButton={false}
-        title={t('让记录卸载也不丢？', 'Keep your log safe from uninstalls?')}
+        title={t('开启自动备份？', 'Turn on auto backup?')}
         testId="backup-setup-modal"
         footer={
           <div className="space-y-2">
@@ -118,14 +118,14 @@ export const DataSafetyHost: React.FC = () => {
           </div>
           <p>
             {t(
-              '选一个文件夹，每次练完自动备份到这里。卸载后文件仍在，重装可恢复。',
-              'Pick a folder; every workout is backed up there. Files survive uninstalling and restore after reinstalling.',
+              '每次练完自动备份到你选的文件夹，卸载后文件还在，重装可恢复。',
+              'Every workout is backed up to the folder you pick. The files survive uninstalling and can be restored after reinstalling.',
             )}
           </p>
           <p>
             {t(
-              '系统窗口打开后，直接点「使用此文件夹」即可。',
-              'In the system window, just tap "Use this folder".',
+              '在系统窗口里点「使用此文件夹」。',
+              'In the system window, tap "Use this folder".',
             )}
           </p>
         </div>

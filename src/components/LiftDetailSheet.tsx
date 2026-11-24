@@ -261,8 +261,8 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
         <p className="text-micro font-normal text-tertiary mt-1 leading-snug">
           {isCn
             ? '线：历史最好 · 点：每场最好 · 实心：破纪录'
-            : 'Line: all-time best · Dots: best set each session · Filled: new record'}
-          {metric === E1RM && (isCn ? ` · 仅算 ${E1RM_MAX_REPS} 次以内` : ` · Est. 1RM uses sets of ≤${E1RM_MAX_REPS} reps`)}
+            : 'Line: all-time best · Dot: session best · Filled: PR'}
+          {metric === E1RM && (isCn ? ` · 仅算 ${E1RM_MAX_REPS} 次以内` : ` · sets of ≤${E1RM_MAX_REPS} reps only`)}
         </p>
       </div>
 

@@ -42,7 +42,7 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
       // 标题说清这一下是在干什么：改哪个指标的旧记录 / 给哪个指标记一条 / 建新指标
       title={
         editingMeasurementId
-          ? isCn ? `修改${measureForm.name}记录` : `Edit ${measureForm.name}`
+          ? isCn ? `修改${measureForm.name}` : `Edit ${measureForm.name}`
           : nameFixed
             ? isCn ? `记录${measureForm.name}` : `Log ${measureForm.name}`
             : isCn ? '新指标' : 'New Metric'
@@ -64,12 +64,12 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
       <div className="space-y-4">
         {!nameFixed && (
           <div>
-            <span className={label}>{isCn ? '指标名称（如：腰围）' : 'Metric Name (e.g. Waist)'}</span>
+            <span className={label}>{isCn ? '指标名称' : 'Metric name'}</span>
             <input
               className="ui-input"
               value={measureForm.name}
               onChange={e => setMeasureForm({ ...measureForm, name: e.target.value })}
-              placeholder={isCn ? '输入名称...' : 'Enter name...'}
+              placeholder={isCn ? '如：腰围' : 'e.g. Waist'}
               data-testid="measure-name"
             />
           </div>
@@ -119,7 +119,7 @@ export const MeasurementModal: React.FC<MeasurementModalProps> = ({
             className="tap-44 flex items-center gap-1.5 text-small font-medium text-danger"
             data-testid="measure-delete"
           >
-            <Trash2 size={14} /> {isCn ? '删除这条记录' : 'Delete entry'}
+            <Trash2 size={14} /> {isCn ? '删除这条' : 'Delete entry'}
           </button>
         )}
       </div>

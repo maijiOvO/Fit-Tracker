@@ -154,9 +154,6 @@ const Dashboard: React.FC<DashboardProps> = ({
         <h2 className="font-display text-display-sm text-primary mb-3">
           {translations.dashboardEmptyTitle[lang]}
         </h2>
-        <p className="text-secondary max-w-sm leading-relaxed text-base mb-10">
-          {translations.dashboardEmptyDesc[lang]}
-        </p>
         <button onClick={actions.onStartNewWorkout} className="ui-btn-secondary flex items-center gap-2 px-6 py-3">
           <PlusCircle size={22} strokeWidth={1.75} />
           {translations.newWorkout[lang]}
@@ -184,9 +181,9 @@ const Dashboard: React.FC<DashboardProps> = ({
             <span className="flex-1 min-w-0">
               <span className="block text-label font-semibold text-accent">{isCn ? '进行中' : 'In progress'}</span>
               <span className="block font-semibold text-primary truncate">
-                {inProgress.title || (isCn ? '未命名训练' : 'Untitled')}
+                {inProgress.title || (isCn ? '未命名训练' : 'Untitled workout')}
                 <span className="font-mono text-label text-tertiary tabular-nums ml-2">
-                  {inProgress.exercises.length} {isCn ? '动作' : 'ex'} · {inProgressDone} {isCn ? '组' : plural(inProgressDone, 'set')}
+                  {inProgress.exercises.length} {isCn ? '动作' : 'ex.'} · {inProgressDone} {isCn ? '组' : plural(inProgressDone, 'set')}
                 </span>
               </span>
             </span>
@@ -215,9 +212,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           <span className="flex-1 min-w-0">
             <span className="block text-label font-semibold text-accent">{isCn ? '今天的计划' : "Today's plan"}</span>
             <span className="block font-semibold text-primary truncate">
-              {s.title || (isCn ? '未命名训练' : 'Untitled session')}
+              {s.title || (isCn ? '未命名训练' : 'Untitled workout')}
               <span className="font-mono text-label text-tertiary tabular-nums ml-2">
-                {s.exercises.length} {isCn ? '动作' : 'ex'}
+                {s.exercises.length} {isCn ? '动作' : 'ex.'}
               </span>
             </span>
           </span>
@@ -295,7 +292,7 @@ const Dashboard: React.FC<DashboardProps> = ({
             <div className="mt-6 space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pt-4 border-t border-divider">
               <h4 className="ui-section-label flex items-center gap-2 mb-2">
                 <History size={12} strokeWidth={1.75} />
-                {lang === Language.CN ? '历史体重记录' : 'Weight History'} ({weightEntries.length})
+                {lang === Language.CN ? '体重记录' : 'Weight history'} ({weightEntries.length})
               </h4>
               {weightEntries.map(entry => (
                 <div

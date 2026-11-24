@@ -199,7 +199,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
     <div className="w-full h-[220px] relative" data-testid="lift-trend-chart">
       {inWindow.length === 0 && (
         <p className="absolute inset-x-0 top-1 text-label text-tertiary text-center pointer-events-none">
-          {isCn ? '这段时间没练过，线是之前的纪录' : 'No sessions in this range'}
+          {isCn ? '这段时间没练过，线是之前的纪录' : 'No sessions in this range; the line is the earlier record'}
         </p>
       )}
       <ResponsiveContainer width="100%" height="100%">

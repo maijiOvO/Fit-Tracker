@@ -384,7 +384,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({
           aria-label={
             resume
               ? isCn ? '回到训练' : 'Resume workout'
-              : isCn ? '开始训练（按住可直接选部位）' : 'Start workout (hold to pick a body part)'
+              : isCn ? '开始训练' : 'Start workout'
           }
           style={{ touchAction: 'none' }}
           className={`absolute left-[12.5%] -translate-x-1/2 -top-5 w-14 h-14 rounded-full text-on-accent bg-accent shadow-elevated ring-4 ring-base flex items-center justify-center active:scale-press-sm transition-transform ${

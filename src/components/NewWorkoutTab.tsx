@@ -79,8 +79,6 @@ export interface NewWorkoutTabProps {
   resolveName: (name: string) => string;
   onBack: () => void;
   onSave: () => void;
-  /** 放弃这场（问一句再删）：做过组之后也能放弃 */
-  onDiscard: () => void;
   /** kg ⇄ lbs 显示切换（训练页隐藏了全局 AppHeader，入口在本页头部） */
   onToggleUnit: () => void;
   onOpenTimePicker: (exIdx: number, setIdx: number) => void;
@@ -145,7 +143,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   resolveName,
   onBack,
   onSave,
-  onDiscard,
   onToggleUnit,
   onOpenTimePicker,
   onOpenExerciseTime,
@@ -617,7 +614,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             <div className={`flex ${editingWorkoutId ? 'flex-wrap' : ''} items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap`}>
               {/* 「新建训练」字样拿掉了（2026-10-25）：顶栏要给撤销 / 重做让一列，训练页本身就说明了是新的一场；
                   编辑旧训练还写「编辑训练」—— 那时保存语义不一样，得看得出来 */}
-              {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit Workout'}</span>}
+              {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit workout'}</span>}
               {/* 训练中也能改：忘了记、回头补录就把这场挪到那天（补录不新开首页入口，D2） */}
               {!!currentWorkout.id && (
                 <button
@@ -745,7 +742,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                     : endArmed
                       // 和「结束训练」等字数：上膛这一下按钮不能变宽，否则挤动整个头部
                       ? isCn ? '确认结束' : 'Confirm end'
-                      : isCn ? '结束训练' : 'End Workout'}
+                      : isCn ? '结束训练' : 'End workout'}
                 </span>
               </>
             )}
@@ -761,7 +758,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             value={currentWorkout.notes ?? ''}
             onChange={e => setCurrentWorkout({ ...currentWorkout, notes: e.target.value })}
             onBlur={() => setNoteOpen(false)}
-            placeholder={isCn ? '这一场有什么要记的：没睡好、养伤降重、换了器械……' : 'Anything about this session: slept badly, deload, different machine…'}
+            placeholder={isCn ? '比如：没睡好、养伤降重、换了器械' : 'e.g. slept badly, deload, different machine'}
             autoFocus
             data-testid="workout-notes-input"
           />
@@ -774,7 +771,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             data-testid="workout-notes"
           >
             <span className="marginalia truncate">
-              {currentWorkout.notes ? currentWorkout.notes.split('\n')[0] : isCn ? '加备注' : 'Add a note'}
+              {currentWorkout.notes ? currentWorkout.notes.split('\n')[0] : isCn ? '加备注' : 'Add note'}
             </span>
           </button>
         )}
@@ -952,20 +949,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           );
         })}
 
-        {/* 放弃这场：放在所有卡下面、离拇指和顶栏都远，点了还要确认（「放弃训练」在确认弹窗的例外名单里） */}
-        {!editingWorkoutId && exerciseCount > 0 && (
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={onDiscard}
-              className="min-h-[44px] px-4 text-label text-tertiary hover:text-danger transition-colors"
-              data-testid="discard-workout"
-            >
-              {isCn ? '放弃这场' : 'Discard workout'}
-            </button>
-          </div>
-        )}
-
         {exerciseCount === 0 &&
           (needsBodyPart ? (
             <BodyPartPicker
@@ -991,9 +974,6 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             <div className="bg-inset border border-dashed border-divider rounded-card p-10 text-center space-y-2">
               <p className="text-small text-secondary font-semibold">
                 {isCn ? '还没有动作' : 'No exercises yet'}
-              </p>
-              <p className="text-xs text-tertiary">
-                {isCn ? '点击下方「添加动作」开始记录' : 'Tap "Add Exercise" below to start'}
               </p>
             </div>
           ))}
@@ -1021,7 +1001,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         )}
         <div className="max-w-2xl mx-auto flex items-center gap-3 px-4 py-3">
           <span className="text-xs font-semibold text-secondary whitespace-nowrap tabular-nums">
-            {exerciseCount} {isCn ? '动作' : 'ex'} · {setCount}
+            {exerciseCount} {isCn ? '动作' : 'ex.'} · {setCount}
             {plannedCount > setCount && <span className="text-tertiary">/{plannedCount}</span>}
             {isCn ? ' 组' : ` ${plural(plannedCount > setCount ? plannedCount : setCount, 'set')}`}
           </span>
@@ -1032,7 +1012,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             data-testid="open-picker-sheet"
           >
             <Plus size={16} strokeWidth={2.5} />
-            {isCn ? '添加动作' : 'Add Exercise'}
+            {isCn ? '添加动作' : 'Add exercise'}
           </button>
         </div>
       </div>

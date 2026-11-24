@@ -259,8 +259,8 @@ export function useFitlogSync(): UseFitlogSyncResult {
       const lang = settingsCtx.lang;
       toast(
         lang === Language.CN
-          ? '未配置个人服务器：请在 .env.local 设置 VITE_API_URL 与 VITE_API_KEY'
-          : 'Set VITE_API_URL and VITE_API_KEY in .env.local.',
+          ? '未配置个人服务器：在 .env.local 设置 VITE_API_URL 与 VITE_API_KEY'
+          : 'No server configured: set VITE_API_URL and VITE_API_KEY in .env.local',
         'error',
       );
       return;
