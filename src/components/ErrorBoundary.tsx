@@ -4,16 +4,22 @@
  *
  * 两层：index.tsx 包整个 App（重新载入）；App.tsx 包每个 Tab、以 activeTab 为 key（还能回首页，
  * 训练页崩了从首页结束 / 放弃那一场）。兜底页只给状态和出路，不写说明。
- * 导出直接走 services（buildBackupFile + saveTextFile，和首选项里的导出同一条、真机验过的路），
- * 不依赖 context / toast —— 它们可能正是坏掉的那一层。
+ * 导出、撤销直接走 services（和首选项里同一条、真机验过的路），不依赖 context / toast —— 它们可能正是坏掉的那一层。
+ * 恢复了坏备份之后崩的，撤销入口原来挂在已经崩掉的「我的」页里，够不着（上架审查 C08 / gap-r3-2#1）：这里有 7 天内的副本就直接给。
  */
 import React from 'react';
-import { backupFileName, buildBackupFile } from '../../services/fitlogBackup';
+import { backupFileName, buildBackupFile, readRollback, rollbackImport, type RollbackInfo } from '../../services/fitlogBackup';
 import { saveTextFile } from '../../services/fitlogSaveFile';
-import { storage } from '../../services/appStorage';
+import { resolveLang } from '../../services/appPrefs';
+import { folderSupported } from '../../services/fitlogFolder';
+import { openDataFlow } from '../hooks/useDataSafety';
+import { overwriteFailedText, overwriteNote, setFlash, undoImportWarning } from './data/flash';
+import { translations } from '../../translations';
 import { Language } from '../../types';
 
 type ExportState = 'idle' | 'busy' | 'done' | 'cancelled' | 'failed';
+/** 撤销：idle → confirm（原地展开确认，不用 UiOverlay 的弹窗）→ busy → 成功即重载；失败留在 failed */
+type UndoState = 'idle' | 'confirm' | 'busy' | 'failed';
 
 interface Props {
   children: React.ReactNode;
@@ -24,13 +30,16 @@ interface Props {
 interface State {
   error: Error | null;
   exportState: ExportState;
+  rollback: RollbackInfo | null;
+  undoState: UndoState;
+  undoError: string;
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
   // 仓库没装 @types/react，基类是 any：用到的两个成员在这里声明类型
   declare props: Readonly<Props>;
   declare setState: (s: Partial<State>) => void;
-  state: State = { error: null, exportState: 'idle' };
+  state: State = { error: null, exportState: 'idle', rollback: null, undoState: 'idle', undoError: '' };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
@@ -38,6 +47,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo): void {
     console.error('[ErrorBoundary]', error, info.componentStack);
+    readRollback().then(
+      rollback => this.setState({ rollback }),
+      e => console.error('[ErrorBoundary] 读回滚副本失败:', e),
+    );
   }
 
   private exportBackup = async () => {
@@ -52,11 +65,28 @@ export class ErrorBoundary extends React.Component<Props, State> {
     }
   };
 
+  private undo = async (cn: boolean) => {
+    if (this.state.undoState !== 'confirm') {
+      this.setState({ undoState: 'confirm', undoError: '' });
+      return;
+    }
+    this.setState({ undoState: 'busy' });
+    try {
+      const note = overwriteNote(await rollbackImport(), cn);
+      if (note) setFlash((cn ? '已撤销' : 'Undone') + note, 'info');
+      window.location.reload();
+    } catch (e) {
+      console.error('[ErrorBoundary] 撤销失败:', e);
+      this.setState({ undoState: 'failed', undoError: overwriteFailedText(e, cn, { cn: '撤销', en: 'Undo' }) });
+    }
+  };
+
   render() {
-    const { error, exportState } = this.state;
+    const { error, exportState, rollback, undoState, undoError } = this.state;
     if (!error) return this.props.children;
     const { onHome } = this.props;
-    const cn = storage.getItem('fitlog_lang') !== Language.EN;
+    // 和首帧同一套（上架审查 i18n-settings#3）：英文系统没手动选过语言的，崩了也看英文
+    const cn = resolveLang() === Language.CN;
     const detail = `${error.name}: ${error.message}\n${error.stack ?? ''}`.trim();
     const exportNote = {
       idle: null,
@@ -66,6 +96,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       failed: cn ? '导出失败' : 'Export failed',
     }[exportState];
     const btn = 'w-full min-h-[52px] rounded-control font-semibold transition-opacity duration-tap ease-paper disabled:opacity-40';
+    const quiet = `${btn} bg-card border border-divider text-primary`;
 
     return (
       <div role="alert" data-testid="error-fallback" className="bg-base text-primary px-6 pt-14 pb-10 max-w-2xl mx-auto">
@@ -94,10 +125,37 @@ export class ErrorBoundary extends React.Component<Props, State> {
           >
             {cn ? '重新载入' : 'Reload'}
           </button>
+          {rollback && (
+            <>
+              <button
+                type="button"
+                data-testid={undoState === 'confirm' ? 'error-undo-confirm' : 'error-undo-import'}
+                disabled={undoState === 'busy'}
+                className={undoState === 'confirm' ? `${btn} bg-danger text-on-semantic` : quiet}
+                onClick={() => void this.undo(cn)}
+              >
+                {undoState === 'confirm' ? (cn ? '撤销' : 'Undo') : translations.undoImport[cn ? 'cn' : 'en']}
+              </button>
+              <p className="text-small text-secondary whitespace-pre-line">
+                {undoState === 'confirm'
+                  ? undoImportWarning(rollback.newer, cn)
+                  : cn
+                    ? `副本 · ${rollback.workouts} 场训练 · ${rollback.createdAt.split('T')[0]}`
+                    : `Copy · ${rollback.workouts} workouts · ${rollback.createdAt.split('T')[0]}`}
+              </p>
+              {undoState === 'failed' && <p className="text-small text-danger">{undoError}</p>}
+            </>
+          )}
+          {/* Tab 一层：恢复弹窗挂在 Tab 边界之外（DataSafetyHost），照常打得开；根一层 Provider 都卸了，不给 */}
+          {onHome && folderSupported() && (
+            <button type="button" className={quiet} onClick={() => openDataFlow('restore')}>
+              {cn ? '从备份恢复' : 'Restore from backup'}
+            </button>
+          )}
           <button
             type="button"
             disabled={exportState === 'busy'}
-            className={`${btn} bg-card border border-divider text-primary`}
+            className={quiet}
             onClick={() => void this.exportBackup()}
           >
             {cn ? '导出完整备份' : 'Export full backup'}

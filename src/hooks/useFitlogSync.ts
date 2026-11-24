@@ -2,11 +2,12 @@
  * 包含应用启动初始化（数据库 + 迁移 + 远端拉取）以及手动 fullSync 逻辑
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Goal, Language, WorkoutSession } from '../../types';
+import { Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
 import {
   isRemoteConfigured,
+  migrateLocalData,
   migrateRecordsToSoloUserId,
   readPrefsFromLocalStorage,
   RemoteError,
@@ -25,7 +26,6 @@ import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useAvatar } from '../contexts/AvatarContext';
-import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 
 export type SyncStatus = 'idle' | 'syncing' | 'error';
@@ -35,91 +35,6 @@ class PullFailedError extends Error {
   constructor(readonly reason: 'unreachable' | 'incompatible') {
     super(`pull failed (${reason}); push skipped`);
     this.name = 'PullFailedError';
-  }
-}
-
-/**
- * 对本地训练 / 目标做一次性数据迁移，确保字段齐全
- */
-async function migrateLocalData(): Promise<void> {
-  const userId = FITLOG_SOLO_USER_ID;
-
-  const [allW, allG] = await Promise.all([
-    db.getAll<WorkoutSession>('workouts'),
-    db.getAll<Goal>('goals'),
-  ]);
-
-  // 训练记录迁移：补齐 exerciseTime（没有 instanceConfig 的读时按标准算，见 exerciseConfig.getLoadMode）
-  const userW = allW.filter(w => w.userId === userId);
-  let hasDataMigration = false;
-  const migratedWorkouts = userW.map(workout => {
-    let workoutChanged = false;
-    const updatedExercises = workout.exercises.map(exercise => {
-      if (!exercise.exerciseTime) {
-        workoutChanged = true;
-        hasDataMigration = true;
-        return { ...exercise, exerciseTime: new Date(workout.date).toISOString() };
-      }
-      return exercise;
-    });
-
-    if (workoutChanged) {
-      return { ...workout, exercises: updatedExercises };
-    }
-    return workout;
-  });
-
-  if (hasDataMigration) {
-    console.log('执行数据迁移：为现有动作记录添加训练时间');
-    for (const workout of migratedWorkouts) {
-      if (workout !== userW.find(w => w.id === workout.id)) {
-        await db.save('workouts', workout);
-      }
-    }
-  }
-
-  // 目标记录迁移：补齐新版必需字段
-  const userG = allG.filter(g => g.userId === userId);
-  let hasGoalMigration = false;
-  const migratedGoals = userG.map(goal => {
-    const anyG = goal as any;
-    if (
-      !goal.title ||
-      !goal.startDate ||
-      !goal.dataSource ||
-      !goal.progressHistory ||
-      goal.isActive === undefined
-    ) {
-      hasGoalMigration = true;
-      const now = new Date().toISOString();
-      return {
-        ...goal,
-        title: goal.title || anyG.label || 'Untitled Goal',
-        description: goal.description || '',
-        startDate: goal.startDate || goal.createdAt || now,
-        targetDate: goal.targetDate || anyG.deadline,
-        dataSource: goal.dataSource || 'manual',
-        autoUpdateRule: goal.autoUpdateRule,
-        progressHistory: goal.progressHistory || [],
-        isActive: goal.isActive !== undefined ? goal.isActive : true,
-        createdAt: goal.createdAt || now,
-        updatedAt: goal.updatedAt || now,
-        completedAt: goal.completedAt,
-        category: goal.category || goal.type,
-        label: anyG.label || goal.title,
-        deadline: anyG.deadline || goal.targetDate,
-      } as Goal;
-    }
-    return goal;
-  });
-
-  if (hasGoalMigration) {
-    console.log('执行Goal数据迁移：升级到新的Goal格式');
-    for (const goal of migratedGoals) {
-      if (goal !== userG.find(g => g.id === goal.id)) {
-        await db.save('goals', goal);
-      }
-    }
   }
 }
 
@@ -164,7 +79,6 @@ export function useFitlogSync(): UseFitlogSyncResult {
   const loadLocalData = useCallback(
     async () => {
       try {
-        await migrateLocalData();
         await Promise.all([
           workoutCtx.refreshFromDb(),
           goalsCtx.refreshFromDb(),
@@ -220,6 +134,12 @@ export function useFitlogSync(): UseFitlogSyncResult {
           }
         }
         handleSnapshotApply(readPrefsFromLocalStorage());
+        // 补字段只在启动时跑一次、单独兜住：出错也不拖住下面的重读（撤销 / 重做、改目标都走 loadLocalData）
+        try {
+          await migrateLocalData();
+        } catch (e) {
+          console.error('[fitlog] 启动迁移失败:', e);
+        }
         await loadLocalData();
       } catch (e) {
         console.error('[fitlog] 应用初始化失败:', e);

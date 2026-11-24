@@ -70,6 +70,9 @@ await build({
       "export * as FB from './services/fitlogBackup.ts';",
       "export * as FS from './services/fitlogSyncScheduler.ts';",
       "export * as ML from './src/utils/measurementLog.ts';",
+      "export * as AP from './services/appPrefs.ts';",
+      "export { storage } from './services/appStorage.ts';",
+      "export { PREFS_SENTINEL } from './scripts/prefsSentinel.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -1363,6 +1366,110 @@ t('备份解析：formatVersion / schemaVersion 比本版新的拒绝（newer-ve
   assert.equal(L.FB.parseBackupFile(file(2, null)).legacy, false);
   assert.throws(() => L.FB.parseBackupFile(file(3, 2)), e => e instanceof L.FB.BackupParseError && e.message === 'newer-version');
   assert.throws(() => L.FB.parseBackupFile(file(2, 3)), e => e instanceof L.FB.BackupParseError && e.message === 'newer-version');
+});
+
+// ── 恢复的入口逐行规整（上架审查 C08 / i18n-settings#1）：坏行进了库，App 每次启动都停在错误页 ──
+const v2File = snapshot => JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: '2026-11-20T10:00:00.000Z', snapshot });
+t('备份解析：坏行逐行规整或跳过，组 id 补得确定，单位语言只认合法值，跳过几条如实报', () => {
+  const snap = {
+    schemaVersion: 2,
+    workouts: [
+      { id: 'w1', date: '2026-11-01T10:00:00.000Z', title: 'ok', exercises: [{ id: 'e1', name: '深蹲', sets: [{ id: 's1', weight: 60, reps: 5 }] }] },
+      { id: 'w2', date: '2026-11-02T10:00:00.000Z', title: 'a', exercises: null },
+      { id: 'w3', date: '2026-11-03T10:00:00.000Z', title: 'b' },
+      {
+        id: 'w4', date: '2026-11-04T10:00:00.000Z', title: 'c',
+        exercises: [
+          { id: 'e4a', name: 5, sets: [null, { weight: '60', reps: 'x', subSets: [null, { weight: 10 }] }] },
+          { id: 'e4b', sets: [] },
+          { id: 'e4c', name: '卧推', sets: { a: 1 } },
+        ],
+      },
+      { id: 'w5', date: 'not-a-date', exercises: [] },
+      { id: 'w6', date: '', exercises: [] },
+      { date: '2026-11-05T10:00:00.000Z', exercises: [] },
+      null,
+    ],
+    goals: [], prs: [], scheduledWorkouts: [], customExerciseDefsFromDb: [],
+    weightLogs: [{ id: 'b1', date: '2026-11-01T00:00:00.000Z', weight: 70, unit: 'LB' }, { id: 'b2', date: '2026-11-01T00:00:00.000Z' }],
+    customMetrics: [{ id: 'm1', name: '腰围', value: null, unit: 'cm', date: '2026-11-01T00:00:00.000Z' }],
+    prefs: { customTags: { a: 1 }, customExercises: [{ id: 'd1', name: { cn: '自建', en: '' } }, { id: 'd2' }], unit: 'lb', lang: 'EN', appPrefs: { unit: 'LBS', lang: 'fr' } },
+  };
+  const p = L.FB.parseBackupFile(v2File(snap));
+  const s = p.snapshot;
+  assert.deepEqual(s.workouts.map(w => w.id), ['w1', 'w2', 'w3', 'w4']);
+  for (const w of s.workouts) {
+    assert.ok(Array.isArray(w.exercises), w.id);
+    for (const ex of w.exercises) for (const set of ex.sets) assert.equal(typeof set.id, 'string');
+  }
+  const w4 = s.workouts[3];
+  assert.deepEqual(w4.exercises.map(e => e.name), ['5', '卧推']);
+  assert.deepEqual(w4.exercises[0].sets, [{ id: 'e4a_s1', weight: 60, subSets: [{ id: 'e4a_s1_d1', weight: 10 }] }]);
+  assert.deepEqual(w4.exercises[1].sets, []);
+  assert.deepEqual(L.FB.parseBackupFile(v2File(snap)).snapshot.workouts, s.workouts, '同一份文件解析两遍，补的 id 一样（合并时不出重复）');
+  assert.deepEqual(s.weightLogs.map(b => [b.id, b.unit]), [['b1', 'lbs']]);
+  assert.deepEqual(s.customMetrics, []);
+  assert.deepEqual(s.prefs.customTags, []);
+  assert.deepEqual(s.prefs.customExercises.map(d => d.name), [{ cn: '自建', en: '自建' }]);
+  assert.equal(s.prefs.unit, 'lbs');
+  assert.equal(s.prefs.lang, 'en');
+  assert.deepEqual(s.prefs.appPrefs, { unit: 'lbs' });
+  // 跳过：w5、w6、没 id 的、null（4）+ 没名字的动作（1）+ b2、m1（2）+ d2（1）
+  assert.equal(p.skipped, 8);
+  assert.equal(p.counts.workouts, 4);
+});
+
+t('备份解析：合法的完整快照原样通过（展开后只覆盖个别键，不按白名单重拼；未知字段留着），一条不跳', () => {
+  const w = {
+    id: 'w', date: '2026-11-01T10:00:00.000Z', title: 't', gym: 'G', focusPart: 'x', fromSchedule: { scheduleId: 'p' }, extra: 1,
+    exercises: [{
+      id: 'e', name: '深蹲', variantId: 'v', altGroup: 'g', exerciseTime: '2026-11-01T10:00:00.000Z',
+      sets: [{ id: 's', weight: 60, reps: 5, toFailure: true, plateUnit: 'kg', subSets: [{ id: 'd', weight: 50, reps: 3 }] }],
+    }],
+  };
+  const snap = {
+    schemaVersion: 2, clientExportedAt: 'x', topUnknown: { a: 1 }, workouts: [w], goals: [{ id: 'g1', title: 'x' }],
+    weightLogs: [{ id: 'b', weight: 70, date: '2026-11-01T00:00:00.000Z', unit: 'kg' }],
+    customMetrics: [{ id: 'm', name: '腰围', value: 80, unit: 'cm', date: '2026-11-01T00:00:00.000Z' }],
+    prs: [{ id: 'pr' }], scheduledWorkouts: [{ id: 'sc', exercises: [], bodyParts: [] }], customExerciseDefsFromDb: [],
+    prefs: L.PREFS_SENTINEL, tombstones: { workouts: ['old'] },
+  };
+  const p = L.FB.parseBackupFile(v2File(snap));
+  assert.deepEqual(p.snapshot, snap);
+  assert.equal(p.skipped, 0);
+  assert.equal(p.exportedAt, '2026-11-20T10:00:00.000Z');
+});
+
+t('备份解析：旧格式要带本 App 的标记（改名前导出的 FitLog AI 也认），单位归一', () => {
+  const legacy = app => JSON.stringify({ ...(app ? { app } : {}), exportDate: 'x', data: { workouts: [] }, settings: { unit: 'LB', language: 'cn' } });
+  assert.throws(() => L.FB.parseBackupFile(legacy(null)), e => e instanceof L.FB.BackupParseError && e.message === 'not-a-backup');
+  assert.equal(L.FB.parseBackupFile(legacy('FitLog AI')).legacy, true);
+  const p = L.FB.parseBackupFile(legacy('Fit Tracker'));
+  assert.equal(p.snapshot.prefs.unit, 'lbs');
+  assert.equal(p.snapshot.prefs.appPrefs.unit, 'lbs');
+});
+
+t('单位、语言只认合法值：存储里已有的坏值读出来自愈，写首选项时认不出的不写；兜底页和首帧用同一个语言判断', () => {
+  assert.equal(L.AP.unitOf('LB'), 'lbs');
+  assert.equal(L.AP.unitOf('kgs'), 'kg');
+  assert.equal(L.AP.unitOf('stone'), undefined);
+  assert.equal(L.AP.langOf('EN'), 'en');
+  assert.equal(L.AP.langOf('zh-CN'), 'cn');
+  assert.equal(L.AP.langOf('fr'), undefined);
+  localStorage.clear();
+  L.storage.setItem('fitlog_unit', 'lb');
+  L.storage.setItem('fitlog_lang', 'fr');
+  const r = L.FR.readPrefsFromLocalStorage();
+  assert.equal(r.unit, 'lbs');
+  assert.equal(r.lang, undefined);
+  assert.equal(L.AP.resolveLang(), 'cn', '存的语言认不出：按默认（自用版中文）');
+  L.storage.setItem('fitlog_lang', 'EN');
+  assert.equal(L.AP.resolveLang(), 'en');
+  L.storage.setItem('fitlog_lang', 'cn');
+  L.FR.writePrefsToLocalStorage({ ...L.PREFS_SENTINEL, unit: 'LBS', lang: 'fr' });
+  assert.equal(L.storage.getItem('fitlog_unit'), 'lbs');
+  assert.equal(L.storage.getItem('fitlog_lang'), 'cn', '认不出的语言不写，沿用当前值');
+  localStorage.clear();
 });
 
 // ── 后台推送失败的提示（审查 E1）：没网时一次离线期间只报一次，推上去之后再失败才再报；配置错误每次都报 ──

@@ -22,6 +22,9 @@ const OUT = path.resolve('test-artifacts', 'backup');
 export const BACKUP_STEPS = [
   ['seed-and-first-backup', []],
   ['uninstall-then-restore'],
+  // 坏数据让整页崩了：兜底页直接给「撤销上次恢复」（上架审查 C08 / gap-r3-2#1：原来撤销挂在崩掉的「我的」页里）。
+  // 组件测不了这层接线，只能在这里测
+  ['crash-undo-restore', []],
 ];
 
 const iso = daysAgo => new Date(Date.now() - daysAgo * 86400000).toISOString();
@@ -161,7 +164,50 @@ export async function runBackup(browser, plan) {
       if (!st.lastOkAt || st.lastOkWorkouts !== SEED.length) throw new Error(`post-restore backup status: ${JSON.stringify(st)}`);
       return `restored ${n1} workouts, folder re-armed`;
     });
+  } catch {
+    // step 已经记过；下面这步不依赖前面那条链
+  }
 
+  try {
+    await step(page, 'crash-undo-restore', async () => {
+      if (!page.url().startsWith(BASE)) await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('header', { timeout: 15_000 });
+      await installHelpers(page);
+      const good = SEED.slice(0, 2);
+      // 恢复两次同一份：回滚槽里就是「两场好训练」的样子
+      await page.evaluate(async seed => {
+        const f = await window.__fitlog.backup.build();
+        f.snapshot.workouts = seed;
+        await window.__fitlog.backup.apply(JSON.stringify(f));
+        await window.__fitlog.backup.apply(JSON.stringify(f));
+      }, good);
+      // 绕过入口规整直接往库里塞一行坏的（旧版本恢复进来的就是这样）
+      await page.evaluate(async bad => {
+        const dbs = (await indexedDB.databases()).filter(d => /^FitLogDB/.test(d.name));
+        const name = dbs.find(d => /dev/.test(d.name))?.name ?? dbs[0].name;
+        await new Promise((res, rej) => {
+          const q = indexedDB.open(name);
+          q.onerror = () => rej(q.error);
+          q.onsuccess = () => {
+            const tx = q.result.transaction('workouts', 'readwrite');
+            tx.objectStore('workouts').put(bad);
+            tx.oncomplete = () => { q.result.close(); res(); };
+            tx.onerror = () => rej(tx.error);
+          };
+        });
+      }, { ...SEED[2], id: 'bad_row', exercises: null });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await page.locator('[data-testid="error-fallback"]').first().waitFor({ timeout: 15_000 });
+      await page.locator('[data-testid="error-undo-import"]').first().click({ timeout: 10_000 });
+      await page.locator('[data-testid="error-undo-confirm"]').first().click();
+      await page.waitForEvent('load', { timeout: 15_000 });
+      await page.waitForSelector('header', { timeout: 15_000 });
+      await installHelpers(page);
+      if (await page.locator('[data-testid="error-fallback"]').count()) throw new Error('still on the error page after undo');
+      const ids = await page.evaluate(async () => (await window.__t.snap()).workouts.map(w => w.id).sort());
+      if (ids.join(',') !== good.map(w => w.id).sort().join(',')) throw new Error(`after undo: ${ids}`);
+      return `undo from error page → ${ids.length} workouts`;
+    });
   } catch {
     // step 已经记过
   } finally {

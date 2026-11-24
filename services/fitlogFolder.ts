@@ -175,7 +175,8 @@ export const listFiles = (f: FolderRef) => wrap(async () => (await impl().list(f
 export const writeText = (f: FolderRef, name: string, text: string, mimeType = 'application/json') =>
   wrap(() => impl().writeText({ dirUri: f.dirUri, name, text, mimeType }));
 
-export const readText = (uri: string) => wrap(async () => (await impl().readText({ uri })).text);
+/** 去掉开头的 BOM：外部工具存过的 .json 带它，JSON.parse 会判读不出（上架审查 C65）。File.text() 本来就去，这里管文件夹那条路 */
+export const readText = (uri: string) => wrap(async () => (await impl().readText({ uri })).text.replace(/^﻿/, ''));
 
 export const deleteFile = (uri: string) => wrap(async () => (await impl().delete({ uri })).ok);
 

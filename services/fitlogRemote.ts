@@ -19,7 +19,7 @@ import type {
   ScheduledWorkout,
 } from '../types';
 import { parseJsonOr, storage } from './appStorage';
-import { mergeAppPrefs, readAppPrefs, writeAppPrefs } from './appPrefs';
+import { langOf, mergeAppPrefs, readAppPrefs, unitOf, writeAppPrefs } from './appPrefs';
 import { getDataEnv, isOffline, statePath } from './appEnv';
 import { migrateCableTags } from '../src/utils/cableTagMigration';
 import { migrateWarmRegions } from '../src/utils/warmRegionMigration';
@@ -488,8 +488,9 @@ export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
     starredLastUpdateMs: Number.parseInt(storage.getItem('fitlog_starred_last_update') || '0', 10) || 0,
     metricsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_metrics_last_update') || '0', 10) || 0,
     prefsLastUpdateMs: Number.parseInt(storage.getItem('fitlog_prefs_last_update') || '0', 10) || 0,
-    lang: (storage.getItem('fitlog_lang') as FitlogSyncedPrefs['lang']) || undefined,
-    unit: (storage.getItem('fitlog_unit') as 'kg' | 'lbs') || undefined,
+    // 存储里已经是坏值（旧版恢复进来的 'lb' 之类）的设备，读的时候就归一：升级后自愈
+    lang: langOf(storage.getItem('fitlog_lang')),
+    unit: unitOf(storage.getItem('fitlog_unit')),
     avatarDataUrl: storage.getItem('fitlog_avatar_data_url'),
     ...readAppPrefs(),
   };
@@ -512,10 +513,56 @@ export function writePrefsToLocalStorage(raw: FitlogSyncedPrefs): void {
   // 合并后的时间戳写回本机：原先不写，本机一旦比远端旧就永远旧，之后每次合并都输（unit-lang-sync-revert）
   storage.setItem('fitlog_prefs_last_update', String(p.prefsLastUpdateMs || 0));
   writeAppPrefs(p.appPrefs, p.appPrefsUpdatedMs ?? 0);
-  if (p.lang) storage.setItem('fitlog_lang', String(p.lang));
-  if (p.unit) storage.setItem('fitlog_unit', p.unit);
+  // 认不出的单位 / 语言不写，沿用当前值（恢复、合并、撤销、拉取共用这一个写口）
+  const lang = langOf(p.lang);
+  const unit = unitOf(p.unit);
+  if (lang) storage.setItem('fitlog_lang', lang);
+  if (unit) storage.setItem('fitlog_unit', unit);
   if (p.avatarDataUrl) storage.setItem('fitlog_avatar_data_url', p.avatarDataUrl);
   else storage.removeItem('fitlog_avatar_data_url');
+}
+
+/**
+ * 启动时的一次性补字段：训练补 exerciseTime（没有 instanceConfig 的读时按标准算，见 exerciseConfig.getLoadMode），目标补新版必需字段。
+ * 逐行做，坏行（exercises 不是数组、日期解析不了）原样跳过：原来一行抛错整段中止，
+ * 而它跟三处刷新挂在一起，之后撤销 / 重做、改目标都不刷新界面（上架审查 gap-r3-2#2）。
+ */
+export async function migrateLocalData(): Promise<void> {
+  const userId = FITLOG_SOLO_USER_ID;
+  const [allW, allG] = await Promise.all([db.getAll<WorkoutSession>('workouts'), db.getAll<Goal>('goals')]);
+
+  for (const workout of allW) {
+    if (workout.userId !== userId || !Array.isArray(workout.exercises)) continue;
+    const t = new Date(workout.date).getTime();
+    if (!workout.date || Number.isNaN(t)) continue;
+    if (!workout.exercises.some(ex => !ex?.exerciseTime)) continue;
+    const at = new Date(t).toISOString();
+    await db.save('workouts', { ...workout, exercises: workout.exercises.map(ex => (ex?.exerciseTime ? ex : { ...ex, exerciseTime: at })) });
+  }
+
+  for (const goal of allG) {
+    if (goal.userId !== userId) continue;
+    if (goal.title && goal.startDate && goal.dataSource && goal.progressHistory && goal.isActive !== undefined) continue;
+    const anyG = goal as Goal & { label?: string; deadline?: string };
+    const now = new Date().toISOString();
+    await db.save('goals', {
+      ...goal,
+      title: goal.title || anyG.label || 'Untitled Goal',
+      description: goal.description || '',
+      startDate: goal.startDate || goal.createdAt || now,
+      targetDate: goal.targetDate || anyG.deadline,
+      dataSource: goal.dataSource || 'manual',
+      autoUpdateRule: goal.autoUpdateRule,
+      progressHistory: goal.progressHistory || [],
+      isActive: goal.isActive !== undefined ? goal.isActive : true,
+      createdAt: goal.createdAt || now,
+      updatedAt: goal.updatedAt || now,
+      completedAt: goal.completedAt,
+      category: goal.category || goal.type,
+      label: anyG.label || goal.title,
+      deadline: anyG.deadline || goal.targetDate,
+    } as Goal);
+  }
 }
 
 export async function migrateRecordsToSoloUserId(): Promise<void> {

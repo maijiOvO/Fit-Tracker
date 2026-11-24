@@ -32,6 +32,18 @@ export function workbenchDropNote(isCn: boolean): string {
     : 'The unfinished workout on the Workout tab (and any unsaved edits) will be cleared too.';
 }
 
+/** 撤销恢复 / 导入 / 重置的确认文案（首选项那一行和崩溃兜底页共用）；newer＝之后新记的训练数，会一起丢 */
+export function undoImportWarning(newer: number, isCn: boolean): string {
+  return (
+    (isCn ? '回到恢复 / 导入 / 重置之前的样子，只能撤销一次。' : 'Go back to how things were before the restore / import / reset. Works only once.') +
+    (newer > 0
+      ? isCn
+        ? `\n\n之后新记的 ${newer} 场训练也会一起丢掉。`
+        : `\n\nThe ${newer} workout${newer > 1 ? 's' : ''} logged since then will be lost too.`
+      : '')
+  );
+}
+
 export function setFlash(message: string, variant: 'success' | 'error' | 'info'): void {
   storage.setItem(KEY, JSON.stringify({ message, variant }));
 }

@@ -16,7 +16,7 @@ import {
   rollbackImport,
 } from '../../services/fitlogBackup';
 import type { ExportStatus } from './useExportData';
-import { overwriteFailedText, overwriteNote, setFlash, workbenchDropNote } from '../components/data/flash';
+import { overwriteFailedText, overwriteNote, setFlash, undoImportWarning, workbenchDropNote } from '../components/data/flash';
 import { blockBack } from './useBackClose';
 
 /**
@@ -82,6 +82,11 @@ export function useImportData(
     const summary = isCn
       ? `备份包含 ${counts.workouts} 场训练、${counts.weightLogs} 条体重、${counts.goals} 个目标、${counts.scheduledWorkouts} 条计划。`
       : `Backup has ${counts.workouts} workouts, ${counts.weightLogs} weight entries, ${counts.goals} goals, ${counts.scheduledWorkouts} scheduled.`;
+    const skippedNote = parsed.skipped
+      ? isCn
+        ? `另有 ${parsed.skipped} 条记录形态不对，不会恢复。`
+        : ` ${parsed.skipped} malformed record${parsed.skipped > 1 ? 's' : ''} will be skipped.`
+      : '';
     const legacyNote = parsed.legacy
       ? isCn
         ? '\n\n旧版文件不含训练计划，保留现有计划。'
@@ -95,7 +100,7 @@ export function useImportData(
 
     const go = await confirm({
       title: isCn ? '用备份覆盖当前数据？' : 'Replace current data with the backup?',
-      message: summary + legacyNote + warning + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
+      message: summary + skippedNote + legacyNote + warning + (currentWorkout.exercises.length > 0 ? '\n\n' + workbenchDropNote(isCn) : ''),
       confirmLabel: isCn ? '覆盖' : 'Replace',
       danger: true,
     });
@@ -126,13 +131,7 @@ export function useRollbackImport(): (newer?: number) => Promise<void> {
     const isCn = settingsCtx.lang === Language.CN;
     const go = await confirm({
       title: isCn ? '撤销上次恢复、导入或重置？' : 'Undo last restore, import or reset?',
-      message:
-        (isCn ? '回到恢复 / 导入 / 重置之前的样子，只能撤销一次。' : 'Go back to how things were before the restore / import / reset. Works only once.') +
-        (newer > 0
-          ? isCn
-            ? `\n\n之后新记的 ${newer} 场训练也会一起丢掉。`
-            : `\n\nThe ${newer} workout${newer > 1 ? 's' : ''} logged since then will be lost too.`
-          : ''),
+      message: undoImportWarning(newer, isCn),
       confirmLabel: isCn ? '撤销' : 'Undo',
       danger: true,
     });

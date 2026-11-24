@@ -91,10 +91,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
     try {
       const text = await readText(e.file.uri);
       const parsed = parseBackupFile(text);
-      // parseBackupFile 已经 JSON.parse 过且要求是对象，这里不会抛
-      const json = JSON.parse(text);
-      const exportedAt: string | undefined = json.exportedAt ?? json.exportDate;
-      return { ...e, parsed, exportedAt };
+      return { ...e, parsed, exportedAt: parsed.exportedAt };
     } catch {
       return { ...e, bad: true };
     }
@@ -269,6 +266,11 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void }
                 {t('备份于 ', 'Backed up ') + fmtTime(cur.exportedAt ?? cur.at)} · {where}
               </p>
               {cur.dev && <p className="text-danger text-xs">{t('这是开发环境的备份', 'This is a dev-environment backup')}</p>}
+              {parsed.skipped > 0 && (
+                <p className="text-xs" data-testid="restore-skipped">
+                  {t(`另有 ${parsed.skipped} 条记录形态不对，不会恢复`, `${parsed.skipped} malformed record${parsed.skipped > 1 ? 's' : ''} will be skipped`)}
+                </p>
+              )}
               {parsed.legacy && (
                 <p className="text-xs">{t('旧版文件不含训练计划，保留现有计划。', 'Old-format file has no schedule; yours is kept.')}</p>
               )}

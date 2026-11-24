@@ -4,13 +4,14 @@ import { db } from '../../services/db';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { storage } from '../../services/appStorage';
-import { isDemo, isSolo } from '../../services/appEnv';
 import {
   AppPrefs,
   ResolvedAppPrefs,
   appPrefsNow,
   invalidateAppPrefsCache,
   recordAppPrefs,
+  resolveLang,
+  unitOf,
 } from '../../services/appPrefs';
 
 interface UserSettingsContextType {
@@ -47,23 +48,11 @@ interface UserSettingsContextType {
 export const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);
 
 export const UserSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [lang, setLangState] = useState<Language>(() => {
-    const saved = storage.getItem('fitlog_lang');
-    if (saved === Language.EN || saved === Language.CN) return saved;
-    // Public demo (fit.myronhub.com) faces an international audience: default to English.
-    if (isDemo()) return Language.EN;
-    // 单机发行版给别人装：第一次打开按系统语言（中文系统中文，其余英文，审查 C）；自用版照旧默认中文
-    if (isSolo()) {
-      const nav = typeof navigator !== 'undefined' ? navigator.language || '' : '';
-      return /^zh/i.test(nav) ? Language.CN : Language.EN;
-    }
-    return Language.CN;
-  });
+  // 演示版英文、单机发行版第一次按系统语言、自用版中文（resolveLang，崩溃兜底页同一套）
+  const [lang, setLangState] = useState<Language>(resolveLang);
 
-  const [unit, setUnitState] = useState<'kg' | 'lbs'>(() => {
-    const saved = storage.getItem('fitlog_unit');
-    return (saved as 'kg' | 'lbs') || 'kg';
-  });
+  // 存储里是认不出的单位（手改的备份恢复进来的 'lb' 之类）就当 kg：原样套用每次启动都进错误页（上架审查 i18n-settings#1）
+  const [unit, setUnitState] = useState<'kg' | 'lbs'>(() => unitOf(storage.getItem('fitlog_unit')) ?? 'kg');
 
   const [appPrefs, setAppPrefsState] = useState<ResolvedAppPrefs>(appPrefsNow);
 

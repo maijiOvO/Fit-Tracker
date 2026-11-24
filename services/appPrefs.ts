@@ -9,6 +9,8 @@
  * 没升级的设备也只认它们），但胜负按这里的时间戳定。
  */
 import { storage } from './appStorage';
+import { isDemo, isSolo } from './appEnv';
+import { Language } from '../types';
 import { ADDON_MAX, type GymProfile, type IncSpec, type Rig } from '../src/utils/loadable';
 
 export interface AppPrefs {
@@ -115,6 +117,34 @@ export type ResolvedAppPrefs = {
 };
 
 const isUnit = (u: unknown): u is 'kg' | 'lbs' => u === 'kg' || u === 'lbs';
+
+/**
+ * 单位 / 语言只认这几种写法（上架审查 i18n-settings#1）：手改或别家的备份里写成 'lb'、'EN' 原样套用，
+ * 单位不是 kg/lbs 时每次启动都进错误页。恢复的入口、读存储、写存储都过这一对，认不出就当没有（沿用当前值）。
+ */
+export function unitOf(u: unknown): 'kg' | 'lbs' | undefined {
+  const s = typeof u === 'string' ? u.trim().toLowerCase() : '';
+  return s === 'kg' || s === 'kgs' ? 'kg' : s === 'lb' || s === 'lbs' ? 'lbs' : undefined;
+}
+export function langOf(l: unknown): Language | undefined {
+  const s = typeof l === 'string' ? l.trim().toLowerCase() : '';
+  return /^en/.test(s) ? Language.EN : s === 'cn' || /^zh/.test(s) ? Language.CN : undefined;
+}
+
+/**
+ * 界面语言：存过合法值就用它；演示版英文；单机发行版第一次打开按系统语言（中文系统中文，其余英文）；自用版中文。
+ * 首帧（UserSettingsContext）和崩溃兜底页共用，英文系统的用户崩了也看英文（上架审查 i18n-settings#3）。推断的不写回存储，改系统语言能跟着变。
+ */
+export function resolveLang(): Language {
+  const saved = langOf(storage.getItem('fitlog_lang'));
+  if (saved) return saved;
+  if (isDemo()) return Language.EN;
+  if (isSolo()) {
+    const nav = typeof navigator !== 'undefined' ? navigator.language || '' : '';
+    return /^zh/i.test(nav) ? Language.CN : Language.EN;
+  }
+  return Language.CN;
+}
 const isInc = (c: unknown): c is IncSpec =>
   !!c && typeof c === 'object' && typeof (c as IncSpec).v === 'number' && (c as IncSpec).v > 0 && isUnit((c as IncSpec).u);
 /** 同步回来的档案缺字段 / 坏字段时整条丢掉（宁可用默认档位也不要拿 NaN 去取整） */

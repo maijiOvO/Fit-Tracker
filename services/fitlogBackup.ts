@@ -32,6 +32,7 @@ import {
 } from './fitlogRemote';
 import { db } from './db';
 import { undoJournal } from './undoJournal';
+import { langOf, unitOf } from './appPrefs';
 import { markLocalAuthoritative, pushFitlogRemoteSnapshot } from './fitlogRemoteSync';
 
 /** 备份文件的格式版本。与 snapshot.schemaVersion 是两件事，别混。 */
@@ -167,6 +168,10 @@ export interface ParsedBackup {
   /** 旧格式里完全没有、因而沿用当前值的字段，用于给用户看 */
   missingFields: string[];
   counts: { workouts: number; weightLogs: number; goals: number; scheduledWorkouts: number };
+  /** 形态不对、不会恢复的记录条数（确认时要说） */
+  skipped: number;
+  /** 文件里写的导出时刻（新格式 exportedAt，旧格式 exportDate） */
+  exportedAt?: string;
 }
 
 export class BackupParseError extends Error {}
@@ -192,6 +197,177 @@ function asArray<T>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
+type Obj = Record<string, any>;
+const isObj = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
+const validDate = (v: unknown) => typeof v === 'string' && v !== '' && !Number.isNaN(Date.parse(v));
+/** 能当数用就转成数，转不了是 undefined */
+const toNum = (v: unknown): number | undefined => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+};
+/** 数值键：本来是数就不动，能转就转，转不了删掉这个键 */
+function fixNums<T extends Obj>(o: T, keys: string[]): T {
+  const out: Obj = { ...o };
+  for (const k of keys) {
+    if (!(k in out) || (typeof out[k] === 'number' && Number.isFinite(out[k]))) continue;
+    const n = toNum(out[k]);
+    if (n === undefined) delete out[k];
+    else out[k] = n;
+  }
+  return out as T;
+}
+
+/**
+ * 备份进来的快照逐行规整（上架审查 C08）：只修会让下游崩的形态，修不了的那条跳过并计数，其余字段一律原样。
+ * 原来只验 workouts 是不是数组，坏行（exercises 不是数组、组没有 id、动作名是数字……）、写成 'lb' 的单位原样写进库，
+ * App 每次启动都停在错误页，撤销也够不着。
+ *
+ * 写法上只做「展开 + 覆盖个别键」，绝不按白名单重拼：备份是第二条序列化路径，手工列字段会悄悄丢字段
+ * （DevNotes「导出手工列字段漏了两项」）。补的 id 由位置推出，同一份文件解析两遍一样，合并时不出重复。
+ * 防御只写在数据进来的这一层，读的各处不另外兜。
+ */
+function normalizeSnapshot(s: Obj): { snapshot: FitlogRemoteSnapshot; skipped: number } {
+  let skipped = 0;
+  /** 是对象、有非空字符串 id 的行；其余跳过计数 */
+  const rows = (v: unknown): Obj[] =>
+    asArray<unknown>(v).filter((r): r is Obj => {
+      const ok = isObj(r) && typeof r.id === 'string' && r.id !== '';
+      if (!ok) skipped++;
+      return ok;
+    });
+  const objs = (v: unknown): Obj[] => asArray<unknown>(v).filter(isObj);
+
+  const fixSet = (set: Obj, id: string): Obj => {
+    const out = fixNums({ ...set, id: typeof set.id === 'string' && set.id ? set.id : id }, ['weight', 'reps']);
+    if ('subSets' in out) {
+      if (Array.isArray(out.subSets)) {
+        const raw: unknown[] = out.subSets;
+        out.subSets = raw.flatMap((sub, k) => (isObj(sub) ? [fixNums({ ...sub, id: typeof sub.id === 'string' && sub.id ? sub.id : `${out.id}_d${k}` }, ['weight', 'reps'])] : []));
+      } else delete out.subSets;
+    }
+    return out;
+  };
+
+  const workouts = rows(s.workouts).flatMap(w => {
+    if (!validDate(w.date)) {
+      skipped++;
+      return [];
+    }
+    const out: Obj = { ...w, title: typeof w.title === 'string' ? w.title : '' };
+    if ('gym' in out && typeof out.gym !== 'string') delete out.gym;
+    const exs: unknown[] = Array.isArray(w.exercises) ? w.exercises : [];
+    out.exercises = exs.flatMap((ex, i) => {
+      if (!isObj(ex)) return [];
+      const name = typeof ex.name === 'number' && Number.isFinite(ex.name) ? String(ex.name) : ex.name;
+      if (typeof name !== 'string' || !name.trim()) {
+        skipped++;
+        return [];
+      }
+      const id = typeof ex.id === 'string' && ex.id ? ex.id : `${w.id}_e${i}`;
+      const sets: unknown[] = Array.isArray(ex.sets) ? ex.sets : [];
+      return [{ ...ex, id, name, sets: sets.flatMap((set, j) => (isObj(set) ? [fixSet(set, `${id}_s${j}`)] : [])) }];
+    });
+    return [out];
+  });
+
+  const weightLogs = rows(s.weightLogs).flatMap(b => {
+    const weight = toNum(b.weight);
+    if (weight === undefined || !validDate(b.date)) {
+      skipped++;
+      return [];
+    }
+    // 体重一律按 kg 存，unit 只是登记时的显示单位：认不出就记 kg
+    return [{ ...b, weight, ...('unit' in b ? { unit: unitOf(b.unit) ?? 'kg' } : {}) }];
+  });
+
+  const customMetrics = rows(s.customMetrics).flatMap(m => {
+    const value = toNum(m.value);
+    if (value === undefined || !validDate(m.date) || typeof m.name !== 'string') {
+      skipped++;
+      return [];
+    }
+    return [{ ...m, value }];
+  });
+
+  const scheduledWorkouts = rows(s.scheduledWorkouts).map(p => ({
+    ...p,
+    exercises: Array.isArray(p.exercises) ? p.exercises : [],
+    bodyParts: Array.isArray(p.bodyParts) ? p.bodyParts : [],
+  }));
+
+  /** 自建动作：名字要有中英文至少一边，缺的一边用另一边补 */
+  const defs = (v: unknown) =>
+    rows(v).flatMap(d => {
+      const n = isObj(d.name) ? d.name : {};
+      const cn = typeof n.cn === 'string' ? n.cn.trim() : '';
+      const en = typeof n.en === 'string' ? n.en.trim() : '';
+      if (!cn && !en) {
+        skipped++;
+        return [];
+      }
+      return [cn && en && cn === n.cn && en === n.en ? d : { ...d, name: { ...n, cn: cn || en, en: en || cn } }];
+    });
+
+  const p: Obj = isObj(s.prefs) ? s.prefs : {};
+  const record = (v: unknown) => (isObj(v) ? v : {});
+  const stamp = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const prefs: Obj = {
+    ...p,
+    customTags: objs(p.customTags).filter(t => typeof t.id === 'string' && typeof t.name === 'string'),
+    customExercises: defs(p.customExercises),
+    exerciseNotes: record(p.exerciseNotes),
+    starredExercises: record(p.starredExercises),
+    exerciseMetricConfigs: record(p.exerciseMetricConfigs),
+    tagRenameOverrides: record(p.tagRenameOverrides),
+    exerciseOverrides: Object.fromEntries(Object.entries(record(p.exerciseOverrides)).filter(([, v]) => isObj(v))),
+    starredLastUpdateMs: stamp(p.starredLastUpdateMs),
+    metricsLastUpdateMs: stamp(p.metricsLastUpdateMs),
+    prefsLastUpdateMs: stamp(p.prefsLastUpdateMs),
+    avatarDataUrl: typeof p.avatarDataUrl === 'string' && p.avatarDataUrl.startsWith('data:image/') ? p.avatarDataUrl : null,
+  };
+  /** 单位 / 语言：认得的归一，认不出的删掉（写首选项时就沿用当前值） */
+  const fixUnitLang = (o: Obj) => {
+    for (const [k, f] of [['unit', unitOf], ['lang', langOf]] as const) {
+      if (!(k in o)) continue;
+      const v = f(o[k]);
+      if (v) o[k] = v;
+      else delete o[k];
+    }
+  };
+  fixUnitLang(prefs);
+  if ('appPrefs' in prefs) {
+    if (isObj(prefs.appPrefs)) {
+      prefs.appPrefs = { ...prefs.appPrefs };
+      fixUnitLang(prefs.appPrefs);
+    } else delete prefs.appPrefs;
+  }
+
+  const tomb = record(s.tombstones);
+  const tombstones = Object.fromEntries(Object.entries(tomb).map(([k, v]) => [k, asArray<unknown>(v).filter(x => typeof x === 'string')]));
+
+  const snapshot: Obj = {
+    ...s,
+    workouts,
+    goals: rows(s.goals),
+    weightLogs,
+    customMetrics,
+    prs: rows(s.prs),
+    scheduledWorkouts,
+    customExerciseDefsFromDb: defs(s.customExerciseDefsFromDb),
+    prefs,
+  };
+  if ('tombstones' in s) snapshot.tombstones = tombstones;
+  return { snapshot: snapshot as FitlogRemoteSnapshot, skipped };
+}
+
+/** 计数按规整后的条数 */
+const countsOf = (s: FitlogRemoteSnapshot, scheduled = s.scheduledWorkouts.length) => ({
+  workouts: s.workouts.length,
+  weightLogs: s.weightLogs.length,
+  goals: s.goals.length,
+  scheduledWorkouts: scheduled,
+});
+
 /**
  * 解析备份文件，兼容两种格式：
  *   - v2（本版）：{ app, formatVersion, exportedAt, snapshot }
@@ -208,12 +384,12 @@ export function parseBackupFile(raw: string): ParsedBackup {
   } catch {
     throw new BackupParseError('not-json');
   }
-  if (!json || typeof json !== 'object') throw new BackupParseError('not-json');
+  if (!isObj(json)) throw new BackupParseError('not-json');
+  const exportedAt = [json.exportedAt, json.exportDate].find((x): x is string => typeof x === 'string');
 
   // --- v2 ---
-  if (json.snapshot && typeof json.snapshot === 'object') {
-    const s = json.snapshot as FitlogRemoteSnapshot;
-    if (!Array.isArray(s.workouts)) throw new BackupParseError('not-a-backup');
+  if (isObj(json.snapshot)) {
+    const s = json.snapshot;
     // 更新版本的 App 写的：结构可能变了，半懂地接受会用它覆盖本机（远端那条路同样不认，见 fetchRemoteSnapshotResult）
     if (
       (typeof json.formatVersion === 'number' && json.formatVersion > BACKUP_FORMAT_VERSION) ||
@@ -221,27 +397,22 @@ export function parseBackupFile(raw: string): ParsedBackup {
     ) {
       throw new BackupParseError('newer-version');
     }
-    return {
-      snapshot: s,
-      legacy: false,
-      missingFields: [],
-      counts: {
-        workouts: s.workouts.length,
-        weightLogs: asArray(s.weightLogs).length,
-        goals: asArray(s.goals).length,
-        scheduledWorkouts: asArray(s.scheduledWorkouts).length,
-      },
-    };
+    if (!Array.isArray(s.workouts)) throw new BackupParseError('not-a-backup');
+    const { snapshot, skipped } = normalizeSnapshot(s);
+    return { snapshot, legacy: false, missingFields: [], counts: countsOf(snapshot), skipped, exportedAt };
   }
 
   // --- legacy ---
+  // 要带本 App 的标记：别家 App 恰好也有 data.workouts 的 JSON 不能当备份收（C08）。2026-08-29 改名前导出的写的是 FitLog AI
   const d = json.data;
-  if (!d || typeof d !== 'object' || !Array.isArray(d.workouts)) {
+  if (!['Fit Tracker', 'FitLog AI'].includes(json.app) || !isObj(d) || !Array.isArray(d.workouts)) {
     throw new BackupParseError('not-a-backup');
   }
-  const st = json.settings ?? {};
+  const st: Obj = isObj(json.settings) ? json.settings : {};
   const current = readPrefsFromLocalStorage();
   const now = Date.now();
+  const lang = langOf(st.language);
+  const unit = unitOf(st.unit);
 
   const prefs: FitlogSyncedPrefs = {
     ...current,
@@ -250,13 +421,13 @@ export function parseBackupFile(raw: string): ParsedBackup {
     exerciseNotes: st.exerciseNotes ?? current.exerciseNotes,
     starredExercises: st.starredExercises ?? current.starredExercises,
     exerciseMetricConfigs: st.metricConfigs ?? current.exerciseMetricConfigs,
-    lang: st.language ?? current.lang,
-    unit: st.unit ?? current.unit,
+    lang: lang ?? current.lang,
+    unit: unit ?? current.unit,
     // 单位 / 语言的胜负看 appPrefs（services/appPrefs.ts）：备份里的值要一并写进去，否则读回来还是当前值
     appPrefs: {
       ...(current.appPrefs ?? {}),
-      ...(st.language ? { lang: st.language } : {}),
-      ...(st.unit ? { unit: st.unit } : {}),
+      ...(lang ? { lang } : {}),
+      ...(unit ? { unit } : {}),
     },
     appPrefsUpdatedMs: now,
     starredLastUpdateMs: now,
@@ -264,29 +435,20 @@ export function parseBackupFile(raw: string): ParsedBackup {
     prefsLastUpdateMs: now,
   };
 
-  return {
-    snapshot: {
-      schemaVersion: 2,
-      clientExportedAt: json.exportDate ?? new Date().toISOString(),
-      workouts: asArray<WorkoutSession>(d.workouts),
-      goals: asArray<Goal>(d.goals),
-      weightLogs: asArray<WeightEntry>(d.weightHistory),
-      customMetrics: asArray<Measurement>(d.bodyMeasurements),
-      // 旧格式没有这两项 —— 沿用当前值，绝不用空数组覆盖
-      prs: [] as PRRecord[],
-      scheduledWorkouts: [] as ScheduledWorkout[],
-      customExerciseDefsFromDb: asArray<ExerciseDefinition>(st.customExercises),
-      prefs,
-    },
-    legacy: true,
-    missingFields: ['prs', 'scheduledWorkouts'],
-    counts: {
-      workouts: asArray(d.workouts).length,
-      weightLogs: asArray(d.weightHistory).length,
-      goals: asArray(d.goals).length,
-      scheduledWorkouts: 0,
-    },
-  };
+  const { snapshot, skipped } = normalizeSnapshot({
+    schemaVersion: 2,
+    clientExportedAt: exportedAt ?? new Date().toISOString(),
+    workouts: asArray<WorkoutSession>(d.workouts),
+    goals: asArray<Goal>(d.goals),
+    weightLogs: asArray<WeightEntry>(d.weightHistory),
+    customMetrics: asArray<Measurement>(d.bodyMeasurements),
+    // 旧格式没有这两项 —— 沿用当前值（applyBackup 里补），绝不用空数组覆盖
+    prs: [] as PRRecord[],
+    scheduledWorkouts: [] as ScheduledWorkout[],
+    customExerciseDefsFromDb: asArray<ExerciseDefinition>(st.customExercises),
+    prefs,
+  });
+  return { snapshot, legacy: true, missingFields: ['prs', 'scheduledWorkouts'], counts: countsOf(snapshot, 0), skipped, exportedAt };
 }
 
 // ============ 导入（覆盖） ============
@@ -300,17 +462,15 @@ export function parseBackupFile(raw: string): ParsedBackup {
 export async function applyBackup(parsed: ParsedBackup): Promise<'pushed' | 'not-configured' | 'failed'> {
   const current = await collectLocalSnapshot();
 
-  // 1. 回滚槽（失败直接抛，不吞）
-  await saveRollbackSlot(current);
-
-  // 2. 旧格式缺的字段沿用当前值
+  // 旧格式缺的字段沿用当前值
   const next: FitlogRemoteSnapshot = { ...parsed.snapshot };
   if (parsed.legacy) {
     next.prs = current.prs;
     next.scheduledWorkouts = current.scheduledWorkouts;
   }
 
-  return overwriteLocal(next, current);
+  // 回滚槽（存不进去直接抛，不吞），再改写
+  return withRollbackSlot(current, () => overwriteLocal(next, current));
 }
 
 /**
@@ -324,9 +484,8 @@ export async function applyBackup(parsed: ParsedBackup): Promise<'pushed' | 'not
 export async function mergeBackup(parsed: ParsedBackup): Promise<'pushed' | 'not-configured' | 'failed'> {
   if (parsed.legacy) throw new Error('legacy-cannot-merge');
   const current = await collectLocalSnapshot();
-  await saveRollbackSlot(current);
   const merged = mergeLocalWithRemote(current, parsed.snapshot, { unionPrefs: true });
-  return overwriteLocal(merged, current);
+  return withRollbackSlot(current, () => overwriteLocal(merged, current));
 }
 
 /**
@@ -336,7 +495,6 @@ export async function mergeBackup(parsed: ParsedBackup): Promise<'pushed' | 'not
  */
 export async function resetAccount(): Promise<'pushed' | 'not-configured' | 'failed'> {
   const before = await collectLocalSnapshot();
-  await saveRollbackSlot(before);
   const keepApp = before.prefs.appPrefs;
   const empty: FitlogRemoteSnapshot = {
     schemaVersion: 2,
@@ -366,7 +524,7 @@ export async function resetAccount(): Promise<'pushed' | 'not-configured' | 'fai
       appPrefs: { ...(keepApp?.lang ? { lang: keepApp.lang } : {}), ...(keepApp?.unit ? { unit: keepApp.unit } : {}) },
     },
   };
-  return overwriteLocal(empty, before);
+  return withRollbackSlot(before, () => overwriteLocal(empty, before));
 }
 
 /**
@@ -382,7 +540,6 @@ export async function addImportedRecords(input: {
   metricSeeds: Record<string, string[]>;
 }): Promise<'pushed' | 'not-configured' | 'failed'> {
   const current = await collectLocalSnapshot();
-  await saveRollbackSlot(current);
 
   const incoming = new Set(input.workouts.map(w => w.id));
   const knownDefs = new Set(current.prefs.customExercises.map(d => d.id));
@@ -407,7 +564,7 @@ export async function addImportedRecords(input: {
       customExerciseDefs: (tomb.customExerciseDefs ?? []).filter(id => !input.newDefs.some(d => d.id === id)),
     },
   };
-  return overwriteLocal(next, current);
+  return withRollbackSlot(current, () => overwriteLocal(next, current));
 }
 
 /** 摘要用：备份里最后一次训练的日期（ISO），没有训练返回 null */
@@ -424,6 +581,30 @@ type RollbackRow = { id: string; createdAt: string; snapshot: FitlogRemoteSnapsh
 /** 把当前状态整份存进回滚槽（失败直接抛，不吞） */
 async function saveRollbackSlot(current: FitlogRemoteSnapshot): Promise<void> {
   await db.save(ROLLBACK_STORE, { id: ROLLBACK_ID, createdAt: new Date().toISOString(), snapshot: current });
+}
+
+/**
+ * 先存回滚槽（存不进去直接抛，什么都没写），再整份改写。改写失败时：
+ *   - 已经自动换回原样（rolledBack），或者根本没写到库：把上一份副本放回去 —— 「数据未改动」那句话才完全属实，
+ *     上一次恢复 / 导入 / 重置仍撤销得了（上架审查 C54：原来失败也把唯一的副本换成了当前样子）；
+ *   - 写了一半换不回来：留新副本，它就是这次操作之前的样子，提示里指向的「撤销」靠的正是它。
+ */
+async function withRollbackSlot<T>(current: FitlogRemoteSnapshot, write: () => Promise<T>): Promise<T> {
+  const prev = await findRollbackRow();
+  await saveRollbackSlot(current);
+  try {
+    return await write();
+  } catch (err) {
+    if (!(err instanceof OverwriteFailedError) || err.rolledBack) {
+      try {
+        if (prev) await db.save(ROLLBACK_STORE, prev);
+        else await db.delete(ROLLBACK_STORE, ROLLBACK_ID);
+      } catch (e) {
+        console.error('[fitlog] 放回上一份回滚副本失败:', e);
+      }
+    }
+    throw err;
+  }
 }
 
 async function findRollbackRow(): Promise<RollbackRow | undefined> {

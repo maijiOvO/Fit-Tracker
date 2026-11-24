@@ -57,7 +57,9 @@ await build({
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
       "export { parseImportCsv, materialize } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
-      "export { mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport } from './services/fitlogBackup.ts';",
+      "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport } from './services/fitlogBackup.ts';",
+      "export { readText as folderReadText, writeText as folderWriteText } from './services/fitlogFolder.ts';",
+      "export { migrateLocalData } from './services/fitlogRemote.ts';",
       "export { isLocalAuthoritative } from './services/fitlogRemoteSync.ts';",
       "export { db } from './services/db';",
       "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
@@ -367,6 +369,66 @@ await t('重置：回滚槽存不进去就中止，数据一条不动', async ()
     D.db.save = save;
   }
   assert.equal((await D.db.getAll('workouts')).length, SEED.length);
+});
+
+// ── 回滚副本不被失败冲掉（上架审查 C54）──────────────────────────────
+const backupOf = workouts => JSON.stringify({ app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(0), snapshot: { schemaVersion: 2, workouts, goals: [], weightLogs: [], customMetrics: [], prs: [], scheduledWorkouts: [], customExerciseDefsFromDb: [], prefs: {} } });
+const failReplace = async (store, times, fn) => {
+  const replaceAll = D.db.replaceAll;
+  let left = times;
+  D.db.replaceAll = async (n, rows) => {
+    if (n === store && left-- > 0) throw new Error('quota');
+    return replaceAll.call(D.db, n, rows);
+  };
+  try {
+    return await fn();
+  } finally {
+    D.db.replaceAll = replaceAll;
+  }
+};
+
+await t('恢复失败、已自动换回（提示「数据未改动」）：上一份回滚副本原样留着，撤销还能回到重置之前', async () => {
+  await seedDb();
+  await D.resetAccount();
+  const before = await D.readRollback();
+  await failReplace('workouts', 1, () => assert.rejects(D.applyBackup(D.parseBackupFile(backupOf(SEED.slice(0, 1)))), e => e.rolledBack === true));
+  const after = await D.readRollback();
+  assert.equal(after?.workouts, SEED.length, '副本被这次失败的恢复换掉了');
+  assert.equal(after.createdAt, before.createdAt);
+  assert.equal((await D.db.getAll('workouts')).length, 0);
+});
+
+await t('恢复写到一半、换不回来：留新副本（本次操作之前的样子），撤销能回去', async () => {
+  await seedDb();
+  await D.resetAccount();
+  await failReplace('goals', 99, () => assert.rejects(D.applyBackup(D.parseBackupFile(backupOf(SEED.slice(0, 1)))), e => e.rolledBack === false));
+  assert.equal((await D.readRollback())?.workouts, 0);
+  await D.rollbackImport();
+  assert.equal((await D.db.getAll('workouts')).length, 0);
+});
+
+// ── 备份文件夹里带 BOM 的文件（上架审查 C65）─────────────────────────
+await t('备份文件夹里被外部工具存成带 BOM 的 .json 照样读得出', async () => {
+  useMockFolder();
+  const { uri } = await D.folderWriteText(FOLDER, 'FitTracker_auto_x.json', '﻿' + backupOf(SEED));
+  const text = await D.folderReadText(uri);
+  assert.equal(D.parseBackupFile(text).counts.workouts, SEED.length);
+});
+
+// ── 启动迁移碰到坏行不抛（上架审查 gap-r3-2#2）──────────────────────
+await t('启动迁移：缺 exerciseTime 的照补，坏行（日期解析不了、exercises 缺失或不是数组）原样跳过，不抛', async () => {
+  const ok = { ...SEED[0], exercises: SEED[0].exercises.map(({ exerciseTime: _t, ...e }) => e) };
+  const bad = [
+    { id: 'bad_date', userId: 'u_solo', date: 'not-a-date', exercises: [{ id: 'x', name: '深蹲', sets: [] }] },
+    { id: 'bad_empty', userId: 'u_solo', date: '', exercises: [{ id: 'y', name: '深蹲', sets: [] }] },
+    { id: 'bad_none', userId: 'u_solo', date: iso(1) },
+    { id: 'bad_null', userId: 'u_solo', date: iso(1), exercises: null },
+  ];
+  for (const w of [ok, ...bad]) await D.db.save('workouts', w);
+  await D.migrateLocalData();
+  const rows = new Map((await D.db.getAll('workouts')).map(w => [w.id, w]));
+  assert.equal(rows.get(ok.id).exercises[0].exerciseTime, new Date(ok.date).toISOString());
+  for (const b of bad) assert.deepEqual(rows.get(b.id), b);
 });
 
 // ── Strong / Hevy 导入 ───────────────────────────────────────────────
