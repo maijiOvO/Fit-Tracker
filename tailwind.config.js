@@ -13,7 +13,7 @@
  * 必须用 Number.isFinite 判断——否则裸类会编译成 `color-mix(… NaN% …)`，
  * 把本来正常的那 100% 的类一起搞死。
  *
- * color-mix 要 Chrome 111+，低于 §7.1 定的 WebView 115 门槛。
+ * color-mix 要 Chrome 111+，是 index.html #webview-gate 里要求最高的一项，更旧的 WebView 在那里就被拦下。
  */
 const tok = (v) => ({ opacityValue }) => {
   const a = Number(opacityValue);

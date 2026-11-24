@@ -71,7 +71,7 @@ Write-Host "  全量 $($lines.Count) 行 -> $log" -ForegroundColor DarkGray
 $keyPattern = 'chromium|WebView|\bcr_|\bANR\b|Render process|Not responding|fittracker|SandboxedProcessService|lowmemorykiller|am_kill|am_anr|am_proc_died|am_freeze|am_unfreeze'
 $key = @($lines | Select-String -CaseSensitive -Pattern $keyPattern)
 # 高价值行单独再挑一遍，免得被包名行淹没。
-$hot = @($key | Select-String -CaseSensitive -Pattern 'Render process|Not responding|\bANR\b|lowmemorykiller|am_kill|am_anr|am_proc_died|am_freeze|am_unfreeze|crash|FATAL')
+$hot = @($key | Select-String -CaseSensitive -Pattern 'FitlogWebView|Render process|Not responding|\bANR\b|lowmemorykiller|am_kill|am_anr|am_proc_died|am_freeze|am_unfreeze|crash|FATAL')
 Write-Host "  匹配关键行 $($key.Count) 条，其中高价值（杀进程 / ANR / 渲染进程 / 冻结）$($hot.Count) 条" -ForegroundColor DarkGray
 if ($hot.Count -gt 0) {
     Write-Host "  -- 高价值行（最多最后 40 条）--" -ForegroundColor Yellow

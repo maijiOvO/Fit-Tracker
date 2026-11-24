@@ -1,4 +1,5 @@
 /* FitLog Service Worker — same-origin-only cache, no CDN dependency. */
+/* 只服务浏览器 PWA：原生容器里不注册，启动时还会把旧的注销、缓存清掉（见 index.html #sw-control，上架审查 startup-compat#4）。 */
 /**
  * 改名即清空旧缓存（activate 里删掉所有别的 key）。
  * v4 → v5：v4 是缓存优先拿 index.html 的那一版，见下面 fetch 里的长注释。

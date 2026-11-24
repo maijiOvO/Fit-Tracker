@@ -78,3 +78,6 @@ node scripts\phone-webview-probe.mjs
 ```
 
 把 `test-artifacts\gray-<时间戳>.log`、`gray-<时间戳>-probe.json` 和两个脚本的终端输出一起发到对话里，附上第 2 步的结果。
+
+原生壳里有看门狗（`MainActivity`，logcat tag `FitlogWebView`，`phone-gray-diag.ps1` 会把它算作高价值行）：每次解锁回来记一行 `frame after resume: NNms`；6 秒没出帧记 `no frame 6000ms after resume` → `terminate render process` → `render process gone`，随后页面重载、进行中的训练接回。
+读法：灰屏时日志里有 `frame after resume` 且毫秒数正常 → 网页照常在画，问题在窗口 / 合成那一层，看门狗管不到；有 `no frame` 但没恢复 → 看 `rescued within` / `no render process handle` 那几行（60 秒内只救一次，API 29 以下拿不到渲染进程）。

@@ -273,6 +273,7 @@ async function sessionMenu(page, card, itemRe) {
 const H = { home: true };
 const MAIN_STEPS = [
   ['cold-load', []],
+  ['old-webview-gate', []],
   // 落下的那场训练是时间线那条的靶子（finishedWorkoutId）
   ['plan-to-linked-workout', ['cold-load'], H],
   ['timeline-ops', ['plan-to-linked-workout'], H],
@@ -1257,7 +1258,33 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.goto(BASE, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('header', { timeout: 15_000 });
       await page.waitForSelector('nav button', { timeout: 15_000 });
+      // index.html 的 WebView 闸门在这份 Chromium 上误拦，所有人都会打不开 App：这里给一句明确的失败
+      if (await page.evaluate(() => document.documentElement.hasAttribute('data-webview-gate'))) throw new Error('webview gate blocked a current Chromium');
       return `title="${await page.title()}"`;
+    });
+
+    // 系统 WebView 太旧（上架审查 startup-compat#1）：缺 Array.prototype.at（80–91 档训练页一加动作就崩）时，
+    // 只留闸门的提示：React 不挂（会把提示盖掉）、字体守卫不装（它可能 reload）。这层接线只有真页面里看得到
+    await s('old-webview-gate', async () => {
+      const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      try {
+        await ctx.route(url => !url.href.startsWith(BASE), route => route.abort());
+        await ctx.addInitScript(() => { delete Array.prototype.at; });
+        const p = await ctx.newPage();
+        await p.goto(BASE, { waitUntil: 'domcontentloaded' });
+        await p.waitForFunction(() => document.documentElement.getAttribute('data-webview-gate') === 'blocked', null, { timeout: 10_000 });
+        await p.waitForLoadState('load');
+        const got = await p.evaluate(async () => {
+          await document.fonts.ready;
+          const root = document.getElementById('root');
+          return { kids: root.children.length, notice: !!root.querySelector('[data-webview-gate-notice]'), header: !!document.querySelector('header'), fontRetry: sessionStorage.getItem('fitlog_font_retry') };
+        });
+        if (got.kids !== 1 || !got.notice || got.header) throw new Error(`gate notice was replaced: ${JSON.stringify(got)}`);
+        if (got.fontRetry) throw new Error('font guard ran on a blocked WebView');
+        return 'blocked, notice kept';
+      } finally {
+        await ctx.close();
+      }
     });
 
     // 计划 → 开练 → 结束：训练记录带上 fromSchedule.scheduleId，计划标完成并关联到这一场（plan-session-leaks-schedule-id），

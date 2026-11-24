@@ -26,8 +26,11 @@ const config: CapacitorConfig = {
    */
   backgroundColor: '#FFFFFF',
   android: {
-    /** 「墨与纸」全部技术里的最高门槛（scroll-driven animations 要 Chrome 115+）。 */
-    minWebViewVersion: 115,
+    /**
+     * 只往 logcat 打一行、不拦截（没配 errorPath）。真正的门在 index.html 的 #webview-gate，按特性拦；
+     * 数字对齐闸门里要求最高的 color-mix（111）。
+     */
+    minWebViewVersion: 111,
   },
   ...(liveReload
     ? {

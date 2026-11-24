@@ -63,15 +63,68 @@
 </head>
 <body>
     <div id="root"></div>
-    <script>
-        if ('serviceWorker' in navigator && location.protocol !== 'http:') {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(err => {
-                    console.log('SW registration failed: ', err);
-                });
-            });
+    <!--
+      系统 WebView 太旧时的门（上架审查 startup-compat#1）：capacitor.config 的 minWebViewVersion 不配 errorPath 就只往 logcat 打一行，
+      旧 WebView 照常进 App —— 低于 80 白屏，80–91 一加动作就崩，92–110 弹层顶出屏幕、颜色不对。
+      按特性拦、不按版本号：华为等内核的版本号是另一套。只写 ES5（它要在拦的旧 WebView 上自己先能跑；scripts/boot-check.mjs 断言）。
+      以后产物用到更新的 JS API / CSS 特性，要加进下面这张表。new Function 那一项依赖页面没有禁 eval 的 CSP。
+      被拦时 html 上挂 data-webview-gate，index.tsx 据此不挂 React，留住这段提示。
+    -->
+    <script id="webview-gate">
+      (function () {
+        function css(p, v) { try { return !!(window.CSS && CSS.supports && (v === undefined ? CSS.supports(p) : CSS.supports(p, v))); } catch (e) { return false; } }
+        function js(f) { try { return !!f(); } catch (e) { return false; } }
+        var ok =
+          css('height', '1dvh') &&
+          css('container-type', 'inline-size') &&
+          css('selector(:has(a))') &&
+          css('color', 'color-mix(in srgb, red, blue)') &&
+          js(function () { return typeof [].at === 'function'; }) &&
+          js(function () { return typeof structuredClone === 'function'; }) &&
+          js(function () { return typeof Object.hasOwn === 'function'; }) &&
+          js(function () { return new Function('return null ?? 1')() === 1; });
+        if (ok) return;
+        document.documentElement.setAttribute('data-webview-gate', 'blocked');
+        var cn = /^zh/i.test(navigator.language || '');
+        var m = /Chrome\/(\d+)/.exec(navigator.userAgent || '');
+        var ver = m ? ' (Chrome ' + m[1] + ')' : '';
+        var root = document.getElementById('root');
+        if (root) root.innerHTML =
+          '<div data-webview-gate-notice style="background:#FFFFFF;color:#111316;min-height:100vh;padding:64px 24px;font:16px/1.6 sans-serif">' +
+          (cn
+            ? '<p style="font-weight:600;margin:0 0 12px">系统 WebView 版本太旧' + ver + '</p><p style="margin:0">请在应用商店或系统更新里升级「Android System WebView」后重新打开。你的数据不受影响。</p>'
+            : '<p style="font-weight:600;margin:0 0 12px">System WebView is too old' + ver + '</p><p style="margin:0">Update "Android System WebView" from the app store or system updates, then reopen. Your data is safe.</p>') +
+          '</div>';
+      })();
+    </script>
+    <!--
+      Service Worker 只服务浏览器 PWA（上架审查 startup-compat#4）：原生容器里的「网络」就是 APK 内的本地资源服务器，永远可达，
+      SW 没有用处，反倒每次升级都把上一版的 JS/CSS 留在缓存里；DevNotes 记的两个 SW 坑（缓存 index.html 白屏、冻结字体）也都出在原生里。
+      所以原生里不注册，并且每次启动都把已有的注销、缓存清掉（旧 SW 还控制着当前这一页，一次请求就会把缓存重建出来，下次启动再清）。
+    -->
+    <script id="sw-control">
+      (function () {
+        var cap = window.Capacitor;
+        var nativeApp = false;
+        try { nativeApp = !!(cap && (typeof cap.isNativePlatform === 'function' ? cap.isNativePlatform() : cap.isNative)); } catch (e) {}
+        if (!('serviceWorker' in navigator) || location.protocol === 'http:') return;
+        if (nativeApp) {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            for (var i = 0; i < regs.length; i++) regs[i].unregister();
+          })['catch'](function () {});
+          if (window.caches) caches.keys().then(function (keys) {
+            for (var i = 0; i < keys.length; i++) caches['delete'](keys[i]);
+          })['catch'](function () {});
+          return;
         }
-
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js')['catch'](function (err) {
+            console.log('SW registration failed: ', err);
+          });
+        });
+      })();
+    </script>
+    <script>
         document.addEventListener('touchstart', (event) => {
             if (event.touches.length > 1) {
                 event.preventDefault();

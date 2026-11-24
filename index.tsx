@@ -19,8 +19,14 @@ import { installFontGuard } from './src/utils/fontGuard';
 import DemoBanner from './src/components/DemoBanner';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 
+/**
+ * index.html 的 #webview-gate 判出系统 WebView 太旧：留住那段提示，不装字体守卫（它可能 reload）、不挂 React（会把提示盖掉）。
+ * 80–110 档的 WebView 能解析并跑这个模块，所以这里必须判；低于 80 的根本解析不了，靠 html 里那段。
+ */
+const webviewBlocked = document.documentElement.hasAttribute('data-webview-gate');
+
 // 更新后首次冷启动可能整会话掉回系统字（optional 的语义），探测到就重载一次挽回
-installFontGuard();
+if (!webviewBlocked) installFontGuard();
 
 // 当前数据环境必须一眼可见 —— 「以为自己在开发模式」是最危险的状态
 {
@@ -127,7 +133,9 @@ function mount(): void {
   );
 }
 
-if (isDemo()) {
+if (webviewBlocked) {
+  // 什么都不做：提示已经在 #root 里
+} else if (isDemo()) {
   void resetDemoState().then(mount);
 } else {
   mount();
