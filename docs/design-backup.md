@@ -206,7 +206,7 @@ PrefsSheet「数据」组是四行列表，按钮都在二级页里（demo：`do
 | 来源 | fitlog |
 |---|---|
 | 一场训练（Strong 按 `Date`，Hevy 按 `title + start_time`） | 一条 `WorkoutSession`，`date` / `startTime` / `endTime`（Strong 用 Duration 推算）、`title`、`notes` |
-| 动作名 | 先按英文名 / 曾用名对内置动作（「Bench Press (Barbell)」这类括号里的器材一并比对）；对不上就**新建自定义动作**。导错的可以事后用现有的「并入另一个动作」合过去 |
+| 动作名 | 先按英文名 / 曾用名对内置动作，中文、俄文、日文等非拉丁文字按原文比对；括号里的器材和对上的动作不同时，记到同器材的做法上（「Calf Raise (Machine)」→ 提踵 · 固定器械）。没有这个做法、或名字里只剩器材词，就**新建自定义动作**。导错的可以事后用现有的「并入另一个动作」合过去 |
 | 正式组 | `SetLog`：`weight` 换算成 kg 存，`plateUnit` 记来源单位 |
 | 力竭组（Strong `F` / Hevy `failure`） | 正式组 + `toFailure: true` |
 | 递减组（Strong `D` / Hevy `dropset`） | 挂到前一个正式组的 `subSets` |
