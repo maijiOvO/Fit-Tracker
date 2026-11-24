@@ -1495,10 +1495,11 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const belowBefore = await w1in.inputValue();
       await w0in.click();
       await page.waitForTimeout(80); // 全选放在下一帧
-      await page.keyboard.type('77');
-      if ((await w0in.inputValue()) !== '77') throw new Error(`typing into a cell should replace it, got ${await w0in.inputValue()}`);
+      // 逗号做小数点、小数点后第一位是 0（上架审查 C38 / live-walkthrough#1）：type=number 时会被逐键改写成 62.5、625 或夹成 500
+      await page.keyboard.type('62,05');
+      if ((await w0in.inputValue()) !== '62,05') throw new Error(`typing into a cell should replace it and keep the text, got ${await w0in.inputValue()}`);
       await page.keyboard.press('Enter');
-      if ((await w0in.inputValue()) !== '77') throw new Error('a typed weight must stay as typed');
+      if ((await w0in.inputValue()) !== '62.05') throw new Error(`a typed weight must stay as typed, got ${await w0in.inputValue()}`);
       // 2026-11-23 用户定：改值只改这一组，下面的组不被带着变（规则在 workbench-check 里）
       if ((await w1in.inputValue()) !== belowBefore) throw new Error(`the set below must not follow a typed weight, got ${await w1in.inputValue()} from ${belowBefore}`);
       if (!/^reps/.test(await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || ''))) throw new Error('Enter in the weight cell should focus reps');

@@ -45,3 +45,19 @@ export const secondsToHMS = (totalSeconds: number) => {
  */
 export const plural = (n: number, one: string, many: string = one + 's'): string =>
   (n === 1 ? one : many);
+
+/**
+ * 打字框里的一串字 → 数（上架审查 C38 / live-walkthrough#1）。全角数字、全角句点、半角 / 全角逗号（逗号做小数点的键盘）、
+ * 全角负号先归一，再要求整串是一个完整的数。打到一半的「-」「.」「5.」以外的残串（''、'1.2.3'、'1e3'、'abc'）给 null：调用方这一键不写。
+ * 原来框是 type=number 再 Number()：逐键打 5.05 到「5.0」时被改写成「5」，最终存成 55；「62,5」被 Blink 清洗成 625。
+ */
+export function parseTypedNum(text: string): number | null {
+  const s = text
+    .trim()
+    .replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[．。，,]/g, '.')
+    .replace(/[－−]/g, '-');
+  if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}

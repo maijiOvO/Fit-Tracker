@@ -5,7 +5,7 @@
 import type { SetLog } from '../../types';
 import { KG_TO_LBS } from '../constants';
 import type { ExRounder } from '../hooks/useLoadRounder';
-import { parseWeight } from './format';
+import { parseTypedNum, parseWeight } from './format';
 import { trimNum } from './liftDisplay';
 import { clampLoadD, fromSignedKg } from './load';
 import { isTouchKey } from './setValues';
@@ -68,6 +68,24 @@ export function restoreUpdate(set: SetLog, kg: number, signed: boolean): Partial
   if (!set.touched?.weight) return w;
   const { weight: _w, bodyweightMode: _b, ...touched } = set.touched;
   return { ...w, touched };
+}
+
+/**
+ * 重量格打字的一键（组行和递减档共用）。sign 是聚焦那一刻这一组的号（调用方记下，上架审查 C37）：
+ * 原来每一键按「当前」的号乘 —— 清空那一下组变成 0、号变成 normal，下一键改按上一组 / 默认的号补，辅助 20 改 25 存成负重 25。
+ * 打正数乘 sign，打负数就是辅助；空串算 0；打到一半不是完整的数（'-'、'1.2.3'）返回 null，这一键不写。上限照旧由 weightFromShown 夹。
+ */
+export function typedWeight(
+  text: string,
+  sign: -1 | 1,
+  unit: string,
+  rounder: ExRounder | null | undefined,
+  signed: boolean,
+): Pick<SetLog, 'weight' | 'plateUnit' | 'bodyweightMode'> | null {
+  const n = text.trim() === '' ? 0 : parseTypedNum(text);
+  if (n === null) return null;
+  const v = signed && n >= 0 ? n * sign : n;
+  return weightFromShown(signed ? v : Math.max(0, v), unit, rounder, signed);
 }
 
 /**

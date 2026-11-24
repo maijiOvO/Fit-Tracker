@@ -60,6 +60,7 @@ await build({
       "export { sessionsBefore, redateLiveSession, isBackdated } from './src/utils/sessionDate.ts';",
       "export * as SS from './src/utils/setStep.ts';",
       "export * as SW from './src/utils/setWrite.ts';",
+      "export { parseTypedNum } from './src/utils/format.ts';",
       "export * as LD from './src/utils/load.ts';",
       "export * as LB from './src/utils/loadable.ts';",
       "export { boundDetent, heroFocus, scrubTier, ACCEL_VELOCITY, SCRUB_FEEL_PX } from './src/utils/scrubFeel.ts';",
@@ -1687,6 +1688,23 @@ t('横拖加速：正常手速永远一格；甩过门槛才两格；关掉后�
   // 配重片刻度轨只给一档：不跳
   assert.equal(L.scrubTier(9, [1], px, true), 1);
   assert.equal(L.scrubTier(L.ACCEL_VELOCITY, [1, 2], L.SCRUB_FEEL_PX.fine, true), 1);
+});
+
+// ── 组行打字（上架审查 C37 / C38 / live-walkthrough#1）────────────────
+t('打字解析：全角、逗号做小数点、全角负号都认；打到一半不是完整的数给 null（这一键不写）', () => {
+  const ok = { '5.05': 5.05, '0.05': 0.05, '5,05': 5.05, '62，5': 62.5, '５．０５': 5.05, '－5': -5, '22.': 22, '.5': 0.5, ' 12 ': 12 };
+  for (const [k, v] of Object.entries(ok)) assert.equal(L.parseTypedNum(k), v, k);
+  for (const k of ['', '-', '.', '1.2.3', '1e3', 'abc']) assert.equal(L.parseTypedNum(k), null, k);
+});
+
+t('重量格打字按聚焦时的号写（C37）：辅助的组清空再打 25 还是辅助 25；打负数是辅助；空串是 0；残串不写；多打一个 0 夹到上限', () => {
+  const w = (text, sign, signed = true) => L.SW.typedWeight(text, sign, 'kg', null, signed);
+  assert.deepEqual(w('', -1), { weight: 0, plateUnit: 'kg', bodyweightMode: 'normal' });
+  assert.deepEqual(w('25', -1), { weight: 25, plateUnit: 'kg', bodyweightMode: 'assisted' });
+  assert.deepEqual(w('-20', 1), { weight: 20, plateUnit: 'kg', bodyweightMode: 'assisted' });
+  assert.equal(w('-', -1), null);
+  assert.deepEqual(w('62,5', 1, false), { weight: 62.5, plateUnit: 'kg' });
+  assert.deepEqual(w('600', 1, false), { weight: 500, plateUnit: 'kg' });
 });
 
 console.log(`\nlogic-check: ${n} passed`);

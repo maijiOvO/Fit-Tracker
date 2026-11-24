@@ -20,7 +20,8 @@ import { haptic, H } from '../utils/haptics';
 import type { SetUpdate } from '../utils/workbench';
 import { loadCapD } from '../utils/load';
 import { pad2, secondsToHMS } from '../utils/format';
-import { altLoadLabel, formatLoad, markTouched, restoreKgOf, shownWeight, weightFromShown } from '../utils/setWrite';
+import { altLoadLabel, formatLoad, markTouched, restoreKgOf, shownWeight, typedWeight, weightFromShown } from '../utils/setWrite';
+import { parseTypedNum } from '../utils/format';
 import { KG_TO_LBS } from '../constants';
 import { heroScrubAxis, STACK_PITCH, STACK_ENGAGE_PX } from '../utils/scrubFeel';
 import { UserSettingsContext } from '../contexts/UserSettingsContext';
@@ -231,12 +232,19 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
    */
   const rowSignedKg = (Number(set.weight) || 0) * rowSign;
   const typeBaseRef = React.useRef<number | null>(null);
+  /** 聚焦重量格那一刻这一组的号：打字中途清空时组变成 0、号就丢了，之后的每一键按这个号写（上架审查 C37） */
+  const typeSignRef = React.useRef<-1 | 1>(1);
+  /**
+   * 正在打的那一格显示原文、不按存下的值回填（上架审查 C38）：受控框逐键回填会把「5.0」改写成「5」，最终存成 55。
+   * 一行同一时刻只有一格在打，一份就够。
+   */
+  const [draft, setDraft] = React.useState<{ m: string; text: string } | null>(null);
   const commitTypedWeight = () => {
     const base = typeBaseRef.current;
     typeBaseRef.current = null;
     if (base !== null && base !== rowSignedKg) onUpdate({ followFrom: { kg: base } } as SetUpdate);
   };
-  const subTypeBaseRef = React.useRef<{ sub: number; kg: number } | null>(null);
+  const subTypeBaseRef = React.useRef<{ sub: number; kg: number; sign: -1 | 1 } | null>(null);
   const commitTypedSubWeight = (subIdx: number, nowKg: number) => {
     const base = subTypeBaseRef.current;
     subTypeBaseRef.current = null;
@@ -524,6 +532,9 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 ? formatLoad(Number(raw), unit)
                 : distToDisplay(m, Number(raw)).toFixed(2).replace(/\.?0+$/, '');
           const unitTap = m === 'weight' && signed && Number(set.weight) > 0;
+          // 打字中显示原文；排版宽度也按它算（逗号当小数点，不然「62,05」按 5 位整数排、字会跳）
+          const shown = draft?.m === m ? draft.text : display;
+          const shownN = shown.replace(/[,，]/g, '.');
           return (
             <label
               key={m}
@@ -532,15 +543,15 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 scrub?.scrubbing ? ' is-scrubbing' : ''
               }${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
-                ['--ledger-chars' as string]: Math.max(display.length, 1),
+                ['--ledger-chars' as string]: Math.max(shownN.length, 1),
                 // 整数部分的位数：重量数字按它定位，十位 / 个位钉住不动，小数往右长（2026-10-18 用户定：
                 // 居中对齐时 60 → 62.5 一路左右飘）
-                ['--int-chars' as string]: Math.max(display.split('.')[0].replace('-', '').length, 1),
+                ['--int-chars' as string]: Math.max(shownN.split('.')[0].replace('-', '').length, 1),
                 // 收字号用：从中线往右要放下几个数字宽。小数点只有数字宽的约 2/3（Barlow 实测 0.325 vs 0.475 em），
                 // 按整字算会把 102.5 收到 24px，掉到 §0「≥26px」底线以下
                 ['--fit-chars' as string]: (() => {
-                  const int = Math.max(display.split('.')[0].replace('-', '').length, 1);
-                  return Math.max(1, display.length - int / 2 - (display.includes('.') ? 0.32 : 0));
+                  const int = Math.max(shownN.split('.')[0].replace('-', '').length, 1);
+                  return Math.max(1, shownN.length - int / 2 - (shownN.includes('.') ? 0.32 : 0));
                 })(),
                 ['--ledger-unit-w' as string]: `${Math.max(20, unitLabel.length * 6.5 + 4)}px`,
               }}
@@ -565,33 +576,45 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                   PB
                 </span>
               )}
+              {/* type=text + inputMode：type=number 会把逗号小数「62,5」清洗成 625、逐键回填把 5.0 改写成 5（C38 / live-walkthrough#1） */}
               <input
-                type="number"
-                step="any"
+                type="text"
+                autoComplete="off"
                 inputMode={m === 'reps' ? 'numeric' : 'decimal'}
                 enterKeyHint={activeMetrics.indexOf(m) < activeMetrics.length - 1 ? 'next' : 'done'}
                 className={`ledger-input${m === 'weight' ? ' is-int-anchored' : ''}`}
                 placeholder="0"
                 aria-label={unitLabel ? `${m} (${unitLabel})` : m}
                 data-undo-label={`${isCn ? `第 ${setIdx + 1} 组` : `Set ${setIdx + 1} `}${translations[m as keyof typeof translations]?.[lang] ?? m}`}
-                value={display}
+                value={shown}
                 onFocus={e => {
                   selectOnFocus(e);
-                  if (m === 'weight') typeBaseRef.current = rowSignedKg;
+                  setDraft({ m, text: display });
+                  if (m === 'weight') {
+                    typeBaseRef.current = rowSignedKg;
+                    // 号在这一刻定下：0 的组这时拿到的就是沿用上一组的号（审查 C6）
+                    typeSignRef.current = rowSign;
+                  }
                 }}
-                onBlur={m === 'weight' ? commitTypedWeight : undefined}
+                onBlur={() => {
+                  setDraft(null);
+                  if (m === 'weight') commitTypedWeight();
+                }}
                 onKeyDown={focusNextOnEnter}
                 onChange={e => {
-                  const inputValue = e.target.value === '' ? 0 : Number(e.target.value);
+                  const text = e.target.value;
+                  setDraft({ m, text });
                   if (m === 'weight') {
-                    // 带正负：打负数＝辅助；打正数沿用这一组现在的号（辅助的组改数还是辅助；0 的组沿用上一组的号）
-                    const v = signed && inputValue >= 0 ? inputValue * rowSign : inputValue;
+                    // 带正负：打负数＝辅助；打正数按聚焦时的号（辅助的组清空再打还是辅助，C37）
+                    const w = typedWeight(text, typeSignRef.current, unit, rounder, !!signed);
                     // 打字中途只改这一格，离开输入框时再按总差值带后面（commitTypedWeight）
-                    update({ ...fromDisplay(signed ? v : Math.max(0, v)), holdFollow: true });
+                    if (w) update({ ...w, holdFollow: true });
                     return;
                   }
+                  const n = text.trim() === '' ? 0 : parseTypedNum(text);
+                  if (n === null) return;
                   // 次数只夹成非负整数、不设上限（跳绳会很大）；距离 / 速度按首选项的距离单位打，存回 km、km/h
-                  update({ [m]: m === 'reps' ? wholeReps(inputValue) : distFromDisplay(m, inputValue) });
+                  update({ [m]: m === 'reps' ? wholeReps(n) : distFromDisplay(m, n) });
                 }}
               />
               {unitLabel &&
@@ -701,12 +724,17 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             signed={!!signed}
             rounder={rounder}
             edited={isGhost ? sub.touched : undefined}
-            onWeight={(v, typed) => {
+            onWeight={v => {
               const vv = signed && v >= 0 ? v * sign : v;
-              handleSubSetUpdate(ssi, fromDisplay(signed ? vv : Math.max(0, vv)), typed);
+              handleSubSetUpdate(ssi, fromDisplay(signed ? vv : Math.max(0, vv)));
+            }}
+            onTypeWeight={text => {
+              // 按聚焦时的号写（C37，同母组）
+              const w = typedWeight(text, subTypeBaseRef.current?.sign ?? sign, unit, rounder, !!signed);
+              if (w) handleSubSetUpdate(ssi, w, true);
             }}
             onTypeStart={() => {
-              subTypeBaseRef.current = { sub: ssi, kg: (Number(sub.weight) || 0) * sign };
+              subTypeBaseRef.current = { sub: ssi, kg: (Number(sub.weight) || 0) * sign, sign };
             }}
             onTypeEnd={() => commitTypedSubWeight(ssi, (Number(sub.weight) || 0) * sign)}
             onUpdate={updates => handleSubSetUpdate(ssi, updates)}
@@ -775,8 +803,10 @@ interface SubSetRowProps {
   edited?: SubSetLog['touched'];
   /** 馆档案取整器：拖动按这件器材的一档走（同母组） */
   rounder?: ExRounder | null;
-  /** 改重量（显示单位，带符号）；typed＝打字中途，后面的组先不跟 */
-  onWeight: (v: number, typed?: boolean) => void;
+  /** 横拖改重量（显示单位，带符号） */
+  onWeight: (v: number) => void;
+  /** 重量格打字的一键（原文；母组按聚焦时的号解析、写回，后面的组先不跟） */
+  onTypeWeight: (text: string) => void;
   /** 重量格开始 / 结束打字：结束时按总差值带后面各组的同一档 */
   onTypeStart: () => void;
   onTypeEnd: () => void;
@@ -808,6 +838,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   edited,
   rounder,
   onWeight,
+  onTypeWeight,
   onTypeStart,
   onTypeEnd,
   onUpdate,
@@ -829,6 +860,8 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
     onChange: next => onUpdate({ reps: next }),
     disabled: readOnly,
   });
+  /** 正在打的那一格显示原文（同母组，C38） */
+  const [draft, setDraft] = React.useState<{ m: string; text: string } | null>(null);
 
   return (
     <div
@@ -886,8 +919,8 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
             )}
             {m === 'weight' && altLabel && <span className="ref-tag" data-testid="alt-load">{altLabel}</span>}
             <input
-              type="number"
-              step={m === 'weight' ? 'any' : undefined}
+              type="text"
+              autoComplete="off"
               inputMode={m === 'weight' ? 'decimal' : 'numeric'}
               enterKeyHint={m === 'weight' ? 'next' : 'done'}
               className="ledger-input ledger-input-sm"
@@ -895,20 +928,26 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
               data-undo-label={`${label === 'up' ? (isCn ? '递增' : 'Up') : isCn ? '递减' : 'Drop'}${isCn ? (m === 'weight' ? '重量' : '次数') : m === 'weight' ? ' weight' : ' reps'}`}
               onFocus={e => {
                 selectOnFocus(e);
+                setDraft({ m, text: value ? display : '' });
                 if (m === 'weight') onTypeStart();
               }}
-              onBlur={m === 'weight' ? onTypeEnd : undefined}
+              onBlur={() => {
+                setDraft(null);
+                if (m === 'weight') onTypeEnd();
+              }}
               onKeyDown={focusNextOnEnter}
               aria-label={
                 m === 'weight'
                   ? isCn ? `${label === 'up' ? '递增' : '递减'}重量` : `${label === 'up' ? 'Up' : 'Drop'} weight`
                   : isCn ? `${label === 'up' ? '递增' : '递减'}次数` : `${label === 'up' ? 'Up' : 'Drop'} reps`
               }
-              value={value ? display : ''}
+              value={draft?.m === m ? draft.text : value ? display : ''}
               onChange={e => {
-                const val = e.target.value === '' ? 0 : Number(e.target.value);
-                if (m === 'weight') onWeight(val, true);
-                else onUpdate({ reps: wholeReps(val) });
+                const text = e.target.value;
+                setDraft({ m, text });
+                if (m === 'weight') return onTypeWeight(text);
+                const n = text.trim() === '' ? 0 : parseTypedNum(text);
+                if (n !== null) onUpdate({ reps: wholeReps(n) });
               }}
             />
             {unitLabel && <span className="ledger-unit">{unitLabel}</span>}
