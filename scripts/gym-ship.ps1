@@ -17,8 +17,11 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 
-# 放仓库外的固定目录：包里带 NAS 地址和 key，不进任何工作树；工作树里打的包也发到同一处
-$drop = Join-Path $env:LOCALAPPDATA 'fitlog-gym'
+# 放主仓旁边的固定目录：包里带 NAS 地址和 key，不进任何工作树；工作树里打的包也发到同一处（所以按 git 公共目录找主仓）。
+# 不能放 %LOCALAPPDATA%：Claude 桌面版是 MSIX 应用，它起的进程往 AppData 写会被重定向进
+# Packages\Claude_*\LocalCache，自己 ls 看得到，tailscaled 去读真路径却是空的，下载页一律 404。
+$mainRepo = Split-Path -Parent (Resolve-Path (& git rev-parse --git-common-dir)).Path
+$drop = Join-Path (Split-Path -Parent $mainRepo) 'fitlog-gym'
 $servePort = 8443
 $keep = 4
 

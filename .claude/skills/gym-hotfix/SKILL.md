@@ -45,4 +45,5 @@ description: 用户人在健身房，用手机遥控这台电脑上的会话：�
 | `[X] 没有 .env.local` | 在工作树里跑了。回主仓跑 |
 | 装上了但戳没变 | 装的是旧包，或下载页是浏览器缓存的旧页，让用户刷新后看最上面那个 |
 
-下载目录在仓库外：`%LOCALAPPDATA%\fitlog-gym`（`builds.json` 是清单，`index.html` 每次重新生成）。
+下载目录在主仓旁边：`..\fitlog-gym`（`builds.json` 是清单，`index.html` 每次重新生成）。
+别挪进 `%LOCALAPPDATA%`：桌面版 Claude 起的进程往那里写会被重定向，tailscaled 读不到，下载页全是 404。
