@@ -393,6 +393,18 @@ t('入册口径认速度和自定义记录项（上架审查 C21）：只记速�
   assert.ok(rec[0].sets.every(x => x.seq === undefined && x.touched === undefined));
 });
 
+t('结束时的计数（上架审查 C20，2026-11-24 用户定）：sets＝会入册的组数，below＝其中还在指针下面的（填了数没点组号）；只存到指针＝只留指针以上的', () => {
+  const exs = [
+    { id: 'A', name: '卧推', sets: [{ id: 'a0', weight: 60, reps: 8 }, { id: 'a1', weight: 60, reps: 8, ghost: true }, { id: 'a2', weight: 0, reps: 0, ghost: true }] },
+    { id: 'B', name: '划船', sets: [{ id: 'b0', weight: 50, reps: 10, ghost: true }] },
+  ];
+  assert.deepEqual(W.recordTally(exs), { sets: 3, below: 2 });
+  const upTo = W.upToPointer(exs);
+  assert.deepEqual(upTo.map(e => e.sets.map(s => s.id)), [['a0'], []]);
+  assert.deepEqual(W.recordedExercises(upTo).map(e => e.id), ['A'], '指针以上一组都没有的动作不入册');
+  assert.deepEqual(W.recordTally([{ id: 'A', name: '卧推', sets: [{ id: 'a0', weight: 60, reps: 8 }] }]), { sets: 1, below: 0 }, '指针到底：不问');
+});
+
 t('换做法重铺底稿（上架审查 C43）：卡上有做完 / 改过的行就保留在原位、组数不变，不把新做法上次多出来的组接在后面；全是没动过的底稿才整套换', () => {
   const f = n => Array.from({ length: n }, (_, i) => ({ id: `f${i}`, weight: 50, reps: 5, ghost: true }));
   const done = id => ({ id, weight: 60, reps: 8 });

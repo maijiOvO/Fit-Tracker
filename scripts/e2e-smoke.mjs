@@ -129,12 +129,20 @@ async function acceptAppConfirm(page) {
  * 训练页「结束训练」（2026-10-26 起不弹确认框）：同一键点两下 —— 第一下只上膛（按钮变「再点一次结束」、data-armed），
  * 第二下才结束。第一下弹了任何对话框都算回退到老行为。
  */
-async function endWorkout(page) {
+/**
+ * 结束训练。pick：指针没到底时（有填了数没点组号的组）弹「全部保存 / 只存到指针」，按它选；默认全部保存（录入了就算练了）。
+ * 指针到底时不弹。返回弹没弹（上架审查 C20）。
+ */
+async function endWorkout(page, pick = 'all') {
   const btn = page.locator('[data-testid="finish-button"]');
   await btn.click();
   await page.locator('[data-testid="finish-button"][data-armed="true"]').waitFor({ timeout: 3_000 });
   if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('ending a workout should arm the button, not open a dialog');
   await btn.click();
+  const choice = page.locator(`[data-testid="${pick === 'all' ? 'finish-save-all' : 'finish-save-to-pointer'}"]`);
+  const asked = await choice.waitFor({ timeout: 1_500 }).then(() => true, () => false);
+  if (asked) await choice.click();
+  return asked;
 }
 
 /** 点确认框里指定文案的那个按钮（确认 / 取消都走这里） */
@@ -190,7 +198,7 @@ async function backAndDiscard(page) {
       page.locator('[data-testid^="timeline-session-"]').evaluateAll(els => els.map(e => e.getAttribute('data-testid')).filter(t => t !== 'timeline-session-menu'));
     const before = new Set(await cardIds());
     await page.locator('[data-testid="in-progress-end"]').click();
-    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End workout)$/);
+    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End workout|全部保存|Save all)/);
     const colo = page.locator('[data-testid="workout-colophon"]');
     if (await colo.waitFor({ state: 'visible', timeout: 2_000 }).then(() => true, () => false)) {
       await colo.click();
@@ -242,7 +250,7 @@ async function resetHome(page) {
   const row = page.locator('[data-testid="in-progress"]');
   if (await row.isVisible().catch(() => false)) {
     await page.locator('[data-testid="in-progress-end"]').click();
-    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End workout)$/);
+    await clickAppConfirm(page, /^(放弃|Discard|结束训练|End workout|全部保存|Save all)/);
     if (await colo.isVisible().catch(() => false)) await colo.click();
   }
 }
@@ -1594,8 +1602,9 @@ async function mainFlow(browser, escapedRemoteCalls) {
       if (await page.locator('[data-testid="toast"]', { hasText: /已撤销|已重做|Undone|Redone/ }).count()) throw new Error('undo / redo still shows a toast');
 
       // 结束训练 → 首页 → 撤销：那场回到工作台，做完的组还在
-      await endWorkout(page);
-      // 第 2 组是「添加组」手加的、没点做完：有数就入册（willRecord），刊末页数 2 组
+      // 第 2 组是「添加组」手加的、没点做完：指针没到底，结束时要问「全部保存 / 只存到指针」（C20，2026-11-24 用户定）
+      if (!(await endWorkout(page, 'all'))) throw new Error('a filled set below the bookmark should ask: save all or save up to the bookmark');
+      // 选全部保存：有数就入册（willRecord），刊末页数 2 组
       await page.locator('[data-testid="colophon-sets"]').waitFor({ state: 'visible', timeout: 5_000 });
       const colSets = (await page.locator('[data-testid="colophon-sets"]').innerText()).trim();
       if (colSets !== '2') throw new Error(`colophon set count ${colSets}: the hand-added pending set was dropped at finish`);

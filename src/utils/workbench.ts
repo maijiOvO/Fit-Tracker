@@ -708,6 +708,27 @@ export function hasUserInput(exercises: Exercise[] | undefined): boolean {
   );
 }
 
+/**
+ * 结束时的计数（上架审查 C20）：sets＝会入册的组数（和 recordedExercises 同一判定），below＝其中还在指针下面的组
+ * （填了数、没点组号）。below > 0 时结束前问一句：全部保存，还是只存到指针（2026-11-24 用户定）。
+ */
+export function recordTally(exercises: Exercise[] | undefined): { sets: number; below: number } {
+  let sets = 0;
+  let below = 0;
+  for (const ex of exercises ?? [])
+    for (const s of ex.sets ?? []) {
+      if (!willRecord(s)) continue;
+      sets++;
+      if (s.ghost) below++;
+    }
+  return { sets, below };
+}
+
+/** 只存到指针：每张卡只留指针以上的组（ghost=false）；交给 recordedExercises 后，一组都不剩的动作整个不入册 */
+export function upToPointer(exercises: Exercise[] | undefined): Exercise[] {
+  return (exercises ?? []).map(ex => ({ ...ex, sets: (ex.sets ?? []).filter(s => !s.ghost) }));
+}
+
 /** 结束训练：剥掉工作台标记；只剩一个成员的交替组拆掉 */
 export function stripWorkbenchSet<T extends SetLog>(s: T): T {
   // prefillRef / draftAuto 只服务工作台上的「上次 x」与切单位重算，不进历史（递减档上的也剥）

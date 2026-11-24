@@ -24,6 +24,14 @@ export interface ConfirmOptions {
   danger?: boolean;
 }
 
+/** 几选一（choose）：按钮从上到下排，第一个是主按钮；取消 / 返回键得到 null */
+export interface ChooseOptions {
+  title?: string;
+  message: string;
+  choices: { key: string; label: string; testId?: string }[];
+  cancelLabel?: string;
+}
+
 interface ToastItem {
   id: string;
   message: string;
@@ -44,6 +52,8 @@ export interface ToastAction {
 
 interface UiOverlayContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>;
+  /** 几选一的确认框：返回选中的 key，取消 / 返回键得到 null */
+  choose: (options: ChooseOptions) => Promise<string | null>;
   toast: (message: string, variant?: ToastVariant, action?: ToastAction) => void;
   /** 显示带「撤销」的 toast，默认 5 秒 */
   toastUndo: (
@@ -76,8 +86,9 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const [confirmState, setConfirmState] = useState<{
-    options: ConfirmOptions;
-    resolve: (v: boolean) => void;
+    options: ConfirmOptions & { choices?: ChooseOptions['choices'] };
+    /** 确认框：true / false；几选一：选中的 key，取消是 false */
+    resolve: (v: boolean | string) => void;
   } | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastIdRef = useRef(0);
@@ -125,11 +136,17 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
 
   const confirm = useCallback((options: ConfirmOptions): Promise<boolean> => {
     return new Promise(resolve => {
-      setConfirmState({ options, resolve });
+      setConfirmState({ options, resolve: v => resolve(v === true) });
     });
   }, []);
 
-  const closeConfirm = useCallback((result: boolean) => {
+  const choose = useCallback((options: ChooseOptions): Promise<string | null> => {
+    return new Promise(resolve => {
+      setConfirmState({ options, resolve: v => resolve(typeof v === 'string' ? v : null) });
+    });
+  }, []);
+
+  const closeConfirm = useCallback((result: boolean | string) => {
     setConfirmState(prev => {
       prev?.resolve(result);
       return null;
@@ -160,7 +177,7 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
   };
 
   return (
-    <UiOverlayContext.Provider value={{ confirm, toast, toastUndo, dismissToasts }}>
+    <UiOverlayContext.Provider value={{ confirm, choose, toast, toastUndo, dismissToasts }}>
       {children}
 
       {/* 确认对话框。§6.6：危险确认是唯一允许出现 danger 实心的地方，
@@ -174,13 +191,32 @@ export const UiOverlayProvider: React.FC<UiOverlayProviderProps> = ({
         showCloseButton={false}
         dismissOnScrim={false}
         footer={
-          <ModalFooter
-            cancelLabel={confirmState?.options.cancelLabel ?? (isCn ? '取消' : 'Cancel')}
-            confirmLabel={confirmState?.options.confirmLabel ?? (isCn ? '确定' : 'OK')}
-            onCancel={() => closeConfirm(false)}
-            onConfirm={() => closeConfirm(true)}
-            danger={confirmState?.options.danger}
-          />
+          confirmState?.options.choices ? (
+            <div className="space-y-2">
+              {confirmState.options.choices.map((c, i) => (
+                <button
+                  key={c.key}
+                  type="button"
+                  data-testid={c.testId}
+                  className={`${i === 0 ? 'ui-btn-primary' : 'ui-btn-secondary'} w-full py-3`}
+                  onClick={() => closeConfirm(c.key)}
+                >
+                  {c.label}
+                </button>
+              ))}
+              <button type="button" className="w-full py-2 text-secondary text-small" onClick={() => closeConfirm(false)}>
+                {confirmState.options.cancelLabel ?? (isCn ? '取消' : 'Cancel')}
+              </button>
+            </div>
+          ) : (
+            <ModalFooter
+              cancelLabel={confirmState?.options.cancelLabel ?? (isCn ? '取消' : 'Cancel')}
+              confirmLabel={confirmState?.options.confirmLabel ?? (isCn ? '确定' : 'OK')}
+              onCancel={() => closeConfirm(false)}
+              onConfirm={() => closeConfirm(true)}
+              danger={confirmState?.options.danger}
+            />
+          )
         }
       >
         <p className="text-body text-secondary whitespace-pre-line">

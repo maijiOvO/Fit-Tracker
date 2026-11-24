@@ -16,7 +16,7 @@ import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, newGroupId, normalizeGroups, recordedExercises, refillDraft, toRecorded } from '../utils/workbench';
+import { groupExercises, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
 import { rowEdited, toGhostSets } from '../utils/setValues';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
@@ -178,7 +178,7 @@ export function useWorkoutMutations({
   const workoutCtx = useWorkoutContext();
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
-  const { confirm, toast } = useUiOverlay();
+  const { confirm, choose, toast } = useUiOverlay();
   const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef } = useExercisePrefs();
   /** 「杠铃片」馆档案：底稿按今天的馆和单位就近取整（docs/design-plates.md §3） */
   const rounderFor = useLoadRounder();
@@ -342,7 +342,8 @@ export function useWorkoutMutations({
   /**
    * 结束训练：标记 finishedAt → 写 DB → 清空 workbench → 跳转
    */
-  const finishWorkout = useCallback(async () => {
+  /** upTo＝只存到指针：指针下面填了数、没点组号的组不入册（结束前用户选的，见 handleFinishWithConfirmation） */
+  const finishWorkout = useCallback(async (upTo = false) => {
     setSaveStatus('saving');
 
     try {
@@ -351,7 +352,8 @@ export function useWorkoutMutations({
         return;
       }
 
-      const cleanedExercises = recordedExercises(currentWorkout.exercises);
+      const src = upTo ? { ...currentWorkout, exercises: upToPointer(currentWorkout.exercises) } : currentWorkout;
+      const cleanedExercises = recordedExercises(src.exercises);
 
       if (cleanedExercises.length === 0) {
         setSaveStatus('idle');
@@ -377,7 +379,7 @@ export function useWorkoutMutations({
       // 计划关联：开练时记在这场上的 fromSchedule 为准（App 被回收后接回来的也认得），ref 兜旧数据
       const scheduleId = currentWorkout.fromSchedule?.scheduleId ?? activeScheduleIdRef.current;
       // 和自动收尾（WorkoutContext.settle*）同一个口径；上面已经判过有可入册的组
-      const finalWorkout = toRecorded(currentWorkout, { isCn, scheduleId })!;
+      const finalWorkout = toRecorded(src, { isCn, scheduleId })!;
 
       // PR 判定必须在写库【之前】算：写完之后 workouts 里就含本场了，
       // 拿它当「历史」会把自己和自己比，永远不可能破纪录。
@@ -472,7 +474,7 @@ export function useWorkoutMutations({
   ]);
 
   const handleFinishWithConfirmation = useCallback(async (askFirst = true) => {
-    // 卡上有数的组全部入册，不论点没点过组号（2026-11 用户定，recordedExercises），结束时不再提醒哪些组没入册。
+    // 卡上有数的组全部入册，不论点没点过组号（2026-11 用户定，recordedExercises）；指针没到底时先问存全部还是存到指针（见下）。
 
     // 编辑旧训练：「保存修改」不用确认
     if (editingWorkoutId) {
@@ -487,6 +489,28 @@ export function useWorkoutMutations({
       return;
     }
 
+    /**
+     * 指针没到底：有填了数、没点组号的组（上架审查 C20，2026-11-24 用户定）。规则照旧「录入了就算练了」，
+     * 但结束前问一句：全部保存，还是只存到指针。指针到底（没有这种组）照旧，不问。
+     * 这一问替掉首页「结束这场训练？」那一问（它也有「接着练」），不叠两个弹窗。
+     */
+    const { sets, below } = recordTally(currentWorkout.exercises);
+    if (below > 0) {
+      const done = sets - below;
+      const pick = await choose({
+        title: isCn ? `还有 ${below} 组在指针下面` : `${below} set${below > 1 ? 's' : ''} below the bookmark`,
+        message: isCn ? '这些组填了数、还没点组号。' : "They have numbers but weren't tapped done.",
+        choices: [
+          { key: 'all', label: isCn ? `全部保存（${sets} 组）` : `Save all (${sets})`, testId: 'finish-save-all' },
+          ...(done > 0 ? [{ key: 'pointer', label: isCn ? `只存到指针（${done} 组）` : `Save up to bookmark (${done})`, testId: 'finish-save-to-pointer' }] : []),
+        ],
+        cancelLabel: isCn ? '接着练' : 'Keep going',
+      });
+      if (!pick) return;
+      await finishWorkout(pick === 'pointer');
+      return;
+    }
+
     if (askFirst) {
       const ok = await confirm({
         // 2026-10-11：去掉「当前单位设置」「将被添加到历史记录」两行 —— 都是常识，每场都读一遍是噪音
@@ -496,7 +520,7 @@ export function useWorkoutMutations({
       if (!ok) return;
     }
     await finishWorkout();
-  }, [confirm, confirmDiscard, currentWorkout.exercises, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
+  }, [choose, confirm, confirmDiscard, currentWorkout.exercises, editingWorkoutId, finishWorkout, hasUnsavedChanges, isCn]);
 
   const handleEditWorkout = useCallback(
     (workoutId: string, options?: { scrollToPicker?: boolean; focusExerciseId?: string }) => {
