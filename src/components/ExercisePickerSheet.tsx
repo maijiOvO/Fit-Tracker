@@ -225,6 +225,8 @@ interface ExercisePickerSheetProps {
   onPickExercise: (ex: ExerciseDefinition, variantId: string | undefined, altFrom: LastHit | undefined, existingId: string | null) => boolean | void;
   /** 每个动作交替做过的各种搭配（第 0 种＝点这一行带的，其余列在行下面）；只有训练页传 */
   altCombos?: Map<string, AltCombo[]>;
+  /** 补加旧训练 / 补录：行上的「上次」只看这个时间之前的（同点行铺的底稿）；只有训练页传 */
+  before?: string;
   /** 普通态里换了部位（部位标签，如 subChest）：训练名没手动改过时跟着改 */
   onPartChange?: (bodyPart: string) => void;
   /** preset：弹层眼下停的部位 / 细分 / 有氧栏、只筛了一样的器材（「新动作」照它预填，审查 A16 / C5） */
@@ -286,6 +288,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   sessionAdded,
   onPickExercise,
   altCombos,
+  before,
   onPartChange,
   onCreateCustomExercise,
   onDeleteExercise,
@@ -373,11 +376,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         const name = ex.name[lang] || ex.name.cn;
         // 同 useWorkoutMutations.preferGymFor：只有器械类（配重片 / 挂片）本馆优先
         const preferGym = gym && gymScoped({ id: '', name, category: 'STRENGTH', sets: [], ...(vid ? { variantId: vid } : {}) } as Exercise) ? gym : undefined;
-        cache.set(k, rowLastSession(doneWorkouts, liftsById, resolveName, variantIdOf, v => (ex.variants ?? []).some(x => x.id === v), { id: ex.id, name }, vid, currentWorkout.id || undefined, preferGym));
+        cache.set(k, rowLastSession(doneWorkouts, liftsById, resolveName, variantIdOf, v => (ex.variants ?? []).some(x => x.id === v), { id: ex.id, name }, vid, currentWorkout.id || undefined, preferGym, before));
       }
       return cache.get(k)!;
     };
-  }, [lifts, doneWorkouts, currentWorkout.id, gym, gymScoped, lang, resolveName, variantIdOf]);
+  }, [lifts, doneWorkouts, currentWorkout.id, gym, gymScoped, lang, resolveName, variantIdOf, before]);
   /** 每个动作（任一做法）上次练的时间：分部位浏览的组内排序用（browseRank） */
   const lastTsById = useMemo(() => {
     const m = new Map<string, number>();

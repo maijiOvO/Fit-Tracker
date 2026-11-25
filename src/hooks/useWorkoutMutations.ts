@@ -22,7 +22,7 @@ import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
-import { findLastAltGroup, findLastIn, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
+import { findLastAltGroup, findLastIn, sourceCards, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
 import { sessionDurationMin } from '../utils/sessionDuration';
 import { cardSourceFor, switchedCardIdentity } from '../utils/liftIdentity';
 import { isBackdated, redateLiveSession, sessionsBefore } from '../utils/sessionDate';
@@ -102,8 +102,11 @@ export interface ColophonState {
   unitLabel: string;
   stamps: PRHit[];
   extraCount: number;
-  /** 没破纪录时的「比上次」：每个动作这场与上一场的最好一组（带符号 kg，显示时再换单位）；破了纪录就是空的 */
-  vsLast: { name: string; signed: boolean; now: VsSet; last: VsSet }[];
+  /**
+   * 没破纪录时的「比上次」：每个项目这场与上一场的最好一组（带符号 kg，显示时再换单位）；破了纪录就是空的。
+   * name＝项目键（带做法，同 PB 牌）；lastGym＝器械上一场不在今天这个馆时那个馆的名字
+   */
+  vsLast: { name: string; signed: boolean; now: VsSet; last: VsSet; lastGym?: string }[];
 }
 
 export interface UseWorkoutMutationsResult {
@@ -140,7 +143,8 @@ export interface UseWorkoutMutationsResult {
    * 只做检查和确认，返回「选好馆之后怎么铺这一场」和同意顶掉的那场；App 交给 startAtGym（先选馆，审查 A12）。null＝不开。
    */
   handleCopyWorkoutToToday: (workoutId: string) => Promise<StartPlan | null>;
-  handleDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string) => Promise<void>;
+  /** 删掉一场里的这几张卡（按动作历史的一行＝这场里这个项目的全部卡） */
+  handleDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseIds: string[]) => Promise<void>;
 
   /** 从计划开练：同上，返回选好馆之后怎么铺这一场（App 交给 startAtGym）；null＝不开 */
   handleStartScheduledSession: (scheduleId: string) => Promise<StartPlan | null>;
@@ -427,15 +431,17 @@ export function useWorkoutMutations({
       const isSignedEx = (ex: Exercise) => usesSignedLoad(ex, signedLoadOf(ex));
       const vsLast = pr.stamps.length
         ? []
-        : vsLastSession(
-            finalWorkout.exercises,
-            ex =>
+        : vsLastSession(finalWorkout.exercises, {
+            keyOf: liftKey,
+            findLast: ex =>
               findLastIn(earlier, resolveName, variantIdOf, ex.name, variantIdOf(ex) ?? '', finalWorkout.id,
                 finalWorkout.gym && gymScoped(ex) ? finalWorkout.gym : undefined),
-            isSignedEx,
-          ).map(r => {
-            const ex = finalWorkout.exercises.find(e => e.id === r.exId)!;
-            return { name: resolveName(ex.name), signed: isSignedEx(ex), now: r.now, last: r.last };
+            signedOf: isSignedEx,
+            gymScoped,
+            gym: finalWorkout.gym,
+          }).map(r => {
+            const cards = finalWorkout.exercises.filter(e => liftKey(e) === r.key);
+            return { name: r.key, signed: cards.some(isSignedEx), now: r.now, last: r.last, ...(r.lastGym ? { lastGym: r.lastGym } : {}) };
           });
       const summary = sessionSummary(finalWorkout);
       const volume = unit === 'lbs' ? summary.volumeKg * KG_TO_LBS : summary.volumeKg;
@@ -715,7 +721,7 @@ export function useWorkoutMutations({
     (
       name: string,
       category: string,
-      last: { ex: Exercise; workout: WorkoutSession } | null,
+      last: LastHit | null,
       exerciseTime: string,
       defConfig?: any,
       variant?: { id: string; name?: string },
@@ -724,8 +730,12 @@ export function useWorkoutMutations({
       gyms?: Record<string, GymProfile>,
     ): Exercise => {
       const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      // 上一场这个项目有几张卡（并入、计划排两行）：合起来按卡序铺（gap-4#1：原来只抄第一张，热身卡顶掉了正式组）。
+      // 要一一对应的（计划开练）由调用方用 sourceCards 先挑好 exs 传进来
+      const srcCards = last ? (last.exs ?? [last.ex]) : [];
+      const srcSets = srcCards.flatMap(e => e.sets ?? []);
       // 只抄开着的记录项：关掉的次数 / 重量不再藏在底稿里入册（上架审查 gap-2#2）
-      const rawGhosts = last?.ex.sets?.length ? toGhostSets(last.ex.sets, stamp, getActiveMetrics(name)) : null;
+      const rawGhosts = srcSets.length ? toGhostSets(srcSets, stamp, getActiveMetrics(name)) : null;
       const vid = variant ? variant.id : last ? variantIdOf(last.ex) : undefined;
       const vname = variant
         ? variant.name || variantsOf(name).find(v => v.id === variant.id)?.name
@@ -759,7 +769,7 @@ export function useWorkoutMutations({
             ? ghostSets
             : // 没练过的新动作：第一行空着、从待做开始（第 4 条），点组号才算做完
               [{ id: `${stamp}_0`, weight: 0, reps: 0, ghost: true }],
-        ...(ghostSets && ghostSets.length > 0 && last?.workout.date ? { prefillFrom: last.workout.date } : {}),
+        ...(ghostSets && ghostSets.length > 0 && last?.workout.date ? { prefillFrom: last.workout.date, prefillIds: srcCards.map(e => e.id) } : {}),
         // §12.11：记下底稿来源那一场的场地，**无条件记**。
         ...(ghostSets && ghostSets.length > 0 && last?.workout.gym ? { prefillGym: last.workout.gym } : {}),
         exerciseTime,
@@ -836,7 +846,7 @@ export function useWorkoutMutations({
                   : copied,
               ...(live ? { variantId: vid, variantName: ex.variantName || variantsOf(ex.name).find(v => v.id === vid)?.name } : {}),
               exerciseTime: new Date().toISOString(),
-              ...(from.date ? { prefillFrom: from.date } : {}),
+              ...(from.date ? { prefillFrom: from.date, prefillIds: [std ? std.ex.id : ex.id] } : {}),
               // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
               ...(from.date && from.gym ? { prefillGym: from.gym } : {}),
               ...(ex.instanceConfig ? { instanceConfig: { bodyweightMode: ex.instanceConfig.bodyweightMode } } : {}),
@@ -860,9 +870,10 @@ export function useWorkoutMutations({
   );
 
   const handleDeleteExerciseRecord = useCallback(
-    async (e: React.MouseEvent, workoutId: string, exerciseId: string) => {
+    async (e: React.MouseEvent, workoutId: string, exerciseIds: string[]) => {
       e.stopPropagation();
       // 不确认：点错了用顶栏的全局撤销（2026-10-25）。删的是最后一个动作＝删整场，走 handleDeleteWorkout 先确认（审查 D10）
+      // 按动作历史的一行是这场里这个项目的全部卡（同场多卡合成一场，C84）：一次写库删掉，撤销一次全回来
 
       try {
         const allWorkouts = await db.getAll<WorkoutSession>('workouts');
@@ -871,13 +882,13 @@ export function useWorkoutMutations({
           toast(isCn ? '训练记录不存在' : 'Workout not found', 'error');
           return;
         }
-        const exerciseToDelete = workout.exercises.find(ex => ex.id === exerciseId);
-        if (!exerciseToDelete) {
+        const ids = new Set(exerciseIds);
+        if (!workout.exercises.some(ex => ids.has(ex.id))) {
           toast(isCn ? '动作记录不存在' : 'Exercise not found', 'error');
           return;
         }
 
-        const updatedExercises = workout.exercises.filter(ex => ex.id !== exerciseId);
+        const updatedExercises = workout.exercises.filter(ex => !ids.has(ex.id));
         if (updatedExercises.length === 0) {
           await handleDeleteWorkout(workoutId);
           return;
@@ -924,11 +935,15 @@ export function useWorkoutMutations({
         const g = gym ?? empty.gym;
         const now = new Date().toISOString();
         const inheritAlt = appPrefsNow().inheritAltGroup;
-        const built = (target.exercises || []).map((pe, i) => {
+        const plan = target.exercises || [];
+        const built = plan.map((pe, i) => {
           const def = findExerciseDef(pe.name);
           const category = pe.category || def?.category || 'STRENGTH';
           const src = pickSource(pe.name, undefined, undefined, preferGymFor(pe.name, undefined, g));
-          const last = src.last;
+          // 计划里同一动作排了几行：第 k 行抄上一场第 k 张同项目卡（sourceCards）；只有一行就抄那场合起来的全部组。
+          // 不对应的话，没写组数的两行会各铺出全部组
+          const same = plan.filter(x => resolveName(x.name) === resolveName(pe.name));
+          const last = src.last ? { ...src.last, exs: sourceCards(src.last, same.indexOf(pe), same.length) } : null;
           if (category === 'CARDIO' && !last) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
           // 和上面 seed 的是同一份：没练过的有氧按首选项的有氧默认记录（seed 写进状态要等下一次渲染）
           const metrics = category === 'CARDIO' && !last ? appPrefsNow().cardioMetrics : getActiveMetrics(pe.name);
@@ -1206,6 +1221,7 @@ export function useWorkoutMutations({
         let sets = ex.sets;
         let prefillFrom: string | undefined = ex.prefillFrom;
         let prefillGym: string | undefined = ex.prefillGym;
+        let prefillIds: string[] | undefined = ex.prefillIds;
         const hit = findLast(
           ex.name,
           variantId ?? '',
@@ -1216,15 +1232,18 @@ export function useWorkoutMutations({
         const stamp = Date.now();
         if (hit) {
           // 做完 / 改过的组留在原来的位置（审查 A6：原来全挪到最前面），其余位置换成新做法上一次同位置的那组（refillDraft）
-          const fill = roundPrefill(toGhostSets(hit.ex.sets, `${stamp}`, getActiveMetrics(ex.name)), nextEx, r);
+          // 新做法上一场这个项目的全部卡合起来（同 buildExercise）
+          const fill = roundPrefill(toGhostSets(hit.exs.flatMap(e => e.sets ?? []), `${stamp}`, getActiveMetrics(ex.name)), nextEx, r);
           sets = refillDraft(ex.sets, fill);
           if (!sets.length) sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = hit.workout.date;
           prefillGym = hit.workout.gym;
+          prefillIds = hit.exs.map(e => e.id);
         } else if (!kept.length) {
           sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = undefined;
           prefillGym = undefined;
+          prefillIds = undefined;
         } else if (r) {
           sets = ex.sets.map(st => {
             if (!st.ghost || rowEdited(st)) return st;
@@ -1245,13 +1264,14 @@ export function useWorkoutMutations({
             };
           });
         }
-        const { variantId: _v, variantName: _n, prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
+        const { variantId: _v, variantName: _n, prefillFrom: _pf, prefillGym: _pg, prefillIds: _pi, ...rest } = ex;
         const next: Exercise = {
           ...rest,
           name: cardName,
           ...(variantId ? { variantId, variantName } : {}),
           ...(prefillFrom ? { prefillFrom } : {}),
           ...(prefillFrom && prefillGym ? { prefillGym } : {}),
+          ...(prefillFrom && prefillIds?.length ? { prefillIds } : {}),
           sets,
         };
         const copy = [...exs];

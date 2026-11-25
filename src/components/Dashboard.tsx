@@ -51,7 +51,7 @@ export interface DashboardActions {
   onCopyWorkoutToToday: (workoutId: string) => void | Promise<void>;
   /** 刚结束 10 分钟内的那场接回工作台（时间线长按菜单） */
   onResumeFinishedWorkout: (workoutId: string) => void;
-  onDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseId: string) => void;
+  onDeleteExerciseRecord: (e: React.MouseEvent, workoutId: string, exerciseIds: string[]) => void;
   onDeleteWeightEntry: (e: React.MouseEvent, id: string) => void;
   onLogWeight: () => void;
   onEditWeight: (entry: WeightEntry) => void;

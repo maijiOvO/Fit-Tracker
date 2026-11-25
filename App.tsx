@@ -30,7 +30,7 @@ import React, {
 
 import { Exercise, ExerciseDefinition, Goal, Language, type WorkoutSession } from './types';
 import type { GymProfile } from './src/utils/loadable';
-import type { LastHit } from './src/utils/prefillSource';
+import { prefillSourceLookup, type LastHit } from './src/utils/prefillSource';
 import { translations } from './translations';
 import { db } from './services/db';
 import { isDevMode, isEnvLocked, isRemoteConfigured, readPrefsFromLocalStorage } from './services/fitlogRemote';
@@ -832,32 +832,11 @@ const AppWithAuthShell: React.FC = () => {
     return currentWorkout.exercises?.[exIdx]?.sets?.[setIdx]?.duration || 0;
   })();
 
-  /**
-   * C2：这张卡的底稿抄自哪一场、那次做了哪几组（prefillFrom 原来只写不读）。取的是这个日期里第一场有这个动作的、
-   * 那场里第一张同名卡。按「日期 + 动作名」第一次调用时建一次索引、结果按键缓存（审查 F4：原来每张卡每次渲染都线性扫全部训练），
-   * 同一键回同一个对象，卡片的 memo 才比得住。
-   */
-  const lastSessionFor = useMemo(() => {
-    let index: Map<string, { date: string; ex: Exercise }> | null = null;
-    const hits = new Map<string, { date: string; sets: Exercise['sets'] } | null>();
-    return (ex: { name: string; prefillFrom?: string }) => {
-      if (!ex.prefillFrom) return null;
-      const k = `${ex.prefillFrom}\n${prefs.resolveName(ex.name)}`;
-      if (hits.has(k)) return hits.get(k)!;
-      if (!index) {
-        index = new Map();
-        for (const w of workouts)
-          for (const e of w.exercises ?? []) {
-            const wk = `${w.date}\n${prefs.resolveName(e.name)}`;
-            if (!index.has(wk)) index.set(wk, { date: w.date, ex: e });
-          }
-      }
-      const at = index.get(k);
-      const hit = at ? { date: at.date, sets: (at.ex.sets ?? []).filter(s => !s.ghost) } : null;
-      hits.set(k, hit);
-      return hit;
-    };
-  }, [workouts, prefs.resolveName]);
+  /** 卡头点开的「上次」：底稿抄自哪一场的哪几张卡（utils/prefillSource.prefillSourceLookup，按键缓存、同键回同一个对象） */
+  const lastSessionFor = useMemo(
+    () => prefillSourceLookup(workouts, prefs.resolveName, prefs.variantIdOf),
+    [workouts, prefs.resolveName, prefs.variantIdOf],
+  );
 
   /**
    * 「杠铃片」§1 训练中实时标 PB：每个项目（同一练法，prefs.liftKey）以前做完的每一组（带上那场的馆）。
@@ -878,6 +857,21 @@ const AppWithAuthShell: React.FC = () => {
     // 只依赖 liftKey：依赖整个 prefs 会让改备注 / 换杠这类无关偏好也触发全历史重算
   }, [workouts, currentWorkout.id, currentWorkout.date, prefs.liftKey]);
   /**
+   * 本场里同一项目有几张卡的（计划排两行、并入、复制为今天）：PB 标几张合起来只标一行（审查 C84）。
+   * groups 只在这些卡的内容签名变了时才换一份：prPoolFor 不跟着每改一格就换身份（F4）。只有一张的项目不在里面。
+   */
+  const peerInfo = useMemo(() => {
+    const groups = new Map<string, Exercise[]>();
+    for (const e of currentWorkout.exercises ?? []) {
+      const key = prefs.liftKey(e).trim();
+      groups.set(key, [...(groups.get(key) ?? []), e]);
+    }
+    for (const [k, cards] of groups) if (cards.length < 2) groups.delete(k);
+    const sig = JSON.stringify([...groups].map(([k, cards]) => [k, cards.map(c => ({ ...c, sets: (c.sets ?? []).filter(st => !st.ghost) }))]));
+    return { groups, sig };
+  }, [currentWorkout.exercises, prefs.liftKey]);
+  const peerGroups = useMemo(() => peerInfo.groups, [peerInfo.sig]);
+  /**
    * 摊平的历史按「项目 + 正负」、整个 pool 按它的全部输入缓存（审查 F4：原来每张卡每次渲染都把这个动作的全部历史组重摊一遍）。
    * 依赖一变整个缓存作废；同样的输入回同一个对象，卡片里 prSetIndex 的 useMemo 才比得住。
    */
@@ -889,7 +883,10 @@ const AppWithAuthShell: React.FC = () => {
       const key = prefs.liftKey(ex).trim();
       const tracksWeight = prefs.getActiveMetrics(prefs.resolveName(ex.name)).includes('weight');
       const machine = gymScopedPR(ex);
-      const pk = `${key}\n${signed}\n${tracksWeight}\n${machine}`;
+      const group = peerGroups.get(key);
+      const at = group ? group.findIndex(c => c.id === ex.id) : -1;
+      // 本场还有同项目别的卡的：peers 各张不同，pool 各一份
+      const pk = `${key}\n${signed}\n${tracksWeight}\n${machine}${at >= 0 ? `\n${ex.id}` : ''}`;
       const cached = pools.get(pk);
       if (cached) return cached;
       const hk = `${key}\n${signed}`;
@@ -898,11 +895,17 @@ const AppWithAuthShell: React.FC = () => {
         history = (prHistoryByLift.get(key) ?? []).flatMap(p => prSetsOf(p.ex, p.gym, signed));
         histories.set(hk, history);
       }
-      const pool: PRPool = { rule: { tracksWeight, signed, machine }, history, gym: currentWorkout.gym };
+      const peerSets = (cards: Exercise[]) => cards.flatMap(c => prSetsOf(c, currentWorkout.gym, signed).map(({ at: _at, ...x }) => x));
+      const pool: PRPool = {
+        rule: { tracksWeight, signed, machine },
+        history,
+        gym: currentWorkout.gym,
+        ...(group && at >= 0 ? { peers: { before: peerSets(group.slice(0, at)), after: peerSets(group.slice(at + 1)) } } : {}),
+      };
       pools.set(pk, pool);
       return pool;
     };
-  }, [prHistoryByLift, isSignedEx, prefs.liftKey, prefs.getActiveMetrics, prefs.resolveName, gymScopedPR, currentWorkout.gym]);
+  }, [prHistoryByLift, isSignedEx, prefs.liftKey, prefs.getActiveMetrics, prefs.resolveName, gymScopedPR, currentWorkout.gym, peerGroups]);
 
   // ============== 训练页弹层：pick / 开关 / 徽标数据 ==============
   /** 本次打开弹层里每次点选建出的卡片 id（按「动作::做法」分组、后进先出）：再点一下＝取消这次添加 */

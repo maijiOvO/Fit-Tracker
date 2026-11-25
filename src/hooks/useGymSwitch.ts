@@ -19,7 +19,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { reRoundPending, roundPrefill, useLoadRounder } from './useLoadRounder';
 import { toGhostSets } from '../utils/setValues';
-import { findLastIn, isPristineDraftCard } from '../utils/prefillSource';
+import { findLastIn, isPristineDraftCard, sourceCards } from '../utils/prefillSource';
 import type { GymProfile } from '../utils/loadable';
 import { useGymScopedPR } from './useLoadKind';
 import { isBackdated } from '../utils/sessionDate';
@@ -50,11 +50,15 @@ export function useGymSwitch() {
             : null;
           if (hit && hit.workout.date !== e.prefillFrom) {
             const { prefillGym: _pg, ...rest } = e;
-            const sets = roundPrefill(toGhostSets(hit.ex.sets, `${Date.now()}_${i}`, getActiveMetrics(e.name)), e, r);
+            // 这场里同项目有几张卡：第 k 张抄新来源那场的第 k 张（sourceCards），只有一张就抄那场合起来的全部组
+            const same = (w.exercises ?? []).filter(x => resolveName(x.name) === resolveName(e.name) && (variantIdOf(x) || undefined) === (variantIdOf(e) || undefined));
+            const src = sourceCards(hit, same.indexOf(e), same.length);
+            const sets = roundPrefill(toGhostSets(src.flatMap(x => x.sets ?? []), `${Date.now()}_${i}`, getActiveMetrics(e.name)), e, r);
             return {
               ...rest,
               sets,
               prefillFrom: hit.workout.date,
+              prefillIds: src.map(x => x.id),
               ...(hit.workout.gym ? { prefillGym: hit.workout.gym } : {}),
             } as Exercise;
           }

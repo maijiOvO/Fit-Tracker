@@ -64,7 +64,8 @@ export function equipmentsOf(ex: ExerciseDefinition): string[] {
 
 /**
  * 行上小灰字「上次 …」那一场：和点这一行铺的底稿同一场（useWorkoutMutations 加动作 = findLastIn，
- * 母行不分做法、做法行只认那个做法；preferGym 由调用方按器械类本馆优先给，同 preferGymFor）。
+ * 母行不分做法、做法行只认那个做法；preferGym 由调用方按器械类本馆优先给，同 preferGymFor；
+ * 补加旧训练 / 补录时 before＝那一场的时间，同底稿只看那天之前的，审查 C102）。
  * 返回那一场在逐场数据里的样子（最重一组）和它的做法 —— 母行据此写出做法名（审查 C1）。
  * liftsById：useLiftSummaries 按稳定键「定义 id|做法 id」。
  */
@@ -79,6 +80,7 @@ export function rowLastSession(
   vid: string | undefined,
   skipWorkoutId: string | undefined,
   preferGym: string | undefined,
+  before?: string,
 ): { session: LiftSession; variantId?: string } | null {
   // 弹层的行用的是动作库里的现名，不会是并入别名
   const { last: hit, variantId } = cardSourceFor({
@@ -87,13 +89,12 @@ export function rowLastSession(
     aliasOf: () => undefined,
     resolveName,
     live,
-    findLast: v => findLastIn(workouts, resolveName, variantIdOf, ex.name, v, skipWorkoutId, preferGym),
+    findLast: v => findLastIn(workouts, resolveName, variantIdOf, ex.name, v, skipWorkoutId, preferGym, before),
     variantIdOf,
   });
   if (!hit) return null;
-  const session = liftsById
-    .get(`${ex.id}|${variantId ?? ''}`)
-    ?.sessions.find(s => s.workoutId === hit.workout.id && s.exerciseId === hit.ex.id);
+  // 按场找：逐场数据里一场是这个项目的全部卡合起来的，exerciseId 只是第一张有做完组的
+  const session = liftsById.get(`${ex.id}|${variantId ?? ''}`)?.sessions.find(s => s.workoutId === hit.workout.id);
   return session ? { session, variantId } : null;
 }
 

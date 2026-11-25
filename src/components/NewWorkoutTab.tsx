@@ -173,13 +173,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const { workouts } = useWorkoutContext();
   // 训练中改过日期的场（补录）：和编辑旧训练一样，只看那一场之前的
   const backdated = !editingWorkoutId && isBackdated(currentWorkout);
-  // 选动作列表里的交替搭配：范围和点行时带搭档的一样（跳过这一场自己，补加旧训练 / 补录只看那一场之前的）
+  // 补加旧训练 / 补录：选动作列表只看那一场之前的（交替搭配、行上的「上次」和点行铺的底稿同一个范围，审查 C102）
+  const historyBefore = editingWorkoutId || backdated ? currentWorkout.date : undefined;
+  // 选动作列表里的交替搭配：范围和点行时带搭档的一样（跳过这一场自己）
   const altCombos = useMemo(
-    () =>
-      pickerOpen
-        ? altCombosByName(workouts, resolveName, currentWorkout.id || undefined, editingWorkoutId || backdated ? currentWorkout.date : undefined)
-        : undefined,
-    [pickerOpen, workouts, resolveName, currentWorkout.id, currentWorkout.date, editingWorkoutId, backdated],
+    () => (pickerOpen ? altCombosByName(workouts, resolveName, currentWorkout.id || undefined, historyBefore) : undefined),
+    [pickerOpen, workouts, resolveName, currentWorkout.id, historyBefore],
   );
   const rounderFor = useLoadRounder();
   const flashTimerRef = useRef<number | null>(null);
@@ -1058,6 +1057,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         sessionAdded={sessionAdded}
         onPickExercise={onPickExercise}
         altCombos={altCombos}
+        before={historyBefore}
         onPartChange={bodyPart => {
           // B3：开场点错部位没退路 —— 训练名还是「练胸」这种自动填的，就跟着弹层里换的部位改。
           // 只在还一个动作都没加的时候（审查 A14）：加了胸的动作再去背那一栏找一个，是在找动作，不是改主意；

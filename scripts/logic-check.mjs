@@ -39,7 +39,7 @@ await build({
     contents: [
       "export * from './src/utils/weightSummary.ts';",
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
-      "export { findLastIn, findLastAltGroup, altCombosByName, vsLastSession } from './src/utils/prefillSource.ts';",
+      "export { findLastIn, findLastAltGroup, altCombosByName, vsLastSession, sourceCards, prefillSourceLookup } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
       "export { migrateWarmRegions } from './src/utils/warmRegionMigration.ts';",
       "export { makeRounder, ownUnitOf, cardUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
@@ -47,7 +47,7 @@ await build({
       "export { mergeOverride, mergedName } from './src/utils/exerciseOverride.ts';",
       "export { detectPRs } from './src/utils/prDetect.ts';",
       "export * as R from './src/utils/prRecords.ts';",
-      "export { buildLiftSummaries, trendPoints, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
+      "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
       "export { moveSetToExercise, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
@@ -210,6 +210,26 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
   assert.equal(L.findLastIn([W('r', 'A', [ex('旧名', [done(10)])])], n => (n === '旧名' ? '新名' : n), vOf, '新名').workout.id, 'r');
 });
 
+t('底稿来源：命中那场同项目的几张卡按卡序都收进来（别的做法不收）；只铺一张抄合起来的，铺几张一一对应', () => {
+  // 防的错：gap-4#1 只抄第一张（并入后热身卡 40×10、60×8 顶掉正式组 80×5×3）；
+  // 也防本批修法自己的回归：计划排两行开练时每行各铺出全部组、行数翻倍
+  const C = (id, sets, variantId) => ({ id, name: '卧推', category: 'STRENGTH', sets, ...(variantId ? { variantId } : {}) });
+  const S = (w, r) => ({ id: `${w}x${r}`, weight: w, reps: r });
+  const w = { id: 'p', date: ago(2), gym: '', exercises: [
+    C('a', [S(40, 10), S(60, 8)]), C('x', [S(30, 12)], '哑铃'), C('b', [S(80, 5), S(80, 5), S(80, 5)]), C('g', [{ ...S(90, 1), ghost: true }]),
+  ] };
+  const vOf = e => e.variantId;
+  const ids = xs => xs.map(e => e.id);
+  const std = L.findLastIn([w], n => n, vOf, '卧推', '');
+  assert.deepEqual([std.ex.id, ids(std.exs)], ['a', ['a', 'b']], 'ghost-only card not collected');
+  assert.deepEqual(ids(L.findLastIn([w], n => n, vOf, '卧推', null).exs), ['a', 'b'], 'any variant: only the hit card\'s variant');
+  assert.deepEqual(ids(L.findLastIn([w], n => n, vOf, '卧推', '哑铃').exs), ['x']);
+  assert.deepEqual(ids(L.sourceCards(std, 0, 1)), ['a', 'b']);
+  assert.deepEqual([0, 1].map(k => ids(L.sourceCards(std, k, 2))), [['a'], ['b']]);
+  const one = L.findLastIn([{ ...w, exercises: [C('a', [S(100, 5)])] }], n => n, vOf, '卧推', '');
+  assert.deepEqual([0, 1].map(k => ids(L.sourceCards(one, k, 2))), [['a'], ['a']], 'last time one card: both rows copy it (as before)');
+});
+
 t('刊末页「比上次」：每个动作这场与上一场的最好一组（最重，同重比次数，递减档也算）；底稿、全零、没上一场的不列', () => {
   // 防的错：拿第一组或最后一组比（热身 / 递减把对比带偏），把底稿行当成做过，带正负的动作按绝对值比（辅助 20 比辅助 10「重」）
   const S = (w, r, extra = {}) => ({ id: `${w}x${r}`, weight: w, reps: r, ...extra });
@@ -223,11 +243,70 @@ t('刊末页「比上次」：每个动作这场与上一场的最好一组（�
     空: { id: 'le', name: '空', category: 'STRENGTH', sets: [S(50, 5)] },
   };
   const findLast = e => (last[e.name] ? { ex: last[e.name], workout: { id: 'w0', date: '', exercises: [] } } : null);
-  const got = L.vsLastSession([bench, pull, fresh, empty], findLast, e => e.name === '引体');
+  const got = L.vsLastSession([bench, pull, fresh, empty], {
+    keyOf: e => e.name, findLast, signedOf: e => e.name === '引体', gymScoped: () => false, gym: undefined,
+  });
   assert.deepEqual(got, [
-    { exId: 'b', now: { kg: 80, reps: 8 }, last: { kg: 82.5, reps: 2 } },
-    { exId: 'p', now: { kg: -5, reps: 6 }, last: { kg: -10, reps: 8 } },
+    { exId: 'b', key: '卧推', now: { kg: 80, reps: 8 }, last: { kg: 82.5, reps: 2 } },
+    { exId: 'p', key: '引体', now: { kg: -5, reps: 6 }, last: { kg: -10, reps: 8 } },
   ]);
+});
+
+t('刊末页「比上次」：一个项目一行，同场同项目的几张卡合起来比；标签带做法；器械退回别的馆比时带出馆名', () => {
+  // 防的错：gap-4#1 / gap-6#5 只拿第一张卡比（并入后的热身卡 60×8 当成上次、退阶卡单列一行去比上次的正式组）；
+  // gap-6#6 器械本馆没练过退回 A馆 比，却不写是哪个馆
+  const S = (w, r) => ({ id: `${w}x${r}`, weight: w, reps: r });
+  const C = (id, name, sets, variantId) => ({ id, name, category: 'STRENGTH', sets, ...(variantId ? { variantId } : {}) });
+  const W = (id, d, gym, exs) => ({ id, date: ago(d), gym, exercises: exs });
+  const vOf = e => e.variantId;
+  const keyOf = e => (e.variantId ? `${e.name}（${e.variantId}）` : e.name);
+  const run = (ws, now, extra = {}) => L.vsLastSession(now, {
+    keyOf, signedOf: () => false, gymScoped: () => false, gym: '',
+    findLast: e => L.findLastIn(ws, n => n, vOf, e.name, vOf(e) ?? '', 'now', extra.prefer?.(e)), ...extra,
+  }).map(r => [r.key, `${r.now.kg}x${r.now.reps}`, `${r.last.kg}x${r.last.reps}`, r.lastGym ?? null]);
+  // a：上一场并入后有两张卧推（热身卡 + 正式卡）
+  const merged = W('p', 2, '', [C('a', '卧推', [S(40, 10), S(60, 8)]), C('b', '卧推', [S(80, 5), S(80, 5), S(80, 5)])]);
+  assert.deepEqual(run([merged], [C('n', '卧推', [S(80, 5)])]), [['卧推', '80x5', '80x5', null]]);
+  // b：两场都是正式 + 退阶（同做法）
+  const prev = W('p2', 3, '', [C('a2', '卧推', [S(100, 5)]), C('b2', '卧推', [S(60, 10)])]);
+  assert.deepEqual(run([prev], [C('n1', '卧推', [S(100, 5)]), C('n2', '卧推', [S(60, 10)])]), [['卧推', '100x5', '100x5', null]]);
+  // c：标准、哑铃各一张 → 两行，标签带做法
+  const p3 = W('p3', 3, '', [C('x', '罗马尼亚硬拉', [S(100, 8)]), C('y', '罗马尼亚硬拉', [S(30, 12)], '哑铃')]);
+  assert.deepEqual(run([p3], [C('m', '罗马尼亚硬拉', [S(90, 8)]), C('k', '罗马尼亚硬拉', [S(25, 12)], '哑铃')]), [
+    ['罗马尼亚硬拉', '90x8', '100x8', null],
+    ['罗马尼亚硬拉（哑铃）', '25x12', '30x12', null],
+  ]);
+  // d：器械上一场只在 A馆、今天在 B馆 → 写 A馆；杠铃不写；同馆的器械也不写
+  const a = W('a', 5, 'A馆', [C('x', '腿举', [S(200, 10)]), C('z', '卧推', [S(100, 5)])]);
+  const machine = { gymScoped: e => e.name === '腿举', prefer: e => (e.name === '腿举' ? 'B馆' : undefined) };
+  assert.deepEqual(run([a], [C('y', '腿举', [S(100, 10)]), C('q', '卧推', [S(100, 5)])], { ...machine, gym: 'B馆' }), [
+    ['腿举', '100x10', '200x10', 'A馆'],
+    ['卧推', '100x5', '100x5', null],
+  ]);
+  assert.deepEqual(run([a], [C('y', '腿举', [S(100, 10)])], { ...machine, gym: 'A馆', prefer: () => 'A馆' }), [['腿举', '100x10', '200x10', null]]);
+});
+
+t('卡头「上次」：按底稿记下的来源卡列组；没记来源卡的旧草稿按做法取那场全部同项目卡；同一键回同一个对象', () => {
+  // 防的错（gap-6#3）：按「日期 + 名字」取那场第一张同名卡 —— 哑铃做法的底稿点开写的是杠铃那张 100×8；复制为今天的第二张卡列的是第一张的组
+  const S = (w, r) => ({ id: `${w}x${r}`, weight: w, reps: r });
+  const prev = { id: 'p', date: ago(2), exercises: [
+    { id: 'bb', name: '罗马尼亚硬拉', category: 'STRENGTH', sets: [S(100, 8), S(100, 8)] },
+    { id: 'db', name: '罗马尼亚硬拉', category: 'STRENGTH', variantId: '哑铃', sets: [S(30, 12), S(30, 12)] },
+  ] };
+  const copy = { id: 'c', date: ago(3), exercises: [
+    { id: 'm1', name: '卧推', category: 'STRENGTH', sets: [S(100, 5)] },
+    { id: 'm2', name: '卧推', category: 'STRENGTH', sets: [S(60, 10)] },
+  ] };
+  const look = L.prefillSourceLookup([prev, copy], n => n, e => e.variantId);
+  const kgs = h => h?.sets.map(s => s.weight);
+  assert.deepEqual(kgs(look({ name: '罗马尼亚硬拉', variantId: '哑铃', prefillFrom: prev.date, prefillIds: ['db'] })), [30, 30]);
+  assert.deepEqual(kgs(look({ name: '罗马尼亚硬拉', variantId: '哑铃', prefillFrom: prev.date })), [30, 30], 'old draft without prefillIds: by variant');
+  assert.deepEqual(kgs(look({ name: '卧推', prefillFrom: copy.date, prefillIds: ['m2'] })), [60], 'second copied card sees its own source card');
+  const a = { name: '卧推', prefillFrom: copy.date, prefillIds: ['m1', 'm2'] };
+  assert.deepEqual(kgs(look(a)), [100, 60], 'several source cards: in card order');
+  assert.equal(look(a), look({ ...a }), 'same key → same object (F4: card memo)');
+  // 并入上一场后那场日期变了：按 id 还找得到
+  assert.deepEqual(kgs(look({ name: '卧推', prefillFrom: ago(9), prefillIds: ['m2'] })), [60], 'merged session moved date: fall back to ids');
 });
 
 // ── 龙门架标签迁移（cableTagMigration）──────────────────────────────
@@ -504,6 +583,31 @@ t('添加动作行：小灰字的来源场次 = 点行铺底稿的来源（不�
   // 母行在 A 馆：写的是 A 馆 10 天前的宽握 60×10，不是标准做法 20 天前、也不是 B 馆 3 天前
   const r = L.rowLastSession(ws, byId, n => n, vidOf, v => v === 'v_wide', { id: 'def', name: '高位下拉' }, undefined, undefined, 'A');
   assert.deepEqual([r.session.workoutId, r.variantId, r.session.top.kg], ['a-wide', 'v_wide', 60]);
+});
+
+t('添加动作行：补记旧训练时「上次」截到那一场之前，和点行铺的底稿同一场；上一场同项目两张卡时照样找得到、top 合起来算', () => {
+  // 防的错：C102 行上不收 before，补记 20 天前那场时写的是 2 天前的深蹲，点下去铺的却是 30 天前的；
+  // 逐场数据合卡后 exerciseId 只是第一张，按 exerciseId 匹配会把第二张命中的那场漏掉
+  const C = (id, name, sets) => ({ id, name, category: 'STRENGTH', sets });
+  const S = (w, r) => ({ id: `${w}x${r}`, weight: w, reps: r });
+  const ws = [
+    { id: 'w2', date: ago(2), exercises: [C('d2', '深蹲', [S(120, 5)]), C('h2', '硬拉', [S(150, 3)])] },
+    { id: 'w20', date: ago(20), exercises: [C('b20', '卧推', [S(50, 5)])] },
+    { id: 'w30', date: ago(30), exercises: [C('d30', '深蹲', [S(60, 5)])] },
+  ];
+  const P = { stableIdOf: e => `${e.name}|`, liftKey: e => e.name, resolveName: n => n, signedLoadOf: () => false, getActiveMetrics: () => ['weight', 'reps'] };
+  const byId = new Map(L.buildLiftSummaries({ workouts: ws, ...P }).map(l => [l.stableId, l]));
+  const row = (name, before) =>
+    L.rowLastSession(ws, byId, n => n, e => e.variantId, () => false, { id: name, name }, undefined, 'w20', undefined, before)?.session.workoutId ?? null;
+  const prefill = (name, before) => L.findLastIn(ws, n => n, e => e.variantId, name, null, 'w20', undefined, before)?.workout.id ?? null;
+  assert.deepEqual([row('深蹲', ws[1].date), row('硬拉', ws[1].date)], ['w30', null]);
+  assert.deepEqual([row('深蹲', ws[1].date), row('硬拉', ws[1].date)], [prefill('深蹲', ws[1].date), prefill('硬拉', ws[1].date)]);
+  assert.equal(row('深蹲'), 'w2', 'no before: latest');
+  // 上一场两张卧推（热身 + 正式）
+  const wm = [{ id: 'm', date: ago(3), exercises: [C('a', '卧推', [S(40, 10), S(60, 8)]), C('b', '卧推', [S(80, 5), S(80, 5)])] }];
+  const byM = new Map(L.buildLiftSummaries({ workouts: wm, ...P }).map(l => [l.stableId, l]));
+  const r = L.rowLastSession(wm, byM, n => n, e => e.variantId, () => false, { id: '卧推', name: '卧推' }, undefined, undefined, undefined);
+  assert.deepEqual([r.session.workoutId, r.session.top], ['m', { kg: 80, reps: 5 }]);
 });
 
 // ── 配重片拖动的下限（用户报：改了最轻一格还能拖到更轻）────────────────────
@@ -789,6 +893,63 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     const top = L.R.findRecords(rule, hist, L.R.prSetsOf(cur, '', false), '')[0];
     assert.equal(top.kind, 'weight');
     assert.equal(top.at, 1);
+  });
+
+  // 同一场里同一项目有几张卡（计划排两行、并入上一场、复制为今天）：按场合起来，不按卡（审查 C84 / gap-4#1）
+  const C = (id, name, sets, extra = {}) => ({ id, name, category: 'STRENGTH', sets, ...extra });
+  const multi = () => {
+    const h = W('h', ago(9), '', [C('h1', '卧推', [st(100, 5)])]);
+    const w1 = W('w1', ago(1), '', [C('a', '卧推', [st(105, 3)]), C('b', '卧推', [st(102.5, 5)]), C('c', '卧推', [st(20, 10)], { variantId: '哑铃' })]);
+    return { h, w1 };
+  };
+  const buildMulti = workouts => L.buildLiftSummaries({
+    workouts,
+    stableIdOf: e => `${e.name}|${e.variantId ?? ''}`,
+    liftKey: e => (e.variantId ? `${e.name}（${e.variantId}）` : e.name),
+    resolveName: id,
+    signedLoadOf: () => false,
+    getActiveMetrics: () => ['weight', 'reps'],
+  });
+
+  t('按动作历史：同场同项目两张卡合成一场（场数、纪录点、PR 标按场）；别的做法不并进来；首场就排两行没有纪录', () => {
+    // 防的错：C84 / gap-4#1 按卡算场 —— 「N 场」多算、同一天两个点、同场两行都标 PR、首场第二张卡拿第一张当历史「破纪录」
+    const { h, w1 } = multi();
+    const lifts = buildMulti([w1, h]);
+    const bench = lifts.find(l => l.key === '卧推');
+    assert.deepEqual(bench.sessions.map(s => [s.workoutId, s.exerciseIds, s.records[0] ?? null]), [['h', ['h1'], null], ['w1', ['a', 'b'], 'weight']]);
+    assert.equal(bench.sessions[1].sets.length, 2);
+    assert.deepEqual(bench.sessions[1].top, { kg: 105, reps: 3 });
+    assert.deepEqual([...L.prSessionIds(bench.sessions, 'weight')], ['w1']);
+    assert.deepEqual(lifts.find(l => l.key === '卧推（哑铃）').sessions.map(s => s.exerciseIds), [['c']]);
+    const w0 = W('w0', ago(1), '', [C('a', '卧推', [st(100, 5), st(100, 5)]), C('b', '卧推', [st(105, 3)])]);
+    const first = buildMulti([w0])[0];
+    assert.equal(first.sessions.length, 1);
+    assert.deepEqual(first.sessions[0].records, []);
+    assert.equal(L.trendPoints(first.sessions, 'weight').some(p => p.pr), false);
+  });
+
+  t('刊末页：同一项目两张卡只出一枚牌，和按动作历史那场的纪录同一种', () => {
+    // 防的错：C84 刊末页同一动作出两枚牌（105 一枚、102.5×5 的 1RM 又一枚）
+    const { h, w1 } = multi();
+    const r = pr([h], w1, { keyOf: e => (e.variantId ? `${e.name}（${e.variantId}）` : e.name) });
+    assert.deepEqual(r.stamps.map(s => [s.exercise, s.kind, s.prev, s.next]), [['卧推', 'weight', 100, 105]]);
+    assert.equal(r.extraCount, 0);
+    assert.equal(r.stamps[0].kind, buildMulti([w1, h]).find(l => l.key === '卧推').sessions[1].records[0]);
+  });
+
+  t('训练中 PB 标：同一项目几张卡合起来只标一行（纪录在别的卡上就不标这张；并列标卡序在前的）', () => {
+    // 防的错：C84 训练中两张卡各自和历史比，两张都亮 PB
+    const pool = { rule: { tracksWeight: true, signed: false, machine: false }, history: [{ kg: 100, reps: 5, gym: '' }], gym: '' };
+    const strip = c => L.R.prSetsOf(c, '', false).map(({ at: _a, ...x }) => x);
+    const at = (own, before, after) => L.R.recordAtAmong(pool.rule, pool.history, L.R.prSetsOf(own, '', false), { before: before.flatMap(strip), after: after.flatMap(strip) }, '');
+    const A = C('a', '卧推', [st(105, 3)]);
+    const B = C('b', '卧推', [st(102.5, 5)]);
+    assert.deepEqual([at(A, [], [B]), at(B, [A], [])], [0, -1]);
+    const B2 = C('b', '卧推', [st(60, 10), st(107.5, 1)]);
+    assert.deepEqual([at(A, [], [B2]), at(B2, [A], [])], [-1, 1]);
+    const B3 = C('b', '卧推', [st(105, 3)]);
+    assert.deepEqual([at(A, [], [B3]), at(B3, [A], [])], [0, -1]);
+    assert.equal(L.R.recordAtAmong(pool.rule, pool.history, L.R.prSetsOf(B, '', false), undefined, ''), 0, 'no peers: as before');
   });
 }
 

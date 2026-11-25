@@ -72,7 +72,8 @@ interface LiftDetailSheetProps {
   onEditExerciseTime?: (workoutId: string, exerciseId: string, initial: Date) => void;
   /** exerciseId：编辑页打开后滚到这个动作 */
   onEditWorkout?: (workoutId: string, exerciseId?: string) => void;
-  onDeleteRecord?: (e: React.MouseEvent, workoutId: string, exerciseId: string) => void;
+  /** 删掉这一场里这个项目的全部卡（一场可能有几张，LiftSession.exerciseIds） */
+  onDeleteRecord?: (e: React.MouseEvent, workoutId: string, exerciseIds: string[]) => void;
 }
 
 export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
@@ -364,7 +365,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                     {/* §6.6：删除是墨色文字项，不靠颜色喊危险。删的是那场最后一个动作＝删整场，外面先确认（审查 D10） */}
                     <button
                       type="button"
-                      onClick={e => onDeleteRecord(e, s.workoutId, s.exerciseId)}
+                      onClick={e => onDeleteRecord(e, s.workoutId, s.exerciseIds)}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-control text-small font-medium text-secondary"
                     >
                       <Trash2 size={14} strokeWidth={1.75} />

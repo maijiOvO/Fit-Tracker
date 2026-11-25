@@ -19,17 +19,23 @@ export interface SetRef {
   reps: number;
 }
 
+/** 一场＝这场里这个项目（动作 + 做法）的全部卡：计划排两行、并入上一场、复制为今天都会让一场里有几张（审查 C84 / gap-4#1） */
 export interface LiftSession {
   workoutId: string;
+  /** 第一张有做完组的卡（编辑、改动作时间按它定位） */
   exerciseId: string;
+  /** 这一场里这个项目的全部卡（按卡序）：「删除这条」一起删 */
+  exerciseIds: string[];
   /** 训练的 date（ISO） */
   date: string;
   ts: number;
   gym?: string;
   fromSchedule?: WorkoutSession['fromSchedule'];
   exerciseTime?: string;
+  /** 第一张卡 */
   exercise: Exercise;
-  /** 不含底稿行 */
+  cards: Exercise[];
+  /** 不含底稿行，几张卡按卡序接起来 */
   sets: any[];
   /** 以下三个在全部组里挑，递减 / 递增档各算一组 —— 最重的一组（同重取次数多的） */
   top: SetRef | null;
@@ -96,14 +102,16 @@ export function sessionMetricSet(s: LiftSession, metric: string): SetRef | null 
   return null;
 }
 
-function buildSession(w: WorkoutSession, ex: Exercise, signed: boolean): LiftSession | null {
-  const sets = (ex.sets ?? []).filter((s: any) => !s.ghost);
-  if (!sets.length) return null;
+function buildSession(w: WorkoutSession, all: Exercise[], signed: boolean): LiftSession | null {
+  const cards = all.filter(c => (c.sets ?? []).some((s: any) => !s.ghost));
+  if (!cards.length) return null;
+  const ex = cards[0];
+  const sets = cards.flatMap(c => (c.sets ?? []).filter((s: any) => !s.ghost));
   let top: SetRef | null = null;
   let e1rm: LiftSession['e1rm'] = null;
   let mostReps: SetRef | null = null;
   // 和纪录判定同一份组（递减 / 递增档各算一组，审查 Gm0）：否则递增档破了纪录，逐场行和图上写的还是母组
-  for (const { kg, reps } of prSetsOf(ex, w.gym, signed)) {
+  for (const { kg, reps } of cards.flatMap(c => prSetsOf(c, w.gym, signed))) {
     if (!top || kg > top.kg || (kg === top.kg && reps > top.reps)) top = { kg, reps };
     if (reps > 0 && (!mostReps || reps > mostReps.reps || (reps === mostReps.reps && kg > mostReps.kg))) {
       mostReps = { kg, reps };
@@ -115,12 +123,14 @@ function buildSession(w: WorkoutSession, ex: Exercise, signed: boolean): LiftSes
   return {
     workoutId: w.id,
     exerciseId: ex.id,
+    exerciseIds: cards.map(c => c.id),
     date: w.date,
     ts: new Date(w.date).getTime(),
     gym: w.gym,
     fromSchedule: w.fromSchedule,
     exerciseTime: ex.exerciseTime,
     exercise: ex,
+    cards,
     sets,
     top,
     e1rm,
@@ -227,11 +237,16 @@ export function buildLiftSummaries({
       if (signedLoadOf(ex)) lift.signed = true;
     }
   }
-  // 号定下来之后再逐场算：同一个动作前后口径必须一致
+  // 号定下来之后再逐场算：同一个动作前后口径必须一致。同一场里同项目的几张卡合成一场
   for (const w of workouts) {
+    const byKey = new Map<string, Exercise[]>();
     for (const ex of w.exercises ?? []) {
-      const lift = map.get(liftKey(ex))!;
-      const s = buildSession(w, ex, lift.signed);
+      const key = liftKey(ex);
+      byKey.set(key, [...(byKey.get(key) ?? []), ex]);
+    }
+    for (const [key, cards] of byKey) {
+      const lift = map.get(key)!;
+      const s = buildSession(w, cards, lift.signed);
       if (s) lift.sessions.push(s);
     }
   }
@@ -245,12 +260,12 @@ export function buildLiftSummaries({
     const rule = { tracksWeight: lift.hasWeight, signed: lift.signed, machine: lift.machine };
     const hist: PRSet[] = [];
     for (const s of lift.sessions) {
-      const cur = prSetsOf(s.exercise, s.gym, lift.signed);
+      const cur = s.cards.flatMap(c => prSetsOf(c, s.gym, lift.signed));
       s.records = findRecords(rule, hist, cur, s.gym).map(h => h.kind);
       hist.push(...cur);
     }
-    lift.loaded = lift.sessions.some(s => s.sets.some((set: any) =>
-      (lift.signed ? signedKg(set, s.exercise) : Number(set.weight) || 0) !== 0));
+    lift.loaded = lift.sessions.some(s => s.cards.some(c => (c.sets ?? []).some((set: any) =>
+      !set.ghost && (lift.signed ? signedKg(set, c) : Number(set.weight) || 0) !== 0)));
     lift.best = bestsOf(lift.sessions, lift.signed);
     out.push(lift);
   }

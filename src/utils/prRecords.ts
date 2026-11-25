@@ -153,3 +153,19 @@ export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gy
 
   return hits.sort((a, b) => RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind));
 }
+
+/**
+ * 训练中这张卡标 PB 的那一行（没有＝-1）。本场同项目还有别的卡时（计划排两行、并入、复制为今天），几张合起来只标一行（审查 C84）：
+ * 别的卡按卡序放前后、去掉 at 一起判，破纪录的那组在别的卡上就不标这张；并列时 findRecords 取前面的，也就是卡序在前的那张。
+ */
+export function recordAtAmong(
+  rule: PRRule,
+  history: PRSet[],
+  own: PRSet[],
+  peers: { before: PRSet[]; after: PRSet[] } | undefined,
+  gym: string | undefined,
+): number {
+  const strip = (xs: PRSet[]) => xs.map(({ at: _at, ...x }) => x);
+  const cur = peers ? [...strip(peers.before), ...own, ...strip(peers.after)] : own;
+  return findRecords(rule, history, cur, gym)[0]?.at ?? -1;
+}

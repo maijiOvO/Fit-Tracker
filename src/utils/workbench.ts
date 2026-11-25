@@ -660,14 +660,14 @@ export function willRecord(s: SetLog): boolean {
 
 /**
  * 入册的样子：只留 willRecord 的组，剥掉工作台标记；一组都不剩的动作整个丢掉，只剩一个成员的交替组拆掉。
- * prefillFrom / prefillGym 只服务工作台眉批；fromGhost（已停写）、touched、seq、added 都是工作台上的标记，不跟进历史。
+ * prefillFrom / prefillGym / prefillIds 只服务工作台眉批；fromGhost（已停写）、touched、seq、added 都是工作台上的标记，不跟进历史。
  * 结束训练、保存修改、判「编辑态改没改」共用这一份；刊末页的组数也从它来。
  */
 export function recordedExercises(exercises: Exercise[] | undefined): Exercise[] {
   return normalizeGroups(
     (exercises ?? [])
       .map(ex => {
-        const { prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
+        const { prefillFrom: _pf, prefillGym: _pg, prefillIds: _pi, ...rest } = ex;
         return {
           ...rest,
           sets: (ex.sets ?? []).filter(willRecord).map(s => {

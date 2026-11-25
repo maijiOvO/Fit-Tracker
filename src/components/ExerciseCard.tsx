@@ -26,7 +26,7 @@ import { formatVolume, plural } from '../utils/format';
 import { LoadHero, MachineMissingNote } from './PlateGlyph';
 import { useMachineSettings } from '../hooks/useMachineSettings';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { findRecords, prSetsOf, type PRRule, type PRSet } from '../utils/prRecords';
+import { prSetsOf, recordAtAmong, type PRRule, type PRSet } from '../utils/prRecords';
 import { tick } from '../utils/tick';
 import { afterRemoveTap } from '../utils/tap';
 import { heroFocus } from '../utils/scrubFeel';
@@ -40,17 +40,18 @@ export interface PRPool {
   rule: PRRule;
   history: PRSet[];
   gym?: string;
+  /** 本场同项目的别的卡做完的组（按卡序分在这张之前 / 之后，at 已去掉）：几张合起来只标一行 */
+  peers?: { before: PRSet[]; after: PRSet[] };
 }
 
 /**
  * 训练中实时判「这一组破了纪录」（「杠铃片」§1 镁粉）。和结束训练的 PB 牌、历史纪录点同一份口径（utils/prRecords）：
  * 最大重量 / 估算 1RM / 次数纪录 / 单组容量，挑最硬的那一种；历史为空不算；器械只比同一个馆。
- * 一张卡至多标一行：破了那项纪录的那一组。交替卡每个成员也按它判。
+ * 一个项目至多标一行：破了那项纪录的那一组（同项目的几张卡合起来判，见 prRecords.recordAtAmong）。交替卡每个成员也按它判。
  */
 export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
   if (!pool) return -1;
-  const top = findRecords(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.gym)[0];
-  return top?.at ?? -1;
+  return recordAtAmong(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.peers, pool.gym);
 }
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。

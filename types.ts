@@ -166,6 +166,13 @@ export interface Exercise {
   prefillFrom?: string;
 
   /**
+   * 底稿抄自那一场的哪几张卡（同场同项目可能有几张：计划排两行、并入上一场、复制为今天）。
+   * 卡头点开的「上次」按它列组（utils/prefillSource.prefillSourceLookup）；跟着 prefillFrom 一起写、一起清，结束训练时剥掉。
+   * 升级前存下的草稿没有，按「日期 + 名字 + 做法」退回那场的全部同项目卡。
+   */
+  prefillIds?: string[];
+
+  /**
    * 底稿来源那一场的场地（§12.11），无条件记，「跟本场是不是同一个馆」渲染时再比。
    * 不是同一个馆时眉批写「底稿 · 在 X 10/4」（design-plates.md「换馆重量」A：本馆没练过才会抄别的馆）。
    * 同 prefillFrom：结束训练时剥掉。

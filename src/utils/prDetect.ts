@@ -4,7 +4,7 @@
  * 这里管的是刊末页上牌的那几条规矩：
  *   - 历史为空不算 PR —— 否则第一次训练全是 PR，签名时刻当场作废
  *   - 编辑旧训练不触发 —— 在改历史，语义混乱
- *   - 每个动作只上一种纪录（最大重量 > 估算 1RM > 次数纪录 > 单组容量）
+ *   - 每个动作只上一种纪录（最大重量 > 估算 1RM > 次数纪录 > 单组容量）；本场同项目的几张卡合起来判一次（审查 C84：原来按卡判，一个动作出两枚牌）
  *   - 最多 2 枚牌，再多合成「另 N 项刷新」—— 满屏印章就不是签名时刻了
  */
 import { WorkoutSession, Exercise } from '../../types';
@@ -84,10 +84,15 @@ export function detectPRs({
 
   const hits: PRHit[] = [];
 
+  const groups = new Map<string, Exercise[]>();
   for (const ex of session.exercises ?? []) {
     const name = key(ex).trim();
-    if (!name) continue;
-    const signed = !!isSigned?.(ex);
+    if (name) groups.set(name, [...(groups.get(name) ?? []), ex]);
+  }
+  for (const [name, cards] of groups) {
+    const ex = cards[0];
+    // 组内任一张按带号记就按带号比（同 liftHistory：同一个动作口径一致）
+    const signed = cards.some(c => !!isSigned?.(c));
     const rule = {
       // 动作设置按动作共享，不分练法
       tracksWeight: getActiveMetrics(resolveName(ex.name)).includes('weight'),
@@ -97,7 +102,7 @@ export function detectPRs({
     const past: PRSet[] = history.flatMap(w =>
       (w.exercises ?? []).filter(e => key(e).trim() === name).flatMap(e => prSetsOf(e, w.gym, signed)),
     );
-    const top = findRecords(rule, past, prSetsOf(ex, session.gym, signed), session.gym)[0];
+    const top = findRecords(rule, past, cards.flatMap(c => prSetsOf(c, session.gym, signed)), session.gym)[0];
     if (!top) continue;
     hits.push({
       kind: top.kind,

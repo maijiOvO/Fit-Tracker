@@ -14,11 +14,17 @@ import { rowEdited } from './setValues';
 export interface LastHit {
   ex: Exercise;
   workout: WorkoutSession;
+  /** findLastIn 收齐的这一场里同项目的全部卡（按卡序，ex 是第一张）；交替搭配（altCombosByName）没有 */
+  exs?: Exercise[];
 }
+
+export type PrefillHit = LastHit & { exs: Exercise[] };
 
 /**
  * workouts 按时间新的在前（WorkoutContext 的顺序）。
  * variantId：null / undefined＝不分做法；''＝标准做法；其余＝那个做法。
+ * 一场里同一项目（名字 + 做法）可能有几张卡（计划排两行、并入上一场、复制为今天、CSV 两个外来名对到同一动作）：
+ * 命中那场后把同名同做法、有做完组的卡按卡序都收进 exs，读的人合起来看（审查 C84 / gap-4#1）；挑哪一场不受影响。
  */
 export function findLastIn(
   workouts: WorkoutSession[],
@@ -30,11 +36,11 @@ export function findLastIn(
   preferGym?: string,
   /** 只找这个时间之前的（给旧训练补加动作：底稿不能抄自那一场之后练的） */
   before?: string,
-): LastHit | null {
+): PrefillHit | null {
   const target = resolveName(exerciseName);
   if (!target) return null;
   const beforeMs = before ? new Date(before).getTime() : NaN;
-  let fallback: LastHit | null = null;
+  let fallback: PrefillHit | null = null;
   for (const w of workouts) {
     if (skipWorkoutId && w.id === skipWorkoutId) continue;
     if (Number.isFinite(beforeMs) && !(new Date(w.date).getTime() < beforeMs)) continue;
@@ -44,13 +50,28 @@ export function findLastIn(
       if (resolveName(we.name) !== target) continue;
       if (variantId !== null && variantId !== undefined && (variantIdOf(we) || undefined) !== (variantId || undefined)) continue;
       if (!we.sets?.some(s => !s.ghost)) continue;
-      const hit = { ex: we, workout: w };
+      // 不分做法（variantId null）时也只收和命中那张同做法的：两种做法的数不能铺进一张卡
+      const vid = variantIdOf(we) || undefined;
+      const exs = w.exercises.filter(
+        e => resolveName(e.name) === target && (variantIdOf(e) || undefined) === vid && e.sets?.some(s => !s.ghost),
+      );
+      const hit = { ex: we, workout: w, exs };
       if (!preferGym || w.gym === preferGym) return hit;
       fallback ??= hit;
       break;
     }
   }
   return fallback;
+}
+
+/**
+ * 这一场要铺 n 张同项目的卡时，第 k 张（0 起）抄上一场的哪几张：
+ * 只铺一张＝上一场这个项目的全部卡（合起来按卡序）；铺几张（计划排了两行、换馆重挑）＝一一对应，上一场不够就取最后一张。
+ * 一一对应是为了不让两行各铺出全部组、行数翻倍。
+ */
+export function sourceCards(hit: LastHit, k: number, n: number): Exercise[] {
+  const exs = hit.exs ?? [hit.ex];
+  return n <= 1 ? exs : [exs[Math.min(k, exs.length - 1)]];
 }
 
 /**
@@ -131,22 +152,111 @@ function bestSet(ex: Exercise, signed: boolean): VsSet | null {
   return top;
 }
 
+/** 几张卡合起来最好的一组 */
+function bestOfCards(cards: Exercise[], signed: boolean): VsSet | null {
+  let top: VsSet | null = null;
+  for (const c of cards) {
+    const b = bestSet(c, signed);
+    if (b && (!top || b.kg > top.kg || (b.kg === top.kg && b.reps > top.reps))) top = b;
+  }
+  return top;
+}
+
+/** 刊末页「比上次」的一行；key＝项目键（带做法，和 PB 牌同源） */
+export interface VsLastRow {
+  exId: string;
+  key: string;
+  now: VsSet;
+  last: VsSet;
+  /** 器械上一场不在今天这个馆（本馆没练过，退回别的馆比）：那个馆的名字 */
+  lastGym?: string;
+}
+
 /**
- * 刊末页「比上次」（2026-11-13 用户定 D6）：这场每个动作的最好一组 vs 上一场同动作的最好一组，只陈述、不给建议。
- * 上一场由调用方按底稿的口径找（findLastIn：同做法，器械本馆优先），没有上一场、或哪边一组有数的都没有就不列。
+ * 刊末页「比上次」（2026-11-13 用户定 D6）：这场每个项目的最好一组 vs 上一场同项目的最好一组，只陈述、不给建议。
+ * 上一场由调用方按底稿的口径找（findLastIn：同做法，器械本馆优先、本馆没练过退回别的馆），没有上一场、或哪边一组有数的都没有就不列。
+ * 一个项目一行：本场按 keyOf 把同项目的几张卡合起来，上一场取 findLastIn 收齐的那几张（审查 gap-6#5：原来按卡比，退阶卡拿去比上次的正式组）。
+ * 器械退回别的馆比时带出那个馆（gap-6#6），刊末页写「上次在 X」；挑哪一场不变。
  */
 export function vsLastSession(
   exs: Exercise[],
-  findLast: (ex: Exercise) => LastHit | null,
-  signedOf: (ex: Exercise) => boolean,
-): { exId: string; now: VsSet; last: VsSet }[] {
-  const out: { exId: string; now: VsSet; last: VsSet }[] = [];
+  o: {
+    keyOf: (ex: Exercise) => string;
+    findLast: (ex: Exercise) => LastHit | null;
+    signedOf: (ex: Exercise) => boolean;
+    gymScoped: (ex: Exercise) => boolean;
+    /** 今天这一场的馆 */
+    gym: string | undefined;
+  },
+): VsLastRow[] {
+  const groups = new Map<string, Exercise[]>();
   for (const ex of exs) {
-    const signed = signedOf(ex);
-    const now = bestSet(ex, signed);
-    const hit = now ? findLast(ex) : null;
-    const last = hit ? bestSet(hit.ex, signed) : null;
-    if (now && last) out.push({ exId: ex.id, now, last });
+    const k = o.keyOf(ex);
+    groups.set(k, [...(groups.get(k) ?? []), ex]);
+  }
+  const out: VsLastRow[] = [];
+  for (const [key, cards] of groups) {
+    const signed = cards.some(o.signedOf);
+    const now = bestOfCards(cards, signed);
+    const hit = now ? o.findLast(cards[0]) : null;
+    const last = hit ? bestOfCards(hit.exs ?? [hit.ex], signed) : null;
+    if (!now || !last) continue;
+    const lg = hit!.workout.gym;
+    out.push({ exId: cards[0].id, key, now, last, ...(o.gymScoped(cards[0]) && lg && lg !== o.gym ? { lastGym: lg } : {}) });
   }
   return out;
+}
+
+/**
+ * 卡头点开的「上次」：这张卡的底稿抄自哪一场、那次做了哪几组（审查 C2：prefillFrom 原来只写不读）。
+ * 按底稿记下的来源卡（prefillIds）取，几张合起来按卡序；先找 date === prefillFrom 的那场，
+ * 找不到（那场后来并入上一场，日期变了）就只按 id 找（审查 gap-6#3：原来按「日期 + 名字」取第一张同名卡，不分做法）。
+ * 没有 prefillIds 的旧草稿退回「同日期 + 名字 + 做法」那场的全部同项目卡。
+ * 第一次调用时建一次索引、结果按键缓存（审查 F4：原来每张卡每次渲染都线性扫全部训练），同一键回同一个对象，卡片的 memo 才比得住。
+ */
+export function prefillSourceLookup(
+  workouts: WorkoutSession[],
+  resolveName: (n: string) => string,
+  variantIdOf: (ex: Exercise) => string | undefined,
+): (ex: Exercise) => { date: string; sets: SetLog[] } | null {
+  let byId: Map<string, { date: string; ex: Exercise }[]> | null = null;
+  const hits = new Map<string, { date: string; sets: SetLog[] } | null>();
+  const pack = (date: string, cards: Exercise[]) => {
+    const sets = cards.flatMap(c => (c.sets ?? []).filter(s => !s.ghost));
+    return sets.length ? { date, sets } : null;
+  };
+  return ex => {
+    if (!ex.prefillFrom) return null;
+    const ids = ex.prefillIds ?? [];
+    const k = ids.length
+      ? `${ex.prefillFrom}\n#${ids.join('\n')}`
+      : `${ex.prefillFrom}\n${resolveName(ex.name)}\n${variantIdOf(ex) ?? ''}`;
+    if (hits.has(k)) return hits.get(k)!;
+    let hit: { date: string; sets: SetLog[] } | null = null;
+    if (ids.length) {
+      if (!byId) {
+        byId = new Map();
+        for (const w of workouts)
+          for (const e of w.exercises ?? []) byId.set(e.id, [...(byId.get(e.id) ?? []), { date: w.date, ex: e }]);
+      }
+      const found = ids.map(id => byId!.get(id) ?? []);
+      // 卡 id 只在一场里唯一：同 id 出现在几场时（复制、导入）先取 prefillFrom 那场的
+      const sameDay = found.map(xs => xs.find(x => x.date === ex.prefillFrom)).filter(x => !!x);
+      const cards = sameDay.length ? sameDay : found.map(xs => xs[0]).filter(x => !!x);
+      if (cards.length) hit = pack(cards[0].date, cards.map(c => c.ex));
+    } else {
+      const name = resolveName(ex.name);
+      const vid = variantIdOf(ex) || undefined;
+      for (const w of workouts) {
+        if (w.date !== ex.prefillFrom) continue;
+        const cards = (w.exercises ?? []).filter(e => resolveName(e.name) === name && (variantIdOf(e) || undefined) === vid);
+        if (cards.length) {
+          hit = pack(w.date, cards);
+          break;
+        }
+      }
+    }
+    hits.set(k, hit);
+    return hit;
+  };
 }

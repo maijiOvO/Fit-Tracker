@@ -179,7 +179,7 @@ export const WorkoutColophon: React.FC<Props> = ({
         </span>
       </div>
 
-      {/* 比上次：只陈述这场和上一场同动作的最好一组，不给建议、不落章 */}
+      {/* 比上次：只陈述这场和上一场同项目的最好一组，不给建议、不落章；器械上一场在别的馆时写明馆名（措辞同卡头眉批） */}
       {!hasPR && vsLast.length > 0 && (
         <div className="anim-stagger mt-8 space-y-1 text-center" style={{ ['--i' as string]: 4 }} data-testid="colophon-vs-last">
           {vsLast.slice(0, VS_LAST_MAX).map((v, i) => {
@@ -190,7 +190,8 @@ export const WorkoutColophon: React.FC<Props> = ({
                 <span className="font-mono text-primary tabular-nums">{formatSet(v.now, u, v.signed, isCn)}</span>
                 <span className="text-tertiary">
                   {' · '}
-                  {isCn ? '上次' : 'last'} <span className="font-mono tabular-nums">{formatSet(v.last, u, v.signed, isCn)}</span>
+                  {v.lastGym ? (isCn ? `上次在 ${v.lastGym}` : `last at ${v.lastGym}`) : isCn ? '上次' : 'last'}{' '}
+                  <span className="font-mono tabular-nums">{formatSet(v.last, u, v.signed, isCn)}</span>
                 </span>
               </p>
             );
