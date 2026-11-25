@@ -280,8 +280,8 @@ export async function runBackup(browser, plan) {
       await installHelpers(page);
       const n1 = await page.evaluate(async () => (await window.__t.snap()).workouts.length);
       if (n1 !== SEED.length) throw new Error(`restored ${n1} workouts, want ${SEED.length}`);
-      // 恢复用的文件夹顺手设成了备份文件夹，重载后补了一份备份
-      await page.waitForFunction(() => !!localStorage.getItem(window.__t.key('fitlog_backup_status')), null, { timeout: 10_000 });
+      // 恢复用的文件夹顺手设成了备份文件夹，重载后补了一份备份。等 lastOkAt 不等状态键：覆盖时钉住更新的备份（pinned）已经先写了状态
+      await page.waitForFunction(() => !!JSON.parse(localStorage.getItem(window.__t.key('fitlog_backup_status')) || '{}').lastOkAt, null, { timeout: 10_000 });
       const st = await page.evaluate(() => JSON.parse(localStorage.getItem(window.__t.key('fitlog_backup_status'))));
       if (!st.lastOkAt || st.lastOkWorkouts !== SEED.length) throw new Error(`post-restore backup status: ${JSON.stringify(st)}`);
       return `restored ${n1} workouts, folder re-armed`;

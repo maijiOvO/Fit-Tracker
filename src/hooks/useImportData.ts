@@ -15,7 +15,7 @@ import {
   parseBackupFile,
   rollbackImport,
 } from '../../services/fitlogBackup';
-import { markBackupPending } from '../../services/fitlogAutoBackup';
+import { markBackupPending, pinNewerBackups } from '../../services/fitlogAutoBackup';
 import type { ExportStatus } from './useExportData';
 import { backupParseErrorText, overwriteFailedText, overwriteNote, setFlash, undoImportWarning, workbenchDropNote } from '../components/data/flash';
 import { blockBack } from './useBackClose';
@@ -76,6 +76,7 @@ export function useImportData(
       setSyncStatus('syncing');
       blockBack(true);
       const pushed = await discardWorkbenchWith(() => applyBackup(parsed)).finally(() => blockBack(false));
+      await pinNewerBackups(parsed.exportedAt);
       const note = overwriteNote(pushed, isCn);
       // 无条件给提示、补一份自动备份（上架审查 C61）：原来推送正常时什么都不说，重载后像没发生过
       setFlash((isCn ? '已恢复' : 'Restored') + note, note ? 'info' : 'success');

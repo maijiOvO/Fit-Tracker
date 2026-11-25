@@ -511,6 +511,34 @@ await t('新装机恢复较旧的一份：补写不清理；之后当天更早�
   assert.ok(statusOf().held.includes(autoName(today)));
 });
 
+// 防：personal 版覆盖时给被换掉的 id 记墓碑，旧机上恢复了较旧的一份后，当天更早那份新备份按内容判「都交代过了」被删（gap-1 / D11）。
+// 单机版不记这类墓碑，上一条用例已覆盖；00:00–00:01 跑时同一天的前提不成立，同上
+await t('personal 覆盖成较旧的一份：比它新的自动备份钉住，之后的清理不删；文件里没写时刻就全钉', async () => {
+  localStorage.setItem('fitlog_mock_folder', '1');
+  D.setBackupFolder(FOLDER);
+  // personal 包的数据环境是 dev，自动备份名带 dev，清理只看同环境的
+  const name = d => autoName(d).replace('fitlog-backup-', 'fitlog-dev-backup-');
+  const now = new Date();
+  const yest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 21, 0);
+  const today = new Date(now.getTime() - 60000);
+  const yText = fileText(yest, { workouts: ws(['w1', 'w2', 'w3']) });
+  const tText = fileText(today, { workouts: ws(['w1', 'w2', 'w3', 'w4', 'w5']) });
+  await D.applyBackup(D.parseBackupFile(tText)); // 旧机：本机就是今天那份的内容
+  putFiles([[name(yest), yText], [name(today), tText]]);
+  const older = D.parseBackupFile(yText);
+  await D.applyBackup(older);
+  await D.pinNewerBackups(older.exportedAt);
+  const pins = [name(yest), name(today)];
+  assert.deepEqual(D.getBackupStatus().pinned.sort(), pins, '比恢复那份新的都钉上（同一分钟的它自己也算上，多留不多删）');
+  assert.equal((await D.backupNow('after-restore')).kind, 'ok');
+  const b = await D.backupNow('manual');
+  assert.equal(b.kind, 'ok');
+  assert.deepEqual(workoutsIn(name(today)), ['w1', 'w2', 'w3', 'w4', 'w5'], '今天更早那份还在');
+  assert.deepEqual(D.getBackupStatus().pinned.sort(), pins, '补写和清理之后钉的还在');
+  await D.pinNewerBackups(undefined);
+  assert.equal(D.getBackupStatus().pinned.length, Object.keys(folderFs()).length, '不知道导出时刻：文件夹里的自动备份全钉');
+});
+
 // 防：重装后没恢复就选回原来的文件夹，first-setup 写了几场新的，日历规则把旧谱系一口气删掉（C11）
 await t('重装后没恢复、选回旧文件夹：旧谱系 25 份一份不删、进 held；选之前看得出文件夹里有 25 条本机没有的', async () => {
   soloFolder();
@@ -657,20 +685,20 @@ await t('恢复默认项：跳过空的、未来的、读不出的；按 exporte
   assert.equal(D.pickDefaultBackup(list.filter(x => ['empty', 'future', 'bad'].includes(x.k)), now).k, 'future');
 });
 
-// 防：从别的文件夹恢复一份，悄悄把以后的备份目的地改到那里（C56）；换了文件夹沿用旧的 held 判定
-await t('恢复用的文件夹：已有能用的不改；没权限 / 没设过才换；换文件夹清掉 held', async () => {
+// 防：从别的文件夹恢复一份，悄悄把以后的备份目的地改到那里（C56）；换了文件夹沿用旧的 held / pinned 判定
+await t('恢复用的文件夹：已有能用的不改；没权限 / 没设过才换；换文件夹清掉 held / pinned', async () => {
   soloFolder();
   const B = { ...FOLDER, dirUri: 'mock://primary:Download', dirDocId: 'primary:Download' };
-  setStatus({ held: ['a.json'] });
+  setStatus({ held: ['a.json'], pinned: ['b.json'] });
   assert.equal(await S.adoptRestoreFolder(B), false);
   assert.equal(S.getBackupFolder().dirUri, FOLDER.dirUri);
   assert.equal(await S.adoptRestoreFolder({ ...FOLDER, treeUri: 'mock://tree2' }), true);
-  assert.deepEqual(statusOf().held, ['a.json'], '同一个文件夹不清');
+  assert.deepEqual([statusOf().held, statusOf().pinned], [['a.json'], ['b.json']], '同一个文件夹不清');
   fault('deny');
   assert.equal(await S.adoptRestoreFolder(B), true);
   fault('');
   assert.equal(S.getBackupFolder().dirUri, B.dirUri);
-  assert.equal(statusOf().held, undefined);
+  assert.deepEqual([statusOf().held, statusOf().pinned], [undefined, undefined]);
   S.storage.removeItem('fitlog_backup_folder');
   assert.equal(await S.adoptRestoreFolder(FOLDER), true);
   assert.equal(S.getBackupFolder().dirUri, FOLDER.dirUri);

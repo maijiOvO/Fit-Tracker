@@ -51,6 +51,7 @@ import {
   markBackupPending,
   orderBackups,
   pickDefaultBackup,
+  pinNewerBackups,
   uncoveredRecords,
   type BackupErrorCode,
   type ListedBackup,
@@ -300,6 +301,8 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void; 
           message += t(`；以后备份到「${where}」`, `; backups now go to "${where}"`);
         }
       }
+      // 覆盖成的可能是较旧的一份：备份文件夹（上面定下的）里比它新的钉住，不被之后的清理删掉（gap-1）
+      if (mode === 'overwrite') await pinNewerBackups(parsed.exportedAt);
       markBackupPending();
       setFlash(message, 'success');
       window.location.reload();

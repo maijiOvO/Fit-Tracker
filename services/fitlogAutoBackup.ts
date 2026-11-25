@@ -61,6 +61,11 @@ export interface BackupStatus {
   lastError?: { at: string; code: BackupErrorCode; message: string };
   /** 日历规则该删、但内容没被新备份覆盖（或读不出、或比新的大一倍以上）而留下的旧备份（文件名）。换文件夹时清空 */
   held?: string[];
+  /**
+   * 整份覆盖成一份备份时，文件夹里比它新的自动备份（文件名）：清理时不删，下次覆盖恢复时整份换掉。换文件夹时清空。
+   * personal 版覆盖时给被换掉的 id 记墓碑，按内容判会把这些更新的备份当成「已交代过」删掉（上架审查 gap-1，见 pinNewerBackups）
+   */
+  pinned?: string[];
 }
 
 // ============ 状态 ============
@@ -76,8 +81,9 @@ export function getBackupFolder(): FolderRef | null {
 export function setBackupFolder(f: FolderRef): void {
   // 别的文件夹里的同名文件不是同一份，之前的「留着」判定不能沿用
   const s = getBackupStatus();
-  if (s.held && getBackupFolder()?.dirUri !== f.dirUri) {
+  if ((s.held || s.pinned) && getBackupFolder()?.dirUri !== f.dirUri) {
     delete s.held;
+    delete s.pinned;
     storage.setItem(STATUS_KEY, JSON.stringify(s));
   }
   storage.setItem(FOLDER_KEY, JSON.stringify(f));
@@ -400,17 +406,19 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
   let pruned = 0;
   let fileCount: number | undefined;
   let held = reason === 'after-restore' ? [] : (status.held ?? []);
+  let pinned = status.pinned ?? [];
   try {
     const files = await listFiles(folder);
     const present = new Set(files.map(f => f.name));
     held = held.filter(n => present.has(n));
-    if (reason !== 'after-restore') ({ pruned, held } = await prune(files, written.uri, file.snapshot, held));
+    pinned = pinned.filter(n => present.has(n));
+    if (reason !== 'after-restore') ({ pruned, held } = await prune(files, written.uri, file.snapshot, held, pinned));
     fileCount = files.filter(f => parseAutoBackupName(f)).length - pruned;
   } catch {
     // 清理失败不影响「这份备份写成了」
   }
 
-  // 整份重写：held 要带上，漏了每次成功都会把它清掉
+  // 整份重写：held / pinned 要带上，漏了每次成功都会把它们清掉
   setBackupStatus({
     lastOkAt: new Date().toISOString(),
     lastOkName: written.name ?? name,
@@ -418,6 +426,7 @@ async function doBackup(reason: BackupReason): Promise<BackupOutcome> {
     fingerprint: fp,
     fileCount,
     ...(held.length ? { held } : {}),
+    ...(pinned.length ? { pinned } : {}),
   });
   storage.removeItem(ANNOUNCED_KEY);
   return { kind: 'ok', name: written.name ?? name, workouts, pruned, held: held.length };
@@ -452,8 +461,8 @@ const PRUNE_READS = 8;
  *   - 记录总数比新备份多一倍以上（误删一大片也能挡住）。
  * 原来按本机 storage 里的上次训练数判骤减：重装后归零、每次成功又被覆盖，只挡得住一次（上架审查 C11），所以改成看候选文件本身。
  */
-async function prune(files: FolderFile[], writtenUri: string, snap: FitlogRemoteSnapshot, held: string[]): Promise<{ pruned: number; held: string[] }> {
-  const skip = new Set(held);
+async function prune(files: FolderFile[], writtenUri: string, snap: FitlogRemoteSnapshot, held: string[], pinned: string[]): Promise<{ pruned: number; held: string[] }> {
+  const skip = new Set([...held, ...pinned]);
   const cands = selectBackupsToDelete(files).filter(f => f.uri !== writtenUri && !skip.has(f.name));
   const total = recordCount(snap);
   const out = [...held];
@@ -473,6 +482,30 @@ async function prune(files: FolderFile[], writtenUri: string, snap: FitlogRemote
     else if (await deleteFile(f.uri).catch(() => false)) pruned++;
   }
   return { pruned, held: out };
+}
+
+/**
+ * 整份覆盖成一份备份之后调（exportedAt 是那份文件里写的导出时刻）：备份文件夹里比它新的自动备份钉住，清理时跳过（status.pinned，整份替换）。
+ * personal 版覆盖时给被换掉的 id 记墓碑（asAuthoritative），恢复了较旧的一份后，当天更早那份新备份里的记录都「交代过」了，
+ * 按内容判挡不住（上架审查 gap-1）。单机版不记这类墓碑，那几份本来就会进 held，钉上也一样。
+ * 自动备份的名字就是它的 exportedAt（精确到分），同一分钟的也钉上：多留不多删。文件里没写时刻（很旧的格式）就全钉。列不出文件就不钉。
+ */
+export async function pinNewerBackups(exportedAt: string | undefined): Promise<void> {
+  const folder = getBackupFolder();
+  if (!folder) return;
+  let files: FolderFile[];
+  try {
+    files = await listFiles(folder);
+  } catch {
+    return;
+  }
+  const ms = Date.parse(exportedAt ?? '');
+  const after = Number.isFinite(ms) ? ms : -Infinity;
+  const pinned = files.filter(f => (parseAutoBackupName(f)?.at.getTime() ?? -Infinity) + 60_000 > after).map(f => f.name);
+  const s = getBackupStatus();
+  if (pinned.length) s.pinned = pinned;
+  else delete s.pinned;
+  setBackupStatus(s);
 }
 
 /**
