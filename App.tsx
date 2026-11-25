@@ -78,6 +78,7 @@ import {
 } from './src/components/modals';
 import type { NoteModalData } from './src/components/modals/NoteModal';
 import { appPrefsNow, gymSavePatch, keyedPatch, rigPickPatch } from './services/appPrefs';
+import { initialMetricsOf } from './src/utils/metricDefaults';
 import { markGymRename, renameGymRows, unmarkGymRename } from './services/gymRename';
 import type { NewExerciseRig } from './src/components/modals/AddCustomExerciseModal';
 
@@ -1234,8 +1235,9 @@ const AppWithAuthShell: React.FC = () => {
             ...(newExerciseRegions.length ? regionsPatch(newExerciseRegions) : {}),
           };
           prefs.addCustomExercise(ex);
-          // 有氧：记录项按首选项「有氧默认记录」先定好（不然交给计划的、动作库里看的都还是重量 × 次数）
-          if (currentCat === 'CARDIO') prefs.seedMetricsIfUnset(ex.name.cn, appPrefsNow().cardioMetrics);
+          // 有氧按首选项「有氧默认记录」、自由类按时长先定好记录项（不然交给计划的、动作库里看的都还是重量 × 次数）
+          const initial = initialMetricsOf(ex, appPrefsNow().cardioMetrics);
+          if (initial) prefs.seedMetricsIfUnset(ex.name.cn, initial);
 
           // 建的时候就选了在这个馆用哪一台：先记下，加进训练时取整器已经按它算（换器材时弹窗已经把选的清掉）
           const gym = createdExerciseTargetRef.current ? undefined : currentWorkout.gym;

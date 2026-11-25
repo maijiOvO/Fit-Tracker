@@ -38,6 +38,7 @@ const JOURNALED_KEYS = new Set([
   'fitlog_exercise_notes',
   'fitlog_exercise_overrides',
   'fitlog_metric_configs',
+  'fitlog_metric_auto',
   'fitlog_starred_exercises',
   'fitlog_tag_rename_overrides',
   'fitlog_unit',

@@ -21,6 +21,15 @@ export const BODY_PARTS = ['subChest', 'subShoulder', 'subBack', 'subArms', 'sub
 export const STANDARD_METRICS = ['weight', 'reps', 'distance', 'duration', 'speed'];
 
 /**
+ * 内置计时类动作第一次添加时的记录项（按内置 id 查，见 utils/metricDefaults.initialMetricsOf）。
+ * 农夫行走不放：有人按重量 × 距离记、有人按时长记，没有单一答案（2026-11-24 作者定）
+ */
+export const INITIAL_METRICS: Readonly<Record<string, readonly string[]>> = {
+  plank: ['duration'],
+  side_plank: ['duration'],
+};
+
+/**
  * 默认动作库
  *
  * 改内置动作的名字时，旧名必须进 aliases：历史记录里存的是旧名，不改写；

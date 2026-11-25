@@ -273,6 +273,34 @@ t('本机从没打过时间戳（新装 / 存储被清）：仍取并集，空�
   assert.deepEqual(m.customTags, [{ id: 't1' }]);
 });
 
+// 防第 19 批风险 2：种子 / 落定 / 导入种子都打「现在」的时间戳，按较新取会把备份里配好的盖掉；反过来备份里自动写的也不能盖掉本机配过的
+t('从备份合并记录项：自动写的让位给另一边配过的，不看时间戳；两边同类按较新；标记跟着被选中的那条走', () => {
+  const U = { unionPrefs: true };
+  const local = {
+    ...empty(), metricsLastUpdateMs: 900,
+    exerciseMetricConfigs: { 平板支撑: ['duration'], 卧推: ['weight', 'reps', 'custom_x'], 瑜伽: ['duration'], 拉伸: ['duration'], 本机独有: ['reps'] },
+    metricAutoKeys: ['平板支撑', '瑜伽', '本机独有'],
+  };
+  const backup = {
+    ...empty(), metricsLastUpdateMs: 100,
+    exerciseMetricConfigs: { 平板支撑: ['weight', 'duration'], 卧推: ['weight', 'reps'], 瑜伽: ['duration', 'reps'], 拉伸: ['duration', 'distance'] },
+    metricAutoKeys: ['瑜伽', '拉伸'],
+  };
+  const m = P.mergeFitlogPrefs(local, backup, U);
+  assert.deepEqual(m.exerciseMetricConfigs.平板支撑, ['weight', 'duration'], '本机自动、备份配过：备份赢，哪怕旧');
+  assert.deepEqual(m.exerciseMetricConfigs.卧推, ['weight', 'reps', 'custom_x'], '两边都配过：较新的本机赢');
+  assert.deepEqual(m.exerciseMetricConfigs.瑜伽, ['duration'], '两边都是自动的：较新的本机赢');
+  assert.deepEqual(m.exerciseMetricConfigs.拉伸, ['duration'], '本机配过、备份自动：本机赢');
+  assert.deepEqual([...m.metricAutoKeys].sort(), ['本机独有', '瑜伽'].sort());
+  // 备份较新也一样：本机配过的不被备份里自动写的盖掉
+  const m2 = P.mergeFitlogPrefs({ ...local, metricsLastUpdateMs: 100 }, { ...backup, metricsLastUpdateMs: 900 }, U);
+  assert.deepEqual(m2.exerciseMetricConfigs.拉伸, ['duration']);
+  assert.deepEqual(m2.exerciseMetricConfigs.瑜伽, ['duration', 'reps']);
+  // 服务端同步（不带 unionPrefs）仍整块取新的一边，标记跟着那一块
+  assert.deepEqual(P.mergeFitlogPrefs(local, backup).metricAutoKeys, local.metricAutoKeys);
+  assert.deepEqual(P.mergeFitlogPrefs({ ...local, metricsLastUpdateMs: 1 }, backup).metricAutoKeys, backup.metricAutoKeys);
+});
+
 t('加片每块、器械自重的上限：界面框里填得进的，清洗层都留得住（上架审查 gap-3#5）', () => {
   const rigs = a => P.resolveAppPrefs({ gymRigs: { 'G|~stack': [{ id: 'r', v: 5, u: 'lbs', a }] } }).gymRigs['G|~stack'][0].a;
   assert.deepEqual(rigs([110]), [110], 'lb 的加片 110 留下');

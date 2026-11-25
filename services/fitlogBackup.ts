@@ -347,6 +347,7 @@ function normalizeSnapshot(s: Obj): { snapshot: FitlogRemoteSnapshot; skipped: n
     exerciseNotes: record(p.exerciseNotes),
     starredExercises: record(p.starredExercises),
     exerciseMetricConfigs: record(p.exerciseMetricConfigs),
+    metricAutoKeys: Array.isArray(p.metricAutoKeys) ? p.metricAutoKeys.filter((k: unknown) => typeof k === 'string') : [],
     tagRenameOverrides: record(p.tagRenameOverrides),
     exerciseOverrides: Object.fromEntries(Object.entries(record(p.exerciseOverrides)).filter(([, v]) => isObj(v))),
     starredLastUpdateMs: stamp(p.starredLastUpdateMs),
@@ -450,6 +451,8 @@ export function parseBackupFile(raw: string): ParsedBackup {
     exerciseNotes: st.exerciseNotes ?? current.exerciseNotes,
     starredExercises: st.starredExercises ?? current.starredExercises,
     exerciseMetricConfigs: st.metricConfigs ?? current.exerciseMetricConfigs,
+    // 旧格式没有自动标记：换成文件里的记录项时，本机的标记不能挂到它们头上
+    metricAutoKeys: st.metricConfigs ? [] : current.metricAutoKeys,
     lang: lang ?? current.lang,
     unit: unit ?? current.unit,
     // 单位 / 语言的胜负看 appPrefs（services/appPrefs.ts）：备份里的值要一并写进去，否则读回来还是当前值
@@ -678,6 +681,8 @@ export async function addImportedRecords(
   const knownDefs = new Set(current.prefs.customExercises.map(d => d.id));
   // 已有的自有键盖住导入的种子（原写法 !metrics[name] 遇到 constructor 会把种子跳过，C09）
   const metrics = { ...input.metricSeeds, ...current.prefs.exerciseMetricConfigs };
+  // 真写进去的种子记成自动写的：之后从备份合并时让位给备份里配过的（mergeFitlogPrefs）
+  const seeded = Object.keys(input.metricSeeds).filter(k => !Object.prototype.hasOwnProperty.call(current.prefs.exerciseMetricConfigs, k));
   const now = Date.now();
 
   const next: FitlogRemoteSnapshot = {
@@ -687,6 +692,7 @@ export async function addImportedRecords(
       ...current.prefs,
       customExercises: [...input.newDefs.filter(d => !knownDefs.has(d.id)), ...current.prefs.customExercises],
       exerciseMetricConfigs: metrics,
+      metricAutoKeys: [...new Set([...(current.prefs.metricAutoKeys ?? []), ...seeded])],
       prefsLastUpdateMs: now,
       metricsLastUpdateMs: now,
     },

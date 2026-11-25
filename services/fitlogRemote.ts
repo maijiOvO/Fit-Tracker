@@ -360,6 +360,39 @@ function unionById<T extends { id: string }>(newer: T[], older: T[]): T[] {
   return [...newer, ...older.filter(x => !ids.has(x.id))];
 }
 
+/**
+ * 记录项按键合并（从备份合并恢复用）。自动写下的（metricAutoKeys）让位给另一边配过的，不看时间戳：
+ * 自动写入都打「现在」的时间戳，按较新取会把备份里真正配好的盖掉（上架审查 gap-1#3、第 19 批风险 2）。
+ * 两边都是或都不是自动的，按较新的一边。没有标记的旧数据：本机那条还等于有氧默认就当自动的（第 10 批的口径）
+ */
+function mergeMetricConfigs(
+  local: FitlogSyncedPrefs,
+  remote: FitlogSyncedPrefs,
+  localNewer: boolean,
+): { configs: Record<string, string[]>; auto: string[] } {
+  const l = local.exerciseMetricConfigs ?? {};
+  const r = remote.exerciseMetricConfigs ?? {};
+  const lAuto = new Set(local.metricAutoKeys ?? []);
+  const rAuto = new Set(remote.metricAutoKeys ?? []);
+  const seeded = stableJson(resolveAppPrefs(local.appPrefs).cardioMetrics);
+  const has = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+  const configs: Record<string, string[]> = {};
+  const auto: string[] = [];
+  for (const k of new Set([...Object.keys(l), ...Object.keys(r)])) {
+    let fromLocal: boolean;
+    if (!has(r, k)) fromLocal = true;
+    else if (!has(l, k)) fromLocal = false;
+    else {
+      const la = lAuto.has(k) || stableJson(l[k]) === seeded;
+      const ra = rAuto.has(k);
+      fromLocal = la === ra ? localNewer : ra;
+    }
+    configs[k] = fromLocal ? l[k] : r[k];
+    if ((fromLocal ? lAuto : rAuto).has(k)) auto.push(k);
+  }
+  return { configs, auto };
+}
+
 export function mergeFitlogPrefs(
   localLs: FitlogSyncedPrefs,
   remote: FitlogSyncedPrefs,
@@ -367,6 +400,7 @@ export function mergeFitlogPrefs(
 ): FitlogSyncedPrefs {
   let finalStarred = localLs.starredExercises;
   let finalMetricConfigs = localLs.exerciseMetricConfigs;
+  let finalMetricAuto = localLs.metricAutoKeys;
 
   const localStarTs = typeof localLs.starredLastUpdateMs === 'number' ? localLs.starredLastUpdateMs : 0;
   const remoteStarTs = typeof remote.starredLastUpdateMs === 'number' ? remote.starredLastUpdateMs : 0;
@@ -385,6 +419,7 @@ export function mergeFitlogPrefs(
     typeof remote.metricsLastUpdateMs === 'number' ? remote.metricsLastUpdateMs : 0;
   if (remote.exerciseMetricConfigs && typeof remote.exerciseMetricConfigs === 'object' && remoteMetTs >= localMetTs) {
     finalMetricConfigs = remote.exerciseMetricConfigs;
+    finalMetricAuto = remote.metricAutoKeys;
   }
 
   const localPrefsTs = localLs.prefsLastUpdateMs ?? 0;
@@ -416,7 +451,7 @@ export function mergeFitlogPrefs(
         ? { ...app.appPrefs, gymOverrides: byKey(localLs.appPrefs?.gymOverrides, remote.appPrefs?.gymOverrides, appLocalNewer) }
         : app.appPrefs;
     // 新装后自动写下的默认值在这里降权（上架审查 gap-1#3）：它们的时间戳是「现在」，按较新取会把备份里真正设过的盖掉。
-    // 本机那一条还等于默认（没动过）就用备份的 —— 同名馆的档案、有氧动作的记录项（seedMetricsIfUnset 种下的）
+    // 同名馆的档案：本机那一条还等于默认（没动过）就用备份的。记录项见 mergeMetricConfigs
     const localGyms = localLs.appPrefs?.gyms;
     const backupGyms = remote.appPrefs?.gyms;
     if (appPrefs?.gyms && localGyms && backupGyms) {
@@ -429,18 +464,14 @@ export function mergeFitlogPrefs(
       }
       appPrefs.gyms = gyms;
     }
-    const metricConfigs = byKey(localLs.exerciseMetricConfigs, remote.exerciseMetricConfigs, metLocalNewer);
-    const seeded = stableJson(resolveAppPrefs(localLs.appPrefs).cardioMetrics);
-    const localMetrics = localLs.exerciseMetricConfigs ?? {};
-    for (const [k, v] of Object.entries(remote.exerciseMetricConfigs ?? {})) {
-      if (Object.prototype.hasOwnProperty.call(localMetrics, k) && stableJson(localMetrics[k]) === seeded) metricConfigs[k] = v;
-    }
+    const metrics = mergeMetricConfigs(localLs, remote, metLocalNewer);
     return {
       customTags: byId(localLs.customTags, remote.customTags),
       customExercises: byId(localLs.customExercises, remote.customExercises),
       exerciseNotes: byKey(localLs.exerciseNotes, remote.exerciseNotes, localWins),
       starredExercises: byKey(localLs.starredExercises, remote.starredExercises, starLocalNewer),
-      exerciseMetricConfigs: metricConfigs,
+      exerciseMetricConfigs: metrics.configs,
+      metricAutoKeys: metrics.auto,
       tagRenameOverrides: byKey(localLs.tagRenameOverrides, remote.tagRenameOverrides, localWins),
       exerciseOverrides: byKey(localLs.exerciseOverrides, remote.exerciseOverrides, localWins),
       starredLastUpdateMs: Math.max(localStarTs, remoteStarTs),
@@ -472,6 +503,7 @@ export function mergeFitlogPrefs(
     ),
     starredExercises: finalStarred,
     exerciseMetricConfigs: finalMetricConfigs,
+    metricAutoKeys: finalMetricAuto,
     tagRenameOverrides: pickObject(
       (localLs.tagRenameOverrides ?? {}) as Record<string, string>,
       (remote.tagRenameOverrides ?? {}) as Record<string, string>,
@@ -507,6 +539,7 @@ export function readPrefsFromLocalStorage(): FitlogSyncedPrefs {
     exerciseNotes: parseJsonOr(storage.getItem('fitlog_exercise_notes'), {}),
     starredExercises: parseJsonOr(storage.getItem('fitlog_starred_exercises'), {}),
     exerciseMetricConfigs: parseJsonOr(storage.getItem('fitlog_metric_configs'), {}),
+    metricAutoKeys: stringList(parseJsonOr(storage.getItem('fitlog_metric_auto'), [])),
     tagRenameOverrides: parseJsonOr(storage.getItem('fitlog_tag_rename_overrides'), {}),
     exerciseOverrides: parseJsonOr(storage.getItem('fitlog_exercise_overrides'), {}),
     starredLastUpdateMs: Number.parseInt(storage.getItem('fitlog_starred_last_update') || '0', 10) || 0,
@@ -530,6 +563,7 @@ export function writePrefsToLocalStorage(raw: FitlogSyncedPrefs): void {
   storage.setItem('fitlog_starred_exercises', JSON.stringify(p.starredExercises ?? {}));
   storage.removeItem('fitlog_rest_prefs');
   storage.setItem('fitlog_metric_configs', JSON.stringify(p.exerciseMetricConfigs ?? {}));
+  storage.setItem('fitlog_metric_auto', JSON.stringify(p.metricAutoKeys ?? []));
   storage.setItem('fitlog_tag_rename_overrides', JSON.stringify(p.tagRenameOverrides ?? {}));
   storage.setItem('fitlog_exercise_overrides', JSON.stringify(p.exerciseOverrides ?? {}));
   storage.setItem('fitlog_starred_last_update', String(p.starredLastUpdateMs || 0));
@@ -695,6 +729,11 @@ export function mergeLocalWithRemote(
     prefs: mergedPrefs,
     tombstones,
   };
+}
+
+/** 存储 / 快照里的字符串数组：不是数组读成空的，混进来的别的值丢掉 */
+function stringList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
 }
 
 /** 键排好序的 JSON；null 与缺省当成一样（本机读出来的头像是 null，合并结果里可能是 undefined） */

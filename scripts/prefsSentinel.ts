@@ -17,6 +17,7 @@ export const PREFS_SENTINEL = {
   restPrefs: { 哨兵动作: 90 },
   starredExercises: { 哨兵动作: 1700000000001 },
   exerciseMetricConfigs: { 哨兵动作: ['reps', 'duration'] },
+  metricAutoKeys: ['哨兵动作'],
   tagRenameOverrides: { subChest: '哨兵胸' },
   exerciseOverrides: { EX_sentinel: { name: { cn: '哨兵改名', en: 'Sentinel renamed' } }, bp_barbell: { deletedVariants: [{ id: 'V_dead2', name: '哨兵删掉的内置做法' }] } },
   starredLastUpdateMs: 1700000000002,

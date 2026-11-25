@@ -3255,6 +3255,28 @@ t('自定义记录项：这个动作历史里记过数的都列出来，0 和别
   };
   assert.deepEqual(L.MD.customKeysIn([w], n => n, '跑步机'), ['custom_坡度']);
 });
+// 防 gap-5#3：平板支撑、瑜伽第一次加进来只能记重量 × 次数；也防有人把计时默认塞进回落值，把按重量 × 次数记过的历史重读掉
+t('记录项默认：计时 / 自由类第一次给时长，有氧跟首选项，农夫行走不给；回落值不变', () => {
+  const byId = id => {
+    const d = L.DEFAULT_EXERCISES.find(x => x.id === id);
+    assert.ok(d, id);
+    return d;
+  };
+  const cardio = ['duration', 'speed'];
+  for (const id of ['plank', 'side_plank', 'yoga_flow', 'ball_basket', 'stretch_all', 'hiit_session']) {
+    assert.deepEqual(L.MD.initialMetricsOf(byId(id), cardio), ['duration'], id);
+  }
+  assert.deepEqual(L.MD.initialMetricsOf({ id: '1732', name: { cn: '自建拉伸', en: '自建拉伸' }, category: 'FREE' }, cardio), ['duration']);
+  assert.equal(L.MD.initialMetricsOf(byId('bp_barbell'), cardio), null);
+  assert.equal(L.MD.initialMetricsOf(byId('farmer_walk'), cardio), null);
+  assert.deepEqual(L.MD.initialMetricsOf(byId('run_tread'), cardio), cardio);
+  assert.deepEqual(L.MD.initialMetricsOf(L.mergeOverride(byId('plank'), { category: 'CARDIO' }), cardio), cardio);
+  assert.deepEqual(L.MD.fallbackMetricsOf(byId('plank').category, cardio), ['weight', 'reps']);
+  // 返回的是新数组：调用方拿去写配置，不能和常量共用一个对象
+  const a = L.MD.initialMetricsOf(byId('plank'), cardio);
+  a.push('x');
+  assert.deepEqual(L.MD.initialMetricsOf(byId('plank'), cardio), ['duration']);
+});
 
 // ── 逐场纪录改累计式、汇总全 App 共用一份（审查 C36 / scale-perf#2）────────────
 {

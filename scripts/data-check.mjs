@@ -1059,6 +1059,25 @@ await t('单机：新装后种下的默认值（默认馆档案、有氧记录�
   assert.deepEqual(p.exerciseMetricConfigs.跑步机, ['duration']);
 });
 
+// 防第 19 批风险 2：导入种子打的是「现在」的时间戳，按较新取会把备份里配好的记录项盖掉；本机原有的配置不能被标成自动的
+await t('单机：导入写下的记录项种子记成自动的，之后合并旧备份时让给备份里配过的；本机原有的配置照旧按较新', async () => {
+  const old = Date.now() - 30 * DAY;
+  const file = JSON.stringify({
+    app: 'Fit Tracker', formatVersion: 2, exportedAt: iso(30),
+    snapshot: snapP(PREFS(old, { exerciseMetricConfigs: { 平板支撑: ['weight', 'duration'], 卧推: ['weight', 'reps', 'custom_x'] } })),
+  });
+  S.writePrefsToLocalStorage(PREFS(old + DAY, { exerciseMetricConfigs: { 卧推: ['weight', 'reps'] } }));
+  await S.addImportedRecords({ source: 'hevy', workouts: [W('imp_auto', 20)], newDefs: [], metricSeeds: { 平板支撑: ['duration'], 卧推: ['reps'] } }, 'skip');
+  let p = S.readPrefsFromLocalStorage();
+  assert.deepEqual(p.metricAutoKeys, ['平板支撑']);
+  assert.deepEqual(p.exerciseMetricConfigs.卧推, ['weight', 'reps']);
+  await S.mergeBackup(S.parseBackupFile(file));
+  p = S.readPrefsFromLocalStorage();
+  assert.deepEqual(p.exerciseMetricConfigs.平板支撑, ['weight', 'duration']);
+  assert.deepEqual(p.exerciseMetricConfigs.卧推, ['weight', 'reps']);
+  assert.deepEqual(p.metricAutoKeys, []);
+});
+
 await t('合并时两边各一条同名自建动作：归成 id 较老的那条，做法、本馆设置、特别关注跟过去，不建同名做法；本机原有的重名不碰（C34）', async () => {
   const NAME = '测试臀桥';
   const v1 = { id: 'v1', name: '窄距' };

@@ -13,6 +13,8 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { appPrefsNow } from '../../services/appPrefs';
+import { initialMetricsOf } from '../utils/metricDefaults';
+import { mergeOverride } from '../utils/exerciseOverride';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { prRuleFor } from '../utils/prRecords';
@@ -157,7 +159,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, choose, toast } = useUiOverlay();
-  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, mergeAliasOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef } = useExercisePrefs();
+  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, mergeAliasOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef, exerciseOverrides } = useExercisePrefs();
   /** 「杠铃片」馆档案：底稿按今天的馆和单位就近取整（docs/design-plates.md §3） */
   const rounderFor = useLoadRounder();
   const gymScoped = useGymScopedPR();
@@ -979,7 +981,8 @@ export function useWorkoutMutations({
           inheritAlt,
         ).map((p, i) => (p.variantId && !variantsOf(plan[i].name).some(v => v.id === p.variantId) ? { ...p, variantId: undefined } : p));
         const built = plan.map((pe, i) => {
-          const def = findExerciseDef(pe.name);
+          const raw = findExerciseDef(pe.name);
+          const def = raw && mergeOverride(raw, exerciseOverrides[raw.id]);
           const category = pe.category || def?.category || 'STRENGTH';
           const pick = vids[i];
           const src = pickSource(pe.name, pick.variantId, undefined, preferGymFor(pe.name, pick.variantId || undefined, g));
@@ -987,11 +990,11 @@ export function useWorkoutMutations({
           // 不对应的话，没写组数的两行会各铺出全部组
           const same = plan.filter((x, j) => resolveName(x.name) === resolveName(pe.name) && vids[j].variantId === pick.variantId);
           const last = src.last ? { ...src.last, exs: sourceCards(src.last, same.indexOf(pe), same.length) } : null;
-          // 有氧「第一次加」按不分做法判（审查 cardio-default-metrics）：指定了做法、那个做法没记过，不等于这个动作没记过
-          const firstCardio = category === 'CARDIO' && !findLast(pe.name, null);
-          if (firstCardio) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
-          // 和上面 seed 的是同一份：没练过的有氧按首选项的有氧默认记录（seed 写进状态要等下一次渲染）
-          const metrics = firstCardio ? appPrefsNow().cardioMetrics : getActiveMetrics(pe.name);
+          // 「第一次加」按不分做法判（审查 cardio-default-metrics）：指定了做法、那个做法没记过，不等于这个动作没记过
+          const initial = findLast(pe.name, null) ? null : initialMetricsOf({ id: def?.id ?? '', category }, appPrefsNow().cardioMetrics);
+          if (initial) seedMetricsIfUnset(pe.name, initial);
+          // 和上面 seed 的是同一份：没练过的按第一次的默认（seed 写进状态要等下一次渲染）
+          const metrics = initial ?? getActiveMetrics(pe.name);
           const ex = buildExercise(src.name, category, last, now, def?.exerciseConfig, src.variantId ? { id: src.variantId } : undefined, g, gyms);
           const r = rounderFor(ex, g, undefined, gyms);
           // 计划里的目标重量也按这个馆就近取整；记一份 plan 参考（标「计划 x」，切单位从它重算，不会越换越漂）
@@ -1051,7 +1054,7 @@ export function useWorkoutMutations({
       };
       return { make, replaces: live?.id ?? null };
     },
-    [buildExercise, confirm, findExerciseDef, findLast, isCn, liftKey, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, variantIdOf, variantsOf, workoutCtx, workouts],
+    [buildExercise, confirm, exerciseOverrides, findExerciseDef, findLast, isCn, liftKey, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, variantIdOf, variantsOf, workoutCtx, workouts],
   );
 
   /**
@@ -1169,12 +1172,13 @@ export function useWorkoutMutations({
         before,
       );
       /**
-       * 有氧动作第一次加进来（没配置过记录项、哪个做法都没记过）：按首选项「有氧默认记录」定记录项。
+       * 第一次加进来（没配置过记录项、哪个做法都没记过）：有氧按首选项「有氧默认记录」，平板支撑这类计时动作和自由类记时长（initialMetricsOf）。
        * 记过的不动 —— 划船机被当器械记成 65×12 的那种必须保持重量 × 次数（审查 cardio-default-metrics）。
        * 记过之后的几个口子各自落定：改类型（saveExerciseAttrs）、改有氧默认（pinCardioMetrics）、导入（mergeImportSeeds）。
        */
-      if (ex.category === 'CARDIO' && !findLast(exerciseName, null, currentWorkout.id || undefined, undefined, before)) {
-        seedMetricsIfUnset(exerciseName, appPrefsNow().cardioMetrics);
+      const initial = initialMetricsOf(ex, appPrefsNow().cardioMetrics);
+      if (initial && !findLast(exerciseName, null, currentWorkout.id || undefined, undefined, before)) {
+        seedMetricsIfUnset(exerciseName, initial);
       }
       const newEx = buildExercise(
         src.name,

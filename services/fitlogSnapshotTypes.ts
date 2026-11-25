@@ -40,6 +40,11 @@ export interface FitlogSyncedPrefs {
   restPrefs?: Record<string, number>;
   starredExercises: Record<string, number>;
   exerciseMetricConfigs: Record<string, string[]>;
+  /**
+   * exerciseMetricConfigs 里由 App 自动写下的原键（第一次添加的种子、改类型 / 改有氧默认前的落定、恢复默认写回、导入种子）。
+   * 从备份合并时这些让位给另一边配过的（mergeFitlogPrefs）；用户在记录项设置里点过就摘掉。旧快照没有＝都当用户配的
+   */
+  metricAutoKeys?: string[];
   tagRenameOverrides: Record<string, string>;
   exerciseOverrides: Record<string, Partial<ExerciseDefinition>>;
   /** 毫秒时间戳，用于与原逻辑一致地合并 starred / metricConfigs */

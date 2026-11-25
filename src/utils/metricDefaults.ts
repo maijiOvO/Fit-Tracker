@@ -6,11 +6,23 @@
  * fitlogCsvImport.mergeImportSeeds），不然同一批历史会按新口径重读。
  */
 import type { ExerciseCategory, WorkoutSession } from '../../types';
+import { INITIAL_METRICS } from '../constants/exercises';
 import { setHasValue } from './setValues';
 
 /** 没配置时的回落值：有氧跟首选项「有氧默认记录」，其余重量 × 次数。改它会重读所有没配置的动作的历史 */
 export function fallbackMetricsOf(category: ExerciseCategory | '' | undefined, cardio: string[]): string[] {
   return category === 'CARDIO' ? [...cardio] : ['weight', 'reps'];
+}
+
+/**
+ * 第一次添加（从没记过、没配置过）时写下的那组；null＝不写，跟回落值走。
+ * 计时类不放进回落值：已经按重量 × 次数记过平板支撑的历史会被按时长重读。def 要传合并覆盖层之后的（改成有氧的平板支撑按有氧）
+ */
+export function initialMetricsOf(def: { id: string; category?: ExerciseCategory | '' }, cardio: string[]): string[] | null {
+  if (def.category === 'CARDIO') return [...cardio];
+  const listed = INITIAL_METRICS[def.id];
+  if (listed) return [...listed];
+  return def.category === 'FREE' ? ['duration'] : null;
 }
 
 /** 至少有一组填了数的动作（现名）。进行中那场也算：按值判，底稿行有数也算（它就是上次记的） */

@@ -33,7 +33,7 @@ import {
 import { migrateCableTags } from '../utils/cableTagMigration';
 import { migrateWarmRegions } from '../utils/warmRegionMigration';
 import { buildNameIndex, byDisplayName, ownValue, rawKeysIn } from '../utils/nameIndex';
-import { fallbackMetricsOf } from '../utils/metricDefaults';
+import { fallbackMetricsOf, initialMetricsOf } from '../utils/metricDefaults';
 import {
   canonicalLiftIdIn,
   renameClashIn,
@@ -259,6 +259,7 @@ const LS_KEYS = {
   exerciseNotes: 'fitlog_exercise_notes',
   exerciseMetricConfigs: 'fitlog_metric_configs',
   metricsLastUpdate: 'fitlog_metrics_last_update',
+  metricAuto: 'fitlog_metric_auto',
   starredExercises: 'fitlog_starred_exercises',
   starredLastUpdate: 'fitlog_starred_last_update',
   exerciseOverrides: 'fitlog_exercise_overrides',
@@ -285,6 +286,19 @@ function writeJSON(key: string, value: unknown): void {
   } catch {
     /* localStorage 可能配额满，忽略 */
   }
+}
+
+/** 记录项里哪些原键是 App 自动写的（FitlogSyncedPrefs.metricAutoKeys）：从备份合并时它们让位给备份里配过的 */
+function metricAutoNow(): string[] {
+  const v = readJSON<unknown>(LS_KEYS.metricAuto, []);
+  return Array.isArray(v) ? v.filter((k): k is string => typeof k === 'string') : [];
+}
+
+/** 自动写下的原键记上（add），用户自己配的、删掉的摘掉（drop）；同一个键两边都有时以 add 为准 */
+function retagMetricAuto(add: string[], drop: string[]): void {
+  const cur = metricAutoNow();
+  const next = [...new Set([...cur.filter(k => !drop.includes(k)), ...add])];
+  if (next.length !== cur.length || next.some((k, i) => k !== cur[i])) writeJSON(LS_KEYS.metricAuto, next);
 }
 
 /**
@@ -617,6 +631,15 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [exerciseOverrides, findExerciseDef],
   );
 
+  /** 第一次添加时的那组（utils/metricDefaults.initialMetricsOf），按覆盖层之后的类型；null＝跟回落值走 */
+  const initialMetricsFor = useCallback(
+    (exerciseName: string): string[] | null => {
+      const def = findExerciseDef(exerciseName);
+      return def ? initialMetricsOf(mergeOverride(def, exerciseOverrides[def.id]), appPrefsNow().cardioMetrics) : null;
+    },
+    [exerciseOverrides, findExerciseDef],
+  );
+
   const getActiveMetrics = useCallback(
     (exerciseName: string): string[] =>
       exerciseMetricConfigs[resolveName(exerciseName)] || defaultMetricsFor(exerciseName),
@@ -644,29 +667,41 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         } else {
           next = [...current, metricKey];
         }
-        // 全关掉了：留一项（有氧留时长，其余留次数），不然这一行什么都记不了
-        if (next.length === 0) next = [defaultMetricsFor(exerciseName).includes('duration') ? 'duration' : 'reps'];
+        // 全关掉了：留一项（有氧、计时 / 自由类留时长，其余留次数），不然这一行什么都记不了
+        if (next.length === 0) next = [(initialMetricsFor(exerciseName) ?? defaultMetricsFor(exerciseName)).includes('duration') ? 'duration' : 'reps'];
         const cleanNext = next.map(m => m.trim()).filter(m => m.length > 0);
         const updated = { ...prev, [key]: cleanNext };
         writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
+        // 用户自己点过的就不再算自动写的
+        retagMetricAuto([], [key]);
         storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
         scheduleDebouncedFitlogPush();
         return updated;
       });
     },
-    [rawKeysFor, resolveName, defaultMetricsFor],
+    [rawKeysFor, resolveName, defaultMetricsFor, initialMetricsFor],
   );
 
+  /**
+   * 恢复默认：删掉这个动作的配置。计时 / 自由类再写回第一次的那组（不然落回重量 × 次数），记成自动写的；
+   * 有氧仍只删、跟首选项走（审查 A17）
+   */
   const resetMetricsToDefault = useCallback((exerciseName: string) => {
+    const def = findExerciseDef(exerciseName);
+    const initial = def && mergeOverride(def, exerciseOverrides[def.id]).category !== 'CARDIO' ? initialMetricsFor(exerciseName) : null;
     setExerciseMetricConfigs(prev => {
-      const updated = { ...prev };
-      for (const k of rawKeysFor(prev, exerciseName)) delete updated[k];
+      const keys = rawKeysFor(prev, exerciseName);
+      let updated = { ...prev };
+      for (const k of keys) delete updated[k];
+      const key = resolveName(exerciseName);
+      if (initial) updated = { ...updated, [key]: initial };
       writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
+      retagMetricAuto(initial ? [key] : [], keys);
       storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
       scheduleDebouncedFitlogPush();
       return updated;
     });
-  }, [rawKeysFor]);
+  }, [exerciseOverrides, findExerciseDef, initialMetricsFor, rawKeysFor, resolveName]);
 
   /**
    * 没有任何原键的动作写上给定的那组（落定 / 种子共用）；一个都没写就原样返回。
@@ -675,12 +710,16 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   const pinUnset = useCallback(
     (prev: Record<string, string[]>, entries: Array<[string, string[]]>) => {
       let updated = prev;
+      const written: string[] = [];
       for (const [name, metrics] of entries) {
         if (!metrics.length || rawKeysFor(updated, name).length) continue;
-        updated = { ...updated, [resolveName(name)]: [...metrics] };
+        const key = resolveName(name);
+        updated = { ...updated, [key]: [...metrics] };
+        written.push(key);
       }
       if (updated === prev) return prev;
       writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
+      retagMetricAuto(written, []);
       storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
       scheduleDebouncedFitlogPush();
       return updated;
@@ -998,6 +1037,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         writeJSON(LS_KEYS.exerciseNotes, notes);
       }
       if (metrics) {
+        // 自动标记跟着值搬：搬过去的是 moveKeys 留下的那条，它是自动写的新名也算
+        const moved = rawKeysFor(rawMetricConfigs, oldName);
+        const kept = moved.includes(oldName) ? oldName : moved[0];
+        retagMetricAuto(metricAutoNow().includes(kept) ? [next] : [], moved);
         setExerciseMetricConfigs(metrics);
         writeJSON(LS_KEYS.exerciseMetricConfigs, metrics);
         storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
