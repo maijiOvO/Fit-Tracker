@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Language, Measurement } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone } from '../../services/fitlogTombstones';
+import { deleteMetric as deleteMetricRows } from '../../services/metricDelete';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
@@ -38,13 +39,15 @@ export interface UseMeasurementLogResult {
   triggerEditMeasurement: (item: Measurement) => void;
   /** 整项改名（新名字已有就并进去）；改成同名不写库 */
   renameMetric: (from: string, to: string) => Promise<void>;
+  /** 整项删除：先弹确认框（§12.5 例外），确定后删掉这个名字下的全部记录 */
+  deleteMetric: (name: string) => Promise<void>;
   openAddMeasurementEntry: (presetName?: string) => void;
   closeMeasureModal: () => void;
 }
 
 export function useMeasurementLog(): UseMeasurementLogResult {
   const settingsCtx = useUserSettingsContext();
-  const { toast } = useUiOverlay();
+  const { confirm, toast } = useUiOverlay();
 
   const lang = settingsCtx.lang;
   const isCn = lang === Language.CN;
@@ -120,6 +123,32 @@ export function useMeasurementLog(): UseMeasurementLogResult {
     [measurements, settingsCtx],
   );
 
+  /**
+   * 整项删除要先问（2026-11-24 作者定，§12.5 例外）：一碰丢掉一整项的全部记录，
+   * 全局撤销只在内存里、重启就没了，和删整场训练同一个理由。单条删除照旧不问。
+   */
+  const deleteMetric = useCallback(
+    async (name: string) => {
+      const n = measurements.filter(m => m.name === name).length;
+      if (n === 0) return;
+      const ok = await confirm({
+        message: isCn ? `删除「${name}」的全部 ${n} 条记录？` : `Delete all ${n} ${n === 1 ? 'entry' : 'entries'} of "${name}"?`,
+        danger: true,
+        confirmLabel: isCn ? '删除' : 'Delete',
+      });
+      if (!ok) return;
+      try {
+        await deleteMetricRows(measurements, name);
+        await settingsCtx.reloadFromIndexedDb();
+        scheduleDebouncedFitlogPush();
+        setExpandedMetric(null);
+      } catch (err) {
+        console.error(err);
+      }
+    },
+    [confirm, isCn, measurements, settingsCtx],
+  );
+
   const handleDeleteMeasurement = useCallback(async () => {
     if (!editingMeasurementId) return;
     try {
@@ -180,6 +209,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
     handleDeleteMeasurement,
     triggerEditMeasurement,
     renameMetric,
+    deleteMetric,
     openAddMeasurementEntry,
     closeMeasureModal,
   };

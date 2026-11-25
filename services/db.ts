@@ -288,6 +288,16 @@ export class FitLogDB {
     );
   }
 
+  /** 同一张表删好几条，一个事务（全删或全不删），撤销日志记成一步里的这几行。身体指标整项删除用（上架审查 C79） */
+  deleteMany(storeName: string, ids: readonly string[]): Promise<void> {
+    if (!ids.length) return Promise.resolve();
+    return undoJournal.track(
+      undoJournal
+        .recordRows(storeName, ids.map(id => ({ id: String(id), after: undefined })))
+        .then(() => this.guarded(() => this.rawWriteRows(ids.map(id => ({ store: storeName, id: String(id), row: undefined }))))),
+    );
+  }
+
   async rawDelete(storeName: string, id: string): Promise<void> {
     const store = await this.getStore(storeName, 'readwrite');
     const done = txDone(store.transaction);

@@ -423,6 +423,7 @@ const AppWithAuthShell: React.FC = () => {
     handleDeleteMeasurement,
     triggerEditMeasurement,
     renameMetric,
+    deleteMetric,
     openAddMeasurementEntry,
     closeMeasureModal,
   } = useMeasurementLog();
@@ -1428,6 +1429,7 @@ const AppWithAuthShell: React.FC = () => {
               onEditMeasurement={m => triggerEditMeasurement(m)}
               onAddMeasurementEntry={name => openAddMeasurementEntry(name)}
               onRenameMetric={renameMetric}
+              onDeleteMetric={deleteMetric}
               setShowResetAccountModal={setShowResetAccountModal}
               devMode={devMode}
               onToggleDevMode={envLocked ? undefined : handleToggleDevMode}

@@ -39,6 +39,8 @@ interface ProfileTabProps {
   onAddMeasurementEntry: (name: string) => void;
   /** 整项改名（新名字已有就并进去） */
   onRenameMetric: (from: string, to: string) => Promise<void>;
+  /** 整项删除（先弹确认框） */
+  onDeleteMetric: (name: string) => Promise<void>;
   setShowResetAccountModal: (show: boolean) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   /** 开发模式隔离开关，仅开发机可见 */
@@ -73,6 +75,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onEditMeasurement,
   onAddMeasurementEntry,
   onRenameMetric,
+  onDeleteMetric,
   setShowResetAccountModal,
   fileInputRef,
   devMode,
@@ -271,15 +274,26 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                             </button>
                           ))}
                       </div>
-                      {/* 整项改名 / 并进另一项（输入已有的名字）：次要文字按钮，放在历史列表下面 */}
-                      <button
-                        type="button"
-                        onClick={() => setRenaming({ open: true, from: metric.name, value: metric.name })}
-                        className="tap-44 mt-3 text-xs font-semibold text-secondary"
-                        data-testid="metric-rename"
-                      >
-                        {isCn ? '改名' : 'Rename'}
-                      </button>
+                      {/* 整项改名 / 并进另一项（输入已有的名字）、整项删除：次要文字按钮，放在历史列表下面。
+                          删除是墨色文字项（§6.6），点了先弹确认框（§12.5 例外） */}
+                      <div className="mt-3 flex items-center gap-5">
+                        <button
+                          type="button"
+                          onClick={() => setRenaming({ open: true, from: metric.name, value: metric.name })}
+                          className="tap-44 text-xs font-semibold text-secondary"
+                          data-testid="metric-rename"
+                        >
+                          {isCn ? '改名' : 'Rename'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteMetric(metric.name)}
+                          className="tap-44 text-xs font-semibold text-secondary"
+                          data-testid="metric-delete"
+                        >
+                          {isCn ? '删除这项' : 'Delete metric'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

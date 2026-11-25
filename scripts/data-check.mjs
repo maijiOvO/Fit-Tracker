@@ -50,6 +50,7 @@ const stubs = {
           async saveMany(n, rows) { this.saveManyCalls = (this.saveManyCalls ?? 0) + 1; for (const x of rows) s(n).set(x.id, structuredClone(x)); },
           async upsert(n, x) { s(n).set(x.id, structuredClone(x)); },
           async delete(n, id) { s(n).delete(id); },
+          async deleteMany(n, ids) { for (const id of ids) s(n).delete(id); },
           async clear(n) { s(n).clear(); },
           // 多表一个事务：同步写完，要么全写要么（抛在写之前）全不写；挂起 / 抛错由用例替换这个方法注入
           async replaceStores(replace, extra = {}) {
@@ -79,7 +80,8 @@ async function bundle(env, file) {
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
       "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary, backupFileName } from './services/fitlogBackup.ts';",
       "export { PrefsWriteError } from './services/fitlogRemote.ts';",
-      "export { writeTombstones } from './services/fitlogTombstones.ts';",
+      "export { writeTombstones, readTombstones } from './services/fitlogTombstones.ts';",
+      "export { deleteMetric } from './services/metricDelete.ts';",
       "export { defaultProfile } from './src/utils/loadable.ts';",
       "export { readText as folderReadText, writeText as folderWriteText, routeRestoredPick } from './services/fitlogFolder.ts';",
       "export { saveTextFile } from './services/fitlogSaveFile.ts';",
@@ -776,6 +778,25 @@ await t('合并恢复：本机删过的（墓碑）不被旧备份捞回来，�
   const backup = snap(SEED, {});
   const ids = D.mergeLocalWithRemote(local, backup).workouts.map(w => w.id).sort();
   assert.deepEqual(ids, ['local_new', 'seed_a', 'seed_b', 'seed_c']);
+});
+
+// 防 C79 整项删除漏写墓碑：personal 下次拉取会把服务器上那几条原样合并回来；也防按大小写一起删掉另一项
+await t('身体指标整项删除：只删同名的几条、每条记墓碑，服务器那份合并回来也不复活', async () => {
+  D.writeTombstones({});
+  await D.db.clear('custom_metrics');
+  const m = (id, name, value) => ({ id, userId: 'u', name, value, unit: 'cm', date: '2026-11-01T08:00:00.000Z', updatedAt: '2026-11-01T08:00:00.000Z' });
+  const rows = [m('a', 'Waist', 80), m('b', 'Waist', 79), m('c', 'waist', 81), m('d', '腰围', 78)];
+  for (const r of rows) await D.db.save('custom_metrics', r);
+  await D.deleteMetric(rows, 'Waist');
+  assert.deepEqual((await D.db.getAll('custom_metrics')).map(r => r.id).sort(), ['c', 'd']);
+  assert.deepEqual([...(D.readTombstones().customMetrics ?? [])].sort(), ['a', 'b']);
+  const snap = (customMetrics, tombstones) => ({
+    schemaVersion: 2, workouts: [], goals: [], weightLogs: [], customMetrics, prs: [], customExerciseDefsFromDb: [], scheduledWorkouts: [],
+    prefs: {}, tombstones,
+  });
+  const merged = D.mergeLocalWithRemote(snap(await D.db.getAll('custom_metrics'), D.readTombstones()), snap(rows, {}));
+  assert.deepEqual(merged.customMetrics.map(r => r.id).sort(), ['c', 'd']);
+  D.writeTombstones({});
 });
 
 const PREFS = (ts, extra = {}) => ({
