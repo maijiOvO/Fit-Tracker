@@ -8,7 +8,7 @@
  */
 import type { Exercise, WorkoutSession } from '../../types';
 import { signedKg } from './load';
-import { e1rmOf, findRecords, prSetsOf, type PRSet, type RecordKind } from './prRecords';
+import { e1rmOf, findRecords, prRuleFor, prSetsOf, type PRSet, type RecordKind } from './prRecords';
 
 /** 估算 1RM 的伪指标键。不在 activeMetrics 里，只在图表 / 纪录里出现 */
 export const E1RM = 'e1rm';
@@ -37,7 +37,7 @@ export interface LiftSession {
   cards: Exercise[];
   /** 不含底稿行，几张卡按卡序接起来 */
   sets: any[];
-  /** 以下三个在全部组里挑，递减 / 递增档各算一组 —— 最重的一组（同重取次数多的） */
+  /** 以下三个在全部组里挑，递减 / 递增档各算一组 —— 最重的一组（同重取次数多的）；记次数的动作不挑次数为 0 的组（同 prRecords，审查 C81） */
   top: SetRef | null;
   /** 估算 1RM 最高的一组 */
   e1rm: (SetRef & { value: number }) | null;
@@ -102,7 +102,7 @@ export function sessionMetricSet(s: LiftSession, metric: string): SetRef | null 
   return null;
 }
 
-function buildSession(w: WorkoutSession, all: Exercise[], signed: boolean): LiftSession | null {
+function buildSession(w: WorkoutSession, all: Exercise[], signed: boolean, tracksReps: boolean): LiftSession | null {
   const cards = all.filter(c => (c.sets ?? []).some((s: any) => !s.ghost));
   if (!cards.length) return null;
   const ex = cards[0];
@@ -112,7 +112,7 @@ function buildSession(w: WorkoutSession, all: Exercise[], signed: boolean): Lift
   let mostReps: SetRef | null = null;
   // 和纪录判定同一份组（递减 / 递增档各算一组，审查 Gm0）：否则递增档破了纪录，逐场行和图上写的还是母组
   for (const { kg, reps } of cards.flatMap(c => prSetsOf(c, w.gym, signed))) {
-    if (!top || kg > top.kg || (kg === top.kg && reps > top.reps)) top = { kg, reps };
+    if ((reps > 0 || !tracksReps) && (!top || kg > top.kg || (kg === top.kg && reps > top.reps))) top = { kg, reps };
     if (reps > 0 && (!mostReps || reps > mostReps.reps || (reps === mostReps.reps && kg > mostReps.kg))) {
       mostReps = { kg, reps };
     }
@@ -210,6 +210,7 @@ export function buildLiftSummaries({
   gymScoped,
 }: BuildParams): LiftSummary[] {
   const map = new Map<string, LiftSummary>();
+  const metricsOf = new Map<string, string[]>();
   for (const w of workouts) {
     for (const ex of w.exercises ?? []) {
       const key = liftKey(ex);
@@ -218,6 +219,7 @@ export function buildLiftSummaries({
       if (lift && !lift.ids.includes(sid)) lift.ids.push(sid);
       if (!lift) {
         const baseName = resolveName(ex.name);
+        metricsOf.set(key, getActiveMetrics(baseName));
         lift = {
           key,
           stableId: sid,
@@ -225,7 +227,7 @@ export function buildLiftSummaries({
           baseName,
           signed: false,
           machine: false,
-          hasWeight: getActiveMetrics(baseName).includes('weight'),
+          hasWeight: metricsOf.get(key)!.includes('weight'),
           loaded: false,
           sessions: [],
           lastTs: 0,
@@ -246,18 +248,18 @@ export function buildLiftSummaries({
     }
     for (const [key, cards] of byKey) {
       const lift = map.get(key)!;
-      const s = buildSession(w, cards, lift.signed);
+      const s = buildSession(w, cards, lift.signed, metricsOf.get(key)!.includes('reps'));
       if (s) lift.sessions.push(s);
     }
   }
   const out: LiftSummary[] = [];
-  for (const lift of map.values()) {
+  for (const [key, lift] of map) {
     if (!lift.sessions.length) continue;
     lift.sessions.sort((a, b) => a.ts - b.ts);
     lift.lastTs = lift.sessions[lift.sessions.length - 1].ts;
     // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）
     lift.machine = !!gymScoped?.(lift.sessions[0].exercise);
-    const rule = { tracksWeight: lift.hasWeight, signed: lift.signed, machine: lift.machine };
+    const rule = prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine);
     const hist: PRSet[] = [];
     for (const s of lift.sessions) {
       const cur = s.cards.flatMap(c => prSetsOf(c, s.gym, lift.signed));

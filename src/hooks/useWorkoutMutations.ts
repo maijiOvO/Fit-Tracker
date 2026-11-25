@@ -15,6 +15,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { appPrefsNow } from '../../services/appPrefs';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
+import { prRuleFor } from '../utils/prRecords';
 import { KG_TO_LBS } from '../constants';
 import { groupExercises, hasDoneSets, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
 import { rowEdited, toGhostSets } from '../utils/setValues';
@@ -436,8 +437,7 @@ export function useWorkoutMutations({
             findLast: ex =>
               findLastIn(earlier, resolveName, variantIdOf, ex.name, variantIdOf(ex) ?? '', finalWorkout.id,
                 finalWorkout.gym && gymScoped(ex) ? finalWorkout.gym : undefined),
-            signedOf: isSignedEx,
-            gymScoped,
+            ruleOf: ex => prRuleFor(getActiveMetrics(resolveName(ex.name)), isSignedEx(ex), gymScoped(ex)),
             gym: finalWorkout.gym,
           }).map(r => {
             const cards = finalWorkout.exercises.filter(e => liftKey(e) === r.key);

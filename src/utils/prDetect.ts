@@ -9,7 +9,7 @@
  */
 import { WorkoutSession, Exercise } from '../../types';
 import { setVolumeKg } from './load';
-import { RECORD_PRIORITY, findRecords, prSetsOf, type PRSet, type RecordKind } from './prRecords';
+import { RECORD_PRIORITY, findRecords, prRuleFor, prSetsOf, type PRSet, type RecordKind } from './prRecords';
 
 export type PRKind = RecordKind;
 
@@ -93,12 +93,8 @@ export function detectPRs({
     const ex = cards[0];
     // 组内任一张按带号记就按带号比（同 liftHistory：同一个动作口径一致）
     const signed = cards.some(c => !!isSigned?.(c));
-    const rule = {
-      // 动作设置按动作共享，不分练法
-      tracksWeight: getActiveMetrics(resolveName(ex.name)).includes('weight'),
-      signed,
-      machine: !!gymScoped?.(ex),
-    };
+    // 动作设置按动作共享，不分练法
+    const rule = prRuleFor(getActiveMetrics(resolveName(ex.name)), signed, !!gymScoped?.(ex));
     const past: PRSet[] = history.flatMap(w =>
       (w.exercises ?? []).filter(e => key(e).trim() === name).flatMap(e => prSetsOf(e, w.gym, signed)),
     );

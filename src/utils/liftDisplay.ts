@@ -2,7 +2,7 @@
  * 「按动作」历史的显示换算：存储单位 → 显示单位、指标名、一组的写法。
  * 列表 / 详情 / 趋势图共用，数字长相要一致。
  */
-import { Language } from '../../types';
+import { Language, type SetLog } from '../../types';
 import { translations } from '../../translations';
 import { KG_TO_LBS } from '../constants';
 import { distToDisplay, metricUnitLabel } from './exerciseConfig';
@@ -14,10 +14,14 @@ export const CHART_RANGES: ChartRange[] = ['3m', '6m', '1y', 'all'];
 export const rangeLabel = (r: ChartRange, isCn: boolean) =>
   ({ '3m': isCn ? '3月' : '3M', '6m': isCn ? '6月' : '6M', '1y': isCn ? '1年' : '1Y', all: isCn ? '全部' : 'All' })[r];
 
-/** 数值智能去零：80 而不是 80.00；最多一位小数（§6.5） */
-export function trimNum(v: number): string {
-  return String(Math.round(v * 10) / 10);
+/** 数值智能去零：80 而不是 80.00；默认最多一位小数（§6.5） */
+export function trimNum(v: number, digits = 1): string {
+  const p = 10 ** digits;
+  return String(Math.round(v * p) / p);
 }
+
+/** 距离 / 速度留两位（0.05 km 不能写成 0.1，同只读历史 SetCapsule），其余一位（审查 gap-5#9） */
+const digitsOf = (metric: string) => (metric === 'distance' || metric === 'speed' ? 2 : 1);
 
 const isLoadMetric = (metric: string) => metric === 'weight' || metric === E1RM;
 
@@ -53,9 +57,14 @@ function clockOf(sec: number): string {
   return h > 0 ? `${h}:${pad2(m)}:${pad2(s)}` : `${m}:${pad2(s)}`;
 }
 
-/** 已经换成显示单位的数怎么写：时长写成时:分:秒，其余最多一位小数 */
+/** 已经换成显示单位的数怎么写：时长写成时:分:秒，距离 / 速度最多两位小数，其余一位 */
 export function formatShown(metric: string, v: number): string {
-  return metric === 'duration' ? clockOf(v) : trimNum(v);
+  return metric === 'duration' ? clockOf(v) : trimNum(v, digitsOf(metric));
+}
+
+/** 显示单位的数按写出来的精度取整：先取整再相减，100.0172 lbs 和 100 lbs 写出来一样，差就是 0（审查 C83「+0 lbs」） */
+export function roundShown(metric: string, v: number): number {
+  return metric === 'duration' ? Math.round(v) : Number(trimNum(v, digitsOf(metric)));
 }
 
 /** 存储单位的一个指标值 → 显示（换单位 + 写法） */
@@ -77,6 +86,32 @@ export function formatLoad(kg: number, unit: 'kg' | 'lbs', signed: boolean, isCn
 export function formatSet(set: SetRef, unit: 'kg' | 'lbs', signed: boolean, isCn: boolean): string {
   const load = formatLoad(set.kg, unit, signed, isCn);
   return set.reps > 0 ? `${load}×${set.reps}` : load;
+}
+
+/**
+ * 一组里重量、次数以外的记录项：时长、距离、速度、自定义项（带名字），没值的不写（审查 gap-5#6：有氧的「上次」原来写成 0×0）。
+ * 「30:00 5 km」
+ */
+function metricsTail(set: SetLog, metrics: string[], unit: 'kg' | 'lbs', lang: Language): string {
+  return metrics
+    .filter(m => m !== 'weight' && m !== 'reps')
+    .flatMap(m => {
+      const v = Number((set as unknown as Record<string, unknown>)[m]) || 0;
+      if (!v) return [];
+      if (m === 'duration') return [formatMetric(m, v, unit)];
+      if (m === 'distance' || m === 'speed') return [`${formatMetric(m, v, unit)} ${metricUnit(m, unit)}`];
+      return [`${metricLabel(m, lang)} ${trimNum(v)}`];
+    })
+    .join(' ');
+}
+
+/**
+ * 卡头「上次」的一组：记录项里有重量才写重量（load 是调用方写好的，递减档已用 → 连上），有次数才写 ×次，其余项接 metricsTail。
+ * 「100×5」「30:00 5 km」「30 1:00」
+ */
+export function lastSetLine(load: string, set: SetLog, metrics: string[], unit: 'kg' | 'lbs', lang: Language): string {
+  const head = `${metrics.includes('weight') ? load : ''}${metrics.includes('reps') ? `×${Number(set.reps) || 0}` : ''}`;
+  return [head, metricsTail(set, metrics, unit, lang)].filter(Boolean).join(' ');
 }
 
 /** 10-14；不是今年的带上年份 */

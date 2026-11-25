@@ -8,7 +8,7 @@
  * 加动作（useWorkoutMutations.findLast）、换做法、换馆重新挑底稿（useGymSwitch）共用这一份。
  */
 import type { Exercise, SetLog, WorkoutSession } from '../../types';
-import { prSetsOf } from './prRecords';
+import { prSetsOf, type PRRule } from './prRecords';
 import { rowEdited } from './setValues';
 import { memberKeys } from './workbench';
 
@@ -226,21 +226,24 @@ export interface VsSet {
   reps: number;
 }
 
-/** 一张卡做完的组里最好的一组：最重（带符号），同重取次数多的；递减 / 递增档各算一组（同 prRecords / liftHistory 的口径） */
-function bestSet(ex: Exercise, signed: boolean): VsSet | null {
+/**
+ * 一张卡做完的组里最好的一组：最重（带符号），同重取次数多的；递减 / 递增档各算一组（同 prRecords / liftHistory 的口径）。
+ * 记次数的动作跳过次数为 0 的组（审查 C81：120×0 不能当成这场最好的一组）
+ */
+function bestSet(ex: Exercise, signed: boolean, tracksReps: boolean): VsSet | null {
   let top: VsSet | null = null;
   for (const { kg, reps } of prSetsOf(ex, undefined, signed)) {
-    if (kg === 0 && reps === 0) continue;
+    if ((kg === 0 && reps === 0) || (tracksReps && reps === 0)) continue;
     if (!top || kg > top.kg || (kg === top.kg && reps > top.reps)) top = { kg, reps };
   }
   return top;
 }
 
 /** 几张卡合起来最好的一组 */
-function bestOfCards(cards: Exercise[], signed: boolean): VsSet | null {
+function bestOfCards(cards: Exercise[], signed: boolean, tracksReps: boolean): VsSet | null {
   let top: VsSet | null = null;
   for (const c of cards) {
-    const b = bestSet(c, signed);
+    const b = bestSet(c, signed, tracksReps);
     if (b && (!top || b.kg > top.kg || (b.kg === top.kg && b.reps > top.reps))) top = b;
   }
   return top;
@@ -267,8 +270,8 @@ export function vsLastSession(
   o: {
     keyOf: (ex: Exercise) => string;
     findLast: (ex: Exercise) => LastHit | null;
-    signedOf: (ex: Exercise) => boolean;
-    gymScoped: (ex: Exercise) => boolean;
+    /** 这个动作按哪套规矩比（prRuleFor）：带号、器械、记不记次数 */
+    ruleOf: (ex: Exercise) => PRRule;
     /** 今天这一场的馆 */
     gym: string | undefined;
   },
@@ -280,13 +283,14 @@ export function vsLastSession(
   }
   const out: VsLastRow[] = [];
   for (const [key, cards] of groups) {
-    const signed = cards.some(o.signedOf);
-    const now = bestOfCards(cards, signed);
+    const rule = o.ruleOf(cards[0]);
+    const signed = cards.some(c => o.ruleOf(c).signed);
+    const now = bestOfCards(cards, signed, rule.tracksReps);
     const hit = now ? o.findLast(cards[0]) : null;
-    const last = hit ? bestOfCards(hit.exs ?? [hit.ex], signed) : null;
+    const last = hit ? bestOfCards(hit.exs ?? [hit.ex], signed, rule.tracksReps) : null;
     if (!now || !last) continue;
     const lg = hit!.workout.gym;
-    out.push({ exId: cards[0].id, key, now, last, ...(o.gymScoped(cards[0]) && lg && lg !== o.gym ? { lastGym: lg } : {}) });
+    out.push({ exId: cards[0].id, key, now, last, ...(rule.machine && lg && lg !== o.gym ? { lastGym: lg } : {}) });
   }
   return out;
 }

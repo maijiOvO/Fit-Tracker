@@ -33,6 +33,7 @@ import { heroFocus } from '../utils/scrubFeel';
 import { carrySign } from '../utils/workbench';
 import { useBackClose } from '../hooks/useBackClose';
 import { ExerciseHistorySheet } from './LiftDetailSheet';
+import { lastSetLine } from '../utils/liftDisplay';
 
 
 /** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法 + 今天的馆 */
@@ -291,12 +292,12 @@ export const ExerciseCard = React.memo(function ExerciseCard({
     const kg = signedKg(x, exercise, parent);
     return `${kg < 0 ? '−' : kg > 0 ? '+' : ''}${formatLoad(Math.abs(kg), unit)}`;
   };
+  // 只写记录项里有的（审查 gap-5#6：有氧原来写成「0×0 kg」）
   const lastLine = lastSession
     ? lastSession.sets
         .map(s => {
-          const w = lastW(s);
           const sub = s.subSets?.length ? `→${s.subSets.map(x => lastW(x, s)).join('→')}` : '';
-          return `${w}${sub}×${Number(s.reps) || 0}`;
+          return lastSetLine(`${lastW(s)}${sub}`, s, activeMetrics, unit === 'lbs' ? 'lbs' : 'kg', lang);
         })
         .join('、')
     : '';
@@ -525,7 +526,7 @@ export const ExerciseCard = React.memo(function ExerciseCard({
             {prefillElsewhere
               ? isCn ? `上次在 ${prefillElsewhere} ${lastDateLabel}` : `Last at ${prefillElsewhere} ${lastDateLabel}`
               : isCn ? `上次 ${lastDateLabel}` : `Last ${lastDateLabel}`}{' '}
-            · {lastLine} {unit}
+            · {lastLine}{activeMetrics.includes('weight') && ` ${unit}`}
           </p>
         )}
       </div>

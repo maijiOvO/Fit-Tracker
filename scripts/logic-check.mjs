@@ -47,6 +47,7 @@ await build({
       "export { mergeOverride, mergedName } from './src/utils/exerciseOverride.ts';",
       "export { detectPRs } from './src/utils/prDetect.ts';",
       "export * as R from './src/utils/prRecords.ts';",
+      "export * as LDS from './src/utils/liftDisplay.ts';",
       "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
       "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
@@ -313,7 +314,7 @@ t('刊末页「比上次」：每个动作这场与上一场的最好一组（�
   };
   const findLast = e => (last[e.name] ? { ex: last[e.name], workout: { id: 'w0', date: '', exercises: [] } } : null);
   const got = L.vsLastSession([bench, pull, fresh, empty], {
-    keyOf: e => e.name, findLast, signedOf: e => e.name === '引体', gymScoped: () => false, gym: undefined,
+    keyOf: e => e.name, findLast, ruleOf: e => L.R.prRuleFor(['weight', 'reps'], e.name === '引体', false), gym: undefined,
   });
   assert.deepEqual(got, [
     { exId: 'b', key: '卧推', now: { kg: 80, reps: 8 }, last: { kg: 82.5, reps: 2 } },
@@ -330,7 +331,7 @@ t('刊末页「比上次」：一个项目一行，同场同项目的几张卡�
   const vOf = e => e.variantId;
   const keyOf = e => (e.variantId ? `${e.name}（${e.variantId}）` : e.name);
   const run = (ws, now, extra = {}) => L.vsLastSession(now, {
-    keyOf, signedOf: () => false, gymScoped: () => false, gym: '',
+    keyOf, ruleOf: () => L.R.prRuleFor(['weight', 'reps'], false, false), gym: '',
     findLast: e => L.findLastIn(ws, n => n, vOf, e.name, vOf(e) ?? '', 'now', extra.prefer?.(e)), ...extra,
   }).map(r => [r.key, `${r.now.kg}x${r.now.reps}`, `${r.last.kg}x${r.last.reps}`, r.lastGym ?? null]);
   // a：上一场并入后有两张卧推（热身卡 + 正式卡）
@@ -347,7 +348,7 @@ t('刊末页「比上次」：一个项目一行，同场同项目的几张卡�
   ]);
   // d：器械上一场只在 A馆、今天在 B馆 → 写 A馆；杠铃不写；同馆的器械也不写
   const a = W('a', 5, 'A馆', [C('x', '腿举', [S(200, 10)]), C('z', '卧推', [S(100, 5)])]);
-  const machine = { gymScoped: e => e.name === '腿举', prefer: e => (e.name === '腿举' ? 'B馆' : undefined) };
+  const machine = { ruleOf: e => L.R.prRuleFor(['weight', 'reps'], false, e.name === '腿举'), prefer: e => (e.name === '腿举' ? 'B馆' : undefined) };
   assert.deepEqual(run([a], [C('y', '腿举', [S(100, 10)]), C('q', '卧推', [S(100, 5)])], { ...machine, gym: 'B馆' }), [
     ['腿举', '100x10', '200x10', 'A馆'],
     ['卧推', '100x5', '100x5', null],
@@ -955,7 +956,7 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
 
   t('PR：底稿行不算；训练中的 PB 标指向破纪录的那一组（同一个 findRecords）', () => {
     const h = [W('h', ago(9), '', [exOf('卧推', [st(100, 5), st(120, 1, { ghost: true })])])];
-    const rule = { tracksWeight: true, signed: false, machine: false };
+    const rule = L.R.prRuleFor(['weight', 'reps'], false, false);
     const hist = L.R.prSetsOf(h[0].exercises[0], '', false);
     assert.equal(hist.length, 1, 'ghost row is not a fact');
     const cur = exOf('卧推', [st(95, 5), st(102.5, 3), st(105, 1, { ghost: true })]);
@@ -1008,7 +1009,7 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
 
   t('训练中 PB 标：同一项目几张卡合起来只标一行（纪录在别的卡上就不标这张；并列标卡序在前的）', () => {
     // 防的错：C84 训练中两张卡各自和历史比，两张都亮 PB
-    const pool = { rule: { tracksWeight: true, signed: false, machine: false }, history: [{ kg: 100, reps: 5, gym: '' }], gym: '' };
+    const pool = { rule: L.R.prRuleFor(['weight', 'reps'], false, false), history: [{ kg: 100, reps: 5, gym: '' }], gym: '' };
     const strip = c => L.R.prSetsOf(c, '', false).map(({ at: _a, ...x }) => x);
     const at = (own, before, after) => L.R.recordAtAmong(pool.rule, pool.history, L.R.prSetsOf(own, '', false), { before: before.flatMap(strip), after: after.flatMap(strip) }, '');
     const A = C('a', '卧推', [st(105, 3)]);
@@ -1020,7 +1021,68 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     assert.deepEqual([at(A, [], [B3]), at(B3, [A], [])], [0, -1]);
     assert.equal(L.R.recordAtAmong(pool.rule, pool.history, L.R.prSetsOf(B, '', false), undefined, ''), 0, 'no peers: as before');
   });
+
+  t('PR：记次数的动作里次数为 0 的组不算举起来了（120×0 不落牌、不当「最重」、不压住之后的 105×5）；不记次数的负重平板照按重量比', () => {
+    // 防的错：C81 有数就入册的 120×0 被判成最大重量纪录，列表 / 目标的「最重」写 120，之后真正的 105×5 反而不算；
+    // 修过头：一律要求次数 > 0，「重量 + 时长」的负重平板（次数本来就是 0）从此不出纪录
+    const h = [W('h', ago(9), '', [exOf('卧推', [st(100, 5)])])];
+    const zero = W('z', ago(5), '', [exOf('卧推', [st(120, 0)])]);
+    assert.equal(pr(h, zero).stamps.length, 0);
+    const lift = L.buildLiftSummaries({
+      workouts: [...h, zero], stableIdOf: e => e.name, liftKey: e => e.name, resolveName: id, signedLoadOf: () => false, getActiveMetrics: () => ['weight', 'reps'],
+    })[0];
+    assert.equal(lift.best.weight.value, 100);
+    assert.equal(lift.sessions[1].top, null);
+    const r = pr([...h, zero], W('n', ago(0), '', [exOf('卧推', [st(105, 5)])]));
+    assert.deepEqual([r.stamps[0]?.kind, r.stamps[0]?.prev], ['weight', 100]);
+    const plank = { getActiveMetrics: () => ['weight', 'duration'] };
+    const p = pr([W('h', ago(9), '', [exOf('负重平板', [st(30, 0, { duration: 60 })])])], W('n', ago(0), '', [exOf('负重平板', [st(35, 0, { duration: 60 })])]), plank);
+    assert.equal(p.stamps[0]?.kind, 'weight');
+  });
+
+  t('刊末页「比上次」：记次数的动作不拿次数为 0 的组当这场最好的一组', () => {
+    // 防的错：C81 在「比上次」里重现 —— 本场 [120×0, 100×6] 写成「120×0 比上次 100×5」
+    const last = exOf('卧推', [st(100, 5)]);
+    const got = L.vsLastSession([exOf('卧推', [st(120, 0), st(100, 6)])], {
+      keyOf: e => e.name, findLast: () => ({ ex: last, workout: { id: 'w0', date: '', exercises: [] } }),
+      ruleOf: () => L.R.prRuleFor(['weight', 'reps'], false, false), gym: '',
+    });
+    assert.deepEqual(got[0].now, { kg: 100, reps: 6 });
+  });
+
+  t('PR：kg、lb 各打一位小数，跨单位手打同一个重量不算纪录；单边加一片 0.25 lb 小片照算', () => {
+    // 防的错：C83 容差 0.01 kg 比一位小数的换算差小 —— 换个单位把上次的重量原样打一遍，就落最大重量 / 单组容量的牌；
+    // 修过头：容差放到挡掉真实的最小加重
+    const rule = L.R.prRuleFor(['weight', 'reps'], false, false);
+    const P = (kg, reps) => ({ kg, reps, gym: '' });
+    const kinds = (h, c) => L.R.findRecords(rule, h, c, '').map(x => x.kind);
+    assert.deepEqual(kinds([P(100, 5)], [P(220.5 / K, 5)]), []);
+    assert.deepEqual(kinds([P(225 / K, 10)], [P(102.06, 10)]), []);
+    assert.deepEqual(kinds([P(225 / K, 5)], [P(102.1, 5)]), []);
+    assert.deepEqual(kinds([P(102.0, 5)], [P(225 / K, 5)]), []);
+    assert.equal(kinds([P(260, 1)], [P(262.5, 1)])[0], 'weight');
+    assert.equal(kinds([P(10, 10)], [P(10 + 0.25 / K, 10)])[0], 'weight');
+  });
 }
+
+// ── 指标的写法（审查 gap-5#9 / C83 / gap-5#6）────────────────────────
+t('显示：距离 / 速度留两位小数、重量仍一位；按写出来的精度取整再算增量，不出「+0 lbs」', () => {
+  // 防的错：gap-5#9 0.05 km 写成 0.1、0.025 写成 0、1.25 写成 1.3；C83 特别关注 lbs 下 100.0172 比起步 100 写「+0 lbs」
+  const F = (m, v) => L.LDS.formatMetric(m, v, 'kg');
+  assert.deepEqual([F('distance', 0.05), F('distance', 0.025), F('distance', 1.25), F('speed', 11.538), F('weight', 1.25)], ['0.05', '0.03', '1.25', '11.54', '1.3']);
+  const R = L.LDS.roundShown;
+  assert.equal(R('weight', 100.0172) - R('weight', 100), 0);
+  assert.equal(R('weight', 102.5) - R('weight', 100), 2.5);
+  assert.equal(R('duration', 89.6), 90);
+});
+
+t('卡头「上次」：只写记录项里有的 —— 有氧写「30:00 5 km」不写 0×0，重量 + 时长不出 ×0', () => {
+  // 防的错：gap-5#6 ExerciseCard / AlternatingCard 固定拼「重量×次数」，跑步机的上次写成「0×0 kg」
+  const line = (load, set, metrics) => L.LDS.lastSetLine(load, set, metrics, 'kg', 'cn');
+  assert.equal(line('0', { id: 'a', duration: 1800, distance: 5 }, ['duration', 'distance']), '30:00 5 km');
+  assert.equal(line('100', { id: 'b', weight: 100, reps: 5 }, ['weight', 'reps']), '100×5');
+  assert.equal(line('30', { id: 'c', weight: 30, duration: 60 }, ['weight', 'duration']), '30 1:00');
+});
 
 // ── 目标进度（审查 D7）：按起点算，减重也成立；力量 / 频率从训练记录现算 ─────────
 t('目标进度：体重 80 → 75 刚建是 0、到 77.5 是一半、过了封顶；增重同理；起点不明不画', () => {

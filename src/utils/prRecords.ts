@@ -13,7 +13,10 @@
  * 带正负的负荷（辅助为负、负重为正）：最大重量只看加了负重的组（自重算 0）；
  *   辅助的组走次数纪录 —— 少用一点辅助做一样多次、同样的辅助做更多次都算。估算 1RM、容量不算（自重那部分不在数里）。
  *
- * 阈值：不设百分比。重量已经吸到真实的片子 / 档位上了，比之前任何一组多出 0.01 kg 以上就算（只挡浮点噪声）。
+ * 阈值：不设百分比，只挡换算噪声：重量多出 TOL_KG（0.1 kg）以上才算，估算 1RM、单组容量的容差按倍数放大（审查 C83）。
+ *   kg、lb 都只打一位小数，跨单位手打同一个重量能差到约 0.073 kg（225 lb＝102.06，kg 下打 102.1）；
+ *   最小的真实加重是单边一片 0.25 lb（约 0.113 kg），仍然算。
+ * 次数为 0 的组（有数就入册，2026-11 用户定）不算举起来了：记次数的动作里它不进最大重量（审查 C81），不记次数的「重量 + 时长」照旧按重量比。
  * 分馆：器械（配重片 / 挂片，gymScopedKind）只和同一个馆比；带正负动作里辅助的那些组（辅助器械）也只和同一个馆比；
  *   其余（杠铃、哑铃、负重、自重）跨馆比。
  * 历史为空不算 PR（同一个馆都没练过的器械也是）；编辑旧训练不判（调用方管）。
@@ -26,8 +29,8 @@ export type RecordKind = 'weight' | 'e1rm' | 'reps' | 'volume';
 /** 同时破了几种时上牌的先后 */
 export const RECORD_PRIORITY: RecordKind[] = ['weight', 'e1rm', 'reps', 'volume'];
 
-/** 比重量时的容差（kg）：挡 kg ⇄ lb 换算的浮点噪声 */
-const TOL = 0.01;
+/** 比重量时的容差（kg）：挡 kg ⇄ lb 各打一位小数的换算差，见头注释 */
+const TOL_KG = 0.1;
 
 /** 超过这个次数的组不估 1RM（界面上的说明从这里取，别手写数字） */
 export const E1RM_MAX_REPS = 10;
@@ -50,10 +53,17 @@ export interface PRSet {
 export interface PRRule {
   /** 记重量（没有重量这一项的按自重比最多次数） */
   tracksWeight: boolean;
+  /** 记次数：记的动作里次数为 0 的组不算举起来了 */
+  tracksReps: boolean;
   /** 带正负的负荷 */
   signed: boolean;
   /** 器械类：只和同一个馆比 */
   machine: boolean;
+}
+
+/** 按动作的记录项（getActiveMetrics）定规矩；构造 PRRule 只走这里，几处口径才一致 */
+export function prRuleFor(metrics: string[], signed: boolean, machine: boolean): PRRule {
+  return { tracksWeight: metrics.includes('weight'), tracksReps: metrics.includes('reps'), signed, machine };
 }
 
 /** 一张卡上做完的组（递减 / 递增档各算一组，at 指回母组）；底稿行不算 */
@@ -106,6 +116,7 @@ export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gy
   const hits: RecordHit[] = [];
 
   if (!rule.tracksWeight) {
+    if (!rule.tracksReps) return hits;
     const prev = Math.max(...past.map(s => s.reps));
     const best = maxBy(now, s => s.reps)!;
     if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
@@ -114,12 +125,14 @@ export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gy
 
   // 1. 最大重量（带号的：只看加了负重的组，自重算 0 —— 第一次挂上 5 kg 也是纪录）
   const loadOf = (s: PRSet) => (rule.signed ? Math.max(0, s.kg) : s.kg);
-  const pastW = past.filter(s => s.reps > 0 || !rule.signed);
-  const nowW = now.filter(s => (rule.signed ? s.kg > 0 && s.reps > 0 : s.kg > 0));
+  // 举起来了：记次数（或带号）的动作要次数 > 0；不记次数的「重量 + 时长」按重量比
+  const lifted = (s: PRSet) => s.reps > 0 || !(rule.signed || rule.tracksReps);
+  const pastW = past.filter(lifted);
+  const nowW = now.filter(s => lifted(s) && s.kg > 0);
   if (pastW.length && nowW.length) {
     const prev = Math.max(...pastW.map(loadOf));
     const best = maxBy(nowW, loadOf)!;
-    if (loadOf(best) > prev + TOL && (prev > 0 || rule.signed)) hits.push({ kind: 'weight', prev, next: loadOf(best), at: best.at });
+    if (loadOf(best) > prev + TOL_KG && (prev > 0 || rule.signed)) hits.push({ kind: 'weight', prev, next: loadOf(best), at: best.at });
   }
 
   // 2. 估算 1RM（带号的不估）
@@ -129,17 +142,18 @@ export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gy
     if (pastE.length && nowE.length) {
       const prev = Math.max(...pastE);
       const best = maxBy(nowE, x => x.v)!;
-      if (best.v > prev + TOL) hits.push({ kind: 'e1rm', prev, next: best.v, at: best.s.at });
+      // 容差跟着 Epley 的倍数放大：重量差 TOL_KG 估出来差 TOL_KG×(1 + r/30)
+      if (best.v > prev + TOL_KG * (1 + best.s.reps / 30)) hits.push({ kind: 'e1rm', prev, next: best.v, at: best.s.at });
     }
   }
 
   // 3. 次数纪录：不被历史上任何一组盖住（更重或一样重、更多或一样多）
-  const fresh = now.filter(c => c.reps > 0 && !past.some(p => p.kg >= c.kg - TOL && p.reps >= c.reps));
+  const fresh = now.filter(c => c.reps > 0 && !past.some(p => p.kg >= c.kg - TOL_KG && p.reps >= c.reps));
   if (fresh.length) {
     // 挑最重的那组（同重挑次数多的）报
-    const c = fresh.reduce((b, x) => (x.kg > b.kg + TOL || (Math.abs(x.kg - b.kg) <= TOL && x.reps > b.reps) ? x : b));
+    const c = fresh.reduce((b, x) => (x.kg > b.kg + TOL_KG || (Math.abs(x.kg - b.kg) <= TOL_KG && x.reps > b.reps) ? x : b));
     // 之前在这个重量（及更重）下最多做到几次
-    const prev = Math.max(0, ...past.filter(p => p.kg >= c.kg - TOL).map(p => p.reps));
+    const prev = Math.max(0, ...past.filter(p => p.kg >= c.kg - TOL_KG).map(p => p.reps));
     hits.push({ kind: 'reps', prev, next: c.reps, atKg: c.kg, at: c.at });
   }
 
@@ -148,7 +162,7 @@ export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gy
     const vol = (s: PRSet) => Math.max(0, s.kg) * s.reps;
     const prev = Math.max(...past.map(vol));
     const best = maxBy(now, vol)!;
-    if (prev > 0 && vol(best) > prev + TOL) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
+    if (prev > 0 && vol(best) > prev + TOL_KG * best.reps) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
   }
 
   return hits.sort((a, b) => RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind));

@@ -25,7 +25,7 @@ import {
   latestGymView,
 } from '../utils/liftHistory';
 import { E1RM_MAX_REPS } from '../utils/prRecords';
-import { agoLabel, formatLoad, formatSet, gymLabel, metricLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
+import { agoLabel, formatLoad, formatMetric, formatSet, formatShown, gymLabel, metricLabel, metricUnit, roundShown, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { KG_TO_LBS } from '../constants';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
@@ -213,12 +213,13 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
       {cards.map(({ lift, stats }) => {
         const isE1rm = stats.metric === E1RM;
         const isLoad = stats.metric === 'weight' || isE1rm;
-        const gain = stats.best - stats.first;
+        // 按写出来的精度取整再相减：100.0172 和 100 都写成 100，不能出「+0 lbs」（审查 C83）
+        const gain = roundShown(stats.metric, toDisplay(stats.metric, stats.best, unit)) - roundShown(stats.metric, toDisplay(stats.metric, stats.first, unit));
         const hot = stats.lastPrTs != null && Date.now() - stats.lastPrTs <= HOT_DAYS * DAY;
         const big = isLoad
           ? formatLoad(stats.best, unit, lift.signed, isCn)
-          : trimNum(toDisplay(stats.metric, stats.best, unit));
-        // 大数后面的小字：重量写「kg ×5」，次数写「次」，其他指标写指标名
+          : formatMetric(stats.metric, stats.best, unit);
+        // 大数后面的小字：重量写「kg ×5」，次数写「次」，距离 / 速度写单位，其余写指标名（审查 gap-5#5：原来写成「1800 时长」「3.1 距离」）
         // 估算 1RM 后面带上它是从哪一组推出来的（「kg · 85×8」），知道这个数的来历
         const bigSuffix = isE1rm
           ? `${unit}${stats.bestSet ? ` · ${formatSet(stats.bestSet, unit, false, isCn)}` : ''}`
@@ -226,11 +227,11 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
           ? `${lift.signed && Math.round(stats.best * 10) === 0 ? '' : unit}${stats.bestSet && stats.bestSet.reps > 0 ? ` ×${stats.bestSet.reps}` : ''}`
           : stats.metric === 'reps'
             ? (isCn ? '次' : 'reps')
-            : metricLabel(stats.metric, lang);
-        const firstLabel = isLoad ? formatLoad(stats.first, unit, lift.signed, isCn) : trimNum(toDisplay(stats.metric, stats.first, unit));
-        const gainLabel = isLoad
-          ? `+${toUnit(gain)} ${unit}`
-          : `+${trimNum(toDisplay(stats.metric, gain, unit))}${stats.metric === 'reps' ? (isCn ? ' 次' : ' reps') : ''}`;
+            : metricUnit(stats.metric, unit) || metricLabel(stats.metric, lang);
+        const firstLabel = isLoad ? formatLoad(stats.first, unit, lift.signed, isCn) : formatMetric(stats.metric, stats.first, unit);
+        const gainUnit = stats.metric === 'reps' ? (isCn ? '次' : 'reps') : metricUnit(stats.metric, unit);
+        // gain 已是显示单位：时长写「+5:00」，距离「+0.5 km」
+        const gainLabel = `+${formatShown(stats.metric, gain)}${gainUnit ? ` ${gainUnit}` : ''}`;
 
         return (
           <button

@@ -49,7 +49,7 @@ import { listGyms } from './src/utils/gyms';
 import { sessionsBefore } from './src/utils/sessionDate';
 import { mergeOverride } from './src/utils/exerciseOverride';
 import { usesSignedLoad } from './src/utils/load';
-import { prSetsOf } from './src/utils/prRecords';
+import { prRuleFor, prSetsOf } from './src/utils/prRecords';
 import type { PRPool } from './src/components/ExerciseCard';
 
 import TabNavigation from './src/components/TabNavigation';
@@ -881,12 +881,13 @@ const AppWithAuthShell: React.FC = () => {
     return (ex: Exercise): PRPool => {
       const signed = isSignedEx(ex);
       const key = prefs.liftKey(ex).trim();
-      const tracksWeight = prefs.getActiveMetrics(prefs.resolveName(ex.name)).includes('weight');
+      const metrics = prefs.getActiveMetrics(prefs.resolveName(ex.name));
       const machine = gymScopedPR(ex);
       const group = peerGroups.get(key);
       const at = group ? group.findIndex(c => c.id === ex.id) : -1;
       // 本场还有同项目别的卡的：peers 各张不同，pool 各一份
-      const pk = `${key}\n${signed}\n${tracksWeight}\n${machine}${at >= 0 ? `\n${ex.id}` : ''}`;
+      // 键带上记录项：训练中改了记录项，PB 标要按新规则判
+      const pk = `${key}\n${signed}\n${metrics.join()}\n${machine}${at >= 0 ? `\n${ex.id}` : ''}`;
       const cached = pools.get(pk);
       if (cached) return cached;
       const hk = `${key}\n${signed}`;
@@ -897,7 +898,7 @@ const AppWithAuthShell: React.FC = () => {
       }
       const peerSets = (cards: Exercise[]) => cards.flatMap(c => prSetsOf(c, currentWorkout.gym, signed).map(({ at: _at, ...x }) => x));
       const pool: PRPool = {
-        rule: { tracksWeight, signed, machine },
+        rule: prRuleFor(metrics, signed, machine),
         history,
         gym: currentWorkout.gym,
         ...(group && at >= 0 ? { peers: { before: peerSets(group.slice(0, at)), after: peerSets(group.slice(at + 1)) } } : {}),

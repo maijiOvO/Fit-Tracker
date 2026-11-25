@@ -30,7 +30,7 @@ import { useLoadRounder } from '../hooks/useLoadRounder';
 import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
 import { carrySign, memberAbbrs, memberKeys, RowRef } from '../utils/workbench';
 import { setVolumeKg, signedKg } from '../utils/load';
-import { formatLoad } from '../utils/liftDisplay';
+import { formatLoad, lastSetLine } from '../utils/liftDisplay';
 import { prSetIndex, type PRPool } from './ExerciseCard';
 import { haptic, H } from '../utils/haptics';
 import { formatVolume, plural } from '../utils/format';
@@ -295,8 +295,10 @@ export const AlternatingCard = React.memo(function AlternatingCard({
     const d = new Date(last.date);
     const signed = isSigned(m);
     const u = unitOf(m);
-    const sets = last.sets.map(s => `${formatLoad(signedKg(s, m), u, signed, isCn)}×${Number(s.reps) || 0}`).join(isCn ? '、' : ', ');
-    return `${isCn ? '上次' : 'Last'} ${d.getMonth() + 1}/${d.getDate()} · ${sets} ${u === 'lbs' ? 'lb' : 'kg'}`;
+    // 只写记录项里有的（审查 gap-5#6，同单卡）
+    const metrics = getActiveMetrics(resolveName(m.name));
+    const sets = last.sets.map(s => lastSetLine(formatLoad(signedKg(s, m), u, signed, isCn), s, metrics, u, lang)).join(isCn ? '、' : ', ');
+    return `${isCn ? '上次' : 'Last'} ${d.getMonth() + 1}/${d.getDate()} · ${sets}${metrics.includes('weight') ? ` ${u === 'lbs' ? 'lb' : 'kg'}` : ''}`;
   };
 
   const counter = new Map<string, number>();

@@ -32,7 +32,8 @@ function HatchDefs({ id, color }: { id: string; color: string }) {
   );
 }
 
-function makeEndLabel(lastIndex: number, color: string, textColor: string, suffix = '') {
+/** 线尾读数；fmt 按指标写（时长 1:30:00、距离两位小数，审查 C82：原来一律 trimNum，时长写成 5400） */
+function makeEndLabel(lastIndex: number, color: string, textColor: string, fmt: (v: number) => string) {
   return function EndLabel(props: any) {
     const { cx, cy, index, value } = props;
     if (index !== lastIndex || cx == null || cy == null) return null;
@@ -49,8 +50,7 @@ function makeEndLabel(lastIndex: number, color: string, textColor: string, suffi
           textAnchor="end"
           transform={`translate(-4, -14)`}
         >
-          {trimNum(Number(value))}
-          {suffix}
+          {fmt(Number(value))}
         </text>
       </g>
     );
@@ -99,8 +99,9 @@ function timeTicks(start: number, end: number, isCn: boolean) {
 /**
  * Y 轴：取 1/2/2.5/5×10ⁿ 的整齐步长，上下各留一点空，刻度落在整数上。
  * 以前 domain='auto' 给出 111.9、121.5 这种刻度，读不出数。
+ * minStep＝这个指标写出来的精度：步长再小，刻度按显示精度写出来就是一排一样的数（220.5、220.5…，审查 C83 / gap-5#9）
  */
-function niceAxis(values: number[]): { domain: [number, number]; ticks: number[] } {
+function niceAxis(values: number[], minStep: number): { domain: [number, number]; ticks: number[] } {
   let min = Math.min(...values);
   let max = Math.max(...values);
   if (max - min < 1e-9) {
@@ -110,7 +111,7 @@ function niceAxis(values: number[]): { domain: [number, number]; ticks: number[]
   }
   const raw = (max - min) / 4;
   const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map(k => k * mag).find(st => st >= raw) ?? 10 * mag;
+  const step = Math.max(minStep, [1, 2, 2.5, 5, 10].map(k => k * mag).find(st => st >= raw) ?? 10 * mag);
   let lo = Math.floor(min / step) * step;
   if (values.every(v => v >= 0)) lo = Math.max(0, lo);
   let hi = Math.ceil(max / step) * step;
@@ -121,6 +122,10 @@ function niceAxis(values: number[]): { domain: [number, number]; ticks: number[]
   return { domain: [lo, hi], ticks };
 }
 
+
+/** 指标写出来的最小单位（formatShown 的精度）：纵轴步长不能比它小 */
+const shownStep = (metric: string) =>
+  metric === 'reps' || metric === 'duration' ? 1 : metric === 'distance' || metric === 'speed' ? 0.01 : 0.1;
 
 /** 窗口起点：'all' 从第一场稍往前一点 */
 function windowStart(range: ChartRange, firstTs: number, now: number) {
@@ -190,7 +195,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
   data.push({ ts: now, val: null, best: all[all.length - 1].best, pr: false });
 
   const values = data.flatMap(d => (d.val == null ? [d.best] : [d.val, d.best]));
-  const yAxis = niceAxis(values);
+  const yAxis = niceAxis(values, shownStep(metric));
   const { ticks, format } = timeTicks(start, now, isCn);
   const lastIndex = data.length - 1;
   const suffix = metricUnit(metric, unit);
@@ -220,7 +225,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
           <YAxis
             domain={yAxis.domain}
             ticks={yAxis.ticks}
-            tickFormatter={metric === 'duration' ? (v: number) => formatShown('duration', v) : trimNum}
+            tickFormatter={(v: number) => formatShown(metric, v)}
             fontSize={11}
             tick={{ fill: p.tick }}
             axisLine={false}
@@ -254,7 +259,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
             dataKey="best"
             stroke={p.accent}
             strokeWidth={1.75}
-            dot={makeEndLabel(lastIndex, p.accent, p.tooltipText)}
+            dot={makeEndLabel(lastIndex, p.accent, p.tooltipText, v => formatShown(metric, v))}
             activeDot={false}
             isAnimationActive={false}
           />
@@ -307,10 +312,10 @@ export function WeightTrendChart({ weightEntries, range, lang, unit }: WeightTre
       </p>
     );
   }
-  const yAxis = niceAxis(data.map(d => d.val));
+  const yAxis = niceAxis(data.map(d => d.val), 0.1);
   const { ticks, format } = timeTicks(start, now, isCn);
   const lastIndex = data.length - 1;
-  const endLabel = makeEndLabel(lastIndex, p.accent, p.tooltipText);
+  const endLabel = makeEndLabel(lastIndex, p.accent, p.tooltipText, v => trimNum(v));
 
   return (
     <div className="w-full h-[200px]" data-testid="weight-trend-chart">
@@ -332,7 +337,7 @@ export function WeightTrendChart({ weightEntries, range, lang, unit }: WeightTre
           <YAxis
             domain={yAxis.domain}
             ticks={yAxis.ticks}
-            tickFormatter={trimNum}
+            tickFormatter={(v: number) => trimNum(v)}
             fontSize={11}
             tick={{ fill: p.tick }}
             axisLine={false}
@@ -476,7 +481,7 @@ export function MetricChart({ metricName, measurements, lang }: MetricChartProps
             dataKey="val"
             stroke={p.accent}
             strokeWidth={1.75}
-            dot={makeEndLabel(lastIndex, p.accent, p.tooltipText, unitSuffix)}
+            dot={makeEndLabel(lastIndex, p.accent, p.tooltipText, v => trimNum(v) + unitSuffix)}
             activeDot={{ r: 3, fill: p.accent, stroke: 'none' }}
             isAnimationActive={false}
           />
