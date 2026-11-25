@@ -13,7 +13,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { appPrefsNow } from '../../services/appPrefs';
-import { initialMetricsOf } from '../utils/metricDefaults';
+import { seedMetricsOf } from '../utils/metricDefaults';
 import { mergeOverride } from '../utils/exerciseOverride';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
@@ -159,7 +159,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, choose, toast } = useUiOverlay();
-  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, mergeAliasOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef, exerciseOverrides } = useExercisePrefs();
+  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, mergeAliasOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef, exerciseOverrides, exerciseMetricConfigs } = useExercisePrefs();
   /** 「杠铃片」馆档案：底稿按今天的馆和单位就近取整（docs/design-plates.md §3） */
   const rounderFor = useLoadRounder();
   const gymScoped = useGymScopedPR();
@@ -991,9 +991,9 @@ export function useWorkoutMutations({
           const same = plan.filter((x, j) => resolveName(x.name) === resolveName(pe.name) && vids[j].variantId === pick.variantId);
           const last = src.last ? { ...src.last, exs: sourceCards(src.last, same.indexOf(pe), same.length) } : null;
           // 「第一次加」按不分做法判（审查 cardio-default-metrics）：指定了做法、那个做法没记过，不等于这个动作没记过
-          const initial = findLast(pe.name, null) ? null : initialMetricsOf({ id: def?.id ?? '', category }, appPrefsNow().cardioMetrics);
+          const initial = seedMetricsOf({ id: def?.id ?? '', category }, pe.name, workouts, resolveName, exerciseMetricConfigs, appPrefsNow().cardioMetrics);
           if (initial) seedMetricsIfUnset(pe.name, initial);
-          // 和上面 seed 的是同一份：没练过的按第一次的默认（seed 写进状态要等下一次渲染）
+          // 和上面 seed 的是同一份：没练过的按第一次的默认（seed 写进状态要等下一次渲染）；配置过的 initial 是 null，按配置
           const metrics = initial ?? getActiveMetrics(pe.name);
           const ex = buildExercise(src.name, category, last, now, def?.exerciseConfig, src.variantId ? { id: src.variantId } : undefined, g, gyms);
           const r = rounderFor(ex, g, undefined, gyms);
@@ -1054,7 +1054,7 @@ export function useWorkoutMutations({
       };
       return { make, replaces: live?.id ?? null };
     },
-    [buildExercise, confirm, exerciseOverrides, findExerciseDef, findLast, isCn, liftKey, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, variantIdOf, variantsOf, workoutCtx, workouts],
+    [buildExercise, confirm, exerciseMetricConfigs, exerciseOverrides, findExerciseDef, findLast, isCn, liftKey, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, variantIdOf, variantsOf, workoutCtx, workouts],
   );
 
   /**
@@ -1174,12 +1174,11 @@ export function useWorkoutMutations({
       /**
        * 第一次加进来（没配置过记录项、哪个做法都没记过）：有氧按首选项「有氧默认记录」，平板支撑这类计时动作和自由类记时长（initialMetricsOf）。
        * 记过的不动 —— 划船机被当器械记成 65×12 的那种必须保持重量 × 次数（审查 cardio-default-metrics）。
+       * 记没记过看全部训练，不像底稿那样跳过这一场、只看 before 之前（seedMetricsOf）。
        * 记过之后的几个口子各自落定：改类型（saveExerciseAttrs）、改有氧默认（pinCardioMetrics）、导入（mergeImportSeeds）。
        */
-      const initial = initialMetricsOf(ex, appPrefsNow().cardioMetrics);
-      if (initial && !findLast(exerciseName, null, currentWorkout.id || undefined, undefined, before)) {
-        seedMetricsIfUnset(exerciseName, initial);
-      }
+      const initial = seedMetricsOf(ex, exerciseName, [...workouts, currentWorkout], resolveName, exerciseMetricConfigs, appPrefsNow().cardioMetrics);
+      if (initial) seedMetricsIfUnset(exerciseName, initial);
       const newEx = buildExercise(
         src.name,
         ex.category || 'STRENGTH',
@@ -1249,7 +1248,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, liftKey, onPersist, pickSource, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, variantIdOf, workouts],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, exerciseMetricConfigs, isCn, lang, liftKey, onPersist, pickSource, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, variantIdOf, workouts],
   );
 
   /**

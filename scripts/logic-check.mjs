@@ -3277,6 +3277,21 @@ t('记录项默认：计时 / 自由类第一次给时长，有氧跟首选项�
   a.push('x');
   assert.deepEqual(L.MD.initialMetricsOf(byId('plank'), cardio), ['duration']);
 });
+// 防 D4 审查#1：补录 / 编辑旧训练加平板支撑时只看那一场之前的，漏掉之后按重量 × 次数记的，种下时长把那些历史重读掉
+// 防 D4 审查#2：配过记录项（带重量的平板支撑）还按「第一次」给时长，计划开练把目标重量、次数丢掉
+t('种子记录项：任何一场记过数就不种（含那一场自己和之后的），配置过的不种', () => {
+  const plank = L.DEFAULT_EXERCISES.find(x => x.id === 'plank');
+  const cardio = ['duration', 'speed'];
+  const id = n => n;
+  const w = (wid, d, sets) => ({ id: wid, userId: 'u', date: ago(d), title: '', exercises: [{ id: wid + 'e', name: '平板支撑', category: 'STRENGTH', sets }] });
+  const later = w('w20', 5, [{ id: 's', weight: 10, reps: 1 }]);
+  const backfill = { id: 'w10', userId: 'u', date: ago(15), title: '', exercises: [] };
+  assert.equal(L.MD.seedMetricsOf(plank, '平板支撑', [backfill, later], id, {}, cardio), null, '之后的场记过');
+  assert.equal(L.MD.seedMetricsOf(plank, '平板支撑', [later], id, {}, cardio), null, '编辑的就是记过的那一场');
+  assert.deepEqual(L.MD.seedMetricsOf(plank, '平板支撑', [backfill, w('w0', 1, [{ id: 'z', weight: 0, reps: 0 }])], id, {}, cardio), ['duration']);
+  assert.equal(L.MD.seedMetricsOf(plank, '平板支撑', [backfill], id, { 平板支撑: ['weight', 'reps', 'duration'] }, cardio), null, '配置过');
+  assert.equal(L.MD.seedMetricsOf(plank, 'Plank', [backfill], n => (n === 'Plank' ? '平板支撑' : n), { 平板支撑: ['duration'] }, cardio), null, '配置按现名找');
+});
 
 // ── 逐场纪录改累计式、汇总全 App 共用一份（审查 C36 / scale-perf#2）────────────
 {

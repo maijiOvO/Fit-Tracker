@@ -25,6 +25,25 @@ export function initialMetricsOf(def: { id: string; category?: ExerciseCategory 
   return def.category === 'FREE' ? ['duration'] : null;
 }
 
+/**
+ * 加动作、计划开练时种下的那组（initialMetricsOf）；null＝不种，按 getActiveMetrics 走。
+ * 配置过的不种（用户先在记录项设置里配了带重量的平板支撑，计划的目标重量要照填，审查 D4#2）。
+ * 记没记过看全部训练：补录、编辑旧训练时只看那一场之前的，会漏掉之后按重量 × 次数记的平板支撑，种下时长把它们重读掉（审查 D4#1）
+ */
+export function seedMetricsOf(
+  def: { id: string; category?: ExerciseCategory | '' },
+  name: string,
+  workouts: WorkoutSession[],
+  resolveName: (n: string) => string,
+  configs: Record<string, string[]>,
+  cardio: string[],
+): string[] | null {
+  const target = resolveName(name);
+  if (configs[target]) return null;
+  const initial = initialMetricsOf(def, cardio);
+  return initial && !recordedNames(workouts, resolveName).has(target) ? initial : null;
+}
+
 /** 至少有一组填了数的动作（现名）。进行中那场也算：按值判，底稿行有数也算（它就是上次记的） */
 export function recordedNames(workouts: WorkoutSession[], resolveName: (n: string) => string): Set<string> {
   const out = new Set<string>();
