@@ -10,14 +10,15 @@ import type { AppPrefs } from '../services/appPrefs';
 export const PREFS_SENTINEL = {
   customTags: [{ id: 'CT_sentinel', name: '哨兵标签', category: 'bodyPart' }],
   customExercises: [
-    { id: 'EX_sentinel', name: { cn: '哨兵动作', en: 'Sentinel' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' },
+    // deletedVariants：做法墓碑（第 17 批）跟着定义一起往返，丢了的话同名重建又会拿到新 id
+    { id: 'EX_sentinel', name: { cn: '哨兵动作', en: 'Sentinel' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH', deletedVariants: [{ id: 'V_dead', name: '哨兵删掉的做法' }] },
   ],
   exerciseNotes: { 哨兵动作: '哨兵备注' },
   restPrefs: { 哨兵动作: 90 },
   starredExercises: { 哨兵动作: 1700000000001 },
   exerciseMetricConfigs: { 哨兵动作: ['reps', 'duration'] },
   tagRenameOverrides: { subChest: '哨兵胸' },
-  exerciseOverrides: { EX_sentinel: { name: { cn: '哨兵改名', en: 'Sentinel renamed' } } },
+  exerciseOverrides: { EX_sentinel: { name: { cn: '哨兵改名', en: 'Sentinel renamed' } }, bp_barbell: { deletedVariants: [{ id: 'V_dead2', name: '哨兵删掉的内置做法' }] } },
   starredLastUpdateMs: 1700000000002,
   metricsLastUpdateMs: 1700000000003,
   prefsLastUpdateMs: 1700000000004,

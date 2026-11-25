@@ -14,7 +14,7 @@ import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
 import { pickFile } from '../../../services/fitlogPickFile';
 import {
   CsvImportError,
-  importDefs,
+  importLookup,
   materialize,
   parseImportCsv,
   previewMatches,
@@ -30,7 +30,7 @@ import { blockBack } from '../../hooks/useBackClose';
 export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang, unit } = useUserSettingsContext();
   const { toast } = useUiOverlay();
-  const { customExercises, findExerciseDef, exerciseOverrides, withVariantNames, liftKey } = useExercisePrefs();
+  const { customExercises, exerciseOverrides, withVariantNames, liftKey } = useExercisePrefs();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
@@ -75,11 +75,13 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
   }, [open]);
 
   /** 做法按当前生效的做法表认（用户删过 / 自建过同器材的做法）；内置做法补上当前语言的器材名，记录上的 variantName 才和 App 里记的一样 */
+  // 已并入的动作也在表里、名字查找认得并入别名（services/fitlogCsvImport.importLookup）：并入后再导同一份文件，记录名不被改写
+  const lookup = useMemo(() => importLookup(customExercises, exerciseOverrides), [customExercises, exerciseOverrides]);
   const defs = useMemo(
-    () => importDefs(customExercises, exerciseOverrides).map(d => (d.variants ? { ...d, variants: withVariantNames(d.variants) } : d)),
-    [customExercises, exerciseOverrides, withVariantNames],
+    () => lookup.defs.map(d => (d.variants ? { ...d, variants: withVariantNames(d.variants) } : d)),
+    [lookup, withVariantNames],
   );
-  const rows = useMemo(() => (plan ? previewMatches(plan, defs, findExerciseDef) : []), [plan, defs, findExerciseDef]);
+  const rows = useMemo(() => (plan ? previewMatches(plan, defs, lookup.findByName) : []), [plan, defs, lookup]);
   const asking = rows.some(r => r.needsUnit);
 
   const fmtDay = (d: Date) => d.toLocaleDateString(isCn ? 'zh-CN' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' });
@@ -95,7 +97,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
         isCn,
         userId: FITLOG_SOLO_USER_ID,
         defs,
-        findByName: findExerciseDef,
+        findByName: lookup.findByName,
       });
       blockBack(true);
       const pushed = await addImportedRecords(r).finally(() => blockBack(false));

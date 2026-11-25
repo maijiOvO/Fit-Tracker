@@ -19,6 +19,8 @@ export interface CsvExportHelpers {
   isCn: boolean;
   /** 存的名字 → 当前语言的现名 */
   resolveName: (stored: string) => string;
+  /** 一条记录的做法名（ExercisePrefsContext.variantLabel：并入前的记录按别名认，改过名的写现名）；标准返回 '' */
+  variantOf: (ex: Exercise) => string;
   /** 动作名 → 部位（已翻译）；不知道返回 '' */
   bodyPartOf: (stored: string) => string;
   /** 动作名 → 细分（已翻译，主细分在前，「 / 」隔开）；没有返回 '' */
@@ -63,7 +65,7 @@ export function buildWorkoutsCsv(workouts: WorkoutSession[], h: CsvExportHelpers
     const base = [localDate(when), localTime(when), String(sessionDurationMin(w) ?? ''), w.title ?? '', w.gym ?? ''];
     for (const ex of w.exercises ?? []) {
       const name = h.resolveName(ex.name);
-      const exCols = [name, ex.variantName ?? '', h.bodyPartOf(ex.name), h.regionsOf(ex.name)];
+      const exCols = [name, h.variantOf(ex), h.bodyPartOf(ex.name), h.regionsOf(ex.name)];
       let n = 0;
       for (const s of ex.sets ?? []) {
         if (s.ghost) continue; // 底稿行不是事实

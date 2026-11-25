@@ -176,12 +176,14 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   );
 
   /* ── 这一台 ── */
-  const onCardVariant = (card?.variantId || undefined) === editingId;
+  // 卡上的做法先按做法表认：编辑旧训练时记录上本来就带着已删的做法，认不出就当标准（不然提示里括号是空的，审查 gap-2#4）
+  const cardVid = card?.variantId && variants.some(x => x.id === card.variantId) ? card.variantId : undefined;
+  const onCardVariant = cardVid === editingId;
   const gymNote =
     card && !onCardVariant
       ? isCn
-        ? `这一台的设置跟卡片上的做法（${variantLabel(card.variantId)}）走，要设「${variantLabel(editingId)}」先在卡片上换过去。`
-        : `Machine settings follow the card's variant (${variantLabel(card.variantId)}). Switch the card to "${variantLabel(editingId)}" to set them.`
+        ? `这一台的设置跟卡片上的做法（${variantLabel(cardVid)}）走，要设「${variantLabel(editingId)}」先在卡片上换过去。`
+        : `Machine settings follow the card's variant (${variantLabel(cardVid)}). Switch the card to "${variantLabel(editingId)}" to set them.`
       : null;
 
   return (

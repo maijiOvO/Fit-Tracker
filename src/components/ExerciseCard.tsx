@@ -85,6 +85,8 @@ interface ExerciseCardProps {
   /** 改动作库里的名字（第 7 条）。动作不在库里（计划里手打的名字）时不传，菜单项不出现 */
   /** 换练法（第 8 条）；undefined＝标准。不传则不出现练法入口 */
   onSwitchVariant?: (variantId: string | undefined, name?: string) => void;
+  /** 删掉一个做法时：工作台上正用着它的卡当场回到标准（NewWorkoutTab 实现；计划编辑器里不传） */
+  onVariantRemoved?: (exerciseName: string, variantId: string) => void;
   onSetUpdate: (exIdx: number, setIdx: number, updates: Partial<Exercise['sets'][0]>) => void;
   onAddSet: (exIdx: number) => void;
   onRemoveSet: (exIdx: number, setIdx: number) => void;
@@ -143,6 +145,7 @@ export const ExerciseCard = React.memo(function ExerciseCard({
   onOpenMetricModal,
   settingsSlot,
   onSwitchVariant,
+  onVariantRemoved,
   onSetUpdate,
   onAddSet,
   onRemoveSet,
@@ -161,7 +164,7 @@ export const ExerciseCard = React.memo(function ExerciseCard({
 }: ExerciseCardProps) {
   const isCn = lang === Language.CN;
   const exerciseName = resolveName(exercise.name);
-  const { variantsOf, variantLabel, findExerciseDef, barOf, setBar } = useExercisePrefs();
+  const { variantsOf, variantLabel, variantIdOf, findExerciseDef, barOf, setBar } = useExercisePrefs();
   const [variantOpen, setVariantOpen] = useState(false);
   const variantName = variantLabel(exercise);
   const variantCount = variantsOf(exercise.name).length;
@@ -645,8 +648,9 @@ export const ExerciseCard = React.memo(function ExerciseCard({
           open={variantOpen}
           lang={lang}
           exerciseName={exercise.name}
-          currentVariantId={exercise.variantId}
+          currentVariantId={variantIdOf(exercise)}
           onSelect={onSwitchVariant}
+          onVariantRemoved={onVariantRemoved}
           onClose={() => setVariantOpen(false)}
         />
       )}

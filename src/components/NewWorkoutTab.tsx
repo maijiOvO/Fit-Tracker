@@ -334,6 +334,17 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     box.f = f;
     return f ? (box.stable as F) : undefined;
   }
+  /**
+   * 动作库或卡片做法弹窗里删掉一个做法（审查 gap-2#4）：工作台上记着这个做法的卡当场回到标准
+   * （和卡片自己弹窗里点「标准」一样：标签、画法、取整、「这一台」四处一致）。
+   * 只看卡上写明的 variantId：靠并入别名认出的卡不用管 —— 删并入做法会先拆回，那些卡自己就回到了原来的动作。
+   */
+  const onVariantRemoved = (exerciseName: string, variantId: string) => {
+    const target = resolveName(exerciseName);
+    for (const ex of currentWorkout.exercises ?? []) {
+      if (ex.variantId === variantId && resolveName(ex.name) === target) onSwitchVariant(ex.id, undefined);
+    }
+  };
   /** 每次渲染新建、内容常常没变的对象 / 数组（交替卡的成员、组行、拖动柄）：和上一次一样就还给上一次那个 */
   const keptVals = useRef(new Map<string, unknown>());
   const keep = <T,>(name: string, v: T, same: (a: T, b: T) => boolean): T => {
@@ -851,6 +862,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 onAddMember={cardFn(at('addMember'), () => onPickerOpenChange(true, null, card.group))}
                 onSwitchRowExercise={cardFn(at('switchRow'), (r: RowRef, to: string) => setExs(list => moveSetToExercise(list, r, to, isSigned)))}
                 onSwitchVariant={cardFn('switchVariant', onSwitchVariant)}
+                onVariantRemoved={cardFn('variantRemoved', onVariantRemoved)}
                 onToggleNote={cardFn('toggleNote', onToggleNote)}
                 onOpenMetricModal={cardFn(at('metric'), (name: string, exId: string, focus?: 'gym') => onOpenMetricModal(name, indexOf(exId), focus))}
                 settingsFor={keep(at('settingsFor'), settingsFor, (a, b) => a === b || (!!a && !!b && a.exId === b.exId && a.el === b.el))}
@@ -917,6 +929,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               onOpenMetricModal={cardFn(at('metric'), (name: string, focus?: 'gym') => onOpenMetricModal(name, exIdx, focus))}
               settingsSlot={metricSlot?.exIdx === exIdx ? metricSlot.el : null}
               onSwitchVariant={cardFn(at('variant'), (v: string | undefined, name?: string) => onSwitchVariant(ex.id, v, name))}
+              onVariantRemoved={cardFn('variantRemoved', onVariantRemoved)}
               onSetUpdate={cardFn(at('setUpdate'), (_eIdx: number, setIdx: number, updates: Partial<SetLog>) => {
                 const s = ex.sets[setIdx];
                 if (s) updateSet({ exId: ex.id, setId: String(s.id) }, updates);
@@ -1058,6 +1071,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
         }}
         onCreateCustomExercise={onCreateCustomExercise}
         onDeleteExercise={onDeleteLibraryExercise}
+        onVariantRemoved={onVariantRemoved}
         onOpenNote={onToggleNote}
         onOpenMetrics={name => onOpenMetricModal(name)}
       />

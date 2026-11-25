@@ -75,7 +75,7 @@ async function bundle(env, file) {
     contents: [
       "export * from './services/fitlogAutoBackup.ts';",
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
-      "export { parseImportCsv, materialize, importDefs } from './services/fitlogCsvImport.ts';",
+      "export { parseImportCsv, materialize, importLookup } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
       "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary, backupFileName } from './services/fitlogBackup.ts';",
       "export { PrefsWriteError } from './services/fitlogRemote.ts';",
@@ -93,6 +93,7 @@ async function bundle(env, file) {
       "export { db } from './services/db';",
       "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
       "export { buildNameIndex } from './src/utils/nameIndex.ts';",
+      "export { planMerge } from './src/utils/exerciseMerge.ts';",
       "export { resumeGymRenames, renameGymRows, markGymRename, unmarkGymRename } from './services/gymRename.ts';",
       "export { readAppPrefs, writeAppPrefs } from './services/appPrefs.ts';",
     ].join('\n'),
@@ -725,6 +726,7 @@ await t('水位：恢复 / 合并 / 重置 / 撤销之后跟着新内容走，�
 // ── CSV 导出 ─────────────────────────────────────────────────────────
 await t('CSV：BOM + 中文表头、一组一行、重量带单位和 kg 两列', () => {
   const { text, rows } = D.buildWorkoutsCsv(SEED, {
+    variantOf: ex => ex.variantName ?? '',
     isCn: true,
     resolveName: x => x,
     bodyPartOf: x => (x === '杠铃平板卧推' ? '胸部' : ''),
@@ -744,7 +746,7 @@ await t('CSV：BOM + 中文表头、一组一行、重量带单位和 kg 两列'
 await t('CSV：有开始和结束时间的场，每一行都带整场时长（分）', () => {
   const w = seedWorkout('seed_t', 3, 'E2E 时长', '杠铃推举', [[50, 5], [50, 5]]);
   w.startTime = new Date(Date.parse(w.finishedAt) - 52 * 60000 - 30000).toISOString();
-  const { text } = D.buildWorkoutsCsv([w], { isCn: true, resolveName: x => x, bodyPartOf: () => '', regionsOf: () => '', fallbackUnit: 'kg' });
+  const { text } = D.buildWorkoutsCsv([w], { isCn: true, resolveName: x => x, variantOf: () => '', bodyPartOf: () => '', regionsOf: () => '', fallbackUnit: 'kg' });
   const lines = text.replace(/^﻿/, '').trim().split('\r\n').slice(1);
   assert.equal(lines.length, 2);
   assert.ok(lines.every(l => /^[^,]*,[^,]*,52,E2E 时长,/.test(l)), lines[0]);
@@ -1141,16 +1143,16 @@ const STRONG_ANDROID = `Date;Workout Name;Duration;Exercise Name;Set Order;Weigh
 const HEVY = `"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_lbs","reps","distance_miles","duration_seconds","rpe"
 "Upper","18 Oct 2025, 08:47","18 Oct 2025, 09:50","","Bench Press (Barbell)","","",0,"normal",185,5,,,
 `;
-/** defs / findByName 和导入弹窗同一套接法：importDefs 合覆盖层，名字索引认自建动作 */
+/** defs / findByName 和导入弹窗同一套接法（importLookup）：合覆盖层，名字索引认自建动作和并入别名 */
 const importOpts = (plan, customs = [], overrides = {}) => {
-  const idx = D.buildNameIndex(D.DEFAULT_EXERCISES, customs, overrides);
+  const look = D.importLookup(customs, overrides);
   return {
     unitByExercise: Object.fromEntries(plan.exercises.filter(e => e.needsUnit).map(e => [e.srcName, 'lbs'])),
     includeWarmups: false,
     isCn: true,
     userId: 'u_solo',
-    defs: D.importDefs(customs, overrides),
-    findByName: name => idx.get(name.trim()),
+    defs: look.defs,
+    findByName: look.findByName,
   };
 };
 /** 一场 Hevy 训练，每个名字一组（kg） */
@@ -1340,6 +1342,53 @@ await t('馆连着改名、前一次写库失败：A→B 标记还挂着时改 B
     JSON.parse(D.storage.getItem(RENAME_KEY)).map(m => `${m.from}→${m.to}`),
     ['C→A'],
   );
+});
+
+// 防 C33#6：并入之后再导同一份文件，按完整名字解析会把已导入的记录名改写成目标名（落进标准）、或另建一个重复动作
+await t('CSV 导入：并入之后再导同一份 Strong 文件，记录名和第一次相同、落在并入做法上，不另建动作', () => {
+  const csv = `Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE
+2024-03-14 18:05:12;Pull;1h;Pull Up;1;0;10;0;0;;;
+2024-03-14 18:05:12;Pull;1h;Incline Bench Press (Dumbbell);1;30;10;0;0;;;
+`;
+  const plan = D.parseImportCsv(csv);
+  const r1 = D.materialize(plan, importOpts(plan));
+  const names1 = recs(r1).map(e => e.name);
+  assert.deepEqual(names1, ['Pull Up', '上斜哑铃卧推']);
+  const customs = r1.newDefs;
+  const pull = customs.find(d => d.name.en === 'Pull Up').id;
+  // 用户把 Pull Up 并进加重引体向上、上斜哑铃卧推并进哑铃卧推
+  let st = { customs, overrides: {} };
+  st = D.planMerge(D.DEFAULT_EXERCISES, st, pull, 'pu_weighted', { lang: 'cn', named: l => l ?? [], newId: 'v_m1' }).state;
+  st = D.planMerge(D.DEFAULT_EXERCISES, st, 'bp_incline_dumbbell', 'bp_dumbbell', { lang: 'cn', named: l => l ?? [], newId: 'v_m2' }).state;
+  const r2 = D.materialize(plan, importOpts(plan, st.customs, st.overrides));
+  assert.equal(r2.workouts[0].id, r1.workouts[0].id);
+  assert.deepEqual(recs(r2).map(e => e.name), names1);
+  assert.deepEqual(r2.newDefs, []);
+  // 读的时候照样经名字索引 + 别名落到并入做法上
+  const idx = D.buildNameIndex(D.DEFAULT_EXERCISES, st.customs, st.overrides);
+  const landed = recs(r2).map(e => {
+    const d = idx.get(e.name);
+    const aliases = st.overrides[d.id]?.variantAliases ?? d.variantAliases ?? {};
+    return [d.id, aliases[e.name]];
+  });
+  assert.deepEqual(landed, [['pu_weighted', 'v_m1'], ['bp_dumbbell', 'v_m2']]);
+});
+
+// 防 C33 csv#10：CSV 的做法列直接读记录上存的 variantName —— 并入前的记录（没有 variantName）是空的，做法改过名的写旧名
+await t('CSV 导出：做法列按 variantOf 写（并入前的记录写并入做法名、做法改过名的写现名）', () => {
+  const w = seedWorkout('seed_v', 2, 'E2E 做法', '窄距高位下拉', [[45, 10]]);
+  w.exercises.push({ ...w.exercises[0], id: 'seed_v_2', name: '高位下拉', variantId: 'v1', variantName: '宽握' });
+  const now = { 窄距高位下拉: '窄距', v1: '宽距' };
+  const { text } = D.buildWorkoutsCsv([w], {
+    isCn: true,
+    resolveName: x => (x === '窄距高位下拉' ? '高位下拉' : x),
+    variantOf: ex => now[ex.variantId ?? ex.name] ?? '',
+    bodyPartOf: () => '',
+    regionsOf: () => '',
+    fallbackUnit: 'kg',
+  });
+  const variantCol = text.replace(/^﻿/, '').trim().split('\r\n').slice(1).map(l => l.split(',')[6]);
+  assert.deepEqual(variantCol, ['窄距', '宽距']);
 });
 
 console.log(`\ndata-check: ${n} passed`);

@@ -138,7 +138,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
   const { lang, unit } = useUserSettingsContext();
   const { toast } = useUiOverlay();
   const { workouts } = useWorkoutContext();
-  const { resolveName, findExerciseDef, getTagName, effectiveRegions, exerciseOverrides } = useExercisePrefs();
+  const { resolveName, findExerciseDef, getTagName, effectiveRegions, effectivePart, exerciseOverrides, variantLabel } = useExercisePrefs();
   const isCn = lang === Language.CN;
 
   return useCallback(
@@ -151,8 +151,11 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
       const { text, rows } = buildWorkoutsCsv(done, {
         isCn,
         resolveName,
+        variantOf: variantLabel,
+        // 部位按覆盖层之后的（内置动作改过部位、自建部位被删的都按现状，审查 gap-6#8）
         bodyPartOf: name => {
-          const bp = findExerciseDef(name)?.bodyPart;
+          const def = findExerciseDef(name);
+          const bp = def ? effectivePart(mergeOverride(def, exerciseOverrides[def.id])) : '';
           if (!bp) return '';
           const tr = (translations as unknown as Record<string, Record<string, string> | undefined>)[bp];
           return tr?.[lang] ?? getTagName(bp) ?? '';
@@ -189,6 +192,6 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
         toast((isCn ? '导出失败' : 'Export failed') + (msg ? (isCn ? `：${msg}` : `: ${msg}`) : ''), 'error');
       }
     },
-    [effectiveRegions, exerciseOverrides, findExerciseDef, getTagName, isCn, lang, resolveName, toast, unit, workouts],
+    [effectivePart, effectiveRegions, exerciseOverrides, findExerciseDef, getTagName, isCn, lang, resolveName, toast, unit, variantLabel, workouts],
   );
 }

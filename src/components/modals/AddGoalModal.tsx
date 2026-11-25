@@ -3,33 +3,7 @@ import { Goal, Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
 import { ScrubNumber } from '../ScrubNumber';
-import { useDoneWorkouts, useLiftSummaries } from '../../hooks/useLiftSummaries';
-
-/** 力量目标绑哪个动作：练过、记重量的，最近练的在前。只在选了力量目标时挂上，平时不算历史 */
-function LiftPicker({ isCn, picked, onPick }: { isCn: boolean; picked: string | undefined; onPick: (stableId: string, key: string) => void }) {
-  const { workouts } = useDoneWorkouts();
-  const lifts = useLiftSummaries(workouts);
-  const list = lifts.filter(l => l.hasWeight).sort((a, b) => b.lastTs - a.lastTs);
-  if (!list.length) return null;
-  return (
-    <div>
-      <div className="text-label text-tertiary mb-1.5">{isCn ? '哪个动作' : 'Exercise'}</div>
-      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto custom-scrollbar">
-        {list.map(l => (
-          <button
-            key={l.stableId}
-            type="button"
-            onClick={() => onPick(l.stableId, l.key)}
-            aria-pressed={picked === l.stableId}
-            className={`px-2.5 py-1 rounded-chip text-xs font-medium ${picked === l.stableId ? 'bg-accent-soft text-accent' : 'bg-inset text-secondary'}`}
-          >
-            {l.key}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+import { LiftPicker } from '../LiftPicker';
 
 interface AddGoalModalProps {
   open: boolean;

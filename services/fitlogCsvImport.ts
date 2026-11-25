@@ -21,6 +21,8 @@ import type { Exercise, ExerciseDefinition, ExerciseVariant, SetLog, SubSetLog, 
 import { KG_PER_LB } from '../src/utils/plates';
 import { DEFAULT_EXERCISES } from '../src/constants/exercises';
 import { mergeOverride } from '../src/utils/exerciseOverride';
+import { buildNameIndex, ownValue } from '../src/utils/nameIndex';
+import { mergeNamesOf } from '../src/utils/exerciseMerge';
 import { fnv1a } from '../src/utils/hash';
 import { EQ_BAND, EQ_BARBELL, EQ_BODYWEIGHT, EQ_CABLE, EQ_DUMBBELL, EQ_KETTLEBELL, EQ_MACHINE, variantAttrs } from '../src/utils/exerciseAttrs';
 
@@ -517,16 +519,37 @@ function matchExercise(
 }
 
 /**
- * 导入时比对用的动作表：内置 + 自建，去掉已并入别处 / 隐藏的（名字交给并入的目标），合上覆盖层
- * （改过的器材、用户删 / 加的做法都按现状认）。内置在前，和 ExercisePrefsContext 的名字索引一致。
+ * 导入时比对用的动作表和名字查找（审查 C33#6）。内置 + 自建，合上覆盖层（改过的器材、用户删 / 加的做法都按现状认），
+ * 内置在前，和 ExercisePrefsContext 的名字索引一致。
+ *
+ * 已并入别处的动作照样在表里，只去掉「删掉且没并入」的：命中已并入的定义时写它自己的原名，
+ * 读的时候名字别名照样把它解析到目标的那个做法上。原来先把它们排除、再按完整名字索引解析，
+ * 并入之后再导同一份文件，已导入的记录名被改写成目标名、落进标准，或者另建一个重复动作 —— 拆回也救不回。
+ * 名字查找同理：名字是经并入登记到目标上的（并入别名），返回被并入的那个定义本身。
  */
-export function importDefs(
+export function importLookup(
   customExercises: ExerciseDefinition[],
   exerciseOverrides: Record<string, Partial<ExerciseDefinition>>,
-): ExerciseDefinition[] {
-  return [...DEFAULT_EXERCISES, ...customExercises]
-    .filter(d => !exerciseOverrides[d.id]?.mergedInto && !exerciseOverrides[d.id]?.hidden)
-    .map(d => mergeOverride(d, exerciseOverrides[d.id]));
+): { defs: ExerciseDefinition[]; findByName: (name: string) => ExerciseDefinition | undefined } {
+  const all = [...DEFAULT_EXERCISES, ...customExercises];
+  const index = buildNameIndex(DEFAULT_EXERCISES, customExercises, exerciseOverrides);
+  const merged = all.filter(d => exerciseOverrides[d.id]?.mergedInto);
+  const ownNames = (d: ExerciseDefinition) => {
+    const m = mergeOverride(d, exerciseOverrides[d.id]);
+    return [m.name.cn, m.name.en, ...(m.aliases ?? [])].map(n => (n || '').trim());
+  };
+  return {
+    defs: all
+      .filter(d => !(exerciseOverrides[d.id]?.hidden && !exerciseOverrides[d.id]?.mergedInto))
+      .map(d => mergeOverride(d, exerciseOverrides[d.id])),
+    findByName: name => {
+      const n = (name || '').trim();
+      const hit = index.get(n);
+      if (!hit || !ownValue(exerciseOverrides[hit.id]?.variantAliases ?? hit.variantAliases, n)) return hit;
+      // 连环并入（A→B→C）时 A 的名字也在 B 的别名表里：先认名字是它自己的那个
+      return merged.find(d => ownNames(d).includes(n)) ?? merged.find(d => mergeNamesOf(mergeOverride(d, exerciseOverrides[d.id])).includes(n)) ?? hit;
+    },
+  };
 }
 
 // ============ 生成记录 ============

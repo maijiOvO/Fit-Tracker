@@ -32,14 +32,34 @@ import {
 } from '../utils/exerciseAttrs';
 import { migrateCableTags } from '../utils/cableTagMigration';
 import { migrateWarmRegions } from '../utils/warmRegionMigration';
-import { buildNameIndex, byDisplayName, ownValue } from '../utils/nameIndex';
+import { buildNameIndex, byDisplayName, ownValue, rawKeysIn } from '../utils/nameIndex';
+import {
+  canonicalLiftIdIn,
+  renameClashIn,
+  stableIdIn,
+  variantEntryIn,
+  variantIdIn,
+  variantLabelIn,
+} from '../utils/liftIdentity';
+import {
+  mergeNamesOf,
+  mergedSourcesIn,
+  orphanMergesIn,
+  planAddVariant,
+  planMerge,
+  planRemoveVariant,
+  planUnmerge,
+  variantRenameBlocked,
+  withVariantsIn,
+  type LibState,
+} from '../utils/exerciseMerge';
 import { markPrefsUpdated } from '../../services/fitlogRemote';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import type { FitlogSyncedPrefs } from '../../services/fitlogSnapshotTypes';
 import { useUiOverlay } from './UiOverlayContext';
 import { useUserSettingsContext } from './UserSettingsContext';
 import { storage } from '../../services/appStorage';
-import { appPrefsNow } from '../../services/appPrefs';
+import { appPrefsNow, copyMachineKeysIn, readAppPrefs } from '../../services/appPrefs';
 
 export interface CustomTag {
   id: string;
@@ -98,10 +118,18 @@ interface ExercisePrefsContextValue {
   /** 动作的做法（变体第一层，原练法）；不在库里的名字返回 [] */
   variantsOf: (exerciseName: string) => ExerciseVariant[];
   /**
-   * 一条记录的做法 id：记录上写了就用；没写但记录里的名字是并进来的旧动作名 → 按 variantAliases 认。
-   * 标准返回 undefined。
+   * 一条记录的做法 id：记录上写了就用；没写但记录里的名字是并进来的旧动作名 → 按 variantAliases 认；
+   * 旧名的记录自带源动作自己的做法 → 「并入做法/源做法」（utils/liftIdentity.variantIdIn）。标准返回 undefined。
    */
   variantIdOf: (ex: { name: string; variantId?: string }) => string | undefined;
+  /** 这个名字是并进来的旧动作的名字 → 它在目标上的做法 id；不是返回 undefined */
+  mergeAliasOf: (name: string) => string | undefined;
+  /** 稳定键「定义 id|做法 id」（库里没有的名字：「name:项目键」）：按动作分组、目标、特别关注都用它 */
+  stableIdOf: (ex: { name: string; variantId?: string; variantName?: string }) => string;
+  /** 存下来的旧稳定键 → 现在的稳定键（并入、补建自建动作之后，见 utils/liftIdentity.canonicalLiftIdIn） */
+  canonicalLiftId: (key: string) => string;
+  /** 已成孤儿的并入动作（已合并覆盖层）：做法被删了，来源还挂着 mergedInto */
+  orphanMerges: ExerciseDefinition[];
   /**
    * 这个动作（这个做法）是不是按带正负的负荷记（自重类：辅助负、自重 0、负重正）。
    * 2026-10-23 起跟着阻力走：做法实际用的阻力是「自重」就带正负。传记录里的动作（带 variantId）才认得做法。
@@ -128,14 +156,18 @@ interface ExercisePrefsContextValue {
   /**
    * 并入另一个动作（2.5 整理用）：source 变成 target 的一个做法（带着 source 的细分和器材），source 从动作库消失。
    * 历史记录一条不改：source 的名字从此解析到 target、做法按 variantAliases 认；纪录也就并到 target 的那个做法下。
-   * 点错了用全局撤销，或在 target 的做法管理里拆回（unmergeExercise）。返回 false＝没并成（已 toast）。
+   * 按名字存的备注 / 记录项 / 收藏留在 source 名下不顶过去；馆设置在这一下复制到目标上（services/appPrefs.copyMachineKeysIn）。
+   * 点错了用全局撤销，或在 target 的做法管理里拆回（unmergeExercise）。返回 false＝没并成。
    */
   mergeExerciseInto: (sourceId: string, targetId: string) => boolean;
   /** 并进这个动作、成了它这个做法的旧动作（做法管理里拆回用） */
   mergedSourcesOf: (exerciseName: string, variantId: string) => { id: string; name: string }[];
-  /** 把并入的动作拆回成独立动作：清掉它的并入 / 隐藏，目标的 variantAliases 去掉它的名字；做法留在目标上 */
+  /**
+   * 把并入的动作拆回成独立动作：清掉它的并入 / 隐藏，目标的 variantAliases 去掉它的名字；做法留在目标上。
+   * 并入之后新开的卡记的是目标现名（加动作、计划开练、复制为今天都换成了目标名），那些记录拆回后留在目标上。
+   */
   unmergeExercise: (sourceId: string) => void;
-  /** 一条记录的练法名：现名优先，练法被删了用记录里当时的名字；标准返回 '' */
+  /** 一条记录的练法名：现名优先，练法被删了用墓碑里删时的名字、再退回记录里当时的名字；标准返回 '' */
   variantLabel: (ex: { name: string; variantId?: string; variantName?: string }) => string;
   /**
    * 「项目键」：现名，带练法时是「现名（练法）」。PR、PR 列表、趋势图、历史筛选都按它分开。
@@ -191,7 +223,10 @@ interface ExercisePrefsContextValue {
    * 撞上这个部位被删掉（隐藏）的系统细分：直接把它恢复，返回它的 id，不再建一个同名的。
    */
   addRegionTag: (part: string, name: string) => string | null;
-  /** 练法：新建返回 id（同名返回 null 并 toast）、改名（同名返回 false）、删除（不确认） */
+  /**
+   * 练法：新建返回 id（同名返回 null 并 toast；和删掉的做法同名就接回旧 id）、改名（同名 / 改成删掉的做法的名字返回 false）、
+   * 删除（不确认；并入生成的做法先拆回并进来的旧动作）
+   */
   addVariant: (exerciseName: string, name: string) => string | null;
   renameVariant: (exerciseName: string, id: string, name: string) => boolean;
   removeVariant: (exerciseName: string, id: string) => void;
@@ -228,13 +263,6 @@ const LS_KEYS = {
 /** 系统细分 id → 它所在的部位（自建细分看 CustomTag.parentPart） */
 function systemRegionPart(id: string): string | undefined {
   return Object.keys(BODY_REGIONS).find(p => BODY_REGIONS[p].includes(id));
-}
-
-/** 并入时写进目标 variantAliases 的名字（已合并覆盖层的 source）；拆回时按同一份删 */
-function mergeNamesOf(s: ExerciseDefinition): string[] {
-  return [s.name.cn, s.name.en, ...(s.aliases ?? []), ...Object.keys(s.variantAliases ?? {})]
-    .map(n => (n || '').trim())
-    .filter(Boolean);
 }
 
 function readJSON<T>(key: string, fallback: T): T {
@@ -301,7 +329,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   migrateLocalCableTagsOnce();
-  const { lang } = useUserSettingsContext();
+  const { lang, changeAppPrefs } = useUserSettingsContext();
   const { toast } = useUiOverlay();
 
   const [customTags, setCustomTags] = useState<CustomTag[]>(() =>
@@ -412,24 +440,38 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [exerciseOverrides],
   );
 
-  const variantIdOf = useCallback(
-    (ex: { name: string; variantId?: string }) => {
-      if (ex.variantId) return ex.variantId;
-      const def = findExerciseDef(ex.name);
-      if (!def) return undefined;
-      // 只认自有键：名字是 constructor 时直接下标会拿到 Object 函数当做法 id，落盘时 IndexedDB 克隆不了（C09）
-      return ownValue(variantAliasesOf(def), (ex.name || '').trim()) || undefined;
+  /** 做法墓碑（已补好内置器材名的不用：墓碑里只有用户自己的做法，名字都是写死的） */
+  const deletedVariantsOf = useCallback(
+    (def: ExerciseDefinition) => mergeOverride(def, exerciseOverrides[def.id]).deletedVariants ?? [],
+    [exerciseOverrides],
+  );
+
+  /** 这个名字是并进来的旧动作的名字：返回它在目标上的做法 id（只认自有键，名字是 constructor 时不读到继承来的函数，C09） */
+  const mergeAliasOf = useCallback(
+    (name: string): string | undefined => {
+      const def = findExerciseDef(name);
+      return (def && ownValue(variantAliasesOf(def), (name || '').trim())) || undefined;
     },
     [findExerciseDef, variantAliasesOf],
+  );
+  const isMergeAlias = useCallback((name: string) => !!mergeAliasOf(name), [mergeAliasOf]);
+
+  // 口径在 utils/liftIdentity：并入别名又自带源自己的做法 → 命名空间 id（审查 C33#5）
+  const variantIdOf = useCallback(
+    (ex: { name: string; variantId?: string }) => {
+      const def = findExerciseDef(ex.name);
+      if (!def) return ex.variantId || undefined;
+      return variantIdIn(ex, variantAliasesOf(def), [...rawVariantsOf(ex.name), ...deletedVariantsOf(def)]);
+    },
+    [deletedVariantsOf, findExerciseDef, rawVariantsOf, variantAliasesOf],
   );
 
   const variantLabel = useCallback(
     (ex: { name: string; variantId?: string; variantName?: string }) => {
-      const vid = variantIdOf(ex);
-      if (!vid) return '';
-      return variantsOf(ex.name).find(v => v.id === vid)?.name || ex.variantName || '';
+      const def = findExerciseDef(ex.name);
+      return variantLabelIn(ex, variantIdOf(ex), variantsOf(ex.name), def ? deletedVariantsOf(def) : undefined);
     },
-    [variantIdOf, variantsOf],
+    [deletedVariantsOf, findExerciseDef, variantIdOf, variantsOf],
   );
 
   const liftKey = useCallback(
@@ -443,21 +485,40 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [lang, resolveName, variantLabel],
   );
 
-  // 原键 → 显示名归并（没有原型的对象：动作名是 constructor 时查不到继承来的函数，上架审查 C09）
-  const exerciseNotes = useMemo(() => byDisplayName(rawNotes, resolveName), [resolveName, rawNotes]);
-  const exerciseMetricConfigs = useMemo(
-    () => byDisplayName(rawMetricConfigs, resolveName),
-    [resolveName, rawMetricConfigs],
+  // 稳定键「定义 id|做法 id」：并进来的旧名也按 variantIdOf 认到同一个做法
+  const stableIdOf = useCallback(
+    (ex: { name: string; variantId?: string; variantName?: string }) =>
+      stableIdIn(findExerciseDef(ex.name)?.id, variantIdOf(ex), liftKey(ex)),
+    [findExerciseDef, liftKey, variantIdOf],
   );
-  const starredExercises = useMemo(() => byDisplayName(rawStarred, resolveName), [resolveName, rawStarred]);
 
-  /** 写入用：这个名字在原始存储里对应的全部键（同一动作的旧名 / 另一语言名都算） */
+  const canonicalLiftId = useCallback(
+    (key: string) =>
+      canonicalLiftIdIn(key, {
+        stableIdOf,
+        known: n => !!findExerciseDef(n),
+        mergedNamesOf: id => {
+          if (!exerciseOverrides[id]?.mergedInto) return undefined;
+          const d = [...DEFAULT_EXERCISES, ...customExercises].find(x => x.id === id);
+          return d ? mergeNamesOf(mergeOverride(d, exerciseOverrides[id])) : undefined;
+        },
+        isAlias: isMergeAlias,
+      }),
+    [customExercises, exerciseOverrides, findExerciseDef, isMergeAlias, stableIdOf],
+  );
+
+  // 原键 → 显示名归并（没有原型的对象：动作名是 constructor 时查不到继承来的函数，上架审查 C09）
+  const exerciseNotes = useMemo(() => byDisplayName(rawNotes, resolveName, isMergeAlias), [isMergeAlias, resolveName, rawNotes]);
+  const exerciseMetricConfigs = useMemo(
+    () => byDisplayName(rawMetricConfigs, resolveName, isMergeAlias),
+    [isMergeAlias, resolveName, rawMetricConfigs],
+  );
+  const starredExercises = useMemo(() => byDisplayName(rawStarred, resolveName, isMergeAlias), [isMergeAlias, resolveName, rawStarred]);
+
+  /** 写入用：这个名字在原始存储里对应的全部键（规则见 utils/nameIndex.rawKeysIn） */
   const rawKeysFor = useCallback(
-    (raw: Record<string, unknown>, name: string): string[] => {
-      const d = resolveName(name);
-      return Object.keys(raw).filter(k => k === name || resolveName(k) === d);
-    },
-    [resolveName],
+    (raw: Record<string, unknown>, name: string): string[] => rawKeysIn(raw, name, resolveName, isMergeAlias),
+    [isMergeAlias, resolveName],
   );
 
   const equipmentIds = useMemo(
@@ -467,7 +528,8 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   const attrsOf = useCallback(
     (ex: ExerciseDefinition, variantId?: string): ExerciseAttrs => {
-      const v = variantId ? withVariantNames(ex.variants).find(x => x.id === variantId) : undefined;
+      // 命名空间 id 按并入做法取；被删的做法按墓碑里删时的器材（utils/liftIdentity）
+      const v = variantEntryIn(variantId, withVariantNames(ex.variants), ex.deletedVariants);
       const own = variantAttrs(v);
       let equipment = own ? own.equipment : ex.equipment ?? '';
       let resistance = own ? own.resistance : ex.resistance;
@@ -851,8 +913,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       const oldName = mergedName(def, current)[lang];
       if (next === oldName) return true;
 
-      const clash = findExerciseDef(next);
-      if (clash && clash.id !== exerciseId) {
+      if (renameClashIn(next, exerciseId, findExerciseDef(next)?.id, variantAliasesOf(def))) {
         toast(
           lang === Language.CN
             ? `「${next}」已经是另一个动作的名字（或曾用名）`
@@ -922,6 +983,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       rawNotes,
       rawStarred,
       toast,
+      variantAliasesOf,
     ],
   );
 
@@ -960,12 +1022,80 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [writeHidden],
   );
 
+  /** 动作库现状 → 纯函数算新状态（utils/exerciseMerge）→ 一次写回两张表 */
+  const libState: LibState = useMemo(
+    () => ({ customs: customExercises, overrides: exerciseOverrides }),
+    [customExercises, exerciseOverrides],
+  );
+  // 只把算出来变了的那几条写进 prev（函数式更新）：同一次手势里前面别的写入（同样是函数式）不会被闭包里的旧表盖掉
+  const commitLib = useCallback((next: LibState) => {
+    const changed = new Map(next.customs.filter(c => !customExercises.includes(c)).map(c => [c.id, c]));
+    if (changed.size) {
+      setCustomExercises(prev => {
+        const list = prev.map(c => changed.get(c.id) ?? c);
+        writeJSON(LS_KEYS.customExercises, list);
+        return list;
+      });
+    }
+    const keys = [...new Set([...Object.keys(next.overrides), ...Object.keys(exerciseOverrides)])].filter(
+      k => next.overrides[k] !== exerciseOverrides[k],
+    );
+    if (keys.length) {
+      setExerciseOverrides(prev => {
+        const updated = { ...prev };
+        for (const k of keys) {
+          if (Object.prototype.hasOwnProperty.call(next.overrides, k)) updated[k] = next.overrides[k];
+          else delete updated[k];
+        }
+        writeJSON(LS_KEYS.exerciseOverrides, updated);
+        return updated;
+      });
+    }
+    markPrefsUpdated();
+    scheduleDebouncedFitlogPush();
+  }, [customExercises, exerciseOverrides]);
+
+  const unmergeToast = useCallback(
+    (ids: string[], tail: { cn: string; en: string }) => {
+      const names = ids.map(displayNameOf).filter(Boolean);
+      if (!names.length) return;
+      toast(
+        lang === Language.CN
+          ? `「${names.join('」「')}」已拆回成独立动作${tail.cn}`
+          : `${names.map(n => `"${n}"`).join(', ')} ${names.length > 1 ? 'are' : 'is'} separate again${tail.en}`,
+        'info',
+      );
+    },
+    [displayNameOf, lang, toast],
+  );
+
+  /** mergeExerciseInto 反过来做：并入后记在目标名下的记录留在目标上（同删做法：记录带着当时的名字） */
+  const unmergeExercise = useCallback(
+    (sourceId: string) => {
+      if (!exerciseOverrides[sourceId]?.mergedInto) return;
+      commitLib(planUnmerge(DEFAULT_EXERCISES, libState, [sourceId]));
+      unmergeToast([sourceId], { cn: '', en: '' });
+    },
+    [commitLib, exerciseOverrides, libState, unmergeToast],
+  );
+
+  /** 已成孤儿的并入（做法被删了、来源还挂着 mergedInto）：「已删除」托盘列出它们，恢复走拆回（审查 C29） */
+  const orphanMerges = useMemo(() => {
+    const ids = new Set(orphanMergesIn(DEFAULT_EXERCISES, libState));
+    return [...DEFAULT_EXERCISES, ...customExercises].filter(d => ids.has(d.id)).map(d => mergeOverride(d, exerciseOverrides[d.id]));
+  }, [customExercises, exerciseOverrides, libState]);
+
   const restoreLibraryExercise = useCallback(
     (exId: string) => {
+      // 并入的动作（只有孤儿会出现在「已删除」里）：恢复就是拆回，清掉 mergedInto 和 hidden
+      if (exerciseOverrides[exId]?.mergedInto) {
+        unmergeExercise(exId);
+        return;
+      }
       writeHidden(exId, false);
       toast(lang === Language.CN ? `已恢复「${displayNameOf(exId)}」` : `Restored "${displayNameOf(exId)}"`, 'success');
     },
-    [displayNameOf, lang, toast, writeHidden],
+    [displayNameOf, exerciseOverrides, lang, toast, unmergeExercise, writeHidden],
   );
 
   const addCustomExercise = useCallback((ex: ExerciseDefinition) => {
@@ -1023,33 +1153,13 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [dupToast, getTagName, lang, layoutOf, regionsOf, toast, writeLayout],
   );
 
-  /** 写做法表：自建动作写定义本身、内置动作写覆盖层 */
+  /** 写做法表：自建动作写定义本身、内置动作写覆盖层；删掉的内置做法记 removedVariants、自己的做法进墓碑（utils/exerciseMerge） */
   const writeVariants = useCallback(
     (exerciseName: string, next: ExerciseVariant[]) => {
       const def = findExerciseDef(exerciseName);
-      if (!def) return;
-      if (customExercises.some(c => c.id === def.id)) {
-        setCustomExercises(prev => {
-          const list = prev.map(c => (c.id === def.id ? { ...c, variants: next } : c));
-          writeJSON(LS_KEYS.customExercises, list);
-          return list;
-        });
-      } else {
-        // 内置做法不在这张表里 = 用户删掉了：记下来，读时合并就不再补回（combineVariants）
-        const removed = (def.variants ?? []).map(v => v.id).filter(id => !next.some(v => v.id === id));
-        setExerciseOverrides(prev => {
-          const cur: Partial<ExerciseDefinition> = { ...(prev[def.id] || {}), variants: next };
-          if (removed.length) cur.removedVariants = removed;
-          else delete cur.removedVariants;
-          const updated = { ...prev, [def.id]: cur };
-          writeJSON(LS_KEYS.exerciseOverrides, updated);
-          return updated;
-        });
-      }
-      markPrefsUpdated();
-      scheduleDebouncedFitlogPush();
+      if (def) commitLib(withVariantsIn(DEFAULT_EXERCISES, libState, def.id, next));
     },
-    [customExercises, findExerciseDef],
+    [commitLib, findExerciseDef, libState],
   );
 
   const variantClash = useCallback(
@@ -1069,11 +1179,16 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         toast(lang === Language.CN ? `已经有「${n}」这个做法了` : `"${n}" already exists`, 'error');
         return null;
       }
-      const id = `v_${Date.now()}`;
-      writeVariants(exerciseName, [...rawVariantsOf(exerciseName), { id, name: n }]);
-      return id;
+      // 同名的做法删过：接回旧 id（墓碑 / 被删的内置做法），底稿、比上次、馆设置、稳定键都接回旧记录（审查 gap-6#7）
+      const def = findExerciseDef(exerciseName)!;
+      const builtinRemoved = withVariantNames(
+        (DEFAULT_EXERCISES.find(d => d.id === def.id)?.variants ?? []).filter(v => exerciseOverrides[def.id]?.removedVariants?.includes(v.id)),
+      );
+      const plan = planAddVariant(rawVariantsOf(exerciseName), deletedVariantsOf(def), builtinRemoved, n, `v_${Date.now()}`);
+      writeVariants(exerciseName, plan.list);
+      return plan.id;
     },
-    [findExerciseDef, lang, toast, variantClash, rawVariantsOf, writeVariants],
+    [deletedVariantsOf, exerciseOverrides, findExerciseDef, lang, toast, variantClash, rawVariantsOf, withVariantNames, writeVariants],
   );
 
   const renameVariant = useCallback(
@@ -1084,19 +1199,36 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         toast(lang === Language.CN ? `已经有「${n}」这个做法了` : `"${n}" already exists`, 'error');
         return false;
       }
+      const def = findExerciseDef(exerciseName);
+      if (def && variantRenameBlocked(deletedVariantsOf(def), n)) {
+        toast(
+          lang === Language.CN
+            ? `「${n}」是删掉的做法，要接回它的记录请新建同名做法`
+            : `"${n}" was a deleted variant — add it as a new variant to bring its history back`,
+          'error',
+        );
+        return false;
+      }
       writeVariants(exerciseName, rawVariantsOf(exerciseName).map(v => (v.id === id ? { ...v, name: n } : v)));
       return true;
     },
-    [lang, toast, variantClash, rawVariantsOf, writeVariants],
+    [deletedVariantsOf, findExerciseDef, lang, toast, variantClash, rawVariantsOf, writeVariants],
   );
 
-  /** 删练法：历史记录里带着当时的名字，照样能显示、照样单独算 PR；点错了用顶栏的全局撤销 */
+  /**
+   * 删做法：历史记录带着删时的名字（墓碑），照样能显示、照样单独算 PR；点错了用顶栏的全局撤销。
+   * 并入生成的做法先把并进来的旧动作拆回、再删（同一次写入，撤销是一步）：不然那些旧记录没有 variantName，
+   * 会整批落进目标的「标准」（审查 C29）。
+   */
   const removeVariant = useCallback(
     (exerciseName: string, id: string) => {
-      if (!variantsOf(exerciseName).some(v => v.id === id)) return;
-      writeVariants(exerciseName, rawVariantsOf(exerciseName).filter(v => v.id !== id));
+      const def = findExerciseDef(exerciseName);
+      if (!def || !variantsOf(exerciseName).some(v => v.id === id)) return;
+      const { state, unmerged } = planRemoveVariant(DEFAULT_EXERCISES, libState, def.id, id);
+      commitLib(state);
+      unmergeToast(unmerged, { cn: '，做法已删', en: '; the variant is deleted' });
     },
-    [rawVariantsOf, variantsOf, writeVariants],
+    [commitLib, findExerciseDef, libState, unmergeToast, variantsOf],
   );
 
   const updateVariant = useCallback(
@@ -1158,7 +1290,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       if (!def) return false;
       const merged = mergeOverride(def, exerciseOverrides[def.id]);
       const vid = typeof ex === 'string' ? undefined : variantIdOf(ex);
-      const v = vid ? withVariantNames(merged.variants).find(x => x.id === vid) : undefined;
+      const v = variantEntryIn(vid, merged.variants, merged.deletedVariants);
       // 做法自己设了器材 / 阻力：只看它的阻力
       if (variantAttrs(v)) return attrsOf(merged, vid).resistance === 'bodyweight';
       // 跟动作走：旧的「负荷记法」开关拨过的照旧（读时兼容，不写迁移；在动作设置里改器材 / 阻力时清掉）
@@ -1198,86 +1330,34 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
   const mergeExerciseInto = useCallback(
     (sourceId: string, targetId: string): boolean => {
       const cn = lang === Language.CN;
-      const all = [...DEFAULT_EXERCISES, ...customExercises];
-      const src = all.find(d => d.id === sourceId);
-      const tgt = all.find(d => d.id === targetId);
-      if (!src || !tgt || sourceId === targetId) return false;
-      const s = mergeOverride(src, exerciseOverrides[src.id]);
-      const t = mergeOverride(tgt, exerciseOverrides[tgt.id]);
-      const srcName = s.name[lang] || s.name.cn;
-      const tgtName = t.name[lang] || t.name.cn;
-      // 做法名：source 的名字去掉 target 的名字（「窄距高位下拉」并进「高位下拉」→「窄距」），去完是空的就用全名；
-      // 跟 target 已有的做法重名就直接认那个做法
-      const stripped = srcName.split(tgtName).join('').replace(/^[\s·()（）-]+|[\s·()（）-]+$/g, '');
-      const vName = stripped || srcName;
-      const existing = withVariantNames(t.variants).find(v => v.name === vName);
-      const vid = existing?.id ?? `v_${Date.now()}`;
-      const sameRegionPart = (s.bodyPart || '').toLowerCase() === (t.bodyPart || '').toLowerCase();
-      const variant: ExerciseVariant = existing ?? {
-        id: vid,
-        name: vName,
-        ...(sameRegionPart && s.region
-          ? regionList(s).length > 1 ? regionsPatch(regionList(s)) : { region: s.region }
-          : {}),
-        // 器材：source 的跟 target 一样就跟动作走，不一样才写在做法上
-        ...(s.equipment && s.equipment !== t.equipment ? attrsPatch(s.equipment, s.resistance) : {}),
-      };
-      if (variant.resistance === undefined) delete variant.resistance;
-      // source 认得的全部名字（含曾用名、它自己并进来的旧名）都指向这个做法
-      const aliases = { ...(t.variantAliases ?? {}), ...Object.fromEntries(mergeNamesOf(s).map(n => [n, vid])) };
-      const variants = existing ? t.variants ?? [] : [...(t.variants ?? []), variant];
-
-      writeDefField(tgt.id, { variants, variantAliases: aliases });
-      setExerciseOverrides(prev => {
-        const updated = { ...prev, [src.id]: { ...(prev[src.id] || {}), mergedInto: tgt.id, hidden: true } };
-        writeJSON(LS_KEYS.exerciseOverrides, updated);
-        return updated;
+      const plan = planMerge(DEFAULT_EXERCISES, libState, sourceId, targetId, {
+        lang: cn ? 'cn' : 'en',
+        named: withVariantNames,
+        newId: `v_${Date.now()}`,
       });
-      markPrefsUpdated();
-      scheduleDebouncedFitlogPush();
-      toast(cn ? `「${srcName}」已并入「${tgtName}」，成为做法「${variant.name}」` : `"${srcName}" merged into "${tgtName}" as variant "${variant.name}"`, 'info');
+      if (!plan) return false;
+      commitLib(plan.state);
+      // 馆设置按「馆|定义 id|做法 id」存，名字别名够不着：同一次手势里复制到目标上（审查 C31）
+      const machine = copyMachineKeysIn(readAppPrefs().appPrefs, plan.moves);
+      if (Object.keys(machine).length) changeAppPrefs(machine);
+      toast(
+        cn
+          ? `「${plan.srcName}」已并入「${plan.tgtName}」，成为做法「${plan.variantName}」`
+          : `"${plan.srcName}" merged into "${plan.tgtName}" as variant "${plan.variantName}"`,
+        'info',
+      );
       return true;
     },
-    [customExercises, exerciseOverrides, lang, toast, withVariantNames, writeDefField],
+    [changeAppPrefs, commitLib, lang, libState, toast, withVariantNames],
   );
 
   const mergedSourcesOf = useCallback(
     (exerciseName: string, variantId: string) => {
       const def = findExerciseDef(exerciseName);
       if (!def) return [];
-      const aliases = variantAliasesOf(def);
-      return [...DEFAULT_EXERCISES, ...customExercises]
-        .filter(d => exerciseOverrides[d.id]?.mergedInto === def.id)
-        .map(d => mergeOverride(d, exerciseOverrides[d.id]))
-        .filter(s => mergeNamesOf(s).some(n => aliases[n] === variantId))
-        .map(s => ({ id: s.id, name: s.name[lang] || s.name.cn }));
+      return mergedSourcesIn(DEFAULT_EXERCISES, libState, def.id, variantId).map(id => ({ id, name: displayNameOf(id) }));
     },
-    [customExercises, exerciseOverrides, findExerciseDef, lang, variantAliasesOf],
-  );
-
-  /** mergeExerciseInto 反过来做：做法和并入后记在它名下的记录留在目标上（同删做法：记录带着当时的名字） */
-  const unmergeExercise = useCallback(
-    (sourceId: string) => {
-      const src = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === sourceId);
-      const tgtId = exerciseOverrides[sourceId]?.mergedInto;
-      const tgt = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === tgtId);
-      if (!src || !tgt) return;
-      const s = mergeOverride(src, exerciseOverrides[src.id]);
-      const aliases = { ...(mergeOverride(tgt, exerciseOverrides[tgt.id]).variantAliases ?? {}) };
-      for (const n of mergeNamesOf(s)) delete aliases[n];
-      writeDefField(tgt.id, { variantAliases: aliases });
-      setExerciseOverrides(prev => {
-        const { mergedInto: _m, hidden: _h, ...rest } = prev[src.id] || {};
-        const updated = { ...prev, [src.id]: rest };
-        writeJSON(LS_KEYS.exerciseOverrides, updated);
-        return updated;
-      });
-      markPrefsUpdated();
-      scheduleDebouncedFitlogPush();
-      const name = s.name[lang] || s.name.cn;
-      toast(lang === Language.CN ? `「${name}」已拆回成独立动作` : `"${name}" is its own exercise again`, 'info');
-    },
-    [customExercises, exerciseOverrides, lang, toast, writeDefField],
+    [displayNameOf, findExerciseDef, libState],
   );
 
   const reorderRegions = useCallback(
@@ -1404,6 +1484,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       hiddenRegionsOf,
       variantsOf,
       variantIdOf,
+      mergeAliasOf,
+      stableIdOf,
+      canonicalLiftId,
+      orphanMerges,
       signedLoadOf,
       clearSignedLoad,
       barOf,
@@ -1463,6 +1547,10 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       hiddenRegionsOf,
       variantsOf,
       variantIdOf,
+      mergeAliasOf,
+      stableIdOf,
+      canonicalLiftId,
+      orphanMerges,
       signedLoadOf,
       clearSignedLoad,
       barOf,

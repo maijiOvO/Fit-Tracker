@@ -38,11 +38,7 @@ export function useLiftSummaries(workouts: WorkoutSession[]): LiftSummary[] {
     () =>
       buildLiftSummaries({
         workouts,
-        // 稳定键「定义 id|做法 id」：并进来的旧名也按 variantIdOf 认到同一个做法
-        stableIdOf: ex => {
-          const def = prefs.findExerciseDef(ex.name);
-          return def ? `${def.id}|${prefs.variantIdOf(ex) ?? ''}` : `name:${prefs.liftKey(ex)}`;
-        },
+        stableIdOf: prefs.stableIdOf,
         liftKey: prefs.liftKey,
         resolveName: prefs.resolveName,
         signedLoadOf: ex => usesSignedLoad(ex, prefs.signedLoadOf(ex)),

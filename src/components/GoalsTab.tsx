@@ -1,44 +1,18 @@
 import React from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
-import { Goal, Language, type WeightEntry, type WorkoutSession } from '../../types';
+import { Goal, Language } from '../../types';
 import { translations } from '../../translations';
 import { useGoalsContext, useUserSettingsContext } from '../contexts';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
-import { bestAsOf, latestGymView, type LiftSummary } from '../utils/liftHistory';
-import { goalProgress, weightAtStart, workoutsThisWeek } from '../utils/goalProgress';
+import { goalProgress, progressOf } from '../utils/goalProgress';
 import { trimNum } from '../utils/liftDisplay';
-import { KG_TO_LBS } from '../constants';
 
 const TYPE_LABEL: Partial<Record<Goal['type'], keyof typeof translations>> = {
   weight: 'goalWeight',
   strength: 'goalStrength',
   frequency: 'goalFrequency',
 };
-
-/**
- * 卡上显示的当前值和起点（审查 D7）：力量目标绑了动作就取那个动作的最重一组、频率目标数本周练了几场，
- * 都从训练记录现算、不落库；体重的当前值由记体重时写回（useWeightLog），起点取建目标那一刻的体重。
- */
-function progressOf(
-  g: Goal,
-  lifts: LiftSummary[],
-  workouts: WorkoutSession[],
-  weightEntries: WeightEntry[],
-): { current: number; start: number | null } {
-  if (g.type === 'frequency') return { current: workoutsThisWeek(workouts), start: 0 };
-  if (g.type === 'weight') return { current: g.currentValue, start: weightAtStart(weightEntries, g.startDate, g.unit) };
-  // exerciseName 存的是动作的稳定键（LiftSummary.stableId）：改名、切语言都找得到
-  const liftId = g.type === 'strength' ? g.autoUpdateRule?.exerciseName : undefined;
-  const whole = liftId ? lifts.find(l => l.stableId === liftId) : undefined;
-  if (!whole) return { current: g.currentValue, start: 0 };
-  // 按馆比的器械看最近练的那个馆（跨馆的重量不可比）
-  const lift = latestGymView(whole);
-  const inUnit = (kg: number) => (g.unit === 'lbs' ? kg * KG_TO_LBS : kg);
-  return {
-    current: inUnit(lift.best.weight?.value ?? 0),
-    start: inUnit(bestAsOf(lift, 'weight', new Date(g.startDate).getTime()) ?? 0),
-  };
-}
 
 interface GoalsTabProps {
   lang: Language;
@@ -51,6 +25,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
   const { weightEntries } = useUserSettingsContext();
   const { workouts } = useDoneWorkouts();
   const lifts = useLiftSummaries(workouts);
+  const { canonicalLiftId } = useExercisePrefs();
   const isCn = lang === Language.CN;
 
   const handleDeleteGoal = async (goalId: string) => {
@@ -83,7 +58,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {goals.map(g => {
-          const { current, start } = progressOf(g, lifts, workouts, weightEntries);
+          const { current, start, missing } = progressOf(g, lifts, workouts, weightEntries, canonicalLiftId);
           const progress = goalProgress(current, start, g.targetValue);
           const typeKey = TYPE_LABEL[g.type];
           return (
@@ -116,10 +91,16 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
 
             <div className="flex justify-between items-end mb-2">
               <span className="font-mono font-medium text-2xl text-primary tabular-nums">
-                {trimNum(current)} / {g.targetValue}
+                {missing ? '—' : trimNum(current)} / {g.targetValue}
               </span>
               <span className="text-tertiary text-xs">{g.unit}</span>
             </div>
+            {/* 绑的动作找不到了：明说，点编辑重选（原来静默显示 0 / 目标，再练也不动） */}
+            {missing && (
+              <p className="text-small text-secondary" data-testid="goal-lift-missing">
+                {isCn ? '动作不在了，点编辑重新选一个' : 'Exercise not found — edit to pick another'}
+              </p>
+            )}
 
             {/* 进度按「起点 → 目标」算：减重（80 → 75）刚建是 0，不是一建就满 */}
             {progress != null && (

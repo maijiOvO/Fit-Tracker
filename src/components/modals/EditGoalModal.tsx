@@ -3,6 +3,7 @@ import { Goal, GoalType, Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
 import { ScrubNumber } from '../ScrubNumber';
+import { LiftPicker } from '../LiftPicker';
 
 interface EditGoalModalProps {
   open: boolean;
@@ -67,6 +68,20 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
             }
             placeholder={translations.goalLabelPlaceholder[lang]}
           />
+
+          {/* 绑的动作并入别处 / 找不到了（目标卡写「动作不在了」）就在这里重选 */}
+          {editingGoal.type === 'strength' && (
+            <LiftPicker
+              isCn={isCn}
+              picked={editingGoal.autoUpdateRule?.exerciseName}
+              onPick={stableId =>
+                setEditingGoal({
+                  ...editingGoal,
+                  autoUpdateRule: { sourceType: 'workouts', calculation: 'max', exerciseName: stableId },
+                })
+              }
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             {/* 绑了动作的力量目标、频率目标：当前值从训练记录现算（GoalsTab），这里填了也不生效 */}

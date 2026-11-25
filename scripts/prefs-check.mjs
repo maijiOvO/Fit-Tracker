@@ -26,6 +26,7 @@ await build({
       "export * from './services/appPrefs.ts';",
       "export * from './scripts/prefsSentinel.ts';",
       "export { rigInUnit } from './src/utils/loadable.ts';",
+      "export { planMerge } from './src/utils/exerciseMerge.ts';",
     ].join('\n'),
     resolveDir: ROOT,
     loader: 'ts',
@@ -281,6 +282,40 @@ t('加片每块、器械自重的上限：界面框里填得进的，清洗层�
   const tare = v => P.resolveAppPrefs({ gymTares: { k: { v, u: 'lbs' } } }).gymTares.k;
   assert.deepEqual(tare(P.TARE_MAX), { v: P.TARE_MAX, u: 'lbs' });
   assert.equal(tare(P.TARE_MAX + 0.5), undefined);
+});
+
+// 防 C31：并入动作后馆设置（配片、插销 / 挂片、本馆备注、空载、选的那一台）按「馆|定义 id|做法 id」存，名字别名够不着，全丢
+t('并入动作：源动作的馆设置复制到目标的并入做法上（含 |one、源自带的做法），墓碑不复制、目标已有的不覆盖、源键原样', () => {
+  const raw = {
+    gymTares: { 'G|S|': { v: 20, u: 'kg', counted: true } },
+    gymNotes: { 'G|S|': '座椅调到4', 'G|T|v_m': 'keep', 'G|X|': '无关' },
+    gymKinds: { 'G|S|': 'loaded', 'H|S|': '' },
+    gymRigPick: { 'G|S|': 'rig1' },
+    gymOverrides: { 'G|S|': { v: 5, u: 'kg' }, 'G|S||one': { v: 1.25, u: 'kg' }, 'G|S|v_a': { v: 2.5, u: 'kg' } },
+  };
+  const moves = [['|S|', '|T|v_m'], ['|S|v_a', '|T|v_m/v_a']];
+  // 补丁只带有变化的表（gymNotes 这里没有要复制的：目标已经有了），套上去再看
+  const p = { ...raw, ...P.copyMachineKeysIn(raw, moves) };
+  assert.deepEqual(p.gymTares['G|T|v_m'], { v: 20, u: 'kg', counted: true });
+  assert.equal(p.gymNotes['G|T|v_m'], 'keep', '目标已有的不覆盖');
+  assert.equal(p.gymKinds['G|T|v_m'], 'loaded');
+  assert.equal(p.gymKinds['H|T|v_m'], undefined, '墓碑不复制');
+  assert.equal(p.gymRigPick['G|T|v_m'], 'rig1');
+  assert.deepEqual(p.gymOverrides['G|T|v_m'], { v: 5, u: 'kg' });
+  assert.deepEqual(p.gymOverrides['G|T|v_m|one'], { v: 1.25, u: 'kg' });
+  assert.deepEqual(p.gymOverrides['G|T|v_m/v_a'], { v: 2.5, u: 'kg' });
+  // 源键和无关键原样（拆回时自然恢复）
+  assert.equal(p.gymNotes['G|S|'], '座椅调到4');
+  assert.equal(p.gymNotes['G|X|'], '无关');
+  assert.deepEqual(p.gymOverrides['G|S|v_a'], { v: 2.5, u: 'kg' });
+  // planMerge 给出的正好是这两条：源的标准 → 并入做法，源自带的做法 → 命名空间 id（和 liftIdentity.variantIdIn 同一规则）
+  const def = (id, cn, variants) => ({ id, name: { cn, en: cn }, bodyPart: 'subChest', tags: [], category: 'STRENGTH', ...(variants ? { variants } : {}) });
+  const plan = P.planMerge([], { customs: [def('T', '杠铃平板卧推'), def('S', '史密斯卧推', [{ id: 'v_a', name: '宽握' }])], overrides: {} }, 'S', 'T', {
+    lang: 'cn',
+    named: l => l ?? [],
+    newId: 'v_m',
+  });
+  assert.deepEqual(plan.moves, moves);
 });
 
 console.log(`== ${n} passed ==`);

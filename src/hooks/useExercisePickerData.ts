@@ -15,6 +15,7 @@ import { regionList, variantAttrs } from '../utils/exerciseAttrs';
 import type { Exercise, ExerciseDefinition, WorkoutSession } from '../../types';
 import type { LiftSession, LiftSummary } from '../utils/liftHistory';
 import { findLastIn } from '../utils/prefillSource';
+import { cardSourceFor } from '../utils/liftIdentity';
 import { mergeOverride } from '../utils/exerciseOverride';
 import { translations } from '../../translations';
 import {
@@ -72,14 +73,24 @@ export function rowLastSession(
   liftsById: Map<string, LiftSummary>,
   resolveName: (n: string) => string,
   variantIdOf: (ex: Exercise) => string | undefined,
+  /** 这个做法 id 还在做法表里：上一次的做法删了，点行按标准铺（cardSourceFor），这里也写标准的那一场 */
+  live: (vid: string) => boolean,
   ex: { id: string; name: string },
   vid: string | undefined,
   skipWorkoutId: string | undefined,
   preferGym: string | undefined,
 ): { session: LiftSession; variantId?: string } | null {
-  const hit = findLastIn(workouts, resolveName, variantIdOf, ex.name, vid ?? null, skipWorkoutId, preferGym);
+  // 弹层的行用的是动作库里的现名，不会是并入别名
+  const { last: hit, variantId } = cardSourceFor({
+    name: ex.name,
+    variantId: vid,
+    aliasOf: () => undefined,
+    resolveName,
+    live,
+    findLast: v => findLastIn(workouts, resolveName, variantIdOf, ex.name, v, skipWorkoutId, preferGym),
+    variantIdOf,
+  });
   if (!hit) return null;
-  const variantId = variantIdOf(hit.ex) || undefined;
   const session = liftsById
     .get(`${ex.id}|${variantId ?? ''}`)
     ?.sessions.find(s => s.workoutId === hit.workout.id && s.exerciseId === hit.ex.id);
@@ -134,6 +145,7 @@ export function useExercisePickerData({
   const {
     customExercises,
     exerciseOverrides,
+    orphanMerges,
     customTags,
     getTagName,
     effectiveRegions,
@@ -156,8 +168,14 @@ export function useExercisePickerData({
   }, [customExercises, exerciseOverrides, lang, withVariantNames]);
   const merged = useMemo(() => library.filter(ex => !ex.hidden), [library]);
   const byId = useMemo(() => new Map(library.map(ex => [ex.id, ex])), [library]);
-  /** 整理的「已删除」托盘（并入了别的动作的不算：它已经是那个动作的一个做法） */
-  const deleted = useMemo(() => library.filter(ex => ex.hidden && !ex.mergedInto), [library]);
+  /**
+   * 整理的「已删除」托盘（并入了别的动作的不算：它已经是那个动作的一个做法）。
+   * 并入生成的做法已经被删掉的（孤儿，审查 C29 的存量）照样列出来：恢复＝拆回成独立动作
+   */
+  const deleted = useMemo(() => {
+    const orphan = new Set(orphanMerges.map(d => d.id));
+    return library.filter(ex => ex.hidden && (!ex.mergedInto || orphan.has(ex.id)));
+  }, [library, orphanMerges]);
   /** 整理的「未分部位」：力量动作没有部位，或部位（自建）已被删掉；只当热身的不算（它本来就不归部位） */
   const noPart = useMemo(
     () => merged.filter(ex => (ex.category || 'STRENGTH') === 'STRENGTH' && !effectivePart(ex) && !(ex.warmOnly && ex.warmParts?.length)),

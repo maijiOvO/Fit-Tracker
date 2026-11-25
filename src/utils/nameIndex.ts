@@ -83,12 +83,29 @@ export function ownValue<T>(obj: Record<string, T> | undefined, key: string): T 
 /**
  * 原键 → 显示名归并（备注 / 收藏 / 记录项三张表）。同一动作有多个原键时，键名正好等于显示名的那个说了算。
  * 结果是没有原型的对象：查 constructor 得到 undefined，名字是 __proto__ 也只是普通的自有键（C09）。
+ * 并入别名（isAlias）的键跳过：那是被并进来的旧动作自己的备注 / 记录项 / 收藏，不顶到目标上，拆回就原样回去（审查 C32）。
  */
-export function byDisplayName<T>(raw: Record<string, T>, resolveName: (name: string) => string): Record<string, T> {
+export function byDisplayName<T>(
+  raw: Record<string, T>,
+  resolveName: (name: string) => string,
+  isAlias: (name: string) => boolean,
+): Record<string, T> {
   const out: Record<string, T> = Object.create(null);
   for (const [k, v] of Object.entries(raw)) {
+    if (isAlias(k)) continue;
     const d = resolveName(k);
     if (!(d in out) || k === d) out[d] = v;
   }
   return out;
+}
+
+/** 写入用：这个名字在原始存储里对应的全部键（同一动作的旧名 / 另一语言名都算，并入别名不算，理由同上） */
+export function rawKeysIn(
+  raw: Record<string, unknown>,
+  name: string,
+  resolveName: (name: string) => string,
+  isAlias: (name: string) => boolean,
+): string[] {
+  const d = resolveName(name);
+  return Object.keys(raw).filter(k => !isAlias(k) && (k === name || resolveName(k) === d));
 }

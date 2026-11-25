@@ -53,6 +53,11 @@ export interface LiftSummary {
   key: string;
   /** 稳定键「定义 id|做法 id」：改名、切语言不变（特别关注按它存） */
   stableId: string;
+  /**
+   * 组里出现过的全部稳定键。同一个项目键下可能有好几个（手填名后来补建成自建动作、删做法后同名重建之前的旧数据），
+   * 目标和特别关注命中其中任一个就算找到（审查 C30）
+   */
+  ids: string[];
   baseName: string;
   /** 按带正负的负荷记（自重类） */
   signed: boolean;
@@ -199,11 +204,14 @@ export function buildLiftSummaries({
     for (const ex of w.exercises ?? []) {
       const key = liftKey(ex);
       let lift = map.get(key);
+      const sid = stableIdOf(ex);
+      if (lift && !lift.ids.includes(sid)) lift.ids.push(sid);
       if (!lift) {
         const baseName = resolveName(ex.name);
         lift = {
           key,
-          stableId: stableIdOf(ex),
+          stableId: sid,
+          ids: [sid],
           baseName,
           signed: false,
           machine: false,

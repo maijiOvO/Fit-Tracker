@@ -363,6 +363,50 @@ export function renameGymIn(
   };
 }
 
+/**
+ * 并入动作时把源动作的馆设置复制到目标上（审查 C31）：键「馆|定义 id|做法 id」（gymOverrides 还有「…|one」）里的
+ * 「|源 id|做法」换成 moves 给的「|目标 id|做法」，其余原样。只复制不移动：源键留着，拆回时自然恢复，不写反向迁移；
+ * 墓碑 '' 不复制；目标键已有值不覆盖。gymRigs 按全馆或器材存，跟动作无关，不用动。
+ * 纯函数，同 renameGymIn；用户点并入的那次手势里调一次（不在启动时迁移，「读时合并，不写迁移」的既定做法）。
+ */
+export function copyMachineKeysIn(
+  raw: AppPrefs | undefined,
+  moves: [string, string][],
+): Partial<Pick<AppPrefs, 'gymOverrides' | 'gymKinds' | 'gymNotes' | 'gymTares' | 'gymRigPick'>> {
+  const to = new Map(moves);
+  const moved = (k: string): string | null => {
+    const i = k.indexOf('|');
+    if (i < 0) return null;
+    const one = k.endsWith('|one') && k.split('|').length === 4 ? '|one' : '';
+    const seg = k.slice(i, k.length - one.length);
+    const dst = to.get(seg);
+    return dst ? k.slice(0, i) + dst + one : null;
+  };
+  const copy = <T,>(src: Record<string, T> | undefined) => {
+    if (!src) return undefined;
+    let out: Record<string, T> | undefined;
+    for (const [k, v] of Object.entries(src)) {
+      const nk = moved(k);
+      if (!nk || (v as unknown) === '' || Object.prototype.hasOwnProperty.call(src, nk)) continue;
+      out ??= { ...src };
+      out[nk] = v;
+    }
+    return out;
+  };
+  const patch: ReturnType<typeof copyMachineKeysIn> = {};
+  const o = copy(raw?.gymOverrides);
+  if (o) patch.gymOverrides = o;
+  const k = copy(raw?.gymKinds);
+  if (k) patch.gymKinds = k;
+  const n = copy(raw?.gymNotes);
+  if (n) patch.gymNotes = n;
+  const t = copy(raw?.gymTares);
+  if (t) patch.gymTares = t;
+  const p = copy(raw?.gymRigPick);
+  if (p) patch.gymRigPick = p;
+  return patch;
+}
+
 /** 存一个馆的档案（可带改名）：读存储里的原表，返回给 changeAppPrefs 的补丁 */
 export function gymSavePatch(name: string, profile: GymProfile, renamedFrom?: string) {
   return renameGymIn(readAppPrefs().appPrefs, name, profile, renamedFrom);

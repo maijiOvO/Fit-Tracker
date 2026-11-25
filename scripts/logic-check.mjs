@@ -53,7 +53,10 @@ await build({
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, scrubGate, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
-      "export { buildNameIndex, byDisplayName, ownValue } from './src/utils/nameIndex.ts';",
+      "export { buildNameIndex, byDisplayName, ownValue, rawKeysIn } from './src/utils/nameIndex.ts';",
+      "export * as LI from './src/utils/liftIdentity.ts';",
+      "export * as EM from './src/utils/exerciseMerge.ts';",
+      "export { DEFAULT_EXERCISES } from './src/constants/exercises.ts';",
       "export * as GY from './src/utils/gyms.ts';",
       "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
@@ -480,12 +483,12 @@ t('添加动作行：小灰字的来源场次 = 点行铺底稿的来源（不�
   const byId = new Map(lifts.map(l => [l.stableId, l]));
   for (const [vid, gym] of [[undefined, 'A'], [undefined, undefined], ['v_wide', 'A'], ['', 'A']]) {
     const prefill = L.findLastIn(ws, n => n, vidOf, '高位下拉', vid ?? null, undefined, gym);
-    const row = L.rowLastSession(ws, byId, n => n, vidOf, { id: 'def', name: '高位下拉' }, vid, undefined, gym);
+    const row = L.rowLastSession(ws, byId, n => n, vidOf, v => v === 'v_wide', { id: 'def', name: '高位下拉' }, vid, undefined, gym);
     assert.equal(row?.session.workoutId, prefill?.workout.id, `vid=${vid} gym=${gym}`);
     assert.equal(row?.variantId, prefill && (vidOf(prefill.ex) || undefined));
   }
   // 母行在 A 馆：写的是 A 馆 10 天前的宽握 60×10，不是标准做法 20 天前、也不是 B 馆 3 天前
-  const r = L.rowLastSession(ws, byId, n => n, vidOf, { id: 'def', name: '高位下拉' }, undefined, undefined, 'A');
+  const r = L.rowLastSession(ws, byId, n => n, vidOf, v => v === 'v_wide', { id: 'def', name: '高位下拉' }, undefined, undefined, 'A');
   assert.deepEqual([r.session.workoutId, r.variantId, r.session.top.kg], ['a-wide', 'v_wide', 60]);
 });
 
@@ -1241,7 +1244,7 @@ t('名字作键的表只认自有键（上架审查 C09）：动作名是 constr
   const resolveMap = new Map([['Bench Press', '卧推']]);
   const resolveName = n => resolveMap.get(n) ?? n;
   const raw = JSON.parse('{"__proto__":["reps"],"卧推":["weight"],"Bench Press":["weight","reps"]}');
-  const t2 = L.byDisplayName(raw, resolveName);
+  const t2 = L.byDisplayName(raw, resolveName, () => false);
   for (const k of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', '__defineGetter__']) assert.equal(t2[k], undefined, k);
   assert.deepEqual(t2['__proto__'], ['reps']);
   assert.ok(Object.keys(t2).includes('__proto__'));
@@ -2115,6 +2118,214 @@ await ta('db.get（撤销读前像）：一次请求级读错误重试一次就�
   } finally {
     console.error = error;
   }
+});
+
+// ── 动作身份（上架审查第 17 批）：并入、删做法、同名重建之后，读时别名之外的地方也认得出同一个动作 ──────────
+/** 照 ExercisePrefsContext 的接法，把一份动作库状态绑成读取口径（全走 utils/liftIdentity 的纯函数） */
+function identity(st, builtins = []) {
+  const idx = L.buildNameIndex(builtins, st.customs, st.overrides);
+  const def = n => idx.get((n || '').trim());
+  const m = d => L.mergeOverride(d, st.overrides[d.id]);
+  const aliases = d => st.overrides[d.id]?.variantAliases ?? d.variantAliases ?? {};
+  const aliasOf = n => {
+    const d = def(n);
+    return (d && L.ownValue(aliases(d), (n || '').trim())) || undefined;
+  };
+  const vid = ex => {
+    const d = def(ex.name);
+    return d ? L.LI.variantIdIn(ex, aliases(d), [...(m(d).variants ?? []), ...(m(d).deletedVariants ?? [])]) : ex.variantId || undefined;
+  };
+  const label = ex => {
+    const d = def(ex.name);
+    return L.LI.variantLabelIn(ex, vid(ex), d ? m(d).variants ?? [] : [], d ? m(d).deletedVariants : undefined);
+  };
+  const resolve = n => {
+    const d = def(n);
+    return d ? L.mergedName(d, st.overrides[d.id]).cn : n;
+  };
+  const liftKey = ex => (label(ex) ? `${resolve(ex.name)}（${label(ex)}）` : resolve(ex.name));
+  const stableId = ex => L.LI.stableIdIn(def(ex.name)?.id, vid(ex), liftKey(ex));
+  const all = [...builtins, ...st.customs];
+  const canonical = key =>
+    L.LI.canonicalLiftIdIn(key, {
+      stableIdOf: stableId,
+      known: n => !!def(n),
+      mergedNamesOf: id => {
+        const d = all.find(x => x.id === id);
+        return d && st.overrides[id]?.mergedInto ? L.EM.mergeNamesOf(m(d)) : undefined;
+      },
+      isAlias: n => !!aliasOf(n),
+    });
+  return { def, vid, label, resolve, liftKey, stableId, aliasOf, aliases, canonical, isAlias: n => !!aliasOf(n) };
+}
+const idDef = (id, cn, variants) => ({ id, name: { cn, en: cn }, bodyPart: 'subChest', tags: [], category: 'STRENGTH', ...(variants ? { variants } : {}) });
+const mergeIn = (st, src, tgt, newId) => L.EM.planMerge([], st, src, tgt, { lang: 'cn', named: l => l ?? [], newId }).state;
+const summariesOf = (I, ws) =>
+  L.buildLiftSummaries({
+    workouts: ws,
+    stableIdOf: I.stableId,
+    liftKey: I.liftKey,
+    resolveName: I.resolve,
+    signedLoadOf: () => false,
+    getActiveMetrics: () => ['weight', 'reps'],
+  });
+const oneSet = (id, d, ex, kg) => ({ id, date: ago(d), exercises: [{ id: `${id}_e`, category: 'STRENGTH', sets: [{ id: `${id}_s`, weight: kg, reps: 5 }], ...ex }] });
+
+/** T「杠铃平板卧推」自带宽握 v_t；S「史密斯卧推」自带宽握 v_a；S 并入 T 成做法 v_m */
+const benchMerged = () =>
+  mergeIn({ customs: [idDef('T', '杠铃平板卧推', [{ id: 'v_t', name: '宽握' }]), idDef('S', '史密斯卧推', [{ id: 'v_a', name: '宽握' }])], overrides: {} }, 'S', 'T', 'v_m');
+const benchWs = [
+  oneSet('w1', 1, { name: '杠铃平板卧推', variantId: 'v_t', variantName: '宽握' }, 60),
+  oneSet('w2', 2, { name: '史密斯卧推', variantId: 'v_a', variantName: '宽握' }, 90),
+  oneSet('w3', 3, { name: '史密斯卧推' }, 100),
+];
+
+// 防 C33#5：源动作自带的做法和目标的同名做法拼出同一个项目键，纪录混算（宽握两场、最好 90）
+t('并入后：源自带的「宽握」和目标自己的「宽握」分开算纪录，源的标准落在并入做法上', () => {
+  const I = identity(benchMerged());
+  const lifts = summariesOf(I, benchWs);
+  assert.equal(lifts.length, 3);
+  const by = Object.fromEntries(lifts.map(l => [l.stableId, l]));
+  assert.equal(by['T|v_t'].best.weight.value, 60);
+  assert.equal(by['T|v_t'].sessions.length, 1);
+  assert.equal(by['T|v_m/v_a'].best.weight.value, 90);
+  assert.equal(by['T|v_m'].best.weight.value, 100);
+  assert.equal(by['T|v_m/v_a'].key, '杠铃平板卧推（史密斯卧推 · 宽握）');
+});
+
+// 防 C30：目标 / 特别关注存的旧稳定键在并入、补建自建动作之后找不到，目标卡静默变成 0 / 目标
+t('旧稳定键规范化：并入源「S|」「S|v_a」、连环并入、手填名补建成自建动作；目标绑的动作找不到时明说 missing', () => {
+  const st = benchMerged();
+  const I = identity(st);
+  assert.equal(I.canonical('S|'), 'T|v_m');
+  assert.equal(I.canonical('S|v_a'), 'T|v_m/v_a');
+  assert.equal(I.canonical('T|v_t'), 'T|v_t');
+  // 连环并入 A→B→C：A 的旧键落在 C 上 A 的名字指向的那个做法
+  let chain = { customs: [idDef('3', '窄距高位下拉'), idDef('2', '宽握高位下拉'), idDef('1', '高位下拉')], overrides: {} };
+  chain = mergeIn(chain, '3', '2', 'vB');
+  chain = mergeIn(chain, '2', '1', 'vC');
+  const IC = identity(chain);
+  assert.equal(IC.canonical('3|'), IC.stableId({ name: '窄距高位下拉' }));
+  assert.equal(IC.canonical('3|'), '1|vC');
+  // 手填的「name:X」：后来补建成自建动作 X
+  assert.equal(identity({ customs: [], overrides: {} }).canonical('name:哑铃耸肩'), 'name:哑铃耸肩');
+  assert.equal(identity({ customs: [idDef('X', '哑铃耸肩')], overrides: {} }).canonical('name:哑铃耸肩'), 'X|');
+  // 目标进度：绑「S|」= 那一组（源的标准）的最好成绩；绑一个已经不存在的键 → missing，不是 0
+  const lifts = summariesOf(I, benchWs);
+  const goal = exerciseName => ({ id: 'g', type: 'strength', unit: 'kg', startDate: ago(30), currentValue: 0, targetValue: 120, autoUpdateRule: { exerciseName } });
+  const hit = L.G.progressOf(goal('S|'), lifts, [], [], I.canonical);
+  assert.equal(hit.current, 100);
+  assert.equal(hit.missing, undefined);
+  const gone = L.G.progressOf(goal('Q|'), lifts, [], [], I.canonical);
+  assert.equal(gone.missing, true);
+});
+
+// 防 C32：被并动作按名字存的记录项 / 备注 / 收藏被 byDisplayName 用源的键顶到目标上，拆回后也搬不回去
+t('并入后：源的记录项 / 备注 / 收藏不顶到目标上，读写都不认源的键；目标有自己的键时以它为准', () => {
+  const st = mergeIn({ customs: [idDef('PW', '加重引体向上'), idDef('PU', 'Pull Up')], overrides: {} }, 'PU', 'PW', 'v_m1');
+  const I = identity(st);
+  for (const raw of [{ 'Pull Up': ['reps'] }, { 'Pull Up': '握距窄' }, { 'Pull Up': 1700000000000 }]) {
+    const view = L.byDisplayName(raw, I.resolve, I.isAlias);
+    assert.equal(view['加重引体向上'], undefined, '回落默认（记录项）/ 没有备注 / 没收藏');
+    assert.deepEqual(L.rawKeysIn(raw, '加重引体向上', I.resolve, I.isAlias), []);
+    assert.deepEqual(L.rawKeysIn(raw, 'Pull Up', I.resolve, I.isAlias), []);
+  }
+  const both = { 'Pull Up': ['reps'], 加重引体向上: ['weight', 'reps'] };
+  assert.deepEqual(L.byDisplayName(both, I.resolve, I.isAlias)['加重引体向上'], ['weight', 'reps']);
+  assert.deepEqual(L.rawKeysIn(both, '加重引体向上', I.resolve, I.isAlias), ['加重引体向上']);
+  // 没有自己的键时新写入落在目标的显示名上（toggleMetric：own ?? resolveName）
+  assert.equal(I.resolve('Pull Up'), '加重引体向上');
+});
+
+// 防 C29：删掉并入生成的做法只滤 variants，别名指向死 id、来源还挂着 mergedInto，旧记录整批落进目标的「标准」
+t('删并入生成的做法：一次拆回全部来源（别名、mergedInto、hidden 都清掉），做法进墓碑；名字各自解析回自己', () => {
+  let st = { customs: [idDef('T', '高位下拉'), idDef('S1', '窄距高位下拉'), idDef('S2', '高位下拉（窄距）')], overrides: {} };
+  st = mergeIn(st, 'S1', 'T', 'v_m');
+  st = mergeIn(st, 'S2', 'T', 'v_other');
+  assert.equal(st.customs.find(d => d.id === 'T').variantAliases['高位下拉（窄距）'], 'v_m', '同名做法直接认那一个');
+  const { state, unmerged } = L.EM.planRemoveVariant([], st, 'T', 'v_m');
+  assert.deepEqual(unmerged.sort(), ['S1', 'S2']);
+  const T = state.customs.find(d => d.id === 'T');
+  assert.deepEqual(Object.keys(T.variantAliases), []);
+  assert.equal(T.variants.some(v => v.id === 'v_m'), false);
+  assert.deepEqual(T.deletedVariants.map(v => [v.id, v.name]), [['v_m', '窄距']]);
+  for (const s of ['S1', 'S2']) {
+    assert.equal(state.overrides[s].mergedInto, undefined);
+    assert.equal(state.overrides[s].hidden, undefined);
+  }
+  const idx = L.buildNameIndex([], state.customs, state.overrides);
+  assert.equal(idx.get('窄距高位下拉').id, 'S1');
+  assert.equal(idx.get('高位下拉（窄距）').id, 'S2');
+  // 孤儿（这批之前删并入做法留下的）认得出来：mergedInto 还在、别名指向的做法没了
+  const orphan = { ...st, customs: st.customs.map(d => (d.id === 'T' ? { ...d, variants: [] } : d)) };
+  assert.deepEqual(L.EM.orphanMergesIn([], orphan).sort(), ['S1', 'S2']);
+  assert.deepEqual(L.EM.orphanMergesIn([], st), []);
+});
+
+// 防 gap-6#7：删做法后同名重建得到新 id，liftKey / PR 按名字算、底稿 / 馆设置 / 稳定键按 id 算，两套口径分叉
+t('同名新建做法：接回墓碑里最后删的那条（带回器材）；改名改成墓碑里的名字被拒；删掉的内置做法同名新建就放回去', () => {
+  const tomb = [{ id: 'v_older', name: '宽握' }, { id: 'v_old', name: '宽握', equipment: 'tagDumbbell' }];
+  const r = L.EM.planAddVariant([], tomb, [], '宽握', 'v_new');
+  assert.equal(r.id, 'v_old');
+  assert.equal(r.list[0].equipment, 'tagDumbbell');
+  assert.deepEqual(r.tombstones.map(v => v.id), ['v_older']);
+  assert.equal(L.EM.planAddVariant([], tomb, [], '窄握', 'v_new').id, 'v_new');
+  assert.equal(L.EM.variantRenameBlocked(tomb, '宽握'), true);
+  assert.equal(L.EM.variantRenameBlocked(tomb, '窄握'), false);
+  // 删一个自己的做法 → 进墓碑；接回后墓碑里摘掉
+  const st0 = { customs: [idDef('C', '划船', [{ id: 'v1', name: '宽握', equipment: 'tagCable' }])], overrides: {} };
+  const del = L.EM.withVariantsIn([], st0, 'C', []);
+  assert.deepEqual(del.customs[0].deletedVariants, [{ id: 'v1', name: '宽握', equipment: 'tagCable' }]);
+  const back = L.EM.planAddVariant([], del.customs[0].deletedVariants, [], '宽握', 'v_new');
+  assert.equal(L.EM.withVariantsIn([], del, 'C', back.list).customs[0].deletedVariants, undefined);
+  // 内置做法（罗马尼亚硬拉的哑铃）删掉后同名新建：放回原 id，removedVariants 摘掉
+  const rdl = { customs: [], overrides: { romanian_deadlift: { variants: [], removedVariants: ['eq_db'] } } };
+  const add = L.EM.planAddVariant([], undefined, [{ id: 'eq_db', name: '哑铃', equipment: 'tagDumbbell' }], '哑铃', 'v_new');
+  assert.equal(add.id, 'eq_db');
+  const after = L.EM.withVariantsIn(L.DEFAULT_EXERCISES, rdl, 'romanian_deadlift', add.list);
+  assert.equal(after.overrides.romanian_deadlift.removedVariants, undefined);
+});
+
+// 防 gap-2#4、gap-2#1②：新卡沿用上一次已删的做法（下一场又带回来）；旧计划存的并入别名配上标准的底稿
+t('新卡的来源（cardSourceFor）：上次的做法已删 → 按标准、抄标准的上一次；名字是并入别名 → 换成目标名、写明做法、按它找底稿', () => {
+  const rdlWs = [
+    oneSet('r1', 1, { name: '罗马尼亚硬拉', variantId: 'eq_db', variantName: '哑铃' }, 22.5),
+    oneSet('r2', 5, { name: '罗马尼亚硬拉' }, 60),
+  ];
+  const a = L.LI.cardSourceFor({
+    name: '罗马尼亚硬拉',
+    aliasOf: () => undefined,
+    resolveName: n => n,
+    live: () => false,
+    findLast: v => L.findLastIn(rdlWs, n => n, e => e.variantId, '罗马尼亚硬拉', v),
+    variantIdOf: e => e.variantId,
+  });
+  assert.equal(a.variantId, undefined);
+  assert.equal(a.last.ex.sets[0].weight, 60);
+  const st = mergeIn({ customs: [idDef('T', '高位下拉'), idDef('S', '窄距高位下拉')], overrides: {} }, 'S', 'T', 'v_m');
+  const I = identity(st);
+  const ws = [oneSet('p1', 1, { name: '高位下拉' }, 60), oneSet('p2', 5, { name: '窄距高位下拉' }, 45)];
+  const b = L.LI.cardSourceFor({
+    name: '窄距高位下拉',
+    aliasOf: I.aliasOf,
+    resolveName: I.resolve,
+    live: v => (st.customs.find(d => d.id === 'T').variants ?? []).some(x => x.id === v),
+    findLast: v => L.findLastIn(ws, I.resolve, I.vid, '窄距高位下拉', v),
+    variantIdOf: I.vid,
+  });
+  assert.deepEqual([b.name, b.variantId, b.last.ex.sets[0].weight], ['高位下拉', 'v_m', 45]);
+});
+
+// 防 gap-2#1①③：卡名是并入别名时选「标准」被别名认回并入做法；改名改成并进自己的旧动作的名字，拆回后两个同名
+t('换做法与改名：并入别名的卡切到标准后名字换成目标名、读出来是标准；改名成并入源的名字被拒', () => {
+  const st = mergeIn({ customs: [idDef('T', '高位下拉'), idDef('S', '窄距高位下拉')], overrides: {} }, 'S', 'T', 'v_m');
+  const I = identity(st);
+  const card = L.LI.switchedCardIdentity({ name: '窄距高位下拉' }, undefined, I.aliasOf, I.resolve);
+  assert.equal(card.name, '高位下拉');
+  assert.equal(I.vid(card), undefined);
+  const T = st.customs.find(d => d.id === 'T');
+  assert.equal(L.LI.renameClashIn('窄距高位下拉', 'T', I.def('窄距高位下拉').id, I.aliases(T)), true);
+  assert.equal(L.LI.renameClashIn('坐姿下拉', 'T', I.def('坐姿下拉')?.id, I.aliases(T)), false);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

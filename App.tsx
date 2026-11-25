@@ -1141,6 +1141,15 @@ const AppWithAuthShell: React.FC = () => {
         onConfirm={() => {
           if (!newExerciseName.trim()) return;
           // 与库里动作的现名 / 曾用名重名就拒绝（第 7 条同一条规矩），弹窗留着改
+          // 撞上已成孤儿的并入动作（它的做法在目标上被删了）：拆回成独立动作交出去，历史还挂在它身上（审查 C29）
+          const orphan = prefs.orphanMerges.find(d => [d.name.cn, d.name.en, ...(d.aliases ?? [])].includes(newExerciseName.trim()));
+          if (orphan) {
+            prefs.unmergeExercise(orphan.id);
+            deliverCreatedExercise({ ...orphan, hidden: false, mergedInto: undefined });
+            setShowAddExerciseModal(false);
+            setNewExerciseName('');
+            return;
+          }
           const clash = prefs.findExerciseDef(newExerciseName.trim());
           // 撞上的是删掉（隐藏）的动作：把它恢复出来接着用，历史、PR 都还挂在它身上（hidden-builtin-name-locked）
           if (clash && prefs.exerciseOverrides[clash.id]?.hidden) {

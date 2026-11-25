@@ -243,6 +243,8 @@ interface ExercisePickerSheetProps {
   libraryOnly?: boolean;
   // ===== 动作面板里打开的弹窗（复用 App 层同一批弹窗） =====
   onDeleteExercise: (id: string) => void;
+  /** 删掉一个做法时：工作台上正用着它的卡当场回到标准（NewWorkoutTab 实现；计划编辑器里不传） */
+  onVariantRemoved?: (exerciseName: string, variantId: string) => void;
   onOpenNote: (name: string) => void;
   onOpenMetrics: (name: string) => void;
 }
@@ -287,6 +289,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   onPartChange,
   onCreateCustomExercise,
   onDeleteExercise,
+  onVariantRemoved,
   onOpenNote,
   onOpenMetrics,
   gym,
@@ -370,7 +373,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
         const name = ex.name[lang] || ex.name.cn;
         // 同 useWorkoutMutations.preferGymFor：只有器械类（配重片 / 挂片）本馆优先
         const preferGym = gym && gymScoped({ id: '', name, category: 'STRENGTH', sets: [], ...(vid ? { variantId: vid } : {}) } as Exercise) ? gym : undefined;
-        cache.set(k, rowLastSession(doneWorkouts, liftsById, resolveName, variantIdOf, { id: ex.id, name }, vid, currentWorkout.id || undefined, preferGym));
+        cache.set(k, rowLastSession(doneWorkouts, liftsById, resolveName, variantIdOf, v => (ex.variants ?? []).some(x => x.id === v), { id: ex.id, name }, vid, currentWorkout.id || undefined, preferGym));
       }
       return cache.get(k)!;
     };
@@ -1527,7 +1530,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
       )}
 
       {/* 从动作库进的做法：只管理（改名 / 删除 / 新建 / 细分与器材），不切换任何一张训练卡 */}
-      <VariantModal open={!!variantFor} lang={lang} exerciseName={variantFor ?? ''} manage onSelect={() => {}} onClose={() => setVariantFor(null)} />
+      <VariantModal open={!!variantFor} lang={lang} exerciseName={variantFor ?? ''} manage onSelect={() => {}} onVariantRemoved={onVariantRemoved} onClose={() => setVariantFor(null)} />
       {settling && <div className="absolute inset-0 z-10 pointer-events-auto" data-testid="picker-settle" />}
     </div>
   );

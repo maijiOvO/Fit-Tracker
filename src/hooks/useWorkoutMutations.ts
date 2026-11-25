@@ -24,6 +24,7 @@ import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
 import { findLastAltGroup, findLastIn, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
 import { sessionDurationMin } from '../utils/sessionDuration';
+import { cardSourceFor, switchedCardIdentity } from '../utils/liftIdentity';
 import { isBackdated, redateLiveSession, sessionsBefore } from '../utils/sessionDate';
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { undoJournal } from '../../services/undoJournal';
@@ -185,7 +186,7 @@ export function useWorkoutMutations({
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
   const { confirm, choose, toast } = useUiOverlay();
-  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef } = useExercisePrefs();
+  const { resolveName, getActiveMetrics, liftKey, variantsOf, variantIdOf, mergeAliasOf, signedLoadOf, seedMetricsIfUnset, findExerciseDef } = useExercisePrefs();
   /** 「杠铃片」馆档案：底稿按今天的馆和单位就近取整（docs/design-plates.md §3） */
   const rounderFor = useLoadRounder();
   const gymScoped = useGymScopedPR();
@@ -691,6 +692,23 @@ export function useWorkoutMutations({
       gym && gymScoped({ id: '', name, category: 'STRENGTH', sets: [], ...(variantId ? { variantId } : {}) } as Exercise) ? gym : undefined,
     [gymScoped],
   );
+  /**
+   * 新卡的名字、做法和底稿来源（utils/liftIdentity.cardSourceFor）：计划里存的旧名是并入别名时卡名换成目标现名、
+   * 做法显式写上；上一次的做法已经删了就按标准铺、抄标准的上一次。
+   */
+  const pickSource = useCallback(
+    (name: string, variantId: string | undefined, skipWorkoutId?: string, preferGym?: string, before?: string) =>
+      cardSourceFor({
+        name,
+        variantId,
+        aliasOf: mergeAliasOf,
+        resolveName,
+        live: vid => variantsOf(name).some(v => v.id === vid),
+        findLast: vid => findLast(name, vid, skipWorkoutId, preferGym, before),
+        variantIdOf,
+      }),
+    [findLast, mergeAliasOf, resolveName, variantIdOf, variantsOf],
+  );
 
   /** 按一条历史铺一张新卡（底稿 §12.6）；没练过就是一行空的待做 */
   const buildExercise = useCallback(
@@ -795,21 +813,36 @@ export function useWorkoutMutations({
         const base = workoutCtx.createNewWorkout();
         const targetGym = gym ?? base.gym;
         const exercises: Exercise[] = normalizeGroups((src.exercises || [])
-          .map((ex, i) => ({
-            id: `exercise_${stamp}_${i}`,
-            name: ex.name,
-            category: ex.category,
-            ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
-            tags: ex.tags ?? [],
-            sets: toGhostSets(ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name)),
-            ...(ex.variantId ? { variantId: ex.variantId, variantName: ex.variantName } : {}),
-            exerciseTime: new Date().toISOString(),
-            ...(src.date ? { prefillFrom: src.date } : {}),
-            // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
-            ...(src.date && src.gym ? { prefillGym: src.gym } : {}),
-            ...(ex.instanceConfig ? { instanceConfig: { bodyweightMode: ex.instanceConfig.bodyweightMode } } : {}),
-            ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
-          }))
+          .map((ex, i) => {
+            // 和新卡同一个口径（utils/liftIdentity.cardSourceFor）：旧名是并入别名就换成目标现名、做法写明；
+            // 做法已经删了就回到标准，底稿改抄标准的上一次；标准没练过就留着复制来的组，标「确认一下重量」
+            const alias = mergeAliasOf(ex.name);
+            const name = alias ? resolveName(ex.name) : ex.name;
+            const vid = variantIdOf(ex);
+            const live = !!vid && variantsOf(ex.name).some(v => v.id === vid);
+            const std = vid && !live ? findLast(ex.name, '') : null;
+            const copied = toGhostSets(ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name));
+            const from = std ? std.workout : src;
+            return {
+              id: `exercise_${stamp}_${i}`,
+              name,
+              category: ex.category,
+              ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
+              tags: ex.tags ?? [],
+              sets: std
+                ? toGhostSets(std.ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name))
+                : vid && !live
+                  ? copied.map(st => ({ ...st, checkWeight: true }))
+                  : copied,
+              ...(live ? { variantId: vid, variantName: ex.variantName || variantsOf(ex.name).find(v => v.id === vid)?.name } : {}),
+              exerciseTime: new Date().toISOString(),
+              ...(from.date ? { prefillFrom: from.date } : {}),
+              // 来源那一场的馆：和今天不是一个馆时眉批写明（「换馆重量」A）
+              ...(from.date && from.gym ? { prefillGym: from.gym } : {}),
+              ...(ex.instanceConfig ? { instanceConfig: { bodyweightMode: ex.instanceConfig.bodyweightMode } } : {}),
+              ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
+            };
+          })
           .map(e => ({ ...e, sets: roundPrefill(e.sets, e as Exercise, rounderFor(e as Exercise, targetGym, undefined, gyms)) }))
           // 来源里只剩底稿的动作（未收尾的草稿）没有可抄的事实，整个动作丢掉
           .filter(ex => ex.sets.length > 0));
@@ -823,7 +856,7 @@ export function useWorkoutMutations({
       };
       return { make, replaces: live?.id ?? null };
     },
-    [confirm, isCn, rounderFor, toast, workoutCtx, workouts],
+    [confirm, findLast, getActiveMetrics, isCn, mergeAliasOf, resolveName, rounderFor, toast, variantIdOf, variantsOf, workoutCtx, workouts],
   );
 
   const handleDeleteExerciseRecord = useCallback(
@@ -894,11 +927,12 @@ export function useWorkoutMutations({
         const built = (target.exercises || []).map((pe, i) => {
           const def = findExerciseDef(pe.name);
           const category = pe.category || def?.category || 'STRENGTH';
-          const last = findLast(pe.name, null, undefined, preferGymFor(pe.name, undefined, g));
+          const src = pickSource(pe.name, undefined, undefined, preferGymFor(pe.name, undefined, g));
+          const last = src.last;
           if (category === 'CARDIO' && !last) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
           // 和上面 seed 的是同一份：没练过的有氧按首选项的有氧默认记录（seed 写进状态要等下一次渲染）
           const metrics = category === 'CARDIO' && !last ? appPrefsNow().cardioMetrics : getActiveMetrics(pe.name);
-          const ex = buildExercise(pe.name, category, last, now, def?.exerciseConfig, undefined, g, gyms);
+          const ex = buildExercise(src.name, category, last, now, def?.exerciseConfig, src.variantId ? { id: src.variantId } : undefined, g, gyms);
           const r = rounderFor(ex, g, undefined, gyms);
           // 计划里的目标重量也按这个馆就近取整；记一份 plan 参考（标「计划 x」，切单位从它重算，不会越换越漂）
           const planWeight = (kg: number): Partial<SetLog> =>
@@ -962,7 +996,7 @@ export function useWorkoutMutations({
       };
       return { make, replaces: live?.id ?? null };
     },
-    [buildExercise, confirm, findExerciseDef, findLast, isCn, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx, workouts],
+    [buildExercise, confirm, findExerciseDef, isCn, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx, workouts],
   );
 
   /**
@@ -1054,9 +1088,9 @@ export function useWorkoutMutations({
       // 同一个馆的上一次优先（器械的数各馆不通用）；本馆没练过才抄别的馆的，眉批写明在哪个馆
       // 给旧训练补加动作、补录的场：只抄那一场之前练的（之后的数那天还没有）
       const before = pastSession ? currentWorkout.date : undefined;
-      const last = findLast(
+      const src = pickSource(
         exerciseName,
-        opts.variantId ?? null,
+        opts.variantId,
         currentWorkout.id || undefined,
         preferGymFor(exerciseName, opts.variantId, currentWorkout.gym),
         before,
@@ -1069,12 +1103,12 @@ export function useWorkoutMutations({
         seedMetricsIfUnset(exerciseName, appPrefsNow().cardioMetrics);
       }
       const newEx = buildExercise(
-        exerciseName,
+        src.name,
         ex.category || 'STRENGTH',
-        last,
+        src.last,
         exerciseTime,
         ex.exerciseConfig,
-        opts.variantId ? { id: opts.variantId } : undefined,
+        src.variantId ? { id: src.variantId } : undefined,
       );
 
       /**
@@ -1102,8 +1136,8 @@ export function useWorkoutMutations({
               continue;
             }
             // 搭档的底稿抄它自己最近一次的数（交替那场可能已经是几周前）；没有更近的就抄交替那场
-            const mLast = findLast(mName, null, currentWorkout.id || undefined, preferGymFor(mName, undefined, currentWorkout.gym), before);
-            partners.push(buildExercise(m.name, m.category, mLast ?? { ex: m, workout: altHit.workout }, exerciseTime, undefined, undefined));
+            const mSrc = pickSource(m.name, undefined, currentWorkout.id || undefined, preferGymFor(mName, undefined, currentWorkout.gym), before);
+            partners.push(buildExercise(mSrc.name, m.category, mSrc.last ?? { ex: m, workout: altHit.workout }, exerciseTime, undefined, mSrc.variantId ? { id: mSrc.variantId } : undefined));
           }
         }
       }
@@ -1131,7 +1165,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, workouts],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, pickSource, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, workouts],
   );
 
   /**
@@ -1147,7 +1181,14 @@ export function useWorkoutMutations({
         const idx = exs.findIndex(e => e.id === exerciseId);
         if (idx < 0) return p;
         const ex = exs[idx];
-        if ((variantIdOf(ex) || undefined) === (variantId || undefined)) return p;
+        // 卡名是并入别名：名字一并换成目标现名，不然选「标准」也会被别名认回并入的做法（审查 gap-2#1①）
+        const cardName = switchedCardIdentity(ex, variantId, mergeAliasOf, resolveName).name;
+        if ((variantIdOf(ex) || undefined) === (variantId || undefined)) {
+          if (cardName === ex.name) return p;
+          const copy = [...exs];
+          copy[idx] = { ...ex, name: cardName, ...(variantId ? { variantId } : {}) };
+          return { ...p, exercises: copy };
+        }
         const variantName = variantId
           ? name || variantsOf(ex.name).find(v => v.id === variantId)?.name
           : undefined;
@@ -1159,7 +1200,7 @@ export function useWorkoutMutations({
          * 「改过」含速度 / 自定义项、点了力竭（setValues.rowEdited）。
          */
         const kept = ex.sets.filter(st => !st.ghost || rowEdited(st));
-        const nextEx = { ...ex, ...(variantId ? { variantId } : { variantId: undefined }) } as Exercise;
+        const nextEx = { ...ex, name: cardName, ...(variantId ? { variantId } : { variantId: undefined }) } as Exercise;
         const r = rounderFor(nextEx, p.gym);
         let sets = ex.sets;
         let prefillFrom: string | undefined = ex.prefillFrom;
@@ -1206,6 +1247,7 @@ export function useWorkoutMutations({
         const { variantId: _v, variantName: _n, prefillFrom: _pf, prefillGym: _pg, ...rest } = ex;
         const next: Exercise = {
           ...rest,
+          name: cardName,
           ...(variantId ? { variantId, variantName } : {}),
           ...(prefillFrom ? { prefillFrom } : {}),
           ...(prefillFrom && prefillGym ? { prefillGym } : {}),
@@ -1217,7 +1259,7 @@ export function useWorkoutMutations({
       });
       onPersist?.();
     },
-    [editingWorkoutId, findLast, onPersist, preferGymFor, rounderFor, setCurrentWorkout, variantIdOf, variantsOf],
+    [editingWorkoutId, findLast, mergeAliasOf, onPersist, preferGymFor, resolveName, rounderFor, setCurrentWorkout, variantIdOf, variantsOf],
   );
 
   return {

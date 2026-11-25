@@ -27,12 +27,22 @@ import {
 import { E1RM_MAX_REPS } from '../utils/prRecords';
 import { agoLabel, formatLoad, formatSet, gymLabel, metricLabel, shortDate, toDisplay, trimNum } from '../utils/liftDisplay';
 import { KG_TO_LBS } from '../constants';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 
 const DAY = 86400000;
 /** 多少天内破过纪录算「最近」（高亮） */
 const HOT_DAYS = 30;
 /** 三项总和跟多久之前比 */
 const COMPARE_DAYS = 183;
+
+/**
+ * 存下的稳定键 → 现在哪一组的 stableId（审查 C30）：并入、补建自建动作之后存的旧键先规范化，
+ * 再在每组出现过的全部键里找。找不到原样返回（编辑器打开时会把它滤掉）。
+ */
+function liveIdIn(lifts: LiftSummary[], canonical: (key: string) => string, id: string): string {
+  const c = canonical(id);
+  return lifts.find(l => l.ids.includes(c) || l.ids.includes(id))?.stableId ?? id;
+}
 
 /** 阶梯纪录线缩略图 */
 function StepSpark({ steps }: { steps: FeaturedStats['steps'] }) {
@@ -85,7 +95,8 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
 }) => {
   const isCn = lang === Language.CN;
   const [editing, setEditing] = useState(false);
-  const ids = chosen ?? BIG_THREE;
+  const { canonicalLiftId } = useExercisePrefs();
+  const ids = useMemo(() => (chosen ?? BIG_THREE).map(id => liveIdIn(lifts, canonicalLiftId, id)), [chosen, lifts, canonicalLiftId]);
 
   // 按馆比的器械只看最近练的那个馆（跨馆的重量不可比，审查 G4）；三大项是杠铃，原样
   const views = useMemo(() => lifts.map(latestGymView), [lifts]);
@@ -311,6 +322,7 @@ interface FeaturedEditorProps {
 /** 选特别关注：勾选顺序就是显示顺序，最多 MAX_FEATURED 个 */
 function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: FeaturedEditorProps) {
   const isCn = lang === Language.CN;
+  const { canonicalLiftId } = useExercisePrefs();
   const [draft, setDraft] = useState<string[]>(ids);
   const [lastOpen, setLastOpen] = useState(false);
   // 每次打开都从当前值起草。只留还在的项目（审查 A19）：删掉 / 没练过的动作 id 占着名额，界面上看不见、又勾不掉，「满了」加不进新的
@@ -348,7 +360,7 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => setDraft(BIG_THREE.filter(id => lifts.some(l => l.stableId === id)))}
+            onClick={() => setDraft(BIG_THREE.map(id => liveIdIn(lifts, canonicalLiftId, id)).filter(id => lifts.some(l => l.stableId === id)))}
             className="flex-1 min-h-[44px] rounded-control bg-inset text-small font-semibold text-secondary"
           >
             {isCn ? '恢复三大项' : 'Reset to Big 3'}

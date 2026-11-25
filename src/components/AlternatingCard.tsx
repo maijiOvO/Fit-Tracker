@@ -63,6 +63,8 @@ interface Props {
   onAddMember: () => void;
   onSwitchRowExercise: (r: RowRef, toExId: string) => void;
   onSwitchVariant: (exId: string, variantId: string | undefined, name?: string) => void;
+  /** 删掉一个做法时：工作台上正用着它的卡当场回到标准（NewWorkoutTab 实现；计划编辑器里不传） */
+  onVariantRemoved?: (exerciseName: string, variantId: string) => void;
   onToggleNote: (name: string, gymKey?: string) => void;
   /** focus 'gym'：打开后滚到「这一台」那一段（成员面板里点选中的那台进来） */
   onOpenMetricModal: (name: string, exId: string, focus?: 'gym') => void;
@@ -208,6 +210,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
   onAddMember,
   onSwitchRowExercise,
   onSwitchVariant,
+  onVariantRemoved,
   onToggleNote,
   onOpenMetricModal,
   settingsFor,
@@ -220,7 +223,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
 }: Props) {
   const isCn = lang === Language.CN;
   const rounderFor = useLoadRounder();
-  const { variantLabel } = useExercisePrefs();
+  const { variantLabel, variantIdOf } = useExercisePrefs();
   // 「杠铃片」§3：组行的拖动步长 / 方向和迷你配片跟着各自的器材走（交替组不画顶部大图）
   const loadInfoOf = useLoadInfoOf();
   const loadKindOf = (ex: Exercise, signed: boolean) => loadInfoOf(ex, signed, gym).kind;
@@ -670,8 +673,9 @@ export const AlternatingCard = React.memo(function AlternatingCard({
           open
           lang={lang}
           exerciseName={byId.get(variantFor)!.name}
-          currentVariantId={byId.get(variantFor)!.variantId}
+          currentVariantId={variantIdOf(byId.get(variantFor)!)}
           onSelect={(v, name) => onSwitchVariant(variantFor, v, name)}
+          onVariantRemoved={onVariantRemoved}
           onClose={() => setVariantFor(null)}
         />
       )}

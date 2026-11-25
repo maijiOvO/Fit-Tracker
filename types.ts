@@ -256,6 +256,12 @@ export interface ExerciseDefinition {
   /** 用户删掉的内置做法 id（只写覆盖层）：读时合并内置做法时跳过它们（utils/exerciseAttrs.combineVariants） */
   removedVariants?: string[];
   /**
+   * 做法墓碑：用户删掉的自己的做法，整条留着（id、名字、器材、细分），删得晚的在后。
+   * 记录上的 id 认不出时按它显示名字、取器材；同名新建时接回旧 id，底稿 / 馆设置 / 稳定键都接回旧记录（utils/exerciseMerge）。
+   * 自建动作写定义本身、内置动作写覆盖层，放在已有的同步容器里，不新增 prefs key。
+   */
+  deletedVariants?: ExerciseVariant[];
+  /**
    * 带正负的负荷（2026-10 变体第二层）：自重类动作的重量记成一条数轴 —— 辅助为负、自重 0、负重为正，
    * 从辅助一路练到负重是连续的，纪录按带符号的数比。不写＝按默认（内置自重类 / 带「自重」器材标签的开）。
    * 内置动作写覆盖层、自建动作写定义本身。
@@ -264,6 +270,8 @@ export interface ExerciseDefinition {
   /**
    * 并进来的动作（「并入另一个动作」）：旧名 → 它变成的那个做法 id。
    * 历史记录不改写：记录里存的还是旧名、没有 variantId，名字解析认到这个动作、做法按这张表认。
+   * 旧名的记录自带源动作自己的做法时，做法 id 读成「并入做法/源做法」（utils/liftIdentity.variantIdIn）。
+   * 按名字存的备注、记录项、收藏不认这张表（留在源名下，拆回就恢复）；馆设置在并入那一下复制过来。
    */
   variantAliases?: Record<string, string>;
   /** 这个动作已并入另一个动作（只写覆盖层）：名字解析把它的名字全交给那个动作，动作库里不再出现 */

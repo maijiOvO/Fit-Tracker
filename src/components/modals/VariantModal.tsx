@@ -3,7 +3,8 @@
  *
  * 从训练卡的眉批（当前做法）或 ⋯ 菜单「做法」进来。
  *   - 点一行＝这张卡换成这个做法（全是底稿时，底稿换成这个做法上次的那几组）
- *   - 做法可改名 / 删除（删除不确认，点错了用全局撤销；历史记录里带着当时的名字，照样能显示）
+ *   - 做法可改名 / 删除（删除不确认，点错了用全局撤销；历史记录带着删时的名字，照样能显示；
+ *     删的是并入生成的做法，先把并进来的旧动作拆回成独立动作；工作台上正用着它的卡当场回到标准）
  *   - 新做法：输入框 + 几个常用叫法的快捷 chip，建完直接选中
  * 「标准」＝没选做法，旧记录都在这里。
  *
@@ -31,6 +32,8 @@ interface VariantModalProps {
   onClose: () => void;
   /** 只管理，不选（动作库入口） */
   manage?: boolean;
+  /** 删掉一个做法时：工作台上正用着它的卡当场回到标准（NewWorkoutTab 实现；计划编辑器里不传） */
+  onVariantRemoved?: (exerciseName: string, variantId: string) => void;
 }
 
 const SUGGEST_CN = ['宽握', '窄握', '反握', '对握', 'V 把', '单侧', '暂停'];
@@ -44,6 +47,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
   onSelect,
   onClose,
   manage = false,
+  onVariantRemoved,
 }) => {
   const {
     variantsOf,
@@ -182,7 +186,7 @@ export const VariantModal: React.FC<VariantModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (on) onSelect(undefined); // 删的是正在用的那个：这张卡回到标准
+                onVariantRemoved?.(exerciseName, id);
                 removeVariant(exerciseName, id);
               }}
               className="w-11 flex items-center justify-center border-l border-divider text-danger active:bg-danger/15"
