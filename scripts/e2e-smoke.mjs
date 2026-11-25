@@ -1912,7 +1912,7 @@ async function mainFlow(browser, escapedRemoteCalls) {
 
       // 不等 350ms 静默期：点菜单项带着自己的 pointerdown，补发 click 的窗口当场作废（审查 navigation-overlays#5）
       await menu.getByRole('menuitem').filter({ hasText: /删除|Delete/ }).click();
-      // 删整场要确认（2026-10-25：只有删训练、清空账户留确认框）
+      // 删整场要确认（§12.5 通则 3 的例外名单）
       await acceptAppConfirm(page);
       await card.waitFor({ state: 'detached', timeout: 5_000 });
       if (!(await tombstones()).includes(finishedWorkoutId)) throw new Error('deleting a workout wrote no tombstone');

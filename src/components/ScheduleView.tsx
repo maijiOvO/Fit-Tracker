@@ -253,7 +253,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
   const markSkipped = async (s: ScheduledWorkout) => {
     await updateSchedule({ ...s, status: 'skipped', updatedAt: new Date().toISOString() });
   };
-  // 删计划不再确认：顶栏的全局撤销就是保险（2026-10-25 用户定：只有删训练、清空账户留确认框）
+  // 删计划不确认：顶栏的全局撤销就是保险（留确认框的只有 design-ink-and-paper §12.5 通则 3 的例外名单）
   const onDelete = async (s: ScheduledWorkout) => {
     await deleteSchedule(s.id);
   };

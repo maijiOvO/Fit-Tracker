@@ -655,8 +655,7 @@ export function useWorkoutMutations({
       const dateLabel = isCn
         ? new Date(w.date).toLocaleDateString('zh-CN')
         : new Date(w.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-      // 删整场训练一律先确认（2026-10-25 用户定：有了全局撤销，只有删训练、清空账户留确认框；
-      // 时间线长按菜单原来跳过确认、靠撤销条兜底，撤销条拆掉了）
+      // 删整场训练一律先确认（design-ink-and-paper §12.5 通则 3 的例外名单），时间线长按菜单也不例外
       const ok = await confirm({
         message: isCn
           ? `删除 ${dateLabel} 的整场训练？`
