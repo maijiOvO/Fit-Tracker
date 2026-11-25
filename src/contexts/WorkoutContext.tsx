@@ -212,10 +212,13 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const hit = findInProgress(await db.getAll<WorkoutSession>('workouts'), readActiveId());
       if (hit && (currentWorkoutRef.current.exercises?.length ?? 0) === 0) {
+        const prev = currentWorkoutRef.current;
         // 接回来不算「动过」：库里已经是这个样子，接回本身不刷新 updatedAt
         saverRef.current!.adopt(hit);
-        // 同步写 ref：接回落定之后紧接着的开练复查（getLiveWorkbench）要看得到这场
+        // 同步写 ref：接回落定之后紧接着的开练复查（getLiveWorkbench）要看得到这场；下面 rebaseSource 也读 ref
         replaceWorkbench(hit);
+        // 接回落定前碰了屏、开着的那一步：接回是系统做的，不算用户这一步的改动（上架审查 C07）
+        undoJournal.rebaseSource('currentWorkout', prev);
       }
     } catch (err) {
       console.error('[WorkoutContext] 接回进行中的训练失败:', err);

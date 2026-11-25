@@ -8,6 +8,7 @@
  * 浏览器 / e2e 里没有返回键，这张表只是没人读，不影响任何东西。
  */
 import { useEffect, useRef } from 'react';
+import { undoJournal } from '../../services/undoJournal';
 
 type Closer = { close: () => void };
 const stack: Closer[] = [];
@@ -43,6 +44,22 @@ export function blockBack(on: boolean): void {
 
 export function isBackBlocked(): boolean {
   return blocked > 0;
+}
+
+/**
+ * 返回键按下：先关最上面那一层，没有了走 goBack（App 的「返回 / 回首页 / 收到后台」）。
+ * 返回键不经过 pointerdown / focusin / keydown，要在这里自己开撤销的一步（上架审查 C16）：不开的话，
+ * 退出编辑这一下落进上一步、重做栈也不作废，回首页点重做会把撤掉的草稿写回旧场。
+ * 和 useUndoGestures 的按下一样推到下一拍：先让正聚焦的输入框失焦，打完的数结算进上一步。
+ */
+export function handleHardwareBack(label: string, goBack: () => void): void {
+  if (isBackBlocked()) return;
+  const el = document.activeElement;
+  if (el instanceof HTMLElement) el.blur();
+  window.setTimeout(() => {
+    undoJournal.beginStep(label);
+    if (!closeTopLayer()) goBack();
+  }, 0);
 }
 
 /** open 时登记一层，返回键调 onClose；关了 / 卸载时摘掉 */

@@ -1925,7 +1925,17 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await settle();
       if ((await page.locator('.ledger-row.is-inked').count()) !== 1) throw new Error(`undo finish: ${await state()}`);
       await backAndDiscard(page);
-      return `${seen.join(' → ')} · redo ×3 · undo finish → back on the bench`;
+
+      // 撤回第一次切单位（上架审查 C80）：键没了，单位按钮要回到 kg。撤销 → fitlog:local-restored → context 按存储重读
+      // 是跨模块的接线，仓库里没有比 e2e 更低的 React 层测试。前置：删掉单位键（这套 e2e 一直是 kg）
+      await page.evaluate(() => localStorage.removeItem(lsKey('fitlog_unit')));
+      const unitBtn = page.locator('[data-testid="header-unit-toggle"]');
+      await unitBtn.click();
+      await until(async () => (await unitBtn.textContent()) === 'lbs', 'the unit toggle to switch to lbs');
+      await headerUndo.click();
+      await until(async () => (await page.evaluate(() => localStorage.getItem(lsKey('fitlog_unit')))) === null, 'undo to remove the unit key');
+      await until(async () => (await unitBtn.textContent()) === 'kg', 'the unit toggle to follow storage back to kg after undo');
+      return `${seen.join(' → ')} · redo ×3 · undo finish → back on the bench · undo first unit switch → kg`;
     });
 
     // 同一次运行里练完再「补记动作」（上架审查 C22）：弹层自动打开时要复位上一次的点选记录。

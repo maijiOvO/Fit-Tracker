@@ -5,10 +5,14 @@
  *     把打完的数结算掉（重量的「打完按总差值带后面」），那一笔属于上一步，不能算进这一下点击。
  *   - 焦点换到另一个输入框：开新的一步（回车跳到下一格也是一步），同样推到下一拍。同一个框里连着打字是同一步。
  *   - 键盘输入时没有打开的步（刚撤销完、刚启动）：开一步。
+ *   - 安卓返回键不经过这几种事件，在 useBackClose.handleHardwareBack 里自己开步。
  * 撤销 / 重做按钮本身挂 data-undo-ignore，不开步。
+ *
+ * 步的寿命：切到后台超过 10 分钟或跨了天再回来，整本撤销历史清空（undoLogExpired，上架审查 C97）。
  */
 import { useEffect } from 'react';
 import { undoJournal } from '../../services/undoJournal';
+import { undoLogExpired } from '../utils/sessionDate';
 
 const TARGETS = 'button,[role="button"],[role="menuitem"],[role="tab"],a,input,textarea,select,label,[data-undo-label]';
 
@@ -65,13 +69,25 @@ export function useUndoGestures(): void {
       flushBegin();
       if (!undoJournal.hasOpenStep()) undoJournal.beginStep(undoLabelOf(e.target as Element | null));
     };
+    /** 第一次切到后台的时刻（回前台前可能连着来几次 hidden，只认第一次） */
+    let hiddenAt: number | null = null;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt ??= Date.now();
+        return;
+      }
+      if (hiddenAt !== null && undoLogExpired(hiddenAt, Date.now())) undoJournal.clear();
+      hiddenAt = null;
+    };
     document.addEventListener('pointerdown', onPointerDown, true);
     document.addEventListener('pointerup', flushBegin, true);
     document.addEventListener('click', flushBegin, true);
     document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('focusout', onFocusOut, true);
     document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('pointerdown', onPointerDown, true);
       document.removeEventListener('pointerup', flushBegin, true);
       document.removeEventListener('click', flushBegin, true);

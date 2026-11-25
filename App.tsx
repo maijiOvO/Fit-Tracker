@@ -119,7 +119,7 @@ import { WorkoutColophon } from './src/components/WorkoutColophon';
 import { createPortal } from 'react-dom';
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
-import { closeTopLayer, isBackBlocked } from './src/hooks/useBackClose';
+import { handleHardwareBack } from './src/hooks/useBackClose';
 
 const NO_ADDED_COUNTS: Record<string, number> = Object.create(null);
 const LibrarySheet = lazy(() =>
@@ -193,6 +193,7 @@ const AppWithAuthShell: React.FC = () => {
     refreshSchedules: scheduleCtx.refreshFromDb,
     toast,
     isCn,
+    restoreInProgress: workoutCtx.restoreInProgress,
   });
   /** 写回期间挡住触摸：收尾时状态源整份 set 回去，这段时间里的改动会被盖掉、也不进日志（上架审查 C19）。
    *  撤销按钮在顶栏和训练页各一份，挡板只在这里渲染一处；写回卡住时 undoJournal 的超时会把 busy 撤掉 */
@@ -484,6 +485,9 @@ const AppWithAuthShell: React.FC = () => {
    * 在别的页＝回首页；已经在首页＝收到后台（不退出，进行中的训练不丢）。恢复 / 导入正在写数据时不理。
    */
   const backRef = useRef<() => void>(() => {});
+  /** 返回键开的那一步叫什么（监听只登记一次，语言从这里取） */
+  const backLabelRef = useRef('');
+  backLabelRef.current = isCn ? '返回' : 'Back';
   backRef.current = () => {
     if (activeTab === 'new') {
       void handleNewWorkoutBack();
@@ -499,11 +503,7 @@ const AppWithAuthShell: React.FC = () => {
     if (!Capacitor.isNativePlatform()) return;
     let sub: PluginListenerHandle | undefined;
     let gone = false;
-    void CapApp.addListener('backButton', () => {
-      if (isBackBlocked()) return;
-      if (closeTopLayer()) return;
-      backRef.current();
-    }).then(h => {
+    void CapApp.addListener('backButton', () => handleHardwareBack(backLabelRef.current, () => backRef.current())).then(h => {
       if (gone) void h.remove();
       else sub = h;
     });

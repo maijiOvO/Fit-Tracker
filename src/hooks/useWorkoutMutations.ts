@@ -42,21 +42,6 @@ export interface StartPlan {
 }
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
 
-/**
- * 结束训练后多久之内，再开新训练要先问一句「是不是刚才那场」。
- *
- * 起因是真事：8/26 有一场训练在误点结束 15 秒后重开，被拆成了两场，
- * 最后靠手工改库合回去。10 分钟是「组间休息 + 走到下一台器械」的上限，
- * 超过这个时间再开练，当作新的一场是合理默认。
- *
- * ⚠️ 这一条不违反 §12.5 通则 3（破坏性操作用先执行 + 撤销）——
- * 通则管的是【已经产生的东西被毁掉】，这里管的是【错误的数据被产生出来】：
- * 拆场之后两场各自都是「正常记录」，事后没有任何信号能自动认出它们本是一场。
- * 挡在产生之前，比事后给撤销便宜得多。
- */
-export const RESUME_WINDOW_MS = 10 * 60 * 1000;
-
-
 /** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
 function stableJson(v: unknown): string {
   return JSON.stringify(v, (k, val) => {

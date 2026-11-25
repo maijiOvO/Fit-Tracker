@@ -10,11 +10,13 @@
  *   - 打字：同一个输入框里连续打字是一步，换输入框（focusin）才是下一步。
  *   - 没有打开的步时（启动、撤销 / 重做之后、后台定时）发生的写入不记 —— 它们不是用户动作，
  *     撤销之后界面重读、工作台重新落盘那一串回声也就自然不会被记成新的一步。
+ *   - 步开着时系统替换了工作台（接回进行中的那场，rebaseSource）：这一步还没动过工作台就挪基线、不记；
+ *     动过（「保存修改」/ 返回退出编辑把草稿换成了空场）就算这一步的结果。
  *
  * 工作台那一场（currentWorkout）是 React 状态，编辑旧训练时只在内存里，不落盘：
  * 作为「状态源」登记进来，每一步开头记一份引用（状态不可变，引用就是快照），这一步结束时变了就记下前后两份。
  *
- * 只在本机：步数上限 MAX_STEPS，只存在内存里，重启 App 清空。
+ * 只在本机：步数上限 MAX_STEPS，只存在内存里，重启 App 清空；切到后台超过 10 分钟或跨了天再回来也清空（useUndoGestures）。
  * 从服务器拉进来东西、整份改写（恢复备份 / 导入 / 重置）、切换数据环境之后清空 —— 撤销会把那些改动盖掉。
  * 读不到「写之前的样子」的那一步撤不回，撤销历史也截断在这里：更早的步写回的是绝对值，会盖掉这一步对同一行的改动（和整份改写后清空是同一个理由）。
  *
@@ -158,9 +160,10 @@ function computeState(): UndoState {
   const live = !!current && !isEmptyLive(current);
   return {
     canUndo: undoStack.length > 0 || live,
-    canRedo: redoStack.length > 0,
+    // 开着的这一步有了改动：它收尾时会清掉重做栈，按钮现在就跟着灰（同一步里改了又改回去会暂时灰，下一次开步恢复）
+    canRedo: redoStack.length > 0 && !live,
     undoLabel: (live ? current!.label : undoStack[undoStack.length - 1]?.label) || null,
-    redoLabel: redoStack[redoStack.length - 1]?.label || null,
+    redoLabel: (live ? null : redoStack[redoStack.length - 1]?.label) || null,
     busy,
   };
 }
@@ -227,6 +230,19 @@ export const undoJournal = {
     return () => {
       sources.delete(name);
     };
+  },
+
+  /**
+   * 系统刚把状态源从 prev 换成了现值（接回进行中的那场）：这一步开步以来还没动过它（开步时的值就是 prev）就挪基线、不记；
+   * 动过就不处理，接回算这一步的结果 —— 撤销回到编辑草稿，重做回到接回后的那场
+   */
+  rebaseSource(name: string, prev: unknown) {
+    const s = current;
+    const src = sources.get(name);
+    if (!s || !src || s.sourceStart.get(name) !== prev) return;
+    s.sourceStart.set(name, src.get());
+    s.sourceCopy.set(name, copy(src.get()));
+    notify();
   },
 
   /** 用户动作开始：结束上一步，开新的一步 */

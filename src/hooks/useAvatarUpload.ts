@@ -36,12 +36,10 @@ export function useAvatarUpload(): UseAvatarUploadResult {
         // 头像在 prefs 块里同步：打时间戳，否则下次合并会被远端的旧头像盖回去
         markPrefsUpdated();
         scheduleDebouncedFitlogPush();
-      } catch (error: any) {
+      } catch (error) {
         console.error('Upload error:', error);
-        toast(
-          (isCn ? '上传失败: ' : 'Upload failed: ') + (error?.message || error),
-          'error',
-        );
+        // 固定文案：解码报错原文（英文、浏览器各不相同）用户看不懂，原文留在日志里
+        toast(isCn ? '上传失败：读不了这张图片，换一张试试' : "Upload failed: couldn't read this image. Try another one", 'error');
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }

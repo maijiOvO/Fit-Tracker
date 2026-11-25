@@ -13,7 +13,7 @@ import {
   MoreHorizontal,
   Play,
 } from 'lucide-react';
-import { RESUME_WINDOW_MS } from '../hooks/useWorkoutMutations';
+import { RESUME_WINDOW_MS } from '../utils/sessionDate';
 import { Language, WorkoutSession } from '../../types';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';

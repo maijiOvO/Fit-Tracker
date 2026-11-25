@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Language } from '../../types';
 import { translations } from '../../translations';
 import { db } from '../../services/db';
+import { storage } from '../../services/appStorage';
 import {
   isRemoteConfigured,
   migrateLocalData,
@@ -58,6 +59,7 @@ export function useFitlogSync(): UseFitlogSyncResult {
   const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
   const { setAvatarUrl } = useAvatar();
+  const { reloadLangUnit } = settingsCtx;
   const { toast } = useUiOverlay();
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
@@ -180,16 +182,22 @@ export function useFitlogSync(): UseFitlogSyncResult {
     };
     document.addEventListener('visibilitychange', retry);
     window.addEventListener('online', retry);
+    // 全局撤销 / 重做写回了本机（useGlobalUndo）：同一条路重读，再按存储现状刷新语言 / 单位 / 头像 ——
+    // 拉取的「缺字段不覆盖本机」管不到撤回第一次写入（键没了，界面还停在撤销前，上架审查 C80）
+    const onLocalRestored = () => {
+      onPulled();
+      reloadLangUnit();
+      setAvatarUrl(storage.getItem('fitlog_avatar_data_url') || undefined);
+    };
     window.addEventListener('fitlog:pulled', onPulled);
-    // 全局撤销 / 重做写回了本机（useGlobalUndo）：同一条路重读
-    window.addEventListener('fitlog:local-restored', onPulled);
+    window.addEventListener('fitlog:local-restored', onLocalRestored);
     return () => {
-      window.removeEventListener('fitlog:local-restored', onPulled);
+      window.removeEventListener('fitlog:local-restored', onLocalRestored);
       document.removeEventListener('visibilitychange', retry);
       window.removeEventListener('online', retry);
       window.removeEventListener('fitlog:pulled', onPulled);
     };
-  }, [handleSnapshotApply, loadLocalData]);
+  }, [handleSnapshotApply, loadLocalData, reloadLangUnit, setAvatarUrl]);
 
   const performFullSync = useCallback(async () => {
     if (!isRemoteConfigured()) {

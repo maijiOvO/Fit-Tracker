@@ -33,6 +33,8 @@ interface UserSettingsContextType {
   changeAppPrefs: (patch: Omit<AppPrefs, 'unit' | 'lang'>) => void;
   /** 同步拉回 / 切数据环境之后：按存储里已经合并好的值重读，不打时间戳 */
   reloadAppPrefs: () => void;
+  /** 全局撤销 / 重做写回之后：语言 / 单位按存储现状重读，键没了就回到首帧的默认值。不写存储、不打时间戳 */
+  reloadLangUnit: () => void;
 
   weightEntries: WeightEntry[];
   addWeightEntry: (entry: WeightEntry) => Promise<void>;
@@ -47,12 +49,20 @@ interface UserSettingsContextType {
 
 export const UserSettingsContext = createContext<UserSettingsContextType | undefined>(undefined);
 
+// 存储里是认不出的单位（手改的备份恢复进来的 'lb' 之类）就当 kg：原样套用每次启动都进错误页（上架审查 i18n-settings#1）
+const readUnit = (): 'kg' | 'lbs' => unitOf(storage.getItem('fitlog_unit')) ?? 'kg';
+
 export const UserSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // 演示版英文、单机发行版第一次按系统语言、自用版中文（resolveLang，崩溃兜底页同一套）
   const [lang, setLangState] = useState<Language>(resolveLang);
 
-  // 存储里是认不出的单位（手改的备份恢复进来的 'lb' 之类）就当 kg：原样套用每次启动都进错误页（上架审查 i18n-settings#1）
-  const [unit, setUnitState] = useState<'kg' | 'lbs'>(() => unitOf(storage.getItem('fitlog_unit')) ?? 'kg');
+  const [unit, setUnitState] = useState<'kg' | 'lbs'>(readUnit);
+
+  // 撤回第一次切语言 / 单位时键已经不在了：同步拉取「缺字段不覆盖本机」的规则在这里不对，要回到首帧的值（上架审查 C80）
+  const reloadLangUnit = useCallback(() => {
+    setLangState(resolveLang());
+    setUnitState(readUnit());
+  }, []);
 
   const [appPrefs, setAppPrefsState] = useState<ResolvedAppPrefs>(appPrefsNow);
 
@@ -156,6 +166,7 @@ export const UserSettingsProvider: React.FC<{ children: ReactNode }> = ({ childr
         appPrefs,
         changeAppPrefs,
         reloadAppPrefs,
+        reloadLangUnit,
         weightEntries,
         addWeightEntry,
         deleteWeightEntry,

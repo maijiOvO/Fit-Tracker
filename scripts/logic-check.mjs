@@ -63,7 +63,8 @@ await build({
       "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
-      "export { sessionsBefore, redateLiveSession, isBackdated } from './src/utils/sessionDate.ts';",
+      "export { sessionsBefore, redateLiveSession, isBackdated, undoLogExpired } from './src/utils/sessionDate.ts';",
+      "export { handleHardwareBack } from './src/hooks/useBackClose.ts';",
       "export { planMergeIntoPrevious } from './src/utils/sessionMerge.ts';",
       "export * as SS from './src/utils/setStep.ts';",
       "export * as SW from './src/utils/setWrite.ts';",
@@ -582,6 +583,23 @@ t('热力图：多伦多昨晚 21:15 练的归在昨天（UTC 已经是今天）
       w('cur', '2026-10-21T16:00:00.000Z', done),
     ], 'cur');
     assert.deepEqual(days, [{ date: '2026-10-20', sets: 2, sessions: 1 }]);
+  } finally {
+    if (tz === undefined) delete process.env.TZ;
+    else process.env.TZ = tz;
+  }
+});
+
+// ── 撤销日志的寿命（上架审查 C97）：切后台再回来，离开超过 10 分钟或跨了本地日期就清空 ────────
+t('撤销寿命：离开 9:59 不清、10:01 清；多伦多 23:55 → 次日 00:02 跨了本地日期要清；18:58 → 19:03 跨 UTC 零点但本地同一天不清', () => {
+  const tz = process.env.TZ;
+  process.env.TZ = 'America/Toronto';
+  try {
+    const at = iso => Date.parse(iso);
+    const base = at('2026-11-24T12:00:00-05:00');
+    assert.equal(L.undoLogExpired(base, base + 9 * 60_000 + 59_000), false);
+    assert.equal(L.undoLogExpired(base, base + 10 * 60_000 + 1_000), true);
+    assert.equal(L.undoLogExpired(at('2026-11-23T23:55:00-05:00'), at('2026-11-24T00:02:00-05:00')), true, '按本地日期：跨了午夜');
+    assert.equal(L.undoLogExpired(at('2026-11-24T18:58:00-05:00'), at('2026-11-24T19:03:00-05:00')), false, '不按 UTC 日期');
   } finally {
     if (tz === undefined) delete process.env.TZ;
     else process.env.TZ = tz;
@@ -2439,6 +2457,132 @@ await tj('撤销 C19：写回期间 busy=true（界面据此挡输入），结�
     assert.equal(J.getState().undoLabel, '改组数');
   } finally {
     mock.timers.reset();
+  }
+});
+
+// ── 撤销的步界（上架审查 C07 / C96 / C16）：系统接回不算用户的一步、开着的步一有改动重做就灰、返回键自己开步 ──────
+const EMPTY_BENCH = { id: '', exercises: [] };
+const LIVE = { id: 'live', exercises: [{ id: 'e1' }, { id: 'e2' }] };
+const DRAFT = { id: 'old', exercises: [{ id: 'd1', v: 80 }], finishedAt: '2026-11-14T10:00:00Z' };
+/** 工作台 / 编辑态两个状态源：持有对象由用例自己换（照 WorkoutContext / useWorkoutMutations 的 ref） */
+function benchRig(bench, mode = { id: null }) {
+  const w = { bench, mode };
+  const offs = [
+    J.registerSource('currentWorkout', { get: () => w.bench, set: v => (w.bench = v) }),
+    J.registerSource('editMode', { get: () => w.mode, set: v => (w.mode = v) }),
+  ];
+  /** 照 restoreInProgress：先换值（ref 同步写），再 rebaseSource */
+  const systemRestore = hit => {
+    const prev = w.bench;
+    w.bench = hit;
+    J.rebaseSource('currentWorkout', prev);
+    J.touched();
+  };
+  return { w, systemRestore, off: () => offs.forEach(f => f()) };
+}
+/** 状态源是模块级登记的：用例结束摘掉，免得后面的用例开步时去读它 */
+const tu = (name, fn) =>
+  tj(name, async () => {
+    journalRig();
+    const offs = [];
+    try {
+      await fn(rig => (offs.push(rig.off), rig));
+    } finally {
+      offs.forEach(f => f());
+    }
+  });
+
+await tu('撤销 C07：冷启动时先碰了屏、接回才落定 → 接回不算这一步，撤销键不亮，撤销不把工作台清空', async use => {
+  const { w, systemRestore } = use(benchRig(EMPTY_BENCH));
+  J.beginStep('我的');
+  systemRestore(LIVE);
+  await tickMs();
+  assert.equal(J.getState().canUndo, false);
+  J.beginStep('');
+  assert.equal(await J.undo(), null);
+  assert.equal(w.bench.id, 'live');
+});
+
+await tu('撤销 C07：保存修改后、接回落定前又碰了屏 → 撤一下回到编辑草稿（撤的是「保存修改」，不是那一下碰屏）', async use => {
+  const { w, systemRestore } = use(benchRig(DRAFT, { id: 'old' }));
+  J.beginStep('保存修改');
+  w.bench = { id: 'b-new', exercises: [] };
+  w.mode = { id: null };
+  J.beginStep('训练计划');
+  systemRestore(LIVE);
+  J.beginStep('');
+  const r = await J.undo();
+  assert.equal(r?.label, '保存修改');
+  assert.equal(w.bench.id, 'old');
+  assert.equal(w.mode.id, 'old');
+});
+
+await tu('撤销 C07：接回落在「保存修改」那一步里（没碰屏）→ 算这一步的结果：撤销回编辑草稿，重做回接回后的那场（挪基线必须看这一步动没动过工作台）', async use => {
+  const { w, systemRestore } = use(benchRig(DRAFT, { id: 'old' }));
+  J.beginStep('保存修改');
+  w.bench = { id: 'b-new', exercises: [] };
+  w.mode = { id: null };
+  systemRestore(LIVE);
+  J.beginStep('');
+  await J.undo();
+  assert.equal(w.bench.id, 'old');
+  assert.equal(w.mode.id, 'old');
+  await J.redo();
+  assert.equal(w.bench.id, 'live');
+  assert.equal(w.mode.id, null);
+});
+
+await tu('撤销 C96：撤销后开着的步一有改动，重做键当场灰、redo 什么都不写；同一步里改了又改回，收尾后重做回来', async () => {
+  const t = journalRig();
+  J.beginStep('单位');
+  t.setItem('fitlog_unit', 'lbs');
+  J.beginStep('');
+  await J.undo();
+  J.beginStep('语言');
+  t.setItem('fitlog_lang', 'en');
+  await tickMs();
+  assert.equal(J.getState().canRedo, false);
+  assert.equal(J.getState().redoLabel, null);
+  assert.equal(await J.redo(), null);
+  assert.equal(t.keys.has('fitlog_unit'), false);
+
+  const t2 = journalRig();
+  t2.keys.set('fitlog_unit', 'kg');
+  J.beginStep('单位');
+  t2.setItem('fitlog_unit', 'lbs');
+  J.beginStep('');
+  await J.undo();
+  J.beginStep('又点了两下');
+  t2.setItem('fitlog_unit', 'lbs');
+  t2.setItem('fitlog_unit', 'kg');
+  await tickMs();
+  assert.equal(J.getState().canRedo, false, '开着、有写入：先灰');
+  J.beginStep('');
+  assert.equal(J.getState().canRedo, true, '这一步收尾时是空的：重做不该被清掉');
+  assert.equal(J.getState().redoLabel, '单位');
+});
+
+await tu('撤销 C16：撤销后按返回键退出编辑 → 返回自成一步、重做栈作废，回首页点重做不把旧场草稿写回工作台', async use => {
+  const saved = { document: globalThis.document, HTMLElement: globalThis.HTMLElement, window: globalThis.window };
+  Object.assign(globalThis, { HTMLElement: class {}, document: { activeElement: null }, window: { setTimeout } });
+  try {
+    const { w } = use(benchRig(DRAFT, { id: 'old' }));
+    J.beginStep('改数');
+    w.bench = { ...DRAFT, exercises: [{ id: 'd1', v: 90 }] };
+    J.beginStep('');
+    await J.undo();
+    assert.equal(J.getState().canRedo, true);
+    L.handleHardwareBack('返回', () => {
+      w.bench = EMPTY_BENCH;
+      w.mode = { id: null };
+      J.touched(); // 照 WorkoutContext：工作台一换就叫一声
+    });
+    await tickMs();
+    assert.equal(J.getState().canRedo, false);
+    assert.equal(await J.redo(), null);
+    assert.equal(w.bench.id, '');
+  } finally {
+    Object.assign(globalThis, saved);
   }
 });
 
