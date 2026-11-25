@@ -4,7 +4,7 @@
  * 入口是「我的」页底部一行「首选项 ›」。外壳照 ExercisePickerSheet：整页高、顶部 22px 圆角、抓手、标题、右上 ×，
  * 整张弹层可下拉关闭（hooks/useSheetSwipeClose，和 Modal 的底部弹层同一份）。
  *
- * 分五组：单位与记录 / 手感 / 外观与地区 / 数据 / 账户，按「这一项管什么」分。行的积木在 prefsRows.tsx。
+ * 分五组：单位与记录 / 手感 / 外观与地区 / 数据 / 账户（只有能切数据环境时才有），按「这一项管什么」分。行的积木在 prefsRows.tsx。
  * 自动备份 / 导出 / 导入是弹层里的二级页（标题栏左侧返回，安卓返回键先回主页）。
  * 跟数据走的（单位、步长、递减、有氧默认、距离单位、语言、周起始日）记进 appPrefs（打时间戳 + 推送）；
  * 跟设备走的（外观、动效、振动、滑动手感、删组撤销）各自存在本机。
@@ -31,11 +31,13 @@ import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import { localYmd } from '../utils/dateUtils';
 import type { SyncStatus } from '../hooks/useFitlogSync';
 import { isRemoteConfigured } from '../../services/fitlogRemote';
+import { isSolo } from '../../services/appEnv';
 import { useGymSwitch } from '../hooks/useGymSwitch';
 import { BackupPage, BackupRow, ExportPage, ImportPage } from './data/DataSafetySection';
 import { Go, Group, Line, Seg, Stack, Toggle, type Opt } from './prefsRows';
 import { useBackClose } from '../hooks/useBackClose';
 import { useSheetSwipeClose } from '../hooks/useSheetSwipeClose';
+import { plural } from '../utils/format';
 
 interface PrefsSheetProps {
   open: boolean;
@@ -408,7 +410,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                 <Line name={t('动效', 'Motion')}>
                   <Seg inline opts={motionOpts} value={motion.preference} onPick={motion.setPreference} />
                 </Line>
-                <Go name={t('点按记录', 'Tap log')} onClick={() => setView('taps')} testId="prefs-open-taps" />
+                {/* 点按记录是自用版查丢点击的诊断，单机版不装也不出（审查 solo-isolation#6） */}
+                {!isSolo() && <Go name={t('点按记录', 'Tap log')} onClick={() => setView('taps')} testId="prefs-open-taps" />}
               </Group>
 
               <Group title={t('外观与地区', 'Appearance & region')}>
@@ -472,17 +475,19 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     tone="accent"
                     sub={t(
                       `恢复 / 导入 / 重置前的副本 · ${rollback.workouts} 场训练 · ${localYmd(new Date(rollback.createdAt))} · 留 7 天`,
-                      `Copy from before restore / import / reset · ${rollback.workouts} workouts · ${localYmd(new Date(rollback.createdAt))} · kept 7 days`,
+                      `Copy from before restore / import / reset · ${rollback.workouts} ${plural(rollback.workouts, 'workout')} · ${localYmd(new Date(rollback.createdAt))} · kept 7 days`,
                     )}
                     chevron={false}
                     onClick={() => { void rollbackImport(rollback.newer); }}
                     testId="prefs-undo-import"
                   />
                 )}
+                <Go name={translations.resetAccount[lang]} tone="danger" onClick={onResetAccount} testId="prefs-reset-account" />
               </Group>
 
-              <Group title={t('账户', 'Account')}>
-                {onToggleDevMode && (
+              {/* 只剩切数据环境：单机版、真机包都锁了环境，不传 onToggleDevMode，整组不出 */}
+              {onToggleDevMode && (
+                <Group title={t('账户', 'Account')}>
                   <Go
                     name={t('数据环境', 'Data environment')}
                     sub={
@@ -498,9 +503,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                     chevron={false}
                     onClick={onToggleDevMode}
                   />
-                )}
-                <Go name={translations.resetAccount[lang]} tone="danger" onClick={onResetAccount} testId="prefs-reset-account" />
-              </Group>
+                </Group>
+              )}
               {/* 只有 scripts/gym-ship.ps1 打的包带这行：和下载页上的戳对一眼，确认装上的是刚打的那个 */}
               {import.meta.env.VITE_BUILD_STAMP && (
                 <p className="text-center text-label text-tertiary tabular-nums" data-testid="build-stamp">

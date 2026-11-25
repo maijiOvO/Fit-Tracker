@@ -156,9 +156,9 @@ export const translations: TranslationStrings = {
   tagFullBody: { en: 'Full Body', cn: '全身' },
   subFullBody: { cn: '全身', en: 'Full Body' },
 
-  // ✅ 问题4: 一键重置账户功能翻译
-  resetAccount: { en: 'Reset account', cn: '重置账户' },
-  resetAccountWarning: { en: 'Reset account data', cn: '重置账户数据' },
+  // 一键重置全部数据。叫「重置」不叫「清空」，和要手打的确认词「重置 / RESET」一致（审查 solo-isolation#6）
+  resetAccount: { en: 'Reset all data', cn: '重置全部数据' },
+  resetAccountWarning: { en: 'Reset all data', cn: '重置全部数据' },
   resetAccountDesc: { 
     en: 'Deletes all data, including:\n\n• Workouts\n• Goals and progress\n• Custom exercises and tags\n• Weight logs\n• Settings and notes\n• Profile picture',
     cn: '删除全部数据，包括：\n\n• 训练记录\n• 目标和进度\n• 自定义动作和标签\n• 体重记录\n• 设置和备注\n• 头像'
@@ -166,9 +166,9 @@ export const translations: TranslationStrings = {
   resetConfirmText: { en: 'Type "RESET" to confirm', cn: '输入"重置"确认' },
   resetConfirmPlaceholder: { en: 'RESET', cn: '重置' },
   resetCancel: { en: 'Cancel', cn: '取消' },
-  resetConfirm: { en: 'Reset account', cn: '重置账户' },
+  resetConfirm: { en: 'Reset all data', cn: '重置全部数据' },
   resetInProgress: { en: 'Resetting…', cn: '重置中…' },
-  resetSuccess: { en: 'Account reset', cn: '已重置' },
+  resetSuccess: { en: 'All data reset', cn: '已重置' },
 
   // 日期时间选择器
   hour: { en: 'Hour', cn: '时' },

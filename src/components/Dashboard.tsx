@@ -355,7 +355,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           原来这里和下面的天 / 周 / 月 / 年是两张一模一样的灰卡，列表前先叠三块卡，
           两层切换也看不出谁管谁（2026-10-22 界面审查：卡片套卡片）。
           下划线取 --accent-text：浅色的青 / 橙 / 浅蓝填充色在白底上不到 3:1，当唯一的选中标记不够。 */}
-      <div className="flex items-stretch border-b border-divider">
+      {/* flex-wrap：英文 / 大字号下放不下时天周月年整组掉到第二行靠右，不出屏（审查 i18n-settings#4） */}
+      <div className="flex flex-wrap items-stretch border-b border-divider">
         <button
           type="button"
           onClick={() => setView('timeline')}
@@ -384,7 +385,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         </button>
         {/* 天 / 周 / 月 / 年只管「按时间」，和标签同一行：列表前少叠一层控件 */}
         {view === 'timeline' && workouts.length > 0 && (
-          <div className="ml-auto self-center flex gap-0.5 p-0.5 bg-inset rounded-control" role="group" data-testid="timeline-granularity">
+          <div className="ml-auto shrink-0 self-center flex gap-0.5 p-0.5 bg-inset rounded-control" role="group" data-testid="timeline-granularity">
             {([
               ['day', '天', 'D'],
               ['week', '周', 'W'],

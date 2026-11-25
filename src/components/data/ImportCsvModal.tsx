@@ -31,6 +31,7 @@ import { markBackupPending } from '../../../services/fitlogAutoBackup';
 import { FITLOG_SOLO_USER_ID } from '../../../services/fitlogSolo';
 import { overwriteFailedText, overwriteNote, setFlash } from './flash';
 import { blockBack } from '../../hooks/useBackClose';
+import { plural } from '../../utils/format';
 
 export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang, unit } = useUserSettingsContext();
@@ -127,11 +128,11 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
     const { date, malformed, numbers } = plan.skipped;
     if (date + malformed) {
       const why = [date ? t(`日期认不出 ${date} 行`, `${date} with unreadable dates`) : '', malformed ? t(`格式不对 ${malformed} 行`, `${malformed} malformed`) : ''];
-      report.push(t(`跳过 ${date + malformed} 行（${why.filter(Boolean).join('、')}）`, `Skipped ${date + malformed} rows (${why.filter(Boolean).join(', ')})`));
+      report.push(t(`跳过 ${date + malformed} 行（${why.filter(Boolean).join('、')}）`, `Skipped ${date + malformed} ${plural(date + malformed, 'row')} (${why.filter(Boolean).join(', ')})`));
     }
-    if (numbers) report.push(t(`${numbers} 个数没读懂，按空导`, `${numbers} numbers couldn't be read and were left empty`));
+    if (numbers) report.push(t(`${numbers} 个数没读懂，按空导`, `${numbers} ${plural(numbers, "number couldn't be read and was", "numbers couldn't be read and were")} left empty`));
     if (plan.ambiguousNumbers)
-      report.push(t(`${plan.ambiguousNumbers} 个数分不清小数点和千分位，按分隔符猜着读`, `${plan.ambiguousNumbers} numbers were ambiguous (decimal or thousands) and read by the file's delimiter`));
+      report.push(t(`${plan.ambiguousNumbers} 个数分不清小数点和千分位，按分隔符猜着读`, `${plan.ambiguousNumbers} ${plural(plan.ambiguousNumbers, 'number was', 'numbers were')} ambiguous (decimal or thousands) and read by the file's delimiter`));
     if (plan.ignoredColumns.length) report.push(t(`没读的列：${plan.ignoredColumns.join('、')}`, `Columns not imported: ${plan.ignoredColumns.join(', ')}`));
     if (plan.dateOrderGuessed)
       report.push(
@@ -146,7 +147,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
     if (!write.length) {
       toast(
         res.workouts.length
-          ? t(`这 ${overlap} 场都导入过了`, `All ${overlap} workouts were imported before`)
+          ? t(`这 ${overlap} 场都导入过了`, overlap === 1 ? 'This workout was imported before' : `All ${overlap} workouts were imported before`)
           : !warmups && plan.warmupSets
             ? t('文件里只有热身组：勾选「热身组也导入」再导', 'Only warm-up sets in this file: tick "Also import warm-up sets" first')
             : t('文件里的组都超出重量上限：勾选「也导入超上限的组」再导', 'Every set is over the weight cap: tick "Also import sets over the cap" first'),
@@ -167,7 +168,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
       const pushed = await addImportedRecords({ ...res, metricSeeds }, mode).finally(() => blockBack(false));
       markBackupPending();
       setFlash(
-        t(`已导入 ${write.length} 场训练（${setsIn(write)} 组）`, `Imported ${write.length} workouts (${setsIn(write)} sets)`) + overwriteNote(pushed, isCn),
+        t(`已导入 ${write.length} 场训练（${setsIn(write)} 组）`, `Imported ${write.length} ${plural(write.length, 'workout')} (${setsIn(write)} ${plural(setsIn(write), 'set')})`) + overwriteNote(pushed, isCn),
         'success',
       );
       window.location.reload();
@@ -203,14 +204,14 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
       title={plan ? t(`从 ${plan.source === 'strong' ? 'Strong' : 'Hevy'} 导入`, `Import from ${plan.source === 'strong' ? 'Strong' : 'Hevy'}`) : ''}
       subtitle={
         res && first && last
-          ? t(`${res.workouts.length} 场训练 · ${fmtDay(first.date)} 至 ${fmtDay(last.date)}`, `${res.workouts.length} workouts · ${fmtDay(first.date)} – ${fmtDay(last.date)}`)
+          ? t(`${res.workouts.length} 场训练 · ${fmtDay(first.date)} 至 ${fmtDay(last.date)}`, `${res.workouts.length} ${plural(res.workouts.length, 'workout')} · ${fmtDay(first.date)} – ${fmtDay(last.date)}`)
           : t('0 场训练', '0 workouts')
       }
       testId="import-csv-modal"
       footer={
         <button type="button" className="ui-btn-primary w-full py-3.5 flex items-center justify-center gap-2" disabled={busy} onClick={() => void run()} data-testid="import-csv-run">
           {busy && <RefreshCw size={16} className="animate-spin" />}
-          {t(`导入 ${write.length} 场训练`, `Import ${write.length} workouts`)}
+          {t(`导入 ${write.length} 场训练`, `Import ${write.length} ${plural(write.length, 'workout')}`)}
         </button>
       }
     >
@@ -246,7 +247,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
                   {/* 「最重」放最前：判断单位全靠它，名字太长被截掉的应该是来源名 */}
                   <p className="text-xs text-tertiary truncate">
                     {r.maxWeight > 0 && `${t('最重', 'max')} ${r.maxWeight}${r.maxUnit ? ` ${uLabel(r.maxUnit)}` : ''} · `}
-                    {t(`${r.sets} 组`, `${r.sets} sets`)}
+                    {t(`${r.sets} 组`, `${r.sets} ${plural(r.sets, 'set')}`)}
                     {' · '}
                     {r.def ? `← ${r.srcName}` : t('新建自定义动作', 'New custom exercise')}
                   </p>
@@ -268,7 +269,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
           {!!res?.overCapSets && (
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={keepOverCap} onChange={e => setKeepOverCap(e.target.checked)} />
-              {t(`也导入超出重量上限的 ${res.overCapSets} 组`, `Also import ${res.overCapSets} sets over the weight cap`)}
+              {t(`也导入超出重量上限的 ${res.overCapSets} 组`, `Also import ${res.overCapSets} ${plural(res.overCapSets, 'set')} over the weight cap`)}
             </label>
           )}
           {overlap > 0 && (
@@ -295,7 +296,7 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
             {overlap > 0 && mode === 'replace'
               ? t(
                   `这 ${overlap} 场会换成文件里的内容，在 fitlog 里改过的也一样；其余记录不动，导入前自动存可撤销副本。`,
-                  `These ${overlap} workouts will be replaced with the file's version, including any edits made in fitlog; other records stay as they are and an undoable copy is saved first.`,
+                  `${overlap === 1 ? 'This workout' : `These ${overlap} workouts`} will be replaced with the file's version, including any edits made in fitlog; other records stay as they are and an undoable copy is saved first.`,
                 )
               : t(
                   '不影响现有记录，导入前自动存可撤销副本。对错的动作之后可在动作库并入。',

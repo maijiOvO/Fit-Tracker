@@ -22,6 +22,7 @@ import {
 } from '../../hooks/useDataSafety';
 import { backupErrorText, needsRepick } from './flash';
 import { Go, Group, Name, Primary, Stack } from '../prefsRows';
+import { plural } from '../../utils/format';
 
 function ago(iso: string, isCn: boolean): string {
   const d = new Date(iso);
@@ -163,7 +164,7 @@ export const BackupPage: React.FC = () => {
       name={status.lastOkAt ? `${t('上次备份', 'Last backup')} · ${ago(status.lastOkAt, isCn)}` : t('还没有备份', 'No backup yet')}
       sub={
         displayPath(folder, isCn) +
-        (status.lastOkAt && status.fileCount != null ? t(` · 共 ${status.fileCount} 份`, ` · ${status.fileCount} files`) : '')
+        (status.lastOkAt && status.fileCount != null ? t(` · 共 ${status.fileCount} 份`, ` · ${status.fileCount} ${plural(status.fileCount, 'file')}`) : '')
       }
     />
   );

@@ -1476,7 +1476,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
               if (!selectable) {
                 return (
                   <p className="px-2 py-1 text-xs text-tertiary" data-testid="equip-resistance">
-                    {isCn ? '阻力' : 'Load'}：{resName(cur)}
+                    {isCn ? '阻力：' : 'Load: '}{resName(cur)}
                     {resistanceSelectable(id) ? (isCn ? '（默认）' : ' (default)') : ''}
                   </p>
                 );

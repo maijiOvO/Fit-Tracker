@@ -26,6 +26,7 @@ import { FolderError, folderSupported, pickFolder, readText, writeText, type Fol
 import { buildWorkoutsCsv, csvFileName } from '../../services/fitlogCsvExport';
 import { saveTextFile } from '../../services/fitlogSaveFile';
 import { backupErrorText, saveOutcomeText } from '../components/data/flash';
+import { plural } from '../utils/format';
 
 export const OPEN_DATA_FLOW_EVENT = 'fitlog:open-data-flow';
 export type DataFlow = 'restore' | 'import-csv' | 'setup';
@@ -55,7 +56,7 @@ function useReportBackup(): (o: BackupOutcome) => void {
     (o: BackupOutcome) => {
       if (o.kind === 'ok') {
         toast(
-          (isCn ? `已备份并核对：${o.workouts} 场训练` : `Backed up and verified: ${o.workouts} workouts`) +
+          (isCn ? `已备份并核对：${o.workouts} 场训练` : `Backed up and verified: ${o.workouts} ${plural(o.workouts, 'workout')}`) +
             (o.held > 0
               ? isCn
                 ? `；${o.held} 份旧备份含这台手机没有的记录，已保留`
@@ -169,7 +170,7 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
         decimalComma: new Intl.NumberFormat().formatToParts(1.5).find(p => p.type === 'decimal')?.value === ',',
       });
       const name = csvFileName(isCn);
-      const ok = isCn ? `已导出 ${rows} 组（${done.length} 场训练）` : `Exported ${rows} sets (${done.length} workouts)`;
+      const ok = isCn ? `已导出 ${rows} 组（${done.length} 场训练）` : `Exported ${rows} ${plural(rows, 'set')} (${done.length} ${plural(done.length, 'workout')})`;
       try {
         if (target === 'folder') {
           const folder = getBackupFolder();

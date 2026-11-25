@@ -124,7 +124,6 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-display text-display-sm text-primary truncate">{FITLOG_SOLO_USER.username}</h2>
-          <p className="text-label text-secondary truncate">{FITLOG_SOLO_USER.email}</p>
         </div>
         <div className="flex-shrink-0 text-right">
           {/* 一组都没做完的空场不算一场 */}

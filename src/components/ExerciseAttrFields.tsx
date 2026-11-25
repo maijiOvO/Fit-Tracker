@@ -95,7 +95,7 @@ export const ExerciseAttrFields: React.FC<Props> = ({ lang, value, onChange, var
   const equipLabel = value.equipment
     ? getTagName(value.equipment) || noneEquipLabel
     : variant
-      ? `${noneEquipLabel}${variant.inherited.equipment ? `（${getTagName(variant.inherited.equipment)}）` : ''}`
+      ? `${noneEquipLabel}${variant.inherited.equipment ? (isCn ? `（${getTagName(variant.inherited.equipment)}）` : ` (${getTagName(variant.inherited.equipment)})`) : ''}`
       : noneEquipLabel;
 
   /** 一个选项格：统一宽度的格子，选中的上淡底 —— 不再是长短不一的胶囊 */

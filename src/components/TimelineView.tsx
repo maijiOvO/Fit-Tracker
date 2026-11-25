@@ -19,7 +19,7 @@ import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
 import { armSwallow, disarmSwallow, newClickSwallow, takeSwallow } from '../utils/tap';
-import { dateFormat, dayOfWeekIndex } from '../utils/dateUtils';
+import { dateFormat, dayOfWeekIndex, monthDay } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
 import { realSets } from '../utils/prDetect';
 import { sessionDurationMin } from '../utils/sessionDuration';
@@ -110,17 +110,13 @@ function getGroupInfo(
   }
   if (granularity === 'week') {
     const { key, start, end } = getISOWeekKey(date);
-    const sm = start.getMonth() + 1;
-    const sd = start.getDate();
-    const em = end.getMonth() + 1;
-    const ed = end.getDate();
     const weekNum = parseInt(key.split('W')[1], 10);
     // 年份跟周号走（ISO 周年）：12/30 – 1/5 那一周是下一年的第 1 周，原来写成「上一年 · 第 1 周」（审查 C）
     const isoYear = key.slice(0, 4);
     // 日期范围拆成副行：原来整串「2026年 · 第41周 (10/5 - 10/11)」挤在一行，
     // 375 宽下把右边「2 场 · 16 动作 · 47 组」压成每项两行（2026-10-22）
     const label = isCN ? `${isoYear}年 · 第${weekNum}周` : `${isoYear} · Week ${weekNum}`;
-    return { key, label, sortKey: key, sub: `${sm}/${sd} – ${em}/${ed}` };
+    return { key, label, sortKey: key, sub: `${monthDay(start, isCN)} – ${monthDay(end, isCN)}` };
   }
   if (granularity === 'month') {
     const y = date.getFullYear();

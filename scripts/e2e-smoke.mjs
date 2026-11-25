@@ -380,12 +380,15 @@ const SEEDED_STEPS = [
   ['seeded-gym-profile-and-switch', ['seeded-load'], H],
   ['seeded-alt-combos', ['seeded-load'], H],
   ['seeded-lift-detail-delete-last', ['seeded-load'], H],
+  ['seeded-narrow-header', ['seeded-load'], H],
 ];
 /** 分片：每片一个 context。按耗时大致摊平 */
 const SEEDED_SHARDS = [
   ['seeded-history-edit', 'seeded-sync-contract', 'seeded-profile-data'],
   ['seeded-picker-and-library', 'seeded-resumed-emptied-keeps-workout', 'seeded-alt-combos', 'seeded-goals'],
   ['seeded-plan-target-unit', 'seeded-gym-profile-and-switch', 'seeded-lift-detail-delete-last'],
+  // 改视口和语言：单独一片
+  ['seeded-narrow-header'],
 ];
 
 const ONLY = parseOnly(process.env.E2E_ONLY);
@@ -1529,6 +1532,93 @@ const SEEDED = {
     await page.locator('[data-testid="picker-settle"]').waitFor({ state: 'detached', timeout: 3_000 });
     await backAndDiscard(page);
     return 'row → latest pair · older combo → replaced with all three · member panel portaled · 左 ⇄ 右 pair keeps both sides';
+  },
+
+  // 窄屏顶栏（审查 C46 / i18n-settings#4）：训练页顶栏中间列被撤销列和结束键挤扁、编辑态折行后 ::before 热区盖住上一行、
+  // 首页天周月年在英文 320 宽出屏。热区看不见、被挤压只有真实排版量得出，作者日常的 390 宽中文碰不到这些宽度，下层测不到。
+  // 断言：每个控件墨迹中心点下去落在它自己身上（hitSelf）。单独一片：改视口和语言不影响别的用例
+  'seeded-narrow-header': async ({ page, remote, quiesce, relaunch, menuOn }) => {
+    const W_GYM = { ...seedWorkout('seed_narrow_gym', torontoAt(torontoYmd(3), 18, 0), 'E2E 窄屏', '杠铃深蹲', [[60, 5]]), gym: 'E2E Gym' };
+    const setLang = async lang => {
+      await quiesce();
+      const prefs = remote.snapshot.prefs ?? {};
+      remote.snapshot = {
+        ...remote.snapshot,
+        workouts: [...(remote.snapshot.workouts ?? []).filter(w => w.id !== W_GYM.id), W_GYM],
+        prefs: { ...prefs, lang, prefsLastUpdateMs: Date.now() + 1000 },
+      };
+      await relaunch();
+    };
+    /** 每个选择器取第一个看得见的元素，量它文字 / 图标的墨迹中心，elementFromPoint 不落在它自己（或子元素）上就记下来 */
+    const hitSelf = sels =>
+      page.evaluate(list => {
+        const bad = [];
+        for (const sel of list) {
+          const el = [...document.querySelectorAll(sel)].find(e => e.getBoundingClientRect().width > 0);
+          if (!el) { bad.push(`${sel}: missing`); continue; }
+          const r = document.createRange();
+          r.selectNodeContents(el);
+          const b = r.getBoundingClientRect();
+          const x = b.left + b.width / 2, y = b.top + b.height / 2;
+          const hit = document.elementFromPoint(x, y);
+          if (!hit || !el.contains(hit)) bad.push(`${sel} @${Math.round(x)},${Math.round(y)} → ${hit?.getAttribute('data-testid') || hit?.getAttribute('aria-label') || hit?.tagName}`);
+        }
+        return bad;
+      }, sels);
+    const HEAD = ['[aria-label="返回"], [aria-label="Back"]', '[data-testid="workout-date-button"]', '[data-testid="gym-button"]', '[data-testid="unit-toggle"]', '[data-testid="global-undo"]', '[data-testid="global-redo"]', '[data-testid="finish-button"]'];
+    const RIGHT = HEAD.slice(4);
+    const expectHits = async (sels, where) => {
+      const bad = await hitSelf(sels);
+      if (bad.length) throw new Error(`${where}: taps land on the wrong control: ${bad.join(' | ')}`);
+    };
+    const gymWidth = () => page.locator('[data-testid="gym-button"]').evaluate(e => e.getBoundingClientRect().width);
+    const leave = async () => {
+      await page.getByRole('button', { name: /^返回$|^Back$/ }).first().click();
+      if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) await clickAppConfirm(page, /^(放弃修改|Discard)$/);
+      await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
+    };
+    const sized = async w => {
+      await page.setViewportSize({ width: w, height: 844 });
+      await settle(page);
+    };
+    const out = [];
+    try {
+      await setLang('en');
+      // a. 首页天周月年：英文 320 宽整组掉到第二行，不出屏
+      await sized(320);
+      const g = page.locator('[data-testid="timeline-granularity"] button');
+      await g.last().waitFor({ state: 'visible', timeout: 3_000 });
+      const yRight = await g.last().evaluate(e => e.getBoundingClientRect().right);
+      if (yRight > 320) throw new Error(`EN 320: the granularity group runs off screen (Y right edge ${yRight})`);
+      await expectHits(['[data-testid="timeline-granularity"] button:last-child', '[data-testid="timeline-granularity"] button:first-child'], 'EN 320 home');
+
+      for (const lang of ['en', 'cn']) {
+        if (lang === 'cn') await setLang('cn');
+        // b. 训练中，360 / 320 宽：中间列再挤，撤销、重做、结束也点到自己。
+        // 馆按钮宽度和中间列各控件还不断言：要等结束键在手机上收窄（C46 第 1 步，待作者定），现在 360 宽馆按钮只剩图钉
+        await sized(360);
+        await page.getByRole('button', { name: /开始训练|Start workout/i }).first().click();
+        await pickStartGym(page);
+        await settle(page);
+        out.push(`${lang} gym ${Math.round(await gymWidth())}px`);
+        await expectHits(RIGHT, `${lang} 360 live`);
+        await sized(320);
+        await expectHits(RIGHT, `${lang} 320 live`);
+        await sized(360);
+        await backAndDiscard(page);
+        // c. 编辑旧训练（有馆 / 无馆）：折行后点日期不开选馆、点无馆图钉不切单位
+        for (const id of [W_GYM.id, W_HEAT.id]) {
+          await menuOn(id, /编辑这场|Edit/);
+          await page.locator('[data-testid="finish-button"]').waitFor({ timeout: 5_000 });
+          await settle(page);
+          await expectHits(HEAD, `${lang} 360 edit ${id}`);
+          await leave();
+        }
+      }
+    } finally {
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+    return `EN 320 home fits · ${out.join(' · ')} · live + edit hits all land on their own control`;
   },
 };
 

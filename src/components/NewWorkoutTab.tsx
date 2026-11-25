@@ -55,7 +55,8 @@ import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { altCombosByName, type LastHit } from '../utils/prefillSource';
 import { isBackdated } from '../utils/sessionDate';
-import { isToday } from '../utils/dateUtils';
+import { isToday, monthDay } from '../utils/dateUtils';
+import { isTypingTarget, nextKeyboardGuess } from '../utils/keyboardGuess';
 import { BodyPartPicker, isPartTitle, partTitleFor } from './BodyPartPicker';
 import { useCardReorder } from '../hooks/useCardReorder';
 import { ReorderStrip } from './ReorderStrip';
@@ -286,25 +287,33 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     return n;
   };
   /**
-   * 键盘在不在（审查 A9）：不看输入框焦点 —— 用系统的收起键盘收掉键盘后，输入框还拿着焦点，操作条会一直不回来。
-   * 看可见视口比见过的最高矮了多少：Capacitor adjustResize 下 innerHeight 跟着缩，和它比不出来。宽度变了（转屏）重新记。
+   * 键盘在不在（审查 A9）：键盘本身不看输入框焦点 —— 用系统的收起键盘收掉键盘后，输入框还拿着焦点，操作条会一直不回来。
+   * 看可见视口比见过的最高矮了多少：Capacitor adjustResize 下 innerHeight 跟着缩，和它比不出来。
+   * 焦点只决定「这次变矮算不算键盘」：没人在打字时变矮是分屏 / 拉矮窗口，重新记（navigation-overlays#4，规则在 keyboardGuess）。
+   * focusout 推迟一拍再判：焦点在两格之间切换的那一瞬 activeElement 是 body，马上判会当成键盘已收。
    */
   const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    let tallest = vv.height;
-    let width = vv.width;
+    let base = { tallest: vv.height, width: vv.width };
     const sync = () => {
-      if (vv.width !== width) {
-        width = vv.width;
-        tallest = vv.height;
-      }
-      tallest = Math.max(tallest, vv.height);
-      setKeyboardUp(tallest - vv.height > 150);
+      const r = nextKeyboardGuess(base, vv, isTypingTarget(document.activeElement));
+      base = r.next;
+      setKeyboardUp(r.up);
+    };
+    let timer: number | undefined;
+    const onFocusOut = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(sync, 0);
     };
     vv.addEventListener('resize', sync);
-    return () => vv.removeEventListener('resize', sync);
+    document.addEventListener('focusout', onFocusOut);
+    return () => {
+      vv.removeEventListener('resize', sync);
+      document.removeEventListener('focusout', onFocusOut);
+      window.clearTimeout(timer);
+    };
   }, []);
   const stripRow = selectedRow && !keyboardUp && !pickerOpen ? selectedRow : null;
 
@@ -582,6 +591,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     };
   }, [flashExerciseId, onFlashDone]);
 
+  // 顶栏日期、馆按钮的热区：规则见下面顶栏那行的注释
+  const headHit = editingWorkoutId ? 'before:-inset-y-1' : 'before:-top-4 before:-bottom-1';
+
   return (
     // ⚠️ anim-tab-enter 动的是 transform，而带 transform 的元素会成为
     // position: fixed 子元素的包含块 —— 底部常驻栏与添加动作弹层的 inset-0
@@ -604,9 +616,11 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <div className="flex-1 min-w-0 space-y-1">
             {/* 编辑态五项挤不下一行，整项折到第二行（每项 nowrap，否则压成一字一行）。
                 训练中只有日期、馆和单位：不折行，馆名让位，头部高度不随按钮状态跳。
-                手机宽度下这一行夹在撤销列和结束键之间只剩约 100px：今天的日期只给图标、备注图标放到标题行，
-                否则馆名被压成 0 宽、点不到。 */}
-            <div className={`flex ${editingWorkoutId ? 'flex-wrap' : ''} items-center gap-x-2 gap-y-1 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap`}>
+                手机宽度下这一行夹在撤销列和结束键之间只剩约 100px：今天的日期只给图标、备注图标放到标题行、单位键不带秤图标、
+                英文日期写「Nov 12」不带星期，否则馆名被压成 0 宽、点不到；图钉不跟着压（flex-shrink-0），让位的只有馆名。
+                热区（::before）的规则：折行时上下各伸出不超过行距的一半，否则盖住上一行的按钮（审查 C46）——
+                编辑态行距 gap-y-2、日期和馆只伸 4px、单位键不伸；训练态不折行，上方只有状态栏留白，可以往上多伸。 */}
+            <div className={`flex ${editingWorkoutId ? 'flex-wrap gap-y-2' : ''} items-center gap-x-2 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap`}>
               {/* 「新建训练」字样拿掉了（2026-10-25）：顶栏要给撤销 / 重做让一列，训练页本身就说明了是新的一场；
                   编辑旧训练还写「编辑训练」—— 那时保存语义不一样，得看得出来 */}
               {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit workout'}</span>}
@@ -615,7 +629,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 <button
                   type="button"
                   onClick={onChangeDate}
-                  className="relative before:absolute before:-top-4 before:-bottom-1 before:-inset-x-1 flex-shrink-0 normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1"
+                  className={`relative before:absolute ${headHit} before:-inset-x-1 flex-shrink-0 normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1`}
                   title={isCn ? '修改训练日期' : 'Change workout date'}
                   aria-label={isCn ? '修改训练日期' : 'Change workout date'}
                   data-testid="workout-date-button"
@@ -623,10 +637,9 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   {editingWorkoutId && '· '}
                   {!editingWorkoutId && isToday(new Date(currentWorkout.date))
                     ? <CalendarDays size={10} strokeWidth={2} />
-                    : new Date(currentWorkout.date).toLocaleDateString(
-                        isCn ? 'zh-CN' : 'en-US',
-                        { month: 'numeric', day: 'numeric', weekday: 'short' },
-                      )}
+                    : isCn
+                      ? new Date(currentWorkout.date).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
+                      : monthDay(new Date(currentWorkout.date), false)}
                 </button>
               )}
               {/* §12.11 场地：日期右边一格。没标过时只是个淡图标，
@@ -636,24 +649,24 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   type="button"
                   onClick={onChangeGym}
                   // 没选馆时只剩一个图标，以前再降到 45% 透明度，约 1.9:1 看不见能点（2026-10-22 颜色审查）
-                  className="relative before:absolute before:-top-4 before:-bottom-1 before:-inset-x-2 min-w-[10px] normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary"
+                  className={`relative before:absolute ${headHit} before:-inset-x-2 min-w-[10px] normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary`}
                   title={translations.gymPickTitle[lang] as string}
                   aria-label={translations.gymPickTitle[lang] as string}
                   data-testid="gym-button"
                 >
-                  <MapPin size={10} strokeWidth={2} />
+                  <MapPin size={10} strokeWidth={2} className="flex-shrink-0" />
                   <span className="max-w-[6rem] truncate">{currentWorkout.gym || ''}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={onToggleUnit}
-                className="relative before:absolute before:-top-3 before:-bottom-1 before:inset-x-0 ml-auto flex-shrink-0 normal-case tracking-normal flex items-center gap-1 px-2 py-1 -my-1 rounded-chip bg-inset text-tertiary active:scale-press-sm hover:text-secondary transition-ui"
+                className={`relative ${editingWorkoutId ? '' : 'before:absolute before:-top-3 before:-bottom-1 before:inset-x-0 -my-1'} ml-auto flex-shrink-0 normal-case tracking-normal flex items-center gap-1 px-2 py-1 rounded-chip bg-inset text-tertiary active:scale-press-sm hover:text-secondary transition-ui`}
                 title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
                 aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
                 data-testid="unit-toggle"
               >
-                <Scale size={10} />
+                <Scale size={10} className="max-sm:hidden" />
                 {unit}
               </button>
               {/* 只在编辑旧训练、草稿和原样真不一样时亮；新训练每一下都已自动保存，不挂这个 */}
@@ -690,8 +703,12 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             </div>
           </div>
 
-          {/* 全局撤销 / 重做：独占一列、上下两行都不伸到它下面，纵向没有别的按钮（2026-10-25） */}
-          <UndoRedoButtons isCn={isCn} />
+          {/* 全局撤销 / 重做：独占一列、上下两行都不伸到它下面，纵向没有别的按钮（2026-10-25）。
+              包一层压在中间列上面（结束键同理）：中间列再挤也只会被盖住，撤销、重做、结束永远点到自己（C46）。
+              不用 overflow-x-clip 做这道保护：它会把日期、馆、单位往上伸的热区一起裁掉 */}
+          <div className="relative z-[1] bg-base">
+            <UndoRedoButtons isCn={isCn} />
+          </div>
 
           <button
             type="button"
@@ -700,7 +717,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             // 编辑旧训练只看改没改：动作删光也能点，点了说去哪删整场（上架审查 C90）
             disabled={saveStatus === 'saving' || (editingWorkoutId ? !hasUnsavedChanges : !currentWorkout.exercises?.length)}
             data-testid="finish-button"
-            className={`min-h-[44px] min-w-[114px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
+            className={`relative z-[1] min-h-[44px] min-w-[114px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'

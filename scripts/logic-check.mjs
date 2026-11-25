@@ -64,7 +64,8 @@ await build({
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
       "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired } from './src/utils/sessionDate.ts';",
-      "export { resolvePickedDate, stepMinute, msToNextLocalMidnight } from './src/utils/dateUtils.ts';",
+      "export { resolvePickedDate, stepMinute, msToNextLocalMidnight, monthDay } from './src/utils/dateUtils.ts';",
+      "export { nextKeyboardGuess } from './src/utils/keyboardGuess.ts';",
       "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
       "export { handleHardwareBack } from './src/hooks/useBackClose.ts';",
       "export { planMergeIntoPrevious, mergeableIds } from './src/utils/sessionMerge.ts';",
@@ -1536,6 +1537,31 @@ const withTZ = (tz, fn) => {
     else process.env.TZ = was;
   }
 };
+
+t('不带年的短日期：英文写月份缩写，中文保持 3/4（i18n-settings#7）', () => {
+  // 防的错：英文写成「3/4」，美式和欧式读者读成两个不同的日子；或有人把中文「统一」成「3月4日」，破了 design-plates 的规格
+  const d = new Date(2026, 2, 4);
+  assert.equal(L.monthDay(d, false), 'Mar 4');
+  assert.ok(!L.monthDay(d, false).includes('/'));
+  assert.equal(L.monthDay(d, true), '3/4');
+});
+
+t('软键盘判定：分屏 / 拉矮窗口不算键盘，系统收起键盘后焦点还在也能判收起（navigation-overlays#4 / A9）', () => {
+  // 防的错：只看「比见过的最高矮了 150」，分屏把窗口变矮也当成键盘弹起，训练页操作条一直藏着；
+  // 反过来若改成「有焦点才算键盘在」，系统收起键盘后焦点不走，操作条又回不来（A9）
+  const run = (steps, w0, h0) => {
+    let base = { tallest: h0, width: w0 };
+    return steps.map(([w, h, typing]) => {
+      const r = L.nextKeyboardGuess(base, { width: w, height: h }, typing);
+      base = r.next;
+      return r.up;
+    });
+  };
+  assert.deepEqual(run([[393, 420, false], [393, 851, false]], 393, 851), [false, false], '① 不打字进分屏、再退出');
+  assert.deepEqual(run([[393, 420, false], [393, 160, true], [393, 160, false]], 393, 851), [false, true, false], '② 分屏后打字、再失焦');
+  assert.deepEqual(run([[393, 520, true], [393, 851, true], [393, 520, true]], 393, 851), [true, false, true], '③ A9：焦点不走，高度回升即收起');
+  assert.deepEqual(run([[851, 393, false], [851, 200, true]], 393, 851), [false, true], '④ 转屏后重新记');
+});
 
 t('日期选择器的确定值：同一分钟原样确定不算改；选到未来夹到现在；夹完和初值同一分钟也不算改（C26 / C25）', () => {
   const initial = new Date(2026, 10, 24, 10, 3, 27, 384);

@@ -61,6 +61,7 @@ import { AppHeader } from './src/components/AppHeader';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { undoLabelOf, useUndoGestures } from './src/hooks/useUndoGestures';
 import { installTapLog } from './src/utils/tap';
+import { isSolo } from './services/appEnv';
 import { useGlobalUndoHost } from './src/hooks/useGlobalUndo';
 import { undoJournal } from './services/undoJournal';
 import {
@@ -121,6 +122,7 @@ import { createPortal } from 'react-dom';
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { handleHardwareBack } from './src/hooks/useBackClose';
+import { plural } from './src/utils/format';
 
 const NO_ADDED_COUNTS: Record<string, number> = Object.create(null);
 /** 新建目标表单的初值：保存成功后复位到这里（取消保留草稿） */
@@ -189,8 +191,8 @@ const AppWithAuthShell: React.FC = () => {
 
   // ============== 全局撤销 / 重做（services/undoJournal.ts） ==============
   useUndoGestures();
-  // 点按记录：按下了却没触发的那几下留个底（首选项「点按记录」）
-  useEffect(() => installTapLog(undoLabelOf), []);
+  // 点按记录：按下了却没触发的那几下留个底（首选项「点按记录」）。自用版查丢点击的诊断，单机版不装（solo-isolation#6）
+  useEffect(() => (isSolo() ? undefined : installTapLog(undoLabelOf)), []);
   useGlobalUndoHost({
     activeTab,
     goTo: tab => setActiveTab(tab),
@@ -1582,7 +1584,7 @@ const AppWithAuthShell: React.FC = () => {
                 toast(
                   isCn
                     ? `已改名为「${name}」${n ? `，${n} 场训练一起改了` : ''}`
-                    : `Renamed to "${name}"${n ? ` — ${n} workouts updated` : ''}`,
+                    : `Renamed to "${name}"${n ? ` — ${n} ${plural(n, 'workout')} updated` : ''}`,
                   'success',
                 );
                 scheduleDebouncedFitlogPush();

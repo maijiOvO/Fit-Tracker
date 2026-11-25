@@ -33,6 +33,7 @@ import { setVolumeKg, signedKg } from '../utils/load';
 import { formatLoad, lastSetLine } from '../utils/liftDisplay';
 import { prSetIndex, type PRPool } from './ExerciseCard';
 import { haptic, H } from '../utils/haptics';
+import { monthDay } from '../utils/dateUtils';
 import { formatVolume, plural } from '../utils/format';
 
 interface Props {
@@ -298,7 +299,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
     // 只写记录项里有的（审查 gap-5#6，同单卡）
     const metrics = getActiveMetrics(resolveName(m.name));
     const sets = last.sets.map(s => lastSetLine(formatLoad(signedKg(s, m), u, signed, isCn), s, metrics, u, lang)).join(isCn ? '、' : ', ');
-    return `${isCn ? '上次' : 'Last'} ${d.getMonth() + 1}/${d.getDate()} · ${sets}${metrics.includes('weight') ? ` ${u === 'lbs' ? 'lb' : 'kg'}` : ''}`;
+    return `${isCn ? '上次' : 'Last'} ${monthDay(d, isCn)} · ${sets}${metrics.includes('weight') ? ` ${u === 'lbs' ? 'lb' : 'kg'}` : ''}`;
   };
 
   const counter = new Map<string, number>();

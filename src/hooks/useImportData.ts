@@ -20,6 +20,7 @@ import type { ExportStatus } from './useExportData';
 import { backupParseErrorText, overwriteFailedText, overwriteNote, setFlash, undoImportWarning, workbenchDropNote } from '../components/data/flash';
 import { blockBack } from './useBackClose';
 import { pickFile } from '../../services/fitlogPickFile';
+import { plural } from '../utils/format';
 
 export function useImportData(
   setSyncStatus: (status: ExportStatus) => void,
@@ -46,7 +47,7 @@ export function useImportData(
     const { counts } = parsed;
     const summary = isCn
       ? `备份包含 ${counts.workouts} 场训练、${counts.weightLogs} 条体重、${counts.goals} 个目标、${counts.scheduledWorkouts} 条计划。`
-      : `Backup has ${counts.workouts} workouts, ${counts.weightLogs} weight entries, ${counts.goals} goals, ${counts.scheduledWorkouts} scheduled.`;
+      : `Backup has ${counts.workouts} ${plural(counts.workouts, 'workout')}, ${counts.weightLogs} ${plural(counts.weightLogs, 'weight entry', 'weight entries')}, ${counts.goals} ${plural(counts.goals, 'goal')}, ${counts.scheduledWorkouts} scheduled.`;
     const skippedNote = parsed.skipped
       ? isCn
         ? `另有 ${parsed.skipped} 条记录形态不对，不会恢复。`

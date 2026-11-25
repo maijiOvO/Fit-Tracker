@@ -57,6 +57,7 @@ import {
 } from '../../../services/fitlogAutoBackup';
 import { backupErrorText, backupParseErrorText, overwriteFailedText, overwriteNote, setFlash, workbenchDropNote } from './flash';
 import { blockBack } from '../../hooks/useBackClose';
+import { plural } from '../../utils/format';
 
 /** 一份备份的摘要（读过才有后几项）；文件夹里的完整内容不留在内存里，单个文件那份没处再读，留着 parsed */
 interface Entry extends ListedBackup {
@@ -290,7 +291,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void; 
       } else {
         const backup = parsed;
         const pushed = await discardWorkbenchWith(() => applyBackup(backup));
-        message = t(`已恢复：${parsed.counts.workouts} 场训练`, `Restored: ${parsed.counts.workouts} workouts`) + overwriteNote(pushed, isCn);
+        message = t(`已恢复：${parsed.counts.workouts} 场训练`, `Restored: ${parsed.counts.workouts} ${plural(parsed.counts.workouts, 'workout')}`) + overwriteNote(pushed, isCn);
       }
       // 从文件夹恢复的：还没有能用的备份文件夹才顺手设成这个（授权刚拿到）；已有的不改。单个文件不设。重载后补一份备份
       if (source.kind === 'folder') {
@@ -395,7 +396,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void; 
           <>
             <div className="ui-card p-4 space-y-1" data-testid="restore-summary" data-workouts={cur.workouts}>
               <p className="text-primary font-semibold text-base">
-                {t(`找到备份：${cur.workouts} 场训练`, `Found: ${cur.workouts} workouts`)}
+                {t(`找到备份：${cur.workouts} 场训练`, `Found: ${cur.workouts} ${plural(cur.workouts, 'workout')}`)}
               </p>
               {cur.lastDate && <p>{t(`最后一场 ${fmtDay(cur.lastDate)}`, `Last workout ${fmtDay(cur.lastDate)}`)}</p>}
               <p className="text-tertiary text-xs">
@@ -435,7 +436,7 @@ export const RestoreBackupModal: React.FC<{ open: boolean; onClose: () => void; 
                       </span>
                       <span className="text-tertiary whitespace-nowrap">
                         {e.workouts !== undefined
-                          ? t(`${e.workouts} 场`, `${e.workouts} workouts`)
+                          ? t(`${e.workouts} 场`, `${e.workouts} ${plural(e.workouts, 'workout')}`)
                           : e.bad || e.file.size < 0
                             ? ''
                             : `${Math.round(e.file.size / 1024)} KB`}

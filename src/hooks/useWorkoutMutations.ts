@@ -600,7 +600,10 @@ export function useWorkoutMutations({
     async (workoutId: string) => {
       const w = workouts.find(x => x.id === workoutId);
       if (!w) return;
-      const dateLabel = new Date(w.date).toLocaleDateString(isCn ? 'zh-CN' : 'en-US');
+      // 英文不写 11/12/2026：美式和欧式读者读成两个日子（i18n-settings#7）
+      const dateLabel = isCn
+        ? new Date(w.date).toLocaleDateString('zh-CN')
+        : new Date(w.date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
       // 删整场训练一律先确认（2026-10-25 用户定：有了全局撤销，只有删训练、清空账户留确认框；
       // 时间线长按菜单原来跳过确认、靠撤销条兜底，撤销条拆掉了）
       const ok = await confirm({

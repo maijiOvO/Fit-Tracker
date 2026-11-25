@@ -13,7 +13,7 @@ import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { VariantModal } from './modals/VariantModal';
 import { Exercise, Language, SetLog } from '../../types';
 import { translations } from '../../translations';
-import { formatExerciseTime } from '../utils/dateUtils';
+import { formatExerciseTime, monthDay } from '../utils/dateUtils';
 import { SetCapsule, weightScrubFor } from './SetCapsule';
 import { formatLoad, markTouched, restoreKgOf, restoreUpdate, shownWeight, weightFromShown } from '../utils/setWrite';
 import { useValueScrub } from '../hooks/useValueScrub';
@@ -299,10 +299,10 @@ export const ExerciseCard = React.memo(function ExerciseCard({
           const sub = s.subSets?.length ? `→${s.subSets.map(x => lastW(x, s)).join('→')}` : '';
           return lastSetLine(`${lastW(s)}${sub}`, s, activeMetrics, unit === 'lbs' ? 'lbs' : 'kg', lang);
         })
-        .join('、')
+        .join(isCn ? '、' : ', ')
     : '';
   const lastDate = lastSession ? new Date(lastSession.date) : null;
-  const lastDateLabel = lastDate ? `${lastDate.getMonth() + 1}/${lastDate.getDate()}` : '';
+  const lastDateLabel = lastDate ? monthDay(lastDate, isCn) : '';
   // 底稿抄自另一个馆（本馆没练过才会这样，design-plates.md「换馆重量」A）：眉批写明在哪个馆
   const prefillElsewhere = !!exercise.prefillGym && exercise.prefillGym !== gym ? exercise.prefillGym : null;
 

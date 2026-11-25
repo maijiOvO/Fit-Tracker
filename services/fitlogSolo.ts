@@ -6,5 +6,4 @@ export const FITLOG_SOLO_USER_ID = 'u_solo';
 export const FITLOG_SOLO_USER: User = {
   id: FITLOG_SOLO_USER_ID,
   username: 'Me',
-  email: 'solo@fitlog.local',
 };

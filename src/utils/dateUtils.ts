@@ -71,6 +71,13 @@ export const isToday = (date: Date): boolean => {
          date.getFullYear() === today.getFullYear();
 };
 
+/**
+ * 不带年的短日期，跟 App 语言走、不看系统 locale：中文「3/4」（design-plates.md 的规格），
+ * 英文「Mar 4」—— 「3/4」英语读者分不清是 3 月 4 日还是 4 月 3 日（审查 i18n-settings#7）
+ */
+export const monthDay = (d: Date, isCn: boolean): string =>
+  isCn ? `${d.getMonth() + 1}/${d.getDate()}` : dateFormat('en-US', { month: 'short', day: 'numeric' }).format(d);
+
 // 判断是否是同一天
 const isSameDay =(date1: Date, date2: Date): boolean => {
   return date1.getDate() === date2.getDate() && 
