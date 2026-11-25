@@ -92,7 +92,7 @@ export function formatSet(set: SetRef, unit: 'kg' | 'lbs', signed: boolean, isCn
  * 一组里重量、次数以外的记录项：时长、距离、速度、自定义项（带名字），没值的不写（审查 gap-5#6：有氧的「上次」原来写成 0×0）。
  * 「30:00 5 km」
  */
-function metricsTail(set: SetLog, metrics: string[], unit: 'kg' | 'lbs', lang: Language): string {
+export function metricsTail(set: Pick<SetLog, 'duration' | 'distance' | 'speed'>, metrics: string[], unit: 'kg' | 'lbs', lang: Language): string {
   return metrics
     .filter(m => m !== 'weight' && m !== 'reps')
     .flatMap(m => {

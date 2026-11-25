@@ -11,7 +11,7 @@ export function LiftPicker({ isCn, picked, onPick }: { isCn: boolean; picked: st
   const { workouts } = useDoneWorkouts();
   const lifts = useLiftSummaries(workouts);
   const { canonicalLiftId } = useExercisePrefs();
-  const list = lifts.filter(l => l.hasWeight).sort((a, b) => b.lastTs - a.lastTs);
+  const list = lifts.filter(l => l.rule.tracksWeight).sort((a, b) => b.lastTs - a.lastTs);
   if (!list.length) return null;
   const want = picked ? canonicalLiftId(picked) : undefined;
   return (

@@ -8,7 +8,7 @@
  */
 import type { Exercise, WorkoutSession } from '../../types';
 import { signedKg } from './load';
-import { createRecordTracker, e1rmOf, prRuleFor, prSetsOf, type RecordKind } from './prRecords';
+import { createRecordTracker, e1rmOf, prRuleFor, prSetsOf, setSpeedKmh, type PRRule, type RecordKind } from './prRecords';
 
 /** 估算 1RM 的伪指标键。不在 activeMetrics 里，只在图表 / 纪录里出现 */
 export const E1RM = 'e1rm';
@@ -69,7 +69,8 @@ export interface LiftSummary {
   signed: boolean;
   /** 器械类：纪录只和同一个馆比（gymChoices / inGym 按馆看） */
   machine: boolean;
-  hasWeight: boolean;
+  /** 这个动作按哪套规矩判纪录（prRuleFor：记不记重量 / 次数、比哪几项有氧） */
+  rule: PRRule;
   /** 历史里有过一组负荷不为 0（带号动作：加过负重或辅助）；纯自重练的动作为 false */
   loaded: boolean;
   /** 旧 → 新 */
@@ -84,13 +85,13 @@ export interface LiftSummary {
 
 /**
  * 一场里某个指标的值（存储单位）。没有可比的数据返回 null。
- * weight 按带符号的 kg；e1rm 取估算最高的那组；其余指标取各组最大。
+ * weight 按带符号的 kg；e1rm 取估算最高的那组；speed 取各组的速度（没打速度按距离 ÷ 时长算均速）；其余指标取各组最大。
  */
 export function sessionMetric(s: LiftSession, metric: string): number | null {
   if (metric === E1RM) return s.e1rm?.value ?? null;
   if (metric === 'weight') return s.top?.kg ?? null;
   if (metric === 'reps') return s.mostReps?.reps ?? null;
-  const vs = s.sets.map(set => Number(set[metric]) || 0).filter(v => v > 0);
+  const vs = s.sets.map(set => (metric === 'speed' ? setSpeedKmh(set) : Number(set[metric]) || 0)).filter(v => v > 0);
   return vs.length ? Math.max(...vs) : null;
 }
 
@@ -219,7 +220,8 @@ export function buildLiftSummaries({
       if (lift && !lift.ids.includes(sid)) lift.ids.push(sid);
       if (!lift) {
         const baseName = resolveName(ex.name);
-        metricsOf.set(key, getActiveMetrics(baseName));
+        const metrics = getActiveMetrics(baseName);
+        metricsOf.set(key, metrics);
         lift = {
           key,
           stableId: sid,
@@ -227,7 +229,8 @@ export function buildLiftSummaries({
           baseName,
           signed: false,
           machine: false,
-          hasWeight: metricsOf.get(key)!.includes('weight'),
+          // 号和馆在下面逐场判之前定，那时再按定下来的重算
+          rule: prRuleFor(metrics, false, false),
           loaded: false,
           sessions: [],
           lastTs: 0,
@@ -259,7 +262,8 @@ export function buildLiftSummaries({
     lift.lastTs = lift.sessions[lift.sessions.length - 1].ts;
     // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）。累计着判，不每场重扫此前全部组（审查 C36）
     lift.machine = !!gymScoped?.(lift.sessions[0].exercise);
-    const tr = createRecordTracker(prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine));
+    lift.rule = prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine);
+    const tr = createRecordTracker(lift.rule);
     for (const s of lift.sessions) {
       const cur = s.cards.flatMap(c => prSetsOf(c, s.gym, lift.signed));
       s.records = tr.check(cur, s.gym).map(h => h.kind);
@@ -278,10 +282,16 @@ export function buildLiftSummaries({
  *   - 负重动作默认看重量；估算 1RM 只是可选项，排在重量后面 —— 公式推出来的数不如重量直观
  *   - 自重动作从没加过负重 / 辅助：重量一直是 0，画出来是一条平线，默认看次数
  *   - 自重动作加过负重 / 辅助：默认看带号的重量（辅助 −30 → 自重 → +10 一路往上就是进步）
+ *   - 有氧（距离和时长都记）：默认看速度，没记速度就插一个派生的均速（距离 ÷ 时长）排第一（2026-11-24 用户定，审查 gap-5#4）——
+ *     定距离跑 5 km 时距离是一条平线、时长变长是退步，进步只在均速上看得出来；这里推出来的数比原始数更直观，和上面估算 1RM 排后面相反
  */
 export function chartMetricsFor(lift: LiftSummary, activeMetrics: string[]): string[] {
   const list = [...activeMetrics];
-  if (lift.hasWeight && !lift.signed && lift.best.e1rm) {
+  if (list.includes('distance') && list.includes('duration')) {
+    if (list.includes('speed')) list.splice(list.indexOf('speed'), 1);
+    list.unshift('speed');
+  }
+  if (lift.rule.tracksWeight && !lift.signed && lift.best.e1rm) {
     const i = list.indexOf('weight');
     list.splice(i + 1, 0, E1RM);
   }
@@ -289,11 +299,16 @@ export function chartMetricsFor(lift: LiftSummary, activeMetrics: string[]): str
     list.splice(list.indexOf('reps'), 1);
     list.unshift('reps');
   }
-  if (lift.hasWeight && (!lift.signed || lift.loaded) && list[0] !== 'weight') {
+  if (lift.rule.tracksWeight && (!lift.signed || lift.loaded) && list[0] !== 'weight') {
     list.splice(list.indexOf('weight'), 1);
     list.unshift('weight');
   }
   return list.length ? list : ['reps'];
+}
+
+/** 这个指标有没有「最好」：记了距离的动作，时长长了多半是跑慢了，不画纪录线、不出纪录卡（审查 gap-5#4） */
+export function hasBest(lift: LiftSummary, metric: string): boolean {
+  return metric !== 'duration' || lift.rule.cardio.includes('duration');
 }
 
 export interface TrendPoint {
@@ -310,15 +325,16 @@ export interface TrendPoint {
 }
 
 /**
- * 这一场在这个指标上算不算破纪录：重量 / 估算 1RM / 次数指标按 utils/prRecords 判出来的那几种
+ * 这一场在这个指标上算不算破纪录：重量 / 估算 1RM / 次数 / 距离 / 速度 / 时长按 utils/prRecords 判出来的那几种
  * （和刊末页、训练中的 PB 标一个口径，分馆也一样）；带号动作的重量图上，少用辅助的次数纪录也算（数往上走了）。
- * 其余指标（时长、距离…）照旧按数比。
+ * 自定义项没有方向设置，照旧按越大越好比。
  */
 function isRecordOn(s: LiftSession, metric: string, rose: boolean): boolean {
   if (metric === 'weight') return s.records.includes('weight') || (s.signed && rose && s.records.includes('reps'));
   if (metric === E1RM) return s.records.includes('e1rm');
   // 次数图上的点是全场最多次数：只有它真涨了才标（80×9 胜过 80×8 是次数纪录，但点还是那组 40×15，审查 Gm0）
   if (metric === 'reps') return rose && s.records.includes('reps');
+  if (metric === 'distance' || metric === 'speed' || metric === 'duration') return s.records.includes(metric);
   return rose;
 }
 

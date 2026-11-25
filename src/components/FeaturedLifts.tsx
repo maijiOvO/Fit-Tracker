@@ -106,7 +106,7 @@ export const FeaturedLifts: React.FC<FeaturedLiftsProps> = ({
   const featured = ids.map(id => byId.get(id)).filter((l): l is LiftSummary => !!l);
 
   // 1RM 模式下能估的（普通负重动作）换成估算 1RM；自重 / 带号的动作估不了，照旧按默认指标
-  const canE1rm = (l: LiftSummary) => l.hasWeight && !l.signed && !!l.best.e1rm;
+  const canE1rm = (l: LiftSummary) => l.rule.tracksWeight && !l.signed && !!l.best.e1rm;
   const cards = featured
     .map(lift => {
       const metric = mode === 'e1rm' && canE1rm(lift) ? E1RM : chartMetricsFor(lift, getActiveMetrics(lift.baseName))[0];
@@ -399,7 +399,7 @@ function FeaturedEditor({ open, onClose, lifts, ids, onSave, lang, unit }: Featu
               {on ? order + 1 : <Check size={12} />}
             </span>
             <span className="flex-1 min-w-0 truncate text-primary">{l.key}</span>
-            {l.best.weight?.set && l.hasWeight && (
+            {l.best.weight?.set && l.rule.tracksWeight && (
               <span className="font-mono text-small text-tertiary tabular-nums">
                 {formatSet(l.best.weight.set, unit, l.signed, isCn)}
               </span>

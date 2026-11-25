@@ -74,7 +74,8 @@ export interface ColophonState {
    * 没破纪录时的「比上次」：每个项目这场与上一场的最好一组（带符号 kg，显示时再换单位）；破了纪录就是空的。
    * name＝项目键（带做法，同 PB 牌）；lastGym＝器械上一场不在今天这个馆时那个馆的名字
    */
-  vsLast: { name: string; signed: boolean; now: VsSet; last: VsSet; lastGym?: string }[];
+  /** metrics：这个动作的记录项，刊末页按它写这一组（有氧写「30:00 5 km」） */
+  vsLast: { name: string; signed: boolean; metrics: string[]; now: VsSet; last: VsSet; lastGym?: string }[];
 }
 
 export interface UseWorkoutMutationsResult {
@@ -479,7 +480,8 @@ export function useWorkoutMutations({
             gym: finalWorkout.gym,
           }).map(r => {
             const cards = finalWorkout.exercises.filter(e => liftKey(e) === r.key);
-            return { name: r.key, signed: cards.some(isSignedEx), now: r.now, last: r.last, ...(r.lastGym ? { lastGym: r.lastGym } : {}) };
+            const metrics = getActiveMetrics(resolveName(cards[0].name));
+            return { name: r.key, signed: cards.some(isSignedEx), metrics, now: r.now, last: r.last, ...(r.lastGym ? { lastGym: r.lastGym } : {}) };
           });
       const summary = sessionSummary(finalWorkout);
       const volume = unit === 'lbs' ? summary.volumeKg * KG_TO_LBS : summary.volumeKg;

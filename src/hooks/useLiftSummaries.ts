@@ -14,6 +14,7 @@ import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { hasDoneSets } from '../utils/workbench';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { gymScopedIn } from './useLoadKind';
+import { appPrefsNow } from '../../services/appPrefs';
 
 let lastDone: { all: WorkoutSession[]; skipId: string | undefined; out: WorkoutSession[] } | null = null;
 
@@ -47,7 +48,7 @@ type Prefs = ReturnType<typeof useExercisePrefs>;
 /**
  * 汇总真正用到的首选项：只拿这几样的身份当缓存键，点星、存备注、特别关注这类改动不触发重算（审查 scale-perf#2）。
  * 不能拿组件里现建的闭包当键：每个组件各有一个 useCallback 实例，跨页永远命中不了。
- * getActiveMetrics 还读 appPrefsNow().cardioMetrics（不在键里）：它只影响有氧的 hasWeight，有氧可选的记录项里没有重量，结果不变。
+ * getActiveMetrics 还读 appPrefsNow().cardioMetrics，它的身份不跟着变：有氧的记录项决定比哪几种有氧纪录（prRuleFor），所以另拼进键里。
  */
 const KEY_FIELDS = [
   'findExerciseDef',
@@ -65,7 +66,7 @@ let lastLifts: { done: WorkoutSession[]; key: unknown[]; out: LiftSummary[] } | 
 
 /** 做完的训练 → 逐场汇总。全 App 一格缓存：done 是同一个数组、KEY_FIELDS 逐个相同就返回上一次的 */
 export function liftSummariesFor(done: WorkoutSession[], prefs: Pick<Prefs, (typeof KEY_FIELDS)[number]>): LiftSummary[] {
-  const key = KEY_FIELDS.map(k => prefs[k]);
+  const key = [...KEY_FIELDS.map(k => prefs[k]), appPrefsNow().cardioMetrics.join()];
   if (lastLifts && lastLifts.done === done && lastLifts.key.every((v, i) => v === key[i])) return lastLifts.out;
   const out = buildLiftSummaries({
     workouts: done,

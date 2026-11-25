@@ -9,6 +9,8 @@
  *   3. 次数纪录：这个重量下做得更多（或这个次数下做得更重）——
  *      本场某一组 (w, r) 不被历史上任何一组 (w' ≥ w, r' ≥ r) 盖住，就是一项次数纪录
  *   4. 单组容量：重量 × 次数
+ *   5. 有氧 / 计时（按记录项，见 prRuleFor）：最远（距离）> 最快（均速＝距离 ÷ 时长，打了速度就用打的）> 最长（时长，只在不记距离时）——
+ *      定时长跑更远上「最远」，定距离跑更快上「最快」；记了距离的动作时长变长不算进步（多半只是跑慢了，审查 C85 / gap-5#4，2026-11-24 用户定）
  * 自重（没有重量这一项）：单组最多次数。
  * 带正负的负荷（辅助为负、负重为正）：最大重量只看加了负重的组（自重算 0）；
  *   辅助的组走次数纪录 —— 少用一点辅助做一样多次、同样的辅助做更多次都算。估算 1RM、容量不算（自重那部分不在数里）。
@@ -27,10 +29,11 @@
 import type { Exercise } from '../../types';
 import { signedKg } from './load';
 
-export type RecordKind = 'weight' | 'e1rm' | 'reps' | 'volume';
+type CardioKind = 'distance' | 'speed' | 'duration';
+export type RecordKind = 'weight' | 'e1rm' | 'reps' | 'volume' | CardioKind;
 
 /** 同时破了几种时上牌的先后 */
-export const RECORD_PRIORITY: RecordKind[] = ['weight', 'e1rm', 'reps', 'volume'];
+export const RECORD_PRIORITY: RecordKind[] = ['weight', 'e1rm', 'reps', 'volume', 'distance', 'speed', 'duration'];
 
 /** 比重量时的容差（kg）：挡 kg ⇄ lb 各打一位小数的换算差，见头注释 */
 const TOL_KG = 0.1;
@@ -44,12 +47,29 @@ export function e1rmOf(kg: number, reps: number): number | null {
   return reps === 1 ? kg : kg * (1 + reps / 30);
 }
 
-/** 拿来比纪录的一组：带符号的 kg、次数、在哪个馆（'' = 没标馆）；at＝这一组在卡上的下标（递减档算母组的） */
+/** 有氧三项的容差：距离 km、速度 km/h、时长秒（挡浮点和两位小数的取整） */
+const CARDIO_TOL: Record<CardioKind, number> = { distance: 0.005, speed: 0.005, duration: 0.5 };
+
+/** 拿来比纪录的一组：带符号的 kg、次数、时长（秒）、距离（km）、速度（km/h）、在哪个馆（'' = 没标馆）；at＝这一组在卡上的下标（递减档算母组的） */
 export interface PRSet {
   kg: number;
   reps: number;
+  sec: number;
+  km: number;
+  kmh: number;
   gym: string;
   at?: number;
+}
+
+const cardioOf = (s: PRSet, k: CardioKind) => (k === 'distance' ? s.km : k === 'speed' ? s.kmh : s.sec);
+
+/** 一组的速度（km/h）：打了速度就用打的，没打按距离 ÷ 时长算；算不出是 0 */
+export function setSpeedKmh(set: { distance?: number; duration?: number; speed?: number }): number {
+  const typed = Number(set.speed) || 0;
+  if (typed > 0) return typed;
+  const km = Number(set.distance) || 0;
+  const sec = Number(set.duration) || 0;
+  return km > 0 && sec > 0 ? (km * 3600) / sec : 0;
 }
 
 /** 这个动作按哪套规矩比 */
@@ -62,11 +82,21 @@ export interface PRRule {
   signed: boolean;
   /** 器械类：只和同一个馆比 */
   machine: boolean;
+  /** 有氧 / 计时比哪几项，按上牌先后排（prRuleFor 定） */
+  cardio: CardioKind[];
 }
 
-/** 按动作的记录项（getActiveMetrics）定规矩；构造 PRRule 只走这里，几处口径才一致 */
+/**
+ * 按动作的记录项（getActiveMetrics）定规矩；构造 PRRule 只走这里，几处口径才一致。
+ * 有氧：记了距离比距离；记了速度、或距离和时长都记（能算均速）比速度；时长只在不记距离时按越长越好比（平板支撑、定时长的动作）
+ */
 export function prRuleFor(metrics: string[], signed: boolean, machine: boolean): PRRule {
-  return { tracksWeight: metrics.includes('weight'), tracksReps: metrics.includes('reps'), signed, machine };
+  const has = (m: string) => metrics.includes(m);
+  const cardio: CardioKind[] = [];
+  if (has('distance')) cardio.push('distance');
+  if (has('speed') || (has('distance') && has('duration'))) cardio.push('speed');
+  if (has('duration') && !has('distance')) cardio.push('duration');
+  return { tracksWeight: has('weight'), tracksReps: has('reps'), signed, machine, cardio };
 }
 
 /** 一张卡上做完的组（递减 / 递增档各算一组，at 指回母组）；底稿行不算 */
@@ -76,9 +106,17 @@ export function prSetsOf(ex: Exercise, gym: string | undefined, signed: boolean)
   (ex.sets ?? []).forEach((s, i) => {
     if (s.ghost) return;
     // 不带正负的动作照样看组上的号：辅助算 0、负重照算（同 setVolumeKg）。改器材前记的辅助 40 不能当成 40 kg 的纪录（审查 gap-2#5）
-    out.push({ kg: signed ? signedKg(s, ex) : Math.max(0, signedKg(s, ex)), reps: Number(s.reps) || 0, gym: g, at: i });
+    out.push({
+      kg: signed ? signedKg(s, ex) : Math.max(0, signedKg(s, ex)),
+      reps: Number(s.reps) || 0,
+      sec: Number(s.duration) || 0,
+      km: Number(s.distance) || 0,
+      kmh: setSpeedKmh(s),
+      gym: g,
+      at: i,
+    });
     for (const sub of s.subSets ?? []) {
-      out.push({ kg: signed ? signedKg(sub, ex, s) : Math.max(0, signedKg(sub, ex, s)), reps: Number(sub.reps) || 0, gym: g, at: i });
+      out.push({ kg: signed ? signedKg(sub, ex, s) : Math.max(0, signedKg(sub, ex, s)), reps: Number(sub.reps) || 0, sec: 0, km: 0, kmh: 0, gym: g, at: i });
     }
   });
   return out;
@@ -91,7 +129,7 @@ function gymOnly(rule: PRRule, s: PRSet): boolean {
 
 export interface RecordHit {
   kind: RecordKind;
-  /** 之前的纪录 / 这一次（重量类是 kg，次数类是次数，容量是 kg×次） */
+  /** 之前的纪录 / 这一次（重量类是 kg，次数类是次数，容量是 kg×次；距离 km、速度 km/h、时长秒） */
   prev: number;
   next: number;
   /** 次数纪录：这一组的重量（带符号 kg） */
@@ -99,6 +137,8 @@ export interface RecordHit {
   /** 本场破纪录的那一组（PRSet.at） */
   at?: number;
 }
+
+const byPriority = (a: RecordHit, b: RecordHit) => RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind);
 
 const maxBy = <T,>(xs: T[], f: (x: T) => number): T | undefined =>
   xs.reduce<T | undefined>((b, x) => (b === undefined || f(x) > f(b) ? x : b), undefined);
@@ -118,9 +158,14 @@ interface Part {
   maxE: number;
   maxVol: number;
   front: { kg: number; reps: number }[];
+  /** 有氧三项各自的最大（没记过是 0） */
+  cardio: Record<CardioKind, number>;
 }
 
-const newPart = (): Part => ({ n: 0, maxReps: -Infinity, nW: 0, maxLoad: -Infinity, nE: 0, maxE: -Infinity, maxVol: -Infinity, front: [] });
+const newPart = (): Part => ({
+  n: 0, maxReps: -Infinity, nW: 0, maxLoad: -Infinity, nE: 0, maxE: -Infinity, maxVol: -Infinity, front: [],
+  cardio: { distance: 0, speed: 0, duration: 0 },
+});
 
 function frontAdd(front: Part['front'], kg: number, reps: number): void {
   if (front.some(q => q.kg >= kg && q.reps >= reps)) return;
@@ -182,6 +227,7 @@ export function createRecordTracker(rule: PRRule): RecordTracker {
         }
         p.maxVol = Math.max(p.maxVol, vol(s));
         frontAdd(p.front, s.kg, s.reps);
+        for (const k of rule.cardio) p.cardio[k] = Math.max(p.cardio[k], cardioOf(s, k));
       }
     },
 
@@ -189,16 +235,24 @@ export function createRecordTracker(rule: PRRule): RecordTracker {
       const parts = [global, byGym.get(gym ?? '')].filter((p): p is Part => !!p);
       const has = (f: (p: Part) => number) => parts.some(p => f(p) > 0);
       const max = (f: (p: Part) => number) => Math.max(...parts.map(f));
-      const now = current.filter(s => s.reps > 0 || s.kg !== 0);
+      const now = current.filter(s => s.reps > 0 || s.kg !== 0 || s.sec > 0 || s.km > 0 || s.kmh > 0);
       if (!has(p => p.n) || !now.length) return [];
       const hits: RecordHit[] = [];
 
+      // 5. 有氧 / 计时：以前没记过这一项（最大是 0）不算
+      for (const k of rule.cardio) {
+        const prev = max(p => p.cardio[k]);
+        const best = maxBy(now, s => cardioOf(s, k))!;
+        if (prev > 0 && cardioOf(best, k) > prev + CARDIO_TOL[k]) hits.push({ kind: k, prev, next: cardioOf(best, k), at: best.at });
+      }
+
       if (!rule.tracksWeight) {
-        if (!rule.tracksReps) return hits;
-        const prev = max(p => p.maxReps);
-        const best = maxBy(now, s => s.reps)!;
-        if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
-        return hits;
+        if (rule.tracksReps) {
+          const prev = max(p => p.maxReps);
+          const best = maxBy(now, s => s.reps)!;
+          if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
+        }
+        return hits.sort(byPriority);
       }
 
       const nowW = now.filter(s => lifted(s) && s.kg > 0);
@@ -236,7 +290,7 @@ export function createRecordTracker(rule: PRRule): RecordTracker {
         if (prev > 0 && vol(best) > prev + TOL_KG * best.reps) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
       }
 
-      return hits.sort((a, b) => RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind));
+      return hits.sort(byPriority);
     },
   };
 }

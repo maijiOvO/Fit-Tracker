@@ -11,8 +11,8 @@ import {
 } from 'recharts';
 import { Language, type Measurement } from '../../types';
 import { KG_TO_LBS } from '../constants';
-import { type ChartRange, type LiftSummary, rangeStart, trendPoints } from '../utils/liftHistory';
-import { formatSet, formatShown, metricLabel, metricUnit, toDisplay, trimNum } from '../utils/liftDisplay';
+import { type ChartRange, type LiftSummary, hasBest, rangeStart, trendPoints } from '../utils/liftHistory';
+import { formatSet, formatShown, metricUnit, toDisplay, trimNum } from '../utils/liftDisplay';
 import { useTheme } from '../hooks/useTheme';
 import { metricSeries } from '../utils/measurementLog';
 
@@ -158,6 +158,8 @@ const fullDate = (ts: number, isCn: boolean) =>
 interface LiftTrendChartProps {
   lift: LiftSummary;
   metric: string;
+  /** 指标名（派生的速度写「均速」，调用方定） */
+  label: string;
   range: ChartRange;
   lang: Language;
   unit: 'kg' | 'lbs';
@@ -172,7 +174,7 @@ interface LiftTrendChartProps {
  * 来这里看的是「纪录什么时候、怎么涨上来的」，那是阶梯线。
  * 场地（§12.11）不再画虚线段 —— 没有连线了，换馆的点只是落在线下面，tooltip 里标着馆名。
  */
-export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendChartProps) {
+export function LiftTrendChart({ lift, metric, label, range, lang, unit }: LiftTrendChartProps) {
   const { resolved } = useTheme();
   const p = chartPalette(resolved === 'dark');
   const isCn = lang === Language.CN;
@@ -195,10 +197,14 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
   // 阶梯线延到今天：最后那段平线的长度就是「多久没破纪录了」
   data.push({ ts: now, val: null, best: all[all.length - 1].best, pr: false });
 
-  const values = data.flatMap(d => (d.val == null ? [d.best] : [d.val, d.best]));
+  // 没有「最好」的指标（记了距离的动作的时长）：不画阶梯线，线尾读数挂到最后一场的点上
+  const stair = hasBest(lift, metric);
+  const values = data.flatMap(d => (d.val == null ? (stair ? [d.best] : []) : stair ? [d.val, d.best] : [d.val]));
   const yAxis = niceAxis(values, shownStep(metric));
   const { ticks, format } = timeTicks(start, now, isCn);
   const lastIndex = data.length - 1;
+  const lastValIndex = data.reduce((at, d, i) => (d.val == null ? at : i), -1);
+  const valEndLabel = makeEndLabel(lastValIndex, p.accent, p.tooltipText, v => formatShown(metric, v));
   const suffix = metricUnit(metric, unit);
 
   return (
@@ -245,7 +251,7 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
                     {pt.pr && <span style={{ color: p.accent, fontWeight: 700, marginLeft: 6 }}>PR</span>}
                   </div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {metricLabel(metric, lang)} {formatShown(metric, pt.val)}{suffix && ` ${suffix}`}
+                    {label} {formatShown(metric, pt.val)}{suffix && ` ${suffix}`}
                   </div>
                   {pt.set && pt.set.reps > 0 && (
                     <div style={{ color: p.tooltipLabel }}>{formatSet(pt.set, unit, lift.signed, isCn)}</div>
@@ -255,15 +261,17 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
               );
             }}
           />
-          <Line
-            type="stepAfter"
-            dataKey="best"
-            stroke={p.accent}
-            strokeWidth={1.75}
-            dot={makeEndLabel(lastIndex, p.accent, p.tooltipText, v => formatShown(metric, v))}
-            activeDot={false}
-            isAnimationActive={false}
-          />
+          {stair && (
+            <Line
+              type="stepAfter"
+              dataKey="best"
+              stroke={p.accent}
+              strokeWidth={1.75}
+              dot={makeEndLabel(lastIndex, p.accent, p.tooltipText, v => formatShown(metric, v))}
+              activeDot={false}
+              isAnimationActive={false}
+            />
+          )}
           <Line
             dataKey="val"
             stroke="none"
@@ -271,6 +279,8 @@ export function LiftTrendChart({ lift, metric, range, lang, unit }: LiftTrendCha
             dot={(props: any) => {
               const { cx, cy, payload, index } = props;
               if (payload?.val == null || cx == null || cy == null) return <g key={index} />;
+              // 没有阶梯线时，最后一场的点换成线尾读数（方块 + 数）
+              if (!stair && index === lastValIndex) return <g key={index}>{valEndLabel({ ...props, value: payload.val })}</g>;
               return payload.pr ? (
                 <circle key={index} cx={cx} cy={cy} r={4} fill={p.accent} stroke="none" />
               ) : (

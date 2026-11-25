@@ -89,14 +89,14 @@ export const LiftList: React.FC<LiftListProps> = ({
 
         // 右边的大数：力量动作写最重那组「90×3」，其余写主指标的最好值
         let headline: string;
-        if (lift.hasWeight && lift.best.weight?.set) {
+        if (lift.rule.tracksWeight && lift.best.weight?.set) {
           headline = formatSet(lift.best.weight.set, unit, lift.signed, isCn);
         } else {
           const m = metric === E1RM ? 'weight' : metric;
           const best = Math.max(...lift.sessions.map(s => sessionMetric(s, m) ?? -Infinity));
           headline = Number.isFinite(best) ? formatMetric(m, best, unit) : '—';
         }
-        const headUnit = lift.hasWeight && lift.best.weight
+        const headUnit = lift.rule.tracksWeight && lift.best.weight
           ? (lift.signed && Math.round(lift.best.weight.value * 10) === 0 ? '' : unit)
           : metricUnit(metric, unit);
 

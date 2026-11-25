@@ -4,7 +4,7 @@
  * 这里管的是刊末页上牌的那几条规矩：
  *   - 历史为空不算 PR —— 否则第一次训练全是 PR，签名时刻当场作废
  *   - 编辑旧训练不触发 —— 在改历史，语义混乱
- *   - 每个动作只上一种纪录（最大重量 > 估算 1RM > 次数纪录 > 单组容量）；本场同项目的几张卡合起来判一次（审查 C84：原来按卡判，一个动作出两枚牌）
+ *   - 每个动作只上一种纪录（最大重量 > 估算 1RM > 次数纪录 > 单组容量 > 最远 > 最快 > 最长）；本场同项目的几张卡合起来判一次（审查 C84：原来按卡判，一个动作出两枚牌）
  *   - 最多 2 枚牌，再多合成「另 N 项刷新」—— 满屏印章就不是签名时刻了
  */
 import { WorkoutSession, Exercise } from '../../types';
@@ -12,6 +12,9 @@ import { setVolumeKg } from './load';
 import { RECORD_PRIORITY, findRecords, prRuleFor, prSetsOf, type PRSet, type RecordKind } from './prRecords';
 
 export type PRKind = RecordKind;
+
+/** 距离 / 速度 / 时长三种：数不是重量 */
+export const isCardio = (k: PRKind) => k === 'distance' || k === 'speed' || k === 'duration';
 
 export interface PRHit {
   kind: PRKind;
@@ -106,7 +109,8 @@ export function detectPRs({
       prev: top.prev,
       next: top.next,
       delta: top.next - top.prev,
-      unitLabel: top.kind === 'reps' && !rule.tracksWeight ? '' : unitLabel,
+      // 有氧三种不带重量单位：刊末页按指标自己写（km / mi、km/h、时:分:秒）
+      unitLabel: (top.kind === 'reps' && !rule.tracksWeight) || isCardio(top.kind) ? '' : unitLabel,
       ...(top.atKg !== undefined ? { atKg: top.atKg } : {}),
       ...(rule.machine ? { gym: session.gym ?? '' } : {}),
     });
@@ -129,12 +133,14 @@ export function detectPRs({
  * 印章上的数按显示单位换算（pr-stamp-kg-labeled-lbs）。
  * detectPRs 只管判定，prev / next / delta 一律是库里存的 kg（容量是 kg×次）；
  * 刊末页后面又标着当前单位，lbs 下不换算就成了「83.9 → 90.7 lbs」。
- * 次数类（reps）不是重量，不换算。
+ * 次数类（reps）不是重量，不换算；有氧三种（距离 / 速度 / 时长）保持存储单位，刊末页按距离首选项自己换（审查 C85）。
  */
 export function stampsInUnit(stamps: PRHit[], unit: 'kg' | 'lbs', kgToLbs: number): PRHit[] {
   if (unit === 'kg') return stamps;
   return stamps.map(s =>
-    s.kind === 'reps'
+    isCardio(s.kind)
+      ? s
+      : s.kind === 'reps'
       ? s.atKg !== undefined ? { ...s, atKg: s.atKg * kgToLbs } : s
       : { ...s, prev: s.prev * kgToLbs, next: s.next * kgToLbs, delta: s.delta * kgToLbs },
   );

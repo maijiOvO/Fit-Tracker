@@ -18,6 +18,7 @@ import {
   type LiftSummary,
   chartMetricsFor,
   gymChoices,
+  hasBest,
   inGym,
   prSessionIds,
   sessionMetric,
@@ -139,9 +140,11 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
 
   if (!l) return null;
   const range = chosenRange ?? autoRange(l);
+  // 没记速度、按距离 ÷ 时长推出来的那一项叫「均速」
+  const labelOf = (m: string) => (m === 'speed' && !activeMetrics.includes('speed') ? (isCn ? '均速' : 'Avg speed') : metricLabel(m, lang));
 
   const cards: { label: string; value: string; unit?: string; sub: string }[] = [];
-  if (l.hasWeight) {
+  if (l.rule.tracksWeight) {
     const w = l.best.weight;
     if (w?.set) {
       cards.push({
@@ -168,21 +171,21 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
       });
     }
   } else {
-    // 非力量动作：每个指标的最好值
-    for (const m of activeMetrics.slice(0, 3)) {
+    // 非力量动作：每个指标的最好值（有氧的均速在内；记了距离的动作，时长没有「最好」）
+    for (const m of metrics.filter(m => hasBest(l, m)).slice(0, 3)) {
       let best: { v: number; ts: number } | null = null;
       for (const s of l.sessions) {
         const v = sessionMetric(s, m);
         if (v != null && (!best || v > best.v)) best = { v, ts: s.ts };
       }
-      if (best) cards.push({ label: metricLabel(m, lang), value: formatMetric(m, best.v, unit), unit: metricUnit(m, unit) || undefined, sub: shortDate(best.ts, isCn) });
+      if (best) cards.push({ label: labelOf(m), value: formatMetric(m, best.v, unit), unit: metricUnit(m, unit) || undefined, sub: shortDate(best.ts, isCn) });
     }
   }
 
   // 逐场一行写的是「决定当前图表指标的那一组」：和图上的点、PR 标记是同一组
   // （看估算 1RM 时写 87.5×10，看重量时写 92.5×3），否则 PR 标在一个看起来不像纪录的数上
   const rowSummary = (s: LiftSummary['sessions'][number]) => {
-    const set = sessionMetricSet(s, metric) ?? (l.hasWeight ? s.top : null);
+    const set = sessionMetricSet(s, metric) ?? (l.rule.tracksWeight ? s.top : null);
     if (set) return formatSet(set, unit, l.signed, isCn);
     const v = sessionMetric(s, metric);
     return v == null ? '—' : `${formatMetric(metric, v, unit)}${metricUnit(metric, unit) && ` ${metricUnit(metric, unit)}`}`;
@@ -244,7 +247,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                   m === metric ? 'bg-accent-soft text-accent' : 'text-secondary'
                 }`}
               >
-                {metricLabel(m, lang)}
+                {labelOf(m)}
               </button>
             ))}
         </div>
@@ -265,12 +268,16 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
 
       <div className="mt-3">
         <Suspense fallback={<div className="h-[220px]" />}>
-          {metric && <LiftTrendChart lift={l} metric={metric} range={range} lang={lang} unit={unit} />}
+          {metric && <LiftTrendChart lift={l} metric={metric} label={labelOf(metric)} range={range} lang={lang} unit={unit} />}
         </Suspense>
         <p className="text-micro font-normal text-tertiary mt-1 leading-snug">
-          {isCn
-            ? '线：历史最好 · 点：每场最好 · 实心：破纪录'
-            : 'Line: all-time best · Dot: session best · Filled: PR'}
+          {!metric || hasBest(l, metric)
+            ? isCn
+              ? '线：历史最好 · 点：每场最好 · 实心：破纪录'
+              : 'Line: all-time best · Dot: session best · Filled: PR'
+            : isCn
+              ? '点：每场'
+              : 'Dot: each session'}
           {metric === E1RM && (isCn ? ` · 仅算 ${E1RM_MAX_REPS} 次以内` : ` · sets of ≤${E1RM_MAX_REPS} reps only`)}
         </p>
       </div>
@@ -342,7 +349,7 @@ export const LiftDetailSheet: React.FC<LiftDetailSheetProps> = ({
                       />
                     ))}
                   </div>
-                  {l.hasWeight && !l.signed && s.e1rm && (
+                  {l.rule.tracksWeight && !l.signed && s.e1rm && (
                     <p className="text-xs text-tertiary">
                       {metricLabel(E1RM, lang)} {trimNum(toDisplay(E1RM, s.e1rm.value, unit))} {unit}
                       <span className="mx-1">·</span>

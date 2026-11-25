@@ -8,7 +8,7 @@
  * 加动作（useWorkoutMutations.findLast）、换做法、换馆重新挑底稿（useGymSwitch）共用这一份。
  */
 import type { Exercise, SetLog, WorkoutSession } from '../../types';
-import { prSetsOf, type PRRule } from './prRecords';
+import { prSetsOf, type PRRule, type PRSet } from './prRecords';
 import { rowEdited } from './setValues';
 import { memberKeys } from './workbench';
 
@@ -220,33 +220,40 @@ export function planRowPicks(
   });
 }
 
-/** 一组：带符号的 kg（辅助为负）+ 次数 */
+/** 一组：带符号的 kg（辅助为负）+ 次数；有氧的组另带时长（秒）、距离（km）、速度（km/h，没打按距离 ÷ 时长），没值的不带 */
 export interface VsSet {
   kg: number;
   reps: number;
+  duration?: number;
+  distance?: number;
+  speed?: number;
 }
 
 /**
- * 一张卡做完的组里最好的一组：最重（带符号），同重取次数多的；递减 / 递增档各算一组（同 prRecords / liftHistory 的口径）。
- * 记次数的动作跳过次数为 0 的组（审查 C81：120×0 不能当成这场最好的一组）
+ * 几张卡做完的组里最好的一组；递减 / 递增档各算一组（同 prRecords / liftHistory 的口径）。
+ * 记重量或次数的：最重（带符号），同重取次数多的；记次数的动作跳过次数为 0 的组（审查 C81：120×0 不能当成这场最好的一组）。
+ * 只记有氧的：按纪录先后的第一项（距离 / 速度 / 时长）挑，同值取均速快的（审查 C85）
  */
-function bestSet(ex: Exercise, signed: boolean, tracksReps: boolean): VsSet | null {
-  let top: VsSet | null = null;
-  for (const { kg, reps } of prSetsOf(ex, undefined, signed)) {
-    if ((kg === 0 && reps === 0) || (tracksReps && reps === 0)) continue;
-    if (!top || kg > top.kg || (kg === top.kg && reps > top.reps)) top = { kg, reps };
+function bestOfCards(cards: Exercise[], signed: boolean, rule: PRRule): VsSet | null {
+  const k = rule.tracksWeight || rule.tracksReps ? null : rule.cardio[0];
+  const val = (s: PRSet) => (k === 'distance' ? s.km : k === 'speed' ? s.kmh : s.sec);
+  let top: PRSet | null = null;
+  for (const s of cards.flatMap(c => prSetsOf(c, undefined, signed))) {
+    if (k) {
+      if (val(s) > 0 && (!top || val(s) > val(top) || (val(s) === val(top) && s.kmh > top.kmh))) top = s;
+      continue;
+    }
+    if ((s.kg === 0 && s.reps === 0) || (rule.tracksReps && s.reps === 0)) continue;
+    if (!top || s.kg > top.kg || (s.kg === top.kg && s.reps > top.reps)) top = s;
   }
-  return top;
-}
-
-/** 几张卡合起来最好的一组 */
-function bestOfCards(cards: Exercise[], signed: boolean, tracksReps: boolean): VsSet | null {
-  let top: VsSet | null = null;
-  for (const c of cards) {
-    const b = bestSet(c, signed, tracksReps);
-    if (b && (!top || b.kg > top.kg || (b.kg === top.kg && b.reps > top.reps))) top = b;
-  }
-  return top;
+  if (!top) return null;
+  return {
+    kg: top.kg,
+    reps: top.reps,
+    ...(top.sec ? { duration: top.sec } : {}),
+    ...(top.km ? { distance: top.km } : {}),
+    ...(top.kmh ? { speed: top.kmh } : {}),
+  };
 }
 
 /** 刊末页「比上次」的一行；key＝项目键（带做法，和 PB 牌同源） */
@@ -285,9 +292,9 @@ export function vsLastSession(
   for (const [key, cards] of groups) {
     const rule = o.ruleOf(cards[0]);
     const signed = cards.some(c => o.ruleOf(c).signed);
-    const now = bestOfCards(cards, signed, rule.tracksReps);
+    const now = bestOfCards(cards, signed, rule);
     const hit = now ? o.findLast(cards[0]) : null;
-    const last = hit ? bestOfCards(hit.exs ?? [hit.ex], signed, rule.tracksReps) : null;
+    const last = hit ? bestOfCards(hit.exs ?? [hit.ex], signed, rule) : null;
     if (!now || !last) continue;
     const lg = hit!.workout.gym;
     out.push({ exId: cards[0].id, key, now, last, ...(rule.machine && lg && lg !== o.gym ? { lastGym: lg } : {}) });

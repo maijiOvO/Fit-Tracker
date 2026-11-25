@@ -13,11 +13,11 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Language } from '../../types';
-import { PRHit } from '../utils/prDetect';
+import { PRHit, isCardio } from '../utils/prDetect';
 import { useCountUp } from '../hooks/useCountUp';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
-import { formatSet, gymLabel } from '../utils/liftDisplay';
+import { formatMetric, formatSet, gymLabel, metricUnit, metricsTail } from '../utils/liftDisplay';
 import type { ColophonState } from '../hooks/useWorkoutMutations';
 import { useBackClose } from '../hooks/useBackClose';
 
@@ -51,6 +51,9 @@ const KIND_LABEL: Record<PRHit['kind'], { cn: string; en: string }> = {
   e1rm: { cn: '估算 1RM', en: 'Est. 1RM' },
   volume: { cn: '单组容量', en: 'Set volume' },
   reps: { cn: '次', en: 'reps' },
+  distance: { cn: '最远', en: 'Longest' },
+  speed: { cn: '最快', en: 'Fastest' },
+  duration: { cn: '最长', en: 'Longest' },
 };
 
 /** 次数纪录在多重的时候做的：「· 60 kg」，辅助的写「· 辅助 30 kg」 */
@@ -82,6 +85,10 @@ export const WorkoutColophon: React.FC<Props> = ({
 }) => {
   const isCn = lang === Language.CN;
   const hasPR = stamps.length > 0;
+  // 有氧的牌：数是存储单位（km、km/h、秒），按指标写（距离跟首选项换 mi，时长写 1:00 → 1:30）
+  const wu = unitLabel === 'lbs' ? 'lbs' : 'kg';
+  const cardioNum = (s: PRHit, v: number) => (isCardio(s.kind) ? formatMetric(s.kind, v, wu) : trim(v));
+  const cardioUnit = (kind: PRHit['kind']) => (metricUnit(kind, wu) ? ` ${metricUnit(kind, wu)}` : '');
   const firedRef = useRef(false);
 
   // 总容量 count-up：这是「因为你刚做完这场而产生」的数字，可以动（§5.4）
@@ -184,14 +191,19 @@ export const WorkoutColophon: React.FC<Props> = ({
         <div className="anim-stagger mt-8 space-y-1 text-center" style={{ ['--i' as string]: 4 }} data-testid="colophon-vs-last">
           {vsLast.slice(0, VS_LAST_MAX).map((v, i) => {
             const u = unitLabel === 'lbs' ? 'lbs' : 'kg';
+            // 记重量 / 次数的写「100×5」，有氧接时长、距离（「30:00 5 km」），负重平板写「30 1:00」（审查 C85）
+            const text = (s: typeof v.now) =>
+              [v.metrics.includes('weight') || v.metrics.includes('reps') ? formatSet(s, u, v.signed, isCn) : '', metricsTail(s, v.metrics, u, lang)]
+                .filter(Boolean)
+                .join(' ');
             return (
               <p key={i} className="text-label text-secondary">
                 {v.name}{' '}
-                <span className="font-mono text-primary tabular-nums">{formatSet(v.now, u, v.signed, isCn)}</span>
+                <span className="font-mono text-primary tabular-nums">{text(v.now)}</span>
                 <span className="text-tertiary">
                   {' · '}
                   {v.lastGym ? (isCn ? `上次在 ${v.lastGym}` : `last at ${v.lastGym}`) : isCn ? '上次' : 'last'}{' '}
-                  <span className="font-mono tabular-nums">{formatSet(v.last, u, v.signed, isCn)}</span>
+                  <span className="font-mono tabular-nums">{text(v.last)}</span>
                 </span>
               </p>
             );
@@ -223,10 +235,10 @@ export const WorkoutColophon: React.FC<Props> = ({
                 {/* 按馆比的器械：写明是在哪个馆破的（别的馆的数不算进来） */}
                 {s.gym !== undefined && (s.gym ? (isCn ? `在 ${s.gym} · ` : `at ${s.gym} · `) : `${gymLabel('', isCn)} · `)}
                 <span className="font-mono text-primary tabular-nums">
-                  {trim(s.prev)} → {trim(s.next)}
+                  {cardioNum(s, s.prev)} → {cardioNum(s, s.next)}
                 </span>{' '}
                 {KIND_LABEL[s.kind][isCn ? 'cn' : 'en']}
-                {s.kind === 'reps' ? atLoad(s, isCn) : s.unitLabel ? ` ${s.unitLabel}` : ''}
+                {s.kind === 'reps' ? atLoad(s, isCn) : isCardio(s.kind) ? cardioUnit(s.kind) : s.unitLabel ? ` ${s.unitLabel}` : ''}
               </span>
             </div>
           ))}

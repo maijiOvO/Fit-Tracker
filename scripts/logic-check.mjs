@@ -48,7 +48,7 @@ await build({
       "export { detectPRs } from './src/utils/prDetect.ts';",
       "export * as R from './src/utils/prRecords.ts';",
       "export * as LDS from './src/utils/liftDisplay.ts';",
-      "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
+      "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView, chartMetricsFor, featuredStats, hasBest } from './src/utils/liftHistory.ts';",
       "export { doneWorkoutsOf, liftSummariesFor } from './src/hooks/useLiftSummaries.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
       "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput, editKey } from './src/utils/workbench.ts';",
@@ -151,17 +151,22 @@ t('体重基线：都在 30 天内退到最早一条；正好 30 天算在截止
 });
 
 // ── PR 印章换单位（pr-stamp-kg-labeled-lbs）──────────────────────────
-t('印章换单位：lbs 下重量 / 容量换算，次数不换；kg 下原样返回', () => {
+t('印章换单位：lbs 下重量 / 容量换算，次数、距离、速度、时长不换；kg 下原样返回', () => {
+  // 防的错（后三种）：C85 有氧的牌按重量乘 2.2，5 km 写成 11
   const stamps = [
     { kind: 'weight', exercise: '卧推', prev: 185 / K, next: 200 / K, delta: 15 / K, unitLabel: '' },
     { kind: 'volume', exercise: '卧推', prev: 1000, next: 1200, delta: 200, unitLabel: '' },
     { kind: 'reps', exercise: '引体', prev: 8, next: 10, delta: 2, unitLabel: '' },
+    { kind: 'distance', exercise: '跑步机', prev: 5, next: 5.5, delta: 0.5, unitLabel: '' },
+    { kind: 'speed', exercise: '跑步机', prev: 10, next: 11, delta: 1, unitLabel: '' },
+    { kind: 'duration', exercise: '平板支撑', prev: 60, next: 90, delta: 30, unitLabel: '' },
   ];
   assert.equal(L.stampsInUnit(stamps, 'kg', K), stamps);
   const lb = L.stampsInUnit(stamps, 'lbs', K);
   assert.deepEqual([lb[0].prev, lb[0].next, lb[0].delta].map(v => Math.round(v * 10) / 10), [185, 200, 15]);
   assert.equal(Math.round(lb[1].next), Math.round(1200 * K));
   assert.deepEqual(lb[2], stamps[2], 'reps are not a weight');
+  assert.deepEqual(lb.slice(3), stamps.slice(3), 'cardio stays in km / km/h / s');
 });
 
 // ── 底稿抄哪一场（换馆重量 A）────────────────────────────────────────
@@ -1139,6 +1144,53 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     assert.deepEqual(kinds([P(102.0, 5)], [P(225 / K, 5)]), []);
     assert.equal(kinds([P(260, 1)], [P(262.5, 1)])[0], 'weight');
     assert.equal(kinds([P(10, 10)], [P(10 + 0.25 / K, 10)])[0], 'weight');
+  });
+
+  const sumOf = (workouts, metrics) =>
+    L.buildLiftSummaries({ workouts, stableIdOf: e => e.name, liftKey: e => e.name, resolveName: id, signedLoadOf: () => false, getActiveMetrics: () => metrics })[0];
+
+  t('PR：平板支撑（只记时长）60 → 90 秒落「最长」牌、历史点同一结论；以前没记过时长不算', () => {
+    // 防的错：C85 只记时长的动作刊末页永远不落牌、训练中不标 PB，历史图上却标着 PR
+    const plank = { getActiveMetrics: () => ['duration'] };
+    const h = [W('h', ago(9), '', [exOf('平板支撑', [st(0, 0, { duration: 60 })])])];
+    const n = W('n', ago(0), '', [exOf('平板支撑', [st(0, 0, { duration: 90 })])]);
+    const r = pr(h, n, plank);
+    assert.deepEqual([r.stamps[0]?.kind, r.stamps[0]?.prev, r.stamps[0]?.next, r.stamps[0]?.unitLabel], ['duration', 60, 90, '']);
+    assert.deepEqual(L.trendPoints(sumOf([...h, n], ['duration']).sessions, 'duration').map(p => p.pr), [false, true]);
+    assert.equal(pr([W('h', ago(9), '', [exOf('平板支撑', [st(0, 0, { duration: 0 })])])], n, plank).stamps.length, 0);
+  });
+
+  t('PR：跑步机定 5 km 越跑越快落「最快」、定 30 分钟跑更远落「最远」；跑慢了、跑短了不算，时长变长不再标纪录', () => {
+    // 防的错：gap-5#4 有氧只按「越大越好」比 —— 定距离越跑越快永远不算进步，跑慢了（时长变长）反倒在历史图上标 PR；
+    // 详情图默认看时长 / 距离，进步看不出来
+    const M = ['duration', 'distance'];
+    const cardio = { getActiveMetrics: () => M };
+    const run = (wid, d, km, min) => W(wid, ago(d), '', [exOf('跑步机', [st(0, 0, { distance: km, duration: min * 60 })], { category: 'CARDIO' })]);
+    const ws = [run('a', 40, 5, 30), run('b', 30, 5, 28), run('c', 20, 5, 26), run('d', 10, 5, 32)];
+    assert.equal(pr(ws.slice(0, 2), ws[2], cardio).stamps[0]?.kind, 'speed');
+    assert.equal(pr(ws.slice(0, 3), ws[3], cardio).stamps.length, 0);
+    const lift = sumOf(ws, M);
+    assert.deepEqual(L.chartMetricsFor(lift, M), ['speed', 'duration', 'distance']);
+    assert.deepEqual(L.chartMetricsFor(lift, ['duration', 'distance', 'speed']), ['speed', 'duration', 'distance'], '记了速度也排第一');
+    assert.deepEqual(L.trendPoints(lift.sessions, 'speed').map(p => p.pr), [false, true, true, false]);
+    assert.deepEqual(L.trendPoints(lift.sessions, 'duration').map(p => p.pr), [false, false, false, false]);
+    assert.equal(L.featuredStats(lift, 'speed').prCount, 2);
+    assert.deepEqual([L.hasBest(lift, 'duration'), L.hasBest(lift, 'speed'), L.hasBest(sumOf(ws, ['duration']), 'duration')], [false, true, true]);
+    assert.equal(pr([run('a', 9, 5, 30)], run('n', 0, 5.5, 30), cardio).stamps[0]?.kind, 'distance');
+    assert.equal(pr([run('a', 9, 5, 30)], run('n', 0, 3, 20), cardio).stamps.length, 0);
+    assert.equal(pr([run('a', 9, 0, 30)], run('n', 0, 5, 30), cardio).stamps.length, 0, '以前没记距离');
+  });
+
+  t('刊末页「比上次」：有氧按距离挑这场最好的一组，带上时长、距离，写成「30:00 5 km」', () => {
+    // 防的错：C85 跑步机的组重量、次数都是 0，「比上次」挑不出组，整行不列
+    const M = ['duration', 'distance'];
+    const last = exOf('跑步机', [st(0, 0, { distance: 5, duration: 1800 })]);
+    const got = L.vsLastSession([exOf('跑步机', [st(0, 0, { distance: 3, duration: 1200 }), st(0, 0, { distance: 5, duration: 1680 })])], {
+      keyOf: e => e.name, findLast: () => ({ ex: last, workout: { id: 'w0', date: '', exercises: [] } }),
+      ruleOf: () => L.R.prRuleFor(M, false, false), gym: '',
+    });
+    assert.deepEqual(got[0].now, { kg: 0, reps: 0, duration: 1680, distance: 5, speed: (5 * 3600) / 1680 });
+    assert.equal(L.LDS.metricsTail(got[0].last, M, 'kg', 'cn'), '30:00 5 km');
   });
 }
 
@@ -3301,15 +3353,24 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
   const oracle = (rule, history, current, gym) => {
     const g = gym ?? '';
     const past = history.filter(s => (rule.machine || (rule.signed && s.kg < 0) ? s.gym === g : true));
-    const now = current.filter(s => s.reps > 0 || s.kg !== 0);
+    const now = current.filter(s => s.reps > 0 || s.kg !== 0 || s.sec > 0 || s.km > 0 || s.kmh > 0);
     if (!past.length || !now.length) return [];
     const hits = [];
+    const cv = (s, k) => (k === 'distance' ? s.km : k === 'speed' ? s.kmh : s.sec);
+    const tolC = { distance: 0.005, speed: 0.005, duration: 0.5 };
+    for (const k of rule.cardio) {
+      const prev = Math.max(0, ...past.map(s => cv(s, k)));
+      const best = maxBy(now, s => cv(s, k));
+      if (prev > 0 && cv(best, k) > prev + tolC[k]) hits.push({ kind: k, prev, next: cv(best, k), at: best.at });
+    }
+    const sorted = () => hits.sort((a, b) => L.R.RECORD_PRIORITY.indexOf(a.kind) - L.R.RECORD_PRIORITY.indexOf(b.kind));
     if (!rule.tracksWeight) {
-      if (!rule.tracksReps) return hits;
-      const prev = Math.max(...past.map(s => s.reps));
-      const best = maxBy(now, s => s.reps);
-      if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
-      return hits;
+      if (rule.tracksReps) {
+        const prev = Math.max(...past.map(s => s.reps));
+        const best = maxBy(now, s => s.reps);
+        if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
+      }
+      return sorted();
     }
     const loadOf = s => (rule.signed ? Math.max(0, s.kg) : s.kg);
     const lifted = s => s.reps > 0 || !(rule.signed || rule.tracksReps);
@@ -3341,7 +3402,7 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
       const best = maxBy(now, vol);
       if (prev > 0 && vol(best) > prev + TOL * best.reps) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
     }
-    return hits.sort((a, b) => L.R.RECORD_PRIORITY.indexOf(a.kind) - L.R.RECORD_PRIORITY.indexOf(b.kind));
+    return sorted();
   };
 
   // 固定种子的随机数据：自由重量 / 器械（按馆）/ 带号（辅助负、负重正、0）/ 只记次数 / 不记次数，
@@ -3350,7 +3411,7 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
   const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
   const pick = xs => xs[Math.floor(rnd() * xs.length)];
   const N_LIFT = 24;
-  const metricsOf = i => (i % 6 === 0 ? ['reps'] : i % 6 === 1 ? ['weight', 'duration'] : ['weight', 'reps']);
+  const metricsOf = i => (i % 6 === 0 ? ['reps'] : i % 6 === 1 ? ['weight', 'duration'] : i % 6 === 3 ? ['duration', 'distance'] : ['weight', 'reps']);
   const signedLift = i => i % 4 === 1 || i % 6 === 0;
   const machineLift = i => i % 3 === 2;
   const name = i => `动作${i}`;
@@ -3368,6 +3429,9 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
   const mode = () => pick(['assisted', 'weighted', 'normal', undefined]);
   const set = (i, j, progress) => {
     const s = { id: `s${j}`, weight: kgOf(i, progress), reps: pick([0, 1, 3, 5, 5, 6, 8, 10, 12]), ...(signedLift(i) ? { bodyweightMode: mode() } : {}) };
+    // 时长、距离（有氧 / 计时的纪录）：随机打，带容差边上的值；不记这些项的动作照样带着，判定不该看
+    s.duration = pick([0, 600, 900, 900.4, 1200, 1500, 1800]) + Math.floor(rnd() * 600);
+    s.distance = Math.round(rnd() * 1000) / 100 + pick([0, 0, 0.004, 0.006]);
     if (rnd() < 0.08) s.ghost = true;
     if (rnd() < 0.15) s.subSets = [{ weight: Math.max(0, s.weight + pick([-20, -10, 5])), reps: pick([0, 4, 8]), ...(signedLift(i) ? { bodyweightMode: mode() } : {}) }];
     return s;
@@ -3423,7 +3487,7 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
     }
     assert.ok(sessions > 1500, `sessions ${sessions}`);
     // 数据得真把四种纪录都造出来，否则比对的是一堆空数组
-    for (const k of ['weight', 'e1rm', 'reps', 'volume']) assert.ok((kinds.get(k) ?? 0) > 5, `${k}: ${kinds.get(k)}`);
+    for (const k of ['weight', 'e1rm', 'reps', 'volume', 'distance', 'speed', 'duration']) assert.ok((kinds.get(k) ?? 0) > 5, `${k}: ${kinds.get(k)}`);
   });
 
   t('单个动作 4000 场的汇总耗时约是 1000 场的 4 倍', () => {
@@ -3494,6 +3558,15 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
     assert.notEqual(L.liftSummariesFor(ws, { ...prefs, liftKey: e => e.name }), out);
     const again = L.liftSummariesFor(ws, prefs);
     assert.notEqual(L.liftSummariesFor(ws, { ...prefs, exerciseOverrides: {} }), again);
+    // 防的错：有氧的记录项读首选项、getActiveMetrics 身份不变 —— 改了有氧记哪几项，比哪几种有氧纪录（prRuleFor）却还是旧的（审查 C85）
+    const cached = L.liftSummariesFor(ws, prefs);
+    assert.equal(L.liftSummariesFor(ws, prefs), cached);
+    L.AP.writeAppPrefs({ cardioMetrics: ['duration'] }, 1);
+    try {
+      assert.notEqual(L.liftSummariesFor(ws, prefs), cached);
+    } finally {
+      L.AP.writeAppPrefs(undefined, 0);
+    }
   });
 }
 
