@@ -194,6 +194,12 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   const colStyle = { ['--cols' as string]: ledgerCols(activeMetrics.length, firstCol) };
   // PB 小标挂在重量格；有氧 / 计时动作没有重量格，挂第一格
   const prMetric = activeMetrics.includes('weight') ? 'weight' : activeMetrics[0];
+  const pbTag = (m: string) =>
+    m === prMetric && isPR && !isGhost && (
+      <span className="pb-tag" aria-label={isCn ? '新纪录' : 'New PR'}>
+        PB
+      </span>
+    );
   // 直接读 props，不留本地副本：原先的 useState(set.subSets) 只在挂载时读一次，
   // 之后外部改了这一组（底稿预填、撤销、同步回来）子组行不会跟着变。
   const subSets: SubSetLog[] = set.subSets || [];
@@ -495,6 +501,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
                 <span className="ledger-fit-text">
                   {pad2(hms.h)}:{pad2(hms.m)}:{pad2(hms.s)}
                 </span>
+                {pbTag(m)}
               </button>
             );
           }
@@ -574,11 +581,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
               {m === 'weight' && refTag && !(isPR && !isGhost) && (
                 <span className="ref-tag" data-testid="prefill-ref">{refTag}{altTag && <> · {altTag}</>}</span>
               )}
-              {m === prMetric && isPR && !isGhost && (
-                <span className="pb-tag" aria-label={isCn ? '新纪录' : 'New PR'}>
-                  PB
-                </span>
-              )}
+              {pbTag(m)}
               {/* type=text + inputMode：type=number 会把逗号小数「62,5」清洗成 625、逐键回填把 5.0 改写成 5（C38 / live-walkthrough#1） */}
               <input
                 type="text"
