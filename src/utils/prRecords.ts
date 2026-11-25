@@ -62,9 +62,10 @@ export function prSetsOf(ex: Exercise, gym: string | undefined, signed: boolean)
   const out: PRSet[] = [];
   (ex.sets ?? []).forEach((s, i) => {
     if (s.ghost) return;
-    out.push({ kg: signed ? signedKg(s, ex) : Number(s.weight) || 0, reps: Number(s.reps) || 0, gym: g, at: i });
+    // 不带正负的动作照样看组上的号：辅助算 0、负重照算（同 setVolumeKg）。改器材前记的辅助 40 不能当成 40 kg 的纪录（审查 gap-2#5）
+    out.push({ kg: signed ? signedKg(s, ex) : Math.max(0, signedKg(s, ex)), reps: Number(s.reps) || 0, gym: g, at: i });
     for (const sub of s.subSets ?? []) {
-      out.push({ kg: signed ? signedKg(sub, ex, s) : Number(sub.weight) || 0, reps: Number(sub.reps) || 0, gym: g, at: i });
+      out.push({ kg: signed ? signedKg(sub, ex, s) : Math.max(0, signedKg(sub, ex, s)), reps: Number(sub.reps) || 0, gym: g, at: i });
     }
   });
   return out;

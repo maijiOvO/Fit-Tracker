@@ -568,7 +568,11 @@ export interface MaterializeResult {
   workouts: WorkoutSession[];
   /** 需要新建的自定义动作 */
   newDefs: ExerciseDefinition[];
-  /** 新动作的记录项（有氧只有时长 / 距离的，别让它默认显示重量 × 次数） */
+  /**
+   * 记录项种子（键是记录上的动作名）：新动作按整份文件出现过的字段；对上内置动作的，带了重量 × 次数以外的字段、
+   * 或者对上的是有氧（回落值跟首选项走，不写就会在改首选项时被重读）也写（审查 csv#2 / gap-5#7）。
+   * 写进本机之前要过 mergeImportSeeds：已配置的不动，本机有记录的保留当前那组
+   */
   metricSeeds: Record<string, string[]>;
   sets: number;
 }
@@ -587,9 +591,30 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
   const nameFor = new Map<string, Resolved>();
   let setCount = 0;
 
-  const resolve = (src: string, sets: DraftSet[]) => {
+  // 每个外来动作在整份文件里出现过哪些字段（跳过不导的热身组）：新动作的类型和种子都按它，不只看第一场
+  type Fields = { weight: boolean; reps: boolean; distance: boolean; duration: boolean };
+  const fieldsOf = new Map<string, Fields>();
+  for (const w of plan.workouts) {
+    for (const e of w.exercises) {
+      const f = fieldsOf.get(e.srcName) ?? { weight: false, reps: false, distance: false, duration: false };
+      for (const s of e.sets) {
+        if (s.type === 'warmup' && !o.includeWarmups) continue;
+        f.weight ||= !!s.weight;
+        f.reps ||= !!s.reps;
+        f.distance ||= !!s.distanceKm;
+        f.duration ||= !!s.seconds;
+      }
+      fieldsOf.set(e.srcName, f);
+    }
+  }
+  const metricsIn = (f: Fields) => (['weight', 'reps', 'distance', 'duration'] as const).filter(k => f[k]);
+  /** 记录上的动作名 → 字段（几个外来名对上同一个动作时取并集）和类型 */
+  const seedFor = new Map<string, { metrics: Set<string>; category: string }>();
+
+  const resolve = (src: string) => {
     const hit = nameFor.get(src);
     if (hit) return hit;
+    const fields = fieldsOf.get(src) ?? { weight: false, reps: false, distance: false, duration: false };
     const m = matchExercise(src, o.defs, o.findByName);
     let r: Resolved;
     if (m) {
@@ -600,7 +625,7 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
         if (variant.name) r.variantName = variant.name;
       }
     } else {
-      const cardio = sets.every(s => !s.weight && !s.reps) && sets.some(s => s.seconds || s.distanceKm);
+      const cardio = !fields.weight && !fields.reps && (fields.duration || fields.distance);
       // id 按内容哈希：同一份文件导两次，id 相同，只是覆盖那几条，不会翻倍
       const id = `imp_${fnv1a(plan.source + src)}`;
       newDefs.set(src, {
@@ -610,14 +635,11 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
         tags: [],
         category: cardio ? 'CARDIO' : 'STRENGTH',
       });
-      const m: string[] = [];
-      if (sets.some(s => s.weight)) m.push('weight');
-      if (sets.some(s => s.reps)) m.push('reps');
-      if (sets.some(s => s.distanceKm)) m.push('distance');
-      if (sets.some(s => s.seconds)) m.push('duration');
-      if (m.length && !(m.length === 2 && m[0] === 'weight' && m[1] === 'reps')) metricSeeds[src] = m;
       r = { name: src, category: cardio ? 'CARDIO' : 'STRENGTH' };
     }
+    const seed = seedFor.get(r.name) ?? { metrics: new Set<string>(), category: r.category };
+    for (const k of metricsIn(fields)) seed.metrics.add(k);
+    seedFor.set(r.name, seed);
     nameFor.set(src, r);
     return r;
   };
@@ -627,7 +649,7 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
     const exercises: Exercise[] = [];
     const extra: string[] = [];
     w.exercises.forEach((e, ei) => {
-      const { name, category, variantId, variantName } = resolve(e.srcName, e.sets);
+      const { name, category, variantId, variantName } = resolve(e.srcName);
       const sets: SetLog[] = [];
       const extraNotes: string[] = [...e.notes];
       e.sets.forEach((s, si) => {
@@ -690,10 +712,41 @@ export function materialize(plan: ImportPlan, o: MaterializeOptions): Materializ
     };
   });
 
+  for (const [name, { metrics, category }] of seedFor) {
+    const m = ['weight', 'reps', 'distance', 'duration'].filter(k => metrics.has(k));
+    // 非有氧正好记重量 × 次数＝回落值，不写；有氧的回落值跟首选项，带什么都写
+    if (m.length && (category === 'CARDIO' || !(m.length === 2 && m[0] === 'weight' && m[1] === 'reps'))) metricSeeds[name] = m;
+  }
+
   return {
     workouts: workouts.filter(w => w.exercises.length),
     newDefs: [...newDefs.values()],
     metricSeeds,
     sets: setCount,
   };
+}
+
+/**
+ * 导入的记录项种子和本机现状合并（ImportCsvModal 在写入前调）：
+ * - 显示名已经配置过的丢掉 —— 另一种语言下的原键也算（configs 是按显示名归并过的）；
+ * - 本机已有记录、没配置的，取此刻生效的那组和种子的并集：App 里按重量 × 次数记过平板支撑，再导入 Hevy 的时长，两列都留；
+ * - 其余原样。
+ * addImportedRecords 里按字面键「已有的盖住种子」是第二道。
+ */
+export function mergeImportSeeds(
+  seeds: Record<string, string[]>,
+  o: {
+    resolveName: (name: string) => string;
+    configs: Record<string, string[]>;
+    recorded: Set<string>;
+    activeOf: (name: string) => string[];
+  },
+): Record<string, string[]> {
+  const out: Record<string, string[]> = Object.create(null);
+  for (const [k, m] of Object.entries(seeds)) {
+    const n = o.resolveName(k);
+    if (Object.prototype.hasOwnProperty.call(o.configs, n)) continue;
+    out[k] = o.recorded.has(n) ? [...new Set([...o.activeOf(n), ...m])] : m;
+  }
+  return out;
 }

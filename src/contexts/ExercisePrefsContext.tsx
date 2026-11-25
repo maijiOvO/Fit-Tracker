@@ -33,6 +33,7 @@ import {
 import { migrateCableTags } from '../utils/cableTagMigration';
 import { migrateWarmRegions } from '../utils/warmRegionMigration';
 import { buildNameIndex, byDisplayName, ownValue, rawKeysIn } from '../utils/nameIndex';
+import { fallbackMetricsOf } from '../utils/metricDefaults';
 import {
   canonicalLiftIdIn,
   renameClashIn,
@@ -192,6 +193,8 @@ interface ExercisePrefsContextValue {
   resetMetricsToDefault: (exerciseName: string) => void;
   /** 这个动作还没配置过记录项才写入（有氧动作第一次加进训练时用首选项「有氧默认记录」） */
   seedMetricsIfUnset: (exerciseName: string, metrics: string[]) => void;
+  /** 改首选项「有氧默认记录」之前调：names 里类型是有氧、又没配过记录项的，钉在此刻生效的那组上（审查 gap-5#7） */
+  pinCardioMetrics: (names: Iterable<string>) => void;
   toggleStarExercise: (exerciseName: string) => void;
   saveExerciseNote: (name: string, note: string) => void;
   /** 存动作的属性（属性表「保存」）。regions 主细分在前、[] = 未细分；resistance 只在器材允许改时生效 */
@@ -204,6 +207,8 @@ interface ExercisePrefsContextValue {
       equipment: string;
       resistance?: Resistance;
     },
+    /** 这个动作有没有填过数的组（metricDefaults.recordedNames）：有记录的改类型前先把记录项落定 */
+    recorded: boolean,
   ) => void;
   /** 返回 false = 没改成（同类标签重名：部位之间、器材之间、同一部位的细分之间，已 toast） */
   renameTag: (id: string, newName: string) => boolean;
@@ -601,12 +606,15 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
 
   /**
    * 没配置过记录项时的默认：有氧按首选项「有氧默认记录」（时长 + 距离），其余重量 × 次数（审查 A17：
-   * 原来一律重量 × 次数，有氧点「重置默认」、第一次加之前改一项、全关掉，都会变成重量 × 次数）
+   * 原来一律重量 × 次数，有氧点「重置默认」、第一次加之前改一项、全关掉，都会变成重量 × 次数）。
+   * 类型按覆盖层之后的：改类型前 saveExerciseAttrs 先把有记录的动作落定，读法变了历史也不被重读（审查 C105）
    */
   const defaultMetricsFor = useCallback(
-    (exerciseName: string): string[] =>
-      findExerciseDef(exerciseName)?.category === 'CARDIO' ? [...appPrefsNow().cardioMetrics] : ['weight', 'reps'],
-    [findExerciseDef],
+    (exerciseName: string): string[] => {
+      const def = findExerciseDef(exerciseName);
+      return fallbackMetricsOf(def && mergeOverride(def, exerciseOverrides[def.id]).category, appPrefsNow().cardioMetrics);
+    },
+    [exerciseOverrides, findExerciseDef],
   );
 
   const getActiveMetrics = useCallback(
@@ -660,18 +668,41 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     });
   }, [rawKeysFor]);
 
-  const seedMetricsIfUnset = useCallback(
-    (exerciseName: string, metrics: string[]) => {
-      setExerciseMetricConfigs(prev => {
-        if (rawKeysFor(prev, exerciseName).length || !metrics.length) return prev;
-        const updated = { ...prev, [resolveName(exerciseName)]: [...metrics] };
-        writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
-        storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
-        scheduleDebouncedFitlogPush();
-        return updated;
-      });
+  /**
+   * 没有任何原键的动作写上给定的那组（落定 / 种子共用）；一个都没写就原样返回。
+   * metrics 由调用方在 setState 之前算好：更新函数可能在之后才跑，那时类型 / 首选项已经是新的了
+   */
+  const pinUnset = useCallback(
+    (prev: Record<string, string[]>, entries: Array<[string, string[]]>) => {
+      let updated = prev;
+      for (const [name, metrics] of entries) {
+        if (!metrics.length || rawKeysFor(updated, name).length) continue;
+        updated = { ...updated, [resolveName(name)]: [...metrics] };
+      }
+      if (updated === prev) return prev;
+      writeJSON(LS_KEYS.exerciseMetricConfigs, updated);
+      storage.setItem(LS_KEYS.metricsLastUpdate, String(Date.now()));
+      scheduleDebouncedFitlogPush();
+      return updated;
     },
     [rawKeysFor, resolveName],
+  );
+
+  const seedMetricsIfUnset = useCallback(
+    (exerciseName: string, metrics: string[]) => setExerciseMetricConfigs(prev => pinUnset(prev, [[exerciseName, metrics]])),
+    [pinUnset],
+  );
+
+  const pinCardioMetrics = useCallback(
+    (names: Iterable<string>) => {
+      const entries: Array<[string, string[]]> = [];
+      for (const n of names) {
+        const def = findExerciseDef(n);
+        if (def && mergeOverride(def, exerciseOverrides[def.id]).category === 'CARDIO') entries.push([n, getActiveMetrics(n)]);
+      }
+      if (entries.length) setExerciseMetricConfigs(prev => pinUnset(prev, entries));
+    },
+    [exerciseOverrides, findExerciseDef, getActiveMetrics, pinUnset],
   );
 
   const toggleStarExercise = useCallback((exerciseName: string) => {
@@ -713,8 +744,15 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
         equipment: string;
         resistance?: Resistance;
       },
+      recorded: boolean,
     ) => {
       const isCustom = customExercises.some(c => c.id === exerciseId);
+      // 有记录又没配过记录项的动作，改类型之前先按旧类型落定：没配置时记录项跟类型现算，不落定历史就按新类型重读（审查 C105）
+      const def = [...DEFAULT_EXERCISES, ...customExercises].find(d => d.id === exerciseId);
+      if (def && recorded && (mergeOverride(def, exerciseOverrides[def.id]).category || 'STRENGTH') !== (a.category || 'STRENGTH')) {
+        const name = def.name.cn || def.name.en;
+        seedMetricsIfUnset(name, getActiveMetrics(name));
+      }
       const patch = {
         bodyPart: a.bodyPart,
         // 全部细分照写（只有一个也写）：内置动作带着次要细分，覆盖层要能把它们盖掉
@@ -748,7 +786,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       markPrefsUpdated();
       scheduleDebouncedFitlogPush();
     },
-    [customExercises],
+    [customExercises, exerciseOverrides, getActiveMetrics, seedMetricsIfUnset],
   );
 
   /** 同一类标签的全部 id（部位 / 器材：系统 + 自建），查重用 */
@@ -1510,6 +1548,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       toggleMetric,
       resetMetricsToDefault,
       seedMetricsIfUnset,
+      pinCardioMetrics,
       toggleStarExercise,
       saveExerciseNote,
       saveExerciseAttrs,
@@ -1573,6 +1612,7 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
       toggleMetric,
       resetMetricsToDefault,
       seedMetricsIfUnset,
+      pinCardioMetrics,
       toggleStarExercise,
       saveExerciseNote,
       saveExerciseAttrs,

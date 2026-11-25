@@ -20,7 +20,7 @@ export interface AppPrefs {
   weightStep?: number;
   /** 手动加一档递减时每档降多少（当前重量单位下的数），同样 kg / lbs 共用 */
   dropStep?: number;
-  /** 没配置过、也从没记过的有氧动作默认记哪几项 */
+  /** 没配置过、也从没记过的有氧动作默认记哪几项（改它之前，记过的先由 pinCardioMetrics 钉在旧值上；导入的见 mergeImportSeeds） */
   cardioMetrics?: string[];
   /** 距离单位，和重量单位分开。存储固定 km、km/h，显示时换算 */
   distUnit?: 'km' | 'mi';

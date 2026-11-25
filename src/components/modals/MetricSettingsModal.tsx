@@ -12,14 +12,16 @@
  * 做法切换只换编辑对象，不换卡片上的做法。「这一台」只给卡片上正用的做法设（状态在卡片上）。
  * 每项都是点了就存（名称失焦 / 回车存），底栏只有「完成」。和添加动作里的动作面板同一种提交方式（审查 C4）。
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Language } from '../../../types';
 import { translations } from '../../../translations';
 import { Modal } from '../Modal';
 import { STANDARD_METRICS } from '../../constants/exercises';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
+import { useWorkoutContext } from '../../contexts/WorkoutContext';
 import { mergeOverride } from '../../utils/exerciseOverride';
+import { customKeysIn, recordedNames } from '../../utils/metricDefaults';
 import { regionList, variantAttrs } from '../../utils/exerciseAttrs';
 import { ExerciseAttrFields, type AttrValue } from '../ExerciseAttrFields';
 import { hasRegionSection } from '../RegionChooser';
@@ -28,7 +30,7 @@ interface MetricSettingsModalProps {
   open: boolean;
   exerciseName: string | null;
   lang: Language;
-  /** 记录项恢复默认（外面弹确认框） */
+  /** 记录项恢复默认（不确认，点错了用顶栏的全局撤销） */
   onResetMetrics: () => Promise<void> | void;
   /** 关掉了一个记录项（还剩 keep）：外面把工作台上这个动作指针以下、没改过的那一格清掉（上架审查 gap-2#2） */
   onMetricsNarrowed: (name: string, keep: string[]) => void;
@@ -115,6 +117,10 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const editingId = v?.id;
   const cardio = merged?.category === 'CARDIO';
   const activeMetrics = name ? getActiveMetrics(name) : [];
+  const { workouts, currentWorkout } = useWorkoutContext();
+  const allWorkouts = useMemo(() => [...workouts, currentWorkout], [workouts, currentWorkout]);
+  // 历史里记过数的自定义项：关掉以后照样列着，能点回来（审查 gap-5#8）；没记过数的错字项关掉就消失
+  const historyCustoms = useMemo(() => (name ? customKeysIn(allWorkouts, resolveName, name) : []), [allWorkouts, resolveName, name]);
   const metricName = (m: string) => translations[m as keyof typeof translations]?.[lang] || m.replace('custom_', '');
 
   /* ── 名称：输入框，失焦 / 回车存（同动作面板） ── */
@@ -152,12 +158,13 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
   const savePart = (nv: AttrValue) => {
     if (!def || !exAttrs) return;
     const regions = hasRegionSection(nv.bodyPart, nv.category, regionsOf) ? nv.regions : [];
-    saveExerciseAttrs(def.id, { ...exAttrs, category: nv.category, bodyPart: nv.bodyPart, regions });
+    saveExerciseAttrs(def.id, { ...exAttrs, category: nv.category, bodyPart: nv.bodyPart, regions }, recordedNames(allWorkouts, resolveName).has(resolveName(name)));
   };
   const saveStandard = (nv: AttrValue) => {
     if (!def || !exAttrs) return;
     if (nv.equipment === exAttrs.equipment && nv.resistance === exAttrs.resistance) return;
-    saveExerciseAttrs(def.id, { ...exAttrs, equipment: nv.equipment, resistance: nv.resistance });
+    // 不改类型，用不着落定记录项
+    saveExerciseAttrs(def.id, { ...exAttrs, equipment: nv.equipment, resistance: nv.resistance }, false);
     // 改了动作的器材 / 阻力：旧的「负荷记法」开关作废，以后跟着阻力走
     clearSignedLoad(name);
   };
@@ -279,7 +286,7 @@ export const MetricSettingsModal: React.FC<MetricSettingsModalProps> = ({
             </button>
           </div>
           <div className="flex flex-wrap gap-2" data-testid="settings-metrics">
-            {Array.from(new Set([...STANDARD_METRICS, ...activeMetrics])).map(m => {
+            {Array.from(new Set([...STANDARD_METRICS, ...activeMetrics, ...historyCustoms])).map(m => {
               const on = activeMetrics.includes(m);
               return (
                 <button

@@ -20,9 +20,11 @@ import { ExerciseDefinition, Language } from '../../types';
 import { BODY_PARTS } from '../constants/exercises';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
+import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useBackClose } from '../hooks/useBackClose';
 import { buildSearchEntry, scoreEntry, tokenize } from '../utils/exerciseSearch';
 import { regionList } from '../utils/exerciseAttrs';
+import { recordedNames } from '../utils/metricDefaults';
 import { ExerciseAttrFields, type AttrValue } from './ExerciseAttrFields';
 import { hasRegionSection } from './RegionChooser';
 
@@ -73,6 +75,7 @@ export const ExerciseActionPanel: React.FC<Props> = ({
     regionsOf,
   } = useExercisePrefs();
   const { toast } = useUiOverlay();
+  const { workouts, currentWorkout } = useWorkoutContext();
   const isCn = lang === Language.CN;
   const name = resolveName(ex.name[lang]);
   const [draft, setDraft] = useState(name);
@@ -108,7 +111,11 @@ export const ExerciseActionPanel: React.FC<Props> = ({
   };
   const saveAttrs = (nv: AttrValue) => {
     // 部位换了、细分没跟着选：存成未细分（细分只认当前部位下的，同属性弹窗）
-    saveExerciseAttrs(ex.id, { ...nv, regions: hasRegionSection(nv.bodyPart, nv.category, regionsOf) ? nv.regions : [] });
+    saveExerciseAttrs(
+      ex.id,
+      { ...nv, regions: hasRegionSection(nv.bodyPart, nv.category, regionsOf) ? nv.regions : [] },
+      recordedNames([...workouts, currentWorkout], resolveName).has(name),
+    );
     // 改了器材 / 阻力：旧的「负荷记法」开关作废，以后跟着阻力走（同动作设置）
     if (nv.equipment !== attrs.equipment || nv.resistance !== attrs.resistance) clearSignedLoad(name);
   };

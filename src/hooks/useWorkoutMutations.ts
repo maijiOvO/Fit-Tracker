@@ -1098,6 +1098,7 @@ export function useWorkoutMutations({
       /**
        * 有氧动作第一次加进来（没配置过记录项、哪个做法都没记过）：按首选项「有氧默认记录」定记录项。
        * 记过的不动 —— 划船机被当器械记成 65×12 的那种必须保持重量 × 次数（审查 cardio-default-metrics）。
+       * 记过之后的几个口子各自落定：改类型（saveExerciseAttrs）、改有氧默认（pinCardioMetrics）、导入（mergeImportSeeds）。
        */
       if (ex.category === 'CARDIO' && !findLast(exerciseName, null, currentWorkout.id || undefined, undefined, before)) {
         seedMetricsIfUnset(exerciseName, appPrefsNow().cardioMetrics);

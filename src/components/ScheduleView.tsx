@@ -12,6 +12,7 @@ import { formatLoad } from '../utils/setWrite';
 import { MiniPlates, planSide, plateWords } from './MiniPlates';
 import { barWeight } from '../utils/plates';
 import { EQ_BARBELL } from '../utils/exerciseAttrs';
+import { mergeOverride } from '../utils/exerciseOverride';
 import { haptic, H } from '../utils/haptics';
 import { armSwallow, disarmSwallow, newClickSwallow, takeSwallow } from '../utils/tap';
 import { dayOfWeekIndex, localYmd, rotateWeekdays } from '../utils/dateUtils';
@@ -78,7 +79,7 @@ function statusBadge(status: ScheduledWorkout['status'], lang: Language) {
 const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onStartScheduledSession, pickerHost }) => {
   const { schedules, schedulesByDate, updateSchedule, deleteSchedule } = useScheduleContext();
   // 计划里存的是排计划那天的名字；改过名后要显示现名
-  const { resolveName, findExerciseDef, attrsOf } = useExercisePrefs();
+  const { resolveName, findExerciseDef, attrsOf, exerciseOverrides } = useExercisePrefs();
 
   const today = useMemo(() => new Date(), []);
   const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -422,7 +423,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                       // 杠铃 / 挂片器械的目标重量画成配片，下面写每边要准备的片（「杠铃片」阶段二）：
                       // 计划是「去之前想好挂什么」，正好是片子语言最有用的地方。哑铃、配重片照旧只写数字。
                       const def = findExerciseDef(ex.name);
-                      const a = def ? attrsOf(def) : undefined;
+                      // 器材按覆盖层之后的（内置动作改过器材 / 阻力的按现状，审查 C105）
+                      const a = def ? attrsOf(mergeOverride(def, exerciseOverrides[def.id])) : undefined;
                       const side =
                         a?.resistance === 'plates' && ex.targetWeight
                           ? planSide(ex.targetWeight, unit, a.equipment === EQ_BARBELL ? barWeight(undefined, unit) : 0)

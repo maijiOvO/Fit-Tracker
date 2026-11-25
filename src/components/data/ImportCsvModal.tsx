@@ -11,11 +11,14 @@ import { Modal } from '../Modal';
 import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
 import { useUiOverlay } from '../../contexts/UiOverlayContext';
 import { useExercisePrefs } from '../../contexts/ExercisePrefsContext';
+import { useWorkoutContext } from '../../contexts/WorkoutContext';
+import { recordedNames } from '../../utils/metricDefaults';
 import { pickFile } from '../../../services/fitlogPickFile';
 import {
   CsvImportError,
   importLookup,
   materialize,
+  mergeImportSeeds,
   parseImportCsv,
   previewMatches,
   type ImportPlan,
@@ -30,7 +33,8 @@ import { blockBack } from '../../hooks/useBackClose';
 export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const { lang, unit } = useUserSettingsContext();
   const { toast } = useUiOverlay();
-  const { customExercises, exerciseOverrides, withVariantNames, liftKey } = useExercisePrefs();
+  const { customExercises, exerciseOverrides, withVariantNames, liftKey, resolveName, exerciseMetricConfigs, getActiveMetrics } = useExercisePrefs();
+  const { workouts, currentWorkout } = useWorkoutContext();
   const isCn = lang === Language.CN;
   const t = (cn: string, en: string) => (isCn ? cn : en);
 
@@ -99,8 +103,15 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
         defs,
         findByName: lookup.findByName,
       });
+      // 已配置的不动，本机有记录的保留当前那组：导入不藏掉 App 里已经记的列（审查 csv#2）
+      const metricSeeds = mergeImportSeeds(r.metricSeeds, {
+        resolveName,
+        configs: exerciseMetricConfigs,
+        recorded: recordedNames([...workouts, currentWorkout], resolveName),
+        activeOf: getActiveMetrics,
+      });
       blockBack(true);
-      const pushed = await addImportedRecords(r).finally(() => blockBack(false));
+      const pushed = await addImportedRecords({ ...r, metricSeeds }).finally(() => blockBack(false));
       markBackupPending();
       setFlash(
         t(`已导入 ${r.workouts.length} 场训练（${r.sets} 组）`, `Imported ${r.workouts.length} workouts (${r.sets} sets)`) + overwriteNote(pushed, isCn),

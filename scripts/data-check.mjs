@@ -75,7 +75,7 @@ async function bundle(env, file) {
     contents: [
       "export * from './services/fitlogAutoBackup.ts';",
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
-      "export { parseImportCsv, materialize, importLookup } from './services/fitlogCsvImport.ts';",
+      "export { parseImportCsv, materialize, importLookup, mergeImportSeeds } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
       "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary, backupFileName } from './services/fitlogBackup.ts';",
       "export { PrefsWriteError } from './services/fitlogRemote.ts';",
@@ -1389,6 +1389,66 @@ await t('CSV 导出：做法列按 variantOf 写（并入前的记录写并入�
   });
   const variantCol = text.replace(/^﻿/, '').trim().split('\r\n').slice(1).map(l => l.split(',')[6]);
   assert.deepEqual(variantCol, ['窄距', '宽距']);
+});
+
+// 防 csv#2 / gap-5#7 导入端：对上内置动作时不写记录项，平板支撑的时长、跑步机的距离被按重量 × 次数 / 首选项现算藏掉
+await t('CSV 导入：对上内置的计时 / 距离 / 有氧动作写记录项，正好重量 × 次数的力量动作不写', () => {
+  const H = `"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_lbs","reps","distance_miles","duration_seconds","rpe"\n`;
+  const row = (n, i, w, r, d, s) => `"Day","18 Oct 2025, 08:47","18 Oct 2025, 09:50","","${n}","","",${i},"normal",${w},${r},${d},${s},`;
+  const csv =
+    H +
+    [
+      row('Plank', 0, '', '', '', 60),
+      row('Treadmill', 0, '', '', 3.23, 1800),
+      row('Jump Rope', 0, '', 200, '', ''),
+      row('Farmers Walk', 0, 88, '', 0.03, 30),
+      row('Yoga', 0, '', '', '', 1800),
+      row('Rowing Machine', 0, 143, 12, '', ''),
+      row('Bench Press (Barbell)', 0, 185, 5, '', ''),
+    ].join('\n') +
+    '\n';
+  const plan = D.parseImportCsv(csv);
+  const r = D.materialize(plan, importOpts(plan));
+  assert.deepEqual(r.newDefs.map(d => d.name.en), [], '都应对上内置动作');
+  assert.deepEqual({ ...r.metricSeeds }, {
+    平板支撑: ['duration'],
+    跑步机: ['distance', 'duration'],
+    跳绳: ['reps'],
+    农夫行走: ['weight', 'distance', 'duration'],
+    瑜伽: ['duration'],
+    划船机: ['weight', 'reps'],
+  });
+});
+
+// 防 csv#2：新动作的类型和种子只看第一场 —— 第二场带了重量也被建成有氧、看不到重量
+await t('CSV 导入：新动作按整份文件定类型和记录项（第一场只有时长、第二场带重量 → 力量 + 重量 / 时长）', () => {
+  const H = `"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"\n`;
+  const csv =
+    H +
+    `"A","18 Oct 2025, 08:47","18 Oct 2025, 09:50","","Dead Hang","","",0,"normal",,,,45,\n` +
+    `"B","20 Oct 2025, 08:47","20 Oct 2025, 09:50","","Dead Hang","","",0,"normal",10,,,30,\n`;
+  const plan = D.parseImportCsv(csv);
+  const r = D.materialize(plan, importOpts(plan));
+  const def = r.newDefs.find(d => d.name.en === 'Dead Hang');
+  assert.ok(def, 'Dead Hang 应新建');
+  assert.equal(def.category, 'STRENGTH');
+  assert.deepEqual(r.metricSeeds['Dead Hang'], ['weight', 'duration']);
+});
+
+// 防：另一种语言下的原键配置被导入种子盖掉；导入把本机按重量 × 次数记过的列藏掉
+await t('CSV 导入种子：显示名已配置的丢掉，本机有记录没配置的取当前那组和种子的并集，其余原样', () => {
+  const out = D.mergeImportSeeds(
+    // 英文界面导入，种子键是 Plank；本机是在中文名下配置的
+    { Plank: ['duration'], 农夫行走: ['distance', 'duration'], 跑步机: ['distance', 'duration'] },
+    {
+      resolveName: n => (n === 'Plank' ? '平板支撑' : n),
+      // 按显示名归并过的配置（原键是 'Plank'）
+      configs: { 平板支撑: ['weight', 'reps'] },
+      recorded: new Set(['农夫行走']),
+      activeOf: () => ['weight', 'reps'],
+    },
+  );
+  assert.deepEqual({ ...out }, { 农夫行走: ['weight', 'reps', 'distance', 'duration'], 跑步机: ['distance', 'duration'] });
 });
 
 console.log(`\ndata-check: ${n} passed`);

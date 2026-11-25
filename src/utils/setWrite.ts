@@ -44,7 +44,8 @@ export function weightFromShown(
   const v = clampLoadD(raw, du, signed);
   const weight = rounder ? Math.abs(rounder.kgOfD(v)) : parseWeight(Math.abs(v), du);
   const plateUnit: SetLog['plateUnit'] = rounder ? rounder.unit : du;
-  if (!signed) return { weight, plateUnit };
+  // 不带正负的卡写的是普通重量：清掉从底稿抄来的旧辅助号，不然纪录一直按 0 比（审查 gap-2#5）
+  if (!signed) return { weight, plateUnit, bodyweightMode: undefined };
   return { weight, plateUnit, bodyweightMode: v < 0 ? 'assisted' : v > 0 ? 'weighted' : 'normal' };
 }
 
@@ -64,7 +65,7 @@ export function restoreKgOf(set: SetLog, sign: -1 | 1, unit: string, snapKg?: (k
 
 /** 把一组的重量改回 kg（restoreKgOf 给的）：顺手撤掉「改过重量」，格子回到底稿的墨色 */
 export function restoreUpdate(set: SetLog, kg: number, signed: boolean): Partial<SetLog> {
-  const w = signed ? fromSignedKg(kg) : { weight: Math.abs(kg) };
+  const w = signed ? fromSignedKg(kg) : { weight: Math.abs(kg), bodyweightMode: undefined };
   if (!set.touched?.weight) return w;
   const { weight: _w, bodyweightMode: _b, ...touched } = set.touched;
   return { ...w, touched };

@@ -65,6 +65,7 @@ await build({
       "export { planMergeIntoPrevious } from './src/utils/sessionMerge.ts';",
       "export * as SS from './src/utils/setStep.ts';",
       "export * as SW from './src/utils/setWrite.ts';",
+      "export * as MD from './src/utils/metricDefaults.ts';",
       "export { parseTypedNum } from './src/utils/format.ts';",
       "export * as LD from './src/utils/load.ts';",
       "export * as LB from './src/utils/loadable.ts';",
@@ -356,7 +357,8 @@ t('写回一组：显示值 ⇄ 存储 kg（两位小数去尾零；lb 换回 kg
   assert.equal(L.SW.formatLoad(20, 'kg'), '20');
   assert.equal(L.SW.formatLoad(100 * LB, 'lbs'), '100');
   assert.equal(L.SW.shownWeight(10, -1, 'kg'), -10);
-  assert.deepEqual(L.SW.weightFromShown(62.5, 'kg', null, false), { weight: 62.5, plateUnit: 'kg' });
+  // 不带正负写的是普通重量：bodyweightMode 写成 undefined，清掉底稿抄来的旧号（gap-2#5）
+  assert.deepEqual(L.SW.weightFromShown(62.5, 'kg', null, false), { weight: 62.5, plateUnit: 'kg', bodyweightMode: undefined });
   const lb = L.SW.weightFromShown(100, 'lbs', null, false);
   assert.equal(lb.plateUnit, 'lbs');
   assert.ok(Math.abs(lb.weight - 100 / 2.20462) < 1e-9);
@@ -367,6 +369,18 @@ t('写回一组：显示值 ⇄ 存储 kg（两位小数去尾零；lb 换回 kg
   const r = L.makeRounder(pinInfo, 'lbs', lbCtx(10), false);
   const w = L.SW.weightFromShown(30, 'lbs', r, false);
   assert.deepEqual([w.weight, w.plateUnit], [r.kgOfD(30), r.unit]);
+});
+// 防 gap-2#5 修法自带的回退：改器材后不带正负的卡上打 / 改回的重量还挂着旧辅助号，新记的组一直按 0 比，再也不出纪录
+t('写回一组：不带正负的卡写重量（打字、改回上次）时清掉组上旧的辅助号', () => {
+  const old = { id: 's', weight: 30, reps: 8, bodyweightMode: 'assisted' };
+  const typed = { ...old, ...L.SW.weightFromShown(45, 'kg', null, false) };
+  assert.equal(typed.weight, 45);
+  assert.equal(typed.bodyweightMode, undefined);
+  const back = { ...old, ...L.SW.restoreUpdate(old, 40, false) };
+  assert.equal(back.weight, 40);
+  assert.equal(back.bodyweightMode, undefined);
+  // 带正负的照旧写号
+  assert.equal(L.SW.restoreUpdate(old, -40, true).bodyweightMode, 'assisted');
 });
 t('换算预览：卡按器械单位写、顶栏是另一种单位时给一位小数的换算；同单位、空重量不给', () => {
   assert.equal(L.SW.altLoadLabel(50, 'kg', 'lbs'), '= 110.2 lb');
@@ -661,6 +675,34 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     });
     const pts = L.trendPoints(lifts[0].sessions, 'weight');
     assert.deepEqual(pts.map(p => [p.workoutId, p.pr]), [['a1', false], ['b1', false], ['b2', true]]);
+  });
+
+  // 防 gap-2#5：改器材后不带正负了，组上还记着辅助号 —— 辅助 40 被当成 40 kg 比，出假 PB、1RM 和趋势反着走
+  t('PR：不带正负的动作里，组上记着辅助的按 0 kg 比；负重照算', () => {
+    const asst = kg => st(kg, 8, { bodyweightMode: 'assisted' });
+    const ws = [
+      W('h1', ago(30), '', [exOf('引体', [asst(40)])]),
+      W('h2', ago(20), '', [exOf('引体', [asst(35)])]),
+      W('h3', ago(10), '', [exOf('引体', [asst(30)])]),
+    ];
+    const today = W('n', ago(0), '', [exOf('引体', [asst(45)])]);
+    assert.deepEqual(pr(ws, today, { isSigned: () => false }).stamps, []);
+    const lifts = L.buildLiftSummaries({
+      workouts: [...ws, today],
+      stableIdOf: e => e.name,
+      liftKey: e => e.name,
+      resolveName: id,
+      signedLoadOf: () => false,
+      getActiveMetrics: () => ['weight', 'reps'],
+    });
+    assert.equal(lifts[0].best.weight.value, 0);
+    assert.equal(lifts[0].best.e1rm, null);
+    assert.deepEqual(lifts[0].sessions.map(s => s.records), [[], [], [], []]);
+    // 负重的组照样按它的重量比：负重 5×5 之后负重 10×5 是重量纪录 5 → 10
+    const wt = kg => st(kg, 5, { bodyweightMode: 'weighted' });
+    const withWt = [...ws, W('h4', ago(5), '', [exOf('引体', [wt(5)])])];
+    const hit = pr(withWt, W('n2', ago(0), '', [exOf('引体', [wt(10)])]), { isSigned: () => false }).stamps[0];
+    assert.deepEqual([hit?.kind, hit?.prev, hit?.next], ['weight', 5, 10]);
   });
 
   // 审查 G4：判定按馆，展示也得按馆 —— 否则 B 馆破的纪录点落在 A 馆 200 的纪录线下面
@@ -1822,8 +1864,8 @@ t('重量格打字按聚焦时的号写（C37）：辅助的组清空再打 25 �
   assert.deepEqual(w('25', -1), { weight: 25, plateUnit: 'kg', bodyweightMode: 'assisted' });
   assert.deepEqual(w('-20', 1), { weight: 20, plateUnit: 'kg', bodyweightMode: 'assisted' });
   assert.equal(w('-', -1), null);
-  assert.deepEqual(w('62,5', 1, false), { weight: 62.5, plateUnit: 'kg' });
-  assert.deepEqual(w('600', 1, false), { weight: 500, plateUnit: 'kg' });
+  assert.deepEqual(w('62,5', 1, false), { weight: 62.5, plateUnit: 'kg', bodyweightMode: undefined });
+  assert.deepEqual(w('600', 1, false), { weight: 500, plateUnit: 'kg', bodyweightMode: undefined });
 });
 
 t('计划目标值规整（上架审查 C77）：组数 / 次数取整、小于 1 当没写，组数最多 30，次数不设上限；目标重量夹到 500 kg，非正数 / 非数当没写', () => {
@@ -2326,6 +2368,30 @@ t('换做法与改名：并入别名的卡切到标准后名字换成目标名�
   const T = st.customs.find(d => d.id === 'T');
   assert.equal(L.LI.renameClashIn('窄距高位下拉', 'T', I.def('窄距高位下拉').id, I.aliases(T)), true);
   assert.equal(L.LI.renameClashIn('坐姿下拉', 'T', I.def('坐姿下拉')?.id, I.aliases(T)), false);
+});
+
+// ── 记录项落定要用的查询（utils/metricDefaults）────────────────────────────
+// 防：把 0/0 空行当成记录，没练过的动作改有氧也被钉成重量 × 次数；漏掉训练中已有数的组，训练中改类型不落定（C105）
+t('有记录的动作：只看有数的组（进行中那场的底稿行有数也算），旧名记到现名上', () => {
+  const ex = (name, sets) => ({ id: name, name, category: 'STRENGTH', sets });
+  const done = { id: 'w1', userId: 'u', date: ago(3), title: '', exercises: [ex('卧推', [{ id: 'a', weight: 60, reps: 5 }]), ex('Bench Old', [{ id: 'c', weight: 50, reps: 5 }])] };
+  const live = {
+    id: 'w2', userId: 'u', date: ago(0), title: '',
+    exercises: [ex('农夫走', [{ id: 'b', weight: 70, reps: 6, ghost: true }]), ex('空的', [{ id: 'd', weight: 0, reps: 0 }])],
+  };
+  const got = L.MD.recordedNames([done, live], n => (n === 'Bench Old' ? '杠铃卧推' : n));
+  assert.deepEqual([...got].sort(), ['农夫走', '卧推', '杠铃卧推'].sort());
+});
+// 防 gap-5#8：关掉的自定义项从选项里消失，历史上记的那一列再也点不回来
+t('自定义记录项：这个动作历史里记过数的都列出来，0 和别的动作的不算', () => {
+  const w = {
+    id: 'w', userId: 'u', date: ago(1), title: '',
+    exercises: [
+      { id: 'e1', name: '跑步机', category: 'CARDIO', sets: [{ id: 's1', weight: 0, reps: 0, custom_坡度: 3, custom_心率: 0 }] },
+      { id: 'e2', name: '划船', category: 'STRENGTH', sets: [{ id: 's2', weight: 0, reps: 0, custom_x: 5 }] },
+    ],
+  };
+  assert.deepEqual(L.MD.customKeysIn([w], n => n, '跑步机'), ['custom_坡度']);
 });
 
 console.log(`\nlogic-check: ${n} passed`);

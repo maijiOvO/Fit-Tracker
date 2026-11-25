@@ -25,6 +25,8 @@ import { LONGPRESS_TOTAL_MS } from '../hooks/useLongPress';
 import { WEIGHT_STEP_OPTIONS, DROP_STEP_OPTIONS } from '../../services/appPrefs';
 import { useRollbackImport } from '../hooks/useImportData';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
+import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
+import { recordedNames } from '../utils/metricDefaults';
 import { readRollback, type RollbackInfo } from '../../services/fitlogBackup';
 import { localYmd } from '../utils/dateUtils';
 import type { SyncStatus } from '../hooks/useFitlogSync';
@@ -149,7 +151,9 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
   const rollbackImport = useRollbackImport();
   const [rollback, setRollback] = useState<RollbackInfo | null>(null);
   // 工作台上进行中的那场撤销时保留，不算进「会一起丢掉」的条数
-  const liveId = useWorkoutContext().currentWorkout.id;
+  const { workouts, currentWorkout } = useWorkoutContext();
+  const liveId = currentWorkout.id;
+  const { pinCardioMetrics, resolveName } = useExercisePrefs();
   useEffect(() => {
     if (!open) return;
     let alive = true;
@@ -356,6 +360,8 @@ export const PrefsSheet: React.FC<PrefsSheetProps> = ({
                       const cur = appPrefs.cardioMetrics;
                       const has = cur.includes(v);
                       if (has && cur.length === 1) return; // 至少留一项
+                      // 有记录、没配过记录项的有氧动作先钉在旧默认上：不然它们的历史按新默认重读，距离之类的列就藏起来了（审查 gap-5#7）
+                      pinCardioMetrics(recordedNames([...workouts, currentWorkout], resolveName));
                       changeAppPrefs({ cardioMetrics: has ? cur.filter(x => x !== v) : cardioOpts.map(o => o.v).filter(x => x === v || cur.includes(x)) });
                     }}
                     testId="prefs-cardio"
