@@ -282,7 +282,7 @@ const AppWithAuthShell: React.FC = () => {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
   // ============== 业务 hooks ==============
-  const { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData } =
+  const { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData, whenBooted } =
     useFitlogSync();
   /** 导出 / 导入在忙：自己一个状态，不再借同步的（原来导出时首选项那一行会显示「同步中」，审查 B12） */
   const [dataBusy, setDataBusy] = useState<'idle' | 'syncing' | 'error'>('idle');
@@ -321,6 +321,7 @@ const AppWithAuthShell: React.FC = () => {
       if (focusId) window.setTimeout(() => setFlashExerciseId(focusId), 150);
     },
     onPersist: () => workoutCtx.persistCurrentWorkout(),
+    whenBooted,
   });
 
   /**

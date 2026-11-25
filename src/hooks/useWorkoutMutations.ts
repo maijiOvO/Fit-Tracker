@@ -51,6 +51,8 @@ export interface UseWorkoutMutationsParams {
   onEnterEditWorkout?: (focusExerciseId?: string) => void;
   /** 触发 persist（由 App.tsx 注入，避免循环依赖） */
   onPersist?: () => void;
+  /** 启动流程走完（useFitlogSync）：启动接回编辑草稿要等它，见那里的注释 */
+  whenBooted: () => Promise<void>;
 }
 
 /** 刊末页要显示的东西。结束训练时一次算好，避免组件里再摸一遍数据。 */
@@ -149,6 +151,7 @@ export function useWorkoutMutations({
   getPreviousTab,
   onEnterEditWorkout,
   onPersist,
+  whenBooted,
 }: UseWorkoutMutationsParams): UseWorkoutMutationsResult {
   const workoutCtx = useWorkoutContext();
   const scheduleCtx = useScheduleContext();
@@ -291,7 +294,9 @@ export function useWorkoutMutations({
    * 启动时接回被杀前没保存的编辑草稿（2026-11-24 作者定）：直接回到编辑页，「已修改」亮着，返回照旧问放弃。
    * 不弹框、不出提示（确认框只留给删整场 / 放弃训练 / 清空账户，§12.5）。接不回的槽删掉。
    * 工作台上已接回的进行中那场换下来记着，退出编辑时放回；还没接回的，restoreInProgress 见到草稿 id 就不接，退出编辑时再接。
-   * 接回是系统做的：启动时先碰了屏、开着的那一步不能把它记成一步撤销（C07），工作台和编辑态两个状态源都挪基线
+   * 接回是系统做的：启动时先碰了屏、开着的那一步不能把它记成一步撤销（C07），工作台和编辑态两个状态源都挪基线。
+   * 等启动流程走完再读槽和原记录：启动迁移、续完馆改名、拉取合并都会改 workouts，先读就是拿改之前的原记录去比，
+   * 别的设备被杀期间改过这场也照样接回，「保存修改」再拿旧字段盖回去（D2 审查）。NAS 不通时最多多等一次拉取超时
    */
   const bootRestoreRef = useRef(false);
   useEffect(() => {
@@ -299,6 +304,7 @@ export function useWorkoutMutations({
     bootRestoreRef.current = true;
     void (async () => {
       try {
+        await whenBooted();
         const row = await db.get<unknown>('backups', EDIT_DRAFT_ID);
         if (!row) return;
         const id = (row as { draft?: { id?: unknown } }).draft?.id;

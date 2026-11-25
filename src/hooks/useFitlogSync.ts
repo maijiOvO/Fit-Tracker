@@ -48,6 +48,8 @@ export interface UseFitlogSyncResult {
   pushState: SyncState;
   performFullSync: () => Promise<void>;
   loadLocalData: () => Promise<void>;
+  /** 启动流程（迁移 → 续完馆改名 → 拉取合并 → 补字段 → 重读）走完；出错也算走完 */
+  whenBooted: () => Promise<void>;
 }
 
 /**
@@ -78,6 +80,13 @@ export function useFitlogSync(): UseFitlogSyncResult {
   }, []);
   const syncLockRef = useRef<boolean>(false);
   const didInitRef = useRef(false);
+  const bootedRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  if (!bootedRef.current) {
+    let resolve = () => {};
+    const promise = new Promise<void>(r => (resolve = r));
+    bootedRef.current = { promise, resolve };
+  }
+  const whenBooted = useCallback(() => bootedRef.current!.promise, []);
 
   const loadLocalData = useCallback(
     async () => {
@@ -164,6 +173,7 @@ export function useFitlogSync(): UseFitlogSyncResult {
         // 启动流程（拉取合并 → 应用 prefs → 重读本地库；单机版没写过库时后两步跳过）走完的标记，给 e2e 等「重开 App 落定了」用。
         // 不能拿「时间线卡片出来了」当信号：WorkoutContext 挂载时自己先从本地库读一遍，卡片比拉取合并早
         document.documentElement.dataset.fitlogBoot = 'done';
+        bootedRef.current!.resolve();
       }
     };
     void initApp();
@@ -260,5 +270,5 @@ export function useFitlogSync(): UseFitlogSyncResult {
     }
   }, [handleSnapshotApply, loadLocalData, settingsCtx.lang, toast]);
 
-  return { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData };
+  return { syncStatus, setSyncStatus, lastSyncedAt, pushState, performFullSync, loadLocalData, whenBooted };
 }

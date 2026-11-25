@@ -718,7 +718,7 @@ const SEEDED = {
   //  datepicker-stale-initial：打开日期选择器不动直接确定，日期不能变（编辑态不亮「已修改」）
   //  edit-history-*：改的是草稿 —— 没改保存键灰着、改了不落库、进程被杀后重开回到编辑页（C28）、「放弃修改」真的丢；
   //  「保存修改」才写库，不动日期和 finishedAt、不出刊末页（否则 10 分钟内开练会被问「继续」这场旧训练）
-  'seeded-history-edit': async ({ page, card, toDashboard, menuOn, remoteWorkout, dismissToasts }) => {
+  'seeded-history-edit': async ({ page, card, toDashboard, menuOn, remoteWorkout, dismissToasts, remote, quiesce }) => {
     // 后面「启动接回还没落定就点开练」那一段用：带标记重开时，开头一小段时间里读 workouts 表的结果晚 800 ms 才交回，
     // 并记下这段时间里选馆弹层 / 新用户空状态出没出现过（MutationObserver，不靠等）
     await page.addInitScript(() => {
@@ -805,6 +805,27 @@ const SEEDED = {
     if ((await repsInDb()) !== 10) throw new Error(`「放弃修改」kept the edit (reps=${await repsInDb()})`);
     // 放弃过的草稿下次启动不能复活
     await until(async () => (await draftSlot()) === null, 'the discarded edit draft slot to be deleted');
+
+    // 被杀期间原记录在别的设备上改了（D2 审查）：重开时启动拉取把新版合并进来，草稿就不能再接回 ——
+    // 接回了，「保存修改」会拿旧字段盖掉那台设备的改动。错在启动接回和启动拉取的先后，跨两个 hook，下层测不到
+    await openEdit();
+    await reps0().fill('98');
+    await dirty.waitFor({ state: 'visible', timeout: 3_000 });
+    await until(async () => (await draftSlot())?.draft?.exercises?.[0]?.sets?.[0]?.reps === 98, 'the edit draft slot to hold reps 98');
+    await quiesce();
+    remote.snapshot = {
+      ...remote.snapshot,
+      workouts: remote.snapshot.workouts.map(w => (w.id === W_DATE.id ? { ...w, notes: 'E2E 另一台设备', updatedAt: new Date().toISOString() } : w)),
+    };
+    await page.evaluate(() => (window.__simulateKill = true));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
+    await until(async () => (await draftSlot()) === null, 'the stale edit draft slot to be dropped after the boot pull');
+    if (await editPage.first().isVisible()) throw new Error('a draft based on a record the boot pull changed came back to the edit page');
+    const merged = await remoteWorkout(W_DATE.id);
+    if (merged?.notes !== 'E2E 另一台设备' || merged.exercises[0].sets[0].reps !== 10) {
+      throw new Error(`the other device's edit was lost (notes=${merged?.notes}, reps=${merged?.exercises?.[0]?.sets?.[0]?.reps})`);
+    }
 
     await openEdit();
     if ((await reps0().inputValue()) !== '10') throw new Error('discarded edit is still on the bench');
