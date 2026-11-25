@@ -325,7 +325,7 @@ t('刊末页「比上次」：每个动作这场与上一场的最好一组（�
   };
   const findLast = e => (last[e.name] ? { ex: last[e.name], workout: { id: 'w0', date: '', exercises: [] } } : null);
   const got = L.vsLastSession([bench, pull, fresh, empty], {
-    keyOf: e => e.name, findLast, ruleOf: e => L.R.prRuleFor(['weight', 'reps'], e.name === '引体', false), gym: undefined,
+    keyOf: e => e.name, findLast, ruleOf: e => L.R.prRuleFor(['weight', 'reps'], e.name === '引体', false, []), gym: undefined,
   });
   assert.deepEqual(got, [
     { exId: 'b', key: '卧推', now: { kg: 80, reps: 8 }, last: { kg: 82.5, reps: 2 } },
@@ -342,7 +342,7 @@ t('刊末页「比上次」：一个项目一行，同场同项目的几张卡�
   const vOf = e => e.variantId;
   const keyOf = e => (e.variantId ? `${e.name}（${e.variantId}）` : e.name);
   const run = (ws, now, extra = {}) => L.vsLastSession(now, {
-    keyOf, ruleOf: () => L.R.prRuleFor(['weight', 'reps'], false, false), gym: '',
+    keyOf, ruleOf: () => L.R.prRuleFor(['weight', 'reps'], false, false, []), gym: '',
     findLast: e => L.findLastIn(ws, n => n, vOf, e.name, vOf(e) ?? '', 'now', extra.prefer?.(e)), ...extra,
   }).map(r => [r.key, `${r.now.kg}x${r.now.reps}`, `${r.last.kg}x${r.last.reps}`, r.lastGym ?? null]);
   // a：上一场并入后有两张卧推（热身卡 + 正式卡）
@@ -359,7 +359,7 @@ t('刊末页「比上次」：一个项目一行，同场同项目的几张卡�
   ]);
   // d：器械上一场只在 A馆、今天在 B馆 → 写 A馆；杠铃不写；同馆的器械也不写
   const a = W('a', 5, 'A馆', [C('x', '腿举', [S(200, 10)]), C('z', '卧推', [S(100, 5)])]);
-  const machine = { ruleOf: e => L.R.prRuleFor(['weight', 'reps'], false, e.name === '腿举'), prefer: e => (e.name === '腿举' ? 'B馆' : undefined) };
+  const machine = { ruleOf: e => L.R.prRuleFor(['weight', 'reps'], false, e.name === '腿举', []), prefer: e => (e.name === '腿举' ? 'B馆' : undefined) };
   assert.deepEqual(run([a], [C('y', '腿举', [S(100, 10)]), C('q', '卧推', [S(100, 5)])], { ...machine, gym: 'B馆' }), [
     ['腿举', '100x10', '200x10', 'A馆'],
     ['卧推', '100x5', '100x5', null],
@@ -1038,7 +1038,7 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
 
   t('PR：底稿行不算；训练中的 PB 标指向破纪录的那一组（同一个 findRecords）', () => {
     const h = [W('h', ago(9), '', [exOf('卧推', [st(100, 5), st(120, 1, { ghost: true })])])];
-    const rule = L.R.prRuleFor(['weight', 'reps'], false, false);
+    const rule = L.R.prRuleFor(['weight', 'reps'], false, false, []);
     const hist = L.R.prSetsOf(h[0].exercises[0], '', false);
     assert.equal(hist.length, 1, 'ghost row is not a fact');
     const cur = exOf('卧推', [st(95, 5), st(102.5, 3), st(105, 1, { ghost: true })]);
@@ -1091,7 +1091,7 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
 
   t('训练中 PB 标：同一项目几张卡合起来只标一行（纪录在别的卡上就不标这张；并列标卡序在前的）', () => {
     // 防的错：C84 训练中两张卡各自和历史比，两张都亮 PB
-    const pool = { rule: L.R.prRuleFor(['weight', 'reps'], false, false), history: [{ kg: 100, reps: 5, gym: '' }], gym: '' };
+    const pool = { rule: L.R.prRuleFor(['weight', 'reps'], false, false, []), history: [{ kg: 100, reps: 5, gym: '' }], gym: '' };
     const strip = c => L.R.prSetsOf(c, '', false).map(({ at: _a, ...x }) => x);
     const at = (own, before, after) => L.R.recordAtAmong(pool.rule, pool.history, L.R.prSetsOf(own, '', false), { before: before.flatMap(strip), after: after.flatMap(strip) }, '');
     const A = C('a', '卧推', [st(105, 3)]);
@@ -1127,7 +1127,7 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     const last = exOf('卧推', [st(100, 5)]);
     const got = L.vsLastSession([exOf('卧推', [st(120, 0), st(100, 6)])], {
       keyOf: e => e.name, findLast: () => ({ ex: last, workout: { id: 'w0', date: '', exercises: [] } }),
-      ruleOf: () => L.R.prRuleFor(['weight', 'reps'], false, false), gym: '',
+      ruleOf: () => L.R.prRuleFor(['weight', 'reps'], false, false, []), gym: '',
     });
     assert.deepEqual(got[0].now, { kg: 100, reps: 6 });
   });
@@ -1135,7 +1135,7 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
   t('PR：kg、lb 各打一位小数，跨单位手打同一个重量不算纪录；单边加一片 0.25 lb 小片照算', () => {
     // 防的错：C83 容差 0.01 kg 比一位小数的换算差小 —— 换个单位把上次的重量原样打一遍，就落最大重量 / 单组容量的牌；
     // 修过头：容差放到挡掉真实的最小加重
-    const rule = L.R.prRuleFor(['weight', 'reps'], false, false);
+    const rule = L.R.prRuleFor(['weight', 'reps'], false, false, []);
     const P = (kg, reps) => ({ kg, reps, gym: '' });
     const kinds = (h, c) => L.R.findRecords(rule, h, c, '').map(x => x.kind);
     assert.deepEqual(kinds([P(100, 5)], [P(220.5 / K, 5)]), []);
@@ -1181,13 +1181,33 @@ t('en-duplicate-renamed：中英原名相同的自建动作，旧覆盖层只写
     assert.equal(pr([run('a', 9, 0, 30)], run('n', 0, 5, 30), cardio).stamps.length, 0, '以前没记距离');
   });
 
+  t('PR：椭圆机（有氧默认记时长 + 距离）从没填过距离：按时长比，图、纪录卡、特别关注照常有；填过距离才改看均速', () => {
+    // 防的错：D5 审查 —— 只看记录项配置就派生均速、把时长踢出纪录，只记时长的有氧（椭圆机、划船机）
+    // 详情图空白、纪录卡一张没有、列表大数「—」、特别关注卡被滤掉，从此不会有任何纪录
+    const M = ['duration', 'distance'];
+    const ell = (wid, d, min, km = 0) => W(wid, ago(d), '', [exOf('椭圆机', [st(0, 0, { duration: min * 60, distance: km })], { category: 'CARDIO' })]);
+    const ws = [ell('a', 30, 20), ell('b', 20, 25), ell('c', 10, 30)];
+    const lift = sumOf(ws, M);
+    assert.deepEqual(L.chartMetricsFor(lift, M), ['duration', 'distance']);
+    assert.equal(L.hasBest(lift, 'duration'), true);
+    assert.deepEqual(L.trendPoints(lift.sessions, 'duration').map(p => p.pr), [false, true, true]);
+    assert.equal(L.featuredStats(lift, 'duration')?.prCount, 2);
+    assert.equal(pr(ws.slice(0, 2), ws[2], { getActiveMetrics: () => M }).stamps[0]?.kind, 'duration');
+    const sets = ws.flatMap(w => w.exercises.flatMap(e => L.R.prSetsOf(e, '', false)));
+    assert.deepEqual(L.R.prRuleFor(M, false, false, sets).cardio, ['duration']);
+    // 有一场填了距离：按记了距离的动作看（均速排第一，时长不再算纪录）
+    const withKm = [...ws, ell('d', 5, 30, 4)];
+    assert.equal(L.chartMetricsFor(sumOf(withKm, M), M)[0], 'speed');
+    assert.equal(L.hasBest(sumOf(withKm, M), 'duration'), false);
+  });
+
   t('刊末页「比上次」：有氧按距离挑这场最好的一组，带上时长、距离，写成「30:00 5 km」', () => {
     // 防的错：C85 跑步机的组重量、次数都是 0，「比上次」挑不出组，整行不列
     const M = ['duration', 'distance'];
     const last = exOf('跑步机', [st(0, 0, { distance: 5, duration: 1800 })]);
     const got = L.vsLastSession([exOf('跑步机', [st(0, 0, { distance: 3, duration: 1200 }), st(0, 0, { distance: 5, duration: 1680 })])], {
       keyOf: e => e.name, findLast: () => ({ ex: last, workout: { id: 'w0', date: '', exercises: [] } }),
-      ruleOf: () => L.R.prRuleFor(M, false, false), gym: '',
+      ruleOf: () => L.R.prRuleFor(M, false, false, L.R.prSetsOf(last, '', false)), gym: '',
     });
     assert.deepEqual(got[0].now, { kg: 0, reps: 0, duration: 1680, distance: 5, speed: (5 * 3600) / 1680 });
     assert.equal(L.LDS.metricsTail(got[0].last, M, 'kg', 'cn'), '30:00 5 km');
@@ -3472,7 +3492,8 @@ t('种子记录项：任何一场记过数就不种（含那一场自己和之�
     const kinds = new Map();
     let sessions = 0;
     for (const lift of lifts) {
-      const rule = L.R.prRuleFor(metricsOf(idx(lift.baseName)), lift.signed, lift.machine);
+      const rule = L.R.prRuleFor(metricsOf(idx(lift.baseName)), lift.signed, lift.machine,
+        lift.sessions.flatMap(s => s.cards.flatMap(c => L.R.prSetsOf(c, s.gym, lift.signed))));
       const hist = [];
       for (const s of lift.sessions) {
         const cur = s.cards.flatMap(c => L.R.prSetsOf(c, s.gym, lift.signed));

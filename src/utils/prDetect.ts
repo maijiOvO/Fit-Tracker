@@ -96,12 +96,13 @@ export function detectPRs({
     const ex = cards[0];
     // 组内任一张按带号记就按带号比（同 liftHistory：同一个动作口径一致）
     const signed = cards.some(c => !!isSigned?.(c));
-    // 动作设置按动作共享，不分练法
-    const rule = prRuleFor(getActiveMetrics(resolveName(ex.name)), signed, !!gymScoped?.(ex));
     const past: PRSet[] = history.flatMap(w =>
       (w.exercises ?? []).filter(e => key(e).trim() === name).flatMap(e => prSetsOf(e, w.gym, signed)),
     );
-    const top = findRecords(rule, past, cards.flatMap(c => prSetsOf(c, session.gym, signed)), session.gym)[0];
+    const cur = cards.flatMap(c => prSetsOf(c, session.gym, signed));
+    // 动作设置按动作共享，不分练法
+    const rule = prRuleFor(getActiveMetrics(resolveName(ex.name)), signed, !!gymScoped?.(ex), [...past, ...cur]);
+    const top = findRecords(rule, past, cur, session.gym)[0];
     if (!top) continue;
     hits.push({
       kind: top.kind,

@@ -9,7 +9,7 @@
  *   3. 次数纪录：这个重量下做得更多（或这个次数下做得更重）——
  *      本场某一组 (w, r) 不被历史上任何一组 (w' ≥ w, r' ≥ r) 盖住，就是一项次数纪录
  *   4. 单组容量：重量 × 次数
- *   5. 有氧 / 计时（按记录项，见 prRuleFor）：最远（距离）> 最快（均速＝距离 ÷ 时长，打了速度就用打的）> 最长（时长，只在不记距离时）——
+ *   5. 有氧 / 计时（按记录项，见 prRuleFor）：最远（距离）> 最快（均速＝距离 ÷ 时长，打了速度就用打的）> 最长（时长，只在不记距离、或一次距离都没填过时）——
  *      定时长跑更远上「最远」，定距离跑更快上「最快」；记了距离的动作时长变长不算进步（多半只是跑慢了，审查 C85 / gap-5#4，2026-11-24 用户定）
  * 自重（没有重量这一项）：单组最多次数。
  * 带正负的负荷（辅助为负、负重为正）：最大重量只看加了负重的组（自重算 0）；
@@ -88,10 +88,13 @@ export interface PRRule {
 
 /**
  * 按动作的记录项（getActiveMetrics）定规矩；构造 PRRule 只走这里，几处口径才一致。
- * 有氧：记了距离比距离；记了速度、或距离和时长都记（能算均速）比速度；时长只在不记距离时按越长越好比（平板支撑、定时长的动作）
+ * 有氧：记了距离比距离；记了速度、或距离和时长都记（能算均速）比速度；时长只在不记距离时按越长越好比（平板支撑、定时长的动作）。
+ * sets＝这个动作的全部组（历史 + 本场）：记录项里有距离、可一组距离都没填过（有氧默认记时长 + 距离，椭圆机、划船机只填时长）
+ * 按不记距离比 ——「时长变长是跑慢了」只在真记了距离时成立，否则这类动作永远没有纪录（D5 审查）
  */
-export function prRuleFor(metrics: string[], signed: boolean, machine: boolean): PRRule {
-  const has = (m: string) => metrics.includes(m);
+export function prRuleFor(metrics: string[], signed: boolean, machine: boolean, sets: PRSet[]): PRRule {
+  const noKm = !sets.some(s => s.km > 0);
+  const has = (m: string) => metrics.includes(m) && !(m === 'distance' && noKm);
   const cardio: CardioKind[] = [];
   if (has('distance')) cardio.push('distance');
   if (has('speed') || (has('distance') && has('duration'))) cardio.push('speed');

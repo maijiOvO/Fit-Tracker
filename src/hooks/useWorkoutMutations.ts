@@ -17,7 +17,7 @@ import { seedMetricsOf } from '../utils/metricDefaults';
 import { mergeOverride } from '../utils/exerciseOverride';
 import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
-import { prRuleFor } from '../utils/prRecords';
+import { prRuleFor, prSetsOf } from '../utils/prRecords';
 import { KG_TO_LBS } from '../constants';
 import { editKey, groupExercises, hasDoneSets, isDefaultTitle, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
 import { rowEdited, toGhostSets } from '../utils/setValues';
@@ -476,7 +476,9 @@ export function useWorkoutMutations({
             findLast: ex =>
               findLastIn(earlier, resolveName, variantIdOf, ex.name, variantIdOf(ex) ?? '', finalWorkout.id,
                 finalWorkout.gym && gymScoped(ex) ? finalWorkout.gym : undefined),
-            ruleOf: ex => prRuleFor(getActiveMetrics(resolveName(ex.name)), isSignedEx(ex), gymScoped(ex)),
+            // 填没填过距离看这个项目此前 + 本场的全部组（同 detectPRs）：只记时长的有氧按时长挑这场最好的一组
+            ruleOf: ex => prRuleFor(getActiveMetrics(resolveName(ex.name)), isSignedEx(ex), gymScoped(ex),
+              [...earlier, finalWorkout].flatMap(w => (w.exercises ?? []).filter(e => liftKey(e) === liftKey(ex)).flatMap(e => prSetsOf(e, w.gym, false)))),
             gym: finalWorkout.gym,
           }).map(r => {
             const cards = finalWorkout.exercises.filter(e => liftKey(e) === r.key);

@@ -26,7 +26,7 @@ import { formatVolume, plural } from '../utils/format';
 import { LoadHero, MachineMissingNote } from './PlateGlyph';
 import { useMachineSettings } from '../hooks/useMachineSettings';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
-import { prSetsOf, recordAtAmong, type PRRule, type PRSet } from '../utils/prRecords';
+import { prRuleFor, prSetsOf, recordAtAmong, type PRSet } from '../utils/prRecords';
 import { tick } from '../utils/tick';
 import { afterRemoveTap } from '../utils/tap';
 import { heroFocus } from '../utils/scrubFeel';
@@ -36,9 +36,11 @@ import { ExerciseHistorySheet } from './LiftDetailSheet';
 import { lastSetLine } from '../utils/liftDisplay';
 
 
-/** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法 + 今天的馆 */
+/** 训练中标 PB 要的东西：这个动作以前做完的每一组（带那场的馆）+ 比法要的记录项 / 带号 / 器械 + 今天的馆 */
 export interface PRPool {
-  rule: PRRule;
+  metrics: string[];
+  signed: boolean;
+  machine: boolean;
   history: PRSet[];
   gym?: string;
   /** 本场同项目的别的卡做完的组（按卡序分在这张之前 / 之后，at 已去掉）：几张合起来只标一行 */
@@ -52,7 +54,10 @@ export interface PRPool {
  */
 export function prSetIndex(exercise: Exercise, pool: PRPool | null | undefined): number {
   if (!pool) return -1;
-  return recordAtAmong(pool.rule, pool.history, prSetsOf(exercise, pool.gym, pool.rule.signed), pool.peers, pool.gym);
+  const own = prSetsOf(exercise, pool.gym, pool.signed);
+  // 比法在这里按历史 + 本场（这张卡和同项目别的卡）现定：本场头一回填距离，和刊末页一样改按距离 / 均速比（prRuleFor 的 sets）
+  const rule = prRuleFor(pool.metrics, pool.signed, pool.machine, [...pool.history, ...own, ...(pool.peers?.before ?? []), ...(pool.peers?.after ?? [])]);
+  return recordAtAmong(rule, pool.history, own, pool.peers, pool.gym);
 }
 
 /** 本动作总容量 Σ(weight × reps)，含递减子组。刊头右侧那个数。

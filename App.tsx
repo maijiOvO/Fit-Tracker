@@ -49,7 +49,7 @@ import { listGyms } from './src/utils/gyms';
 import { sessionsBefore } from './src/utils/sessionDate';
 import { mergeOverride } from './src/utils/exerciseOverride';
 import { usesSignedLoad } from './src/utils/load';
-import { prRuleFor, prSetsOf } from './src/utils/prRecords';
+import { prSetsOf } from './src/utils/prRecords';
 import type { PRPool } from './src/components/ExerciseCard';
 
 import TabNavigation from './src/components/TabNavigation';
@@ -915,7 +915,9 @@ const AppWithAuthShell: React.FC = () => {
       }
       const peerSets = (cards: Exercise[]) => cards.flatMap(c => prSetsOf(c, currentWorkout.gym, signed).map(({ at: _at, ...x }) => x));
       const pool: PRPool = {
-        rule: prRuleFor(metrics, signed, machine),
+        metrics,
+        signed,
+        machine,
         history,
         gym: currentWorkout.gym,
         ...(group && at >= 0 ? { peers: { before: peerSets(group.slice(0, at)), after: peerSets(group.slice(at + 1)) } } : {}),

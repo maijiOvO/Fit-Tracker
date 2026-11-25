@@ -229,8 +229,8 @@ export function buildLiftSummaries({
           baseName,
           signed: false,
           machine: false,
-          // 号和馆在下面逐场判之前定，那时再按定下来的重算
-          rule: prRuleFor(metrics, false, false),
+          // 号、馆、填没填过距离在下面逐场判之前定，那时再按定下来的重算
+          rule: prRuleFor(metrics, false, false, []),
           loaded: false,
           sessions: [],
           lastTs: 0,
@@ -262,13 +262,13 @@ export function buildLiftSummaries({
     lift.lastTs = lift.sessions[lift.sessions.length - 1].ts;
     // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）。累计着判，不每场重扫此前全部组（审查 C36）
     lift.machine = !!gymScoped?.(lift.sessions[0].exercise);
-    lift.rule = prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine);
+    const curs = lift.sessions.map(s => s.cards.flatMap(c => prSetsOf(c, s.gym, lift.signed)));
+    lift.rule = prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine, curs.flat());
     const tr = createRecordTracker(lift.rule);
-    for (const s of lift.sessions) {
-      const cur = s.cards.flatMap(c => prSetsOf(c, s.gym, lift.signed));
-      s.records = tr.check(cur, s.gym).map(h => h.kind);
-      tr.add(cur);
-    }
+    lift.sessions.forEach((s, i) => {
+      s.records = tr.check(curs[i], s.gym).map(h => h.kind);
+      tr.add(curs[i]);
+    });
     lift.loaded = lift.sessions.some(s => s.cards.some(c => (c.sets ?? []).some((set: any) =>
       !set.ghost && (lift.signed ? signedKg(set, c) : Number(set.weight) || 0) !== 0)));
     lift.best = bestsOf(lift.sessions, lift.signed);
@@ -282,12 +282,12 @@ export function buildLiftSummaries({
  *   - 负重动作默认看重量；估算 1RM 只是可选项，排在重量后面 —— 公式推出来的数不如重量直观
  *   - 自重动作从没加过负重 / 辅助：重量一直是 0，画出来是一条平线，默认看次数
  *   - 自重动作加过负重 / 辅助：默认看带号的重量（辅助 −30 → 自重 → +10 一路往上就是进步）
- *   - 有氧（距离和时长都记）：默认看速度，没记速度就插一个派生的均速（距离 ÷ 时长）排第一（2026-11-24 用户定，审查 gap-5#4）——
+ *   - 有氧（距离和时长都记、且真填过距离，看 rule）：默认看速度，没记速度就插一个派生的均速（距离 ÷ 时长）排第一（2026-11-24 用户定，审查 gap-5#4）——
  *     定距离跑 5 km 时距离是一条平线、时长变长是退步，进步只在均速上看得出来；这里推出来的数比原始数更直观，和上面估算 1RM 排后面相反
  */
 export function chartMetricsFor(lift: LiftSummary, activeMetrics: string[]): string[] {
   const list = [...activeMetrics];
-  if (list.includes('distance') && list.includes('duration')) {
+  if (lift.rule.cardio.includes('distance') && list.includes('duration')) {
     if (list.includes('speed')) list.splice(list.indexOf('speed'), 1);
     list.unshift('speed');
   }
@@ -306,7 +306,7 @@ export function chartMetricsFor(lift: LiftSummary, activeMetrics: string[]): str
   return list.length ? list : ['reps'];
 }
 
-/** 这个指标有没有「最好」：记了距离的动作，时长长了多半是跑慢了，不画纪录线、不出纪录卡（审查 gap-5#4） */
+/** 这个指标有没有「最好」：记了（填过）距离的动作，时长长了多半是跑慢了，不画纪录线、不出纪录卡（审查 gap-5#4） */
 export function hasBest(lift: LiftSummary, metric: string): boolean {
   return metric !== 'duration' || lift.rule.cardio.includes('duration');
 }
