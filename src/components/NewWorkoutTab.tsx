@@ -594,6 +594,21 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   // 顶栏日期、馆按钮的热区：规则见下面顶栏那行的注释
   const headHit = editingWorkoutId ? 'before:-inset-y-1' : 'before:-top-4 before:-bottom-1';
 
+  // 结束键：sm 以上图标 + 一行字；手机宽度下不要图标、字拆两行，给馆名腾地方（审查 C46：原来中文 114px、英文约 146px，
+  // 360 宽时馆按钮被挤得只剩图钉）。同一模式的两个稳态标签叠在一格里、不是当前的那个隐身：上膛这一下按钮不能变宽，
+  // 否则挤动整个头部。保存中 / 已结束 / 失败在手机宽度下只留图标居中，两个标签仍隐身占着宽度
+  const finishLines: [string, string][] = editingWorkoutId
+    ? [isCn ? ['保存', '修改'] : ['Save', 'changes']]
+    : [isCn ? ['结束', '训练'] : ['End', 'workout'], isCn ? ['确认', '结束'] : ['Confirm', 'end']];
+  const finishCurrent = editingWorkoutId || !endArmed ? 0 : 1;
+  const finishBusy = saveStatus !== 'idle';
+  const finishText =
+    saveStatus === 'saving' ? (editingWorkoutId ? (isCn ? '保存中' : 'Saving') : isCn ? '结束中' : 'Ending')
+    : saveStatus === 'saved' ? (isCn ? '已结束' : 'Ended')
+    : saveStatus === 'error' ? (isCn ? '失败' : 'Failed')
+    : finishLines[finishCurrent].join(isCn ? '' : ' ');
+  const finishIconCls = finishBusy ? 'max-sm:absolute max-sm:inset-0 max-sm:m-auto' : 'max-sm:hidden';
+
   return (
     // ⚠️ anim-tab-enter 动的是 transform，而带 transform 的元素会成为
     // position: fixed 子元素的包含块 —— 底部常驻栏与添加动作弹层的 inset-0
@@ -616,7 +631,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           <div className="flex-1 min-w-0 space-y-1">
             {/* 编辑态五项挤不下一行，整项折到第二行（每项 nowrap，否则压成一字一行）。
                 训练中只有日期、馆和单位：不折行，馆名让位，头部高度不随按钮状态跳。
-                手机宽度下这一行夹在撤销列和结束键之间只剩约 100px：今天的日期只给图标、备注图标放到标题行、单位键不带秤图标、
+                手机宽度下这一行夹在撤销列和结束键之间，结束键收成两行字后 375 宽中文约 160px、英文约 130px：今天的日期只给图标、备注图标放到标题行、单位键不带秤图标、
                 英文日期写「Nov 12」不带星期，否则馆名被压成 0 宽、点不到；图钉不跟着压（flex-shrink-0），让位的只有馆名。
                 热区（::before）的规则：折行时上下各伸出不超过行距的一半，否则盖住上一行的按钮（审查 C46）——
                 编辑态行距 gap-y-2、日期和馆只伸 4px、单位键不伸；训练态不折行，上方只有状态栏留白，可以往上多伸。 */}
@@ -717,7 +732,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             // 编辑旧训练只看改没改：动作删光也能点，点了说去哪删整场（上架审查 C90）
             disabled={saveStatus === 'saving' || (editingWorkoutId ? !hasUnsavedChanges : !currentWorkout.exercises?.length)}
             data-testid="finish-button"
-            className={`relative z-[1] min-h-[44px] min-w-[114px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
+            aria-label={finishText}
+            className={`relative z-[1] min-h-[44px] min-w-[44px] sm:min-w-[114px] px-2 sm:px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
@@ -734,33 +750,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             }`}
           >
             {saveStatus === 'saving' ? (
-              <>
-                <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                <span>{editingWorkoutId ? (isCn ? '保存中' : 'Saving') : isCn ? '结束中' : 'Ending'}</span>
-              </>
-            ) : saveStatus === 'saved' ? (
-              <>
-                <Flag size={16} strokeWidth={3} />
-                <span>{isCn ? '已结束' : 'Ended'}</span>
-              </>
+              <div className={`w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin ${finishIconCls}`} />
             ) : saveStatus === 'error' ? (
-              <>
-                <X size={16} strokeWidth={3} />
-                <span>{isCn ? '失败' : 'Failed'}</span>
-              </>
+              <X size={16} strokeWidth={3} className={finishIconCls} />
+            ) : editingWorkoutId && saveStatus === 'idle' ? (
+              <Check size={16} strokeWidth={3} className={finishIconCls} />
             ) : (
-              <>
-                {editingWorkoutId ? <Check size={16} strokeWidth={3} /> : <Flag size={16} strokeWidth={3} />}
-                <span>
-                  {editingWorkoutId
-                    ? isCn ? '保存修改' : 'Save changes'
-                    : endArmed
-                      // 和「结束训练」等字数：上膛这一下按钮不能变宽，否则挤动整个头部
-                      ? isCn ? '确认结束' : 'Confirm end'
-                      : isCn ? '结束训练' : 'End workout'}
-                </span>
-              </>
+              <Flag size={16} strokeWidth={3} className={finishIconCls} />
             )}
+            {/* sm 以上一行字；「确认结束」和「结束训练」等字数，上膛这一下不变宽 */}
+            <span className="max-sm:hidden">{finishText}</span>
+            <span aria-hidden className="sm:hidden grid leading-tight text-center">
+              {finishLines.map(([a, b], i) => (
+                <span key={i} className={`col-start-1 row-start-1 ${finishBusy || i !== finishCurrent ? 'invisible' : ''}`}>
+                  {a}<br />{b}
+                </span>
+              ))}
+            </span>
           </button>
         </div>
       </div>

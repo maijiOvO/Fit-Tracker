@@ -1654,14 +1654,16 @@ const SEEDED = {
 
       for (const lang of ['en', 'cn']) {
         if (lang === 'cn') await setLang('cn');
-        // b. 训练中，360 / 320 宽：中间列再挤，撤销、重做、结束也点到自己。
-        // 馆按钮宽度和中间列各控件还不断言：要等结束键在手机上收窄（C46 第 1 步，待作者定），现在 360 宽馆按钮只剩图钉
+        // b. 训练中，360 宽：结束键在手机上收成两行字，馆按钮留得出一指宽、七个控件各点到自己；
+        // 320 宽中间列再挤，撤销、重做、结束也点到自己
         await sized(360);
         await page.getByRole('button', { name: /开始训练|Start workout/i }).first().click();
         await pickStartGym(page);
         await settle(page);
-        out.push(`${lang} gym ${Math.round(await gymWidth())}px`);
-        await expectHits(RIGHT, `${lang} 360 live`);
+        const gw = await gymWidth();
+        out.push(`${lang} gym ${Math.round(gw)}px`);
+        if (gw < 44) throw new Error(`${lang} 360 live: the gym button is squeezed to ${Math.round(gw)}px (< 44)`);
+        await expectHits(HEAD, `${lang} 360 live`);
         await sized(320);
         await expectHits(RIGHT, `${lang} 320 live`);
         await sized(360);
