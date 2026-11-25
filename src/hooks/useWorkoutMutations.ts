@@ -740,13 +740,9 @@ export function useWorkoutMutations({
                 : 'none',
           };
       // 「杠铃片」：底稿按今天的馆和单位就近取整，记下上一次的原值当参考（递减档一起）
-      const ghostSets = rawGhosts
-        ? roundPrefill(
-            rawGhosts,
-            { id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}) } as Exercise,
-            rounderFor({ id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}) } as Exercise, gym, undefined, gyms),
-          )
-        : null;
+      // 带上来源那场的馆：同馆同片的原样抄（useLoadRounder.keepOf）
+      const draftEx = { id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}), ...(last?.workout.gym ? { prefillGym: last.workout.gym } : {}) } as Exercise;
+      const ghostSets = rawGhosts ? roundPrefill(rawGhosts, draftEx, rounderFor(draftEx, gym, undefined, gyms), gym) : null;
       return {
         id: `exercise_${stamp}`,
         name,
@@ -842,7 +838,7 @@ export function useWorkoutMutations({
               ...(ex.altGroup ? { altGroup: regroup(ex.altGroup) } : {}),
             };
           })
-          .map(e => ({ ...e, sets: roundPrefill(e.sets, e as Exercise, rounderFor(e as Exercise, targetGym, undefined, gyms)) }))
+          .map(e => ({ ...e, sets: roundPrefill(e.sets, e as Exercise, rounderFor(e as Exercise, targetGym, undefined, gyms), targetGym) }))
           // 来源里只剩底稿的动作（未收尾的草稿）没有可抄的事实，整个动作丢掉
           .filter(ex => ex.sets.length > 0));
         return {
@@ -1243,7 +1239,7 @@ export function useWorkoutMutations({
         if (hit) {
           // 做完 / 改过的组留在原来的位置（审查 A6：原来全挪到最前面），其余位置换成新做法上一次同位置的那组（refillDraft）
           // 新做法上一场这个项目的全部卡合起来（同 buildExercise）
-          const fill = roundPrefill(toGhostSets(hit.exs.flatMap(e => e.sets ?? []), `${stamp}`, getActiveMetrics(ex.name)), nextEx, r);
+          const fill = roundPrefill(toGhostSets(hit.exs.flatMap(e => e.sets ?? []), `${stamp}`, getActiveMetrics(ex.name)), { ...nextEx, prefillGym: hit.workout.gym }, r, p.gym);
           sets = refillDraft(ex.sets, fill);
           if (!sets.length) sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = hit.workout.date;

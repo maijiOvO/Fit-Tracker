@@ -572,6 +572,49 @@ t('递减档保持方向：片子单位 ≠ 显示单位时照样挪一格 —�
   assert.equal(p.subSets[0].weight, 10 / K, '10 lb 那一格的精确 kg');
 });
 
+// 防 C45：同馆同片的底稿被吸到格子上（手打的 14 变 15 入册、出假纪录）；以及原样抄漏到别的馆 / 别的片子 / 没标馆
+const kgProf = () => L.LB.profileIn(L.LB.defaultProfile('kg'), 'kg');
+const kgRounders = () => {
+  const prof = kgProf();
+  const c = inc => ({ unit: 'kg', plates: prof.plates, bar: 20, inc });
+  return {
+    db: L.makeRounder({ kind: 'pair' }, 'kg', c(prof.dumbbell), false),
+    bar: L.makeRounder({ kind: 'plates' }, 'kg', c(5), false),
+    cable: L.makeRounder({ kind: 'pin', stack: 'cable' }, 'kg', { ...c(prof.cable), start: 0 }, false),
+  };
+};
+const exAtA = { id: 'e', name: 'x', category: 'STRENGTH', sets: [], prefillGym: 'A' };
+const lastSet = (kg, u = 'kg') => [{ id: 's', weight: kg, reps: 8, plateUnit: u }];
+t('底稿同馆同片原样抄：默认 kg 档案下上次的 14 / 62.5 / 32.5 不取整、带 keep，递减档一起；别的馆、上次挂磅片、没标馆照旧取整（上架审查 C45）', () => {
+  const { db, bar, cable } = kgRounders();
+  const [d] = L.roundPrefill(lastSet(14), exAtA, db, 'A');
+  assert.deepEqual([d.weight, d.prefillRef.keep], [14, true]);
+  assert.equal(L.roundPrefill(lastSet(62.5), exAtA, bar, 'A')[0].weight, 62.5);
+  assert.equal(L.roundPrefill(lastSet(32.5), exAtA, cable, 'A')[0].weight, 32.5);
+  const [dd] = L.roundPrefill([{ ...lastSet(14)[0], subSets: [{ id: 'd', weight: 11, reps: 6 }] }], exAtA, db, 'A');
+  assert.deepEqual([dd.weight, dd.subSets[0].weight, dd.subSets[0].prefillRef.keep], [14, 11, true]);
+  const [b] = L.roundPrefill(lastSet(14), exAtA, db, 'B');
+  assert.deepEqual([b.weight, b.prefillRef.keep], [15, undefined], '别的馆');
+  assert.equal(L.roundPrefill(lastSet(62.5), exAtA, bar, 'B')[0].weight, 60);
+  assert.equal(L.roundPrefill(lastSet(32.5), exAtA, cable, 'B')[0].weight, 30);
+  assert.equal(L.roundPrefill(lastSet(30 / K, 'lbs'), exAtA, db, 'A')[0].weight, 12.5, '上次挂的是磅片，今天是 kg 格子');
+  assert.equal(L.roundPrefill(lastSet(14), { ...exAtA, prefillGym: undefined }, db, undefined)[0].weight, 15, '没标馆');
+});
+t('底稿重新取整的三种来路：换馆按新馆算、回来源馆又是原数；换台（gym=null）吸到新刻度并记 keep:false，之后同馆也不回原数（上架审查 C45）', () => {
+  const { db } = kgRounders();
+  const [s] = L.roundPrefill(lastSet(14), exAtA, db, 'A');
+  const g = { ...s, ghost: true };
+  assert.equal(L.reRoundPending([g], exAtA, db, 'A')[0].weight, 14, '同馆（存档案 / 开练切单位）');
+  const atB = L.reRoundPending([g], exAtA, db, 'B')[0];
+  assert.deepEqual([atB.weight, atB.prefillRef.keep], [15, undefined]);
+  assert.equal(L.reRoundPending([atB], exAtA, db, 'A')[0].weight, 14, '回到来源馆');
+  const rig4 = L.makeRounder({ kind: 'pair' }, 'kg', { unit: 'kg', plates: kgProf().plates, bar: 20, inc: 4 }, false);
+  const regrid = L.reRoundPending([g], exAtA, rig4, null)[0];
+  assert.deepEqual([regrid.weight, regrid.prefillRef.keep], [12, false], '14 在每格 4 上 → 12（等距取轻）');
+  const back = L.reRoundPending([regrid], exAtA, rig4, 'A')[0];
+  assert.deepEqual([back.weight, back.prefillRef.keep], [12, false], '换过台的同馆再重算也按格子');
+});
+
 // ── 热力图按本地日期归日（heatmap-utc-day）────────────────────────────
 t('热力图：多伦多昨晚 21:15 练的归在昨天（UTC 已经是今天）；只有底稿的场、还在练的那一场不算', () => {
   const tz = process.env.TZ;

@@ -1393,7 +1393,9 @@ const SEEDED = {
     await dismissToasts();
     await backAndDiscard(page);
 
-    // 换馆：乙馆的更近（1 天前），甲馆的更早 —— 今天在甲馆要抄甲馆的 40，不是最近那次的 23
+    // 换馆：乙馆的更近（1 天前），甲馆的更早 —— 今天在甲馆要抄甲馆的 42，不是最近那次的 23。
+    // 甲馆每格 5，42 不在格子上：同馆同片原样抄（审查 C45），换去别的馆再切回来（useGymSwitch 重挑）还是 42。
+    // 防的是四个调用点有一处没把今天的馆 / 来源馆传进 roundPrefill，下层测不到
     await quiesce();
     const GA = 'E2E 甲馆', GB = 'E2E 乙馆', GC = 'E2E 丙馆';
     const kgGym = machine => ({ plateUnit: 'kg', plates: [25, 20, 15, 10, 5, 2.5, 1.25], cable: { v: 5, u: 'kg' }, machine: { v: machine, u: 'kg' }, dumbbell: { v: 2.5, u: 'kg' } });
@@ -1401,7 +1403,7 @@ const SEEDED = {
     const prefs = remote.snapshot.prefs ?? {};
     remote.snapshot = {
       ...remote.snapshot,
-      workouts: [...(remote.snapshot.workouts ?? []), at('seed_gym_a', 3, GA, 40), at('seed_gym_b', 1, GB, 23)],
+      workouts: [...(remote.snapshot.workouts ?? []), at('seed_gym_a', 3, GA, 42), at('seed_gym_b', 1, GB, 23)],
       prefs: {
         ...prefs,
         appPrefs: { ...(prefs.appPrefs ?? {}), gyms: { ...(prefs.appPrefs?.gyms ?? {}), [GA]: kgGym(5), [GB]: kgGym(1), [GC]: kgGym(5) } },
@@ -1425,7 +1427,7 @@ const SEEDED = {
     await page.locator('.ledger-row').first().waitFor({ state: 'visible', timeout: 3_000 });
     await settle(page);
     const wA = (await weights()).join();
-    if (wA !== '40') throw new Error(`at ${GA} the draft should copy ${GA}'s 40, got ${wA}`);
+    if (wA !== '42') throw new Error(`at ${GA} the draft should copy ${GA}'s 42 as is, got ${wA}`);
     if (await prefillGym()) throw new Error('same-gym draft should not name a gym');
     await pickGym(GB);
     const wB = (await weights()).join();
@@ -1434,8 +1436,11 @@ const SEEDED = {
     const wC = (await weights()).join();
     if (wC !== '25') throw new Error(`${GC} (5 kg step) should fall back to ${GB}'s 23 rounded to 25, got ${wC}`);
     if ((await prefillGym()) !== GB) throw new Error(`fallback draft should say it came from ${GB}, got "${await prefillGym()}"`);
+    await pickGym(GA);
+    const wA2 = (await weights()).join();
+    if (wA2 !== '42') throw new Error(`back at ${GA} the re-picked draft should be ${GA}'s 42 again, got ${wA2}`);
     await backAndDiscard(page);
-    return `kg gym → kg · typed 60 → lb plates ${w2.join('/')} · ${GA} ${wA} → ${GB} ${wB} → ${GC} ${wC} (from ${GB})`;
+    return `kg gym → kg · typed 60 → lb plates ${w2.join('/')} · ${GA} ${wA} → ${GB} ${wB} → ${GC} ${wC} (from ${GB}) → ${GA} ${wA2}`;
   },
 
   // 按动作详情里删掉一个动作的最后一条记录、再撤销拿回来：详情不自己弹出来（审查 C91）。

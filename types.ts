@@ -23,9 +23,16 @@ export interface SetLog {
   plateUnit?: 'kg' | 'lbs';
   /**
    * 工作台专用（入册时剥掉）：底稿抄自上一次时那一组的原值（带符号的 kg）和当时的片子单位。
-   * 只做参考：「上次 135 lb」；切单位 / 换馆时没动过的底稿从它重算，不会越换越漂。
+   * 同馆同片时就是默认值（keep），别处只做参考：「上次 135 lb」；切单位 / 换馆时没动过的底稿从它重算，不会越换越漂。
    */
-  prefillRef?: { kg: number; unit: 'kg' | 'lbs'; /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */ plan?: boolean };
+  prefillRef?: {
+    kg: number;
+    unit: 'kg' | 'lbs';
+    /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */
+    plan?: boolean;
+    /** true＝同馆同片原样抄来的（默认值就是原数）；false＝这张卡在本馆换过台 / 刻度 / 加重方式，之后按格子；没有＝别的馆、别的片子单位或计划（useLoadRounder.keepOf） */
+    keep?: boolean;
+  };
   /** 工作台专用（入册时剥掉）：这个数完全是从 prefillRef 换算取整来的（没打过、没拖过、没被带着平移过） */
   draftAuto?: boolean;
   /** 工作台专用（入册时剥掉）：被带着平移时让 0 或上一行截住了，本来该是多少（带符号的 kg）；截它的让开了就回去（workbench.shiftRow / holdTouchedSubs） */
@@ -115,9 +122,16 @@ export interface SubSetLog {
   plateUnit?: 'kg' | 'lbs';
   /**
    * 工作台专用（入册时剥掉）：底稿抄自上一次时那一组的原值（带符号的 kg）和当时的片子单位。
-   * 只做参考：「上次 135 lb」；切单位 / 换馆时没动过的底稿从它重算，不会越换越漂。
+   * 同馆同片时就是默认值（keep），别处只做参考：「上次 135 lb」；切单位 / 换馆时没动过的底稿从它重算，不会越换越漂。
    */
-  prefillRef?: { kg: number; unit: 'kg' | 'lbs'; /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */ plan?: boolean };
+  prefillRef?: {
+    kg: number;
+    unit: 'kg' | 'lbs';
+    /** 来自计划的目标重量（标「计划 x」，不是「上次 x」） */
+    plan?: boolean;
+    /** true＝同馆同片原样抄来的（默认值就是原数）；false＝这张卡在本馆换过台 / 刻度 / 加重方式，之后按格子；没有＝别的馆、别的片子单位或计划（useLoadRounder.keepOf） */
+    keep?: boolean;
+  };
   /** 工作台专用（入册时剥掉）：这个数完全是从 prefillRef 换算取整来的（没打过、没拖过、没被带着平移过） */
   draftAuto?: boolean;
   /** 工作台专用（入册时剥掉）：被带着平移时让 0 或上一行截住了，本来该是多少（带符号的 kg）；截它的让开了就回去（workbench.shiftRow / holdTouchedSubs） */

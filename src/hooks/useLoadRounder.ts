@@ -295,22 +295,45 @@ function keepSubOrder(
   });
 }
 
+type Ref = NonNullable<SetLog['prefillRef']>;
+
 /**
- * 底稿取整：从上一次铺下来的组，按今天的馆和单位就近取整，记下 prefillRef（参考）和 draftAuto。
+ * 这一组的底稿要不要原样抄上一次的数（2026-11-24 作者定，上架审查 C45）：今天的馆就是来源那场的馆、
+ * 片子单位一样、不是计划来的、这张卡在本馆没换过台（keep !== false）。上一次手打的 14 在同一个馆就是挂得出的，
+ * 吸成 15 会悄悄改写入册、还出假纪录。没标馆的两场判断不了是不是同一个地方，照旧取整（单机版开练必须先选馆，少见）。
+ */
+function keepOf(ref: Pick<Ref, 'unit' | 'plan' | 'keep'>, ex: Exercise, r: ExRounder, gym: string | undefined): boolean {
+  return !!gym && ex.prefillGym === gym && !ref.plan && ref.unit === r.unit && ref.keep !== false;
+}
+
+/** 按这一次的来路重写 keep：换台（regrid）记 false；同馆同片记 true；别的馆去掉，但换过台的 false 留着 */
+function withKeep(ref: Ref, keep: boolean, regrid: boolean): Ref {
+  const { keep: old, ...rest } = ref;
+  if (regrid) return { ...rest, keep: false };
+  if (keep) return { ...rest, keep: true };
+  return old === false ? { ...rest, keep: false } : rest;
+}
+
+/**
+ * 底稿：从上一次铺下来的组，记下 prefillRef（参考）和 draftAuto。同馆同片（keepOf）原样抄、带 keep；
+ * 其余按今天的馆和单位就近取整。gym：今天这场的馆。
  * 上一次那组挂的片：组上记的 plateUnit，没记（旧数据）按重量推断。
  */
-export function roundPrefill(sets: SetLog[], ex: Exercise, r: ExRounder | null): SetLog[] {
+export function roundPrefill(sets: SetLog[], ex: Exercise, r: ExRounder | null, gym: string | undefined): SetLog[] {
   if (!r || !sets) return sets;
   return sets.map(s => {
     const kg = signedKg(s, ex);
     // 旧数据没记登记单位：按重量推断（整 kg 格优先，见 plateUnitOf），不能直接当成今天的单位
-    const ref = { kg, unit: plateUnitOf(s, r.unit) };
-    const next: SetLog = { ...writeKg(s, r.snapKg(kg), r.signed), prefillRef: ref, draftAuto: true, plateUnit: r.unit };
+    const unit = plateUnitOf(s, r.unit);
+    const keep = keepOf({ unit }, ex, r, gym);
+    const ref: Ref = { kg, unit, ...(keep ? { keep: true } : {}) };
+    const next: SetLog = { ...writeKg(s, keep ? kg : r.snapKg(kg), r.signed), prefillRef: ref, draftAuto: true, plateUnit: r.unit };
     if (s.subSets?.length) {
       const orig = s.subSets.map(sub => signedKg(sub, ex, s));
+      // 原样抄的递减档先后本来就对，keepSubOrder 不会动它们
       const subs = s.subSets.map((sub, i) => {
         const skg = orig[i];
-        return { ...writeKg(sub, r.snapKg(skg), r.signed), prefillRef: { kg: skg, unit: ref.unit }, draftAuto: true, plateUnit: r.unit } as SubSetLog;
+        return { ...writeKg(sub, keep ? skg : r.snapKg(skg), r.signed), prefillRef: { ...ref, kg: skg }, draftAuto: true, plateUnit: r.unit } as SubSetLog;
       });
       next.subSets = keepSubOrder(subs, orig, kg, signedKg(next, ex), ex, next, r);
     }
@@ -322,18 +345,32 @@ export function roundPrefill(sets: SetLog[], ex: Exercise, r: ExRounder | null):
  * 切单位 / 换馆（用户手动的）：没做完的组都换到新单位那套片子上取整 ——
  * 没动过的底稿（draftAuto）从上一次的原值重算（135 lb → 60 kg → 再切回还是 135，不会越换越漂），
  * 被带着平移过的从当前值换算；手打过的照原样（2026-10-22）。做完的组不动（2026-10-18 用户定）。
+ * gym 分两种来路：
+ *   - 今天的馆（字符串或 undefined）：useGymSwitch 换馆、存今天这个馆的档案、开练切单位。同馆同片（keepOf）的
+ *     纯底稿回到上一次的原数，并按新馆重写每组的 keep；
+ *   - null：这一台的刻度变了（useMachineSettings 换台、改刻度 / 加重方式、单边、辅助一档）：照旧全部吸到新刻度，keep 记成 false。
  */
-export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null): SetLog[] {
+export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null, gym: string | undefined | null): SetLog[] {
   if (!r || !sets) return sets;
+  const regrid = gym === null;
+  const pure = (x: SetLog | SubSetLog) => !!(x.draftAuto && x.prefillRef && !x.touched?.weight);
+  const refPatch = (x: SetLog | SubSetLog, keep: boolean) => (x.prefillRef ? { prefillRef: withKeep(x.prefillRef, keep, regrid) } : {});
   return sets.map(s => {
     if (!s.ghost) return s;
+    const keep = !regrid && !!s.prefillRef && keepOf(s.prefillRef, ex, r, gym ?? undefined);
     // 没动过的底稿从上一次的原值重算，被带着平移过的从当前值换
-    const base = s.draftAuto && s.prefillRef && !s.touched?.weight ? s.prefillRef.kg : signedKg(s, ex);
+    const base = pure(s) ? s.prefillRef!.kg : signedKg(s, ex);
     // 手打过这一格的照原样记、不重新取整（口径同 snapUntouched，审查 A10）
-    const next: SetLog = s.touched?.weight ? { ...s } : { ...writeKg(s, r.snapKg(base), r.signed), plateUnit: r.unit };
+    const next: SetLog = s.touched?.weight
+      ? { ...s, ...refPatch(s, keep) }
+      : { ...writeKg(s, pure(s) && keep ? base : r.snapKg(base), r.signed), plateUnit: r.unit, ...refPatch(s, keep) };
     if (s.subSets?.length) {
-      const orig = s.subSets.map(sub => (sub.draftAuto && sub.prefillRef && !sub.touched?.weight ? sub.prefillRef.kg : signedKg(sub, ex, s)));
-      const subs = s.subSets.map((sub, i) => (sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(orig[i]), r.signed), plateUnit: r.unit }));
+      const orig = s.subSets.map(sub => (pure(sub) ? sub.prefillRef!.kg : signedKg(sub, ex, s)));
+      const subs = s.subSets.map((sub, i) =>
+        sub.touched?.weight
+          ? sub.prefillRef ? { ...sub, ...refPatch(sub, keep) } : sub
+          : { ...writeKg(sub, pure(sub) && keep ? orig[i] : r.snapKg(orig[i]), r.signed), plateUnit: r.unit, ...refPatch(sub, keep) },
+      );
       next.subSets = keepSubOrder(subs, orig, base, signedKg(next, ex), ex, next, r);
     }
     return next;

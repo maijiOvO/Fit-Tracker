@@ -50,14 +50,15 @@ export function weightFromShown(
 }
 
 /**
- * 「改回上次」的默认值（带符号 kg）：上次（或计划）的重量按今天的馆取整。这一组现在的重量和它、和上次的原数
+ * 「改回上次」的默认值（带符号 kg）：上次（或计划）的重量按今天的馆取整；同馆同片原样抄的（prefillRef.keep）就是原数。这一组现在的重量和它、和上次的原数
  * 都不一样才给，否则 undefined —— 换算的零头、切过单位后没取整的同一个重量（60 kg 显示成 132.28 lb）不算改过。
  * 组行的「上次 x」小字和卡片左下角的「改回上次」共用这一份。
  */
 export function restoreKgOf(set: SetLog, sign: -1 | 1, unit: string, snapKg?: (kg: number) => number): number | undefined {
   const ref = set.prefillRef;
   if (!ref || !(Math.abs(ref.kg) > 0)) return undefined;
-  const defKg = snapKg ? snapKg(ref.kg) : ref.kg;
+  // 同馆同片原样抄的（keep）默认值就是原数，不取整
+  const defKg = snapKg && ref.keep !== true ? snapKg(ref.kg) : ref.kg;
   const curD = shownWeight(Number(set.weight) || 0, sign, unit);
   const offBy = (kg: number) => Math.abs(shownWeight(Math.abs(kg), kg < 0 ? -1 : 1, unit) - curD) >= 0.01;
   return offBy(defKg) && offBy(ref.kg) ? defKg : undefined;

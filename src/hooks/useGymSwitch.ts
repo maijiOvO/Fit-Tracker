@@ -53,7 +53,7 @@ export function useGymSwitch() {
             // 这场里同项目有几张卡：第 k 张抄新来源那场的第 k 张（sourceCards），只有一张就抄那场合起来的全部组
             const same = (w.exercises ?? []).filter(x => resolveName(x.name) === resolveName(e.name) && (variantIdOf(x) || undefined) === (variantIdOf(e) || undefined));
             const src = sourceCards(hit, same.indexOf(e), same.length);
-            const sets = roundPrefill(toGhostSets(src.flatMap(x => x.sets ?? []), `${Date.now()}_${i}`, getActiveMetrics(e.name)), e, r);
+            const sets = roundPrefill(toGhostSets(src.flatMap(x => x.sets ?? []), `${Date.now()}_${i}`, getActiveMetrics(e.name)), { ...rest, prefillGym: hit.workout.gym } as Exercise, r, gym);
             return {
               ...rest,
               sets,
@@ -63,7 +63,7 @@ export function useGymSwitch() {
             } as Exercise;
           }
         }
-        const sets = reRoundPending(e.sets ?? [], e, r);
+        const sets = reRoundPending(e.sets ?? [], e, r, gym);
         return sets === e.sets ? e : { ...e, sets };
       }),
     }),

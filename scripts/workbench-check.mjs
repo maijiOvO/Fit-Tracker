@@ -362,10 +362,14 @@ t('改回上次：重量改离默认值才给目标；默认值＝上次的数�
   assert.equal(W.SW.restoreKgOf(set(65), 1, 'kg'), undefined, 'first time: nothing to go back to');
   assert.equal(W.SW.restoreKgOf(set(60, { kg: 60, unit: 'kg' }), 1, 'kg', snap), undefined);
   assert.equal(W.SW.restoreKgOf(set(65, { kg: 60, unit: 'kg' }), 1, 'kg', snap), 60);
-  // 上次 22 kg、这家馆只能挂 22.5：默认值是 22.5，停在 22.5 或原数 22 都不算改过；改到 25 就改回 22.5
+  // 上次 22 kg、这家馆只能挂 22.5：默认值是 22.5，停在 22.5 或原数 22 都不算改过；改到 25 就改回 22.5（同馆同片 keep 的除外，见下）
   assert.equal(W.SW.restoreKgOf(set(22.5, { kg: 22, unit: 'kg' }), 1, 'kg', snap), undefined);
   assert.equal(W.SW.restoreKgOf(set(22, { kg: 22, unit: 'kg' }), 1, 'kg', snap), undefined);
   assert.equal(W.SW.restoreKgOf(set(25, { kg: 22, unit: 'kg' }), 1, 'kg', snap), 22.5);
+  // 防 C45：同馆同片原样抄的（keep）改回原数 14，不是取整后的 15；换过台的（keep:false）照旧回到格子上
+  assert.equal(W.SW.restoreKgOf(set(16, { kg: 14, unit: 'kg', keep: true }), 1, 'kg', snap), 14);
+  assert.equal(W.SW.restoreKgOf(set(14, { kg: 14, unit: 'kg', keep: true }), 1, 'kg', snap), undefined);
+  assert.equal(W.SW.restoreKgOf(set(25, { kg: 22, unit: 'kg', keep: false }), 1, 'kg', snap), 22.5);
   // 顶栏切到 lb：同一个 60 kg 显示成 132.28，不算改过
   assert.equal(W.SW.restoreKgOf(set(60, { kg: 60, unit: 'kg' }), 1, 'lbs'), undefined);
   // 辅助：上次辅助 20，现在辅助 15 → 改回 −20

@@ -1,7 +1,8 @@
 /**
  * 「在 X 的这一台」（design-plates.md「换馆重量」）：这个馆这台器械的加重方式 / 每格 / 最轻一格 / 最重一格 / 加片 / 片子单位 / 单边 / 空载，
  * 存 AppPrefs.gymRigs（键见 rigListKey，刻度）/ gymRigPick / gymKinds / gymTares（键：馆|动作|做法），
- * 改完把没做完、没改过的组吸到新刻度上：口径同换馆（reRoundPending），没动过的底稿从上一次的原值重算，来回切不漂；
+ * 改完把没做完、没改过的组吸到新刻度上：口径同换馆（reRoundPending，gym 传 null），没动过的底稿从上一次的原值重算，来回切不漂；
+ * 同馆同片原样抄来的底稿也吸过去，之后不再回原数（prefillRef.keep 记成 false）；
  * 只有平移器械自重从当前值走（snapUntouched）。
  * 2026-11-02 从 ExerciseCard 抽出来：交替组卡没有重量大图，以前只能先拆开再设（动作设置改版时记下的复议条件）。
  * 单卡传大图的 slot / onOpen 拼成 MachineCtl 给 LoadHero；交替卡只把 MachineFace portal 进动作设置弹窗。
@@ -106,7 +107,7 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     rigSigRef.current = rigSig;
     // 挂载时 prev 就是这一次：什么都没换，不动组（切 tab 回来重挂不该改底稿）
     if (!prev || !rigSig || !rounder || prev.join('\n') === rigSigKey || prev[0] !== rigSig[0] || prev[1] !== rigSig[1]) return;
-    const next = reRoundPending(exercise.sets, exercise, rounder);
+    const next = reRoundPending(exercise.sets, exercise, rounder, null);
     if (!sameLoads(exercise.sets, next)) onSets(next);
   }, [rigSigKey]);
   /** 加一台：照眼下的刻度抄一份、选中它，接着在设置里改（记进 freshRef，关设置时没改过就收掉） */
@@ -185,7 +186,7 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     if (next === null) delete gymOverrides[signedKey];
     else gymOverrides[signedKey] = { v: next, u: rounder.unit };
     changeAppPrefs({ gymOverrides });
-    onSets(reRoundPending(exercise.sets, exercise, next === null ? rounderFor(exercise, gym, undefined, undefined, { gymOverrides }) : withInc(rounder, next)));
+    onSets(reRoundPending(exercise.sets, exercise, next === null ? rounderFor(exercise, gym, undefined, undefined, { gymOverrides }) : withInc(rounder, next), null));
   };
   /**
    * 换这一台的片子单位（同一个馆里可以一台 lb、一台 kg）：换算口径见 rigInUnit。
@@ -248,13 +249,13 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     if (on) ov[sideKey] = { v: 1, u: rounder.unit };
     else delete ov[sideKey];
     changeAppPrefs({ gymOverrides: ov });
-    onSets(reRoundPending(exercise.sets, exercise, withOneSide(rounder, on)));
+    onSets(reRoundPending(exercise.sets, exercise, withOneSide(rounder, on), null));
   };
   const setGymKind = (k: 'pin' | 'loaded') => {
     if (!rounder || !kindKey || k === loadKind) return;
     haptic(H.tap);
     changeAppPrefs(keyedPatch('gymKinds', kindKey, k === loadInfo.libKind ? '' : k));
-    onSets(reRoundPending(exercise.sets, exercise, withKind(rounder, k)));
+    onSets(reRoundPending(exercise.sets, exercise, withKind(rounder, k), null));
   };
   /** 这台能不能设：标了馆、有取整器、至少有一项能改（杠铃按馆的片子算、纯数字动作都没有） */
   const canSet = !!(gym && rounder && (kindKey || incKey));
