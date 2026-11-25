@@ -47,7 +47,7 @@ const stubs = {
           async getAll(n) { return [...s(n).values()].map(x => structuredClone(x)); },
           async save(n, x) { s(n).set(x.id, structuredClone(x)); },
           // 一张表写好几条、一个事务：全成或全不成（抛错由用例替换这个方法注入）；calls 给用例数调了几次
-          async saveMany(n, rows) { this.saveManyCalls = (this.saveManyCalls ?? 0) + 1; for (const x of rows) s(n).set(x.id, structuredClone(x)); },
+          async saveMany(n, rows, also = []) { this.saveManyCalls = (this.saveManyCalls ?? 0) + 1; for (const x of rows) s(n).set(x.id, structuredClone(x)); for (const o of also) s(o.store).set(o.id, structuredClone(o.row)); },
           async upsert(n, x) { s(n).set(x.id, structuredClone(x)); },
           async delete(n, id) { s(n).delete(id); },
           async deleteMany(n, ids) { for (const id of ids) s(n).delete(id); },
@@ -1457,6 +1457,27 @@ await t('馆连着改名、前一次写库失败：A→B 标记还挂着时改 B
     JSON.parse(D.storage.getItem(RENAME_KEY)).map(m => `${m.from}→${m.to}`),
     ['C→A'],
   );
+});
+
+// 防：改名后几百毫秒内被杀，localStorage 的首选项和标记没落盘、库里训练却已改名（真机复现）——靠和训练同事务写进库的标记补回首选项
+await t('馆改名：事务提交后 localStorage 整批没落盘 —— 下次启动按库里的标记补回首选项；再下次确认落盘后清掉标记，不再重做', async () => {
+  const profile = { ...D.defaultProfile('kg'), dumbbell: { v: 2, u: 'kg' } };
+  D.writeAppPrefs({ gyms: { A: D.defaultProfile('kg') } }, 1);
+  const before = { ...Object.fromEntries(Object.entries({ ...localStorage })) };
+  await D.db.save('workouts', gymRow('a1', 'A'));
+  D.markGymRename({ from: 'A', to: 'C', profile });
+  D.writeAppPrefs({ gyms: { A: '', C: profile } }, 2);
+  await D.renameGymRows('A', 'C');
+  D.unmarkGymRename({ from: 'A', to: 'C' });
+  localStorage.clear();
+  for (const [k, v] of Object.entries(before)) localStorage.setItem(k, v);
+  assert.equal(await D.resumeGymRenames(), 1);
+  const p = D.readAppPrefs().appPrefs;
+  assert.equal(p.gyms.A, '');
+  assert.deepEqual(p.gyms.C, profile);
+  assert.equal((await gymsOf()).get('a1'), 'C');
+  assert.equal(await D.resumeGymRenames(), 0);
+  assert.deepEqual(await D.db.getAll('backups'), []);
 });
 
 // 防 C33#6：并入之后再导同一份文件，按完整名字解析会把已导入的记录名改写成目标名（落进标准）、或另建一个重复动作

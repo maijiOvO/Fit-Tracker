@@ -264,13 +264,14 @@ export class FitLogDB {
   /**
    * 同一张表写好几条，一个 readwrite 事务（全成或全不成），撤销日志记成一步里的这几行。
    * 馆改名把历史训练整批改掉用（services/gymRename.ts，上架审查 C49）：原来每场各开一个事务，中途被杀就停在半截。
+   * also：跟这批同一个事务写、不进撤销日志的行（改名标记）。
    */
-  saveMany(storeName: string, items: readonly any[]): Promise<void> {
-    if (!items.length) return Promise.resolve();
+  saveMany(storeName: string, items: readonly any[], also: readonly RowOp[] = []): Promise<void> {
+    if (!items.length && !also.length) return Promise.resolve();
     return undoJournal.track(
       undoJournal
         .recordRows(storeName, items.map(item => ({ id: String(item?.id), after: item })))
-        .then(() => this.guarded(() => this.rawWriteRows(items.map(row => ({ store: storeName, id: String(row?.id), row }))))),
+        .then(() => this.guarded(() => this.rawWriteRows([...items.map(row => ({ store: storeName, id: String(row?.id), row })), ...also]))),
     );
   }
 

@@ -24,6 +24,7 @@ import { defaultProfile } from '../src/utils/loadable';
 import { getDataEnv, isOffline, statePath } from './appEnv';
 import { migrateCableTags } from '../src/utils/cableTagMigration';
 import { migrateWarmRegions } from '../src/utils/warmRegionMigration';
+import { GYM_RENAME_ROW_ID } from './gymRename';
 
 /**
  * 个人服务器默认地址：家庭 NAS，经 Tailscale Funnel 对外暴露。
@@ -816,7 +817,8 @@ export async function writeSnapshotLocally(
       ['customExercises', snapshot.customExerciseDefsFromDb || []],
       ['scheduledWorkouts', snapshot.scheduledWorkouts || []],
     ],
-    { put: [...(extra.put ?? []), ['backups', pending]], del: extra.del },
+    // 整份重写后，旧的改名标记不能再补到新首选项上
+    { put: [...(extra.put ?? []), ['backups', pending]], del: [...(extra.del ?? []), ['backups', GYM_RENAME_ROW_ID]] },
   );
   try {
     writePrefsToLocalStorage(snapshot.prefs);

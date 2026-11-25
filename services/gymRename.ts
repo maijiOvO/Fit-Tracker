@@ -6,8 +6,9 @@
  * 现在：先记标记（localStorage，不进撤销日志），再改首选项，再一个事务整批改训练（db.saveMany），提交后才摘标记。
  * 启动时（useFitlogSync.initApp）有没摘的标记就按顺序续完：两半都是幂等的，重跑不会多改。
  *
- * 残留：标记和首选项都在 localStorage，WebView 若延迟落盘、恰在事务提交后几秒内被杀，可能反过来停在
- * 「库里已改名、首选项没改」。要根治得把标记放进 IndexedDB 和训练同一个事务（新 store），没做。
+ * localStorage 在手机 WebView 上延迟落盘：改名后几百毫秒内被杀，首选项和上面的标记一起丢，库里训练却已经改了名
+ * （真机复现过）。所以训练那个事务里同时往 backups 表写一份标记；首选项那笔写的同时记一个时间戳（STAMP_KEY，
+ * 和首选项同一批落盘）。启动时库里的标记比时间戳新＝首选项没落盘，补一次；不比它新＝落了盘，删掉。
  */
 import type { WorkoutSession } from '../types';
 import type { GymProfile } from '../src/utils/loadable';
@@ -18,11 +19,26 @@ import { undoJournal } from './undoJournal';
 
 /** 没写完的改名，按发生的顺序（连着改两次名时前一条不能被盖掉） */
 const KEY = 'fitlog_gym_renames';
+/** 最近一次改名的 at：和首选项同一批落盘，用来认库里的标记对应的那次写丢没丢 */
+const STAMP_KEY = 'fitlog_gym_rename_at';
+/** backups 表里的那一行（整份重写本机时连它一起删，见 fitlogRemote.writeSnapshotLocally） */
+export const GYM_RENAME_ROW_ID = 'gym-renames';
 
 export interface GymRename {
   from: string;
   to: string;
   profile: GymProfile;
+  /** 记标记的时刻；库里那份靠它和 STAMP_KEY 比新旧 */
+  at?: number;
+}
+
+const readStamp = (): number => Number(storage.getItem(STAMP_KEY)) || 0;
+
+async function readDbMarks(): Promise<GymRename[]> {
+  const rows = await db.getAll<{ id: string; marks?: unknown }>('backups');
+  const marks = rows.find(r => r.id === GYM_RENAME_ROW_ID)?.marks;
+  if (!Array.isArray(marks)) return [];
+  return (marks as GymRename[]).filter(m => !!m && !!m.from && !!m.to && !!m.profile && typeof m.at === 'number');
 }
 
 function readMarks(): GymRename[] {
@@ -40,7 +56,9 @@ function writeMarks(list: GymRename[]): void {
 
 /** 改名开始：先记下来，再改首选项（两笔 localStorage 写放在同一个任务里） */
 export function markGymRename(m: GymRename): void {
-  writeMarks([...readMarks(), m]);
+  const at = Math.max(Date.now(), readStamp() + 1);
+  writeMarks([...readMarks(), { ...m, at }]);
+  storage.setItem(STAMP_KEY, String(at));
 }
 
 /**
@@ -81,12 +99,17 @@ let chain: Promise<unknown> = Promise.resolve();
  */
 export function renameGymRows(from: string, to: string, skipId?: string): Promise<number> {
   const run = chain.then(async () => {
-    const { names } = lineage(readMarks(), { from, to });
+    const marks = readMarks();
+    const { names, drop } = lineage(marks, { from, to });
+    const done = marks.filter((_, i) => drop.has(i) && marks[i].at);
+    const kept = (await readDbMarks()).filter(k => !done.some(m => m.at === k.at));
     const stamp = new Date().toISOString();
     const rows = (await db.getAll<WorkoutSession>('workouts'))
       .filter(w => !!w.gym && names.has(w.gym) && w.id !== skipId)
       .map(w => ({ ...w, gym: to, updatedAt: stamp }));
-    if (rows.length) await db.saveMany('workouts', rows);
+    // 一场都没改也要写标记：首选项那半一样会丢
+    const all = [...kept, ...done];
+    await db.saveMany('workouts', rows, all.length ? [{ store: 'backups', id: GYM_RENAME_ROW_ID, row: { id: GYM_RENAME_ROW_ID, marks: all } }] : []);
     return rows.length;
   });
   chain = run.catch(() => {});
@@ -99,12 +122,23 @@ export function renameGymRows(from: string, to: string, skipId?: string): Promis
  * 某条写库失败就停在那条，标记留着下次再续。不进撤销日志（系统补写，不是用户这一步）。
  */
 export async function resumeGymRenames(): Promise<number> {
+  const inDb = await readDbMarks();
+  const stamp = readStamp();
+  const lost = inDb.filter(m => m.at! > stamp);
+  // 丢了的排回 localStorage 的标记里，走下面同一条续完的路；都落了盘就从库里删掉
+  if (lost.length) {
+    const have = readMarks();
+    writeMarks([...lost.filter(m => !have.some(h => h.at === m.at)), ...have]);
+  } else if (inDb.length) {
+    await db.delete('backups', GYM_RENAME_ROW_ID);
+  }
   const marks = readMarks();
   if (!marks.length) return 0;
   return undoJournal.withoutJournal(async () => {
     for (const m of marks) {
       const raw = readAppPrefs().appPrefs;
       if (raw?.gyms?.[m.from] !== '') recordAppPrefs(renameGymIn(raw, m.to, m.profile, m.from));
+      if (m.at && m.at > readStamp()) storage.setItem(STAMP_KEY, String(m.at));
       await renameGymRows(m.from, m.to);
       unmarkGymRename(m);
     }
