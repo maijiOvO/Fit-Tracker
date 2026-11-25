@@ -213,6 +213,18 @@ t('指针的位置：没点过在第一组上方；点哪组就在哪组正下�
 const chain = exs => exs[0].sets.map(st => [W.signedKg(st, exs[0]), ...(st.subSets ?? []).map(x => W.signedKg(x, exs[0], st))].join('/')).join(' ');
 const rA = id => ({ exId: 'A', setId: id });
 
+t('不带正负的卡改重量（补丁带着 bodyweightMode: undefined）：递减档照普通重量平移，不写号、过 0 截住', () => {
+  // 防的错：weightFromShown / restoreUpdate 的补丁带 bodyweightMode 键，被当成带正负的平移，档写成辅助、主组降档反而涨
+  let exs = [ex('A', [[20, 8]])];
+  exs[0].sets[0].subSets = [{ id: 'd1', weight: 10, reps: 8 }];
+  exs = W.applySetUpdate(exs, rA('A1'), { weight: 7.5, plateUnit: 'kg', bodyweightMode: undefined });
+  assert.equal(chain(exs), '7.5/0');
+  assert.equal(exs[0].sets[0].subSets[0].bodyweightMode, undefined);
+  exs = W.applySetUpdate(exs, rA('A1'), { weight: 30, bodyweightMode: undefined });
+  assert.equal(chain(exs), '30/20');
+  assert.equal(exs[0].sets[0].subSets[0].bodyweightMode, undefined);
+});
+
 t('平移被 0 截住的档记得本来的差值：母组降下去再升回来，原样回来（不入册）；别的组不动', () => {
   // 防的错：20→10 的递减，母组改成 5 把档截成 0，再改回 20 档成了 15
   let exs = [ex('A', [[20, 8], [10, 8]])];

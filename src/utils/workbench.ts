@@ -357,9 +357,11 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
     }
 
     // 重量的变化量（带符号的 kg，跨过 0 也算得对）：这一组的递减档平移这么多
+    // 带号＝带正负的卡写的：不带正负的卡补丁里是 bodyweightMode: undefined（清旧号），不能按 in 算成带正负
+    const signedUpd = updates.bodyweightMode !== undefined;
     const shift = 'weight' in updates && !holdFollow ? signedKg(edited, e) - signedKg(before, e) : 0;
-    if (shift) sets[i] = shiftSubs(edited, before, shift, e, 'bodyweightMode' in updates, snap);
-    if ('bodyweightMode' in updates && !('weight' in updates)) {
+    if (shift) sets[i] = shiftSubs(edited, before, shift, e, signedUpd, snap);
+    if (signedUpd && !('weight' in updates)) {
       // 只换号：自己的递减档保持差值跟过去（辅助 20 → 辅助 25 换成负重 20 → 负重 15），不是留在原地差出 45
       sets[i] = shiftSubs(edited, before, signedKg(edited, e) - signedKg(before, e), e, true, snap);
     }
