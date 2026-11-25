@@ -365,8 +365,9 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   // 行的小灰字「上次 宽握 80 kg×5 · 3 天前」：点这一行铺的底稿是哪一场，就写哪一场（rowLastSession）
   const { workouts: doneWorkouts } = useDoneWorkouts();
   const { currentWorkout } = useWorkoutContext();
-  // 常驻挂载：关着的时候不算「按动作」汇总
-  const lifts = useLiftSummaries(doneWorkouts, open);
+  // 常驻挂载：关着的时候不算「按动作」汇总。滑出动画（settling）期间行还看得见，照常拿，
+  // 否则收下去那一下每行变「还没练过」、组内顺序跳回库序
+  const lifts = useLiftSummaries(doneWorkouts, open || settling);
   const gymScoped = useGymScopedPR();
   const lastOf = useMemo(() => {
     const liftsById = new Map(lifts.map(l => [l.stableId, l]));
