@@ -1026,6 +1026,16 @@ const AppWithAuthShell: React.FC = () => {
       setSheetSessionAdded(n => n + 1);
     }
   };
+  /**
+   * 拆回的孤儿等拆回生效后的那次渲染再交出去：同一个事件里 addExerciseToWorkout 闭包里的 resolveName / mergeAliasOf
+   * 还是拆回前的，卡会挂到目标名下、铺目标标准的底稿（第 17 批审查）
+   */
+  const [unmergedToDeliver, setUnmergedToDeliver] = useState<ExerciseDefinition | null>(null);
+  useEffect(() => {
+    if (!unmergedToDeliver) return;
+    setUnmergedToDeliver(null);
+    deliverCreatedExercise(unmergedToDeliver);
+  }, [unmergedToDeliver]);
 
   /** preset：弹层眼下停的部位 / 细分 / 有氧栏、只筛了一样的器材，新动作照它预填（审查 A16 / C5：原来一律清空成力量、无部位） */
   const openCreateCustomExerciseModal = useCallback(
@@ -1145,7 +1155,7 @@ const AppWithAuthShell: React.FC = () => {
           const orphan = prefs.orphanMerges.find(d => [d.name.cn, d.name.en, ...(d.aliases ?? [])].includes(newExerciseName.trim()));
           if (orphan) {
             prefs.unmergeExercise(orphan.id);
-            deliverCreatedExercise({ ...orphan, hidden: false, mergedInto: undefined });
+            setUnmergedToDeliver({ ...orphan, hidden: false, mergedInto: undefined });
             setShowAddExerciseModal(false);
             setNewExerciseName('');
             return;

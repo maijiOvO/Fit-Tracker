@@ -509,6 +509,9 @@ const W_PROTO = {
 };
 // 自建动作 C：动作库删除 / 同名新建恢复的靶子
 const DEF_C = { id: '1779000000000', name: { cn: 'E2E自建甲', en: 'E2E自建甲' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
+// 孤儿并入：丙并进乙成做法 v_m，之后 v_m 被删、丙还挂着 mergedInto（审查 C29 之前删并入做法留下的形态）
+const DEF_T = { id: '1779000000002', name: { cn: 'E2E目标乙', en: 'E2E目标乙' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH', variants: [], variantAliases: { E2E并入丙: 'v_m' } };
+const DEF_ORPHAN = { id: '1779000000003', name: { cn: 'E2E并入丙', en: 'E2E并入丙' }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' };
 
 const seedSnapshot = () => ({
   schemaVersion: 2,
@@ -520,12 +523,12 @@ const seedSnapshot = () => ({
   scheduledWorkouts: [],
   prefs: {
     customTags: [],
-    customExercises: [DEF_C, DEF_PROTO],
+    customExercises: [DEF_C, DEF_PROTO, DEF_T, DEF_ORPHAN],
     exerciseNotes: {},
     starredExercises: {},
     exerciseMetricConfigs: {},
     tagRenameOverrides: {},
-    exerciseOverrides: {},
+    exerciseOverrides: { [DEF_ORPHAN.id]: { mergedInto: DEF_T.id, hidden: true } },
     starredLastUpdateMs: 0,
     metricsLastUpdateMs: 0,
     prefsLastUpdateMs: Date.now(),
@@ -1053,9 +1056,20 @@ const SEEDED = {
     if (await hidden()) throw new Error('create with a deleted name did not restore it');
     const defs = (await readLs('fitlog_custom_exercises')) || [];
     if (defs.filter(d => d.name.cn === 'E2E自建甲').length !== 1) throw new Error('create with a deleted name made a duplicate definition');
+    // 用孤儿并入动作的名字新建＝拆回并加卡。防的错下层测不到：拆回是 setState，同一事件里加卡的闭包还认它是目标的别名，
+    // 卡挂到目标名下（第 17 批审查）
+    await search.fill('');
+    await search.fill('E2E并入丙');
+    await sheet.getByRole('button', { name: /创建「E2E并入丙」/ }).click();
+    await dlg.waitFor({ state: 'visible', timeout: 3_000 });
+    await dlg.getByRole('button', { name: /^(确定|OK)$/ }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    await until(async () => (await exCards.filter({ hasText: 'E2E并入丙' }).count()) === 1, 'the unmerged card to be added');
+    if (await exCards.filter({ hasText: 'E2E目标乙' }).count()) throw new Error('create with an orphan merge name added a card under the target');
+    if ((await readLs('fitlog_exercise_overrides'))?.[DEF_ORPHAN.id]?.mergedInto) throw new Error('create with an orphan merge name did not unmerge it');
     await page.locator('[data-testid="picker-sheet-close"]').click();
     await backAndDiscard(page);
-    return `library delete = hide + undo · emptied ${wid} dropped · tap add/cancel · same-name create restores`;
+    return `library delete = hide + undo · emptied ${wid} dropped · tap add/cancel · same-name create restores · orphan name unmerges`;
   },
 
   // 「继续这场」接回来的训练删光动作，不整场删（用户定）：里面是真正练过的组
