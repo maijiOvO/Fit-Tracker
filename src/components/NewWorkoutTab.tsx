@@ -697,7 +697,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             type="button"
             onClick={onFinishClick}
             data-armed={endArmed ? 'true' : undefined}
-            disabled={saveStatus === 'saving' || !(currentWorkout.exercises?.length) || (!!editingWorkoutId && !hasUnsavedChanges)}
+            // 编辑旧训练只看改没改：动作删光也能点，点了说去哪删整场（上架审查 C90）
+            disabled={saveStatus === 'saving' || (editingWorkoutId ? !hasUnsavedChanges : !currentWorkout.exercises?.length)}
             data-testid="finish-button"
             className={`min-h-[44px] min-w-[114px] px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
@@ -706,7 +707,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                   ? 'bg-success text-on-semantic'
                   : saveStatus === 'error'
                     ? 'bg-danger text-on-semantic'
-                    : !(currentWorkout.exercises?.length) || (editingWorkoutId && !hasUnsavedChanges)
+                    : (editingWorkoutId ? !hasUnsavedChanges : !currentWorkout.exercises?.length)
                       ? 'bg-card/40 text-tertiary cursor-not-allowed'
                       : editingWorkoutId || endArmed
                         ? 'bg-accent text-on-accent hover:opacity-90'

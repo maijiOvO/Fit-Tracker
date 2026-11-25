@@ -67,7 +67,7 @@ await build({
       "export { resolvePickedDate, stepMinute, msToNextLocalMidnight } from './src/utils/dateUtils.ts';",
       "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
       "export { handleHardwareBack } from './src/hooks/useBackClose.ts';",
-      "export { planMergeIntoPrevious } from './src/utils/sessionMerge.ts';",
+      "export { planMergeIntoPrevious, mergeableIds } from './src/utils/sessionMerge.ts';",
       "export * as SS from './src/utils/setStep.ts';",
       "export * as SW from './src/utils/setWrite.ts';",
       "export * as MD from './src/utils/metricDefaults.ts';",
@@ -2454,6 +2454,51 @@ t('并入上一场（上架审查 C04）：前一场是工作台那场时并进�
   assert.deepEqual(r3.merged.exercises.map(e => e.id), ['a', 'z']);
   // 前面什么都没有
   assert.equal(L.planMergeIntoPrevious([OLD], OLD, null), null);
+});
+
+// 防 C92：并入只拼动作，被并那场的整场备注、「按计划」标记、馆丢掉；隔天 / 跨馆的两场也给并
+t('并入上一场（上架审查 C92）：被并那场的备注接在后面、计划标记和馆前一场没有就带过来；隔 12 小时以上或跨馆不给并', () => {
+  const at = (d, hm) => new Date(`2026-11-${d}T${hm}:00`).toISOString();
+  const ex = id => ({ id, name: id, category: 'STRENGTH', sets: [{ id: id + '1', weight: 60, reps: 5 }] });
+  const P = { id: 'P', title: '六天前', gym: '甲', notes: '前一场备注', date: at(10, '09:00'), startTime: '09:00', finishedAt: at(10, '10:00'), exercises: [ex('a')] };
+  const W = { id: 'W', title: '另一个', notes: '被并那场的备注', fromSchedule: { scheduleId: 'plan1' }, date: at(10, '10:02'), finishedAt: at(10, '10:40'), exercises: [ex('b')] };
+  const m = L.planMergeIntoPrevious([P, W], W, null).merged;
+  assert.equal(m.notes, '前一场备注\n被并那场的备注');
+  assert.equal(m.fromSchedule.scheduleId, 'plan1');
+  assert.equal(m.gym, '甲');
+  assert.deepEqual(m.exercises.map(e => e.id), ['a', 'b'], '前一场的动作在前');
+  assert.equal(m.finishedAt, W.finishedAt);
+  assert.deepEqual([m.id, m.date, m.title, m.startTime], ['P', P.date, '六天前', '09:00'], '日期、标题、开练时刻是前一场的（本意）');
+  const mg = (p, w) => L.planMergeIntoPrevious([p, w], w, null).merged;
+  assert.equal(mg({ ...P, notes: undefined }, W).notes, '被并那场的备注', '前一场没备注取被并那场的');
+  assert.equal(mg(P, { ...W, notes: '  \n ' }).notes, '前一场备注', '被并那场备注全空白：前一场原样');
+  assert.equal(mg({ ...P, fromSchedule: { scheduleId: 'own' } }, W).fromSchedule.scheduleId, 'own', '前一场自己有计划标记就留它的');
+  assert.equal(mg({ ...P, gym: undefined }, { ...W, gym: '乙' }).gym, '乙', '前一场没标馆取被并那场的');
+  // 工作台那场同样带上
+  const live = { ...P, finishedAt: undefined, notes: undefined };
+  assert.equal(L.planMergeIntoPrevious([live, W], W, live).merged.notes, '被并那场的备注');
+
+  // 能不能并：同馆 62 分钟 ✓；同馆 3 天 ✗；跨馆 1 小时 ✗；一边没标馆 ✓；跨零点 15 分钟 ✓
+  const ok = (pd, wd, pg, wg) => {
+    const p = { ...P, gym: pg, date: pd };
+    const w = { ...W, gym: wg, date: wd };
+    return L.planMergeIntoPrevious([p, w], w, null) !== null;
+  };
+  assert.equal(ok(at(10, '09:00'), at(10, '10:02'), '甲', '甲'), true);
+  assert.equal(ok(at(10, '09:00'), at(13, '09:00'), '甲', '甲'), false);
+  assert.equal(ok(at(10, '09:00'), at(10, '10:00'), '甲', '乙'), false);
+  assert.equal(ok(at(10, '09:00'), at(10, '10:00'), '甲', undefined), true);
+  assert.equal(ok(at(10, '23:50'), at(11, '00:05'), '甲', '甲'), true);
+  // 补录的前一场：date 是 20 号、finishedAt 是 23 号 → 和 21 号那场仍不给并（按 date 比，不按 finishedAt）
+  const backfill = { ...P, id: 'B', date: at(20, '09:00'), finishedAt: at(23, '12:00') };
+  const next = { ...W, id: 'N', date: at(21, '09:00') };
+  assert.equal(L.planMergeIntoPrevious([backfill, next], next, null), null);
+
+  // 时间线给不给这一项：和上面同一个挑法；最早那场没有；没练过的场不算前一场
+  const Q = { ...W, id: 'Q', date: at(13, '09:00') };
+  const G = { id: 'G', date: at(13, '08:30'), exercises: [{ ...ex('g'), sets: [{ id: 'g1', ghost: true }] }] };
+  const ids = L.mergeableIds([Q, W, P, G, backfill, next]);
+  assert.deepEqual([...ids].sort(), ['W'], 'W 紧跟 P；Q 前面只有没练过的 G 和三天前的 W；N 前一场是隔一天的补录场 B');
 });
 
 // ── 全局撤销的读写失败（上架审查 C17 / C18 / C19）：services/undoJournal.ts 的前像标记、写回失败留步、写回期间 busy ──────

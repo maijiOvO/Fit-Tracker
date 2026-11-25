@@ -364,7 +364,8 @@ export function useWorkoutMutations({
     setSaveStatus('saving');
 
     try {
-      if (!currentWorkout.exercises || currentWorkout.exercises.length === 0) {
+      // 只给新训练：编辑旧训练删光动作要落到下面那句去向提示（上架审查 C90）
+      if (!editingWorkoutId && !currentWorkout.exercises?.length) {
         setSaveStatus('idle');
         return;
       }

@@ -23,6 +23,7 @@ import { dateFormat, dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
 import { realSets } from '../utils/prDetect';
 import { sessionDurationMin } from '../utils/sessionDuration';
+import { mergeableIds } from '../utils/sessionMerge';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useBackClose } from '../hooks/useBackClose';
 
@@ -149,7 +150,7 @@ interface SessionCardProps {
   onResume: () => void;
   /** 刚结束 10 分钟内才给「继续这场」 */
   canResume: boolean;
-  /** 前面还有训练可并入时才给这一项 —— 最早的一场没有「上一场」 */
+  /** 前一场离得够近（12 小时内）、没跨馆时才给这一项：误结束拆开的两场才需要并 */
   canMerge: boolean;
   /**
    * 合并态（天粒度且这一天只有一场）：组头已经被吃掉，日期改由卡片
@@ -597,17 +598,8 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   onResumeFinished,
 }) => {
   const isCN = lang === Language.CN;
-  /** 全局最早那一场的 id —— 只有它没有「上一场」可并 */
-  const earliestId = useMemo(() => {
-    let earliest: WorkoutSession | null = null;
-    for (const w of workouts) {
-      if (!w.date) continue;
-      if (!earliest || new Date(w.date).getTime() < new Date(earliest.date).getTime()) {
-        earliest = w;
-      }
-    }
-    return earliest?.id ?? null;
-  }, [workouts]);
+  /** 给「并入上一场」的场：前一场离得够近、没跨馆（utils/sessionMerge.mergeableIds） */
+  const mergeable = useMemo(() => mergeableIds(workouts), [workouts]);
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -741,7 +733,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onCopy={() => onCopyToToday(w.id)}
                   onResume={() => onResumeFinished(w.id)}
                   canResume={justEnded(w)}
-                  canMerge={w.id !== earliestId}
+                  canMerge={mergeable.has(w.id)}
                 />
               ))}
             </div>
@@ -805,7 +797,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onCopy={() => onCopyToToday(w.id)}
                   onResume={() => onResumeFinished(w.id)}
                   canResume={justEnded(w)}
-                  canMerge={w.id !== earliestId}
+                  canMerge={mergeable.has(w.id)}
                   merged={false}
                 />
               ))}

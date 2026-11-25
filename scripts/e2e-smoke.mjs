@@ -788,6 +788,26 @@ const SEEDED = {
     if (local !== `${threeDaysAgo} 14:33`) throw new Error(`the edit moved the workout to ${local} (was ${threeDaysAgo} 14:33)`);
     await dismissToasts();
 
+    // 编辑旧训练删光动作（上架审查 C90）：保存键照样能点，点了只出去向提示、库里不动、仍在编辑页。
+    // 种子里 W_DATE 只有一个动作；按钮的 disabled 和 finishWorkout 的空卡早退各自都会吞掉这一下，下层测不到接线
+    await openEdit();
+    const exCard = page.locator('.ui-card').filter({ has: page.locator('[data-testid="ledger-field-weight"]') }).first();
+    await exCard.getByRole('button', { name: /动作菜单|Exercise menu/ }).click();
+    await exCard.getByRole('menuitem', { name: /删除动作|Delete exercise/ }).click();
+    await exCard.waitFor({ state: 'detached', timeout: 3_000 });
+    await dirty.waitFor({ state: 'visible', timeout: 3_000 });
+    if (await save.isDisabled()) throw new Error('save button is disabled after deleting every exercise of a past workout (C90)');
+    const toasts = page.locator('[data-testid="toast"]');
+    const toasts0 = await toasts.count();
+    await save.click();
+    await until(async () => (await toasts.count()) > toasts0, 'saving an emptied past workout to explain where to delete it');
+    if (!(await editPage.first().isVisible())) throw new Error('saving an emptied past workout left the edit page');
+    if ((await remoteWorkout(W_DATE.id))?.exercises?.length !== 1) throw new Error('saving an emptied past workout wrote to the db');
+    await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
+    await clickAppConfirm(page, /^(放弃修改|Discard)$/);
+    await editPage.first().waitFor({ state: 'detached', timeout: 3_000 });
+    await dismissToasts();
+
     // 退出编辑同步放回进行中的那场（上架审查 gap-r3-1#1）：编辑页消失的那一次提交里，首页「进行中」就该在。
     // 原来那一次提交里工作台是空场、接回要等一次整表读，空档里点开练会把它顶掉。判的是同一次提交的 DOM，不靠等
     await menuOn(W_HEAT.id, /复制为今天的训练|Copy to today/);
@@ -826,7 +846,7 @@ const SEEDED = {
     await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
     if (seen.empty) throw new Error('the dashboard flashed the new-user empty state while loading');
     await backAndDiscard(page);
-    return 'set nums 1,2,3 · untouched picker clean · draft not persisted · discard drops · save writes reps only · exit puts the live workout back · start waits for restore';
+    return 'set nums 1,2,3 · untouched picker clean · draft not persisted · discard drops · save writes reps only · emptied edit explains, writes nothing · exit puts the live workout back · start waits for restore';
   },
 
   // 同步契约：
