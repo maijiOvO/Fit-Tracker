@@ -10,6 +10,7 @@
 import type { Exercise, SetLog, WorkoutSession } from '../../types';
 import { prSetsOf } from './prRecords';
 import { rowEdited } from './setValues';
+import { memberKeys } from './workbench';
 
 export interface LastHit {
   ex: Exercise;
@@ -83,19 +84,25 @@ export function isPristineDraftCard(sets: SetLog[] | undefined): boolean {
   return sets.every(s => s.ghost && !rowEdited(s) && !s.prefillRef?.plan);
 }
 
-/** 一个动作交替做过的一种搭配；mates＝同组其他动作的名字，按那场的先后 */
+/** 一个动作交替做过的一种搭配；mates＝同组其他成员（memberKeys 的口径：同名的带做法），按那场的先后 */
 export interface AltCombo extends LastHit {
   mates: string[];
 }
 
+/** 那一场里和 hit.ex 同一个交替组的全部成员，按卡序 */
+const groupOf = (hit: LastHit) => hit.workout.exercises.filter(e => e.altGroup === hit.ex.altGroup);
+
 /**
  * 每个动作交替做过的各种搭配（键：resolveName 后的名字）：最近的在前，成员相同的不管先后只留最近一次。
- * 只算同组还有别的成员、且这个动作有做完的组的。不分馆、不分做法 —— 搭档关系跟馆和做法无关。
+ * 只算同组还有别的成员、且这个动作有做完的组的。不分馆；成员按 workbench.memberKeys 认 —— 不同名的搭档关系跟馆和做法无关，
+ * 同名的（§12.10 左右分记）带做法：[左,右] 和 [左,中] 是两种搭配，mates 写「哑铃弯举（右）」（审查 gap-4#2）。
+ * labelOf：调用方传 liftKey。
  * 2026-11-10 用户指出：123 交替之后做了一次 13，下次想按 123 就带不出来，所以全列出来给选动作列表用。
  */
 export function altCombosByName(
   workouts: WorkoutSession[],
   resolveName: (n: string) => string,
+  labelOf: (ex: Exercise) => string,
   skipWorkoutId?: string,
   before?: string,
 ): Map<string, AltCombo[]> {
@@ -110,12 +117,14 @@ export function altCombosByName(
     for (const members of groups.values()) {
       if (members.length < 2) continue;
       const names = members.map(m => resolveName(m.name));
-      const sig = [...names].sort().join('\n');
+      const keys = memberKeys(members, m => resolveName(m.name), labelOf);
+      const sig = [...keys].sort().join('\n');
       members.forEach((ex, i) => {
+        // 按名字去重：同名组（左 ⇄ 右）在这个名字下只列一种搭配，取先做完组的那个成员
         const key = `${names[i]}\n${sig}`;
         if (seen.has(key) || !ex.sets?.some(s => !s.ghost)) return;
         seen.add(key);
-        out.set(names[i], [...(out.get(names[i]) ?? []), { ex, workout: w, mates: names.filter((_, j) => j !== i) }]);
+        out.set(names[i], [...(out.get(names[i]) ?? []), { ex, workout: w, mates: keys.filter((_, j) => j !== i) }]);
       });
     }
   }
@@ -129,11 +138,86 @@ export function altCombosByName(
 export function findLastAltGroup(
   workouts: WorkoutSession[],
   resolveName: (n: string) => string,
+  labelOf: (ex: Exercise) => string,
   exerciseName: string,
   skipWorkoutId?: string,
   before?: string,
 ): LastHit | null {
-  return altCombosByName(workouts, resolveName, skipWorkoutId, before).get(resolveName(exerciseName))?.[0] ?? null;
+  return altCombosByName(workouts, resolveName, labelOf, skipWorkoutId, before).get(resolveName(exerciseName))?.[0] ?? null;
+}
+
+/**
+ * 连带交替搭档：旧组的每个成员按那场的顺序，self＝新加的这张卡占的位置（旧组里和 picked 同一成员的那张；
+ * picked 的做法不在组里就占 altHit.ex 的位置）。byVariant＝这个成员的名字在组里重复（左右分记），
+ * 搭档的「本场已有」、底稿和做法都要按做法认，否则「左 ⇄ 右」连带进来塌成「左 ⇄ 左」（审查 C103）。
+ */
+export function altPartners(
+  altHit: LastHit,
+  picked: Exercise,
+  resolveName: (n: string) => string,
+  labelOf: (ex: Exercise) => string,
+): { member: Exercise; self: boolean; byVariant: boolean }[] {
+  const members = groupOf(altHit);
+  const names = members.map(m => resolveName(m.name));
+  const keys = memberKeys(members, m => resolveName(m.name), labelOf);
+  const pn = resolveName(picked.name);
+  const pk = names.indexOf(pn) !== names.lastIndexOf(pn) ? labelOf(picked) : pn;
+  const self = members[keys.indexOf(pk)] ?? altHit.ex;
+  return members.map((m, i) => ({ member: m, self: m === self, byVariant: names.indexOf(names[i]) !== names.lastIndexOf(names[i]) }));
+}
+
+/**
+ * 从计划开练时每一行的做法和交替组（审查 gap-4#3）。计划行不记做法（ScheduleEditorModal），做法从历史里推：
+ *   - 交替：每行找这个动作最近一次交替做的那场（同选动作行的口径），计划里第 n 个同名行对旧组里第 n 张同名卡，行比卡多就落到最后一张；
+ *     同一个旧组里对到的不同旧卡至少两张才成组，对到同一张旧卡的只有第一行进组（「卧推、深蹲、卧推」不会把两段卧推并进一组）。
+ *   - 做法：成组且旧组里这个名字重名（左右分记）就跟对到的旧卡；否则计划里这个名字有几行时第 n 行对上一场第 n 张同名卡；
+ *     只有一行的不指定（variantId undefined，按上一次）。'' ＝标准做法。
+ * group：成组的行给同一个键（旧那场 id | 旧组 id），调用方换成新组 id。
+ */
+export function planRowPicks(
+  names: string[],
+  workouts: WorkoutSession[],
+  resolveName: (n: string) => string,
+  labelOf: (ex: Exercise) => string,
+  variantIdOf: (ex: Exercise) => string | undefined,
+  lastOf: (name: string) => LastHit | null,
+  inheritAlt: boolean,
+): { variantId?: string; group?: string }[] {
+  const resolved = names.map(n => resolveName(n));
+  const nth = resolved.map((n, i) => resolved.slice(0, i).filter(x => x === n).length);
+  const count = (n: string) => resolved.filter(x => x === n).length;
+  const pickOf = <T>(xs: T[], k: number) => xs[Math.min(k, xs.length - 1)];
+  // ① 每行对到旧组里的哪张卡
+  const altRows = resolved.map((n, i) => {
+    const hit = inheritAlt ? findLastAltGroup(workouts, resolveName, labelOf, n) : null;
+    if (!hit) return null;
+    const members = groupOf(hit);
+    const same = members.filter(m => resolveName(m.name) === n);
+    return { key: `${hit.workout.id}|${hit.ex.altGroup}`, card: pickOf(same, nth[i]), dupName: same.length > 1 };
+  });
+  // ② 同一个旧组里对到的不同旧卡 ≥ 2 张才成组；同一张旧卡只有第一行进组
+  const firstRowOfCard = new Map<string, number>();
+  altRows.forEach((r, i) => {
+    if (r && !firstRowOfCard.has(`${r.key}\n${r.card.id}`)) firstRowOfCard.set(`${r.key}\n${r.card.id}`, i);
+  });
+  const cardsPerGroup = new Map<string, number>();
+  for (const k of firstRowOfCard.keys()) {
+    const g = k.split('\n')[0];
+    cardsPerGroup.set(g, (cardsPerGroup.get(g) ?? 0) + 1);
+  }
+  // ③ 做法
+  return resolved.map((n, i) => {
+    const r = altRows[i];
+    const grouped = !!r && firstRowOfCard.get(`${r.key}\n${r.card.id}`) === i && (cardsPerGroup.get(r.key) ?? 0) >= 2;
+    let variantId: string | undefined;
+    if (grouped && r!.dupName) variantId = variantIdOf(r!.card) ?? '';
+    else if (count(n) > 1) {
+      const last = lastOf(names[i]);
+      const cards = last ? last.workout.exercises.filter(e => resolveName(e.name) === n && e.sets?.some(s => !s.ghost)) : [];
+      if (cards.length) variantId = variantIdOf(pickOf(cards, nth[i])) ?? '';
+    }
+    return { ...(variantId !== undefined ? { variantId } : {}), ...(grouped ? { group: r!.key } : {}) };
+  });
 }
 
 /** 一组：带符号的 kg（辅助为负）+ 次数 */

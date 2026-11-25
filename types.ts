@@ -33,6 +33,8 @@ export interface SetLog {
   want?: number;
   /** 工作台专用（入册时剥掉）：换了做法、新做法没练过，剩下的底稿是按新器材硬取整的 —— 标「换了做法，确认一下重量」 */
   checkWeight?: boolean;
+  /** 工作台专用（入册时剥掉）：改记到不带正负的动作时辅助的数写成 0，这里记着原来带符号的 kg；改回带正负的动作、数还是 0 就还原（workbench.moveSetToExercise） */
+  movedKg?: number;
   reps: number;
   /** Duration in seconds (e.g. cardio / timed sets) */
   duration?: number;
@@ -123,6 +125,8 @@ export interface SubSetLog {
   want?: number;
   /** 工作台专用（入册时剥掉）：换了做法、新做法没练过，剩下的底稿是按新器材硬取整的 —— 标「换了做法，确认一下重量」 */
   checkWeight?: boolean;
+  /** 工作台专用（入册时剥掉）：同 SetLog.movedKg */
+  movedKg?: number;
   reps: number;      // 独立的次数设置
   restSeconds?: number; // 子组间休息时间（可选）
   note?: string;     // 子组备注（可选）

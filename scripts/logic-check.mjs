@@ -39,7 +39,7 @@ await build({
     contents: [
       "export * from './src/utils/weightSummary.ts';",
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
-      "export { findLastIn, findLastAltGroup, altCombosByName, vsLastSession, sourceCards, prefillSourceLookup } from './src/utils/prefillSource.ts';",
+      "export { findLastIn, findLastAltGroup, altCombosByName, altPartners, planRowPicks, vsLastSession, sourceCards, prefillSourceLookup } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
       "export { migrateWarmRegions } from './src/utils/warmRegionMigration.ts';",
       "export { makeRounder, ownUnitOf, cardUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
@@ -49,7 +49,7 @@ await build({
       "export * as R from './src/utils/prRecords.ts';",
       "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
-      "export { moveSetToExercise, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
+      "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, scrubGate, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
@@ -171,6 +171,8 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
     W('w_a_old', 'A', [ex('推肩', [done(35)])]),
   ];
   const id = s => s;
+  // 交替成员的标签：不同名的只按名字（这几条防不同名搭配的口径被同名组的修法带偏）
+  const nm = e => e.name;
   const vOf = e => e.variantId;
   assert.equal(L.findLastIn(ws, id, vOf, '推肩', null, undefined, 'A').workout.id, 'w_a', 'same gym first');
   assert.equal(L.findLastIn(ws, id, vOf, '推肩', null, undefined, 'B').workout.id, 'w_b');
@@ -186,9 +188,9 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
     W('alt_ok', 'A', [alt('卷腹', 'g1', [done(0)]), alt('举腿', 'g1', [done(0)])]),
     W('lonely', 'A', [alt('举腿', 'g0', [done(0)])]),
   ];
-  assert.equal(L.findLastAltGroup(wa, id, '举腿').workout.id, 'alt_ok', 'skip the solo session and the ghost-only one');
-  assert.equal(L.findLastAltGroup(wa, id, '举腿', 'alt_ok'), null, 'a group with no other member does not count');
-  assert.equal(L.findLastAltGroup(wa, id, '深蹲'), null);
+  assert.equal(L.findLastAltGroup(wa, id, nm, '举腿').workout.id, 'alt_ok', 'skip the solo session and the ghost-only one');
+  assert.equal(L.findLastAltGroup(wa, id, nm, '举腿', 'alt_ok'), null, 'a group with no other member does not count');
+  assert.equal(L.findLastAltGroup(wa, id, nm, '深蹲'), null);
   // 同一个动作的几种搭配都要列得出来（2026-11-10 用户指出）：最近的在前（第 0 个＝点动作行带的），成员相同的不管先后只留最近一次
   const wc = [
     W('c_now', 'A', [alt('磕头机', 'n', [done(0)]), alt('举腿', 'n', [done(0)])]),
@@ -196,11 +198,11 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
     W('c_123', 'B', [alt('磕头机', 'g2', [done(0)]), alt('卷腹', 'g2', [done(0)]), alt('举腿', 'g2', [done(0)])]),
     W('c_31', 'A', [alt('举腿', 'g1', [done(0)]), alt('磕头机', 'g1', [done(0)])]),
   ];
-  const combos = L.altCombosByName(wc, id, 'c_now');
+  const combos = L.altCombosByName(wc, id, nm, 'c_now');
   assert.deepEqual(combos.get('磕头机').map(c => c.workout.id), ['c_13', 'c_123'], 'newest first, same members once');
   assert.deepEqual(combos.get('磕头机')[1].mates, ['卷腹', '举腿'], 'mates keep the order of that session');
   assert.deepEqual(combos.get('卷腹').map(c => c.workout.id), ['c_123'], 'each exercise only sees its own groups');
-  assert.equal(L.findLastAltGroup(wc, id, '磕头机', 'c_now').workout.id, 'c_13', 'row tap brings combo 0');
+  assert.equal(L.findLastAltGroup(wc, id, nm, '磕头机', 'c_now').workout.id, 'c_13', 'row tap brings combo 0');
   // 做法：'' = 标准做法，别的做法不算
   const wv = [W('v1', 'A', [ex('推肩', [done(30)], 'wide')]), W('v0', 'A', [ex('推肩', [done(20)])])];
   assert.equal(L.findLastIn(wv, id, vOf, '推肩', '', undefined, 'A').workout.id, 'v0');
@@ -208,6 +210,73 @@ t('底稿来源：本馆优先，本馆没练过退回最近一次；没标馆�
   assert.equal(L.findLastIn(wv, id, vOf, '推肩', null, undefined, 'A').workout.id, 'v1', 'null = any variant');
   // 名字按 resolveName 认（改过名的动作）
   assert.equal(L.findLastIn([W('r', 'A', [ex('旧名', [done(10)])])], n => (n === '旧名' ? '新名' : n), vOf, '新名').workout.id, 'r');
+});
+
+// ── 左右分记（§12.10：同一动作的两个做法 + 交替组）：成员按「名字（做法）」认（审查 C103 / gap-4#2 / gap-4#3）──────────
+const lrFixture = () => {
+  const id = s => s;
+  const vOf = e => e.variantId;
+  const lbl = e => (e.variantName ? `${e.name}（${e.variantName}）` : e.name);
+  const S = (w, r) => ({ id: `${w}x${r}`, weight: w, reps: r });
+  const C = (cid, name, v, vn, sets, g) => ({ id: cid, name, category: 'STRENGTH', ...(v ? { variantId: v, variantName: vn } : {}), sets, ...(g ? { altGroup: g } : {}) });
+  const W = (wid, days, exs) => ({ id: wid, gym: '', date: ago(days), exercises: exs });
+  const curl = (cid, v, sets, g) => C(cid, '哑铃弯举', v, v === 'L' ? '左' : v === 'R' ? '右' : '中', sets, g);
+  const w_lr = W('w_lr', 10, [curl('lr_l', 'L', [S(12, 10)], 'g1'), curl('lr_r', 'R', [S(14, 8)], 'g1')]);
+  const w_r = W('w_r', 2, [curl('r_solo', 'R', [S(15, 8)])]);
+  const w_bf = W('w_bf', 5, [C('bf_b', '卧推', 'wide', '宽握', [S(30, 10)], 'g2'), C('bf_f', '哑铃飞鸟', '', '', [S(10, 12)], 'g2')]);
+  const w_bench = W('w_bench', 1, [C('bench', '卧推', '', '', [S(60, 5)])]);
+  return { id, vOf, lbl, S, C, W, curl, w_lr, w_r, w_bf, w_bench };
+};
+
+t('连带交替搭档：同名成员按做法占位，「左 ⇄ 右」不塌成「右 ⇄ 右」；不同名组照旧（审查 C103）', () => {
+  // 防的错：搭档只按名字认，点「右」时搭档也按名字找底稿、本场已有也按名字判，连带进来是「右 ⇄ 右」
+  const { id, vOf, lbl, w_lr, w_r, w_bf, w_bench } = lrFixture();
+  const ws = [w_bench, w_r, w_bf, w_lr];
+  const hit = L.findLastAltGroup(ws, id, lbl, '哑铃弯举');
+  const shape = ps => ps.map(p => [p.member.id, p.self, p.byVariant]);
+  const R = { name: '哑铃弯举', variantId: 'R', variantName: '右' };
+  const Lf = { name: '哑铃弯举', variantId: 'L', variantName: '左' };
+  assert.deepEqual(shape(L.altPartners(hit, R, id, lbl)), [['lr_l', false, true], ['lr_r', true, true]]);
+  assert.equal(L.findLastIn(ws, id, vOf, '哑铃弯举', 'L').ex.sets[0].weight, 12, '搭档「左」抄左自己的数');
+  assert.equal(L.findLastIn(ws, id, vOf, '哑铃弯举', 'R').ex.sets[0].weight, 15, '交替之后单练过右：右抄 15');
+  assert.deepEqual(shape(L.altPartners(hit, Lf, id, lbl)), [['lr_l', true, true], ['lr_r', false, true]]);
+  const M = { name: '哑铃弯举', variantId: 'M', variantName: '中' };
+  assert.deepEqual(L.altPartners(hit, M, id, lbl).filter(p => p.self).map(p => p.member), [hit.ex], '做法不在组里：占 altHit.ex 的位置');
+  const bh = L.findLastAltGroup(ws, id, lbl, '卧推');
+  assert.deepEqual(shape(L.altPartners(bh, { name: '卧推' }, id, lbl)), [['bf_b', true, false], ['bf_f', false, false]], '不同名组：标准卧推占宽握那张，飞鸟不按做法');
+});
+
+t('交替搭配列表：同名组只出一种、mates 带做法；[左,右] 和 [左,中] 是两种（审查 gap-4#2）', () => {
+  // 防的错：同名组的 sig 只按名字，[左,右] 和 [左,中] 被当成同一种去重；或同名组在这个名字下列两遍
+  const { id, lbl, S, W, curl, w_lr } = lrFixture();
+  const one = L.altCombosByName([w_lr], id, lbl).get('哑铃弯举');
+  assert.equal(one.length, 1);
+  assert.deepEqual(one[0].mates, ['哑铃弯举（右）']);
+  const w_lm = W('w_lm', 20, [curl('lm_l', 'L', [S(11, 10)], 'g9'), curl('lm_m', 'M', [S(13, 8)], 'g9')]);
+  assert.deepEqual(L.altCombosByName([w_lr, w_lm], id, lbl).get('哑铃弯举').map(c => c.workout.id), ['w_lr', 'w_lm']);
+});
+
+t('计划开练：同名两行对上次的左 / 右；「卧推、深蹲、卧推」不把两段卧推并成一组；单行和不同名组同现状（审查 gap-4#3）', () => {
+  // 防的错：每行都取上一场第一张同名卡、同名的几行拿到同一个组键 —— 情形 A 开出来是「左 ⇄ 左」，情形 B 两段卧推被并成交替组、计划顺序丢了
+  const { id, vOf, lbl, S, W, curl, w_lr, w_bf, w_bench } = lrFixture();
+  const picks = (names, ws, inherit = true) => L.planRowPicks(names, ws, id, lbl, vOf, n => L.findLastIn(ws, id, vOf, n, null), inherit);
+  const groupsOf = ps => ps.map(p => (p.group ? 'G' : '-')).join('');
+  const lr = ['哑铃弯举', '哑铃弯举'];
+  const a = picks(lr, [w_lr]);
+  assert.deepEqual(a.map(p => p.variantId), ['L', 'R']);
+  assert.equal(groupsOf(a), 'GG');
+  assert.equal(a[0].group, a[1].group);
+  const wl = W('w_l', 1, [curl('l_solo', 'L', [S(13, 10)])]);
+  const a2 = picks(lr, [wl, w_lr]);
+  assert.deepEqual([a2.map(p => p.variantId), groupsOf(a2)], [['L', 'R'], 'GG'], '交替之后单练过左');
+  const sep = W('w_sep', 1, [curl('s_l', 'L', [S(12, 10)]), curl('s_r', 'R', [S(14, 8)])]);
+  const a3 = picks(lr, [sep], false);
+  assert.deepEqual([a3.map(p => p.variantId), groupsOf(a3)], [['L', 'R'], '--'], '连带关、上一场左右两张卡');
+  const a4 = picks([...lr, '哑铃弯举'], [w_lr]);
+  assert.deepEqual([a4.map(p => p.variantId), groupsOf(a4)], [['L', 'R', 'R'], 'GG-'], '三行：第三行对到同一张旧卡，不进组');
+  assert.equal(groupsOf(picks(['卧推', '深蹲', '卧推'], [w_bf])), '---', '情形 B');
+  assert.equal(groupsOf(picks(['卧推', '哑铃飞鸟', '卧推'], [w_bf])), 'GG-', '计划里带飞鸟');
+  assert.deepEqual(picks(['卧推'], [w_bench, w_bf]), [{}], '单行：不指定做法、不成组，同现状');
 });
 
 t('底稿来源：命中那场同项目的几张卡按卡序都收进来（别的做法不收）；只铺一张抄合起来的，铺几张一一对应', () => {
@@ -1152,6 +1221,27 @@ t('改记到别的动作：prefillRef / draftAuto 剥掉；目标不带正负时
   assert.equal(moved.draftAuto, undefined);
   assert.equal(moved.weight, 0);
   assert.equal(moved.bodyweightMode, undefined);
+});
+
+t('改记往返：辅助 20 改到不带正负的动作写 0，改回来还是辅助 20；那边改过数就不还原；入册剥掉暂存的号（审查 gap-4#4）', () => {
+  // 防的错：记错边改过去再改回来，辅助 20 变成 0（普通），号丢了
+  const signed = ex => ex.id === 'A';
+  const exs = [
+    { id: 'A', name: '辅助引体', sets: [{ id: 's1', weight: 20, reps: 8, bodyweightMode: 'assisted', subSets: [{ id: 'd1', weight: 30, reps: 5, bodyweightMode: 'assisted' }] }] },
+    { id: 'B', name: '高位下拉', sets: [] },
+  ];
+  const there = L.moveSetToExercise(exs, { exId: 'A', setId: 's1' }, 'B', signed);
+  const m = there[1].sets[0];
+  assert.deepEqual([m.weight, m.bodyweightMode, m.subSets[0].weight], [0, undefined, 0], 'A7 原规则不动');
+  const back = L.moveSetToExercise(there, { exId: 'B', setId: 's1' }, 'A', signed)[0].sets[0];
+  assert.deepEqual([back.weight, back.bodyweightMode, back.movedKg], [20, 'assisted', undefined]);
+  assert.deepEqual([back.subSets[0].weight, back.subSets[0].bodyweightMode, back.subSets[0].movedKg], [30, 'assisted', undefined], '递减档同样还原');
+  const edited = there.map(e => (e.id === 'B' ? { ...e, sets: [{ ...m, weight: 5 }] } : e));
+  const back5 = L.moveSetToExercise(edited, { exId: 'B', setId: 's1' }, 'A', signed)[0].sets[0];
+  assert.deepEqual([back5.weight, back5.bodyweightMode, back5.movedKg], [5, 'weighted', undefined], '在那边改成 5 就按 5（负重），不还原');
+  const rec = L.stripWorkbenchSet(m);
+  assert.equal(rec.movedKg, undefined);
+  assert.equal(rec.subSets[0].movedKg, undefined);
 });
 
 // ── 搜索归一化（审查 C）───────────────────────────────────────────

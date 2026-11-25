@@ -682,6 +682,41 @@ t('交替组成员简称：从后往前找别人没有的词，中文 ≤2 字�
   assert.deepEqual(W.memberAbbrs(['Leg Extension', 'Leg Extensions']), ['A', 'B']); // 截短后撞了
 });
 
+t('交替组成员按什么认：同名的（左右分记）带做法起简称，不同名的照旧只按名字（审查 gap-4#2）', () => {
+  // 防的错：调用处又只传名字，左右退回 A / B；或者一律传带做法的名字，「哑铃卧推（宽握）⇄哑铃飞鸟」的简称从「卧推」变「宽握」
+  const lbl = (cn = true) => m => (m.variantName ? (cn ? `${m.name}（${m.variantName}）` : `${m.name} (${m.variantName})`) : m.name);
+  const keys = (ms, cn) => W.memberKeys(ms, m => m.name, lbl(cn));
+  const lr = [{ name: '哑铃弯举', variantName: '左' }, { name: '哑铃弯举', variantName: '右' }];
+  assert.deepEqual(W.memberAbbrs(keys(lr)), ['左', '右']);
+  const en = [{ name: 'Dumbbell Curl', variantName: 'Left' }, { name: 'Dumbbell Curl', variantName: 'Right' }];
+  assert.deepEqual(W.memberAbbrs(keys(en, false)), ['Left', 'Right']);
+  const bf = [{ name: '哑铃卧推', variantName: '宽握' }, { name: '哑铃飞鸟' }];
+  assert.deepEqual(keys(bf), ['哑铃卧推', '哑铃飞鸟']);
+  assert.deepEqual(W.memberAbbrs(keys(bf)), ['卧推', '飞鸟']);
+});
+
+t('改记：做完的组按先后插回轮换里的位置，入册和拆开后顺序同卡上；改回来回原位；待做的接在末尾（审查 gap-4#4）', () => {
+  // 防的错：改记的组一律接在目标末尾，卡上是 a1 b1 a2，入册剥掉 seq 后变成 a1 a2 a3 b1
+  const S = (id, seq) => ({ id, weight: 10, reps: 10, ...(seq ? { ghost: false, seq } : { ghost: true }) });
+  let exs = [
+    { id: 'A', name: 'A', category: 'STRENGTH', altGroup: 'g', sets: [S('a1', 1), S('a2', 3), S('a3')] },
+    { id: 'B', name: 'B', category: 'STRENGTH', altGroup: 'g', sets: [S('b1', 2), S('b2', 4), S('b3')] },
+  ];
+  const ids = (list, id) => list.find(e => e.id === id).sets.map(s => s.id);
+  const moved = W.moveSetToExercise(exs, { exId: 'B', setId: 'b1' }, 'A');
+  assert.deepEqual(ids(moved, 'A'), ['a1', 'b1', 'a2', 'a3']);
+  assert.deepEqual(ids(W.recordedExercises(moved), 'A'), ['a1', 'b1', 'a2', 'a3'], '入册顺序同卡上（a3 有数，照样入册）');
+  assert.deepEqual(ids(W.splitGroup(moved, 'g'), 'A'), ['a1', 'b1', 'a2', 'a3']);
+  assert.deepEqual(ids(W.moveSetToExercise(moved, { exId: 'A', setId: 'b1' }, 'B'), 'B'), ['b1', 'b2', 'b3'], '改回来回到原位');
+  assert.deepEqual(ids(W.moveSetToExercise(exs, { exId: 'B', setId: 'b3' }, 'A'), 'A'), ['a1', 'a2', 'a3', 'b3'], '待做的接在末尾');
+});
+
+t('交替组 id：同一毫秒里连着建几千个也不撞（审查 gap-4#5）', () => {
+  // 防的错：复制为今天 / 从计划开练在同一个同步循环里建几个组，只靠 3 位随机区分，撞了两组被并成一组
+  const ids = Array.from({ length: 3000 }, () => W.newGroupId());
+  assert.equal(new Set(ids).size, 3000);
+});
+
 t('自定义片（按馆的单位存）：20.4 kg 的 45 lb 片、0.5 kg 微调片都按原值参与取整和配片', () => {
   const L = W.L;
   // kg 馆里只有一对 45 lb 片（存 20.4）+ 标准小片：20 杠 + 2×20.4 = 60.8 能挂，不能被当成 20.5 算成 61

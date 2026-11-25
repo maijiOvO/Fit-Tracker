@@ -169,7 +169,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   onFlashDone,
   partPrechosenId = null,
 }) => {
-  const isCn = lang === Language.CN;  const { signedLoadOf } = useExercisePrefs();
+  const isCn = lang === Language.CN;  const { signedLoadOf, liftKey } = useExercisePrefs();
   const { workouts } = useWorkoutContext();
   // 训练中改过日期的场（补录）：和编辑旧训练一样，只看那一场之前的
   const backdated = !editingWorkoutId && isBackdated(currentWorkout);
@@ -177,8 +177,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   const historyBefore = editingWorkoutId || backdated ? currentWorkout.date : undefined;
   // 选动作列表里的交替搭配：范围和点行时带搭档的一样（跳过这一场自己）
   const altCombos = useMemo(
-    () => (pickerOpen ? altCombosByName(workouts, resolveName, currentWorkout.id || undefined, historyBefore) : undefined),
-    [pickerOpen, workouts, resolveName, currentWorkout.id, historyBefore],
+    () => (pickerOpen ? altCombosByName(workouts, resolveName, liftKey, currentWorkout.id || undefined, historyBefore) : undefined),
+    [pickerOpen, workouts, resolveName, liftKey, currentWorkout.id, historyBefore],
   );
   const rounderFor = useLoadRounder();
   const flashTimerRef = useRef<number | null>(null);
@@ -427,6 +427,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
           ? (() => {
               // 只抄值、只抄开着的记录项（setValues.copyValues）：关掉的次数 / 重量不再藏在新组里入册（上架审查 gap-2#2）；
               // draftAuto / checkWeight / prefillRef 不抄（上一次并没有这一组，不能也标「上次」）：抄出来的是「照着上一行」。
+              // movedKg（改记往返暂存的号）是那一组自己的，也不抄
               // 片子单位按这个馆的片子（这一组还没做，挂的就是今天的片）
               const { subSets } = lastSet;
               const base = copyValues(lastSet, getActiveMetrics(e.name));
@@ -438,7 +439,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
                 ...(Number(base.weight) > 0 ? { plateUnit: pu } : {}),
                 ...(subSets?.length
                   ? {
-                      subSets: subSets.map(({ touched: _st, draftAuto: _sda, checkWeight: _scw, prefillRef: _spr, ...sub }, k) => ({
+                      subSets: subSets.map(({ touched: _st, draftAuto: _sda, checkWeight: _scw, prefillRef: _spr, movedKg: _smk, ...sub }, k) => ({
                         ...sub,
                         id: `${newId}_sub${k}`,
                         ...(Number(sub.weight) > 0 ? { plateUnit: pu } : {}),

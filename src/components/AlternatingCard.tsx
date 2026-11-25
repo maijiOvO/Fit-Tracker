@@ -5,7 +5,7 @@
  * 从最后做完那组的下一个动作接着轮。组号前一个字的简称（「收」「展」），点它＝改记到组里另一个动作名下。
  * 全场还是一个指针，在这张卡里一行一行往下走。
  *
- * 改错一律低成本、可逆（合并 / 移出 / 拆开 / 换动作都不丢数据，所以不给撤销也不弹确认）：
+ * 改错一律低成本、可逆（合并 / 移出 / 拆开 / 换动作都不丢数据，所以不弹确认，点错走顶栏全局撤销）：
  *   - 卡头动作名可点：左移 / 右移（只重排待做的组）、重命名、做法、备注、移出交替、从本场删除
  *   - ⋯：加一个动作（打开同一个添加动作弹层，加进这个组）、拆开
  *   - 卡底按动作分开的「＋ 动作名」：新的组插到轮换里该在的位置
@@ -28,7 +28,7 @@ import { gymMachineKey, useLoadInfoOf } from '../hooks/useLoadKind';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useLoadRounder } from '../hooks/useLoadRounder';
 import { getLoadMode, ledgerCols, metricUnitLabel } from '../utils/exerciseConfig';
-import { carrySign, memberAbbrs, RowRef } from '../utils/workbench';
+import { carrySign, memberAbbrs, memberKeys, RowRef } from '../utils/workbench';
 import { setVolumeKg, signedKg } from '../utils/load';
 import { formatLoad } from '../utils/liftDisplay';
 import { prSetIndex, type PRPool } from './ExerciseCard';
@@ -226,7 +226,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
 }: Props) {
   const isCn = lang === Language.CN;
   const rounderFor = useLoadRounder();
-  const { variantLabel, variantIdOf } = useExercisePrefs();
+  const { variantLabel, variantIdOf, liftKey } = useExercisePrefs();
   // 「杠铃片」§3：组行的拖动步长 / 方向和迷你配片跟着各自的器材走（交替组不画顶部大图）
   const loadInfoOf = useLoadInfoOf();
   const loadKindOf = (ex: Exercise, signed: boolean) => loadInfoOf(ex, signed, gym).kind;
@@ -237,8 +237,10 @@ export const AlternatingCard = React.memo(function AlternatingCard({
     const k = gymKeyOf(ex);
     return k ? appPrefs.gymNotes[k] : undefined;
   };
+  // names：按动作存的（记录项、备注、动作设置）；labels：认成员用的，同名的（§12.10 左右分记）带做法，简称、菜单、改记面板写明是哪一边（审查 gap-4#2）
   const names = members.map(m => resolveName(m.name));
-  const abbrs = memberAbbrs(names);
+  const labels = memberKeys(members, m => resolveName(m.name), liftKey);
+  const abbrs = memberAbbrs(labels);
   const byId = new Map<string, Exercise>(members.map(m => [m.id, m]));
   const idx = (id: string) => members.findIndex(m => m.id === id);
 
@@ -389,7 +391,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
                     data-testid="alt-member-settings"
                   >
                     <SettingsIcon size={16} strokeWidth={1.75} className="text-tertiary flex-shrink-0" />
-                    <span className="min-w-0 truncate">{isCn ? `设置 · ${names[i]}` : `Set up ${names[i]}`}</span>
+                    <span className="min-w-0 truncate">{isCn ? `设置 · ${labels[i]}` : `Set up ${labels[i]}`}</span>
                   </button>
                 ))}
                 <button
@@ -475,7 +477,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
         <span />
       </div>
 
-      <div className="ledger-paper" data-ledger-paper={cardKey} data-ex-name={names.join(' ⇄ ')}>
+      <div className="ledger-paper" data-ledger-paper={cardKey} data-ex-name={labels.join(' ⇄ ')}>
         {pointerGap === 0 && <RestBookmark lang={lang} onMove={onMovePointer} />}
         {rows.map((r, i) => {
           const ex = byId.get(r.exId);
@@ -498,7 +500,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
                 firstCol={ALT_FIRST_COL}
                 badge={{
                   label: abbrs[idx(r.exId)],
-                  title: isCn ? `${exName} · 改记到别的动作` : `${exName} · move to another exercise`,
+                  title: isCn ? `${labels[idx(r.exId)]} · 改记到别的动作` : `${labels[idx(r.exId)]} · move to another exercise`,
                   onClick: () => setBadgeFor(r),
                 }}
                 selected={selectedSetId === r.setId}
@@ -531,7 +533,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
             data-testid="alt-add-set"
           >
             <Plus size={15} strokeWidth={1.75} className="flex-none" />
-            <span className="truncate">{members.length > 2 ? abbrs[i] : names[i]}</span>
+            <span className="truncate">{members.length > 2 || labels[i] !== names[i] ? abbrs[i] : names[i]}</span>
           </button>
         ))}
       </div>
@@ -555,7 +557,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
 
       {memberEx && memberFor && (
         <Panel
-          title={resolveName(memberEx.name)}
+          title={labels[idx(memberEx.id)]}
           subtitle={isCn ? `第 ${idx(memberFor) + 1} 个 · 共 ${members.length} 个` : `${idx(memberFor) + 1} of ${members.length}`}
           onClose={() => setMemberFor(null)}
           cancel={isCn ? '取消' : 'Cancel'}
@@ -663,7 +665,7 @@ export const AlternatingCard = React.memo(function AlternatingCard({
                 }}
               >
                 <span className="min-w-[2.5rem] text-center text-secondary">{abbrs[i]}</span>
-                {names[i]}
+                {labels[i]}
                 {on && <span className="ml-auto text-xs font-semibold text-tertiary">{isCn ? '当前' : 'Current'}</span>}
               </button>
             );

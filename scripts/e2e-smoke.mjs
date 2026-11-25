@@ -495,6 +495,19 @@ const seedAlt = (id, days, names) => ({
 });
 const W_ALT_NEW = seedAlt('seed_alt_new', 8, ['悬垂举腿', '平板支撑']);
 const W_ALT_OLD = seedAlt('seed_alt_old', 9, ['悬垂举腿', '卷腹', '平板支撑']);
+// 左右分记（§12.10：同一动作的两个做法 + 交替组）：点母行连带进来的要是「左 ⇄ 右」，不是「左 ⇄ 左」（审查 C103）
+const W_ALT_LR = {
+  ...seedWorkout('seed_alt_lr', torontoAt(torontoYmd(10), 10, 0), 'E2E 左右', '哑铃弯举', []),
+  exercises: [['e2e_l', '左', 12.5, 10], ['e2e_r', '右', 15, 8]].map(([variantId, variantName, weight, reps], i) => ({
+    id: `seed_alt_lr_ex${i}`,
+    name: '哑铃弯举',
+    category: 'STRENGTH',
+    variantId,
+    variantName,
+    altGroup: 'seed_alt_lr_g',
+    sets: [{ id: `seed_alt_lr_s${i}`, weight, reps }],
+  })),
+};
 // 忘了点结束、两天没动的一场：只填了数、没点组号（上架审查 C01）。冷启动要替它收尾，进时间线
 const W_STALE = (() => {
   const at = new Date(Date.now() - 2 * 86400000);
@@ -516,7 +529,7 @@ const DEF_ORPHAN = { id: '1779000000003', name: { cn: 'E2E并入丙', en: 'E2E�
 
 const seedSnapshot = () => ({
   schemaVersion: 2,
-  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD, W_STALE, W_PROTO],
+  workouts: [W_HEAT, W_DATE, W_DEL, W_ALT_NEW, W_ALT_OLD, W_ALT_LR, W_STALE, W_PROTO],
   goals: [],
   weightLogs: [],
   customMetrics: [],
@@ -529,7 +542,10 @@ const seedSnapshot = () => ({
     starredExercises: {},
     exerciseMetricConfigs: {},
     tagRenameOverrides: {},
-    exerciseOverrides: { [DEF_ORPHAN.id]: { mergedInto: DEF_T.id, hidden: true } },
+    exerciseOverrides: {
+      [DEF_ORPHAN.id]: { mergedInto: DEF_T.id, hidden: true },
+      cu_dumbbell: { variants: [{ id: 'e2e_l', name: '左' }, { id: 'e2e_r', name: '右' }] },
+    },
     starredLastUpdateMs: 0,
     metricsLastUpdateMs: 0,
     prefsLastUpdateMs: Date.now(),
@@ -1384,7 +1400,22 @@ const SEEDED = {
     await panel.locator('button').last().click();
     await panel.waitFor({ state: 'detached', timeout: 3_000 });
     await backAndDiscard(page);
-    return 'row → latest pair · older combo → replaced with all three · member panel portaled';
+    // 左右分记的组（审查 C103）：纯函数对了，hook 没把做法传给底稿 / 建卡时连带进来仍是「左 ⇄ 左」，只有走一遍添加入口看得到
+    await startWorkout();
+    await page.locator('[data-testid="open-picker-sheet"]').click();
+    await sheet.locator('input[type="text"]').fill('哑铃弯举');
+    await sheet
+      .locator('[data-testid="picker-sheet-exercise"]')
+      .filter({ has: page.locator('.picker-row-name', { hasText: /^哑铃弯举$/ }) })
+      .first()
+      .click();
+    await members(2);
+    const lr = await page.locator('[data-testid="alt-member"]').allTextContents();
+    if (!(lr.some(x => x.includes('左')) && lr.some(x => x.includes('右')))) throw new Error(`left/right pair should come in as 左 ⇄ 右, got ${JSON.stringify(lr)}`);
+    await page.locator('[data-testid="picker-sheet-close"]').click();
+    await page.locator('[data-testid="picker-settle"]').waitFor({ state: 'detached', timeout: 3_000 });
+    await backAndDiscard(page);
+    return 'row → latest pair · older combo → replaced with all three · member panel portaled · 左 ⇄ 右 pair keeps both sides';
   },
 };
 

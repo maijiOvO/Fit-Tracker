@@ -512,7 +512,19 @@ export function movePointerTo(exs: Exercise[], cardKey: string, gap: number): Ex
 
 /* ── 交替组 ─────────────────────────────────────────────── */
 
-export const newGroupId = () => `alt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+let groupSeq = 0;
+// 带自增计数：复制为今天、从计划开练在同一个同步循环里连着建几个组，时间戳相同，只靠 3 位随机会撞号、两组被并成一组（审查 gap-4#5）。
+// 前面的 `_` 防随机段不足 3 位时和计数拼在一起撞号
+export const newGroupId = () => `alt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}_${(groupSeq++).toString(36)}`;
+
+/**
+ * 交替组成员按什么认（简称、菜单、判重、连带搭档）：组里同名的（§12.10 左右分记＝同一动作的两个做法）用 labelOf（调用方传 liftKey，带做法），
+ * 不同名的照旧只用名字 —— 一律带做法会把「哑铃卧推（宽握）⇄哑铃飞鸟」的简称从「卧推」改成「宽握」（审查 gap-4#2）。
+ */
+export function memberKeys<T>(members: T[], nameOf: (m: T) => string, labelOf: (m: T) => string): string[] {
+  const names = members.map(nameOf);
+  return members.map((m, i) => (names.indexOf(names[i]) !== names.lastIndexOf(names[i]) ? labelOf(m) : names[i]));
+}
 
 /**
  * 把几个动作合成一个交替组（已经在组里的沿用那个组）。成员挨着放在最靠前那个的位置，顺序按数组原顺序。
@@ -577,6 +589,8 @@ export function splitGroup(exs: Exercise[], gid: string): Exercise[] {
  * 这一组改记到组里另一个动作名下（值原样带过去）。
  * 带过去的只是这一组的数（审查 A7）：「上次 x」参考、从上一次纯换算来的标记是原来那个动作的，剥掉；
  * 号按目标动作的口径重写（目标不按带正负记：辅助的组变成 0、负重的照重量记；目标按带正负记：带符号的数原样）。
+ * 辅助的组写成 0 时把原来的带符号 kg 暂存在 movedKg：改回带正负的动作、数还是 0 就还原，记错了来回改不丢号（审查 gap-4#4）。
+ * 做完的组按 seq 插回轮换里的位置（插在目标第一条待做、或更晚做完的组前面），入册剥掉 seq 后顺序和卡上一样；待做的组接在末尾。
  * isSigned：目标动作按不按带正负记（不传＝不改号，workbench-check 用）。
  */
 export function moveSetToExercise(exs: Exercise[], r: RowRef, toExId: string, isSigned?: (ex: Exercise) => boolean): Exercise[] {
@@ -590,18 +604,23 @@ export function moveSetToExercise(exs: Exercise[], r: RowRef, toExId: string, is
   if (isSigned) {
     const fix = <T extends SetLog | SubSetLog>(x: T, parent?: SetLog): T => {
       const kg = signedKg(x, from, parent);
-      if (isSigned(to)) return { ...x, ...fromSignedKg(kg) };
-      const { bodyweightMode: _bm, ...plain } = x;
-      return { ...plain, weight: Math.max(0, kg) } as T;
+      const { movedKg, ...bare } = x;
+      const zero = (Number(x.weight) || 0) === 0;
+      if (isSigned(to)) return { ...bare, ...fromSignedKg(zero && movedKg !== undefined ? movedKg : kg) } as T;
+      const { bodyweightMode: _bm, ...plain } = bare;
+      const keep = kg < 0 ? kg : zero ? movedKg : undefined;
+      return { ...plain, weight: Math.max(0, kg), ...(keep !== undefined ? { movedKg: keep } : {}) } as T;
     };
     moved = { ...fix(moved), ...(moved.subSets?.length ? { subSets: moved.subSets.map(sub => fix(sub, s)) } : {}) };
   }
   if (moved.subSets?.length) {
     moved = { ...moved, subSets: moved.subSets.map(({ prefillRef: _spr, draftAuto: _sda, checkWeight: _scw, ...sub }) => sub) };
   }
+  const seq = moved.seq;
+  const at = isPending(moved) || seq === undefined ? -1 : to.sets.findIndex(x => isPending(x) || (x.seq !== undefined && x.seq > seq));
   return exs.map(e => {
     if (e.id === r.exId) return { ...e, sets: e.sets.filter(x => String(x.id) !== r.setId) };
-    if (e.id === toExId) return { ...e, sets: [...e.sets, moved] };
+    if (e.id === toExId) return { ...e, sets: at < 0 ? [...e.sets, moved] : [...e.sets.slice(0, at), moved, ...e.sets.slice(at)] };
     return e;
   });
 }
@@ -749,9 +768,9 @@ export function upToPointer(exercises: Exercise[] | undefined): Exercise[] {
 
 /** 结束训练：剥掉工作台标记；只剩一个成员的交替组拆掉 */
 export function stripWorkbenchSet<T extends SetLog>(s: T): T {
-  // prefillRef / draftAuto 只服务工作台上的「上次 x」与切单位重算，不进历史（递减档上的也剥）
-  const { skipped: _sk, seq: _q, added: _ad, prefillRef: _pr, draftAuto: _da, checkWeight: _cw, want: _wa, ...rest } = s;
+  // prefillRef / draftAuto 只服务工作台上的「上次 x」与切单位重算，movedKg 只服务改记往返，不进历史（递减档上的也剥）
+  const { skipped: _sk, seq: _q, added: _ad, prefillRef: _pr, draftAuto: _da, checkWeight: _cw, want: _wa, movedKg: _mk, ...rest } = s;
   return (rest.subSets?.length
-    ? { ...rest, subSets: rest.subSets.map(({ prefillRef: _spr, draftAuto: _sda, checkWeight: _scw, want: _swa, ...sub }) => sub) }
+    ? { ...rest, subSets: rest.subSets.map(({ prefillRef: _spr, draftAuto: _sda, checkWeight: _scw, want: _swa, movedKg: _smk, ...sub }) => sub) }
     : rest) as T;
 }

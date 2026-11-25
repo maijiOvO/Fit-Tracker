@@ -22,7 +22,7 @@ import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
 import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
-import { findLastAltGroup, findLastIn, sourceCards, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
+import { altPartners, findLastAltGroup, findLastIn, planRowPicks, sourceCards, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
 import { sessionDurationMin } from '../utils/sessionDuration';
 import { cardSourceFor, switchedCardIdentity } from '../utils/liftIdentity';
 import { isBackdated, redateLiveSession, sessionsBefore } from '../utils/sessionDate';
@@ -936,17 +936,31 @@ export function useWorkoutMutations({
         const now = new Date().toISOString();
         const inheritAlt = appPrefsNow().inheritAltGroup;
         const plan = target.exercises || [];
+        // 每行的做法和交替组从历史里推（计划行不记做法）：同名两行对上次的左 / 右，「卧推、深蹲、卧推」不并成一组（审查 gap-4#3）。
+        // 推出来的做法已经删了就不指定，按上一次（cardSourceFor 退回标准）
+        const vids = planRowPicks(
+          plan.map(pe => pe.name),
+          workouts,
+          resolveName,
+          liftKey,
+          variantIdOf,
+          n => findLast(n, null, undefined, preferGymFor(n, undefined, g)),
+          inheritAlt,
+        ).map((p, i) => (p.variantId && !variantsOf(plan[i].name).some(v => v.id === p.variantId) ? { ...p, variantId: undefined } : p));
         const built = plan.map((pe, i) => {
           const def = findExerciseDef(pe.name);
           const category = pe.category || def?.category || 'STRENGTH';
-          const src = pickSource(pe.name, undefined, undefined, preferGymFor(pe.name, undefined, g));
-          // 计划里同一动作排了几行：第 k 行抄上一场第 k 张同项目卡（sourceCards）；只有一行就抄那场合起来的全部组。
+          const pick = vids[i];
+          const src = pickSource(pe.name, pick.variantId, undefined, preferGymFor(pe.name, pick.variantId || undefined, g));
+          // 计划里同一项目（名字 + 推出来的做法）排了几行：第 k 行抄上一场第 k 张同项目卡（sourceCards）；只有一行就抄那场合起来的全部组。
           // 不对应的话，没写组数的两行会各铺出全部组
-          const same = plan.filter(x => resolveName(x.name) === resolveName(pe.name));
+          const same = plan.filter((x, j) => resolveName(x.name) === resolveName(pe.name) && vids[j].variantId === pick.variantId);
           const last = src.last ? { ...src.last, exs: sourceCards(src.last, same.indexOf(pe), same.length) } : null;
-          if (category === 'CARDIO' && !last) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
+          // 有氧「第一次加」按不分做法判（审查 cardio-default-metrics）：指定了做法、那个做法没记过，不等于这个动作没记过
+          const firstCardio = category === 'CARDIO' && !findLast(pe.name, null);
+          if (firstCardio) seedMetricsIfUnset(pe.name, appPrefsNow().cardioMetrics);
           // 和上面 seed 的是同一份：没练过的有氧按首选项的有氧默认记录（seed 写进状态要等下一次渲染）
-          const metrics = category === 'CARDIO' && !last ? appPrefsNow().cardioMetrics : getActiveMetrics(pe.name);
+          const metrics = firstCardio ? appPrefsNow().cardioMetrics : getActiveMetrics(pe.name);
           const ex = buildExercise(src.name, category, last, now, def?.exerciseConfig, src.variantId ? { id: src.variantId } : undefined, g, gyms);
           const r = rounderFor(ex, g, undefined, gyms);
           // 计划里的目标重量也按这个馆就近取整；记一份 plan 参考（标「计划 x」，切单位从它重算，不会越换越漂）
@@ -983,19 +997,14 @@ export function useWorkoutMutations({
               tags: pe.tags ?? [],
               sets,
             } as Exercise,
-            // 交替关系看最近一次交替做的那场（同 addExerciseToWorkout）
-            group: (() => {
-              const alt = inheritAlt ? (last?.ex.altGroup ? last : findLastAltGroup(workouts, resolveName, pe.name)) : null;
-              return alt ? `${alt.workout.id}|${alt.ex.altGroup}` : undefined;
-            })(),
+            // 交替关系看最近一次交替做的那场（同 addExerciseToWorkout，不走「上一次在组里就用上一次」的按馆捷径）
+            group: pick.group,
           };
         });
-        // 上次交替做的几个动作这次计划里都有：照样排成交替组（只有一个的不成组）；首选项「连带交替搭档」关着就不排
-        const count = new Map<string, number>();
-        for (const b of built) if (b.group) count.set(b.group, (count.get(b.group) ?? 0) + 1);
+        // 上次交替做的几个动作这次计划里都有：照样排成交替组（planRowPicks 只给对到至少两张旧卡的行）；首选项「连带交替搭档」关着就不排
         const ids = new Map<string, string>();
         const exercises = built.map(b => {
-          if (!b.group || (count.get(b.group) ?? 0) < 2) return b.ex;
+          if (!b.group) return b.ex;
           if (!ids.has(b.group)) ids.set(b.group, newGroupId());
           return { ...b.ex, altGroup: ids.get(b.group) };
         });
@@ -1011,7 +1020,7 @@ export function useWorkoutMutations({
       };
       return { make, replaces: live?.id ?? null };
     },
-    [buildExercise, confirm, findExerciseDef, isCn, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, workoutCtx, workouts],
+    [buildExercise, confirm, findExerciseDef, findLast, isCn, liftKey, pickSource, preferGymFor, resolveName, rounderFor, scheduleCtx.schedules, seedMetricsIfUnset, variantIdOf, variantsOf, workoutCtx, workouts],
   );
 
   /**
@@ -1074,14 +1083,19 @@ export function useWorkoutMutations({
 
       const exerciseName = ex.name[lang];
       const resolvedTarget = resolveName(exerciseName);
-      const already = (currentWorkout.exercises ?? []).filter(e => resolveName(e.name) === resolvedTarget);
+      // 点的是某个做法：按名字 + 做法认（左右分记的「右」能加进有「左」的组，审查 gap-4#2）；点母行照旧按名字
+      const already = (currentWorkout.exercises ?? []).filter(
+        e => resolveName(e.name) === resolvedTarget && (opts.variantId === undefined || (variantIdOf(e) ?? '') === opts.variantId),
+      );
 
       // 加进交替组：已经在组里 → 不重复加；本场已有单独卡片 → 并进来；否则新加一张进组
       if (opts.altGroup) {
         const gid = opts.altGroup;
-        if (already.some(e => e.altGroup === gid)) {
-          toast(isCn ? `「${resolvedTarget}」已经在这个交替组里了` : `"${resolvedTarget}" is already in the group`, 'info');
-          return already.find(e => e.altGroup === gid)!.id;
+        const inGroup = already.find(e => e.altGroup === gid);
+        if (inGroup) {
+          const label = opts.variantId === undefined ? resolvedTarget : liftKey(inGroup);
+          toast(isCn ? `「${label}」已经在这个交替组里了` : `"${label}" is already in the group`, 'info');
+          return inGroup.id;
         }
         const single = already.find(e => !e.altGroup);
         if (single) {
@@ -1131,39 +1145,45 @@ export function useWorkoutMutations({
        * 上次是在交替组里练的：同组的其他动作一起带进来（本场已有的并进来），按轮换排（用户定：底稿按干净的轮换重排）。
        * 从交替组「加一个动作」进来的不带 —— 那时是往一个现成的组里加。弹层头部「连带交替搭档」关着也不带（只加这一张）。
        */
-      const partners: Exercise[] = [];
+      const partnerNames: string[] = [];
       const joinIds: string[] = [];
       let gid: string | undefined = opts.altGroup ?? undefined;
       // 搭档关系看最近一次交替做的那场，不一定是上一次（上一次单练了也能把搭档找回来，2026-11-02 用户指出）；
       // 必须和选动作列表的第 0 种搭配同一个口径，否则行下面列出来的会和点行带的重复
       const altHit = gid
         ? null
-        : opts.altFrom ?? (appPrefsNow().inheritAltGroup ? findLastAltGroup(workouts, resolveName, exerciseName, currentWorkout.id || undefined, before) : null);
+        : opts.altFrom ?? (appPrefsNow().inheritAltGroup ? findLastAltGroup(workouts, resolveName, liftKey, exerciseName, currentWorkout.id || undefined, before) : null);
       const replaced = new Set(opts.replaceIds);
-      if (altHit) {
-        const mates = altHit.workout.exercises.filter(e => e.altGroup === altHit.ex.altGroup && e !== altHit.ex);
-        if (mates.length) {
-          gid = newGroupId();
-          for (const m of mates) {
-            const mName = resolveName(m.name);
-            const inSession = (currentWorkout.exercises ?? []).find(e => !replaced.has(e.id) && resolveName(e.name) === mName);
-            if (inSession) {
-              if (!inSession.altGroup) joinIds.push(inSession.id);
-              continue;
-            }
-            // 搭档的底稿抄它自己最近一次的数（交替那场可能已经是几周前）；没有更近的就抄交替那场
-            const mSrc = pickSource(m.name, undefined, currentWorkout.id || undefined, preferGymFor(mName, undefined, currentWorkout.gym), before);
-            partners.push(buildExercise(mSrc.name, m.category, mSrc.last ?? { ex: m, workout: altHit.workout }, exerciseTime, undefined, mSrc.variantId ? { id: mSrc.variantId } : undefined));
+      // 成员顺序照交替那一场（轮换的先后）：新卡占它在旧组里的位置。同名成员（左右分记）按做法认，各抄各自最近的数（审查 C103）
+      const slots = altHit ? altPartners(altHit, newEx, resolveName, liftKey) : [];
+      const ordered: Exercise[] = [];
+      if (slots.length > 1) {
+        gid = newGroupId();
+        for (const { member: m, self, byVariant } of slots) {
+          if (self) {
+            ordered.push(newEx);
+            continue;
           }
+          const mName = resolveName(m.name);
+          const vid = byVariant ? (variantIdOf(m) ?? '') : null;
+          const inSession = (currentWorkout.exercises ?? []).find(
+            e => !replaced.has(e.id) && resolveName(e.name) === mName && (vid === null || (variantIdOf(e) ?? '') === vid),
+          );
+          if (inSession) {
+            if (!inSession.altGroup) joinIds.push(inSession.id);
+            continue;
+          }
+          // 搭档的底稿抄它自己最近一次的数（交替那场可能已经是几周前）；没有更近的就抄交替那场
+          const mSrc = pickSource(m.name, vid ?? undefined, currentWorkout.id || undefined, preferGymFor(mName, vid || undefined, currentWorkout.gym), before);
+          const p = buildExercise(mSrc.name, m.category, mSrc.last ?? { ex: m, workout: altHit!.workout }, exerciseTime, undefined, mSrc.variantId ? { id: mSrc.variantId } : undefined);
+          ordered.push(p);
+          // 提示条「已连带加入 X」：同名搭档写明做法
+          partnerNames.push(byVariant ? liftKey(p) : resolveName(p.name));
         }
       }
-      // 成员顺序照交替那一场（轮换的先后）
-      const order = altHit ? altHit.workout.exercises.filter(e => e.altGroup === altHit.ex.altGroup).map(e => resolveName(e.name)) : [];
-      const fresh = [newEx, ...partners]
-        .map(e => (gid ? { ...e, altGroup: gid } : e))
-        .sort((a, b) => order.indexOf(resolveName(a.name)) - order.indexOf(resolveName(b.name)));
+      const fresh = (ordered.length ? ordered : [newEx]).map(e => (gid ? { ...e, altGroup: gid } : e));
 
-      opts.onCreated?.(fresh.map(e => e.id), partners.map(p => resolveName(p.name)));
+      opts.onCreated?.(fresh.map(e => e.id), partnerNames);
       setCurrentWorkout((p: WorkoutSession) => {
         // 首次添加动作：如果没有 id，说明是全新的训练，先分配 id
         const needsId = !p.id;
@@ -1181,7 +1201,7 @@ export function useWorkoutMutations({
       onPersist?.();
       return newEx.id;
     },
-    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, onPersist, pickSource, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, workouts],
+    [buildExercise, currentWorkout.date, currentWorkout.exercises, currentWorkout.gym, currentWorkout.id, editingWorkoutId, findLast, isCn, lang, liftKey, onPersist, pickSource, preferGymFor, resolveName, seedMetricsIfUnset, setCurrentWorkout, toast, variantIdOf, workouts],
   );
 
   /**
