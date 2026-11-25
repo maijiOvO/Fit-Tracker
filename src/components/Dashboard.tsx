@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DateTimePicker } from './DateTimePicker';
 import { SetCapsule } from './SetCapsule';
 import {
@@ -23,7 +23,7 @@ import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 import { weightBaseline, weightDelta } from '../utils/weightSummary';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 import { useScheduleContext } from '../contexts/ScheduleContext';
-import { localYmd } from '../utils/dateUtils';
+import { dateFormat, localYmd } from '../utils/dateUtils';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useLocalDataHealth } from '../hooks/useLocalDataHealth';
 import { LocalLossCard, LocalReadErrorCard } from './data/LocalDataCards';
@@ -74,7 +74,6 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const { lang, unit, weightEntries, appPrefs, changeAppPrefs } = useUserSettingsContext();
   const isCn = lang === Language.CN;
-  const dateLocale = isCn ? 'zh-CN' : 'en-US';
   const prefs = useExercisePrefs();
   /**
    * 进行中的那场（工作台里有动作、还没结束）：顶上单独一行，不进时间线。
@@ -83,8 +82,11 @@ const Dashboard: React.FC<DashboardProps> = ({
   const { workouts, inProgress } = useDoneWorkouts();
   const { hydration } = useWorkoutContext();
   const health = useLocalDataHealth();
-  // 「按动作」的逐场数据：列表、详情、趋势图共用一份口径（见 utils/liftHistory；「我的」页也用同一个钩子）
-  const lifts = useLiftSummaries(workouts);
+  // 视图模式：默认按时间线
+  const [view, setView] = useState<DashboardView>(() => (storage.getItem(VIEW_STORAGE_KEY) === 'pr' ? 'pr' : 'timeline'));
+  // 「按动作」的逐场数据：列表、详情、趋势图共用一份口径（见 utils/liftHistory；「我的」页也用同一个钩子）。
+  // 「按时间」视图里只有开着的动作详情要它：没开就不算
+  const lifts = useLiftSummaries(workouts, view === 'pr' || (!!selectedPRProject && selectedPRProject !== '__WEIGHT__'));
   const openLift =
     selectedPRProject && selectedPRProject !== '__WEIGHT__'
       ? lifts.find(l => l.key === selectedPRProject) ?? null
@@ -127,8 +129,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   useEffect(() => {
     storage.setItem(WEIGHT_RANGE_STORAGE_KEY, weightRange);
   }, [weightRange]);
-  // 视图模式：默认按时间线
-  const [view, setView] = useState<DashboardView>(() => (storage.getItem(VIEW_STORAGE_KEY) === 'pr' ? 'pr' : 'timeline'));
   const [granularity, setGranularity] = useState<TimelineGranularity>(() => {
     const saved = storage.getItem(GRANULARITY_STORAGE_KEY);
     return saved === 'day' || saved === 'week' || saved === 'month' || saved === 'year' ? saved : 'day';
@@ -327,51 +327,11 @@ const Dashboard: React.FC<DashboardProps> = ({
               <WeightTrendChart weightEntries={weightEntries} range={weightRange} lang={lang} unit={unit} />
             </Suspense>
 
-            <div className="mt-6 space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pt-4 border-t border-divider">
-              <h4 className="ui-section-label flex items-center gap-2 mb-2">
-                <History size={12} strokeWidth={1.75} />
-                {lang === Language.CN ? '体重记录' : 'Weight history'} ({weightEntries.length})
-              </h4>
-              {weightEntries.map(entry => (
-                <div
-                  key={entry.id}
-                  className="bg-inset p-3 rounded-control flex justify-between items-center"
-                >
-                  {/* 热区补到 44（tap-44）且两颗间隔 16px，补出来的热区才不互相盖住（审查 D13）；删错了用顶栏全局撤销 */}
-                  <div className="flex items-center gap-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        actions.onEditWeight(entry);
-                      }}
-                      className="tap-44 p-2 text-accent bg-accent-soft rounded-chip hover:opacity-80 transition-opacity"
-                      aria-label={isCn ? '编辑' : 'Edit'}
-                    >
-                      <Edit2 size={12} strokeWidth={1.75} />
-                    </button>
-                    <button
-                      onClick={(e) => actions.onDeleteWeightEntry(e, entry.id)}
-                      className="tap-44 p-2 text-danger bg-danger/10 rounded-chip hover:opacity-80 transition-opacity"
-                      aria-label={isCn ? '删除' : 'Delete'}
-                    >
-                      <Trash2 size={12} strokeWidth={1.75} />
-                    </button>
-                    <span className="font-mono font-medium text-small text-primary tabular-nums ml-1">
-                      {formatBodyWeight(entry.weight, unit)}
-                      <span className="text-tertiary text-xs ml-1">{unit}</span>
-                    </span>
-                  </div>
-                  <span className="text-xs text-tertiary">
-                    {new Date(entry.date).toLocaleDateString(dateLocale, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <WeightHistoryList
+              entries={weightEntries}
+              onEdit={actions.onEditWeight}
+              onDelete={actions.onDeleteWeightEntry}
+            />
           </div>
         )}
       </div>
@@ -507,5 +467,82 @@ const Dashboard: React.FC<DashboardProps> = ({
     </div>
   );
 };
+
+/** 体重记录先挂这么多条，滚到列表底再续一段（审查 scale-perf#3：五年每天一条是一千八百行、两万多个节点，展开就全挂） */
+const PAGE_WEIGHTS = 30;
+
+/** 体重卡展开后的记录列表：在自己的滚动框里分段挂载 */
+function WeightHistoryList({
+  entries,
+  onEdit,
+  onDelete,
+}: {
+  entries: WeightEntry[];
+  onEdit: DashboardActions['onEditWeight'];
+  onDelete: DashboardActions['onDeleteWeightEntry'];
+}) {
+  const { lang, unit } = useUserSettingsContext();
+  const isCn = lang === Language.CN;
+  const fmt = dateFormat(isCn ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const [limit, setLimit] = useState(PAGE_WEIGHTS);
+  const hasMore = entries.length > limit;
+  const boxRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!hasMore || !el) return;
+    // root 必须是这个 300px 的滚动框：按视口看，框里滚到底时哨兵可能一直在视口外，更早的记录就够不着了
+    const io = new IntersectionObserver(
+      es => {
+        if (es.some(e => e.isIntersecting)) setLimit(n => n + PAGE_WEIGHTS);
+      },
+      { root: boxRef.current, rootMargin: '200px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, limit]);
+
+  return (
+    <div ref={boxRef} className="mt-6 space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar pr-1 pt-4 border-t border-divider">
+      <h4 className="ui-section-label flex items-center gap-2 mb-2">
+        <History size={12} strokeWidth={1.75} />
+        {isCn ? '体重记录' : 'Weight history'} ({entries.length})
+      </h4>
+      {entries.slice(0, limit).map(entry => (
+        <div
+          key={entry.id}
+          className="bg-inset p-3 rounded-control flex justify-between items-center"
+        >
+          {/* 热区补到 44（tap-44）且两颗间隔 16px，补出来的热区才不互相盖住（审查 D13）；删错了用顶栏全局撤销 */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(entry);
+              }}
+              className="tap-44 p-2 text-accent bg-accent-soft rounded-chip hover:opacity-80 transition-opacity"
+              aria-label={isCn ? '编辑' : 'Edit'}
+            >
+              <Edit2 size={12} strokeWidth={1.75} />
+            </button>
+            <button
+              onClick={(e) => onDelete(e, entry.id)}
+              className="tap-44 p-2 text-danger bg-danger/10 rounded-chip hover:opacity-80 transition-opacity"
+              aria-label={isCn ? '删除' : 'Delete'}
+            >
+              <Trash2 size={12} strokeWidth={1.75} />
+            </button>
+            <span className="font-mono font-medium text-small text-primary tabular-nums ml-1">
+              {formatBodyWeight(entry.weight, unit)}
+              <span className="text-tertiary text-xs ml-1">{unit}</span>
+            </span>
+          </div>
+          <span className="text-xs text-tertiary">{fmt.format(new Date(entry.date))}</span>
+        </div>
+      ))}
+      {hasMore && <div ref={sentinelRef} aria-hidden className="h-px" />}
+    </div>
+  );
+}
 
 export default Dashboard;

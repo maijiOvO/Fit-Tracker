@@ -58,7 +58,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     this.setState({ exportState: 'busy' });
     try {
       const file = await buildBackupFile();
-      const outcome = await saveTextFile(backupFileName(), JSON.stringify(file, null, 2));
+      const outcome = await saveTextFile(backupFileName(), JSON.stringify(file));
       this.setState({ exportState: outcome.kind });
     } catch (e) {
       console.error('[ErrorBoundary] 导出失败:', e);

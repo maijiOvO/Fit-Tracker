@@ -115,14 +115,19 @@ export function useFitlogSync(): UseFitlogSyncResult {
     const initApp = async () => {
       try {
         await db.init();
-        await migrateRecordsToSoloUserId();
+        // 启动期有没有写过库：单机版没写过就不必重放首选项、重读三张表 —— 各 Provider 挂载时已经读过（审查 scale-perf#1）
+        let wrote = await migrateRecordsToSoloUserId();
         // 上次馆改名写到一半被杀：续完（首选项和训练两半都会被下面重读）。失败就留着标记下次再续，不拖住启动
         try {
-          if (await resumeGymRenames()) scheduleDebouncedFitlogPush();
+          if (await resumeGymRenames()) {
+            wrote = true;
+            scheduleDebouncedFitlogPush();
+          }
         } catch (e) {
           console.error('[fitlog] 续完馆改名失败:', e);
         }
-        if (isRemoteConfigured()) {
+        const remote = isRemoteConfigured();
+        if (remote) {
           if (isLocalAuthoritative()) {
             // 上次恢复 / 导入 / 重置之后还没推上去：先推本机这一份，不拉（拉了会把服务器上的旧数据合并回来，审查 A23）
             try {
@@ -140,18 +145,21 @@ export function useFitlogSync(): UseFitlogSyncResult {
             if (isPushDirty()) scheduleDebouncedFitlogPush(0);
           }
         }
-        handleSnapshotApply(readPrefsFromLocalStorage());
         // 补字段只在启动时跑一次、单独兜住：出错也不拖住下面的重读（撤销 / 重做、改目标都走 loadLocalData）
         try {
-          await migrateLocalData();
+          if (await migrateLocalData()) wrote = true;
         } catch (e) {
           console.error('[fitlog] 启动迁移失败:', e);
+          wrote = true;
         }
-        await loadLocalData();
+        if (remote || wrote) {
+          handleSnapshotApply(readPrefsFromLocalStorage());
+          await loadLocalData();
+        }
       } catch (e) {
         console.error('[fitlog] 应用初始化失败:', e);
       } finally {
-        // 启动流程（拉取合并 → 应用 prefs → 重读本地库）走完的标记，给 e2e 等「重开 App 落定了」用。
+        // 启动流程（拉取合并 → 应用 prefs → 重读本地库；单机版没写过库时后两步跳过）走完的标记，给 e2e 等「重开 App 落定了」用。
         // 不能拿「时间线卡片出来了」当信号：WorkoutContext 挂载时自己先从本地库读一遍，卡片比拉取合并早
         document.documentElement.dataset.fitlogBoot = 'done';
       }

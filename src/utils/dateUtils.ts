@@ -3,6 +3,18 @@
  */
 import { appPrefsNow } from '../../services/appPrefs';
 
+const formatters = new Map<string, Intl.DateTimeFormat>();
+/**
+ * 按 (语言, 选项) 缓存的日期格式化器：toLocaleDateString 每调一次现建一个，时间线两千场光建格式化器就要一百多毫秒（审查 scale-perf#1）。
+ * opts 的键序当缓存键的一部分，同一处调用写法固定就能命中
+ */
+export function dateFormat(locale: string, opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = `${locale}|${JSON.stringify(opts)}`;
+  let f = formatters.get(key);
+  if (!f) formatters.set(key, (f = new Intl.DateTimeFormat(locale, opts)));
+  return f;
+}
+
 /** 首选项「每周开始于」：0 = 周日，1 = 周一（默认） */
 const weekStartDay = (): 0 | 1 => (appPrefsNow().weekStart === 'sun' ? 0 : 1);
 

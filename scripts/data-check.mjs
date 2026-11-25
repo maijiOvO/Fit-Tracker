@@ -1131,6 +1131,21 @@ await t('启动迁移：缺 exerciseTime 的照补，坏行（日期解析不了
   for (const b of bad) assert.deepEqual(rows.get(b.id), b);
 });
 
+// 防 scale-perf#1：单机版启动只在迁移写过库时才重读，迁移把「写过」报成没写，界面就停在迁移前的数据直到下次启动
+await t('启动迁移：写过库返回 true、库里已改好；再跑一次没东西可改返回 false、库不变', async () => {
+  const noTime = { ...SEED[0], id: 'w_notime', exercises: SEED[0].exercises.map(({ exerciseTime: _t, ...e }) => e) };
+  const other = { ...SEED[1], id: 'w_other', userId: 'u_someone_else' };
+  for (const w of [noTime, other]) await D.db.save('workouts', w);
+  assert.equal(await D.migrateRecordsToSoloUserId(), true);
+  assert.equal(await D.migrateLocalData(), true);
+  const after = new Map((await D.db.getAll('workouts')).map(w => [w.id, w]));
+  assert.equal(after.get('w_other').userId, 'u_solo');
+  assert.ok(after.get('w_notime').exercises.every(e => e.exerciseTime));
+  assert.equal(await D.migrateRecordsToSoloUserId(), false);
+  assert.equal(await D.migrateLocalData(), false);
+  assert.deepEqual(new Map((await D.db.getAll('workouts')).map(w => [w.id, w])), after);
+});
+
 // ── Strong / Hevy 导入 ───────────────────────────────────────────────
 const STRONG_ANDROID = `Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE
 2024-03-14 18:05:12;Push;1h 5m;Bench Press (Barbell);W;135;10;0;0;;;

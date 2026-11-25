@@ -73,6 +73,19 @@ export function loadKindOf(attrs: ExerciseAttrs, signed: boolean): LoadKind {
   }
 }
 
+/** 查动作库要用的那几样（不含按馆改的形式：那个在 AppPrefs 里，每次改首选项都换新） */
+type LibLookup = Pick<ReturnType<typeof useExercisePrefs>, 'findExerciseDef' | 'exerciseOverrides' | 'variantIdOf' | 'attrsOf'>;
+
+/** 动作库给的形式（没按馆改之前）：手打的、库里查不到的动作 → 纯数字 / 带号 */
+function libInfoOf(ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean, lib: LibLookup): Omit<LoadInfo, 'kind'> {
+  const def = lib.findExerciseDef(ex.name);
+  const vid = lib.variantIdOf(ex);
+  if (!def) return { libKind: signed ? 'signed' : 'plain', stack: 'machine', variantId: vid };
+  const attrs = lib.attrsOf(mergeOverride(def, lib.exerciseOverrides[def.id]), vid);
+  const stack = attrs.equipment === EQ_CABLE ? 'cable' : 'machine';
+  return { libKind: loadKindOf(attrs, signed), stack, equipment: attrs.equipment, defId: def.id, variantId: vid };
+}
+
 /**
  * 返回一个查询函数：(训练里的动作, 它是不是带符号负荷, 这场的馆) → 画法与算法。
  * 动作库的形式由「器材 + 阻力」定（libKind）；传了馆：库里是插销 / 挂片的动作按这个馆记住的形式走（gymKinds）。
@@ -82,27 +95,12 @@ export function useLoadInfoOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, sign
   const gymKinds = useUserSettingsContext().appPrefs.gymKinds;
   return useCallback(
     (ex, signed, gym) => {
-      const def = findExerciseDef(ex.name);
-      const vid = variantIdOf(ex);
-      if (!def) {
-        const k: LoadKind = signed ? 'signed' : 'plain';
-        return { kind: k, libKind: k, stack: 'machine', variantId: vid };
-      }
-      const attrs = attrsOf(mergeOverride(def, exerciseOverrides[def.id]), vid);
-      const libKind = loadKindOf(attrs, signed);
-      const stack = attrs.equipment === EQ_CABLE ? 'cable' : 'machine';
-      const key = gymSwitchableKind(libKind) ? gymMachineKey(gym, { defId: def.id, variantId: vid }) : null;
-      const kind = (key && gymKinds[key]) || libKind;
-      return { kind, libKind, stack, equipment: attrs.equipment, defId: def.id, variantId: vid };
+      const info = libInfoOf(ex, signed, { findExerciseDef, exerciseOverrides, variantIdOf, attrsOf });
+      const key = gymSwitchableKind(info.libKind) ? gymMachineKey(gym, info) : null;
+      return { ...info, kind: (key && gymKinds[key]) || info.libKind };
     },
     [findExerciseDef, exerciseOverrides, variantIdOf, attrsOf, gymKinds],
   );
-}
-
-/** 只要画法 */
-function useLoadKindOf(): (ex: Pick<Exercise, 'name' | 'variantId'>, signed: boolean, gym?: string) => LoadKind {
-  const infoOf = useLoadInfoOf();
-  return useCallback((ex, signed, gym) => infoOf(ex, signed, gym).kind, [infoOf]);
 }
 
 /**
@@ -114,12 +112,19 @@ export function gymScopedKind(kind: LoadKind): boolean {
   return kind === 'pin' || kind === 'loaded';
 }
 
-/** (动作) => 这个动作的纪录要不要只在同一个馆里比（按馆改形式只在插销 / 挂片之间换，两者都按馆比，所以不用传馆） */
+/** 这个动作的纪录要不要只在同一个馆里比（按馆改形式只在插销 / 挂片之间换，两者都按馆比，所以只看动作库的形式） */
+export function gymScopedIn(ex: Exercise, lib: LibLookup & Pick<ReturnType<typeof useExercisePrefs>, 'signedLoadOf'>): boolean {
+  return gymScopedKind(libInfoOf(ex, usesSignedLoad(ex, lib.signedLoadOf(ex)), lib).libKind);
+}
+
+/**
+ * (动作) => gymScopedIn。只依赖动作库那几样，不经 useLoadInfoOf：它跟着 gymKinds，gymKinds 每次改首选项都换新，
+ * 点星、特别关注、改馆名都会让「按动作」的汇总整份重算（审查 scale-perf#2）
+ */
 export function useGymScopedPR(): (ex: Exercise) => boolean {
-  const kindOf = useLoadKindOf();
-  const { signedLoadOf } = useExercisePrefs();
+  const { findExerciseDef, exerciseOverrides, variantIdOf, attrsOf, signedLoadOf } = useExercisePrefs();
   return useCallback(
-    ex => gymScopedKind(kindOf(ex, usesSignedLoad(ex, signedLoadOf(ex)))),
-    [kindOf, signedLoadOf],
+    ex => gymScopedIn(ex, { findExerciseDef, exerciseOverrides, variantIdOf, attrsOf, signedLoadOf }),
+    [findExerciseDef, exerciseOverrides, variantIdOf, attrsOf, signedLoadOf],
   );
 }

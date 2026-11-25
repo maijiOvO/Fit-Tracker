@@ -8,7 +8,7 @@
  */
 import type { Exercise, WorkoutSession } from '../../types';
 import { signedKg } from './load';
-import { e1rmOf, findRecords, prRuleFor, prSetsOf, type PRSet, type RecordKind } from './prRecords';
+import { createRecordTracker, e1rmOf, prRuleFor, prSetsOf, type RecordKind } from './prRecords';
 
 /** 估算 1RM 的伪指标键。不在 activeMetrics 里，只在图表 / 纪录里出现 */
 export const E1RM = 'e1rm';
@@ -257,14 +257,13 @@ export function buildLiftSummaries({
     if (!lift.sessions.length) continue;
     lift.sessions.sort((a, b) => a.ts - b.ts);
     lift.lastTs = lift.sessions[lift.sessions.length - 1].ts;
-    // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）
+    // 逐场判纪录：和结束训练时一样，只拿这一场之前的比（器械只比同一个馆）。累计着判，不每场重扫此前全部组（审查 C36）
     lift.machine = !!gymScoped?.(lift.sessions[0].exercise);
-    const rule = prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine);
-    const hist: PRSet[] = [];
+    const tr = createRecordTracker(prRuleFor(metricsOf.get(key)!, lift.signed, lift.machine));
     for (const s of lift.sessions) {
       const cur = s.cards.flatMap(c => prSetsOf(c, s.gym, lift.signed));
-      s.records = findRecords(rule, hist, cur, s.gym).map(h => h.kind);
-      hist.push(...cur);
+      s.records = tr.check(cur, s.gym).map(h => h.kind);
+      tr.add(cur);
     }
     lift.loaded = lift.sessions.some(s => s.cards.some(c => (c.sets ?? []).some((set: any) =>
       !set.ghost && (lift.signed ? signedKg(set, c) : Number(set.weight) || 0) !== 0)));

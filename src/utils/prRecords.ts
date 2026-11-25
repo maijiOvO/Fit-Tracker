@@ -20,6 +20,9 @@
  * 分馆：器械（配重片 / 挂片，gymScopedKind）只和同一个馆比；带正负动作里辅助的那些组（辅助器械）也只和同一个馆比；
  *   其余（杠铃、哑铃、负重、自重）跨馆比。
  * 历史为空不算 PR（同一个馆都没练过的器械也是）；编辑旧训练不判（调用方管）。
+ *
+ * 实现是累计式的（createRecordTracker）：历史按「全局 + 各馆」分区攒摘要，findRecords 也是建一个再判，
+ * 所以三处仍走同一份代码。改口径时 logic-check「逐场纪录：累计判定和逐场重判一模一样」里冻结的朴素版要跟着改。
  */
 import type { Exercise } from '../../types';
 import { signedKg } from './load';
@@ -81,12 +84,9 @@ export function prSetsOf(ex: Exercise, gym: string | undefined, signed: boolean)
   return out;
 }
 
-/** 历史上这一组能不能拿来和 gym 那一场比 */
-function comparableTo(rule: PRRule, s: PRSet, gym: string): boolean {
-  if (rule.machine) return s.gym === gym;
-  // 辅助器械的辅助量各馆不通用；加了负重 / 纯自重的是真重量，跨馆比
-  if (rule.signed && s.kg < 0) return s.gym === gym;
-  return true;
+/** 历史上这一组只和同一个馆比（进按馆的分区）：器械的全部组；辅助器械的辅助量各馆不通用。加了负重 / 纯自重的是真重量，跨馆比 */
+function gymOnly(rule: PRRule, s: PRSet): boolean {
+  return rule.machine || (rule.signed && s.kg < 0);
 }
 
 export interface RecordHit {
@@ -104,68 +104,152 @@ const maxBy = <T,>(xs: T[], f: (x: T) => number): T | undefined =>
   xs.reduce<T | undefined>((b, x) => (b === undefined || f(x) > f(b) ? x : b), undefined);
 
 /**
- * 本场这几组破了哪些纪录（按 RECORD_PRIORITY 排好）。
- * history：这个动作（同一做法）以前所有做完的组，各带自己那场的馆；这里按规矩筛能比的。
- * current：本场的组（都在 gym 这个馆）。
+ * 历史的一个分区（全局，或某一个馆）攒下的摘要：判纪录只用到这几样，不必留下每一组。
+ * front：(kg, 次数) 的帕累托前沿，kg 从重到轻、次数严格递增 —— 被别的组盖住（更重或一样重、更多或一样多）的组不留。
  */
-export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gym: string | undefined): RecordHit[] {
-  const g = gym ?? '';
-  const past = history.filter(s => comparableTo(rule, s, g));
-  const now = current.filter(s => s.reps > 0 || s.kg !== 0);
-  if (!past.length || !now.length) return [];
-  const hits: RecordHit[] = [];
+interface Part {
+  n: number;
+  maxReps: number;
+  /** 举起来了的组（lifted）：组数、最重（loadOf） */
+  nW: number;
+  maxLoad: number;
+  /** 能估 1RM 的组 */
+  nE: number;
+  maxE: number;
+  maxVol: number;
+  front: { kg: number; reps: number }[];
+}
 
-  if (!rule.tracksWeight) {
-    if (!rule.tracksReps) return hits;
-    const prev = Math.max(...past.map(s => s.reps));
-    const best = maxBy(now, s => s.reps)!;
-    if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
-    return hits;
+const newPart = (): Part => ({ n: 0, maxReps: -Infinity, nW: 0, maxLoad: -Infinity, nE: 0, maxE: -Infinity, maxVol: -Infinity, front: [] });
+
+function frontAdd(front: Part['front'], kg: number, reps: number): void {
+  if (front.some(q => q.kg >= kg && q.reps >= reps)) return;
+  const keep = front.filter(q => !(q.kg <= kg && q.reps <= reps));
+  let i = 0;
+  while (i < keep.length && keep[i].kg > kg) i++;
+  keep.splice(i, 0, { kg, reps });
+  front.splice(0, front.length, ...keep);
+}
+
+/** 重量 ≥ x 的组里最多做到几次（没有＝-Infinity）：前沿上次数随 kg 变轻递增，最后一个够重的就是 */
+function frontRepsAtLeast(front: Part['front'], x: number): number {
+  let best = -Infinity;
+  for (const q of front) {
+    if (q.kg < x) break;
+    best = q.reps;
   }
+  return best;
+}
 
+export interface RecordTracker {
+  /** 记进历史（逐场判时，判完一场再 add 这一场） */
+  add(sets: PRSet[]): void;
+  /** 本场这几组破了哪些纪录（按 RECORD_PRIORITY 排好）；不改内部状态，训练中每次渲染都可以调 */
+  check(current: PRSet[], gym: string | undefined): RecordHit[];
+}
+
+/**
+ * 累计式的判纪录：历史按「全局 + 各馆」分区攒摘要，判一场只合并全局和本馆两份。
+ * 逐场判「按动作」历史时每场只 add 一次，单个动作是线性的；原来每场把此前全部组从头扫一遍，2000 场要一秒（审查 C36）。
+ */
+export function createRecordTracker(rule: PRRule): RecordTracker {
+  const global = newPart();
+  const byGym = new Map<string, Part>();
   // 1. 最大重量（带号的：只看加了负重的组，自重算 0 —— 第一次挂上 5 kg 也是纪录）
   const loadOf = (s: PRSet) => (rule.signed ? Math.max(0, s.kg) : s.kg);
   // 举起来了：记次数（或带号）的动作要次数 > 0；不记次数的「重量 + 时长」按重量比
   const lifted = (s: PRSet) => s.reps > 0 || !(rule.signed || rule.tracksReps);
-  const pastW = past.filter(lifted);
-  const nowW = now.filter(s => lifted(s) && s.kg > 0);
-  if (pastW.length && nowW.length) {
-    const prev = Math.max(...pastW.map(loadOf));
-    const best = maxBy(nowW, loadOf)!;
-    if (loadOf(best) > prev + TOL_KG && (prev > 0 || rule.signed)) hits.push({ kind: 'weight', prev, next: loadOf(best), at: best.at });
-  }
+  const vol = (s: PRSet) => Math.max(0, s.kg) * s.reps;
 
-  // 2. 估算 1RM（带号的不估）
-  if (!rule.signed) {
-    const pastE = past.map(s => e1rmOf(s.kg, s.reps)).filter((v): v is number => v != null);
-    const nowE = now.map(s => ({ s, v: e1rmOf(s.kg, s.reps) })).filter((x): x is { s: PRSet; v: number } => x.v != null);
-    if (pastE.length && nowE.length) {
-      const prev = Math.max(...pastE);
-      const best = maxBy(nowE, x => x.v)!;
-      // 容差跟着 Epley 的倍数放大：重量差 TOL_KG 估出来差 TOL_KG×(1 + r/30)
-      if (best.v > prev + TOL_KG * (1 + best.s.reps / 30)) hits.push({ kind: 'e1rm', prev, next: best.v, at: best.s.at });
-    }
-  }
+  return {
+    add(sets) {
+      for (const s of sets) {
+        let p = global;
+        if (gymOnly(rule, s)) {
+          p = byGym.get(s.gym) ?? newPart();
+          byGym.set(s.gym, p);
+        }
+        p.n++;
+        p.maxReps = Math.max(p.maxReps, s.reps);
+        if (lifted(s)) {
+          p.nW++;
+          p.maxLoad = Math.max(p.maxLoad, loadOf(s));
+        }
+        const e = e1rmOf(s.kg, s.reps);
+        if (e != null) {
+          p.nE++;
+          p.maxE = Math.max(p.maxE, e);
+        }
+        p.maxVol = Math.max(p.maxVol, vol(s));
+        frontAdd(p.front, s.kg, s.reps);
+      }
+    },
 
-  // 3. 次数纪录：不被历史上任何一组盖住（更重或一样重、更多或一样多）
-  const fresh = now.filter(c => c.reps > 0 && !past.some(p => p.kg >= c.kg - TOL_KG && p.reps >= c.reps));
-  if (fresh.length) {
-    // 挑最重的那组（同重挑次数多的）报
-    const c = fresh.reduce((b, x) => (x.kg > b.kg + TOL_KG || (Math.abs(x.kg - b.kg) <= TOL_KG && x.reps > b.reps) ? x : b));
-    // 之前在这个重量（及更重）下最多做到几次
-    const prev = Math.max(0, ...past.filter(p => p.kg >= c.kg - TOL_KG).map(p => p.reps));
-    hits.push({ kind: 'reps', prev, next: c.reps, atKg: c.kg, at: c.at });
-  }
+    check(current, gym) {
+      const parts = [global, byGym.get(gym ?? '')].filter((p): p is Part => !!p);
+      const has = (f: (p: Part) => number) => parts.some(p => f(p) > 0);
+      const max = (f: (p: Part) => number) => Math.max(...parts.map(f));
+      const now = current.filter(s => s.reps > 0 || s.kg !== 0);
+      if (!has(p => p.n) || !now.length) return [];
+      const hits: RecordHit[] = [];
 
-  // 4. 单组容量（带号的不算）
-  if (!rule.signed) {
-    const vol = (s: PRSet) => Math.max(0, s.kg) * s.reps;
-    const prev = Math.max(...past.map(vol));
-    const best = maxBy(now, vol)!;
-    if (prev > 0 && vol(best) > prev + TOL_KG * best.reps) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
-  }
+      if (!rule.tracksWeight) {
+        if (!rule.tracksReps) return hits;
+        const prev = max(p => p.maxReps);
+        const best = maxBy(now, s => s.reps)!;
+        if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
+        return hits;
+      }
 
-  return hits.sort((a, b) => RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind));
+      const nowW = now.filter(s => lifted(s) && s.kg > 0);
+      if (has(p => p.nW) && nowW.length) {
+        const prev = max(p => p.maxLoad);
+        const best = maxBy(nowW, loadOf)!;
+        if (loadOf(best) > prev + TOL_KG && (prev > 0 || rule.signed)) hits.push({ kind: 'weight', prev, next: loadOf(best), at: best.at });
+      }
+
+      // 2. 估算 1RM（带号的不估）
+      if (!rule.signed) {
+        const nowE = now.map(s => ({ s, v: e1rmOf(s.kg, s.reps) })).filter((x): x is { s: PRSet; v: number } => x.v != null);
+        if (has(p => p.nE) && nowE.length) {
+          const prev = max(p => p.maxE);
+          const best = maxBy(nowE, x => x.v)!;
+          // 容差跟着 Epley 的倍数放大：重量差 TOL_KG 估出来差 TOL_KG×(1 + r/30)
+          if (best.v > prev + TOL_KG * (1 + best.s.reps / 30)) hits.push({ kind: 'e1rm', prev, next: best.v, at: best.s.at });
+        }
+      }
+
+      // 3. 次数纪录：不被历史上任何一组盖住（更重或一样重、更多或一样多）。容差只加在查询这一侧
+      const repsAtLeast = (kg: number) => max(p => frontRepsAtLeast(p.front, kg - TOL_KG));
+      const fresh = now.filter(c => c.reps > 0 && !(repsAtLeast(c.kg) >= c.reps));
+      if (fresh.length) {
+        // 挑最重的那组（同重挑次数多的）报
+        const c = fresh.reduce((b, x) => (x.kg > b.kg + TOL_KG || (Math.abs(x.kg - b.kg) <= TOL_KG && x.reps > b.reps) ? x : b));
+        // 之前在这个重量（及更重）下最多做到几次
+        hits.push({ kind: 'reps', prev: Math.max(0, repsAtLeast(c.kg)), next: c.reps, atKg: c.kg, at: c.at });
+      }
+
+      // 4. 单组容量（带号的不算）
+      if (!rule.signed) {
+        const prev = max(p => p.maxVol);
+        const best = maxBy(now, vol)!;
+        if (prev > 0 && vol(best) > prev + TOL_KG * best.reps) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
+      }
+
+      return hits.sort((a, b) => RECORD_PRIORITY.indexOf(a.kind) - RECORD_PRIORITY.indexOf(b.kind));
+    },
+  };
+}
+
+/**
+ * 本场这几组破了哪些纪录（按 RECORD_PRIORITY 排好）。
+ * history：这个动作（同一做法）以前所有做完的组，各带自己那场的馆；按规矩分区，只和全局 + 本馆比。
+ * current：本场的组（都在 gym 这个馆）。
+ */
+export function findRecords(rule: PRRule, history: PRSet[], current: PRSet[], gym: string | undefined): RecordHit[] {
+  const tr = createRecordTracker(rule);
+  tr.add(history);
+  return tr.check(current, gym);
 }
 
 /**

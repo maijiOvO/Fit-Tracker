@@ -28,7 +28,7 @@ const stubContexts = {
   setup(b) {
     b.onResolve({ filter: /\/contexts\// }, a => ({ path: a.path, namespace: 'stub' }));
     b.onLoad({ filter: /.*/, namespace: 'stub' }, () => ({
-      contents: 'const no = () => { throw new Error("context used in logic-check"); }; export const useExercisePrefs = no; export const useUserSettingsContext = no;',
+      contents: 'const no = () => { throw new Error("context used in logic-check"); }; export const useExercisePrefs = no; export const useUserSettingsContext = no; export const useWorkoutContext = no;',
       loader: 'js',
     }));
   },
@@ -49,6 +49,7 @@ await build({
       "export * as R from './src/utils/prRecords.ts';",
       "export * as LDS from './src/utils/liftDisplay.ts';",
       "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
+      "export { doneWorkoutsOf, liftSummariesFor } from './src/hooks/useLiftSummaries.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
       "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
@@ -2706,5 +2707,209 @@ t('自定义记录项：这个动作历史里记过数的都列出来，0 和别
   };
   assert.deepEqual(L.MD.customKeysIn([w], n => n, '跑步机'), ['custom_坡度']);
 });
+
+// ── 逐场纪录改累计式、汇总全 App 共用一份（审查 C36 / scale-perf#2）────────────
+{
+  // 神谕：改累计式之前那份朴素的 findRecords，原样冻结在这里（每场把此前全部组从头扫一遍）
+  const TOL = 0.1;
+  const maxBy = (xs, f) => xs.reduce((b, x) => (b === undefined || f(x) > f(b) ? x : b), undefined);
+  const oracle = (rule, history, current, gym) => {
+    const g = gym ?? '';
+    const past = history.filter(s => (rule.machine || (rule.signed && s.kg < 0) ? s.gym === g : true));
+    const now = current.filter(s => s.reps > 0 || s.kg !== 0);
+    if (!past.length || !now.length) return [];
+    const hits = [];
+    if (!rule.tracksWeight) {
+      if (!rule.tracksReps) return hits;
+      const prev = Math.max(...past.map(s => s.reps));
+      const best = maxBy(now, s => s.reps);
+      if (best.reps > prev) hits.push({ kind: 'reps', prev, next: best.reps, at: best.at });
+      return hits;
+    }
+    const loadOf = s => (rule.signed ? Math.max(0, s.kg) : s.kg);
+    const lifted = s => s.reps > 0 || !(rule.signed || rule.tracksReps);
+    const pastW = past.filter(lifted);
+    const nowW = now.filter(s => lifted(s) && s.kg > 0);
+    if (pastW.length && nowW.length) {
+      const prev = Math.max(...pastW.map(loadOf));
+      const best = maxBy(nowW, loadOf);
+      if (loadOf(best) > prev + TOL && (prev > 0 || rule.signed)) hits.push({ kind: 'weight', prev, next: loadOf(best), at: best.at });
+    }
+    if (!rule.signed) {
+      const pastE = past.map(s => L.R.e1rmOf(s.kg, s.reps)).filter(v => v != null);
+      const nowE = now.map(s => ({ s, v: L.R.e1rmOf(s.kg, s.reps) })).filter(x => x.v != null);
+      if (pastE.length && nowE.length) {
+        const prev = Math.max(...pastE);
+        const best = maxBy(nowE, x => x.v);
+        if (best.v > prev + TOL * (1 + best.s.reps / 30)) hits.push({ kind: 'e1rm', prev, next: best.v, at: best.s.at });
+      }
+    }
+    const fresh = now.filter(c => c.reps > 0 && !past.some(p => p.kg >= c.kg - TOL && p.reps >= c.reps));
+    if (fresh.length) {
+      const c = fresh.reduce((b, x) => (x.kg > b.kg + TOL || (Math.abs(x.kg - b.kg) <= TOL && x.reps > b.reps) ? x : b));
+      const prev = Math.max(0, ...past.filter(p => p.kg >= c.kg - TOL).map(p => p.reps));
+      hits.push({ kind: 'reps', prev, next: c.reps, atKg: c.kg, at: c.at });
+    }
+    if (!rule.signed) {
+      const vol = s => Math.max(0, s.kg) * s.reps;
+      const prev = Math.max(...past.map(vol));
+      const best = maxBy(now, vol);
+      if (prev > 0 && vol(best) > prev + TOL * best.reps) hits.push({ kind: 'volume', prev, next: vol(best), at: best.at });
+    }
+    return hits.sort((a, b) => L.R.RECORD_PRIORITY.indexOf(a.kind) - L.R.RECORD_PRIORITY.indexOf(b.kind));
+  };
+
+  // 固定种子的随机数据：自由重量 / 器械（按馆）/ 带号（辅助负、负重正、0）/ 只记次数 / 不记次数，
+  // 底稿行、递减递增档、0 次的组、TOL 附近的浮点噪声、跨单位手打（102.06 / 102.1）、同一天两场、输入乱序
+  let seed = 23;
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+  const pick = xs => xs[Math.floor(rnd() * xs.length)];
+  const N_LIFT = 24;
+  const metricsOf = i => (i % 6 === 0 ? ['reps'] : i % 6 === 1 ? ['weight', 'duration'] : ['weight', 'reps']);
+  const signedLift = i => i % 4 === 1 || i % 6 === 0;
+  const machineLift = i => i % 3 === 2;
+  const name = i => `动作${i}`;
+  const idx = nm => Number(nm.slice(2));
+  // 重量随场次慢慢往上走（纪录才会一直有人破）；三成照抄这个动作最近用过的重量再加一点噪声，专挑容差边上
+  const recent = new Map();
+  const kgOf = (i, progress) => {
+    const used = recent.get(i) ?? [];
+    if (used.length && rnd() < 0.35) return pick(used) + pick([0, 0.04, 0.099, 0.1, 0.101, -0.04]);
+    let kg = Math.round((20 + 80 * progress + pick([-10, -5, 0, 0, 2.5, 5])) / 2.5) * 2.5;
+    if (rnd() < 0.15) kg = Math.round(kg * K) / 10 / K * 10; // 按 lb 打的一位小数（102.06 一类）
+    recent.set(i, [kg, ...used].slice(0, 6));
+    return kg;
+  };
+  const mode = () => pick(['assisted', 'weighted', 'normal', undefined]);
+  const set = (i, j, progress) => {
+    const s = { id: `s${j}`, weight: kgOf(i, progress), reps: pick([0, 1, 3, 5, 5, 6, 8, 10, 12]), ...(signedLift(i) ? { bodyweightMode: mode() } : {}) };
+    if (rnd() < 0.08) s.ghost = true;
+    if (rnd() < 0.15) s.subSets = [{ weight: Math.max(0, s.weight + pick([-20, -10, 5])), reps: pick([0, 4, 8]), ...(signedLift(i) ? { bodyweightMode: mode() } : {}) }];
+    return s;
+  };
+  const randomWorkouts = count => {
+    const ws = [];
+    for (let k = 0; k < count; k++) {
+      const day = Math.floor(k * 0.8); // 每 5 场里约有一天练两场
+      const exs = [];
+      const n = 2 + Math.floor(rnd() * 4);
+      for (let e = 0; e < n; e++) {
+        const i = Math.floor(rnd() * N_LIFT);
+        const sets = Array.from({ length: 1 + Math.floor(rnd() * 5) }, (_, j) => set(i, j, k / count));
+        exs.push({ id: `w${k}e${e}`, name: name(i), category: 'STRENGTH', sets });
+      }
+      ws.push({ id: `w${k}`, date: new Date(NOW - (2000 - day) * DAY).toISOString(), gym: pick(['A', 'B', '', undefined]), exercises: exs });
+    }
+    // 打乱：WorkoutContext 是新的在前，导入 / 合并进来的不保证顺序
+    for (let k = ws.length - 1; k > 0; k--) {
+      const j = Math.floor(rnd() * (k + 1));
+      [ws[k], ws[j]] = [ws[j], ws[k]];
+    }
+    return ws;
+  };
+  const params = {
+    stableIdOf: e => e.name,
+    liftKey: e => e.name,
+    resolveName: nm => nm,
+    signedLoadOf: e => signedLift(idx(e.name)),
+    getActiveMetrics: nm => metricsOf(idx(nm)),
+    gymScoped: e => machineLift(idx(e.name)),
+  };
+
+  t('逐场纪录：累计判定和逐场重判一模一样', () => {
+    // 防的错：C36 把逐场重扫改成累计摘要时把口径改错（前沿查询漏了容差、辅助组进了全局分区、并列时先到先得变成后到）——
+    // 历史纪录点、特别关注「刚破纪录」、热力图、刊末页 PB 牌会一起错
+    const lifts = L.buildLiftSummaries({ workouts: randomWorkouts(600), ...params });
+    const kinds = new Map();
+    let sessions = 0;
+    for (const lift of lifts) {
+      const rule = L.R.prRuleFor(metricsOf(idx(lift.baseName)), lift.signed, lift.machine);
+      const hist = [];
+      for (const s of lift.sessions) {
+        const cur = s.cards.flatMap(c => L.R.prSetsOf(c, s.gym, lift.signed));
+        const want = oracle(rule, hist, cur, s.gym);
+        assert.deepEqual(s.records, want.map(h => h.kind), `${lift.key} ${s.workoutId}`);
+        // prDetect / ExerciseCard 走的 findRecords：整份 RecordHit（prev / next / at / atKg）一样，换个馆判也一样
+        for (const g of [s.gym, 'A', 'B', '']) assert.deepEqual(L.R.findRecords(rule, hist, cur, g), oracle(rule, hist, cur, g), `${lift.key} ${s.workoutId} @${g}`);
+        for (const h of want) kinds.set(h.kind, (kinds.get(h.kind) ?? 0) + 1);
+        hist.push(...cur);
+        sessions++;
+      }
+    }
+    assert.ok(sessions > 1500, `sessions ${sessions}`);
+    // 数据得真把四种纪录都造出来，否则比对的是一堆空数组
+    for (const k of ['weight', 'e1rm', 'reps', 'volume']) assert.ok((kinds.get(k) ?? 0) > 5, `${k}: ${kinds.get(k)}`);
+  });
+
+  t('单个动作 4000 场的汇总耗时约是 1000 场的 4 倍', () => {
+    // 防的错：C36 的根因退回来 —— 每场把此前全部组从头扫，单个动作 O(场次²)，2000 场切一次页要一秒
+    const one = count =>
+      Array.from({ length: count }, (_, k) => ({
+        id: `p${k}`,
+        date: new Date(NOW - (count - k) * DAY).toISOString(),
+        exercises: [{ id: `p${k}e`, name: '动作2', category: 'STRENGTH', sets: Array.from({ length: 6 }, (_, j) => ({ id: `s${j}`, weight: 40 + Math.floor(rnd() * 120) / 2, reps: 1 + Math.floor(rnd() * 12) })) }],
+      }));
+    const p = { ...params, gymScoped: () => false };
+    const time = ws => {
+      let best = Infinity;
+      for (let r = 0; r < 5; r++) {
+        const t0 = performance.now();
+        for (let k = 0; k < 5; k++) L.buildLiftSummaries({ workouts: ws, ...p });
+        best = Math.min(best, performance.now() - t0);
+      }
+      return best;
+    };
+    const w1 = one(1000);
+    const w4 = one(4000);
+    time(w1);
+    const ratio = time(w4) / time(w1);
+    assert.ok(ratio < 10, `t4000 / t1000 = ${ratio.toFixed(1)}`);
+  });
+
+  t('做完的训练：进行中那场开 / 关、换了新数组但内容没变，都返回同一个数组（汇总不重算）', () => {
+    // 防的错：C36 加第一个动作、冷启动接回进行中那场时 inProgress 翻转，过滤结果没变却换了新数组，全部历史整份重判
+    const done = id => ({ id, date: ago(3), exercises: [{ id: `${id}e`, name: '卧推', sets: [{ id: 's', weight: 60, reps: 5 }] }] });
+    const a = done('a'), b = done('b'), c = done('c');
+    const fresh = { id: '新场id', date: ago(0), exercises: [{ id: 'x', name: '卧推', sets: [{ id: 's', weight: 60, reps: 5, ghost: true }] }] };
+    const all = [fresh, a, b, c];
+    const first = L.doneWorkoutsOf(all, undefined);
+    assert.deepEqual(first.map(w => w.id), ['a', 'b', 'c']);
+    assert.equal(L.doneWorkoutsOf(all, '新场id'), first);
+    assert.equal(L.doneWorkoutsOf([...all], '新场id'), first);
+    // 进行中那场有做完的组：在 all 里时要排除，不排除就是另一个结果
+    const live = { ...fresh, exercises: [{ ...fresh.exercises[0], sets: [{ id: 's', weight: 60, reps: 5 }] }] };
+    assert.equal(L.doneWorkoutsOf([live, a, b, c], live.id), first);
+    assert.deepEqual(L.doneWorkoutsOf([live, a, b, c], undefined).map(w => w.id), ['新场id', 'a', 'b', 'c']);
+    const b2 = { ...b };
+    const changed = L.doneWorkoutsOf([fresh, a, b2, c], undefined);
+    assert.notEqual(changed, first);
+    assert.equal(changed[1], b2);
+  });
+
+  t('按动作汇总：只换星标 / 备注不重算，换了汇总真正用到的（liftKey、动作覆盖层）才重算', () => {
+    // 防的错：scale-perf#2 拿整个 prefs 当缓存键，点星、存备注、特别关注每一下都把全部历史整份重判
+    const ws = L.doneWorkoutsOf(randomWorkouts(20), undefined);
+    const def = { id: 'd', name: { cn: '动作2', en: 'Lift 2' }, category: 'STRENGTH', resistance: 'stack', equipment: 'machine' };
+    const prefs = {
+      findExerciseDef: nm => (nm === '动作2' ? def : undefined),
+      variantIdOf: () => undefined,
+      liftKey: e => e.name,
+      stableIdOf: e => e.name,
+      resolveName: nm => nm,
+      signedLoadOf: () => false,
+      getActiveMetrics: () => ['weight', 'reps'],
+      attrsOf: d => ({ equipment: d.equipment, resistance: d.resistance }),
+      exerciseOverrides: {},
+      starredExercises: {},
+      exerciseNotes: {},
+    };
+    const out = L.liftSummariesFor(ws, prefs);
+    assert.equal(out.find(l => l.key === '动作2').machine, true, 'gymScoped built from the library lookup');
+    assert.equal(L.liftSummariesFor(ws, { ...prefs, starredExercises: { 动作2: 1 }, exerciseNotes: { 动作2: 'x' } }), out);
+    assert.notEqual(L.liftSummariesFor(ws, { ...prefs, liftKey: e => e.name }), out);
+    const again = L.liftSummariesFor(ws, prefs);
+    assert.notEqual(L.liftSummariesFor(ws, { ...prefs, exerciseOverrides: {} }), again);
+  });
+}
 
 console.log(`\nlogic-check: ${n} passed`);

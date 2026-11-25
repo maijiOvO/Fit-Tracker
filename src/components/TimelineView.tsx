@@ -19,7 +19,7 @@ import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
 import { plural } from '../utils/format';
 import { armSwallow, disarmSwallow, newClickSwallow, takeSwallow } from '../utils/tap';
-import { dayOfWeekIndex } from '../utils/dateUtils';
+import { dateFormat, dayOfWeekIndex } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
 import { realSets } from '../utils/prDetect';
 import { sessionDurationMin } from '../utils/sessionDuration';
@@ -37,19 +37,13 @@ export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
  * 几百张卡回首页时就是上千次（审查 F10）。
  * 时间用 24 小时制：日期柱只有 40px，英文的「06:09 PM」会折成两行把每张卡撑高（2026-10-22 界面审查）。中文本来就是 24 小时制
  */
-const formatsByLocale = new Map<string, { date: Intl.DateTimeFormat; time: Intl.DateTimeFormat; weekday: Intl.DateTimeFormat }>();
 function cardFormats(isCN: boolean) {
   const locale = isCN ? 'zh-CN' : 'en-US';
-  let f = formatsByLocale.get(locale);
-  if (!f) {
-    f = {
-      date: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', weekday: 'short' }),
-      time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false }),
-      weekday: new Intl.DateTimeFormat(locale, { weekday: 'short' }),
-    };
-    formatsByLocale.set(locale, f);
-  }
-  return f;
+  return {
+    date: dateFormat(locale, { month: 'short', day: 'numeric', weekday: 'short' }),
+    time: dateFormat(locale, { hour: '2-digit', minute: '2-digit', hour12: false }),
+    weekday: dateFormat(locale, { weekday: 'short' }),
+  };
 }
 
 /** 首页先渲染这么多场，滚到底再续一段（审查 F10：三年六百来张卡全量挂载，回首页随年限线性变慢） */
@@ -106,11 +100,11 @@ function getGroupInfo(
     const y = date.getFullYear();
     const m = date.getMonth() + 1;
     const d = date.getDate();
-    const weekdayStr = date.toLocaleDateString(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' });
+    const weekdayStr = dateFormat(isCN ? 'zh-CN' : 'en-US', { weekday: 'short' }).format(date);
     const key = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const label = isCN
       ? `${m}月${d}日 · ${weekdayStr}`
-      : `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · ${weekdayStr}`;
+      : `${dateFormat('en-US', { month: 'short', day: 'numeric' }).format(date)} · ${weekdayStr}`;
     return { key, label, sortKey: key };
   }
   if (granularity === 'week') {
@@ -133,7 +127,7 @@ function getGroupInfo(
     const key = `${y}-${String(m).padStart(2, '0')}`;
     const label = isCN
       ? `${y}年${m}月`
-      : date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+      : dateFormat('en-US', { year: 'numeric', month: 'long' }).format(date);
     return { key, label, sortKey: key };
   }
   // year
@@ -717,7 +711,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           if (sectionOf(d) === 'this-week') return isCN ? '本周' : 'This week';
           return isCN
             ? `${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
-            : d.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+            : dateFormat('en-US', { year: 'numeric', month: 'long' }).format(d);
         })();
         const sectionTitle = monthLabel && (
           <div className="px-1 pt-2 text-micro tracking-[0.14em] text-tertiary font-medium">

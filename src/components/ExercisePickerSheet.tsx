@@ -365,7 +365,8 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
   // 行的小灰字「上次 宽握 80 kg×5 · 3 天前」：点这一行铺的底稿是哪一场，就写哪一场（rowLastSession）
   const { workouts: doneWorkouts } = useDoneWorkouts();
   const { currentWorkout } = useWorkoutContext();
-  const lifts = useLiftSummaries(doneWorkouts);
+  // 常驻挂载：关着的时候不算「按动作」汇总
+  const lifts = useLiftSummaries(doneWorkouts, open);
   const gymScoped = useGymScopedPR();
   const lastOf = useMemo(() => {
     const liftsById = new Map(lifts.map(l => [l.stableId, l]));

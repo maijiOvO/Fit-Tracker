@@ -1477,33 +1477,18 @@ export const ExercisePrefsProvider: React.FC<{ children: ReactNode }> = ({
     [countInRegion, deleteTag, getTagName, lang, layoutOf, toast, writeLayout],
   );
 
+  // 内容没变就留住原来的对象：撤销 / 重做、同步重放没碰到首选项时，prefs 里各函数的身份不变，「按动作」的汇总不重算（审查 C36）
   const applyPrefsFromSnapshot = useCallback((raw: FitlogSyncedPrefs) => {
     const p = migrateWarmRegions(migrateCableTags(raw));
-    setCustomTags(Array.isArray(p.customTags) ? p.customTags : []);
-    setCustomExercises(Array.isArray(p.customExercises) ? p.customExercises : []);
-    setExerciseNotes(
-      p.exerciseNotes && typeof p.exerciseNotes === 'object' ? p.exerciseNotes : {},
-    );
-    setStarredExercises(
-      p.starredExercises && typeof p.starredExercises === 'object'
-        ? p.starredExercises
-        : {},
-    );
-    setExerciseMetricConfigs(
-      p.exerciseMetricConfigs && typeof p.exerciseMetricConfigs === 'object'
-        ? p.exerciseMetricConfigs
-        : {},
-    );
-    setTagRenameOverrides(
-      p.tagRenameOverrides && typeof p.tagRenameOverrides === 'object'
-        ? p.tagRenameOverrides
-        : {},
-    );
-    setExerciseOverrides(
-      p.exerciseOverrides && typeof p.exerciseOverrides === 'object'
-        ? p.exerciseOverrides
-        : {},
-    );
+    const obj = <T,>(v: unknown): T => (v && typeof v === 'object' ? v : {}) as T;
+    const same = <T,>(next: T) => (prev: T): T => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next);
+    setCustomTags(same(Array.isArray(p.customTags) ? p.customTags : []));
+    setCustomExercises(same(Array.isArray(p.customExercises) ? p.customExercises : []));
+    setExerciseNotes(same(obj<Record<string, string>>(p.exerciseNotes)));
+    setStarredExercises(same(obj<Record<string, number>>(p.starredExercises)));
+    setExerciseMetricConfigs(same(obj<Record<string, string[]>>(p.exerciseMetricConfigs)));
+    setTagRenameOverrides(same(obj<Record<string, string>>(p.tagRenameOverrides)));
+    setExerciseOverrides(same(obj<Record<string, Partial<ExerciseDefinition>>>(p.exerciseOverrides)));
   }, []);
 
   const value: ExercisePrefsContextValue = useMemo(

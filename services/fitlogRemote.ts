@@ -551,9 +551,11 @@ export function writePrefsToLocalStorage(raw: FitlogSyncedPrefs): void {
  * 启动时的一次性补字段：训练补 exerciseTime（没有 instanceConfig 的读时按标准算，见 exerciseConfig.getLoadMode），目标补新版必需字段。
  * 逐行做，坏行（exercises 不是数组、日期解析不了）原样跳过：原来一行抛错整段中止，
  * 而它跟三处刷新挂在一起，之后撤销 / 重做、改目标都不刷新界面（上架审查 gap-r3-2#2）。
+ * 返回写过库没有：单机版启动只在写过时才重读（各 Provider 挂载时已经读过一遍，审查 scale-perf#1）。
  */
-export async function migrateLocalData(): Promise<void> {
+export async function migrateLocalData(): Promise<boolean> {
   const userId = FITLOG_SOLO_USER_ID;
+  let wrote = false;
   const [allW, allG] = await Promise.all([db.getAll<WorkoutSession>('workouts'), db.getAll<Goal>('goals')]);
 
   for (const workout of allW) {
@@ -563,6 +565,7 @@ export async function migrateLocalData(): Promise<void> {
     if (!workout.exercises.some(ex => !ex?.exerciseTime)) continue;
     const at = new Date(t).toISOString();
     await db.save('workouts', { ...workout, exercises: workout.exercises.map(ex => (ex?.exerciseTime ? ex : { ...ex, exerciseTime: at })) });
+    wrote = true;
   }
 
   for (const goal of allG) {
@@ -587,10 +590,13 @@ export async function migrateLocalData(): Promise<void> {
       label: anyG.label || goal.title,
       deadline: anyG.deadline || goal.targetDate,
     } as Goal);
+    wrote = true;
   }
+  return wrote;
 }
 
-export async function migrateRecordsToSoloUserId(): Promise<void> {
+/** 返回写过库没有（同 migrateLocalData） */
+export async function migrateRecordsToSoloUserId(): Promise<boolean> {
   const solo = FITLOG_SOLO_USER_ID;
   const stale = <T extends { id: string; userId?: string }>(items: T[]) =>
     items.filter(item => item.userId && item.userId !== 'u_guest' && item.userId !== solo);
@@ -601,11 +607,12 @@ export async function migrateRecordsToSoloUserId(): Promise<void> {
     ['weightLogs', stale(await db.getAll<WeightEntry>('weightLogs'))],
     ['custom_metrics', stale(await db.getAll<Measurement>('custom_metrics'))],
   ];
-  if (!fixes.some(([, items]) => items.length)) return;
+  if (!fixes.some(([, items]) => items.length)) return false;
   // 数据迁移不是用户动作，不进撤销日志
   await undoJournal.withoutJournal(async () => {
     for (const [store, items] of fixes) for (const item of items) await db.save(store, { ...item, userId: solo });
   });
+  return true;
 }
 
 export async function collectLocalSnapshot(): Promise<FitlogRemoteSnapshot> {

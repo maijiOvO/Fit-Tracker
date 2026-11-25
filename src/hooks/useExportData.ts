@@ -27,7 +27,7 @@ export function useExportData(
     try {
       setSyncStatus('syncing');
       const file = await buildBackupFile();
-      const outcome = await saveTextFile(backupFileName(), JSON.stringify(file, null, 2));
+      const outcome = await saveTextFile(backupFileName(), JSON.stringify(file));
       setSyncStatus('idle');
       // 只有真的交出去了才报成功：取消分享、没报接收应用都不是「导出成功」，
       // 一律报成功就是又造一个假信号 —— 这条路正是这么坏过一次的
