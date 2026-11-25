@@ -2448,6 +2448,31 @@ async function mainFlow(browser, escapedRemoteCalls) {
       done.sort((a, b) => new Date(b.finishedAt) - new Date(a.finishedAt));
       const resumeId = done[0]?.id;
       if (!resumeId) throw new Error('fixture drift: no finished workout to resume');
+
+      // 误结束之后又新开了一场（上架审查 C05）：开一场、加个动作、做一组，按返回留在工作台上。
+      // 接线（读哪份工作台、先换工作台再删、墓碑）下层测不到，吸收规则本身在 logic-check
+      await page.getByRole('button', { name: /开始训练|Start Workout/ }).click();
+      await pickStartGym(page);
+      await page.locator('[data-testid="open-picker-sheet"]').click();
+      const sheet = page.locator('[data-testid="picker-sheet"]');
+      await sheet.locator('input[type="text"]').fill('杠铃平板卧推');
+      await sheet.locator('[data-testid="picker-sheet-exercise"]').first().click();
+      await page.locator('[data-testid="picker-sheet-close"]').click();
+      const wIn = page.locator('[data-testid="ledger-field-weight"] input').first();
+      await wIn.click();
+      await page.waitForTimeout(80); // 全选放在下一帧
+      await page.keyboard.type('50');
+      await page.keyboard.press('Enter');
+      await page.locator('.ledger-row').first().locator('.set-num').click();
+      let liveW = null;
+      await until(async () => {
+        liveW = ((await remoteSnap())?.workouts || []).find(x => !x.finishedAt && x.id !== resumeId && x.exercises?.some(e => e.sets?.some(st => !st.ghost)));
+        return !!liveW;
+      }, 'the new workout with a done set to reach the db');
+      await page.getByLabel(/^返回$|^Back$/).first().click();
+      await page.locator('nav').first().waitFor({ state: 'visible', timeout: 3_000 });
+      await toDashboard();
+
       const rcard = page.locator(`[data-testid="timeline-session-${resumeId}"]`);
       await rcard.waitFor({ state: 'visible', timeout: 5_000 });
       await longPress(page, rcard);
@@ -2461,13 +2486,25 @@ async function mainFlow(browser, escapedRemoteCalls) {
       const w = ((await remoteSnap())?.workouts || []).find(x => x.id === resumeId);
       if (!w) throw new Error(`resumed workout ${resumeId} vanished from the snapshot`);
       if (w.finishedAt) throw new Error(`finishedAt not cleared on resume: ${w.finishedAt}`);
+      // 新开那场并进来了：不问、两场的动作卡都在训练页上，库里只剩接回的这场，新开那场写了墓碑
+      if (await page.locator('[role="dialog"]').isVisible().catch(() => false)) throw new Error('resuming over a workout in progress asked for confirmation');
+      const cardKey = (s, e) => (e.altGroup && s.exercises.filter(x => x.altGroup === e.altGroup).length > 1 ? `g:${e.altGroup}` : e.id);
+      const liveEx = liveW.exercises.map(e => e.id);
+      if (!liveEx.every(id => w.exercises.some(e => e.id === id))) throw new Error('the workout in progress was not merged into the resumed one');
+      for (const e of [w.exercises[0], liveW.exercises[0]]) {
+        if (!(await page.locator(`[data-card-key="${cardKey(w, e)}"]`).count())) throw new Error(`card ${e.id} missing from the workbench after resume`);
+      }
+      const snapAfter = (await remoteSnap())?.workouts || [];
+      if (snapAfter.some(x => x.id === liveW.id)) throw new Error('the merged-in workout is still in the db as its own session');
+      const tombs = (await page.evaluate(() => JSON.parse(localStorage.getItem(lsKey('fitlog_tombstones')) || 'null')))?.workouts ?? [];
+      if (!tombs.includes(liveW.id)) throw new Error('the merged-in workout got no tombstone');
       // 接回来之后的改动照常落盘：结束写库时挂的落盘闸（C94）换过别的场就放开了，同一 id 回到工作台不能还拦着
       await page.locator('.ledger-row').first().locator('[data-testid="ledger-field-reps"] input').fill('9');
       await until(
         async () => ((await remoteSnap())?.workouts || []).find(x => x.id === resumeId)?.exercises?.[0]?.sets?.[0]?.reps === 9,
         'an edit after resuming to reach the db',
       );
-      return `resumed ${resumeId}, finishedAt cleared, edits persist`;
+      return `resumed ${resumeId}, finishedAt cleared, workout in progress ${liveW.id} merged in, edits persist`;
     });
   } finally {
     await context.close();

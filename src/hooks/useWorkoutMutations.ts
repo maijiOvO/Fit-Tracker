@@ -30,7 +30,7 @@ import { isBackdated, redateEdited, redateLiveSession, sessionsBefore } from '..
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
-import { planMergeIntoPrevious } from '../utils/sessionMerge';
+import { absorbIntoResumed, planMergeIntoPrevious } from '../utils/sessionMerge';
 import { EDIT_DRAFT_ID, resumableEditDraft, type EditDraftRow } from '../../services/workbenchPersist';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -1058,25 +1058,38 @@ export function useWorkoutMutations({
    * 恢复一场已结束的训练回到工作台：清掉 finishedAt / status，
    * 它就重新变成「正在进行中的那一场」—— 再结束一次会写回同一个 id，
    * 不会多出一条记录。
+   *
+   * 工作台上还有正在练的另一场（上架审查 C05）：是误结束之后新开的那场，就把它并进接回的这场、删掉它并写墓碑
+   * （absorbIntoResumed；墓碑立刻写，理由同并入上一场）；别的情形先替它收尾，别让它被顶下工作台后没人管。
+   * 都不弹确认（§12.5.3），点错了用顶栏撤销，这些写入在同一步里。
    */
   const resumeWorkout = useCallback(
     async (w: WorkoutSession) => {
-      // 工作台上还有正在练的另一场：先替它收尾，别让它被顶下工作台后没人管（上架审查 C05）。
       // 读工作台此刻的样子，不读渲染闭包：点按之后接回 / 撤销可能才落定
-      if (workoutCtx.getLiveWorkbench()?.id !== w.id) await workoutCtx.settleWorkbench();
+      const bench = workoutCtx.getLiveWorkbench();
+      const live = bench && bench.id !== w.id ? bench : null;
+      const absorbed = live && absorbIntoResumed(w, live);
+      if (live && !absorbed) await workoutCtx.settleWorkbench();
       const { finishedAt: _fa, status: _st, ...rest } = w;
-      const resumed: WorkoutSession = { ...rest, updatedAt: new Date().toISOString() };
+      const resumed: WorkoutSession = absorbed || { ...rest, updatedAt: new Date().toISOString() };
       await db.save('workouts', resumed);
       resumedWorkoutIdsRef.current.add(resumed.id);
-      await refreshFromDb();
+      // 先换工作台再删被并的那场：换下之后它不再自动落盘，删掉的行不会被写回
       workoutCtx.replaceWorkbench(resumed);
+      if (live && absorbed) {
+        await db.delete('workouts', live.id);
+        recordTombstone('workouts', live.id);
+        unlinkPlanOf(live.id, resumed.id);
+      }
+      await refreshFromDb();
       setEditingWorkoutId(null);
-      // 计划关联跟着一起回来，否则续练完这场就丢了 fromSchedule
-      activeScheduleIdRef.current = w.fromSchedule?.scheduleId ?? null;
+      // 计划关联跟着一起回来，否则续练完这场就丢了 fromSchedule（被并那场的计划标记 absorbIntoResumed 已带过来）
+      activeScheduleIdRef.current = resumed.fromSchedule?.scheduleId ?? null;
       setActiveTab('new');
       scheduleDebouncedFitlogPush();
+      if (absorbed) toast(isCn ? '进行中的训练已并进这场' : 'Merged the workout in progress into this one', 'info');
     },
-    [refreshFromDb, setActiveTab, workoutCtx],
+    [isCn, refreshFromDb, setActiveTab, toast, unlinkPlanOf, workoutCtx],
   );
 
   /**

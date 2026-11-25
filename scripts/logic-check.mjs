@@ -68,7 +68,7 @@ await build({
       "export { nextKeyboardGuess } from './src/utils/keyboardGuess.ts';",
       "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
       "export { handleHardwareBack } from './src/hooks/useBackClose.ts';",
-      "export { planMergeIntoPrevious, mergeableIds } from './src/utils/sessionMerge.ts';",
+      "export { planMergeIntoPrevious, mergeableIds, absorbIntoResumed } from './src/utils/sessionMerge.ts';",
       "export * as SS from './src/utils/setStep.ts';",
       "export * as SW from './src/utils/setWrite.ts';",
       "export * as MD from './src/utils/metricDefaults.ts';",
@@ -2623,6 +2623,36 @@ t('并入上一场（上架审查 C92）：被并那场的备注接在后面、�
   const G = { id: 'G', date: at(13, '08:30'), exercises: [{ ...ex('g'), sets: [{ id: 'g1', ghost: true }] }] };
   const ids = L.mergeableIds([Q, W, P, G, backfill, next]);
   assert.deepEqual([...ids].sort(), ['W'], 'W 紧跟 P；Q 前面只有没练过的 G 和三天前的 W；N 前一场是隔一天的补录场 B');
+});
+
+// 防 C05：「继续这场」把误结束后新开的那场拆成单独一场（或吸收的条件放宽到补录 / 更早的场，把别的训练吞进来）
+t('继续这场（上架审查 C05）：工作台上是误结束后新开的那场就并进被接回的那场；补录的、开得更早的不并', () => {
+  const at = hm => new Date(`2026-11-20T${hm}:00`).toISOString();
+  const ex = (id, sets) => ({ id, name: id, category: 'STRENGTH', sets });
+  const w = {
+    id: 'W', title: '腿', gym: '甲', date: at('10:00'), startTime: at('10:00'), finishedAt: at('10:40'), status: 'completed',
+    exercises: [ex('w', [{ id: 'w1', weight: 60, reps: 5 }, { id: 'w2', weight: 60, reps: 5 }])],
+  };
+  const live = {
+    id: 'L', title: '新的一场', gym: '甲', notes: '新开那场的备注', fromSchedule: { scheduleId: 'plan-live' },
+    date: at('10:43'), startTime: at('10:43'),
+    exercises: [ex('l', [{ id: 'l1', weight: 40, reps: 8 }, { id: 'l2', weight: 40, reps: 8, ghost: true }])],
+  };
+  const r = L.absorbIntoResumed(w, live);
+  assert.equal(r.id, 'W');
+  assert.ok(!('finishedAt' in r) && !('status' in r), '接回后不再是已结束的');
+  assert.deepEqual(r.exercises.flatMap(e => e.sets.map(s => s.id)), ['w1', 'w2', 'l1', 'l2'], '被接回那场的组在前，新开那场的接在后面');
+  assert.equal(r.exercises[1].sets[1].ghost, true, '新开那场的待做行仍是待做');
+  assert.deepEqual([r.date, r.startTime, r.title], [w.date, w.startTime, '腿'], '开练时刻、标题是被接回那场的');
+  assert.equal(r.notes, '新开那场的备注');
+  assert.equal(r.fromSchedule.scheduleId, 'plan-live', '被接回那场没有计划标记：取新开那场的');
+  assert.equal(L.absorbIntoResumed({ ...w, fromSchedule: { scheduleId: 'own' } }, live).fromSchedule.scheduleId, 'own', '被接回那场自己有就留它的');
+
+  // 不并：新开那场是补录的（没有开练时刻）；开得比被接回那场还早
+  assert.equal(L.absorbIntoResumed(w, { ...live, startTime: undefined }), null);
+  assert.equal(L.absorbIntoResumed(w, { ...live, date: at('09:30'), startTime: at('09:30') }), null);
+  // 同一时刻开的仍算「之后」（date 不早于）
+  assert.ok(L.absorbIntoResumed(w, { ...live, date: w.date }));
 });
 
 // ── 全局撤销的读写失败（上架审查 C17 / C18 / C19）：services/undoJournal.ts 的前像标记、写回失败留步、写回期间 busy ──────

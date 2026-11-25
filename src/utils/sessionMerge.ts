@@ -1,9 +1,11 @@
 /**
- * 「并入上一场」挑目标、拼结果（§12.8，上架审查 C04）。纯函数，hook 只管写库。
+ * 两场合一场的挑法和拼法：「并入上一场」（§12.8，上架审查 C04）、「继续这场」吸收误结束后新开的那场（C05）。
+ * 纯函数，hook 只管写库。
  */
 import type { WorkoutSession } from '../../types';
 import { hasDoneSets, insertDoneCards } from './workbench';
 import { MAX_MIN } from './sessionDuration';
+import { isBackdated } from './sessionDate';
 
 export interface MergePlan {
   /** 并进的那一场（拼好之前的样子，toast 报它的名字、计划改指它） */
@@ -80,6 +82,22 @@ export function planMergeIntoPrevious(
       updatedAt: now,
     },
   };
+}
+
+/**
+ * 「继续这场」接回 w 时，工作台上正在练的 live 是误结束之后新开的那场（不是补录、date 不早于 w）：
+ * live 的动作接在 w 后面，返回接回后的 w（去掉 finishedAt / status）；其余情形 null，由调用方先替 live 收尾再接回。
+ * w 结束时只留了入册的组，live 接在后面仍是「指针以上都是做过的」。备注、计划标记、馆和并入上一场一样带过来。
+ * 2026-11-24 作者定：误结束后又开了一场，本意就是一场，接回时并回去、不弹确认（§12.5.3，点错了用顶栏撤销）。
+ */
+export function absorbIntoResumed(
+  w: WorkoutSession,
+  live: WorkoutSession,
+  now = new Date().toISOString(),
+): WorkoutSession | null {
+  if (isBackdated(live) || Date.parse(live.date) < Date.parse(w.date)) return null;
+  const { finishedAt: _fa, status: _st, ...rest } = w;
+  return { ...rest, ...carriedFields(w, live), exercises: [...(w.exercises ?? []), ...(live.exercises ?? [])], updatedAt: now };
 }
 
 /**
