@@ -141,20 +141,19 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
   }
   const setsIn = (ws: typeof write) => ws.reduce((n, w) => n + w.exercises.reduce((m, e) => m + e.sets.reduce((k, s) => k + 1 + (s.subSets?.length ?? 0), 0), 0), 0);
 
+  // 一场都写不进去：按钮写明为什么、点不了（真机测试：原来写「导入 0 场训练」还能点）。
+  // 不进 addImportedRecords —— 既不占掉回滚槽里上一份副本，也不清撤销历史（审查 C69）
+  const nothingWhy =
+    !plan || !res || write.length
+      ? null
+      : res.workouts.length
+        ? t(`这 ${overlap} 场都导入过了`, overlap === 1 ? 'This workout was imported before' : `All ${overlap} workouts were imported before`)
+        : !warmups && plan.warmupSets
+          ? t('文件里只有热身组：勾选「热身组也导入」再导', 'Only warm-up sets in this file: tick "Also import warm-up sets" first')
+          : t('文件里的组都超出重量上限：勾选「也导入超上限的组」再导', 'Every set is over the weight cap: tick "Also import sets over the cap" first');
+
   const run = async () => {
-    if (!plan || !res) return;
-    // 一场都写不进去：不进 addImportedRecords —— 既不占掉回滚槽里上一份副本，也不清撤销历史（审查 C69）
-    if (!write.length) {
-      toast(
-        res.workouts.length
-          ? t(`这 ${overlap} 场都导入过了`, overlap === 1 ? 'This workout was imported before' : `All ${overlap} workouts were imported before`)
-          : !warmups && plan.warmupSets
-            ? t('文件里只有热身组：勾选「热身组也导入」再导', 'Only warm-up sets in this file: tick "Also import warm-up sets" first')
-            : t('文件里的组都超出重量上限：勾选「也导入超上限的组」再导', 'Every set is over the weight cap: tick "Also import sets over the cap" first'),
-        'info',
-      );
-      return;
-    }
+    if (!plan || !res || nothingWhy) return;
     setBusy(true);
     try {
       // 已配置的不动，本机有记录的保留当前那组：导入不藏掉 App 里已经记的列（审查 csv#2）
@@ -209,9 +208,9 @@ export const ImportCsvModal: React.FC<{ open: boolean; onClose: () => void }> = 
       }
       testId="import-csv-modal"
       footer={
-        <button type="button" className="ui-btn-primary w-full py-3.5 flex items-center justify-center gap-2" disabled={busy} onClick={() => void run()} data-testid="import-csv-run">
+        <button type="button" className={`ui-btn-primary w-full py-3.5 flex items-center justify-center gap-2${nothingWhy ? ' opacity-40' : ''}`} disabled={busy || !!nothingWhy} onClick={() => void run()} data-testid="import-csv-run">
           {busy && <RefreshCw size={16} className="animate-spin" />}
-          {t(`导入 ${write.length} 场训练`, `Import ${write.length} ${plural(write.length, 'workout')}`)}
+          {nothingWhy ?? t(`导入 ${write.length} 场训练`, `Import ${write.length} ${plural(write.length, 'workout')}`)}
         </button>
       }
     >

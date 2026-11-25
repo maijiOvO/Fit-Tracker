@@ -8,7 +8,7 @@
  * 加动作（useWorkoutMutations.findLast）、换做法、换馆重新挑底稿（useGymSwitch）共用这一份。
  */
 import type { Exercise, SetLog, WorkoutSession } from '../../types';
-import { prSetsOf, type PRRule, type PRSet } from './prRecords';
+import { prRuleFor, prSetsOf, type PRRule, type PRSet } from './prRecords';
 import { setActedOn } from './setValues';
 import { memberKeys } from './workbench';
 
@@ -254,6 +254,14 @@ function bestOfCards(cards: Exercise[], signed: boolean, rule: PRRule): VsSet | 
     ...(top.km ? { distance: top.km } : {}),
     ...(top.kmh ? { speed: top.kmh } : {}),
   };
+}
+
+/**
+ * 一场里这几张卡最好的一组，挑法同刊末页「比上次」（按记录项定：只记时长的平板挑撑得最久的）；填没填过距离只看这几张卡。
+ * 选动作弹层每行的「上次」用：原来写的是最重的一组，平板支撑写成「上次 自重」（真机测试）
+ */
+export function bestSetIn(cards: Exercise[], signed: boolean, metrics: string[]): VsSet | null {
+  return bestOfCards(cards, signed, prRuleFor(metrics, signed, false, cards.flatMap(c => prSetsOf(c, undefined, signed))));
 }
 
 /** 刊末页「比上次」的一行；key＝项目键（带做法，和 PB 牌同源） */

@@ -106,6 +106,23 @@ export function metricsTail(set: Pick<SetLog, 'duration' | 'distance' | 'speed'>
 }
 
 /**
+ * 一场里挑出来的那一组（prefillSource.bestSetIn / vsLastSession）：记重量或次数的写「100×5」，有氧接时长、距离（「30:00 5 km」），
+ * 负重平板写「30 1:00」，只记时长的平板写「1:30」（审查 C85）。刊末页「比上次」和选动作弹层每行的「上次」共用
+ */
+export function bestSetText(
+  s: SetRef & Pick<SetLog, 'duration' | 'distance' | 'speed'>,
+  metrics: string[],
+  unit: 'kg' | 'lbs',
+  signed: boolean,
+  isCn: boolean,
+  lang: Language,
+): string {
+  return [metrics.includes('weight') || metrics.includes('reps') ? formatSet(s, unit, signed, isCn) : '', metricsTail(s, metrics, unit, lang)]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
  * 卡头「上次」的一组：记录项里有重量才写重量（load 是调用方写好的，递减档已用 → 连上），有次数才写 ×次，其余项接 metricsTail。
  * 「100×5」「30:00 5 km」「30 1:00」
  */

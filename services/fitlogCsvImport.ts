@@ -738,11 +738,26 @@ const KNOWN: Record<string, string> = {
   'face pull (cable)': 'face_pull_cable',
   'face pull': 'face_pull_cable',
   'push up': 'pushup',
+  // 内置只有加重引体（带正负，0 就是自重）。辅助引体不列：文件里的重量是辅助量，记上去会变成 +40
+  'pull up': 'pu_weighted',
   'pull up (weighted)': 'pu_weighted',
   'dumbbell row': 'single_arm_db_row',
   'bent over one arm row (dumbbell)': 'single_arm_db_row',
   'skullcrusher (barbell)': 'skull_crusher',
   'skull crusher (barbell)': 'skull_crusher',
+  'skullcrusher (dumbbell)': 'skull_crusher',
+  'triceps rope pushdown': 'tricep_pushdown',
+  'chest fly (dumbbell)': 'fly_db',
+  'incline chest fly (dumbbell)': 'fly_incline_db',
+  'reverse fly (dumbbell)': 'rear_fly_db',
+  'rear delt reverse fly (dumbbell)': 'rear_fly_db',
+  'reverse fly (cable)': 'rear_fly_cable',
+  'rear delt reverse fly (cable)': 'rear_fly_cable',
+  'bench press (smith machine)': 'bp_smith',
+  'incline bench press (smith machine)': 'bp_incline_smith',
+  'overhead press (smith machine)': 'ohp_smith',
+  'ab wheel': 'ab_wheel',
+  'back extension': 'hyperextension',
   'running': 'run_out',
   'running (treadmill)': 'run_tread',
   'treadmill': 'run_tread',
@@ -808,10 +823,17 @@ interface ExerciseMatch {
   variant?: ExerciseVariant;
 }
 
+/** 括号里的器材和动作本身的不同时，记到当前做法表里同器材的做法；没有这个做法就算对不上 */
+function withEquip(d: ExerciseDefinition, eq: string | undefined): ExerciseMatch | undefined {
+  if (!eq || (d.equipment ?? '').toLowerCase() === eq.toLowerCase()) return { def: d };
+  const variant = d.variants?.find(v => variantAttrs(v)?.equipment.toLowerCase() === eq.toLowerCase());
+  return variant ? { def: d, variant } : undefined;
+}
+
 /**
  * 外来动作名 → fitlog 的动作定义（+ 做法）。先看已有的名字（用户之前导入 / 自建过同名的），
- * 再看手工表：括号里的器材和动作本身的不同时，记到当前做法表里同器材的做法，没有这个做法就不用这条。
- * 最后按词集合比对内置英文名和曾用名。
+ * 再看手工表（器材按 withEquip 核对），再按词集合比对内置英文名和曾用名（括号里的器材词算进去）。
+ * 最后去掉括号再比：内置英文名多半不带器材词（Romanian Deadlift、Hack Squat），器材同样按 withEquip 核对。
  * 拿不准就返回 undefined（调用方新建自定义动作）：名字剥完没剩可比的（emoji），或只剩器材词（「卧推 (Barbell)」
  * 曾经只剩 barbell），都不比 —— 否则会和同样剥空的名字判成相等，全并进同一个动作。
  */
@@ -822,19 +844,24 @@ function matchExercise(
 ): ExerciseMatch | undefined {
   const direct = findByName(srcName);
   if (direct) return { def: direct };
+  const suffix = /\(([^)]*)\)\s*$/.exec(srcName);
+  const eq = suffix ? SUFFIX_EQUIP[suffix[1].trim().toLowerCase()] : undefined;
   const known = KNOWN[srcName.trim().toLowerCase()];
   const d = known ? defs.find(x => x.id === known) : undefined;
-  if (d) {
-    const suffix = /\(([^)]*)\)\s*$/.exec(srcName.toLowerCase())?.[1].trim();
-    const eq = suffix ? SUFFIX_EQUIP[suffix] : undefined;
-    if (!eq || (d.equipment ?? '').toLowerCase() === eq.toLowerCase()) return { def: d };
-    const variant = d.variants?.find(v => variantAttrs(v)?.equipment.toLowerCase() === eq.toLowerCase());
-    if (variant) return { def: d, variant };
-  }
+  const hit = d && withEquip(d, eq);
+  if (hit) return hit;
   const t = tokens(srcName);
   if (!t || t.split(' ').every(w => EQUIP_TOKENS.has(w))) return undefined;
-  const def = defs.find(x => tokens(x.name.en) === t || (x.aliases ?? []).some(a => tokens(a) === t));
-  return def ? { def } : undefined;
+  const named = (n: string) => defs.filter(x => tokens(x.name.en) === n || (x.aliases ?? []).some(a => tokens(a) === n));
+  const def = named(t)[0];
+  if (def) return { def };
+  const base = suffix && eq !== undefined ? tokens(srcName.slice(0, suffix.index)) : '';
+  if (!base || base.split(' ').every(w => EQUIP_TOKENS.has(w))) return undefined;
+  for (const x of named(base)) {
+    const m = withEquip(x, eq);
+    if (m) return m;
+  }
+  return undefined;
 }
 
 /**

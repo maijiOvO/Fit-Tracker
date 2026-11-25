@@ -13,7 +13,8 @@ import {
   MoreHorizontal,
   Play,
 } from 'lucide-react';
-import { RESUME_WINDOW_MS } from '../utils/sessionDate';
+import { canResumeFinished } from '../utils/sessionDate';
+import { readFinishMarks } from '../../services/finishMarks';
 import { Language, WorkoutSession } from '../../types';
 import { useLongPress } from '../hooks/useLongPress';
 import { LongPressAffordance } from './LongPressAffordance';
@@ -26,10 +27,6 @@ import { sessionDurationMin } from '../utils/sessionDuration';
 import { mergeableIds } from '../utils/sessionMerge';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useBackClose } from '../hooks/useBackClose';
-
-/** 刚结束 10 分钟内：长按菜单给「继续这场」 */
-const justEnded = (w: { finishedAt?: string }) =>
-  !!w.finishedAt && Date.now() - new Date(w.finishedAt).getTime() < RESUME_WINDOW_MS;
 
 export type TimelineGranularity = 'day' | 'week' | 'month' | 'year';
 
@@ -596,6 +593,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
   const isCN = lang === Language.CN;
   /** 给「并入上一场」的场：前一场离得够近、没跨馆（utils/sessionMerge.mergeableIds） */
   const mergeable = useMemo(() => mergeableIds(workouts), [workouts]);
+  // 长按菜单的「继续这场」：只给刚在这台设备上点了结束的场（utils/sessionDate.canResumeFinished）
+  const finishMarks = readFinishMarks();
+  const now = Date.now();
   const [expandedWorkoutId, setExpandedWorkoutId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
 
@@ -728,7 +728,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onMerge={() => onMergeIntoPrevious(w.id)}
                   onCopy={() => onCopyToToday(w.id)}
                   onResume={() => onResumeFinished(w.id)}
-                  canResume={justEnded(w)}
+                  canResume={canResumeFinished(w, finishMarks, now)}
                   canMerge={mergeable.has(w.id)}
                 />
               ))}
@@ -792,7 +792,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
                   onMerge={() => onMergeIntoPrevious(w.id)}
                   onCopy={() => onCopyToToday(w.id)}
                   onResume={() => onResumeFinished(w.id)}
-                  canResume={justEnded(w)}
+                  canResume={canResumeFinished(w, finishMarks, now)}
                   canMerge={mergeable.has(w.id)}
                   merged={false}
                 />

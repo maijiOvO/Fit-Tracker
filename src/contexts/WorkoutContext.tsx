@@ -12,6 +12,7 @@ import { getDataEnv } from '../../services/appEnv';
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { createWorkbenchSaver, EDIT_DRAFT_ID, findInProgress, isStale, lastChangeMs, staleRows } from '../../services/workbenchPersist';
 import { recordTombstone } from '../../services/fitlogTombstones';
+import { markFinished } from '../../services/finishMarks';
 import { hasUserInput, toRecorded } from '../utils/workbench';
 import { PLAN_DRAFTS_KEY } from '../utils/planDrafts';
 import { restampStaleStart, settleStart } from '../utils/sessionDate';
@@ -396,15 +397,18 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
   const persistCurrentWorkout = useCallback(() => autoPersist(), []);
 
   const finishWorkout = useCallback(async (workout: WorkoutSession) => {
+    const at = new Date().toISOString();
     const completed: WorkoutSession = {
       ...workout,
       status: 'completed',
-      finishedAt: new Date().toISOString(),
+      finishedAt: at,
       updatedAt: new Date().toISOString(),
     };
     finishingIdRef.current = workout.id;
     try {
       await db.save('workouts', completed);
+      // 刷新列表之前记下：时间线随刷新重画时就要认得这场是刚点结束的（「继续这场」）
+      markFinished(workout.id, at);
       // 刷新列表，确保 Timeline 立即反映
       await refreshFromDb();
       scheduleDebouncedFitlogPush();

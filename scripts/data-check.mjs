@@ -1332,6 +1332,23 @@ await t('导入：带器材后缀的名字记到同器材的做法，动作没�
   assert.deepEqual(r.newDefs.map(d => d.name.en), ['Preacher Curl (Dumbbell)']);
 });
 
+// 防真机测试：Hevy 的「Pull Up」「Romanian Deadlift (Dumbbell)」认不出、每次导入都新建自定义动作；
+// 内置英文名不带器材词（Hack Squat、Close-Grip Bench Press）时带括号的名字整串比不上。后三个是对照：器材 / 动作对不上的照旧新建
+// （辅助引体的重量是辅助量，记到加重引体上会变成 +40）
+await t('导入：Hevy / Strong 常见名认回内置动作（引体、哑铃罗马尼亚硬拉落到哑铃做法、去掉括号器材再比）；对不上的照旧新建', () => {
+  const r = importAs([
+    'Pull Up', 'Romanian Deadlift (Dumbbell)', 'Hack Squat (Machine)', 'Bench Press - Close Grip (Barbell)', 'Arnold Press (Dumbbell)',
+    'Triceps Rope Pushdown', 'Chest Fly (Dumbbell)', 'Bench Press (Smith Machine)', 'Skullcrusher (Dumbbell)', 'Ab Wheel',
+    'Deadlift (Dumbbell)', 'Pull Up (Assisted)', 'Sumo Deadlift (Barbell)',
+  ]);
+  assert.deepEqual(recs(r).map(e => [e.name, e.variantId]), [
+    ['加重引体向上', undefined], ['罗马尼亚硬拉', 'eq_db'], ['哈克深蹲', undefined], ['窄距杠铃卧推', undefined], ['阿诺德推举', undefined],
+    ['肱三头肌下压', undefined], ['哑铃飞鸟', undefined], ['史密斯平板卧推', undefined], ['仰卧臂屈伸', 'eq_db'], ['健腹轮', undefined],
+    ['Deadlift (Dumbbell)', undefined], ['Pull Up (Assisted)', undefined], ['Sumo Deadlift (Barbell)', undefined],
+  ]);
+  assert.deepEqual(r.newDefs.map(d => d.name.en), ['Deadlift (Dumbbell)', 'Pull Up (Assisted)', 'Sumo Deadlift (Barbell)']);
+});
+
 // 防：做法写死成内置的 eq_machine、或弹窗拿没合覆盖层的动作表 —— 用户删掉的做法还往上记、
 // 用户早先自建的同器材做法（combineVariants 认成同一个）记不上
 await t('导入：做法按合上覆盖层后的做法表认 —— 删掉的不记、自建的同器材做法认它', () => {
@@ -1445,16 +1462,16 @@ await t('馆连着改名、前一次写库失败：A→B 标记还挂着时改 B
 // 防 C33#6：并入之后再导同一份文件，按完整名字解析会把已导入的记录名改写成目标名（落进标准）、或另建一个重复动作
 await t('CSV 导入：并入之后再导同一份 Strong 文件，记录名和第一次相同、落在并入做法上，不另建动作', () => {
   const csv = `Date;Workout Name;Duration;Exercise Name;Set Order;Weight;Reps;Distance;Seconds;Notes;Workout Notes;RPE
-2024-03-14 18:05:12;Pull;1h;Pull Up;1;0;10;0;0;;;
+2024-03-14 18:05:12;Pull;1h;Chin Up;1;0;10;0;0;;;
 2024-03-14 18:05:12;Pull;1h;Incline Bench Press (Dumbbell);1;30;10;0;0;;;
 `;
   const plan = D.parseImportCsv(csv);
   const r1 = D.materialize(plan, importOpts(plan));
   const names1 = recs(r1).map(e => e.name);
-  assert.deepEqual(names1, ['Pull Up', '上斜哑铃卧推']);
+  assert.deepEqual(names1, ['Chin Up', '上斜哑铃卧推']);
   const customs = r1.newDefs;
-  const pull = customs.find(d => d.name.en === 'Pull Up').id;
-  // 用户把 Pull Up 并进加重引体向上、上斜哑铃卧推并进哑铃卧推
+  const pull = customs.find(d => d.name.en === 'Chin Up').id;
+  // 用户把 Chin Up 并进加重引体向上、上斜哑铃卧推并进哑铃卧推
   let st = { customs, overrides: {} };
   st = D.planMerge(D.DEFAULT_EXERCISES, st, pull, 'pu_weighted', { lang: 'cn', named: l => l ?? [], newId: 'v_m1' }).state;
   st = D.planMerge(D.DEFAULT_EXERCISES, st, 'bp_incline_dumbbell', 'bp_dumbbell', { lang: 'cn', named: l => l ?? [], newId: 'v_m2' }).state;

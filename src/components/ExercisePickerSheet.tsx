@@ -32,12 +32,12 @@ import { useExercisePickerData, PickerAxis, matchAxis, equipmentsOf, rowLastSess
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useGymScopedPR } from '../hooks/useLoadKind';
 import { EQ_BARBELL, RESISTANCES, RESISTANCE_NAMES, defaultResistance, resistanceSelectable, variantAttrs, type Resistance } from '../utils/exerciseAttrs';
-import { agoLabel, formatSet } from '../utils/liftDisplay';
+import { agoLabel, bestSetText, formatSet } from '../utils/liftDisplay';
 import { useKeyboardInset } from '../hooks/useKeyboardInset';
 import { useLongPress } from '../hooks/useLongPress';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { haptic, H } from '../utils/haptics';
-import type { AltCombo, LastHit } from '../utils/prefillSource';
+import { bestSetIn, type AltCombo, type LastHit } from '../utils/prefillSource';
 import { LongPressAffordance } from './LongPressAffordance';
 import { ExerciseActionPanel } from './ExerciseActionPanel';
 import { EditPartsPanel } from './EditPartsPanel';
@@ -315,6 +315,7 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     attrsOf,
     variantIdOf,
     variantLabel,
+    getActiveMetrics,
   } = useExercisePrefs();
   const { dismissToasts } = useUiOverlay();
   const { lang, unit, appPrefs, changeAppPrefs } = useUserSettingsContext();
@@ -862,7 +863,11 @@ export const ExercisePickerSheet: React.FC<ExercisePickerSheetProps> = ({
     const { session: s } = last;
     // 母行不分做法：上次是哪个做法就写出来（点下去带的就是它）
     const vName = !vid && last.variantId ? variantLabel(s.exercise) : '';
-    const head = [vName, s.top ? formatSet(s.top, unit, s.signed, isCn) : ''].filter(Boolean).join(' ');
+    // 挑哪一组、怎么写同刊末页「比上次」：平板支撑写撑了多久、有氧写「30:00 5 km」，不再一律写最重那组的重量 × 次数
+    const metrics = getActiveMetrics(ex.name[lang]);
+    const best = bestSetIn(s.cards, s.signed, metrics);
+    const set = best ? bestSetText(best, metrics, unit, s.signed, isCn, lang) : s.top ? formatSet(s.top, unit, s.signed, isCn) : '';
+    const head = [vName, set].filter(Boolean).join(' ');
     return `${isCn ? '上次' : 'Last'} ${head ? `${head} · ` : ''}${agoLabel(s.ts, isCn)}`;
   };
 

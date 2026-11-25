@@ -39,7 +39,7 @@ await build({
     contents: [
       "export * from './src/utils/weightSummary.ts';",
       "export { stampsInUnit } from './src/utils/prDetect.ts';",
-      "export { findLastIn, findLastAltGroup, altCombosByName, altPartners, planRowPicks, vsLastSession, sourceCards, prefillSourceLookup } from './src/utils/prefillSource.ts';",
+      "export { findLastIn, findLastAltGroup, altCombosByName, altPartners, planRowPicks, vsLastSession, sourceCards, prefillSourceLookup, bestSetIn } from './src/utils/prefillSource.ts';",
       "export { migrateCableTags } from './src/utils/cableTagMigration.ts';",
       "export { migrateWarmRegions } from './src/utils/warmRegionMigration.ts';",
       "export { makeRounder, ownUnitOf, cardUnitOf, roundPrefill, reRoundPending, snapUntouched } from './src/hooks/useLoadRounder.ts';",
@@ -63,7 +63,7 @@ await build({
       "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
-      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired, restampStaleStart, settleStart, STALE_START_MS } from './src/utils/sessionDate.ts';",
+      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired, canResumeFinished, restampStaleStart, settleStart, STALE_START_MS } from './src/utils/sessionDate.ts';",
       "export { resolvePickedDate, stepMinute, msToNextLocalMidnight, monthDay } from './src/utils/dateUtils.ts';",
       "export { nextKeyboardGuess } from './src/utils/keyboardGuess.ts';",
       "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
@@ -669,6 +669,22 @@ t('撤销寿命：离开 9:59 不清、10:01 清；多伦多 23:55 → 次日 00
   }
 });
 
+// 防真机第 25 批：「继续这场」只看 finishedAt 离现在多近 —— 编辑旧训练把日期改到今天晚些时候，finishedAt 被压到现在，旧场冒出「继续这场」
+t('继续这场：只给这台设备上刚点结束、结束时刻没再改过的场；改日期被压到现在的旧场不给', () => {
+  const at = iso => Date.parse(iso);
+  const now = at('2026-11-25T04:45:00Z');
+  const old = { id: 'old', date: '2026-11-23T23:30:00Z', startTime: '2026-11-23T23:30:00Z', finishedAt: '2026-11-24T00:30:00Z', title: '', exercises: [] };
+  const edited = L.redateEdited(old, new Date(at('2026-11-25T04:55:00Z')), new Date(now));
+  assert.equal(edited.finishedAt, new Date(now).toISOString(), '前提：redateEdited 把 finishedAt 压到现在');
+  const a = { id: 'a', finishedAt: '2026-11-25T04:38:00.000Z' };
+  const b = { id: 'b', finishedAt: '2026-11-25T04:40:00.000Z' };
+  assert.equal(L.canResumeFinished(edited, [a, b], now), false, '刚点结束的是别的场');
+  assert.equal(L.canResumeFinished(edited, [{ id: 'old', finishedAt: old.finishedAt }], now), false, '这场以前点过结束，结束时刻后来被改了');
+  assert.equal(L.canResumeFinished(edited, [], now), false, '本机没记过');
+  assert.equal(L.canResumeFinished(a, [a, b], now), true, '结束 A 之后又结束了 B，A 照样能接回');
+  assert.equal(L.canResumeFinished(b, [a, b], at('2026-11-25T04:50:01Z')), false, '过了 10 分钟');
+});
+
 // ── 撞名动作的解析（name-index-order-dependent）────────────────────────
 t('名字索引：两个自建动作原名都是「悍马卧推」、一个改名成「曲肘蝴蝶机」—— 历史归现名还叫悍马卧推的那个，与自建列表顺序无关', () => {
   const def = (id, cn) => ({ id, name: { cn, en: cn }, bodyPart: 'subChest', tags: [], category: 'STRENGTH' });
@@ -1231,6 +1247,19 @@ t('卡头「上次」：只写记录项里有的 —— 有氧写「30:00 5 km�
   assert.equal(line('0', { id: 'a', duration: 1800, distance: 5 }, ['duration', 'distance']), '30:00 5 km');
   assert.equal(line('100', { id: 'b', weight: 100, reps: 5 }, ['weight', 'reps']), '100×5');
   assert.equal(line('30', { id: 'c', weight: 30, duration: 60 }, ['weight', 'duration']), '30 1:00');
+});
+
+// 防真机测试：选动作弹层每行的「上次」写最重那组的重量 × 次数，只记时长的平板支撑写成「上次 自重」
+t('选动作弹层的「上次」：挑法、写法同刊末页 —— 平板写撑得最久的「1:30」，有氧「30:00 5 km」，力量照旧最重一组「100×5」', () => {
+  const ex = sets => ({ id: 'e', name: 'x', sets: sets.map((s, i) => ({ id: `s${i}`, ...s })) });
+  const line = (cards, signed, metrics) => {
+    const b = L.bestSetIn(cards, signed, metrics);
+    return b && L.LDS.bestSetText(b, metrics, 'kg', signed, true, 'cn');
+  };
+  assert.equal(line([ex([{ duration: 60 }, { duration: 90 }, { duration: 75 }])], true, ['duration']), '1:30');
+  assert.equal(line([ex([{ duration: 1500, distance: 4 }, { duration: 1800, distance: 5 }])], false, ['duration', 'distance']), '30:00 5 km');
+  assert.equal(line([ex([{ weight: 90, reps: 8 }]), ex([{ weight: 100, reps: 3 }, { weight: 100, reps: 5 }])], false, ['weight', 'reps']), '100×5');
+  assert.equal(line([ex([{ weight: 30, duration: 60 }, { weight: 20, duration: 90 }])], false, ['weight', 'duration']), '30 1:00');
 });
 
 // ── 目标进度（审查 D7）：按起点算，减重也成立；力量 / 频率从训练记录现算 ─────────

@@ -17,7 +17,7 @@ import { PRHit, isCardio } from '../utils/prDetect';
 import { useCountUp } from '../hooks/useCountUp';
 import { haptic, H } from '../utils/haptics';
 import { plural } from '../utils/format';
-import { formatMetric, formatSet, gymLabel, metricUnit, metricsTail } from '../utils/liftDisplay';
+import { bestSetText, formatMetric, gymLabel, metricUnit } from '../utils/liftDisplay';
 import type { ColophonState } from '../hooks/useWorkoutMutations';
 import { useBackClose } from '../hooks/useBackClose';
 
@@ -191,11 +191,7 @@ export const WorkoutColophon: React.FC<Props> = ({
         <div className="anim-stagger mt-8 space-y-1 text-center" style={{ ['--i' as string]: 4 }} data-testid="colophon-vs-last">
           {vsLast.slice(0, VS_LAST_MAX).map((v, i) => {
             const u = unitLabel === 'lbs' ? 'lbs' : 'kg';
-            // 记重量 / 次数的写「100×5」，有氧接时长、距离（「30:00 5 km」），负重平板写「30 1:00」（审查 C85）
-            const text = (s: typeof v.now) =>
-              [v.metrics.includes('weight') || v.metrics.includes('reps') ? formatSet(s, u, v.signed, isCn) : '', metricsTail(s, v.metrics, u, lang)]
-                .filter(Boolean)
-                .join(' ');
+            const text = (s: typeof v.now) => bestSetText(s, v.metrics, u, v.signed, isCn, lang);
             return (
               <p key={i} className="text-label text-secondary">
                 {v.name}{' '}

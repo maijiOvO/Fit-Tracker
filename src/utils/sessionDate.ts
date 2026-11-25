@@ -123,3 +123,17 @@ export const RESUME_WINDOW_MS = 10 * 60 * 1000;
  */
 export const undoLogExpired = (hiddenAt: number, now: number): boolean =>
   now - hiddenAt > RESUME_WINDOW_MS || localYmd(new Date(hiddenAt)) !== localYmd(new Date(now));
+
+/** 这台设备上点「结束」的一场：id 和当时写下的 finishedAt（services/finishMarks 存在本机） */
+export interface FinishMark {
+  id: string;
+  finishedAt: string;
+}
+
+/**
+ * 时间线给不给「继续这场」：只给在这台设备上真点了结束、结束时刻之后没再被改过的场，且还在 RESUME_WINDOW_MS 内。
+ * 光看 finishedAt 离现在多近不够：编辑旧训练把日期改到今天、时刻晚于现在，redateEdited 把 finishedAt 压到现在，
+ * 旧场就被当成刚结束（真机测试）。自动收尾（settle*）的场同理不算：用户没点结束。
+ */
+export const canResumeFinished = (w: Pick<WorkoutSession, 'id' | 'finishedAt'>, marks: FinishMark[], now: number): boolean =>
+  !!w.finishedAt && now - Date.parse(w.finishedAt) < RESUME_WINDOW_MS && marks.some(m => m.id === w.id && m.finishedAt === w.finishedAt);
