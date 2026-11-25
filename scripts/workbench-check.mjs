@@ -281,6 +281,33 @@ t('不带正负的卡：递减档上抄来的旧辅助号在平移时清掉，�
   assert.equal(chain(exs), '-15/-20');
 });
 
+t('不带正负的卡：母组和档都记着旧辅助号，差值也按看到的数算（横拖 / 打字、改母组 / 改档，D9 审查）', () => {
+  // 防的错：差值走 signedKg 读到母组上的旧号 —— 母组 50 → 55 算成 +105（档 40 变 145）、改第一档 50 → 45 算成 +5 或 −95
+  // （下一档 40 变 45 或被截到 0），手改过的档被当成递增、拽到母组上。旧版 toGhostSets 抄号时母组和档是一起带号的
+  const A = (id, w, extra = {}) => ({ id, weight: w, reps: 5, bodyweightMode: 'assisted', ...extra });
+  const mk = (subs, parent = 60) => [{ id: 'A', name: 'A', category: 'STRENGTH', sets: [{ ...A('A1', parent), ghost: true, subSets: subs }] }];
+  const plain = exs => exs[0].sets[0].subSets.map(x => `${x.weight}${x.bodyweightMode ? '!' : ''}`).join('/');
+  const p = { bodyweightMode: undefined };
+  // 横拖 / ± 母组 50 → 55：档 40 → 45
+  let exs = W.applySetUpdate(mk([A('d1', 40)], 50), rA('A1'), { weight: 55, ...p });
+  assert.equal(plain(exs), '45');
+  // 母组打字 50 → 55 再离开：界面传的 base 是看到的 50
+  exs = W.applySetUpdate(mk([A('d1', 40)], 50), rA('A1'), { weight: 55, ...p, holdFollow: true });
+  exs = W.applySetUpdate(exs, rA('A1'), { followFrom: { kg: 50 } });
+  assert.equal(plain(exs), '45');
+  // 横拖第一档 50 → 45：60→50→40 变成 60→45→35
+  const drag = [{ ...A('d1', 45), ...p }, A('d2', 40)];
+  exs = W.applySetUpdate(mk([A('d1', 50), A('d2', 40)]), rA('A1'), { subSets: drag });
+  assert.equal(plain(exs), '45/35');
+  // 第一档打字 50 → 45 再离开
+  exs = W.applySetUpdate(mk([A('d1', 50), A('d2', 40)]), rA('A1'), { subSets: drag, holdFollow: true });
+  exs = W.applySetUpdate(exs, rA('A1'), { followFrom: { kg: 50, sub: 0 } });
+  assert.equal(plain(exs), '45/35');
+  // 手改过的 40 档（递减）：母组 50 → 55 不越过它，原地不动
+  exs = W.applySetUpdate(mk([{ id: 'd1', weight: 40, reps: 5, touched: { weight: true } }], 50), rA('A1'), { weight: 55, ...p });
+  assert.equal(plain(exs), '40');
+});
+
 t('底稿：不带正负的卡不抄组上的旧号（母组、递减档都清），重量按看到的数；带正负的卡号照抄（审查第 19 批）', () => {
   // 防的错：换了器材 / 关了带正负，没动过的底稿组还记着辅助，入册后纪录一直按 0 比
   const last = { id: 'L', weight: 30, reps: 8, bodyweightMode: 'assisted', plateUnit: 'kg', subSets: [{ id: 'Ld', weight: 35, reps: 6, bodyweightMode: 'assisted' }] };

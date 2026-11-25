@@ -340,25 +340,27 @@ export function applySetUpdate(exs: Exercise[], r: RowRef, raw: SetUpdate, snapF
     // 打完结算：值已经在打字时写进去了，这里只按总差值带这一组自己的递减档
     if (followFrom) {
       if (followFrom.sub === undefined) {
-        const shift = signedKg(edited, e) - followFrom.kg;
-        const snapF = typedSnap(snap, signedKg(edited, e));
-        sets[i] = shiftSubs(edited, edited, shift, e, !!edited.bodyweightMode, snapF, followFrom.kg);
+        const signed = !!edited.bodyweightMode;
+        const kg = rowKg(signed, edited, e);
+        sets[i] = shiftSubs(edited, edited, kg - followFrom.kg, e, signed, typedSnap(snap, kg), followFrom.kg);
       } else {
         const j = followFrom.sub;
         const sub = edited.subSets?.[j];
         if (sub) {
-          const oldKgs = rowKgs(edited, e);
+          const signed = sub.bodyweightMode !== undefined;
+          const kg = rowKg(signed, sub, e, edited);
+          const oldKgs = rowKgs(edited, e, signed);
           oldKgs[j + 1] = followFrom.kg;
-          sets[i] = shiftLowerSubs(edited, j, signedKg(sub, e, edited) - followFrom.kg, e, oldKgs, typedSnap(snap, signedKg(sub, e, edited)));
+          sets[i] = shiftLowerSubs(edited, j, kg - followFrom.kg, e, signed, oldKgs, typedSnap(snap, kg));
         }
       }
       return { ...e, sets };
     }
 
-    // 重量的变化量（带符号的 kg，跨过 0 也算得对）：这一组的递减档平移这么多
+    // 重量的变化量（rowKg：带正负的卡按带符号的 kg，跨过 0 也算得对；不带的按看到的数）：这一组的递减档平移这么多
     // 带号＝带正负的卡写的：不带正负的卡补丁里是 bodyweightMode: undefined（清旧号），不能按 in 算成带正负
     const signedUpd = updates.bodyweightMode !== undefined;
-    const shift = 'weight' in updates && !holdFollow ? signedKg(edited, e) - signedKg(before, e) : 0;
+    const shift = 'weight' in updates && !holdFollow ? rowKg(signedUpd, edited, e) - rowKg(signedUpd, before, e) : 0;
     if (shift) sets[i] = shiftSubs(edited, before, shift, e, signedUpd, snap);
     if (signedUpd && !('weight' in updates)) {
       // 只换号：自己的递减档保持差值跟过去（辅助 20 → 辅助 25 换成负重 20 → 负重 15），不是留在原地差出 45
@@ -375,24 +377,36 @@ function cascadeEditedSub(s: SetLog, before: SetLog, ex: Exercise, snap?: (kg: n
   const subs = s.subSets ?? [];
   if (olds.length !== subs.length) return s;
   const j = subs.findIndex((nu, k) => olds[k].id === nu.id && signedKg(nu, ex, s) !== signedKg(olds[k], ex, before));
-  return j < 0 ? s : shiftLowerSubs(s, j, signedKg(subs[j], ex, s) - signedKg(olds[j], ex, before), ex, rowKgs(before, ex), snap);
+  if (j < 0) return s;
+  const signed = subs[j].bodyweightMode !== undefined;
+  const shift = rowKg(signed, subs[j], ex, s) - rowKg(signed, olds[j], ex, before);
+  return shiftLowerSubs(s, j, shift, ex, signed, rowKgs(before, ex, signed), snap);
 }
 
 /**
  * 一组里第 j 档下面、重量没改过的档平移 shift（同一组的递减链保持差值）。
  * 带不带正负看改的那一档：带正负的卡写重量总带着号，不带的卡写的是 bodyweightMode: undefined（setWrite.weightFromShown）
  */
-function shiftLowerSubs(s: SetLog, j: number, shift: number, ex: Exercise, oldKgs: number[], snap?: (kg: number) => number): SetLog {
+function shiftLowerSubs(
+  s: SetLog, j: number, shift: number, ex: Exercise, signed: boolean, oldKgs: number[], snap?: (kg: number) => number,
+): SetLog {
   if (!shift || !s.subSets) return s;
-  const signed = s.subSets[j].bodyweightMode !== undefined;
   const subSets = s.subSets.map((sub, k) =>
     k <= j || sub.touched?.weight ? sub : shiftRow(sub, shift, ex, signed, s, snap),
   );
-  return holdTouchedSubs({ ...s, subSets }, oldKgs, ex, j + 1);
+  return holdTouchedSubs({ ...s, subSets }, oldKgs, ex, signed, j + 1);
 }
 
-/** 一组各行带符号的 kg：[母组, 第 1 档, 第 2 档 …] */
-const rowKgs = (s: SetLog, ex: Exercise): number[] => [signedKg(s, ex), ...(s.subSets ?? []).map(x => signedKg(x, ex, s))];
+/**
+ * 一行的 kg，差值、平移、比方向都在这个数上算。带正负的卡：带符号的 kg；不带的卡：看到的数，
+ * 组上从底稿抄来的旧号不算（D9 审查：按 signedKg 算，母组还记着辅助 50 时改成 55，差值成了 105，档 40 跳到 145）
+ */
+const rowKg = (signed: boolean, x: SetLog | SubSetLog, ex: Exercise, parent?: SetLog): number =>
+  signed ? signedKg(x, ex, parent) : Number(x.weight) || 0;
+
+/** 一组各行的 kg（rowKg）：[母组, 第 1 档, 第 2 档 …] */
+const rowKgs = (s: SetLog, ex: Exercise, signed: boolean): number[] =>
+  [rowKg(signed, s, ex), ...(s.subSets ?? []).map(x => rowKg(signed, x, ex, s))];
 
 /** 手打的数不在格子上（snap 会挪它）：跟着的组原样平移，不吸格 —— 打 61.2 后面就是 61.2，不是 61.25（2026-11-18 用户定） */
 const typedSnap = (snap: ((kg: number) => number) | undefined, typedKg: number) =>
@@ -403,12 +417,12 @@ const typedSnap = (snap: ((kg: number) => number) | undefined, typedKg: number) 
  * 贴着上一行，本来的数记在 want 里，上一行让开了就回去（2026-11-18）。只看第 from 档及以后。
  * oldKgs＝改之前各行的数（rowKgs），用来认它本来是递减还是递增。
  */
-function holdTouchedSubs(next: SetLog, oldKgs: number[], ex: Exercise, from = 0): SetLog {
+function holdTouchedSubs(next: SetLog, oldKgs: number[], ex: Exercise, signedCard: boolean, from = 0): SetLog {
   if (!next.subSets?.length || oldKgs.length !== next.subSets.length + 1) return next;
-  let prevNew = signedKg(next, ex);
+  let prevNew = rowKg(signedCard, next, ex);
   let changed = false;
   const subSets = next.subSets.map((sub, k) => {
-    const cur = signedKg(sub, ex, next);
+    const cur = rowKg(signedCard, sub, ex, next);
     let out = sub;
     if (k >= from && sub.touched?.weight) {
       const target = sub.want ?? cur;
@@ -418,12 +432,14 @@ function holdTouchedSubs(next: SetLog, oldKgs: number[], ex: Exercise, from = 0)
       const v = crossed ? prevNew : target;
       if (v !== cur || crossed !== (sub.want !== undefined)) {
         const { want: _w, ...rest } = sub;
-        const signed = !!sub.bodyweightMode || !!next.bodyweightMode || v < 0;
-        out = { ...rest, ...(signed ? fromSignedKg(v) : { weight: Math.max(0, v) }), ...(crossed ? { want: target } : {}) };
+        const signed = signedCard && (!!sub.bodyweightMode || !!next.bodyweightMode || v < 0);
+        // 不带正负的卡：档上的旧号一并清掉（同 shiftRow）
+        const w = signed ? fromSignedKg(v) : { weight: Math.max(0, v), bodyweightMode: undefined };
+        out = { ...rest, ...w, ...(crossed ? { want: target } : {}) };
         changed = true;
       }
     }
-    prevNew = signedKg(out, ex, next);
+    prevNew = rowKg(signedCard, out, ex, next);
     return out;
   });
   return changed ? { ...next, subSets } : next;
@@ -469,10 +485,10 @@ function shiftSubs(
   next: SetLog, prev: SetLog, shift: number, ex: Exercise, signed: boolean, snap?: (kg: number) => number, oldParentKg?: number,
 ): SetLog {
   if (!shift || !next.subSets?.length) return next;
-  const oldKgs = rowKgs(prev, ex);
+  const oldKgs = rowKgs(prev, ex, signed);
   if (oldParentKg !== undefined) oldKgs[0] = oldParentKg;
   const subSets = next.subSets.map(sub => (sub.touched?.weight ? sub : shiftRow(sub, shift, ex, signed, prev, snap)));
-  return holdTouchedSubs({ ...next, subSets }, oldKgs, ex);
+  return holdTouchedSubs({ ...next, subSets }, oldKgs, ex, signed);
 }
 
 /** 退回待做：只给指针正上方那一组（刚做完的那组），值保留 */
