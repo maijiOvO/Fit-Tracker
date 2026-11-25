@@ -1,5 +1,6 @@
 import type { WorkoutSession } from '../../types';
 import { localYmd } from './dateUtils';
+import { MAX_MIN } from './sessionDuration';
 import { retitleForDate } from './workbench';
 
 /** 这一场之前练的（按 date，不含它自己）：判纪录、排期号、找「比上次」都只能看这场那天之前的 */
@@ -29,26 +30,33 @@ export function redateLiveSession(w: WorkoutSession, date: Date): WorkoutSession
  * 以前只改 date，startTime 还停在原处，CSV 和时长读的是另一个时刻。
  * - 平移量按整分钟对齐（picked − date 取整到分）：选择器给的是整分，直接 picked − date 会把差几毫秒的 startTime 显示成早一分钟；
  * - 平移后整场最晚的时刻不能晚于 now（审查 C25）：不然 finishedAt 落在未来，时间线会对旧训练给出「继续这场」；
+ *   只看离 date 12 小时以内的时刻。补录的场 finishedAt 是录入那一刻、旧版改过日期的场 startTime / finishedAt 还在实际练的那天，
+ *   拿它们算会把平移量扣光，选的日期不生效；这类时刻平移后落在未来就留在原处（本来就和 date 对不上）；
  * - 兜底标题跟着换成新日期（审查 C95）。
  */
 export function redateEdited(w: WorkoutSession, picked: Date, now: Date): WorkoutSession {
   const at = Date.parse(w.date);
+  const nearDate = (t: number) => Math.abs(t - at) <= MAX_MIN * 60_000;
   let delta = picked.getTime() - Math.floor(at / 60_000) * 60_000;
   const times = [w.date, w.startTime, w.finishedAt, w.endTime, ...w.exercises.map(e => e.exerciseTime)]
     .filter((s): s is string => !!s)
     .map(Date.parse)
-    .filter(n => !Number.isNaN(n));
+    .filter(n => !Number.isNaN(n) && nearDate(n));
   const over = Math.max(...times) + delta - now.getTime();
   if (over > 0) delta -= over;
+  const shift = (iso: string): string => {
+    const t = Date.parse(iso);
+    return nearDate(t) || t + delta <= now.getTime() ? shiftIso(iso, delta) : iso;
+  };
   const date = shiftIso(w.date, delta);
   return {
     ...w,
     date,
-    ...(w.startTime ? { startTime: shiftIso(w.startTime, delta) } : {}),
-    ...(w.finishedAt ? { finishedAt: shiftIso(w.finishedAt, delta) } : {}),
-    ...(w.endTime ? { endTime: shiftIso(w.endTime, delta) } : {}),
+    ...(w.startTime ? { startTime: shift(w.startTime) } : {}),
+    ...(w.finishedAt ? { finishedAt: shift(w.finishedAt) } : {}),
+    ...(w.endTime ? { endTime: shift(w.endTime) } : {}),
     title: retitleForDate(w.title, new Date(date)),
-    exercises: shiftExerciseTimes(w, delta),
+    exercises: w.exercises.map(e => (e.exerciseTime ? { ...e, exerciseTime: shift(e.exerciseTime) } : e)),
   };
 }
 

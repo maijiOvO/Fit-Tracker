@@ -1,7 +1,7 @@
 import type { WorkoutSession } from '../../types';
 
 /** 忘了结束的场：隔天才点结束，算出来十几个小时，不显示 */
-const MAX_MIN = 12 * 60;
+export const MAX_MIN = 12 * 60;
 
 /**
  * 一场练了多少分钟 —— 刊末页、时间线、CSV 三处同一口径（2026-10-27 批示：训练中不显示）。

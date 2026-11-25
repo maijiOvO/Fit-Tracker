@@ -1532,6 +1532,38 @@ t('编辑态改日期整场平移：date / startTime 同一分钟不漂、finish
   assert.equal(L.redateEdited({ ...w, title: '练胸' }, picked, now).title, '练胸');
 });
 
+t('编辑态改日期：离 date 超过 12 小时的时刻（补录的 finishedAt、旧版改过日期分叉的 startTime）不拖住平移，选的日期照样生效（C25 审查）', () => {
+  const L0 = (mo, d, h, mi = 0) => new Date(2026, mo - 1, d, h, mi);
+  const iso = (...a) => L0(...a).toISOString();
+  const hm = s => { const d = new Date(s); return `${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`; };
+  const now = L0(11, 24, 21);
+  // 11-24 20:00 训练中补录到 11-10 18:00：没有 startTime，结束时 finishedAt 写成录入那一刻
+  const backfill = {
+    id: 'b', title: '练腿', date: iso(11, 10, 18), finishedAt: iso(11, 24, 20), endTime: iso(11, 24, 20),
+    exercises: [{ id: 'e', exerciseTime: iso(11, 10, 18, 5), sets: [] }],
+  };
+  const b = L.redateEdited(backfill, L0(11, 15, 18), now);
+  assert.equal(hm(b.date), '11-15 18:0', '选的日期生效');
+  assert.equal(hm(b.exercises[0].exerciseTime), '11-15 18:5');
+  assert.ok(Date.parse(b.finishedAt) <= now.getTime(), 'finishedAt 不落在未来');
+  // 往前挪：同一段一起平移
+  const back = L.redateEdited(backfill, L0(11, 5, 18), now);
+  assert.equal(hm(back.date), '11-5 18:0');
+  assert.equal(Date.parse(back.finishedAt), Date.parse(backfill.finishedAt) - 5 * 86_400_000);
+  // 实际 11-20 练、旧版只把 date 改到了 10-15：现在改到 11-22
+  const forked = {
+    id: 'f', title: '练背', date: iso(10, 15, 18), startTime: iso(11, 20, 18), finishedAt: iso(11, 20, 19, 12),
+    exercises: [{ id: 'e', exerciseTime: iso(11, 20, 18, 5), sets: [] }],
+  };
+  const f = L.redateEdited(forked, L0(11, 22, 18), now);
+  assert.equal(hm(f.date), '11-22 18:0', '选的日期生效');
+  assert.ok(Date.parse(f.startTime) <= now.getTime() && Date.parse(f.finishedAt) <= now.getTime());
+  assert.equal(L.sessionDurationMin(f), 72, '时长不变');
+  // 选「现在」：整场贴着 date 的时刻照样不晚于现在
+  const toNow = L.redateEdited(backfill, now, now);
+  assert.ok(Date.parse(toNow.exercises[0].exerciseTime) <= now.getTime());
+});
+
 t('兜底标题：中英两种格式都认、不看当前语言，自定义标题不认；换日期保持原来的语言（C95）', () => {
   assert.equal(L.isDefaultTitle('训练 2026/11/23'), true);
   assert.equal(L.isDefaultTitle('Workout Nov 23, 2026'), true);
