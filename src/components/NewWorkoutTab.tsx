@@ -586,6 +586,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     // ⚠️ anim-tab-enter 动的是 transform，而带 transform 的元素会成为
     // position: fixed 子元素的包含块 —— 底部常驻栏与添加动作弹层的 inset-0
     // 会改为对着这个盒子解析，被顶出视口。所以它们必须留在这个包装层之外。
+    // 交替卡的面板（AlternatingCard 的 Panel，含这里的「和…交替做」）渲染在包装层里，所以它自己 portal 到 body。
     <>
       <div className="anim-tab-enter">
         {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}

@@ -101,7 +101,9 @@ export const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => 
 }) => {
   // 只在开着时渲染：挂上就登记一层，返回键先关它
   useBackClose(true, onClose);
-  return (
+  // 自己 portal 到 body：会被渲染进训练页 anim-tab-enter 的 transform 包装层（§7.1），就地渲染时 fixed 按整页定位、
+  // 还被 z-40 的底栏压住（点「取消」会点中底栏）
+  return createPortal(
     <div className="fixed inset-0 z-[90] bg-scrim flex items-end sm:items-center justify-center anim-fade" onClick={onClose} data-testid={testId}>
       <div
         className="bg-inset border-t sm:border border-divider w-full sm:max-w-sm max-h-[88%] overflow-y-auto rounded-t-sheet sm:rounded-card p-4 space-y-2 shadow-overlay"
@@ -121,7 +123,8 @@ export const Panel: React.FC<{ title: string; subtitle?: string; onClose: () => 
           {cancel}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

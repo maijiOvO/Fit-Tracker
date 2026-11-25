@@ -2,7 +2,9 @@
  * 安卓返回键（审查 B11）：先关最上面那一层（弹窗 / 弹层 / 确认框），没有了再退出编辑，再退回首页，
  * 最后才把 App 收到后台（minimizeApp，不是退出：进行中的训练原样留着）。恢复 / 导入正在写数据时不理返回键。
  *
- * 开着的层各自用 useBackClose 登记「返回键＝怎么关我」，后开的在上面；App.tsx 挂监听，按这张表一层层往下。
+ * 开着的层各自用 useBackClose 登记「返回键＝怎么关我」；App.tsx 挂监听，按这张表一层层往下，只关最后登记的那层。
+ * 「最后登记的＝看得见的最上层」只对用户从最上层点开的层成立：自己弹出来的层（DataSafetyHost 的备份引导）
+ * 可能落在已开着的层底下，却登记在栈顶。这种层必须等 openLayerCount() 归零再开。
  * 浏览器 / e2e 里没有返回键，这张表只是没人读，不影响任何东西。
  */
 import { useEffect, useRef } from 'react';
@@ -10,6 +12,21 @@ import { useEffect, useRef } from 'react';
 type Closer = { close: () => void };
 const stack: Closer[] = [];
 let blocked = 0;
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach(l => l());
+
+/** 现在登记着几层（给自己弹出来的层判断「有没有东西开着」） */
+export function openLayerCount(): number {
+  return stack.length;
+}
+
+/** 层数变了就通知；配 useSyncExternalStore 用 */
+export function subscribeLayers(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 /** 关最上面那一层；有可关的返回 true */
 export function closeTopLayer(): boolean {
@@ -36,9 +53,11 @@ export function useBackClose(open: boolean, onClose: (() => void) | undefined): 
     if (!open || !ref.current) return;
     const entry: Closer = { close: () => ref.current?.() };
     stack.push(entry);
+    notify();
     return () => {
       const i = stack.lastIndexOf(entry);
       if (i >= 0) stack.splice(i, 1);
+      notify();
     };
   }, [open]);
 }

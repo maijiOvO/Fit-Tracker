@@ -13,7 +13,7 @@ import { CHART_RANGES, rangeLabel } from '../utils/liftDisplay';
 import { type ChartRange } from '../utils/liftHistory';
 import { LiftList } from './LiftList';
 import { FeaturedLifts } from './FeaturedLifts';
-import { LiftDetailSheet } from './LiftDetailSheet';
+import { dropResume, LiftDetailSheet } from './LiftDetailSheet';
 import { TimelineView, type TimelineGranularity } from './TimelineView';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
@@ -89,6 +89,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     selectedPRProject && selectedPRProject !== '__WEIGHT__'
       ? lifts.find(l => l.key === selectedPRProject) ?? null
       : null;
+  // 选中的动作已经没有记录了（删光、那一场被接回工作台）：选中值当场清掉。详情开不开只由 lifts.find 推导，
+  // 不清的话这个动作以后再有记录（撤销、再练一次），详情会自己弹出来。'__WEIGHT__' 是体重卡的展开，不归这里管；
+  // 还在读库时 lifts 是空的，别误清。动作还在时不动（审查 B5：编辑回来详情还开着）
+  useEffect(() => {
+    if (hydration !== 'ready' || !selectedPRProject || selectedPRProject === '__WEIGHT__' || openLift) return;
+    dropResume();
+    setSelectedPRProject(null);
+  }, [selectedPRProject, openLift, hydration]);
   const { updateExerciseTime } = useExerciseTimeEditor();
   // 今天排了还没练的计划（审查 D6）：没有进行中的训练时，首页顶上直接给开练入口
   const { schedulesByDate } = useScheduleContext();

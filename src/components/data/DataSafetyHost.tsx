@@ -7,7 +7,7 @@
  *   - 承载从各处打开的「从备份恢复」「从 Strong / Hevy 导入」弹窗（openDataFlow）
  *   - 选文件夹时进程被回收、回来后补到的结果（appRestoredResult）：按用途接着开启备份，或直接出恢复摘要
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { FolderOpen, ShieldCheck } from 'lucide-react';
 import { App as CapApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -20,6 +20,7 @@ import { AUTO_BACKUP_FAILED_EVENT, maybeDailyBackup, type BackupErrorCode } from
 import { routeRestoredPick, type FolderRef } from '../../../services/fitlogFolder';
 import { storage } from '../../../services/appStorage';
 import { isDemo } from '../../../services/appEnv';
+import { openLayerCount, subscribeLayers } from '../../hooks/useBackClose';
 import { OPEN_DATA_FLOW_EVENT, useAdoptBackupFolder, useBackupState, useChooseBackupFolder, type DataFlow } from '../../hooks/useDataSafety';
 import { RestoreBackupModal } from './RestoreBackupModal';
 import { ImportCsvModal } from './ImportCsvModal';
@@ -94,13 +95,21 @@ export const DataSafetyHost: React.FC = () => {
     return () => window.removeEventListener(AUTO_BACKUP_FAILED_EVENT, on);
   }, [isCn, toast]);
 
-  // 第一次有了结束的训练、还没选文件夹 → 引导一次（只一次；之后设置页里一直有「未开启」的提示）
+  // 第一次有了结束的训练、还没选文件夹 → 引导一次（只一次；之后设置页里一直有「未开启」的提示）。
+  // 引导是自己弹出来的：有任何层开着（刊末页、首次说明、恢复 / 导入）就排队，等它们都收了再弹，
+  // 否则它落在刊末页底下却登记在返回键栈顶，一按返回就被静默关掉、再也不弹（useBackClose 头注释）。
+  // 等约 0.5 秒再复查一次：刊末页和 hasFinished 同一次提交生效，这里的 effect 先于刊末页登记跑，读到的层数还是 0；
+  // 这段延时也大于安卓连点间隔，收刊末页的第二下落不到「以后再说」上
   const hasFinished = workouts.some(w => w.finishedAt || w.status === 'completed');
+  const layers = useSyncExternalStore(subscribeLayers, openLayerCount);
   useEffect(() => {
-    if (!supported || folder || !hasFinished || isDemo() || flow) return;
+    if (!supported || folder || !hasFinished || isDemo() || flow || layers > 0) return;
     if (storage.getItem(PROMPTED_KEY) === '1') return;
-    setFlow('setup');
-  }, [supported, folder, hasFinished]);
+    const timer = window.setTimeout(() => {
+      if (openLayerCount() === 0) setFlow(f => f ?? 'setup');
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [supported, folder, hasFinished, layers]);
 
   const closeSetup = () => {
     storage.setItem(PROMPTED_KEY, '1');

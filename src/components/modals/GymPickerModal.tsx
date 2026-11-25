@@ -13,6 +13,7 @@
  * 开练先选馆（startMode，2026-10-21 用户定）：开新的一场先问「这场在哪个馆练」，选了 / 存了才开；
  * 一个馆都没有就直接进「新的馆」表单（新用户不用先去别处设馆）。关掉＝这次不开练。
  * 档案表单里有没存的改动时，点遮罩 / 返回键 / × 不关（提示一句），只有表单自己的「回到馆列表 / 先不练了」才放弃改动。
+ * 核对单位页上返回键 / × ＝「← 回去接着改」：退回表单，草稿原样。
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, MapPin, Plus } from 'lucide-react';
@@ -76,6 +77,8 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
   /** 表单里有没存的改动（GymProfileForm 报上来）；有的话点遮罩 / 返回键 / × 不关，表单里提示一句 */
   const dirtyRef = useRef(false);
   const [nudge, setNudge] = useState(false);
+  /** 表单停在核对单位页时报上来的「退回表单」；返回键 / × 先走它 */
+  const reviewBackRef = useRef<(() => void) | null>(null);
 
   /** 开练时一个馆都没有：直接进新建表单，表单就是整个弹层（关表单＝不开练） */
   const noGyms = options.length === 0 && Object.keys(profiles).length === 0;
@@ -102,8 +105,13 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
     return (
       <Modal
         isOpen={open}
-        // 返回键 / ×：有没存的改动就留在表单上提示一句（表单的草稿在 GymProfileForm 里，一关就没了），没改过同「回到馆列表」
-        onClose={() => (dirtyRef.current ? setNudge(true) : leaveForm())}
+        // 返回键 / ×：在核对单位页上＝「← 回去接着改」；在表单上有没存的改动就留着提示一句
+        // （表单的草稿在 GymProfileForm 里，一关就没了），没改过同「回到馆列表」
+        onClose={() => {
+          if (reviewBackRef.current) reviewBackRef.current();
+          else if (dirtyRef.current) setNudge(true);
+          else leaveForm();
+        }}
         title={editing ? (isCn ? `「${editing}」的器材` : `${editing} · gear`) : isCn ? '新的馆' : 'New gym'}
         size="sm"
         variant="sheet"
@@ -120,6 +128,9 @@ export const GymPickerModal: React.FC<GymPickerModalProps> = ({
           onBack={leaveForm}
           onDirty={d => {
             dirtyRef.current = d;
+          }}
+          onReview={back => {
+            reviewBackRef.current = back;
           }}
           unsavedHint={nudge}
           starting={formOnly}
@@ -363,6 +374,7 @@ function GymProfileForm({
   onBack,
   onSave,
   onDirty,
+  onReview,
   unsavedHint,
   starting = false,
 }: {
@@ -375,6 +387,8 @@ function GymProfileForm({
   onSave: (name: string, p: GymProfile) => void;
   /** 有没有没存的改动（每次变了报一次，卸载时报 false） */
   onDirty: (dirty: boolean) => void;
+  /** 进 / 出核对单位页时报一次：在核对页上给「退回表单」，不在报 null（卸载时也报 null） */
+  onReview: (back: (() => void) | null) => void;
   /** 有改动时想关掉表单：提示一句 */
   unsavedHint: boolean;
   /** 开练前一个馆都没有、直接进的这张表：存好就开练，退出就是这次先不练 */
@@ -385,6 +399,10 @@ function GymProfileForm({
   const [err, setErr] = useState('');
   /** 点了「存好」：先过一遍单位确认页（2026-11-24 用户定），那里确认了才真的存 */
   const [review, setReview] = useState(false);
+  useEffect(() => {
+    onReview(review ? () => setReview(false) : null);
+    return () => onReview(null);
+  }, [review]);
 
   const setUnit = (u: PlateUnit) => {
     if (p.plateUnit === u) return;

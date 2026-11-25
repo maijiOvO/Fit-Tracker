@@ -378,12 +378,13 @@ const SEEDED_STEPS = [
   ['seeded-plan-target-unit', ['seeded-load'], H],
   ['seeded-gym-profile-and-switch', ['seeded-load'], H],
   ['seeded-alt-combos', ['seeded-load'], H],
+  ['seeded-lift-detail-delete-last', ['seeded-load'], H],
 ];
 /** 分片：每片一个 context。按耗时大致摊平 */
 const SEEDED_SHARDS = [
   ['seeded-history-edit', 'seeded-sync-contract', 'seeded-profile-data'],
   ['seeded-picker-and-library', 'seeded-resumed-emptied-keeps-workout', 'seeded-alt-combos'],
-  ['seeded-plan-target-unit', 'seeded-gym-profile-and-switch'],
+  ['seeded-plan-target-unit', 'seeded-gym-profile-and-switch', 'seeded-lift-detail-delete-last'],
 ];
 
 const ONLY = parseOnly(process.env.E2E_ONLY);
@@ -1233,6 +1234,16 @@ const SEEDED = {
     const review = page.locator('[data-testid="gym-profile-review"]');
     await review.waitFor({ state: 'visible', timeout: 3_000 });
     if ((await readLs('fitlog_app_prefs'))?.gyms?.[gymName]?.plateUnit !== 'kg') throw new Error('profile saved before the unit review was confirmed');
+    // 核对页上按 ×（和返回键、Esc 同一个 onClose）＝「← 回去接着改」：回到表单、草稿还在、不冒过期的「改动还没存」、什么都没存（审查 C52）。
+    // review 是表单里的局部状态，弹层的 onClose 看不到它；这层接线下层测不到
+    await page.locator('[data-testid="gym-profile"]').getByLabel(/^关闭$|^Close$/).click();
+    await review.waitFor({ state: 'detached', timeout: 3_000 });
+    await form.waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await form.getByRole('button', { name: /^磅片$/ }).getAttribute('aria-pressed')) !== 'true') throw new Error('× on the unit review lost the draft');
+    if (await page.locator('[data-testid="gym-profile-unsaved"]').count()) throw new Error('× on the unit review left a stale "unsaved" hint on the form');
+    if ((await readLs('fitlog_app_prefs'))?.gyms?.[gymName]?.plateUnit !== 'kg') throw new Error('× on the unit review saved the profile');
+    await page.locator('[data-testid="gym-profile-save"]').click();
+    await review.waitFor({ state: 'visible', timeout: 3_000 });
     if (await review.locator('[data-testid="gym-review-align"]').count()) throw new Error('all steps follow the plates: nothing to align');
     await review.locator('[data-testid="gym-review-unit-fixedBar-kg"]').click();
     await review.locator('[data-testid="gym-review-align"]').click();
@@ -1295,7 +1306,50 @@ const SEEDED = {
     return `kg gym → kg · typed 60 → lb plates ${w2.join('/')} · ${GA} ${wA} → ${GB} ${wB} → ${GC} ${wC} (from ${GB})`;
   },
 
-  // 防两种下层测不到的错：搭配从列表到添加入口的四层传参断掉；点行之后换搭配，把刚带进来的搭档当「本场已有」弄丢
+  // 按动作详情里删掉一个动作的最后一条记录、再撤销拿回来：详情不自己弹出来（审查 C91）。
+  // 防的是 App 层的选中值活得比数据久（详情开不开只由 lifts.find 推导），跨页状态，下层测不到；
+  // 顺带覆盖「详情里删记录 → 全局撤销拿回」这条数据路径
+  'seeded-lift-detail-delete-last': async ({ page, remote, quiesce, relaunch, toDashboard }) => {
+    const X = 'E2E 孤单动作';
+    await quiesce();
+    const lone = seedWorkout('seed_lone', torontoAt(torontoYmd(2), 8, 0), 'E2E 孤单', X, [[30, 10]]);
+    // 再带一个动作：删 X 不是删整场，不走确认框
+    lone.exercises.push({ id: 'seed_lone_ex2', name: '杠铃平板卧推', category: 'STRENGTH', sets: [{ id: 'seed_lone_s2', weight: 50, reps: 5 }] });
+    remote.snapshot = { ...remote.snapshot, workouts: [...(remote.snapshot.workouts ?? []), lone] };
+    await relaunch();
+    const loneHasX = () =>
+      page.evaluate(async () => (await window.__fitlog.backup.build()).snapshot.workouts.find(w => w.id === 'seed_lone')?.exercises.some(e => e.id === 'seed_lone_ex') ?? false);
+    await page.getByRole('button', { name: /^(按动作|By exercise)$/ }).click();
+    const row = page.locator('[data-testid="lift-list"] [data-testid="lift-row"]', { hasText: X });
+    const detail = page.locator('[data-testid="lift-detail"]');
+    try {
+      await row.locator('button').last().click();
+      await detail.waitFor({ state: 'visible', timeout: 3_000 });
+      await detail.locator('[data-testid="lift-session"] button[aria-expanded]').first().click();
+      await detail.getByRole('button', { name: /^(删除这条|Delete entry)$/ }).click();
+      await detail.waitFor({ state: 'detached', timeout: 3_000 });
+      await row.waitFor({ state: 'detached', timeout: 3_000 });
+      if (await loneHasX()) throw new Error('deleting the last entry did not remove it from the db');
+      // 正向对照：数据真的回来了，下面「详情没弹出来」才有意义
+      await page.locator('[data-testid="global-undo"]').click();
+      await row.waitFor({ state: 'visible', timeout: 3_000 });
+      await until(loneHasX, 'the undone entry back in the db');
+      await settle(page);
+      if (await detail.count()) throw new Error('the lift detail reopened by itself after its last entry came back');
+    } finally {
+      // 视图记在 storage 里，会影响同一片后面的步骤（详情若自己弹了出来会挡住切换，先关掉，免得报错被点击超时盖住）
+      if (await detail.count()) {
+        await page.keyboard.press('Escape');
+        await detail.waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
+      }
+      await page.getByRole('button', { name: /^(按时间|Timeline)$/ }).click();
+      await toDashboard();
+    }
+    return `${X}: delete last entry → detail closed · undo → entry back, detail stays closed`;
+  },
+
+  // 防三种下层测不到的错：搭配从列表到添加入口的四层传参断掉；点行之后换搭配，把刚带进来的搭档当「本场已有」弄丢；
+  // 交替卡的面板改回就地渲染（落进 transform 包装层，被底栏压住）
   'seeded-alt-combos': async ({ page, startWorkout }) => {
     await startWorkout();
     await page.locator('[data-testid="open-picker-sheet"]').click();
@@ -1314,8 +1368,23 @@ const SEEDED = {
     // 交替卡的简称紧挨书签：书签的热区不能盖住它（审查 C42）。弹层关闭动画期间整页盖着一层挡点击的罩子，等它撤掉
     await page.locator('[data-testid="picker-settle"]').waitFor({ state: 'detached', timeout: 3_000 });
     await seamCover(page, '.set-badge');
+    // 成员面板挂在 body 下（审查 navigation-overlays#2）：落在训练页 anim-tab-enter 的 transform 包装层里时，fixed 按整页定位、
+    // 被 z-40 的底栏压住，点「取消」会点中底栏（§7.1 第二次被破，第一次是底栏本身）。命中测试只有真浏览器给得出来
+    await page.locator('[data-testid="alt-member"]').first().click();
+    const panel = page.locator('[data-testid="alt-member-panel"]');
+    await panel.waitFor({ state: 'visible', timeout: 3_000 });
+    const hit = await panel.evaluate(el => {
+      const cancel = [...el.querySelectorAll('button')].at(-1);
+      const r = cancel.getBoundingClientRect();
+      const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { parentIsBody: el.parentElement === document.body, hitsCancel: !!at && cancel.contains(at), at: at?.outerHTML.slice(0, 80) };
+    });
+    if (!hit.parentIsBody) throw new Error('the alternating-card member panel is not portaled to <body>');
+    if (!hit.hitsCancel) throw new Error(`the member panel's cancel button is covered by: ${hit.at}`);
+    await panel.locator('button').last().click();
+    await panel.waitFor({ state: 'detached', timeout: 3_000 });
     await backAndDiscard(page);
-    return 'row → latest pair · older combo → replaced with all three';
+    return 'row → latest pair · older combo → replaced with all three · member panel portaled';
   },
 };
 

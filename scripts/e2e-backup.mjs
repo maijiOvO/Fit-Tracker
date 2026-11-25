@@ -33,6 +33,9 @@ export const BACKUP_STEPS = [
   ['crash-undo-restore', []],
   // 开库失败：首页显示「读不出本机数据」和重试，顶栏有红签，不是新用户的空状态（上架审查 C14）；读失败回落成空状态这条接线只能在这里测
   ['read-failure-not-empty', []],
+  // 第一次练完的引导（审查 navigation-overlays#1）：等刊末页收了才弹。原来它挂在刊末页底下、却登记在返回键栈顶，
+  // 在刊末页上按返回会把它静默关掉、写下「问过了」，唯一一次开启自动备份的引导就没了。跨组件的时序，下层测不到。自己一个 context
+  ['first-finish-prompt', []],
 ];
 
 const iso = daysAgo => new Date(Date.now() - daysAgo * 86400000).toISOString();
@@ -74,6 +77,87 @@ async function reloadAndSettle(page) {
   await installHelpers(page);
 }
 
+async function openContext(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'zh-CN', timezoneId: 'America/Toronto' });
+  // 只放行本机 dev server：e2e 不该碰任何真实后端
+  await context.route('**/*', route => {
+    const u = route.request().url();
+    return u.startsWith(BASE) || u.startsWith('data:') || u.startsWith('blob:') ? route.continue() : route.abort();
+  });
+  return context;
+}
+
+/**
+ * 空库走一场最短的训练（新馆 → 一个动作 → 记一组 → 结束），看第一次练完的备份引导什么时候弹：
+ *   (a) 刊末页开着时按 Esc（Modal 的 Esc 和返回键、× 同一个 onClose）：引导没挂上、「问过了」没写
+ *   (b) 收起刊末页后引导出现 —— 正向对照：mock 文件夹没开、或「问过了」早写了时 (a) 永远是绿的
+ *   (c) 引导挂上晚于刊末页摘下 ≥ 300ms（收刊末页连点的第二下落不到「以后再说」上）
+ *   (d) 点「以后再说」之后才写「问过了」
+ */
+async function firstFinishPrompt(page) {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('header', { timeout: 15_000 });
+  await installHelpers(page);
+  const prompted = () => page.evaluate(() => localStorage.getItem(window.__t.key('fitlog_backup_setup_prompted')));
+  await page.getByRole('button', { name: /开始训练|Start Workout/ }).first().click();
+  await page.locator('[data-testid="gym-profile-name"]').fill('E2E Gym');
+  await page.locator('[data-testid="gym-profile-save"]').click();
+  await page.locator('[data-testid="gym-review-confirm"]').click();
+  await page.locator('[data-testid="open-picker-sheet"]').click();
+  const sheet = page.locator('[data-testid="picker-sheet"]');
+  await sheet.locator('input[type="text"]').fill('杠铃平板卧推');
+  await sheet.locator('[data-testid="picker-sheet-exercise"]', { hasText: '杠铃平板卧推' }).first().click();
+  await page.locator('[data-testid="picker-sheet-close"]').click();
+  await page.locator('[data-testid="picker-settle"]').waitFor({ state: 'detached', timeout: 3_000 }).catch(() => {});
+  const row = page.locator('.ledger-row').first();
+  await row.locator('[data-testid="ledger-field-reps"] input').fill('5');
+  await row.locator('.set-num').click();
+  await row.and(page.locator('.is-inked')).waitFor({ timeout: 3_000 });
+  // 两个节点挂上 / 摘下的先后和时刻
+  await page.evaluate(() => {
+    const log = (window.__overlayLog = []);
+    const seen = new Set();
+    new MutationObserver(() => {
+      for (const id of ['workout-colophon', 'backup-setup-modal']) {
+        const on = !!document.querySelector(`[data-testid="${id}"]`);
+        if (on === seen.has(id)) continue;
+        if (on) seen.add(id);
+        else seen.delete(id);
+        log.push({ id, on, t: performance.now() });
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  const finish = page.locator('[data-testid="finish-button"]');
+  await finish.click();
+  await page.locator('[data-testid="finish-button"][data-armed="true"]').waitFor({ timeout: 3_000 });
+  await finish.click();
+  const all = page.locator('[data-testid="finish-save-all"]');
+  if (await all.waitFor({ timeout: 1_500 }).then(() => true, () => false)) await all.click();
+  const colo = page.locator('[data-testid="workout-colophon"]');
+  await colo.waitFor({ state: 'visible', timeout: 5_000 });
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100);
+  const setup = page.locator('[data-testid="backup-setup-modal"]');
+  if ((await prompted()) === '1') throw new Error('the setup prompt was marked as asked while the colophon was still on screen');
+  if (await setup.count()) throw new Error('the setup prompt opened underneath the colophon');
+  // 刊末页非破纪录时 1.9 秒后自己收；还在就点掉
+  if (await colo.isVisible().catch(() => false)) await colo.click();
+  await colo.waitFor({ state: 'detached', timeout: 3_000 });
+  await setup.waitFor({ state: 'visible', timeout: 5_000 });
+  const log = await page.evaluate(() => window.__overlayLog);
+  const coloOff = log.find(e => e.id === 'workout-colophon' && !e.on);
+  const setupOn = log.find(e => e.id === 'backup-setup-modal' && e.on);
+  if (!coloOff || !setupOn || setupOn.t < coloOff.t) throw new Error(`setup prompt should mount after the colophon leaves: ${JSON.stringify(log)}`);
+  const gap = Math.round(setupOn.t - coloOff.t);
+  if (gap < 300) throw new Error(`setup prompt mounted ${gap}ms after the colophon left (want ≥ 300ms, a double tap could hit it)`);
+  if ((await prompted()) === '1') throw new Error('marked as asked before the user answered the prompt');
+  await page.locator('[data-testid="backup-setup-later"]').click();
+  await setup.waitFor({ state: 'detached', timeout: 3_000 });
+  if ((await prompted()) !== '1') throw new Error('"not now" did not mark the prompt as asked');
+  return `prompt mounted ${gap}ms after the colophon left`;
+}
+
 /**
  * 在给定的浏览器里开一个新 context 跑这一套。plan.run 为空就什么都不做。
  * 返回 { results, pageErrors, failed, timings }；不关浏览器、不退出进程。
@@ -106,12 +190,7 @@ export async function runBackup(browser, plan) {
     }
   }
 
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'zh-CN', timezoneId: 'America/Toronto' });
-  // 只放行本机 dev server：e2e 不该碰任何真实后端
-  await context.route('**/*', route => {
-    const u = route.request().url();
-    return u.startsWith(BASE) || u.startsWith('data:') || u.startsWith('blob:') ? route.continue() : route.abort();
-  });
+  const context = await openContext(browser);
   await context.addInitScript(() => {
     // 模拟本机库开不了（存储写满、后备存储出错）：read-failure-not-empty 那一步用
     if (sessionStorage.getItem('__idb_fail') === '1') {
@@ -135,6 +214,19 @@ export async function runBackup(browser, plan) {
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', e => pageErrors.push(String(e)));
+  // first-finish-prompt 用的第二个 context：空库、mock 文件夹开着
+  const fresh = plan.run.has('first-finish-prompt') ? await openContext(browser) : null;
+  const page2 = fresh && (await fresh.newPage());
+  if (page2) {
+    await fresh.addInitScript(() => {
+      if (!sessionStorage.getItem('__e2e_init')) {
+        sessionStorage.setItem('__e2e_init', '1');
+        localStorage.clear();
+        localStorage.setItem('fitlog_mock_folder', '1');
+      }
+    });
+    page2.on('pageerror', e => pageErrors.push(String(e)));
+  }
 
   try {
     await step(page, 'seed-and-first-backup', async () => {
@@ -301,6 +393,12 @@ export async function runBackup(browser, plan) {
   }
 
   try {
+    await step(page2, 'first-finish-prompt', () => firstFinishPrompt(page2));
+  } catch {
+    // step 已经记过
+  }
+
+  try {
     await step(page, 'read-failure-not-empty', async () => {
       if (!page.url().startsWith(BASE)) await page.goto(BASE, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('header', { timeout: 15_000 });
@@ -325,6 +423,7 @@ export async function runBackup(browser, plan) {
   } finally {
     fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify({ base: BASE, results, pageErrors }, null, 2));
     await context.close();
+    await fresh?.close();
   }
   return { results, pageErrors, failed, timings };
 }

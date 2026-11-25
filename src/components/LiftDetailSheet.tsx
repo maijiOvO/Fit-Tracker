@@ -52,6 +52,14 @@ const autoRange = (lift: LiftSummary): ChartRange =>
  */
 let resumeAt: { key: string; expanded: string | null; scrollTop: number; gym: string | null } | null = null;
 
+/**
+ * 首页的选中动作已经没了（记录删光、那一场被接回工作台）：记着的接回位置一起作废，免得这个动作以后再有记录时套上过期的展开 / 滚动。
+ * 不在详情挂载时按 key 对不上就清：训练页的 ExerciseHistorySheet 也挂这张详情，会在编辑途中把 B5 要用的位置提前清掉
+ */
+export function dropResume(): void {
+  resumeAt = null;
+}
+
 interface LiftDetailSheetProps {
   lift: LiftSummary | null;
   onClose: () => void;
