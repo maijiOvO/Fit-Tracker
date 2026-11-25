@@ -141,7 +141,7 @@ cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain
 配 solo 用（无联网权限，不会和 NAS 同步）：
 
 ```powershell
-$env:FITLOG_TEST_PKG = '1'; npm run build:solo; if ($?) { npx cap sync android }; if ($?) { cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain }
+$env:JAVA_HOME = 'D:\tools\Android_studio\install\jbr'; $env:FITLOG_TEST_PKG = '1'; npm run build:solo; if ($?) { npx cap sync android }; if ($?) { cd android; .\gradlew.bat :app:assembleSoloDebug --console=plain }
 ```
 
 验完 `adb uninstall com.myron.fittracker.backuptest`，并删掉它在公共目录留下的文件。
