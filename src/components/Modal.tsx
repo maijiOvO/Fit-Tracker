@@ -148,7 +148,9 @@ export const Modal: React.FC<ModalProps> = ({
       className={`fixed inset-0 ${layerClass[layer]} flex justify-center ${
         isSheet ? 'items-end' : isFull ? '' : 'items-center p-6'
       }`}
-      onClick={dismissOnScrim && !isFull ? onClose : undefined}
+      // 退场那 180ms 里：面板不接点按（再点「确定」会再存一条，审查 C74），遮罩也不再调 onClose；
+      // 根节点照旧铺满接住点按，不让它穿透到页面上。不用 inert：它会移走焦点，触发 ScrubNumber 的失焦提交
+      onClick={dismissOnScrim && !isFull && !leaving ? onClose : undefined}
       role="presentation"
       data-testid={testId}
     >
@@ -169,7 +171,7 @@ export const Modal: React.FC<ModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`${panelShell} ${panelAnim} ${className}`}
+        className={`${panelShell} ${panelAnim} ${className}${leaving ? ' pointer-events-none' : ''}`}
         onClick={e => e.stopPropagation()}
         style={isSheet ? { paddingBottom: 'env(safe-area-inset-bottom)' } : undefined}
       >

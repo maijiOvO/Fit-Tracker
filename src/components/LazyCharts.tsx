@@ -9,11 +9,12 @@ import {
   Tooltip,
   ReferenceLine,
 } from 'recharts';
-import { Language } from '../../types';
+import { Language, type Measurement } from '../../types';
 import { KG_TO_LBS } from '../constants';
 import { type ChartRange, type LiftSummary, rangeStart, trendPoints } from '../utils/liftHistory';
 import { formatSet, formatShown, metricLabel, metricUnit, toDisplay, trimNum } from '../utils/liftDisplay';
 import { useTheme } from '../hooks/useTheme';
+import { metricSeries } from '../utils/measurementLog';
 
 /**
  * 版画插图的两样零件：45° 斜线 pattern（取代渐变面积填充 —— 那是塑料感的来源），
@@ -380,22 +381,20 @@ export function WeightTrendChart({ weightEntries, range, lang, unit }: WeightTre
 // MetricChart 组件
 interface MetricChartProps {
   metricName: string;
-  measurements: any[];
+  measurements: Measurement[];
   lang: Language;
 }
 
 export function MetricChart({ metricName, measurements, lang }: MetricChartProps) {
   const { resolved } = useTheme();
   const p = chartPalette(resolved === 'dark');
-  const data = measurements
-    .filter(m => m.name === metricName)
-    .map(m => ({
-      date: new Date(m.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
-      val: Number(m.value.toFixed(2)),
-      unit: m.unit,
-      timestamp: new Date(m.date).getTime()
-    }))
-    .sort((a, b) => a.timestamp - b.timestamp);
+  // 只画和最新一条同单位的点（cm、in 混着画会连成锯齿），已按日期排好
+  const data = metricSeries(measurements, metricName).points.map(m => ({
+    date: new Date(m.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' }),
+    val: Number(m.value.toFixed(2)),
+    unit: m.unit,
+    timestamp: new Date(m.date).getTime(),
+  }));
 
   if (data.length === 0) return null;
 
@@ -460,7 +459,8 @@ export function MetricChart({ metricName, measurements, lang }: MetricChartProps
               strokeDasharray="2 4"
               strokeWidth={1}
               label={{
-                value: `${isCn ? '最好' : 'PR'} ${trimNum(best)}`,
+                // 中性的「最高」：围度、体脂不是越大越好，不叫纪录（审查 C76）
+                value: `${isCn ? '最高' : 'High'} ${trimNum(best)}`,
                 position: 'right',
                 fill: p.accent,
                 fontSize: 11,

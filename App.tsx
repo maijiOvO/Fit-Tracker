@@ -90,6 +90,7 @@ import {
   WorkoutProvider,
   useAvatar,
   useExercisePrefs,
+  useGoalsContext,
   useScheduleContext,
   useUiOverlay,
   useUserSettingsContext,
@@ -97,6 +98,7 @@ import {
 } from './src/contexts';
 import { WORKOUTS_SETTLED_EVENT, type SettledLink } from './src/contexts/WorkoutContext';
 import { pruneDraftToMetrics } from './src/utils/setValues';
+import { canSaveGoal, normalizeGoal } from './src/utils/goalProgress';
 
 import { useKeyboardScroll } from './src/hooks/useKeyboardScroll';
 import { useTheme } from './src/hooks/useTheme';
@@ -121,6 +123,8 @@ import { App as CapApp } from '@capacitor/app';
 import { handleHardwareBack } from './src/hooks/useBackClose';
 
 const NO_ADDED_COUNTS: Record<string, number> = Object.create(null);
+/** 新建目标表单的初值：保存成功后复位到这里（取消保留草稿） */
+const GOAL_DRAFT_INIT: Partial<Goal> = { type: 'weight', targetValue: 0, currentValue: 0, label: '' };
 const LibrarySheet = lazy(() =>
   import('./src/components/ExercisePickerSheet').then(m => ({ default: m.ExercisePickerSheet })),
 );
@@ -158,6 +162,7 @@ const AppWithAuthShell: React.FC = () => {
   const workoutCtx = useWorkoutContext();
   const scheduleCtx = useScheduleContext();
   const settingsCtx = useUserSettingsContext();
+  const goalsCtx = useGoalsContext();
   const prefs = useExercisePrefs();
 
   const lang = settingsCtx.lang;
@@ -268,12 +273,9 @@ const AppWithAuthShell: React.FC = () => {
 
   // ============== 目标弹窗 ==============
   const [showGoalModal, setShowGoalModal] = useState(false);
-  const [newGoal, setNewGoal] = useState<Partial<Goal>>({
-    type: 'weight',
-    targetValue: 0,
-    currentValue: 0,
-    label: '',
-  });
+  const [newGoal, setNewGoal] = useState<Partial<Goal>>(GOAL_DRAFT_INIT);
+  /** 目标正在存：连点 / 退场中再点「确定」不再多存一条（审查 C74）。只在 finally 里放开 */
+  const goalSavingRef = useRef(false);
   const [showEditGoalModal, setShowEditGoalModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
@@ -416,6 +418,7 @@ const AppWithAuthShell: React.FC = () => {
     handleSaveMeasurement,
     handleDeleteMeasurement,
     triggerEditMeasurement,
+    renameMetric,
     openAddMeasurementEntry,
     closeMeasureModal,
   } = useMeasurementLog();
@@ -716,49 +719,60 @@ const AppWithAuthShell: React.FC = () => {
   }, [switchUnit, unit]);
 
   // ============== 目标的增 / 改 ==============
+  const hasWeightLog = settingsCtx.weightEntries.length > 0;
   const handleAddGoal = useCallback(async () => {
-    if (!newGoal.label || !newGoal.targetValue) return;
-    const now = new Date().toISOString();
-    const goal: Goal = {
-      id: Date.now().toString(),
-      userId: FITLOG_SOLO_USER_ID,
-      type: newGoal.type!,
-      category: newGoal.type as string,
-      title: newGoal.label!,
-      description: '',
-      targetValue: newGoal.targetValue!,
-      currentValue: newGoal.currentValue || 0,
-      unit: newGoal.type === 'weight' || newGoal.type === 'strength' ? unit : 'times/week',
-      startDate: now,
-      targetDate: undefined,
-      // 力量目标绑了动作就从训练记录现算（GoalsTab），不用手抄当前值
-      dataSource: newGoal.autoUpdateRule ? 'auto' : 'manual',
-      autoUpdateRule: newGoal.autoUpdateRule,
-      progressHistory: [],
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-      completedAt: undefined,
-      label: newGoal.label!,
-      deadline: undefined,
-    };
-    await db.save('goals', goal);
-    await loadLocalData();
-    setShowGoalModal(false);
-    scheduleDebouncedFitlogPush();
-  }, [loadLocalData, newGoal, unit]);
+    if (!canSaveGoal(newGoal) || goalSavingRef.current) return;
+    goalSavingRef.current = true;
+    try {
+      const now = new Date().toISOString();
+      const goal = normalizeGoal<Goal>(
+        {
+          id: Date.now().toString(),
+          userId: FITLOG_SOLO_USER_ID,
+          type: newGoal.type!,
+          category: newGoal.type as string,
+          title: newGoal.label!,
+          description: '',
+          targetValue: newGoal.targetValue!,
+          currentValue: newGoal.currentValue || 0,
+          unit,
+          startDate: now,
+          targetDate: undefined,
+          // 单位、类别、dataSource、藏起来的当前值都交给 normalizeGoal 按类型定（和编辑共用一份规则）
+          dataSource: 'manual',
+          autoUpdateRule: newGoal.autoUpdateRule,
+          progressHistory: [],
+          isActive: true,
+          createdAt: now,
+          updatedAt: now,
+          completedAt: undefined,
+          label: newGoal.label!,
+          deadline: undefined,
+        },
+        { unit, hasWeightLog },
+      );
+      // 只写这一行（原来存完整表重读、连训练也重读一遍，进行中的窗口拉得很长）
+      await goalsCtx.addGoal(goal);
+      setNewGoal(GOAL_DRAFT_INIT);
+      setShowGoalModal(false);
+    } finally {
+      goalSavingRef.current = false;
+    }
+  }, [goalsCtx, hasWeightLog, newGoal, unit]);
 
   const handleSaveEditedGoal = useCallback(async () => {
-    if (!editingGoal) return;
-    const updatedGoal: Goal = {
-      ...editingGoal,
-      updatedAt: new Date().toISOString(),
-    };
-    await db.save('goals', updatedGoal);
-    await loadLocalData();
-    setShowEditGoalModal(false);
-    scheduleDebouncedFitlogPush();
-  }, [editingGoal, loadLocalData]);
+    if (!editingGoal || !canSaveGoal(editingGoal) || goalSavingRef.current) return;
+    goalSavingRef.current = true;
+    try {
+      await goalsCtx.updateGoal({
+        ...normalizeGoal(editingGoal, { unit, hasWeightLog }),
+        updatedAt: new Date().toISOString(),
+      });
+      setShowEditGoalModal(false);
+    } finally {
+      goalSavingRef.current = false;
+    }
+  }, [editingGoal, goalsCtx, hasWeightLog, unit]);
 
   const handleCancelEditGoal = () => {
     setEditingGoal(null);
@@ -1406,6 +1420,7 @@ const AppWithAuthShell: React.FC = () => {
               onToggleMetric={name => setExpandedMetric(name)}
               onEditMeasurement={m => triggerEditMeasurement(m)}
               onAddMeasurementEntry={name => openAddMeasurementEntry(name)}
+              onRenameMetric={renameMetric}
               setShowResetAccountModal={setShowResetAccountModal}
               devMode={devMode}
               onToggleDevMode={envLocked ? undefined : handleToggleDevMode}

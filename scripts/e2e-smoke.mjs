@@ -373,6 +373,7 @@ const SEEDED_STEPS = [
   ['seeded-history-edit', ['seeded-load'], H],
   ['seeded-sync-contract', ['seeded-load'], H],
   ['seeded-profile-data', ['seeded-load'], H],
+  ['seeded-goals', ['seeded-load'], H],
   ['seeded-picker-and-library', ['seeded-load'], H],
   ['seeded-resumed-emptied-keeps-workout', ['seeded-load'], H],
   ['seeded-plan-target-unit', ['seeded-load'], H],
@@ -383,7 +384,7 @@ const SEEDED_STEPS = [
 /** 分片：每片一个 context。按耗时大致摊平 */
 const SEEDED_SHARDS = [
   ['seeded-history-edit', 'seeded-sync-contract', 'seeded-profile-data'],
-  ['seeded-picker-and-library', 'seeded-resumed-emptied-keeps-workout', 'seeded-alt-combos'],
+  ['seeded-picker-and-library', 'seeded-resumed-emptied-keeps-workout', 'seeded-alt-combos', 'seeded-goals'],
   ['seeded-plan-target-unit', 'seeded-gym-profile-and-switch', 'seeded-lift-detail-delete-last'],
 ];
 
@@ -877,7 +878,7 @@ const SEEDED = {
 
   // 「我的」页的数据：
   //  avatar-bloats-storage：头像缩成小 JPEG、只存一份（current_user 不再带）；旧版存的原图启动时缩一次
-  //  体重目标建在 lbs 下：记一笔新体重后「当前」是 lbs 数（旧版直接写 kg）
+  //  lbs 下记一笔体重：按 kg 落库、推到远端（目标卡上 lbs 的换算在 logic-check 的 goalCardValues）
   'seeded-profile-data': async ({ page, remote, relaunch, quiesce, remoteSnap }) => {
     const { default: sharp } = await import('sharp');
     const W = 900, Hh = 700;
@@ -891,17 +892,12 @@ const SEEDED = {
         const u = JSON.parse(localStorage.getItem(lsKey('fitlog_current_user')) || '{}');
         return { len: a.length, jpeg: a.startsWith('data:image/jpeg'), userHasAvatar: 'avatarUrl' in u };
       });
-    // 旧数据：两处各一整张原图；体重目标从远端拉下来
+    // 旧数据：两处各一整张原图；一条体重从远端拉下来
     await quiesce();
     const daysAgoIso = d => new Date(Date.now() - d * 86400000).toISOString();
     remote.snapshot = {
       ...remote.snapshot,
       weightLogs: [{ id: 'seed_w1', userId: 'u_guest', weight: 80, date: daysAgoIso(1), unit: 'kg' }],
-      goals: [{
-        id: 'seed_goal_w', userId: 'u_guest', type: 'weight', category: 'weight', title: 'E2E 减到 170', label: 'E2E 减到 170',
-        targetValue: 170, currentValue: 180, unit: 'lbs', startDate: daysAgoIso(40), dataSource: 'manual',
-        progressHistory: [], isActive: true, createdAt: daysAgoIso(40), updatedAt: daysAgoIso(40),
-      }],
     };
     await page.evaluate(url => {
       localStorage.setItem(lsKey('fitlog_avatar_data_url'), url);
@@ -922,8 +918,8 @@ const SEEDED = {
     await dlg.locator('.scrub-num input').fill('176.4');
     await dlg.getByRole('button', { name: '确定' }).click();
     await dlg.waitFor({ state: 'hidden', timeout: 3_000 });
-    const goal = ((await remoteSnap())?.goals || []).find(g => g.id === 'seed_goal_w');
-    if (goal?.currentValue !== 176.4) throw new Error(`goal currentValue should be 176.4 (lbs), got ${goal?.currentValue}`);
+    const logged = ((await remoteSnap())?.weightLogs || []).filter(w => w.id !== 'seed_w1');
+    if (logged.length !== 1 || Math.abs(logged[0].weight - 80) > 0.05) throw new Error(`176.4 lbs should reach the remote as one ~80 kg entry, got ${JSON.stringify(logged)}`);
 
     // 新上传：先清掉存的那份，好看出这次上传写了什么
     await page.locator('nav button', { hasText: /^我的$|^Profile$/ }).click();
@@ -941,7 +937,103 @@ const SEEDED = {
     const prefsSheet = page.locator('[data-testid="prefs-sheet"]');
     await until(async () => Math.abs(await prefsSheet.evaluate(el => el.getBoundingClientRect().bottom - innerHeight)) < 1, 'the prefs sheet to finish sliding in');
     await twoFingerPull(page, '[data-testid="prefs-sheet"]', '[data-testid="prefs-sheet-close"]');
-    return `avatar legacy ${bigDataUrl.length} → ${legacy.len}, upload → ${up.len}; goal current ${goal.currentValue} lbs`;
+    return `avatar legacy ${bigDataUrl.length} → ${legacy.len}, upload → ${up.len}; weight logged ${logged[0].weight.toFixed(2)} kg`;
+  },
+
+  // 目标的新建 / 编辑（审查 C72、C74、C75）：都是 App 层状态和弹窗命中，logic-check 摸不到
+  //  连点「确定」、退场中再点：库里只有一条（退场中那一下落不到面板上）
+  //  存完再点添加：表单复位；编辑切到「每周场数」：单位、类别跟着变；清空名字：保存键灰着
+  'seeded-goals': async ({ page, toDashboard }) => {
+    const goalsInDb = async () =>
+      page.evaluate(
+        name =>
+          new Promise((resolve, reject) => {
+            const req = indexedDB.open(name);
+            req.onerror = () => reject(req.error);
+            req.onsuccess = () => {
+              const r = req.result.transaction('goals').objectStore('goals').getAll();
+              r.onsuccess = () => { resolve(r.result); req.result.close(); };
+              r.onerror = () => reject(r.error);
+            };
+          }),
+        await page.evaluate(() => window.__fitlog.env().db),
+      );
+    // 先记一笔体重：有体重记录时体重目标的当前值是现算的，当前值格不该出现
+    await page.getByRole('button', { name: '记录体重', exact: true }).click();
+    const wDlg = page.getByRole('dialog');
+    await wDlg.locator('.scrub-num input').fill('176');
+    await wDlg.getByRole('button', { name: '确定' }).click();
+    await wDlg.waitFor({ state: 'detached', timeout: 3_000 });
+
+    await page.locator('nav button', { hasText: /训练计划|Plan/ }).click();
+    await page.locator('[data-testid="plan-subview-goals"]').click();
+    await page.locator('[data-testid="goal-add"]').click();
+    const dlg = page.getByRole('dialog');
+    await dlg.waitFor({ state: 'visible' });
+    if (await dlg.getByLabel('当前值').count()) throw new Error('weight goal shows a current-value field although a weight is logged');
+    await dlg.locator('input:not(.scrub-num input)').fill('E2E 目标');
+    await dlg.getByLabel('目标值').fill('170');
+    await page.waitForFunction(() => !document.querySelector('[data-testid="goal-confirm"]')?.disabled);
+
+    // 页内点：elementFromPoint 取确定键中心的元素再 click，像真的手指；隔两帧（人连点的间隔，同一毫秒的两下 Date.now() 会撞 id、假绿）再点一下；
+    // 然后等面板进入退场（anim-panel-out），在同一点再点一下：命中的不该是面板里的东西
+    const hit = await page.evaluate(async () => {
+      const frame = () => new Promise(r => requestAnimationFrame(() => r()));
+      const panel = document.querySelector('[role="dialog"]');
+      const b = document.querySelector('[data-testid="goal-confirm"]').getBoundingClientRect();
+      const x = b.left + b.width / 2, y = b.top + b.height / 2;
+      const tap = () => {
+        const el = document.elementFromPoint(x, y);
+        el?.click();
+        return el;
+      };
+      tap();
+      await frame();
+      await frame();
+      tap();
+      const t0 = performance.now();
+      while (!panel.classList.contains('anim-panel-out')) {
+        if (performance.now() - t0 > 3000) return { leaving: false };
+        await frame();
+      }
+      const el = tap();
+      return { leaving: true, inPanel: !!el && panel.contains(el) };
+    });
+    if (!hit.leaving) throw new Error('add-goal panel never started leaving');
+    if (hit.inPanel) throw new Error('a tap during the exit animation still landed inside the panel');
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    const saved = await goalsInDb();
+    if (saved.length !== 1) throw new Error(`double / exit-time taps should store one goal, got ${saved.length}`);
+
+    // 存完复位（取消保留草稿不在这里测）
+    await page.locator('[data-testid="goal-add"]').click();
+    await dlg.waitFor({ state: 'visible' });
+    if ((await dlg.locator('input:not(.scrub-num input)').inputValue()) !== '') throw new Error('add-goal form kept the last saved name');
+    if (!(await page.locator('[data-testid="goal-confirm"]').isDisabled())) throw new Error('empty add-goal form can be confirmed');
+    await dlg.getByRole('button', { name: '取消' }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+
+    // 编辑切到每周场数：单位、类别跟着类型走
+    await page.locator('[data-testid="goal-edit"]').click();
+    await dlg.waitFor({ state: 'visible' });
+    await dlg.getByRole('button', { name: '每周场数' }).click();
+    await page.locator('[data-testid="goal-confirm"]').click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    const [edited] = await goalsInDb();
+    if (edited.unit !== 'times/week' || edited.category !== 'frequency') throw new Error(`edited goal kept stale unit/category: ${edited.unit}/${edited.category}`);
+    // 清空名字：存不进去
+    await page.locator('[data-testid="goal-edit"]').click();
+    await dlg.waitFor({ state: 'visible' });
+    await dlg.locator('input:not(.scrub-num input)').fill('');
+    if (!(await page.locator('[data-testid="goal-confirm"]').isDisabled())) throw new Error('edit-goal can save an empty name');
+    await dlg.getByRole('button', { name: '取消' }).click();
+    await dlg.waitFor({ state: 'detached', timeout: 3_000 });
+    // 子页记在 storage 里：切回日程，不影响同一片后面的步骤；等它切过去再回首页
+    const schedTab = page.locator('[data-testid="plan-subview-schedule"]');
+    await schedTab.click();
+    await page.waitForFunction(() => document.querySelector('[data-testid="plan-subview-schedule"]')?.getAttribute('aria-selected') === 'true');
+    await toDashboard();
+    return `1 goal after double + exit taps; edited → ${edited.unit}/${edited.category}`;
   },
 
   // 选动作 / 动作库：
@@ -1522,6 +1614,10 @@ async function mainFlow(browser, escapedRemoteCalls) {
       await page.waitForSelector('nav button', { timeout: 15_000 });
       // index.html 的 WebView 闸门在这份 Chromium 上误拦，所有人都会打不开 App：这里给一句明确的失败
       if (await page.evaluate(() => document.documentElement.hasAttribute('data-webview-gate'))) throw new Error('webview gate blocked a current Chromium');
+      // 防 C73：空首页（新装还没练过）原来连唯一的「记录体重」入口也没有。按名字取，和完整视图体重卡上那颗同名、互斥
+      const logWeight = page.getByRole('button', { name: /^(记录体重|Log weight)$/ });
+      await logWeight.first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+      if ((await logWeight.count()) !== 1) throw new Error(`empty dashboard should offer exactly one "log weight" button, got ${await logWeight.count()}`);
       return `title="${await page.title()}"`;
     });
 

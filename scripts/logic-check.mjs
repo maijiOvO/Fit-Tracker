@@ -1122,6 +1122,47 @@ t('目标起点：体重取建目标那一刻之前最近的一次（换成目�
   assert.equal(L.G.weightAtStart(entries, ago(60), 'kg'), 85);
   assert.equal(L.G.weightAtStart([], ago(10), 'kg'), null);
 });
+// 防 C71：体重目标的当前值原来是建目标 / 记最新体重时写回的副本，留空就是 0 / 75 满格、删了体重还停在旧值
+t('目标卡：体重目标的当前值从体重记录现算（最新日期那条、换成目标单位）；没记录才用手填的，手填 0 ＝ 不知道', () => {
+  const e = (d, kg) => ({ id: String(d), userId: 'u', date: ago(d), weight: kg, unit: 'kg' });
+  const goal = over => ({ id: 'g', type: 'weight', unit: 'kg', currentValue: 0, targetValue: 75, startDate: ago(10), ...over });
+  const card = (g, entries) => L.G.goalCardValues(g, [], [], entries, k => k);
+  const a = card(goal({}), [e(20, 80), e(1, 78)]);
+  assert.equal(a.current, 78);
+  assert.equal(L.G.goalProgress(a.current, a.start, 75), 0.4);
+  assert.equal(card(goal({ currentValue: 300 }), [e(20, 80), e(1, 78.5)]).current, 78.5, '删掉的那条留下的副本不算');
+  assert.equal(card(goal({ unit: 'lbs' }), [e(1, 80)]).current, 176.4);
+  assert.equal(card(goal({}), [e(1, 78), e(30, 90), e(5, 79)]).current, 78, '乱序也取日期最新的');
+  assert.equal(card(goal({ currentValue: 80 }), []).current, 80);
+  assert.equal(card(goal({}), []).current, null);
+});
+// 防 C72 / C75：编辑切类型不跟着改单位、类别、绑定；藏起来的当前值照样入库；空标题、0 目标存得进去
+t('目标规整：单位 / 类别跟类型走，绑定只留给力量，藏起来的当前值存 0，标题去空白；存得下的条件', () => {
+  const rule = { sourceType: 'workouts', calculation: 'max', exerciseName: 'S|' };
+  const norm = (g, unit = 'kg', hasWeightLog = false) => L.G.normalizeGoal(g, { unit, hasWeightLog });
+  const a = norm({ type: 'weight', category: 'frequency', unit: 'times/week', label: 'x' }, 'lbs');
+  assert.equal(a.unit, 'lbs');
+  assert.equal(a.category, 'weight');
+  const b = norm({ type: 'frequency', unit: 'kg', currentValue: 80, label: 'x' });
+  assert.equal(b.unit, 'times/week');
+  assert.equal(b.currentValue, 0);
+  const c = norm({ type: 'weight', unit: 'kg', autoUpdateRule: rule, dataSource: 'auto', label: 'x' }, 'lbs');
+  assert.equal(c.unit, 'kg', '目标跟建立时的单位');
+  assert.equal(c.autoUpdateRule, undefined);
+  assert.equal(c.dataSource, 'manual');
+  assert.equal(norm({ type: 'strength', unit: 'kg', autoUpdateRule: rule, currentValue: 80, label: 'x' }).currentValue, 0);
+  assert.equal(norm({ type: 'strength', unit: 'kg', autoUpdateRule: rule, label: 'x' }).dataSource, 'auto');
+  assert.equal(norm({ type: 'weight', unit: 'kg', currentValue: 80, label: 'x' }, 'kg', true).currentValue, 0);
+  assert.equal(norm({ type: 'weight', unit: 'kg', currentValue: 80, label: 'x' }).currentValue, 80);
+  const d = norm({ type: 'strength', unit: 'kg', title: '  卧推 100 ', label: '  卧推 100 ' });
+  assert.equal(d.title, '卧推 100');
+  assert.equal(d.label, '卧推 100');
+  for (const bad of [{ label: '  ', targetValue: 3 }, { label: 'a', targetValue: 0 }, { label: 'a', targetValue: NaN }, { label: 'a', targetValue: -5 }]) {
+    assert.equal(L.G.canSaveGoal(bad), false, JSON.stringify(bad));
+  }
+  assert.equal(L.G.canSaveGoal({ label: 'a', targetValue: 3 }), true);
+  assert.equal(L.G.canSaveGoal({ title: 'a', label: '', targetValue: 3 }), true, '编辑弹窗只写 title 也算');
+});
 t('频率目标：本周（周一起）练了几场，上周日那场不算', () => {
   // NOW 是 2026-10-21（周三）
   const w = d => ({ id: d, date: d, exercises: [] });
@@ -1133,7 +1174,7 @@ t('频率目标：本周（周一起）练了几场，上周日那场不算', ()
 });
 
 // ── 体重变化那一行（审查 A22）──────────────────────────────────────
-t('体重变化：最新一次超过 30 天不显示；基线就是最新那条不显示；都在 30 天内按实际天数；先取整再定号', () => {
+t('体重变化：最新一次超过 30 天不显示；基线就是最新那条不显示；跨度按实际天数（30 天以上也是）；先取整再定号', () => {
   const w = (d, kg) => ({ date: ago(d), weight: kg });
   assert.equal(L.weightDelta([w(40, 80), w(70, 82)], 'kg', NOW), null);
   assert.equal(L.weightDelta([w(3, 80)], 'kg', NOW), null);
@@ -1142,6 +1183,9 @@ t('体重变化：最新一次超过 30 天不显示；基线就是最新那条�
   assert.equal(d.days, 12);
   assert.equal(L.weightDelta([w(1, 80), w(40, 82)], 'lbs', NOW).text, '-4.4');
   assert.equal(L.weightDelta([w(1, 80.02), w(10, 80)], 'kg', NOW).text, '0', 'no -0.0 / +0.0');
+  // 防 C86：30 天前的基线离得再远也被夹成「· 30天」，398 天的变化写成 30 天
+  assert.equal(L.weightDelta([w(400, 80), w(2, 75)], 'kg', NOW).days, 398);
+  assert.equal(L.weightDelta([w(33, 80), w(2, 79)], 'kg', NOW).days, 31);
 });
 
 // ── 底稿：给旧训练补加动作只抄那一场之前的（审查 A11）────────────────
@@ -2258,6 +2302,33 @@ t('身体指标卡面：按记录日期取最新，后补记的旧日期不顶�
   ]);
 });
 
+// 防 C76：图表把 cm 和 in 的点画在同一根线上（38、15.2、39 连成锯齿），和卡面的 delta 规则不一致
+t('身体指标图表：按日期排，只留和最新一条同单位的点；全部同单位时全留', () => {
+  const m = (id, value, unit, date) => ({ id, userId: 'u', name: '臂围', value, unit, date });
+  const mixed = [m('a', 38, 'cm', '2026-06-01T00:00:00Z'), m('b', 15.2, 'in', '2026-08-01T00:00:00Z'), m('c', 39, 'cm', '2026-07-01T00:00:00Z')];
+  const s1 = L.ML.metricSeries(mixed, '臂围');
+  assert.equal(s1.unit, 'in');
+  assert.deepEqual(s1.points.map(p => p.value), [15.2]);
+  const s2 = L.ML.metricSeries([...mixed, m('d', 15.4, 'in', '2026-09-01T00:00:00Z')], '臂围');
+  assert.deepEqual(s2.points.map(p => p.value), [15.2, 15.4]);
+  const same = [m('a', 38, 'cm', '2026-06-01T00:00:00Z'), m('c', 39, 'cm', '2026-07-01T00:00:00Z'), m('b', 37, 'cm', '2026-05-01T00:00:00Z')];
+  assert.deepEqual(L.ML.metricSeries(same, '臂围').points.map(p => p.value), [37, 38, 39]);
+});
+
+// 防 C79：输入 waist 另起一项、和已有的 Waist 分成两张卡；整项改名没有入口
+t('身体指标名字：只差大小写 / 空白的并到已有那项；整项改名只动那一项的行、id 不变；改成同名不写库', () => {
+  const m = (id, name) => ({ id, userId: 'u', name, value: 1, unit: 'cm', date: '2026-06-01T00:00:00Z' });
+  const ms = [m('1', 'Waist'), m('2', '腰围'), m('3', 'waist'), m('4', 'waist'), m('5', '臂围')];
+  assert.equal(L.ML.canonicalMetricName(ms, ' WAIST '), 'Waist');
+  assert.equal(L.ML.canonicalMetricName(ms, '臂围 '), '臂围');
+  assert.equal(L.ML.canonicalMetricName(ms, '小腿'), '小腿');
+  const now = '2026-11-24T00:00:00.000Z';
+  const out = L.ML.renameMetricRows(ms, 'waist', 'WAIST', now);
+  assert.deepEqual(out.map(r => [r.id, r.name, r.updatedAt]), [['3', 'Waist', now], ['4', 'Waist', now]]);
+  assert.deepEqual(L.ML.renameMetricRows(ms, '腰围', '腰围 ', now), []);
+  assert.deepEqual(L.ML.renameMetricRows(ms, '腰围', '   ', now), [], '空名字不写');
+});
+
 t('自判点击：随手点带出的几像素滑动仍算点击；滑远了、按到长按那么久不算', () => {
   const { judgeTap, TAP_SLOP_PX, isLostTap } = L.TAP;
   assert.equal(judgeTap(0, 0, 80, 500), 'tap');
@@ -2844,10 +2915,10 @@ t('旧稳定键规范化：并入源「S|」「S|v_a」、连环并入、手填�
   // 目标进度：绑「S|」= 那一组（源的标准）的最好成绩；绑一个已经不存在的键 → missing，不是 0
   const lifts = summariesOf(I, benchWs);
   const goal = exerciseName => ({ id: 'g', type: 'strength', unit: 'kg', startDate: ago(30), currentValue: 0, targetValue: 120, autoUpdateRule: { exerciseName } });
-  const hit = L.G.progressOf(goal('S|'), lifts, [], [], I.canonical);
+  const hit = L.G.goalCardValues(goal('S|'), lifts, [], [], I.canonical);
   assert.equal(hit.current, 100);
   assert.equal(hit.missing, undefined);
-  const gone = L.G.progressOf(goal('Q|'), lifts, [], [], I.canonical);
+  const gone = L.G.goalCardValues(goal('Q|'), lifts, [], [], I.canonical);
   assert.equal(gone.missing, true);
 });
 

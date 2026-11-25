@@ -1,7 +1,7 @@
 /**
  * 身体指标的录入 / 编辑 / 删除
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Language, Measurement } from '../../types';
 import { db } from '../../services/db';
 import { recordTombstone } from '../../services/fitlogTombstones';
@@ -10,7 +10,7 @@ import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { localYmd } from '../utils/dateUtils';
-import { MetricGlance, latestByMetric, moveToLocalDay } from '../utils/measurementLog';
+import { MetricGlance, canonicalMetricName, latestByMetric, moveToLocalDay, renameMetricRows } from '../utils/measurementLog';
 
 export interface MeasurementForm {
   name: string;
@@ -36,6 +36,8 @@ export interface UseMeasurementLogResult {
   /** 删掉正在改的那一条（入口只在「修改记录」弹窗里） */
   handleDeleteMeasurement: () => Promise<void>;
   triggerEditMeasurement: (item: Measurement) => void;
+  /** 整项改名（新名字已有就并进去）；改成同名不写库 */
+  renameMetric: (from: string, to: string) => Promise<void>;
   openAddMeasurementEntry: (presetName?: string) => void;
   closeMeasureModal: () => void;
 }
@@ -60,13 +62,18 @@ export function useMeasurementLog(): UseMeasurementLogResult {
   const [expandedMetric, setExpandedMetric] = useState<string | null>(null);
 
   const latestMetrics = useMemo(() => latestByMetric(measurements), [measurements]);
+  /** 正在存：连点 / 弹窗退场中再点「保存」不再多记一条（审查 C74）。只在 finally 里放开 */
+  const savingRef = useRef(false);
 
   const handleSaveMeasurement = useCallback(async () => {
-    const name = measureForm.name.trim();
+    // 名字去掉首尾空格、只差大小写的并到已有那项：「腰围 」「waist」原来会和「腰围」「Waist」成两个指标（审查 C79）
+    const name = canonicalMetricName(measurements, measureForm.name);
     if (!name || !measureForm.value || !measureForm.date) {
       toast(isCn ? '还没填完' : 'Some fields are empty', 'error');
       return;
     }
+    if (savingRef.current) return;
+    savingRef.current = true;
 
     try {
       const now = new Date().toISOString();
@@ -77,7 +84,6 @@ export function useMeasurementLog(): UseMeasurementLogResult {
       const entry: Measurement = {
         id: editingMeasurementId || Date.now().toString(),
         userId: FITLOG_SOLO_USER_ID,
-        // 名字去掉首尾空格：「腰围 」和「腰围」原来会成两个指标
         name,
         value: parseFloat(measureForm.value),
         unit: measureForm.unit.trim(),
@@ -96,8 +102,23 @@ export function useMeasurementLog(): UseMeasurementLogResult {
         (isCn ? '保存失败: ' : 'Save failed: ') + (error?.message || error),
         'error',
       );
+    } finally {
+      savingRef.current = false;
     }
   }, [editingMeasurementId, isCn, measureForm, measurements, settingsCtx, toast]);
+
+  const renameMetric = useCallback(
+    async (from: string, to: string) => {
+      const rows = renameMetricRows(measurements, from, to, new Date().toISOString());
+      if (rows.length === 0) return;
+      // 一次发出全部写入：都落在这一次点按里，全局撤销记成一步、一下撤回。id 不变，不用墓碑
+      await Promise.all(rows.map(r => db.save('custom_metrics', r)));
+      await settingsCtx.reloadFromIndexedDb();
+      scheduleDebouncedFitlogPush();
+      setExpandedMetric(rows[0].name);
+    },
+    [measurements, settingsCtx],
+  );
 
   const handleDeleteMeasurement = useCallback(async () => {
     if (!editingMeasurementId) return;
@@ -158,6 +179,7 @@ export function useMeasurementLog(): UseMeasurementLogResult {
     handleSaveMeasurement,
     handleDeleteMeasurement,
     triggerEditMeasurement,
+    renameMetric,
     openAddMeasurementEntry,
     closeMeasureModal,
   };

@@ -1,5 +1,5 @@
 /**
- * 通用「重命名」弹窗（标签 / 动作 复用）
+ * 「重命名」弹窗：只有一个名字输入框（身体指标整项改名用）
  */
 import React from 'react';
 import { Language } from '../../../types';
@@ -10,7 +10,7 @@ interface RenameModalProps {
   open: boolean;
   lang: Language;
   title: string;
-  /** 当前名称，作为 placeholder */
+  /** 当前名称：作为 placeholder；去掉首尾空白后和它一样时确定键灰着（改了等于没改） */
   placeholder?: string;
   value: string;
   setValue: (s: string) => void;
@@ -35,8 +35,6 @@ export const RenameModal: React.FC<RenameModalProps> = ({
       onClose={onClose}
       title={title}
       size="sm"
-      // 从弹层的动作菜单里开出来，必须压在弹层之上
-      layer="modal-2"
       dismissOnScrim={false}
       footer={
         <ModalFooter
@@ -44,7 +42,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
           confirmLabel={translations.confirm[lang]}
           onCancel={onClose}
           onConfirm={onConfirm}
-          confirmDisabled={!value.trim()}
+          confirmDisabled={!value.trim() || value.trim() === placeholder}
         />
       }
     >
@@ -57,7 +55,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
         // 改名多半是整个换掉：一进来全选；回车＝确定（审查 B8）
         onFocus={e => e.currentTarget.select()}
         onKeyDown={e => {
-          if (e.key === 'Enter' && value.trim()) {
+          if (e.key === 'Enter' && value.trim() && value.trim() !== placeholder) {
             e.preventDefault();
             onConfirm();
           }

@@ -9,7 +9,7 @@ import {
 import { Language, WeightEntry } from '../../types';
 import { translations } from '../../translations';
 import { formatBodyWeight, plural } from '../utils/format';
-import { CHART_RANGES, rangeLabel } from '../utils/liftDisplay';
+import { CHART_RANGES, rangeLabel, shortDate } from '../utils/liftDisplay';
 import { type ChartRange } from '../utils/liftHistory';
 import { LiftList } from './LiftList';
 import { FeaturedLifts } from './FeaturedLifts';
@@ -197,6 +197,17 @@ const Dashboard: React.FC<DashboardProps> = ({
         <button onClick={actions.onStartNewWorkout} className="ui-btn-secondary flex items-center gap-2 px-6 py-3">
           <PlusCircle size={22} strokeWidth={1.75} />
           {translations.newWorkout[lang]}
+        </button>
+        {/* 体重卡在完整视图里，空首页原来连唯一的「记录体重」入口一起挡掉了（审查 C73）；记下第一笔就切到完整视图。
+            次要样式的文字按钮：一屏一个主操作。aria-label 和体重卡上那颗逐字相同 */}
+        <button
+          type="button"
+          onClick={actions.onLogWeight}
+          aria-label={lang === Language.CN ? '记录体重' : 'Log weight'}
+          className="mt-6 min-h-[44px] flex items-center gap-2 text-secondary text-small px-3 rounded-control active:bg-inset"
+        >
+          <Scale size={16} strokeWidth={1.75} className="text-accent" />
+          {lang === Language.CN ? '记录体重' : 'Log weight'}
         </button>
         <RestoreFromBackupLink />
       </div>
@@ -487,7 +498,12 @@ function WeightHistoryList({
 }) {
   const { lang, unit } = useUserSettingsContext();
   const isCn = lang === Language.CN;
-  const fmt = dateFormat(isCn ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // 日期走共用的 shortDate：不是今年的带年份（审查 C89），同年的和原来一样
+  const time = dateFormat(isCn ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  const stamp = (iso: string) => {
+    const d = new Date(iso);
+    return `${shortDate(d.getTime(), isCn)} ${time.format(d)}`;
+  };
   const [limit, setLimit] = useState(PAGE_WEIGHTS);
   const hasMore = entries.length > limit;
   const boxRef = useRef<HTMLDivElement>(null);
@@ -541,7 +557,7 @@ function WeightHistoryList({
               <span className="text-tertiary text-xs ml-1">{unit}</span>
             </span>
           </div>
-          <span className="text-xs text-tertiary">{fmt.format(new Date(entry.date))}</span>
+          <span className="text-xs text-tertiary">{stamp(entry.date)}</span>
         </div>
       ))}
       {hasMore && <div ref={sentinelRef} aria-hidden className="h-px" />}

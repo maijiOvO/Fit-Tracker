@@ -5,7 +5,7 @@ import { translations } from '../../translations';
 import { useGoalsContext, useUserSettingsContext } from '../contexts';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
-import { goalProgress, progressOf } from '../utils/goalProgress';
+import { goalCardValues, goalProgress, goalUnitLabel } from '../utils/goalProgress';
 import { trimNum } from '../utils/liftDisplay';
 
 const TYPE_LABEL: Partial<Record<Goal['type'], keyof typeof translations>> = {
@@ -35,6 +35,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
   const addButton = (
     <button
       onClick={onAddGoal}
+      data-testid="goal-add"
       className="flex-shrink-0 min-h-[44px] px-3 inline-flex items-center gap-1.5 bg-btn text-primary border border-divider rounded-control text-small font-semibold active:scale-press-sm [&>svg]:text-accent"
     >
       <Plus size={16} strokeWidth={2} />
@@ -58,8 +59,9 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {goals.map(g => {
-          const { current, start, missing } = progressOf(g, lifts, workouts, weightEntries, canonicalLiftId);
-          const progress = goalProgress(current, start, g.targetValue);
+          const { current, start, missing } = goalCardValues(g, lifts, workouts, weightEntries, canonicalLiftId);
+          // 体重当前值从体重记录现算，不落库；不知道（没记过体重也没手填）就写「—」、不画进度条
+          const progress = current == null ? null : goalProgress(current, start, g.targetValue);
           const typeKey = TYPE_LABEL[g.type];
           return (
           <div key={g.id} className="ui-card-interactive p-6">
@@ -74,6 +76,7 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => onEditGoal(g)}
+                  data-testid="goal-edit"
                   className="tap-44 p-2 text-tertiary hover:text-accent hover:bg-accent-soft rounded-chip transition-colors"
                   aria-label={isCn ? '编辑' : 'Edit'}
                 >
@@ -91,9 +94,9 @@ export const GoalsTab: React.FC<GoalsTabProps> = ({ lang, onAddGoal, onEditGoal 
 
             <div className="flex justify-between items-end mb-2">
               <span className="font-mono font-medium text-2xl text-primary tabular-nums">
-                {missing ? '—' : trimNum(current)} / {g.targetValue}
+                {current == null ? '—' : trimNum(current)} / {g.targetValue}
               </span>
-              <span className="text-tertiary text-xs">{g.unit}</span>
+              <span className="text-tertiary text-xs">{goalUnitLabel(g, isCn)}</span>
             </div>
             {/* 绑的动作找不到了：明说，点编辑重选（原来静默显示 0 / 目标，再练也不动） */}
             {missing && (

@@ -4,6 +4,8 @@ import { translations } from '../../../translations';
 import { Modal, ModalFooter } from '../Modal';
 import { ScrubNumber } from '../ScrubNumber';
 import { LiftPicker } from '../LiftPicker';
+import { useUserSettingsContext } from '../../contexts/UserSettingsContext';
+import { canSaveGoal, currentHidden, goalLabelPlaceholder, goalUnitLabel, normalizeGoal } from '../../utils/goalProgress';
 
 interface EditGoalModalProps {
   open: boolean;
@@ -23,6 +25,12 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
   onSave,
 }) => {
   const isCn = lang === Language.CN;
+  const { unit, weightEntries } = useUserSettingsContext();
+  const hasWeightLog = weightEntries.length > 0;
+  // 后缀显示这个目标自己的单位（规整后的）：lbs 用户编辑 kg 目标看到的是 kg
+  const suffix = editingGoal && (
+    <span className="flex-none text-tertiary text-small">{goalUnitLabel(normalizeGoal(editingGoal, { unit, hasWeightLog }), isCn)}</span>
+  );
   return (
     <Modal
       isOpen={open && !!editingGoal}
@@ -36,6 +44,9 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
           confirmLabel={isCn ? '保存' : 'Save'}
           onCancel={onCancel}
           onConfirm={onSave}
+          // 和新建同一条：空名字、目标值不是正数存不进去（原来编辑能存，同步时空标题被换成英文兜底，审查 C72）
+          confirmDisabled={!editingGoal || !canSaveGoal(editingGoal)}
+          confirmTestId="goal-confirm"
         />
       }
     >
@@ -66,7 +77,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
             onChange={e =>
               setEditingGoal({ ...editingGoal, title: e.target.value, label: e.target.value })
             }
-            placeholder={translations.goalLabelPlaceholder[lang]}
+            placeholder={goalLabelPlaceholder(editingGoal.type, isCn)}
           />
 
           {/* 绑的动作并入别处 / 找不到了（目标卡写「动作不在了」）就在这里重选 */}
@@ -84,8 +95,8 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            {/* 绑了动作的力量目标、频率目标：当前值从训练记录现算（GoalsTab），这里填了也不生效 */}
-            {!(editingGoal.type === 'frequency' || (editingGoal.type === 'strength' && editingGoal.autoUpdateRule)) && (
+            {/* 当前值现算的（频率、绑了动作的力量、已有体重记录的体重）不用填，填了也会被现算值盖掉 */}
+            {!currentHidden(editingGoal.type, editingGoal.type === 'strength' ? editingGoal.autoUpdateRule : undefined, hasWeightLog) && (
             <ScrubNumber
               value={editingGoal.currentValue ? Number(editingGoal.currentValue) : null}
               onCommit={n => setEditingGoal({ ...editingGoal, currentValue: n ?? 0 })}
@@ -97,6 +108,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
               placeholder={String(translations.current[lang])}
               ariaLabel={String(translations.current[lang])}
               fill
+              suffix={suffix}
               className="ui-input"
             />
             )}
@@ -111,6 +123,7 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
               placeholder={String(translations.target[lang])}
               ariaLabel={String(translations.target[lang])}
               fill
+              suffix={suffix}
               className="ui-input"
             />
           </div>
@@ -122,23 +135,6 @@ export const EditGoalModal: React.FC<EditGoalModalProps> = ({
             onChange={e => setEditingGoal({ ...editingGoal, description: e.target.value })}
             placeholder={isCn ? '目标描述（可选）' : 'Goal description (optional)'}
           />
-
-          <div className="flex items-center justify-between px-4 py-3 bg-inset border border-divider rounded-control">
-            <span className="text-body font-medium text-primary">
-              {isCn ? '状态' : 'Status'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setEditingGoal({ ...editingGoal, isActive: !editingGoal.isActive })}
-              className={`min-h-[36px] px-4 rounded-chip text-label font-semibold transition-colors duration-tap ease-paper ${
-                editingGoal.isActive ? 'bg-success text-on-semantic' : 'bg-card text-secondary'
-              }`}
-              role="switch"
-              aria-checked={!!editingGoal.isActive}
-            >
-              {editingGoal.isActive ? (isCn ? '进行中' : 'Active') : isCn ? '暂停' : 'Paused'}
-            </button>
-          </div>
         </div>
       )}
     </Modal>

@@ -8,7 +8,6 @@ import { KG_TO_LBS } from '../constants';
 import { clampBodyweightD } from '../utils/load';
 import { scheduleDebouncedFitlogPush } from '../../services/fitlogSyncScheduler';
 import { FITLOG_SOLO_USER_ID } from '../../services/fitlogSolo';
-import { useGoalsContext } from '../contexts/GoalsContext';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useUiOverlay } from '../contexts/UiOverlayContext';
 
@@ -29,7 +28,6 @@ export function useWeightLog(
   /** 触发 dashboard 切到该项目，沿用旧行为 */
   onWeightSaved?: () => void,
 ): UseWeightLogResult {
-  const goalsCtx = useGoalsContext();
   const settingsCtx = useUserSettingsContext();
   const { toast } = useUiOverlay();
 
@@ -37,7 +35,6 @@ export function useWeightLog(
   const isCn = lang === Language.CN;
   const unit = settingsCtx.unit;
   const weightEntries = settingsCtx.weightEntries;
-  const goals = goalsCtx.goals;
 
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [weightInputValue, setWeightInputValue] = useState('');
@@ -66,30 +63,8 @@ export function useWeightLog(
     };
     await db.save('weightLogs', entry);
 
-    const weightKg = entry.weight;
-    const isLatest =
-      weightEntries.length === 0 ||
-      new Date(dateToUse).getTime() >= new Date(weightEntries[0].date).getTime();
-    if (isLatest) {
-      const weightGoals = goals.filter(g => g.type === 'weight');
-      for (const g of weightGoals) {
-        // 目标的当前 / 目标值按建目标时的单位（g.unit）存、原样显示，体重记录却一律存 kg ——
-        // 写回前要换成目标自己的单位，否则 lbs 用户看到的「当前」是公斤数。
-        const inGoalUnit = g.unit === 'lbs' ? weightKg * KG_TO_LBS : weightKg;
-        // 打 updatedAt：同步按它比新旧（goalUpdatedMs），不打的话另一台设备上的旧值和这份一样「新」
-        const updatedGoal = {
-          ...g,
-          currentValue: Math.round(inGoalUnit * 10) / 10,
-          updatedAt: new Date().toISOString(),
-        };
-        await db.save('goals', updatedGoal);
-      }
-    }
-
-    await Promise.all([
-      settingsCtx.refreshWeightEntries(),
-      goalsCtx.refreshFromDb(),
-    ]);
+    // 体重目标的当前值在目标卡上现算（goalProgress.weightGoalCurrent），不再写回 goals
+    await settingsCtx.refreshWeightEntries();
     scheduleDebouncedFitlogPush();
     setEditingWeightId(null);
     setShowWeightInput(false);
@@ -97,8 +72,6 @@ export function useWeightLog(
     onWeightSaved?.();
   }, [
     editingWeightId,
-    goals,
-    goalsCtx,
     onWeightSaved,
     settingsCtx,
     unit,

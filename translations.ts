@@ -105,7 +105,12 @@ export const translations: TranslationStrings = {
   goalCustom: { en: 'Custom Goal', cn: '自定义目标' },
   target: { en: 'Target', cn: '目标值' },
   current: { en: 'Current', cn: '当前值' },
-  goalLabelPlaceholder: { en: 'e.g. Bench press 100 kg', cn: '如：卧推 100 kg' },
+  // 名称占位按类型给例子：原来一律是卧推，体重目标也被引着写成力量的样子（审查 C71）
+  goalLabelPlaceholderWeight: { en: 'e.g. Get down to 75 kg', cn: '如：减到 75 kg' },
+  goalLabelPlaceholderStrength: { en: 'e.g. Bench press 100 kg', cn: '如：卧推 100 kg' },
+  goalLabelPlaceholderFrequency: { en: 'e.g. Train 3 times a week', cn: '如：每周练 3 次' },
+  // 频率目标的单位：库里存 'times/week'（旧数据、备份里都是），只在显示时翻译
+  goalUnitPerWeek: { en: 'per week', cn: '次/周' },
   trainingTitlePlaceholder: { en: 'Workout name', cn: '训练名称' },
   // 训练部位选择（进入训练页、还没有动作时的第一步；选完即作为训练名称）
   pickBodyPartTitle: { en: 'What are you training today?', cn: '今天练哪里' },

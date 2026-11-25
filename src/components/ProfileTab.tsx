@@ -16,6 +16,8 @@ import { useUiOverlay } from '../contexts/UiOverlayContext';
 import { plural } from '../utils/format';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 import { localYmd } from '../utils/dateUtils';
+import { shortDate } from '../utils/liftDisplay';
+import { RenameModal } from './modals/RenameModal';
 
 // 懒加载 MetricChart（包含 recharts）
 const MetricChart = lazy(() => import('./LazyCharts').then(m => ({ default: m.MetricChart })));
@@ -35,6 +37,8 @@ interface ProfileTabProps {
   onToggleMetric: (metricName: string | null) => void;
   onEditMeasurement: (measurement: Measurement) => void;
   onAddMeasurementEntry: (name: string) => void;
+  /** 整项改名（新名字已有就并进去） */
+  onRenameMetric: (from: string, to: string) => Promise<void>;
   setShowResetAccountModal: (show: boolean) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   /** 开发模式隔离开关，仅开发机可见 */
@@ -68,6 +72,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   onToggleMetric,
   onEditMeasurement,
   onAddMeasurementEntry,
+  onRenameMetric,
   setShowResetAccountModal,
   fileInputRef,
   devMode,
@@ -86,6 +91,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
   const isCn = lang === Language.CN;
   const { unit, appPrefs } = useUserSettingsContext();
   const [prefsOpen, setPrefsOpen] = useState(false);
+  /** 改名弹窗：from 是原名，value 是输入框里的。关时只收 open，退场动画里名字不清空 */
+  const [renaming, setRenaming] = useState({ open: false, from: '', value: '' });
 
   // 「杠铃片」阶段二：热力图镁粉点，口径和「按动作」同一个钩子
   const { workouts: doneWorkouts } = useDoneWorkouts();
@@ -208,7 +215,8 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                     <span className="text-micro font-bold text-tertiary uppercase tracking-wider">{metric.unit}</span>
                   </div>
                   <p className="text-micro font-normal text-tertiary mt-1">
-                    {new Date(metric.date).toLocaleDateString(lang === Language.CN ? 'zh-CN' : 'en-US', { month: 'short', day: 'numeric' })}
+                    {/* 不是今年的带年份（审查 C89） */}
+                    {shortDate(new Date(metric.date).getTime(), isCn)}
                     {/* 比上一条的变化：卡面只有最新一条，带上它才看得出以前的还在 */}
                     {!!metric.delta && (
                       <span data-testid="metric-delta"> · {metric.delta > 0 ? '+' : '−'}{Math.abs(metric.delta)}</span>
@@ -264,6 +272,15 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                             </button>
                           ))}
                       </div>
+                      {/* 整项改名 / 并进另一项（输入已有的名字）：次要文字按钮，放在历史列表下面 */}
+                      <button
+                        type="button"
+                        onClick={() => setRenaming({ open: true, from: metric.name, value: metric.name })}
+                        className="tap-44 mt-3 text-xs font-semibold text-secondary"
+                        data-testid="metric-rename"
+                      >
+                        {isCn ? '改名' : 'Rename'}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -287,6 +304,21 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
       </div>
 
       {/* 备份状态留在一级页面上：数据在哪、上次备份是什么时候，一眼能看到（docs/positioning.md） */}
+      <RenameModal
+        open={renaming.open}
+        lang={lang}
+        title={isCn ? '指标改名' : 'Rename metric'}
+        placeholder={renaming.from}
+        value={renaming.value}
+        setValue={v => setRenaming(r => ({ ...r, value: v }))}
+        onClose={() => setRenaming(r => ({ ...r, open: false }))}
+        onConfirm={async () => {
+          if (!renaming.open) return;
+          setRenaming(r => ({ ...r, open: false }));
+          await onRenameMetric(renaming.from, renaming.value);
+        }}
+      />
+
       <BackupGlance />
 
       {/* 首选项入口（原设置卡搬进了弹层）。右侧是当前值摘要，是状态不是说明 */}

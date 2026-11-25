@@ -41,3 +41,36 @@ export function latestByMetric(measurements: Measurement[]): MetricGlance[] {
     };
   });
 }
+
+/**
+ * 一个指标画进图表的点：按日期排，只留和最新一条同单位的（cm 和 in 的点画在一根线上会连成锯齿，审查 C76）。
+ * 和卡面 latestByMetric 的 delta 规则一致：单位不同的没法比。
+ */
+export function metricSeries(measurements: Measurement[], name: string): { unit: string; points: Measurement[] } {
+  const sorted = measurements
+    .filter(m => m.name === name)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const unit = sorted[sorted.length - 1]?.unit ?? '';
+  return { unit, points: sorted.filter(m => m.unit === unit) };
+}
+
+/**
+ * 新记 / 改名时用的指标名：去掉首尾空白；已有同名的原样用；只差大小写的并到已有那个名字
+ * （输入 waist 原来另起一项，和已有的 Waist 分成两张卡，审查 C79）
+ */
+export function canonicalMetricName(measurements: Measurement[], raw: string): string {
+  const name = raw.trim();
+  if (measurements.some(m => m.name === name)) return name;
+  const lower = name.toLowerCase();
+  return measurements.find(m => m.name.toLowerCase() === lower)?.name ?? name;
+}
+
+/**
+ * 整项改名：from 那一项的每一行换成新名字、打 updatedAt，id 不变（不用墓碑）。新名字已经有了就等于合并进去。
+ * 新名字和原来一样（或是空的）返回 []：不写库，也就不留一步空的撤销。
+ */
+export function renameMetricRows(measurements: Measurement[], from: string, toRaw: string, nowIso: string): Measurement[] {
+  const to = canonicalMetricName(measurements.filter(m => m.name !== from), toRaw);
+  if (!to || to === from) return [];
+  return measurements.filter(m => m.name === from).map(m => ({ ...m, name: to, updatedAt: nowIso }));
+}
