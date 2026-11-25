@@ -75,7 +75,7 @@ async function bundle(env, file) {
     contents: [
       "export * from './services/fitlogAutoBackup.ts';",
       "export { buildWorkoutsCsv } from './services/fitlogCsvExport.ts';",
-      "export { parseImportCsv, materialize, importLookup, mergeImportSeeds } from './services/fitlogCsvImport.ts';",
+      "export { parseImportCsv, materialize, importLookup, mergeImportSeeds, previewMatches, planImportWrite } from './services/fitlogCsvImport.ts';",
       "export { mergeLocalWithRemote, collectLocalSnapshot, readPrefsFromLocalStorage, writePrefsToLocalStorage } from './services/fitlogRemote.ts';",
       "export { applyBackup, mergeBackup, parseBackupFile, resetAccount, readRollback, rollbackImport, addImportedRecords, buildBackupFile, finishPendingOverwrite, localDataSummary, backupFileName } from './services/fitlogBackup.ts';",
       "export { PrefsWriteError } from './services/fitlogRemote.ts';",
@@ -1102,7 +1102,7 @@ await t('合并时两边各一条同名自建动作：归成 id 较老的那条�
 await t('撤销导入：之后补记的旧日期训练算进「会丢」，进行中那场不算、撤销后保留这期间记的组、回滚槽清掉（C62）', async () => {
   const live1 = W('w_live', 0, [[100, 5]]);
   await putAll(S, [live1]);
-  await S.addImportedRecords({ workouts: [W('imp', 20)], newDefs: [], metricSeeds: {} });
+  await S.addImportedRecords({ source: 'strong', workouts: [W('imp', 20)], newDefs: [], metricSeeds: {} }, 'skip');
   const live3 = { ...live1, exercises: [{ ...live1.exercises[0], sets: [[100, 5], [100, 5], [100, 5]].map(([weight, reps], i) => ({ id: `l${i}`, weight, reps })) }] };
   await putAll(S, [live3]);
   await putAll(S, [{ ...W('w_back', 3), id: `w_back_${Date.now()}`, createdAt: iso(0), updatedAt: iso(0) }]);
@@ -1178,6 +1178,7 @@ const importOpts = (plan, customs = [], overrides = {}) => {
   return {
     unitByExercise: Object.fromEntries(plan.exercises.filter(e => e.needsUnit).map(e => [e.srcName, 'lbs'])),
     includeWarmups: false,
+    overCap: 'skip',
     isCn: true,
     userId: 'u_solo',
     defs: look.defs,
@@ -1478,6 +1479,238 @@ await t('CSV 导入种子：显示名已配置的丢掉，本机有记录没配�
     },
   );
   assert.deepEqual({ ...out }, { 农夫行走: ['weight', 'reps', 'distance', 'duration'], 跑步机: ['distance', 'duration'] });
+});
+
+// ── CSV 导入解析从严、报账、重叠（第 28 批审查：csv#3–#8、gap-4#6、C69）────────────────
+const SH = 'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE';
+/** 一行 Strong（逗号版）：日期、标题、动作、组序、重量、次数 */
+const srow = (date, title, ex, order, w, r) => `${date},${title},1h,${ex},${order},${w},${r},0,0,,,`;
+const strongOf = rows => `${SH}\n${rows.join('\n')}\n`;
+const HH = '"title","start_time","end_time","description","exercise_title","superset_id","exercise_notes","set_index","set_type","weight_kg","reps","distance_km","duration_seconds","rpe"';
+const hrow = (title, start, ex, ss, type, w, r) => `"${title}","${start}","","","${ex}","${ss}","",0,"${type}",${w},${r},,,`;
+const hevyRows = rows => `${HH}\n${rows.join('\n')}\n`;
+const mat = (plan, over = {}) => D.materialize(plan, { ...importOpts(plan), ...over });
+
+// 防 csv#6：new Date 兜底把 01/03 读成 1 月 3 日、13 号以后整行丢；PM 读成上午
+await t('CSV 导入日期：日 / 月文件 28 场全进、首尾是 3 月 1 日和 28 日；美式 PM、Hevy 的 PM 读成下午', () => {
+  const days = Array.from({ length: 28 }, (_, i) => srow(`${String(i + 1).padStart(2, '0')}/03/2024 18:00`, `D${i + 1}`, 'Squat (Barbell)', 1, 100, 5));
+  const plan = D.parseImportCsv(strongOf(days));
+  assert.equal(plan.workouts.length, 28);
+  const first = plan.workouts[0].start;
+  const last = plan.workouts[27].start;
+  assert.deepEqual([first.getMonth(), first.getDate(), last.getMonth(), last.getDate()], [2, 1, 2, 28]);
+  assert.equal(plan.dateOrderGuessed, null);
+  assert.equal(D.parseImportCsv(strongOf([srow('3/14/2024 6:05 PM', 'A', 'Squat (Barbell)', 1, 100, 5)])).workouts[0].start.getHours(), 18);
+  assert.equal(D.parseImportCsv(hevyRows([hrow('A', '18 Oct 2025, 8:47 PM', 'Squat (Barbell)', '', 'normal', 100, 5)])).workouts[0].start.getHours(), 20);
+  // 德式 / 荷式写法
+  const de = D.parseImportCsv(strongOf([srow('14.03.2024 18:00', 'A', 'Squat (Barbell)', 1, 100, 5), srow('14-3-2024 19:00', 'B', 'Squat (Barbell)', 1, 100, 5)]));
+  assert.deepEqual(de.workouts.map(w => [w.start.getMonth(), w.start.getDate(), w.start.getHours()]), [[2, 14, 18], [2, 14, 19]]);
+});
+
+// 防 csv#6：认不出的日期被兜底成 2000 / 2001 年的两场，或整行悄悄没了、确认页不知道
+await t('CSV 导入报账：日期认不出的行不进来、计数；整份都认不出时报 bad-dates', () => {
+  const plan = D.parseImportCsv(
+    strongOf([
+      srow('2024-03-14 18:05:12', 'A', 'Squat (Barbell)', 1, 100, 5),
+      srow('2024-03-16 09:00:00', 'B', 'Squat (Barbell)', 1, 100, 5),
+      srow('0', 'C', 'Squat (Barbell)', 1, 100, 5),
+      srow('Squat 1', 'D', 'Squat (Barbell)', 1, 100, 5),
+      srow('"18 Okt 2025, 08:47"', 'E', 'Squat (Barbell)', 1, 100, 5),
+      srow('31/02/2024 18:00', 'F', 'Squat (Barbell)', 1, 100, 5),
+    ]),
+  );
+  assert.equal(plan.workouts.length, 2);
+  assert.equal(plan.skipped.date, 4);
+  assert.throws(() => D.parseImportCsv(strongOf([srow('0', 'C', 'Squat (Barbell)', 1, 100, 5)])), e => e.code === 'bad-dates');
+  // 少了动作名、多出有字的列：算格式不对
+  const bad = D.parseImportCsv(strongOf([srow('2024-03-14 18:05:12', 'A', 'Squat (Barbell)', 1, 100, 5), srow('2024-03-14 18:05:12', 'A', '', 1, 100, 5), srow('2024-03-14 18:05:12', 'A', 'Squat (Barbell)', 1, 100, 5) + ',x']));
+  assert.equal(bad.skipped.malformed, 2);
+});
+
+// 防 csv#6：字段中间一个没转义的引号开始引用、吞掉后面几场；收尾规则改坏合法的 "" 转义和多行备注
+await t('CSV 导入引号：没转义的引号当字面字符、10 场全进；"" 转义和带换行的引用字段照常', () => {
+  const ten = title => strongOf(Array.from({ length: 10 }, (_, i) => srow(`2024-03-${String(i + 1).padStart(2, '0')} 18:00:00`, i === 3 ? title : `D${i}`, 'Squat (Barbell)', 1, 100, 5)));
+  const a = D.parseImportCsv(ten('Push "heavy day'));
+  assert.equal(a.workouts.length, 10);
+  assert.equal(a.workouts[3].title, 'Push "heavy day');
+  const b = D.parseImportCsv(ten('"Push "heavy" day"'));
+  assert.equal(b.workouts.length, 10);
+  assert.equal(b.workouts[3].title, 'Push "heavy" day');
+  const c = D.parseImportCsv(`${SH}\n2024-03-01 18:00:00,"Say ""hi""",1h,Squat (Barbell),1,100,5,0,0,,"line 1\nline 2",\n`);
+  assert.equal(c.workouts[0].title, 'Say "hi"');
+  assert.equal(c.workouts[0].notes, 'line 1\nline 2');
+});
+
+// 防 csv#6：分隔符只看第一行，文件开头空一行的分号文件整份认不出
+await t('CSV 导入分隔符：开头空一行的分号 Strong 文件照样认得', () => {
+  assert.equal(D.parseImportCsv('\n' + STRONG_ANDROID).workouts.length, 2);
+});
+
+// 防 csv#7：Number() 兜底把 1,000 读成 1、0x10 读成 16、1e3 读成 1000、「100 kg」丢掉；负次数、小数次数原样入库；1 后面多按几个 0 也照导
+await t('CSV 导入数字：千分位按整份文件的小数符号读，0x10 / 1e3 / 「100 kg」不认并计数，次数取整不为负，超上限的组默认不导', () => {
+  const comma = D.parseImportCsv(strongOf([srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 1, '"1,000"', 1), srow('2024-03-02 18:00:00', 'B', 'Squat (Barbell)', 1, 22.5, 5)]));
+  assert.equal(comma.workouts[0].exercises[0].sets[0].weight, 1000);
+  const semi = D.parseImportCsv(STRONG_ANDROID.split('\n')[0] + '\n2024-03-14 18:05:12;Push;1h;Squat (Barbell);1;1.000,5;1;0;0;;;\n');
+  assert.equal(semi.workouts[0].exercises[0].sets[0].weight, 1000.5);
+  const junk = D.parseImportCsv(
+    strongOf([
+      srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 1, '0x10', 5),
+      srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 2, '1e3', 5),
+      srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 3, '100 kg', 5),
+      srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 4, 100, -3),
+      srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 5, 100, 5.5),
+      srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 6, 99999, 1),
+    ]),
+  );
+  assert.equal(junk.skipped.numbers, 3);
+  const plan = { ...junk, fileUnit: 'kg' };
+  const sets = mat(plan).workouts[0].exercises[0].sets;
+  assert.deepEqual(sets.map(s => [s.weight, s.reps]), [[0, 5], [0, 5], [0, 5], [100, 0], [100, 6]]);
+  const r = mat(plan, { overCap: 'keep' });
+  assert.equal(r.overCapSets, 1);
+  assert.equal(r.workouts[0].exercises[0].sets.length, 6);
+  assert.equal(mat(plan).overCapSets, 1);
+});
+
+// 防 csv#4 / csv#3：「日期原文 + 标题」的 32 位哈希撞号（两场成了同一个 id、互相覆盖）；来源改了标题、Excel 换了日期写法就成了另一场
+await t('CSV 导入 id：按文件里的开始时间到分钟，不撞号、改标题和换日期写法都不变；同一分钟两场各有 id', () => {
+  const ids = csv => D.parseImportCsv(csv).workouts.map(w => w.id);
+  const [a, b] = ids(strongOf([srow('2020-04-29 19:12:53', 'Morning Workout', 'Squat (Barbell)', 1, 100, 5), srow('2022-12-10 20:01:54', 'Evening Workout', 'Squat (Barbell)', 1, 100, 5)]));
+  assert.notEqual(a, b);
+  const twin = strongOf([srow('2024-03-14 18:05:12', 'Push', 'Squat (Barbell)', 1, 100, 5), srow('2024-03-14 18:05:40', 'Pull', 'Squat (Barbell)', 1, 100, 5)]);
+  const t1 = ids(twin);
+  assert.equal(new Set(t1).size, 2);
+  assert.deepEqual(ids(twin), t1);
+  assert.deepEqual(ids(strongOf([srow('2024-03-14 18:05:12', 'Push (renamed)', 'Squat (Barbell)', 1, 100, 5)])), [t1[0]]);
+  assert.deepEqual(ids(strongOf([srow('3/14/2024 18:05', 'Push', 'Squat (Barbell)', 1, 100, 5)])), [t1[0]]);
+});
+
+// 防 csv#3：再导一次无条件覆盖 App 里改过的场；来源改过标题的那场翻倍；用户删掉的导入训练被捞回来
+await t('CSV 导入重叠：默认保留 fitlog 里改过的、不翻倍、删过的不回来；选覆盖才换成文件里的、旧 id 一并删', async () => {
+  const day = (d, title) => srow(`2024-03-0${d} 18:00:00`, title, 'Squat (Barbell)', 1, 100, 5);
+  const write = async (rows, mode) => {
+    const plan = D.parseImportCsv(strongOf(rows));
+    await S.addImportedRecords(mat(plan), mode);
+  };
+  const A = [day(1, 'A1'), day(2, 'A2'), day(3, 'A3')];
+  await write(A, 'skip');
+  const all = async () => (await S.db.getAll('workouts')).sort((x, y) => x.startTime.localeCompare(y.startTime));
+  const [w1] = await all();
+  const edited = { ...w1, title: '改过', notes: '我的备注', exercises: [{ ...w1.exercises[0], sets: [{ ...w1.exercises[0].sets[0], weight: 100, reps: 12 }] }] };
+  await S.db.save('workouts', edited);
+  // 旧版 32 位 id、和 A2 同一开始时间的一场
+  const [, w2] = await all();
+  await S.db.save('workouts', { ...w2, id: 'imp_strong_1ea6psa' });
+  await S.db.delete('workouts', w2.id);
+  const A2 = [day(1, 'A1'), day(2, 'A2 renamed'), day(3, 'A3'), day(4, 'A4')];
+  const plan = D.parseImportCsv(strongOf(A2));
+  const local = { workouts: await S.db.getAll('workouts'), tombstonedIds: [] };
+  assert.equal(D.planImportWrite(mat(plan).workouts, local, 'strong', 'skip').overlap, 3);
+  await write(A2, 'skip');
+  let rows = await all();
+  assert.equal(rows.length, 4);
+  assert.deepEqual([rows[0].title, rows[0].notes, rows[0].exercises[0].sets[0].reps], ['改过', '我的备注', 12]);
+  assert.equal(rows[1].id, 'imp_strong_1ea6psa');
+  await write(A2, 'replace');
+  rows = await all();
+  assert.equal(rows.length, 4);
+  assert.equal(new Set(rows.map(w => w.startTime)).size, 4);
+  assert.deepEqual([rows[0].title, rows[0].exercises[0].sets[0].reps], ['A1', 5]);
+  assert.ok(!rows.some(w => w.id === 'imp_strong_1ea6psa'));
+  // 删掉一场导入的训练（墓碑）：'skip' 再导不回来
+  await S.db.delete('workouts', rows[3].id);
+  S.writeTombstones({ workouts: [rows[3].id] });
+  await write(A2, 'skip');
+  assert.equal((await all()).length, 3);
+});
+
+// 防 C69：确认页和写入口径不一致 —— 只有热身组的动作也新建成空动作；一场都没有还照样整库改写
+await t('CSV 导入 C69：只有热身组的动作不建定义、不种记录项，预览不列；一场都没有时 write 为空', () => {
+  const only = D.parseImportCsv(strongOf([srow('2024-03-01 18:00:00', 'A', 'Warm Only Lift', 'W', 20, 10)]));
+  const r0 = mat(only);
+  assert.equal(r0.workouts.length, 0);
+  assert.deepEqual(r0.newDefs, []);
+  assert.deepEqual(D.planImportWrite(r0.workouts, { workouts: [], tombstonedIds: [] }, 'strong', 'skip').write, []);
+  const two = D.parseImportCsv(
+    strongOf([srow('2024-03-01 18:00:00', 'A', 'Squat (Barbell)', 1, 100, 5), srow('2024-03-01 18:00:00', 'A', 'Warm Two', 'W', 20, 10), srow('2024-03-02 18:00:00', 'B', 'Warm Only Lift', 'W', 20, 10)]),
+  );
+  const r = mat(two);
+  assert.equal(r.workouts.length, 1);
+  assert.deepEqual(r.newDefs.map(d => d.name.en), []);
+  assert.ok(!('Warm Two' in r.metricSeeds) && !('Warm Only Lift' in r.metricSeeds));
+  const look = D.importLookup([], {});
+  assert.deepEqual(D.previewMatches(two, look.defs, look.findByName, false).map(e => e.srcName), ['Squat (Barbell)']);
+  assert.equal(D.previewMatches(two, look.defs, look.findByName, true).length, 3);
+});
+
+// 防 csv#5：有 Weight Unit 列也当没写单位去问；kg / lb 混着的动作按原值比「最重」，135 lb 压过 100 kg
+await t('CSV 导入单位：Weight Unit 列全是 lbs 时整份按 lb；kg / lb 混着时按 kg 比最重、带上它的单位', () => {
+  const H = 'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Weight Unit,Reps';
+  const lbs = D.parseImportCsv(`${H}\n2024-03-01 18:00:00,A,1h,Squat (Barbell),1,225,lbs,5\n2024-03-01 18:00:00,A,1h,Squat (Barbell),2,0,,5\n`);
+  assert.equal(lbs.fileUnit, 'lbs');
+  const mixed = D.parseImportCsv(`${H}\n2024-03-01 18:00:00,A,1h,Squat (Barbell),1,100,kg,5\n2024-03-02 18:00:00,B,1h,Squat (Barbell),1,135,lbs,5\n`);
+  assert.equal(mixed.fileUnit, null);
+  const s = mixed.exercises[0];
+  assert.deepEqual([s.maxWeight, s.maxUnit], [100, 'kg']);
+});
+
+// 防 csv#8：Distance (meters) 不认、距离丢掉；Distance (miles) 被当成米；认不出的单位悄悄按米导
+await t('CSV 导入距离：表头 (meters) / (miles) 按单位换算，认不出的单位整列不导、列进 ignoredColumns', () => {
+  const run = (h, v) => D.parseImportCsv(`Date,Workout Name,Exercise Name,Set Order,${h},Seconds\n2024-03-01 18:00:00,A,Running,1,${v},1800\n`);
+  const m = run('Distance (meters)', 5000);
+  const set = mat(m).workouts[0].exercises[0].sets[0];
+  assert.deepEqual([set.distance, set.distanceUnit], [5, 'km']);
+  assert.ok(Math.abs(run('Distance (miles)', 3.1).workouts[0].exercises[0].sets[0].distanceKm - 4.989) < 0.001);
+  const yd = run('Distance (yd)', 100);
+  assert.equal(yd.workouts[0].exercises[0].sets[0].distanceKm, null);
+  assert.deepEqual(yd.ignoredColumns, ['Distance (yd)']);
+});
+
+// 防 gap-4#6：Hevy 的 superset_id 不读，超级组导进来拆成单个动作；各场的 superset_id 0 串成同一组
+await t('CSV 导入超级组：Hevy 同一 superset_id 的动作成交替组、挨着放，组 id 每场不同；只剩一个成员的、同名一块组一块单做的不成组', () => {
+  const S1 = '18 Oct 2025, 08:47';
+  const S2 = '20 Oct 2025, 08:47';
+  const plan = D.parseImportCsv(
+    hevyRows([
+      hrow('A', S1, 'Bench Press (Barbell)', 0, 'normal', 60, 8),
+      hrow('A', S1, 'Lat Pulldown (Cable)', '', 'normal', 40, 10),
+      hrow('A', S1, 'Incline Bench Press (Dumbbell)', 0, 'normal', 20, 10),
+      hrow('A', S1, 'Bench Press (Barbell)', 0, 'normal', 60, 8),
+      hrow('A', S1, 'Incline Bench Press (Dumbbell)', 0, 'normal', 20, 10),
+      hrow('B', S2, 'Bench Press (Barbell)', 0, 'normal', 60, 8),
+      hrow('B', S2, 'Incline Bench Press (Dumbbell)', 0, 'normal', 20, 10),
+    ]),
+  );
+  const [a, b] = mat(plan).workouts;
+  assert.deepEqual(a.exercises.map(e => e.altGroup ?? null), [`${a.id}_ss0`, `${a.id}_ss0`, null]);
+  assert.notEqual(b.exercises[0].altGroup, a.exercises[0].altGroup);
+  assert.equal(b.exercises[0].altGroup, b.exercises[1].altGroup);
+  // 一个成员只有热身组、被跳过：剩下的那个不成组
+  const warm = D.parseImportCsv(hevyRows([hrow('A', S1, 'Bench Press (Barbell)', 0, 'normal', 60, 8), hrow('A', S1, 'Incline Bench Press (Dumbbell)', 0, 'warmup', 20, 10)]));
+  assert.equal(mat(warm).workouts[0].exercises[0].altGroup, undefined);
+  // 同名动作一块在超级组里、一块单做：不成组
+  const mixed = D.parseImportCsv(
+    hevyRows([hrow('A', S1, 'Bench Press (Barbell)', 0, 'normal', 60, 8), hrow('A', S1, 'Incline Bench Press (Dumbbell)', 0, 'normal', 20, 10), hrow('A', S1, 'Bench Press (Barbell)', '', 'normal', 60, 8)]),
+  );
+  assert.deepEqual(mat(mixed).workouts[0].exercises.map(e => e.altGroup), [undefined, undefined]);
+});
+
+// 防 C70：文字格以 = + - @ 开头时被表格软件当公式算；德语区域的 Excel 不按逗号分列、把 22.5 读成日期 / 文本
+await t('CSV 导出：公式符号开头的文字加单引号、数值不加；系统区域用逗号当小数点时按分号分隔、小数写逗号', () => {
+  const w = { ...seedWorkout('seed_f', 2, '=1+1', '杠铃深蹲', [[22.5, 5]]), gym: '@home', notes: '- 左肩不舒服; 下次轻点' };
+  w.exercises.push({ id: 'seed_f_2', name: '辅助引体向上', sets: [{ id: 'a1', weight: 20, reps: 8, bodyweightMode: 'assisted' }] });
+  const h = { isCn: true, resolveName: x => x, variantOf: () => '+宽握', bodyPartOf: () => '', regionsOf: () => '', fallbackUnit: 'kg' };
+  const lines = D.buildWorkoutsCsv([w], { ...h, decimalComma: false }).text.replace(/^﻿/, '').trim().split('\r\n');
+  const row = lines[1].split(',');
+  assert.deepEqual([row[3], row[4], row[6]], ["'=1+1", "'@home", "'+宽握"]);
+  assert.ok(lines[1].endsWith(`"'- 左肩不舒服; 下次轻点"`) || lines[1].endsWith(`'- 左肩不舒服; 下次轻点`));
+  const assisted = lines[2].split(',');
+  assert.deepEqual([assisted[11], assisted[13]], ['-20', '-20']);
+  const de = D.buildWorkoutsCsv([w], { ...h, decimalComma: true }).text.replace(/^﻿/, '').trim().split('\r\n');
+  assert.equal(de[0].split(';').length, 20);
+  const deRow = de[1].split(';');
+  assert.deepEqual([deRow[11], deRow[13]], ['22,5', '22,5']);
+  assert.ok(de[1].endsWith(`"'- 左肩不舒服; 下次轻点"`));
 });
 
 console.log(`\ndata-check: ${n} passed`);

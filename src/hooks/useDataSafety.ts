@@ -165,6 +165,8 @@ export function useExportCsv(): (target: 'share' | 'folder') => Promise<void> {
           return def ? effectiveRegions(mergeOverride(def, exerciseOverrides[def.id])).map(getTagName).filter(Boolean).join(' / ') : '';
         },
         fallbackUnit: unit,
+        // 系统区域的小数符号（不是 App 语言）：德语系统的 Excel 按分号分列、认 22,5
+        decimalComma: new Intl.NumberFormat().formatToParts(1.5).find(p => p.type === 'decimal')?.value === ',',
       });
       const name = csvFileName(isCn);
       const ok = isCn ? `已导出 ${rows} 组（${done.length} 场训练）` : `Exported ${rows} sets (${done.length} workouts)`;

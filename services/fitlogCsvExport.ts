@@ -6,6 +6,10 @@
  *
  * - UTF-8 带 BOM：不带的话 Windows Excel 按本地编码读，中文全成乱码。
  * - CRLF 换行、RFC 4180 引号：Excel / Numbers / Google 表格都按这个认。
+ * - 文字格以 = + - @ 制表符 回车开头（又不是纯数字）的前面加一个单引号：不加的话表格软件把「- 左肩不舒服」「=1+1」当公式算
+ *   （审查 C70）。数值列传 number 进来不走这条，辅助组的 -20 照旧是数。
+ * - 系统区域的小数符号是逗号（德、法…）时分隔符换成分号、小数写成 22,5：那边的 Excel 双击才按列分开。
+ *   不加 sep= 首行：加了 Excel 就不认 BOM，中文又成乱码。
  * - 日期和时间拆两列，Excel 才会把日期认成日期（拼在一起带 T 的 ISO 它当文本）。
  */
 import type { Exercise, SetLog, SubSetLog, WorkoutSession } from '../types';
@@ -27,12 +31,15 @@ export interface CsvExportHelpers {
   regionsOf: (stored: string) => string;
   /** 老数据没记片子单位时的兜底 */
   fallbackUnit: 'kg' | 'lbs';
+  /** 系统区域用逗号当小数点：分隔符换成分号、数值写 22,5 */
+  decimalComma: boolean;
 }
 
-function cell(v: unknown): string {
-  if (v === undefined || v === null) return '';
-  const s = String(v);
-  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+/** 数值传 number（不加公式前缀，小数符号跟区域）；文字以公式符号开头又不是纯数字的，前面加单引号 */
+function cell(v: string | number, decimalComma: boolean): string {
+  if (typeof v === 'number') return decimalComma ? String(v).replace('.', ',') : String(v);
+  const s = /^[=+\-@\t\r]/.test(v) && !/^[+-]?\d+([.,]\d+)?$/.test(v) ? `'${v}` : v;
+  return s.includes(decimalComma ? ';' : ',') || /["\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 function localDate(iso: string | undefined): string {
@@ -56,7 +63,8 @@ const CSV_HEADERS = {
 
 /** 返回整份 CSV 文本（含 BOM）和行数（不含表头） */
 export function buildWorkoutsCsv(workouts: WorkoutSession[], h: CsvExportHelpers): { text: string; rows: number } {
-  const lines: string[] = [(h.isCn ? CSV_HEADERS.cn : CSV_HEADERS.en).map(cell).join(',')];
+  const sep = h.decimalComma ? ';' : ',';
+  const lines: string[] = [(h.isCn ? CSV_HEADERS.cn : CSV_HEADERS.en).map(v => cell(v, h.decimalComma)).join(sep)];
   // 日期、排序都按 date：那是 App 里看到、用户改过的那个时刻；startTime 只用来算时长（审查 C23：
   // 以前读 startTime，编辑时只改过 date 的旧记录导出成原来那天）
   const sorted = [...workouts].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -64,7 +72,7 @@ export function buildWorkoutsCsv(workouts: WorkoutSession[], h: CsvExportHelpers
   for (const w of sorted) {
     const when = w.date;
     // 整场的时长重复写在每一行上，和「训练备注」同一做法：Excel 里按日期筛就是一场
-    const base = [localDate(when), localTime(when), String(sessionDurationMin(w) ?? ''), w.title ?? '', w.gym ?? ''];
+    const base: (string | number)[] = [localDate(when), localTime(when), sessionDurationMin(w) ?? '', w.title ?? '', w.gym ?? ''];
     for (const ex of w.exercises ?? []) {
       const name = h.resolveName(ex.name);
       const exCols = [name, h.variantOf(ex), h.bodyPartOf(ex.name), h.regionsOf(ex.name)];
@@ -83,7 +91,7 @@ export function buildWorkoutsCsv(workouts: WorkoutSession[], h: CsvExportHelpers
 }
 
 function row(
-  base: string[],
+  base: (string | number)[],
   exCols: string[],
   order: string,
   type: string,
@@ -113,8 +121,8 @@ function row(
     full.distance != null ? full.distanceUnit ?? 'km' : '',
     w.notes ?? '',
   ]
-    .map(cell)
-    .join(',');
+    .map(v => cell(v, h.decimalComma))
+    .join(h.decimalComma ? ';' : ',');
 }
 
 export function csvFileName(isCn: boolean, when = new Date()): string {

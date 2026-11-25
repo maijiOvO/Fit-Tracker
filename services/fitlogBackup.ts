@@ -35,6 +35,7 @@ import {
   type OverwritePendingRow,
 } from './fitlogRemote';
 import { writeTombstones } from './fitlogTombstones';
+import { planImportWrite, type ImportSource } from './fitlogCsvImport';
 import { db } from './db';
 import { undoJournal } from './undoJournal';
 import { langOf, unitOf, type AppPrefs } from './appPrefs';
@@ -652,29 +653,36 @@ export async function resetAccount(): Promise<'pushed' | 'not-configured' | 'fai
 }
 
 /**
- * 把外来记录（Strong / Hevy 导入）加进现有数据：只新增 / 覆盖同 id 的训练和新建的自定义动作，别的不动。
+ * 把外来记录（Strong / Hevy 导入）加进现有数据：新增训练和新建的自定义动作，别的不动。
  * 和覆盖恢复一样先存回滚槽，「撤销上次恢复、导入或重置」能撤回。
  *
- * 同一份文件再导一次 id 相同（见 fitlogCsvImport 的 hash），只是覆盖那几条；
- * 用户之前删过的导入训练，这次是明确要再导进来 —— 从墓碑里摘掉，否则下一次同步又会把它过滤掉。
+ * 以前导入过的场（同 id、同一开始时间的旧版 id、墓碑里的，见 fitlogCsvImport.planImportWrite）按 mode 处理：
+ * 'skip' 不写 —— App 里改过的不被盖掉，删过的不被捞回来；'replace' 换成文件里的版本，旧 id 一并删掉，
+ * 删过又明确要再导的从墓碑里摘掉（否则下一次同步又会把它过滤掉）。
  */
-export async function addImportedRecords(input: {
-  workouts: WorkoutSession[];
-  newDefs: ExerciseDefinition[];
-  metricSeeds: Record<string, string[]>;
-}): Promise<'pushed' | 'not-configured' | 'failed'> {
+export async function addImportedRecords(
+  input: {
+    source: ImportSource;
+    workouts: WorkoutSession[];
+    newDefs: ExerciseDefinition[];
+    metricSeeds: Record<string, string[]>;
+  },
+  mode: 'skip' | 'replace',
+): Promise<'pushed' | 'not-configured' | 'failed'> {
   const current = await collectLocalSnapshot();
+  const tomb = current.tombstones ?? {};
+  const { write, replaceIds } = planImportWrite(input.workouts, { workouts: current.workouts, tombstonedIds: tomb.workouts ?? [] }, input.source, mode);
 
-  const incoming = new Set(input.workouts.map(w => w.id));
+  const written = new Set(write.map(w => w.id));
+  const gone = new Set([...written, ...replaceIds]);
   const knownDefs = new Set(current.prefs.customExercises.map(d => d.id));
   // 已有的自有键盖住导入的种子（原写法 !metrics[name] 遇到 constructor 会把种子跳过，C09）
   const metrics = { ...input.metricSeeds, ...current.prefs.exerciseMetricConfigs };
   const now = Date.now();
-  const tomb = current.tombstones ?? {};
 
   const next: FitlogRemoteSnapshot = {
     ...current,
-    workouts: [...current.workouts.filter(w => !incoming.has(w.id)), ...input.workouts],
+    workouts: [...current.workouts.filter(w => !gone.has(w.id)), ...write],
     prefs: {
       ...current.prefs,
       customExercises: [...input.newDefs.filter(d => !knownDefs.has(d.id)), ...current.prefs.customExercises],
@@ -684,7 +692,7 @@ export async function addImportedRecords(input: {
     },
     tombstones: {
       ...tomb,
-      workouts: (tomb.workouts ?? []).filter(id => !incoming.has(id)),
+      workouts: (tomb.workouts ?? []).filter(id => !written.has(id)),
       customExerciseDefs: (tomb.customExerciseDefs ?? []).filter(id => !input.newDefs.some(d => d.id === id)),
     },
   };
