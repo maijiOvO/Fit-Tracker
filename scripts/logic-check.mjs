@@ -2651,6 +2651,9 @@ t('继续这场（上架审查 C05）：工作台上是误结束后新开的那�
   // 不并：新开那场是补录的（没有开练时刻）；开得比被接回那场还早
   assert.equal(L.absorbIntoResumed(w, { ...live, startTime: undefined }), null);
   assert.equal(L.absorbIntoResumed(w, { ...live, date: at('09:30'), startTime: at('09:30') }), null);
+  // 被接回的是补录场（没有开练时刻，finishedAt 是录入那一刻，10 分钟内也给「继续这场」）：今天新开的那场不能被吞进几天前
+  const { startTime: _s, ...backfilled } = w;
+  assert.equal(L.absorbIntoResumed({ ...backfilled, date: new Date('2026-11-18T18:00:00').toISOString(), finishedAt: at('10:40') }, live), null, '补录场接回时不吞今天这场');
   // 同一时刻开的仍算「之后」（date 不早于）
   assert.ok(L.absorbIntoResumed(w, { ...live, date: w.date }));
 });
