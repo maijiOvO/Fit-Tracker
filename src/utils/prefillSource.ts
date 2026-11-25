@@ -9,7 +9,7 @@
  */
 import type { Exercise, SetLog, WorkoutSession } from '../../types';
 import { prSetsOf, type PRRule, type PRSet } from './prRecords';
-import { rowEdited } from './setValues';
+import { setActedOn } from './setValues';
 import { memberKeys } from './workbench';
 
 export interface LastHit {
@@ -76,12 +76,12 @@ export function sourceCards(hit: LastHit, k: number, n: number): Exercise[] {
 }
 
 /**
- * 这张卡是不是「全是没动过的底稿」：都是待做、一格都没改过（含速度 / 自定义项、点了力竭，见 setValues.rowEdited）、不是从计划来的。
+ * 这张卡是不是「全是没动过的底稿」：都是待做、一格都没改过（含速度 / 自定义项、点了力竭，见 setValues.setActedOn）、不是从计划来的。
  * 换馆时只有这种卡按新馆重新挑底稿来源（有做完 / 改过的组的卡只重新取整，同换做法的口径）。
  */
 export function isPristineDraftCard(sets: SetLog[] | undefined): boolean {
   if (!sets?.length) return false;
-  return sets.every(s => s.ghost && !rowEdited(s) && !s.prefillRef?.plan);
+  return sets.every(s => !setActedOn(s) && !s.prefillRef?.plan);
 }
 
 /** 一个动作交替做过的一种搭配；mates＝同组其他成员（memberKeys 的口径：同名的带做法），按那场的先后 */

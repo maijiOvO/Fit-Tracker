@@ -2,6 +2,7 @@ import type { WorkoutSession } from '../../types';
 import { localYmd } from './dateUtils';
 import { MAX_MIN } from './sessionDuration';
 import { retitleForDate } from './workbench';
+import { setActedOn } from './setValues';
 
 /** 这一场之前练的（按 date，不含它自己）：判纪录、排期号、找「比上次」都只能看这场那天之前的 */
 export function sessionsBefore(workouts: WorkoutSession[], session: Pick<WorkoutSession, 'id' | 'date'>): WorkoutSession[] {
@@ -60,8 +61,38 @@ export function redateEdited(w: WorkoutSession, picked: Date, now: Date): Workou
   };
 }
 
-/** 训练中的场没有 startTime ＝ 改过日期：开练时 createNewWorkout 一定写它，只有 redateLiveSession 会去掉（没分到 id 的空工作台除外） */
+/**
+ * 训练中的场没有 startTime ＝ 改过日期（补录）：开练时 createNewWorkout 一定写它，选馆后隔久了才动手时 restampStaleStart 把它重打成动手那一刻（仍然在），
+ * 只有 redateLiveSession 会去掉（没分到 id 的空工作台除外）
+ */
 export const isBackdated = (w: Pick<WorkoutSession, 'id' | 'startTime'>): boolean => !!w.id && !w.startTime;
+
+/**
+ * 选馆后隔多久才第一次动手，就把开练时刻改记成动手那一刻（上架审查 C87）。
+ * 开练时刻在选馆那一下就打了：选了馆隔几小时、甚至隔夜才真正开练，时长会记成几百分钟，日期落在前一天。
+ * 60 分钟：选完馆换衣服、热身、等器械都在这之内；再久就不是「这一场的开头」了。
+ */
+export const STALE_START_MS = 60 * 60_000;
+
+const hasActed = (w: WorkoutSession): boolean => w.exercises.some(e => e.sets.some(setActedOn));
+
+/**
+ * 工作台第一次有组「做完或改过」（setValues.setActedOn，点组号描实也算）时，距开练已过 STALE_START_MS，
+ * 就把 date / startTime 改成 now，早于它的动作时间挪到它（卡都是选馆之后加的，整段平移会跑到未来；那时一组还没做，都算从现在开始）。
+ * 其余情况原样返回同一个对象：换了一场、补录的（没有 startTime）、之前已经动过手的、开练不到阈值的。
+ * 只给训练中的改动用（WorkoutContext 包在对外的 setCurrentWorkout 外面）；编辑草稿、撤销、接回这类整份替换不走这里。
+ */
+export function restampStaleStart(prev: WorkoutSession, next: WorkoutSession, nowMs: number): WorkoutSession {
+  if (!next.id || prev.id !== next.id || !next.startTime) return next;
+  if (nowMs - Date.parse(next.startTime) < STALE_START_MS || hasActed(prev) || !hasActed(next)) return next;
+  const now = new Date(nowMs).toISOString();
+  return {
+    ...next,
+    date: now,
+    startTime: now,
+    exercises: next.exercises.map(e => (e.exerciseTime ? { ...e, exerciseTime: Date.parse(e.exerciseTime) < nowMs ? now : e.exerciseTime } : e)),
+  };
+}
 
 /**
  * 结束训练后多久之内，再开新训练要先问一句「是不是刚才那场」。

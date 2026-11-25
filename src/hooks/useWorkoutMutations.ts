@@ -20,7 +20,7 @@ import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetec
 import { prRuleFor, prSetsOf } from '../utils/prRecords';
 import { KG_TO_LBS } from '../constants';
 import { editKey, groupExercises, hasDoneSets, isDefaultTitle, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
-import { rowEdited, toGhostSets } from '../utils/setValues';
+import { setActedOn, toGhostSets } from '../utils/setValues';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
 import { useGymScopedPR } from './useLoadKind';
@@ -1284,9 +1284,9 @@ export function useWorkoutMutations({
          * 杠铃 → 哑铃，原来的数没法用）。新做法没练过：全是底稿 → 一行空的待做（不借别的做法的数，原规则）；
          * 已经有做完 / 改过的 → 剩下的底稿留着，按新做法的器材取整。
          * 卡上有做完 / 改过的行时组数不变（上架审查 C43：原来把新做法上次多出来的组接在后面，结束时作为有数的底稿入册）。
-         * 「改过」含速度 / 自定义项、点了力竭（setValues.rowEdited）。
+         * 「改过」含速度 / 自定义项、点了力竭（setValues.setActedOn）。
          */
-        const kept = ex.sets.filter(st => !st.ghost || rowEdited(st));
+        const kept = ex.sets.filter(setActedOn);
         const nextEx = { ...ex, name: cardName, ...(variantId ? { variantId } : { variantId: undefined }) } as Exercise;
         const r = rounderFor(nextEx, p.gym);
         let sets = ex.sets;
@@ -1317,7 +1317,7 @@ export function useWorkoutMutations({
           prefillIds = undefined;
         } else if (r) {
           sets = ex.sets.map(st => {
-            if (!st.ghost || rowEdited(st)) return st;
+            if (setActedOn(st)) return st;
             const snapOne = <T extends { weight: number; bodyweightMode?: SetLog['bodyweightMode'] }>(x: T, parent?: SetLog): T => {
               const kg = signedKg(x, nextEx, parent);
               const v = r.snapKg(kg);

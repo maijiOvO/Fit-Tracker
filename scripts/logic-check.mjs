@@ -63,7 +63,7 @@ await build({
       "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
-      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired } from './src/utils/sessionDate.ts';",
+      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired, restampStaleStart, STALE_START_MS } from './src/utils/sessionDate.ts';",
       "export { resolvePickedDate, stepMinute, msToNextLocalMidnight, monthDay } from './src/utils/dateUtils.ts';",
       "export { nextKeyboardGuess } from './src/utils/keyboardGuess.ts';",
       "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
@@ -1830,6 +1830,41 @@ t('补录：挪到过去后不显示时长（结束时刻减录入时刻不是�
     { id: 'earlier', date: '2026-11-10T18:00:00.000Z' },
   ];
   assert.deepEqual(L.sessionsBefore(ws, { id: 'moved', date: '2026-11-12T18:00:00.000Z' }).map(w => w.id), ['earlier']);
+});
+
+t('开练时刻重打：选馆后隔夜 / 隔几小时才第一次做组或改数，date / startTime 改成那一刻、动作时间挪过去，不算补录；其余情况原样返回同一个对象（C87）', () => {
+  const L0 = (mo, d, h, mi = 0) => new Date(2026, mo - 1, d, h, mi);
+  const iso = (...a) => L0(...a).toISOString();
+  const ghosts = id => [{ id: id + '1', weight: 60, reps: 8, ghost: true }, { id: id + '2', weight: 60, reps: 8, ghost: true }];
+  // 昨天 22:00 选了馆、铺好底稿卡；第二张是今早 06:58 才加的
+  const prev = {
+    id: 'w', title: '', date: iso(11, 23, 22), startTime: iso(11, 23, 22),
+    exercises: [{ id: 'a', exerciseTime: iso(11, 23, 22, 1), sets: ghosts('a') }, { id: 'b', exerciseTime: iso(11, 24, 6, 58), sets: ghosts('b') }],
+  };
+  const now = L0(11, 24, 7).getTime();
+  const withSet = (w, patch) => ({ ...w, exercises: [{ ...w.exercises[0], sets: [{ ...w.exercises[0].sets[0], ...patch }, w.exercises[0].sets[1]] }, ...w.exercises.slice(1)] });
+  // 改了第一组的次数（还是底稿，记了 touched）
+  const touched = withSet(prev, { reps: 10, touched: { reps: true } });
+  const r = L.restampStaleStart(prev, touched, now);
+  assert.equal(r.date, new Date(now).toISOString());
+  assert.equal(r.startTime, r.date);
+  assert.deepEqual(r.exercises.map(e => e.exerciseTime), [r.date, r.date], '动作时间挪到新的开练时刻：昨晚加的不留在前一天，今早加的也不平移到未来');
+  assert.equal(r.exercises[0].sets[0].reps, 10, '这一下的改动照样在');
+  assert.equal(L.isBackdated(r), false, '不是补录');
+  assert.equal(L.sessionDurationMin({ ...r, finishedAt: new Date(now + 50 * 60_000).toISOString() }), 50);
+  // 只点组号描实（ghost:false、没有 touched）同样算第一次动手
+  assert.equal(L.restampStaleStart(prev, withSet(prev, { ghost: false }), now).startTime, new Date(now).toISOString());
+  // 以下都原样返回同一个对象
+  const same = (p, n, at, why) => assert.equal(L.restampStaleStart(p, n, at), n, why);
+  same(prev, { ...prev, exercises: [...prev.exercises, { id: 'c', sets: ghosts('c') }] }, now, '只加一张全是底稿的卡');
+  same(r, withSet(r, { weight: 62.5, touched: { reps: true, weight: true } }), now + 5 * 60_000, '重打之后再改');
+  same(touched, withSet(touched, { ghost: false }), now, '之前已经改过数');
+  same(prev, touched, Date.parse(prev.startTime) + 20 * 60_000, '开练 20 分钟内');
+  same(prev, touched, Date.parse(prev.startTime) + L.STALE_START_MS - 1, '差 1 毫秒不到阈值');
+  const backfilled = L.redateLiveSession(prev, L0(11, 20, 18));
+  same(backfilled, withSet(backfilled, { reps: 10, touched: { reps: true } }), now, '补录的场（没有 startTime）');
+  same(prev, { ...touched, id: 'other' }, now, '换了一场');
+  same({ ...prev, id: '' }, { ...touched, id: '' }, now, '没分到 id 的空工作台');
 });
 
 // ── 器械与重量（2026-11-13）：上限、最重一格、大图只写待做 / 选中的组、换台不漂、固定器械按动作分台 ──────────

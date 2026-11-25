@@ -29,6 +29,9 @@ export function rowEdited(s: SetLog): boolean {
   return anyTouched(s.touched) || !!s.toFailure || (s.subSets ?? []).some(sub => anyTouched(sub.touched));
 }
 
+/** 这一组「做完或改过」：描实了（不是底稿），或底稿上亲手动过。换做法 / 换馆重铺时保留它、开练时刻在第一次有它时重打 */
+export const setActedOn = (s: SetLog): boolean => !s.ghost || rowEdited(s);
+
 /** 有没有填数：任一值字段是非 0 的有限数（自定义项可以是负数），或某个递减档有重量 / 次数 */
 export function setHasValue(s: SetLog): boolean {
   const rec = s as unknown as Record<string, unknown>;

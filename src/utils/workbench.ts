@@ -19,7 +19,7 @@
 import type { Exercise, SetLog, SubSetLog, WorkoutSession } from '../../types';
 import { fromSignedKg, setSign, signedKg } from './load';
 import { segmentName } from './nameSegments';
-import { rowEdited, setHasValue } from './setValues';
+import { setActedOn, setHasValue } from './setValues';
 
 const isPending = (s: SetLog): boolean => !!s.ghost;
 
@@ -45,9 +45,8 @@ export interface RowRef {
  * 新做法上次多出来的组不接在后面（原来接上去，结束时作为有数的底稿记进这场）。一行保留的都没有，就整套换成 fill。
  */
 export function refillDraft(sets: SetLog[], fill: SetLog[]): SetLog[] {
-  const kept = (s: SetLog) => !s.ghost || rowEdited(s);
-  if (!sets.some(kept)) return fill;
-  return sets.flatMap((s, i) => (kept(s) ? [s] : fill[i] ? [fill[i]] : []));
+  if (!sets.some(setActedOn)) return fill;
+  return sets.flatMap((s, i) => (setActedOn(s) ? [s] : fill[i] ? [fill[i]] : []));
 }
 
 /** 把交替组成员挪到一起（以第一个成员的位置为准），只剩一个成员的组拆掉 */
