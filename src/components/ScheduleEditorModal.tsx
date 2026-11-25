@@ -1,7 +1,7 @@
 /**
  * 训练计划编辑器：新增 / 编辑 一条 ScheduledWorkout
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Library, Plus, Trash2 } from 'lucide-react';
 import { ExerciseDefinition, Language, ScheduledExercise, ScheduledWorkout } from '../../types';
@@ -15,6 +15,7 @@ import Modal, { ModalFooter } from './Modal';
 import { ExercisePickerSheet } from './ExercisePickerSheet';
 import { ScrubNumber } from './ScrubNumber';
 import { formatLoad } from '../utils/setWrite';
+import { readPlanDraft, writePlanDraft, type PlanDraft } from '../utils/planDrafts';
 
 type CustomTag = { id: string; name: string; category: 'bodyPart' | 'equipment'; parentCategory?: string };
 
@@ -44,17 +45,9 @@ interface ScheduleEditorModalProps {
 }
 
 /**
- * 按返回键 / × 关掉没保存的计划：草稿留在模块里，再打开同一份接着填（审查 D5；不弹确认框，确认只留给删整场那几处）。
+ * 按返回键 / × 关掉没保存的计划、App 被杀：草稿留着，再打开同一份接着填（审查 D5 / C28，见 utils/planDrafts；不弹确认框，确认只留给删整场那几处）。
  * 点「取消」或保存才丢。按「哪份计划 + 它的版本」存，新建和编辑旧计划互不串；目标重量是显示单位下的数，换了单位就不用。
  */
-interface Draft {
-  unit: 'kg' | 'lbs';
-  title: string;
-  date: string;
-  exercises: ScheduledExercise[];
-  notes: string;
-}
-const drafts = new Map<string, Draft>();
 const draftKey = (s: ScheduledWorkout | null) => (s ? `${s.id}@${s.updatedAt}` : 'new');
 
 function makeId(prefix: string): string {
@@ -77,7 +70,7 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
 
   const key = draftKey(editingSchedule);
   const [draft] = useState(() => {
-    const d = drafts.get(key);
+    const d = readPlanDraft(key);
     return d && d.unit === unit ? d : undefined;
   });
   const [title, setTitle] = useState<string>(draft?.title ?? editingSchedule?.title ?? '');
@@ -93,12 +86,19 @@ const ScheduleEditorModal: React.FC<ScheduleEditorModalProps> = ({
     ),
   );
   const [notes, setNotes] = useState<string>(draft?.notes ?? editingSchedule?.notes ?? '');
+  // 内容和打开时不一样就写一份：App 被杀时没有关弹窗这一下（keepDraft 不会跑）
+  const opened = useRef<string | null>(null);
+  const current = JSON.stringify({ unit, title, date, exercises, notes });
+  opened.current ??= current;
+  useEffect(() => {
+    if (current !== opened.current) writePlanDraft(key, JSON.parse(current) as PlanDraft);
+  }, [current, key]);
   const keepDraft = () => {
-    drafts.set(key, { unit, title, date, exercises, notes });
+    writePlanDraft(key, { unit, title, date, exercises, notes });
     onClose();
   };
   const discard = () => {
-    drafts.delete(key);
+    writePlanDraft(key, null);
     onClose();
   };
   const [saving, setSaving] = useState(false);

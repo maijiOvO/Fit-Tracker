@@ -699,6 +699,29 @@ export function recordedExercises(exercises: Exercise[] | undefined): Exercise[]
   );
 }
 
+/** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
+function stableJson(v: unknown): string {
+  return JSON.stringify(v, (k, val) => {
+    if (k === 'ghost' && !val) return undefined;
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      return Object.fromEntries(Object.keys(val).sort().map(key => [key, (val as Record<string, unknown>)[key]]));
+    }
+    return val;
+  });
+}
+
+/** 编辑旧训练「改没改」的比较键：只看会进库的东西（recordedExercises）。编辑草稿槽也拿它认原记录变没变（resumableEditDraft） */
+export function editKey(w: WorkoutSession): string {
+  return stableJson({
+    title: w.title ?? '',
+    date: w.date,
+    gym: w.gym ?? null,
+    notes: w.notes ?? '',
+    tags: w.tags ?? [],
+    exercises: recordedExercises(w.exercises),
+  });
+}
+
 /**
  * 没选部位、也没手打标题时的兜底标题。
  *

@@ -1,4 +1,5 @@
 import type { WorkoutSession } from '../types';
+import { editKey } from '../src/utils/workbench';
 
 /** 「进行中」能接回来的时限：超过这么久没动过的未结束训练不再接回，按入册口径收尾（见 staleRows） */
 const IN_PROGRESS_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -80,4 +81,30 @@ export function createWorkbenchSaver(write: (w: WorkoutSession) => Promise<void>
       return last && last.src.id === id ? Date.parse(last.updatedAt) || null : null;
     },
   };
+}
+
+/**
+ * 编辑旧训练的草稿槽：backups 表里的一行（撤销日志、备份、同步都不带这张表）。改了没保存时工作台每变一下就写一次，
+ * 进程被杀 / 被划掉后重开能回到编辑页（2026-11-24 作者定，推翻 10-07 的「被杀就丢」）。
+ * 不放 localStorage：它延迟批量写盘，刚改完就划掉 App 最后几秒会丢；IndexedDB 事务 complete 就已交给系统。
+ */
+export const EDIT_DRAFT_ID = 'edit-draft';
+
+export interface EditDraftRow {
+  id: typeof EDIT_DRAFT_ID;
+  /** 进编辑时原记录的 editKey */
+  base: string;
+  draft: WorkoutSession;
+}
+
+/**
+ * 启动时读到的草稿槽能不能接回：形状不对、原记录没了、原记录后来被改过（启动迁移之类，宁可丢草稿也不让旧数据复活）、
+ * 草稿和原记录一样，都返回 null。数据从库里进来，防御只写在这一层。
+ */
+export function resumableEditDraft(row: unknown, original: WorkoutSession | undefined): { base: string; draft: WorkoutSession } | null {
+  if (!row || typeof row !== 'object' || !original) return null;
+  const { base, draft } = row as Partial<EditDraftRow>;
+  if (typeof base !== 'string' || !draft || typeof draft !== 'object' || typeof draft.id !== 'string' || !Array.isArray(draft.exercises)) return null;
+  if (draft.id !== original.id || editKey(original) !== base || editKey(draft) === base) return null;
+  return { base, draft };
 }

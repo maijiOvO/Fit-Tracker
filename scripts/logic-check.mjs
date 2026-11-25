@@ -51,7 +51,7 @@ await build({
       "export { buildLiftSummaries, trendPoints, prSessionIds, gymChoices, inGym, latestGymView } from './src/utils/liftHistory.ts';",
       "export { doneWorkoutsOf, liftSummariesFor } from './src/hooks/useLiftSummaries.ts';",
       "export * as G from './src/utils/goalProgress.ts';",
-      "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
+      "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput, editKey } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, scrubGate, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
       "export { buildHeatmapDays, heatmapCells } from './src/utils/heatmapDays.ts';",
@@ -81,6 +81,7 @@ await build({
       "export { FitLogDB, dbReadFailing, dbWriteFailing } from './services/db.ts';",
       "export * as LC from './services/localCensus.ts';",
       "export * as WP from './services/workbenchPersist.ts';",
+      "export * as PD from './src/utils/planDrafts.ts';",
       "export * as FR from './services/fitlogRemote.ts';",
       "export * as FB from './services/fitlogBackup.ts';",
       "export * as FS from './services/fitlogSyncScheduler.ts';",
@@ -2037,6 +2038,49 @@ await ta('库是这次新建的（被系统清掉 / 数据损坏重建）而本�
     delete globalThis.window;
     delete globalThis.indexedDB;
   }
+});
+
+// ── 编辑旧训练的草稿槽（上架审查 C28）：被杀后重开只接回「还对得上原记录、真改过」的草稿，坏槽不让启动崩 ──────────
+t('编辑草稿槽：对得上原记录且改过才接回；原记录被改 / 没了 / 槽坏了 / 没改动都不接回；删光动作的草稿也接回', () => {
+  // 防的错：不校验就接回，会把启动迁移改过的原记录盖回旧样子（旧数据复活）、坏行让启动抛错、没改动也停在编辑页
+  const orig = {
+    id: 'w1', title: '腿日', date: '2026-11-20T09:00:00.000Z', gym: '甲馆', notes: '备注', tags: [],
+    exercises: [{ id: 'e1', name: '深蹲', sets: [{ id: 's1', weight: 100, reps: 5 }] }],
+  };
+  const draft = structuredClone(orig);
+  draft.exercises[0].sets[0].reps = 6;
+  const row = { id: L.WP.EDIT_DRAFT_ID, base: L.editKey(orig), draft };
+  assert.equal(L.WP.resumableEditDraft(row, orig)?.draft.exercises[0].sets[0].reps, 6);
+  const changed = structuredClone(orig);
+  changed.exercises[0].sets[0].reps = 7;
+  assert.equal(L.WP.resumableEditDraft(row, changed), null, '原记录后来被改过');
+  assert.equal(L.WP.resumableEditDraft(row, undefined), null, '原记录没了');
+  for (const bad of [null, 'x', { draft }, { base: 1, draft }, { base: row.base, draft: { ...draft, exercises: 'x' } }, { base: row.base, draft: { exercises: [] } }]) {
+    assert.equal(L.WP.resumableEditDraft(bad, orig), null, `坏槽 ${JSON.stringify(bad)?.slice(0, 40)}`);
+  }
+  assert.equal(L.WP.resumableEditDraft({ ...row, draft: structuredClone(orig) }, orig), null, '草稿没改动');
+  assert.ok(L.WP.resumableEditDraft({ ...row, draft: { ...draft, exercises: [] } }, orig), '删光动作的草稿');
+  // 槽要经过 IndexedDB 的结构化克隆 / JSON 往返，比较键不能因此变
+  assert.equal(L.editKey(JSON.parse(JSON.stringify(orig))), row.base);
+  assert.equal(L.editKey(structuredClone(orig)), row.base);
+});
+
+t('计划编辑器草稿：坏 JSON、单位不对、exercises 不是数组的条目跳过，不抛；写一条不动别的，删到空就移除键', () => {
+  // 防的错：草稿从 localStorage 读回来，一条坏的让计划编辑器打不开，或者把错单位的目标重量当成现在单位的数
+  const ok = { unit: 'kg', title: 't', date: '2026-11-24', exercises: [{ id: 'x', name: '深蹲' }], notes: '' };
+  assert.deepEqual(L.PD.parsePlanDrafts('{bad'), {});
+  assert.deepEqual(L.PD.parsePlanDrafts(null), {});
+  assert.deepEqual(L.PD.parsePlanDrafts('[1]'), {});
+  const got = L.PD.parsePlanDrafts(JSON.stringify({ a: ok, b: { ...ok, unit: 'st' }, c: { ...ok, exercises: 'x' }, d: { ...ok, exercises: [null] }, e: 3 }));
+  assert.deepEqual(Object.keys(got), ['a']);
+  localStorage.clear();
+  L.PD.writePlanDraft('a', ok);
+  L.PD.writePlanDraft('new', { ...ok, title: 'n' });
+  L.PD.writePlanDraft('a', null);
+  assert.equal(L.PD.readPlanDraft('new')?.title, 'n');
+  assert.equal(L.PD.readPlanDraft('a'), undefined);
+  L.PD.writePlanDraft('new', null);
+  assert.equal(localStorage.getItem(L.PD.PLAN_DRAFTS_KEY), null);
 });
 
 // ── 忘了结束的训练要真的过期（审查 Fm0）：内容没变的自动落盘不重写、不刷新 updatedAt ──────────

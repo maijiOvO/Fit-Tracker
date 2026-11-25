@@ -17,6 +17,8 @@ const REQUIRED_STORES = [
   // 导入备份前的回滚副本（单行，id='pre-import'）。
   // 放 IndexedDB 而不是下载成文件：`<a download>` 在 Android WebView 里
   // 能否落盘尚未验证，拿没验过的路径当回滚保障等于没有保障。
+  // 也放不算用户数据的其它单行槽：覆盖改写写到一半的标记（fitlogRemote）、编辑旧训练的草稿（edit-draft，workbenchPersist）。
+  // 撤销日志不记这张表，备份和同步也不带它。
   'backups',
 ] as const;
 

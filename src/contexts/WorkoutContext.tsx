@@ -10,9 +10,10 @@ import { storage } from '../../services/appStorage';
 import { undoJournal } from '../../services/undoJournal';
 import { getDataEnv } from '../../services/appEnv';
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
-import { createWorkbenchSaver, findInProgress, isStale, lastChangeMs, staleRows } from '../../services/workbenchPersist';
+import { createWorkbenchSaver, EDIT_DRAFT_ID, findInProgress, isStale, lastChangeMs, staleRows } from '../../services/workbenchPersist';
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { hasUserInput, toRecorded } from '../utils/workbench';
+import { PLAN_DRAFTS_KEY } from '../utils/planDrafts';
 import { useUserSettingsContext } from './UserSettingsContext';
 import { Language } from '../../types';
 
@@ -83,12 +84,15 @@ interface WorkoutContextType {
    * 换掉或改写工作台之前读它，不读渲染闭包里的 currentWorkout：接回、撤销可能在点按之后才落定（上架审查 C05 / C06）
    */
   getLiveWorkbench: () => WorkoutSession | null;
-  /** 换工作台：先同步写 ref 再 setState，紧接着的 getLiveWorkbench / 自动落盘读到的就是新的这场 */
-  replaceWorkbench: (next: WorkoutSession) => void;
+  /**
+   * 换工作台：先同步写 ref 再 setState，紧接着的 getLiveWorkbench / 自动落盘读到的就是新的这场。
+   * bySystem：系统替用户换的（启动接回进行中的那场、接回编辑草稿），开着的那一步还没动过工作台就挪撤销基线，不记成一步（上架审查 C07）
+   */
+  replaceWorkbench: (next: WorkoutSession, bySystem?: boolean) => void;
   /** 启动读库、收尾、接回都落定了（读不出也算落定）。开练入口先等它，免得在接回之前把进行中的那场顶掉（C06） */
   whenHydrated: () => Promise<void>;
   /**
-   * 整份改写本机（覆盖恢复 / 重置）时工作台这场跟着丢（2026-11-14 用户定，编辑旧训练的草稿也一样）：
+   * 整份改写本机（覆盖恢复 / 重置）时工作台这场跟着丢（2026-11-14 用户定，编辑旧训练的草稿、草稿槽、计划编辑器的草稿也一样）：
    * 改写期间停掉自动落盘，成功后清空工作台；改写失败（已换回原样）照常放开，工作台原样留着。
    */
   discardWorkbenchWith: <T,>(overwrite: () => Promise<T>) => Promise<T>;
@@ -125,7 +129,7 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
   const currentWorkoutRef = useRef(currentWorkout);
   currentWorkoutRef.current = currentWorkout;
 
-  // 全局撤销（services/undoJournal.ts）：工作台那一场是状态源 —— 编辑旧训练时它只在内存里，不落盘
+  // 全局撤销（services/undoJournal.ts）：工作台那一场是状态源 —— 编辑旧训练时它不进 workouts 表（只有不进撤销日志的草稿槽，见 EDIT_DRAFT_ID）
   useEffect(
     () =>
       undoJournal.registerSource('currentWorkout', {
@@ -177,10 +181,12 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     saverRef.current!.save(w);
   };
 
-  const replaceWorkbench = useCallback((next: WorkoutSession) => {
+  const replaceWorkbench = useCallback((next: WorkoutSession, bySystem?: boolean) => {
     if (next.id !== finishingIdRef.current) finishingIdRef.current = null;
+    const prev = currentWorkoutRef.current;
     currentWorkoutRef.current = next;
     setCurrentWorkout(next);
+    if (bySystem) undoJournal.rebaseSource('currentWorkout', prev);
   }, []);
 
   const [hydration, setHydration] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -206,19 +212,21 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   }, []);
 
-  /** 工作台空着时接回进行中的那场。只接一次性的：已经有内容就不碰 */
+  /**
+   * 工作台空着时接回进行中的那场。只接一次性的：已经有内容就不碰。
+   * 工作台上是编辑草稿也不碰（开头、读完库各判一次）：启动时接回编辑草稿和这里谁先落定都不能把对方顶掉；
+   * 删光动作的草稿 exercises 是空的，只看「工作台空着」会被当成空工作台换掉。进行中那场留在库里，退出编辑时照旧接回
+   */
   const restoreInProgress = useCallback(async () => {
-    if ((currentWorkoutRef.current.exercises?.length ?? 0) > 0) return;
+    if (draftIdRef.current || (currentWorkoutRef.current.exercises?.length ?? 0) > 0) return;
     try {
       const hit = findInProgress(await db.getAll<WorkoutSession>('workouts'), readActiveId());
-      if (hit && (currentWorkoutRef.current.exercises?.length ?? 0) === 0) {
-        const prev = currentWorkoutRef.current;
+      if (hit && !draftIdRef.current && (currentWorkoutRef.current.exercises?.length ?? 0) === 0) {
         // 接回来不算「动过」：库里已经是这个样子，接回本身不刷新 updatedAt
         saverRef.current!.adopt(hit);
-        // 同步写 ref：接回落定之后紧接着的开练复查（getLiveWorkbench）要看得到这场；下面 rebaseSource 也读 ref
-        replaceWorkbench(hit);
-        // 接回落定前碰了屏、开着的那一步：接回是系统做的，不算用户这一步的改动（上架审查 C07）
-        undoJournal.rebaseSource('currentWorkout', prev);
+        // 同步写 ref：接回落定之后紧接着的开练复查（getLiveWorkbench）要看得到这场。
+        // 接回落定前碰了屏、开着的那一步：接回是系统做的，不算用户这一步的改动
+        replaceWorkbench(hit, true);
       }
     } catch (err) {
       console.error('[WorkoutContext] 接回进行中的训练失败:', err);
@@ -423,6 +431,10 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     // 成功后不解冻：三个调用方紧接着都整页重载，重载前 pagehide 那次落盘也不该写
     draftIdRef.current = null;
+    // 编辑草稿槽和计划编辑器的草稿一起丢，且要在调用方重载之前删完：重开时不能把它们接回到改写后的库上。
+    // 删不掉也不算改写失败：原记录多半已被改写，槽对不上 editKey，启动时照样不接回（resumableEditDraft）
+    await db.delete('backups', EDIT_DRAFT_ID).catch(() => {});
+    storage.removeItem(PLAN_DRAFTS_KEY);
     const empty = createEmptyWorkout();
     currentWorkoutRef.current = empty;
     setCurrentWorkout(empty);

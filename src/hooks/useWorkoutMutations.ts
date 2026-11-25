@@ -17,7 +17,7 @@ import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { prRuleFor } from '../utils/prRecords';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, hasDoneSets, isDefaultTitle, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
+import { editKey, groupExercises, hasDoneSets, isDefaultTitle, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
 import { rowEdited, toGhostSets } from '../utils/setValues';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
@@ -31,6 +31,7 @@ import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
 import { planMergeIntoPrevious } from '../utils/sessionMerge';
+import { EDIT_DRAFT_ID, resumableEditDraft, type EditDraftRow } from '../../services/workbenchPersist';
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 /** 选好馆之后铺出新的一场（gyms：刚存的馆档案，context 还没刷新） */
@@ -41,29 +42,6 @@ export interface StartPlan {
   replaces: string | null;
 }
 export type ActiveTab = 'dashboard' | 'new' | 'plan' | 'profile';
-
-/** 键排好序、去掉 undefined 和 ghost:false 的 JSON：工作台改了又改回去时，对象的键序 / 显式 false 会变，内容没变 */
-function stableJson(v: unknown): string {
-  return JSON.stringify(v, (k, val) => {
-    if (k === 'ghost' && !val) return undefined;
-    if (val && typeof val === 'object' && !Array.isArray(val)) {
-      return Object.fromEntries(Object.keys(val).sort().map(key => [key, (val as Record<string, unknown>)[key]]));
-    }
-    return val;
-  });
-}
-
-/** 编辑旧训练「改没改」的比较键：只看会进库的东西（recordedExercises） */
-function editKey(w: WorkoutSession): string {
-  return stableJson({
-    title: w.title ?? '',
-    date: w.date,
-    gym: w.gym ?? null,
-    notes: w.notes ?? '',
-    tags: w.tags ?? [],
-    exercises: recordedExercises(w.exercises),
-  });
-}
 
 export interface UseWorkoutMutationsParams {
   setActiveTab: (tab: ActiveTab) => void;
@@ -266,10 +244,13 @@ export function useWorkoutMutations({
 
   // 草稿 id 交给 WorkoutContext，自动落盘的几条路（改动即存、切后台、pagehide）都跳过它。
   // handleEditWorkout 里也同步设一次：等这个 effect 跑之前，App 的自动落盘 effect 可能先跑。
+  // 只跟 editingWorkoutId 走、不跟 workoutCtx：context 每变一次都会排一遍这个 effect，启动接回草稿（异步里进编辑）
+  // 正好落在某次提交和它的 effect 之间时，那一遍拿着旧的 null 把刚设的草稿 id 和原样清掉
+  const { setDraftWorkoutId } = workoutCtx;
   useEffect(() => {
-    workoutCtx.setDraftWorkoutId(editingWorkoutId);
+    setDraftWorkoutId(editingWorkoutId);
     if (!editingWorkoutId) editOriginalRef.current = null;
-  }, [editingWorkoutId, workoutCtx]);
+  }, [editingWorkoutId, setDraftWorkoutId]);
 
   const hasUnsavedChanges = useMemo(() => {
     const orig = editOriginalRef.current;
@@ -277,8 +258,72 @@ export function useWorkoutMutations({
     return editKey(currentWorkout) !== orig.key;
   }, [currentWorkout, editingWorkoutId]);
 
+  /** 进编辑态，顺序不能换：先设草稿 id 再换工作台，App 的自动落盘 effect 不能先把这份写回库。bySystem 见 replaceWorkbench */
+  const enterEditing = useCallback(
+    (id: string, key: string, bench: WorkoutSession, bySystem?: boolean) => {
+      workoutCtx.setDraftWorkoutId(id);
+      editOriginalRef.current = { id, key };
+      workoutCtx.replaceWorkbench(bench, bySystem);
+      setEditingWorkoutId(id);
+      setActiveTab('new');
+    },
+    [setActiveTab, workoutCtx],
+  );
+
+  /**
+   * 编辑草稿槽（services/workbenchPersist 的 EDIT_DRAFT_ID）：改了没保存时工作台一变就写，和进行中训练的改动即存一样，
+   * 不靠 pagehide / visibilitychange（被系统回收时不一定有）。保存、放弃、撤销到没改动、切换数据环境都落到「不在编辑态 / 没改动」，删槽。
+   */
+  const wroteDraftRef = useRef(false);
+  useEffect(() => {
+    const orig = editOriginalRef.current;
+    if (editingWorkoutId && hasUnsavedChanges && orig) {
+      wroteDraftRef.current = true;
+      // 写失败 db.ts 已经提示过（reportWrite），这里不再报
+      void db.save('backups', { id: EDIT_DRAFT_ID, base: orig.key, draft: currentWorkout } satisfies EditDraftRow).catch(() => {});
+    } else if (wroteDraftRef.current) {
+      wroteDraftRef.current = false;
+      void db.delete('backups', EDIT_DRAFT_ID).catch(() => {});
+    }
+  }, [currentWorkout, editingWorkoutId, hasUnsavedChanges]);
+
+  /**
+   * 启动时接回被杀前没保存的编辑草稿（2026-11-24 作者定）：直接回到编辑页，「已修改」亮着，返回照旧问放弃。
+   * 不弹框、不出提示（确认框只留给删整场 / 放弃训练 / 清空账户，§12.5）。接不回的槽删掉。
+   * 工作台上已接回的进行中那场换下来记着，退出编辑时放回；还没接回的，restoreInProgress 见到草稿 id 就不接，退出编辑时再接。
+   * 接回是系统做的：启动时先碰了屏、开着的那一步不能把它记成一步撤销（C07），工作台和编辑态两个状态源都挪基线
+   */
+  const bootRestoreRef = useRef(false);
+  useEffect(() => {
+    if (bootRestoreRef.current) return; // StrictMode 下 effect 会跑两遍
+    bootRestoreRef.current = true;
+    void (async () => {
+      try {
+        const row = await db.get<unknown>('backups', EDIT_DRAFT_ID);
+        if (!row) return;
+        const id = (row as { draft?: { id?: unknown } }).draft?.id;
+        const hit = resumableEditDraft(row, typeof id === 'string' ? await db.get<WorkoutSession>('workouts', id) : undefined);
+        // 读库这一会儿已经自己进了编辑：不抢
+        if (!hit || editOriginalRef.current) {
+          await db.delete('backups', EDIT_DRAFT_ID);
+          return;
+        }
+        const prevMode = editModeRef.current;
+        benchStashRef.current = workoutCtx.getLiveWorkbench();
+        enterEditing(hit.draft.id, hit.base, hit.draft, true);
+        editModeRef.current = { id: hit.draft.id, original: editOriginalRef.current, stash: benchStashRef.current };
+        undoJournal.rebaseSource('editMode', prevMode);
+      } catch (err) {
+        console.error('[useWorkoutMutations] 接回编辑草稿失败:', err);
+      }
+    })();
+  }, []);
+
   /** 离开编辑态（保存完 / 放弃）：进来前在练的那场同步放回工作台，回到进来前的页面 */
   const exitEditing = useCallback(() => {
+    // effect 也会删；这里直接删，缩短「刚放弃就被杀」草稿又复活的窗口
+    wroteDraftRef.current = false;
+    void db.delete('backups', EDIT_DRAFT_ID).catch(() => {});
     const stash = benchStashRef.current;
     benchStashRef.current = null;
     workoutCtx.setDraftWorkoutId(null);
@@ -301,7 +346,6 @@ export function useWorkoutMutations({
    * 切换数据环境（只在未锁定的构建里）时 WorkoutContext 把工作台换成新环境那边的场；编辑态得一起放掉，
    * 否则顶栏还写「编辑训练」，结束时会把新环境那场当成旧训练去「保存修改」（审查 Em0）
    */
-  const { setDraftWorkoutId } = workoutCtx;
   useEffect(() => {
     const onSwitched = () => {
       setDraftWorkoutId(null);
@@ -552,19 +596,14 @@ export function useWorkoutMutations({
         if (!editingWorkoutId && hasDoneSets(currentWorkout)) {
           toast(isCn ? '进行中的训练已暂存，退出编辑后接回' : 'Your workout in progress is saved; it comes back after editing', 'info');
         }
-        // 先设草稿 id 再换工作台：App 的自动落盘 effect 不能先把这份写回库
-        workoutCtx.setDraftWorkoutId(workoutId);
-        editOriginalRef.current = { id: workoutId, key: editKey(workoutToEdit) };
-        workoutCtx.replaceWorkbench(structuredClone(workoutToEdit));
-        setEditingWorkoutId(workoutId);
-        setActiveTab('new');
+        enterEditing(workoutId, editKey(workoutToEdit), structuredClone(workoutToEdit));
         onEnterEditWorkout?.(options?.focusExerciseId);
         if (options?.scrollToPicker) {
           setPendingScrollToPicker(true);
         }
       }
     },
-    [currentWorkout, editingWorkoutId, isCn, onEnterEditWorkout, setActiveTab, toast, workoutCtx, workouts],
+    [currentWorkout, editingWorkoutId, enterEditing, isCn, onEnterEditWorkout, toast, workoutCtx, workouts],
   );
 
   const handleAddExerciseToPastWorkout = useCallback(

@@ -628,6 +628,13 @@ async function openSeeded(browser, escapedRemoteCalls, tag) {
       const env = window.__fitlog?.env?.().env;
       return env === 'dev' ? `dev:${key}` : key;
     };
+    // 模拟进程被杀（C28）：置上 window.__simulateKill 后 reload，App 收不到 pagehide / visibilitychange。
+    // 普通 reload 两个都会触发，只在那里落盘的实现也能跑绿；必须在页面加载前挂（中途再挂拦不住 pagehide）
+    const kill = ev => {
+      if (window.__simulateKill) ev.stopImmediatePropagation();
+    };
+    window.addEventListener('pagehide', kill, true);
+    window.addEventListener('visibilitychange', kill, true);
   });
 
   const card = id => page.locator(`[data-testid="timeline-session-${id}"]`);
@@ -709,7 +716,7 @@ const SEEDED = {
   // 看历史、改旧训练：
   //  set-number-all-one：时间线展开后组号是 1、2、3，不是 1、1、1
   //  datepicker-stale-initial：打开日期选择器不动直接确定，日期不能变（编辑态不亮「已修改」）
-  //  edit-history-*：改的是草稿 —— 没改保存键灰着、改了不落库、「放弃修改」真的丢；
+  //  edit-history-*：改的是草稿 —— 没改保存键灰着、改了不落库、进程被杀后重开回到编辑页（C28）、「放弃修改」真的丢；
   //  「保存修改」才写库，不动日期和 finishedAt、不出刊末页（否则 10 分钟内开练会被问「继续」这场旧训练）
   'seeded-history-edit': async ({ page, card, toDashboard, menuOn, remoteWorkout, dismissToasts }) => {
     // 后面「启动接回还没落定就点开练」那一段用：带标记重开时，开头一小段时间里读 workouts 表的结果晚 800 ms 才交回，
@@ -767,10 +774,37 @@ const SEEDED = {
     if (await save.isDisabled()) throw new Error('save button still disabled after an edit');
     if ((await repsInDb()) !== 10) throw new Error(`the draft leaked into the db (reps=${await repsInDb()})`);
 
+    // 编辑中进程被杀（上架审查 C28）：重开回到编辑页、改动都在、「已修改」亮着，库里仍是原样。
+    // 写槽的 effect、启动接回、restoreInProgress 不顶掉草稿跨三个模块，下层测不到接线
+    const draftSlot = async () =>
+      page.evaluate(
+        name =>
+          new Promise((resolve, reject) => {
+            const req = indexedDB.open(name);
+            req.onerror = () => reject(req.error);
+            req.onsuccess = () => {
+              const r = req.result.transaction('backups').objectStore('backups').get('edit-draft');
+              r.onsuccess = () => { resolve(r.result ?? null); req.result.close(); };
+              r.onerror = () => reject(r.error);
+            };
+          }),
+        await page.evaluate(() => window.__fitlog.env().db),
+      );
+    await until(async () => (await draftSlot())?.draft?.exercises?.[0]?.sets?.[0]?.reps === 99, 'the edit draft slot to hold reps 99');
+    await page.evaluate(() => (window.__simulateKill = true));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
+    await editPage.first().waitFor({ timeout: 5_000 });
+    await dirty.waitFor({ state: 'visible', timeout: 3_000 });
+    if ((await reps0().inputValue()) !== '99') throw new Error(`the edit came back without the change (reps=${await reps0().inputValue()})`);
+    if ((await repsInDb()) !== 10) throw new Error(`restoring the draft wrote it to the db (reps=${await repsInDb()})`);
+
     await page.getByRole('button', { name: /^返回$|^Back$/ }).click();
     await clickAppConfirm(page, /^(放弃修改|Discard)$/);
     await editPage.first().waitFor({ state: 'detached', timeout: 3_000 });
     if ((await repsInDb()) !== 10) throw new Error(`「放弃修改」kept the edit (reps=${await repsInDb()})`);
+    // 放弃过的草稿下次启动不能复活
+    await until(async () => (await draftSlot()) === null, 'the discarded edit draft slot to be deleted');
 
     await openEdit();
     if ((await reps0().inputValue()) !== '10') throw new Error('discarded edit is still on the bench');
@@ -849,7 +883,7 @@ const SEEDED = {
     await page.locator('html[data-fitlog-boot="done"]').waitFor({ state: 'attached', timeout: 15_000 });
     if (seen.empty) throw new Error('the dashboard flashed the new-user empty state while loading');
     await backAndDiscard(page);
-    return 'set nums 1,2,3 · untouched picker clean · draft not persisted · discard drops · save writes reps only · emptied edit explains, writes nothing · exit puts the live workout back · start waits for restore';
+    return 'set nums 1,2,3 · untouched picker clean · draft not persisted · killed edit comes back dirty · discard drops (slot too) · save writes reps only · emptied edit explains, writes nothing · exit puts the live workout back · start waits for restore';
   },
 
   // 同步契约：
