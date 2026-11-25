@@ -75,15 +75,24 @@ export const isBackdated = (w: Pick<WorkoutSession, 'id' | 'startTime'>): boolea
 export const STALE_START_MS = 60 * 60_000;
 
 const hasActed = (w: WorkoutSession): boolean => w.exercises.some(e => e.sets.some(setActedOn));
+const startKey = (w: WorkoutSession): string => `${w.id}@${w.startTime}`;
+
+/**
+ * 开练时刻已经定下的那一场（id + startTime）：工作台上一出现「做完或改过」的组就记下，之后组又全退回底稿也不忘
+ * （书签拖过头把行全退回、删掉唯一做过组的卡，再做第一组不算第一次动手，D6 审查）。
+ * 带上 startTime：撤销第一次动手会把重打前的开练时刻换回来，对不上了，再做才照样重打。
+ * WorkoutContext 只记在内存里：全退回底稿后 App 被杀、重开再做，仍会按第一次动手处理。
+ */
+export const settleStart = (w: WorkoutSession, settled: string | null): string | null => (hasActed(w) ? startKey(w) : settled);
 
 /**
  * 工作台第一次有组「做完或改过」（setValues.setActedOn，点组号描实也算）时，距开练已过 STALE_START_MS，
  * 就把 date / startTime 改成 now，早于它的动作时间挪到它（卡都是选馆之后加的，整段平移会跑到未来；那时一组还没做，都算从现在开始）。
- * 其余情况原样返回同一个对象：换了一场、补录的（没有 startTime）、之前已经动过手的、开练不到阈值的。
+ * 其余情况原样返回同一个对象：换了一场、补录的（没有 startTime）、之前已经动过手的（现在动过，或 settled 记着动过）、开练不到阈值的。
  * 只给训练中的改动用（WorkoutContext 包在对外的 setCurrentWorkout 外面）；编辑草稿、撤销、接回这类整份替换不走这里。
  */
-export function restampStaleStart(prev: WorkoutSession, next: WorkoutSession, nowMs: number): WorkoutSession {
-  if (!next.id || prev.id !== next.id || !next.startTime) return next;
+export function restampStaleStart(prev: WorkoutSession, next: WorkoutSession, nowMs: number, settled: string | null): WorkoutSession {
+  if (!next.id || prev.id !== next.id || !next.startTime || settled === startKey(next)) return next;
   if (nowMs - Date.parse(next.startTime) < STALE_START_MS || hasActed(prev) || !hasActed(next)) return next;
   const now = new Date(nowMs).toISOString();
   return {

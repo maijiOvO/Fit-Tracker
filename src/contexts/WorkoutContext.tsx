@@ -14,7 +14,7 @@ import { createWorkbenchSaver, EDIT_DRAFT_ID, findInProgress, isStale, lastChang
 import { recordTombstone } from '../../services/fitlogTombstones';
 import { hasUserInput, toRecorded } from '../utils/workbench';
 import { PLAN_DRAFTS_KEY } from '../utils/planDrafts';
-import { restampStaleStart } from '../utils/sessionDate';
+import { restampStaleStart, settleStart } from '../utils/sessionDate';
 import { useUserSettingsContext } from './UserSettingsContext';
 import { Language } from '../../types';
 
@@ -155,11 +155,15 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
    * 对外的 setCurrentWorkout：训练中的改动过一遍 restampStaleStart（选馆后隔久了才第一次做组 / 改数，开练时刻改记成那一刻，审查 C87）。
    * 编辑草稿原样写。撤销源、接回、换环境、整份改写这些内部的整份替换用原始 setter，不重打：撤销第一次动手时 startTime 跟着回去
    */
+  const startSettledRef = useRef<string | null>(null);
+  useEffect(() => {
+    startSettledRef.current = settleStart(currentWorkout, startSettledRef.current);
+  }, [currentWorkout]);
   const setLiveWorkout = useCallback<React.Dispatch<React.SetStateAction<WorkoutSession>>>(action => {
     const nowMs = Date.now();
     setCurrentWorkout(prev => {
       const next = typeof action === 'function' ? action(prev) : action;
-      return next.id === draftIdRef.current ? next : restampStaleStart(prev, next, nowMs);
+      return next.id === draftIdRef.current ? next : restampStaleStart(prev, next, nowMs, startSettledRef.current);
     });
   }, []);
   /**

@@ -63,7 +63,7 @@ await build({
       "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
-      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired, restampStaleStart, STALE_START_MS } from './src/utils/sessionDate.ts';",
+      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired, restampStaleStart, settleStart, STALE_START_MS } from './src/utils/sessionDate.ts';",
       "export { resolvePickedDate, stepMinute, msToNextLocalMidnight, monthDay } from './src/utils/dateUtils.ts';",
       "export { nextKeyboardGuess } from './src/utils/keyboardGuess.ts';",
       "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
@@ -1845,7 +1845,7 @@ t('开练时刻重打：选馆后隔夜 / 隔几小时才第一次做组或改�
   const withSet = (w, patch) => ({ ...w, exercises: [{ ...w.exercises[0], sets: [{ ...w.exercises[0].sets[0], ...patch }, w.exercises[0].sets[1]] }, ...w.exercises.slice(1)] });
   // 改了第一组的次数（还是底稿，记了 touched）
   const touched = withSet(prev, { reps: 10, touched: { reps: true } });
-  const r = L.restampStaleStart(prev, touched, now);
+  const r = L.restampStaleStart(prev, touched, now, null);
   assert.equal(r.date, new Date(now).toISOString());
   assert.equal(r.startTime, r.date);
   assert.deepEqual(r.exercises.map(e => e.exerciseTime), [r.date, r.date], '动作时间挪到新的开练时刻：昨晚加的不留在前一天，今早加的也不平移到未来');
@@ -1853,9 +1853,9 @@ t('开练时刻重打：选馆后隔夜 / 隔几小时才第一次做组或改�
   assert.equal(L.isBackdated(r), false, '不是补录');
   assert.equal(L.sessionDurationMin({ ...r, finishedAt: new Date(now + 50 * 60_000).toISOString() }), 50);
   // 只点组号描实（ghost:false、没有 touched）同样算第一次动手
-  assert.equal(L.restampStaleStart(prev, withSet(prev, { ghost: false }), now).startTime, new Date(now).toISOString());
+  assert.equal(L.restampStaleStart(prev, withSet(prev, { ghost: false }), now, null).startTime, new Date(now).toISOString());
   // 以下都原样返回同一个对象
-  const same = (p, n, at, why) => assert.equal(L.restampStaleStart(p, n, at), n, why);
+  const same = (p, n, at, why) => assert.equal(L.restampStaleStart(p, n, at, null), n, why);
   same(prev, { ...prev, exercises: [...prev.exercises, { id: 'c', sets: ghosts('c') }] }, now, '只加一张全是底稿的卡');
   same(r, withSet(r, { weight: 62.5, touched: { reps: true, weight: true } }), now + 5 * 60_000, '重打之后再改');
   same(touched, withSet(touched, { ghost: false }), now, '之前已经改过数');
@@ -1865,6 +1865,32 @@ t('开练时刻重打：选馆后隔夜 / 隔几小时才第一次做组或改�
   same(backfilled, withSet(backfilled, { reps: 10, touched: { reps: true } }), now, '补录的场（没有 startTime）');
   same(prev, { ...touched, id: 'other' }, now, '换了一场');
   same({ ...prev, id: '' }, { ...touched, id: '' }, now, '没分到 id 的空工作台');
+});
+
+t('开练时刻只在第一次动手时重打：做过组后又全退回底稿（书签拖过头、删掉唯一做过组的卡）再做，不再重打；撤销第一次动手后再做照样重打（D6 审查）', () => {
+  const L0 = (h, mi = 0) => new Date(2026, 10, 24, h, mi);
+  const ghost = { id: 's1', weight: 60, reps: 8, ghost: true };
+  const base = { id: 'w', title: '', date: L0(18).toISOString(), startTime: L0(18).toISOString(), exercises: [{ id: 'a', exerciseTime: L0(18, 1).toISOString(), sets: [ghost] }] };
+  const at = (sets, w = base) => ({ ...w, exercises: [{ ...w.exercises[0], sets }] });
+  // WorkoutContext 每换一次工作台就 settleStart 一次；这里按同样的顺序走
+  const settleSeq = (s, ws) => ws.reduce((acc, w) => L.settleStart(w, acc), s);
+  let settled = settleSeq(null, [base]);
+  // 18:05 点组号描实第一组：不到阈值，不重打，开练时刻就此定下
+  const done = at([{ ...ghost, ghost: false }]);
+  assert.equal(L.restampStaleStart(base, done, L0(18, 5).getTime(), settled), done);
+  settled = settleSeq(settled, [done]);
+  // 19:10 书签拖到第一张卡顶上：全部退回底稿（值保留、没有 touched）；19:11 再描实
+  const reverted = at([ghost]);
+  settled = settleSeq(settled, [reverted]);
+  const redone = at([{ ...ghost, ghost: false }]);
+  assert.equal(L.restampStaleStart(reverted, redone, L0(19, 11).getTime(), settled), redone, '做过组之后全退回底稿再做：开练时刻和动作时间都不动');
+  // 选馆隔夜才第一次描实：重打；撤销这一下（工作台整份换回去，开练时刻也回去）后再描实，照样重打成新的那一刻
+  const stale = { ...base, date: L0(6).toISOString(), startTime: L0(6).toISOString() };
+  let s2 = settleSeq(null, [stale]);
+  const first = L.restampStaleStart(stale, at([{ ...ghost, ghost: false }], stale), L0(9).getTime(), s2);
+  assert.equal(first.startTime, L0(9).toISOString());
+  s2 = settleSeq(s2, [first, stale]);
+  assert.equal(L.restampStaleStart(stale, at([{ ...ghost, ghost: false }], stale), L0(9, 2).getTime(), s2).startTime, L0(9, 2).toISOString(), '撤销了第一次动手，再做才是第一次');
 });
 
 // ── 器械与重量（2026-11-13）：上限、最重一格、大图只写待做 / 选中的组、换台不漂、固定器械按动作分台 ──────────
