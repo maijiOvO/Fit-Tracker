@@ -226,6 +226,8 @@ export function useMachineSettings(exercise: Exercise, gym: string | undefined, 
     changeAppPrefs(keyedPatch('gymTares', tareKey, nextG === undefined ? '' : { v: nextG, u: rounder.unit, ...(counted ? { counted } : {}) }));
     const inLog = counted && nextG !== undefined ? nextG : undefined;
     const shiftG = (inLog ?? 0) - (tareCounted ? tareG ?? 0 : 0);
+    // 前后都不算进记录：格子没变，不重新取整（否则只填个不进记录的自重，原样抄的 63 也会被吸成 62.5）
+    if (inLog === undefined && !tareCounted) return;
     onSets(snapUntouched(exercise.sets, exercise, withTare(rounder, inLog), rounder.unit === 'lbs' ? shiftG / KG_TO_LBS : shiftG));
   };
   // 自重：横划 / 打字都行；清空＝不知道（墓碑，算不算也一起清掉）

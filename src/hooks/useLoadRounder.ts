@@ -383,20 +383,26 @@ export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null
  * shiftKg：先平移再吸（填 / 改 / 清空器械自重，2026-11-08）—— 挂的片不变，数字连自重一起增减；空着的组（0）不动。
  * 平移过的就不再是「从上一次纯换算来的」（draftAuto 摘掉，口径同 workbench.shiftWeight）：之后换台 / 换馆从当前值算，
  * 不退回上一次的原值把自重丢掉。
+ * 这也是「这一台的刻度变了」（同 reRoundPending 传 null）：同馆同片原样抄来的底稿照样吸过去，keep 记成 false。
  */
 export function snapUntouched(sets: SetLog[], ex: Exercise, r: ExRounder | null, shiftKg = 0): SetLog[] {
   if (!r || !sets) return sets;
   const moved = (kg: number) => (Math.abs(kg) < 1e-9 ? 0 : kg + shiftKg);
   const shifted = (kg: number) => (shiftKg !== 0 && Math.abs(kg) > 1e-9 ? { draftAuto: false } : {});
+  const noKeep = (x: SetLog | SubSetLog) => (x.prefillRef ? { prefillRef: withKeep(x.prefillRef, false, true) } : {});
   return sets.map(s => {
     if (!s.ghost) return s;
     const kg0 = signedKg(s, ex);
     // 改过的那组也要新对象：下面会给它换 subSets，不能写进上一份 state
-    const next: SetLog = s.touched?.weight ? { ...s } : { ...writeKg(s, r.snapKg(moved(kg0)), r.signed), plateUnit: r.unit, ...shifted(kg0) };
+    const next: SetLog = s.touched?.weight
+      ? { ...s, ...noKeep(s) }
+      : { ...writeKg(s, r.snapKg(moved(kg0)), r.signed), plateUnit: r.unit, ...shifted(kg0), ...noKeep(s) };
     if (s.subSets?.length) {
       const orig = s.subSets.map(sub => signedKg(sub, ex, s));
       const subs = s.subSets.map((sub, i) =>
-        sub.touched?.weight ? sub : { ...writeKg(sub, r.snapKg(moved(orig[i])), r.signed), plateUnit: r.unit, ...shifted(orig[i]) },
+        sub.touched?.weight
+          ? sub.prefillRef ? { ...sub, ...noKeep(sub) } : sub
+          : { ...writeKg(sub, r.snapKg(moved(orig[i])), r.signed), plateUnit: r.unit, ...shifted(orig[i]), ...noKeep(sub) },
       );
       next.subSets = keepSubOrder(subs, orig, kg0, signedKg(next, ex), ex, next, r);
     }

@@ -614,6 +614,17 @@ t('底稿重新取整的三种来路：换馆按新馆算、回来源馆又是�
   const back = L.reRoundPending([regrid], exAtA, rig4, 'A')[0];
   assert.deepEqual([back.weight, back.prefillRef.keep], [12, false], '换过台的同馆再重算也按格子');
 });
+t('改算进记录的器械自重（snapUntouched）也是这一台的刻度变了：原样抄的底稿记 keep:false，之后存同馆档案不跳回原数；手打过的只摘 keep（D1 审查）', () => {
+  const prof = kgProf();
+  const loaded = tare => L.makeRounder({ kind: 'loaded' }, 'kg', { unit: 'kg', plates: prof.plates, bar: 0, inc: 0, ...(tare ? { tare } : {}) }, false);
+  const [s] = L.roundPrefill(lastSet(63), exAtA, loaded(), 'A');
+  assert.deepEqual([s.weight, s.prefillRef.keep], [63, true], '前提：同馆原样抄');
+  const [a] = L.snapUntouched([{ ...s, ghost: true }], exAtA, loaded(25), 25);
+  assert.equal(a.prefillRef.keep, false, '吸过格子就不再按原数');
+  assert.equal(L.reRoundPending([a], exAtA, loaded(25), 'A')[0].prefillRef.keep, false, '之后存甲馆档案也不跳回原数');
+  const [t2] = L.snapUntouched([{ ...s, ghost: true, weight: 70, touched: { weight: true } }], exAtA, loaded(25), 25);
+  assert.deepEqual([t2.weight, t2.prefillRef.keep], [70, false]);
+});
 
 // ── 热力图按本地日期归日（heatmap-utc-day）────────────────────────────
 t('热力图：多伦多昨晚 21:15 练的归在昨天（UTC 已经是今天）；只有底稿的场、还在练的那一场不算', () => {
