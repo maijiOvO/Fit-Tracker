@@ -378,11 +378,15 @@ function cascadeEditedSub(s: SetLog, before: SetLog, ex: Exercise, snap?: (kg: n
   return j < 0 ? s : shiftLowerSubs(s, j, signedKg(subs[j], ex, s) - signedKg(olds[j], ex, before), ex, rowKgs(before, ex), snap);
 }
 
-/** 一组里第 j 档下面、重量没改过的档平移 shift（同一组的递减链保持差值） */
+/**
+ * 一组里第 j 档下面、重量没改过的档平移 shift（同一组的递减链保持差值）。
+ * 带不带正负看改的那一档：带正负的卡写重量总带着号，不带的卡写的是 bodyweightMode: undefined（setWrite.weightFromShown）
+ */
 function shiftLowerSubs(s: SetLog, j: number, shift: number, ex: Exercise, oldKgs: number[], snap?: (kg: number) => number): SetLog {
   if (!shift || !s.subSets) return s;
+  const signed = s.subSets[j].bodyweightMode !== undefined;
   const subSets = s.subSets.map((sub, k) =>
-    k <= j || sub.touched?.weight ? sub : shiftRow(sub, shift, ex, !!sub.bodyweightMode, s, snap),
+    k <= j || sub.touched?.weight ? sub : shiftRow(sub, shift, ex, signed, s, snap),
   );
   return holdTouchedSubs({ ...s, subSets }, oldKgs, ex, j + 1);
 }
@@ -428,17 +432,22 @@ function holdTouchedSubs(next: SetLog, oldKgs: number[], ex: Exercise, from = 0)
 /**
  * 一组（或一档）的重量平移 shift（带符号的 kg）：带正负的负荷连号一起写，普通重量不低于 0。
  * 被 0 截住的记下本来该是多少（want，工作台专用）：20→10 的递减，母组改成 5 再改回 20，档回到 10 而不是 15。
+ * signed：这一下是不是带正负的卡写的。不带的卡上，档上从底稿抄来的旧号一并清掉、按看到的数平移
+ * （原来按号平移：母组 50 → 55，记着辅助 40 的档反倒变成 35；2026-11-24 作者定，审查第 19 批）。
  */
 function shiftRow<T extends SetLog | SubSetLog>(
   x: T, shift: number, ex: Exercise, signed: boolean, parent?: SetLog, snap?: (kg: number) => number,
 ): T {
   const { want, ...rest } = x;
-  const target = (want ?? signedKg(x, ex, parent)) + shift;
   // 被带着平移过就不再是「从上一次纯换算来的」：切单位时从当前值重算，不再回到上一次的原值
-  if (!(signed || x.bodyweightMode) && target < 0) return { ...rest, weight: 0, draftAuto: false, want: target } as T;
-  const v = snap ? snap(target) : target;
-  const w = signed || x.bodyweightMode ? fromSignedKg(v) : { weight: Math.max(0, v) };
-  return { ...rest, ...w, draftAuto: false } as T;
+  if (signed) {
+    const target = (want ?? signedKg(x, ex, parent)) + shift;
+    return { ...rest, ...fromSignedKg(snap ? snap(target) : target), draftAuto: false } as T;
+  }
+  const { bodyweightMode: _b, ...plain } = rest;
+  const target = (want ?? (Number(x.weight) || 0)) + shift;
+  if (target < 0) return { ...plain, weight: 0, draftAuto: false, want: target } as T;
+  return { ...plain, weight: Math.max(0, snap ? snap(target) : target), draftAuto: false } as T;
 }
 
 /**

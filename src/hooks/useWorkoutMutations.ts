@@ -774,8 +774,6 @@ export function useWorkoutMutations({
       // 要一一对应的（计划开练）由调用方用 sourceCards 先挑好 exs 传进来
       const srcCards = last ? (last.exs ?? [last.ex]) : [];
       const srcSets = srcCards.flatMap(e => e.sets ?? []);
-      // 只抄开着的记录项：关掉的次数 / 重量不再藏在底稿里入册（上架审查 gap-2#2）
-      const rawGhosts = srcSets.length ? toGhostSets(srcSets, stamp, getActiveMetrics(name)) : null;
       const vid = variant ? variant.id : last ? variantIdOf(last.ex) : undefined;
       const vname = variant
         ? variant.name || variantsOf(name).find(v => v.id === variant.id)?.name
@@ -790,6 +788,9 @@ export function useWorkoutMutations({
                 ? defConfig.bodyweightType
                 : 'none',
           };
+      // 只抄开着的记录项：关掉的次数 / 重量不再藏在底稿里入册（上架审查 gap-2#2）；不带正负的卡不抄旧号
+      const signed = usesSignedLoad({ instanceConfig } as Exercise, signedLoadOf({ name, variantId: vid }));
+      const rawGhosts = srcSets.length ? toGhostSets(srcSets, stamp, getActiveMetrics(name), signed) : null;
       // 「杠铃片」：底稿按今天的馆和单位就近取整，记下上一次的原值当参考（递减档一起）
       // 带上来源那场的馆：同馆同片的原样抄（useLoadRounder.keepOf）
       const draftEx = { id: '', name, category, sets: rawGhosts, instanceConfig, ...(vid ? { variantId: vid } : {}), ...(last?.workout.gym ? { prefillGym: last.workout.gym } : {}) } as Exercise;
@@ -812,7 +813,7 @@ export function useWorkoutMutations({
         instanceConfig,
       } as Exercise;
     },
-    [variantIdOf, variantsOf, rounderFor, gymNow],
+    [variantIdOf, variantsOf, rounderFor, gymNow, signedLoadOf],
   );
 
   /**
@@ -867,7 +868,9 @@ export function useWorkoutMutations({
             const vid = variantIdOf(ex);
             const live = !!vid && variantsOf(ex.name).some(v => v.id === vid);
             const std = vid && !live ? findLast(ex.name, '') : null;
-            const copied = toGhostSets(ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name));
+            // 新卡带不带正负：号沿用这张卡的 instanceConfig，名字 / 做法按新卡
+            const signed = usesSignedLoad(ex, signedLoadOf(live ? { name, variantId: vid } : name));
+            const copied = toGhostSets(ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name), signed);
             const from = std ? std.workout : src;
             return {
               id: `exercise_${stamp}_${i}`,
@@ -876,7 +879,7 @@ export function useWorkoutMutations({
               ...(ex.bodyPart ? { bodyPart: ex.bodyPart } : {}),
               tags: ex.tags ?? [],
               sets: std
-                ? toGhostSets(std.ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name))
+                ? toGhostSets(std.ex.sets, `${stamp}_${i}`, getActiveMetrics(ex.name), signed)
                 : vid && !live
                   ? copied.map(st => ({ ...st, checkWeight: true }))
                   : copied,
@@ -903,7 +906,7 @@ export function useWorkoutMutations({
       };
       return { make, replaces: live?.id ?? null };
     },
-    [confirm, findLast, getActiveMetrics, isCn, mergeAliasOf, resolveName, rounderFor, toast, variantIdOf, variantsOf, workoutCtx, workouts],
+    [confirm, findLast, getActiveMetrics, isCn, mergeAliasOf, resolveName, rounderFor, toast, variantIdOf, variantsOf, workoutCtx, workouts, signedLoadOf],
   );
 
   const handleDeleteExerciseRecord = useCallback(
@@ -1304,7 +1307,7 @@ export function useWorkoutMutations({
         if (hit) {
           // 做完 / 改过的组留在原来的位置（审查 A6：原来全挪到最前面），其余位置换成新做法上一次同位置的那组（refillDraft）
           // 新做法上一场这个项目的全部卡合起来（同 buildExercise）
-          const fill = roundPrefill(toGhostSets(hit.exs.flatMap(e => e.sets ?? []), `${stamp}`, getActiveMetrics(ex.name)), { ...nextEx, prefillGym: hit.workout.gym }, r, p.gym);
+          const fill = roundPrefill(toGhostSets(hit.exs.flatMap(e => e.sets ?? []), `${stamp}`, getActiveMetrics(ex.name), usesSignedLoad(nextEx, signedLoadOf(nextEx))), { ...nextEx, prefillGym: hit.workout.gym }, r, p.gym);
           sets = refillDraft(ex.sets, fill);
           if (!sets.length) sets = [{ id: `${stamp}`, weight: 0, reps: 0, ghost: true }];
           prefillFrom = hit.workout.date;
@@ -1351,7 +1354,7 @@ export function useWorkoutMutations({
       });
       onPersist?.();
     },
-    [editingWorkoutId, findLast, mergeAliasOf, onPersist, preferGymFor, resolveName, rounderFor, setCurrentWorkout, variantIdOf, variantsOf],
+    [editingWorkoutId, findLast, mergeAliasOf, onPersist, preferGymFor, resolveName, rounderFor, setCurrentWorkout, variantIdOf, variantsOf, signedLoadOf],
   );
 
   return {

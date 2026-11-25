@@ -71,28 +71,34 @@ export function copyValues(s: SetLog, metrics: string[]): Partial<SetLog> & { we
  * 把一串既有的组铺成底稿行（§12.6）：添加单个动作（底稿预填）、整场复制、换做法 / 换馆重铺共用，语义必须是同一套。
  * 只抄开着的记录项（copyValues）；递减档只在重量或次数开着时抄（和母组一样是上次的数据，跟着母组一起描实 / 丢弃）。
  * 上次若本身是未收尾的草稿，先滤掉它的 ghost —— 别把底稿再抄成底稿。
+ * signed：今天这张卡带不带正负（load.usesSignedLoad）。不带的卡不抄组上的号（动作后来关了带正负 / 换了器材，
+ * 旧组还记着辅助）：看到的是 30 就按 30 记，不然没动过的底稿组纪录一直按 0 比（2026-11-24 作者定，审查第 19 批）。
  */
-export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string, metrics: string[]): SetLog[] {
+export function toGhostSets(sets: SetLog[] | undefined, idPrefix: string, metrics: string[], signed: boolean): SetLog[] {
   const subsOn = metrics.includes('weight') || metrics.includes('reps');
   return (sets ?? [])
     .filter(s => !s.ghost)
-    .map((s, j) => ({
-      id: `${idPrefix}_${j}`,
-      ...copyValues(s, metrics),
-      ...(subsOn && s.subSets?.length
-        ? {
-            subSets: s.subSets.map((sub, k) => ({
-              id: `${idPrefix}_${j}_sub${k}`,
-              weight: metrics.includes('weight') ? sub.weight ?? 0 : 0,
-              reps: metrics.includes('reps') ? sub.reps ?? 0 : 0,
-              ...(sub.bodyweightMode ? { bodyweightMode: sub.bodyweightMode } : {}),
-              // 递减档的登记单位也抄（原先只抄了母组的，子组下一场又得靠推断）
-              ...(sub.plateUnit ?? s.plateUnit ? { plateUnit: sub.plateUnit ?? s.plateUnit } : {}),
-            })),
-          }
-        : {}),
-      ghost: true,
-    }));
+    .map((s, j) => {
+      const { bodyweightMode, ...vals } = copyValues(s, metrics);
+      return {
+        id: `${idPrefix}_${j}`,
+        ...vals,
+        ...(signed && bodyweightMode ? { bodyweightMode } : {}),
+        ...(subsOn && s.subSets?.length
+          ? {
+              subSets: s.subSets.map((sub, k) => ({
+                id: `${idPrefix}_${j}_sub${k}`,
+                weight: metrics.includes('weight') ? sub.weight ?? 0 : 0,
+                reps: metrics.includes('reps') ? sub.reps ?? 0 : 0,
+                ...(signed && sub.bodyweightMode ? { bodyweightMode: sub.bodyweightMode } : {}),
+                // 递减档的登记单位也抄（原先只抄了母组的，子组下一场又得靠推断）
+                ...(sub.plateUnit ?? s.plateUnit ? { plateUnit: sub.plateUnit ?? s.plateUnit } : {}),
+              })),
+            }
+          : {}),
+        ghost: true,
+      };
+    });
 }
 
 /**

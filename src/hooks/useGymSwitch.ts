@@ -19,6 +19,7 @@ import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { reRoundPending, roundPrefill, useLoadRounder } from './useLoadRounder';
 import { toGhostSets } from '../utils/setValues';
+import { usesSignedLoad } from '../utils/load';
 import { findLastIn, isPristineDraftCard, sourceCards } from '../utils/prefillSource';
 import type { GymProfile } from '../utils/loadable';
 import { useGymScopedPR } from './useLoadKind';
@@ -28,7 +29,7 @@ import type { PlateUnit } from '../utils/plates';
 export function useGymSwitch() {
   const { workouts } = useWorkoutContext();
   const { unit, changeUnit, appPrefs } = useUserSettingsContext();
-  const { resolveName, variantIdOf, getActiveMetrics } = useExercisePrefs();
+  const { resolveName, variantIdOf, getActiveMetrics, signedLoadOf } = useExercisePrefs();
   const rounderFor = useLoadRounder();
   const gymScoped = useGymScopedPR();
 
@@ -53,7 +54,7 @@ export function useGymSwitch() {
             // 这场里同项目有几张卡：第 k 张抄新来源那场的第 k 张（sourceCards），只有一张就抄那场合起来的全部组
             const same = (w.exercises ?? []).filter(x => resolveName(x.name) === resolveName(e.name) && (variantIdOf(x) || undefined) === (variantIdOf(e) || undefined));
             const src = sourceCards(hit, same.indexOf(e), same.length);
-            const sets = roundPrefill(toGhostSets(src.flatMap(x => x.sets ?? []), `${Date.now()}_${i}`, getActiveMetrics(e.name)), { ...rest, prefillGym: hit.workout.gym } as Exercise, r, gym);
+            const sets = roundPrefill(toGhostSets(src.flatMap(x => x.sets ?? []), `${Date.now()}_${i}`, getActiveMetrics(e.name), usesSignedLoad(e, signedLoadOf(e))), { ...rest, prefillGym: hit.workout.gym } as Exercise, r, gym);
             return {
               ...rest,
               sets,
@@ -67,7 +68,7 @@ export function useGymSwitch() {
         return sets === e.sets ? e : { ...e, sets };
       }),
     }),
-    [rounderFor, workouts, resolveName, variantIdOf, gymScoped],
+    [rounderFor, workouts, resolveName, variantIdOf, gymScoped, signedLoadOf],
   );
 
   /** 手动切单位（训练页头上的 kg / lbs、首选项里的单位）：只换显示，不动记录、不重新取整 */

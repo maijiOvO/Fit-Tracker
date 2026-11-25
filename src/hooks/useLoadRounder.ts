@@ -251,7 +251,8 @@ type W = Pick<SetLog, 'weight' | 'bodyweightMode'>;
 
 /** 带符号 kg 写回：带正负的动作连号一起写，普通动作只写非负的 weight */
 function writeKg<T extends W>(x: T, kg: number, signed: boolean): T {
-  // 组上自己写了号（动作后来关了带正负，旧组还记着辅助）：照 workbench.shiftWeight 的口径按带号写，别截成 0
+  // 组上自己写了号、卡却不带正负（铺下底稿之后才关了带正负；新铺的底稿 toGhostSets 已经清了号）：按带号写，别截成 0。
+  // 取整 / 换台只是重吸格子，清号留给改值的那一下（setWrite.weightFromShown、workbench.shiftRow）
   const own = x.bodyweightMode === 'assisted' || x.bodyweightMode === 'weighted';
   return signed || own ? { ...x, ...fromSignedKg(kg) } : { ...x, weight: Math.max(0, kg) };
 }
@@ -381,7 +382,7 @@ export function reRoundPending(sets: SetLog[], ex: Exercise, r: ExRounder | null
  * 换了一档（单独设 / 恢复馆默认）：没做完、这一格没改过的组吸到新的一档上（递减档一起）。
  * 改过的照原样（打的数照原样记）；做完的不动。
  * shiftKg：先平移再吸（填 / 改 / 清空器械自重，2026-11-08）—— 挂的片不变，数字连自重一起增减；空着的组（0）不动。
- * 平移过的就不再是「从上一次纯换算来的」（draftAuto 摘掉，口径同 workbench.shiftWeight）：之后换台 / 换馆从当前值算，
+ * 平移过的就不再是「从上一次纯换算来的」（draftAuto 摘掉，口径同 workbench.shiftRow）：之后换台 / 换馆从当前值算，
  * 不退回上一次的原值把自重丢掉。
  * 这也是「这一台的刻度变了」（同 reRoundPending 传 null）：同馆同片原样抄来的底稿照样吸过去，keep 记成 false。
  */

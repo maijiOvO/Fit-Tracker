@@ -262,6 +262,34 @@ t('母组只换号（辅助 ⇄ 负重）：自己的递减档保持差值跟过
   assert.equal(chain(exs), '20/15 -20/-25');
 });
 
+t('不带正负的卡：递减档上抄来的旧辅助号在平移时清掉，按看到的数走；带正负的卡照旧按号平移（审查第 19 批）', () => {
+  // 防的错：shiftRow 又按「档上有号就带正负」平移 —— 看着是 40 的档，母组 50 → 55 后反倒变成 35，号还一直留着、纪录按 0 比
+  const old = (id, w) => ({ id, weight: w, reps: 5, bodyweightMode: 'assisted' });
+  let exs = [{ id: 'A', name: 'A', category: 'STRENGTH', sets: [{ id: 'A1', weight: 50, reps: 5, ghost: true, subSets: [old('d1', 40)] }] }];
+  exs = W.applySetUpdate(exs, rA('A1'), { weight: 55, bodyweightMode: undefined });
+  const [d1] = exs[0].sets[0].subSets;
+  assert.equal(d1.weight, 45);
+  assert.equal(d1.bodyweightMode, undefined);
+  // 改第一档、带下面的档（shiftLowerSubs）：看改的那一档的号认卡，不看下面档自己的旧号
+  exs = [{ id: 'A', name: 'A', category: 'STRENGTH', sets: [{ id: 'A1', weight: 60, reps: 5, ghost: true, subSets: [{ id: 'd1', weight: 50, reps: 5 }, old('d2', 40)] }] }];
+  exs = W.applySetUpdate(exs, rA('A1'), { subSets: [{ id: 'd1', weight: 45, reps: 5, bodyweightMode: undefined }, old('d2', 40)] });
+  const d2 = exs[0].sets[0].subSets[1];
+  assert.deepEqual([d2.weight, d2.bodyweightMode], [35, undefined]);
+  // 对照：带正负的卡写重量带着号，档按带符号的数平移、号照写（辅助 20 → 15，辅助 25 的档跟到辅助 20）
+  const a = { id: 'A1', weight: 20, reps: 5, ghost: true, bodyweightMode: 'assisted', subSets: [old('s1', 25)] };
+  exs = W.applySetUpdate([{ id: 'A', name: 'A', category: 'STRENGTH', sets: [a] }], rA('A1'), { weight: 15, bodyweightMode: 'assisted' });
+  assert.equal(chain(exs), '-15/-20');
+});
+
+t('底稿：不带正负的卡不抄组上的旧号（母组、递减档都清），重量按看到的数；带正负的卡号照抄（审查第 19 批）', () => {
+  // 防的错：换了器材 / 关了带正负，没动过的底稿组还记着辅助，入册后纪录一直按 0 比
+  const last = { id: 'L', weight: 30, reps: 8, bodyweightMode: 'assisted', plateUnit: 'kg', subSets: [{ id: 'Ld', weight: 35, reps: 6, bodyweightMode: 'assisted' }] };
+  const [plain] = W.V.toGhostSets([last], 'p', ['weight', 'reps'], false);
+  assert.deepEqual(plain, { id: 'p_0', weight: 30, reps: 8, plateUnit: 'kg', subSets: [{ id: 'p_0_sub0', weight: 35, reps: 6, plateUnit: 'kg' }], ghost: true });
+  const [signed] = W.V.toGhostSets([last], 'p', ['weight', 'reps'], true);
+  assert.deepEqual([signed.bodyweightMode, signed.subSets[0].bodyweightMode], ['assisted', 'assisted']);
+});
+
 t('加一档递减：只加在这一组上，别的组不出现这一档', () => {
   let exs = [ex('A', [[60, 8], [60, 8], [70, 6]])];
   exs = W.applySetUpdate(exs, rA('A1'), { subSets: [{ id: 'n1', weight: 50, reps: 8 }] });
@@ -437,7 +465,7 @@ t('底稿 / 添加组只抄开着的记录项（上架审查 gap-2#2、gap-5#1 #
   const cardio = W.V.copyValues(last, ['duration', 'distance', 'speed', 'custom_坡度']);
   assert.deepEqual(cardio, { weight: 0, reps: 0, duration: 1800, distance: 5, distanceUnit: 'km', speed: 12, custom_坡度: 3 });
   assert.deepEqual(W.V.copyValues(last, ['weight', 'reps']), { weight: 40, reps: 10 });
-  const ghosts = W.V.toGhostSets([last, { id: 'g', weight: 1, reps: 1, ghost: true }], 'p', ['reps']);
+  const ghosts = W.V.toGhostSets([last, { id: 'g', weight: 1, reps: 1, ghost: true }], 'p', ['reps'], false);
   assert.deepEqual(ghosts, [{ id: 'p_0', weight: 0, reps: 10, ghost: true }], '底稿只抄开着的、先滤掉 ghost、力竭不继承');
   assert.deepEqual(W.SW.markTouched({ id: 's', weight: 0, reps: 0, ghost: true }, { speed: 11 }).touched, { speed: true });
   assert.deepEqual(W.SW.markTouched({ id: 's', weight: 0, reps: 0, ghost: true }, { custom_RPE: 8 }).touched, { custom_RPE: true });
