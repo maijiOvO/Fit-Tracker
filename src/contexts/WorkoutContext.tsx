@@ -450,6 +450,8 @@ export const WorkoutProvider: React.FC<{ children: ReactNode }> = ({ children })
     return {
       ...createEmptyWorkout(),
       id: Date.now().toString(),
+      // date 和 startTime 取同一刻：createEmptyWorkout 自己另取一次 now，两者会差几毫秒
+      date: now,
       startTime: now,
       createdAt: now,
       updatedAt: now,

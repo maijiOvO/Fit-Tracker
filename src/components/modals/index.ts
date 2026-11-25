@@ -1,6 +1,5 @@
 export { WeightInputModal } from './WeightInputModal';
 export { MeasurementModal } from './MeasurementModal';
-export { ExerciseDateTimePickerModal } from './ExerciseDateTimePickerModal';
 export { RenameModal } from './RenameModal';
 export { AddCustomExerciseModal } from './AddCustomExerciseModal';
 export { AddGoalModal } from './AddGoalModal';

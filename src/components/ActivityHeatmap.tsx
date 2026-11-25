@@ -17,6 +17,8 @@ import { Language } from '../../types';
 import { plural } from '../utils/format';
 import { localYmd, dayOfWeekIndex, rotateWeekdays } from '../utils/dateUtils';
 import { appPrefsNow } from '../../services/appPrefs';
+import { heatmapCells } from '../utils/heatmapDays';
+import { useToday } from '../hooks/useToday';
 
 export interface HeatmapDay {
   /** YYYY-MM-DD */
@@ -35,20 +37,9 @@ interface Props {
   prDays?: Set<string>;
 }
 
-/** 0 / 1-8 / 9-16 / 17-24 / 25+ —— 一档约等于两个动作的量 */
-function levelOf(sets: number): number {
-  if (sets <= 0) return 0;
-  if (sets <= 8) return 1;
-  if (sets <= 16) return 2;
-  if (sets <= 24) return 3;
-  return 4;
-}
-
 /** 网格、连续天数与 heatmapData 的日键必须同一个函数（本地日期） */
 const ymd = localYmd;
 
-/** 往回看多少天 */
-const SPAN = 91;
 /** 收起时显示几周。「我的」页面里整张图太占纵向高度，只留 5 行。 */
 const COLLAPSED_WEEKS = 5;
 
@@ -62,31 +53,12 @@ export const ActivityHeatmap: React.FC<Props> = ({
   const [expanded, setExpanded] = useState(false);
   const weekStart = appPrefsNow().weekStart;
 
+  const todayKey = useToday();
+
   const { cells, streak } = useMemo(() => {
-    const byDate = new Map<string, HeatmapDay>(days.map(d => [d.date, d]));
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayKey = ymd(today);
-
-    // 让每行从一周的第一天开始（首选项「每周开始于」）：把起点往前推到最近的那一天
-    const start = new Date(today);
-    start.setDate(start.getDate() - (SPAN - 1));
-    start.setDate(start.getDate() - dayOfWeekIndex(start));
-
-    const out: (HeatmapDay & { level: number; isToday: boolean; future: boolean })[] = [];
-    for (let d = new Date(start); d <= today || out.length % 7 !== 0; d.setDate(d.getDate() + 1)) {
-      const key = ymd(d);
-      const hit = byDate.get(key);
-      out.push({
-        date: key,
-        sets: hit?.sets ?? 0,
-        sessions: hit?.sessions ?? 0,
-        level: levelOf(hit?.sets ?? 0),
-        isToday: key === todayKey,
-        future: d > today,
-      });
-      if (d > today && out.length % 7 === 0) break;
-    }
+    const [ty, tm, td] = todayKey.split('-').map(Number);
+    const today = new Date(ty, tm - 1, td);
+    const out = heatmapCells(days, todayKey);
 
     // 连续周数（审查 B10：按天数，休息一天就断，一周练三次的人永远是 1）：
     // 每周（按「每周开始于」）至少练过一次就算这周没断；这周还没练不算断，从上周往回数
@@ -107,7 +79,7 @@ export const ActivityHeatmap: React.FC<Props> = ({
     }
 
     return { cells: out, streak: s };
-  }, [days, weekStart]);
+  }, [days, weekStart, todayKey]);
 
   const weekdays = rotateWeekdays(isCn ? ['日', '一', '二', '三', '四', '五', '六'] : ['S', 'M', 'T', 'W', 'T', 'F', 'S']);
 

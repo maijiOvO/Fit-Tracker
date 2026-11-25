@@ -68,7 +68,6 @@ import {
   AddGoalModal,
   DurationPickerModal,
   EditGoalModal,
-  ExerciseDateTimePickerModal,
   GymPickerModal,
   MeasurementModal,
   MetricSettingsModal,
@@ -1104,12 +1103,15 @@ const AppWithAuthShell: React.FC = () => {
         onDelete={handleDeleteMeasurement}
       />
 
-      <ExerciseDateTimePickerModal
-        open={!!showTimePickerModal}
+      {/* 动作时间只调时分：改日期统一走「编辑这场 → 改日期」，整场一起平移（审查 C27） */}
+      <DateTimePicker
+        timeOnly
+        isOpen={!!showTimePickerModal}
         lang={lang}
-        initialTime={showTimePickerModal?.currentTime}
+        initialDate={showTimePickerModal?.currentTime ? new Date(showTimePickerModal.currentTime) : undefined}
         onClose={() => setShowTimePickerModal(null)}
-        onConfirm={timeISO => {
+        onConfirm={picked => {
+          const timeISO = picked.toISOString();
           if (showTimePickerModal?.exerciseId && currentWorkout.exercises) {
             const exerciseId = showTimePickerModal.exerciseId;
             const exerciseIndex = currentWorkout.exercises.findIndex(

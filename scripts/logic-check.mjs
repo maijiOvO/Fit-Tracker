@@ -54,7 +54,7 @@ await build({
       "export { moveSetToExercise, stripWorkbenchSet, toRecorded, hasUserInput } from './src/utils/workbench.ts';",
       "export * as S from './src/utils/exerciseSearch.ts';",
       "export { trackScrub, scrubGate, ENGAGE_PX } from './src/utils/scrubFeel.ts';",
-      "export { buildHeatmapDays } from './src/utils/heatmapDays.ts';",
+      "export { buildHeatmapDays, heatmapCells } from './src/utils/heatmapDays.ts';",
       "export { buildNameIndex, byDisplayName, ownValue, rawKeysIn } from './src/utils/nameIndex.ts';",
       "export * as LI from './src/utils/liftIdentity.ts';",
       "export * as EM from './src/utils/exerciseMerge.ts';",
@@ -63,7 +63,9 @@ await build({
       "export { rowLastSession, browseRank, liveEquips } from './src/hooks/useExercisePickerData.ts';",
       "export { translations } from './translations.ts';",
       "export { sessionDurationMin } from './src/utils/sessionDuration.ts';",
-      "export { sessionsBefore, redateLiveSession, isBackdated, undoLogExpired } from './src/utils/sessionDate.ts';",
+      "export { sessionsBefore, redateLiveSession, redateEdited, isBackdated, undoLogExpired } from './src/utils/sessionDate.ts';",
+      "export { resolvePickedDate, stepMinute, msToNextLocalMidnight } from './src/utils/dateUtils.ts';",
+      "export { isDefaultTitle, retitleForDate } from './src/utils/workbench.ts';",
       "export { handleHardwareBack } from './src/hooks/useBackClose.ts';",
       "export { planMergeIntoPrevious } from './src/utils/sessionMerge.ts';",
       "export * as SS from './src/utils/setStep.ts';",
@@ -1477,6 +1479,103 @@ t('训练时长：finishedAt − startTime 按整分截断（计时器的读法�
   assert.equal(L.sessionDurationMin({ duration: 30 }), null);
   assert.equal(L.sessionDurationMin({ startTime: T0 }), null);
   assert.equal(L.sessionDurationMin({}), null);
+});
+
+// ── 日期 / 时刻（上架审查 C23–C27 / C78 / C95）──────────────────────────
+const withTZ = (tz, fn) => {
+  const was = process.env.TZ;
+  process.env.TZ = tz;
+  try {
+    fn();
+  } finally {
+    if (was === undefined) delete process.env.TZ;
+    else process.env.TZ = was;
+  }
+};
+
+t('日期选择器的确定值：同一分钟原样确定不算改；选到未来夹到现在；夹完和初值同一分钟也不算改（C26 / C25）', () => {
+  const initial = new Date(2026, 10, 24, 10, 3, 27, 384);
+  const at = (mo, d, h, mi, s = 0) => new Date(2026, mo, d, h, mi, s);
+  assert.equal(L.resolvePickedDate(initial, at(10, 24, 10, 3), at(10, 24, 12, 0)), null, '原样确定');
+  assert.equal(L.resolvePickedDate(initial, at(10, 24, 18, 0), at(10, 24, 10, 3, 50)), null, '夹到 now 后与初值同一分钟');
+  const now = at(10, 24, 10, 30, 12);
+  assert.equal(L.resolvePickedDate(initial, at(10, 24, 18, 0), now)?.getTime(), now.getTime(), '今天晚些时候 → now');
+  assert.equal(L.resolvePickedDate(initial, at(11, 15, 9, 0), now)?.getTime(), now.getTime(), '下个月 → now');
+  assert.equal(L.resolvePickedDate(initial, at(10, 20, 8, 0), now)?.getTime(), at(10, 20, 8, 0).getTime(), '过去的原样');
+});
+
+t('编辑态改日期整场平移：date / startTime 同一分钟不漂、finishedAt / 动作时间同一平移量、时长不变、兜底标题换日期；选「现在」整场不晚于现在（C23 / C25 / C95）', () => {
+  const w = {
+    id: 'w', title: '训练 2026/11/20',
+    date: '2026-11-20T10:03:27.120Z', startTime: '2026-11-20T10:03:27.118Z',
+    finishedAt: '2026-11-20T11:15:59.000Z', endTime: '2026-11-20T11:15:59.000Z',
+    exercises: [{ id: 'e1', exerciseTime: '2026-11-20T10:05:00.000Z', sets: [] }, { id: 'e2', sets: [] }],
+  };
+  const now = new Date('2026-11-24T12:00:00.000Z');
+  assert.equal(L.sessionDurationMin(w), 72);
+  const picked = new Date(2026, 9, 15, 18, 3);
+  const m = L.redateEdited(w, picked, now);
+  const hm = iso => { const d = new Date(iso); return `${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}`; };
+  assert.equal(hm(m.date), '10-15 18:3');
+  assert.equal(hm(m.startTime), '10-15 18:3', 'startTime 不显示成早一分钟');
+  const delta = Date.parse(m.date) - Date.parse(w.date);
+  assert.equal(Date.parse(m.finishedAt) - Date.parse(w.finishedAt), delta);
+  assert.equal(Date.parse(m.endTime) - Date.parse(w.endTime), delta);
+  assert.equal(Date.parse(m.exercises[0].exerciseTime) - Date.parse(w.exercises[0].exerciseTime), delta);
+  assert.equal(m.exercises[1].exerciseTime, undefined);
+  assert.equal(L.sessionDurationMin(m), 72);
+  assert.equal(m.title, '训练 2026/10/15');
+  const toNow = L.redateEdited(w, now, now);
+  assert.ok(Date.parse(toNow.finishedAt) <= now.getTime(), 'finishedAt 不落在未来');
+  assert.ok(Date.parse(toNow.date) <= now.getTime());
+  assert.equal(L.sessionDurationMin(toNow), 72);
+  assert.equal(L.redateEdited({ ...w, title: '练胸' }, picked, now).title, '练胸');
+});
+
+t('兜底标题：中英两种格式都认、不看当前语言，自定义标题不认；换日期保持原来的语言（C95）', () => {
+  assert.equal(L.isDefaultTitle('训练 2026/11/23'), true);
+  assert.equal(L.isDefaultTitle('Workout Nov 23, 2026'), true);
+  for (const s of ['练胸', '训练 A', '', undefined, 'Workout A']) assert.equal(L.isDefaultTitle(s), false, String(s));
+  const d = new Date(2026, 9, 15, 18, 0);
+  assert.equal(L.retitleForDate('Workout Nov 23, 2026', d), 'Workout Oct 15, 2026');
+  assert.equal(L.retitleForDate('训练 2026/11/23', d), '训练 2026/10/15');
+  assert.equal(L.retitleForDate('练胸', d), '练胸');
+});
+
+t('热力图网格按日期键：午夜拨夏令时的时区里今天那格在、一行不缺；上海照旧 98 格从 08-24 起（C24）', () => {
+  const nextKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10); };
+  for (const [tz, today] of [['America/Santiago', '2026-11-24'], ['Africa/Cairo', '2026-04-27']]) {
+    withTZ(tz, () => {
+      const cells = L.heatmapCells([], today);
+      const past = cells.filter(c => !c.future);
+      assert.equal(past[past.length - 1].date, today, `${tz} 最后一个非未来格是今天`);
+      assert.equal(cells.filter(c => c.isToday).length, 1, `${tz} 恰好一个今天`);
+      assert.equal(cells.length % 7, 0, `${tz} 整行`);
+      for (let i = 1; i < cells.length; i++) assert.equal(cells[i].date, nextKey(cells[i - 1].date), `${tz} 第 ${i} 格连续`);
+    });
+  }
+  withTZ('Asia/Shanghai', () => {
+    const cells = L.heatmapCells([{ date: '2026-11-20', sets: 10, sessions: 1 }], '2026-11-24');
+    assert.equal(cells.length, 98);
+    assert.equal(cells[0].date, '2026-08-24');
+    assert.equal(cells.find(c => c.date === '2026-11-20').level, 2);
+  });
+});
+
+t('到下一个本地零点：圣地亚哥那天的零点不存在也是 30 分钟；上海 23:59:30 是 30 秒（C78 的定时器）', () => {
+  withTZ('America/Santiago', () => assert.equal(L.msToNextLocalMidnight(new Date(2026, 8, 5, 23, 30)), 30 * 60_000));
+  withTZ('Asia/Shanghai', () => assert.equal(L.msToNextLocalMidnight(new Date(2026, 10, 24, 23, 59, 30)), 30_000));
+});
+
+t('分钟吸格：0..59 往上 / 往下都落在 5 分钟的格子上；3↓0、0↓55、58↑0（C27）', () => {
+  for (let m = 0; m < 60; m++) for (const dir of [1, -1]) {
+    const r = L.stepMinute(m, dir);
+    assert.ok(r >= 0 && r < 60 && r % 5 === 0, `${m} ${dir} → ${r}`);
+  }
+  assert.equal(L.stepMinute(3, -1), 0);
+  assert.equal(L.stepMinute(0, -1), 55);
+  assert.equal(L.stepMinute(58, 1), 0);
+  assert.equal(L.stepMinute(55, 1), 0);
 });
 
 // ── 补录（训练中把这场改到过去）──────────────────────────

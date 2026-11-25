@@ -752,6 +752,20 @@ await t('CSV：有开始和结束时间的场，每一行都带整场时长（�
   assert.ok(lines.every(l => /^[^,]*,[^,]*,52,E2E 时长,/.test(l)), lines[0]);
 });
 
+// 防 C23 读取侧：库里 / 备份里已经分叉的旧记录（编辑时只改了 date，startTime 还在原来那天），CSV 按 date 写日期、排序
+await t('CSV：日期 / 开始时间 / 排序跟 date 走，startTime 只用来算时长', () => {
+  const moved = seedWorkout('seed_moved', 3, 'E2E 改过日期', '杠铃推举', [[50, 5]]);
+  moved.date = new Date(2026, 9, 15, 18, 3, 27).toISOString();
+  moved.startTime = new Date(2026, 10, 20, 10, 3, 27).toISOString();
+  moved.finishedAt = new Date(2026, 10, 20, 11, 15, 59).toISOString();
+  const other = seedWorkout('seed_other', 3, 'E2E 另一场', '杠铃推举', [[50, 5]]);
+  other.date = new Date(2026, 10, 19, 18, 0).toISOString();
+  const { text } = D.buildWorkoutsCsv([other, moved], { isCn: true, resolveName: x => x, variantOf: () => '', bodyPartOf: () => '', regionsOf: () => '', fallbackUnit: 'kg' });
+  const lines = text.replace(/^﻿/, '').trim().split('\r\n').slice(1);
+  assert.ok(lines[0].startsWith('2026-10-15,18:03,72,E2E 改过日期,'), lines[0]);
+  assert.ok(lines[1].includes('E2E 另一场'), lines[1]);
+});
+
 // ── 合并式恢复 ───────────────────────────────────────────────────────
 await t('合并恢复：本机删过的（墓碑）不被旧备份捞回来，本机新练的留着', () => {
   const snap = (workouts, tombstones) => ({

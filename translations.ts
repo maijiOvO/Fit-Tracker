@@ -165,20 +165,8 @@ export const translations: TranslationStrings = {
   resetInProgress: { en: 'Resetting…', cn: '重置中…' },
   resetSuccess: { en: 'Account reset', cn: '已重置' },
 
-  // ✅ 新增：自定义日期时间选择器翻译
-  selectDate: { en: 'Date', cn: '日期' },
-  selectTime: { en: 'Time', cn: '时间' },
-  today: { en: 'Today', cn: '今天' },
-  yesterday: { en: 'Yesterday', cn: '昨天' },
+  // 日期时间选择器
   hour: { en: 'Hour', cn: '时' },
   minute: { en: 'Minute', cn: '分' },
-  monthNames: {
-    en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
-    cn: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
-  },
-  weekdayNames: {
-    en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-    cn: ['日', '一', '二', '三', '四', '五', '六']
-  },
 
 };

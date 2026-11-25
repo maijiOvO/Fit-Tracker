@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { translations } from '../../translations';
 import { Language } from '../../types';
-import { getDaysInMonth, getFirstDayOfMonth, rotateWeekdays } from '../utils/dateUtils';
+import { getDaysInMonth, getFirstDayOfMonth, localYmd, resolvePickedDate, rotateWeekdays, stepMinute } from '../utils/dateUtils';
 import { Modal, ModalFooter } from './Modal';
 
 interface DateTimePickerProps {
@@ -14,6 +14,8 @@ interface DateTimePickerProps {
   onConfirm: (date: Date) => void;
   initialDate?: Date;
   lang: Language;
+  /** 只调时分（动作时间）：不画月历，确定时沿用 initialDate 的年月日 */
+  timeOnly?: boolean;
 }
 
 /**
@@ -21,6 +23,9 @@ interface DateTimePickerProps {
  * 内层的 useState 只在挂载时取初值 —— 以前整个组件常驻挂载，
  * 打开时停在 App 启动那一刻（或上一次的选择），只调分钟点确定就把旧训练挪到今天
  * （datepicker-stale-initial）。现在每次打开都从 initialDate 重新开始。
+ *
+ * 这个选择器只回答「什么时候练的」：未来的日子点不了，确定值晚于现在的夹到现在；
+ * 和初值同一分钟就当没改，只关弹窗、不回调（resolvePickedDate，审查 C25 / C26）。
  */
 export const DateTimePicker: React.FC<DateTimePickerProps> = ({ isOpen, ...rest }) => {
   if (!isOpen) return null;
@@ -32,6 +37,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
   onConfirm,
   initialDate = new Date(),
   lang,
+  timeOnly = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [selectedHour, setSelectedHour] = useState(initialDate.getHours());
@@ -53,20 +59,20 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
       : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const handleConfirm = () => {
-    const finalDate = new Date(selectedDate);
-    finalDate.setHours(selectedHour, selectedMinute, 0, 0);
-    onConfirm(finalDate);
+    // timeOnly 时月历不画，selectedDate 一直是 initialDate：年月日沿用它
+    const picked = new Date(selectedDate);
+    picked.setHours(selectedHour, selectedMinute, 0, 0);
+    const date = resolvePickedDate(initialDate, picked, new Date());
+    if (date) onConfirm(date);
     onClose();
   };
 
-  const isToday = (day: number) => {
-    const today = new Date();
-    return (
-      day === today.getDate() &&
-      currentMonth === today.getMonth() &&
-      currentYear === today.getFullYear()
-    );
-  };
+  const now = new Date();
+  const todayKey = localYmd(now);
+  const keyOf = (day: number) => localYmd(new Date(currentYear, currentMonth, day));
+  const isToday = (day: number) => keyOf(day) === todayKey;
+  const isFuture = (day: number) => keyOf(day) > todayKey;
+  const atOrAfterThisMonth = currentYear * 12 + currentMonth >= now.getFullYear() * 12 + now.getMonth();
 
   const isSelected = (day: number) =>
     day === selectedDate.getDate() &&
@@ -77,7 +83,11 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
     <Modal
       isOpen
       onClose={onClose}
-      title={lang === Language.CN ? '选择日期和时间' : 'Select date & time'}
+      title={
+        timeOnly
+          ? lang === Language.CN ? '改动作时间' : 'Change exercise time'
+          : lang === Language.CN ? '选择日期和时间' : 'Select date & time'
+      }
       size="md"
       layer="modal-2"
       dismissOnScrim={false}
@@ -92,6 +102,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
       }
     >
 
+        {!timeOnly && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <button
@@ -111,13 +122,14 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
               {currentYear} {months[currentMonth]}
             </span>
             <button
+              disabled={atOrAfterThisMonth}
               onClick={() => {
                 if (currentMonth === 11) {
                   setCurrentMonth(0);
                   setCurrentYear(currentYear + 1);
                 } else setCurrentMonth(currentMonth + 1);
               }}
-              className="tap-44 p-2 hover:bg-inset rounded-control transition-colors"
+              className="tap-44 p-2 hover:bg-inset rounded-control transition-colors disabled:opacity-30 disabled:hover:bg-transparent"
               aria-label={lang === Language.CN ? '下个月' : 'Next month'}
             >
               <ChevronRight size={20} className="text-secondary" />
@@ -145,13 +157,16 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
                 return (
                   <button
                     key={day}
+                    disabled={isFuture(day)}
                     onClick={() => setSelectedDate(new Date(currentYear, currentMonth, day))}
                     className={`p-2 text-small font-mono font-medium rounded-control transition-colors tabular-nums ${
                       isSelected(day)
                         ? 'bg-accent text-on-accent'
                         : isToday(day)
                           ? 'bg-accent-soft text-accent'
-                          : 'hover:bg-inset text-primary'
+                          : isFuture(day)
+                            ? 'text-tertiary opacity-40'
+                            : 'hover:bg-inset text-primary'
                     }`}
                   >
                     {day}
@@ -160,6 +175,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
               })}
           </div>
         </div>
+        )}
 
         <div className="flex items-center justify-center gap-4">
           <div className="flex flex-col items-center space-y-2">
@@ -187,8 +203,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
 
           <div className="flex flex-col items-center space-y-2">
             <button
-              // 吸到 5 分钟的格子上走（原来 3 分往下减出 -2，审查 B13）
-              onClick={() => setSelectedMinute((Math.floor(selectedMinute / 5) * 5 + 5) % 60)}
+              onClick={() => setSelectedMinute(stepMinute(selectedMinute, 1))}
               className="tap-44 p-2 hover:bg-inset rounded-control"
             >
               <ChevronUp size={20} className="text-secondary" />
@@ -200,7 +215,7 @@ const DateTimePickerBody: React.FC<Omit<DateTimePickerProps, 'isOpen'>> = ({
               <div className="text-xs text-tertiary">{translations.minute[lang]}</div>
             </div>
             <button
-              onClick={() => setSelectedMinute((Math.ceil(selectedMinute / 5) * 5 + 55) % 60)}
+              onClick={() => setSelectedMinute(stepMinute(selectedMinute, -1))}
               className="tap-44 p-2 hover:bg-inset rounded-control"
             >
               <ChevronDown size={20} className="text-secondary" />

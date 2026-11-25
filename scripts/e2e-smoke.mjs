@@ -480,7 +480,8 @@ const W_HEAT = seedWorkout('seed_heat', torontoAt(torontoYmd(1), 21, 15), 'E2E �
   [185 / LBS, 5],
   [185 / LBS, 5],
 ]);
-const W_DATE = seedWorkout('seed_date', torontoAt(threeDaysAgo, 14, 33), 'E2E 改时间', '哑铃平板卧推', [[20, 10]]);
+// 带秒和毫秒（真实记录都带）：整分钟的种子测不到「原样确定把秒截掉、亮已修改」（审查 C26）
+const W_DATE = seedWorkout('seed_date', new Date(torontoAt(threeDaysAgo, 14, 33).getTime() + 27_384), 'E2E 改时间', '哑铃平板卧推', [[20, 10]]);
 const W_DEL = seedWorkout('seed_del', torontoAt(torontoYmd(5), 10, 0), 'E2E 待删', '杠铃深蹲', [[60, 5]]);
 // 同一个动作的两种交替搭配：最近一次两个动作，更早一次三个
 const seedAlt = (id, days, names) => ({

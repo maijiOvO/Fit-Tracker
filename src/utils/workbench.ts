@@ -717,6 +717,20 @@ export function defaultWorkoutTitle(isCn: boolean, now: Date = new Date()): stri
       })}`;
 }
 
+const DEFAULT_TITLE_CN = /^训练\s+\d{4}\/\d{1,2}\/\d{1,2}$/;
+const DEFAULT_TITLE_EN = /^Workout\s+[A-Za-z]{3,4}\.?\s+\d{1,2},\s+\d{4}$/;
+
+/**
+ * 是不是 defaultWorkoutTitle 生成的兜底标题（审查 C95）。只认格式、不按日期精确比对 ——
+ * 换过时区的设备上，存下的日期和按现在时区重算的对不上；中英两种都认，不看当前界面语言
+ */
+export const isDefaultTitle = (title: string | undefined): boolean =>
+  !!title && (DEFAULT_TITLE_CN.test(title) || DEFAULT_TITLE_EN.test(title));
+
+/** 改了日期，兜底标题跟着换成新日期（保持原来的语言）；用户自己起的标题原样返回 */
+export const retitleForDate = (title: string, date: Date): string =>
+  isDefaultTitle(title) ? defaultWorkoutTitle(DEFAULT_TITLE_CN.test(title), date) : title;
+
 /**
  * 一场要入册的样子（不含 status / finishedAt，由写库的一方补）：只留 willRecord 的组、补缺省标题和日期、挂上计划。
  * 一组可入册的都没有就是 null。手动结束和自动收尾（WorkoutContext.settle*）共用这一份，口径不会分叉。

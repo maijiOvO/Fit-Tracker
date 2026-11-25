@@ -17,7 +17,7 @@ import { ExerciseCategory } from '../constants/exercises';
 import { detectPRs, sessionSummary, stampsInUnit, PRHit } from '../utils/prDetect';
 import { prRuleFor } from '../utils/prRecords';
 import { KG_TO_LBS } from '../constants';
-import { groupExercises, hasDoneSets, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
+import { groupExercises, hasDoneSets, isDefaultTitle, newGroupId, normalizeGroups, recordedExercises, recordTally, refillDraft, toRecorded, upToPointer } from '../utils/workbench';
 import { rowEdited, toGhostSets } from '../utils/setValues';
 import { useLoadRounder, roundPrefill } from './useLoadRounder';
 import { plateUnitOf } from '../utils/plates';
@@ -26,7 +26,7 @@ import { fromSignedKg, signedKg, usesSignedLoad } from '../utils/load';
 import { altPartners, findLastAltGroup, findLastIn, planRowPicks, sourceCards, vsLastSession, type LastHit, type VsSet } from '../utils/prefillSource';
 import { sessionDurationMin } from '../utils/sessionDuration';
 import { cardSourceFor, switchedCardIdentity } from '../utils/liftIdentity';
-import { isBackdated, redateLiveSession, sessionsBefore } from '../utils/sessionDate';
+import { isBackdated, redateEdited, redateLiveSession, sessionsBefore } from '../utils/sessionDate';
 import { ENV_SWITCHED_EVENT } from '../../services/fitlogRemoteSync';
 import { undoJournal } from '../../services/undoJournal';
 import type { GymProfile } from '../utils/loadable';
@@ -112,7 +112,7 @@ export interface UseWorkoutMutationsResult {
    * 首页「进行中 → 结束」那条路（askFirst 默认 true）仍问一句。一组都没做完时两条路都问「放弃？」。
    */
   handleFinishWithConfirmation: (askFirst?: boolean) => Promise<void>;
-  /** 训练页顶栏改这场的日期时间：旧训练只改 date；训练中的场挪到那个时刻＝补录（见 redateLiveSession） */
+  /** 训练页顶栏改这场的日期时间：旧训练整场平移（见 redateEdited）；训练中的场挪到那个时刻＝补录（见 redateLiveSession） */
   changeWorkoutDate: (date: Date) => void;
 
   handleEditWorkout: (
@@ -316,7 +316,7 @@ export function useWorkoutMutations({
 
   const changeWorkoutDate = useCallback(
     (date: Date) => {
-      setCurrentWorkout(p => (editingWorkoutId ? { ...p, date: date.toISOString() } : redateLiveSession(p, date)));
+      setCurrentWorkout(p => (editingWorkoutId ? redateEdited(p, date, new Date()) : redateLiveSession(p, date)));
       onPersist?.();
     },
     [editingWorkoutId, onPersist, setCurrentWorkout],
@@ -844,7 +844,8 @@ export function useWorkoutMutations({
         return {
           ...base,
           ...(targetGym ? { gym: targetGym } : {}),
-          title: src.title || '',
+          // 兜底标题写的是来源那天的日期：清掉，结束时 toRecorded 按新日期重新生成（审查 C95）
+          title: isDefaultTitle(src.title) ? '' : src.title || '',
           tags: src.tags ?? [],
           exercises,
         };

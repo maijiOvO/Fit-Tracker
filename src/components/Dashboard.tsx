@@ -18,12 +18,13 @@ import { TimelineView, type TimelineGranularity } from './TimelineView';
 import { useUserSettingsContext } from '../contexts/UserSettingsContext';
 import { useExercisePrefs } from '../contexts/ExercisePrefsContext';
 import { useExerciseTimeEditor } from '../hooks/useExerciseTimeEditor';
+import { useToday } from '../hooks/useToday';
 import { storage } from '../../services/appStorage';
 import { RestoreFromBackupLink } from './data/RestoreFromBackupLink';
 import { weightBaseline, weightDelta } from '../utils/weightSummary';
 import { useDoneWorkouts, useLiftSummaries } from '../hooks/useLiftSummaries';
 import { useScheduleContext } from '../contexts/ScheduleContext';
-import { dateFormat, localYmd } from '../utils/dateUtils';
+import { dateFormat } from '../utils/dateUtils';
 import { useWorkoutContext } from '../contexts/WorkoutContext';
 import { useLocalDataHealth } from '../hooks/useLocalDataHealth';
 import { LocalLossCard, LocalReadErrorCard } from './data/LocalDataCards';
@@ -102,7 +103,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const { updateExerciseTime } = useExerciseTimeEditor();
   // 今天排了还没练的计划（审查 D6）：没有进行中的训练时，首页顶上直接给开练入口
   const { schedulesByDate } = useScheduleContext();
-  const todayPlans = inProgress ? [] : schedulesByDate(localYmd(new Date())).filter(s => s.status === 'planned');
+  // 跨过零点要换成新一天的计划：渲染时现取 new Date() 不够，过零点时首页不一定重渲染（审查 C78）
+  const todayKey = useToday();
+  const todayPlans = inProgress ? [] : schedulesByDate(todayKey).filter(s => s.status === 'planned');
 
   const renderSetCapsule = useCallback(
     // setIdx 是这一组在它所在列表里的下标：组号显示 setIdx + 1（set-number-all-one：以前写死 0，全是「1」）
@@ -449,6 +452,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       />
 
       <DateTimePicker
+        timeOnly
         isOpen={!!exerciseTimeEdit}
         lang={lang}
         initialDate={exerciseTimeEdit?.initial}

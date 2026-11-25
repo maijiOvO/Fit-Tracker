@@ -1,7 +1,7 @@
 /**
  * 训练计划 -> 日程：月历 + 当日详情
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Play, Trash2, Edit2, CalendarClock, Ban, RotateCcw } from 'lucide-react';
 import { Language, ScheduledWorkout } from '../../types';
 import { translations } from '../../translations';
@@ -16,6 +16,7 @@ import { mergeOverride } from '../utils/exerciseOverride';
 import { haptic, H } from '../utils/haptics';
 import { armSwallow, disarmSwallow, newClickSwallow, takeSwallow } from '../utils/tap';
 import { dayOfWeekIndex, localYmd, rotateWeekdays } from '../utils/dateUtils';
+import { useToday } from '../hooks/useToday';
 
 /* ── 翻月横滑 §12.9：松手判定与弹层同一套速度投影数学（§5.3） ── */
 /** 横向位移 ≥12px 且横>竖才认定是翻月（同 §12.3 scrub 的 12px 规则） */
@@ -34,6 +35,12 @@ interface ScheduleViewProps {
   onStartScheduledSession: (scheduleId: string) => void;
   pickerHost: PlanPickerHost;
 }
+
+/** 日期键所在那个月的 1 号（本地零点） */
+const monthOfKey = (key: string): Date => {
+  const [y, m] = key.split('-').map(Number);
+  return new Date(y, m - 1, 1);
+};
 
 function buildMonthGrid(viewMonth: Date): { date: Date; inMonth: boolean }[] {
   const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
@@ -81,9 +88,19 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
   // 计划里存的是排计划那天的名字；改过名后要显示现名
   const { resolveName, findExerciseDef, attrsOf, exerciseOverrides } = useExercisePrefs();
 
-  const today = useMemo(() => new Date(), []);
-  const [viewMonth, setViewMonth] = useState<Date>(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDate, setSelectedDate] = useState<string>(localYmd(today));
+  const todayKey = useToday();
+  const [viewMonth, setViewMonth] = useState<Date>(() => monthOfKey(todayKey));
+  const [selectedDate, setSelectedDate] = useState<string>(todayKey);
+  // 跨过零点（审查 C78）：选中日、所看的月还停在旧的今天就跟到新的今天；用户翻到别处的不动
+  const prevToday = useRef(todayKey);
+  useEffect(() => {
+    const old = prevToday.current;
+    if (old === todayKey) return;
+    prevToday.current = todayKey;
+    setSelectedDate(d => (d === old ? todayKey : d));
+    const oldMonth = monthOfKey(old).getTime();
+    setViewMonth(v => (v.getTime() === oldMonth ? monthOfKey(todayKey) : v));
+  }, [todayKey]);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorTarget, setEditorTarget] = useState<ScheduledWorkout | null>(null);
@@ -258,9 +275,8 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
         <div className="flex items-center gap-1">
           <button
             onClick={() => {
-              const t = new Date();
-              setViewMonth(new Date(t.getFullYear(), t.getMonth(), 1));
-              setSelectedDate(localYmd(t));
+              setViewMonth(monthOfKey(todayKey));
+              setSelectedDate(todayKey);
             }}
             className="tap-44 text-xs px-2 py-1 rounded-chip border border-divider text-secondary hover:text-primary hover:bg-card-hover transition-colors"
           >
@@ -311,7 +327,7 @@ const ScheduleView: React.FC<ScheduleViewProps> = ({ lang, unit, customTags, onS
                     const iso = localYmd(date);
                     const list = schedulesByDate(iso);
                     const isSelected = iso === selectedDate;
-                    const isToday = iso === localYmd(today);
+                    const isToday = iso === todayKey;
                     const hasPlanned = list.some(x => x.status === 'planned');
                     const hasDone = list.some(x => x.status === 'completed');
                     return (

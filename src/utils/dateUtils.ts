@@ -34,6 +34,25 @@ export const rotateWeekdays = <T,>(sunFirst: readonly T[]): T[] => {
 export const localYmd = (d: Date): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+/**
+ * 日期选择器「确定」的值：晚于 now 的夹到 now（这里只回答「什么时候练的」，不能是未来，审查 C25）；
+ * 夹完和初值同一分钟就是没改，返回 null —— 原样确定不该走补录、截掉秒、亮「已修改」（审查 C26）。
+ */
+export function resolvePickedDate(initial: Date, picked: Date, now: Date): Date | null {
+  const v = picked.getTime() > now.getTime() ? new Date(now.getTime()) : picked;
+  const same =
+    isSameDay(v, initial) && v.getHours() === initial.getHours() && v.getMinutes() === initial.getMinutes();
+  return same ? null : v;
+}
+
+/** 时间选择器的分钟按 5 分钟的格子走：不在格子上的先吸到格子（3 往下是 0，不是 -2，审查 B13 / C27） */
+export const stepMinute = (m: number, dir: 1 | -1): number =>
+  dir > 0 ? (Math.floor(m / 5) * 5 + 5) % 60 : (Math.ceil(m / 5) * 5 + 55) % 60;
+
+/** 到下一个本地零点还有多少毫秒。用 new Date(y, m, d + 1) 而不是 +24h：夏令时那天一天不是 24 小时、零点也可能不存在 */
+export const msToNextLocalMidnight = (now: Date): number =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+
 // 获取月份天数
 export const getDaysInMonth = (month: number, year: number): number => {
   return new Date(year, month + 1, 0).getDate();
@@ -53,7 +72,7 @@ export const isToday = (date: Date): boolean => {
 };
 
 // 判断是否是同一天
-export const isSameDay = (date1: Date, date2: Date): boolean => {
+const isSameDay =(date1: Date, date2: Date): boolean => {
   return date1.getDate() === date2.getDate() && 
          date1.getMonth() === date2.getMonth() && 
          date1.getFullYear() === date2.getFullYear();

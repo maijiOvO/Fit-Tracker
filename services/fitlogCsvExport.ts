@@ -57,10 +57,12 @@ const CSV_HEADERS = {
 /** 返回整份 CSV 文本（含 BOM）和行数（不含表头） */
 export function buildWorkoutsCsv(workouts: WorkoutSession[], h: CsvExportHelpers): { text: string; rows: number } {
   const lines: string[] = [(h.isCn ? CSV_HEADERS.cn : CSV_HEADERS.en).map(cell).join(',')];
-  const sorted = [...workouts].sort((a, b) => (a.startTime || a.date || '').localeCompare(b.startTime || b.date || ''));
+  // 日期、排序都按 date：那是 App 里看到、用户改过的那个时刻；startTime 只用来算时长（审查 C23：
+  // 以前读 startTime，编辑时只改过 date 的旧记录导出成原来那天）
+  const sorted = [...workouts].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
   for (const w of sorted) {
-    const when = w.startTime || w.date;
+    const when = w.date;
     // 整场的时长重复写在每一行上，和「训练备注」同一做法：Excel 里按日期筛就是一场
     const base = [localDate(when), localTime(when), String(sessionDurationMin(w) ?? ''), w.title ?? '', w.gym ?? ''];
     for (const ex of w.exercises ?? []) {

@@ -7,7 +7,49 @@
  */
 import type { WorkoutSession } from '../../types';
 import type { HeatmapDay } from '../components/ActivityHeatmap';
-import { localYmd } from './dateUtils';
+import { dayOfWeekIndex, localYmd } from './dateUtils';
+
+/** 往回看多少天 */
+const SPAN = 91;
+
+/** 0 / 1-8 / 9-16 / 17-24 / 25+ —— 一档约等于两个动作的量 */
+function levelOf(sets: number): number {
+  if (sets <= 0) return 0;
+  if (sets <= 8) return 1;
+  if (sets <= 16) return 2;
+  if (sets <= 24) return 3;
+  return 4;
+}
+
+export type HeatmapCell = HeatmapDay & { level: number; isToday: boolean; future: boolean };
+
+/**
+ * 热力图的格子：从 SPAN 天前所在那一周的第一天（首选项「每周开始于」）排到今天所在那一周的最后一天。
+ * 每格单独用 new Date(y, m, d + i) 算、只读年月日，比较只比日期键（审查 C24）：
+ * 以前一个带时刻的游标 setDate 往前走，在午夜拨夏令时的时区（圣地亚哥、开罗）过了那天游标停在 01:00，
+ * 和今天 00:00 一比，今天那格成了「未来」，一周首日那天整行没了。
+ */
+export function heatmapCells(days: HeatmapDay[], todayKey: string): HeatmapCell[] {
+  const byDate = new Map<string, HeatmapDay>(days.map(d => [d.date, d]));
+  const [ty, tm, td] = todayKey.split('-').map(Number);
+  const back = SPAN - 1 + dayOfWeekIndex(new Date(ty, tm - 1, td - (SPAN - 1)));
+
+  const out: HeatmapCell[] = [];
+  for (let i = 0; ; i++) {
+    const key = localYmd(new Date(ty, tm - 1, td - back + i));
+    if (key > todayKey && out.length % 7 === 0) break;
+    const hit = byDate.get(key);
+    out.push({
+      date: key,
+      sets: hit?.sets ?? 0,
+      sessions: hit?.sessions ?? 0,
+      level: levelOf(hit?.sets ?? 0),
+      isToday: key === todayKey,
+      future: key > todayKey,
+    });
+  }
+  return out;
+}
 
 /** currentWorkoutId：还在练的那一场不算（审查 B10）：练到一半格子先亮了、连续周数先涨了，结束前一放弃又掉回去 */
 export function buildHeatmapDays(workouts: WorkoutSession[], currentWorkoutId?: string): HeatmapDay[] {
