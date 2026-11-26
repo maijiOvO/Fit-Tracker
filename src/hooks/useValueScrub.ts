@@ -226,8 +226,6 @@ export function useValueScrub({
         // 已经聚焦时把键盘收掉：拖着改数值的同时键盘杵在下面，
         // 既挡视线又会因为 visualViewport 变化让行跳一下。
         (document.activeElement as HTMLElement | null)?.blur?.();
-        // 接管那一下单独震一次（比走格的重一点）：从这里开始算格（2026-11-18，起拖 20px 不算档，原来没有任何提示）
-        haptic(H.pick);
         d.el = e.currentTarget as HTMLElement;
         d.el.style.setProperty('--scrub-px', `${px}px`);
       }
