@@ -260,9 +260,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
   // 调重量时脑子里想的是「加一点 / 加很多」，不是某个绝对质量。
   const weightDisplay = toDisplay(set.weight, rowSign);
   const weightFeel = weightScrubFor(rounder);
-  // 做完且没选中的组不接横拖（审查 B1 核实：翻页时拇指带出 20px 就悄悄改了做完的数）；打字照常。
-  // 待做的组和选中的组照旧能拖
-  const weightLocked = !isGhost && !selected;
+  // 不锁做完的组（2026-11-26）：指针以上的组都是做完的，锁了就改不了；翻页悄悄误触靠起拖 20px 兜底
   const weightScrub = useValueScrub({
     value: weightDisplay,
     // 走 update：待做行上横拖只改值、记 touched，不描实
@@ -271,7 +269,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
     // 组行格子一律横拖（见 weightScrubFor 注释），竖拖只给配重片的大图
     axis: 'x',
     stepFn: weightFeel.stepFn,
-    disabled: readOnly || weightLocked,
+    disabled: readOnly,
     max: loadCapD(du, !!signed),
     // 带正负的负荷可以拖过 0（辅助 → 自重 → 负重）
     ...(signed ? { min: -loadCapD(du, true) } : {}),
@@ -528,7 +526,7 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             <label
               key={m}
               data-testid={`ledger-field-${m}`}
-              className={`ledger-field ledger-fit${scrub && !(m === 'weight' && weightLocked) ? ' is-scrubbable' : ''}${
+              className={`ledger-field ledger-fit${scrub ? ' is-scrubbable' : ''}${
                 scrub?.scrubbing ? ' is-scrubbing' : ''
               }${isGhost && set.touched?.[m] ? ' is-edited' : ''}`}
               style={{
@@ -695,7 +693,6 @@ export const SetCapsule: React.FC<SetCapsuleProps> = ({
             isCn={isCn}
             readOnly={readOnly}
             ghost={isGhost}
-            weightLocked={weightLocked}
             label={subLabel(ssi)}
             weightDisplay={toDisplay(sub.weight, sign)}
             signed={!!signed}
@@ -764,8 +761,6 @@ interface SubSetRowProps {
   readOnly: boolean;
   /** 母组还是待做 → 子组跟着显示淡墨 */
   ghost: boolean;
-  /** 母组做完且没选中：重量格不接横拖，打字照常（同母组） */
-  weightLocked: boolean;
   /** 比上一档轻＝递减，重＝递增 */
   label: 'drop' | 'up';
   /** 显示单位下的带符号重量（普通重量就是非负的显示值） */
@@ -801,7 +796,6 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
   isCn,
   readOnly,
   ghost,
-  weightLocked,
   label,
   weightDisplay,
   signed,
@@ -820,7 +814,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
     onChange: next => onWeight(next),
     steps: subFeel.steps,
     stepFn: subFeel.stepFn,
-    disabled: readOnly || weightLocked,
+    disabled: readOnly,
     max: loadCapD(du, signed),
     ...(signed ? { min: -loadCapD(du, true) } : {}),
   });
@@ -870,7 +864,7 @@ const SubSetRow: React.FC<SubSetRowProps> = ({
           <label
             key={m}
             data-testid={`subset-field-${m}`}
-            className={`ledger-field${m === 'weight' && weightLocked ? '' : ' is-scrubbable'}${scrub.scrubbing ? ' is-scrubbing' : ''}${
+            className={`ledger-field is-scrubbable${scrub.scrubbing ? ' is-scrubbing' : ''}${
               edited?.[m as 'weight' | 'reps'] ? ' is-edited' : ''
             }`}
             style={{ ['--ledger-chars' as string]: Math.max(display.length, 1) }}
