@@ -222,7 +222,8 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
   /**
    * 整场备注（2026-10-27 批示）：给这一场留一句「为什么今天不一样」（没睡好、养伤降重），
    * 以后翻时间线看到数字掉了知道原因。只是一条文字，不参与任何计算。
-   * 入口是刊头下的眉批（§6.2），点开原地变成多行输入，不弹层（§6.6）；失焦收回成一行。
+   * 入口是刊头下的眉批（§6.2），点开原地变成多行输入，不弹层（§6.6）；点「完成」或失焦收回成一行。
+   * 内容边打边存，「完成」只负责收起（安卓收键盘不会让输入框失焦，没有这个键就收不回去）。
    */
   const [noteOpen, setNoteOpen] = useState(false);
   useEffect(() => setNoteOpen(false), [currentWorkout.id]);
@@ -707,13 +708,16 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
               <button
                 type="button"
                 onClick={openNoteFromHeader}
-                className="relative before:absolute before:-inset-3 flex-shrink-0 inline-flex items-center text-tertiary hover:text-secondary transition-colors"
+                // 实打实的 44×36 方键，不靠往外伸的热区：12px 图标配隐形热区时点不准，还和上一行的单位键抢（2026-11-26）
+                className="w-11 h-9 flex-shrink-0 inline-flex items-center justify-center rounded-card bg-card/60 border border-divider text-secondary active:scale-press-sm hover:text-primary transition-ui"
                 aria-label={isCn ? '整场备注' : 'Workout note'}
                 data-testid="workout-notes-jump"
               >
-                <StickyNote size={12} strokeWidth={2} />
-                {/* 有备注时带一个点 */}
-                {currentWorkout.notes && <span className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-accent" />}
+                <span className="relative inline-flex">
+                  <StickyNote size={18} strokeWidth={1.75} />
+                  {/* 有备注时带一个点 */}
+                  {currentWorkout.notes && <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-accent" />}
+                </span>
               </button>
             </div>
           </div>
@@ -772,22 +776,36 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
       </div>
 
       {/* 整场备注眉批：有备注时露首行（二级字），没有时淡墨「加备注」；点开原地编辑 */}
-      <div className="-mt-1 mb-5 px-1">
+      <div className={`px-1 ${noteOpen ? '-mt-1 mb-5' : '-mt-3 mb-2'}`}>
         {noteOpen ? (
-          <textarea
-            className="ui-input w-full min-h-[64px] resize-none text-small"
-            value={currentWorkout.notes ?? ''}
-            onChange={e => setCurrentWorkout({ ...currentWorkout, notes: e.target.value })}
-            onBlur={() => setNoteOpen(false)}
-            placeholder={isCn ? '比如：没睡好、养伤降重、换了器械' : 'e.g. slept badly, deload, different machine'}
-            autoFocus
-            data-testid="workout-notes-input"
-          />
+          <>
+            <textarea
+              className="ui-input w-full min-h-[64px] resize-none text-small"
+              value={currentWorkout.notes ?? ''}
+              onChange={e => setCurrentWorkout({ ...currentWorkout, notes: e.target.value })}
+              onBlur={() => setNoteOpen(false)}
+              placeholder={isCn ? '比如：没睡好、养伤降重、换了器械' : 'e.g. slept badly, deload, different machine'}
+              autoFocus
+              data-testid="workout-notes-input"
+            />
+            <div className="mt-2 flex justify-end">
+              <button
+                type="button"
+                // 按下时不让输入框失焦：失焦会先把这个键卸掉，这一下点击会落到顶上来的内容上
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => setNoteOpen(false)}
+                className="min-h-[44px] min-w-[96px] px-4 rounded-card bg-accent text-on-accent font-bold text-small active:scale-press-sm transition-ui"
+                data-testid="workout-notes-done"
+              >
+                {isCn ? '完成' : 'Done'}
+              </button>
+            </div>
+          </>
         ) : (
           <button
             type="button"
             onClick={() => setNoteOpen(true)}
-            className={`inline-flex max-w-full text-left text-label ${currentWorkout.notes ? 'text-secondary' : 'text-tertiary'}`}
+            className={`flex w-full min-h-[44px] items-center text-left text-label ${currentWorkout.notes ? 'text-secondary' : 'text-tertiary'}`}
             aria-label={isCn ? '整场备注' : 'Workout note'}
             data-testid="workout-notes"
           >
