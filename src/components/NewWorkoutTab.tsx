@@ -13,7 +13,6 @@ import {
   MapPin,
   Plus,
   X,
-  Scale,
   StickyNote,
 } from 'lucide-react';
 import {
@@ -592,23 +591,23 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     };
   }, [flashExerciseId, onFlashDone]);
 
-  // 顶栏日期、馆按钮的热区：规则见下面顶栏那行的注释
-  const headHit = editingWorkoutId ? 'before:-inset-y-1' : 'before:-top-4 before:-bottom-1';
+  // 顶栏的键：等高的实心方块，填满自己那一格
+  const headChip =
+    'h-11 w-full inline-flex items-center justify-center rounded-card bg-card/60 border border-divider text-secondary hover:text-primary active:scale-press-sm transition-ui';
+  // 今天只给日历图标；编辑旧训练或补录到别的日子写日期文字，那时第一列按文字撑宽（只有这时两行左列不齐）
+  const dateIsIcon = !editingWorkoutId && isToday(new Date(currentWorkout.date));
+  // 四列：返回 / 日期 · 标题 / 馆 · 备注 / 单位 · 结束 / 撤销重做；第四列 = 两个 44px 键加一道间距
+  const headCols = `${dateIsIcon ? 'grid-cols-[44px_minmax(0,1fr)_52px_98px]' : 'grid-cols-[auto_minmax(0,1fr)_52px_98px]'} sm:grid-cols-[auto_minmax(0,1fr)_64px_130px]`;
 
-  // 结束键：sm 以上图标 + 一行字；手机宽度下不要图标、字拆两行，给馆名腾地方（审查 C46：原来中文 114px、英文约 146px，
-  // 360 宽时馆按钮被挤得只剩图钉）。同一模式的两个稳态标签叠在一格里、不是当前的那个隐身：上膛这一下按钮不能变宽，
-  // 否则挤动整个头部。保存中 / 已结束 / 失败在手机宽度下只留图标居中，两个标签仍隐身占着宽度
-  const finishLines: [string, string][] = editingWorkoutId
-    ? [isCn ? ['保存', '修改'] : ['Save', 'changes']]
-    : [isCn ? ['结束', '训练'] : ['End', 'workout'], isCn ? ['确认', '结束'] : ['Confirm', 'end']];
-  const finishCurrent = editingWorkoutId || !endArmed ? 0 : 1;
-  const finishBusy = saveStatus !== 'idle';
+  // 结束键一行字、宽度固定在第四列：「确认结束」和「结束训练」等字数，上膛这一下不变宽。手机宽度下不带图标
+  const finishLabels = editingWorkoutId
+    ? [isCn ? '保存修改' : 'Save']
+    : [isCn ? '结束训练' : 'End workout', isCn ? '确认结束' : 'Confirm end'];
   const finishText =
     saveStatus === 'saving' ? (editingWorkoutId ? (isCn ? '保存中' : 'Saving') : isCn ? '结束中' : 'Ending')
     : saveStatus === 'saved' ? (isCn ? '已结束' : 'Ended')
     : saveStatus === 'error' ? (isCn ? '失败' : 'Failed')
-    : finishLines[finishCurrent].join(isCn ? '' : ' ');
-  const finishIconCls = finishBusy ? 'max-sm:absolute max-sm:inset-0 max-sm:m-auto' : 'max-sm:hidden';
+    : finishLabels[editingWorkoutId || !endArmed ? 0 : 1];
 
   return (
     // ⚠️ anim-tab-enter 动的是 transform，而带 transform 的元素会成为
@@ -618,117 +617,41 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
     <>
       <div className="anim-tab-enter">
         {/* 本页唯一顶栏（AppHeader 在训练页隐藏），pt-14 为状态栏留白 */}
-      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base z-sticky border-b border-divider mb-4">
-        <div className="flex items-center gap-2">
+      <div className="sticky top-0 -mx-4 md:-mx-8 px-4 md:px-8 pt-14 pb-3 md:pt-[calc(env(safe-area-inset-top)+0.75rem)] bg-base z-sticky border-b border-divider mb-4 space-y-2.5">
+        {/* 两行对齐成四列（2026-11-26 用户定）：返回 / 日期 · 标题 / 馆 · 备注 / 单位 · 结束 / 撤销重做。
+            列宽两行共用（headCols），每条竖线上下对齐，标题和馆名一样宽；键一律 44px 高、间距 10px。
+            原来日期、馆、单位挤在标题上方一条 10px 的小字行里，靠往外伸的隐形热区才点得到，还互相抢。 */}
+        <div className={`grid ${headCols} items-center gap-2.5`}>
           <button
             type="button"
             onClick={onBack}
-            className="w-11 h-11 flex-shrink-0 inline-flex items-center justify-center bg-card/60 border border-divider rounded-card text-primary hover:bg-card active:scale-press-sm transition-ui"
+            className={`${headChip} text-primary`}
             aria-label={isCn ? '返回' : 'Back'}
           >
             <ArrowLeft size={18} />
           </button>
-
-          <div className="flex-1 min-w-0 space-y-1">
-            {/* 编辑态五项挤不下一行，整项折到第二行（每项 nowrap，否则压成一字一行）。
-                训练中只有日期、馆和单位：不折行，馆名让位，头部高度不随按钮状态跳。
-                手机宽度下这一行夹在撤销列和结束键之间，结束键收成两行字后 375 宽中文约 160px、英文约 130px：今天的日期只给图标、备注图标放到标题行、单位键不带秤图标、
-                英文日期写「Nov 12」不带星期，否则馆名被压成 0 宽、点不到；图钉不跟着压（flex-shrink-0），让位的只有馆名。
-                热区（::before）的规则：折行时上下各伸出不超过行距的一半，否则盖住上一行的按钮（审查 C46）——
-                编辑态行距 gap-y-2、日期和馆只伸 4px、单位键不伸；训练态不折行，上方只有状态栏留白，可以往上多伸。 */}
-            <div className={`flex ${editingWorkoutId ? 'flex-wrap gap-y-2' : ''} items-center gap-x-2 text-micro font-bold text-tertiary uppercase tracking-[0.15em] [&>*]:whitespace-nowrap`}>
-              {/* 「新建训练」字样拿掉了（2026-10-25）：顶栏要给撤销 / 重做让一列，训练页本身就说明了是新的一场；
-                  编辑旧训练还写「编辑训练」—— 那时保存语义不一样，得看得出来 */}
-              {editingWorkoutId && <span>{isCn ? '编辑训练' : 'Edit workout'}</span>}
-              {/* 训练中也能改：忘了记、回头补录就把这场挪到那天（补录不新开首页入口，D2） */}
-              {!!currentWorkout.id && (
-                <button
-                  type="button"
-                  onClick={onChangeDate}
-                  className={`relative before:absolute ${headHit} before:-inset-x-1 flex-shrink-0 normal-case tracking-normal text-tertiary hover:text-accent transition-colors inline-flex items-center gap-1`}
-                  title={isCn ? '修改训练日期' : 'Change workout date'}
-                  aria-label={isCn ? '修改训练日期' : 'Change workout date'}
-                  data-testid="workout-date-button"
-                >
-                  {editingWorkoutId && '· '}
-                  {!editingWorkoutId && isToday(new Date(currentWorkout.date))
-                    ? <CalendarDays size={10} strokeWidth={2} />
-                    : isCn
-                      ? new Date(currentWorkout.date).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
-                      : monthDay(new Date(currentWorkout.date), false)}
-                </button>
-              )}
-              {/* §12.11 场地：日期右边一格。没标过时只是个淡图标，
-                  标过之后显示场地名 —— 常驻但极轻，语义不会漂。 */}
-              {onChangeGym && (
-                <button
-                  type="button"
-                  onClick={onChangeGym}
-                  // 没选馆时只剩一个图标，以前再降到 45% 透明度，约 1.9:1 看不见能点（2026-10-22 颜色审查）
-                  className={`relative before:absolute ${headHit} before:-inset-x-2 min-w-[10px] normal-case tracking-normal inline-flex items-center gap-1 transition-colors hover:text-accent text-tertiary`}
-                  title={translations.gymPickTitle[lang] as string}
-                  aria-label={translations.gymPickTitle[lang] as string}
-                  data-testid="gym-button"
-                >
-                  <MapPin size={10} strokeWidth={2} className="flex-shrink-0" />
-                  <span className="max-w-[6rem] truncate">{currentWorkout.gym || ''}</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onToggleUnit}
-                className={`relative ${editingWorkoutId ? '' : 'before:absolute before:-top-3 before:-bottom-1 before:inset-x-0 -my-1'} ml-auto flex-shrink-0 normal-case tracking-normal flex items-center gap-1 px-2 py-1 rounded-chip bg-inset text-tertiary active:scale-press-sm hover:text-secondary transition-ui`}
-                title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
-                aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
-                data-testid="unit-toggle"
-              >
-                <Scale size={10} className="max-sm:hidden" />
-                {unit}
-              </button>
-              {/* 只在编辑旧训练、草稿和原样真不一样时亮；新训练每一下都已自动保存，不挂这个 */}
-              {editingWorkoutId && hasUnsavedChanges && (
-                <span className="inline-flex items-center gap-1 text-warning normal-case" data-testid="edit-dirty">
-                  <span className="w-1.5 h-1.5 rounded-full bg-warning" />
-                  {isCn ? '已修改' : 'Edited'}
-                </span>
-              )}
-              {/* 存不进本机时常驻（上架审查 C13）：训练页没有顶栏，这里是唯一看得到的地方 */}
-              <LocalDataAlert isCn={isCn} />
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                ref={titleInputRef}
-                className="flex-1 min-w-0 bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary min-h-[36px]"
-                value={currentWorkout.title}
-                onChange={e =>
-                  setCurrentWorkout({ ...currentWorkout, title: e.target.value })
-                }
-                placeholder={translations.trainingTitlePlaceholder[lang]}
-              />
-              <button
-                type="button"
-                onClick={openNoteFromHeader}
-                // 实打实的 44×36 方键，不靠往外伸的热区：12px 图标配隐形热区时点不准，还和上一行的单位键抢（2026-11-26）
-                className="w-11 h-9 flex-shrink-0 inline-flex items-center justify-center rounded-card bg-card/60 border border-divider text-secondary active:scale-press-sm hover:text-primary transition-ui"
-                aria-label={isCn ? '整场备注' : 'Workout note'}
-                data-testid="workout-notes-jump"
-              >
-                <span className="relative inline-flex">
-                  <StickyNote size={18} strokeWidth={1.75} />
-                  {/* 有备注时带一个点 */}
-                  {currentWorkout.notes && <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-accent" />}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* 全局撤销 / 重做：独占一列、上下两行都不伸到它下面，纵向没有别的按钮（2026-10-25）。
-              包一层压在中间列上面（结束键同理）：中间列再挤也只会被盖住，撤销、重做、结束永远点到自己（C46）。
-              不用 overflow-x-clip 做这道保护：它会把日期、馆、单位往上伸的热区一起裁掉 */}
-          <div className="relative z-[1] bg-base">
-            <UndoRedoButtons isCn={isCn} />
-          </div>
-
+          <input
+            ref={titleInputRef}
+            className="min-w-0 h-11 bg-transparent text-base font-bold text-primary outline-none placeholder:text-tertiary"
+            value={currentWorkout.title}
+            onChange={e =>
+              setCurrentWorkout({ ...currentWorkout, title: e.target.value })
+            }
+            placeholder={translations.trainingTitlePlaceholder[lang]}
+          />
+          <button
+            type="button"
+            onClick={openNoteFromHeader}
+            className={headChip}
+            aria-label={isCn ? '整场备注' : 'Workout note'}
+            data-testid="workout-notes-jump"
+          >
+            <span className="relative inline-flex">
+              <StickyNote size={18} strokeWidth={1.75} />
+              {/* 有备注时带一个点 */}
+              {currentWorkout.notes && <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-accent" />}
+            </span>
+          </button>
           <button
             type="button"
             onClick={onFinishClick}
@@ -737,7 +660,7 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             disabled={saveStatus === 'saving' || (editingWorkoutId ? !hasUnsavedChanges : !currentWorkout.exercises?.length)}
             data-testid="finish-button"
             aria-label={finishText}
-            className={`relative z-[1] min-h-[44px] min-w-[44px] sm:min-w-[114px] px-2 sm:px-4 rounded-card font-bold text-small flex-shrink-0 flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
+            className={`h-11 px-2 rounded-card font-bold text-small whitespace-nowrap flex items-center justify-center gap-2 transition-ui active:scale-press-sm ${
               saveStatus === 'saving'
                 ? 'bg-tertiary/30 text-tertiary cursor-not-allowed'
                 : saveStatus === 'saved'
@@ -754,24 +677,78 @@ export const NewWorkoutTab: React.FC<NewWorkoutTabProps> = ({
             }`}
           >
             {saveStatus === 'saving' ? (
-              <div className={`w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin ${finishIconCls}`} />
+              <div className="max-sm:hidden w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
             ) : saveStatus === 'error' ? (
-              <X size={16} strokeWidth={3} className={finishIconCls} />
+              <X size={16} strokeWidth={3} className="max-sm:hidden" />
             ) : editingWorkoutId && saveStatus === 'idle' ? (
-              <Check size={16} strokeWidth={3} className={finishIconCls} />
+              <Check size={16} strokeWidth={3} className="max-sm:hidden" />
             ) : (
-              <Flag size={16} strokeWidth={3} className={finishIconCls} />
+              <Flag size={16} strokeWidth={3} className="max-sm:hidden" />
             )}
-            {/* sm 以上一行字；「确认结束」和「结束训练」等字数，上膛这一下不变宽 */}
-            <span className="max-sm:hidden">{finishText}</span>
-            <span aria-hidden className="sm:hidden grid leading-tight text-center">
-              {finishLines.map(([a, b], i) => (
-                <span key={i} className={`col-start-1 row-start-1 ${finishBusy || i !== finishCurrent ? 'invisible' : ''}`}>
-                  {a}<br />{b}
-                </span>
-              ))}
-            </span>
+            {finishText}
           </button>
+        </div>
+
+        <div className={`grid ${headCols} items-center gap-2.5 text-small text-secondary`}>
+          {/* 训练中也能改：忘了记、回头补录就把这场挪到那天（补录不新开首页入口，D2）。今天只给图标 */}
+          {currentWorkout.id ? (
+            <button
+              type="button"
+              onClick={onChangeDate}
+              className={`${headChip} whitespace-nowrap ${dateIsIcon ? '' : 'px-3'}`}
+              title={isCn ? '修改训练日期' : 'Change workout date'}
+              aria-label={isCn ? '修改训练日期' : 'Change workout date'}
+              data-testid="workout-date-button"
+            >
+              {dateIsIcon
+                ? <CalendarDays size={18} strokeWidth={1.75} />
+                : isCn
+                  ? new Date(currentWorkout.date).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', weekday: 'short' })
+                  : monthDay(new Date(currentWorkout.date), false)}
+            </button>
+          ) : <span />}
+          {/* §12.11 场地：占第二列，馆名太长就截断 */}
+          {onChangeGym ? (
+            <button
+              type="button"
+              onClick={onChangeGym}
+              className={`${headChip} min-w-0 !justify-start gap-1.5 px-3`}
+              title={translations.gymPickTitle[lang] as string}
+              aria-label={translations.gymPickTitle[lang] as string}
+              data-testid="gym-button"
+            >
+              <MapPin size={16} strokeWidth={1.75} className="flex-shrink-0 text-tertiary" />
+              <span className="truncate">{currentWorkout.gym || (isCn ? '选馆' : 'Gym')}</span>
+            </button>
+          ) : <span />}
+          <button
+            type="button"
+            onClick={onToggleUnit}
+            className={`${headChip} font-bold`}
+            title={isCn ? '切换 kg / 磅显示' : 'Toggle kg / lbs'}
+            aria-label={isCn ? '切换重量单位' : 'Toggle weight unit'}
+            data-testid="unit-toggle"
+          >
+            {unit}
+          </button>
+          {/* 撤销 / 重做是两页共用的组件，这里只把两个键撑成和别的键一样的方块，合起来正好是结束键那一列 */}
+          <div className="[&>div]:grid [&>div]:grid-cols-2 [&>div]:gap-2.5 [&_button]:w-full [&_button]:rounded-card [&_button]:bg-card/60 [&_button]:border [&_button]:border-divider">
+            <UndoRedoButtons isCn={isCn} />
+          </div>
+        </div>
+
+        {/* 编辑旧训练写明「编辑训练」（保存语义和训练中不一样）、改过了亮「已修改」；本机存不进时的警示也在这。都没有时整行不占位 */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label [&>*]:whitespace-nowrap empty:hidden">
+          {editingWorkoutId && <span className="font-bold text-tertiary">{isCn ? '编辑训练' : 'Edit workout'}</span>}
+          {/* 只在草稿和原样真不一样时亮；新训练每一下都已自动保存，不挂这个 */}
+          {editingWorkoutId && hasUnsavedChanges && (
+            <span className="inline-flex items-center gap-1 text-warning" data-testid="edit-dirty">
+              <span className="w-1.5 h-1.5 rounded-full bg-warning" />
+              {isCn ? '已修改' : 'Edited'}
+            </span>
+          )}
+          {/* 存不进本机时常驻（上架审查 C13）：训练页没有顶栏，这里是唯一看得到的地方 */}
+          <LocalDataAlert isCn={isCn} />
         </div>
       </div>
 
